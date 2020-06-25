@@ -114,6 +114,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             dims[true_idx] = self.encoders[idx_str].dim
         return dims
 
+    @property
+    def recommend_pipeline_config(self) -> Dict[str, Any]:
+        return {}
+
     def _preset_config(self,
                        config: Dict[str, Any],
                        tr_data: TabularData):
@@ -191,6 +195,7 @@ class Pipeline(nn.Module, LoggingMixin):
                  model: ModelBase,
                  wrapper_config: Dict[str, Any],
                  verbose_level: int):
+        self._recommend_config = model.recommend_pipeline_config
         super().__init__()
         self._init_config(wrapper_config)
         self.model = model
@@ -199,6 +204,7 @@ class Pipeline(nn.Module, LoggingMixin):
     def _init_config(self, wrapper_config):
         self._wrapper_config = wrapper_config
         self.config = wrapper_config.setdefault("pipeline_config", {})
+        self.config = update_dict(self.config, self._recommend_config)
         self.batch_size = self.config.setdefault("batch_size", 128)
         self.cv_batch_size = self.config.setdefault("cv_batch_size", 5 * self.batch_size)
         self.use_tqdm = self.config.setdefault("use_tqdm", True)
