@@ -138,3 +138,6 @@ class DNDF(nn.Module):
     def reset_parameters(self):
         self.tree_proj.reset_parameters()
         nn.init.xavier_uniform_(self.leafs.data)
+
+
+__all__ = ["Linear", "Mapping", "DNDF"]
