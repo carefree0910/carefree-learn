@@ -97,3 +97,33 @@ class Embedding(EncoderBase):
     def _core(self,
               selected: torch.Tensor) -> torch.Tensor:
         return self.embedding(selected)
+
+
+class EncoderStack(nn.Module, LoggingMixin):
+    def __init__(self, *encoders):
+        super().__init__()
+        encoders_ = {}
+        for encoder in encoders:
+            key = encoder.__identifier__
+            if key in encoders_:
+                raise ValueError(f"'{key}' encoder is already stacked")
+            encoders_[key] = encoder
+        self.encoders = nn.ModuleDict(encoders_)
+        self.sorted_keys = sorted(encoders_)
+
+    @property
+    def dim(self) -> int:
+        return sum(self.dims.values())
+
+    @property
+    def dims(self) -> Dict[str, int]:
+        return {k: encoder.dim for k, encoder in self.encoders.items()}
+
+    def forward(self,
+                categorical_column: torch.Tensor,
+                *,
+                return_all: bool = False) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+        encodings = {k: v(categorical_column) for k, v in self.encoders.items()}
+        if return_all:
+            return encodings
+        return torch.cat([encodings[k] for k in self.sorted_keys], dim=1)
