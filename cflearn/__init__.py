@@ -107,6 +107,19 @@ def make(model: str = "fcnn",
     return Wrapper(kwargs, cuda=cuda, verbose_level=verbose_level)
 
 
+class EvaluateTransformer:
+    def __init__(self, data: TabularData):
+        self.data = data
+
+    def get_xy(self,
+               x: data_type,
+               y: data_type = None) -> Tuple[data_type, data_type]:
+        if y is None:
+            x, y = self.data.read_file(x)
+        y = self.data.transform_labels(y)
+        return x, y
+
+
 SAVING_DELIM = "^_^"
 wrappers_dict_type = Dict[str, Wrapper]
 wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
@@ -137,6 +150,74 @@ def _make_saving_path(name: str,
                       f"'{existing_model}' was found, it will be removed")
                 os.remove(os.path.join(saving_folder, existing_model))
     return f"{saving_path}{postfix}"
+
+
+def load_task(task: Task) -> Wrapper:
+    return next(iter(load(saving_folder=task.saving_folder).values()))
+
+
+def repeat_with(x: data_type,
+                y: data_type = None,
+                x_cv: data_type = None,
+                y_cv: data_type = None,
+                *,
+                models: Union[str, List[str]] = "fcnn",
+                identifiers: Union[str, List[str]] = None,
+                num_repeat: int = 5,
+                num_parallel: int = 4,
+                temp_folder: str = "__tmp__",
+                return_tasks: bool = False,
+                use_tqdm: bool = True,
+                **kwargs) -> Union[repeat_result_type, Dict[str, List[Task]]]:
+    if isinstance(models, str):
+        models = [models]
+    if identifiers is None:
+        identifiers = models.copy()
+    elif isinstance(identifiers, str):
+        identifiers = [identifiers]
+    kwargs["trigger_logging"] = False
+
+    tasks = patterns = None
+    if num_parallel == 0 or num_repeat == 1:
+        kwargs["use_tqdm"] = use_tqdm
+        if return_tasks:
+            tasks = {}
+            for i in range(num_repeat):
+                for model, identifier in zip(models, identifiers):
+                    task = Task(i, model, identifier, temp_folder)
+                    task.fit(make, save, x, y, x_cv, y_cv, **kwargs)
+                    tasks.setdefault(identifier, []).append(task)
+        else:
+            patterns = {}
+            for model, identifier in zip(models, identifiers):
+                init_method = lambda: make(model, **kwargs)
+                train_method = lambda m: m.fit(x, y, x_cv, y_cv)
+                pattern_kwargs = {"init_method": init_method, "train_method": train_method}
+                patterns[identifier] = ModelPattern.repeat(num_repeat, **pattern_kwargs)
+    else:
+        results = Experiments().run(
+            make, save, load_task, x, y, x_cv, y_cv,
+            models=models, identifiers=identifiers,
+            num_repeat=num_repeat, num_parallel=num_parallel,
+            return_tasks=return_tasks, use_tqdm=use_tqdm,
+            temp_folder=temp_folder, **kwargs
+        )
+        if return_tasks:
+            tasks = results
+        else:
+            patterns = {
+                model: [ModelPattern(init_method=lambda: wrapper) for wrapper in wrappers]
+                for model, wrappers in results.items()
+            }
+
+    if return_tasks:
+        return tasks
+
+    first_patterns = patterns[identifiers[0]]
+    tr_data = first_patterns[0].model.tr_data
+    if len(identifiers) == 1:
+        patterns = first_patterns
+    return EvaluateTransformer(tr_data), patterns
 
 
 def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
