@@ -77,3 +77,64 @@ class Mapping(nn.Module):
 
     def reset_parameters(self):
         self.linear.reset_parameters()
+
+
+class DNDF(nn.Module):
+    def __init__(self,
+                 in_dim: int,
+                 out_dim: int,
+                 *,
+                 num_tree: int = 10,
+                 tree_depth: int = 4,
+                 tree_proj_config: dict = None,
+                 output_type: str = "output",
+                 is_regression: bool = None):
+        super().__init__()
+        self._num_tree, self._tree_depth, self._output_type = num_tree, tree_depth, output_type
+        self._is_regression = out_dim == 1 if is_regression is None else is_regression
+        self._num_leaf = 2 ** (self._tree_depth + 1)
+        self._num_internals = self._num_leaf - 1
+        self._output_dim = out_dim
+        tree_proj_config = self._setup_tree_proj(tree_proj_config)
+        self.tree_proj = Linear(in_dim, self._num_internals * self._num_tree, **tree_proj_config)
+        self.leafs = nn.Parameter(torch.empty(self._num_tree, self._num_leaf, self._output_dim))
+
+    @staticmethod
+    def _setup_tree_proj(tree_proj_config):
+        if tree_proj_config is None:
+            tree_proj_config = {}
+        pruner_config = tree_proj_config.pop("pruner_config", {})
+        if pruner_config is not None:
+            tree_proj_config["pruner"] = Pruner(pruner_config)
+        return tree_proj_config
+
+    def forward(self, net):
+        device = net.device
+        tree_net = self.tree_proj(net)
+        p_left = torch.split(torch.sigmoid(tree_net), self._num_internals, dim=-1)
+        flat_probabilities = [torch.reshape(torch.cat([p, 1. - p], dim=-1), [-1]) for p in p_left]
+        n_flat_prob = 2 * self._num_internals
+        batch_indices = torch.reshape(torch.arange(
+            0, n_flat_prob * net.shape[0], n_flat_prob), [-1, 1]).to(device)
+        num_repeat, num_local_internals = self._num_leaf // 2, 1
+        increment_mask = torch.from_numpy(np.repeat(
+            [0, self._num_internals], num_repeat).astype(np.int64)).to(device)
+        routes = [p_flat.take(batch_indices + increment_mask) for p_flat in flat_probabilities]
+        for _ in range(1, self._tree_depth + 1):
+            num_repeat //= 2
+            num_local_internals *= 2
+            increment_mask = np.repeat(np.arange(num_local_internals - 1, 2 * num_local_internals - 1), 2)
+            increment_mask += np.tile([0, self._num_internals], num_local_internals)
+            increment_mask = np.repeat(increment_mask, num_repeat)
+            increment_mask = torch.from_numpy(increment_mask.astype(np.int64)).to(device)
+            for i, p_flat in enumerate(flat_probabilities):
+                routes[i] *= p_flat.take(batch_indices + increment_mask)
+        leafs, features = self.leafs, torch.cat(routes, 1)
+        if not self._is_regression and self._output_dim > 1:
+            leafs = nn.functional.softmax(leafs, dim=-1)
+        leafs = leafs.view(self._num_tree * self._num_leaf, self._output_dim)
+        return features.matmul(leafs) / self._num_tree
+
+    def reset_parameters(self):
+        self.tree_proj.reset_parameters()
+        nn.init.xavier_uniform_(self.leafs.data)
