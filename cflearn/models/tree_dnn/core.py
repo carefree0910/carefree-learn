@@ -78,8 +78,7 @@ class TreeDNN(FCNN):
         split_result = self._split_features(x_batch, return_all_encodings=True)
         # fc
         fc_net = self._merge(split_result, self._use_embedding_for_fc, self._use_one_hot_for_fc)
-        for mapping in self.mappings:
-            fc_net = mapping(fc_net)
+        fc_net = self.mlp(fc_net)
         # dndf
         dndf_net = self._merge(split_result, self._use_embedding_for_dndf, self._use_one_hot_for_dndf)
         dndf_net = self.dndf(dndf_net)

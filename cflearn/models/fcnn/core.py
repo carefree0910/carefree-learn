@@ -29,7 +29,6 @@ class FCNN(ModelBase):
         self.out_dim = max(tr_data.num_classes, 1)
 
     def _init_fcnn(self):
-        mappings = []
         if self._fc_in_dim is not None:
             in_dim = self._fc_in_dim
         else:
@@ -38,22 +37,18 @@ class FCNN(ModelBase):
             out_dim = self._fc_out_dim
         else:
             out_dim = self._fc_out_dim = self.out_dim
-        for i, hidden_units in enumerate(self.hidden_units):
-            mapping_config = self.mapping_configs[i]
-            mappings.append(Mapping(in_dim, hidden_units, **mapping_config))
-            in_dim = hidden_units
-        final_layer_config = self.config.setdefault("final_layer_config", {})
-        mappings.append(Linear(in_dim, out_dim, **final_layer_config))
-        tuple(map(Mapping.reset_parameters, mappings))
-        self.mappings = nn.ModuleList(mappings)
+        final_mapping_config = self.config.setdefault("final_mapping_config", {})
+        self.mlp = MLP(
+            in_dim, out_dim, self.hidden_units, self.mapping_configs,
+            final_mapping_config=final_mapping_config
+        )
 
     def forward(self,
                 batch: Dict[str, torch.Tensor],
                 **kwargs) -> Dict[str, torch.Tensor]:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
-        for mapping in self.mappings:
-            net = mapping(net)
+        net = self.mlp(net)
         return {"predictions": net}
 
 

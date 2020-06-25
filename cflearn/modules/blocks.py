@@ -3,7 +3,7 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from typing import Union
+from typing import *
 
 from .auxiliary import *
 from ..misc.toolkit import *
@@ -82,6 +82,31 @@ class Mapping(nn.Module):
         self.linear.reset_parameters()
 
 
+class MLP(nn.Module):
+    def __init__(self,
+                 in_dim: int,
+                 out_dim: int,
+                 num_units: List[int],
+                 mapping_configs: List[Dict[str, Any]],
+                 *,
+                 final_mapping_config: Dict[str, Any] = None):
+        super().__init__()
+        mappings = []
+        for num_unit, mapping_config in zip(num_units, mapping_configs):
+            mappings.append(Mapping(in_dim, num_unit, **mapping_config))
+            in_dim = num_unit
+        if final_mapping_config is None:
+            final_mapping_config = {}
+        mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
+        tuple(map(Mapping.reset_parameters, mappings))
+        self.mappings = nn.ModuleList(mappings)
+
+    def forward(self, net):
+        for mapping in self.mappings:
+            net = mapping(net)
+        return net
+
+
 class DNDF(nn.Module):
     def __init__(self,
                  in_dim: int,
@@ -143,4 +168,4 @@ class DNDF(nn.Module):
         nn.init.xavier_uniform_(self.leafs.data)
 
 
-__all__ = ["Linear", "Mapping", "DNDF"]
+__all__ = ["Linear", "Mapping", "MLP", "DNDF"]
