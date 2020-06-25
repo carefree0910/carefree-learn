@@ -89,3 +89,104 @@ class Initializer(LoggingMixin):
         with torch.no_grad():
             param.data.copy_(weight_base.reshape(param.shape))
             param.data.mul_(std).add_(mean)
+
+
+class Activations:
+    """
+    Wrapper class for pytorch activations
+    * when pytorch implemented corresponding activation, it will be returned
+    * otherwise, custom implementation will be returned
+
+    Parameters
+    ----------
+    configs : {None, dict}, configuration for the activation
+
+    Examples
+    --------
+    >>> act = Activations()
+    >>> print(type(act.ReLU))  # <class 'nn.modules.activation.ReLU'>
+    >>> print(type(act.module("ReLU")))  # <class 'nn.modules.activation.ReLU'>
+    >>> print(type(act.Tanh))  # <class 'nn.modules.activation.Tanh'>
+    >>> print(type(act.one_hot))  # <class '__main__.Activations.one_hot.<locals>.OneHot'>
+
+    """
+
+    def __init__(self,
+                 configs: Dict[str, Any] = None):
+        if configs is None:
+            configs = {}
+        self.configs = configs
+
+    def __getattr__(self, item):
+        try:
+            return getattr(nn, item)(**self.configs.setdefault(item, {}))
+        except AttributeError:
+            raise NotImplementedError(
+                f"neither pytorch nor custom Activations implemented activation '{item}'")
+
+    def module(self,
+               name: str) -> nn.Module:
+        if name is None:
+            return nn.Identity()
+        return getattr(self, name)
+
+    # publications
+
+    @property
+    def mish(self):
+
+        class Mish(nn.Module):
+            def forward(self, x):
+                return x * (torch.tanh(nn.functional.softplus(x)))
+
+        return Mish()
+
+    # custom
+
+    @property
+    def sign(self):
+
+        class Sign(nn.Module):
+            def forward(self, x):
+                return torch.sign(x)
+
+        return Sign()
+
+    @property
+    def one_hot(self):
+
+        class OneHot(nn.Module):
+            def forward(self, x):
+                return x * (x == torch.max(x, dim=1, keepdim=True)[0]).to(torch.float32)
+
+        return OneHot()
+
+    @property
+    def multiplied_tanh(self):
+
+        class MultipliedTanh(nn.Tanh):
+            def __init__(self, ratio, trainable=True):
+                super().__init__()
+                ratio = torch.tensor([ratio], dtype=torch.float32)
+                self.ratio = ratio if not trainable else nn.Parameter(ratio)
+
+            def forward(self, x):
+                x = x * self.ratio
+                return super().forward(x)
+
+        return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
+
+    @property
+    def multiplied_softmax(self):
+
+        class MultipliedSoftmax(nn.Softmax):
+            def __init__(self, ratio, dim=1, trainable=True):
+                super().__init__(dim)
+                ratio = torch.tensor([ratio], dtype=torch.float32)
+                self.ratio = ratio if not trainable else nn.Parameter(ratio)
+
+            def forward(self, x):
+                x = x * self.ratio
+                return super().forward(x)
+
+        return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
