@@ -344,6 +344,48 @@ def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
     return wrappers
 
 
+def estimate(x: data_type,
+             y: data_type = None,
+             *,
+             wrappers: wrappers_type = None,
+             metrics: Union[str, List[str]] = None,
+             other_patterns: Dict[str, patterns_type] = None,
+             **kwargs) -> Comparer:
+    patterns = {}
+    if isinstance(metrics, str):
+        metrics = [metrics]
+    if wrappers is None:
+        if y is None:
+            raise ValueError("either `wrappers` or `y` should be provided")
+        if metrics is None:
+            raise ValueError("either `wrappers` or `metrics` should be provided")
+        if other_patterns is None:
+            raise ValueError("either `wrappers` or `other_patterns` should be provided")
+    else:
+        wrappers = _to_wrappers(wrappers)
+        for name, wrapper in wrappers.items():
+            if y is None:
+                x, y = wrapper.tr_data.read_file(x)
+                y = wrapper.tr_data.transform(x, y).y
+            if metrics is None:
+                metrics = [k for k, v in wrapper.pipeline.metrics.items() if v is not None]
+            with eval_context(wrapper.model):
+                patterns[name] = ModelPattern(
+                    predict_method=partial(wrapper.predict, **kwargs),
+                    predict_prob_method=partial(wrapper.predict_prob, **kwargs)
+                )
+    if other_patterns is not None:
+        for other_name in other_patterns.keys():
+            if other_name in patterns:
+                prefix = LoggingMixin.warning_prefix
+                print(f"{prefix}'{other_name}' is found in `other_patterns`, it will be overwritten")
+        update_dict(other_patterns, patterns)
+    estimators = list(map(Estimator, metrics))
+    comparer = Comparer(patterns, estimators)
+    comparer.compare(x, y)
+    return comparer
+
+
 def save(wrappers: wrappers_type,
          identifier: str = "cflearn",
          saving_folder: str = None) -> wrappers_dict_type:
