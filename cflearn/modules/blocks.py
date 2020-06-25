@@ -24,6 +24,14 @@ class Linear(nn.Module):
         self.config, self.pruner = kwargs, pruner
         self._use_bias, self._init_method = bias, init_method
 
+    @property
+    def weight(self) -> torch.Tensor:
+        return self.linear.weight
+
+    @property
+    def bias(self) -> Union[torch.Tensor, None]:
+        return self.linear.bias
+
     def forward(self, net):
         weight = self.linear.weight if self.pruner is None else self.pruner(self.linear.weight)
         return nn.functional.linear(net, weight, self.linear.bias)
@@ -68,6 +76,14 @@ class Mapping(nn.Module):
             self.activation = activations_ins.module(activation)
         self.dropout = None if not dropout else Dropout(self.config.setdefault("drop_prob", 0.5))
 
+    @property
+    def weight(self) -> torch.Tensor:
+        return self.linear.weight
+
+    @property
+    def bias(self) -> Union[torch.Tensor, None]:
+        return self.linear.bias
+
     def forward(self, net, *, reuse: bool = False):
         net = self.linear(net)
         if self.bn is not None:
@@ -101,6 +117,14 @@ class MLP(nn.Module):
             mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
         tuple(map(Mapping.reset_parameters, mappings))
         self.mappings = nn.ModuleList(mappings)
+
+    @property
+    def weights(self) -> List[torch.Tensor]:
+        return [mapping.weight for mapping in self.mappings]
+
+    @property
+    def biases(self) -> List[Union[torch.Tensor, None]]:
+        return [mapping.bias for mapping in self.mappings]
 
     def forward(self, net):
         for mapping in self.mappings:
