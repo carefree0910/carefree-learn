@@ -220,6 +220,11 @@ def repeat_with(x: data_type,
     return EvaluateTransformer(tr_data), patterns
 
 
+def ensemble(patterns: List[ModelPattern],
+             ensemble_method: Union[str, collate_fn_type] = "default") -> EnsemblePattern:
+    return EnsemblePattern(patterns, ensemble_method)
+
+
 def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
     if not isinstance(wrappers, dict):
         if not isinstance(wrappers, list):
