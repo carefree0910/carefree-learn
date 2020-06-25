@@ -127,3 +127,6 @@ class EncoderStack(nn.Module, LoggingMixin):
         if return_all:
             return encodings
         return torch.cat([encodings[k] for k in self.sorted_keys], dim=1)
+
+
+__all__ = ["EncoderBase", "EncoderStack", "encoder_dict"]
