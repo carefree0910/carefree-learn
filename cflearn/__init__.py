@@ -7,6 +7,7 @@ from cftool.ml.param_utils import *
 from cfdata.tabular import *
 from functools import partial
 from cftool.ml.hpo import HPOBase
+from cftool.ml import register_metric
 
 from .dist import *
 from .bases import *
@@ -445,6 +446,6 @@ def make_toy_model(config: Dict[str, Any] = None,
 
 __all__ = [
     "ModelBase", "Pipeline", "Wrapper",
-    "register_optimizer", "register_scheduler", "register_initializer",
+    "register_metric", "register_optimizer", "register_scheduler", "register_initializer",
     "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model"
 ]
