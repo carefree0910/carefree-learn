@@ -52,3 +52,14 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         global encoder_dict
         def before(cls_): cls_.__identifier__ = name
         return register_core(name, encoder_dict, before_register=before)
+
+
+@EncoderBase.register("one_hot")
+class OneHot(EncoderBase):
+    @property
+    def dim(self) -> int:
+        return self.num_values
+
+    def _core(self,
+              selected: torch.Tensor) -> torch.Tensor:
+        return nn.functional.one_hot(selected, num_classes=self.num_values).to(torch.float32)
