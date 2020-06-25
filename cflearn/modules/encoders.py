@@ -63,3 +63,37 @@ class OneHot(EncoderBase):
     def _core(self,
               selected: torch.Tensor) -> torch.Tensor:
         return nn.functional.one_hot(selected, num_classes=self.num_values).to(torch.float32)
+
+
+@EncoderBase.register("embedding")
+class Embedding(EncoderBase):
+    def __init__(self,
+                 idx: int,
+                 num_values: int,
+                 config: Dict[str, Any]):
+        super().__init__(idx, num_values, config)
+        self.embedding = nn.Embedding(num_values, self._dim)
+
+    def _init_config(self, config: Dict[str, Any]):
+        super()._init_config(config)
+        self._mean = self.config.setdefault("embedding_mean", 0.)
+        self._std = self.config.setdefault("embedding_std", 0.02)
+        embedding_dim = self.config.setdefault("embedding_dim", "auto")
+        if isinstance(embedding_dim, int):
+            self._dim = embedding_dim
+        elif embedding_dim == "log":
+            self._dim = math.ceil(math.log2(self.num_values))
+        elif embedding_dim == "sqrt":
+            self._dim = math.ceil(math.sqrt(self.num_values))
+        elif embedding_dim == "auto":
+            self._dim = min(self.num_values, max(4, min(8, math.ceil(math.log2(self.num_values)))))
+        else:
+            raise ValueError(f"embedding dim '{embedding_dim}' is not defined")
+
+    @property
+    def dim(self) -> int:
+        return self._dim
+
+    def _core(self,
+              selected: torch.Tensor) -> torch.Tensor:
+        return self.embedding(selected)
