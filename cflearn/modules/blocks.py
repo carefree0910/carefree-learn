@@ -15,11 +15,12 @@ class Linear(nn.Module):
                  out_dim: int,
                  *,
                  bias: bool = True,
-                 pruner: Pruner = None,
+                 pruner_config: dict = None,
                  init_method: Union[str, None] = "xavier",
                  **kwargs):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
+        pruner = None if pruner_config is None else Pruner(pruner_config)
         self.config, self.pruner = kwargs, pruner
         self._use_bias, self._init_method = bias, init_method
 
@@ -55,8 +56,10 @@ class Mapping(nn.Module):
                  **kwargs):
         super().__init__()
         self.config = kwargs
-        pruner = None if pruner_config is None else Pruner(pruner_config)
-        self.linear = Linear(in_dim, out_dim, bias=bias, pruner=pruner, init_method=init_method, **kwargs)
+        self.linear = Linear(
+            in_dim, out_dim, bias=bias,
+            pruner_config=pruner_config, init_method=init_method, **kwargs
+        )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:
             self.activation = None
