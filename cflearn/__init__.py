@@ -441,3 +441,10 @@ def make_toy_model(config: Dict[str, Any] = None,
     }
     wrapper = Wrapper(update_dict(config, base_config), verbose_level=0)
     return wrapper.fit(*data_tuple)
+
+
+__all__ = [
+    "ModelBase", "Pipeline", "Wrapper",
+    "register_optimizer", "register_scheduler", "register_initializer",
+    "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model"
+]
