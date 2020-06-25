@@ -78,3 +78,88 @@ class EMA(nn.Module):
                 for name, param in self.tgt_params
             ] + [")"]
         )
+
+
+class Pruner(nn.Module):
+    def __init__(self, config: Dict[str, Any]):
+        super().__init__()
+        tensor = partial(torch.tensor, dtype=torch.float32)
+        self.method = config.setdefault("method", "auto_prune")
+        if self.method == "surgery":
+            self.register_buffer("alpha", tensor([config.setdefault("alpha", 1.)]))
+            self.register_buffer("beta", tensor([config.setdefault("beta", 4.)]))
+            self.register_buffer("gamma", tensor([config.setdefault("gamma", 1e-4)]))
+            self.register_buffer("eps", tensor([config.setdefault("eps", 1e-12)]))
+            keys = ["alpha", "beta", "gamma", "eps"]
+            self._mask = None
+        elif self.method == "simplified":
+            self.register_buffer("alpha", tensor([config.setdefault("alpha", 0.01)]))
+            self.register_buffer("beta", tensor([config.setdefault("beta", 1.)]))
+            self.register_buffer("max_ratio", tensor([config.setdefault("max_ratio", 1.)]))
+            self.register_buffer("exp", tensor([config.setdefault("exp", 0.5)]))
+            keys = ["alpha", "beta", "max_ratio", "exp"]
+        else:
+            self.register_buffer("alpha", tensor([
+                config.setdefault("alpha", 1e-4 if self.method == "hard_prune" else 1e-2)]))
+            self.register_buffer("beta", tensor([config.setdefault("beta", 1.)]))
+            self.register_buffer("gamma", tensor([config.setdefault("gamma", 1.)]))
+            self.register_buffer("max_ratio", tensor([config.setdefault("max_ratio", 1.)]))
+            if not all(scalar > 0 for scalar in [self.alpha, self.beta, self.gamma, self.max_ratio]):
+                raise ValueError("parameters should greater than 0. in pruner")
+            self.register_buffer("eps", tensor([config.setdefault("eps", 1e-12)]))
+            if self.method == "auto_prune":
+                for attr in ["alpha", "beta", "gamma", "max_ratio"]:
+                    setattr(self, attr, torch.log(torch.exp(getattr(self, attr)) - 1))
+                self.alpha, self.beta, self.gamma, self.max_ratio = map(
+                    lambda param: nn.Parameter(param),
+                    [self.alpha, self.beta, self.gamma, self.max_ratio]
+                )
+            keys = ["alpha", "beta", "gamma", "max_ratio", "eps"]
+        self._repr_keys = keys
+        self.device = None
+
+    def forward(self, w, prune: bool = True):
+        if self.device is None:
+            self.device = w.device
+        if not prune:
+            return w
+        w_abs = torch.abs(w)
+        if self.method == "surgery":
+            if self._mask is None:
+                self._mask = torch.ones_like(w, dtype=torch.float32).to(self.device)
+            mu, std = torch.mean(w_abs), torch.std(w_abs)
+            ones_mask, zeros_mask = self._mask.eq(1.), self._mask.eq(0.)
+            to_zeros_mask = ones_mask & (w_abs <= 0.9 * (mu - self.beta * std))
+            to_ones_mask = zeros_mask & (w_abs >= 1.1 * (mu + self.beta * std))
+            self._mask[to_zeros_mask], self._mask[to_ones_mask] = 0., 1.
+            mask = self._mask
+            del mu, std, ones_mask, zeros_mask, to_zeros_mask, to_ones_mask
+        else:
+            if self.method != "auto_prune":
+                alpha, beta, ratio = self.alpha, self.beta, self.max_ratio
+            else:
+                alpha, beta, ratio = map(softplus, [self.alpha, self.beta, self.max_ratio])
+            if self.method == "simplified":
+                log_w = torch.min(ratio, beta * w_abs ** self.exp)
+            else:
+                w_abs_mean = torch.mean(w_abs)
+                gamma = self.gamma if self.method != "auto_prune" else softplus(self.gamma)
+                log_w = torch.log(torch.max(self.eps, w_abs / (w_abs_mean * gamma)))
+                log_w = torch.min(ratio, beta * log_w)
+                del w_abs_mean
+            mask = torch.max(alpha / beta * log_w, log_w)
+            del log_w
+        w = w * mask
+        del w_abs, mask
+        return w
+
+    def extra_repr(self) -> str:
+        if self.method == "auto_prune":
+            return f"method='{self.method}'"
+        max_str_len = max(map(len, self._repr_keys))
+        return "\n".join(
+            [f"(0): method={self.method}\n(1): Settings("] + [
+                f"  {key:<{max_str_len}s} - {getattr(self, key).item()}"
+                for key in self._repr_keys
+            ] + [")"]
+        )
