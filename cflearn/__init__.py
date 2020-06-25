@@ -105,3 +105,78 @@ def make(model: str = "fcnn",
     if optimizers is not None:
         pipeline_config["optimizers"] = optimizers
     return Wrapper(kwargs, cuda=cuda, verbose_level=verbose_level)
+
+
+SAVING_DELIM = "^_^"
+wrappers_dict_type = Dict[str, Wrapper]
+wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
+repeat_result_type = Tuple[EvaluateTransformer, Union[List[ModelPattern], Dict[str, List[ModelPattern]]]]
+
+
+def _to_saving_path(identifier: str,
+                    saving_folder: str) -> str:
+    if saving_folder is None:
+        saving_path = identifier
+    else:
+        saving_path = os.path.join(saving_folder, identifier)
+    return saving_path
+
+
+def _make_saving_path(name: str,
+                      saving_path: str,
+                      remove_existing: bool) -> str:
+    saving_path = os.path.abspath(saving_path)
+    saving_folder, identifier = os.path.split(saving_path)
+    postfix = f"{SAVING_DELIM}{name}"
+    if os.path.isdir(saving_folder) and remove_existing:
+        for existing_model in os.listdir(saving_folder):
+            if os.path.isdir(os.path.join(saving_folder, existing_model)):
+                continue
+            if existing_model.startswith(f"{identifier}{postfix}"):
+                print(f"{LoggingMixin.warning_prefix}"
+                      f"'{existing_model}' was found, it will be removed")
+                os.remove(os.path.join(saving_folder, existing_model))
+    return f"{saving_path}{postfix}"
+
+
+def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
+    if not isinstance(wrappers, dict):
+        if not isinstance(wrappers, list):
+            wrappers = [wrappers]
+        names = [wrapper.model.__identifier__ for wrapper in wrappers]
+        if len(set(names)) != len(wrappers):
+            raise ValueError("wrapper names are not provided but identical wrapper.model is detected")
+        wrappers = dict(zip(names, wrappers))
+    return wrappers
+
+
+def save(wrappers: wrappers_type,
+         identifier: str = "cflearn",
+         saving_folder: str = None) -> wrappers_dict_type:
+    wrappers = _to_wrappers(wrappers)
+    saving_path = _to_saving_path(identifier, saving_folder)
+    for name, wrapper in wrappers.items():
+        wrapper.save(_make_saving_path(name, saving_path, True), compress=True)
+    return wrappers
+
+
+def load(identifier: str = "cflearn",
+         saving_folder: str = None) -> wrappers_dict_type:
+    wrappers = {}
+    saving_path = _to_saving_path(identifier, saving_folder)
+    saving_path = os.path.abspath(saving_path)
+    base_folder = os.path.dirname(saving_path)
+    for existing_model in os.listdir(base_folder):
+        if not os.path.isfile(os.path.join(base_folder, existing_model)):
+            continue
+        existing_model, existing_extension = os.path.splitext(existing_model)
+        if existing_extension != ".zip":
+            continue
+        if SAVING_DELIM in existing_model:
+            *folder, name = existing_model.split(SAVING_DELIM)
+            if os.path.join(base_folder, SAVING_DELIM.join(folder)) != saving_path:
+                continue
+            wrappers[name] = Wrapper.load(_make_saving_path(name, saving_path, False), compress=True)
+    if not wrappers:
+        raise ValueError(f"'{saving_path}' was not a valid saving path")
+    return wrappers
