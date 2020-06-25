@@ -225,6 +225,114 @@ def ensemble(patterns: List[ModelPattern],
     return EnsemblePattern(patterns, ensemble_method)
 
 
+def tune_with(x: data_type,
+              y: data_type = None,
+              x_cv: data_type = None,
+              y_cv: data_type = None,
+              *,
+              model: str = "fcnn",
+              hpo_method: str = "bo",
+              params: Dict[str, DataType] = None,
+              task_type: TaskTypes = None,
+              metrics: Union[str, List[str]] = None,
+              num_jobs: int = None,
+              num_repeat: int = 5,
+              num_parallel: int = 4,
+              num_search: int = 10,
+              temp_folder: str = "__tmp__",
+              score_weights: Union[Dict[str, float], None] = None,
+              estimator_scoring_function: Union[str, scoring_fn_type] = "default",
+              search_config: Dict[str, Any] = None,
+              verbose_level: int = 2,
+              **kwargs) -> HPOBase:
+
+    if isinstance(x, str):
+        read_config = kwargs.get("read_config", {})
+        delim = read_config.get("delim", kwargs.get("delim"))
+        if delim is not None:
+            read_config["delim"] = delim
+        else:
+            print(
+                f"{LoggingMixin.warning_prefix}delimiter of the given file dataset is not provided, "
+                "this may cause incorrect parsing"
+            )
+        if y is not None:
+            read_config["y"] = y
+        tr_data = TabularData(task_type=task_type)
+        tr_data.read(x, **read_config)
+        y = tr_data.processed.y
+        if x_cv is not None:
+            if y_cv is None:
+                y_cv = tr_data.transform(x_cv).y
+            else:
+                y_cv = tr_data.transform_labels(y_cv)
+    elif y is None:
+        raise ValueError("`x` should be a file when `y` is not provided")
+
+    def _creator(x_, y_, params_) -> Dict[str, List[Task]]:
+        base_params = shallow_copy_dict(kwargs)
+        update_dict(params_, base_params)
+        base_params["verbose_level"] = 0
+        base_params["use_tqdm"] = False
+        if isinstance(x_, str):
+            y_ = y_cv_ = None
+        else:
+            y_cv_ = None if y_cv is None else y_cv.copy()
+        num_parallel_ = num_parallel if hpo.is_sequential else 0
+        return repeat_with(
+            x_, y_, x_cv, y_cv_,
+            num_repeat=num_repeat, num_parallel=num_parallel_,
+            models=model, identifiers=hash_code(str(params_)),
+            temp_folder=temp_folder, return_tasks=True, **base_params
+        )
+
+    def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
+        wrappers = list(map(load_task, next(iter(created[0].values()))))
+        return [ModelPattern(init_method=lambda: m) for m in wrappers]
+
+    if params is None:
+        params = {
+            "optimizer": String(Choice(values=["sgd", "rmsprop", "adam"])),
+            "optimizer_config": {
+                "lr": Float(Exponential(1e-5, 0.1))
+            }
+        }
+
+    if metrics is None:
+        if task_type is None:
+            raise ValueError("either `task_type` or `metrics` should be provided")
+        if task_type is TaskTypes.CLASSIFICATION:
+            metrics = ["acc", "auc"]
+        else:
+            metrics = ["mae", "mse"]
+    estimators = list(map(Estimator, metrics))
+
+    hpo = HPOBase.make(
+        hpo_method, _creator, params,
+        converter=_converter, verbose_level=verbose_level
+    )
+    if hpo.is_sequential:
+        if num_jobs is None:
+            num_jobs = 0
+        if num_jobs > 1:
+            print(
+                f"{LoggingMixin.warning_prefix}`num_jobs` is set but hpo is sequential, "
+                "please use `num_parallel` instead"
+            )
+        num_jobs = 0
+    if search_config is None:
+        search_config = {}
+    update_dict({
+        "num_retry": 1, "num_search": num_search,
+        "score_weights": score_weights, "estimator_scoring_function": estimator_scoring_function
+    }, search_config)
+    if num_jobs is not None:
+        search_config["num_jobs"] = num_jobs
+    search_config.setdefault("parallel_logging_folder", os.path.join(temp_folder, "__hpo_parallel__"))
+    hpo.search(x, y, estimators, x_cv, y_cv, **search_config)
+    return hpo
+
+
 def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
     if not isinstance(wrappers, dict):
         if not isinstance(wrappers, list):
