@@ -416,3 +416,28 @@ def load(identifier: str = "cflearn",
     if not wrappers:
         raise ValueError(f"'{saving_path}' was not a valid saving path")
     return wrappers
+
+
+# others
+
+def make_toy_model(config: Dict[str, Any] = None,
+                   *,
+                   model: str = "fcnn",
+                   task_type: str = "reg",
+                   data_tuple: Tuple[List] = None) -> Wrapper:
+    if config is None:
+        config = {}
+    if data_tuple is None:
+        if task_type == "reg":
+            data_tuple = [[0]], [[1]]
+        else:
+            data_tuple = [[0], [1]], [[1], [0]]
+    base_config = {
+        "model": model,
+        "model_config": {"mapping_configs": {"batch_norm": False}},
+        "cv_ratio": 0.,
+        "trigger_logging": False,
+        "data_config": {"valid_columns": [0], "task_type": TaskTypes.from_str(task_type)}
+    }
+    wrapper = Wrapper(update_dict(config, base_config), verbose_level=0)
+    return wrapper.fit(*data_tuple)
