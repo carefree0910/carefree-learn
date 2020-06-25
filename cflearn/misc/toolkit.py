@@ -443,3 +443,42 @@ class TrainMonitor:
                         self.info["info"] += " (plateau counter cleared)"
                         self._plateau_counter = 0
         return self._handle_pipeline_terminate()
+
+
+class eval_context(context_error_handler):
+    """
+    Help entering eval mode and recovering previous mode
+
+    This is a context controller for entering eval mode at the beginning
+    and back to previous mode at the end.
+
+    Useful when we need to predict something with our PyTorch model during training.
+
+    Parameters
+    ----------
+    module : nn.Module, arbitrary PyTorch module.
+
+    Examples
+    --------
+    >>> module = nn.Module()
+    >>> with eval_context(module):
+    >>>     pass  # do something
+
+    """
+
+    def __init__(self, module: nn.Module, no_grad=True):
+        self._module, self._training = module, module.training
+        self._params_required_grad = [param for param in module.parameters() if param.requires_grad]
+        tuple(map(lambda param: param.requires_grad_(False), self._params_required_grad))
+        self._no_grad = torch.no_grad() if no_grad else None
+
+    def __enter__(self):
+        self._module.eval()
+        if self._no_grad is not None:
+            self._no_grad.__enter__()
+
+    def _normal_exit(self, exc_type, exc_val, exc_tb):
+        self._module.train(mode=self._training)
+        if self._no_grad is not None:
+            self._no_grad.__exit__(exc_type, exc_val, exc_tb)
+        tuple(map(lambda param: param.requires_grad_(True), self._params_required_grad))
