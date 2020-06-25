@@ -579,3 +579,168 @@ class Pipeline(nn.Module, LoggingMixin):
         self.log_msg(f"restoring from {folder}", self.info_prefix, 4)
         self.load_state_dict(torch.load(pipeline_file, map_location=self.model.device))
         return self
+
+
+class Wrapper(LoggingMixin):
+    def __init__(self,
+                 config: Union[str, Dict[str, Any]] = None,
+                 *,
+                 increment_config: Union[str, Dict[str, Any]] = None,
+                 cuda: Union[str, int] = 0,
+                 verbose_level: int = 2):
+        self._verbose_level, self.device = int(verbose_level), torch.device(f"cuda:{cuda}")
+        self.config, increment_config = map(self._get_config, [config, increment_config])
+        update_dict(increment_config, self.config)
+        self._init_config()
+
+    @property
+    def train_set(self) -> TabularDataset:
+        raw = self.tr_data.raw
+        return TabularDataset(*raw.xy, task_type=self.tr_data.task_type)
+
+    @property
+    def valid_set(self) -> Union[TabularDataset, None]:
+        if self.cv_data is None:
+            return
+        raw = self.cv_data.raw
+        return TabularDataset(*raw.xy, task_type=self.cv_data.task_type)
+
+    @property
+    def binary_threshold(self) -> Union[float, None]:
+        return self._binary_threshold
+
+    @staticmethod
+    def _get_config(config):
+        if config is None:
+            return {}
+        if isinstance(config, str):
+            with open(config, "r") as f:
+                return json.load(f)
+        return shallow_copy_dict(config)
+
+    def _init_config(self):
+        self._data_config = self.config.setdefault("data_config", {})
+        self._data_config["default_categorical_process"] = "identical"
+        self._read_config = self.config.setdefault("read_config", {})
+        self._cv_ratio = self.config.setdefault("cv_ratio", 0.1)
+        self._model = self.config.setdefault("model", "fcnn")
+        self._model_config = self.config.setdefault("model_config", {})
+        self._binary_metric = self.config.setdefault("binary_metric", "acc")
+        self._is_binary = self.config.get("is_binary")
+        self._binary_threshold = self.config.get("binary_threshold")
+        default_logging_folder = os.path.join("_logging", model_dict[self._model].__identifier__)
+        default_logging_path = os.path.abspath(self.generate_logging_path(default_logging_folder))
+        self.config["_logging_path_"] = self.config.setdefault("logging_path", default_logging_path)
+        self._init_logging(self._verbose_level, self.config.setdefault("trigger_logging", False))
+
+    def _prepare_modules(self):
+        # model
+        with timing_context(self, "init model"):
+            self.model = model_dict[self._model](self._model_config, self.tr_data, self.device)
+        # pipeline
+        with timing_context(self, "init pipeline"):
+            self.pipeline = Pipeline(self.model, self.config, self._verbose_level)
+        # to device
+        with timing_context(self, "init device"):
+            self.pipeline.to(self.device)
+
+    # api
+
+    def fit(self,
+            x: data_type,
+            y: data_type = None,
+            x_cv: data_type = None,
+            y_cv: data_type = None) -> "Wrapper":
+        # data
+        args = (x, y) if y is not None else (x,)
+        self._data_config["verbose_level"] = self._verbose_level
+        self.tr_data = TabularData(**self._data_config).read(*args, **self._read_config)
+        if x_cv is not None:
+            self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
+        else:
+            if self._cv_ratio <= 0. or self._cv_ratio >= 1.:
+                self.cv_data = None
+            else:
+                self.cv_data, self.tr_data = self.tr_data.split(self._cv_ratio)
+        # modules
+        self._prepare_modules()
+        # training loop
+        self.pipeline(self.tr_data, self.cv_data)
+        # binary threshold
+        if self._binary_threshold is None:
+            if self.tr_data.num_classes != 2:
+                self._is_binary = False
+                self._binary_threshold = None
+            else:
+                self._is_binary = True
+                x, y = self.tr_data.raw.x, self.tr_data.processed.y
+                probabilities = self.predict_prob(x)
+                self._binary_threshold = Metrics.get_binary_threshold(y, probabilities, self._binary_metric)
+        # logging
+        self.log_timing()
+        return self
+
+    def predict(self,
+                x: data_type,
+                **kwargs) -> np.ndarray:
+        if self.tr_data.is_reg:
+            predictions = self.pipeline.predict(x, **kwargs)
+            return self.tr_data.recover_labels(predictions, inplace=True)
+        probabilities = self.predict_prob(x, **kwargs)
+        if not self._is_binary:
+            return probabilities.argmax(1).reshape([-1, 1])
+        return (probabilities[..., 1] >= self._binary_threshold).astype(np.int).reshape([-1, 1])
+
+    def predict_prob(self,
+                     x: data_type,
+                     **kwargs) -> np.ndarray:
+        if self.tr_data.is_reg:
+            raise ValueError("`predict_prob` should not be called on regression tasks")
+        raw = self.pipeline.predict(x, **kwargs)
+        return self.model.to_prob(raw)
+
+    def save(self,
+             folder: str = None,
+             *,
+             compress: bool = True) -> "Wrapper":
+        if folder is None:
+            folder = self.pipeline.checkpoint_folder
+        abs_folder = os.path.abspath(folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [folder]):
+            Saving.prepare_folder(self, folder)
+            self.tr_data.save(os.path.join(folder, "__data__", "train"), compress=compress)
+            if self.cv_data is not None:
+                self.cv_data.save(os.path.join(folder, "__data__", "valid"), compress=compress)
+            self.pipeline.save_checkpoint(folder)
+            self.config["is_binary"] = self._is_binary
+            self.config["binary_threshold"] = self._binary_threshold
+            Saving.save_dict(self.config, "config", folder)
+            if compress:
+                Saving.compress(abs_folder, remove_original=True)
+        return self
+
+    @classmethod
+    def load(cls,
+             folder: str,
+             *,
+             cuda: int = 0,
+             verbose_level: int = 0,
+             compress: bool = True) -> "Wrapper":
+        base_folder = os.path.dirname(os.path.abspath(folder))
+        with lock_manager(base_folder, [folder]):
+            with Saving.compress_loader(folder, compress, remove_extracted=True):
+                config = Saving.load_dict("config", folder)
+                wrapper = Wrapper(config, cuda=cuda, verbose_level=verbose_level)
+                tr_data_folder = os.path.join(folder, "__data__", "train")
+                cv_data_folder = os.path.join(folder, "__data__", "valid")
+                tr_data = wrapper.tr_data = TabularData.load(tr_data_folder, compress=compress)
+                cv_data = None
+                if os.path.isdir(cv_data_folder) or os.path.isfile(f"{cv_data_folder}.zip"):
+                    cv_data = wrapper.cv_data = TabularData.load(cv_data_folder, compress=compress)
+                wrapper._prepare_modules()
+                pipeline = wrapper.pipeline
+                pipeline.restore_checkpoint(folder)
+                pipeline._init_data(tr_data, cv_data)
+                pipeline._init_metrics()
+        return wrapper
