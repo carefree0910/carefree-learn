@@ -85,7 +85,7 @@ class Mapping(nn.Module):
 class MLP(nn.Module):
     def __init__(self,
                  in_dim: int,
-                 out_dim: int,
+                 out_dim: Union[int, None],
                  num_units: List[int],
                  mapping_configs: List[Dict[str, Any]],
                  *,
@@ -95,9 +95,10 @@ class MLP(nn.Module):
         for num_unit, mapping_config in zip(num_units, mapping_configs):
             mappings.append(Mapping(in_dim, num_unit, **mapping_config))
             in_dim = num_unit
-        if final_mapping_config is None:
-            final_mapping_config = {}
-        mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
+        if out_dim is not None:
+            if final_mapping_config is None:
+                final_mapping_config = {}
+            mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
         tuple(map(Mapping.reset_parameters, mappings))
         self.mappings = nn.ModuleList(mappings)
 
