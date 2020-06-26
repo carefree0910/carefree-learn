@@ -490,8 +490,8 @@ class Pipeline(nn.Module, LoggingMixin):
             self._epoch_tqdm.set_postfix(metrics)
         msg = (
             f"| epoch {self._epoch_count:^4d} - step {self._step_count:^6d} | "
-            f"{' | '.join([f'{k} : {fix_float_to_length(metrics[k], 6)}' for k in sorted(metrics)])} | "
-            f"score : {fix_float_to_length(score, 6)} |"
+            f"{' | '.join([f'{k} : {fix_float_to_length(metrics[k], 8)}' for k in sorted(metrics)])} | "
+            f"score : {fix_float_to_length(score, 8)} |"
         )
         with open(self._log_file, "a") as f:
             f.write(f"{msg}\n")
