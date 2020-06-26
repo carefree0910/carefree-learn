@@ -20,6 +20,8 @@ class Linear(nn.Module):
                  **kwargs):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
+        with torch.no_grad():
+            self.reset_parameters()
         pruner = None if pruner_config is None else Pruner(pruner_config)
         self.config, self.pruner = kwargs, pruner
         self._use_bias, self._init_method = bias, init_method
@@ -40,14 +42,12 @@ class Linear(nn.Module):
         if self._init_method is None:
             return
         if self._init_method not in Initializer.defined_initialization:
-            self.linear.reset_parameters()
-        else:
-            initializer = Initializer(self.config.setdefault("initialize_config", {}))
-            initializer.initialize(self.linear.weight, self._init_method)
-            bias_fill = self.config.setdefault("bias_fill", 0.)
-            if self._use_bias:
-                with torch.no_grad():
-                    self.linear.bias.data.fill_(bias_fill)
+            return
+        initializer = Initializer(self.config.setdefault("initialize_config", {}))
+        initializer.initialize(self.linear.weight, self._init_method)
+        bias_fill = self.config.setdefault("bias_fill", 0.)
+        if self._use_bias:
+            self.linear.bias.data.fill_(bias_fill)
 
 
 class Mapping(nn.Module):
@@ -94,9 +94,6 @@ class Mapping(nn.Module):
             net = self.dropout(net, reuse=reuse)
         return net
 
-    def reset_parameters(self):
-        self.linear.reset_parameters()
-
 
 class MLP(nn.Module):
     def __init__(self,
@@ -115,7 +112,6 @@ class MLP(nn.Module):
             if final_mapping_config is None:
                 final_mapping_config = {}
             mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
-        tuple(map(Mapping.reset_parameters, mappings))
         self.mappings = nn.ModuleList(mappings)
 
     @property
