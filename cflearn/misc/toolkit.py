@@ -191,6 +191,17 @@ class Activations:
         return OneHot()
 
     @property
+    def multiplied_sine(self):
+
+        class MultipliedSine(_multiplied_activation):
+            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+                return torch.sin(multiplied)
+
+        config = self.configs.setdefault("multiplied_sine", {})
+        config.setdefault("ratio", 10.)
+        return MultipliedSine(**config)
+
+    @property
     def multiplied_tanh(self):
 
         class MultipliedTanh(_multiplied_activation):
