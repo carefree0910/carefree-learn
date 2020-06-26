@@ -112,14 +112,12 @@ class NDT(ModelBase):
         return np.exp(self.class_log_prior)
 
     def _preset_config(self,
-                       config: Dict[str, Any],
                        tr_data: TabularData):
-        config.setdefault("default_encoding_method", "one_hot")
+        self.config.setdefault("default_encoding_method", "one_hot")
 
     def _init_config(self,
-                     config: Dict[str, Any],
                      tr_data: TabularData):
-        super()._init_config(config, tr_data)
+        super()._init_config(tr_data)
         self.dt_config = self.config.setdefault("dt_config", {})
         activation_configs = self.config.setdefault("activation_configs", {})
         activation_configs.setdefault("multiplied_tanh", {}).setdefault("ratio", 10.)

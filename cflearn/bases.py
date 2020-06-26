@@ -49,9 +49,11 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                  device: torch.device):
         super().__init__()
         self.device = device
-        self._preset_config(config, tr_data)
-        self._init_config(config, tr_data)
-        self._init_loss(config, tr_data)
+        self._wrapper_config = config
+        self.config = config.setdefault("model_config", {})
+        self._preset_config(tr_data)
+        self._init_config(tr_data)
+        self._init_loss(tr_data)
         # encoders
         excluded = 0
         recognizers = tr_data.recognizers
@@ -116,27 +118,19 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             dims[true_idx] = self.encoders[idx_str].dim
         return dims
 
-    @property
-    def recommend_pipeline_config(self) -> Dict[str, Any]:
-        return {}
-
     def _preset_config(self,
-                       config: Dict[str, Any],
                        tr_data: TabularData):
         pass
 
     def _init_config(self,
-                     config: Dict[str, Any],
                      tr_data: TabularData):
         self.tr_data = tr_data
-        self.config = config
         # TODO : optimize encodings by pre-calculate one-hot encodings in Wrapper
         self._encoding_methods = self.config.setdefault("encoding_methods", {})
         self._encoding_configs = self.config.setdefault("encoding_configs", {})
         self._default_encoding_method = self.config.setdefault("default_encoding_method", "embedding")
 
     def _init_loss(self,
-                   config: Dict[str, Any],
                    tr_data: TabularData):
         if tr_data.is_reg:
             self.loss = nn.L1Loss()
@@ -218,18 +212,16 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 class Pipeline(nn.Module, LoggingMixin):
     def __init__(self,
                  model: ModelBase,
-                 wrapper_config: Dict[str, Any],
+                 config: Dict[str, Any],
                  verbose_level: int):
-        self._recommend_config = model.recommend_pipeline_config
         super().__init__()
-        self._init_config(wrapper_config)
+        self._init_config(config)
         self.model = model
         self._verbose_level = verbose_level
 
-    def _init_config(self, wrapper_config):
-        self._wrapper_config = wrapper_config
-        self.config = wrapper_config.setdefault("pipeline_config", {})
-        self.config = update_dict(self.config, self._recommend_config)
+    def _init_config(self, config):
+        self._wrapper_config = config
+        self.config = config.setdefault("pipeline_config", {})
         self.batch_size = self.config.setdefault("batch_size", 128)
         self.cv_batch_size = self.config.setdefault("cv_batch_size", 5 * self.batch_size)
         self.use_tqdm = self.config.setdefault("use_tqdm", True)
@@ -250,7 +242,7 @@ class Pipeline(nn.Module, LoggingMixin):
         else:
             self.ema_decay = EMA(ema_decay, self.model.named_parameters())
 
-        self._logging_path_ = wrapper_config["logging_path"]
+        self._logging_path_ = config["logging_path"]
         self.log_folder = self.config.setdefault("log_folder", os.path.split(self._logging_path_)[0])
         self.checkpoint_folder = self.config.setdefault(
             "checkpoint_folder",
@@ -657,7 +649,6 @@ class Wrapper(LoggingMixin):
         self._read_config = self.config.setdefault("read_config", {})
         self._cv_ratio = self.config.setdefault("cv_ratio", 0.1)
         self._model = self.config.setdefault("model", "fcnn")
-        self._model_config = self.config.setdefault("model_config", {})
         self._binary_metric = self.config.setdefault("binary_metric", "acc")
         self._is_binary = self.config.get("is_binary")
         self._binary_threshold = self.config.get("binary_threshold")
@@ -669,7 +660,7 @@ class Wrapper(LoggingMixin):
     def _prepare_modules(self):
         # model
         with timing_context(self, "init model"):
-            self.model = model_dict[self._model](self._model_config, self.tr_data, self.device)
+            self.model = model_dict[self._model](self.config, self.tr_data, self.device)
         # pipeline
         with timing_context(self, "init pipeline"):
             self.pipeline = Pipeline(self.model, self.config, self._verbose_level)

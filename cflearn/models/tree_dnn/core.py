@@ -53,9 +53,8 @@ class TreeDNN(FCNN):
             self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **dndf_config)
 
     def _preset_config(self,
-                       config: Dict[str, Any],
                        tr_data: TabularData):
-        config.setdefault("default_encoding_method", ["one_hot", "embedding"])
+        self.config.setdefault("default_encoding_method", ["one_hot", "embedding"])
 
     @staticmethod
     def _merge(split_result: SplitFeatures,

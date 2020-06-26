@@ -65,14 +65,12 @@ class NNB(ModelBase):
                 assert np.allclose(mnb.feature_log_prob, self.log_posterior(numpy=True), atol=1e-6)
 
     def _preset_config(self,
-                       config: Dict[str, Any],
                        tr_data: TabularData):
-        config.setdefault("default_encoding_method", "one_hot")
+        self.config.setdefault("default_encoding_method", "one_hot")
 
     def _init_config(self,
-                     config: Dict[str, Any],
                      tr_data: TabularData):
-        super()._init_config(config, tr_data)
+        super()._init_config(tr_data)
         self.pretrain = self.config.setdefault("pretrain", True)
 
     @property

@@ -18,9 +18,8 @@ class FCNN(ModelBase):
         self._init_fcnn()
 
     def _init_config(self,
-                     config: Dict[str, Any],
                      tr_data: TabularData):
-        super()._init_config(config, tr_data)
+        super()._init_config(tr_data)
         self._fc_in_dim, self._fc_out_dim = map(self.config.get, ["fc_in_dim", "fc_out_dim"])
         self.hidden_units = self.config.setdefault("hidden_units", [256, 256])
         self.mapping_configs = self.config.setdefault("mapping_configs", {})
