@@ -2,6 +2,7 @@ import os
 import json
 import torch
 import pprint
+import inspect
 import logging
 
 import numpy as np
@@ -276,7 +277,7 @@ class Pipeline(nn.Module, LoggingMixin):
             scheduler = params_optimizer_config.setdefault("scheduler", "plateau")
             scheduler_config = params_optimizer_config.setdefault("scheduler_config", {})
             # optimizer
-            optimizer_config.setdefault("lr", 1e-3)
+            lr = optimizer_config.setdefault("lr", 1e-3)
             if optimizer == "nag":
                 optimizer_config.setdefault("momentum", 0.999)
                 optimizer_config.setdefault("weight_decay", 1e-7)
@@ -318,6 +319,13 @@ class Pipeline(nn.Module, LoggingMixin):
                 if isinstance(scheduler, str):
                     scheduler = scheduler_dict[scheduler]
                 self.schedulers[params_name] = scheduler(opt, **scheduler_config)
+        self.schedulers_requires_metric = set()
+        for key, scheduler in self.schedulers.items():
+            signature = inspect.signature(scheduler.step)
+            for name, param in signature.parameters.items():
+                if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                    if name == "metrics":
+                        self.schedulers_requires_metric.add(key)
 
     def _init_metrics(self):
         # metrics
@@ -423,9 +431,12 @@ class Pipeline(nn.Module, LoggingMixin):
             if self.start_snapshot:
                 if self._monitor.check_terminate(score):
                     return True
-                for scheduler in self.schedulers.values():
+                for key, scheduler in self.schedulers.items():
                     if scheduler is not None:
-                        scheduler.step(metrics=score)
+                        kwargs = {}
+                        if key in self.schedulers_requires_metric:
+                            kwargs["metrics"] = score
+                        scheduler.step(**kwargs)
         return False
 
     def _get_metrics(self) -> Tuple[float, Dict[str, float]]:
