@@ -20,11 +20,11 @@ class Linear(nn.Module):
                  **kwargs):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
-        with torch.no_grad():
-            self.reset_parameters()
         pruner = None if pruner_config is None else Pruner(pruner_config)
         self.config, self.pruner = kwargs, pruner
         self._use_bias, self._init_method = bias, init_method
+        with torch.no_grad():
+            self.reset_parameters()
 
     @property
     def weight(self) -> torch.Tensor:
