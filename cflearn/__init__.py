@@ -451,7 +451,8 @@ def make_toy_model(config: Dict[str, Any] = None,
 
 __all__ = [
     "ModelBase", "Pipeline", "Wrapper",
-    "register_metric", "register_optimizer", "register_scheduler", "register_initializer",
+    "register_metric", "register_optimizer", "register_scheduler",
     "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
+    "Initializer", "register_initializer",
     "Processor", "register_processor"
 ]
