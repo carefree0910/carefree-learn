@@ -166,7 +166,19 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     @staticmethod
     def _collate_tensor_dicts(ds: List[Dict[str, torch.Tensor]],
                               dim: int = 0) -> Dict[str, torch.Tensor]:
-        return {k: torch.cat([rs[k] for rs in ds], dim=dim) for k in ds[0].keys()}
+        results = {}
+        d0 = ds[0]
+        for k in d0.keys():
+            if not isinstance(d0[k], torch.Tensor):
+                continue
+            tensors = []
+            for rs in ds:
+                tensor = rs[k]
+                if len(tensor.shape) == 0:
+                    tensor = tensor.reshape([1])
+                tensors.append(tensor)
+            results[k] = torch.cat(tensors, dim=dim)
+        return results
 
     @staticmethod
     def to_prob(raw: np.ndarray) -> np.ndarray:
