@@ -47,9 +47,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                  tr_data: TabularData,
                  device: torch.device):
         super().__init__()
+        self.device = device
         self._preset_config(config, tr_data)
         self._init_config(config, tr_data)
-        self.device = device
+        self._init_loss(config, tr_data)
         # encoders
         excluded = 0
         recognizers = tr_data.recognizers
@@ -132,7 +133,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._encoding_methods = self.config.setdefault("encoding_methods", {})
         self._encoding_configs = self.config.setdefault("encoding_configs", {})
         self._default_encoding_method = self.config.setdefault("default_encoding_method", "embedding")
-        self._init_loss(config, tr_data)
 
     def _init_loss(self,
                    config: Dict[str, Any],
