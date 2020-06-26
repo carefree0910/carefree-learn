@@ -158,6 +158,12 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             opt.zero_grad()
 
     @staticmethod
+    def _switch_requires_grad(params: List[torch.nn.Parameter],
+                              requires_grad: bool):
+        for param in params:
+            param.requires_grad_(requires_grad)
+
+    @staticmethod
     def _collate_tensor_dicts(ds: List[Dict[str, torch.Tensor]],
                               dim: int = 0) -> Dict[str, torch.Tensor]:
         return {k: torch.cat([rs[k] for rs in ds], dim=dim) for k in ds[0].keys()}
