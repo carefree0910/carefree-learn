@@ -8,6 +8,8 @@ from typing import *
 from cftool.misc import *
 from abc import ABCMeta, abstractmethod
 
+from ..misc.toolkit import tensor_dict_type
+
 encoder_dict: Dict[str, Type["EncoderBase"]] = {}
 
 
@@ -122,7 +124,7 @@ class EncoderStack(nn.Module, LoggingMixin):
     def forward(self,
                 categorical_column: torch.Tensor,
                 *,
-                return_all: bool = False) -> Union[torch.Tensor, Dict[str, torch.Tensor]]:
+                return_all: bool = False) -> Union[torch.Tensor, tensor_dict_type]:
         encodings = {k: v(categorical_column) for k, v in self.encoders.items()}
         if return_all:
             return encodings

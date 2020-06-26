@@ -4,6 +4,7 @@ from typing import *
 from cfdata.tabular import TabularData
 
 from ...bases import ModelBase
+from ...misc.toolkit import tensor_dict_type
 from ...modules.blocks import *
 
 
@@ -43,8 +44,8 @@ class FCNN(ModelBase):
         )
 
     def forward(self,
-                batch: Dict[str, torch.Tensor],
-                **kwargs) -> Dict[str, torch.Tensor]:
+                batch: tensor_dict_type,
+                **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
         net = self.mlp(net)

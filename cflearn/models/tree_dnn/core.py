@@ -6,6 +6,7 @@ from cfdata.tabular import TabularData
 
 from ..fcnn.core import FCNN
 from ...bases import SplitFeatures
+from ...misc.toolkit import tensor_dict_type
 from ...modules.blocks import *
 
 
@@ -72,8 +73,8 @@ class TreeDNN(FCNN):
             return torch.cat([numerical, categorical["one_hot"]], dim=1)
 
     def forward(self,
-                batch: Dict[str, torch.Tensor],
-                **kwargs) -> Dict[str, torch.Tensor]:
+                batch: tensor_dict_type,
+                **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch, return_all_encodings=True)
         # fc

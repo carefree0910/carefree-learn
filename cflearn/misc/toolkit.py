@@ -9,6 +9,8 @@ from typing import *
 
 from cftool.misc import *
 
+tensor_dict_type = Dict[str, torch.Tensor]
+
 
 def to_torch(arr: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(arr.astype(np.float32))
@@ -495,6 +497,7 @@ class eval_context(context_error_handler):
 
 
 __all__ = [
+    "tensor_dict_type",
     "to_torch", "to_numpy", "get_gradient",
     "Initializer", "Activations", "TrainMonitor", "eval_context"
 ]

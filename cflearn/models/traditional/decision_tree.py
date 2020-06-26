@@ -132,8 +132,8 @@ class NDT(ModelBase):
         self._init_with_dt = self.config.setdefault("")
 
     def forward(self,
-                batch: Dict[str, torch.Tensor],
-                **kwargs) -> Dict[str, torch.Tensor]:
+                batch: tensor_dict_type,
+                **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         merged = self._split_features(x_batch).merge()
         planes = self.planes_activation(self.to_planes(merged))

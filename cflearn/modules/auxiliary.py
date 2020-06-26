@@ -5,6 +5,8 @@ from typing import *
 from functools import partial
 from torch.nn.functional import softplus
 
+from ..misc.toolkit import tensor_dict_type
+
 
 class BN(nn.BatchNorm1d):
     def forward(self, net):
@@ -111,7 +113,7 @@ class MTL(nn.Module):
             raise ValueError("registered names are more than n_task")
 
     def forward(self,
-                loss_dict: Dict[str, torch.Tensor],
+                loss_dict: tensor_dict_type,
                 naive: bool = False) -> torch.Tensor:
         if not self.registered:
             raise ValueError("losses need to be registered")
@@ -120,10 +122,10 @@ class MTL(nn.Module):
         return getattr(self, f"_{self._method}")(loss_dict)
 
     @staticmethod
-    def _naive(loss_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def _naive(loss_dict: tensor_dict_type) -> torch.Tensor:
         return sum(loss_dict.values())
 
-    def _softmax(self, loss_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+    def _softmax(self, loss_dict: tensor_dict_type) -> torch.Tensor:
         w = self.w if self._slice == self._n_task else self.w[:self._slice]
         softmax_w = nn.functional.softmax(w, dim=0)
         losses = []

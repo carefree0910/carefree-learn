@@ -24,7 +24,7 @@ model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
 class SplitFeatures(NamedTuple):
-    categorical: Union[torch.Tensor, Dict[str, torch.Tensor], None]
+    categorical: Union[torch.Tensor, tensor_dict_type, None]
     numerical: Union[torch.Tensor, None]
 
     @property
@@ -75,15 +75,15 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     @abstractmethod
     def forward(self,
-                batch: Dict[str, torch.Tensor],
-                **kwargs) -> Dict[str, torch.Tensor]:
+                batch: tensor_dict_type,
+                **kwargs) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
         # requires returning `predictions` key
         pass
 
     def loss_function(self,
-                      batch: Dict[str, torch.Tensor],
-                      forward_results: Dict[str, torch.Tensor]) -> Dict[str, Union[torch.Tensor, float]]:
+                      batch: tensor_dict_type,
+                      forward_results: tensor_dict_type) -> Dict[str, Union[torch.Tensor, float]]:
         # requires returning `loss` key
         y_batch = batch["y_batch"]
         if self.tr_data.is_clf:
@@ -165,8 +165,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             param.requires_grad_(requires_grad)
 
     @staticmethod
-    def _collate_tensor_dicts(ds: List[Dict[str, torch.Tensor]],
-                              dim: int = 0) -> Dict[str, torch.Tensor]:
+    def _collate_tensor_dicts(ds: List[tensor_dict_type],
+                              dim: int = 0) -> tensor_dict_type:
         results = {}
         d0 = ds[0]
         for k in d0.keys():
@@ -408,7 +408,7 @@ class Pipeline(nn.Module, LoggingMixin):
 
     def _collate_batch(self,
                        x_batch: np.ndarray,
-                       y_batch: np.ndarray) -> Dict[str, torch.Tensor]:
+                       y_batch: np.ndarray) -> tensor_dict_type:
         tensors = list(map(self._to_device, [x_batch, y_batch]))
         if y_batch is not None and self.tr_data.is_clf:
             tensors[-1] = tensors[-1].to(torch.int64)

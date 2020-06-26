@@ -103,8 +103,8 @@ class NNB(ModelBase):
         return tuple(map(to_numpy, posteriors))
 
     def forward(self,
-                batch: Dict[str, torch.Tensor],
-                **kwargs) -> Dict[str, torch.Tensor]:
+                batch: tensor_dict_type,
+                **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch)
         # log prior
