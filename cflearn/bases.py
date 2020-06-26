@@ -12,6 +12,7 @@ from cftool.ml import *
 from cftool.misc import *
 from cfdata.tabular import *
 from tqdm import tqdm
+from functools import partial
 
 from abc import ABCMeta, abstractmethod
 
@@ -498,14 +499,14 @@ class Pipeline(nn.Module, LoggingMixin):
     def _predict(self,
                  loader: DataLoader,
                  **kwargs) -> Dict[str, np.ndarray]:
-        with eval_context(self):
+        with eval_context(self, no_grad=kwargs.get("no_grad", False)):
             results, labels = [], []
             for x_batch, y_batch in loader:
                 if y_batch is not None:
                     labels.append(y_batch)
                 results.append(self.model(self._collate_batch(x_batch, y_batch), **kwargs))
         results = self.model._collate_tensor_dicts(results)
-        results = {k: v.cpu().numpy() for k, v in results.items()}
+        results = {k: to_numpy(v) for k, v in results.items()}
         if labels:
             labels = np.vstack(labels)
             results["labels"] = labels
@@ -584,10 +585,14 @@ class Pipeline(nn.Module, LoggingMixin):
 
     def predict(self,
                 x: data_type,
-                **kwargs) -> np.ndarray:
+                return_all: bool = False,
+                **kwargs) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         data = self.tr_data.copy_to(x, None)
         loader = DataLoader(self.cv_batch_size, ImbalancedSampler(data, shuffle=False))
-        return self._predict(loader, **kwargs)["predictions"]
+        predictions = self._predict(loader, **kwargs)
+        if return_all:
+            return predictions
+        return predictions["predictions"]
 
     def save_checkpoint(self, folder=None):
         if folder is None:
@@ -710,10 +715,20 @@ class Wrapper(LoggingMixin):
 
     def predict(self,
                 x: data_type,
-                **kwargs) -> np.ndarray:
+                *,
+                return_all: bool = False,
+                requires_recover: bool = True,
+                **kwargs) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         if self.tr_data.is_reg:
-            predictions = self.pipeline.predict(x, **kwargs)
-            return self.tr_data.recover_labels(predictions, inplace=True)
+            predictions = self.pipeline.predict(x, return_all, **kwargs)
+            recover = partial(self.tr_data.recover_labels, inplace=True)
+            if not return_all:
+                if requires_recover:
+                    return recover(predictions)
+                return predictions
+            if not requires_recover:
+                return predictions
+            return {k: recover(v) for k, v in predictions.items()}
         probabilities = self.predict_prob(x, **kwargs)
         if not self._is_binary:
             return probabilities.argmax(1).reshape([-1, 1])
