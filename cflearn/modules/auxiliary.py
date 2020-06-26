@@ -80,6 +80,63 @@ class EMA(nn.Module):
         )
 
 
+class MTL(nn.Module):
+    def __init__(self,
+                 num_tasks: int,
+                 method: str = None,
+                 device: torch.device = None):
+        super().__init__()
+        self._n_task, self._method = num_tasks, method
+        if device is not None:
+            self._device = device
+        else:
+            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        if method is None or method == "naive":
+            pass
+        elif method == "softmax":
+            self.w = torch.nn.Parameter(torch.ones(num_tasks).to(self._device))
+        else:
+            raise NotImplementedError(f"MTL method '{method}' not implemented")
+        self._slice, self.registered, self._registered = None, False, {}
+
+    def register(self, names: Iterable[str]) -> None:
+        if self.registered:
+            raise ValueError("re-register is not permitted")
+        self._rev_registered = {}
+        for name in sorted(names):
+            idx = len(self._registered)
+            self._registered[name], self._rev_registered[idx] = idx, name
+        self._slice, self.registered = len(names), True
+        if self._slice > self._n_task:
+            raise ValueError("registered names are more than n_task")
+
+    def forward(self,
+                loss_dict: Dict[str, torch.Tensor],
+                naive: bool = False) -> torch.Tensor:
+        if not self.registered:
+            raise ValueError("losses need to be registered")
+        if naive or self._method is None:
+            return self._naive(loss_dict)
+        return getattr(self, f"_{self._method}")(loss_dict)
+
+    @staticmethod
+    def _naive(loss_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+        return sum(loss_dict.values())
+
+    def _softmax(self, loss_dict: Dict[str, torch.Tensor]) -> torch.Tensor:
+        w = self.w if self._slice == self._n_task else self.w[:self._slice]
+        softmax_w = nn.functional.softmax(w, dim=0)
+        losses = []
+        for key, loss in loss_dict.items():
+            idx = self._registered.get(key)
+            losses.append(loss if idx is None else loss * softmax_w[idx])
+        return sum(losses) * self._slice
+
+    def extra_repr(self) -> str:
+        method = "naive" if self._method is None else self._method
+        return f"n_task={self._n_task}, method='{method}'"
+
+
 class Pruner(nn.Module):
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
@@ -165,4 +222,4 @@ class Pruner(nn.Module):
         )
 
 
-__all__ = ["BN", "Dropout", "EMA", "Pruner"]
+__all__ = ["BN", "Dropout", "EMA", "MTL", "Pruner"]
