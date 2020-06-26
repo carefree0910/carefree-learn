@@ -151,6 +151,12 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         encoders = [encoder_dict[method](idx, num_values, config) for method in methods]
         self.encoders[str(idx)] = EncoderStack(*encoders)
 
+    def _optimizer_step(self,
+                        optimizers):
+        for opt in optimizers.values():
+            opt.step()
+            opt.zero_grad()
+
     @staticmethod
     def _collate_tensor_dicts(ds: List[Dict[str, torch.Tensor]],
                               dim: int = 0) -> Dict[str, torch.Tensor]:
@@ -394,9 +400,7 @@ class Pipeline(nn.Module, LoggingMixin):
             self.model.parameters(), self._clip_norm)
 
     def _optimizer_step(self):
-        for opt in self.optimizers.values():
-            opt.step()
-            opt.zero_grad()
+        self.model._optimizer_step(self.optimizers)
 
     def _monitor_step(self):
         if self._step_count % self.num_step_per_snapshot == 0:
