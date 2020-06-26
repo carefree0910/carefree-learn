@@ -6,8 +6,8 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-
 from cftool.misc import *
+from abc import ABCMeta, abstractmethod
 
 tensor_dict_type = Dict[str, torch.Tensor]
 
@@ -100,6 +100,26 @@ class Initializer(LoggingMixin):
             param.data.mul_(std).add_(mean)
 
 
+class _multiplied_activation(nn.Module, metaclass=ABCMeta):
+    def __init__(self,
+                 ratio: float,
+                 trainable: bool = True):
+        super().__init__()
+        self.trainable = trainable
+        ratio = torch.tensor([ratio], dtype=torch.float32)
+        self.ratio = ratio if not trainable else nn.Parameter(ratio)
+
+    @abstractmethod
+    def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+        pass
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self._core(x * self.ratio)
+
+    def extra_repr(self) -> str:
+        return f"ratio={self.ratio.item()}, trainable={self.trainable}"
+
+
 class Activations:
     """
     Wrapper class for pytorch activations
@@ -173,36 +193,22 @@ class Activations:
     @property
     def multiplied_tanh(self):
 
-        class MultipliedTanh(nn.Tanh):
-            def __init__(self, ratio, trainable=True):
-                super().__init__()
-                ratio = torch.tensor([ratio], dtype=torch.float32)
-                self.ratio = ratio if not trainable else nn.Parameter(ratio)
-
-            def forward(self, x):
-                x = x * self.ratio
-                return super().forward(x)
-
-            def extra_repr(self) -> str:
-                return f"ratio={self.ratio.item()}"
+        class MultipliedTanh(_multiplied_activation):
+            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+                return torch.tanh(multiplied)
 
         return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
 
     @property
     def multiplied_softmax(self):
 
-        class MultipliedSoftmax(nn.Softmax):
+        class MultipliedSoftmax(_multiplied_activation):
             def __init__(self, ratio, dim=1, trainable=True):
-                super().__init__(dim)
-                ratio = torch.tensor([ratio], dtype=torch.float32)
-                self.ratio = ratio if not trainable else nn.Parameter(ratio)
+                super().__init__(ratio, trainable)
+                self.dim = dim
 
-            def forward(self, x):
-                x = x * self.ratio
-                return super().forward(x)
-
-            def extra_repr(self) -> str:
-                return f"ratio={self.ratio.item()}"
+            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+                return nn.functional.softmax(multiplied, dim=self.dim)
 
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
 
