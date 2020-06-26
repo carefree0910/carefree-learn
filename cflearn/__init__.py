@@ -8,6 +8,7 @@ from cfdata.tabular import *
 from functools import partial
 from cftool.ml.hpo import HPOBase
 from cftool.ml import register_metric
+from cfdata.tabular.processors.base import Processor
 
 from .dist import *
 from .bases import *
@@ -23,6 +24,10 @@ def register_initializer(name):
         Initializer.add_initializer(f, name)
         return f
     return _register
+
+
+def register_processor(name):
+    return Processor.register(name)
 
 
 # API
@@ -447,5 +452,6 @@ def make_toy_model(config: Dict[str, Any] = None,
 __all__ = [
     "ModelBase", "Pipeline", "Wrapper",
     "register_metric", "register_optimizer", "register_scheduler", "register_initializer",
-    "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model"
+    "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
+    "Processor", "register_processor"
 ]
