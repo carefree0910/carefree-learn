@@ -44,9 +44,9 @@ class NAG(Optimizer):
                 buf = param_state["momentum_buffer"]
                 if weight_decay != 0:
                     p.data.mul_(1 - lr * weight_decay)
-                p.data.add_(momentum * momentum * lr_correct, buf)
-                p.data.add_(-(1 + momentum) * lr, d_p)
-                buf.mul_(momentum * lr_correct).add_(-lr, d_p)
+                p.data.add_(buf, alpha=momentum * momentum * lr_correct)
+                p.data.add_(d_p, alpha=-(1 + momentum) * lr)
+                buf.mul_(momentum * lr_correct).add_(d_p, alpha=-lr)
             group["lr_old"] = lr
         return loss
 
