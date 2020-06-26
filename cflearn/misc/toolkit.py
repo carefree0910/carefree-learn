@@ -18,6 +18,13 @@ def to_numpy(tensor: torch.Tensor) -> np.ndarray:
     return tensor.detach().cpu().numpy()
 
 
+def get_gradient(y, x, retain_graph=False, create_graph=False):
+    grads = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph, create_graph)
+    if len(grads) == 1:
+        return grads[0]
+    return grads
+
+
 class Initializer(LoggingMixin):
     """
     Initializer for neural network weights
@@ -488,6 +495,6 @@ class eval_context(context_error_handler):
 
 
 __all__ = [
-    "to_torch", "to_numpy",
+    "to_torch", "to_numpy", "get_gradient",
     "Initializer", "Activations", "TrainMonitor", "eval_context"
 ]
