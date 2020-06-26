@@ -183,6 +183,9 @@ class Activations:
                 x = x * self.ratio
                 return super().forward(x)
 
+            def extra_repr(self) -> str:
+                return f"ratio={self.ratio.item()}"
+
         return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
 
     @property
@@ -197,6 +200,9 @@ class Activations:
             def forward(self, x):
                 x = x * self.ratio
                 return super().forward(x)
+
+            def extra_repr(self) -> str:
+                return f"ratio={self.ratio.item()}"
 
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
 
