@@ -466,7 +466,10 @@ class eval_context(context_error_handler):
 
     """
 
-    def __init__(self, module: nn.Module, no_grad=True):
+    def __init__(self,
+                 module: nn.Module,
+                 *,
+                 no_grad: bool = True):
         self._module, self._training = module, module.training
         self._params_required_grad = [param for param in module.parameters() if param.requires_grad]
         tuple(map(lambda param: param.requires_grad_(False), self._params_required_grad))
