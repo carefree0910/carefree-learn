@@ -440,7 +440,6 @@ class Pipeline(nn.Module, LoggingMixin):
         return False
 
     def _get_metrics(self) -> Tuple[float, Dict[str, float]]:
-        # TODO : check whether restored metrics can correspond to previous metrics
         tr_loader, cv_loader = self.tr_loader, self.cv_loader
         if cv_loader is None and self.tr_loader._n_siamese > 1:
             raise ValueError("cv set should be provided when n_siamese > 1")
