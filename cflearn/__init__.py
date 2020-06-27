@@ -201,11 +201,13 @@ def repeat_with(x: data_type,
         identifiers = models.copy()
     elif isinstance(identifiers, str):
         identifiers = [identifiers]
+
     kwargs["trigger_logging"] = False
+    kwargs["verbose_level"] = 0
 
     tasks = patterns = None
     if num_parallel == 0 or num_repeat == 1:
-        kwargs["use_tqdm"] = use_tqdm
+        kwargs.setdefault("use_tqdm", False)
         if return_tasks:
             tasks = {}
             for i in range(num_repeat):
