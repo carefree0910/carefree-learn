@@ -5,6 +5,7 @@ import numpy as np
 
 from cfdata.tabular import *
 from sklearn.naive_bayes import *
+from cftool.misc import timestamp
 from cftool.ml import ModelPattern
 from sklearn.tree import DecisionTreeClassifier
 
@@ -12,8 +13,10 @@ from sklearn.tree import DecisionTreeClassifier
 class TestTraditional(unittest.TestCase):
     @staticmethod
     def _train_traditional(model, dataset, sklearn_model):
-        m = cflearn.make(model, cv_split=0., num_epoch=1, max_epoch=2)
-        m0 = cflearn.make(model, cv_split=0., num_epoch=0, max_epoch=0)
+        folder = f"_logging/{model}_{timestamp(ensure_different=True)}"
+        kwargs = {"cv_split": 0., "logging_folder": folder}
+        m = cflearn.make(model, num_epoch=1, max_epoch=2, **kwargs)
+        m0 = cflearn.make(model, num_epoch=0, max_epoch=0, **kwargs)
         m.fit(*dataset.xy)
         m0.fit(*dataset.xy)
         cflearn.estimate(*dataset.xy, wrappers={"fit": m, "init": m0})
