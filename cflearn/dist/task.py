@@ -29,7 +29,7 @@ class Task:
             y_cv: data_type = None,
             cuda: int = 0,
             **kwargs) -> "Task":
-        kwargs["logging_path"] = os.path.join(self.saving_folder, "trainer.log")
+        kwargs["logging_folder"] = self.saving_folder
         m = make(self.model, cuda=cuda, **kwargs)
         m.fit(x, y, x_cv, y_cv)
         save(m, saving_folder=self.saving_folder)

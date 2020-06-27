@@ -243,11 +243,11 @@ class Pipeline(nn.Module, LoggingMixin):
         else:
             self.ema_decay = EMA(ema_decay, self.model.named_parameters())
 
-        self._logging_path_ = config["logging_path"]
-        self.log_folder = self.config.setdefault("log_folder", os.path.split(self._logging_path_)[0])
+        self._logging_path_ = config["_logging_path_"]
+        self.logging_folder = config["logging_folder"]
         self.checkpoint_folder = self.config.setdefault(
             "checkpoint_folder",
-            os.path.join(self.log_folder, "checkpoints")
+            os.path.join(self.logging_folder, "checkpoints")
         )
 
     def _init_data(self, tr_data, cv_data):
@@ -532,9 +532,9 @@ class Pipeline(nn.Module, LoggingMixin):
         self._collect_info(return_only=False)
         terminate = False
         self._step_count = self._epoch_count = 0
-        tuple(map(lambda n: os.makedirs(n, exist_ok=True), [self.log_folder, self.checkpoint_folder]))
+        tuple(map(lambda n: os.makedirs(n, exist_ok=True), [self.logging_folder, self.checkpoint_folder]))
         log_name = f"{timestamp()}.txt"
-        self._log_file = os.path.join(self.log_folder, log_name)
+        self._log_file = os.path.join(self.logging_folder, log_name)
         with open(self._log_file, "w"):
             pass
         self._step_tqdm = self._epoch_tqdm = None
@@ -663,9 +663,16 @@ class Wrapper(LoggingMixin):
         self._binary_metric = self.config.setdefault("binary_metric", "acc")
         self._is_binary = self.config.get("is_binary")
         self._binary_threshold = self.config.get("binary_threshold")
-        default_logging_folder = os.path.join("_logging", model_dict[self._model].__identifier__)
-        default_logging_path = os.path.abspath(self.generate_logging_path(default_logging_folder))
-        self.config["_logging_path_"] = self.config.setdefault("logging_path", default_logging_path)
+        logging_folder = self.config["logging_folder"] = self.config.setdefault(
+            "logging_folder",
+            os.path.join("_logging", model_dict[self._model].__identifier__)
+        )
+        logging_file = self.config.get("logging_file")
+        if logging_file is not None:
+            logging_path = os.path.join(logging_folder, logging_file)
+        else:
+            logging_path = os.path.abspath(self.generate_logging_path(logging_folder))
+        self.config["_logging_path_"] = logging_path
         self._init_logging(self._verbose_level, self.config.setdefault("trigger_logging", False))
 
     def _prepare_modules(self):

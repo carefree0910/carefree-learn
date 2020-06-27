@@ -41,7 +41,8 @@ def make(model: str = "fcnn",
          num_epoch: int = None,
          max_epoch: int = None,
          batch_size: int = None,
-         logging_path: str = None,
+         logging_file: str = None,
+         logging_folder: str = None,
          clip_norm: float = None,
          ema_decay: float = None,
          data_config: Dict[str, Any] = None,
@@ -73,8 +74,11 @@ def make(model: str = "fcnn",
     kwargs["read_config"] = read_config
     if model_config is not None:
         kwargs["model_config"] = model_config
-    if logging_path is not None:
-        kwargs["logging_path"] = logging_path
+    if logging_folder is not None:
+        if logging_file is None:
+            logging_file = f"{model}_{timestamp()}.log"
+        kwargs["logging_folder"] = logging_folder
+        kwargs["logging_file"] = logging_file
     if trigger_logging is not None:
         kwargs["trigger_logging"] = trigger_logging
     # pipeline general
