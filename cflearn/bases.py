@@ -277,7 +277,7 @@ class Pipeline(nn.Module, LoggingMixin):
             scheduler = params_optimizer_config.setdefault("scheduler", "plateau")
             scheduler_config = params_optimizer_config.setdefault("scheduler_config", {})
             # optimizer
-            lr = optimizer_config.setdefault("lr", 1e-3)
+            optimizer_config.setdefault("lr", 1e-3)
             if optimizer == "nag":
                 optimizer_config.setdefault("momentum", 0.999)
                 optimizer_config.setdefault("weight_decay", 1e-7)
