@@ -16,8 +16,7 @@ class TestTraditional(unittest.TestCase):
         m0 = cflearn.make(model, cv_split=0., num_epoch=0, max_epoch=0)
         m.fit(*dataset.xy)
         m0.fit(*dataset.xy)
-        metrics = ["acc", "auc"]
-        cflearn.estimate(*dataset.xy, metrics=metrics, wrappers={"fit": m, "init": m0})
+        cflearn.estimate(*dataset.xy, wrappers={"fit": m, "init": m0})
         x, y = m0.tr_data.processed.xy
         split = m0.model.get_split(x, m0.device)
         x, sk_y = split.merge().cpu().numpy(), y.ravel()
@@ -27,7 +26,7 @@ class TestTraditional(unittest.TestCase):
             predict_method=lambda x_: sklearn_model.predict(x_).reshape([-1, 1]),
             predict_prob_method="predict_proba"
         )
-        cflearn.estimate(x, y, metrics=metrics, other_patterns={"sklearn": pattern})
+        cflearn.estimate(x, y, metrics=["auc", "acc"], other_patterns={"sklearn": pattern})
         return m, m0, x
 
     def test_nnb_gnb(self):
