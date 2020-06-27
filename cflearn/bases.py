@@ -466,7 +466,8 @@ class Pipeline(nn.Module, LoggingMixin):
                     loss_dicts.append(self.model.loss_function(batch, forward_dicts[-1]))
             losses, forwards = map(self.model._collate_tensor_dicts, [loss_dicts, forward_dicts])
             losses = {k: v.mean().item() for k, v in losses.items()}
-        signs, metrics = {}, {}
+        use_decayed = False
+        signs, metrics, decayed_metrics = {}, {}, {}
         for metric_type, metric_ins in self.metrics.items():
             if metric_ins is None:
                 signs[metric_type] = -1
@@ -482,15 +483,24 @@ class Pipeline(nn.Module, LoggingMixin):
                         metric_predictions = predictions.argmax(1).reshape([-1, 1])
                 sub_metric = metrics[metric_type] = metric_ins.metric(labels, metric_predictions)
             if self.metrics_decay is not None and self.start_snapshot:
-                metrics[metric_type] = self.metrics_decay[metric_type].update("metric", sub_metric)
-        weighted_scores = [v * signs[k] * self.metrics_weights[k] for k, v in metrics.items()]
+                use_decayed = True
+                decayed_metrics[metric_type] = self.metrics_decay[metric_type].update("metric", sub_metric)
+        metrics_for_scoring = decayed_metrics if use_decayed else metrics
+        weighted_scores = [v * signs[k] * self.metrics_weights[k] for k, v in metrics_for_scoring.items()]
         score = sum(weighted_scores) / len(weighted_scores)
 
         if self._epoch_tqdm is not None:
-            self._epoch_tqdm.set_postfix(metrics)
+            self._epoch_tqdm.set_postfix(metrics_for_scoring)
+
+        def _metric_verbose(k):
+            metric_str = fix_float_to_length(metrics[k], 8)
+            if not use_decayed:
+                return metric_str
+            return f"{metric_str} (ema: {fix_float_to_length(decayed_metrics[k], 8)})"
+
         msg = (
             f"| epoch {self._epoch_count:^4d} - step {self._step_count:^6d} | "
-            f"{' | '.join([f'{k} : {fix_float_to_length(metrics[k], 8)}' for k in sorted(metrics)])} | "
+            f"{' | '.join([f'{k} : {_metric_verbose(k)}' for k in sorted(metrics)])} | "
             f"score : {fix_float_to_length(score, 8)} |"
         )
         with open(self._log_file, "a") as f:
