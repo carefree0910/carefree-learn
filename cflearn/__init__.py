@@ -42,13 +42,17 @@ def make(model: str = "fcnn",
          max_epoch: int = None,
          batch_size: int = None,
          logging_path: str = None,
+         clip_norm: float = None,
+         ema_decay: float = None,
          data_config: Dict[str, Any] = None,
          read_config: Dict[str, Any] = None,
          model_config: Dict[str, Any] = None,
          metrics: Union[str, List[str]] = None,
          metric_config: Dict[str, Any] = None,
          optimizer: str = None,
+         scheduler: str = None,
          optimizer_config: Dict[str, Any] = None,
+         scheduler_config: Dict[str, Any] = None,
          optimizers: Dict[str, Any] = None,
          trigger_logging: bool = None,
          cuda: Union[int, str] = 0,
@@ -84,6 +88,10 @@ def make(model: str = "fcnn",
         pipeline_config["max_epoch"] = max_epoch
     if batch_size is not None:
         pipeline_config["batch_size"] = batch_size
+    if clip_norm is not None:
+        pipeline_config["clip_norm"] = clip_norm
+    if ema_decay is not None:
+        pipeline_config["ema_decay"] = ema_decay
     # metrics
     if metric_config is not None:
         if metrics is not None:
@@ -104,10 +112,18 @@ def make(model: str = "fcnn",
             print(
                 f"{LoggingMixin.warning_prefix}`optimizer_config` is set to '{optimizer_config}' "
                 f"but `optimizers` is provided, so `optimizer_config` will be ignored")
-    elif optimizer is not None:
-        if optimizer_config is None:
-            optimizer_config = {}
-        optimizers = {"all": {"optimizer": optimizer, "optimizer_config": optimizer_config}}
+    else:
+        preset_optimizer = {}
+        if optimizer is not None:
+            if optimizer_config is None:
+                optimizer_config = {}
+            preset_optimizer = {"optimizer": optimizer, "optimizer_config": optimizer_config}
+        if scheduler is not None:
+            if scheduler_config is None:
+                scheduler_config = {}
+            preset_optimizer.update({"scheduler": scheduler, "scheduler_config": scheduler_config})
+        if preset_optimizer:
+            optimizers = {"all": preset_optimizer}
     if optimizers is not None:
         pipeline_config["optimizers"] = optimizers
     return Wrapper(kwargs, cuda=cuda, verbose_level=verbose_level)
