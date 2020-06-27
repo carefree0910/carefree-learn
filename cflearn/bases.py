@@ -331,6 +331,11 @@ class Pipeline(nn.Module, LoggingMixin):
         # metrics
         metric_config = self.config.setdefault("metric_config", {})
         metric_types = metric_config.setdefault("types", "auto")
+        if metric_types == "auto":
+            if self.tr_data.is_reg:
+                metric_types = ["mae", "mse"]
+            else:
+                metric_types = ["auc", "acc"]
         if not isinstance(metric_types, (list, tuple)):
             metric_types = [metric_types]
         self._metrics_need_loss = False
@@ -338,12 +343,6 @@ class Pipeline(nn.Module, LoggingMixin):
         self.metrics_decay: Dict[str, ScalarEMA] = {}
         metric_decay = metric_config.setdefault("decay", 0.1)
         for i, metric_type in enumerate(metric_types):
-            if metric_type == "auto":
-                if self.tr_data.is_reg:
-                    metric_type = "mae"
-                else:
-                    metric_type = "auc"
-                metric_types[i] = metric_type
             if metric_type not in Metrics.sign_dict:
                 # here, sub_metric must be one of the `loss_dict` keys
                 self._metrics_need_loss = True
