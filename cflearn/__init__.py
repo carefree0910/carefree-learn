@@ -36,7 +36,7 @@ def make(model: str = "fcnn",
          *,
          delim: str = None,
          skip_first: bool = None,
-         cv_ratio: float = 0.1,
+         cv_split: float = 0.1,
          min_epoch: int = None,
          num_epoch: int = None,
          max_epoch: int = None,
@@ -62,7 +62,7 @@ def make(model: str = "fcnn",
          **kwargs) -> Wrapper:
     # wrapper general
     kwargs["model"] = model
-    kwargs["cv_ratio"] = cv_ratio
+    kwargs["cv_split"] = cv_split
     if data_config is not None:
         kwargs["data_config"] = data_config
     if read_config is None:
@@ -463,7 +463,7 @@ def make_toy_model(config: Dict[str, Any] = None,
     base_config = {
         "model": model,
         "model_config": {"mapping_configs": {"batch_norm": False}},
-        "cv_ratio": 0.,
+        "cv_split": 0.,
         "trigger_logging": False,
         "data_config": {"valid_columns": [0], "task_type": TaskTypes.from_str(task_type)}
     }

@@ -658,7 +658,7 @@ class Wrapper(LoggingMixin):
         self._data_config = self.config.setdefault("data_config", {})
         self._data_config["default_categorical_process"] = "identical"
         self._read_config = self.config.setdefault("read_config", {})
-        self._cv_ratio = self.config.setdefault("cv_ratio", 0.1)
+        self._cv_split = self.config.setdefault("cv_split", 0.1)
         self._model = self.config.setdefault("model", "fcnn")
         self._binary_metric = self.config.setdefault("binary_metric", "acc")
         self._is_binary = self.config.get("is_binary")
@@ -700,10 +700,10 @@ class Wrapper(LoggingMixin):
         if x_cv is not None:
             self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
         else:
-            if self._cv_ratio <= 0. or self._cv_ratio >= 1.:
+            if self._cv_split <= 0. or self._cv_split >= 1.:
                 self.cv_data = None
             else:
-                self.cv_data, self.tr_data = self.tr_data.split(self._cv_ratio)
+                self.cv_data, self.tr_data = self.tr_data.split(self._cv_split)
         # modules
         self._prepare_modules()
         # training loop

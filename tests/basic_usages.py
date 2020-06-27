@@ -10,7 +10,7 @@ if __name__ == '__main__':
     dataset = TabularDataset.iris()
     m = cflearn.make(
         model,
-        cv_ratio=0.,
+        cv_split=0.,
         data_config={"numerical_columns": list(range(dataset.x.shape[1]))},
         min_epoch=100,
         num_epoch=200,

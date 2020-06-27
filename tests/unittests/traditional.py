@@ -12,8 +12,8 @@ from sklearn.tree import DecisionTreeClassifier
 class TestTraditional(unittest.TestCase):
     @staticmethod
     def _train_traditional(model, dataset, sklearn_model):
-        m = cflearn.make(model, cv_ratio=0., num_epoch=1, max_epoch=2)
-        m0 = cflearn.make(model, cv_ratio=0., num_epoch=0, max_epoch=0)
+        m = cflearn.make(model, cv_split=0., num_epoch=1, max_epoch=2)
+        m0 = cflearn.make(model, cv_split=0., num_epoch=0, max_epoch=0)
         m.fit(*dataset.xy)
         m0.fit(*dataset.xy)
         metrics = ["acc", "auc"]
