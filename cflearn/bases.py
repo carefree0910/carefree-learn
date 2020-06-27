@@ -229,6 +229,7 @@ class Pipeline(nn.Module, LoggingMixin):
         self.min_epoch = int(self.config.setdefault("min_epoch", 0))
         self.num_epoch = int(self.config.setdefault("num_epoch", max(40, self.min_epoch)))
         self.max_epoch = int(self.config.setdefault("max_epoch", max(200, self.num_epoch)))
+        self.max_snapshot_num = int(self.config.setdefault("max_snapshot_num", 5))
         self.snapshot_start_step = int(self.config.setdefault("snapshot_start_step", 0))
         self._num_step_per_snapshot = int(self.config.setdefault("num_step_per_snapshot", 0))
         self.num_snapshot_per_epoch = int(self.config.setdefault("num_snapshot_per_epoch", 2))
@@ -596,22 +597,39 @@ class Pipeline(nn.Module, LoggingMixin):
             return predictions
         return predictions["predictions"]
 
+    @staticmethod
+    def _filter_checkpoints(folder) -> Dict[int, str]:
+        checkpoints = {}
+        for file in os.listdir(folder):
+            if file.startswith("pipeline_") and file.endswith(".pt"):
+                step = int(os.path.splitext(file)[0].split("_")[1])
+                checkpoints[step] = file
+        return checkpoints
+
     def save_checkpoint(self, folder=None):
         if folder is None:
             folder = self.checkpoint_folder
-        torch.save(self.state_dict(), os.path.join(folder, "pipeline.pt"))
+        if self.max_snapshot_num > 0:
+            checkpoints = self._filter_checkpoints(folder)
+            if len(checkpoints) >= self.max_snapshot_num - 1:
+                for key in sorted(checkpoints)[:-self.max_snapshot_num+1]:
+                    os.remove(os.path.join(folder, checkpoints[key]))
+        file = f"pipeline_{self._step_count}.pt"
+        torch.save(self.state_dict(), os.path.join(folder, file))
 
     def restore_checkpoint(self, folder=None):
         if folder is None:
             folder = self.checkpoint_folder
-        pipeline_file = os.path.join(folder, "pipeline.pt")
-        if not os.path.isfile(pipeline_file):
+        checkpoints = self._filter_checkpoints(folder)
+        if not checkpoints:
             self.log_msg(
                 f"no pipeline file found in {self.checkpoint_folder}",
                 self.warning_prefix, msg_level=logging.WARNING
             )
             return self
-        self.log_msg(f"restoring from {folder}", self.info_prefix, 4)
+        latest_checkpoint = checkpoints[sorted(checkpoints)[-1]]
+        pipeline_file = os.path.join(folder, latest_checkpoint)
+        self.log_msg(f"restoring from {pipeline_file}", self.info_prefix, 4)
         self.load_state_dict(torch.load(pipeline_file, map_location=self.model.device))
         return self
 

@@ -41,6 +41,7 @@ def make(model: str = "fcnn",
          num_epoch: int = None,
          max_epoch: int = None,
          batch_size: int = None,
+         max_snapshot_num: int = None,
          clip_norm: float = None,
          ema_decay: float = None,
          data_config: Dict[str, Any] = None,
@@ -92,6 +93,8 @@ def make(model: str = "fcnn",
         pipeline_config["max_epoch"] = max_epoch
     if batch_size is not None:
         pipeline_config["batch_size"] = batch_size
+    if max_snapshot_num is not None:
+        pipeline_config["max_snapshot_num"] = max_snapshot_num
     if clip_norm is not None:
         pipeline_config["clip_norm"] = clip_norm
     if ema_decay is not None:
