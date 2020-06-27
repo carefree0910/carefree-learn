@@ -700,7 +700,7 @@ class Wrapper(LoggingMixin):
         if x_cv is not None:
             self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
         else:
-            if self._cv_split <= 0. or self._cv_split >= 1.:
+            if self._cv_split <= 0.:
                 self.cv_data = None
             else:
                 self.cv_data, self.tr_data = self.tr_data.split(self._cv_split)
