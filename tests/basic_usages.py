@@ -33,9 +33,8 @@ if __name__ == '__main__':
     data_folder = "sick"
     tr_file, cv_file, te_file = map(os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"])
 
-    metrics = ["acc", "auc"]
-    fcnn = cflearn.make(metrics=metrics)
-    tree_dnn = cflearn.make("tree_dnn", metrics=metrics)
+    fcnn = cflearn.make()
+    tree_dnn = cflearn.make("tree_dnn")
     fcnn.fit(tr_file, x_cv=cv_file)
     tree_dnn.fit(tr_file, x_cv=cv_file)
     wrappers = [fcnn, tree_dnn]
@@ -52,8 +51,7 @@ if __name__ == '__main__':
     num_repeat = 3
     models = ["nnb", "ndt"]
     transformer, results = cflearn.repeat_with(
-        tr_file, x_cv=cv_file,
-        models=models, metrics=metrics,
+        tr_file, x_cv=cv_file, models=models,
         num_repeat=num_repeat, num_parallel=min(num_repeat, 4)
     )
     (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(transformer.get_xy, [tr_file, cv_file, te_file])
@@ -63,9 +61,9 @@ if __name__ == '__main__':
         repeat_key = f"{model}_{num_repeat}"
         other_patterns[repeat_key] = results[model]
         other_patterns[f"{repeat_key}_ensemble"] = ensembles[model]
-    cflearn.estimate(tr_x, tr_y, metrics=metrics, wrappers=wrappers, other_patterns=other_patterns)
-    cflearn.estimate(cv_x, cv_y, metrics=metrics, wrappers=wrappers, other_patterns=other_patterns)
-    cflearn.estimate(te_x, te_y, metrics=metrics, wrappers=wrappers, other_patterns=other_patterns)
+    cflearn.estimate(tr_x, tr_y, wrappers=wrappers, other_patterns=other_patterns)
+    cflearn.estimate(cv_x, cv_y, wrappers=wrappers, other_patterns=other_patterns)
+    cflearn.estimate(te_x, te_y, wrappers=wrappers, other_patterns=other_patterns)
 
     # HPO
     cflearn.tune_with(
