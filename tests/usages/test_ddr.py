@@ -8,13 +8,11 @@ from cftool.misc import shallow_copy_dict
 from cflearn.models.ddr import DDRVisualizer
 
 
-power: int = 5
-verbose_level: int = 2
-anchor_ratios = quantiles = [0.1, 0.3, 0.5, 0.7, 0.9]
-fit, check_cdf, check_quantile = True, True, True
-
-
-if __name__ == '__main__':
+def test():
+    power: int = 2  # Set to 5 will get much better results, but will also be very time consuming.
+    verbose_level: int = 2
+    anchor_ratios = quantiles = [0.1, 0.3, 0.5, 0.7, 0.9]
+    fit, check_cdf, check_quantile = True, True, True
 
     n = 10 ** power
     n_cv = int(min(10000, n * 0.1))
@@ -78,13 +76,14 @@ if __name__ == '__main__':
     check(lambda x: x + 2 * x ** 2 + 3 * x * np.random.random(x.shape), "quad_linear")
     check(lambda x: np.sin(8 * x) + np.random.normal(0, 0.5 * np.ones_like(x)), "sin_constant")
     check(
-        lambda x: (
-            2 / (np.sqrt(3) * np.pi ** 0.25) * (1 - 25 * x ** 2) * np.exp(-12.5 * x ** 2)
-        ) + 0.5 * (np.random.random(x.shape) - 0.5), "mexican_hat_constant"
+        lambda x: (2 / (np.sqrt(3) * np.pi ** 0.25) * (1 - 25 * x ** 2) * np.exp(-12.5 * x ** 2))
+                   + 0.5 * (np.random.random(x.shape) - 0.5), "mexican_hat_constant"
     )
     check(
-        lambda x: (
-            np.sin(0.5 * (x + 1) * np.pi) +
-            np.random.normal(0, np.exp(np.sin(np.pi * (x + 1))))
-        ), "complex_complex"
+        lambda x: (np.sin(0.5 * (x + 1) * np.pi)
+                   + np.random.normal(0, np.exp(np.sin(np.pi * (x + 1))))), "complex_complex"
     )
+
+
+if __name__ == '__main__':
+    test()

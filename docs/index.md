@@ -275,7 +275,7 @@ params = {
 ```
 
 !!! info
-    It is also worth mentioning that we can pass file datasets into `cflearn.tune_with` as well. See `tests/basic_usages.py` for more details.
+    It is also worth mentioning that we can pass file datasets into `cflearn.tune_with` as well. See `tests/usages/test_basic.py` for more details.
 
 
 ## License

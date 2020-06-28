@@ -4,8 +4,12 @@ import cflearn
 from cfdata.tabular import *
 
 
-if __name__ == '__main__':
-    # Fit array dataset
+file_folder = os.path.dirname(__file__)
+data_folder = os.path.abspath(os.path.join(file_folder, os.pardir, "sick"))
+tr_file, cv_file, te_file = map(os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"])
+
+
+def test_array_dataset():
     model = "fcnn"
     dataset = TabularDataset.iris()
     m = cflearn.make(
@@ -29,10 +33,8 @@ if __name__ == '__main__':
     cflearn.save(m)
     cflearn.estimate(*dataset.xy, wrappers=cflearn.load())
 
-    # Fit file dataset
-    data_folder = "sick"
-    tr_file, cv_file, te_file = map(os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"])
 
+def test_file_dataset():
     fcnn = cflearn.make()
     tree_dnn = cflearn.make("tree_dnn")
     fcnn.fit(tr_file, x_cv=cv_file)
@@ -65,10 +67,17 @@ if __name__ == '__main__':
     cflearn.estimate(cv_x, cv_y, wrappers=wrappers, other_patterns=other_patterns)
     cflearn.estimate(te_x, te_y, wrappers=wrappers, other_patterns=other_patterns)
 
-    # HPO
+
+def test_hpo():
     cflearn.tune_with(
         tr_file,
         x_cv=cv_file,
         task_type=TaskTypes.CLASSIFICATION,
         num_repeat=2, num_parallel=2, num_search=10
     )
+
+
+if __name__ == '__main__':
+    test_array_dataset()
+    test_file_dataset()
+    test_hpo()
