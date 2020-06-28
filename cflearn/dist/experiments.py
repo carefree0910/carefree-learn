@@ -1,4 +1,5 @@
 import os
+import torch
 
 from typing import *
 from itertools import product
@@ -11,6 +12,8 @@ from ..bases import data_type
 class Experiments:
     def __init__(self,
                  available_cuda_list: List[int] = None):
+        if available_cuda_list is None and not torch.cuda.is_available():
+            available_cuda_list = []
         self.cuda_list = available_cuda_list
 
     def run(self,
