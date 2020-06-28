@@ -21,7 +21,7 @@ class DDRLoss(nn.Module, LoggingMixin):
         self._use_anneal, self._anneal_step = config["use_anneal"], config["anneal_step"]
         self._median_pressure = config.setdefault("median_pressure", 3.)
         self._median_pressure_inv = 1. / self._median_pressure
-        self.mtl = MTL(16, config["mtl_method"], device)
+        self.mtl = MTL(16, config["mtl_method"])
         self._target_loss_warned = False
         self._zero = torch.zeros([1], dtype=torch.float32).to(device)
         if self._use_anneal:
