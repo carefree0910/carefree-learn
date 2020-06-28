@@ -121,7 +121,7 @@ def make(model: str = "fcnn",
          logging_file: str = None,
          logging_folder: str = None,
          trigger_logging: bool = None,
-         cuda: Union[int, str] = 0,
+         cuda: Union[int, str] = None,
          verbose_level: int = 2,
          use_tqdm: bool = True,
          **kwargs) -> Wrapper
@@ -184,7 +184,7 @@ def make(model: str = "fcnn",
     + Specify the logging folder.
 + **`trigger_logging`** [default = `:::python False`]
     + Whether log messages into a log file.
-+ **`cuda`** [default = `:::python 0`]
++ **`cuda`** [default = `:::python None`]
     + Specify the working GPU.
 + **`verbose_level`** [default = `:::python 2`]
     + Specify the verbose level.

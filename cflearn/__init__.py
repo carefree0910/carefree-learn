@@ -57,7 +57,7 @@ def make(model: str = "fcnn",
          logging_file: str = None,
          logging_folder: str = None,
          trigger_logging: bool = None,
-         cuda: Union[int, str] = 0,
+         cuda: Union[int, str] = None,
          verbose_level: int = 2,
          use_tqdm: bool = True,
          **kwargs) -> Wrapper:

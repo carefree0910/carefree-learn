@@ -27,7 +27,7 @@ class Task:
             y: data_type = None,
             x_cv: data_type = None,
             y_cv: data_type = None,
-            cuda: int = 0,
+            cuda: int = None,
             **kwargs) -> "Task":
         kwargs["logging_folder"] = self.saving_folder
         m = make(self.model, cuda=cuda, **kwargs)

@@ -85,18 +85,13 @@ class EMA(nn.Module):
 class MTL(nn.Module):
     def __init__(self,
                  num_tasks: int,
-                 method: str = None,
-                 device: torch.device = None):
+                 method: str = None):
         super().__init__()
         self._n_task, self._method = num_tasks, method
-        if device is not None:
-            self._device = device
-        else:
-            self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if method is None or method == "naive":
             pass
         elif method == "softmax":
-            self.w = torch.nn.Parameter(torch.ones(num_tasks).to(self._device))
+            self.w = torch.nn.Parameter(torch.ones(num_tasks))
         else:
             raise NotImplementedError(f"MTL method '{method}' not implemented")
         self._slice, self.registered, self._registered = None, False, {}

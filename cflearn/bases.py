@@ -648,9 +648,13 @@ class Wrapper(LoggingMixin):
                  config: Union[str, Dict[str, Any]] = None,
                  *,
                  increment_config: Union[str, Dict[str, Any]] = None,
-                 cuda: Union[str, int] = 0,
+                 cuda: Union[str, int] = None,
                  verbose_level: int = 2):
-        self._verbose_level, self.device = int(verbose_level), torch.device(f"cuda:{cuda}")
+        self._verbose_level = int(verbose_level)
+        if cuda is not None:
+            self.device = torch.device(f"cuda:{cuda}")
+        else:
+            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.config, increment_config = map(self._get_config, [config, increment_config])
         update_dict(increment_config, self.config)
         self._init_config()
@@ -802,7 +806,7 @@ class Wrapper(LoggingMixin):
     def load(cls,
              folder: str,
              *,
-             cuda: int = 0,
+             cuda: int = None,
              verbose_level: int = 0,
              compress: bool = True) -> "Wrapper":
         base_folder = os.path.dirname(os.path.abspath(folder))
