@@ -6,7 +6,7 @@ from itertools import product
 from cftool.dist import Parallel
 
 from .task import Task
-from ..bases import data_type
+from ..misc.toolkit import data_type
 
 
 class Experiments:
@@ -41,12 +41,17 @@ class Experiments:
         elif isinstance(identifiers, str):
             identifiers = [identifiers]
         kwargs["use_tqdm"] = use_tqdm_in_task
-        _task = lambda i, id_tuple: Task(i, *id_tuple, temp_folder).fit(make, save, x, y, x_cv, y_cv, **kwargs)
+
+        def _task(i, id_tuple, cuda=None):
+            t = Task(i, *id_tuple, temp_folder)
+            return t.fit(make, save, x, y, x_cv, y_cv, cuda, **kwargs)
+
         arguments = list(product(map(str, range(num_repeat)), zip(models, identifiers)))
         parallel_arguments = list(zip(*arguments))
         parallel = Parallel(
             num_parallel,
             use_tqdm=use_tqdm,
+            use_cuda=torch.cuda.is_available(),
             logging_folder=os.path.join(temp_folder, "_parallel_"),
             resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
         )
