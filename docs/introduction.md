@@ -1,7 +1,7 @@
 # Introduction
 
 *[EMA]: Exponential Moving Average
-*[DDR]: Deep Distributional Regression
+*[DDR]: Deep Distribution Regression
 *[DNDF]: Deep Neural Decision Forests
 
 ---
@@ -285,7 +285,7 @@ Although `losses` are what we optimize directly during training, `metrics` are w
 + An EMA with `:::python decay = 0.1` will be used.
 + Every metrics will be treated as equal. 
 
-So `carefree-learn` will construct the following configuration for you (take classification tasks as an example):
+So `carefree-learn` will construct the following configurations for you by default (take classification tasks as an example):
 
 ```json
 {
@@ -301,9 +301,24 @@ So `carefree-learn` will construct the following configuration for you (take cla
 }
 ```
 
+It's worth mentioning that `carefree-learn` also supports using losses as metrics:
+
+```json
+{
+    ...,
+    "pipeline_config": {
+        ...,
+        "metric_config": {
+            "decay": 0.1,
+            "types": ["loss"]
+        }
+    }
+}
+```
+
 ### optimizers
 
-Sometimes we may want to have different optimizers to optimize different group of parameters. In order to make things easier with flexibility and control, we decided to introduce the **`optimizers`** scope (under the **`pipeline_config`** scope). By default, **all** parameters will be optimized via one single optimizer, so `carefree-learn` will construct the following configuration for you:
+Sometimes we may want to have different optimizers to optimize different group of parameters. In order to make things easier with flexibility and control, we decided to introduce the **`optimizers`** scope (under the **`pipeline_config`** scope). By default, **all** parameters will be optimized via one single optimizer, so `carefree-learn` will construct the following configurations for you by default:
 
 ```json
 {
@@ -327,7 +342,7 @@ If we need to apply different optimizers on different parameters (which is quite
 + Define a `property` in your `Model` which returns a list of parameters you want to optimize.
 + Define the corresponding optimizer configs with `property`'s name as the dictionary key.
 
-Heres an example:
+Here's an example:
 
 ```python
 from cflearn.bases import ModelBase
@@ -336,11 +351,11 @@ from cflearn.bases import ModelBase
 class Foo(ModelBase):
     @property
     def params1(self):
-        return ...
+        return [self.p1, self.p2, ...]
     
     @property
     def params2(self):
-        return ...
+        return [self.p1, self.p3, ...]
 ```
 
 ```json
@@ -368,4 +383,4 @@ class Foo(ModelBase):
 
 [^1]: [**D**eep **N**eural **D**ecision **F**orests](https://www.cv-foundation.org/openaccess/content_iccv_2015/papers/Kontschieder_Deep_Neural_Decision_ICCV_2015_paper.pdf){target=_blank}
 
-[^2]: [**D**eep **D**istributional **R**egression](https://arxiv.org/pdf/1911.05441.pdf){target=_blank}
+[^2]: [**D**eep **D**istribution **R**egression](https://arxiv.org/pdf/1911.05441.pdf){target=_blank}
