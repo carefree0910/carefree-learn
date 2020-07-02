@@ -25,9 +25,9 @@ class TreeDNN(FCNN):
             self._use_embedding_for_fc = self._use_one_hot_for_fc = True
         fc_in_dim = self.merged_dim
         if not self._use_embedding_for_fc:
-            fc_in_dim -= encoding_dims["embedding"]
+            fc_in_dim -= encoding_dims.get("embedding", 0)
         if not self._use_one_hot_for_fc:
-            fc_in_dim -= encoding_dims["one_hot"]
+            fc_in_dim -= encoding_dims.get("one_hot", 0)
         self._fc_in_dim = fc_in_dim
         self._init_fcnn()
         # dndf
@@ -66,6 +66,8 @@ class TreeDNN(FCNN):
         if not use_embedding and not use_one_hot:
             return numerical
         categorical = split_result.categorical
+        if not categorical:
+            return numerical
         if not use_one_hot:
             return torch.cat([numerical, categorical["embedding"]], dim=1)
         if not use_embedding:
