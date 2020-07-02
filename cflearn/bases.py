@@ -2,6 +2,7 @@ import os
 import json
 import torch
 import pprint
+import shutil
 import inspect
 import logging
 
@@ -250,6 +251,12 @@ class Pipeline(nn.Module, LoggingMixin):
             "checkpoint_folder",
             os.path.join(self.logging_folder, "checkpoints")
         )
+        if os.path.isdir(self.checkpoint_folder):
+            self.log_msg(
+                f"'{self.checkpoint_folder}' already exists, all of its contents will be removed",
+                self.warning_prefix, msg_level=logging.WARNING
+            )
+            shutil.rmtree(self.checkpoint_folder)
 
     def _init_data(self, tr_data, cv_data):
         self.tr_data, self.cv_data = tr_data, cv_data
