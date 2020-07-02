@@ -730,6 +730,7 @@ class Wrapper(LoggingMixin):
             x_cv: data_type = None,
             y_cv: data_type = None) -> "Wrapper":
         # data
+        y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
         self._data_config["verbose_level"] = self._verbose_level
         self.tr_data = TabularData(**self._data_config).read(*args, **self._read_config)

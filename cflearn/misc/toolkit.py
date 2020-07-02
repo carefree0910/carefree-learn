@@ -21,6 +21,16 @@ def to_numpy(tensor: torch.Tensor) -> np.ndarray:
     return tensor.detach().cpu().numpy()
 
 
+def to_2d(arr: data_type) -> data_type:
+    if arr is None or isinstance(arr, str):
+        return
+    if isinstance(arr, np.ndarray):
+        return arr.reshape([len(arr), -1])
+    if isinstance(arr[0], list):
+        return arr
+    return [[elem] for elem in arr]
+
+
 def get_gradient(y, x, retain_graph=False, create_graph=False):
     grads = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph, create_graph)
     if len(grads) == 1:
@@ -521,7 +531,7 @@ class eval_context(context_error_handler):
 
 
 __all__ = [
-    "to_torch", "to_numpy", "get_gradient",
     "tensor_dict_type", "data_type",
+    "to_torch", "to_numpy", "to_2d", "get_gradient",
     "Initializer", "Activations", "TrainMonitor", "eval_context"
 ]

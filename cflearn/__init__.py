@@ -14,7 +14,7 @@ from .dist import *
 from .bases import *
 from .models import *
 from .modules import *
-from .misc.toolkit import eval_context, Initializer
+from .misc.toolkit import *
 
 
 # register
@@ -297,7 +297,9 @@ def tune_with(x: data_type,
                 y_cv = tr_data.transform(x_cv).y
             else:
                 y_cv = tr_data.transform_labels(y_cv)
-    elif y is None:
+    elif y is not None:
+        y = to_2d(y)
+    else:
         raise ValueError("`x` should be a file when `y` is not provided")
 
     def _creator(x_, y_, params_) -> Dict[str, List[Task]]:
@@ -395,7 +397,9 @@ def estimate(x: data_type,
     else:
         wrappers = _to_wrappers(wrappers)
         for name, wrapper in wrappers.items():
-            if y is None:
+            if y is not None:
+                y = to_2d(y)
+            else:
                 x, y = wrapper.tr_data.read_file(x)
                 y = wrapper.tr_data.transform(x, y).y
             if metrics is None:
