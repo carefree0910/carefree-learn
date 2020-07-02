@@ -754,7 +754,11 @@ class Wrapper(LoggingMixin):
                 self._is_binary = True
                 x, y = self.tr_data.raw.x, self.tr_data.processed.y
                 probabilities = self.predict_prob(x)
-                self._binary_threshold = Metrics.get_binary_threshold(y, probabilities, self._binary_metric)
+                try:
+                    threshold = Metrics.get_binary_threshold(y, probabilities, self._binary_metric)
+                    self._binary_threshold = threshold
+                except ValueError:
+                    self._binary_threshold = None
         # logging
         self.log_timing()
         return self
