@@ -21,7 +21,6 @@ from abc import ABCMeta, abstractmethod
 from .modules import *
 from .misc.toolkit import *
 
-data_type = Union[np.ndarray, List[List[float]], str]
 model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
@@ -835,4 +834,4 @@ class Wrapper(LoggingMixin):
         return wrapper
 
 
-__all__ = ["ModelBase", "model_dict", "Pipeline", "Wrapper", "data_type"]
+__all__ = ["ModelBase", "model_dict", "Pipeline", "Wrapper"]
