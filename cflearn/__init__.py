@@ -35,6 +35,7 @@ def register_processor(name):
 def make(model: str = "fcnn",
          *,
          delim: str = None,
+         task_type: str = None,
          skip_first: bool = None,
          cv_split: Union[float, int] = 0.1,
          min_epoch: int = None,
@@ -70,6 +71,8 @@ def make(model: str = "fcnn",
         read_config = {}
     if delim is not None:
         read_config["delim"] = delim
+    if task_type is not None:
+        data_config["task_type"] = TaskTypes.from_str(task_type)
     if skip_first is not None:
         read_config["skip_first"] = skip_first
     kwargs["read_config"] = read_config
@@ -455,11 +458,11 @@ def load(identifier: str = "cflearn",
 
 # others
 
-def make_toy_model(config: Dict[str, Any] = None,
+def make_toy_model(model: str = "fcnn",
+                   config: Dict[str, Any] = None,
                    *,
-                   model: str = "fcnn",
                    task_type: str = "reg",
-                   data_tuple: Tuple[List] = None) -> Wrapper:
+                   data_tuple: Tuple[data_type, data_type] = None) -> Wrapper:
     if config is None:
         config = {}
     if data_tuple is None:
@@ -469,13 +472,24 @@ def make_toy_model(config: Dict[str, Any] = None,
             data_tuple = [[0], [1]], [[1], [0]]
     base_config = {
         "model": model,
-        "model_config": {"mapping_configs": {"batch_norm": False}},
+        "model_config": {
+            "hidden_units": [100],
+            "mapping_configs": {"dropout": False, "batch_norm": False}
+        },
         "cv_split": 0.,
         "trigger_logging": False,
-        "data_config": {"valid_columns": [0], "task_type": TaskTypes.from_str(task_type)}
+        "min_epoch": 250, "num_epoch": 500, "max_epoch": 1000,
+        "optimizer": "sgd",
+        "optimizer_config": {"lr": 0.01},
+        "task_type": task_type,
+        "data_config": {
+            "valid_columns": list(range(len(data_tuple[0]))),
+            "label_process_method": "identical"
+        },
+        "verbose_level": 0
     }
-    wrapper = Wrapper(update_dict(config, base_config), verbose_level=0)
-    return wrapper.fit(*data_tuple)
+    config = update_dict(config, base_config)
+    return make(**config).fit(*data_tuple)
 
 
 __all__ = [
