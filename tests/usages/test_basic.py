@@ -32,6 +32,7 @@ def test_array_dataset():
     cflearn.estimate(*dataset.xy, wrappers=m)
     cflearn.save(m)
     cflearn.estimate(*dataset.xy, wrappers=cflearn.load())
+    cflearn._remove()
 
 
 def test_file_dataset():
@@ -48,6 +49,7 @@ def test_file_dataset():
     cflearn.estimate(tr_file, wrappers=wrappers)
     cflearn.estimate(cv_file, wrappers=wrappers)
     cflearn.estimate(te_file, wrappers=wrappers)
+    cflearn._remove()
 
     # Distributed
     num_repeat = 3

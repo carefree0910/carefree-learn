@@ -463,6 +463,14 @@ def load(identifier: str = "cflearn",
     return wrappers
 
 
+def _remove(identifier: str = "cflearn",
+            saving_folder: str = None) -> None:
+    for path in _fetch_saving_paths(identifier, saving_folder).values():
+        path = f"{path}.zip"
+        print(f"{LoggingMixin.info_prefix}removing {path}...")
+        os.remove(path)
+
+
 # others
 
 def make_toy_model(model: str = "fcnn",
