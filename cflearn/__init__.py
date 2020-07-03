@@ -434,9 +434,9 @@ def save(wrappers: wrappers_type,
     return wrappers
 
 
-def load(identifier: str = "cflearn",
-         saving_folder: str = None) -> wrappers_dict_type:
-    wrappers = {}
+def _fetch_saving_paths(identifier: str = "cflearn",
+                        saving_folder: str = None) -> Dict[str, str]:
+    paths = {}
     saving_path = _to_saving_path(identifier, saving_folder)
     saving_path = os.path.abspath(saving_path)
     base_folder = os.path.dirname(saving_path)
@@ -450,9 +450,16 @@ def load(identifier: str = "cflearn",
             *folder, name = existing_model.split(SAVING_DELIM)
             if os.path.join(base_folder, SAVING_DELIM.join(folder)) != saving_path:
                 continue
-            wrappers[name] = Wrapper.load(_make_saving_path(name, saving_path, False), compress=True)
+            paths[name] = _make_saving_path(name, saving_path, False)
+    return paths
+
+
+def load(identifier: str = "cflearn",
+         saving_folder: str = None) -> wrappers_dict_type:
+    paths = _fetch_saving_paths(identifier, saving_folder)
+    wrappers = {k: Wrapper.load(v, compress=True) for k, v in paths.items()}
     if not wrappers:
-        raise ValueError(f"'{saving_path}' was not a valid saving path")
+        raise ValueError(f"'{identifier}' models not found with `saving_folder`={saving_folder}")
     return wrappers
 
 
