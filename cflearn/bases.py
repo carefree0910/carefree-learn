@@ -780,7 +780,7 @@ class Wrapper(LoggingMixin):
                 return predictions
             return {k: recover(v) for k, v in predictions.items()}
         probabilities = self.predict_prob(x, **kwargs)
-        if not self._is_binary:
+        if not self._is_binary or self._binary_threshold is None:
             return probabilities.argmax(1).reshape([-1, 1])
         return (probabilities[..., 1] >= self._binary_threshold).astype(np.int).reshape([-1, 1])
 
