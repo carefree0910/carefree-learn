@@ -40,6 +40,12 @@ After installing PyTorch, installation of `carefree-learn` would be rather easy:
 + *Tips: if you pre-installed PyTorch with conda, remember to activate the corresponding environment!*
 
 ```bash
+pip install carefree-learn
+```
+
+or
+
+```bash
 git clone https://github.com/carefree0910/carefree-learn.git
 cd carefree-learn
 pip install -e .
@@ -47,6 +53,8 @@ pip install -e .
 
 
 ## Examples
+
+For detailed information, please visit the [documentation](http://carefree0910.me/carefree-learn-doc).
 
 ### Quick Start
 

@@ -134,7 +134,7 @@ In `carefree-learn`, a `Pipeline` should implement the high-level parts, as list
 !!! info
     + Source codes path: [bases.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/bases.py){target=_blank} -> `class Wrapper`.
 
-In `carefree-learn`, a `Wrapper` should implement the preparation part.
+In `carefree-learn`, a `Wrapper` should implement the preparation and API part.
 
 + It should not make any assumptions to the input data, it could already be 'nice and clean', but it could also be 'dirty and messy'. Therefore, it needs to transform the original data into 'nice and clean' data and then feed it to `Pipeline`. The data transformations include (this part is mainly handled by [`carefree-data`](https://github.com/carefree0910/carefree-data){target=_blank}, though):
     + Imputation of missing values.
