@@ -50,7 +50,7 @@ class Task:
             **kwargs) -> "Task":
         kwargs["cuda"] = cuda
         kwargs["logging_folder"] = self.saving_folder
-        if not IS_LINUX or not torch.cuda.is_available():
+        if not IS_LINUX:
             m = make(self.model, **kwargs)
             m.fit(x, y, x_cv, y_cv)
             save(m, saving_folder=self.saving_folder)
