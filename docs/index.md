@@ -1,6 +1,6 @@
 # carefree-learn
 
-`carefree-learn` is a a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on [PyTorch](https://pytorch.org/){target=_blank}.
+`carefree-learn` is a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on [PyTorch](https://pytorch.org/){target=_blank}.
 
 #### Why carefree-learn?
 
