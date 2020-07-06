@@ -208,7 +208,7 @@ def repeat_with(x: data_type,
     elif isinstance(identifiers, str):
         identifiers = [identifiers]
 
-    kwargs["trigger_logging"] = False
+    kwargs.setdefault("trigger_logging", False)
     kwargs["verbose_level"] = 0
 
     tasks = patterns = None
