@@ -214,13 +214,14 @@ class Pipeline(nn.Module, LoggingMixin):
     def __init__(self,
                  model: ModelBase,
                  config: Dict[str, Any],
-                 verbose_level: int):
+                 verbose_level: int,
+                 is_loading: bool):
         super().__init__()
-        self._init_config(config)
+        self._init_config(config, is_loading)
         self.model = model
         self._verbose_level = verbose_level
 
-    def _init_config(self, config):
+    def _init_config(self, config, is_loading):
         self._wrapper_config = config
         self.config = config.setdefault("pipeline_config", {})
         self.batch_size = self.config.setdefault("batch_size", 128)
@@ -250,7 +251,7 @@ class Pipeline(nn.Module, LoggingMixin):
             "checkpoint_folder",
             os.path.join(self.logging_folder, "checkpoints")
         )
-        if os.path.isdir(self.checkpoint_folder):
+        if not is_loading and os.path.isdir(self.checkpoint_folder):
             self.log_msg(
                 f"'{self.checkpoint_folder}' already exists, all of its contents will be removed",
                 self.warning_prefix, msg_level=logging.WARNING
@@ -711,13 +712,15 @@ class Wrapper(LoggingMixin):
         self.config["_logging_path_"] = logging_path
         self._init_logging(self._verbose_level, self.config.setdefault("trigger_logging", False))
 
-    def _prepare_modules(self):
+    def _prepare_modules(self,
+                         *,
+                         is_loading: bool = False):
         # model
         with timing_context(self, "init model"):
             self.model = model_dict[self._model](self.config, self.tr_data, self.device)
         # pipeline
         with timing_context(self, "init pipeline"):
-            self.pipeline = Pipeline(self.model, self.config, self._verbose_level)
+            self.pipeline = Pipeline(self.model, self.config, self._verbose_level, is_loading)
         # to device
         with timing_context(self, "init device"):
             self.pipeline.to(self.device)
@@ -831,7 +834,7 @@ class Wrapper(LoggingMixin):
                 cv_data = None
                 if os.path.isdir(cv_data_folder) or os.path.isfile(f"{cv_data_folder}.zip"):
                     cv_data = wrapper.cv_data = TabularData.load(cv_data_folder, compress=compress)
-                wrapper._prepare_modules()
+                wrapper._prepare_modules(is_loading=True)
                 pipeline = wrapper.pipeline
                 pipeline.restore_checkpoint(folder)
                 pipeline._init_data(tr_data, cv_data)
