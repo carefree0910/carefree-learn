@@ -13,49 +13,55 @@ jobs:
     strategy:
       matrix:
         python-version: [3.6, 3.7, 3.8]
-        os: [ubuntu-latest, macos-latest]
-        exclude:
-          - os: macos-latest
-            python-version: 3.8
+        os: [ubuntu-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v2
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install torch===1.5.1 torchvision===0.6.1 -f https://download.pytorch.org/whl/torch_stable.html
-        pip install -e .
-    - name: Test with pytest
-      run: |
-        pip install pytest
-        pip install pytest-cov
-        pytest -v --cov
+      - uses: actions/checkout@v2
+      - uses: goanpeca/setup-miniconda@v1
+        with:
+          miniconda-version: "latest"
+          activate-environment: test
+          python-version: ${{ matrix.python-version }}
+      - name: Install dependencies
+        shell: bash -l {0}
+        run: |
+          conda info
+          conda list
+          conda install numpy scipy
+          conda install pytorch torchvision cpuonly -c pytorch
+          pip install -e .
+      - name: Test with pytest
+        shell: bash -l {0}
+        run: |
+          pip install pytest
+          pip install pytest-cov
+          pytest -v --cov
 
   build2:
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
-        os: [windows-latest]
+        python-version: [3.6, 3.7]
+        os: [macos-latest]
 
     steps:
       - uses: actions/checkout@v2
       - uses: goanpeca/setup-miniconda@v1
         with:
-          auto-update-conda: true
+          miniconda-version: "latest"
+          activate-environment: test
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
+        shell: bash -l {0}
         run: |
-          python -m pip install --upgrade pip
+          conda info
+          conda list
           conda install numpy scipy
           conda install pytorch torchvision cpuonly -c pytorch
           pip install -e .
       - name: Test with pytest
+        shell: bash -l {0}
         run: |
           pip install pytest
           pip install pytest-cov
