@@ -386,6 +386,7 @@ def estimate(x: data_type,
              wrappers: wrappers_type = None,
              metrics: Union[str, List[str]] = None,
              other_patterns: Dict[str, patterns_type] = None,
+             comparer_verbose_level: Union[int, None] = 1,
              **kwargs) -> Comparer:
     patterns = {}
     if isinstance(metrics, str):
@@ -420,7 +421,7 @@ def estimate(x: data_type,
         update_dict(other_patterns, patterns)
     estimators = list(map(Estimator, metrics))
     comparer = Comparer(patterns, estimators)
-    comparer.compare(x, y)
+    comparer.compare(x, y, verbose_level=comparer_verbose_level)
     return comparer
 
 
