@@ -694,6 +694,7 @@ class Wrapper(LoggingMixin):
     def _init_config(self):
         self._data_config = self.config.setdefault("data_config", {})
         self._data_config["default_categorical_process"] = "identical"
+        self._data_config.setdefault("process_methods", {})
         self._read_config = self.config.setdefault("read_config", {})
         self._cv_split = self.config.setdefault("cv_split", 0.1)
         self._model = self.config.setdefault("model", "fcnn")
