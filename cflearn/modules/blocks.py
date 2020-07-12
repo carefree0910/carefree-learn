@@ -147,6 +147,7 @@ class DNDF(nn.Module):
         tree_proj_config = self._setup_tree_proj(tree_proj_config)
         self.tree_proj = Linear(in_dim, self._num_internals * self._num_tree, **tree_proj_config)
         self.leafs = nn.Parameter(torch.empty(self._num_tree, self._num_leaf, self._output_dim))
+        torch.nn.init.xavier_uniform_(self.leafs.data)
 
     @staticmethod
     def _setup_tree_proj(tree_proj_config):
