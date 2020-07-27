@@ -17,28 +17,38 @@ class FCNN(ModelBase):
         super().__init__(config, tr_data, device)
         self._init_fcnn()
 
-    def _init_config(self,
-                     tr_data: TabularData):
-        super()._init_config(tr_data)
+    def _init_fcnn_config(self):
         self._fc_in_dim, self._fc_out_dim = map(self.config.get, ["fc_in_dim", "fc_out_dim"])
-        self.hidden_units = self.config.setdefault("hidden_units", [256, 256])
+        self.out_dim = max(self.tr_data.num_classes, 1)
+        if self._fc_in_dim is None:
+            self._fc_in_dim = self.merged_dim
+        if self._fc_out_dim is None:
+            self._fc_out_dim = self.out_dim
+        if self._fc_in_dim > 512:
+            hidden_units = [1024, 1024]
+        elif self._fc_in_dim > 256:
+            if len(self.tr_data) >= 10000:
+                hidden_units = [1024, 1024]
+            else:
+                hidden_units = [2 * self._fc_in_dim, 2 * self._fc_in_dim]
+        else:
+            if len(self.tr_data) >= 100000:
+                hidden_units = [768, 768]
+            elif len(self.tr_data) >= 10000:
+                hidden_units = [512, 512]
+            else:
+                hidden_units = [2 * self._fc_in_dim, 2 * self._fc_in_dim]
+        self.hidden_units = self.config.setdefault("hidden_units", hidden_units)
         self.mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(self.mapping_configs, dict):
             self.mapping_configs = [self.mapping_configs] * len(self.hidden_units)
-        self.out_dim = max(tr_data.num_classes, 1)
 
     def _init_fcnn(self):
-        if self._fc_in_dim is not None:
-            in_dim = self._fc_in_dim
-        else:
-            in_dim = self._fc_in_dim = self.merged_dim
-        if self._fc_out_dim is not None:
-            out_dim = self._fc_out_dim
-        else:
-            out_dim = self._fc_out_dim = self.out_dim
+        self._init_fcnn_config()
         final_mapping_config = self.config.setdefault("final_mapping_config", {})
         self.mlp = MLP(
-            in_dim, out_dim, self.hidden_units, self.mapping_configs,
+            self._fc_in_dim, self._fc_out_dim,
+            self.hidden_units, self.mapping_configs,
             final_mapping_config=final_mapping_config
         )
 

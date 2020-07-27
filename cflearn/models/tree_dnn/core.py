@@ -28,7 +28,7 @@ class TreeDNN(FCNN):
             fc_in_dim -= encoding_dims.get("embedding", 0)
         if not self._use_one_hot_for_fc:
             fc_in_dim -= encoding_dims.get("one_hot", 0)
-        self._fc_in_dim = fc_in_dim
+        self.config["fc_in_dim"] = fc_in_dim
         self._init_fcnn()
         # dndf
         dndf_config = config.setdefault("dndf_config", {})
@@ -54,6 +54,9 @@ class TreeDNN(FCNN):
 
     def _preset_config(self,
                        tr_data: TabularData):
+        mapping_configs = self.config.setdefault("mapping_configs", {})
+        if isinstance(mapping_configs, dict):
+            mapping_configs.setdefault("pruner_config", {})
         self.config.setdefault("default_encoding_method", ["one_hot", "embedding"])
 
     @staticmethod
