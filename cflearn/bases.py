@@ -15,12 +15,13 @@ from cftool.misc import *
 from cfdata.tabular import *
 from tqdm import tqdm
 from functools import partial
-
+from trains import Task, Logger
 from abc import ABCMeta, abstractmethod
 
 from .modules import *
 from .misc.toolkit import *
 
+trains_logger: Union[Logger, None] = None
 model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
@@ -492,6 +493,13 @@ class Pipeline(nn.Module, LoggingMixin):
                 use_decayed = True
                 decayed_metrics[metric_type] = self.metrics_decay[metric_type].update("metric", sub_metric)
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
+        if trains_logger is not None:
+            for name, value in metrics_for_scoring.items():
+                trains_logger.report_scalar(
+                    title="Evaluating",
+                    series=name, value=value,
+                    iteration=self._step_count
+                )
         weighted_scores = [v * signs[k] * self.metrics_weights[k] for k, v in metrics_for_scoring.items()]
         score = sum(weighted_scores) / len(weighted_scores)
 
@@ -570,6 +578,13 @@ class Pipeline(nn.Module, LoggingMixin):
                         forward_results = self.model(batch)
                     with timing_context(self, "loss.forward"):
                         loss_dict = self.model.loss_function(batch, forward_results)
+                    if trains_logger is not None:
+                        for name, tensor in loss_dict.items():
+                            trains_logger.report_scalar(
+                                "Training",
+                                series=name, value=tensor.item(),
+                                iteration=self._step_count
+                            )
                     with timing_context(self, "loss.backward"):
                         loss_dict["loss"].backward()
                     if self._clip_norm > 0.:
@@ -726,13 +741,11 @@ class Wrapper(LoggingMixin):
         with timing_context(self, "init device"):
             self.pipeline.to(self.device)
 
-    # api
-
-    def fit(self,
-            x: data_type,
-            y: data_type = None,
-            x_cv: data_type = None,
-            y_cv: data_type = None) -> "Wrapper":
+    def _before_loop(self,
+                     x: data_type,
+                     y: data_type = None,
+                     x_cv: data_type = None,
+                     y_cv: data_type = None):
         # data
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
@@ -747,6 +760,8 @@ class Wrapper(LoggingMixin):
                 self.cv_data, self.tr_data = self.tr_data.split(self._cv_split)
         # modules
         self._prepare_modules()
+
+    def _loop(self):
         # training loop
         self.pipeline(self.tr_data, self.cv_data)
         # binary threshold
@@ -765,6 +780,58 @@ class Wrapper(LoggingMixin):
                     self._binary_threshold = None
         # logging
         self.log_timing()
+
+    # api
+
+    def fit(self,
+            x: data_type,
+            y: data_type = None,
+            x_cv: data_type = None,
+            y_cv: data_type = None) -> "Wrapper":
+        self._before_loop(x, y, x_cv, y_cv)
+        self._loop()
+        return self
+
+    def trains(self,
+               x: data_type,
+               y: data_type = None,
+               x_cv: data_type = None,
+               y_cv: data_type = None,
+               *,
+               trains_config: Dict[str, Any] = None,
+               keep_task_open: bool = False,
+               queue: str = None) -> "Wrapper":
+        if trains_config is None:
+            return self.fit(x, y, x_cv, y_cv)
+        # init trains
+        if trains_config is None:
+            trains_config = {}
+        project_name = trains_config.get("project_name")
+        task_name = trains_config.get("task_name")
+        if queue is None:
+            task = Task.init(**trains_config)
+            cloned_task = None
+        else:
+            task = Task.get_task(project_name=project_name, task_name=task_name)
+            cloned_task = Task.clone(source_task=task, parent=task.id)
+        # before loop
+        self._verbose_level = 6
+        self._data_config["verbose_level"] = 6
+        self._before_loop(x, y, x_cv, y_cv)
+        self.pipeline.use_tqdm = False
+        copied_config = shallow_copy_dict(self.config)
+        if queue is not None:
+            cloned_task.set_parameters(copied_config)
+            Task.enqueue(cloned_task.id, queue)
+            return self
+        # loop
+        task.connect(copied_config)
+        global trains_logger
+        trains_logger = task.get_logger()
+        self._loop()
+        if not keep_task_open:
+            task.close()
+            trains_logger = None
         return self
 
     def predict(self,
