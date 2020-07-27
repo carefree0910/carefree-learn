@@ -18,46 +18,55 @@ class TreeDNN(FCNN):
                  device: torch.device):
         super(FCNN, self).__init__(config, tr_data, device)
         encoding_dims = self.encoding_dims
+        embedding_dims = encoding_dims.get("embedding", 0)
+        one_hot_dims = encoding_dims.get("one_hot", 0)
         # fc
-        self._use_embedding_for_fc = self.config.setdefault("use_embedding_for_fc", True)
-        self._use_one_hot_for_fc = self.config.setdefault("use_one_hot_for_fc", False)
         if not self._numerical_columns:
-            self._use_embedding_for_fc = self._use_one_hot_for_fc = True
+            self._use_embedding_for_fc = True
+            self._use_one_hot_for_fc = "one_hot" in self._default_encoding_method
         fc_in_dim = self.merged_dim
         if not self._use_embedding_for_fc:
-            fc_in_dim -= encoding_dims.get("embedding", 0)
+            fc_in_dim -= embedding_dims
         if not self._use_one_hot_for_fc:
-            fc_in_dim -= encoding_dims.get("one_hot", 0)
+            fc_in_dim -= one_hot_dims
         self.config["fc_in_dim"] = fc_in_dim
         self._init_fcnn()
         # dndf
-        dndf_config = self.config.setdefault("dndf_config", {})
-        if dndf_config is None:
+        if self._dndf_config is None:
             self.log_msg(
                 "DNDF is not used in TreeDNN, it will be equivalent to FCNN",
                 self.warning_prefix, 2, logging.WARNING
             )
             self.dndf = None
         else:
-            dndf_config["is_regression"] = tr_data.is_reg
-            dndf_config.setdefault("tree_proj_config", None)
-            self._use_embedding_for_dndf = self.config.setdefault("use_embedding_for_dndf", True)
-            self._use_one_hot_for_dndf = self.config.setdefault("use_one_hot_for_dndf", True)
+            self._dndf_config["is_regression"] = tr_data.is_reg
+            self._dndf_config.setdefault("tree_proj_config", None)
             if not self._numerical_columns:
-                self._use_one_hot_for_dndf = self._use_embedding_for_dndf = True
+                self._use_embedding_for_dndf = True
+                self._use_one_hot_for_dndf = "one_hot" in self._default_encoding_method
             dndf_input_dim = self.merged_dim
             if not self._use_embedding_for_dndf:
-                dndf_input_dim -= encoding_dims["embedding"]
+                dndf_input_dim -= embedding_dims
             if not self._use_one_hot_for_dndf:
-                dndf_input_dim -= encoding_dims["one_hot"]
-            self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **dndf_config)
+                dndf_input_dim -= one_hot_dims
+            self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **self._dndf_config)
 
     def _preset_config(self,
                        tr_data: TabularData):
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("pruner_config", {})
-        self.config.setdefault("default_encoding_method", ["one_hot", "embedding"])
+        self._use_embedding_for_fc = self.config.setdefault("use_embedding_for_fc", True)
+        self._use_one_hot_for_fc = self.config.setdefault("use_one_hot_for_fc", False)
+        self._dndf_config = self.config.setdefault("dndf_config", {})
+        self._use_embedding_for_dndf = self._use_one_hot_for_dndf = False
+        if self._dndf_config is not None:
+            self._use_embedding_for_dndf = self.config.setdefault("use_embedding_for_dndf", True)
+            self._use_one_hot_for_dndf = self.config.setdefault("use_one_hot_for_dndf", True)
+        default_encoding_method = ["embedding"]
+        if self._use_one_hot_for_fc or self._use_one_hot_for_dndf:
+            default_encoding_method.append("one_hot")
+        self.config.setdefault("default_encoding_method", default_encoding_method)
 
     @staticmethod
     def _merge(split_result: SplitFeatures,
