@@ -57,7 +57,7 @@ class Mapping(nn.Module):
                  *,
                  bias: bool = True,
                  pruner_config: dict = None,
-                 dropout: bool = True,
+                 dropout: float = 0.5,
                  batch_norm: bool = True,
                  activation: str = "ReLU",
                  init_method: str = "xavier",
@@ -74,7 +74,8 @@ class Mapping(nn.Module):
         else:
             activations_ins = Activations(self.config.setdefault("activation_config", None))
             self.activation = activations_ins.module(activation)
-        self.dropout = None if not dropout else Dropout(self.config.setdefault("drop_prob", 0.5))
+        use_dropout = 0. < dropout < 1.
+        self.dropout = None if not use_dropout else Dropout(dropout)
 
     @property
     def weight(self) -> torch.Tensor:

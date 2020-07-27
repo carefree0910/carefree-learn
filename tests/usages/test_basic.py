@@ -25,7 +25,7 @@ def test_array_dataset():
         model_config={
             "hidden_units": [100],
             "default_encoding_method": "one_hot",
-            "mapping_configs": {"batch_norm": True, "dropout": False}
+            "mapping_configs": {"batch_norm": True, "dropout": 0.}
         }
     )
     m.fit(*dataset.xy)

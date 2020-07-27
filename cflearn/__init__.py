@@ -490,7 +490,7 @@ def make_toy_model(model: str = "fcnn",
         "model": model,
         "model_config": {
             "hidden_units": [100],
-            "mapping_configs": {"dropout": False, "batch_norm": False}
+            "mapping_configs": {"dropout": 0., "batch_norm": False}
         },
         "cv_split": 0.,
         "trigger_logging": False,

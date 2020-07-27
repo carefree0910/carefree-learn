@@ -50,7 +50,7 @@ class DDR(FCNN):
         self._common_configs = self.config.setdefault("common_configs", {})
         self._common_configs.setdefault("pruner_config", None)
         self._common_configs.setdefault("batch_norm", False)
-        self._common_configs.setdefault("dropout", False)
+        self._common_configs.setdefault("dropout", 0.)
         # feature mappings
         self.feature_units = self.config.setdefault("hidden_units", [512, 512])
         mapping_configs = self.config.setdefault("mapping_configs", {})
@@ -58,7 +58,7 @@ class DDR(FCNN):
             mapping_configs.setdefault("activation", "mish")
             mapping_configs.setdefault("init_method", "xavier")
             mapping_configs.setdefault("batch_norm", False)
-            mapping_configs.setdefault("dropout", False)
+            mapping_configs.setdefault("dropout", 0.)
             mapping_configs.setdefault("bias", False)
             mapping_configs = [mapping_configs] * self.num_feature_layers
         self.median_units = self.config.setdefault("median_units", [512])
