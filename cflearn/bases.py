@@ -18,6 +18,7 @@ from functools import partial
 from trains import Task, Logger
 from abc import ABCMeta, abstractmethod
 
+from .losses import *
 from .modules import *
 from .misc.toolkit import *
 
@@ -127,6 +128,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _init_config(self,
                      tr_data: TabularData):
         self.tr_data = tr_data
+        self._loss_config = self.config.setdefault("loss_config", {})
         # TODO : optimize encodings by pre-calculate one-hot encodings in Wrapper
         self._encoding_methods = self.config.setdefault("encoding_methods", {})
         self._encoding_configs = self.config.setdefault("encoding_configs", {})
@@ -138,7 +140,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if tr_data.is_reg:
             self.loss = nn.L1Loss()
         else:
-            self.loss = nn.CrossEntropyLoss()
+            self.loss = FocalLoss(self._loss_config)
 
     def _init_encoder(self, idx: int):
         methods = self._encoding_methods.setdefault(idx, self._default_encoding_method)
