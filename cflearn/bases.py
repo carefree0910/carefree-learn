@@ -221,6 +221,7 @@ class Pipeline(nn.Module, LoggingMixin):
         self._init_config(config, is_loading)
         self.model = model
         self._verbose_level = verbose_level
+        self._no_grad_in_predict = True
 
     def _init_config(self, config, is_loading):
         self._wrapper_config = config
@@ -523,15 +524,27 @@ class Pipeline(nn.Module, LoggingMixin):
 
         return score, metrics
 
-    def _predict(self,
-                 loader: DataLoader,
-                 **kwargs) -> Dict[str, np.ndarray]:
-        with eval_context(self, no_grad=kwargs.get("no_grad", False)):
+    def _get_results(self,
+                     no_grad: bool,
+                     loader: DataLoader,
+                     **kwargs) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
+        with eval_context(self, no_grad=no_grad):
             results, labels = [], []
             for x_batch, y_batch in loader:
                 if y_batch is not None:
                     labels.append(y_batch)
                 results.append(self.model(self._collate_batch(x_batch, y_batch), **kwargs))
+        return labels, results
+
+    def _predict(self,
+                 loader: DataLoader,
+                 **kwargs) -> Dict[str, np.ndarray]:
+        no_grad = kwargs.get("no_grad", self._no_grad_in_predict)
+        try:
+            labels, results = self._get_results(no_grad, loader, **kwargs)
+        except:
+            no_grad = self._no_grad_in_predict = False
+            labels, results = self._get_results(no_grad, loader, **kwargs)
         results = self.model._collate_tensor_dicts(results)
         results = {k: to_numpy(v) for k, v in results.items()}
         if labels:
