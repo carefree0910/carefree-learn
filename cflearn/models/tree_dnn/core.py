@@ -31,7 +31,7 @@ class TreeDNN(FCNN):
         self.config["fc_in_dim"] = fc_in_dim
         self._init_fcnn()
         # dndf
-        dndf_config = config.setdefault("dndf_config", {})
+        dndf_config = self.config.setdefault("dndf_config", {})
         if dndf_config is None:
             self.log_msg(
                 "DNDF is not used in TreeDNN, it will be equivalent to FCNN",
@@ -85,6 +85,8 @@ class TreeDNN(FCNN):
         fc_net = self._merge(split_result, self._use_embedding_for_fc, self._use_one_hot_for_fc)
         fc_net = self.mlp(fc_net)
         # dndf
+        if self.dndf is None:
+            return {"predictions": fc_net}
         dndf_net = self._merge(split_result, self._use_embedding_for_dndf, self._use_one_hot_for_dndf)
         dndf_net = self.dndf(dndf_net)
         return {"predictions": fc_net + dndf_net}
