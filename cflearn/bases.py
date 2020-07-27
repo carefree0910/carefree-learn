@@ -130,6 +130,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         # TODO : optimize encodings by pre-calculate one-hot encodings in Wrapper
         self._encoding_methods = self.config.setdefault("encoding_methods", {})
         self._encoding_configs = self.config.setdefault("encoding_configs", {})
+        self._default_encoding_configs = self.config.setdefault("default_encoding_configs", {})
         self._default_encoding_method = self.config.setdefault("default_encoding_method", "embedding")
 
     def _init_loss(self,
@@ -141,7 +142,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     def _init_encoder(self, idx: int):
         methods = self._encoding_methods.setdefault(idx, self._default_encoding_method)
-        config = self._encoding_configs.setdefault(idx, {})
+        config = self._encoding_configs.setdefault(idx, self._default_encoding_configs)
         num_values = self.tr_data.recognizers[idx].num_unique_values
         if isinstance(methods, str):
             methods = [methods]
