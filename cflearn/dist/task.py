@@ -65,14 +65,21 @@ class Task:
                 kwargs["x"], kwargs["y"] = x, y
                 kwargs["x_cv"], kwargs["y_cv"] = x_cv, y_cv
             else:
-                for key, value in zip(["x", "y", "x_cv", "y_cv"], [x, y, x_cv, y_cv]):
-                    if value is None:
-                        continue
-                    np.save(os.path.join(self.saving_folder, f"{key}.npy"), value)
+                self.dump_data(x, y)
+                self.dump_data(x_cv, y_cv, "_cv")
         self.config = kwargs
         return self
 
     # external run (use m.trains())
+
+    def dump_data(self,
+                  x: data_type,
+                  y: data_type = None,
+                  postfix: str = "") -> None:
+        for key, value in zip([f"x{postfix}", f"y{postfix}"], [x, y]):
+            if value is None:
+                continue
+            np.save(os.path.join(self.saving_folder, f"{key}.npy"), value)
 
     def fetch_data(self) -> Tuple[data_type, ...]:
         data = []
