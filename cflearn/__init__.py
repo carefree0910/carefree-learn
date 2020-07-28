@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from typing import *
 from cftool.misc import *
@@ -617,6 +618,201 @@ def zoo(model: str = "fcnn",
         increment_config: Dict[str, Any] = None) -> ZooBase:
     return zoo_dict[model](model_type=model_type, increment_config=increment_config)
 
+# benchmark
+
+class BenchmarkResults(NamedTuple):
+    best_configs: Dict[str, Dict[str, Any]]
+    experiments: Experiments
+    comparer: Comparer
+
+
+class Benchmark:
+    def __init__(self,
+                 task_name: str,
+                 task_type: TaskTypes,
+                 *,
+                 project_name: str = "carefree-learn",
+                 models: Union[str, List[str]] = "fcnn",
+                 increment_config: Dict[str, Any] = None):
+        self.task_name, self.task_type = task_name, task_type
+        self.project_name = project_name
+        if isinstance(models, str):
+            models = [models]
+        self.models = models
+        self.increment_config = increment_config
+        self.data_tasks = None
+
+    @property
+    def identifier(self) -> str:
+        return hash_code(f"{self.project_name}{self.task_name}{self.models}{self.increment_config}")
+
+    def _add_tasks(self,
+                   iterator_name: str,
+                   experiments: Experiments) -> None:
+        self.configs = {}
+        for i in range(len(self.data_tasks)):
+            for model in self.models:
+                for model_type, config in zoo(model).benchmarks.items():
+                    identifier = f"{model}_{self.task_name}_{model_type}"
+                    task_name = f"{identifier}_{iterator_name}{i}"
+                    increment_config = shallow_copy_dict(self.increment_config)
+                    config = zoo(model, model_type=model_type, increment_config=increment_config).config
+                    self.configs.setdefault(identifier, config)
+                    tracker_config = {
+                        "project_name": self.project_name,
+                        "task_name": task_name,
+                        "overwrite": True
+                    }
+                    experiments.add_task(
+                        model=model,
+                        data_task=self.data_tasks[i],
+                        identifier=identifier,
+                        tracker_config=tracker_config, **config
+                    )
+
+    def _run_tasks(self,
+                   experiments: Experiments,
+                   num_jobs: int = 4,
+                   run_tasks: bool = True,
+                   predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+        results = experiments.run_tasks(num_jobs=num_jobs, run_tasks=run_tasks, load_task=load_task)
+        comparer_list = []
+        for i in range(len(self.data_tasks)):
+            wrappers = {}
+            x_te, y_te = self.data_tasks[i].fetch_data("_te")
+            for identifier, ms in results.items():
+                wrappers[identifier] = ms[i]
+            comparer = estimate(x_te, y_te, wrappers=wrappers, wrapper_predict_config=predict_config)
+            comparer_list.append(comparer)
+        comparer = Comparer.merge(comparer_list)
+        best_configs = {
+            metric: self.configs[identifier]
+            for metric, identifier in comparer.best_methods.items()
+        }
+        return BenchmarkResults(best_configs, experiments, comparer)
+
+    def _k_core(self,
+                k_iterator: Iterable,
+                num_jobs: int = 4,
+                run_tasks: bool = True,
+                predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+        experiments = Experiments()
+        self.data_tasks = []
+        for i, (train_split, test_split) in enumerate(k_iterator):
+            train_dataset, test_dataset = train_split.dataset, test_split.dataset
+            x_tr, y_tr = train_dataset.xy
+            x_te, y_te = test_dataset.xy
+            data_task = Task(i, "data", self.identifier, experiments.temp_folder)
+            data_task.dump_data(x_tr, y_tr)
+            data_task.dump_data(x_te, y_te, "_te")
+            self.data_tasks.append(data_task)
+        self._iterator_name = type(k_iterator).__name__
+        self._add_tasks(self._iterator_name, experiments)
+        return self._run_tasks(experiments, num_jobs, run_tasks, predict_config)
+
+    def k_fold(self,
+               k: int,
+               x: data_type,
+               y: data_type = None,
+               *,
+               num_jobs: int = 4,
+               run_tasks: bool = True,
+               predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+        k_fold = KFold(k, TabularDataset.from_xy(x, y, task_type=self.task_type))
+        return self._k_core(k_fold, num_jobs, run_tasks, predict_config)
+
+    def k_random(self,
+                 k: int,
+                 num_test: Union[int, float],
+                 x: data_type,
+                 y: data_type = None,
+                 *,
+                 num_jobs: int = 4,
+                 run_tasks: bool = True,
+                 predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+        k_random = KRandom(k, num_test, TabularDataset.from_xy(x, y, task_type=self.task_type))
+        return self._k_core(k_random, num_jobs, run_tasks, predict_config)
+
+    def save(self,
+             tgt_folder: str,
+             *,
+             src_temp_folder: str = "__tmp__",
+             simplify: bool = True,
+             compress: bool = True) -> "Benchmark":
+        abs_folder = os.path.abspath(tgt_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [tgt_folder]):
+            Saving.prepare_folder(self, tgt_folder)
+            Saving.save_dict({
+                "task_name": self.task_name, "task_type": self.task_type.value,
+                "project_name": self.project_name, "models": self.models,
+                "increment_config": self.increment_config,
+                "iterator_name": self._iterator_name
+            }, "kwargs", abs_folder)
+            # temp folder
+            tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
+            if not simplify:
+                shutil.copytree(src_temp_folder, tgt_temp_folder)
+            else:
+                os.makedirs(tgt_temp_folder)
+                for folder in os.listdir(src_temp_folder):
+                    if folder == "_parallel_":
+                        continue
+                    data_folder = os.path.join(src_temp_folder, folder)
+                    # data task folder
+                    if "x.npy" in os.listdir(os.path.join(data_folder, "0")):
+                        shutil.copytree(data_folder, os.path.join(tgt_temp_folder, folder))
+                        continue
+                    # model folder
+                    for try_idx in os.listdir(data_folder):
+                        try_idx_folder = os.path.join(data_folder, try_idx)
+                        tgt_model_folder = os.path.join(tgt_temp_folder, folder, try_idx)
+                        os.makedirs(tgt_model_folder)
+                        for file in os.listdir(try_idx_folder):
+                            if file == "config.json" or file.endswith(".zip"):
+                                shutil.copyfile(
+                                    os.path.join(try_idx_folder, file),
+                                    os.path.join(tgt_model_folder, file)
+                                )
+            # data tasks
+            data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
+            for i, data_task in enumerate(self.data_tasks):
+                data_task.save(os.path.join(data_tasks_folder, str(i)))
+            # compress
+            if compress:
+                Saving.compress(abs_folder, remove_original=True)
+        return self
+
+    @classmethod
+    def load(cls,
+             saving_folder: str,
+             *,
+             predict_config: Dict[str, Any] = None,
+             compress: bool = True) -> Tuple["Benchmark", BenchmarkResults]:
+        abs_folder = os.path.abspath(saving_folder)
+        base_folder = os.path.dirname(abs_folder)
+        temp_folder = os.path.join(abs_folder, "__tmp__")
+        with lock_manager(base_folder, [saving_folder]):
+            with Saving.compress_loader(abs_folder, compress, remove_extracted=False):
+                kwargs = Saving.load_dict("kwargs", abs_folder)
+                iterator_name = kwargs.pop("iterator_name")
+                kwargs["task_type"] = TaskTypes.from_str(kwargs["task_type"])
+                benchmark = cls(**kwargs)
+                benchmark._iterator_name = iterator_name
+                # data tasks
+                data_tasks = []
+                data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
+                for i in range(len(os.listdir(data_tasks_folder))):
+                    data_task = Task.load(os.path.join(data_tasks_folder, str(i)))
+                    data_task.temp_folder = temp_folder
+                    data_tasks.append(data_task)
+                benchmark.data_tasks = data_tasks
+                # tasks
+                experiments = Experiments(temp_folder)
+                benchmark._add_tasks(iterator_name, experiments)
+                results = benchmark._run_tasks(experiments, 0, False, predict_config)
+        return benchmark, results
+
 
 # others
 
@@ -655,7 +851,8 @@ def make_toy_model(model: str = "fcnn",
 
 
 __all__ = [
-    "ModelBase", "Pipeline", "Wrapper", "Experiments",
+    "Experiments", "Benchmark",
+    "ModelBase", "Pipeline", "Wrapper",
     "register_metric", "register_optimizer", "register_scheduler",
     "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
     "Initializer", "register_initializer",
