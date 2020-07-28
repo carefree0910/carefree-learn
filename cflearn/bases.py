@@ -542,7 +542,7 @@ class Pipeline(nn.Module, LoggingMixin):
     def _predict(self,
                  loader: DataLoader,
                  **kwargs) -> Dict[str, np.ndarray]:
-        no_grad = kwargs.get("no_grad", self._no_grad_in_predict)
+        no_grad = kwargs.pop("no_grad", self._no_grad_in_predict)
         try:
             labels, results = self._get_results(no_grad, loader, **kwargs)
         except:
