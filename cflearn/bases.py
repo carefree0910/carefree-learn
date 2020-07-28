@@ -776,13 +776,16 @@ class Wrapper(LoggingMixin):
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
         self._data_config["verbose_level"] = self._verbose_level
-        self.tr_data = TabularData(**self._data_config).read(*args, **self._read_config)
+        self._original_data = TabularData(**self._data_config).read(*args, **self._read_config)
+        self.tr_data = self._original_data
+        self._save_original_data = False
         if x_cv is not None:
             self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
         else:
             if self._cv_split <= 0.:
                 self.cv_data = None
             else:
+                self._save_original_data = True
                 self.cv_data, self.tr_data = self.tr_data.split(self._cv_split)
         # modules
         self._prepare_modules()
@@ -899,9 +902,13 @@ class Wrapper(LoggingMixin):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [folder]):
             Saving.prepare_folder(self, folder)
-            self.tr_data.save(os.path.join(folder, "__data__", "train"), compress=compress)
-            if self.cv_data is not None:
-                self.cv_data.save(os.path.join(folder, "__data__", "valid"), compress=compress)
+            train_data_folder = os.path.join(folder, "__data__", "train")
+            if self._save_original_data:
+                self._original_data.save(train_data_folder, compress=compress)
+            else:
+                self.tr_data.save(train_data_folder, compress=compress)
+                if self.cv_data is not None:
+                    self.cv_data.save(os.path.join(folder, "__data__", "valid"), compress=compress)
             self.pipeline.save_checkpoint(folder)
             self.config["is_binary"] = self._is_binary
             self.config["binary_threshold"] = self._binary_threshold
