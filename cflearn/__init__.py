@@ -59,6 +59,7 @@ def make(model: str = "fcnn",
          logging_file: str = None,
          logging_folder: str = None,
          trigger_logging: bool = None,
+         tracker_config: Dict[str, Any] = None,
          cuda: Union[int, str] = None,
          verbose_level: int = 2,
          use_tqdm: bool = True,
@@ -137,7 +138,7 @@ def make(model: str = "fcnn",
             optimizers = {"all": preset_optimizer}
     if optimizers is not None:
         pipeline_config["optimizers"] = optimizers
-    return Wrapper(kwargs, cuda=cuda, verbose_level=verbose_level)
+    return Wrapper(kwargs, cuda=cuda, tracker_config=tracker_config, verbose_level=verbose_level)
 
 
 class EvaluateTransformer:

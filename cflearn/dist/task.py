@@ -48,11 +48,14 @@ class Task:
                 x_cv: data_type = None,
                 y_cv: data_type = None,
                 *,
+                tracker_config: Dict[str, Any] = None,
                 trains_config: Dict[str, Any] = None,
                 external: bool,
                 **kwargs) -> "Task":
         kwargs["model"] = self.model
         kwargs["logging_folder"] = self.saving_folder
+        if tracker_config is not None:
+            kwargs["tracker_config"] = tracker_config
         if trains_config is not None:
             kwargs["trains_config"] = trains_config
         if external:

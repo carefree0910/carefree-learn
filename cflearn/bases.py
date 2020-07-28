@@ -217,10 +217,12 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 class Pipeline(nn.Module, LoggingMixin):
     def __init__(self,
                  model: ModelBase,
+                 tracker: Tracker,
                  config: Dict[str, Any],
                  verbose_level: int,
                  is_loading: bool):
         super().__init__()
+        self.tracker = tracker
         self._init_config(config, is_loading)
         self.model = model
         self._verbose_level = verbose_level
@@ -497,13 +499,16 @@ class Pipeline(nn.Module, LoggingMixin):
                 use_decayed = True
                 decayed_metrics[metric_type] = self.metrics_decay[metric_type].update("metric", sub_metric)
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
-        if trains_logger is not None:
+        if self.tracker is not None or trains_logger is not None:
             for name, value in metrics_for_scoring.items():
-                trains_logger.report_scalar(
-                    title="Evaluating",
-                    series=name, value=value,
-                    iteration=self._step_count
-                )
+                if self.tracker is not None:
+                    self.tracker.track_scalar(name, value, iteration=self._step_count)
+                if trains_logger is not None:
+                    trains_logger.report_scalar(
+                        title="Evaluating",
+                        series=name, value=value,
+                        iteration=self._step_count
+                    )
         weighted_scores = [v * signs[k] * self.metrics_weights[k] for k, v in metrics_for_scoring.items()]
         score = sum(weighted_scores) / len(weighted_scores)
 
@@ -594,13 +599,17 @@ class Pipeline(nn.Module, LoggingMixin):
                         forward_results = self.model(batch)
                     with timing_context(self, "loss.forward"):
                         loss_dict = self.model.loss_function(batch, forward_results)
-                    if trains_logger is not None:
+                    if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():
-                            trains_logger.report_scalar(
-                                "Training",
-                                series=name, value=tensor.item(),
-                                iteration=self._step_count
-                            )
+                            value = tensor.item()
+                            if self.tracker is not None:
+                                self.tracker.track_scalar(name, value, iteration=self._step_count)
+                            if trains_logger is not None:
+                                trains_logger.report_scalar(
+                                    "Training",
+                                    series=name, value=value,
+                                    iteration=self._step_count
+                                )
                     with timing_context(self, "loss.backward"):
                         loss_dict["loss"].backward()
                     if self._clip_norm > 0.:
@@ -686,8 +695,10 @@ class Wrapper(LoggingMixin):
                  config: Union[str, Dict[str, Any]] = None,
                  *,
                  increment_config: Union[str, Dict[str, Any]] = None,
+                 tracker_config: Dict[str, Any] = None,
                  cuda: Union[str, int] = None,
                  verbose_level: int = 2):
+        self.tracker = None if tracker_config is None else Tracker(**tracker_config)
         self._verbose_level = int(verbose_level)
         if cuda is not None:
             self.device = torch.device(f"cuda:{cuda}")
@@ -751,7 +762,7 @@ class Wrapper(LoggingMixin):
             self.model = model_dict[self._model](self.config, self.tr_data, self.device)
         # pipeline
         with timing_context(self, "init pipeline"):
-            self.pipeline = Pipeline(self.model, self.config, self._verbose_level, is_loading)
+            self.pipeline = Pipeline(self.model, self.tracker, self.config, self._verbose_level, is_loading)
         # to device
         with timing_context(self, "init device"):
             self.pipeline.to(self.device)

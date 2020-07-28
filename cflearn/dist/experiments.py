@@ -31,11 +31,13 @@ class Experiments:
                  model: str = "fcnn",
                  identifier: str = None,
                  trains_config: Dict[str, Any] = None,
+                 tracker_config: Dict[str, Any] = None,
                  **kwargs) -> "Experiments":
         if identifier is None:
             identifier = model
         kwargs.setdefault("use_tqdm", False)
         kwargs["trains_config"] = trains_config
+        kwargs["tracker_config"] = tracker_config
         current_tasks = self.tasks.setdefault(identifier, [])
         new_task = Task(len(current_tasks), model, identifier, self.temp_folder)
         new_task.prepare(x, y, x_cv, y_cv, external=True, **kwargs)
