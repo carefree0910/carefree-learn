@@ -656,7 +656,7 @@ def make_toy_model(model: str = "fcnn",
 
 
 __all__ = [
-    "ModelBase", "Pipeline", "Wrapper",
+    "ModelBase", "Pipeline", "Wrapper", "Experiments",
     "register_metric", "register_optimizer", "register_scheduler",
     "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
     "Initializer", "register_initializer",
