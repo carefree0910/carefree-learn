@@ -21,6 +21,7 @@ if __name__ == '__main__':
             data_file = os.path.join(logging_folder, f"{key}.npy")
             if os.path.isfile(data_file):
                 data_list[i] = np.load(data_file)
+    trains_config = config.pop("trains_config", None)
     m = cflearn.make(**config)
-    m.fit(*data_list)
+    m.trains(*data_list, trains_config=trains_config)
     cflearn.save(m, saving_folder=logging_folder)
