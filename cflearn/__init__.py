@@ -231,7 +231,7 @@ def repeat_with(x: data_type,
                 patterns[identifier] = ModelPattern.repeat(num_repeat, **pattern_kwargs)
     else:
         results = Experiments().run(
-            make, save, load_task, x, y, x_cv, y_cv,
+            load_task, x, y, x_cv, y_cv,
             models=models, identifiers=identifiers,
             num_repeat=num_repeat, num_parallel=num_parallel,
             return_tasks=return_tasks, use_tqdm=use_tqdm,

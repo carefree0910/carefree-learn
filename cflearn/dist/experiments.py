@@ -2,7 +2,6 @@ import os
 import torch
 
 from typing import *
-from itertools import product
 from cftool.dist import Parallel
 
 from .task import Task
@@ -11,14 +10,70 @@ from ..misc.toolkit import data_type
 
 class Experiments:
     def __init__(self,
+                 temp_folder: str = "__tmp__",
                  available_cuda_list: List[int] = None):
+        self.temp_folder = temp_folder
         if available_cuda_list is None and not torch.cuda.is_available():
             available_cuda_list = []
         self.cuda_list = available_cuda_list
+        self.initialize()
+
+    def initialize(self) -> "Experiments":
+        self.tasks: Dict[str, List[Task]] = {}
+        return self
+
+    def add_task(self,
+                 x: data_type,
+                 y: data_type = None,
+                 x_cv: data_type = None,
+                 y_cv: data_type = None,
+                 *,
+                 model: str = "fcnn",
+                 identifier: str = None,
+                 trains_config: Dict[str, Any] = None,
+                 **kwargs) -> "Experiments":
+        if identifier is None:
+            identifier = model
+        kwargs.setdefault("use_tqdm", False)
+        kwargs["trains_config"] = trains_config
+        current_tasks = self.tasks.setdefault(identifier, [])
+        new_task = Task(len(current_tasks), model, identifier, self.temp_folder)
+        new_task.prepare(x, y, x_cv, y_cv, external=True, **kwargs)
+        current_tasks.append(new_task)
+        return self
+
+    def run_tasks(self,
+                  *,
+                  num_parallel: int = 4,
+                  load_task: callable = None,
+                  use_tqdm: bool = True) -> Dict[str, List[Union[Task, Any]]]:
+        def _task(i, identifier_, cuda=None) -> Task:
+            return self.tasks[identifier_][i].run_external(cuda)
+
+        arguments = []
+        for key in sorted(self.tasks):
+            arguments.extend([[i, key] for i in range(len(self.tasks[key]))])
+        parallel_arguments = list(zip(*arguments))
+        parallel = Parallel(
+            num_parallel,
+            use_tqdm=use_tqdm,
+            use_cuda=torch.cuda.is_available(),
+            logging_folder=os.path.join(self.temp_folder, "_parallel_"),
+            resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
+        )
+        tasks = parallel(_task, *parallel_arguments).ordered_results
+        results = {}
+        for task, (_, identifier) in zip(tasks, arguments):
+            if load_task is None:
+                results.setdefault(identifier, []).append(task)
+            else:
+                loaded = load_task(task)
+                results.setdefault(identifier, []).append(loaded)
+
+        self.initialize()
+        return results
 
     def run(self,
-            make: callable,
-            save: callable,
             load_task: callable,
             x: data_type,
             y: data_type = None,
@@ -27,13 +82,12 @@ class Experiments:
             *,
             num_repeat: int = 5,
             num_parallel: int = 4,
-            temp_folder: str = "__tmp__",
             models: Union[str, List[str]] = "fcnn",
             identifiers: Union[str, List[str]] = None,
-            return_tasks: bool = False,
             use_tqdm_in_task: bool = False,
             use_tqdm: bool = True,
-            **kwargs) -> Dict[str, List[Any]]:
+            **kwargs) -> Dict[str, List[Union[Task, Any]]]:
+        self.initialize()
         if isinstance(models, str):
             models = [models]
         if identifiers is None:
@@ -42,28 +96,11 @@ class Experiments:
             identifiers = [identifiers]
         kwargs["use_tqdm"] = use_tqdm_in_task
 
-        def _task(i, id_tuple, cuda=None):
-            t = Task(i, *id_tuple, temp_folder)
-            return t.fit(make, save, x, y, x_cv, y_cv, cuda, **kwargs)
+        for _ in range(num_repeat):
+            for model, identifier in zip(models, identifiers):
+                self.add_task(x, y, x_cv, y_cv, model=model, identifier=identifier, **kwargs)
 
-        arguments = list(product(map(str, range(num_repeat)), zip(models, identifiers)))
-        parallel_arguments = list(zip(*arguments))
-        parallel = Parallel(
-            num_parallel,
-            use_tqdm=use_tqdm,
-            use_cuda=torch.cuda.is_available(),
-            logging_folder=os.path.join(temp_folder, "_parallel_"),
-            resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
-        )
-        tasks = parallel(_task, *parallel_arguments).ordered_results
-        results = {}
-        for task, (_, (_, identifier)) in zip(tasks, arguments):
-            if return_tasks:
-                results.setdefault(identifier, []).append(task)
-            else:
-                loaded = load_task(task)
-                results.setdefault(identifier, []).append(loaded)
-        return results
+        return self.run_tasks(num_parallel=num_parallel, load_task=load_task, use_tqdm=use_tqdm)
 
 
 __all__ = ["Experiments"]
