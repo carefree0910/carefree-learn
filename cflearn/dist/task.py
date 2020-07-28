@@ -1,7 +1,7 @@
 import os
+import sys
 import json
 import platform
-import subprocess
 
 import numpy as np
 
@@ -39,7 +39,7 @@ class Task:
 
     @property
     def run_command(self) -> str:
-        python = subprocess.check_output(["which", "python"]).decode().strip()
+        python = sys.executable
         return f"{python} -m {'.'.join(['cflearn', 'dist', 'run'])}"
 
     def prepare(self,
