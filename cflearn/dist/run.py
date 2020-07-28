@@ -14,11 +14,12 @@ if __name__ == '__main__':
     with open(args.config_file, "r") as f:
         config = json.load(f)
     logging_folder = config["logging_folder"]
+    data_folder = config.get("data_folder", logging_folder)
     keys = ["x", "y", "x_cv", "y_cv"]
     data_list = list(map(config.pop, keys, 4 * [None]))
     if data_list[0] is None:
         for i, key in enumerate(keys):
-            data_file = os.path.join(logging_folder, f"{key}.npy")
+            data_file = os.path.join(data_folder, f"{key}.npy")
             if os.path.isfile(data_file):
                 data_list[i] = np.load(data_file)
     trains_config = config.pop("trains_config", None)
