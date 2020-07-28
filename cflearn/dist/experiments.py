@@ -48,6 +48,7 @@ class Experiments:
     def run_tasks(self,
                   *,
                   num_jobs: int = 4,
+                  run_tasks: bool = True,
                   load_task: callable = None,
                   use_tqdm: bool = True) -> Dict[str, List[Union[Task, Any]]]:
         def _task(i, identifier_, cuda=None) -> Task:
@@ -56,15 +57,22 @@ class Experiments:
         arguments = []
         for key in sorted(self.tasks):
             arguments.extend([[i, key] for i in range(len(self.tasks[key]))])
-        parallel_arguments = list(zip(*arguments))
-        parallel = Parallel(
-            num_jobs,
-            use_tqdm=use_tqdm,
-            use_cuda=torch.cuda.is_available(),
-            logging_folder=os.path.join(self.temp_folder, "_parallel_"),
-            resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
-        )
-        tasks = parallel(_task, *parallel_arguments).ordered_results
+
+        if not run_tasks:
+            tasks = []
+            for i, key in arguments:
+                tasks.append(self.tasks[key][i])
+        else:
+            parallel_arguments = list(zip(*arguments))
+            parallel = Parallel(
+                num_jobs,
+                use_tqdm=use_tqdm,
+                use_cuda=torch.cuda.is_available(),
+                logging_folder=os.path.join(self.temp_folder, "_parallel_"),
+                resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
+            )
+            tasks = parallel(_task, *parallel_arguments).ordered_results
+
         results = {}
         for task, (_, identifier) in zip(tasks, arguments):
             if load_task is None:
@@ -73,7 +81,6 @@ class Experiments:
                 loaded = load_task(task)
                 results.setdefault(identifier, []).append(loaded)
 
-        self.initialize()
         return results
 
     def run(self,
