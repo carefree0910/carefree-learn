@@ -213,7 +213,7 @@ def repeat_with(x: data_type,
     kwargs["verbose_level"] = 0
 
     tasks = patterns = None
-    if num_parallel == 0 or num_repeat == 1:
+    if num_parallel <= 1:
         kwargs.setdefault("use_tqdm", False)
         if return_tasks:
             tasks = {}
