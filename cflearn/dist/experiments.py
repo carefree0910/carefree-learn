@@ -32,6 +32,7 @@ class Experiments:
                  identifier: str = None,
                  trains_config: Dict[str, Any] = None,
                  tracker_config: Dict[str, Any] = None,
+                 data_task: Task = None,
                  **kwargs) -> "Experiments":
         if identifier is None:
             identifier = model
@@ -40,7 +41,7 @@ class Experiments:
         kwargs["tracker_config"] = tracker_config
         current_tasks = self.tasks.setdefault(identifier, [])
         new_task = Task(len(current_tasks), model, identifier, self.temp_folder)
-        new_task.prepare(x, y, x_cv, y_cv, external=True, **kwargs)
+        new_task.prepare(x, y, x_cv, y_cv, external=True, data_task=data_task, **kwargs)
         current_tasks.append(new_task)
         return self
 

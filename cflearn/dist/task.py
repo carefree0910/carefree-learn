@@ -5,7 +5,7 @@ import platform
 
 import numpy as np
 
-from typing import Any, Dict, Tuple
+from typing import *
 from cftool.misc import shallow_copy_dict
 
 from ..misc.toolkit import data_type
@@ -48,9 +48,10 @@ class Task:
                 x_cv: data_type = None,
                 y_cv: data_type = None,
                 *,
-                tracker_config: Dict[str, Any] = None,
-                trains_config: Dict[str, Any] = None,
                 external: bool,
+                data_task: "Task" = None,
+                trains_config: Dict[str, Any] = None,
+                tracker_config: Dict[str, Any] = None,
                 **kwargs) -> "Task":
         kwargs["model"] = self.model
         kwargs["logging_folder"] = self.saving_folder
@@ -64,6 +65,8 @@ class Task:
             if not isinstance(x, np.ndarray):
                 kwargs["x"], kwargs["y"] = x, y
                 kwargs["x_cv"], kwargs["y_cv"] = x_cv, y_cv
+            elif data_task is not None:
+                kwargs["data_folder"] = data_task.saving_folder
             else:
                 self.dump_data(x, y)
                 self.dump_data(x_cv, y_cv, "_cv")
