@@ -5,7 +5,6 @@ from cftool.misc import *
 from cftool.ml.utils import *
 from cftool.ml.param_utils import *
 from cfdata.tabular import *
-from functools import partial
 from cftool.ml.hpo import HPOBase
 from cftool.ml import register_metric
 from cfdata.tabular.processors.base import Processor
@@ -386,10 +385,10 @@ def estimate(x: data_type,
              y: data_type = None,
              *,
              wrappers: wrappers_type = None,
+             wrapper_predict_config: Dict[str, Any] = None,
              metrics: Union[str, List[str]] = None,
              other_patterns: Dict[str, patterns_type] = None,
-             comparer_verbose_level: Union[int, None] = 1,
-             **kwargs) -> Comparer:
+             comparer_verbose_level: Union[int, None] = 1) -> Comparer:
     patterns = {}
     if isinstance(metrics, str):
         metrics = [metrics]
@@ -402,6 +401,8 @@ def estimate(x: data_type,
             raise ValueError("either `wrappers` or `other_patterns` should be provided")
     else:
         wrappers = _to_wrappers(wrappers)
+        if wrapper_predict_config is None:
+            wrapper_predict_config = {}
         for name, wrapper in wrappers.items():
             if y is not None:
                 y = to_2d(y)
@@ -411,10 +412,7 @@ def estimate(x: data_type,
             if metrics is None:
                 metrics = [k for k, v in wrapper.pipeline.metrics.items() if v is not None]
             with eval_context(wrapper.model):
-                patterns[name] = ModelPattern(
-                    predict_method=partial(wrapper.predict, **kwargs),
-                    predict_prob_method=partial(wrapper.predict_prob, **kwargs)
-                )
+                patterns[name] = wrapper.to_pattern(**wrapper_predict_config)
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
