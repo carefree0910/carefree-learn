@@ -81,12 +81,13 @@ class Task:
                 continue
             np.save(os.path.join(self.saving_folder, f"{key}.npy"), value)
 
-    def fetch_data(self) -> Tuple[data_type, ...]:
+    def fetch_data(self,
+                   postfix: str = "") -> Tuple[data_type, data_type]:
         data = []
-        for key in ["x", "y", "x_cv", "y_cv"]:
+        for key in [f"x{postfix}", f"y{postfix}"]:
             file = os.path.join(self.saving_folder, f"{key}.npy")
             data.append(None if not os.path.isfile(file) else np.load(file))
-        return tuple(data)
+        return data[0], data[1]
 
     def dump_config(self,
                     config: Dict[str, Any]) -> "Task":
