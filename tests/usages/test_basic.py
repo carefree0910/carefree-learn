@@ -56,7 +56,7 @@ def test_file_dataset():
     models = ["nnb", "ndt"]
     transformer, results = cflearn.repeat_with(
         tr_file, x_cv=cv_file, models=models,
-        num_repeat=num_repeat, num_parallel=0
+        num_repeat=num_repeat, num_jobs=0
     )
     (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(transformer.get_xy, [tr_file, cv_file, te_file])
     ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.items()}

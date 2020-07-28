@@ -197,8 +197,8 @@ def repeat_with(x: data_type,
                 *,
                 models: Union[str, List[str]] = "fcnn",
                 identifiers: Union[str, List[str]] = None,
+                num_jobs: int = 4,
                 num_repeat: int = 5,
-                num_parallel: int = 4,
                 temp_folder: str = "__tmp__",
                 return_tasks: bool = False,
                 use_tqdm: bool = True,
@@ -214,7 +214,7 @@ def repeat_with(x: data_type,
     kwargs["verbose_level"] = 0
 
     tasks = patterns = None
-    if num_parallel <= 1:
+    if num_jobs <= 1:
         kwargs.setdefault("use_tqdm", False)
         if return_tasks:
             tasks = {}
@@ -234,7 +234,7 @@ def repeat_with(x: data_type,
         results = Experiments().run(
             load_task, x, y, x_cv, y_cv,
             models=models, identifiers=identifiers,
-            num_repeat=num_repeat, num_parallel=num_parallel,
+            num_repeat=num_repeat, num_jobs=num_jobs,
             return_tasks=return_tasks, use_tqdm=use_tqdm,
             temp_folder=temp_folder, **kwargs
         )
@@ -316,10 +316,10 @@ def tune_with(x: data_type,
             y_ = y_cv_ = None
         else:
             y_cv_ = None if y_cv is None else y_cv.copy()
-        num_parallel_ = num_parallel if hpo.is_sequential else 0
+        num_jobs_ = num_parallel if hpo.is_sequential else 0
         return repeat_with(
             x_, y_, x_cv, y_cv_,
-            num_repeat=num_repeat, num_parallel=num_parallel_,
+            num_repeat=num_repeat, num_jobs=num_jobs_,
             models=model, identifiers=hash_code(str(params_)),
             temp_folder=temp_folder, return_tasks=True, **base_params
         )

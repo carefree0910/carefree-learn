@@ -46,7 +46,7 @@ class Experiments:
 
     def run_tasks(self,
                   *,
-                  num_parallel: int = 4,
+                  num_jobs: int = 4,
                   load_task: callable = None,
                   use_tqdm: bool = True) -> Dict[str, List[Union[Task, Any]]]:
         def _task(i, identifier_, cuda=None) -> Task:
@@ -57,7 +57,7 @@ class Experiments:
             arguments.extend([[i, key] for i in range(len(self.tasks[key]))])
         parallel_arguments = list(zip(*arguments))
         parallel = Parallel(
-            num_parallel,
+            num_jobs,
             use_tqdm=use_tqdm,
             use_cuda=torch.cuda.is_available(),
             logging_folder=os.path.join(self.temp_folder, "_parallel_"),
@@ -82,8 +82,8 @@ class Experiments:
             x_cv: data_type = None,
             y_cv: data_type = None,
             *,
+            num_jobs: int = 4,
             num_repeat: int = 5,
-            num_parallel: int = 4,
             models: Union[str, List[str]] = "fcnn",
             identifiers: Union[str, List[str]] = None,
             use_tqdm_in_task: bool = False,
@@ -102,7 +102,7 @@ class Experiments:
             for model, identifier in zip(models, identifiers):
                 self.add_task(x, y, x_cv, y_cv, model=model, identifier=identifier, **kwargs)
 
-        return self.run_tasks(num_parallel=num_parallel, load_task=load_task, use_tqdm=use_tqdm)
+        return self.run_tasks(num_jobs=num_jobs, load_task=load_task, use_tqdm=use_tqdm)
 
 
 __all__ = ["Experiments"]
