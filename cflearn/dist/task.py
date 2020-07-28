@@ -43,7 +43,7 @@ class Task:
         return f"{python} -m {'.'.join(['cflearn', 'dist', 'run'])}"
 
     def prepare(self,
-                x: data_type,
+                x: data_type = None,
                 y: data_type = None,
                 x_cv: data_type = None,
                 y_cv: data_type = None,
@@ -62,11 +62,11 @@ class Task:
         if external:
             kwargs["trigger_logging"] = True
             self.config_file = os.path.join(self.saving_folder, "config.json")
-            if not isinstance(x, np.ndarray):
+            if data_task is not None:
+                kwargs["data_folder"] = data_task.saving_folder
+            elif not isinstance(x, np.ndarray):
                 kwargs["x"], kwargs["y"] = x, y
                 kwargs["x_cv"], kwargs["y_cv"] = x_cv, y_cv
-            elif data_task is not None:
-                kwargs["data_folder"] = data_task.saving_folder
             else:
                 self.dump_data(x, y)
                 self.dump_data(x_cv, y_cv, "_cv")

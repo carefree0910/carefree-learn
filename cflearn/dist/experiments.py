@@ -23,7 +23,7 @@ class Experiments:
         return self
 
     def add_task(self,
-                 x: data_type,
+                 x: data_type = None,
                  y: data_type = None,
                  x_cv: data_type = None,
                  y_cv: data_type = None,
