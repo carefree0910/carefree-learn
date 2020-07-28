@@ -126,5 +126,23 @@ class Task:
         save(m, saving_folder=self.saving_folder)
         return self
 
+    # save & load
+
+    def save(self,
+             saving_folder: str) -> "Task":
+        os.makedirs(saving_folder, exist_ok=True)
+        with open(os.path.join(saving_folder, "kwargs.json"), "w") as f:
+            json.dump({
+                "idx": self.idx, "model": self.model,
+                "identifier": self.identifier, "temp_folder": self.temp_folder
+            }, f)
+        return self
+
+    @classmethod
+    def load(cls,
+             saving_folder: str) -> "Task":
+        with open(os.path.join(saving_folder, "kwargs.json"), "r") as f:
+            return cls(**json.load(f))
+
 
 __all__ = ["Task"]
