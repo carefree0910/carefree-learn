@@ -631,11 +631,14 @@ class Benchmark:
                  task_name: str,
                  task_type: TaskTypes,
                  *,
+                 temp_folder: str = None,
                  project_name: str = "carefree-learn",
                  models: Union[str, List[str]] = "fcnn",
                  increment_config: Dict[str, Any] = None):
         self.task_name, self.task_type = task_name, task_type
-        self.project_name = project_name
+        if temp_folder is None:
+            temp_folder = f"__{task_name}__"
+        self.temp_folder, self.project_name = temp_folder, project_name
         if isinstance(models, str):
             models = [models]
         self.models = models
@@ -696,7 +699,7 @@ class Benchmark:
                 num_jobs: int = 4,
                 run_tasks: bool = True,
                 predict_config: Dict[str, Any] = None) -> BenchmarkResults:
-        experiments = Experiments()
+        experiments = Experiments(self.temp_folder)
         self.data_tasks = []
         for i, (train_split, test_split) in enumerate(k_iterator):
             train_dataset, test_dataset = train_split.dataset, test_split.dataset
@@ -736,18 +739,21 @@ class Benchmark:
     def save(self,
              tgt_folder: str,
              *,
-             src_temp_folder: str = "__tmp__",
+             src_temp_folder: str = None,
              simplify: bool = True,
              compress: bool = True) -> "Benchmark":
         abs_folder = os.path.abspath(tgt_folder)
         base_folder = os.path.dirname(abs_folder)
+        if src_temp_folder is None:
+            src_temp_folder = self.temp_folder
         with lock_manager(base_folder, [tgt_folder]):
             Saving.prepare_folder(self, tgt_folder)
             Saving.save_dict({
                 "task_name": self.task_name, "task_type": self.task_type.value,
                 "project_name": self.project_name, "models": self.models,
                 "increment_config": self.increment_config,
-                "iterator_name": self._iterator_name
+                "iterator_name": self._iterator_name,
+                "temp_folder": self.temp_folder
             }, "kwargs", abs_folder)
             # temp folder
             tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
