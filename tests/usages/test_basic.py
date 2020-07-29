@@ -54,10 +54,11 @@ def test_file_dataset():
     # Distributed
     num_repeat = 3
     models = ["nnb", "ndt"]
-    transformer, results = cflearn.repeat_with(
-        tr_file, x_cv=cv_file, models=models,
-        num_repeat=num_repeat, num_jobs=0
-    )
+    for num_jobs in [0, 2]:
+        transformer, results = cflearn.repeat_with(
+            tr_file, x_cv=cv_file, models=models,
+            num_repeat=num_repeat, num_jobs=num_jobs
+        )
     (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(transformer.get_xy, [tr_file, cv_file, te_file])
     ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.items()}
     other_patterns = {}
@@ -71,12 +72,13 @@ def test_file_dataset():
 
 
 def test_hpo():
-    cflearn.tune_with(
-        tr_file,
-        x_cv=cv_file,
-        task_type=TaskTypes.CLASSIFICATION,
-        num_repeat=2, num_parallel=0, num_search=10
-    )
+    for num_parallel in [0, 2]:
+        cflearn.tune_with(
+            tr_file,
+            x_cv=cv_file,
+            task_type=TaskTypes.CLASSIFICATION,
+            num_repeat=2, num_parallel=num_parallel, num_search=10
+        )
 
 
 if __name__ == '__main__':
