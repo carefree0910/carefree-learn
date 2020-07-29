@@ -81,9 +81,15 @@ class TreeDNN(FCNN):
         if not categorical:
             return numerical
         if not use_one_hot:
-            return torch.cat([numerical, categorical["embedding"]], dim=1)
+            embedding = categorical["embedding"]
+            if numerical is None:
+                return embedding
+            return torch.cat([numerical, embedding], dim=1)
         if not use_embedding:
-            return torch.cat([numerical, categorical["one_hot"]], dim=1)
+            one_hot = categorical["one_hot"]
+            if numerical is None:
+                return one_hot
+            return torch.cat([numerical, one_hot], dim=1)
 
     def forward(self,
                 batch: tensor_dict_type,
