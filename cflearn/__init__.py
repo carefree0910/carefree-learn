@@ -622,6 +622,7 @@ def zoo(model: str = "fcnn",
 
 class BenchmarkResults(NamedTuple):
     best_configs: Dict[str, Dict[str, Any]]
+    best_methods: Dict[str, str]
     experiments: Experiments
     comparer: Comparer
 
@@ -688,11 +689,12 @@ class Benchmark:
             comparer = estimate(x_te, y_te, wrappers=wrappers, wrapper_predict_config=predict_config)
             comparer_list.append(comparer)
         comparer = Comparer.merge(comparer_list)
+        best_methods = comparer.best_methods
         best_configs = {
             metric: self.configs[identifier]
-            for metric, identifier in comparer.best_methods.items()
+            for metric, identifier in best_methods.items()
         }
-        return BenchmarkResults(best_configs, experiments, comparer)
+        return BenchmarkResults(best_configs, best_methods, experiments, comparer)
 
     def _k_core(self,
                 k_iterator: Iterable,
