@@ -686,7 +686,12 @@ class Benchmark:
             x_te, y_te = self.data_tasks[i].fetch_data("_te")
             for identifier, ms in results.items():
                 wrappers[identifier] = ms[i]
-            comparer = estimate(x_te, y_te, wrappers=wrappers, wrapper_predict_config=predict_config)
+            comparer = estimate(
+                x_te, y_te,
+                wrappers=wrappers,
+                wrapper_predict_config=predict_config,
+                comparer_verbose_level=None
+            )
             comparer_list.append(comparer)
         comparer = Comparer.merge(comparer_list)
         best_methods = comparer.best_methods
