@@ -231,12 +231,12 @@ def repeat_with(x: data_type,
                 pattern_kwargs = {"init_method": init_method, "train_method": train_method}
                 patterns[identifier] = ModelPattern.repeat(num_repeat, **pattern_kwargs)
     else:
+        load_task_ = None if return_tasks else load_task
         results = Experiments().run(
-            load_task, x, y, x_cv, y_cv,
+            load_task_, x, y, x_cv, y_cv,
             models=models, identifiers=identifiers,
             num_repeat=num_repeat, num_jobs=num_jobs,
-            return_tasks=return_tasks, use_tqdm=use_tqdm,
-            temp_folder=temp_folder, **kwargs
+            use_tqdm=use_tqdm, temp_folder=temp_folder, **kwargs
         )
         if return_tasks:
             tasks = results
