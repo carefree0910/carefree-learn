@@ -31,6 +31,7 @@ class Experiments(LoggingMixin):
 
     def initialize(self) -> "Experiments":
         self.tasks: Dict[str, List[Task]] = {}
+        self.data_tasks: Dict[str, List[Union[Task, None]]] = {}
         return self
 
     def add_task(self,
@@ -47,6 +48,11 @@ class Experiments(LoggingMixin):
                  **kwargs) -> "Experiments":
         if identifier is None:
             identifier = model
+        if data_task is not None:
+            id_data_tasks = self.data_tasks.setdefault(identifier, [])
+            if len(id_data_tasks) <= data_task.idx:
+                id_data_tasks += [None] * (data_task.idx + 1 - len(id_data_tasks))
+            id_data_tasks[data_task.idx] = data_task
         kwargs.setdefault("use_tqdm", False)
         kwargs["trains_config"] = trains_config
         kwargs["tracker_config"] = tracker_config
@@ -122,6 +128,114 @@ class Experiments(LoggingMixin):
                 self.add_task(x, y, x_cv, y_cv, model=model, identifier=identifier, **kwargs)
 
         return self.run_tasks(num_jobs=num_jobs, load_task=load_task, use_tqdm=use_tqdm)
+
+    def save(self,
+             saving_folder: str,
+             *,
+             simplify: bool = True,
+             compress: bool = True) -> "Experiments":
+        abs_folder = os.path.abspath(saving_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [saving_folder]):
+            Saving.prepare_folder(self, saving_folder)
+            kwargs = {
+                "num_data_tasks": {k: len(v) for k, v in self.data_tasks.items()},
+                "available_cuda_list": self.cuda_list
+            }
+            Saving.save_dict(kwargs, "kwargs", abs_folder)
+            # tasks
+            tasks_folder = os.path.join(abs_folder, "__tasks__")
+            for task_name, tasks in self.tasks.items():
+                for i, task in enumerate(tasks):
+                    task.save(os.path.join(tasks_folder, task_name, str(i)))
+            # data tasks
+            if self.data_tasks:
+                data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
+                for task_name, data_tasks in self.data_tasks.items():
+                    for data_task in data_tasks:
+                        if data_task is None:
+                            continue
+                        tgt_data_folder = os.path.join(
+                            data_tasks_folder, task_name,
+                            data_task.identifier, str(i)
+                        )
+                        data_task.save(tgt_data_folder)
+                        for file in os.listdir(data_task.saving_folder):
+                            if file.endswith(".npy"):
+                                shutil.copy(
+                                    os.path.join(data_task.saving_folder, file),
+                                    os.path.join(tgt_data_folder, file)
+                                )
+            # temp folder
+            tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
+            if not simplify:
+                shutil.copytree(self.temp_folder, tgt_temp_folder)
+            else:
+                os.makedirs(tgt_temp_folder)
+                task_names = set(self.tasks.keys())
+                for task_name in os.listdir(self.temp_folder):
+                    if task_name not in task_names:
+                        continue
+                    task_model_folder = os.path.join(self.temp_folder, task_name)
+                    for try_idx in os.listdir(task_model_folder):
+                        try_idx_folder = os.path.join(task_model_folder, try_idx)
+                        tgt_model_folder = os.path.join(tgt_temp_folder, task_name, try_idx)
+                        os.makedirs(tgt_model_folder)
+                        for file in os.listdir(try_idx_folder):
+                            if file == "config.json" or file.endswith(".zip"):
+                                shutil.copyfile(
+                                    os.path.join(try_idx_folder, file),
+                                    os.path.join(tgt_model_folder, file)
+                                )
+            if compress:
+                Saving.compress(abs_folder, remove_original=True)
+        return self
+
+    @classmethod
+    def load(cls,
+             saving_folder: str,
+             *,
+             compress: bool = True) -> "Experiments":
+        abs_folder = os.path.abspath(saving_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [saving_folder]):
+            with Saving.compress_loader(abs_folder, compress, remove_extracted=False):
+                tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
+                kwargs = Saving.load_dict("kwargs", abs_folder)
+                num_data_tasks = kwargs.pop("num_data_tasks")
+                kwargs["temp_folder"] = tgt_temp_folder
+                experiments = cls(**kwargs, overwrite=False)
+                # data tasks
+                data_tasks = {}
+                data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
+                if os.path.isdir(data_tasks_folder):
+                    for task_name in os.listdir(data_tasks_folder):
+                        num_data_task = num_data_tasks[task_name]
+                        local_data_tasks: List[Union[Task, None]] = [None] * num_data_task
+                        task_folder = os.path.join(data_tasks_folder, task_name)
+                        for identifier in os.listdir(task_folder):
+                            identifier_folder = os.path.join(task_folder, identifier)
+                            for try_idx in os.listdir(identifier_folder):
+                                local_task = Task.load(os.path.join(identifier_folder, try_idx))
+                                local_task.temp_folder = task_folder
+                                local_data_tasks[int(try_idx)] = local_task
+                        data_tasks[task_name] = local_data_tasks
+                    experiments.data_tasks = data_tasks
+                # tasks
+                tasks_folder = os.path.join(abs_folder, "__tasks__")
+                experiments.tasks = {}
+                for task_name in os.listdir(tasks_folder):
+                    local_tasks = experiments.tasks[task_name] = []
+                    task_folder = os.path.join(tasks_folder, task_name)
+                    corresponding_data_tasks = data_tasks.get(task_name)
+                    for try_idx in os.listdir(task_folder):
+                        local_task = Task.load(os.path.join(task_folder, try_idx))
+                        if corresponding_data_tasks is not None:
+                            data_task = corresponding_data_tasks[int(try_idx)]
+                            if data_task is not None:
+                                local_task.config["data_folder"] = data_task.saving_folder
+                        local_tasks.append(local_task)
+        return experiments
 
 
 __all__ = ["Experiments"]
