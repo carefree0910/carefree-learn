@@ -2,13 +2,14 @@ import os
 import torch
 
 from typing import *
+from cftool.misc import *
 from cftool.dist import Parallel
 
 from .task import Task
 from ..misc.toolkit import data_type
 
 
-class Experiments:
+class Experiments(LoggingMixin):
     def __init__(self,
                  temp_folder: str = "__tmp__",
                  available_cuda_list: List[int] = None):

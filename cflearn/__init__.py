@@ -1,5 +1,6 @@
 import os
 import shutil
+import logging
 
 from typing import *
 from cftool.misc import *
@@ -478,7 +479,7 @@ def _remove(identifier: str = "cflearn",
 zoo_dict: Dict[str, Type["ZooBase"]] = {}
 
 
-class ZooBase(metaclass=ABCMeta):
+class ZooBase(LoggingMixin, metaclass=ABCMeta):
     def __init__(self,
                  *,
                  model_type: str = "default",
@@ -503,9 +504,9 @@ class ZooBase(metaclass=ABCMeta):
         config = config_dict.get(self._model_type)
         if config is None:
             if self._model_type != "default":
-                print(
-                    f"{LoggingMixin.warning_prefix}model_type '{self._model_type}' is not recognized, "
-                    "'default' model_type will be used"
+                self.log_msg(
+                    f"model_type '{self._model_type}' is not recognized, 'default' model_type will be used",
+                    self.warning_prefix, 2, msg_level=logging.WARNING
                 )
                 self._model_type = "default"
             config = self.benchmarks["default"]
@@ -627,7 +628,7 @@ class BenchmarkResults(NamedTuple):
     comparer: Comparer
 
 
-class Benchmark:
+class Benchmark(LoggingMixin):
     def __init__(self,
                  task_name: str,
                  task_type: TaskTypes,
