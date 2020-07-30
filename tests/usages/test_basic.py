@@ -15,6 +15,7 @@ def test_array_dataset():
     m = cflearn.make(
         model,
         cv_split=0.,
+        use_amp=True,
         data_config={"numerical_columns": list(range(dataset.x.shape[1]))},
         min_epoch=100,
         num_epoch=200,

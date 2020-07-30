@@ -18,12 +18,30 @@ from functools import partial
 from trains import Task, Logger
 from abc import ABCMeta, abstractmethod
 
+try:
+    import torch.cuda.amp as amp
+except:
+    amp = None
+
 from .losses import *
 from .modules import *
 from .misc.toolkit import *
 
 trains_logger: Union[Logger, None] = None
 model_dict: Dict[str, Type["ModelBase"]] = {}
+
+
+class amp_autocast_context(context_error_handler):
+    def __init__(self, use_amp: bool):
+        self._autocast = None if not use_amp else amp.autocast()
+
+    def __enter__(self):
+        if self._autocast is not None:
+            self._autocast.__enter__()
+
+    def _normal_exit(self, exc_type, exc_val, exc_tb):
+        if self._autocast is not None:
+            self._autocast.__exit__(exc_type, exc_val, exc_tb)
 
 
 class SplitFeatures(NamedTuple):
@@ -152,9 +170,14 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.encoders[str(idx)] = EncoderStack(*encoders)
 
     def _optimizer_step(self,
-                        optimizers):
+                        optimizers,
+                        grad_scalar):
         for opt in optimizers.values():
-            opt.step()
+            if grad_scalar is None:
+                opt.step()
+            else:
+                grad_scalar.step(opt)
+                grad_scalar.update()
             opt.zero_grad()
 
     @staticmethod
@@ -251,6 +274,9 @@ class Pipeline(nn.Module, LoggingMixin):
             self.ema_decay = None
         else:
             self.ema_decay = EMA(ema_decay, self.model.named_parameters())
+
+        self._use_amp = config["use_amp"]
+        self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
 
         self._logging_path_ = config["_logging_path_"]
         self.logging_folder = config["logging_folder"]
@@ -433,7 +459,7 @@ class Pipeline(nn.Module, LoggingMixin):
             self.model.parameters(), self._clip_norm)
 
     def _optimizer_step(self):
-        self.model._optimizer_step(self.optimizers)
+        self.model._optimizer_step(self.optimizers, self.scaler)
 
     def _monitor_step(self):
         if self._step_count % self.num_step_per_snapshot == 0:
@@ -595,10 +621,11 @@ class Pipeline(nn.Module, LoggingMixin):
                     self._step_count += 1
                     with timing_context(self, "collate batch"):
                         batch = self._collate_batch(x_batch, y_batch)
-                    with timing_context(self, "model.forward"):
-                        forward_results = self.model(batch)
-                    with timing_context(self, "loss.forward"):
-                        loss_dict = self.model.loss_function(batch, forward_results)
+                    with amp_autocast_context(self._use_amp):
+                        with timing_context(self, "model.forward"):
+                            forward_results = self.model(batch)
+                        with timing_context(self, "loss.forward"):
+                            loss_dict = self.model.loss_function(batch, forward_results)
                     if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():
                             value = tensor.item()
@@ -611,7 +638,10 @@ class Pipeline(nn.Module, LoggingMixin):
                                     iteration=self._step_count
                                 )
                     with timing_context(self, "loss.backward"):
-                        loss_dict["loss"].backward()
+                        loss = loss_dict["loss"]
+                        if self._use_amp:
+                            loss = self.scaler.scale(loss)
+                        loss.backward()
                     if self._clip_norm > 0.:
                         with timing_context(self, "clip_norm_step"):
                             self._clip_norm_step()
@@ -742,6 +772,7 @@ class Wrapper(LoggingMixin):
         self._binary_metric = self.config.setdefault("binary_metric", "acc")
         self._is_binary = self.config.get("is_binary")
         self._binary_threshold = self.config.get("binary_threshold")
+        self.config.setdefault("use_amp", False)
         logging_folder = self.config["logging_folder"] = self.config.setdefault(
             "logging_folder",
             os.path.join("_logging", model_dict[self._model].__identifier__)

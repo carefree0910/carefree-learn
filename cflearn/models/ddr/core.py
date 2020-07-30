@@ -246,10 +246,15 @@ class DDR(FCNN):
         self._pipeline_config["optimizers"] = pipeline_optimizers
 
     def _optimizer_step(self,
-                        optimizers):
+                        optimizers,
+                        grad_scalar):
         for key in self.target_parameters:
             opt = optimizers[key]
-            opt.step()
+            if grad_scalar is None:
+                opt.step()
+            else:
+                grad_scalar.step(opt)
+                grad_scalar.update()
             opt.zero_grad()
 
     @staticmethod
