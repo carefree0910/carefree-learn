@@ -1,5 +1,4 @@
 import os
-import shutil
 import logging
 
 from typing import *
@@ -645,17 +644,22 @@ class Benchmark(LoggingMixin):
             models = [models]
         self.models = models
         self.increment_config = increment_config
-        self.data_tasks = None
+        self.experiments = None
 
     @property
     def identifier(self) -> str:
         return hash_code(f"{self.project_name}{self.task_name}{self.models}{self.increment_config}")
 
+    @property
+    def data_tasks(self) -> List[Task]:
+        return next(iter(self.experiments.data_tasks.values()))
+
     def _add_tasks(self,
                    iterator_name: str,
+                   data_tasks: List[Task],
                    experiments: Experiments) -> None:
         self.configs = {}
-        for i in range(len(self.data_tasks)):
+        for i in range(len(data_tasks)):
             for model in self.models:
                 for model_type, config in zoo(model).benchmarks.items():
                     identifier = f"{model}_{self.task_name}_{model_type}"
@@ -670,21 +674,21 @@ class Benchmark(LoggingMixin):
                     }
                     experiments.add_task(
                         model=model,
-                        data_task=self.data_tasks[i],
+                        data_task=data_tasks[i],
                         identifier=identifier,
                         tracker_config=tracker_config, **config
                     )
 
     def _run_tasks(self,
-                   experiments: Experiments,
                    num_jobs: int = 4,
                    run_tasks: bool = True,
                    predict_config: Dict[str, Any] = None) -> BenchmarkResults:
-        results = experiments.run_tasks(num_jobs=num_jobs, run_tasks=run_tasks, load_task=load_task)
+        results = self.experiments.run_tasks(
+            num_jobs=num_jobs, run_tasks=run_tasks, load_task=load_task)
         comparer_list = []
-        for i in range(len(self.data_tasks)):
+        for i, data_task in enumerate(self.data_tasks):
             wrappers = {}
-            x_te, y_te = self.data_tasks[i].fetch_data("_te")
+            x_te, y_te = data_task.fetch_data("_te")
             for identifier, ms in results.items():
                 wrappers[identifier] = ms[i]
             comparer = estimate(
@@ -700,26 +704,26 @@ class Benchmark(LoggingMixin):
             metric: self.configs[identifier]
             for metric, identifier in best_methods.items()
         }
-        return BenchmarkResults(best_configs, best_methods, experiments, comparer)
+        return BenchmarkResults(best_configs, best_methods, self.experiments, comparer)
 
     def _k_core(self,
                 k_iterator: Iterable,
                 num_jobs: int = 4,
                 run_tasks: bool = True,
                 predict_config: Dict[str, Any] = None) -> BenchmarkResults:
-        experiments = Experiments(self.temp_folder)
-        self.data_tasks = []
+        self.experiments = Experiments(self.temp_folder)
+        data_tasks = []
         for i, (train_split, test_split) in enumerate(k_iterator):
             train_dataset, test_dataset = train_split.dataset, test_split.dataset
             x_tr, y_tr = train_dataset.xy
             x_te, y_te = test_dataset.xy
-            data_task = Task.data_task(i, self.identifier, experiments)
+            data_task = Task.data_task(i, self.identifier, self.experiments)
             data_task.dump_data(x_tr, y_tr)
             data_task.dump_data(x_te, y_te, "_te")
-            self.data_tasks.append(data_task)
+            data_tasks.append(data_task)
         self._iterator_name = type(k_iterator).__name__
-        self._add_tasks(self._iterator_name, experiments)
-        return self._run_tasks(experiments, num_jobs, run_tasks, predict_config)
+        self._add_tasks(self._iterator_name, data_tasks, self.experiments)
+        return self._run_tasks(num_jobs, run_tasks, predict_config)
 
     def k_fold(self,
                k: int,
@@ -758,38 +762,11 @@ class Benchmark(LoggingMixin):
                 "project_name": self.project_name, "models": self.models,
                 "increment_config": self.increment_config,
                 "iterator_name": self._iterator_name,
-                "temp_folder": self.temp_folder
+                "temp_folder": self.temp_folder,
+                "configs": self.configs
             }, "kwargs", abs_folder)
-            # temp folder
-            tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
-            if not simplify:
-                shutil.copytree(self.temp_folder, tgt_temp_folder)
-            else:
-                os.makedirs(tgt_temp_folder)
-                for folder in os.listdir(self.temp_folder):
-                    if folder == "_parallel_":
-                        continue
-                    data_folder = os.path.join(self.temp_folder, folder)
-                    # data task folder
-                    if "x.npy" in os.listdir(os.path.join(data_folder, "0")):
-                        shutil.copytree(data_folder, os.path.join(tgt_temp_folder, folder))
-                        continue
-                    # model folder
-                    for try_idx in os.listdir(data_folder):
-                        try_idx_folder = os.path.join(data_folder, try_idx)
-                        tgt_model_folder = os.path.join(tgt_temp_folder, folder, try_idx)
-                        os.makedirs(tgt_model_folder)
-                        for file in os.listdir(try_idx_folder):
-                            if file == "config.json" or file.endswith(".zip"):
-                                shutil.copyfile(
-                                    os.path.join(try_idx_folder, file),
-                                    os.path.join(tgt_model_folder, file)
-                                )
-            # data tasks
-            data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
-            for i, data_task in enumerate(self.data_tasks):
-                data_task.save(os.path.join(data_tasks_folder, str(i)))
-            # compress
+            experiments_folder = os.path.join(abs_folder, "__experiments__")
+            self.experiments.save(experiments_folder, simplify=simplify, compress=compress)
             if compress:
                 Saving.compress(abs_folder, remove_original=True)
         return self
@@ -802,26 +779,17 @@ class Benchmark(LoggingMixin):
              compress: bool = True) -> Tuple["Benchmark", BenchmarkResults]:
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
-        temp_folder = os.path.join(abs_folder, "__tmp__")
         with lock_manager(base_folder, [saving_folder]):
             with Saving.compress_loader(abs_folder, compress, remove_extracted=False):
                 kwargs = Saving.load_dict("kwargs", abs_folder)
+                configs = kwargs.pop("configs")
                 iterator_name = kwargs.pop("iterator_name")
                 kwargs["task_type"] = TaskTypes.from_str(kwargs["task_type"])
                 benchmark = cls(**kwargs)
+                benchmark.configs = configs
                 benchmark._iterator_name = iterator_name
-                # data tasks
-                data_tasks = []
-                data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
-                for i in range(len(os.listdir(data_tasks_folder))):
-                    data_task = Task.load(os.path.join(data_tasks_folder, str(i)))
-                    data_task.temp_folder = temp_folder
-                    data_tasks.append(data_task)
-                benchmark.data_tasks = data_tasks
-                # tasks
-                experiments = Experiments(temp_folder)
-                benchmark._add_tasks(iterator_name, experiments)
-                results = benchmark._run_tasks(experiments, 0, False, predict_config)
+                benchmark.experiments = Experiments.load(os.path.join(abs_folder, "__experiments__"))
+                results = benchmark._run_tasks(0, False, predict_config)
         return benchmark, results
 
 
