@@ -1,5 +1,7 @@
 import os
 import torch
+import shutil
+import logging
 
 from typing import *
 from cftool.misc import *
@@ -12,8 +14,16 @@ from ..misc.toolkit import data_type
 class Experiments(LoggingMixin):
     def __init__(self,
                  temp_folder: str = "__tmp__",
-                 available_cuda_list: List[int] = None):
+                 available_cuda_list: List[int] = None,
+                 *,
+                 overwrite: bool = True):
         self.temp_folder = temp_folder
+        if os.path.isdir(temp_folder) and overwrite:
+            self.log_msg(
+                f"'{temp_folder}' already exists, it will be overwritten",
+                self.warning_prefix, msg_level=logging.WARNING
+            )
+            shutil.rmtree(temp_folder)
         if available_cuda_list is None and not torch.cuda.is_available():
             available_cuda_list = []
         self.cuda_list = available_cuda_list
