@@ -85,10 +85,18 @@ class Task:
             np.save(os.path.join(self.saving_folder, f"{key}.npy"), value)
 
     def fetch_data(self,
-                   postfix: str = "") -> Tuple[data_type, data_type]:
+                   postfix: str = "",
+                   *,
+                   from_data_folder: bool = False) -> Tuple[data_type, data_type]:
+        if not from_data_folder:
+            data_folder = self.saving_folder
+        else:
+            data_folder = self.config.get("data_folder")
+            if data_folder is None:
+                raise ValueError("data_folder is not prepared")
         data = []
         for key in [f"x{postfix}", f"y{postfix}"]:
-            file = os.path.join(self.saving_folder, f"{key}.npy")
+            file = os.path.join(data_folder, f"{key}.npy")
             data.append(None if not os.path.isfile(file) else np.load(file))
         return data[0], data[1]
 
