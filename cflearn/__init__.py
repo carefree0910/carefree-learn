@@ -745,17 +745,14 @@ class Benchmark(LoggingMixin):
         return self._k_core(k_random, num_jobs, run_tasks, predict_config)
 
     def save(self,
-             tgt_folder: str,
+             saving_folder: str,
              *,
-             src_temp_folder: str = None,
              simplify: bool = True,
              compress: bool = True) -> "Benchmark":
-        abs_folder = os.path.abspath(tgt_folder)
+        abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
-        if src_temp_folder is None:
-            src_temp_folder = self.temp_folder
-        with lock_manager(base_folder, [tgt_folder]):
-            Saving.prepare_folder(self, tgt_folder)
+        with lock_manager(base_folder, [saving_folder]):
+            Saving.prepare_folder(self, saving_folder)
             Saving.save_dict({
                 "task_name": self.task_name, "task_type": self.task_type.value,
                 "project_name": self.project_name, "models": self.models,
@@ -766,13 +763,13 @@ class Benchmark(LoggingMixin):
             # temp folder
             tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
             if not simplify:
-                shutil.copytree(src_temp_folder, tgt_temp_folder)
+                shutil.copytree(self.temp_folder, tgt_temp_folder)
             else:
                 os.makedirs(tgt_temp_folder)
-                for folder in os.listdir(src_temp_folder):
+                for folder in os.listdir(self.temp_folder):
                     if folder == "_parallel_":
                         continue
-                    data_folder = os.path.join(src_temp_folder, folder)
+                    data_folder = os.path.join(self.temp_folder, folder)
                     # data task folder
                     if "x.npy" in os.listdir(os.path.join(data_folder, "0")):
                         shutil.copytree(data_folder, os.path.join(tgt_temp_folder, folder))
