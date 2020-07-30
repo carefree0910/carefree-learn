@@ -144,5 +144,14 @@ class Task:
         with open(os.path.join(saving_folder, "kwargs.json"), "r") as f:
             return cls(**json.load(f))
 
+    # special
+
+    @classmethod
+    def data_task(cls,
+                  i: int,
+                  identifier: str,
+                  experiments) -> "Task":
+        return cls(i, "data", identifier, experiments.temp_folder)
+
 
 __all__ = ["Task"]

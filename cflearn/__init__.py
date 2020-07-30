@@ -712,7 +712,7 @@ class Benchmark:
             train_dataset, test_dataset = train_split.dataset, test_split.dataset
             x_tr, y_tr = train_dataset.xy
             x_te, y_te = test_dataset.xy
-            data_task = Task(i, "data", self.identifier, experiments.temp_folder)
+            data_task = Task.data_task(i, self.identifier, experiments)
             data_task.dump_data(x_tr, y_tr)
             data_task.dump_data(x_te, y_te, "_te")
             self.data_tasks.append(data_task)
@@ -864,10 +864,9 @@ def make_toy_model(model: str = "fcnn",
 
 
 __all__ = [
-    "Experiments", "Benchmark",
-    "ModelBase", "Pipeline", "Wrapper",
     "register_metric", "register_optimizer", "register_scheduler",
     "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
+    "Task", "Experiments", "Benchmark", "ModelBase", "Pipeline", "Wrapper",
     "Initializer", "register_initializer",
     "Processor", "register_processor"
 ]
