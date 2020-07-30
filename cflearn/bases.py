@@ -730,7 +730,9 @@ class Wrapper(LoggingMixin):
                  verbose_level: int = 2):
         self.tracker = None if tracker_config is None else Tracker(**tracker_config)
         self._verbose_level = int(verbose_level)
-        if cuda is not None:
+        if cuda == "cpu":
+            self.device = torch.device("cpu")
+        elif cuda is not None:
             self.device = torch.device(f"cuda:{cuda}")
         else:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
