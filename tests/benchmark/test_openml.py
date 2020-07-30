@@ -14,9 +14,10 @@ from sklearn.linear_model import LogisticRegression
 
 
 def test():
+    num_repeat = 3
     Experiment.suppress_warnings()
     project_name = "carefree-learn"
-    openml_indices = [38, 46, 179, 184, 389]
+    openml_indices = [38, 389]
     # openml_indices = [38, 46, 179, 184, 389, 554, 772, 917, 1049, 1111, 1120, 1128, 293]
 
     for openml_id in openml_indices:
@@ -50,7 +51,7 @@ def test():
             models=["fcnn", "tree_dnn"],
             increment_config={"data_config": {"categorical_columns": categorical_columns}}
         )
-        results = benchmark.k_random(10, 0.1, *data.converted.xy, run_tasks=True, num_jobs=2)
+        results = benchmark.k_random(num_repeat, 0.1, *data.converted.xy, run_tasks=True, num_jobs=2)
         benchmark_saving_folder = os.path.join("benchmarks", f"{task_name}_benchmark")
         benchmark.save(benchmark_saving_folder)
         # benchmark, results = cflearn.Benchmark.load(benchmark_saving_folder)
