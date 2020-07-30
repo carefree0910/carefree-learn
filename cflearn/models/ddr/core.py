@@ -52,7 +52,7 @@ class DDR(FCNN):
         self._common_configs.setdefault("batch_norm", False)
         self._common_configs.setdefault("dropout", 0.)
         # feature mappings
-        self.feature_units = self.config.setdefault("hidden_units", [512, 512])
+        self.feature_units = self.config.setdefault("feature_units", [512, 512])
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("activation", "mish")
