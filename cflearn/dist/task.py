@@ -6,7 +6,7 @@ import platform
 import numpy as np
 
 from typing import *
-from cftool.misc import shallow_copy_dict
+from cftool.misc import *
 
 from ..misc.toolkit import data_type
 
@@ -139,18 +139,21 @@ class Task:
     def save(self,
              saving_folder: str) -> "Task":
         os.makedirs(saving_folder, exist_ok=True)
-        with open(os.path.join(saving_folder, "kwargs.json"), "w") as f:
-            json.dump({
-                "idx": self.idx, "model": self.model,
-                "identifier": self.identifier, "temp_folder": self.temp_folder
-            }, f)
+        Saving.save_dict({
+            "idx": self.idx, "model": self.model,
+            "identifier": self.identifier, "temp_folder": self.temp_folder,
+            "config": self.config, "config_file": self.config_file
+        }, "kwargs", saving_folder)
         return self
 
     @classmethod
     def load(cls,
              saving_folder: str) -> "Task":
-        with open(os.path.join(saving_folder, "kwargs.json"), "r") as f:
-            return cls(**json.load(f))
+        kwargs = Saving.load_dict("kwargs", saving_folder)
+        config, config_file = map(kwargs.pop, ["config", "config_file"])
+        task = cls(**kwargs)
+        task.config, task.config_file = config, config_file
+        return task
 
     # special
 
