@@ -61,6 +61,7 @@ class TestOpenML(unittest.TestCase):
                 self.num_repeat, 0.1, *data.converted.xy,
                 run_tasks=True, num_jobs=self.num_jobs
             )
+            TestOpenML.messages[task_name] = results.comparer.log_statistics(verbose_level=None)
             benchmark.save(self._get_benchmark_saving_folder(task_name))
             best_methods = list(set(results.best_methods.values()))
             comparer_list.append(results.comparer.select(best_methods))
@@ -86,7 +87,7 @@ class TestOpenML(unittest.TestCase):
                 ))
 
             comparer = Comparer.merge(comparer_list)
-            TestOpenML.messages[task_name] = msg = comparer.log_statistics(method_length=24)
+            msg = comparer.log_statistics(method_length=24)
             tracker = Tracker(self.project_name, f"{task_name}_summary")
             tracker.track_message(timestamp(), msg)
 
@@ -94,7 +95,7 @@ class TestOpenML(unittest.TestCase):
         for task_name in self.task_names:
             saving_folder = self._get_benchmark_saving_folder(task_name)
             _, results = cflearn.Benchmark.load(saving_folder)
-            loaded_msg = results.comparer.log_statistics(method_length=24)
+            loaded_msg = results.comparer.log_statistics(verbose_level=None)
             self.assertEqual(TestOpenML.messages[task_name], loaded_msg)
 
 
