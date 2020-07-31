@@ -146,9 +146,9 @@ class Experiments(LoggingMixin):
                 for i, task in enumerate(tasks):
                     task.save(os.path.join(tasks_folder, task_name, str(i)))
             # data tasks
+            mappings = {}
             if self.data_tasks:
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
-                mappings = {}
                 for task_name, data_tasks in self.data_tasks.items():
                     local_mappings: List[Union[str, None]] = [None] * len(data_tasks)
                     for data_task in data_tasks:
