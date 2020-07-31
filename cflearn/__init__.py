@@ -645,6 +645,8 @@ class Benchmark(LoggingMixin):
         if isinstance(models, str):
             models = [models]
         self.models = models
+        if increment_config is None:
+            increment_config = {}
         self.increment_config = increment_config
         self.use_cuda = use_cuda
         self.experiments = None
