@@ -740,6 +740,11 @@ class Wrapper(LoggingMixin):
         update_dict(increment_config, self.config)
         self._init_config()
 
+    def __str__(self):
+        return f"{type(self.model).__name__}()"
+
+    __repr__ = __str__
+
     @property
     def train_set(self) -> TabularDataset:
         raw = self.tr_data.raw
