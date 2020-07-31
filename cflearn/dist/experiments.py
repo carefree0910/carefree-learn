@@ -140,11 +140,6 @@ class Experiments(LoggingMixin):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
             Saving.prepare_folder(self, saving_folder)
-            kwargs = {
-                "num_data_tasks": {k: len(v) for k, v in self.data_tasks.items()},
-                "available_cuda_list": self.cuda_list
-            }
-            Saving.save_dict(kwargs, "kwargs", abs_folder)
             # tasks
             tasks_folder = os.path.join(abs_folder, "__tasks__")
             for task_name, tasks in self.tasks.items():
@@ -153,14 +148,16 @@ class Experiments(LoggingMixin):
             # data tasks
             if self.data_tasks:
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
+                mappings = {}
                 for task_name, data_tasks in self.data_tasks.items():
+                    local_mappings: List[Union[str, None]] = [None] * len(data_tasks)
                     for data_task in data_tasks:
                         if data_task is None:
                             continue
+                        idx = data_task.idx
                         tgt_data_folder = os.path.join(
-                            data_tasks_folder, task_name,
-                            data_task.identifier, str(i)
-                        )
+                            data_tasks_folder, data_task.identifier, str(idx))
+                        local_mappings[idx] = tgt_data_folder
                         data_task.save(tgt_data_folder)
                         for file in os.listdir(data_task.saving_folder):
                             if file.endswith(".npy"):
@@ -168,6 +165,7 @@ class Experiments(LoggingMixin):
                                     os.path.join(data_task.saving_folder, file),
                                     os.path.join(tgt_data_folder, file)
                                 )
+                    mappings[task_name] = local_mappings
             # temp folder
             tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
             if not simplify:
@@ -189,6 +187,13 @@ class Experiments(LoggingMixin):
                                     os.path.join(try_idx_folder, file),
                                     os.path.join(tgt_model_folder, file)
                                 )
+            # kwargs
+            kwargs = {
+                "available_cuda_list": self.cuda_list,
+                "data_tasks_mappings": mappings,
+                "use_cuda": self.use_cuda
+            }
+            Saving.save_dict(kwargs, "kwargs", abs_folder)
             if compress:
                 Saving.compress(abs_folder, remove_original=True)
         return self
@@ -204,23 +209,20 @@ class Experiments(LoggingMixin):
             with Saving.compress_loader(abs_folder, compress, remove_extracted=False):
                 tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
                 kwargs = Saving.load_dict("kwargs", abs_folder)
-                num_data_tasks = kwargs.pop("num_data_tasks")
+                data_tasks_mappings = kwargs.pop("data_tasks_mappings")
                 kwargs["temp_folder"] = tgt_temp_folder
                 experiments = cls(**kwargs, overwrite=False)
                 # data tasks
                 data_tasks = {}
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
                 if os.path.isdir(data_tasks_folder):
-                    for task_name in os.listdir(data_tasks_folder):
-                        num_data_task = num_data_tasks[task_name]
-                        local_data_tasks: List[Union[Task, None]] = [None] * num_data_task
-                        task_folder = os.path.join(data_tasks_folder, task_name)
-                        for identifier in os.listdir(task_folder):
-                            identifier_folder = os.path.join(task_folder, identifier)
-                            for try_idx in os.listdir(identifier_folder):
-                                local_task = Task.load(os.path.join(identifier_folder, try_idx))
-                                local_task.temp_folder = task_folder
-                                local_data_tasks[int(try_idx)] = local_task
+                    for task_name, data_tasks_mapping in data_tasks_mappings.items():
+                        local_data_tasks: List[Union[Task, None]] = [None] * len(data_tasks_mapping)
+                        for data_task_folder in data_tasks_mapping:
+                            if data_task_folder is None:
+                                continue
+                            local_data_task = Task.load(data_task_folder)
+                            local_data_tasks[local_data_task.idx] = local_data_task
                         data_tasks[task_name] = local_data_tasks
                     experiments.data_tasks = data_tasks
                 # tasks
@@ -230,10 +232,10 @@ class Experiments(LoggingMixin):
                     local_tasks = experiments.tasks[task_name] = []
                     task_folder = os.path.join(tasks_folder, task_name)
                     corresponding_data_tasks = data_tasks.get(task_name)
-                    for try_idx in os.listdir(task_folder):
-                        local_task = Task.load(os.path.join(task_folder, try_idx))
+                    for try_idx in sorted(map(int, os.listdir(task_folder))):
+                        local_task = Task.load(os.path.join(task_folder, str(try_idx)))
                         if corresponding_data_tasks is not None:
-                            data_task = corresponding_data_tasks[int(try_idx)]
+                            data_task = corresponding_data_tasks[try_idx]
                             if data_task is not None:
                                 local_task.config["data_folder"] = data_task.saving_folder
                         local_tasks.append(local_task)
