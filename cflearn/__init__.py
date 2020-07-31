@@ -660,15 +660,19 @@ class Benchmark(LoggingMixin):
     def _add_tasks(self,
                    iterator_name: str,
                    data_tasks: List[Task],
-                   experiments: Experiments) -> None:
+                   experiments: Experiments,
+                   benchmarks: Dict[str, Dict[str, Dict[str, Any]]]) -> None:
         self.configs = {}
         for i in range(len(data_tasks)):
             for model in self.models:
-                for model_type, config in zoo(model).benchmarks.items():
+                model_benchmarks = benchmarks.get(model)
+                if model_benchmarks is None:
+                    model_benchmarks = zoo(model).benchmarks
+                for model_type, config in model_benchmarks.items():
                     identifier = f"{model}_{self.task_name}_{model_type}"
                     task_name = f"{identifier}_{iterator_name}{i}"
                     increment_config = shallow_copy_dict(self.increment_config)
-                    config = zoo(model, model_type=model_type, increment_config=increment_config).config
+                    config = update_dict(increment_config, config)
                     self.configs.setdefault(identifier, config)
                     tracker_config = {
                         "project_name": self.project_name,
@@ -711,9 +715,10 @@ class Benchmark(LoggingMixin):
 
     def _k_core(self,
                 k_iterator: Iterable,
-                num_jobs: int = 4,
-                run_tasks: bool = True,
-                predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+                num_jobs: int,
+                run_tasks: bool,
+                predict_config: Dict[str, Any],
+                benchmarks: Dict[str, Dict[str, Dict[str, Any]]]) -> BenchmarkResults:
         self.experiments = Experiments(self.temp_folder, use_cuda=self.use_cuda)
         data_tasks = []
         for i, (train_split, test_split) in enumerate(k_iterator):
@@ -725,7 +730,7 @@ class Benchmark(LoggingMixin):
             data_task.dump_data(x_te, y_te, "_te")
             data_tasks.append(data_task)
         self._iterator_name = type(k_iterator).__name__
-        self._add_tasks(self._iterator_name, data_tasks, self.experiments)
+        self._add_tasks(self._iterator_name, data_tasks, self.experiments, benchmarks)
         return self._run_tasks(num_jobs, run_tasks, predict_config)
 
     def k_fold(self,
@@ -735,9 +740,10 @@ class Benchmark(LoggingMixin):
                *,
                num_jobs: int = 4,
                run_tasks: bool = True,
-               predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+               predict_config: Dict[str, Any] = None,
+               benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None) -> BenchmarkResults:
         k_fold = KFold(k, TabularDataset.from_xy(x, y, task_type=self.task_type))
-        return self._k_core(k_fold, num_jobs, run_tasks, predict_config)
+        return self._k_core(k_fold, num_jobs, run_tasks, predict_config, benchmarks)
 
     def k_random(self,
                  k: int,
@@ -747,9 +753,10 @@ class Benchmark(LoggingMixin):
                  *,
                  num_jobs: int = 4,
                  run_tasks: bool = True,
-                 predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+                 predict_config: Dict[str, Any] = None,
+                 benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None) -> BenchmarkResults:
         k_random = KRandom(k, num_test, TabularDataset.from_xy(x, y, task_type=self.task_type))
-        return self._k_core(k_random, num_jobs, run_tasks, predict_config)
+        return self._k_core(k_random, num_jobs, run_tasks, predict_config, benchmarks)
 
     def save(self,
              saving_folder: str,
