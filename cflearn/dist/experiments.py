@@ -16,7 +16,8 @@ class Experiments(LoggingMixin):
                  temp_folder: str = "__tmp__",
                  available_cuda_list: List[int] = None,
                  *,
-                 overwrite: bool = True):
+                 overwrite: bool = True,
+                 use_cuda: bool = True):
         self.temp_folder = temp_folder
         if os.path.isdir(temp_folder) and overwrite:
             self.log_msg(
@@ -24,9 +25,10 @@ class Experiments(LoggingMixin):
                 self.warning_prefix, msg_level=logging.WARNING
             )
             shutil.rmtree(temp_folder)
-        if available_cuda_list is None and not torch.cuda.is_available():
+        if available_cuda_list is None and (not use_cuda or not torch.cuda.is_available()):
             available_cuda_list = []
         self.cuda_list = available_cuda_list
+        self.use_cuda = use_cuda
         self.initialize()
 
     def initialize(self) -> "Experiments":
@@ -84,7 +86,7 @@ class Experiments(LoggingMixin):
             parallel = Parallel(
                 num_jobs,
                 use_tqdm=use_tqdm,
-                use_cuda=torch.cuda.is_available(),
+                use_cuda=self.use_cuda and torch.cuda.is_available(),
                 logging_folder=os.path.join(self.temp_folder, "_parallel_"),
                 resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
             )

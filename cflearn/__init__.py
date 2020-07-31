@@ -618,6 +618,7 @@ def zoo(model: str = "fcnn",
         increment_config: Dict[str, Any] = None) -> ZooBase:
     return zoo_dict[model](model_type=model_type, increment_config=increment_config)
 
+
 # benchmark
 
 class BenchmarkResults(NamedTuple):
@@ -635,7 +636,8 @@ class Benchmark(LoggingMixin):
                  temp_folder: str = None,
                  project_name: str = "carefree-learn",
                  models: Union[str, List[str]] = "fcnn",
-                 increment_config: Dict[str, Any] = None):
+                 increment_config: Dict[str, Any] = None,
+                 use_cuda: bool = True):
         self.task_name, self.task_type = task_name, task_type
         if temp_folder is None:
             temp_folder = f"__{task_name}__"
@@ -644,6 +646,7 @@ class Benchmark(LoggingMixin):
             models = [models]
         self.models = models
         self.increment_config = increment_config
+        self.use_cuda = use_cuda
         self.experiments = None
 
     @property
@@ -711,7 +714,7 @@ class Benchmark(LoggingMixin):
                 num_jobs: int = 4,
                 run_tasks: bool = True,
                 predict_config: Dict[str, Any] = None) -> BenchmarkResults:
-        self.experiments = Experiments(self.temp_folder)
+        self.experiments = Experiments(self.temp_folder, use_cuda=self.use_cuda)
         data_tasks = []
         for i, (train_split, test_split) in enumerate(k_iterator):
             train_dataset, test_dataset = train_split.dataset, test_split.dataset
@@ -760,7 +763,7 @@ class Benchmark(LoggingMixin):
             Saving.save_dict({
                 "task_name": self.task_name, "task_type": self.task_type.value,
                 "project_name": self.project_name, "models": self.models,
-                "increment_config": self.increment_config,
+                "increment_config": self.increment_config, "use_cuda": self.use_cuda,
                 "iterator_name": self._iterator_name,
                 "temp_folder": self.temp_folder,
                 "configs": self.configs
