@@ -721,6 +721,8 @@ class Benchmark(LoggingMixin):
                 run_tasks: bool,
                 predict_config: Dict[str, Any],
                 benchmarks: Dict[str, Dict[str, Dict[str, Any]]]) -> BenchmarkResults:
+        if benchmarks is None:
+            benchmarks = {}
         self.experiments = Experiments(self.temp_folder, use_cuda=self.use_cuda)
         data_tasks = []
         for i, (train_split, test_split) in enumerate(k_iterator):
