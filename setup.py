@@ -1,13 +1,13 @@
 from setuptools import setup, find_packages
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 DESCRIPTION = "A minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch"
 with open("README.md") as f:
     LONG_DESCRIPTION = f.read()
 
 setup(
     name="carefree-learn",
-    version="0.1.0",
+    version=VERSION,
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "trains",
