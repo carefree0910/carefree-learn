@@ -147,9 +147,9 @@ class Task:
     def load(cls,
              saving_folder: str) -> "Task":
         kwargs = Saving.load_dict("kwargs", saving_folder)
-        config, config_file = map(kwargs.pop, ["config", "config_file"])
+        config = kwargs.pop("config")
         task = cls(**kwargs)
-        task.config, task.config_file = config, config_file
+        task.config = config
         return task
 
     # special
