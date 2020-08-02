@@ -1,4 +1,5 @@
 import os
+import shutil
 import logging
 
 from typing import *
@@ -281,6 +282,10 @@ def tune_with(x: data_type,
               search_config: Dict[str, Any] = None,
               verbose_level: int = 2,
               **kwargs) -> HPOBase:
+
+    if os.path.isdir(temp_folder):
+        print(f"{LoggingMixin.warning_prefix}'{temp_folder}' already exists, it will be overwritten")
+        shutil.rmtree(temp_folder)
 
     if isinstance(x, str):
         read_config = kwargs.get("read_config", {})
