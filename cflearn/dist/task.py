@@ -1,6 +1,5 @@
 import os
 import sys
-import json
 import platform
 
 import numpy as np
@@ -23,7 +22,7 @@ class Task:
         self.model = model
         self.identifier = identifier
         self.temp_folder = temp_folder
-        self.config = self.config_file = None
+        self.config = None
 
     def __str__(self):
         return f"Task({self.identifier}_{self.idx})"
@@ -61,7 +60,6 @@ class Task:
             kwargs["trains_config"] = trains_config
         if external:
             kwargs["trigger_logging"] = True
-            self.config_file = os.path.join(self.saving_folder, "config.json")
             if data_task is not None:
                 kwargs["data_folder"] = data_task.saving_folder
             elif not isinstance(x, np.ndarray):
@@ -102,8 +100,7 @@ class Task:
 
     def dump_config(self,
                     config: Dict[str, Any]) -> "Task":
-        with open(self.config_file, "w") as f:
-            json.dump(config, f)
+        Saving.save_dict(config, "config", self.saving_folder)
         return self
 
     def run_external(self,
@@ -111,7 +108,7 @@ class Task:
         config = shallow_copy_dict(self.config)
         config["cuda"] = cuda
         self.dump_config(config)
-        os.system(f"{self.run_command} --config_file {self.config_file}")
+        os.system(f"{self.run_command} --config_folder {self.saving_folder}")
         return self
 
     # internal fit (use m.fit())
@@ -142,7 +139,7 @@ class Task:
         Saving.save_dict({
             "idx": self.idx, "model": self.model,
             "identifier": self.identifier, "temp_folder": self.temp_folder,
-            "config": self.config, "config_file": self.config_file
+            "config": self.config
         }, "kwargs", saving_folder)
         return self
 

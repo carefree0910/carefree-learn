@@ -1,18 +1,18 @@
 import os
-import json
 import argparse
 
 import numpy as np
+
+from cftool.misc import Saving
 
 import cflearn
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("--config_file")
+    parser.add_argument("--config_folder")
     args = parser.parse_args()
-    with open(args.config_file, "r") as f:
-        config = json.load(f)
+    config = Saving.load_dict("config", args.config_folder)
     logging_folder = config["logging_folder"]
     data_folder = config.get("data_folder", logging_folder)
     keys = ["x", "y", "x_cv", "y_cv"]
