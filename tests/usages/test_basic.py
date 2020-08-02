@@ -5,7 +5,7 @@ from cfdata.tabular import *
 
 
 file_folder = os.path.dirname(__file__)
-data_folder = os.path.abspath(os.path.join(file_folder, os.pardir, "sick"))
+data_folder = os.path.abspath(os.path.join(file_folder, "sick"))
 tr_file, cv_file, te_file = map(os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"])
 
 
