@@ -1,4 +1,5 @@
 import os
+import random
 import shutil
 import logging
 
@@ -824,6 +825,42 @@ class Benchmark(LoggingMixin):
 
 
 # others
+
+def split_file(file: str,
+               export_folder: str,
+               *,
+               has_header: bool = None,
+               split: Union[int, float] = 0.1) -> Tuple[str, str]:
+    os.makedirs(export_folder, exist_ok=True)
+    with open(file, "r") as f:
+        data = f.readlines()
+    ext = os.path.splitext(file)[1]
+    if has_header is None:
+        has_header = ext == ".csv"
+    header = None
+    if has_header:
+        header, data = data[0], data[1:]
+    split1 = os.path.join(export_folder, f"split1{ext}")
+    split2 = os.path.join(export_folder, f"split2{ext}")
+
+    num_data = len(data)
+    indices = list(range(num_data))
+    if split < 1. or split == 1. and isinstance(split, float):
+        split = int(num_data * split)
+    random.shuffle(indices)
+
+    def _split(file_, indices_):
+        with open(file_, "w") as f:
+            if header is not None:
+                f.write(header)
+            for idx in indices_:
+                f.write(data[idx])
+
+    _split(split1, indices[:split])
+    _split(split2, indices[split:])
+
+    return split1, split2
+
 
 def make_toy_model(model: str = "fcnn",
                    config: Dict[str, Any] = None,
