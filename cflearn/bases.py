@@ -675,8 +675,10 @@ class Pipeline(nn.Module, LoggingMixin):
     def predict(self,
                 x: data_type,
                 return_all: bool = False,
+                *,
+                contains_labels: bool = False,
                 **kwargs) -> Union[np.ndarray, Dict[str, np.ndarray]]:
-        data = self.tr_data.copy_to(x, None)
+        data = self.tr_data.copy_to(x, None, contains_labels=contains_labels)
         loader = DataLoader(self.cv_batch_size, ImbalancedSampler(data, shuffle=False))
         predictions = self._predict(loader, **kwargs)
         if return_all:

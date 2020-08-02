@@ -332,8 +332,16 @@ def tune_with(x: data_type,
         )
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
+        patterns = []
         wrappers = list(map(load_task, next(iter(created[0].values()))))
-        return [ModelPattern(init_method=lambda: m) for m in wrappers]
+        for m in wrappers:
+            predict_method = (lambda m_: lambda x_: m_.predict(x_, contains_labels=True))(m)
+            predict_prob_method = (lambda m_: lambda x_: m_.predict_prob(x_, contains_labels=True))(m)
+            patterns.append(ModelPattern(
+                predict_method=predict_method,
+                predict_prob_method=predict_prob_method
+            ))
+        return patterns
 
     if params is None:
         params = {
@@ -392,6 +400,7 @@ def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
 def estimate(x: data_type,
              y: data_type = None,
              *,
+             contains_labels: bool = False,
              wrappers: wrappers_type = None,
              wrapper_predict_config: Dict[str, Any] = None,
              metrics: Union[str, List[str]] = None,
@@ -415,7 +424,7 @@ def estimate(x: data_type,
             if y is not None:
                 y = to_2d(y)
             else:
-                x, y = wrapper.tr_data.read_file(x)
+                x, y = wrapper.tr_data.read_file(x, contains_labels=contains_labels)
                 y = wrapper.tr_data.transform(x, y).y
             if metrics is None:
                 metrics = [k for k, v in wrapper.pipeline.metrics.items() if v is not None]

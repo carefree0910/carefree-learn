@@ -42,14 +42,14 @@ def test_file_dataset():
     fcnn.fit(tr_file, x_cv=cv_file)
     tree_dnn.fit(tr_file, x_cv=cv_file)
     wrappers = [fcnn, tree_dnn]
-    cflearn.estimate(tr_file, wrappers=wrappers)
-    cflearn.estimate(cv_file, wrappers=wrappers)
-    cflearn.estimate(te_file, wrappers=wrappers)
+    cflearn.estimate(tr_file, wrappers=wrappers, contains_labels=True)
+    cflearn.estimate(cv_file, wrappers=wrappers, contains_labels=True)
+    cflearn.estimate(te_file, wrappers=wrappers, contains_labels=True)
     cflearn.save(wrappers)
     wrappers = cflearn.load()
-    cflearn.estimate(tr_file, wrappers=wrappers)
-    cflearn.estimate(cv_file, wrappers=wrappers)
-    cflearn.estimate(te_file, wrappers=wrappers)
+    cflearn.estimate(tr_file, wrappers=wrappers, contains_labels=True)
+    cflearn.estimate(cv_file, wrappers=wrappers, contains_labels=True)
+    cflearn.estimate(te_file, wrappers=wrappers, contains_labels=True)
     cflearn._remove()
 
     # Distributed
