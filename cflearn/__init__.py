@@ -192,9 +192,9 @@ def load_task(task: Task) -> Wrapper:
 
 
 class RepeatResult(NamedTuple):
-    tasks: Dict[str, List[Task]] = None
-    transformer: EvaluateTransformer = None
-    patterns: Union[None, Dict[str, List[ModelPattern]]] = None
+    experiments: Experiments
+    transformer: EvaluateTransformer
+    patterns: Union[None, Dict[str, List[ModelPattern]]]
 
     @property
     def models(self) -> Dict[str, List[Wrapper]]:
@@ -211,9 +211,10 @@ def repeat_with(x: data_type,
                 num_jobs: int = 4,
                 num_repeat: int = 5,
                 temp_folder: str = "__tmp__",
-                return_tasks: bool = False,
+                return_patterns: bool = True,
                 use_tqdm: bool = True,
                 **kwargs) -> RepeatResult:
+
     if isinstance(models, str):
         models = [models]
     if identifiers is None:
@@ -224,44 +225,25 @@ def repeat_with(x: data_type,
     kwargs.setdefault("trigger_logging", False)
     kwargs["verbose_level"] = 0
 
-    tasks = patterns = None
-    if num_jobs <= 1:
-        kwargs.setdefault("use_tqdm", False)
-        if return_tasks:
-            tasks = {}
-            for i in range(num_repeat):
-                for model, identifier in zip(models, identifiers):
-                    task = Task(i, model, identifier, temp_folder)
-                    task.fit(make, save, x, y, x_cv, y_cv, **kwargs)
-                    tasks.setdefault(identifier, []).append(task)
-        else:
-            patterns = {}
-            for model, identifier in zip(models, identifiers):
-                init_method = lambda: make(model, **kwargs)
-                train_method = lambda m: m.fit(x, y, x_cv, y_cv)
-                pattern_kwargs = {"init_method": init_method, "train_method": train_method}
-                patterns[identifier] = ModelPattern.repeat(num_repeat, **pattern_kwargs)
-    else:
-        load_task_ = None if return_tasks else load_task
-        results = Experiments().run(
-            load_task_, x, y, x_cv, y_cv,
-            models=models, identifiers=identifiers,
-            num_repeat=num_repeat, num_jobs=num_jobs,
-            use_tqdm=use_tqdm, temp_folder=temp_folder, **kwargs
-        )
-        if return_tasks:
-            tasks = results
-        else:
-            patterns = {
-                model: [ModelPattern(init_method=lambda: wrapper) for wrapper in wrappers]
-                for model, wrappers in results.items()
-            }
-
-    if return_tasks:
-        return RepeatResult(tasks)
-
-    transformer = EvaluateTransformer(patterns[identifiers[0]][0].model.tr_data)
-    return RepeatResult(transformer=transformer, patterns=patterns)
+    experiments = Experiments(overwrite=False)
+    experiments.run(
+        None, x, y, x_cv, y_cv,
+        models=models, identifiers=identifiers,
+        num_repeat=num_repeat, num_jobs=num_jobs,
+        use_tqdm=use_tqdm, temp_folder=temp_folder, **kwargs
+    )
+    patterns = None
+    if return_patterns:
+        tasks_dict = experiments.tasks
+        wrappers = {model: [load_task(task) for task in tasks] for model, tasks in tasks_dict.items()}
+        patterns = {
+            model: [ModelPattern(init_method=lambda: m) for m in wrappers]
+            for model, wrappers in wrappers.items()
+        }
+    transformer = None
+    if patterns is not None:
+        transformer = EvaluateTransformer(patterns[identifiers[0]][0].model.tr_data)
+    return RepeatResult(experiments, transformer, patterns)
 
 
 def ensemble(patterns: List[ModelPattern],
@@ -336,7 +318,7 @@ def tune_with(x: data_type,
             num_repeat=num_repeat, num_jobs=num_jobs_,
             models=model, identifiers=hash_code(str(params_)),
             temp_folder=temp_folder, return_tasks=True, **base_params
-        ).tasks
+        ).experiments.tasks
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
         patterns = []
