@@ -288,6 +288,8 @@ def tune_with(x: data_type,
         shutil.rmtree(temp_folder)
 
     if isinstance(x, str):
+        data_config = kwargs.get("data_config", {})
+        data_config["task_type"] = task_type
         read_config = kwargs.get("read_config", {})
         delim = read_config.get("delim", kwargs.get("delim"))
         if delim is not None:
@@ -299,7 +301,7 @@ def tune_with(x: data_type,
             )
         if y is not None:
             read_config["y"] = y
-        tr_data = TabularData(task_type=task_type)
+        tr_data = TabularData(**data_config)
         tr_data.read(x, **read_config)
         y = tr_data.processed.y
         if x_cv is not None:
