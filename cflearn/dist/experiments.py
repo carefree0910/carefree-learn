@@ -83,6 +83,8 @@ class Experiments(LoggingMixin):
                 tasks.append(self.tasks[key][i])
         else:
             parallel_arguments = list(zip(*arguments))
+            if num_jobs <= 1:
+                num_jobs = 1
             parallel = Parallel(
                 num_jobs,
                 use_tqdm=use_tqdm,
