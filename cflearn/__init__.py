@@ -159,7 +159,6 @@ class EvaluateTransformer:
 SAVING_DELIM = "^_^"
 wrappers_dict_type = Dict[str, Wrapper]
 wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
-repeat_result_type = Tuple[EvaluateTransformer, Union[List[ModelPattern], Dict[str, List[ModelPattern]]]]
 
 
 def _to_saving_path(identifier: str,
@@ -192,6 +191,16 @@ def load_task(task: Task) -> Wrapper:
     return next(iter(load(saving_folder=task.saving_folder).values()))
 
 
+class RepeatResult(NamedTuple):
+    tasks: Dict[str, List[Task]] = None
+    transformer: EvaluateTransformer = None
+    patterns: Union[None, Dict[str, List[ModelPattern]]] = None
+
+    @property
+    def models(self) -> Dict[str, List[Wrapper]]:
+        return {key: [m.model for m in value] for key, value in self.patterns.items()}
+
+
 def repeat_with(x: data_type,
                 y: data_type = None,
                 x_cv: data_type = None,
@@ -204,7 +213,7 @@ def repeat_with(x: data_type,
                 temp_folder: str = "__tmp__",
                 return_tasks: bool = False,
                 use_tqdm: bool = True,
-                **kwargs) -> Union[repeat_result_type, Dict[str, List[Task]]]:
+                **kwargs) -> RepeatResult:
     if isinstance(models, str):
         models = [models]
     if identifiers is None:
@@ -249,13 +258,10 @@ def repeat_with(x: data_type,
             }
 
     if return_tasks:
-        return tasks
+        return RepeatResult(tasks)
 
-    first_patterns = patterns[identifiers[0]]
-    tr_data = first_patterns[0].model.tr_data
-    if len(identifiers) == 1:
-        patterns = first_patterns
-    return EvaluateTransformer(tr_data), patterns
+    transformer = EvaluateTransformer(patterns[identifiers[0]][0].model.tr_data)
+    return RepeatResult(transformer=transformer, patterns=patterns)
 
 
 def ensemble(patterns: List[ModelPattern],
@@ -330,7 +336,7 @@ def tune_with(x: data_type,
             num_repeat=num_repeat, num_jobs=num_jobs_,
             models=model, identifiers=hash_code(str(params_)),
             temp_folder=temp_folder, return_tasks=True, **base_params
-        )
+        ).tasks
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
         patterns = []

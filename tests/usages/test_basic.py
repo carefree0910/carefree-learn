@@ -56,16 +56,16 @@ def test_file_dataset():
     num_repeat = 3
     models = ["nnb", "ndt"]
     for num_jobs in [0, 2]:
-        transformer, results = cflearn.repeat_with(
+        results = cflearn.repeat_with(
             tr_file, x_cv=cv_file, models=models,
             num_repeat=num_repeat, num_jobs=num_jobs
         )
-    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(transformer.get_xy, [tr_file, cv_file, te_file])
-    ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.items()}
+    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(results.transformer.get_xy, [tr_file, cv_file, te_file])
+    ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.patterns.items()}
     other_patterns = {}
     for model in models:
         repeat_key = f"{model}_{num_repeat}"
-        other_patterns[repeat_key] = results[model]
+        other_patterns[repeat_key] = results.patterns[model]
         other_patterns[f"{repeat_key}_ensemble"] = ensembles[model]
     cflearn.estimate(tr_x, tr_y, wrappers=wrappers, other_patterns=other_patterns)
     cflearn.estimate(cv_x, cv_y, wrappers=wrappers, other_patterns=other_patterns)

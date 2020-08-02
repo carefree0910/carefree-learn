@@ -167,7 +167,8 @@ from cfdata.tabular import TabularDataset
 if __name__ == '__main__':
     x, y = TabularDataset.iris().xy
     # Notice that 3 fcnn were trained simultaneously with this line of code
-    _, patterns = cflearn.repeat_with(x, y, num_repeat=3, num_jobs=3)
+    results = cflearn.repeat_with(x, y, num_repeat=3, num_jobs=3)
+    patterns = results.patterns["fcnn"]
     # And it is fairly straight forward to apply stacking ensemble
     ensemble = cflearn.ensemble(patterns)
     patterns_dict = {"fcnn_3": patterns, "fcnn_3_ensemble": ensemble}
