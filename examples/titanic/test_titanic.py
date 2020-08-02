@@ -1,9 +1,14 @@
+import os
 import cflearn
+
 from cfdata.tabular import *
+
+file_folder = os.path.dirname(__file__)
 
 
 def test():
-    train_file, test_file = "train.csv", "test.csv"
+    train_file = os.path.join(file_folder, "train.csv")
+    test_file = os.path.join(file_folder, "test.csv")
     data_config = {"label_name": "Survived"}
     hpo = cflearn.tune_with(
         train_file,
