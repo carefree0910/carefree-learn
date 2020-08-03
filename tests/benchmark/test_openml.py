@@ -55,6 +55,7 @@ class TestOpenML(unittest.TestCase):
                 task_name,
                 TaskTypes.CLASSIFICATION,
                 models=["fcnn", "tree_dnn"],
+                temp_folder="__test_openml__",
                 increment_config={"data_config": {"categorical_columns": categorical_columns}}
             )
             results = benchmark.k_random(

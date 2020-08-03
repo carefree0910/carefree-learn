@@ -13,6 +13,7 @@ def test():
     hpo = cflearn.tune_with(
         train_file,
         model="tree_dnn",
+        temp_folder="__test_titanic1__",
         task_type=TaskTypes.CLASSIFICATION,
         data_config=data_config,
         num_parallel=0
@@ -21,6 +22,7 @@ def test():
         train_file,
         **hpo.best_param,
         models="tree_dnn",
+        temp_folder="__test_titanic2__",
         num_repeat=10, num_jobs=0,
         data_config=data_config
     )

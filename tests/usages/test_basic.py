@@ -58,7 +58,8 @@ def test_file_dataset():
     for num_jobs in [0, 2]:
         results = cflearn.repeat_with(
             tr_file, x_cv=cv_file, models=models,
-            num_repeat=num_repeat, num_jobs=num_jobs
+            num_repeat=num_repeat, num_jobs=num_jobs,
+            temp_folder="__test_file_dataset__"
         )
     (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(results.transformer.get_xy, [tr_file, cv_file, te_file])
     ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.patterns.items()}
@@ -77,6 +78,7 @@ def test_hpo():
         cflearn.tune_with(
             tr_file,
             x_cv=cv_file,
+            temp_folder="__test_hpo__",
             task_type=TaskTypes.CLASSIFICATION,
             num_repeat=2, num_parallel=num_parallel, num_search=10
         )

@@ -26,7 +26,7 @@ def test():
     }
 
     info_dict = {}
-    experiments = cflearn.Experiments()
+    experiments = cflearn.Experiments("__ddr__")
 
     def _get_file(folder, task_name):
         return None if folder is None else os.path.join(folder, task_name)
