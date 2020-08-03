@@ -1,3 +1,5 @@
+# This is a solution for https://www.kaggle.com/c/titanic
+
 import os
 import cflearn
 
