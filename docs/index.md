@@ -54,6 +54,8 @@ pip install -e .
 
 ## Examples
 
++ [Here](https://github.com/carefree0910/carefree-learn/tree/dev/examples) are some real life examples.
+
 ### Quick Start
 
 ```python
