@@ -225,7 +225,7 @@ def repeat_with(x: data_type,
     kwargs.setdefault("trigger_logging", False)
     kwargs["verbose_level"] = 0
 
-    experiments = Experiments(overwrite=False)
+    experiments = Experiments(temp_folder, overwrite=False)
     experiments.run(
         None, x, y, x_cv, y_cv,
         models=models, identifiers=identifiers,
