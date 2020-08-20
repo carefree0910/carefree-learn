@@ -8,7 +8,7 @@ from typing import *
 from cftool.misc import *
 from abc import ABCMeta, abstractmethod
 
-from ..misc.toolkit import tensor_dict_type
+from ..misc.toolkit import tensor_dict_type, Initializer
 
 encoder_dict: Dict[str, Type["EncoderBase"]] = {}
 
@@ -75,6 +75,8 @@ class Embedding(EncoderBase):
                  config: Dict[str, Any]):
         super().__init__(idx, num_values, config)
         self.embedding = nn.Embedding(num_values, self._dim)
+        embedding_initializer = Initializer({"mean": self._mean, "std": self._std})
+        embedding_initializer.truncated_normal(self.embedding.weight)
 
     def _init_config(self, config: Dict[str, Any]):
         super()._init_config(config)
