@@ -28,7 +28,7 @@ def test():
         num_repeat=10, num_jobs=0,
         data_config=data_config
     )
-    ensemble = cflearn.EnsemblePattern(results.patterns["tree_dnn"])
+    ensemble = cflearn.ensemble(results.patterns["tree_dnn"])
     predictions = ensemble.predict(test_file).ravel()
     x_te, _ = results.transformer.data.read_file(test_file, contains_labels=False)
     id_list = DataTuple.with_transpose(x_te, None).xT[0]
