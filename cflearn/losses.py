@@ -8,16 +8,44 @@ from abc import ABCMeta, abstractmethod
 
 
 class LossBase(nn.Module, metaclass=ABCMeta):
+    def __init__(self,
+                 config: Dict[str, Any],
+                 reduction: str = "mean"):
+        super().__init__()
+        self._init_config(config)
+        self._reduction = reduction
+
+    def _init_config(self,
+                     config: Dict[str, Any]):
+        pass
+
+    def _reduce(self,
+                losses: torch.Tensor) -> torch.Tensor:
+        if self._reduction == "none":
+            return losses
+        if self._reduction == "mean":
+            return losses.mean()
+        if self._reduction == "sum":
+            return losses.sum()
+        raise NotImplementedError(f"reduction '{self._reduction}' is not implemented")
+
     @abstractmethod
+    def _core(self,
+              predictions: torch.Tensor,
+              target: torch.Tensor) -> torch.Tensor:
+        # return losses without reduction
+        pass
+
     def forward(self,
                 predictions: torch.Tensor,
                 target: torch.Tensor) -> torch.Tensor:
-        pass
+        losses = self._core(predictions, target)
+        return self._reduce(losses)
 
 
 class FocalLoss(LossBase):
-    def __init__(self, config: Dict[str, Any]):
-        super().__init__()
+    def _init_config(self,
+                     config: Dict[str, Any]):
         self._eps = config.setdefault("eps", 1e-6)
         self._gamma = config.setdefault("gamma", 2.)
         alpha = config.setdefault("alpha", None)
@@ -27,9 +55,9 @@ class FocalLoss(LossBase):
             alpha = list(alpha)
         self._alpha = alpha
 
-    def forward(self,
-                predictions: torch.Tensor,
-                target: torch.Tensor) -> torch.Tensor:
+    def _core(self,
+              predictions: torch.Tensor,
+              target: torch.Tensor) -> torch.Tensor:
         logits_mat, target_column = predictions.view(-1, predictions.shape[-1]), target.view(-1, 1)
         prob_mat = functional.softmax(logits_mat, dim=1) + self._eps
         gathered_prob_flat = prob_mat.gather(dim=1, index=target_column).view(-1)
@@ -39,7 +67,7 @@ class FocalLoss(LossBase):
                 self._alpha = torch.tensor(self._alpha).to(predictions)
             alpha_target = self._alpha.gather(dim=0, index=target_column.view(-1))
             gathered_log_prob_flat = gathered_log_prob_flat * alpha_target
-        return (-gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma).mean()
+        return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 
 
 __all__ = ["FocalLoss"]
