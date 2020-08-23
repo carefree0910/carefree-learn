@@ -121,13 +121,14 @@ class Task:
             x_cv: data_type = None,
             y_cv: data_type = None,
             *,
+            sample_weights: np.ndarray = None,
             prepare: bool = True,
             cuda: int = None,
             **kwargs) -> "Task":
         if prepare:
             self.prepare(x, y, x_cv, y_cv, external=False, **kwargs)
         m = make(cuda=cuda, **self.config)
-        m.fit(x, y, x_cv, y_cv)
+        m.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
         save(m, saving_folder=self.saving_folder)
         return self
 
