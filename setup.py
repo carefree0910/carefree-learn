@@ -12,7 +12,7 @@ setup(
     install_requires=[
         "trains",
         "carefree-ml>=0.1.0",
-        "carefree-data>=0.1.5",
+        "carefree-data>=0.1.6",
         "carefree-toolkit>=0.1.9",
         "dill", "future", "psutil", "tb-nightly",
         "cython>=0.29.12", "numpy>=1.16.2", "scipy>=1.2.1",
