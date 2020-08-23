@@ -112,7 +112,11 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if self.tr_data.is_clf:
             y_batch = y_batch.view(-1)
         predictions = forward_results["predictions"]
-        return {"loss": self.loss(predictions, y_batch)}
+        sample_weights = forward_results.get("batch_sample_weights")
+        losses = self.loss(predictions, y_batch)
+        if sample_weights is None:
+            return {"loss": losses.mean()}
+        return {"loss": (losses * sample_weights.to(losses.device)).mean()}
 
     @property
     def merged_dim(self):
@@ -156,9 +160,9 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _init_loss(self,
                    tr_data: TabularData):
         if tr_data.is_reg:
-            self.loss = nn.L1Loss()
+            self.loss = nn.L1Loss(reduction="none")
         else:
-            self.loss = FocalLoss(self._loss_config)
+            self.loss = FocalLoss(self._loss_config, reduction="none")
 
     def _init_encoder(self, idx: int):
         methods = self._encoding_methods.setdefault(idx, self._default_encoding_method)
@@ -294,12 +298,18 @@ class Pipeline(nn.Module, LoggingMixin):
     def _init_data(self, tr_data, cv_data):
         self.tr_data, self.cv_data = tr_data, cv_data
         tr_sampler = ImbalancedSampler(tr_data, verbose_level=self._verbose_level)
-        self.tr_loader = DataLoader(self.batch_size, tr_sampler, verbose_level=self._verbose_level)
+        self.tr_loader = DataLoader(
+            self.batch_size, tr_sampler,
+            return_indices=True, verbose_level=self._verbose_level
+        )
         if cv_data is None:
             self.cv_loader = None
         else:
             cv_sampler = ImbalancedSampler(cv_data, shuffle=False, verbose_level=self._verbose_level)
-            self.cv_loader = DataLoader(self.cv_batch_size, cv_sampler, verbose_level=self._verbose_level)
+            self.cv_loader = DataLoader(
+                self.cv_batch_size, cv_sampler,
+                return_indices=True, verbose_level=self._verbose_level
+            )
 
     def _define_optimizer(self, params_name, optimizer_base, optimizer_config):
         if params_name == "all":
@@ -590,9 +600,13 @@ class Pipeline(nn.Module, LoggingMixin):
 
     def forward(self,
                 tr_data: TabularData,
-                cv_data: TabularData = None):
+                cv_data: TabularData,
+                tr_weights: np.ndarray):
         # data
         self._init_data(tr_data, cv_data)
+        # sample weights
+        if tr_weights is not None:
+            tr_weights = to_torch(tr_weights)
         # optimizer
         self._init_optimizers()
         # metrics
@@ -617,7 +631,7 @@ class Pipeline(nn.Module, LoggingMixin):
                 self._step_tqdm = iter(self.tr_loader)
                 if self.use_tqdm:
                     self._step_tqdm = tqdm(self._step_tqdm, total=len(self.tr_loader), position=1, leave=False)
-                for x_batch, y_batch in self._step_tqdm:
+                for (x_batch, y_batch), index_batch in self._step_tqdm:
                     self._step_count += 1
                     with timing_context(self, "collate batch"):
                         batch = self._collate_batch(x_batch, y_batch)
@@ -625,6 +639,9 @@ class Pipeline(nn.Module, LoggingMixin):
                         with timing_context(self, "model.forward"):
                             forward_results = self.model(batch)
                         with timing_context(self, "loss.forward"):
+                            if tr_weights is not None:
+                                batch_sample_weights = tr_weights[index_batch]
+                                forward_results["batch_sample_weights"] = batch_sample_weights
                             loss_dict = self.model.loss_function(batch, forward_results)
                     if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():
@@ -809,9 +826,10 @@ class Wrapper(LoggingMixin):
 
     def _before_loop(self,
                      x: data_type,
-                     y: data_type = None,
-                     x_cv: data_type = None,
-                     y_cv: data_type = None):
+                     y: data_type,
+                     x_cv: data_type,
+                     y_cv: data_type,
+                     sample_weights: np.ndarray):
         # data
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
@@ -819,20 +837,28 @@ class Wrapper(LoggingMixin):
         self._original_data = TabularData(**self._data_config).read(*args, **self._read_config)
         self.tr_data = self._original_data
         self._save_original_data = False
+        self.tr_weights = None
         if x_cv is not None:
             self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
+            if sample_weights is not None:
+                self.tr_weights = sample_weights[:len(self.tr_data)]
         else:
             if self._cv_split <= 0.:
                 self.cv_data = None
+                if sample_weights is not None:
+                    self.tr_weights = sample_weights
             else:
                 self._save_original_data = True
-                self.cv_data, self.tr_data = self.tr_data.split(self._cv_split)
+                split = self.tr_data.split(self._cv_split)
+                self.cv_data, self.tr_data = split.split, split.remained
+                # TODO : utilize cv_weights with sample_weights[split.split_indices]
+                self.tr_weights = sample_weights[split.remained_indices]
         # modules
         self._prepare_modules()
 
     def _loop(self):
         # training loop
-        self.pipeline(self.tr_data, self.cv_data)
+        self.pipeline(self.tr_data, self.cv_data, self.tr_weights)
         # binary threshold
         if self._binary_threshold is None:
             if self.tr_data.num_classes != 2:
@@ -856,8 +882,10 @@ class Wrapper(LoggingMixin):
             x: data_type,
             y: data_type = None,
             x_cv: data_type = None,
-            y_cv: data_type = None) -> "Wrapper":
-        self._before_loop(x, y, x_cv, y_cv)
+            y_cv: data_type = None,
+            *,
+            sample_weights: np.ndarray = None) -> "Wrapper":
+        self._before_loop(x, y, x_cv, y_cv, sample_weights)
         self._loop()
         return self
 
@@ -867,11 +895,12 @@ class Wrapper(LoggingMixin):
                x_cv: data_type = None,
                y_cv: data_type = None,
                *,
+               sample_weights: np.ndarray = None,
                trains_config: Dict[str, Any] = None,
                keep_task_open: bool = False,
                queue: str = None) -> "Wrapper":
         if trains_config is None:
-            return self.fit(x, y, x_cv, y_cv)
+            return self.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
         # init trains
         if trains_config is None:
             trains_config = {}
@@ -886,7 +915,7 @@ class Wrapper(LoggingMixin):
         # before loop
         self._verbose_level = 6
         self._data_config["verbose_level"] = 6
-        self._before_loop(x, y, x_cv, y_cv)
+        self._before_loop(x, y, x_cv, y_cv, sample_weights)
         self.pipeline.use_tqdm = False
         copied_config = shallow_copy_dict(self.config)
         if queue is not None:

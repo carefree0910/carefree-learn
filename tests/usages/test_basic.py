@@ -1,6 +1,8 @@
 import os
 import cflearn
 
+import numpy as np
+
 from cfdata.tabular import *
 
 
@@ -29,7 +31,7 @@ def test_array_dataset():
             "mapping_configs": {"batch_norm": True, "dropout": 0.}
         }
     )
-    m.fit(*dataset.xy)
+    m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
     cflearn.estimate(*dataset.xy, wrappers=m)
     cflearn.save(m)
     cflearn.estimate(*dataset.xy, wrappers=cflearn.load())
