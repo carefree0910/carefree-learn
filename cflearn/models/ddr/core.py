@@ -771,15 +771,9 @@ class DDR(FCNN):
                 synthetic_x_batch = init.new_empty(init.shape).uniform_(
                     0, 1) * x_diff * self._synthetic_range - (lower_bound - x_min)
             with timing_context(self, "synthetic.forward"):
-                synthetic_outputs = self.forward(
-                    {"x_batch": synthetic_x_batch},
-                    no_loss=False, synthetic=True
-                )["predictions"]
+                synthetic_outputs = self.forward({"x_batch": synthetic_x_batch}, no_loss=False, synthetic=True)
             with timing_context(self, "synthetic.loss"):
-                synthetic_losses, _ = self.loss._core(
-                    {"predictions": synthetic_outputs}, y_batch,
-                    check_monotonous_only=True
-                )
+                synthetic_losses, _ = self.loss._core(synthetic_outputs, y_batch, check_monotonous_only=True)
             losses_dict["synthetic"] = synthetic_losses
             losses = losses + synthetic_losses
         losses_dict["loss"] = losses
