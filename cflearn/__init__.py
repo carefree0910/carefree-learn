@@ -241,7 +241,7 @@ def repeat_with(x: data_type,
         tasks_dict = experiments.tasks
         wrappers = {model: [load_task(task) for task in tasks] for model, tasks in tasks_dict.items()}
         patterns = {
-            model: [ModelPattern(init_method=lambda: m) for m in wrappers]
+            model: [m.to_pattern() for m in wrappers]
             for model, wrappers in wrappers.items()
         }
     transformer = None
@@ -325,16 +325,8 @@ def tune_with(x: data_type,
         ).experiments.tasks
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
-        patterns = []
         wrappers = list(map(load_task, next(iter(created[0].values()))))
-        for m in wrappers:
-            predict_method = (lambda m_: lambda x_: m_.predict(x_, contains_labels=True))(m)
-            predict_prob_method = (lambda m_: lambda x_: m_.predict_prob(x_, contains_labels=True))(m)
-            patterns.append(ModelPattern(
-                predict_method=predict_method,
-                predict_prob_method=predict_prob_method
-            ))
-        return patterns
+        return [m.to_pattern(contains_labels=True) for m in wrappers]
 
     if params is None:
         params = {
