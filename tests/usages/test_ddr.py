@@ -10,7 +10,7 @@ from cflearn.models.ddr import DDRVisualizer
 
 def test():
     power: int = 2  # Set to 5 will get much better results, but will also be very time consuming.
-    num_jobs: int = 2
+    num_jobs: int = 1
     verbose_level: int = 2
     anchor_ratios = quantiles = [0.1, 0.3, 0.5, 0.7, 0.9]
     fit, check_cdf, check_quantile = True, True, True
@@ -41,6 +41,7 @@ def test():
         if check_quantile:
             fetches.append("quantile")
         local_config = shallow_copy_dict(config)
+        local_config["sample_weights"] = np.random.random(len(x))
         ddr_config = local_config.setdefault("ddr_config", {})
         ddr_config["fetches"] = fetches
         if export_folder_ is not None:

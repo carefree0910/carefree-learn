@@ -1,5 +1,4 @@
 import torch
-import logging
 
 import torch.nn as nn
 
@@ -7,15 +6,15 @@ from typing import *
 from cftool.ml import Anneal
 from cftool.misc import LoggingMixin
 
+from ...losses import LossBase
 from ...misc.toolkit import tensor_dict_type
 from ...modules.auxiliary import MTL
 
 
-class DDRLoss(nn.Module, LoggingMixin):
-    def __init__(self,
-                 config: Dict[str, Any],
-                 device: torch.device):
-        super().__init__()
+class DDRLoss(LossBase, LoggingMixin):
+    def _init_config(self,
+                     config: Dict[str, Any]):
+        device = config["device"]
         self._joint_training = config["joint_training"]
         self._use_dynamic_dual_loss_weights = config["use_dynamic_weights"]
         self._use_anneal, self._anneal_step = config["use_anneal"], config["anneal_step"]
@@ -23,7 +22,7 @@ class DDRLoss(nn.Module, LoggingMixin):
         self._median_pressure_inv = 1. / self._median_pressure
         self.mtl = MTL(16, config["mtl_method"])
         self._target_loss_warned = False
-        self._zero = torch.zeros([1], dtype=torch.float32).to(device)
+        self._zero = torch.zeros([1, 1], dtype=torch.float32).to(device)
         if self._use_anneal:
             anneal_config = config.setdefault("anneal_config", {})
             anneal_methods = anneal_config.setdefault("methods", {})
@@ -65,11 +64,11 @@ class DDRLoss(nn.Module, LoggingMixin):
                         anneal_floors[anneal], anneal_ceilings[anneal]
                     ))
 
-    def forward(self,
-                predictions: tensor_dict_type,
-                target: torch.Tensor,
-                *,
-                check_monotonous_only: bool = False) -> Tuple[torch.Tensor, tensor_dict_type]:
+    def _core(self,
+              predictions: tensor_dict_type,
+              target: torch.Tensor,
+              *,
+              check_monotonous_only: bool = False) -> Tuple[torch.Tensor, tensor_dict_type]:
         # anneal
         if not self._use_anneal or not self.training or check_monotonous_only:
             main_anneal = median_anneal = None
@@ -88,9 +87,9 @@ class DDRLoss(nn.Module, LoggingMixin):
             main_anneal, pressure_anneal = self._last_main_anneal, self._last_pressure_anneal
         # median
         median = predictions["predictions"]
-        median_loss = nn.functional.l1_loss(median, target)
+        median_losses = nn.functional.l1_loss(median, target, reduction="none")
         if median_anneal is not None:
-            median_loss = median_loss * median_anneal
+            median_losses = median_losses * median_anneal
         # get
         anchor_batch, cdf_raw = map(predictions.get, ["anchor_batch", "cdf_raw"])
         sampled_anchors, sampled_cdf_raw = map(predictions.get, ["sampled_anchors", "sampled_cdf_raw"])
@@ -104,150 +103,162 @@ class DDRLoss(nn.Module, LoggingMixin):
         dual_cdf, cdf_quantile_residual = map(predictions.get, ["dual_cdf", "cdf_quantile_residual"])
         # cdf
         fetch_cdf = cdf_raw is not None
-        cdf_anchor_loss = cdf_monotonous_loss = None
+        cdf_anchor_losses = cdf_monotonous_losses = None
         if not fetch_cdf or check_monotonous_only:
-            cdf_loss = cdf_losses = None
+            cdf_losses = None
         else:
-            cdf_losses = self._get_cdf_loss(target, cdf_raw, anchor_batch, False)
+            cdf_losses = self._get_cdf_losses(target, cdf_raw, anchor_batch)
             if main_anneal is not None:
                 cdf_losses = cdf_losses * main_anneal
-            cdf_loss = cdf_losses.mean()
             if sampled_cdf_raw is not None:
-                cdf_anchor_loss = self._get_cdf_loss(target, sampled_cdf_raw, sampled_anchors, True)
+                cdf_anchor_losses = self._get_cdf_losses(target, sampled_cdf_raw, sampled_anchors)
                 if anchor_anneal is not None:
-                    cdf_anchor_loss = cdf_anchor_loss * anchor_anneal
+                    cdf_anchor_losses = cdf_anchor_losses * anchor_anneal
         # cdf monotonous
         if cdf_gradient is not None:
-            cdf_monotonous_loss = nn.functional.relu(-cdf_gradient).mean()
+            cdf_monotonous_losses = nn.functional.relu(-cdf_gradient)
             if anchor_anneal is not None:
-                cdf_monotonous_loss = cdf_monotonous_loss * monotonous_anneal
+                cdf_monotonous_losses = cdf_monotonous_losses * monotonous_anneal
         # quantile
         fetch_quantile = quantile_residual is not None
-        quantile_anchor_loss = quantile_monotonous_loss = None
+        quantile_anchor_losses = quantile_monotonous_losses = None
         if not fetch_quantile or check_monotonous_only:
-            median_residual_loss = quantile_loss = quantile_losses = None
+            median_residual_losses = quantile_losses = None
         else:
             target_median_residual = target - predictions["median_detach"]
-            median_residual_loss = self._get_median_residual_loss(
+            median_residual_losses = self._get_median_residual_losses(
                 target_median_residual, median_residual, quantile_sign)
             if anchor_anneal is not None:
-                median_residual_loss = median_residual_loss * anchor_anneal
-            quantile_losses = self._get_quantile_residual_loss(
-                target_median_residual, quantile_residual, quantile_batch, False)
-            quantile_loss = quantile_losses.mean() + median_residual_loss
+                median_residual_losses = median_residual_losses * anchor_anneal
+            quantile_losses = self._get_quantile_residual_losses(
+                target_median_residual, quantile_residual, quantile_batch)
+            quantile_losses = quantile_losses + median_residual_losses
             if main_anneal is not None:
-                quantile_loss = quantile_loss * main_anneal
+                quantile_losses = quantile_losses * main_anneal
             if sampled_quantile_residual is not None:
-                quantile_anchor_loss = self._get_quantile_residual_loss(
-                    target_median_residual, sampled_quantile_residual,
-                    sampled_quantiles, True
-                )
+                quantile_anchor_losses = self._get_quantile_residual_losses(
+                    target_median_residual, sampled_quantile_residual, sampled_quantiles)
                 if anchor_anneal is not None:
-                    quantile_anchor_loss = quantile_anchor_loss * anchor_anneal
+                    quantile_anchor_losses = quantile_anchor_losses * anchor_anneal
         # median pressure
         if not fetch_quantile:
-            median_pressure_loss = None
+            median_pressure_losses = None
         else:
-            median_pressure_loss = self._get_median_pressure_loss(predictions)
+            median_pressure_losses = self._get_median_pressure_losses(predictions)
             if pressure_anneal is not None:
-                median_pressure_loss = median_pressure_loss * pressure_anneal
+                median_pressure_losses = median_pressure_losses * pressure_anneal
         # quantile monotonous
-        quantile_monotonous_losses = []
+        quantile_monotonous_losses_list = []
         if quantile_residual_gradient is not None:
-            quantile_monotonous_losses.append(nn.functional.relu(-quantile_residual_gradient).mean())
+            quantile_monotonous_losses_list.append(nn.functional.relu(-quantile_residual_gradient))
         if median_residual is not None and quantile_sign is not None:
-            quantile_monotonous_losses.append(
-                self._get_median_residual_monotonous_loss(median_residual, quantile_sign))
-        if quantile_monotonous_losses:
-            quantile_monotonous_loss = sum(quantile_monotonous_losses)
+            quantile_monotonous_losses_list.append(
+                self._get_median_residual_monotonous_losses(median_residual, quantile_sign))
+        if quantile_monotonous_losses_list:
+            quantile_monotonous_losses = sum(quantile_monotonous_losses_list)
             if anchor_anneal is not None:
-                quantile_monotonous_loss = quantile_monotonous_loss * monotonous_anneal
+                quantile_monotonous_losses = quantile_monotonous_losses * monotonous_anneal
         # dual
         if not self._joint_training or not fetch_cdf or not fetch_quantile or check_monotonous_only:
-            dual_cdf_loss = dual_quantile_loss = None
-            cdf_recover_loss = quantile_recover_loss = None
+            dual_cdf_losses = dual_quantile_losses = None
+            cdf_recover_losses = quantile_recover_losses = None
         else:
             # dual cdf (cdf -> quantile [recover loss] -> cdf [dual loss])
-            quantile_recover_loss, quantile_recover_losses, quantile_recover_loss_weights = \
-                self._get_dual_recover_loss(dual_quantile, anchor_batch, cdf_losses)
+            quantile_recover_losses, quantile_recover_losses_weights = \
+                self._get_dual_recover_losses(dual_quantile, anchor_batch, cdf_losses)
             if quantile_cdf_raw is None:
-                dual_quantile_loss = None
+                dual_quantile_losses = None
             else:
-                dual_quantile_losses = self._get_cdf_loss(target, quantile_cdf_raw, anchor_batch, False)
+                dual_quantile_losses = self._get_cdf_losses(target, quantile_cdf_raw, anchor_batch)
                 if quantile_recover_losses is None or not self._use_dynamic_dual_loss_weights:
-                    dual_quantile_loss_weights = 1.
+                    dual_quantile_losses_weights = 1.
                 else:
                     quantile_recover_losses_detach = quantile_recover_losses.detach()
-                    dual_quantile_loss_weights = 0.5 * (
-                        quantile_recover_loss_weights + 1 / (1 + 2 * torch.tanh(quantile_recover_losses_detach)))
-                dual_quantile_loss = (dual_quantile_losses * dual_quantile_loss_weights).mean()
+                    dual_quantile_losses_weights = 0.5 * (
+                        quantile_recover_losses_weights + 1 / (1 + 2 * torch.tanh(quantile_recover_losses_detach)))
+                dual_quantile_losses = dual_quantile_losses * dual_quantile_losses_weights
+            quantile_recover_losses = quantile_recover_losses * quantile_recover_losses_weights
             # dual quantile (quantile -> cdf [recover loss] -> quantile [dual loss])
-            cdf_recover_loss, cdf_recover_losses, cdf_recover_loss_weights = \
-                self._get_dual_recover_loss(dual_cdf, quantile_batch, quantile_losses)
+            cdf_recover_losses, cdf_recover_losses_weights = \
+                self._get_dual_recover_losses(dual_cdf, quantile_batch, quantile_losses)
             if cdf_quantile_residual is None:
-                dual_cdf_loss = None
+                dual_cdf_losses = None
             else:
-                dual_cdf_losses = self._get_quantile_residual_loss(
-                    target, cdf_quantile_residual, quantile_batch, False)
+                dual_cdf_losses = self._get_quantile_residual_losses(target, cdf_quantile_residual, quantile_batch)
                 if cdf_recover_losses is None or not self._use_dynamic_dual_loss_weights:
-                    dual_cdf_loss_weights = 1.
+                    dual_cdf_losses_weights = 1.
                 else:
                     cdf_recover_losses_detach = cdf_recover_losses.detach()
-                    dual_cdf_loss_weights = 0.5 * (
-                        cdf_recover_loss_weights + 1 / (1 + 10 * cdf_recover_losses_detach))
-                dual_cdf_loss = (dual_cdf_losses * dual_cdf_loss_weights).mean() + median_residual_loss
+                    dual_cdf_losses_weights = 0.5 * (
+                        cdf_recover_losses_weights + 1 / (1 + 10 * cdf_recover_losses_detach))
+                dual_cdf_losses = (dual_cdf_losses * dual_cdf_losses_weights) + median_residual_losses
+            cdf_recover_losses = cdf_recover_losses * cdf_recover_losses_weights
         if dual_anneal is not None:
-            if dual_cdf_loss is not None:
-                dual_cdf_loss = dual_cdf_loss * dual_anneal
-            if dual_quantile_loss is not None:
-                dual_quantile_loss = dual_quantile_loss * dual_anneal
+            if dual_cdf_losses is not None:
+                dual_cdf_losses = dual_cdf_losses * dual_anneal
+            if dual_quantile_losses is not None:
+                dual_quantile_losses = dual_quantile_losses * dual_anneal
         if recover_anneal is not None:
-            if cdf_recover_loss is not None:
-                cdf_recover_loss = cdf_recover_loss * recover_anneal
-            if quantile_recover_loss is not None:
-                quantile_recover_loss = quantile_recover_loss * recover_anneal
+            if cdf_recover_losses is not None:
+                cdf_recover_losses = cdf_recover_losses * recover_anneal
+            if quantile_recover_losses is not None:
+                quantile_recover_losses = quantile_recover_losses * recover_anneal
         # combine
         if check_monotonous_only:
             losses = {}
         else:
-            losses = {"median": median_loss}
+            losses = {"median": median_losses}
             if not self._joint_training:
-                if cdf_anchor_loss is not None:
-                    losses["cdf_anchor"] = cdf_anchor_loss
-                if quantile_anchor_loss is not None:
-                    losses["quantile_anchor"] = quantile_anchor_loss
+                if cdf_anchor_losses is not None:
+                    losses["cdf_anchor"] = cdf_anchor_losses
+                if quantile_anchor_losses is not None:
+                    losses["quantile_anchor"] = quantile_anchor_losses
             else:
                 if fetch_cdf:
-                    losses["cdf"] = cdf_loss
-                    if cdf_anchor_loss is not None:
-                        losses["cdf_anchor"] = cdf_anchor_loss
+                    losses["cdf"] = cdf_losses
+                    if cdf_anchor_losses is not None:
+                        losses["cdf_anchor"] = cdf_anchor_losses
                 if fetch_quantile:
-                    losses["quantile"] = quantile_loss
-                    if quantile_anchor_loss is not None:
-                        losses["quantile_anchor"] = quantile_anchor_loss
+                    losses["quantile"] = quantile_losses
+                    if quantile_anchor_losses is not None:
+                        losses["quantile_anchor"] = quantile_anchor_losses
                 if fetch_cdf and fetch_quantile:
-                    losses["quantile_recover"], losses["cdf_recover"] = quantile_recover_loss, cdf_recover_loss
-                    losses["dual_quantile"], losses["dual_cdf"] = dual_quantile_loss, dual_cdf_loss
-        if median_residual_loss is not None:
-            losses["median_residual_loss"] = median_residual_loss
-        if median_pressure_loss is not None:
-            key = "synthetic_median_pressure_loss" if check_monotonous_only else "median_pressure_loss"
-            losses[key] = median_pressure_loss
-        if cdf_monotonous_loss is not None:
+                    losses["quantile_recover"], losses["cdf_recover"] = quantile_recover_losses, cdf_recover_losses
+                    losses["dual_quantile"], losses["dual_cdf"] = dual_quantile_losses, dual_cdf_losses
+        if median_residual_losses is not None:
+            losses["median_residual_losses"] = median_residual_losses
+        if median_pressure_losses is not None:
+            key = "synthetic_median_pressure_losses" if check_monotonous_only else "median_pressure_losses"
+            losses[key] = median_pressure_losses
+        if cdf_monotonous_losses is not None:
             key = "synthetic_cdf_monotonous" if check_monotonous_only else "cdf_monotonous"
-            losses[key] = cdf_monotonous_loss
-        if quantile_monotonous_loss is not None:
+            losses[key] = cdf_monotonous_losses
+        if quantile_monotonous_losses is not None:
             key = "synthetic_quantile_monotonous" if check_monotonous_only else "quantile_monotonous"
-            losses[key] = quantile_monotonous_loss
+            losses[key] = quantile_monotonous_losses
         if not losses:
-            return self._zero, {"loss": self._zero}
+            zero = self._zero.repeat(len(target), 1)
+            return zero, {"loss": zero}
         if not self.mtl.registered:
             self.mtl.register(losses.keys())
         return self.mtl(losses), losses
 
-    def _get_dual_recover_loss(self, dual_prediction, another_input_batch, another_losses):
+    def forward(self,
+                predictions: tensor_dict_type,
+                target: torch.Tensor,
+                *,
+                check_monotonous_only: bool = False) -> Tuple[torch.Tensor, tensor_dict_type]:
+        losses, losses_dict = self._core(
+            predictions, target,
+            check_monotonous_only=check_monotonous_only
+        )
+        reduced_losses = self._reduce(losses)
+        reduced_losses_dict = {k: self._reduce(v) for k, v in losses_dict.items()}
+        return reduced_losses, reduced_losses_dict
+
+    def _get_dual_recover_losses(self, dual_prediction, another_input_batch, another_losses):
         if dual_prediction is None:
-            recover_loss = recover_losses = recover_loss_weights = None
+            recover_losses = recover_loss_weights = None
         else:
             recover_losses = torch.abs(another_input_batch - dual_prediction)
             if not self._use_dynamic_dual_loss_weights:
@@ -255,33 +266,30 @@ class DDRLoss(nn.Module, LoggingMixin):
             else:
                 another_losses_detach = another_losses.detach()
                 recover_loss_weights = 1 / (1 + 2 * torch.tanh(another_losses_detach))
-            recover_loss = (recover_losses * recover_loss_weights).mean()
-        return recover_loss, recover_losses, recover_loss_weights
+        return recover_losses, recover_loss_weights
 
     @staticmethod
-    def _get_cdf_loss(target, cdf_raw, anchor_batch, reduce):
+    def _get_cdf_losses(target, cdf_raw, anchor_batch):
         indicative = (target <= anchor_batch).to(torch.float32)
-        cdf_losses = -indicative * cdf_raw + nn.functional.softplus(cdf_raw)
-        return cdf_losses if not reduce else cdf_losses.mean()
+        return -indicative * cdf_raw + nn.functional.softplus(cdf_raw)
 
     @staticmethod
-    def _get_median_residual_monotonous_loss(median_residual, quantile_sign):
-        return nn.functional.relu(-median_residual * quantile_sign).mean()
+    def _get_median_residual_monotonous_losses(median_residual, quantile_sign):
+        return nn.functional.relu(-median_residual * quantile_sign)
 
     @staticmethod
-    def _get_quantile_residual_loss(target_residual, quantile_residual, quantile_batch, reduce):
+    def _get_quantile_residual_losses(target_residual, quantile_residual, quantile_batch):
         quantile_error = target_residual - quantile_residual
-        quantile_losses = torch.max(quantile_batch * quantile_error, (quantile_batch - 1) * quantile_error)
-        return quantile_losses if not reduce else quantile_losses.mean()
+        return torch.max(quantile_batch * quantile_error, (quantile_batch - 1) * quantile_error)
 
-    def _get_median_residual_loss(self, target_median_residual, median_residual, quantile_sign):
+    def _get_median_residual_losses(self, target_median_residual, median_residual, quantile_sign):
         same_sign_mask = quantile_sign * torch.sign(target_median_residual) > 0
         tmr, mr = map(lambda tensor: tensor[same_sign_mask], [target_median_residual, median_residual])
-        median_residual_mae = self._median_pressure * torch.abs(tmr - mr).mean()
-        residual_monotonous_loss = DDRLoss._get_median_residual_monotonous_loss(median_residual, quantile_sign)
-        return median_residual_mae + residual_monotonous_loss
+        median_residual_loss = self._median_pressure * torch.abs(tmr - mr).mean()
+        residual_monotonous_losses = DDRLoss._get_median_residual_monotonous_losses(median_residual, quantile_sign)
+        return median_residual_loss + residual_monotonous_losses
 
-    def _get_median_pressure_loss(self, predictions):
+    def _get_median_pressure_losses(self, predictions):
         pressure_pos_dict, pressure_neg_dict = map(
             predictions.get, map(lambda attr: f"pressure_sub_quantile_{attr}_dict", ["pos", "neg"]))
         additive_pos, additive_neg = pressure_pos_dict["add"], pressure_neg_dict["add"]
@@ -292,7 +300,7 @@ class DDRLoss(nn.Module, LoggingMixin):
             torch.max(
                 -self._median_pressure * sub_quantile,
                 self._median_pressure_inv * sub_quantile
-            ).mean()
+            )
             for sub_quantile in [
                 additive_pos, -additive_neg,
                 multiply_pos, multiply_neg

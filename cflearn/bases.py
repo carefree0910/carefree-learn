@@ -507,7 +507,7 @@ class Pipeline(nn.Module, LoggingMixin):
         else:
             predictions = None
             forward_dicts, loss_dicts, labels = [], [], []
-            for x_batch, y_batch in loader:
+            for (x_batch, y_batch), _ in loader:
                 labels.append(y_batch)
                 batch = self._collate_batch(x_batch, y_batch)
                 with eval_context(self):

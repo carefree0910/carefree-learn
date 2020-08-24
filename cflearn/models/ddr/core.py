@@ -131,7 +131,9 @@ class DDR(FCNN):
 
     def _init_loss(self,
                    tr_data: TabularData):
-        self.loss = DDRLoss(self._loss_config, self.device)
+        loss_config = shallow_copy_dict(self._loss_config)
+        loss_config["device"] = self.device
+        self.loss = DDRLoss(loss_config, "none")
 
     def _init_mlp_config(self,
                          prefix: str,
@@ -759,7 +761,8 @@ class DDR(FCNN):
                       forward_results: tensor_dict_type) -> Dict[str, Union[torch.Tensor, float]]:
         y_batch = batch["y_batch"]
         init = forward_results["init"]
-        loss, loss_dict = self.loss(forward_results, y_batch)
+        sample_weights = forward_results.get("batch_sample_weights")
+        losses, losses_dict = self.loss(forward_results, y_batch)
         if self.training and self._synthetic_step > 0 and self._step_count % self._synthetic_step == 0:
             with timing_context(self, "synthetic.get_batch"):
                 x_min, x_max = torch.min(init, dim=0)[0], torch.max(init, dim=0)[0]
@@ -773,13 +776,17 @@ class DDR(FCNN):
                     no_loss=False, synthetic=True
                 )["predictions"]
             with timing_context(self, "synthetic.loss"):
-                synthetic_loss, synthetic_loss_info = self.loss(
+                synthetic_losses, _ = self.loss._core(
                     {"predictions": synthetic_outputs}, y_batch,
                     check_monotonous_only=True
                 )
-            loss_dict["synthetic"] = synthetic_loss
-            loss = loss + synthetic_loss
-        loss_dict["loss"] = loss
+            losses_dict["synthetic"] = synthetic_losses
+            losses = losses + synthetic_losses
+        losses_dict["loss"] = losses
+        if sample_weights is None:
+            losses_dict = {k: v.mean() for k, v in losses_dict.items()}
+        else:
+            losses_dict = {k: (v * sample_weights.to(v.device)).mean() for k, v in losses_dict.items()}
         if self.training:
             self._step_count += 1
         else:
@@ -790,8 +797,8 @@ class DDR(FCNN):
                 yq = self._predict_quantile(init, self._expand(len(init), q))
                 quantile_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
             quantile_metric = -sum(quantile_losses) / len(quantile_losses) * self.q_metric.sign
-            loss_dict["ddr"] = torch.tensor([quantile_metric], dtype=torch.float32)
-        return loss_dict
+            losses_dict["ddr"] = torch.tensor([quantile_metric], dtype=torch.float32)
+        return losses_dict
 
 
 __all__ = ["DDR"]
