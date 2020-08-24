@@ -574,7 +574,7 @@ class Pipeline(nn.Module, LoggingMixin):
                      **kwargs) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
         with eval_context(self, no_grad=no_grad):
             results, labels = [], []
-            for x_batch, y_batch in loader:
+            for (x_batch, y_batch), _ in loader:
                 if y_batch is not None:
                     labels.append(y_batch)
                 results.append(self.model(self._collate_batch(x_batch, y_batch), **kwargs))
@@ -696,7 +696,11 @@ class Pipeline(nn.Module, LoggingMixin):
                 contains_labels: bool = False,
                 **kwargs) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         data = self.tr_data.copy_to(x, None, contains_labels=contains_labels)
-        loader = DataLoader(self.cv_batch_size, ImbalancedSampler(data, shuffle=False))
+        loader = DataLoader(
+            self.cv_batch_size,
+            ImbalancedSampler(data, shuffle=False),
+            return_indices=True
+        )
         predictions = self._predict(loader, **kwargs)
         if return_all:
             return predictions
@@ -852,7 +856,8 @@ class Wrapper(LoggingMixin):
                 split = self.tr_data.split(self._cv_split)
                 self.cv_data, self.tr_data = split.split, split.remained
                 # TODO : utilize cv_weights with sample_weights[split.split_indices]
-                self.tr_weights = sample_weights[split.remained_indices]
+                if sample_weights is not None:
+                    self.tr_weights = sample_weights[split.remained_indices]
         # modules
         self._prepare_modules()
 
