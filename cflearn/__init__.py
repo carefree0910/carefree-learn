@@ -191,6 +191,10 @@ def load_task(task: Task) -> Wrapper:
     return next(iter(load(saving_folder=task.saving_folder).values()))
 
 
+def transform_experiments(experiments: Experiments) -> Dict[str, List[Wrapper]]:
+    return {k: list(map(load_task, v)) for k, v in experiments.tasks.items()}
+
+
 class RepeatResult(NamedTuple):
     experiments: Experiments
     transformer: EvaluateTransformer
@@ -885,6 +889,7 @@ def make_toy_model(model: str = "fcnn",
 
 
 __all__ = [
+    "split_file", "load_task", "transform_experiments",
     "register_metric", "register_optimizer", "register_scheduler",
     "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
     "Task", "Experiments", "Benchmark", "ModelBase", "Pipeline", "Wrapper",

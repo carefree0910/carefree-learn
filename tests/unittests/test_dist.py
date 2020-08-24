@@ -14,12 +14,12 @@ class TestDist(unittest.TestCase):
         experiments.add_task(x, y, model="fcnn")
         experiments.add_task(x, y, model="tree_dnn")
         experiments.add_task(x, y, model="tree_dnn")
-        results = experiments.run_tasks(num_jobs=2)
-        ms = {k: list(map(cflearn.load_task, v)) for k, v in results.items()}
+        experiments.run_tasks(num_jobs=2)
+        ms = cflearn.transform_experiments(experiments)
         saving_folder = "__test_experiments_save__"
         experiments.save(saving_folder)
         loaded = cflearn.Experiments.load(saving_folder)
-        ms_loaded = {k: list(map(cflearn.load_task, v)) for k, v in loaded.tasks.items()}
+        ms_loaded = cflearn.transform_experiments(loaded)
         self.assertTrue(np.allclose(ms["fcnn"][1].predict(x), ms_loaded["fcnn"][1].predict(x)))
 
     def test_benchmark(self):
