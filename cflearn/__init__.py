@@ -238,8 +238,7 @@ def repeat_with(x: data_type,
     )
     patterns = None
     if return_patterns:
-        tasks_dict = experiments.tasks
-        wrappers = {model: [load_task(task) for task in tasks] for model, tasks in tasks_dict.items()}
+        wrappers = transform_experiments(experiments)
         patterns = {
             model: [m.to_pattern() for m in wrappers]
             for model, wrappers in wrappers.items()
@@ -320,8 +319,8 @@ def tune_with(x: data_type,
         return repeat_with(
             x_, y_, x_cv, y_cv_,
             num_repeat=num_repeat, num_jobs=num_jobs_,
-            models=model, identifiers=hash_code(str(params_)),
-            temp_folder=temp_folder, return_tasks=True, **base_params
+            models=model, identifiers=hash_code(str(params_)), temp_folder=temp_folder,
+            return_tasks=True, return_patterns=False, **base_params
         ).experiments.tasks
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:

@@ -973,7 +973,11 @@ class Wrapper(LoggingMixin):
         def _predict_prob(x):
             return self.predict_prob(x, **kwargs)
 
-        return ModelPattern(predict_method=_predict, predict_prob_method=_predict_prob)
+        return ModelPattern(
+            init_method=lambda: self,
+            predict_method=_predict,
+            predict_prob_method=_predict_prob
+        )
 
     def save(self,
              folder: str = None,
