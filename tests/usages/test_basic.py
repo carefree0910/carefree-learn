@@ -63,7 +63,8 @@ def test_file_dataset():
             num_repeat=num_repeat, num_jobs=num_jobs,
             temp_folder="__test_file_dataset__"
         )
-    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(results.transformer.get_xy, [tr_file, cv_file, te_file])
+    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(results.data.read_file, [tr_file, cv_file, te_file])
+    tr_y, cv_y, te_y = map(results.data.transform_labels, [tr_y, cv_y, te_y])
     ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.patterns.items()}
     other_patterns = {}
     for model in models:

@@ -143,19 +143,6 @@ def make(model: str = "fcnn",
     return Wrapper(kwargs, cuda=cuda, tracker_config=tracker_config, verbose_level=verbose_level)
 
 
-class EvaluateTransformer:
-    def __init__(self, data: TabularData):
-        self.data = data
-
-    def get_xy(self,
-               x: data_type,
-               y: data_type = None) -> Tuple[data_type, data_type]:
-        if y is None:
-            x, y = self.data.read_file(x)
-        y = self.data.transform_labels(y)
-        return x, y
-
-
 SAVING_DELIM = "^_^"
 wrappers_dict_type = Dict[str, Wrapper]
 wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
@@ -197,7 +184,7 @@ def transform_experiments(experiments: Experiments) -> Dict[str, List[Wrapper]]:
 
 class RepeatResult(NamedTuple):
     experiments: Experiments
-    transformer: EvaluateTransformer
+    data: Union[None, TabularData]
     patterns: Union[None, Dict[str, List[ModelPattern]]]
 
     @property
@@ -243,15 +230,15 @@ def repeat_with(x: data_type,
             model: [m.to_pattern() for m in wrappers]
             for model, wrappers in wrappers.items()
         }
-    transformer = None
+    data = None
     if patterns is not None:
-        transformer = EvaluateTransformer(patterns[identifiers[0]][0].model.tr_data)
-    return RepeatResult(experiments, transformer, patterns)
 
 
 def ensemble(patterns: List[ModelPattern],
              ensemble_method: Union[str, collate_fn_type] = "default") -> EnsemblePattern:
     return EnsemblePattern(patterns, ensemble_method)
+        data = patterns[identifiers[0]][0].model.tr_data
+    return RepeatResult(experiments, data, patterns)
 
 
 def tune_with(x: data_type,
