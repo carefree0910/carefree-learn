@@ -966,11 +966,18 @@ class Wrapper(LoggingMixin):
         raw = self.pipeline.predict(x, **kwargs)
         return self.model.to_prob(raw)
 
-    def to_pattern(self, **kwargs) -> ModelPattern:
+    def to_pattern(self,
+                   *,
+                   pre_process: callable = None,
+                   **kwargs) -> ModelPattern:
         def _predict(x):
+            if pre_process is not None:
+                x = pre_process(x)
             return self.predict(x, **kwargs)
 
         def _predict_prob(x):
+            if pre_process is not None:
+                x = pre_process(x)
             return self.predict_prob(x, **kwargs)
 
         return ModelPattern(
