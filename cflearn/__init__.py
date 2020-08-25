@@ -232,13 +232,13 @@ def repeat_with(x: data_type,
         }
     data = None
     if patterns is not None:
+        data = patterns[identifiers[0]][0].model.tr_data
+    return RepeatResult(experiments, data, patterns)
 
 
 def ensemble(patterns: List[ModelPattern],
              ensemble_method: Union[str, collate_fn_type] = "default") -> EnsemblePattern:
     return EnsemblePattern(patterns, ensemble_method)
-        data = patterns[identifiers[0]][0].model.tr_data
-    return RepeatResult(experiments, data, patterns)
 
 
 def tune_with(x: data_type,
