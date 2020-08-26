@@ -428,6 +428,12 @@ class Pipeline(nn.Module, LoggingMixin):
 
     # core
 
+    def _to_tqdm(self,
+                 loader: DataLoader) -> Union[tqdm, DataLoader]:
+        if not self.use_tqdm:
+            return loader
+        return tqdm(loader, total=len(loader), leave=False, position=2)
+
     def _collect_info(self, *, return_only: bool):
         msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
         msg += pprint.pformat(self._wrapper_config, compact=True) + "\n" + "-" * 100 + "\n"
@@ -498,14 +504,13 @@ class Pipeline(nn.Module, LoggingMixin):
         else:
             loader = tr_loader.copy()
             loader.enabled_sampling = False
-        if self.use_tqdm:
-            loader = tqdm(loader, total=len(loader), leave=False, position=2)
         if not self._metrics_need_loss:
             losses = None
             results = self._predict(loader=loader)
             predictions, labels = map(results.get, ["predictions", "labels"])
         else:
             predictions = None
+            loader = self._to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
             for (x_batch, y_batch), _ in loader:
                 labels.append(y_batch)
@@ -572,9 +577,11 @@ class Pipeline(nn.Module, LoggingMixin):
                      no_grad: bool,
                      loader: DataLoader,
                      **kwargs) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
+        return_indices, loader = loader.return_indices, self._to_tqdm(loader)
         with eval_context(self, no_grad=no_grad):
             results, labels = [], []
-            for (x_batch, y_batch), _ in loader:
+            for a, b in loader:
+                x_batch, y_batch = a if return_indices else a, b
                 if y_batch is not None:
                     labels.append(y_batch)
                 results.append(self.model(self._collate_batch(x_batch, y_batch), **kwargs))
@@ -698,8 +705,7 @@ class Pipeline(nn.Module, LoggingMixin):
         data = self.tr_data.copy_to(x, None, contains_labels=contains_labels)
         loader = DataLoader(
             self.cv_batch_size,
-            ImbalancedSampler(data, shuffle=False),
-            return_indices=True
+            ImbalancedSampler(data, shuffle=False)
         )
         predictions = self._predict(loader, **kwargs)
         if return_all:
