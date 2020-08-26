@@ -581,7 +581,10 @@ class Pipeline(nn.Module, LoggingMixin):
         with eval_context(self, no_grad=no_grad):
             results, labels = [], []
             for a, b in loader:
-                x_batch, y_batch = a if return_indices else a, b
+                if return_indices:
+                    x_batch, y_batch = a
+                else:
+                    x_batch, y_batch = a, b
                 if y_batch is not None:
                     labels.append(y_batch)
                 results.append(self.model(self._collate_batch(x_batch, y_batch), **kwargs))
