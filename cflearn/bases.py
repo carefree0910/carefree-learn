@@ -503,6 +503,7 @@ class Pipeline(nn.Module, LoggingMixin):
             loader = cv_loader
         else:
             loader = tr_loader.copy()
+            loader.return_indices = tr_loader.return_indices
             loader.enabled_sampling = False
         if not self._metrics_need_loss:
             losses = None
