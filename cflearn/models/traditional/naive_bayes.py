@@ -15,10 +15,12 @@ from ...modules.blocks import *
 
 @ModelBase.register("nnb")
 class NNB(ModelBase):
-    def __init__(self,
-                 config: Dict[str, Any],
-                 tr_data: TabularData,
-                 device: torch.device):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        tr_data: TabularData,
+        device: torch.device,
+    ):
         super().__init__(config, tr_data, device)
         # prepare
         x, y = tr_data.processed.xy
@@ -42,7 +44,7 @@ class NNB(ModelBase):
                     std_list.append(local_samples.std(0))
                 self.mu, self.std = map(
                     lambda lst: nn.Parameter(torch.from_numpy(np.vstack(lst))),
-                    [mu_list, std_list]
+                    [mu_list, std_list],
                 )
             self.normal = torch.distributions.Normal(self.mu, self.std)
         # categorical
@@ -53,23 +55,26 @@ class NNB(ModelBase):
             self.log_prior = nn.Parameter(torch.from_numpy(np.log(y_bincount / len(x))))
         else:
             self.mnb = Linear(num_categorical_dim, num_classes, init_method=None)
-            x_mnb, y_mnb = split_result.categorical.cpu().numpy(), y_ravel.astype(np.int64)
+            x_mnb = split_result.categorical.cpu().numpy()
+            y_mnb = y_ravel.astype(np.int64)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
             with torch.no_grad():
                 # class log prior
                 class_log_prior = mnb.class_log_prior[0]
                 self.mnb.linear.bias.data = to_torch(class_log_prior)
-                assert np.allclose(class_log_prior, self.class_log_prior(numpy=True), atol=1e-6)
+                assert np.allclose(
+                    class_log_prior, self.class_log_prior(numpy=True), atol=1e-6
+                )
                 # log posterior
                 self.mnb.linear.weight.data = to_torch(mnb.feature_log_prob)
-                assert np.allclose(mnb.feature_log_prob, self.log_posterior(numpy=True), atol=1e-6)
+                assert np.allclose(
+                    mnb.feature_log_prob, self.log_posterior(numpy=True), atol=1e-6
+                )
 
-    def _preset_config(self,
-                       tr_data: TabularData):
+    def _preset_config(self, tr_data: TabularData):
         self.config.setdefault("default_encoding_method", "one_hot")
 
-    def _init_config(self,
-                     tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData):
         super()._init_config(tr_data)
         self.pretrain = self.config.setdefault("pretrain", True)
 
@@ -94,15 +99,15 @@ class NNB(ModelBase):
         if self.mnb is None:
             return
         with torch.no_grad():
-            posteriors = tuple(map(
-                partial(nn.functional.softmax, dim=1),
-                self.log_posterior(return_groups=True)
-            ))
+            posteriors = tuple(
+                map(
+                    partial(nn.functional.softmax, dim=1),
+                    self.log_posterior(return_groups=True),
+                )
+            )
         return tuple(map(to_numpy, posteriors))
 
-    def forward(self,
-                batch: tensor_dict_type,
-                **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch)
         # log prior
@@ -120,7 +125,9 @@ class NNB(ModelBase):
         else:
             categorical = split_result.categorical
             log_posterior = self.log_posterior()
-            categorical_log_prob = nn.functional.linear(categorical, log_posterior, log_prior)
+            categorical_log_prob = nn.functional.linear(
+                categorical, log_posterior, log_prior
+            )
         if numerical_log_prob is None:
             predictions = categorical_log_prob
         elif categorical_log_prob is None:
@@ -129,19 +136,14 @@ class NNB(ModelBase):
             predictions = numerical_log_prob + categorical_log_prob
         return {"predictions": predictions}
 
-    def class_log_prior(self,
-                        *,
-                        numpy: bool = False):
+    def class_log_prior(self, *, numpy: bool = False):
         log_prior = self.log_prior if self.mnb is None else self.mnb.linear.bias
         rs = nn.functional.log_softmax(log_prior, dim=0)
         if not numpy:
             return rs
         return to_numpy(rs)
 
-    def log_posterior(self,
-                      *,
-                      numpy: bool = False,
-                      return_groups: bool = False):
+    def log_posterior(self, *, numpy: bool = False, return_groups: bool = False):
         rs = nn.functional.log_softmax(self.mnb.linear.weight, dim=1)
         if not return_groups:
             if not numpy:
@@ -149,10 +151,12 @@ class NNB(ModelBase):
             return to_numpy(rs)
         categorical_dims = self.categorical_dims
         sorted_categorical_indices = sorted(categorical_dims)
-        num_categorical_list = [categorical_dims[idx] for idx in sorted_categorical_indices]
+        num_categorical_list = [
+            categorical_dims[idx] for idx in sorted_categorical_indices
+        ]
         grouped_weights = map(
             lambda tensor: nn.functional.log_softmax(tensor, dim=1),
-            torch.split(rs, num_categorical_list, dim=1)
+            torch.split(rs, num_categorical_list, dim=1),
         )
         if not numpy:
             return tuple(grouped_weights)

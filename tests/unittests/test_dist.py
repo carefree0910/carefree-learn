@@ -20,7 +20,9 @@ class TestDist(unittest.TestCase):
         experiments.save(saving_folder)
         loaded = cflearn.Experiments.load(saving_folder)
         ms_loaded = cflearn.transform_experiments(loaded)
-        self.assertTrue(np.allclose(ms["fcnn"][1].predict(x), ms_loaded["fcnn"][1].predict(x)))
+        self.assertTrue(
+            np.allclose(ms["fcnn"][1].predict(x), ms_loaded["fcnn"][1].predict(x))
+        )
 
     def test_benchmark(self):
         x, y = TabularDataset.iris().xy
@@ -28,13 +30,15 @@ class TestDist(unittest.TestCase):
             "foo",
             TaskTypes.CLASSIFICATION,
             models=["fcnn", "tree_dnn"],
-            temp_folder="__test_benchmark__"
+            temp_folder="__test_benchmark__",
         )
         benchmarks = {
             "fcnn": {"default": {}, "sgd": {"optimizer": "sgd"}},
-            "tree_dnn": {"default": {}, "adamw": {"optimizer": "adamw"}}
+            "tree_dnn": {"default": {}, "adamw": {"optimizer": "adamw"}},
         }
-        msg1 = benchmark.k_fold(3, x, y, num_jobs=2, benchmarks=benchmarks).comparer.log_statistics()
+        msg1 = benchmark.k_fold(
+            3, x, y, num_jobs=2, benchmarks=benchmarks
+        ).comparer.log_statistics()
         saving_folder = "__test_benchmark_save__"
         benchmark.save(saving_folder)
         loaded_benchmark, loaded_results = cflearn.Benchmark.load(saving_folder)
@@ -42,5 +46,5 @@ class TestDist(unittest.TestCase):
         self.assertEqual(msg1, msg2)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

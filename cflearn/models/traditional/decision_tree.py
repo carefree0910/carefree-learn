@@ -31,10 +31,12 @@ def export_structure(tree):
 
 @ModelBase.register("ndt")
 class NDT(ModelBase):
-    def __init__(self,
-                 config: Dict[str, Any],
-                 tr_data: TabularData,
-                 device: torch.device):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        tr_data: TabularData,
+        device: torch.device,
+    ):
         super().__init__(config, tr_data, device)
         # prepare
         x, y = tr_data.processed.xy
@@ -44,7 +46,8 @@ class NDT(ModelBase):
         # decision tree
         self.log_msg("fitting decision tree", self.info_prefix, verbose_level=2)
         x_merge = split_result.merge().cpu().numpy()
-        self.dt = DecisionTreeClassifier(**self.dt_config, random_state=142857).fit(x_merge, y_ravel)
+        self.dt = DecisionTreeClassifier(**self.dt_config, random_state=142857)
+        self.dt.fit(x_merge, y_ravel)
         tree_structure = export_structure(self.dt)
         # dt statistics
         num_leafs = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
@@ -67,7 +70,7 @@ class NDT(ModelBase):
                     b[node_id_cursor] = -rs
                     node_id_cursor += 1
                 else:
-                    node_list = node_list[:depth + 1]
+                    node_list = node_list[: depth + 1]
                     node_sign_list = node_sign_list[:depth] + [1]
             else:
                 for node_id, node_sign in zip(node_list, node_sign_list):
@@ -84,7 +87,9 @@ class NDT(ModelBase):
             self.to_planes.linear.weight.data = w1.t()
             self.to_routes.linear.weight.data = w2.t()
             self.to_leafs.linear.weight.data = w3.t()
-            uniform = nn.functional.log_softmax(torch.zeros(num_classes, dtype=torch.float32), dim=0)
+            uniform = nn.functional.log_softmax(
+                torch.zeros(num_classes, dtype=torch.float32), dim=0
+            )
             self.to_leafs.linear.bias.data = uniform
 
     @property
@@ -111,17 +116,17 @@ class NDT(ModelBase):
     def class_prior(self) -> np.ndarray:
         return np.exp(self.class_log_prior)
 
-    def _preset_config(self,
-                       tr_data: TabularData):
+    def _preset_config(self, tr_data: TabularData):
         self.config.setdefault("default_encoding_method", "one_hot")
 
-    def _init_config(self,
-                     tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData):
         super()._init_config(tr_data)
         self.dt_config = self.config.setdefault("dt_config", {})
         activation_configs = self.config.setdefault("activation_configs", {})
-        activation_configs.setdefault("multiplied_tanh", {}).setdefault("ratio", 10.)
-        activation_configs.setdefault("multiplied_softmax", {}).setdefault("ratio", 10.)
+        activation_configs.setdefault("multiplied_tanh", {}).setdefault("ratio", 10.0)
+        activation_configs.setdefault("multiplied_softmax", {}).setdefault(
+            "ratio", 10.0
+        )
         default_activations = {"planes": "sign", "routes": "multiplied_softmax"}
         activations = self.config.setdefault("activations", default_activations)
         activations_ins = Activations(activation_configs)
@@ -129,9 +134,7 @@ class NDT(ModelBase):
         self.routes_activation = activations_ins.module(activations.get("routes"))
         self._init_with_dt = self.config.setdefault("")
 
-    def forward(self,
-                batch: tensor_dict_type,
-                **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         merged = self._split_features(x_batch).merge()
         planes = self.planes_activation(self.to_planes(merged))

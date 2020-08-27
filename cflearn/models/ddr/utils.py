@@ -19,14 +19,17 @@ class DDRPredictor:
             y=y,
             no_grad=not get_pdf,
             requires_recover=False,
-            predict_pdf=get_pdf, predict_cdf=True, return_all=True
+            predict_pdf=get_pdf,
+            predict_cdf=True,
+            return_all=True,
         )
         if get_pdf:
             return predictions
         return predictions["cdf"]
 
     def quantile(self, x, q):
-        return self.m.predict(x, q=q, predict_quantile=True, return_all=True)["quantile"]
+        predictions = self.m.predict(x, q=q, predict_quantile=True, return_all=True)
+        return predictions["quantile"]
 
 
 class DDRVisualizer:
@@ -50,12 +53,20 @@ class DDRVisualizer:
         plt.ylim(y_min - 0.5 * y_padding, y_max + 0.5 * y_padding)
         plt.legend()
 
-    def visualize(self, x, y, export_path,
-                  *,
-                  residual=False, quantiles=None, anchor_ratios=None, **kwargs):
+    def visualize(
+        self,
+        x,
+        y,
+        export_path,
+        *,
+        residual=False,
+        quantiles=None,
+        anchor_ratios=None,
+        **kwargs,
+    ):
         x_min, x_max = np.min(x), np.max(x)
         y_min, y_max = np.min(y), np.max(y)
-        padding, dense = kwargs.get("padding", 1.), kwargs.get("dense", 400)
+        padding, dense = kwargs.get("padding", 1.0), kwargs.get("dense", 400)
         indices = np.random.permutation(len(x))[:dense]
         x_padding = max(abs(x_min), abs(x_max)) * padding
         y_padding = max(abs(y_min), abs(y_max)) * padding
@@ -64,7 +75,9 @@ class DDRVisualizer:
         x_base = np.linspace(x_min, x_max, dense)[..., None]
         mean = None
         median = self.m.predict(x_base)
-        fig = DDRVisualizer._prepare_base_figure(x, y, x_base, mean, median, indices, "")
+        fig = DDRVisualizer._prepare_base_figure(
+            x, y, x_base, mean, median, indices, ""
+        )
         render_args = x_min, x_max, y_min, y_max, y_padding
         # median residual
         if residual:
@@ -82,21 +95,39 @@ class DDRVisualizer:
         # cdf curves
         if anchor_ratios is not None:
             y_abs_max = np.abs(y).max()
-            ratios, anchors = anchor_ratios, [ratio * (y_max - y_min) + y_min for ratio in anchor_ratios]
+            ratios, anchors = anchor_ratios, [
+                ratio * (y_max - y_min) + y_min for ratio in anchor_ratios
+            ]
             for ratio, anchor in zip(ratios, anchors):
                 predictions = self.predictor.cdf(x_base, anchor, get_pdf=True)
                 pdf, cdf = map(predictions.get, ["pdf", "cdf"])
-                pdf, cdf = pdf * (y_abs_max / max(np.abs(pdf).max(), 1e-8)), cdf * y_abs_max
+                pdf, cdf = (
+                    pdf * (y_abs_max / max(np.abs(pdf).max(), 1e-8)),
+                    cdf * y_abs_max,
+                )
                 anchor_line = np.full(len(x_base), anchor)
                 plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
                 plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
-                plt.plot(x_base.ravel(), anchor_line, label=f"anchor {ratio:4.2f}", color="gray")
+                plt.plot(
+                    x_base.ravel(),
+                    anchor_line,
+                    label=f"anchor {ratio:4.2f}",
+                    color="gray",
+                )
             DDRVisualizer._render_figure(x_min, x_max, y_min, y_max, y_padding)
         show_or_save(export_path, fig)
 
-    def visualize_multiple(self, x, y, x_base, y_matrix, export_folder,
-                           *,
-                           quantiles=None, anchor_ratios=None):
+    def visualize_multiple(
+        self,
+        x,
+        y,
+        x_base,
+        y_matrix,
+        export_folder,
+        *,
+        quantiles=None,
+        anchor_ratios=None,
+    ):
         y_min, y_max = y.min(), y.max()
         y_diff = y_max - y_min
 
@@ -109,7 +140,9 @@ class DDRVisualizer:
                 plt.plot(x_base, y_true, label="target")
                 plt.plot(x_base, pred, label=f"ddr{suffix}_prediction")
                 plt.legend()
-                show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}{suffix}.png"))
+                show_or_save(
+                    os.path.join(export_folder, f"{prefix}_{num:4.2f}{suffix}.png")
+                )
 
             _core(predictions, dual=False)
             if dual_predictions is not None:

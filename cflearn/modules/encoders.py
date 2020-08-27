@@ -14,10 +14,12 @@ encoder_dict: Dict[str, Type["EncoderBase"]] = {}
 
 
 class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
-    def __init__(self,
-                 idx: int,
-                 num_values: int,
-                 config: Dict[str, Any]):
+    def __init__(
+        self,
+        idx: int,
+        num_values: int,
+        config: Dict[str, Any],
+    ):
         super().__init__()
         self.idx, self.num_values = idx, num_values
         self._init_config(config)
@@ -31,12 +33,10 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _core(self,
-              selected: torch.Tensor) -> torch.Tensor:
+    def _core(self, selected: torch.Tensor) -> torch.Tensor:
         pass
 
-    def forward(self,
-                categorical_column: torch.Tensor) -> torch.Tensor:
+    def forward(self, categorical_column: torch.Tensor) -> torch.Tensor:
         selected = categorical_column.to(torch.long)
         # TODO : cache oob_masks for static datasets
         oob_mask = selected >= self.num_values
@@ -44,7 +44,9 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             self.log_msg(
                 f"out of bound occurred in categorical column {self.idx}, "
                 f"ratio : {torch.mean(oob_mask.to(torch.float)).item():8.6f}",
-                self.warning_prefix, 5, logging.WARNING
+                prefix=self.warning_prefix,
+                verbose_level=5,
+                msg_level=logging.WARNING,
             )
             selected[oob_mask] = 0
         return self._core(selected)
@@ -52,7 +54,10 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     @classmethod
     def register(cls, name: str):
         global encoder_dict
-        def before(cls_): cls_.__identifier__ = name
+
+        def before(cls_):
+            cls_.__identifier__ = name
+
         return register_core(name, encoder_dict, before_register=before)
 
 
@@ -62,17 +67,19 @@ class OneHot(EncoderBase):
     def dim(self) -> int:
         return self.num_values
 
-    def _core(self,
-              selected: torch.Tensor) -> torch.Tensor:
-        return nn.functional.one_hot(selected, num_classes=self.num_values).to(torch.float32)
+    def _core(self, selected: torch.Tensor) -> torch.Tensor:
+        one_hot = nn.functional.one_hot(selected, num_classes=self.num_values)
+        return one_hot.to(torch.float32)
 
 
 @EncoderBase.register("embedding")
 class Embedding(EncoderBase):
-    def __init__(self,
-                 idx: int,
-                 num_values: int,
-                 config: Dict[str, Any]):
+    def __init__(
+        self,
+        idx: int,
+        num_values: int,
+        config: Dict[str, Any],
+    ):
         super().__init__(idx, num_values, config)
         self.embedding = nn.Embedding(num_values, self._dim)
         embedding_initializer = Initializer({"mean": self._mean, "std": self._std})
@@ -80,7 +87,7 @@ class Embedding(EncoderBase):
 
     def _init_config(self, config: Dict[str, Any]):
         super()._init_config(config)
-        self._mean = self.config.setdefault("embedding_mean", 0.)
+        self._mean = self.config.setdefault("embedding_mean", 0.0)
         self._std = self.config.setdefault("embedding_std", 0.02)
         embedding_dim = self.config.setdefault("embedding_dim", "auto")
         if isinstance(embedding_dim, int):
@@ -90,7 +97,9 @@ class Embedding(EncoderBase):
         elif embedding_dim == "sqrt":
             self._dim = math.ceil(math.sqrt(self.num_values))
         elif embedding_dim == "auto":
-            self._dim = min(self.num_values, max(4, min(8, math.ceil(math.log2(self.num_values)))))
+            self._dim = min(
+                self.num_values, max(4, min(8, math.ceil(math.log2(self.num_values))))
+            )
         else:
             raise ValueError(f"embedding dim '{embedding_dim}' is not defined")
 
@@ -98,8 +107,7 @@ class Embedding(EncoderBase):
     def dim(self) -> int:
         return self._dim
 
-    def _core(self,
-              selected: torch.Tensor) -> torch.Tensor:
+    def _core(self, selected: torch.Tensor) -> torch.Tensor:
         return self.embedding(selected)
 
 
@@ -123,10 +131,12 @@ class EncoderStack(nn.Module, LoggingMixin):
     def dims(self) -> Dict[str, int]:
         return {k: encoder.dim for k, encoder in self.encoders.items()}
 
-    def forward(self,
-                categorical_column: torch.Tensor,
-                *,
-                return_all: bool = False) -> Union[torch.Tensor, tensor_dict_type]:
+    def forward(
+        self,
+        categorical_column: torch.Tensor,
+        *,
+        return_all: bool = False,
+    ) -> Union[torch.Tensor, tensor_dict_type]:
         encodings = {k: v(categorical_column) for k, v in self.encoders.items()}
         if return_all:
             return encodings

@@ -27,10 +27,12 @@ from .misc.toolkit import *
 
 # register
 
+
 def register_initializer(name):
     def _register(f):
         Initializer.add_initializer(f, name)
         return f
+
     return _register
 
 
@@ -40,37 +42,40 @@ def register_processor(name):
 
 # API
 
-def make(model: str = "fcnn",
-         *,
-         delim: str = None,
-         task_type: str = None,
-         skip_first: bool = None,
-         cv_split: Union[float, int] = 0.1,
-         min_epoch: int = None,
-         num_epoch: int = None,
-         max_epoch: int = None,
-         batch_size: int = None,
-         max_snapshot_num: int = None,
-         clip_norm: float = None,
-         ema_decay: float = None,
-         data_config: Dict[str, Any] = None,
-         read_config: Dict[str, Any] = None,
-         model_config: Dict[str, Any] = None,
-         metrics: Union[str, List[str]] = None,
-         metric_config: Dict[str, Any] = None,
-         optimizer: str = None,
-         scheduler: str = None,
-         optimizer_config: Dict[str, Any] = None,
-         scheduler_config: Dict[str, Any] = None,
-         optimizers: Dict[str, Any] = None,
-         logging_file: str = None,
-         logging_folder: str = None,
-         trigger_logging: bool = None,
-         tracker_config: Dict[str, Any] = None,
-         cuda: Union[int, str] = None,
-         verbose_level: int = 2,
-         use_tqdm: bool = True,
-         **kwargs) -> Wrapper:
+
+def make(
+    model: str = "fcnn",
+    *,
+    delim: str = None,
+    task_type: str = None,
+    skip_first: bool = None,
+    cv_split: Union[float, int] = 0.1,
+    min_epoch: int = None,
+    num_epoch: int = None,
+    max_epoch: int = None,
+    batch_size: int = None,
+    max_snapshot_num: int = None,
+    clip_norm: float = None,
+    ema_decay: float = None,
+    data_config: Dict[str, Any] = None,
+    read_config: Dict[str, Any] = None,
+    model_config: Dict[str, Any] = None,
+    metrics: Union[str, List[str]] = None,
+    metric_config: Dict[str, Any] = None,
+    optimizer: str = None,
+    scheduler: str = None,
+    optimizer_config: Dict[str, Any] = None,
+    scheduler_config: Dict[str, Any] = None,
+    optimizers: Dict[str, Any] = None,
+    logging_file: str = None,
+    logging_folder: str = None,
+    trigger_logging: bool = None,
+    tracker_config: Dict[str, Any] = None,
+    cuda: Union[int, str] = None,
+    verbose_level: int = 2,
+    use_tqdm: bool = True,
+    **kwargs,
+) -> Wrapper:
     # wrapper general
     kwargs["model"] = model
     kwargs["cv_split"] = cv_split
@@ -116,7 +121,8 @@ def make(model: str = "fcnn",
         if metrics is not None:
             print(
                 f"{LoggingMixin.warning_prefix}`metrics` is set to '{metrics}' "
-                f"but `metric_config` is provided, so `metrics` will be ignored")
+                f"but `metric_config` is provided, so `metrics` will be ignored"
+            )
     elif metrics is not None:
         metric_config = {"types": metrics}
     if metric_config is not None:
@@ -126,26 +132,35 @@ def make(model: str = "fcnn",
         if optimizer is not None:
             print(
                 f"{LoggingMixin.warning_prefix}`optimizer` is set to '{optimizer}' "
-                f"but `optimizers` is provided, so `optimizer` will be ignored")
+                f"but `optimizers` is provided, so `optimizer` will be ignored"
+            )
         if optimizer_config is not None:
             print(
                 f"{LoggingMixin.warning_prefix}`optimizer_config` is set to '{optimizer_config}' "
-                f"but `optimizers` is provided, so `optimizer_config` will be ignored")
+                f"but `optimizers` is provided, so `optimizer_config` will be ignored"
+            )
     else:
         preset_optimizer = {}
         if optimizer is not None:
             if optimizer_config is None:
                 optimizer_config = {}
-            preset_optimizer = {"optimizer": optimizer, "optimizer_config": optimizer_config}
+            preset_optimizer = {
+                "optimizer": optimizer,
+                "optimizer_config": optimizer_config,
+            }
         if scheduler is not None:
             if scheduler_config is None:
                 scheduler_config = {}
-            preset_optimizer.update({"scheduler": scheduler, "scheduler_config": scheduler_config})
+            preset_optimizer.update(
+                {"scheduler": scheduler, "scheduler_config": scheduler_config}
+            )
         if preset_optimizer:
             optimizers = {"all": preset_optimizer}
     if optimizers is not None:
         pipeline_config["optimizers"] = optimizers
-    return Wrapper(kwargs, cuda=cuda, tracker_config=tracker_config, verbose_level=verbose_level)
+    return Wrapper(
+        kwargs, cuda=cuda, tracker_config=tracker_config, verbose_level=verbose_level
+    )
 
 
 SAVING_DELIM = "^_^"
@@ -153,8 +168,7 @@ wrappers_dict_type = Dict[str, Wrapper]
 wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
 
 
-def _to_saving_path(identifier: str,
-                    saving_folder: str) -> str:
+def _to_saving_path(identifier: str, saving_folder: str) -> str:
     if saving_folder is None:
         saving_path = identifier
     else:
@@ -162,9 +176,7 @@ def _to_saving_path(identifier: str,
     return saving_path
 
 
-def _make_saving_path(name: str,
-                      saving_path: str,
-                      remove_existing: bool) -> str:
+def _make_saving_path(name: str, saving_path: str, remove_existing: bool) -> str:
     saving_path = os.path.abspath(saving_path)
     saving_folder, identifier = os.path.split(saving_path)
     postfix = f"{SAVING_DELIM}{name}"
@@ -173,8 +185,10 @@ def _make_saving_path(name: str,
             if os.path.isdir(os.path.join(saving_folder, existing_model)):
                 continue
             if existing_model.startswith(f"{identifier}{postfix}"):
-                print(f"{LoggingMixin.warning_prefix}"
-                      f"'{existing_model}' was found, it will be removed")
+                print(
+                    f"{LoggingMixin.warning_prefix}"
+                    f"'{existing_model}' was found, it will be removed"
+                )
                 os.remove(os.path.join(saving_folder, existing_model))
     return f"{saving_path}{postfix}"
 
@@ -197,19 +211,21 @@ class RepeatResult(NamedTuple):
         return {key: [m.model for m in value] for key, value in self.patterns.items()}
 
 
-def repeat_with(x: data_type,
-                y: data_type = None,
-                x_cv: data_type = None,
-                y_cv: data_type = None,
-                *,
-                models: Union[str, List[str]] = "fcnn",
-                identifiers: Union[str, List[str]] = None,
-                num_jobs: int = 4,
-                num_repeat: int = 5,
-                temp_folder: str = "__tmp__",
-                return_patterns: bool = True,
-                use_tqdm: bool = True,
-                **kwargs) -> RepeatResult:
+def repeat_with(
+    x: data_type,
+    y: data_type = None,
+    x_cv: data_type = None,
+    y_cv: data_type = None,
+    *,
+    models: Union[str, List[str]] = "fcnn",
+    identifiers: Union[str, List[str]] = None,
+    num_jobs: int = 4,
+    num_repeat: int = 5,
+    temp_folder: str = "__tmp__",
+    return_patterns: bool = True,
+    use_tqdm: bool = True,
+    **kwargs,
+) -> RepeatResult:
 
     if isinstance(models, str):
         models = [models]
@@ -223,10 +239,18 @@ def repeat_with(x: data_type,
 
     experiments = Experiments(temp_folder, overwrite=False)
     experiments.run(
-        None, x, y, x_cv, y_cv,
-        models=models, identifiers=identifiers,
-        num_repeat=num_repeat, num_jobs=num_jobs,
-        use_tqdm=use_tqdm, temp_folder=temp_folder, **kwargs
+        None,
+        x,
+        y,
+        x_cv,
+        y_cv,
+        models=models,
+        identifiers=identifiers,
+        num_repeat=num_repeat,
+        num_jobs=num_jobs,
+        use_tqdm=use_tqdm,
+        temp_folder=temp_folder,
+        **kwargs,
     )
     patterns = None
     if return_patterns:
@@ -241,29 +265,33 @@ def repeat_with(x: data_type,
     return RepeatResult(experiments, data, patterns)
 
 
-def tune_with(x: data_type,
-              y: data_type = None,
-              x_cv: data_type = None,
-              y_cv: data_type = None,
-              *,
-              model: str = "fcnn",
-              hpo_method: str = "bo",
-              params: Dict[str, DataType] = None,
-              task_type: TaskTypes = None,
-              metrics: Union[str, List[str]] = None,
-              num_jobs: int = None,
-              num_repeat: int = 5,
-              num_parallel: int = 4,
-              num_search: int = 10,
-              temp_folder: str = "__tmp__",
-              score_weights: Union[Dict[str, float], None] = None,
-              estimator_scoring_function: Union[str, scoring_fn_type] = "default",
-              search_config: Dict[str, Any] = None,
-              verbose_level: int = 2,
-              **kwargs) -> HPOBase:
+def tune_with(
+    x: data_type,
+    y: data_type = None,
+    x_cv: data_type = None,
+    y_cv: data_type = None,
+    *,
+    model: str = "fcnn",
+    hpo_method: str = "bo",
+    params: Dict[str, DataType] = None,
+    task_type: TaskTypes = None,
+    metrics: Union[str, List[str]] = None,
+    num_jobs: int = None,
+    num_repeat: int = 5,
+    num_parallel: int = 4,
+    num_search: int = 10,
+    temp_folder: str = "__tmp__",
+    score_weights: Union[Dict[str, float], None] = None,
+    estimator_scoring_function: Union[str, scoring_fn_type] = "default",
+    search_config: Dict[str, Any] = None,
+    verbose_level: int = 2,
+    **kwargs,
+) -> HPOBase:
 
     if os.path.isdir(temp_folder):
-        print(f"{LoggingMixin.warning_prefix}'{temp_folder}' already exists, it will be overwritten")
+        print(
+            f"{LoggingMixin.warning_prefix}'{temp_folder}' already exists, it will be overwritten"
+        )
         shutil.rmtree(temp_folder)
 
     if isinstance(x, str):
@@ -304,10 +332,18 @@ def tune_with(x: data_type,
             y_cv_ = None if y_cv is None else y_cv.copy()
         num_jobs_ = num_parallel if hpo.is_sequential else 0
         return repeat_with(
-            x_, y_, x_cv, y_cv_,
-            num_repeat=num_repeat, num_jobs=num_jobs_,
-            models=model, identifiers=hash_code(str(params_)), temp_folder=temp_folder,
-            return_tasks=True, return_patterns=False, **base_params
+            x_,
+            y_,
+            x_cv,
+            y_cv_,
+            num_repeat=num_repeat,
+            num_jobs=num_jobs_,
+            models=model,
+            identifiers=hash_code(str(params_)),
+            temp_folder=temp_folder,
+            return_tasks=True,
+            return_patterns=False,
+            **base_params,
         ).experiments.tasks
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
@@ -317,9 +353,7 @@ def tune_with(x: data_type,
     if params is None:
         params = {
             "optimizer": String(Choice(values=["sgd", "rmsprop", "adam"])),
-            "optimizer_config": {
-                "lr": Float(Exponential(1e-5, 0.1))
-            }
+            "optimizer_config": {"lr": Float(Exponential(1e-5, 0.1))},
         }
 
     if metrics is None:
@@ -332,8 +366,7 @@ def tune_with(x: data_type,
     estimators = list(map(Estimator, metrics))
 
     hpo = HPOBase.make(
-        hpo_method, _creator, params,
-        converter=_converter, verbose_level=verbose_level
+        hpo_method, _creator, params, converter=_converter, verbose_level=verbose_level
     )
     if hpo.is_sequential:
         if num_jobs is None:
@@ -346,13 +379,20 @@ def tune_with(x: data_type,
         num_jobs = 0
     if search_config is None:
         search_config = {}
-    update_dict({
-        "num_retry": 1, "num_search": num_search,
-        "score_weights": score_weights, "estimator_scoring_function": estimator_scoring_function
-    }, search_config)
+    update_dict(
+        {
+            "num_retry": 1,
+            "num_search": num_search,
+            "score_weights": score_weights,
+            "estimator_scoring_function": estimator_scoring_function,
+        },
+        search_config,
+    )
     if num_jobs is not None:
         search_config["num_jobs"] = num_jobs
-    search_config.setdefault("parallel_logging_folder", os.path.join(temp_folder, "__hpo_parallel__"))
+    search_config.setdefault(
+        "parallel_logging_folder", os.path.join(temp_folder, "__hpo_parallel__")
+    )
     hpo.search(x, y, estimators, x_cv, y_cv, **search_config)
     return hpo
 
@@ -363,20 +403,24 @@ def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
             wrappers = [wrappers]
         names = [wrapper.model.__identifier__ for wrapper in wrappers]
         if len(set(names)) != len(wrappers):
-            raise ValueError("wrapper names are not provided but identical wrapper.model is detected")
+            raise ValueError(
+                "wrapper names are not provided but identical wrapper.model is detected"
+            )
         wrappers = dict(zip(names, wrappers))
     return wrappers
 
 
-def estimate(x: data_type,
-             y: data_type = None,
-             *,
-             contains_labels: bool = False,
-             wrappers: wrappers_type = None,
-             wrapper_predict_config: Dict[str, Any] = None,
-             metrics: Union[str, List[str]] = None,
-             other_patterns: Dict[str, patterns_type] = None,
-             comparer_verbose_level: Union[int, None] = 1) -> Comparer:
+def estimate(
+    x: data_type,
+    y: data_type = None,
+    *,
+    contains_labels: bool = False,
+    wrappers: wrappers_type = None,
+    wrapper_predict_config: Dict[str, Any] = None,
+    metrics: Union[str, List[str]] = None,
+    other_patterns: Dict[str, patterns_type] = None,
+    comparer_verbose_level: Union[int, None] = 1,
+) -> Comparer:
     patterns = {}
     if isinstance(metrics, str):
         metrics = [metrics]
@@ -398,14 +442,18 @@ def estimate(x: data_type,
                 x, y = wrapper.tr_data.read_file(x, contains_labels=contains_labels)
                 y = wrapper.tr_data.transform(x, y).y
             if metrics is None:
-                metrics = [k for k, v in wrapper.pipeline.metrics.items() if v is not None]
+                metrics = [
+                    k for k, v in wrapper.pipeline.metrics.items() if v is not None
+                ]
             with eval_context(wrapper.model):
                 patterns[name] = wrapper.to_pattern(**wrapper_predict_config)
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
                 prefix = LoggingMixin.warning_prefix
-                print(f"{prefix}'{other_name}' is found in `other_patterns`, it will be overwritten")
+                print(
+                    f"{prefix}'{other_name}' is found in `other_patterns`, it will be overwritten"
+                )
         update_dict(other_patterns, patterns)
     estimators = list(map(Estimator, metrics))
     comparer = Comparer(patterns, estimators)
@@ -413,9 +461,11 @@ def estimate(x: data_type,
     return comparer
 
 
-def save(wrappers: wrappers_type,
-         identifier: str = "cflearn",
-         saving_folder: str = None) -> wrappers_dict_type:
+def save(
+    wrappers: wrappers_type,
+    identifier: str = "cflearn",
+    saving_folder: str = None,
+) -> wrappers_dict_type:
     wrappers = _to_wrappers(wrappers)
     saving_path = _to_saving_path(identifier, saving_folder)
     for name, wrapper in wrappers.items():
@@ -423,8 +473,10 @@ def save(wrappers: wrappers_type,
     return wrappers
 
 
-def _fetch_saving_paths(identifier: str = "cflearn",
-                        saving_folder: str = None) -> Dict[str, str]:
+def _fetch_saving_paths(
+    identifier: str = "cflearn",
+    saving_folder: str = None,
+) -> Dict[str, str]:
     paths = {}
     saving_path = _to_saving_path(identifier, saving_folder)
     saving_path = os.path.abspath(saving_path)
@@ -443,17 +495,17 @@ def _fetch_saving_paths(identifier: str = "cflearn",
     return paths
 
 
-def load(identifier: str = "cflearn",
-         saving_folder: str = None) -> wrappers_dict_type:
+def load(identifier: str = "cflearn", saving_folder: str = None) -> wrappers_dict_type:
     paths = _fetch_saving_paths(identifier, saving_folder)
     wrappers = {k: Wrapper.load(v, compress=True) for k, v in paths.items()}
     if not wrappers:
-        raise ValueError(f"'{identifier}' models not found with `saving_folder`={saving_folder}")
+        raise ValueError(
+            f"'{identifier}' models not found with `saving_folder`={saving_folder}"
+        )
     return wrappers
 
 
-def _remove(identifier: str = "cflearn",
-            saving_folder: str = None) -> None:
+def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
     for path in _fetch_saving_paths(identifier, saving_folder).values():
         path = f"{path}.zip"
         print(f"{LoggingMixin.info_prefix}removing {path}...")
@@ -466,10 +518,12 @@ zoo_dict: Dict[str, Type["ZooBase"]] = {}
 
 
 class ZooBase(LoggingMixin, metaclass=ABCMeta):
-    def __init__(self,
-                 *,
-                 model_type: str = "default",
-                 increment_config: Dict[str, Any] = None):
+    def __init__(
+        self,
+        *,
+        model_type: str = "default",
+        increment_config: Dict[str, Any] = None,
+    ):
         self._model_type = model_type
         self._increment_config = increment_config
 
@@ -492,7 +546,9 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
             if self._model_type != "default":
                 self.log_msg(
                     f"model_type '{self._model_type}' is not recognized, 'default' model_type will be used",
-                    self.warning_prefix, 2, msg_level=logging.WARNING
+                    self.warning_prefix,
+                    2,
+                    msg_level=logging.WARNING,
                 )
                 self._model_type = "default"
             config = self.benchmarks["default"]
@@ -518,7 +574,10 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
     @classmethod
     def register(cls, name: str):
         global zoo_dict
-        def before(cls_): cls_.__identifier__ = name
+
+        def before(cls_):
+            cls_.__identifier__ = name
+
         return register_core(name, zoo_dict, before_register=before)
 
 
@@ -528,11 +587,7 @@ class FCNNZoo(ZooBase):
     def benchmarks(self) -> Dict[str, dict]:
         return {
             "default": {},
-            "light_bn": {
-                "model_config": {
-                    "hidden_units": [128]
-                }
-            },
+            "light_bn": {"model_config": {"hidden_units": [128]}},
             "on_large": {
                 "model_config": {
                     "mapping_configs": {"dropout": 0.1, "batch_norm": False}
@@ -541,16 +596,16 @@ class FCNNZoo(ZooBase):
             "light": {
                 "model_config": {
                     "hidden_units": [128],
-                    "mapping_configs": {"batch_norm": False}
+                    "mapping_configs": {"batch_norm": False},
                 }
             },
             "on_sparse": {
                 "optimizer_config": {"lr": 1e-4},
                 "model_config": {
                     "hidden_units": [128],
-                    "mapping_configs": {"dropout": 0.9, "batch_norm": False}
-                }
-            }
+                    "mapping_configs": {"dropout": 0.9, "batch_norm": False},
+                },
+            },
         }
 
 
@@ -563,14 +618,14 @@ class TreeDNNZoo(ZooBase):
             "on_large": {
                 "model_config": {
                     "dndf_config": None,
-                    "mapping_configs": {"dropout": 0.1}
+                    "mapping_configs": {"dropout": 0.1},
                 }
             },
             "light": {
                 "model_config": {
                     "dndf_config": None,
                     "mapping_configs": {"batch_norm": False},
-                    "default_encoding_configs": {"embedding_dim": 8}
+                    "default_encoding_configs": {"embedding_dim": 8},
                 }
             },
             "on_sparse": {
@@ -580,11 +635,11 @@ class TreeDNNZoo(ZooBase):
                     "mapping_configs": {
                         "dropout": 0.9,
                         "batch_norm": False,
-                        "pruner_config": None
+                        "pruner_config": None,
                     },
-                    "default_encoding_configs": {"embedding_dim": 8}
-                }
-            }
+                    "default_encoding_configs": {"embedding_dim": 8},
+                },
+            },
         }
 
 
@@ -595,18 +650,21 @@ class DDRZoo(ZooBase):
         return {
             "default": {},
             "disjoint": {"joint_training": False},
-            "q_only": {"fetches": ["quantile"]}
+            "q_only": {"fetches": ["quantile"]},
         }
 
 
-def zoo(model: str = "fcnn",
-        *,
-        model_type: str = "default",
-        increment_config: Dict[str, Any] = None) -> ZooBase:
+def zoo(
+    model: str = "fcnn",
+    *,
+    model_type: str = "default",
+    increment_config: Dict[str, Any] = None,
+) -> ZooBase:
     return zoo_dict[model](model_type=model_type, increment_config=increment_config)
 
 
 # benchmark
+
 
 class BenchmarkResults(NamedTuple):
     data: TabularData
@@ -617,17 +675,19 @@ class BenchmarkResults(NamedTuple):
 
 
 class Benchmark(LoggingMixin):
-    def __init__(self,
-                 task_name: str,
-                 task_type: TaskTypes,
-                 *,
-                 temp_folder: str = None,
-                 project_name: str = "carefree-learn",
-                 models: Union[str, List[str]] = "fcnn",
-                 increment_config: Dict[str, Any] = None,
-                 data_config: Dict[str, Any] = None,
-                 read_config: Dict[str, Any] = None,
-                 use_cuda: bool = True):
+    def __init__(
+        self,
+        task_name: str,
+        task_type: TaskTypes,
+        *,
+        temp_folder: str = None,
+        project_name: str = "carefree-learn",
+        models: Union[str, List[str]] = "fcnn",
+        increment_config: Dict[str, Any] = None,
+        data_config: Dict[str, Any] = None,
+        read_config: Dict[str, Any] = None,
+        use_cuda: bool = True,
+    ):
         self.data = None
         if data_config is None:
             data_config = {}
@@ -649,17 +709,21 @@ class Benchmark(LoggingMixin):
 
     @property
     def identifier(self) -> str:
-        return hash_code(f"{self.project_name}{self.task_name}{self.models}{self.increment_config}")
+        return hash_code(
+            f"{self.project_name}{self.task_name}{self.models}{self.increment_config}"
+        )
 
     @property
     def data_tasks(self) -> List[Task]:
         return next(iter(self.experiments.data_tasks.values()))
 
-    def _add_tasks(self,
-                   iterator_name: str,
-                   data_tasks: List[Task],
-                   experiments: Experiments,
-                   benchmarks: Dict[str, Dict[str, Dict[str, Any]]]) -> None:
+    def _add_tasks(
+        self,
+        iterator_name: str,
+        data_tasks: List[Task],
+        experiments: Experiments,
+        benchmarks: Dict[str, Dict[str, Dict[str, Any]]],
+    ) -> None:
         self.configs = {}
         for i in range(len(data_tasks)):
             for model in self.models:
@@ -675,21 +739,25 @@ class Benchmark(LoggingMixin):
                     tracker_config = {
                         "project_name": self.project_name,
                         "task_name": task_name,
-                        "overwrite": True
+                        "overwrite": True,
                     }
                     experiments.add_task(
                         model=model,
                         data_task=data_tasks[i],
                         identifier=identifier,
-                        tracker_config=tracker_config, **config
+                        tracker_config=tracker_config,
+                        **config,
                     )
 
-    def _run_tasks(self,
-                   num_jobs: int = 4,
-                   run_tasks: bool = True,
-                   predict_config: Dict[str, Any] = None) -> BenchmarkResults:
+    def _run_tasks(
+        self,
+        num_jobs: int = 4,
+        run_tasks: bool = True,
+        predict_config: Dict[str, Any] = None,
+    ) -> BenchmarkResults:
         results = self.experiments.run_tasks(
-            num_jobs=num_jobs, run_tasks=run_tasks, load_task=load_task)
+            num_jobs=num_jobs, run_tasks=run_tasks, load_task=load_task
+        )
         comparer_list = []
         for i, data_task in enumerate(self.data_tasks):
             wrappers = {}
@@ -697,10 +765,11 @@ class Benchmark(LoggingMixin):
             for identifier, ms in results.items():
                 wrappers[identifier] = ms[i]
             comparer = estimate(
-                x_te, y_te,
+                x_te,
+                y_te,
                 wrappers=wrappers,
                 wrapper_predict_config=predict_config,
-                comparer_verbose_level=None
+                comparer_verbose_level=None,
             )
             comparer_list.append(comparer)
         comparer = Comparer.merge(comparer_list)
@@ -709,24 +778,28 @@ class Benchmark(LoggingMixin):
             metric: self.configs[identifier]
             for metric, identifier in best_methods.items()
         }
-        return BenchmarkResults(self.data, best_configs, best_methods, self.experiments, comparer)
+        return BenchmarkResults(
+            self.data, best_configs, best_methods, self.experiments, comparer
+        )
 
-    def _pre_process(self,
-                     x: data_type,
-                     y: data_type = None) -> TabularDataset:
+    def _pre_process(self, x: data_type, y: data_type = None) -> TabularDataset:
         data_config = shallow_copy_dict(self.data_config)
         task_type = data_config.pop("task_type", None)
         if task_type is not None:
             assert task_type is self.task_type
-        self.data = TabularData.simple(self.task_type, **data_config).read(x, y, **self.read_config)
+        self.data = TabularData.simple(self.task_type, **data_config).read(
+            x, y, **self.read_config
+        )
         return self.data.to_dataset()
 
-    def _k_core(self,
-                k_iterator: Iterable,
-                num_jobs: int,
-                run_tasks: bool,
-                predict_config: Dict[str, Any],
-                benchmarks: Dict[str, Dict[str, Dict[str, Any]]]) -> BenchmarkResults:
+    def _k_core(
+        self,
+        k_iterator: Iterable,
+        num_jobs: int,
+        run_tasks: bool,
+        predict_config: Dict[str, Any],
+        benchmarks: Dict[str, Dict[str, Dict[str, Any]]],
+    ) -> BenchmarkResults:
         if benchmarks is None:
             benchmarks = {}
         self.experiments = Experiments(self.temp_folder, use_cuda=self.use_cuda)
@@ -743,60 +816,85 @@ class Benchmark(LoggingMixin):
         self._add_tasks(self._iterator_name, data_tasks, self.experiments, benchmarks)
         return self._run_tasks(num_jobs, run_tasks, predict_config)
 
-    def k_fold(self,
-               k: int,
-               x: data_type,
-               y: data_type = None,
-               *,
-               num_jobs: int = 4,
-               run_tasks: bool = True,
-               predict_config: Dict[str, Any] = None,
-               benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None) -> BenchmarkResults:
+    def k_fold(
+        self,
+        k: int,
+        x: data_type,
+        y: data_type = None,
+        *,
+        num_jobs: int = 4,
+        run_tasks: bool = True,
+        predict_config: Dict[str, Any] = None,
+        benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None,
+    ) -> BenchmarkResults:
         dataset = self._pre_process(x, y)
-        return self._k_core(KFold(k, dataset), num_jobs, run_tasks, predict_config, benchmarks)
+        return self._k_core(
+            KFold(k, dataset), num_jobs, run_tasks, predict_config, benchmarks
+        )
 
-    def k_random(self,
-                 k: int,
-                 num_test: Union[int, float],
-                 x: data_type,
-                 y: data_type = None,
-                 *,
-                 num_jobs: int = 4,
-                 run_tasks: bool = True,
-                 predict_config: Dict[str, Any] = None,
-                 benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None) -> BenchmarkResults:
+    def k_random(
+        self,
+        k: int,
+        num_test: Union[int, float],
+        x: data_type,
+        y: data_type = None,
+        *,
+        num_jobs: int = 4,
+        run_tasks: bool = True,
+        predict_config: Dict[str, Any] = None,
+        benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None,
+    ) -> BenchmarkResults:
         dataset = self._pre_process(x, y)
-        return self._k_core(KRandom(k, num_test, dataset), num_jobs, run_tasks, predict_config, benchmarks)
+        return self._k_core(
+            KRandom(k, num_test, dataset),
+            num_jobs,
+            run_tasks,
+            predict_config,
+            benchmarks,
+        )
 
-    def save(self,
-             saving_folder: str,
-             *,
-             simplify: bool = True,
-             compress: bool = True) -> "Benchmark":
+    def save(
+        self,
+        saving_folder: str,
+        *,
+        simplify: bool = True,
+        compress: bool = True,
+    ) -> "Benchmark":
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
             Saving.prepare_folder(self, saving_folder)
-            Saving.save_dict({
-                "task_name": self.task_name, "task_type": self.task_type.value,
-                "project_name": self.project_name, "models": self.models,
-                "increment_config": self.increment_config, "use_cuda": self.use_cuda,
-                "iterator_name": self._iterator_name,
-                "temp_folder": self.temp_folder,
-                "configs": self.configs
-            }, "kwargs", abs_folder)
+            Saving.save_dict(
+                {
+                    "task_name": self.task_name,
+                    "task_type": self.task_type.value,
+                    "project_name": self.project_name,
+                    "models": self.models,
+                    "increment_config": self.increment_config,
+                    "use_cuda": self.use_cuda,
+                    "iterator_name": self._iterator_name,
+                    "temp_folder": self.temp_folder,
+                    "configs": self.configs,
+                },
+                "kwargs",
+                abs_folder,
+            )
             experiments_folder = os.path.join(abs_folder, "__experiments__")
-            self.experiments.save(experiments_folder, simplify=simplify, compress=compress)
+            self.experiments.save(
+                experiments_folder, simplify=simplify, compress=compress
+            )
             if compress:
                 Saving.compress(abs_folder, remove_original=True)
         return self
 
     @classmethod
-    def load(cls,
-             saving_folder: str,
-             *,
-             predict_config: Dict[str, Any] = None,
-             compress: bool = True) -> Tuple["Benchmark", BenchmarkResults]:
+    def load(
+        cls,
+        saving_folder: str,
+        *,
+        predict_config: Dict[str, Any] = None,
+        compress: bool = True,
+    ) -> Tuple["Benchmark", BenchmarkResults]:
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
@@ -808,29 +906,39 @@ class Benchmark(LoggingMixin):
                 benchmark = cls(**kwargs)
                 benchmark.configs = configs
                 benchmark._iterator_name = iterator_name
-                benchmark.experiments = Experiments.load(os.path.join(abs_folder, "__experiments__"))
+                benchmark.experiments = Experiments.load(
+                    os.path.join(abs_folder, "__experiments__")
+                )
                 results = benchmark._run_tasks(0, False, predict_config)
         return benchmark, results
 
 
 # ensemble
 
-def ensemble(patterns: List[ModelPattern],
-             *,
-             pattern_weights: np.ndarray = None,
-             ensemble_method: Union[str, collate_fn_type] = None) -> EnsemblePattern:
+
+def ensemble(
+    patterns: List[ModelPattern],
+    *,
+    pattern_weights: np.ndarray = None,
+    ensemble_method: Union[str, collate_fn_type] = None,
+) -> EnsemblePattern:
     if ensemble_method is None:
         if pattern_weights is None:
             ensemble_method = "default"
         else:
             pattern_weights = pattern_weights.reshape([-1, 1, 1])
 
-            def ensemble_method(arrays: List[np.ndarray],
-                                requires_prob: bool) -> np.ndarray:
-                predictions = np.array(arrays).reshape([len(arrays), len(arrays[0]), -1])
+            def ensemble_method(
+                arrays: List[np.ndarray], requires_prob: bool
+            ) -> np.ndarray:
+                predictions = np.array(arrays).reshape(
+                    [len(arrays), len(arrays[0]), -1]
+                )
                 if requires_prob or not np.issubdtype(predictions.dtype, np.integer):
                     return (predictions * pattern_weights).sum(axis=0)
-                encodings = one_hot(to_torch(predictions).to(torch.long).squeeze()).to(torch.float32)
+                encodings = one_hot(to_torch(predictions).to(torch.long).squeeze()).to(
+                    torch.float32
+                )
                 weighted = (encodings * pattern_weights).sum(dim=0)
                 return to_numpy(weighted.argmax(1)).reshape([-1, 1])
 
@@ -844,44 +952,54 @@ class EnsembleResults(NamedTuple):
 
 
 class Ensemble:
-    def __init__(self,
-                 task_type: TaskTypes,
-                 config: Dict[str, Any] = None):
+    def __init__(self, task_type: TaskTypes, config: Dict[str, Any] = None):
         self.task_type = task_type
         if config is None:
             config = {}
         self.config = config
 
-    def bagging(self,
-                x: data_type,
-                y: data_type = None,
-                *,
-                k: int = 10,
-                num_test: Union[int, float] = 0.1,
-                num_jobs: int = 4,
-                run_tasks: bool = True,
-                predict_config: Dict[str, Any] = None,
-                temp_folder: str = None,
-                project_name: str = "carefree-learn",
-                task_name: str = "bagging",
-                models: Union[str, List[str]] = "fcnn",
-                increment_config: Dict[str, Any] = None,
-                use_cuda: bool = True) -> EnsembleResults:
+    def bagging(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        k: int = 10,
+        num_test: Union[int, float] = 0.1,
+        num_jobs: int = 4,
+        run_tasks: bool = True,
+        predict_config: Dict[str, Any] = None,
+        temp_folder: str = None,
+        project_name: str = "carefree-learn",
+        task_name: str = "bagging",
+        models: Union[str, List[str]] = "fcnn",
+        increment_config: Dict[str, Any] = None,
+        use_cuda: bool = True,
+    ) -> EnsembleResults:
         if isinstance(models, str):
             models = [models]
 
-        data_config, read_config = map(self.config.get, ["data_config", "read_config"], [{}, {}])
+        data_config, read_config = map(
+            self.config.get, ["data_config", "read_config"], [{}, {}]
+        )
         benchmark = Benchmark(
-            task_name, self.task_type,
-            temp_folder=temp_folder, project_name=project_name,
-            models=models, increment_config=increment_config, use_cuda=use_cuda,
-            data_config=data_config, read_config=read_config
+            task_name,
+            self.task_type,
+            temp_folder=temp_folder,
+            project_name=project_name,
+            models=models,
+            increment_config=increment_config,
+            use_cuda=use_cuda,
+            data_config=data_config,
+            read_config=read_config,
         )
         dataset = benchmark._pre_process(x, y)
         k_bootstrap = KBootstrap(k, num_test, dataset)
         benchmark_results = benchmark._k_core(
-            k_bootstrap, num_jobs, run_tasks, predict_config,
-            {model: {"config": shallow_copy_dict(self.config)} for model in models}
+            k_bootstrap,
+            num_jobs,
+            run_tasks,
+            predict_config,
+            {model: {"config": shallow_copy_dict(self.config)} for model in models},
         )
 
         def _pre_process(x_):
@@ -895,16 +1013,18 @@ class Ensemble:
 
         return EnsembleResults(benchmark_results.data, ensemble_pattern, experiments)
 
-    def adaboost(self,
-                 x: data_type,
-                 y: data_type = None,
-                 *,
-                 k: int = 10,
-                 eps: float = 1e-12,
-                 model: str = "fcnn",
-                 increment_config: Dict[str, Any] = None,
-                 sample_weights: Union[np.ndarray, None] = None,
-                 num_test: Union[int, float] = 0.1) -> EnsembleResults:
+    def adaboost(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        k: int = 10,
+        eps: float = 1e-12,
+        model: str = "fcnn",
+        increment_config: Dict[str, Any] = None,
+        sample_weights: Union[np.ndarray, None] = None,
+        num_test: Union[int, float] = 0.1,
+    ) -> EnsembleResults:
         if increment_config is None:
             increment_config = {}
         config = shallow_copy_dict(self.config)
@@ -925,11 +1045,11 @@ class Ensemble:
                 e = errors.mean()
             else:
                 e = errors.dot(sample_weights) / len(errors)
-            em = min(max(e, eps), 1. - eps)
-            am = 0.5 * math.log(1. / em - 1.)
+            em = min(max(e, eps), 1.0 - eps)
+            am = 0.5 * math.log(1.0 / em - 1.0)
             if sample_weights is None:
                 sample_weights = np.ones_like(predictions).ravel()
-            target[target == 0.] = predictions[predictions == 0.] = -1.
+            target[target == 0.0] = predictions[predictions == 0.0] = -1.0
             sample_weights *= np.exp(-am * target * predictions).ravel()
             sample_weights /= np.mean(sample_weights)
             patterns.append(m.to_pattern())
@@ -944,11 +1064,14 @@ class Ensemble:
 
 # others
 
-def make_toy_model(model: str = "fcnn",
-                   config: Dict[str, Any] = None,
-                   *,
-                   task_type: str = "reg",
-                   data_tuple: Tuple[data_type, data_type] = None) -> Wrapper:
+
+def make_toy_model(
+    model: str = "fcnn",
+    config: Dict[str, Any] = None,
+    *,
+    task_type: str = "reg",
+    data_tuple: Tuple[data_type, data_type] = None,
+) -> Wrapper:
     if config is None:
         config = {}
     if data_tuple is None:
@@ -960,29 +1083,48 @@ def make_toy_model(model: str = "fcnn",
         "model": model,
         "model_config": {
             "hidden_units": [100],
-            "mapping_configs": {"dropout": 0., "batch_norm": False}
+            "mapping_configs": {"dropout": 0.0, "batch_norm": False},
         },
-        "cv_split": 0.,
+        "cv_split": 0.0,
         "trigger_logging": False,
-        "min_epoch": 250, "num_epoch": 500, "max_epoch": 1000,
+        "min_epoch": 250,
+        "num_epoch": 500,
+        "max_epoch": 1000,
         "optimizer": "sgd",
         "optimizer_config": {"lr": 0.01},
         "task_type": task_type,
         "data_config": {
             "valid_columns": list(range(len(data_tuple[0]))),
-            "label_process_method": "identical"
+            "label_process_method": "identical",
         },
-        "verbose_level": 0
+        "verbose_level": 0,
     }
     config = update_dict(config, base_config)
     return make(**config).fit(*data_tuple)
 
 
 __all__ = [
-    "load_task", "transform_experiments",
-    "register_metric", "register_optimizer", "register_scheduler",
-    "make", "save", "load", "estimate", "ensemble", "repeat_with", "tune_with", "make_toy_model",
-    "Task", "Experiments", "Benchmark", "ModelBase", "Pipeline", "Wrapper",
-    "Initializer", "register_initializer",
-    "Processor", "register_processor"
+    "load_task",
+    "transform_experiments",
+    "register_metric",
+    "register_optimizer",
+    "register_scheduler",
+    "make",
+    "save",
+    "load",
+    "estimate",
+    "ensemble",
+    "repeat_with",
+    "tune_with",
+    "make_toy_model",
+    "Task",
+    "Experiments",
+    "Benchmark",
+    "ModelBase",
+    "Pipeline",
+    "Wrapper",
+    "Initializer",
+    "register_initializer",
+    "Processor",
+    "register_processor",
 ]

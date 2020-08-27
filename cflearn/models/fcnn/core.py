@@ -10,15 +10,19 @@ from ...modules.blocks import *
 
 @ModelBase.register("fcnn")
 class FCNN(ModelBase):
-    def __init__(self,
-                 config: Dict[str, Any],
-                 tr_data: TabularData,
-                 device: torch.device):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        tr_data: TabularData,
+        device: torch.device,
+    ):
         super().__init__(config, tr_data, device)
         self._init_fcnn()
 
     def _init_fcnn_config(self):
-        self._fc_in_dim, self._fc_out_dim = map(self.config.get, ["fc_in_dim", "fc_out_dim"])
+        self._fc_in_dim, self._fc_out_dim = map(
+            self.config.get, ["fc_in_dim", "fc_out_dim"]
+        )
         self.out_dim = max(self.tr_data.num_classes, 1)
         if self._fc_in_dim is None:
             self._fc_in_dim = self.merged_dim
@@ -49,14 +53,14 @@ class FCNN(ModelBase):
         self._init_fcnn_config()
         final_mapping_config = self.config.setdefault("final_mapping_config", {})
         self.mlp = MLP(
-            self._fc_in_dim, self._fc_out_dim,
-            self.hidden_units, self.mapping_configs,
-            final_mapping_config=final_mapping_config
+            self._fc_in_dim,
+            self._fc_out_dim,
+            self.hidden_units,
+            self.mapping_configs,
+            final_mapping_config=final_mapping_config,
         )
 
-    def forward(self,
-                batch: tensor_dict_type,
-                **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
         net = self.mlp(net)

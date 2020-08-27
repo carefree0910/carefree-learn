@@ -13,7 +13,7 @@ class TestRegister(unittest.TestCase):
 
         @cflearn.register_initializer("all_one")
         def all_one(initializer_, parameter):
-            parameter.fill_(1.)
+            parameter.fill_(1.0)
 
         n = 100
         param = Parameter(torch.zeros(n))
@@ -23,7 +23,6 @@ class TestRegister(unittest.TestCase):
         self.assertTrue(np.allclose(param.data.numpy(), np.ones(n, np.float32)))
 
     def test_processor(self):
-
         @cflearn.register_processor("plus_one")
         class PlusOne(cflearn.Processor):
             @property
@@ -34,16 +33,13 @@ class TestRegister(unittest.TestCase):
             def output_dim(self) -> int:
                 return 1
 
-            def fit(self,
-                    columns: np.ndarray) -> cflearn.Processor:
+            def fit(self, columns: np.ndarray) -> cflearn.Processor:
                 return self
 
-            def _process(self,
-                         columns: np.ndarray) -> np.ndarray:
+            def _process(self, columns: np.ndarray) -> np.ndarray:
                 return columns + 1
 
-            def _recover(self,
-                         processed_columns: np.ndarray) -> np.ndarray:
+            def _recover(self, processed_columns: np.ndarray) -> np.ndarray:
                 return processed_columns - 1
 
         config = {"data_config": {"label_process_method": "plus_one"}}
@@ -53,5 +49,5 @@ class TestRegister(unittest.TestCase):
         self.assertTrue(np.allclose(y + 1, processed_y))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

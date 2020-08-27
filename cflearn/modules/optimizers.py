@@ -9,6 +9,7 @@ def register_optimizer(name):
         global optimizer_dict
         optimizer_dict[name] = cls_
         return cls_
+
     return _register
 
 

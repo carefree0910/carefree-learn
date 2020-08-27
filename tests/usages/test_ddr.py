@@ -22,7 +22,7 @@ def test():
         "logging_file": f"power{power}.log",
         "verbose_level": verbose_level,
         "num_snapshot_per_epoch": 10,
-        "batch_size": 128
+        "batch_size": 128,
     }
 
     info_dict = {}
@@ -55,15 +55,21 @@ def test():
             tracker_config={
                 "project_name": "carefree-learn",
                 "task_name": task_name,
-                "overwrite": True
+                "overwrite": True,
             },
             data_task=data_task,
-            **local_config
+            **local_config,
         )
-        info_dict[task_name] = {"f": f, "data_task": data_task, "export_folder": export_folder_}
+        info_dict[task_name] = {
+            "f": f,
+            "data_task": data_task,
+            "export_folder": export_folder_,
+        }
 
     def run_tasks():
-        ms = experiments.run_tasks(num_jobs=num_jobs, run_tasks=fit, load_task=cflearn.load_task)
+        ms = experiments.run_tasks(
+            num_jobs=num_jobs, run_tasks=fit, load_task=cflearn.load_task
+        )
         for task_name, info in info_dict.items():
             m = ms[task_name][0]
             f = info["f"]
@@ -75,40 +81,61 @@ def test():
             visualizer = DDRVisualizer(m)
             if check_cdf:
                 export_path = _get_file(export_folder_, "cdf.png")
-                visualizer.visualize(x_cv, y_cv, export_path, anchor_ratios=anchor_ratios)
+                visualizer.visualize(
+                    x_cv, y_cv, export_path, anchor_ratios=anchor_ratios
+                )
             if check_quantile:
                 export_path = _get_file(export_folder_, "quantile.png")
                 visualizer.visualize(x_cv, y_cv, export_path, quantiles=quantiles)
             n_base, n_repeat = 1000, 10000
-            x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, n_base)[..., None]
+            x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, n_base)[
+                ..., None
+            ]
             x_matrix = np.repeat(x_base, n_repeat, axis=1)
             y_matrix = f(x_matrix)
             if check_cdf:
                 visualizer.visualize_multiple(
-                    x_cv, y_cv, x_base, y_matrix,
-                    export_folder_, anchor_ratios=anchor_ratios
+                    x_cv,
+                    y_cv,
+                    x_base,
+                    y_matrix,
+                    export_folder_,
+                    anchor_ratios=anchor_ratios,
                 )
             if check_quantile:
                 visualizer.visualize_multiple(
-                    x_cv, y_cv, x_base, y_matrix,
-                    export_folder_, quantiles=quantiles
+                    x_cv, y_cv, x_base, y_matrix, export_folder_, quantiles=quantiles
                 )
 
     add_task(lambda x: x + np.random.random(x.shape) * 3, "linear_constant")
     add_task(lambda x: x + np.random.random(x.shape) * 5 * x, "linear_linear")
-    add_task(lambda x: x + 2 * x ** 2 + 3 * x * np.random.random(x.shape), "quad_linear")
-    add_task(lambda x: np.sin(8 * x) + np.random.normal(0, 0.5 * np.ones_like(x)), "sin_constant")
     add_task(
-        lambda x: (2 / (np.sqrt(3) * np.pi ** 0.25) * (1 - 25 * x ** 2) * np.exp(-12.5 * x ** 2))
-                   + 0.5 * (np.random.random(x.shape) - 0.5), "mexican_hat_constant"
+        lambda x: x + 2 * x ** 2 + 3 * x * np.random.random(x.shape), "quad_linear"
     )
     add_task(
-        lambda x: (np.sin(0.5 * (x + 1) * np.pi)
-                   + np.random.normal(0, np.exp(np.sin(np.pi * (x + 1))))), "complex_complex"
+        lambda x: np.sin(8 * x) + np.random.normal(0, 0.5 * np.ones_like(x)),
+        "sin_constant",
+    )
+    add_task(
+        lambda x: (
+            2
+            / (np.sqrt(3) * np.pi ** 0.25)
+            * (1 - 25 * x ** 2)
+            * np.exp(-12.5 * x ** 2)
+        )
+        + 0.5 * (np.random.random(x.shape) - 0.5),
+        "mexican_hat_constant",
+    )
+    add_task(
+        lambda x: (
+            np.sin(0.5 * (x + 1) * np.pi)
+            + np.random.normal(0, np.exp(np.sin(np.pi * (x + 1))))
+        ),
+        "complex_complex",
     )
 
     run_tasks()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test()

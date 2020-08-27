@@ -16,15 +16,16 @@ def _hpo_core(train_file):
         temp_folder="__test_titanic1__",
         task_type=TaskTypes.CLASSIFICATION,
         data_config=data_config,
-        num_parallel=0
+        num_parallel=0,
     )
     results = cflearn.repeat_with(
         train_file,
         **hpo.best_param,
         models="tree_dnn",
         temp_folder="__test_titanic2__",
-        num_repeat=10, num_jobs=0,
-        data_config=data_config
+        num_repeat=10,
+        num_jobs=0,
+        data_config=data_config,
     )
     ensemble = cflearn.ensemble(results.patterns["tree_dnn"])
     return results.data, ensemble
@@ -59,6 +60,6 @@ def test_adaboost():
     _test("adaboost", _adaboost_core)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_adaboost()
     test_hpo()

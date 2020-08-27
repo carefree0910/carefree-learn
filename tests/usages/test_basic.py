@@ -8,7 +8,9 @@ from cfdata.tabular import *
 
 file_folder = os.path.dirname(__file__)
 data_folder = os.path.abspath(os.path.join(file_folder, "sick"))
-tr_file, cv_file, te_file = map(os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"])
+tr_file, cv_file, te_file = map(
+    os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"]
+)
 
 
 def test_array_dataset():
@@ -16,7 +18,7 @@ def test_array_dataset():
     dataset = TabularDataset.iris()
     m = cflearn.make(
         model,
-        cv_split=0.,
+        cv_split=0.0,
         use_amp=True,
         data_config={"numerical_columns": list(range(dataset.x.shape[1]))},
         min_epoch=100,
@@ -28,8 +30,8 @@ def test_array_dataset():
         model_config={
             "hidden_units": [100],
             "default_encoding_method": "one_hot",
-            "mapping_configs": {"batch_norm": True, "dropout": 0.}
-        }
+            "mapping_configs": {"batch_norm": True, "dropout": 0.0},
+        },
     )
     m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
     cflearn.estimate(*dataset.xy, wrappers=m)
@@ -59,13 +61,21 @@ def test_file_dataset():
     models = ["nnb", "ndt"]
     for num_jobs in [0, 2]:
         results = cflearn.repeat_with(
-            tr_file, x_cv=cv_file, models=models,
-            num_repeat=num_repeat, num_jobs=num_jobs,
-            temp_folder="__test_file_dataset__"
+            tr_file,
+            x_cv=cv_file,
+            models=models,
+            num_repeat=num_repeat,
+            num_jobs=num_jobs,
+            temp_folder="__test_file_dataset__",
         )
-    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(results.data.read_file, [tr_file, cv_file, te_file])
+    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(
+        results.data.read_file, [tr_file, cv_file, te_file]
+    )
     tr_y, cv_y, te_y = map(results.data.transform_labels, [tr_y, cv_y, te_y])
-    ensembles = {model: cflearn.ensemble(model_list) for model, model_list in results.patterns.items()}
+    ensembles = {
+        model: cflearn.ensemble(model_list)
+        for model, model_list in results.patterns.items()
+    }
     other_patterns = {}
     for model in models:
         repeat_key = f"{model}_{num_repeat}"
@@ -83,11 +93,13 @@ def test_hpo():
             x_cv=cv_file,
             temp_folder="__test_hpo__",
             task_type=TaskTypes.CLASSIFICATION,
-            num_repeat=2, num_parallel=num_parallel, num_search=10
+            num_repeat=2,
+            num_parallel=num_parallel,
+            num_search=10,
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_array_dataset()
     test_file_dataset()
     test_hpo()

@@ -76,16 +76,16 @@ class Initializer(LoggingMixin):
         nn.init.xavier_uniform_(param.data)
 
     def normal(self, param: nn.Parameter):
-        mean = self.config.setdefault("mean", 0.)
-        std = self.config.setdefault("std", 1.)
+        mean = self.config.setdefault("mean", 0.0)
+        std = self.config.setdefault("std", 1.0)
         with torch.no_grad():
             param.data.normal_(mean, std)
 
     def truncated_normal(self, param: nn.Parameter):
-        span = self.config.setdefault("span", 2.)
-        mean = self.config.setdefault("mean", 0.)
-        std = self.config.setdefault("std", 1.)
-        tol = self.config.setdefault("tol", 0.)
+        span = self.config.setdefault("span", 2.0)
+        mean = self.config.setdefault("mean", 0.0)
+        std = self.config.setdefault("std", 1.0)
+        tol = self.config.setdefault("tol", 0.0)
         epoch = self.config.setdefault("epoch", 20)
         n_elem = param.numel()
         weight_base = param.new_empty(n_elem).normal_()
@@ -104,7 +104,9 @@ class Initializer(LoggingMixin):
             self.log_msg(
                 f"invalid ratio for truncated normal : {invalid.to(torch.float32).mean():8.6f}, "
                 f"it might cause by too little epoch ({epoch}) or too small tolerance ({tol})",
-                self.warning_prefix, 2, logging.WARNING
+                prefix=self.warning_prefix,
+                verbose_level=2,
+                msg_level=logging.WARNING,
             )
         with torch.no_grad():
             param.data.copy_(weight_base.reshape(param.shape))
@@ -112,9 +114,11 @@ class Initializer(LoggingMixin):
 
 
 class _multiplied_activation(nn.Module, metaclass=ABCMeta):
-    def __init__(self,
-                 ratio: float,
-                 trainable: bool = True):
+    def __init__(
+        self,
+        ratio: float,
+        trainable: bool = True,
+    ):
         super().__init__()
         self.trainable = trainable
         ratio = torch.tensor([ratio], dtype=torch.float32)
@@ -151,8 +155,7 @@ class Activations:
 
     """
 
-    def __init__(self,
-                 configs: Dict[str, Any] = None):
+    def __init__(self, configs: Dict[str, Any] = None):
         if configs is None:
             configs = {}
         self.configs = configs
@@ -162,10 +165,10 @@ class Activations:
             return getattr(nn, item)(**self.configs.setdefault(item, {}))
         except AttributeError:
             raise NotImplementedError(
-                f"neither pytorch nor custom Activations implemented activation '{item}'")
+                f"neither pytorch nor custom Activations implemented activation '{item}'"
+            )
 
-    def module(self,
-               name: str) -> nn.Module:
+    def module(self, name: str) -> nn.Module:
         if name is None:
             return nn.Identity()
         return getattr(self, name)
@@ -174,7 +177,6 @@ class Activations:
 
     @property
     def mish(self):
-
         class Mish(nn.Module):
             def forward(self, x):
                 return x * (torch.tanh(nn.functional.softplus(x)))
@@ -185,7 +187,6 @@ class Activations:
 
     @property
     def sign(self):
-
         class Sign(nn.Module):
             def forward(self, x):
                 return torch.sign(x)
@@ -194,7 +195,6 @@ class Activations:
 
     @property
     def one_hot(self):
-
         class OneHot(nn.Module):
             def forward(self, x):
                 return x * (x == torch.max(x, dim=1, keepdim=True)[0]).to(torch.float32)
@@ -203,18 +203,16 @@ class Activations:
 
     @property
     def multiplied_sine(self):
-
         class MultipliedSine(_multiplied_activation):
             def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
                 return torch.sin(multiplied)
 
         config = self.configs.setdefault("multiplied_sine", {})
-        config.setdefault("ratio", 10.)
+        config.setdefault("ratio", 10.0)
         return MultipliedSine(**config)
 
     @property
     def multiplied_tanh(self):
-
         class MultipliedTanh(_multiplied_activation):
             def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
                 return torch.tanh(multiplied)
@@ -223,7 +221,6 @@ class Activations:
 
     @property
     def multiplied_softmax(self):
-
         class MultipliedSoftmax(_multiplied_activation):
             def __init__(self, ratio, dim=1, trainable=True):
                 super().__init__(ratio, trainable)
@@ -287,15 +284,17 @@ class TrainMonitor:
 
     """
 
-    def __init__(self,
-                 sign,
-                 num_scores_per_snapshot=1,
-                 history_ratio=3,
-                 tolerance_ratio=2,
-                 extension=5,
-                 std_floor=0.001,
-                 std_ceiling=0.01,
-                 aggressive=False):
+    def __init__(
+        self,
+        sign,
+        num_scores_per_snapshot=1,
+        history_ratio=3,
+        tolerance_ratio=2,
+        extension=5,
+        std_floor=0.001,
+        std_ceiling=0.01,
+        aggressive=False,
+    ):
         self.sign = sign
         self.num_scores_per_snapshot = num_scores_per_snapshot
         self.num_history = int(num_scores_per_snapshot * history_ratio)
@@ -312,7 +311,12 @@ class TrainMonitor:
         self._over_fit_performance = math.inf
         self._best_checkpoint_performance = -math.inf
         self._descend_counter = self._plateau_counter = self.over_fitting_flag = 0
-        self.info = {"terminate": False, "save_checkpoint": False, "save_best": aggressive, "info": None}
+        self.info = {
+            "terminate": False,
+            "save_checkpoint": False,
+            "save_best": aggressive,
+            "info": None,
+        }
 
     @property
     def log_msg(self):
@@ -347,7 +351,9 @@ class TrainMonitor:
         self._descend_counter += min(self.num_tolerance / 3, -res / std)
         self.log_msg(
             f"descend counter updated : {self._descend_counter:6.4f}",
-            self._pipeline.info_prefix, 6, logging.DEBUG
+            prefix=self._pipeline.info_prefix,
+            verbose_level=6,
+            msg_level=logging.DEBUG,
         )
         self.over_fitting_flag = 1
 
@@ -371,7 +377,9 @@ class TrainMonitor:
             self._descend_counter = max(new_counter, 0)
             self.log_msg(
                 f"descend counter updated : {self._descend_counter:6.4f}",
-                self._pipeline.info_prefix, 6, logging.DEBUG
+                prefix=self._pipeline.info_prefix,
+                verbose_level=6,
+                msg_level=logging.DEBUG,
             )
 
     def _handle_is_best(self):
@@ -393,8 +401,10 @@ class TrainMonitor:
     def _handle_period(self, last_score):
         if self.is_aggressive:
             return
-        if len(self._scores) % self.num_scores_per_snapshot == 0 and \
-                last_score > self._best_checkpoint_performance:
+        if (
+            len(self._scores) % self.num_scores_per_snapshot == 0
+            and last_score > self._best_checkpoint_performance
+        ):
             self._best_checkpoint_performance = last_score
             self._plateau_counter //= 2
             self.info["terminate"] = False
@@ -413,26 +423,31 @@ class TrainMonitor:
         if self.info["terminate"]:
             self.log_msg(
                 f"early stopped at n_epoch={pipeline._epoch_count} due to '{self.info['info']}'",
-                prefix=pipeline.info_prefix
+                prefix=pipeline.info_prefix,
             )
             return True
         if self.info["save_checkpoint"]:
             self.log_msg(f"{self.info['info']}", pipeline.info_prefix, 3)
             pipeline.save_checkpoint()
         if (
-            pipeline._epoch_count == pipeline.num_epoch and
-            pipeline._epoch_count < pipeline.max_epoch and
-            not self.info["terminate"]
+            pipeline._epoch_count == pipeline.num_epoch
+            and pipeline._epoch_count < pipeline.max_epoch
+            and not self.info["terminate"]
         ):
             self._punish_extension()
             new_epoch = pipeline.num_epoch + self.extension
             pipeline.num_epoch = min(new_epoch, pipeline.max_epoch)
-            self.log_msg(f"extending num_epoch to {pipeline.num_epoch}", pipeline.info_prefix, 3)
+            self.log_msg(
+                f"extending num_epoch to {pipeline.num_epoch}",
+                prefix=pipeline.info_prefix,
+                verbose_level=3,
+            )
         if pipeline._epoch_count == pipeline.max_epoch:
             if not self.info["terminate"]:
                 self.log_msg(
                     "model seems to be under-fitting but max_epoch reached, "
-                    "increasing max_epoch may improve performance.", pipeline.info_prefix
+                    "increasing max_epoch may improve performance.",
+                    pipeline.info_prefix,
                 )
             return True
         return False
@@ -456,7 +471,9 @@ class TrainMonitor:
             plateau_updated = False
             if std < self.std_floor:
                 if self.plateau_flag:
-                    self._plateau_counter += self.std_floor / max(std, self.std_floor / 6)
+                    self._plateau_counter += self.std_floor / max(
+                        std, self.std_floor / 6
+                    )
                     plateau_updated = True
             else:
                 if self._plateau_counter > 0:
@@ -470,7 +487,9 @@ class TrainMonitor:
             if plateau_updated:
                 self.log_msg(
                     f"plateau counter updated : {self._plateau_counter:>6.4f} / {self.plateau_threshold}",
-                    self._pipeline.info_prefix, 6, logging.DEBUG
+                    prefix=self._pipeline.info_prefix,
+                    verbose_level=6,
+                    msg_level=logging.DEBUG,
                 )
             if self._plateau_counter >= self.plateau_threshold:
                 self.info["info"] = "performance not improving"
@@ -509,13 +528,14 @@ class eval_context(context_error_handler):
 
     """
 
-    def __init__(self,
-                 module: nn.Module,
-                 *,
-                 no_grad: bool = True):
+    def __init__(self, module: nn.Module, *, no_grad: bool = True):
         self._module, self._training = module, module.training
-        self._params_required_grad = [param for param in module.parameters() if param.requires_grad]
-        tuple(map(lambda param: param.requires_grad_(False), self._params_required_grad))
+        self._params_required_grad = [
+            param for param in module.parameters() if param.requires_grad
+        ]
+        tuple(
+            map(lambda param: param.requires_grad_(False), self._params_required_grad)
+        )
         self._no_grad = torch.no_grad() if no_grad else None
 
     def __enter__(self):
@@ -531,7 +551,14 @@ class eval_context(context_error_handler):
 
 
 __all__ = [
-    "tensor_dict_type", "data_type",
-    "to_torch", "to_numpy", "to_2d", "get_gradient",
-    "Initializer", "Activations", "TrainMonitor", "eval_context"
+    "tensor_dict_type",
+    "data_type",
+    "to_torch",
+    "to_numpy",
+    "to_2d",
+    "get_gradient",
+    "Initializer",
+    "Activations",
+    "TrainMonitor",
+    "eval_context",
 ]
