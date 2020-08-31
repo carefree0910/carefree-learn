@@ -62,7 +62,7 @@ class Mapping(nn.Module):
         in_dim: int,
         out_dim: int,
         *,
-        bias: bool = True,
+        bias: bool = None,
         pruner_config: dict = None,
         dropout: float = 0.5,
         batch_norm: bool = True,
@@ -72,6 +72,8 @@ class Mapping(nn.Module):
     ):
         super().__init__()
         self.config = kwargs
+        if bias is None:
+            bias = not batch_norm
         self.linear = Linear(
             in_dim,
             out_dim,
