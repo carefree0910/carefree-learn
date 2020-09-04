@@ -71,9 +71,11 @@ m.predict(x)
 m.predict_prob(x)
 # Estimate performance
 cflearn.estimate(x, y, wrappers=m)
+```
 
-""" Then you will see something like this:
+Then you will see something like this:
 
+```text
 ================================================================================================================================
 |        metrics         |                       acc                        |                       auc                        |
 --------------------------------------------------------------------------------------------------------------------------------
@@ -81,33 +83,47 @@ cflearn.estimate(x, y, wrappers=m)
 --------------------------------------------------------------------------------------------------------------------------------
 |          fcnn          |    0.946667    |    0.000000    |    0.946667    |    0.993200    |    0.000000    |    0.993200    |
 ================================================================================================================================
+```
 
-"""
+It is also worth mentioning that `carefree-learn` models can be saved easily, into a zip file!
 
-# `carefree-learn` models can be saved easily, into a zip file!
-# For example, a `cflearn^_^fcnn.zip` file will be created with this line of code:
+For example, a `cflearn^_^fcnn.zip` file will be created with one line of code:
+
+```python
 cflearn.save(m)
-# And loading `carefree-learn` models are easy too!
+```
+
+Of course, loading `carefree-learn` models are easy too!
+
+```python
 m = cflearn.load()
 # You will see exactly the same result as above!
 cflearn.estimate(x, y, wrappers=m)
+```
 
-# `carefree-learn` can also easily fit / predict / estimate directly on files!
-# `delim` refers to 'delimiter', and `skip_first` refers to skipping first line or not.
-# * Please refer to https://github.com/carefree0910/carefree-data/blob/dev/README.md if you're interested in more details.
-""" Suppose we have an 'xor.txt' file with following contents:
+`carefree-learn` can also easily fit / predict / estimate directly on files (file-in, file-out). Suppose we have an 'xor.txt' file with following contents:
 
+```text
 0,0,0
 0,1,1
 1,0,1
 1,1,0
+```
 
-"""
+Then `carefree-learn` can be utilized with only one line of code:
+
+> `delim` refers to 'delimiter', and `skip_first` refers to whether skipping the first line or not.
+
+> Please refer to [carefree-data](https://github.com/carefree0910/carefree-data/blob/dev/README.md) if you're interested in more details.
+
+```python
 m = cflearn.make(delim=",", skip_first=False).fit("xor.txt", x_cv="xor.txt")
 cflearn.estimate("xor.txt", wrappers=m)
+```
 
-""" Then you will see something like this:
+After which you will see something like this:
 
+```text
 ================================================================================================================================
 |        metrics         |                       acc                        |                       auc                        |
 --------------------------------------------------------------------------------------------------------------------------------
@@ -115,10 +131,11 @@ cflearn.estimate("xor.txt", wrappers=m)
 --------------------------------------------------------------------------------------------------------------------------------
 |          fcnn          |    1.000000    |    0.000000    |    1.000000    |    1.000000    |    0.000000    |    1.000000    |
 ================================================================================================================================
+```
 
-"""
+When we fit from files, we can predict on either files or lists:
 
-# When we fit from files, we can predict on either files or lists:
+```python
 print(m.predict([[0, 0]]))   # [[0]]
 print(m.predict([[0, 1]]))   # [[1]]
 print(m.predict("xor.txt"))  # [ [0] [1] [1] [0] ]
@@ -146,9 +163,11 @@ if __name__ == '__main__':
     ensemble = cflearn.ensemble(patterns)
     patterns_dict = {"fcnn_3": patterns, "fcnn_3_ensemble": ensemble}
     cflearn.estimate(x, y, metrics=["acc", "auc"], other_patterns=patterns_dict)
+```
 
-""" Then you will see something like this:
+Then you will see something like this:
 
+```text
 ================================================================================================================================
 |        metrics         |                       acc                        |                       auc                        |
 --------------------------------------------------------------------------------------------------------------------------------
@@ -158,8 +177,6 @@ if __name__ == '__main__':
 --------------------------------------------------------------------------------------------------------------------------------
 |    fcnn_3_ensemble     | -- 0.953333 -- | -- 0.000000 -- | -- 0.953333 -- |    0.993867    | -- 0.000000 -- | -- 0.993867 -- |
 ================================================================================================================================
-
-"""
 ```
 
 You might notice that the best results of each column is 'highlighted' with a pair of '--'.
@@ -181,9 +198,11 @@ if __name__ == '__main__':
     # We can further train our model with the best hyper-parameters we've obtained:
     m = cflearn.make(**hpo.best_param).fit(x, y)
     cflearn.estimate(x, y, wrappers=m)
+```
 
-""" Then you will see something like this:
+Then you will see something like this:
 
+```text
 ~~~  [ info ] Results
 ================================================================================================================================
 |        metrics         |                       acc                        |                       auc                        |
@@ -234,8 +253,6 @@ best (a9ef52d0)
 --------------------------------------------------------------------------------------------------------------------------------
 |          fcnn          |    0.980000    |    0.000000    |    0.980000    |    0.998867    |    0.000000    |    0.998867    |
 ================================================================================================================================
-
-"""
 ```
 
 You might notice that:
