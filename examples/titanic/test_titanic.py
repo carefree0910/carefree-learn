@@ -1,4 +1,5 @@
 # This is a solution for https://www.kaggle.com/c/titanic
+# Uncomment the `model_config` parts can achieve better performances!
 
 import os
 import cflearn
@@ -10,11 +11,13 @@ file_folder = os.path.dirname(__file__)
 
 def _hpo_core(train_file):
     data_config = {"label_name": "Survived"}
+    # model_config = {"default_encoding_configs": {"embedding_std": 1.0}}
     hpo = cflearn.tune_with(
         train_file,
         model="tree_dnn",
         temp_folder="__test_titanic1__",
         task_type=TaskTypes.CLASSIFICATION,
+        # model_config=model_config,
         data_config=data_config,
         num_parallel=0,
     )
@@ -32,7 +35,10 @@ def _hpo_core(train_file):
 
 
 def _adaboost_core(train_file):
-    config = {"data_config": {"label_name": "Survived"}}
+    config = {
+        "data_config": {"label_name": "Survived"},
+        # "model_config": {"default_encoding_configs": {"embedding_std": 1.0}},
+    }
     ensemble = cflearn.Ensemble(TaskTypes.CLASSIFICATION, config)
     results = ensemble.adaboost(train_file)
     return results.data, results.pattern
