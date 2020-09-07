@@ -11,7 +11,7 @@ file_folder = os.path.dirname(__file__)
 
 def _hpo_core(train_file):
     data_config = {"label_name": "Survived"}
-    # model_config = {"default_encoding_configs": {"embedding_std": 1.0}}
+    # model_config = {"default_encoding_configs": {"init_method": None}}
     hpo = cflearn.tune_with(
         train_file,
         model="tree_dnn",
@@ -26,9 +26,10 @@ def _hpo_core(train_file):
         **hpo.best_param,
         models="tree_dnn",
         temp_folder="__test_titanic2__",
+        # model_config=model_config,
+        data_config=data_config,
         num_repeat=10,
         num_jobs=0,
-        data_config=data_config,
     )
     ensemble = cflearn.ensemble(results.patterns["tree_dnn"])
     return results.data, ensemble
@@ -37,7 +38,7 @@ def _hpo_core(train_file):
 def _adaboost_core(train_file):
     config = {
         "data_config": {"label_name": "Survived"},
-        # "model_config": {"default_encoding_configs": {"embedding_std": 1.0}},
+        # "model_config": {"default_encoding_configs": {"init_method": None}},
     }
     ensemble = cflearn.Ensemble(TaskTypes.CLASSIFICATION, config)
     results = ensemble.adaboost(train_file)

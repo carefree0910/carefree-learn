@@ -82,13 +82,16 @@ class Embedding(EncoderBase):
     ):
         super().__init__(idx, num_values, config)
         self.embedding = nn.Embedding(num_values, self._dim)
-        embedding_initializer = Initializer({"mean": self._mean, "std": self._std})
-        embedding_initializer.truncated_normal(self.embedding.weight)
+        if self._init_method is not None:
+            embedding_initializer = Initializer(self._init_config_)
+            embedding_initializer.initialize(self.embedding.weight, self._init_method)
 
     def _init_config(self, config: Dict[str, Any]):
         super()._init_config(config)
-        self._mean = self.config.setdefault("embedding_mean", 0.0)
-        self._std = self.config.setdefault("embedding_std", 0.02)
+        self._init_method = self.config.setdefault("init_method", "truncated_normal")
+        self._init_config_ = self.config.setdefault(
+            "init_config", {"mean": 0.0, "std": 0.02}
+        )
         embedding_dim = self.config.setdefault("embedding_dim", "auto")
         if isinstance(embedding_dim, int):
             self._dim = embedding_dim
