@@ -8,7 +8,7 @@ from cftool.misc import Saving
 import cflearn
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--config_folder")
     args = parser.parse_args()

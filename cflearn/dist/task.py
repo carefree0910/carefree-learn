@@ -13,11 +13,7 @@ IS_LINUX = platform.system() == "Linux"
 
 
 class Task:
-    def __init__(self,
-                 idx: int,
-                 model: str,
-                 identifier: str,
-                 temp_folder: str):
+    def __init__(self, idx: int, model: str, identifier: str, temp_folder: str):
         self.idx = idx
         self.model = model
         self.identifier = identifier
@@ -41,17 +37,19 @@ class Task:
         python = sys.executable
         return f"{python} -m {'.'.join(['cflearn', 'dist', 'run'])}"
 
-    def prepare(self,
-                x: data_type = None,
-                y: data_type = None,
-                x_cv: data_type = None,
-                y_cv: data_type = None,
-                *,
-                external: bool,
-                data_task: "Task" = None,
-                trains_config: Dict[str, Any] = None,
-                tracker_config: Dict[str, Any] = None,
-                **kwargs) -> "Task":
+    def prepare(
+        self,
+        x: data_type = None,
+        y: data_type = None,
+        x_cv: data_type = None,
+        y_cv: data_type = None,
+        *,
+        external: bool,
+        data_task: "Task" = None,
+        trains_config: Dict[str, Any] = None,
+        tracker_config: Dict[str, Any] = None,
+        **kwargs,
+    ) -> "Task":
         kwargs["model"] = self.model
         kwargs["logging_folder"] = self.saving_folder
         if tracker_config is not None:
@@ -73,19 +71,18 @@ class Task:
 
     # external run (use m.trains())
 
-    def dump_data(self,
-                  x: data_type,
-                  y: data_type = None,
-                  postfix: str = "") -> None:
+    def dump_data(self, x: data_type, y: data_type = None, postfix: str = "") -> None:
         for key, value in zip([f"x{postfix}", f"y{postfix}"], [x, y]):
             if value is None:
                 continue
             np.save(os.path.join(self.saving_folder, f"{key}.npy"), value)
 
-    def fetch_data(self,
-                   postfix: str = "",
-                   *,
-                   from_data_folder: bool = False) -> Tuple[data_type, data_type]:
+    def fetch_data(
+        self,
+        postfix: str = "",
+        *,
+        from_data_folder: bool = False,
+    ) -> Tuple[data_type, data_type]:
         if not from_data_folder:
             data_folder = self.saving_folder
         else:
@@ -98,13 +95,11 @@ class Task:
             data.append(None if not os.path.isfile(file) else np.load(file))
         return data[0], data[1]
 
-    def dump_config(self,
-                    config: Dict[str, Any]) -> "Task":
+    def dump_config(self, config: Dict[str, Any]) -> "Task":
         Saving.save_dict(config, "config", self.saving_folder)
         return self
 
-    def run_external(self,
-                     cuda: int = None) -> "Task":
+    def run_external(self, cuda: int = None) -> "Task":
         config = shallow_copy_dict(self.config)
         config["cuda"] = cuda
         self.dump_config(config)
@@ -113,18 +108,20 @@ class Task:
 
     # internal fit (use m.fit())
 
-    def fit(self,
-            make: callable,
-            save: callable,
-            x: data_type,
-            y: data_type = None,
-            x_cv: data_type = None,
-            y_cv: data_type = None,
-            *,
-            sample_weights: np.ndarray = None,
-            prepare: bool = True,
-            cuda: int = None,
-            **kwargs) -> "Task":
+    def fit(
+        self,
+        make: callable,
+        save: callable,
+        x: data_type,
+        y: data_type = None,
+        x_cv: data_type = None,
+        y_cv: data_type = None,
+        *,
+        sample_weights: np.ndarray = None,
+        prepare: bool = True,
+        cuda: int = None,
+        **kwargs,
+    ) -> "Task":
         if prepare:
             self.prepare(x, y, x_cv, y_cv, external=False, **kwargs)
         m = make(cuda=cuda, **self.config)
@@ -134,19 +131,23 @@ class Task:
 
     # save & load
 
-    def save(self,
-             saving_folder: str) -> "Task":
+    def save(self, saving_folder: str) -> "Task":
         os.makedirs(saving_folder, exist_ok=True)
-        Saving.save_dict({
-            "idx": self.idx, "model": self.model,
-            "identifier": self.identifier, "temp_folder": self.temp_folder,
-            "config": self.config
-        }, "kwargs", saving_folder)
+        Saving.save_dict(
+            {
+                "idx": self.idx,
+                "model": self.model,
+                "identifier": self.identifier,
+                "temp_folder": self.temp_folder,
+                "config": self.config,
+            },
+            "kwargs",
+            saving_folder,
+        )
         return self
 
     @classmethod
-    def load(cls,
-             saving_folder: str) -> "Task":
+    def load(cls, saving_folder: str) -> "Task":
         kwargs = Saving.load_dict("kwargs", saving_folder)
         config = kwargs.pop("config")
         task = cls(**kwargs)
@@ -156,10 +157,7 @@ class Task:
     # special
 
     @classmethod
-    def data_task(cls,
-                  i: int,
-                  identifier: str,
-                  experiments) -> "Task":
+    def data_task(cls, i: int, identifier: str, experiments) -> "Task":
         return cls(i, "data", identifier, experiments.temp_folder)
 
 

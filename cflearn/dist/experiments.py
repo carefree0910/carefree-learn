@@ -12,20 +12,25 @@ from ..misc.toolkit import data_type
 
 
 class Experiments(LoggingMixin):
-    def __init__(self,
-                 temp_folder: str = "__tmp__",
-                 available_cuda_list: List[int] = None,
-                 *,
-                 overwrite: bool = True,
-                 use_cuda: bool = True):
+    def __init__(
+        self,
+        temp_folder: str = "__tmp__",
+        available_cuda_list: List[int] = None,
+        *,
+        overwrite: bool = True,
+        use_cuda: bool = True,
+    ):
         self.temp_folder = temp_folder
         if os.path.isdir(temp_folder) and overwrite:
             self.log_msg(
                 f"'{temp_folder}' already exists, it will be overwritten",
-                self.warning_prefix, msg_level=logging.WARNING
+                self.warning_prefix,
+                msg_level=logging.WARNING,
             )
             shutil.rmtree(temp_folder)
-        if available_cuda_list is None and (not use_cuda or not torch.cuda.is_available()):
+        if available_cuda_list is None and (
+            not use_cuda or not torch.cuda.is_available()
+        ):
             available_cuda_list = []
         self.cuda_list = available_cuda_list
         self.use_cuda = use_cuda
@@ -36,18 +41,20 @@ class Experiments(LoggingMixin):
         self.data_tasks: Dict[str, List[Union[Task, None]]] = {}
         return self
 
-    def add_task(self,
-                 x: data_type = None,
-                 y: data_type = None,
-                 x_cv: data_type = None,
-                 y_cv: data_type = None,
-                 *,
-                 model: str = "fcnn",
-                 identifier: str = None,
-                 trains_config: Dict[str, Any] = None,
-                 tracker_config: Dict[str, Any] = None,
-                 data_task: Task = None,
-                 **kwargs) -> "Experiments":
+    def add_task(
+        self,
+        x: data_type = None,
+        y: data_type = None,
+        x_cv: data_type = None,
+        y_cv: data_type = None,
+        *,
+        model: str = "fcnn",
+        identifier: str = None,
+        trains_config: Dict[str, Any] = None,
+        tracker_config: Dict[str, Any] = None,
+        data_task: Task = None,
+        **kwargs,
+    ) -> "Experiments":
         if identifier is None:
             identifier = model
         if data_task is not None:
@@ -64,12 +71,14 @@ class Experiments(LoggingMixin):
         current_tasks.append(new_task)
         return self
 
-    def run_tasks(self,
-                  *,
-                  num_jobs: int = 4,
-                  run_tasks: bool = True,
-                  load_task: callable = None,
-                  use_tqdm: bool = True) -> Dict[str, List[Union[Task, Any]]]:
+    def run_tasks(
+        self,
+        *,
+        num_jobs: int = 4,
+        run_tasks: bool = True,
+        load_task: callable = None,
+        use_tqdm: bool = True,
+    ) -> Dict[str, List[Union[Task, Any]]]:
         def _task(i, identifier_, cuda=None) -> Task:
             return self.tasks[identifier_][i].run_external(cuda)
 
@@ -90,7 +99,7 @@ class Experiments(LoggingMixin):
                 use_tqdm=use_tqdm,
                 use_cuda=self.use_cuda and torch.cuda.is_available(),
                 logging_folder=os.path.join(self.temp_folder, "_parallel_"),
-                resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}}
+                resource_config={"gpu_config": {"available_cuda_list": self.cuda_list}},
             )
             tasks = parallel(_task, *parallel_arguments).ordered_results
 
@@ -104,20 +113,22 @@ class Experiments(LoggingMixin):
 
         return results
 
-    def run(self,
-            load_task: callable,
-            x: data_type,
-            y: data_type = None,
-            x_cv: data_type = None,
-            y_cv: data_type = None,
-            *,
-            num_jobs: int = 4,
-            num_repeat: int = 5,
-            models: Union[str, List[str]] = "fcnn",
-            identifiers: Union[str, List[str]] = None,
-            use_tqdm_in_task: bool = False,
-            use_tqdm: bool = True,
-            **kwargs) -> Dict[str, List[Union[Task, Any]]]:
+    def run(
+        self,
+        load_task: callable,
+        x: data_type,
+        y: data_type = None,
+        x_cv: data_type = None,
+        y_cv: data_type = None,
+        *,
+        num_jobs: int = 4,
+        num_repeat: int = 5,
+        models: Union[str, List[str]] = "fcnn",
+        identifiers: Union[str, List[str]] = None,
+        use_tqdm_in_task: bool = False,
+        use_tqdm: bool = True,
+        **kwargs,
+    ) -> Dict[str, List[Union[Task, Any]]]:
         self.initialize()
         if isinstance(models, str):
             models = [models]
@@ -129,15 +140,19 @@ class Experiments(LoggingMixin):
 
         for _ in range(num_repeat):
             for model, identifier in zip(models, identifiers):
-                self.add_task(x, y, x_cv, y_cv, model=model, identifier=identifier, **kwargs)
+                self.add_task(
+                    x, y, x_cv, y_cv, model=model, identifier=identifier, **kwargs
+                )
 
         return self.run_tasks(num_jobs=num_jobs, load_task=load_task, use_tqdm=use_tqdm)
 
-    def save(self,
-             saving_folder: str,
-             *,
-             simplify: bool = True,
-             compress: bool = True) -> "Experiments":
+    def save(
+        self,
+        saving_folder: str,
+        *,
+        simplify: bool = True,
+        compress: bool = True,
+    ) -> "Experiments":
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
@@ -158,14 +173,15 @@ class Experiments(LoggingMixin):
                             continue
                         idx = data_task.idx
                         tgt_data_folder = os.path.join(
-                            data_tasks_folder, data_task.identifier, str(idx))
+                            data_tasks_folder, data_task.identifier, str(idx)
+                        )
                         local_mappings[idx] = tgt_data_folder
                         data_task.save(tgt_data_folder)
                         for file in os.listdir(data_task.saving_folder):
                             if file.endswith(".npy"):
                                 shutil.copy(
                                     os.path.join(data_task.saving_folder, file),
-                                    os.path.join(tgt_data_folder, file)
+                                    os.path.join(tgt_data_folder, file),
                                 )
                     mappings[task_name] = local_mappings
             # temp folder
@@ -181,19 +197,21 @@ class Experiments(LoggingMixin):
                     task_model_folder = os.path.join(self.temp_folder, task_name)
                     for try_idx in os.listdir(task_model_folder):
                         try_idx_folder = os.path.join(task_model_folder, try_idx)
-                        tgt_model_folder = os.path.join(tgt_temp_folder, task_name, try_idx)
+                        tgt_model_folder = os.path.join(
+                            tgt_temp_folder, task_name, try_idx
+                        )
                         os.makedirs(tgt_model_folder)
                         for file in os.listdir(try_idx_folder):
                             if file == "config.json" or file.endswith(".zip"):
                                 shutil.copyfile(
                                     os.path.join(try_idx_folder, file),
-                                    os.path.join(tgt_model_folder, file)
+                                    os.path.join(tgt_model_folder, file),
                                 )
             # kwargs
             kwargs = {
                 "available_cuda_list": self.cuda_list,
                 "data_tasks_mappings": mappings,
-                "use_cuda": self.use_cuda
+                "use_cuda": self.use_cuda,
             }
             Saving.save_dict(kwargs, "kwargs", abs_folder)
             if compress:
@@ -201,10 +219,7 @@ class Experiments(LoggingMixin):
         return self
 
     @classmethod
-    def load(cls,
-             saving_folder: str,
-             *,
-             compress: bool = True) -> "Experiments":
+    def load(cls, saving_folder: str, *, compress: bool = True) -> "Experiments":
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
@@ -219,7 +234,9 @@ class Experiments(LoggingMixin):
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
                 if os.path.isdir(data_tasks_folder):
                     for task_name, data_tasks_mapping in data_tasks_mappings.items():
-                        local_data_tasks: List[Union[Task, None]] = [None] * len(data_tasks_mapping)
+                        local_data_tasks: List[Union[Task, None]] = [None] * len(
+                            data_tasks_mapping
+                        )
                         for data_task_folder in data_tasks_mapping:
                             if data_task_folder is None:
                                 continue
@@ -239,7 +256,9 @@ class Experiments(LoggingMixin):
                         if corresponding_data_tasks is not None:
                             data_task = corresponding_data_tasks[try_idx]
                             if data_task is not None:
-                                local_task.config["data_folder"] = data_task.saving_folder
+                                local_task.config[
+                                    "data_folder"
+                                ] = data_task.saving_folder
                         local_tasks.append(local_task)
         return experiments
 
