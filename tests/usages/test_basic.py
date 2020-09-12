@@ -91,6 +91,7 @@ def test_hpo():
         cflearn.tune_with(
             tr_file,
             x_cv=cv_file,
+            model="linear",
             temp_folder="__test_hpo__",
             task_type=TaskTypes.CLASSIFICATION,
             num_repeat=2,

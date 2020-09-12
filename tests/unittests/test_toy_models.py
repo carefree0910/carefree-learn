@@ -9,6 +9,14 @@ y_reg = [[1.3], [3.5], [5.7]]
 
 
 class TestToy(unittest.TestCase):
+    def test_linear_toy(self):
+        cflearn.make_toy_model("linear", task_type="clf", data_tuple=(x_mix, y_clf))
+        cflearn.make_toy_model("linear", task_type="clf", data_tuple=(x_numerical, y_clf))
+        cflearn.make_toy_model("linear", task_type="clf", data_tuple=(x_categorical, y_clf))
+        cflearn.make_toy_model("linear", data_tuple=(x_mix, y_reg))
+        cflearn.make_toy_model("linear", data_tuple=(x_numerical, y_reg))
+        cflearn.make_toy_model("linear", data_tuple=(x_categorical, y_reg))
+
     def test_fcnn_toy(self):
         cflearn.make_toy_model(task_type="clf", data_tuple=(x_mix, y_clf))
         cflearn.make_toy_model(task_type="clf", data_tuple=(x_numerical, y_clf))
