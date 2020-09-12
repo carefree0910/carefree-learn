@@ -298,7 +298,7 @@ class DDR(FCNN):
         if self._reg_step > 0:
             optimizers["reg_parameters"] = shallow_copy_dict(base_config)
         if self.__base_params:
-            optimizers["base_params"] = shallow_copy_dict(base_config)
+            optimizers["base_parameters"] = shallow_copy_dict(base_config)
         pipeline_optimizers = self._pipeline_config.setdefault("optimizers", {})
         pipeline_optimizers = update_dict(pipeline_optimizers, optimizers)
         self._pipeline_config["optimizers"] = pipeline_optimizers
