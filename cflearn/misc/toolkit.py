@@ -14,7 +14,9 @@ data_type = Union[np.ndarray, List[List[float]], List[float], str, None]
 
 
 def to_torch(arr: np.ndarray) -> torch.Tensor:
-    return torch.from_numpy(arr.astype(np.float32))
+    if issubclass(arr.dtype.type, np.floating):
+        arr = arr.astype(np.float32)
+    return torch.from_numpy(arr)
 
 
 def to_numpy(tensor: torch.Tensor) -> np.ndarray:
