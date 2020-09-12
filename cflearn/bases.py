@@ -536,7 +536,7 @@ class Pipeline(nn.Module, LoggingMixin):
     def _to_device(self, arr: Union[np.ndarray, None]) -> Union[torch.Tensor, None]:
         if arr is None:
             return arr
-        return torch.from_numpy(arr).to(self.model.device)
+        return to_torch(arr).to(self.model.device)
 
     def _collate_batch(
         self,
