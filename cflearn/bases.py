@@ -271,6 +271,7 @@ class Pipeline(nn.Module, LoggingMixin):
     def _init_config(self, config, is_loading):
         self._wrapper_config = config
         self.config = config.setdefault("pipeline_config", {})
+        self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
         self.batch_size = self.config.setdefault("batch_size", 128)
         self.cv_batch_size = self.config.setdefault(
             "cv_batch_size", 5 * self.batch_size
@@ -321,9 +322,17 @@ class Pipeline(nn.Module, LoggingMixin):
             )
             shutil.rmtree(self.checkpoint_folder)
 
+        self._sampler_config = self.config.setdefault("sampler_config", {})
+
+    def _make_sampler(self, data, shuffle) -> ImbalancedSampler:
+        config = shallow_copy_dict(self._sampler_config)
+        config["shuffle"] = shuffle
+        return ImbalancedSampler(data, **config)
+
     def _init_data(self, tr_data, cv_data):
         self.tr_data, self.cv_data = tr_data, cv_data
-        tr_sampler = ImbalancedSampler(tr_data, verbose_level=self._verbose_level)
+        self._sampler_config.setdefault("verbose_level", self.tr_data._verbose_level)
+        tr_sampler = self._make_sampler(tr_data, self.shuffle_tr)
         self.tr_loader = DataLoader(
             self.batch_size,
             tr_sampler,
@@ -333,9 +342,7 @@ class Pipeline(nn.Module, LoggingMixin):
         if cv_data is None:
             self.cv_loader = None
         else:
-            cv_sampler = ImbalancedSampler(
-                cv_data, shuffle=False, verbose_level=self._verbose_level
-            )
+            cv_sampler = self._make_sampler(cv_data, False)
             self.cv_loader = DataLoader(
                 self.cv_batch_size,
                 cv_sampler,
@@ -823,7 +830,7 @@ class Pipeline(nn.Module, LoggingMixin):
         **kwargs,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         data = self.tr_data.copy_to(x, None, contains_labels=contains_labels)
-        loader = DataLoader(self.cv_batch_size, ImbalancedSampler(data, shuffle=False))
+        loader = DataLoader(self.cv_batch_size, self._make_sampler(data, False))
         predictions = self._predict(loader, **kwargs)
         if return_all:
             return predictions
