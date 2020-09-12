@@ -3,13 +3,13 @@ import torch
 from typing import *
 from cfdata.tabular import TabularData
 
-from ...bases import ModelBase
+from ..linear import LinearModel
 from ...misc.toolkit import tensor_dict_type
-from ...modules.blocks import *
+from ...modules.blocks import Linear, MLP
 
 
-@ModelBase.register("fcnn")
-class FCNN(ModelBase):
+@LinearModel.register("fcnn")
+class FCNN(LinearModel):
     def __init__(
         self,
         config: Dict[str, Any],
@@ -19,15 +19,8 @@ class FCNN(ModelBase):
         super().__init__(config, tr_data, device)
         self._init_fcnn()
 
-    def _init_fcnn_config(self):
-        self._fc_in_dim, self._fc_out_dim = map(
-            self.config.get, ["fc_in_dim", "fc_out_dim"]
-        )
-        self.out_dim = max(self.tr_data.num_classes, 1)
-        if self._fc_in_dim is None:
-            self._fc_in_dim = self.merged_dim
-        if self._fc_out_dim is None:
-            self._fc_out_dim = self.out_dim
+    def _init_input_config(self):
+        super()._init_input_config()
         if self._fc_in_dim > 512:
             hidden_units = [1024, 1024]
         elif self._fc_in_dim > 256:
@@ -50,7 +43,7 @@ class FCNN(ModelBase):
             self.mapping_configs = [self.mapping_configs] * len(self.hidden_units)
 
     def _init_fcnn(self):
-        self._init_fcnn_config()
+        self._init_input_config()
         final_mapping_config = self.config.setdefault("final_mapping_config", {})
         self.mlp = MLP(
             self._fc_in_dim,
