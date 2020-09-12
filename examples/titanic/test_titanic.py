@@ -6,6 +6,7 @@ import cflearn
 
 from cfdata.tabular import *
 
+model = "tree_dnn"
 file_folder = os.path.dirname(__file__)
 
 
@@ -14,7 +15,7 @@ def _hpo_core(train_file):
     # model_config = {"default_encoding_configs": {"init_method": None}}
     hpo = cflearn.tune_with(
         train_file,
-        model="tree_dnn",
+        model=model,
         temp_folder="__test_titanic1__",
         task_type=TaskTypes.CLASSIFICATION,
         # model_config=model_config,
@@ -24,14 +25,14 @@ def _hpo_core(train_file):
     results = cflearn.repeat_with(
         train_file,
         **hpo.best_param,
-        models="tree_dnn",
+        models=model,
         temp_folder="__test_titanic2__",
         # model_config=model_config,
         data_config=data_config,
         num_repeat=10,
         num_jobs=0,
     )
-    ensemble = cflearn.ensemble(results.patterns["tree_dnn"])
+    ensemble = cflearn.ensemble(results.patterns[model])
     return results.data, ensemble
 
 
@@ -41,7 +42,7 @@ def _adaboost_core(train_file):
         # "model_config": {"default_encoding_configs": {"init_method": None}},
     }
     ensemble = cflearn.Ensemble(TaskTypes.CLASSIFICATION, config)
-    results = ensemble.adaboost(train_file)
+    results = ensemble.adaboost(train_file, model=model)
     return results.data, results.pattern
 
 
