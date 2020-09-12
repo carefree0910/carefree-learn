@@ -161,6 +161,16 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             "default_encoding_method", "embedding"
         )
 
+    def _init_input_config(self):
+        self._fc_in_dim, self._fc_out_dim = map(
+            self.config.get, ["fc_in_dim", "fc_out_dim"]
+        )
+        self.out_dim = max(self.tr_data.num_classes, 1)
+        if self._fc_in_dim is None:
+            self._fc_in_dim = self.merged_dim
+        if self._fc_out_dim is None:
+            self._fc_out_dim = self.out_dim
+
     def _init_loss(self, tr_data: TabularData):
         if tr_data.is_reg:
             self.loss = nn.L1Loss(reduction="none")

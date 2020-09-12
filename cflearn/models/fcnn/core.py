@@ -3,13 +3,13 @@ import torch
 from typing import *
 from cfdata.tabular import TabularData
 
-from ..linear import LinearModel
+from ...bases import ModelBase
 from ...misc.toolkit import tensor_dict_type
-from ...modules.blocks import Linear, MLP
+from ...modules.blocks import MLP
 
 
-@LinearModel.register("fcnn")
-class FCNN(LinearModel):
+@ModelBase.register("fcnn")
+class FCNN(ModelBase):
     def __init__(
         self,
         config: Dict[str, Any],
