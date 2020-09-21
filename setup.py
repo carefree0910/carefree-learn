@@ -12,8 +12,8 @@ setup(
     install_requires=[
         "trains",
         "carefree-ml>=0.1.0",
-        "carefree-data>=0.1.6",
-        "carefree-toolkit>=0.1.9",
+        "carefree-data>=0.1.7",
+        "carefree-toolkit>=0.1.10",
         "dill",
         "future",
         "psutil",
