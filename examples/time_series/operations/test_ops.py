@@ -73,9 +73,11 @@ def test_ops():
             data_config=data_config,
         )
 
-        m.fit(os.path.join(file_folder, f"{task}.csv"))
-        predictions = m.predict(os.path.join(file_folder, f"{task}_te.csv"), contains_labels=True)
-        labels = np.array(m.tr_data.read_file(f"{task}_te.csv")[1], np.float32)
+        tr_file = os.path.join(file_folder, f"{task}.csv")
+        te_file = os.path.join(file_folder, f"{task}_te.csv")
+        m.fit(tr_file)
+        predictions = m.predict(te_file, contains_labels=True)
+        labels = np.array(m.tr_data.read_file(te_file)[1], np.float32)
         labels = labels.reshape([-1, num_history + 1])[..., -2:].reshape([-1, 1])
         print(np.hstack([predictions, labels]))
 
