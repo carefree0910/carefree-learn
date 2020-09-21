@@ -28,9 +28,9 @@ class TreeDNN(FCNN):
             self._use_one_hot_for_fc = "one_hot" in self._default_encoding_method
         fc_in_dim = self.merged_dim
         if not self._use_embedding_for_fc:
-            fc_in_dim -= embedding_dims
+            fc_in_dim -= embedding_dims * self.num_history
         if not self._use_one_hot_for_fc:
-            fc_in_dim -= one_hot_dims
+            fc_in_dim -= one_hot_dims * self.num_history
         self.config["fc_in_dim"] = fc_in_dim
         self._init_fcnn()
         # dndf
@@ -50,9 +50,9 @@ class TreeDNN(FCNN):
                 self._use_one_hot_for_dndf = "one_hot" in self._default_encoding_method
             dndf_input_dim = self.merged_dim
             if not self._use_embedding_for_dndf:
-                dndf_input_dim -= embedding_dims
+                dndf_input_dim -= embedding_dims * self.num_history
             if not self._use_one_hot_for_dndf:
-                dndf_input_dim -= one_hot_dims
+                dndf_input_dim -= one_hot_dims * self.num_history
             self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **self._dndf_config)
 
     def _preset_config(self, tr_data: TabularData):
@@ -109,6 +109,8 @@ class TreeDNN(FCNN):
         fc_net = self._merge(
             split_result, self._use_embedding_for_fc, self._use_one_hot_for_fc
         )
+        if self.tr_data.is_ts:
+            fc_net = fc_net.view(fc_net.shape[0], -1)
         fc_net = self.mlp(fc_net)
         # dndf
         if self.dndf is None:
@@ -116,6 +118,8 @@ class TreeDNN(FCNN):
         dndf_net = self._merge(
             split_result, self._use_embedding_for_dndf, self._use_one_hot_for_dndf
         )
+        if self.tr_data.is_ts:
+            dndf_net = dndf_net.view(dndf_net.shape[0], -1)
         dndf_net = self.dndf(dndf_net)
         return {"predictions": fc_net + dndf_net}
 

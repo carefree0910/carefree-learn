@@ -56,6 +56,8 @@ class FCNN(ModelBase):
     def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
+        if self.tr_data.is_ts:
+            net = net.view(x_batch.shape[0], -1)
         net = self.mlp(net)
         return {"predictions": net}
 

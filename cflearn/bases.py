@@ -26,6 +26,7 @@ except:
 from .losses import *
 from .modules import *
 from .misc.toolkit import *
+from .misc.time_series import *
 
 trains_logger: Union[Logger, None] = None
 model_dict: Dict[str, Type["ModelBase"]] = {}
@@ -79,6 +80,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._init_loss(tr_data)
         # encoders
         excluded = 0
+        ts_indices = tr_data.ts_indices
         recognizers = tr_data.recognizers
         self.encoders = {}
         self.numerical_columns_mapping = {}
@@ -86,7 +88,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         for idx, recognizer in recognizers.items():
             if idx == -1:
                 continue
-            if not recognizer.info.is_valid:
+            if not recognizer.info.is_valid or idx in ts_indices:
                 excluded += 1
             elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                 self.numerical_columns_mapping[idx] = idx - excluded
@@ -121,8 +123,24 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return {"loss": (losses * sample_weights.to(losses.device)).mean()}
 
     @property
+    def num_history(self) -> int:
+        num_history = 1
+        if self.tr_data.is_ts:
+            pipeline_config = self._wrapper_config["pipeline_config"]
+            sampler_config = pipeline_config["sampler_config"]
+            aggregation_config = sampler_config.get("aggregation_config", {})
+            num_history = aggregation_config.get("num_history")
+            if num_history is None:
+                raise ValueError(
+                    "please provide `num_history` in `aggregation_config` "
+                    "in `cflearn.make` for time series tasks."
+                )
+        return num_history
+
+    @property
     def merged_dim(self):
-        return self._categorical_dim + len(self._numerical_columns)
+        merged_dim = self._categorical_dim + len(self._numerical_columns)
+        return merged_dim * self.num_history
 
     @property
     def encoding_dims(self) -> Dict[str, int]:
@@ -333,6 +351,9 @@ class Pipeline(nn.Module, LoggingMixin):
             shutil.rmtree(self.checkpoint_folder)
 
         self._sampler_config = self.config.setdefault("sampler_config", {})
+        self._ts_label_collator_config = self.config.setdefault(
+            "ts_label_collator_config", {}
+        )
 
     def _make_sampler(self, data, shuffle) -> ImbalancedSampler:
         config = shallow_copy_dict(self._sampler_config)
@@ -349,6 +370,12 @@ class Pipeline(nn.Module, LoggingMixin):
             return_indices=True,
             verbose_level=self._verbose_level,
         )
+        if not tr_data.is_ts:
+            self.ts_label_collator = None
+        else:
+            self.ts_label_collator = TSLabelCollator(
+                tr_data, self._ts_label_collator_config
+            )
         if cv_data is None:
             self.cv_loader = None
         else:
@@ -555,6 +582,11 @@ class Pipeline(nn.Module, LoggingMixin):
             return arr
         return to_torch(arr).to(self.model.device)
 
+    def _collate_labels(self, y_batch: np.ndarray) -> np.ndarray:
+        if self.ts_label_collator is None:
+            return y_batch
+        return self.ts_label_collator.collate(y_batch)
+
     def _collate_batch(
         self,
         x_batch: np.ndarray,
@@ -593,8 +625,8 @@ class Pipeline(nn.Module, LoggingMixin):
 
     def _get_metrics(self) -> Tuple[float, Dict[str, float]]:
         tr_loader, cv_loader = self.tr_loader, self.cv_loader
-        if cv_loader is None and self.tr_loader._n_siamese > 1:
-            raise ValueError("cv set should be provided when n_siamese > 1")
+        if cv_loader is None and self.tr_loader._num_siamese > 1:
+            raise ValueError("cv set should be provided when num_siamese > 1")
         if cv_loader is not None:
             loader = cv_loader
         else:
@@ -610,6 +642,7 @@ class Pipeline(nn.Module, LoggingMixin):
             loader = self._to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
             for (x_batch, y_batch), _ in loader:
+                y_batch = self._collate_labels(y_batch)
                 labels.append(y_batch)
                 batch = self._collate_batch(x_batch, y_batch)
                 with eval_context(self):
@@ -697,6 +730,7 @@ class Pipeline(nn.Module, LoggingMixin):
                 else:
                     x_batch, y_batch = a, b
                 if y_batch is not None:
+                    y_batch = self._collate_labels(y_batch)
                     labels.append(y_batch)
                 results.append(
                     self.model(self._collate_batch(x_batch, y_batch), **kwargs)
@@ -766,6 +800,7 @@ class Pipeline(nn.Module, LoggingMixin):
                     )
                 for (x_batch, y_batch), index_batch in self._step_tqdm:
                     self._step_count += 1
+                    y_batch = self._collate_labels(y_batch)
                     with timing_context(self, "collate batch"):
                         batch = self._collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
@@ -943,6 +978,7 @@ class Wrapper(LoggingMixin):
         self._data_config["default_categorical_process"] = "identical"
         self._read_config = self.config.setdefault("read_config", {})
         self._cv_split = self.config.setdefault("cv_split", 0.1)
+        self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
         self._model = self.config.setdefault("model", "fcnn")
         self._binary_metric = self.config.setdefault("binary_metric", "acc")
         self._is_binary = self.config.get("is_binary")
@@ -1004,7 +1040,10 @@ class Wrapper(LoggingMixin):
                     self.tr_weights = sample_weights
             else:
                 self._save_original_data = True
-                split = self.tr_data.split(self._cv_split)
+                split = self.tr_data.split(
+                    self._cv_split,
+                    order=self._cv_split_order,
+                )
                 self.cv_data, self.tr_data = split.split, split.remained
                 # TODO : utilize cv_weights with sample_weights[split.split_indices]
                 if sample_weights is not None:

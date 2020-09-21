@@ -36,7 +36,7 @@ class DDR(FCNN):
         tr_data: TabularData,
         device: torch.device,
     ):
-        if tr_data.task_type is not TaskTypes.REGRESSION:
+        if not tr_data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
         super().__init__(config, tr_data, device)
         self.__feature_params, self.__reg_params = [], []
@@ -876,6 +876,8 @@ class DDR(FCNN):
         forward_dict = {}
         x_batch = batch["x_batch"]
         init = self._split_features(x_batch).merge()
+        if self.tr_data.is_ts:
+            init = init.view(init.shape[0], -1)
         predict_pdf, predict_cdf = map(kwargs.get, ["predict_pdf", "predict_cdf"])
         predict_quantile, predict_median_residual = map(
             kwargs.get, ["predict_quantile", "predict_median_residual"]
