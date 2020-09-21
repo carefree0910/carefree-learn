@@ -17,7 +17,7 @@ class Linear(nn.Module):
         *,
         bias: bool = True,
         pruner_config: dict = None,
-        init_method: Union[str, None] = "xavier",
+        init_method: Union[str, None] = "xavier_uniform",
         **kwargs
     ):
         super().__init__()
@@ -67,7 +67,7 @@ class Mapping(nn.Module):
         dropout: float = 0.5,
         batch_norm: bool = True,
         activation: str = "ReLU",
-        init_method: str = "xavier",
+        init_method: str = "xavier_uniform",
         **kwargs
     ):
         super().__init__()

@@ -48,11 +48,11 @@ class Initializer(LoggingMixin):
     --------
     >>> initializer = Initializer({})
     >>> linear = nn.Linear(10, 10)
-    >>> initializer.xavier(linear.weight)
+    >>> initializer.xavier_uniform(linear.weight)
 
     """
 
-    defined_initialization = {"xavier", "normal", "truncated_normal"}
+    defined_initialization = {"xavier_uniform", "xavier_normal", "normal", "truncated_normal"}
     custom_initializer = {}
 
     def __init__(self, config):
@@ -73,9 +73,13 @@ class Initializer(LoggingMixin):
         cls.defined_initialization.add(name)
         cls.custom_initializer[name] = f
 
-    @staticmethod
-    def xavier(param: nn.Parameter):
-        nn.init.xavier_uniform_(param.data)
+    def xavier_uniform(self, param: nn.Parameter):
+        gain = self.config.setdefault("gain", 1.0)
+        nn.init.xavier_uniform_(param.data, gain)
+
+    def xavier_normal(self, param: nn.Parameter):
+        gain = self.config.setdefault("gain", 1.0)
+        nn.init.xavier_normal_(param.data, gain)
 
     def normal(self, param: nn.Parameter):
         mean = self.config.setdefault("mean", 0.0)

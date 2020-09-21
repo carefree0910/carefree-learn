@@ -61,7 +61,7 @@ class DDR(FCNN):
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("activation", "mish")
-            mapping_configs.setdefault("init_method", "xavier")
+            mapping_configs.setdefault("init_method", "xavier_uniform")
             mapping_configs.setdefault("batch_norm", False)
             mapping_configs.setdefault("dropout", 0.0)
             mapping_configs.setdefault("bias", False)
@@ -70,7 +70,7 @@ class DDR(FCNN):
         self._q_reg_activation = self.config.setdefault(
             "quantile_reg_activation", "ReLU"
         )
-        self._reg_init = self.config.setdefault("regression_initialization", "xavier")
+        self._reg_init = self.config.setdefault("regression_initialization", "xavier_uniform")
         median_mapping_configs = self.config.setdefault(
             "median_mapping_configs", shallow_copy_dict(self._common_configs)
         )
