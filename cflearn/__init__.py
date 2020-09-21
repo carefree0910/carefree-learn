@@ -57,6 +57,10 @@ def make(
     max_snapshot_num: int = None,
     clip_norm: float = None,
     ema_decay: float = None,
+    ts_config: TimeSeriesConfig = None,
+    aggregation: str = None,
+    aggregation_config: Dict[str, Any] = None,
+    ts_label_collator_config: Dict[str, Any] = None,
     data_config: Dict[str, Any] = None,
     read_config: Dict[str, Any] = None,
     model_config: Dict[str, Any] = None,
@@ -79,16 +83,19 @@ def make(
     # wrapper general
     kwargs["model"] = model
     kwargs["cv_split"] = cv_split
-    if data_config is not None:
-        kwargs["data_config"] = data_config
+    if data_config is None:
+        data_config = {}
+    if ts_config is not None:
+        data_config["time_series_config"] = ts_config
+    if task_type is not None:
+        data_config["task_type"] = TaskTypes.from_str(task_type)
     if read_config is None:
         read_config = {}
     if delim is not None:
         read_config["delim"] = delim
-    if task_type is not None:
-        data_config["task_type"] = TaskTypes.from_str(task_type)
     if skip_first is not None:
         read_config["skip_first"] = skip_first
+    kwargs["data_config"] = data_config
     kwargs["read_config"] = read_config
     if model_config is not None:
         kwargs["model_config"] = model_config
@@ -116,6 +123,13 @@ def make(
         pipeline_config["clip_norm"] = clip_norm
     if ema_decay is not None:
         pipeline_config["ema_decay"] = ema_decay
+    sampler_config = pipeline_config.setdefault("sampler_config", {})
+    if aggregation is not None:
+        sampler_config["aggregation"] = aggregation
+    if aggregation_config is not None:
+        sampler_config["aggregation_config"] = aggregation_config
+    if ts_label_collator_config is not None:
+        pipeline_config["ts_label_collator_config"] = ts_label_collator_config
     # metrics
     if metric_config is not None:
         if metrics is not None:
