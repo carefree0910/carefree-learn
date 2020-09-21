@@ -917,8 +917,8 @@ class DDR(FCNN):
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
     ) -> Dict[str, Union[torch.Tensor, float]]:
-        y_batch = batch["y_batch"]
         init = forward_results["init"]
+        x_batch, y_batch = map(batch.get, ["x_batch", "y_batch"])
         sample_weights = forward_results.get("batch_sample_weights")
         losses, losses_dict = self.loss(forward_results, y_batch)
         if (
@@ -927,12 +927,16 @@ class DDR(FCNN):
             and self._step_count % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.get_batch"):
-                x_min, x_max = torch.min(init, dim=0)[0], torch.max(init, dim=0)[0]
+                x_min = torch.min(init, dim=0)[0].view(*x_batch.shape[1:])
+                x_max = torch.max(init, dim=0)[0].view(*x_batch.shape[1:])
                 x_diff = x_max - x_min
                 lower_bound = 0.5 * (self._synthetic_range - 1) * x_diff
-                synthetic_x_batch = init.new_empty(init.shape).uniform_(
-                    0, 1
-                ) * x_diff * self._synthetic_range - (lower_bound - x_min)
+                synthetic_x_batch = x_batch.new_empty(x_batch.shape)
+                synthetic_x_batch.uniform_(0, 1)
+                synthetic_x_batch = (
+                    synthetic_x_batch * x_diff * self._synthetic_range
+                    - (lower_bound - x_min)
+                )
             with timing_context(self, "synthetic.forward"):
                 synthetic_outputs = self.forward(
                     {"x_batch": synthetic_x_batch}, no_loss=False, synthetic=True
