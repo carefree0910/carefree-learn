@@ -55,6 +55,7 @@ jobs:
       - name: Install dependencies
         shell: bash -l {0}
         run: |
+          brew install libomp
           conda info
           conda list
           conda install numpy scipy
