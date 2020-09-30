@@ -573,7 +573,7 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
 
     @property
     def model(self) -> str:
-        return self.__identifier__
+        return self._model_type
 
     @property
     def m(self) -> Wrapper:
