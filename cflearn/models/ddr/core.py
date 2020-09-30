@@ -929,19 +929,19 @@ class DDR(FCNN):
             and self._step_count % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.get_batch"):
-                x_min = torch.min(init, dim=0)[0].view(*x_batch.shape[1:])
-                x_max = torch.max(init, dim=0)[0].view(*x_batch.shape[1:])
-                x_diff = x_max - x_min
-                lower_bound = 0.5 * (self._synthetic_range - 1) * x_diff
-                synthetic_x_batch = x_batch.new_empty(x_batch.shape)
-                synthetic_x_batch.uniform_(0, 1)
-                synthetic_x_batch = (
-                    synthetic_x_batch * x_diff * self._synthetic_range
-                    - (lower_bound - x_min)
+                init_min = torch.min(init, dim=0)[0].view(*init.shape[1:])
+                init_max = torch.max(init, dim=0)[0].view(*init.shape[1:])
+                init_diff = init_max - init_min
+                lower_bound = 0.5 * (self._synthetic_range - 1) * init_diff
+                synthetic_init = init.new_empty(init.shape)
+                synthetic_init.uniform_(0, 1)
+                synthetic_init = (
+                    synthetic_init * init_diff * self._synthetic_range
+                    - (lower_bound - init_min)
                 )
             with timing_context(self, "synthetic.forward"):
-                synthetic_outputs = self.forward(
-                    {"x_batch": synthetic_x_batch}, no_loss=False, synthetic=True
+                synthetic_outputs = self._core(
+                    synthetic_init, no_loss=False, synthetic=True
                 )
             with timing_context(self, "synthetic.loss"):
                 synthetic_losses, _ = self.loss._core(
