@@ -65,6 +65,26 @@ class SplitFeatures(NamedTuple):
         return torch.cat([self.numerical, categorical], dim=1)
 
 
+def to_prob(raw: np.ndarray) -> np.ndarray:
+    return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
+
+
+def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dict_type:
+    results = {}
+    d0 = ds[0]
+    for k in d0.keys():
+        if not isinstance(d0[k], torch.Tensor):
+            continue
+        tensors = []
+        for rs in ds:
+            tensor = rs[k]
+            if len(tensor.shape) == 0:
+                tensor = tensor.reshape([1])
+            tensors.append(tensor)
+        results[k] = torch.cat(tensors, dim=dim)
+    return results
+
+
 class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
@@ -227,29 +247,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         for param in params:
             param.requires_grad_(requires_grad)
 
-    @staticmethod
-    def _collate_tensor_dicts(
-        ds: List[tensor_dict_type],
-        dim: int = 0,
-    ) -> tensor_dict_type:
-        results = {}
-        d0 = ds[0]
-        for k in d0.keys():
-            if not isinstance(d0[k], torch.Tensor):
-                continue
-            tensors = []
-            for rs in ds:
-                tensor = rs[k]
-                if len(tensor.shape) == 0:
-                    tensor = tensor.reshape([1])
-                tensors.append(tensor)
-            results[k] = torch.cat(tensors, dim=dim)
-        return results
-
-    @staticmethod
-    def to_prob(raw: np.ndarray) -> np.ndarray:
-        return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
-
     def _split_features(
         self,
         x_batch: torch.Tensor,
@@ -268,7 +265,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         elif not return_all_encodings:
             categorical = torch.cat(categorical_columns, dim=1)
         else:
-            categorical = self._collate_tensor_dicts(categorical_columns, dim=1)
+            categorical = collate_tensor_dicts(categorical_columns, dim=1)
         numerical = (
             None
             if not self._numerical_columns
@@ -659,9 +656,7 @@ class Pipeline(nn.Module, LoggingMixin):
                     loss_dicts.append(
                         self.model.loss_function(batch, forward_dicts[-1])
                     )
-            losses, forwards = map(
-                self.model._collate_tensor_dicts, [loss_dicts, forward_dicts]
-            )
+            losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
             losses = {k: v.mean().item() for k, v in losses.items()}
         use_decayed = False
         signs, metrics, decayed_metrics = {}, {}, {}
@@ -675,7 +670,7 @@ class Pipeline(nn.Module, LoggingMixin):
                     metric_predictions = predictions
                 else:
                     if metric_ins.requires_prob:
-                        metric_predictions = self.model.to_prob(predictions)
+                        metric_predictions = to_prob(predictions)
                     else:
                         metric_predictions = predictions.argmax(1).reshape([-1, 1])
                 sub_metric = metrics[metric_type] = metric_ins.metric(
@@ -753,7 +748,7 @@ class Pipeline(nn.Module, LoggingMixin):
         except:
             no_grad = self._no_grad_in_predict = False
             labels, results = self._get_results(no_grad, loader, **kwargs)
-        results = self.model._collate_tensor_dicts(results)
+        results = collate_tensor_dicts(results)
         results = {k: to_numpy(v) for k, v in results.items()}
         if labels:
             labels = np.vstack(labels)
@@ -1173,7 +1168,7 @@ class Wrapper(LoggingMixin):
         if self.tr_data.is_reg:
             raise ValueError("`predict_prob` should not be called on regression tasks")
         raw = self.pipeline.predict(x, **kwargs)
-        return self.model.to_prob(raw)
+        return to_prob(raw)
 
     def to_pattern(
         self,
