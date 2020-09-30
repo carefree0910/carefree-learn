@@ -11,7 +11,7 @@ def test_onnx():
         m = cflearn.make(model, verbose_level=0, use_tqdm=False).fit(x, y)
         predictions = m.predict(x)
         cflearn.ONNX(m).to_onnx("m.onnx").inject_onnx()
-        np.allclose(predictions, m.predict(x), atol=1e-6)
+        assert np.allclose(predictions, m.predict(x), atol=1e-5)
 
     reg_models = ["linear", "fcnn", "tree_dnn"]
     for model in reg_models:
