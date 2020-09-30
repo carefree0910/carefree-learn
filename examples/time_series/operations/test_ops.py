@@ -82,5 +82,5 @@ def test_ops():
         print(np.hstack([predictions, labels]))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_ops()

@@ -9,7 +9,7 @@ file_folder = os.path.dirname(__file__)
 def test_shampoo():
     src_file = os.path.join(file_folder, "data.csv")
     tgt_file = os.path.join(file_folder, "new_data.csv")
-    ts_config = TimeSeriesConfig(TimeSeriesModifier.id_name, "\"Month\"")
+    ts_config = TimeSeriesConfig(TimeSeriesModifier.id_name, '"Month"')
     modifier = TimeSeriesModifier(
         src_file,
         TaskTypes.TIME_SERIES_REG,
@@ -29,5 +29,5 @@ def test_shampoo():
     m.fit(os.path.join(file_folder, tgt_file))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_shampoo()

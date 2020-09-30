@@ -52,7 +52,12 @@ class Initializer(LoggingMixin):
 
     """
 
-    defined_initialization = {"xavier_uniform", "xavier_normal", "normal", "truncated_normal"}
+    defined_initialization = {
+        "xavier_uniform",
+        "xavier_normal",
+        "normal",
+        "truncated_normal",
+    }
     custom_initializer = {}
 
     def __init__(self, config):

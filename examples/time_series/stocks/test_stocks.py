@@ -25,5 +25,5 @@ def test_stocks():
     m.fit(os.path.join(file_folder, tgt_file))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     test_stocks()

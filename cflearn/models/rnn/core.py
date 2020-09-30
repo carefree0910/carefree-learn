@@ -21,10 +21,7 @@ class RNN(FCNN):
         rnn_hidden_dim = self._rnn_config["hidden_size"]
         input_dimensions += [rnn_hidden_dim] * (self._rnn_num_layers - 1)
         self.rnn_list = torch.nn.ModuleList(
-            [
-                self._rnn_base(dim, **self._rnn_config)
-                for dim in input_dimensions
-            ]
+            [self._rnn_base(dim, **self._rnn_config) for dim in input_dimensions]
         )
         self.config["fc_in_dim"] = rnn_hidden_dim
         self._init_fcnn()

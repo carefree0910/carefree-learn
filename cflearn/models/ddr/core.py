@@ -70,7 +70,9 @@ class DDR(FCNN):
         self._q_reg_activation = self.config.setdefault(
             "quantile_reg_activation", "ReLU"
         )
-        self._reg_init = self.config.setdefault("regression_initialization", "xavier_uniform")
+        self._reg_init = self.config.setdefault(
+            "regression_initialization", "xavier_uniform"
+        )
         median_mapping_configs = self.config.setdefault(
             "median_mapping_configs", shallow_copy_dict(self._common_configs)
         )
