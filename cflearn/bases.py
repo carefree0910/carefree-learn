@@ -301,6 +301,7 @@ class Pipeline(nn.Module, LoggingMixin):
         self.model = model
         self._verbose_level = verbose_level
         self._no_grad_in_predict = True
+        self.onnx = None
 
     def _init_config(self, config, is_loading):
         self._wrapper_config = config
@@ -586,7 +587,10 @@ class Pipeline(nn.Module, LoggingMixin):
     def _to_device(self, arr: Union[np.ndarray, None]) -> Union[torch.Tensor, None]:
         if arr is None:
             return arr
-        return to_torch(arr).to(self.model.device)
+        arr = to_torch(arr)
+        if self.onnx is None:
+            arr = arr.to(self.model.device)
+        return arr
 
     def _collate_labels(self, y_batch: np.ndarray) -> np.ndarray:
         if self.ts_label_collator is None:
@@ -598,9 +602,14 @@ class Pipeline(nn.Module, LoggingMixin):
         x_batch: np.ndarray,
         y_batch: np.ndarray,
     ) -> tensor_dict_type:
-        tensors = list(map(self._to_device, [x_batch, y_batch]))
-        if y_batch is not None and self.tr_data.is_clf:
-            tensors[-1] = tensors[-1].to(torch.int64)
+        if self.onnx is not None:
+            if y_batch is None:
+                y_batch = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
+            tensors = [x_batch, y_batch]
+        else:
+            tensors = list(map(self._to_device, [x_batch, y_batch]))
+            if y_batch is not None and self.tr_data.is_clf:
+                tensors[-1] = tensors[-1].to(torch.int64)
         return dict(zip(["x_batch", "y_batch"], tensors))
 
     def _clip_norm_step(self):
@@ -736,9 +745,12 @@ class Pipeline(nn.Module, LoggingMixin):
                 if y_batch is not None:
                     y_batch = self._collate_labels(y_batch)
                     labels.append(y_batch)
-                results.append(
-                    self.model(self._collate_batch(x_batch, y_batch), **kwargs)
-                )
+                batch = self._collate_batch(x_batch, y_batch)
+                if self.onnx is not None:
+                    rs = self.onnx.inference(batch)
+                else:
+                    rs = self.model(batch, **kwargs)
+                results.append(rs)
         return labels, results
 
     def _predict(self, loader: DataLoader, **kwargs) -> Dict[str, np.ndarray]:
@@ -1167,6 +1179,12 @@ class Wrapper(LoggingMixin):
     def predict_prob(self, x: data_type, **kwargs) -> np.ndarray:
         if self.tr_data.is_reg:
             raise ValueError("`predict_prob` should not be called on regression tasks")
+        if kwargs and self.pipeline.onnx is not None:
+            self.log_msg(
+                "`kwargs` is provided but onnx is in use, it will be ignored",
+                self.warning_prefix,
+                msg_level=logging.WARNING,
+            )
         raw = self.pipeline.predict(x, **kwargs)
         return to_prob(raw)
 

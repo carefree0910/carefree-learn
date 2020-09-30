@@ -48,6 +48,8 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 verbose_level=5,
                 msg_level=logging.WARNING,
             )
+            # TODO : currently pytorch does not support onnx with bool masks
+            #        in the future this line should be un-indented
             selected[oob_mask] = 0
         return self._core(selected)
 

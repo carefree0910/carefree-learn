@@ -10,6 +10,8 @@ setup(
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "onnx",
+        "onnxruntime",
         "trains",
         "carefree-ml>=0.1.0",
         "carefree-data>=0.1.7",
