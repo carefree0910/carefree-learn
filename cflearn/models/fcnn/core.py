@@ -19,6 +19,10 @@ class FCNN(ModelBase):
         super().__init__(config, tr_data, device)
         self._init_fcnn()
 
+    @property
+    def input_sample(self) -> tensor_dict_type:
+        return super().input_sample
+
     def _init_input_config(self):
         super()._init_input_config()
         if self._fc_in_dim > 512:

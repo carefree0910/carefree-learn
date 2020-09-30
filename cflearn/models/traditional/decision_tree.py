@@ -93,6 +93,10 @@ class NDT(ModelBase):
             self.to_leafs.linear.bias.data = uniform
 
     @property
+    def input_sample(self) -> tensor_dict_type:
+        return super().input_sample
+
+    @property
     def hyperplane_weights(self) -> np.ndarray:
         return to_numpy(self.to_planes.linear.weight)
 

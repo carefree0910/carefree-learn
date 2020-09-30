@@ -100,6 +100,14 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
 
+    @property
+    @abstractmethod
+    def input_sample(self) -> tensor_dict_type:
+        x = self.tr_data.processed.x[:2]
+        y = self.tr_data.processed.y[:2]
+        x, y = map(to_torch, [x, y])
+        return {"x_batch": x, "y_batch": y}
+
     @abstractmethod
     def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys

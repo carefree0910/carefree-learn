@@ -19,6 +19,10 @@ class LinearModel(ModelBase):
         super().__init__(config, tr_data, device)
         self._init_linear()
 
+    @property
+    def input_sample(self) -> tensor_dict_type:
+        return super().input_sample
+
     def _init_linear(self):
         self._init_input_config()
         self._linear_config = self.config.setdefault("linear_config", {})
