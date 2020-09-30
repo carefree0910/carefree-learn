@@ -6,6 +6,7 @@ import torch.nn as nn
 from typing import *
 from functools import partial
 from cfdata.tabular import TabularData
+from cfdata.tabular.misc import np_int_type
 from cfml.models.naive_bayes import MultinomialNB
 
 from ...bases import ModelBase
@@ -56,7 +57,7 @@ class NNB(ModelBase):
         else:
             self.mnb = Linear(num_categorical_dim, num_classes, init_method=None)
             x_mnb = split_result.categorical.cpu().numpy()
-            y_mnb = y_ravel.astype(np.int64)
+            y_mnb = y_ravel.astype(np_int_type)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
             with torch.no_grad():
                 # class log prior

@@ -17,6 +17,7 @@ from tqdm import tqdm
 from functools import partial
 from trains import Task, Logger
 from abc import ABCMeta, abstractmethod
+from cfdata.tabular.misc import np_int_type
 
 try:
     import torch.cuda.amp as amp
@@ -1164,7 +1165,7 @@ class Wrapper(LoggingMixin):
             return probabilities.argmax(1).reshape([-1, 1])
         return (
             (probabilities[..., 1] >= self._binary_threshold)
-            .astype(np.int)
+            .astype(np_int_type)
             .reshape([-1, 1])
         )
 
