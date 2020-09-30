@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
+from cfdata.tabular.misc import np_int_type
 
 from .auxiliary import *
 from ..misc.toolkit import *
@@ -177,6 +178,24 @@ class DNDF(nn.Module):
             torch.empty(self._num_tree, self._num_leaf, self._output_dim)
         )
         torch.nn.init.xavier_uniform_(self.leaves.data)
+        # masks
+        num_repeat, num_local_internals = self._num_leaf // 2, 1
+        increment_masks = [
+            torch.from_numpy(
+                np.repeat([0, self._num_internals], num_repeat).astype(np_int_type)
+            )
+        ]
+        for _ in range(1, self._tree_depth + 1):
+            num_repeat //= 2
+            num_local_internals *= 2
+            increment_mask = np.repeat(
+                np.arange(num_local_internals - 1, 2 * num_local_internals - 1), 2
+            )
+            increment_mask += np.tile([0, self._num_internals], num_local_internals)
+            increment_mask = np.repeat(increment_mask, num_repeat)
+            increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
+            increment_masks.append(increment_mask)
+        self.register_buffer("increment_masks", torch.stack(increment_masks))
 
     @staticmethod
     def _setup_tree_proj(tree_proj_config):
@@ -194,29 +213,16 @@ class DNDF(nn.Module):
         flat_probabilities = [
             torch.reshape(torch.cat([p, 1.0 - p], dim=-1), [-1]) for p in p_left
         ]
-        n_flat_prob = 2 * self._num_internals
-        batch_indices = torch.reshape(
-            torch.arange(0, n_flat_prob * net.shape[0], n_flat_prob), [-1, 1]
-        ).to(device)
-        num_repeat, num_local_internals = self._num_leaf // 2, 1
-        increment_mask = torch.from_numpy(
-            np.repeat([0, self._num_internals], num_repeat).astype(np.int64)
-        ).to(device)
+        num_flat_prob = 2 * self._num_internals
+        arange = torch.arange(0, num_flat_prob * net.shape[0], num_flat_prob)
+        batch_indices = torch.reshape(arange, [-1, 1]).to(device)
         routes = [
-            p_flat.take(batch_indices + increment_mask) for p_flat in flat_probabilities
+            p_flat.take(batch_indices + self.increment_masks[0])
+            for p_flat in flat_probabilities
         ]
-        for _ in range(1, self._tree_depth + 1):
-            num_repeat //= 2
-            num_local_internals *= 2
-            increment_mask = np.repeat(
-                np.arange(num_local_internals - 1, 2 * num_local_internals - 1), 2
-            )
-            increment_mask += np.tile([0, self._num_internals], num_local_internals)
-            increment_mask = np.repeat(increment_mask, num_repeat)
-            increment_mask = torch.from_numpy(increment_mask.astype(np.int64))
-            increment_mask = increment_mask.to(device)
-            for i, p_flat in enumerate(flat_probabilities):
-                routes[i] *= p_flat.take(batch_indices + increment_mask)
+        for i in range(1, self._tree_depth + 1):
+            for j, p_flat in enumerate(flat_probabilities):
+                routes[j] *= p_flat.take(batch_indices + self.increment_masks[i])
         leaves, features = self.leaves, torch.cat(routes, 1)
         if not self._is_regression and self._output_dim > 1:
             leaves = nn.functional.softmax(leaves, dim=-1)
