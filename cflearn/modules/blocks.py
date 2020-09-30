@@ -173,10 +173,10 @@ class DNDF(nn.Module):
         self.tree_proj = Linear(
             in_dim, self._num_internals * self._num_tree, **tree_proj_config
         )
-        self.leafs = nn.Parameter(
+        self.leaves = nn.Parameter(
             torch.empty(self._num_tree, self._num_leaf, self._output_dim)
         )
-        torch.nn.init.xavier_uniform_(self.leafs.data)
+        torch.nn.init.xavier_uniform_(self.leaves.data)
 
     @staticmethod
     def _setup_tree_proj(tree_proj_config):
@@ -217,15 +217,15 @@ class DNDF(nn.Module):
             increment_mask = increment_mask.to(device)
             for i, p_flat in enumerate(flat_probabilities):
                 routes[i] *= p_flat.take(batch_indices + increment_mask)
-        leafs, features = self.leafs, torch.cat(routes, 1)
+        leaves, features = self.leaves, torch.cat(routes, 1)
         if not self._is_regression and self._output_dim > 1:
-            leafs = nn.functional.softmax(leafs, dim=-1)
-        leafs = leafs.view(self._num_tree * self._num_leaf, self._output_dim)
-        return features.matmul(leafs) / self._num_tree
+            leaves = nn.functional.softmax(leaves, dim=-1)
+        leaves = leaves.view(self._num_tree * self._num_leaf, self._output_dim)
+        return features.matmul(leaves) / self._num_tree
 
     def reset_parameters(self):
         self.tree_proj.reset_parameters()
-        nn.init.xavier_uniform_(self.leafs.data)
+        nn.init.xavier_uniform_(self.leaves.data)
 
 
 __all__ = ["Linear", "Mapping", "MLP", "DNDF"]
