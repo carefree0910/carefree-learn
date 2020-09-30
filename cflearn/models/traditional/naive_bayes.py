@@ -5,8 +5,8 @@ import torch.nn as nn
 
 from typing import *
 from functools import partial
+from cfdata.types import np_int_type
 from cfdata.tabular import TabularData
-from cfdata.tabular.misc import np_int_type
 from cfml.models.naive_bayes import MultinomialNB
 
 from ...bases import ModelBase

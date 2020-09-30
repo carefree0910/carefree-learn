@@ -948,11 +948,10 @@ def ensemble(
                 predictions = np.array(arrays).reshape(
                     [len(arrays), len(arrays[0]), -1]
                 )
-                if requires_prob or not np.issubdtype(predictions.dtype, np.integer):
+                if requires_prob or not is_int(predictions):
                     return (predictions * pattern_weights).sum(axis=0)
-                encodings = one_hot(to_torch(predictions).to(torch.long).squeeze()).to(
-                    torch.float32
-                )
+                encodings = one_hot(to_torch(predictions).to(torch.long).squeeze())
+                encodings = encodings.to(torch.float32)
                 weighted = (encodings * pattern_weights).sum(dim=0)
                 return to_numpy(weighted.argmax(1)).reshape([-1, 1])
 

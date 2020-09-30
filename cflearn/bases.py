@@ -15,9 +15,9 @@ from cftool.misc import *
 from cfdata.tabular import *
 from tqdm import tqdm
 from functools import partial
+from cfdata.types import np_int_type
 from trains import Task, Logger
 from abc import ABCMeta, abstractmethod
-from cfdata.tabular.misc import np_int_type
 
 try:
     import torch.cuda.amp as amp

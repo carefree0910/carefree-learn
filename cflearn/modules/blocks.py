@@ -4,7 +4,7 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-from cfdata.tabular.misc import np_int_type
+from cfdata.types import np_int_type
 
 from .auxiliary import *
 from ..misc.toolkit import *

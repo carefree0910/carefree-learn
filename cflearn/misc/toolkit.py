@@ -7,16 +7,31 @@ import torch.nn as nn
 
 from typing import *
 from cftool.misc import *
+from cfdata.types import *
 from abc import ABCMeta, abstractmethod
 
 tensor_dict_type = Dict[str, torch.Tensor]
 data_type = Union[np.ndarray, List[List[float]], List[float], str, None]
 
 
+def is_int(arr: np.ndarray) -> bool:
+    return np.issubdtype(arr.dtype, np.integer)
+
+
+def is_float(arr: np.ndarray) -> bool:
+    return np.issubdtype(arr.dtype, np.floating)
+
+
+def to_standard(arr: np.ndarray) -> np.ndarray:
+    if is_int(arr):
+        arr = arr.astype(np_int_type)
+    elif is_float(arr):
+        arr = arr.astype(np_float_type)
+    return arr
+
+
 def to_torch(arr: np.ndarray) -> torch.Tensor:
-    if issubclass(arr.dtype.type, np.floating):
-        arr = arr.astype(np.float32)
-    return torch.from_numpy(arr)
+    return torch.from_numpy(to_standard(arr))
 
 
 def to_numpy(tensor: torch.Tensor) -> np.ndarray:
@@ -562,6 +577,9 @@ class eval_context(context_error_handler):
 
 
 __all__ = [
+    "is_int",
+    "is_float",
+    "to_standard",
     "tensor_dict_type",
     "data_type",
     "to_torch",
