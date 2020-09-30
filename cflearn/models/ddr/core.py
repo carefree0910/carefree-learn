@@ -935,10 +935,8 @@ class DDR(FCNN):
                 lower_bound = 0.5 * (self._synthetic_range - 1) * init_diff
                 synthetic_init = init.new_empty(init.shape)
                 synthetic_init.uniform_(0, 1)
-                synthetic_init = (
-                    synthetic_init * init_diff * self._synthetic_range
-                    - (lower_bound - init_min)
-                )
+                synthetic_init = synthetic_init * init_diff * self._synthetic_range
+                synthetic_init = synthetic_init - (lower_bound - init_min)
             with timing_context(self, "synthetic.forward"):
                 synthetic_outputs = self._core(
                     synthetic_init, no_loss=False, synthetic=True

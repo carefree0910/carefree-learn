@@ -21,9 +21,8 @@ class BN(nn.BatchNorm1d):
 class Dropout(nn.Module):
     def __init__(self, dropout: float):
         if dropout < 0.0 or dropout > 1.0:
-            raise ValueError(
-                f"dropout probability has to be between 0 and 1, but got {dropout}"
-            )
+            msg = f"dropout probability has to be between 0 and 1, but got {dropout}"
+            raise ValueError(msg)
         super().__init__()
         self._mask_cache = None
         self._keep_prob = 1.0 - dropout
