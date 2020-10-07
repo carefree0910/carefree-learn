@@ -735,7 +735,7 @@ class Pipeline(nn.Module, LoggingMixin):
         **kwargs,
     ) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
         return_indices, loader = loader.return_indices, self._to_tqdm(loader)
-        with eval_context(self, no_grad=no_grad):
+        with eval_context(self, use_grad=no_grad):
             results, labels = [], []
             for a, b in loader:
                 if return_indices:
