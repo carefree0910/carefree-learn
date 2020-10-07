@@ -408,7 +408,9 @@ class DDR(FCNN):
         return net
 
     def _build_cdf(
-        self, feature_layers: List[torch.Tensor], anchor_batch: torch.Tensor
+        self,
+        feature_layers: List[torch.Tensor],
+        anchor_batch: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         anchor_batch_ratio = self._get_anchor_batch_ratio(anchor_batch)
         net = self._merge_responses(
@@ -421,6 +423,19 @@ class DDR(FCNN):
         cdf_raw = self.cdf_reg(features)
         cdf = torch.sigmoid(cdf_raw)
         return cdf, cdf_raw
+
+    def _build_pdf(
+        self,
+        feature_layers: List[torch.Tensor],
+        anchor_batch: torch.Tensor,
+        need_optimization: bool,
+    ) -> Tuple[torch.Tensor, ...]:
+        anchor_batch.requires_grad_(True)
+        with mode_context(self, to_train=None, use_grad=True):
+            cdf, cdf_raw = self._build_cdf(feature_layers, anchor_batch)
+        pdf = get_gradient(cdf, anchor_batch, need_optimization, need_optimization)
+        anchor_batch.requires_grad_(False)
+        return cdf, cdf_raw, pdf
 
     def _build_median_residual(
         self,
@@ -528,7 +543,8 @@ class DDR(FCNN):
         return add_ratio, mul_ratio
 
     def _convert_np_anchors(
-        self, np_anchors: Union[np.ndarray, None]
+        self,
+        np_anchors: Union[np.ndarray, None],
     ) -> Union[torch.Tensor, None]:
         if np_anchors is None:
             return
@@ -549,15 +565,19 @@ class DDR(FCNN):
             net = mapping(net)
         return net
 
-    def _get_cdf(self, basic_info: BasicInfo, fetch_anchors: bool) -> tensor_dict_type:
+    def _get_distribution(
+        self,
+        basic_info: BasicInfo,
+        fetch_anchors: bool,
+    ) -> tensor_dict_type:
         if not self.fetch_cdf:
-            raise ValueError("cdf could not be fetched")
+            raise ValueError("distribution could not be fetched")
         anchor_batch = basic_info.anchor_batch
         feature_layers = basic_info.feature_layers
-        cdf, cdf_raw = self._build_cdf(feature_layers, anchor_batch)
-        # get specific sampled cdf
-        if not fetch_anchors or self._cdf_ratio_anchors is None or not self.training:
-            sampled_anchors = sampled_cdf = sampled_cdf_raw = None
+        cdf, cdf_raw, pdf = self._build_pdf(feature_layers, anchor_batch, True)
+        # get specific sampled distribution
+        if not fetch_anchors or self._cdf_ratio_anchors is None:
+            sampled_anchors = sampled_cdf = sampled_cdf_raw = sampled_pdf = None
         else:
             choice_indices = np.random.randint(
                 0, len(self._cdf_ratio_anchors), len(cdf)
@@ -566,14 +586,16 @@ class DDR(FCNN):
                 self.y_min + (self.y_max - self.y_min) * self._cdf_ratio_anchors
             )
             sampled_anchors = self._convert_np_anchors(choice_array[choice_indices])
-            sampled_cdf, sampled_cdf_raw = self._build_cdf(
-                feature_layers, sampled_anchors
+            sampled_cdf, sampled_cdf_raw, sampled_pdf = self._build_pdf(
+                feature_layers, sampled_anchors, True
             )
         return {
             "cdf": cdf,
+            "pdf": pdf,
             "cdf_raw": cdf_raw,
             "sampled_anchors": sampled_anchors,
             "sampled_cdf": sampled_cdf,
+            "sampled_pdf": sampled_pdf,
             "sampled_cdf_raw": sampled_cdf_raw,
         }
 
@@ -671,10 +693,7 @@ class DDR(FCNN):
 
     def _predict_pdf(self, init: torch.Tensor, y_batch: torch.Tensor) -> torch.Tensor:
         feature_layers = self._get_feature_layers(init)
-        cdf = self._build_cdf(feature_layers, y_batch.requires_grad_(True))[0]
-        pdf = get_gradient(cdf, y_batch)
-        y_batch.requires_grad_(False)
-        return pdf
+        return self._build_pdf(feature_layers, y_batch, False)[-1]
 
     def _predict_quantile(
         self,
@@ -784,28 +803,16 @@ class DDR(FCNN):
         )
         # is synthetic
         is_synthetic = kwargs.get("synthetic", False)
-        # build cdf
+        # build distribution
         if not self.fetch_cdf:
-            cdf_dict = {}
-            cdf_gradient = sampled_cdf_gradient = None
+            distribution_dict = {}
+            pdf = sampled_pdf = None
         else:
-            with timing_context(self, "forward.cdf"):
-                cdf_dict = self._get_cdf(basic_info, self.training and not is_synthetic)
-            # build cdf gradients
-            sampled_cdf_gradient = None
-            cdf_raw, sampled_anchors, sampled_cdf_raw = map(
-                cdf_dict.get, ["cdf_raw", "sampled_anchors", "sampled_cdf_raw"]
-            )
-            fetch_cdf_gradient = self._use_gradient_loss and self.training
-            if not is_synthetic and not fetch_cdf_gradient:
-                cdf_gradient = None
-            else:
-                with timing_context(self, "forward.cdf_gradient"):
-                    cdf_gradient = get_gradient(cdf_raw, anchor_batch, True, True)
-                    if sampled_cdf_raw is not None:
-                        sampled_cdf_gradient = get_gradient(
-                            sampled_cdf_raw, sampled_anchors, True, True
-                        )
+            with timing_context(self, "forward.distribution"):
+                fetch_anchors = self.training and not is_synthetic
+                distribution_dict = self._get_distribution(basic_info, fetch_anchors)
+            keys = ["pdf", "sampled_pdf"]
+            pdf, sampled_pdf = map(distribution_dict.get, keys)
         # build quantile
         if not self.fetch_quantile:
             quantile_dict = {}
@@ -849,7 +856,7 @@ class DDR(FCNN):
                 dual_cdf_dict = self._get_dual_cdf(basic_info, quantile_residual)
             with timing_context(self, "forward.dual_quantile"):
                 dual_quantile_dict = self._get_dual_quantile(
-                    basic_info, cdf_dict["cdf"]
+                    basic_info, distribution_dict["cdf"]
                 )
         # construct results
         rs = {
@@ -859,16 +866,16 @@ class DDR(FCNN):
             "feature_layers": feature_layers,
             "anchor_batch": anchor_batch,
             "quantile_batch": quantile_batch,
-            "cdf_gradient": cdf_gradient,
+            "pdf": pdf,
             "quantile_residual_gradient": quantile_residual_gradient,
-            "sampled_cdf_gradient": sampled_cdf_gradient,
+            "sampled_pdf": sampled_pdf,
             "sampled_qr_gradient": sampled_qr_gradient,
             "dual_ca_gradient": dual_ca_gradient,
             "dual_cq_gradient": dual_cq_gradient,
             "dual_qa_gradient": dual_qa_gradient,
             "dual_qq_gradient": dual_qq_gradient,
         }
-        for d in (cdf_dict, quantile_dict, dual_cdf_dict, dual_quantile_dict):
+        for d in (distribution_dict, quantile_dict, dual_cdf_dict, dual_quantile_dict):
             rs.update(d)
         return rs
 

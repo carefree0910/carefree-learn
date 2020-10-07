@@ -1,10 +1,10 @@
 import torch
 
-import torch.nn as nn
-
 from typing import *
 from cftool.ml import Anneal
 from cftool.misc import LoggingMixin
+from torch.nn.functional import l1_loss, relu, softplus
+
 
 from ...losses import LossBase
 from ...misc.toolkit import tensor_dict_type
@@ -133,7 +133,7 @@ class DDRLoss(LossBase, LoggingMixin):
             )
         # median
         median = predictions["predictions"]
-        median_losses = nn.functional.l1_loss(median, target, reduction="none")
+        median_losses = l1_loss(median, target, reduction="none")
         if median_anneal is not None:
             median_losses = median_losses * median_anneal
         # get
@@ -148,8 +148,9 @@ class DDRLoss(LossBase, LoggingMixin):
         sampled_quantiles, sampled_quantile_residual = map(
             predictions.get, ["sampled_quantiles", "sampled_quantile_residual"]
         )
-        cdf_gradient, quantile_residual_gradient = map(
-            predictions.get, ["cdf_gradient", "quantile_residual_gradient"]
+        pdf, sampled_pdf = map(predictions.get, ["pdf", "sampled_pdf"])
+        qr_gradient, sampled_qr_gradient = map(
+            predictions.get, ["quantile_residual_gradient", "sampled_qr_gradient"]
         )
         dual_quantile, quantile_cdf_raw = map(
             predictions.get, ["dual_quantile", "quantile_cdf_raw"]
@@ -173,8 +174,8 @@ class DDRLoss(LossBase, LoggingMixin):
                 if anchor_anneal is not None:
                     cdf_anchor_losses = cdf_anchor_losses * anchor_anneal
         # cdf monotonous
-        if cdf_gradient is not None:
-            cdf_monotonous_losses = nn.functional.relu(-cdf_gradient)
+        if pdf is not None and sampled_pdf is not None:
+            cdf_monotonous_losses = relu(-pdf) + relu(-sampled_pdf)
             if anchor_anneal is not None:
                 cdf_monotonous_losses = cdf_monotonous_losses * monotonous_anneal
         # quantile
@@ -210,10 +211,9 @@ class DDRLoss(LossBase, LoggingMixin):
                 median_pressure_losses = median_pressure_losses * pressure_anneal
         # quantile monotonous
         quantile_monotonous_losses_list = []
-        if quantile_residual_gradient is not None:
-            quantile_monotonous_losses_list.append(
-                nn.functional.relu(-quantile_residual_gradient)
-            )
+        if qr_gradient is not None and sampled_qr_gradient is not None:
+            qr_g_losses = [relu(-qr_gradient), relu(-sampled_qr_gradient)]
+            quantile_monotonous_losses_list += qr_g_losses
         if median_residual is not None and quantile_sign is not None:
             quantile_monotonous_losses_list.append(
                 self._get_median_residual_monotonous_losses(
@@ -373,7 +373,10 @@ class DDRLoss(LossBase, LoggingMixin):
         return reduced_losses, reduced_losses_dict
 
     def _get_dual_recover_losses(
-        self, dual_prediction, another_input_batch, another_losses
+        self,
+        dual_prediction,
+        another_input_batch,
+        another_losses,
     ):
         if dual_prediction is None:
             recover_losses = recover_loss_weights = None
@@ -389,15 +392,17 @@ class DDRLoss(LossBase, LoggingMixin):
     @staticmethod
     def _get_cdf_losses(target, cdf_raw, anchor_batch):
         indicative = (target <= anchor_batch).to(torch.float32)
-        return -indicative * cdf_raw + nn.functional.softplus(cdf_raw)
+        return -indicative * cdf_raw + softplus(cdf_raw)
 
     @staticmethod
     def _get_median_residual_monotonous_losses(median_residual, quantile_sign):
-        return nn.functional.relu(-median_residual * quantile_sign)
+        return relu(-median_residual * quantile_sign)
 
     @staticmethod
     def _get_quantile_residual_losses(
-        target_residual, quantile_residual, quantile_batch
+        target_residual,
+        quantile_residual,
+        quantile_batch,
     ):
         quantile_error = target_residual - quantile_residual
         return torch.max(
@@ -405,7 +410,10 @@ class DDRLoss(LossBase, LoggingMixin):
         )
 
     def _get_median_residual_losses(
-        self, target_median_residual, median_residual, quantile_sign
+        self,
+        target_median_residual,
+        median_residual,
+        quantile_sign,
     ):
         same_sign_mask = quantile_sign * torch.sign(target_median_residual) > 0
         tmr, mr = map(
