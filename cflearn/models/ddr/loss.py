@@ -88,6 +88,13 @@ class DDRLoss(LossBase, LoggingMixin):
                         ),
                     )
 
+    @staticmethod
+    def _pdf_loss(pdf: torch.Tensor) -> torch.Tensor:
+        negative_mask = pdf <= 1e-8
+        monotonous_loss = torch.sum(-pdf[negative_mask])
+        log_likelihood_loss = torch.sum(-torch.log(pdf[~negative_mask]))
+        return (monotonous_loss + log_likelihood_loss) / len(pdf)
+
     def _core(
         self,
         predictions: tensor_dict_type,
@@ -160,7 +167,7 @@ class DDRLoss(LossBase, LoggingMixin):
         )
         # cdf
         fetch_cdf = cdf_raw is not None
-        cdf_anchor_losses = cdf_monotonous_losses = None
+        cdf_anchor_losses = pdf_losses = None
         if not fetch_cdf or check_monotonous_only:
             cdf_losses = None
         else:
@@ -173,11 +180,11 @@ class DDRLoss(LossBase, LoggingMixin):
                 )
                 if anchor_anneal is not None:
                     cdf_anchor_losses = cdf_anchor_losses * anchor_anneal
-        # cdf monotonous
+        # pdf losses
         if pdf is not None and sampled_pdf is not None:
-            cdf_monotonous_losses = relu(-pdf) + relu(-sampled_pdf)
+            pdf_losses = self._pdf_loss(pdf) + self._pdf_loss(sampled_pdf)
             if anchor_anneal is not None:
-                cdf_monotonous_losses = cdf_monotonous_losses * monotonous_anneal
+                pdf_losses = pdf_losses * monotonous_anneal
         # quantile
         fetch_quantile = quantile_residual is not None
         quantile_anchor_losses = quantile_monotonous_losses = None
@@ -337,13 +344,13 @@ class DDRLoss(LossBase, LoggingMixin):
                 else "median_pressure_losses"
             )
             losses[key] = median_pressure_losses
-        if cdf_monotonous_losses is not None:
+        if pdf_losses is not None:
             key = (
-                "synthetic_cdf_monotonous"
+                "synthetic_pdf"
                 if check_monotonous_only
-                else "cdf_monotonous"
+                else "pdf"
             )
-            losses[key] = cdf_monotonous_losses
+            losses[key] = pdf_losses
         if quantile_monotonous_losses is not None:
             key = (
                 "synthetic_quantile_monotonous"
