@@ -556,8 +556,8 @@ class mode_context(context_error_handler):
         self,
         module: nn.Module,
         *,
-        to_train: bool,
-        use_grad: bool,
+        to_train: Union[bool, None],
+        use_grad: Union[bool, None],
     ):
         self._to_train = to_train
         self._module, self._training = module, module.training
@@ -567,15 +567,20 @@ class mode_context(context_error_handler):
         tuple(
             map(lambda param: param.requires_grad_(False), self._params_required_grad)
         )
-        self._grad_context = torch.enable_grad() if use_grad else torch.no_grad()
+        if use_grad is None:
+            self._grad_context = None
+        else:
+            self._grad_context = torch.enable_grad() if use_grad else torch.no_grad()
 
     def __enter__(self):
-        self._module.train(mode=self._to_train)
+        if self._to_train is not None:
+            self._module.train(mode=self._to_train)
         if self._grad_context is not None:
             self._grad_context.__enter__()
 
     def _normal_exit(self, exc_type, exc_val, exc_tb):
-        self._module.train(mode=self._training)
+        if self._to_train is not None:
+            self._module.train(mode=self._training)
         if self._grad_context is not None:
             self._grad_context.__exit__(exc_type, exc_val, exc_tb)
         tuple(map(lambda param: param.requires_grad_(True), self._params_required_grad))
