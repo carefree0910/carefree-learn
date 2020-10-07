@@ -842,8 +842,6 @@ class DDR(FCNN):
                             sqr, sampled_quantiles, True, True
                         )
         # build dual
-        dual_ca_gradient = dual_cq_gradient = None
-        dual_qa_gradient = dual_qq_gradient = None
         if (
             not self._joint_training
             or not self.fetch_cdf
@@ -870,10 +868,6 @@ class DDR(FCNN):
             "quantile_residual_gradient": quantile_residual_gradient,
             "sampled_pdf": sampled_pdf,
             "sampled_qr_gradient": sampled_qr_gradient,
-            "dual_ca_gradient": dual_ca_gradient,
-            "dual_cq_gradient": dual_cq_gradient,
-            "dual_qa_gradient": dual_qa_gradient,
-            "dual_qq_gradient": dual_qq_gradient,
         }
         for d in (distribution_dict, quantile_dict, dual_cdf_dict, dual_quantile_dict):
             rs.update(d)
