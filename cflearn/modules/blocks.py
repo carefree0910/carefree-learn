@@ -261,7 +261,9 @@ class Attention(nn.Module):
         self.input_dim = input_dim
         self.k_dim = k_dim if k_dim is not None else input_dim
         self.v_dim = v_dim if v_dim is not None else input_dim
-        self.embed_dim = embed_dim if embed_dim is not None else input_dim
+        if embed_dim is None:
+            embed_dim = min(32, input_dim) * num_heads
+        self.embed_dim = embed_dim
 
         self.num_heads = num_heads
         self.head_dim = self.embed_dim // num_heads
