@@ -63,7 +63,10 @@ def test_ops():
         "label_process_method": "identical",
     }
 
-    for op, model in zip(["sum", "prod"], ["linear", "rnn"]):
+    ops = ["sum", "prod", "sum", "prod"]
+    models = ["linear", "rnn", "transformer", "transformer"]
+
+    for op, model in zip(ops, models):
         task = f"{op}_{num_history}"
 
         m = cflearn.make(
@@ -71,6 +74,13 @@ def test_ops():
             ts_config=ts_config,
             aggregation_config=aggregation_config,
             data_config=data_config,
+            model_config={
+                "transformer_config": {
+                    "dropout": 0.0,
+                    "num_layers": 1,
+                    "input_linear_config": {"latent_dim": 32},
+                },
+            },
         )
 
         tr_file = os.path.join(file_folder, f"{task}.csv")
