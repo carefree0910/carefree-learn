@@ -1,11 +1,33 @@
 import torch
 import unittest
 
-from torch.nn import MultiheadAttention
+import torch.nn as nn
+
 from cflearn.modules.blocks import *
 
 
 class TestBlocks(unittest.TestCase):
+    def test_linear(self):
+        input_dim = 256
+        output_dim = 512
+        batch_size = 32
+
+        net = torch.randn(batch_size, input_dim)
+        weight = torch.randn(output_dim, input_dim)
+        bias = torch.randn(output_dim)
+
+        torch_linear = nn.Linear(input_dim, output_dim)
+        torch_linear.weight.data = weight
+        torch_linear.bias.data = bias
+        torch_output = torch_linear(net)
+
+        linear = Linear(input_dim, output_dim)
+        linear.weight.data = weight
+        linear.bias.data = bias
+        output = linear(net)
+
+        self.assertTrue(torch.allclose(torch_output, output))
+
     def test_attention(self):
         num_heads = 8
         input_dim = embed_dim = 256
@@ -27,7 +49,7 @@ class TestBlocks(unittest.TestCase):
         out_proj_weight = torch.randn(embed_dim, input_dim)
         out_proj_bias = torch.randn(input_dim)
 
-        torch_attention = MultiheadAttention(
+        torch_attention = nn.MultiheadAttention(
             input_dim,
             num_heads,
             kdim=k_dim,
