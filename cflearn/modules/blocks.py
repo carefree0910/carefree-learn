@@ -2,9 +2,11 @@ import torch
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from typing import *
 from cfdata.types import np_int_type
+from torch.nn.init import xavier_normal_
 
 from .auxiliary import *
 from ..misc.toolkit import *
@@ -234,4 +236,120 @@ class DNDF(nn.Module):
         nn.init.xavier_uniform_(self.leaves.data)
 
 
-__all__ = ["Linear", "Mapping", "MLP", "DNDF"]
+class AttentionOutput(NamedTuple):
+    output: torch.Tensor
+    weights: torch.Tensor
+
+
+class Attention(nn.Module):
+    def __init__(
+        self,
+        input_dim: int,
+        num_heads: int = 1,
+        *,
+        k_dim: int = None,
+        v_dim: int = None,
+        embed_dim: int = None,
+        add_bias_to_kv: bool = False,
+        dropout: float = 0.0,
+        activation: str = None,
+        activation_config: Dict[str, Any] = None,
+        q_linear_config: Dict[str, Any] = None,
+        k_linear_config: Dict[str, Any] = None,
+        v_linear_config: Dict[str, Any] = None,
+        out_linear_config: Dict[str, Any] = None,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.k_dim = k_dim if k_dim is not None else input_dim
+        self.v_dim = v_dim if v_dim is not None else input_dim
+        self.embed_dim = embed_dim if embed_dim is not None else input_dim
+
+        self.num_heads = num_heads
+        self.head_dim = self.embed_dim // num_heads
+        self.scaling = float(self.head_dim) ** -0.5
+        if self.head_dim * num_heads != self.embed_dim:
+            raise ValueError("`embed_dim` must be divisible by `num_heads`")
+
+        if q_linear_config is None:
+            q_linear_config = {}
+        if k_linear_config is None:
+            k_linear_config = {}
+        if v_linear_config is None:
+            v_linear_config = {}
+        self.q_linear = Linear(input_dim, self.embed_dim, **q_linear_config)
+        self.k_linear = Linear(self.k_dim, self.embed_dim, **k_linear_config)
+        self.v_linear = Linear(self.v_dim, self.embed_dim, **v_linear_config)
+
+        if out_linear_config is None:
+            out_linear_config = {}
+        self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
+
+        if not add_bias_to_kv:
+            self.bias_k = self.bias_v = None
+        else:
+            self.bias_k = nn.Parameter(torch.empty(1, 1, self.embed_dim))
+            self.bias_v = nn.Parameter(torch.empty(1, 1, self.embed_dim))
+
+        self.dropout = dropout
+        activation_config = {activation: activation_config}
+        self.activation = Activations(activation_config).module(activation)
+
+        self._reset_parameters()
+
+    def _reset_parameters(self):
+        if self.bias_k is not None:
+            xavier_normal_(self.bias_k)
+        if self.bias_v is not None:
+            xavier_normal_(self.bias_v)
+
+    def _to_heads(self, tensor: torch.Tensor):
+        batch_size, seq_len, in_feature = tensor.shape
+        tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
+        return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)
+
+    def forward(
+        self,
+        q: torch.Tensor,
+        k: torch.Tensor,
+        v: torch.Tensor,
+        mask: torch.Tensor = None,
+    ) -> AttentionOutput:
+        # `mask` represents slots which will be zeroed
+        k_len = k.shape[1]
+        # B, Sq, Din -> B, Sq, D
+        q = self.q_linear(q)
+        # B, Sk, Dk -> B, Sk, D
+        k = self.k_linear(k)
+        # B, Sv, Dv -> B, Sk, D
+        v = self.v_linear(v)
+        q, k, v = map(self.activation, [q, k, v])
+        # scale
+        q = q * self.scaling
+        # B, S*, D -> B * N_head, S*, D_head
+        q, k, v = map(self._to_heads, [q, k, v])
+        if mask is not None:
+            # B, Sq, Sk -> B * N_head, Sq, Sk
+            mask = mask.repeat(self.num_heads, 1, 1)
+        # B * N_head, Sq, Sk
+        raw_weights = torch.bmm(q, k.transpose(-2, -1))
+        if mask is not None:
+            raw_weights.masked_fill_(mask, float("-inf"))
+        # B * N_head, Sq, Sk -> # B * N_head, Sq, Sk
+        weights = F.softmax(raw_weights, dim=-1)
+        if 0.0 < self.dropout < 1.0:
+            weights = F.dropout(weights, self.dropout, self.training)
+        # B * N_head, Sq, D_head
+        output = torch.bmm(weights, v)
+        # B * N_head, Sq, D_head -> B, N_head, Sq, D_head
+        nb, q_len, d_head = output.shape
+        output = output.view(nb // self.num_heads, self.num_heads, q_len, d_head)
+        # B, N_head, Sq, D_head -> B, Sq, D
+        output = output.permute(0, 2, 1, 3).contiguous()
+        output = output.view(-1, q_len, self.embed_dim)
+        # B, Sq, D -> B, Sq, Din
+        output = self.activation(self.out_linear(output))
+        return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
+
+
+__all__ = ["Linear", "Mapping", "MLP", "DNDF", "Attention"]
