@@ -257,6 +257,16 @@ class Activations:
 
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
 
+    @classmethod
+    def get_activation(
+        cls,
+        name: str,
+        config: Union[Dict[str, Any], None],
+    ) -> nn.Module:
+        if config is None:
+            config = {}
+        return cls({name: config}).module(name)
+
 
 class TrainMonitor:
     """
