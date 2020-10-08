@@ -345,11 +345,7 @@ class DDRLoss(LossBase, LoggingMixin):
             )
             losses[key] = median_pressure_losses
         if pdf_losses is not None:
-            key = (
-                "synthetic_pdf"
-                if check_monotonous_only
-                else "pdf"
-            )
+            key = "synthetic_pdf" if check_monotonous_only else "pdf"
             losses[key] = pdf_losses
         if quantile_monotonous_losses is not None:
             key = (

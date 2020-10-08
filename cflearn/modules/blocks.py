@@ -19,7 +19,7 @@ class Linear(nn.Module):
         bias: bool = True,
         pruner_config: dict = None,
         init_method: Union[str, None] = "xavier_uniform",
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
@@ -69,7 +69,7 @@ class Mapping(nn.Module):
         batch_norm: bool = True,
         activation: str = "ReLU",
         init_method: str = "xavier_uniform",
-        **kwargs
+        **kwargs,
     ):
         super().__init__()
         self.config = kwargs
@@ -81,7 +81,7 @@ class Mapping(nn.Module):
             bias=bias,
             pruner_config=pruner_config,
             init_method=init_method,
-            **kwargs
+            **kwargs,
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:
@@ -121,7 +121,7 @@ class MLP(nn.Module):
         num_units: List[int],
         mapping_configs: List[Dict[str, Any]],
         *,
-        final_mapping_config: Dict[str, Any] = None
+        final_mapping_config: Dict[str, Any] = None,
     ):
         super().__init__()
         mappings = []
@@ -158,7 +158,7 @@ class DNDF(nn.Module):
         tree_depth: int = 4,
         tree_proj_config: dict = None,
         output_type: str = "output",
-        is_regression: bool = None
+        is_regression: bool = None,
     ):
         super().__init__()
         self._num_tree, self._tree_depth, self._output_type = (
