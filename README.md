@@ -273,6 +273,20 @@ params = {
 It is also worth mention that we can pass file datasets into `cflearn.tune_with` as well. See `tests/usages/test_basic.py` for more details.
 
 
+## Citation
+
+If you use `carefree-learn` in your research, we would greatly appreciate if you cite this library using this Bibtex:
+
+```
+@misc{carefree-learn,
+  year={2020},
+  author={Yujian He},
+  title={carefree-learn, a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch},
+  howpublished={\url{https://https://github.com/carefree0910/carefree-learn/}},
+}
+```
+
+
 ## License
 
 `carefree-learn` is MIT licensed, as found in the [LICENSE](https://github.com/carefree0910/carefree-learn/blob/master/LICENSE) file.
