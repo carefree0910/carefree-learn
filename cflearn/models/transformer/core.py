@@ -28,6 +28,7 @@ class TransformerLayer(nn.Module):
         super().__init__()
         if attention_config is None:
             attention_config = {}
+        attention_config["is_self_attention"] = True
         attention_config.setdefault("dropout", dropout)
         self.self_attn = Attention(input_dim, num_heads, **attention_config)
         if to_latent_config is None:

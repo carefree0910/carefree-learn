@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from typing import *
+from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 
 from .auxiliary import *
@@ -247,18 +248,28 @@ class Attention(nn.Module):
         k_dim: int = None,
         v_dim: int = None,
         embed_dim: int = None,
+        is_self_attention: bool = False,
         dropout: float = 0.0,
         activation: str = None,
         activation_config: Dict[str, Any] = None,
         q_linear_config: Dict[str, Any] = None,
         k_linear_config: Dict[str, Any] = None,
         v_linear_config: Dict[str, Any] = None,
+        in_linear_config: Dict[str, Any] = None,
         out_linear_config: Dict[str, Any] = None,
     ):
         super().__init__()
         self.input_dim = input_dim
-        self.k_dim = k_dim if k_dim is not None else input_dim
-        self.v_dim = v_dim if v_dim is not None else input_dim
+        self.is_self_attn = is_self_attention
+        if not is_self_attention:
+            self.k_dim = k_dim if k_dim is not None else input_dim
+            self.v_dim = v_dim if v_dim is not None else input_dim
+        else:
+            if k_dim is not None and k_dim != input_dim:
+                raise ValueError("self attention is used but `k_dim` != `input_dim`")
+            if v_dim is not None and v_dim != input_dim:
+                raise ValueError("self attention is used but `v_dim` != `input_dim`")
+            self.k_dim = self.v_dim = input_dim
         if embed_dim is None:
             embed_dim = min(32, input_dim) * num_heads
         self.embed_dim = embed_dim
@@ -269,15 +280,34 @@ class Attention(nn.Module):
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
+        def _warn(prefix: str):
+            msg = (
+                f"self attention is used so `{prefix}_linear_config` will be ignored, "
+                "please use `in_linear_config` instead"
+            )
+            print(f"{LoggingMixin.warning_prefix}{msg}")
+
         if q_linear_config is None:
             q_linear_config = {}
+        elif is_self_attention:
+            _warn("q")
         if k_linear_config is None:
             k_linear_config = {}
+        elif is_self_attention:
+            _warn("k")
         if v_linear_config is None:
             v_linear_config = {}
-        self.q_linear = Linear(input_dim, self.embed_dim, **q_linear_config)
-        self.k_linear = Linear(self.k_dim, self.embed_dim, **k_linear_config)
-        self.v_linear = Linear(self.v_dim, self.embed_dim, **v_linear_config)
+        elif is_self_attention:
+            _warn("v")
+
+        if is_self_attention:
+            if in_linear_config is None:
+                in_linear_config = {}
+            self.in_linear = Linear(input_dim, 3 * self.embed_dim, **in_linear_config)
+        else:
+            self.q_linear = Linear(input_dim, self.embed_dim, **q_linear_config)
+            self.k_linear = Linear(self.k_dim, self.embed_dim, **k_linear_config)
+            self.v_linear = Linear(self.v_dim, self.embed_dim, **v_linear_config)
 
         if out_linear_config is None:
             out_linear_config = {}
@@ -300,12 +330,15 @@ class Attention(nn.Module):
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
         k_len = k.shape[1]
-        # B, Sq, Din -> B, Sq, D
-        q = self.q_linear(q)
-        # B, Sk, Dk -> B, Sk, D
-        k = self.k_linear(k)
-        # B, Sv, Dv -> B, Sk, D
-        v = self.v_linear(v)
+        if self.is_self_attn:
+            q, k, v = self.in_linear(q).chunk(3, dim=-1)
+        else:
+            # B, Sq, Din -> B, Sq, D
+            q = self.q_linear(q)
+            # B, Sk, Dk -> B, Sk, D
+            k = self.k_linear(k)
+            # B, Sv, Dv -> B, Sk, D
+            v = self.v_linear(v)
         q, k, v = map(self.activation, [q, k, v])
         # scale
         q = q * self.scaling
