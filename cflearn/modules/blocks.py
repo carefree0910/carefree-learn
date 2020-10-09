@@ -6,7 +6,6 @@ import torch.nn.functional as F
 
 from typing import *
 from cfdata.types import np_int_type
-from torch.nn.init import xavier_normal_
 
 from .auxiliary import *
 from ..misc.toolkit import *
@@ -248,7 +247,6 @@ class Attention(nn.Module):
         k_dim: int = None,
         v_dim: int = None,
         embed_dim: int = None,
-        add_bias_to_kv: bool = False,
         dropout: float = 0.0,
         activation: str = None,
         activation_config: Dict[str, Any] = None,
@@ -285,22 +283,8 @@ class Attention(nn.Module):
             out_linear_config = {}
         self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
 
-        if not add_bias_to_kv:
-            self.bias_k = self.bias_v = None
-        else:
-            self.bias_k = nn.Parameter(torch.empty(1, 1, self.embed_dim))
-            self.bias_v = nn.Parameter(torch.empty(1, 1, self.embed_dim))
-
         self.dropout = dropout
         self.activation = Activations.get_activation(activation, activation_config)
-
-        self._reset_parameters()
-
-    def _reset_parameters(self):
-        if self.bias_k is not None:
-            xavier_normal_(self.bias_k)
-        if self.bias_v is not None:
-            xavier_normal_(self.bias_v)
 
     def _to_heads(self, tensor: torch.Tensor):
         batch_size, seq_len, in_feature = tensor.shape
