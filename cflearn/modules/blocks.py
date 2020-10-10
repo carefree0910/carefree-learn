@@ -119,12 +119,14 @@ class MLP(nn.Module):
         in_dim: int,
         out_dim: Union[int, None],
         num_units: List[int],
-        mapping_configs: List[Dict[str, Any]],
+        mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         *,
         final_mapping_config: Dict[str, Any] = None,
     ):
         super().__init__()
         mappings = []
+        if isinstance(mapping_configs, dict):
+            mapping_configs = [mapping_configs] * len(num_units)
         for num_unit, mapping_config in zip(num_units, mapping_configs):
             mappings.append(Mapping(in_dim, num_unit, **mapping_config))
             in_dim = num_unit

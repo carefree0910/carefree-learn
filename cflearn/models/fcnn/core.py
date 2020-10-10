@@ -43,8 +43,6 @@ class FCNN(ModelBase):
                 hidden_units = [hidden_dim, hidden_dim]
         self.hidden_units = self.config.setdefault("hidden_units", hidden_units)
         self.mapping_configs = self.config.setdefault("mapping_configs", {})
-        if isinstance(self.mapping_configs, dict):
-            self.mapping_configs = [self.mapping_configs] * len(self.hidden_units)
 
     def _init_fcnn(self):
         self._init_input_config()

@@ -163,7 +163,6 @@ class DDR(FCNN):
         prefix: str,
         default_bias: bool,
         default_activation: str,
-        units: List[int],
     ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
         activation = self.config.setdefault(f"{prefix}_activation", default_activation)
         mapping_configs_key = f"{prefix}_mapping_configs"
@@ -173,9 +172,6 @@ class DDR(FCNN):
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("bias", default_bias)
             mapping_configs.setdefault("activation", activation)
-            mapping_configs = self.config[mapping_configs_key] = [
-                mapping_configs
-            ] * len(units)
         final_mapping_config = self.config.setdefault(
             f"{prefix}_final_mapping_config", {}
         )
@@ -199,9 +195,8 @@ class DDR(FCNN):
         if not cdf_reg_units:
             self.cdf_reg = Linear(cdf_input_dim, 1, **self._common_configs)
         else:
-            mapping_configs, final_mapping_config = self._init_mlp_config(
-                "cdf_reg", True, "ReLU", cdf_reg_units
-            )
+            bundle = self._init_mlp_config("cdf_reg", True, "ReLU")
+            mapping_configs, final_mapping_config = bundle
             self.cdf_reg = MLP(
                 cdf_input_dim,
                 1,
@@ -215,9 +210,8 @@ class DDR(FCNN):
             self.cdf_feature_projection = None
         else:
             cdf_feature_units = self.feature_units.copy()
-            mapping_configs, final_mapping_config = self._init_mlp_config(
-                "cdf_feature", False, "ReLU", cdf_feature_units
-            )
+            bundle = self._init_mlp_config("cdf_feature", False, "ReLU")
+            mapping_configs, final_mapping_config = bundle
             self.cdf_feature_projection = MLP(
                 1,
                 None,
@@ -240,9 +234,8 @@ class DDR(FCNN):
         self.relu = activations.ReLU
         # median residual part
         median_residual_units = self.config.setdefault("median_residual_units", [512])
-        mapping_configs, final_mapping_config = self._init_mlp_config(
-            "median_residual", True, self._q_reg_activation, median_residual_units
-        )
+        bundle = self._init_mlp_config("median_residual", True, self._q_reg_activation)
+        mapping_configs, final_mapping_config = bundle
         self.median_residual_reg = MLP(
             quantile_input_dim,
             2,
@@ -320,7 +313,7 @@ class DDR(FCNN):
         in_dim: int,
         out_dim: int,
         units: List[int],
-        mapping_configs: List[Dict[str, Any]],
+        mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         final_mapping_config: Dict[str, Any],
     ) -> Union[Linear, MLP]:
         if not units:
