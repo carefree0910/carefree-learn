@@ -248,7 +248,7 @@ class DDR(FCNN):
         qr_input_dim = quantile_input_dim + 1
         qr_reg_units = self.config.setdefault("quantile_res_reg_units", [512])
         mapping_configs, final_mapping_config = self._init_mlp_config(
-            "quantile_res_reg", True, self._q_reg_activation, qr_reg_units
+            "quantile_res_reg", True, self._q_reg_activation
         )
         q_res_reg_args = (
             qr_input_dim,
@@ -267,7 +267,7 @@ class DDR(FCNN):
         else:
             quantile_feature_units = self.feature_units.copy()
             mapping_configs, final_mapping_config = self._init_mlp_config(
-                "quantile_feature", False, "mish", quantile_feature_units
+                "quantile_feature", False, "mish"
             )
             q_feature_proj_args = (
                 1,
