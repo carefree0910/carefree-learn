@@ -16,7 +16,7 @@ setup(
         "trains",
         "carefree-ml>=0.1.0",
         "carefree-data>=0.1.7",
-        "carefree-toolkit>=0.1.10",
+        "carefree-toolkit>=0.2.0rc.2",
         "dill",
         "future",
         "psutil",
