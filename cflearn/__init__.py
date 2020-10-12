@@ -5,13 +5,13 @@ import torch
 import shutil
 import logging
 import onnxruntime
+import cftool.ml.param_utils as pu
 
 import numpy as np
 
 from typing import *
 from cftool.misc import *
 from cftool.ml.utils import *
-from cftool.ml.param_utils import *
 from cfdata.tabular import *
 from cftool.ml.hpo import HPOBase
 from cftool.ml import register_metric
@@ -414,7 +414,7 @@ def tune_with(
     *,
     model: str = "fcnn",
     hpo_method: str = "bo",
-    params: params_type = None,
+    params: pu.params_type = None,
     task_type: TaskTypes = None,
     metrics: Union[str, List[str]] = None,
     num_jobs: int = None,
@@ -449,9 +449,13 @@ def tune_with(
         return tasks_to_patterns(created[0][model], contains_labels=True)
 
     if params is None:
+        default_init_param = pu.Any(pu.Choice(values=[None, "truncated_normal"]))
         params = {
-            "optimizer": String(Choice(values=["sgd", "rmsprop", "adam"])),
-            "optimizer_config": {"lr": Float(Exponential(1e-5, 0.1))},
+            "optimizer": pu.String(pu.Choice(values=["sgd", "rmsprop", "adam"])),
+            "optimizer_config": {"lr": pu.Float(pu.Exponential(1e-5, 0.1))},
+            "model_config": {
+                "default_encoding_configs": {"init_method": default_init_param},
+            },
         }
 
     hpo = HPOBase.make(
