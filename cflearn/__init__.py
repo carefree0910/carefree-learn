@@ -322,7 +322,7 @@ class _Tuner:
                 else:
                     y_cv = tr_data.transform_labels(y_cv)
         elif y is not None:
-            y = to_2d(y)
+            y, y_cv = map(to_2d, [y, y_cv])
         else:
             raise ValueError("`x` should be a file when `y` is not provided")
 
@@ -354,13 +354,11 @@ class _Tuner:
         params["verbose_level"] = 0
         params["use_tqdm"] = False
         if isinstance(self.x, str):
-            y = y_cv = None
             x, x_cv = self.x, self.x_cv
         else:
-            x = self.x.copy()
-            y = self.y.copy()
-            x_cv = None if self.x_cv is None else self.x_cv.copy()
-            y_cv = None if self.y_cv is None else self.y_cv.copy()
+            x, x_cv = self.x.copy(), self.x_cv.copy()
+        y = self.y.copy()
+        y_cv = None if self.y_cv is None else self.y_cv.copy()
         results = repeat_with(
             x,
             y,
@@ -408,6 +406,7 @@ def tune_with(
         shutil.rmtree(temp_folder)
 
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **kwargs)
+    x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
     def _creator(_, __, params_) -> Dict[str, List[Task]]:
         num_jobs_ = num_parallel if hpo.is_sequential else 0
