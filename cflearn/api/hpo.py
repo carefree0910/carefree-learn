@@ -38,14 +38,6 @@ class _Tuner:
                 x, y = tr_data.raw.xy
                 x_cv, y_cv = cv_data.raw.xy
         elif isinstance(x, str):
-            if need_cv_split:
-                print(
-                    f"{LoggingMixin.warning_prefix}only random split is supported "
-                    f"for file datasets, `split_order` ({hpo_cv_split_order}) "
-                    "will be ignored"
-                )
-                x_cv, x = split_file(x, export_folder="_split", split=hpo_cv_split)
-                x, x_cv = map(os.path.abspath, [x, x_cv])
             data_config = kwargs.get("data_config", {})
             data_config["task_type"] = task_type
             read_config = kwargs.get("read_config", {})
@@ -61,12 +53,25 @@ class _Tuner:
                 read_config["y"] = y
             tr_data = TabularData(**data_config)
             tr_data.read(x, **read_config)
-            y = tr_data.processed.y
-            if x_cv is not None:
-                if y_cv is None:
-                    y_cv = tr_data.transform(x_cv).y
-                else:
-                    y_cv = tr_data.transform_labels(y_cv)
+
+            if not need_cv_split:
+                y = tr_data.processed.y
+                if x_cv is not None:
+                    if y_cv is None:
+                        y_cv = tr_data.transform(x_cv).y
+                    else:
+                        y_cv = tr_data.transform_labels(y_cv)
+            else:
+                split = tr_data.split(hpo_cv_split, order=hpo_cv_split_order)
+                tr_data, cv_data = split.remained, split.split
+                y, y_cv = tr_data.processed.y, cv_data.processed.y
+                indices_pair = (split.remained_indices, split.split_indices)
+                x, x_cv = split_file(
+                    x,
+                    export_folder="_split",
+                    indices_pair=indices_pair,
+                )
+                x, x_cv = map(os.path.abspath, [x, x_cv])
         else:
             raise ValueError("`x` should be a file when `y` is not provided")
 
