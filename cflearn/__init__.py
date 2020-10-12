@@ -15,6 +15,7 @@ from cftool.ml.param_utils import *
 from cfdata.tabular import *
 from cftool.ml.hpo import HPOBase
 from cftool.ml import register_metric
+from cfdata.tabular.misc import split_file
 from cfdata.tabular.processors.base import Processor
 from torch.nn.functional import one_hot
 from abc import ABCMeta, abstractmethod
@@ -299,7 +300,27 @@ class _Tuner:
         task_type: TaskTypes,
         **kwargs,
     ):
-        if isinstance(x, str):
+        hpo_cv_split = kwargs.get("hpo_cv_split", 0.1)
+        hpo_cv_split_order = kwargs.get("hpo_cv_split_order", "auto")
+        need_cv_split = x_cv is None and hpo_cv_split > 0.0
+
+        if y is not None:
+            y, y_cv = map(to_2d, [y, y_cv])
+            if need_cv_split:
+                data = TabularData.simple(task_type).read(x, y)
+                split = data.split(hpo_cv_split, order=hpo_cv_split_order)
+                tr_data, cv_data = split.remained, split.split
+                x, y = tr_data.raw.xy
+                x_cv, y_cv = cv_data.raw.xy
+        elif isinstance(x, str):
+            if need_cv_split:
+                print(
+                    f"{LoggingMixin.warning_prefix}only random split is supported "
+                    f"for file datasets, `split_order` ({hpo_cv_split_order}) "
+                    "will be ignored"
+                )
+                x_cv, x = split_file(x, export_folder="_split", split=hpo_cv_split)
+                x, x_cv = map(os.path.abspath, [x, x_cv])
             data_config = kwargs.get("data_config", {})
             data_config["task_type"] = task_type
             read_config = kwargs.get("read_config", {})
@@ -321,8 +342,6 @@ class _Tuner:
                     y_cv = tr_data.transform(x_cv).y
                 else:
                     y_cv = tr_data.transform_labels(y_cv)
-        elif y is not None:
-            y, y_cv = map(to_2d, [y, y_cv])
         else:
             raise ValueError("`x` should be a file when `y` is not provided")
 
@@ -354,11 +373,12 @@ class _Tuner:
         params["verbose_level"] = 0
         params["use_tqdm"] = False
         if isinstance(self.x, str):
+            y = y_cv = None
             x, x_cv = self.x, self.x_cv
         else:
             x, x_cv = self.x.copy(), self.x_cv.copy()
-        y = self.y.copy()
-        y_cv = None if self.y_cv is None else self.y_cv.copy()
+            y = self.y.copy()
+            y_cv = None if self.y_cv is None else self.y_cv.copy()
         results = repeat_with(
             x,
             y,
