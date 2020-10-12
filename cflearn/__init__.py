@@ -2,6 +2,7 @@ import os
 import math
 import tqdm
 import torch
+import optuna
 import shutil
 import logging
 import onnxruntime
@@ -489,6 +490,146 @@ def tune_with(
     estimators = tuner.make_estimators(metrics)
     hpo.search(x, y, estimators, x_cv, y_cv, **search_config)
     return HPOResult(hpo, extra_config)
+
+
+class OptunaParam(NamedTuple):
+    name: str
+    values: Any
+    dtype: str  # [int | float | categorical]
+    config: Dict[str, Any] = None
+
+    def pop(self, trial: optuna.trial.Trial) -> Any:
+        method = getattr(trial, f"suggest_{self.dtype}")
+        if self.dtype == "categorical":
+            return method(self.name, self.values)
+        low, high = self.values
+        config = {} if self.config is None else self.config
+        return method(self.name, low, high, **config)
+
+
+class OptunaResult(NamedTuple):
+    tuner: _Tuner
+    study: optuna.study.Study
+    extra_config: Dict[str, Any]
+
+    @property
+    def best_param(self) -> Dict[str, Any]:
+        param = shallow_copy_dict(self.tuner.base_params)
+        update_dict(self.study.best_params, param)
+        self.get_hidden_units(param, None)
+        return update_dict(param, shallow_copy_dict(self.extra_config))
+
+    @staticmethod
+    def get_hidden_units(
+        params: Dict[str, Any],
+        trial: Union[optuna.trial.Trial, None],
+    ) -> Union[List[int], None]:
+        hidden_units = None
+        model_config = params.setdefault("model_config", {})
+        num_layers = model_config.pop("num_layers", None)
+        if num_layers is not None:
+            hidden_units = []
+            if trial is not None:
+                num_layers = num_layers.pop(trial)
+            for i in range(num_layers):
+                key = f"hidden_unit_{i}"
+                hidden_unit = model_config.pop(key, None)
+                if hidden_unit is None:
+                    raise ValueError(f"'{key}' is not found in `model_config`")
+                hidden_units.append(hidden_unit.pop(trial))
+            if trial is None:
+                model_config["hidden_units"] = hidden_units
+        return hidden_units
+
+
+optuna_params_type = Dict[str, Union[OptunaParam, "optuna_params_type"]]
+
+
+def optuna_tune(
+    x: data_type,
+    y: data_type = None,
+    x_cv: data_type = None,
+    y_cv: data_type = None,
+    *,
+    model: str = "fcnn",
+    task_type: TaskTypes = None,
+    params: optuna_params_type = None,
+    study_config: Dict[str, Any] = None,
+    metrics: Union[str, List[str]] = None,
+    num_jobs: int = 1,
+    num_trial: int = 10,
+    num_repeat: int = 5,
+    num_parallel: int = 4,
+    timeout: float = None,
+    score_weights: Union[Dict[str, float], None] = None,
+    estimator_scoring_function: Union[str, scoring_fn_type] = "default",
+    temp_folder: str = "__tmp__",
+    extra_config: Dict[str, Any] = None,
+) -> OptunaResult:
+    if params is None:
+        lr_param = OptunaParam("lr", [1e-5, 0.1], "float", {"log": True})
+        optim_param = OptunaParam(
+            "optimizer", ["sgd", "rmsprop", "adam"], "categorical"
+        )
+        default_init_param = OptunaParam(
+            "default_init_method", [None, "truncated_normal"], "categorical"
+        )
+        params = {
+            "optimizer": optim_param,
+            "optimizer_config": {"lr": lr_param},
+            "model_config": {
+                "default_encoding_configs": {"init_method": default_init_param},
+            },
+        }
+
+    if extra_config is None:
+        extra_config = {}
+    tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
+    estimators = tuner.make_estimators(metrics)
+
+    def objective(trial: optuna.trial.Trial) -> float:
+        optuna_params = shallow_copy_dict(params)
+        current_params = shallow_copy_dict(tuner.base_params)
+        # handle hidden units
+        model_config = current_params.setdefault("model_config", {})
+        hidden_units = OptunaResult.get_hidden_units(optuna_params, trial)
+        if hidden_units is not None:
+            model_config["hidden_units"] = hidden_units
+        # get other suggestions
+        def _inject_suggestion(d: optuna_params_type, current: dict):
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    _inject_suggestion(v, current.setdefault(k, {}))
+                    continue
+                current[k] = v.pop(trial)
+
+        _inject_suggestion(optuna_params, current_params)
+        # train & estimate
+        args = model, current_params, num_repeat, num_parallel, temp_folder
+        patterns = tasks_to_patterns(tuner.train(*args), contains_labels=True)
+        comparer = Comparer({model: patterns}, estimators)
+        comparer.compare(
+            tuner.x_cv,
+            tuner.y_cv,
+            scoring_function=estimator_scoring_function,
+            verbose_level=6,
+        )
+        scores = {k: v[model] for k, v in comparer.final_scores.items()}
+        if score_weights is None:
+            score = sum(scores.values()) / len(scores)
+        else:
+            weighted = sum(score * score_weights[k] for k, score in scores.items())
+            score = weighted / sum(score_weights.values())
+        return score
+
+    if study_config is None:
+        study_config = {}
+    study_config["direction"] = "maximize"
+    study_config.setdefault("study_name", f"{model}_optuna")
+    study = optuna.create_study(**study_config)
+    study.optimize(objective, num_trial, timeout, num_jobs)
+
+    return OptunaResult(tuner, study, extra_config)
 
 
 def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:

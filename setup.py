@@ -12,6 +12,7 @@ setup(
     install_requires=[
         "onnx",
         "onnxruntime",
+        "optuna",
         "trains",
         "carefree-ml>=0.1.0",
         "carefree-data>=0.1.7",
