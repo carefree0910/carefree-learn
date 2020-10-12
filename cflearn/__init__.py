@@ -280,6 +280,15 @@ def repeat_with(
     return RepeatResult(experiments, data, patterns)
 
 
+def tasks_to_wrappers(tasks: List[Task]) -> List[Wrapper]:
+    return list(map(load_task, tasks))
+
+
+def tasks_to_patterns(tasks: List[Task], **kwargs) -> List[pattern_type]:
+    wrappers = tasks_to_wrappers(tasks)
+    return [m.to_pattern(**kwargs) for m in wrappers]
+
+
 class _Tuner:
     def __init__(
         self,
@@ -395,8 +404,7 @@ def tune_with(
         return {model: tasks}
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
-        wrappers = list(map(load_task, created[0][model]))
-        return [m.to_pattern(contains_labels=True) for m in wrappers]
+        return tasks_to_patterns(created[0][model], contains_labels=True)
 
     if params is None:
         params = {
