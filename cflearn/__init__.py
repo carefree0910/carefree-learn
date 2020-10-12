@@ -326,9 +326,20 @@ class _Tuner:
         else:
             raise ValueError("`x` should be a file when `y` is not provided")
 
+        self.task_type = task_type
         self.x, self.x_cv = x, x_cv
         self.y, self.y_cv = y, y_cv
         self.base_params = shallow_copy_dict(kwargs)
+
+    def make_estimators(self, metrics: Union[str, List[str]]) -> List[Estimator]:
+        if metrics is None:
+            if self.task_type is None:
+                raise ValueError("either `task_type` or `metrics` should be provided")
+            if self.task_type is TaskTypes.CLASSIFICATION:
+                metrics = ["acc", "auc"]
+            else:
+                metrics = ["mae", "mse"]
+        return list(map(Estimator, metrics))
 
     def train(
         self,
@@ -412,15 +423,6 @@ def tune_with(
             "optimizer_config": {"lr": Float(Exponential(1e-5, 0.1))},
         }
 
-    if metrics is None:
-        if task_type is None:
-            raise ValueError("either `task_type` or `metrics` should be provided")
-        if task_type is TaskTypes.CLASSIFICATION:
-            metrics = ["acc", "auc"]
-        else:
-            metrics = ["mae", "mse"]
-    estimators = list(map(Estimator, metrics))
-
     hpo = HPOBase.make(
         hpo_method, _creator, params, converter=_converter, verbose_level=verbose_level
     )
@@ -449,6 +451,7 @@ def tune_with(
     search_config.setdefault(
         "parallel_logging_folder", os.path.join(temp_folder, "__hpo_parallel__")
     )
+    estimators = tuner.make_estimators(metrics)
     hpo.search(x, y, estimators, x_cv, y_cv, **search_config)
     return hpo
 
