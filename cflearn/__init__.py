@@ -1412,6 +1412,8 @@ __all__ = [
     "ensemble",
     "repeat_with",
     "tune_with",
+    "OptunaParam",
+    "optuna_tune",
     "make_toy_model",
     "Task",
     "Experiments",
