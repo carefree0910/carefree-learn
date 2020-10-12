@@ -32,6 +32,29 @@ def _hpo_core(train_file):
     return results.data, ensemble
 
 
+def _optuna_core(train_file):
+    extra_config = {"data_config": {"label_name": "Survived"}}
+    result = cflearn.optuna_tune(
+        train_file,
+        model=model,
+        num_trial=20,
+        temp_folder="__test_titanic_optuna1__",
+        task_type=TaskTypes.CLASSIFICATION,
+        extra_config=extra_config,
+        num_parallel=0,
+    )
+    results = cflearn.repeat_with(
+        train_file,
+        **result.best_param,
+        models=model,
+        temp_folder="__test_titanic_optuna2__",
+        num_repeat=10,
+        num_jobs=0,
+    )
+    ensemble = cflearn.ensemble(results.patterns[model])
+    return results.data, ensemble
+
+
 def _adaboost_core(train_file):
     config = {
         "data_config": {"label_name": "Survived"},
@@ -58,6 +81,7 @@ def _test(name, _core):
 
 def test_hpo():
     _test("hpo", _hpo_core)
+    _test("optuna", _optuna_core)
 
 
 def test_adaboost():
