@@ -330,7 +330,7 @@ class _Tuner:
         self.y, self.y_cv = y, y_cv
         self.base_params = shallow_copy_dict(kwargs)
 
-    def create_with(
+    def train(
         self,
         model: str,
         params: Dict[str, Any],
@@ -400,7 +400,7 @@ def tune_with(
 
     def _creator(_, __, params_) -> Dict[str, List[Task]]:
         num_jobs_ = num_parallel if hpo.is_sequential else 0
-        tasks = tuner.create_with(model, params_, num_repeat, num_jobs_, temp_folder)
+        tasks = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder)
         return {model: tasks}
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
