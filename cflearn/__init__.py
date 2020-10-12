@@ -1083,9 +1083,7 @@ class ONNX:
     def __init__(
         self,
         wrapper: Wrapper,
-        *,
         onnx_path: str = None,
-        no_grad: bool = True,
     ):
         self.wrapper = wrapper
         self.model = wrapper.model.cpu()
@@ -1094,7 +1092,7 @@ class ONNX:
             self._init_onnx_session(onnx_path)
         # initialize
         self.input_sample = self.model.input_sample
-        with eval_context(self.model, use_grad=no_grad):
+        with eval_context(self.model):
             outputs = self.model(self.input_sample)
         self.input_names = sorted(self.input_sample.keys())
         self.output_names = sorted(outputs.keys())
