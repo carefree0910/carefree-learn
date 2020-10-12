@@ -11,24 +11,20 @@ file_folder = os.path.dirname(__file__)
 
 
 def _hpo_core(train_file):
-    data_config = {"label_name": "Survived"}
-    # model_config = {"default_encoding_configs": {"init_method": None}}
-    hpo = cflearn.tune_with(
+    extra_config = {"data_config": {"label_name": "Survived"}}
+    result = cflearn.tune_with(
         train_file,
         model=model,
         temp_folder="__test_titanic1__",
         task_type=TaskTypes.CLASSIFICATION,
-        # model_config=model_config,
-        data_config=data_config,
+        extra_config=extra_config,
         num_parallel=0,
     )
     results = cflearn.repeat_with(
         train_file,
-        **hpo.best_param,
+        **result.best_param,
         models=model,
         temp_folder="__test_titanic2__",
-        # model_config=model_config,
-        data_config=data_config,
         num_repeat=10,
         num_jobs=0,
     )

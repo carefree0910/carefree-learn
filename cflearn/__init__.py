@@ -396,6 +396,16 @@ class _Tuner:
         return results.experiments.tasks[identifier]
 
 
+class HPOResult(NamedTuple):
+    hpo: HPOBase
+    extra_config: Dict[str, Any]
+
+    @property
+    def best_param(self) -> Dict[str, Any]:
+        param = shallow_copy_dict(self.hpo.best_param)
+        return update_dict(param, shallow_copy_dict(self.extra_config))
+
+
 def tune_with(
     x: data_type,
     y: data_type = None,
@@ -416,8 +426,8 @@ def tune_with(
     estimator_scoring_function: Union[str, scoring_fn_type] = "default",
     search_config: Dict[str, Any] = None,
     verbose_level: int = 2,
-    **kwargs,
-) -> HPOBase:
+    extra_config: Dict[str, Any] = None,
+) -> HPOResult:
 
     if os.path.isdir(temp_folder):
         print(
@@ -425,7 +435,9 @@ def tune_with(
         )
         shutil.rmtree(temp_folder)
 
-    tuner = _Tuner(x, y, x_cv, y_cv, task_type, **kwargs)
+    if extra_config is None:
+        extra_config = {}
+    tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
     def _creator(_, __, params_) -> Dict[str, List[Task]]:
@@ -472,7 +484,7 @@ def tune_with(
     )
     estimators = tuner.make_estimators(metrics)
     hpo.search(x, y, estimators, x_cv, y_cv, **search_config)
-    return hpo
+    return HPOResult(hpo, extra_config)
 
 
 def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
