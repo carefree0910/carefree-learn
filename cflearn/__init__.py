@@ -507,15 +507,48 @@ class OptunaParam(NamedTuple):
         return method(self.name, low, high, **config)
 
 
+optuna_params_type = Dict[str, Union[OptunaParam, "optuna_params_type"]]
+
+
+class OptunaKeyMapping:
+    def __init__(self, optuna_params: optuna_params_type):
+        self.delim = SAVING_DELIM
+        self.params = optuna_params
+        self.optuna_key_mapping: Dict[str, str] = {}
+
+        def _inject_mapping(d: optuna_params_type, prefix_list: List[str]):
+            for k, v in d.items():
+                new_prefix_list = prefix_list + [k]
+                if isinstance(v, OptunaParam):
+                    self.optuna_key_mapping[v.name] = self.delim.join(new_prefix_list)
+                    continue
+                _inject_mapping(v, new_prefix_list)
+
+        _inject_mapping(optuna_params, [])
+
+    def parse(self, optuna_param_values: Dict[str, Any]) -> Dict[str, Any]:
+        params = {}
+        for k, v in optuna_param_values.items():
+            key_mapping = self.optuna_key_mapping[k]
+            key_path = key_mapping.split(self.delim)
+            local_param = params
+            for sub_k in key_path[:-1]:
+                local_param = local_param.setdefault(sub_k, {})
+            local_param[key_path[-1]] = v
+        return params
+
+
 class OptunaResult(NamedTuple):
     tuner: _Tuner
     study: optuna.study.Study
+    optuna_key_mapping: OptunaKeyMapping
     extra_config: Dict[str, Any]
 
     @property
     def best_param(self) -> Dict[str, Any]:
         param = shallow_copy_dict(self.tuner.base_params)
-        update_dict(self.study.best_params, param)
+        optuna_param = self.optuna_key_mapping.parse(self.study.best_params)
+        update_dict(optuna_param, param)
         self.get_hidden_units(param, None)
         return update_dict(param, shallow_copy_dict(self.extra_config))
 
@@ -530,19 +563,21 @@ class OptunaResult(NamedTuple):
         if num_layers is not None:
             hidden_units = []
             if trial is not None:
+                max_layers = num_layers.values[1]
                 num_layers = num_layers.pop(trial)
+                for i in range(num_layers, max_layers):
+                    model_config.pop(f"hidden_unit_{i}", None)
             for i in range(num_layers):
                 key = f"hidden_unit_{i}"
                 hidden_unit = model_config.pop(key, None)
                 if hidden_unit is None:
                     raise ValueError(f"'{key}' is not found in `model_config`")
-                hidden_units.append(hidden_unit.pop(trial))
+                if trial is not None:
+                    hidden_unit = hidden_unit.pop(trial)
+                hidden_units.append(hidden_unit)
             if trial is None:
                 model_config["hidden_units"] = hidden_units
         return hidden_units
-
-
-optuna_params_type = Dict[str, Union[OptunaParam, "optuna_params_type"]]
 
 
 def optuna_tune(
@@ -581,6 +616,7 @@ def optuna_tune(
                 "default_encoding_configs": {"init_method": default_init_param},
             },
         }
+    key_mapping = OptunaKeyMapping(params)
 
     if extra_config is None:
         extra_config = {}
@@ -629,7 +665,7 @@ def optuna_tune(
     study = optuna.create_study(**study_config)
     study.optimize(objective, num_trial, timeout, num_jobs)
 
-    return OptunaResult(tuner, study, extra_config)
+    return OptunaResult(tuner, study, key_mapping, extra_config)
 
 
 def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:

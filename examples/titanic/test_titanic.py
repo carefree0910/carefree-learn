@@ -60,6 +60,8 @@ def _optuna_core(train_file):
     result = cflearn.optuna_tune(
         train_file,
         model=model,
+        num_jobs=4,
+        num_trial=20,
         params=optuna_params,
         temp_folder="__test_titanic_optuna1__",
         task_type=TaskTypes.CLASSIFICATION,
