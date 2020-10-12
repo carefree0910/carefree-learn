@@ -282,6 +282,7 @@ class Activations:
             config.setdefault("inplace", True)
             return nn.LeakyReLU(**config)
         if name.lower() == "relu":
+            name = "ReLU"
             config.setdefault("inplace", True)
         return cls({name: config}).module(name)
 
