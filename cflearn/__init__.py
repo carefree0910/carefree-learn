@@ -280,6 +280,84 @@ def repeat_with(
     return RepeatResult(experiments, data, patterns)
 
 
+class _Tuner:
+    def __init__(
+        self,
+        x: data_type,
+        y: data_type,
+        x_cv: data_type,
+        y_cv: data_type,
+        task_type: TaskTypes,
+        **kwargs,
+    ):
+        if isinstance(x, str):
+            data_config = kwargs.get("data_config", {})
+            data_config["task_type"] = task_type
+            read_config = kwargs.get("read_config", {})
+            delim = read_config.get("delim", kwargs.get("delim"))
+            if delim is not None:
+                read_config["delim"] = delim
+            else:
+                print(
+                    f"{LoggingMixin.warning_prefix}delimiter of the given file dataset is not provided, "
+                    "this may cause incorrect parsing"
+                )
+            if y is not None:
+                read_config["y"] = y
+            tr_data = TabularData(**data_config)
+            tr_data.read(x, **read_config)
+            y = tr_data.processed.y
+            if x_cv is not None:
+                if y_cv is None:
+                    y_cv = tr_data.transform(x_cv).y
+                else:
+                    y_cv = tr_data.transform_labels(y_cv)
+        elif y is not None:
+            y = to_2d(y)
+        else:
+            raise ValueError("`x` should be a file when `y` is not provided")
+
+        self.x, self.x_cv = x, x_cv
+        self.y, self.y_cv = y, y_cv
+        self.base_params = shallow_copy_dict(kwargs)
+
+    def create_with(
+        self,
+        model: str,
+        params: Dict[str, Any],
+        num_repeat: int,
+        num_parallel: int,
+        temp_folder: str,
+    ) -> List[Task]:
+        identifier = hash_code(str(params))
+        params = update_dict(params, shallow_copy_dict(self.base_params))
+        params["verbose_level"] = 0
+        params["use_tqdm"] = False
+        if isinstance(self.x, str):
+            y = y_cv = None
+            x, x_cv = self.x, self.x_cv
+        else:
+            x = self.x.copy()
+            y = self.y.copy()
+            x_cv = None if self.x_cv is None else self.x_cv.copy()
+            y_cv = None if self.y_cv is None else self.y_cv.copy()
+        results = repeat_with(
+            x,
+            y,
+            x_cv,
+            y_cv,
+            num_repeat=num_repeat,
+            num_jobs=num_parallel,
+            models=model,
+            identifiers=identifier,
+            temp_folder=temp_folder,
+            return_tasks=True,
+            return_patterns=False,
+            **params,
+        )
+        return results.experiments.tasks[identifier]
+
+
 def tune_with(
     x: data_type,
     y: data_type = None,
@@ -288,7 +366,7 @@ def tune_with(
     *,
     model: str = "fcnn",
     hpo_method: str = "bo",
-    params: Dict[str, DataType] = None,
+    params: params_type = None,
     task_type: TaskTypes = None,
     metrics: Union[str, List[str]] = None,
     num_jobs: int = None,
@@ -309,60 +387,15 @@ def tune_with(
         )
         shutil.rmtree(temp_folder)
 
-    if isinstance(x, str):
-        data_config = kwargs.get("data_config", {})
-        data_config["task_type"] = task_type
-        read_config = kwargs.get("read_config", {})
-        delim = read_config.get("delim", kwargs.get("delim"))
-        if delim is not None:
-            read_config["delim"] = delim
-        else:
-            print(
-                f"{LoggingMixin.warning_prefix}delimiter of the given file dataset is not provided, "
-                "this may cause incorrect parsing"
-            )
-        if y is not None:
-            read_config["y"] = y
-        tr_data = TabularData(**data_config)
-        tr_data.read(x, **read_config)
-        y = tr_data.processed.y
-        if x_cv is not None:
-            if y_cv is None:
-                y_cv = tr_data.transform(x_cv).y
-            else:
-                y_cv = tr_data.transform_labels(y_cv)
-    elif y is not None:
-        y = to_2d(y)
-    else:
-        raise ValueError("`x` should be a file when `y` is not provided")
+    tuner = _Tuner(x, y, x_cv, y_cv, task_type, **kwargs)
 
-    def _creator(x_, y_, params_) -> Dict[str, List[Task]]:
-        base_params = shallow_copy_dict(kwargs)
-        update_dict(params_, base_params)
-        base_params["verbose_level"] = 0
-        base_params["use_tqdm"] = False
-        if isinstance(x_, str):
-            y_ = y_cv_ = None
-        else:
-            y_cv_ = None if y_cv is None else y_cv.copy()
+    def _creator(_, __, params_) -> Dict[str, List[Task]]:
         num_jobs_ = num_parallel if hpo.is_sequential else 0
-        return repeat_with(
-            x_,
-            y_,
-            x_cv,
-            y_cv_,
-            num_repeat=num_repeat,
-            num_jobs=num_jobs_,
-            models=model,
-            identifiers=hash_code(str(params_)),
-            temp_folder=temp_folder,
-            return_tasks=True,
-            return_patterns=False,
-            **base_params,
-        ).experiments.tasks
+        tasks = tuner.create_with(model, params_, num_repeat, num_jobs_, temp_folder)
+        return {model: tasks}
 
     def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
-        wrappers = list(map(load_task, next(iter(created[0].values()))))
+        wrappers = list(map(load_task, created[0][model]))
         return [m.to_pattern(contains_labels=True) for m in wrappers]
 
     if params is None:
