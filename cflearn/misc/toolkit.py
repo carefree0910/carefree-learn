@@ -258,7 +258,7 @@ class Activations:
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
 
     @classmethod
-    def get_activation(
+    def make(
         cls,
         name: str,
         config: Union[Dict[str, Any], None],

@@ -90,7 +90,7 @@ class Mapping(nn.Module):
             self.activation = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
-            self.activation = Activations.get_activation(activation, activation_config)
+            self.activation = Activations.make(activation, activation_config)
         use_dropout = 0.0 < dropout < 1.0
         self.dropout = None if not use_dropout else Dropout(dropout)
 
@@ -316,7 +316,7 @@ class Attention(nn.Module):
         self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
 
         self.dropout = dropout
-        self.activation = Activations.get_activation(activation, activation_config)
+        self.activation = Activations.make(activation, activation_config)
 
     def _to_heads(self, tensor: torch.Tensor):
         batch_size, seq_len, in_feature = tensor.shape

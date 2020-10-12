@@ -43,7 +43,7 @@ class TransformerLayer(nn.Module):
         self.norm2 = nn.LayerNorm(input_dim)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
-        self.activation = Activations.get_activation(activation, activation_config)
+        self.activation = Activations.make(activation, activation_config)
 
     def forward(self, net: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         new = self.self_attn(net, net, net, mask=mask).output
