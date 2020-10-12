@@ -161,6 +161,19 @@ class _multiplied_activation(nn.Module, metaclass=ABCMeta):
         return f"ratio={self.ratio.item()}, trainable={self.trainable}"
 
 
+class Lambda(nn.Module):
+    def __init__(self, fn: callable, name: str = None):
+        super().__init__()
+        self.name = name
+        self.fn = fn
+
+    def extra_repr(self) -> str:
+        return "" if self.name is None else self.name
+
+    def forward(self, *args, **kwargs) -> Any:
+        return self.fn(*args, **kwargs)
+
+
 class Activations:
     """
     Wrapper class for pytorch activations
@@ -213,19 +226,16 @@ class Activations:
 
     @property
     def sign(self):
-        class Sign(nn.Module):
-            def forward(self, x):
-                return torch.sign(x)
-
-        return Sign()
+        return Lambda(lambda x: torch.sign(x), "sign")
 
     @property
     def one_hot(self):
-        class OneHot(nn.Module):
-            def forward(self, x):
-                return x * (x == torch.max(x, dim=1, keepdim=True)[0]).to(torch.float32)
+        f = lambda x: x * (x == torch.max(x, dim=1, keepdim=True)[0]).to(torch.float32)
+        return Lambda(f, "one_hot")
 
-        return OneHot()
+    @property
+    def sine(self):
+        return Lambda(lambda x: torch.sin(x), "sine")
 
     @property
     def multiplied_sine(self):
