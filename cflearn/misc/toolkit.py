@@ -275,6 +275,14 @@ class Activations:
     ) -> nn.Module:
         if config is None:
             config = {}
+        if name.startswith("leaky_relu"):
+            splits = name.split("_")
+            if len(splits) == 3:
+                config["negative_slope"] = float(splits[-1])
+            config.setdefault("inplace", True)
+            return nn.LeakyReLU(**config)
+        if name.lower() == "relu":
+            config.setdefault("inplace", True)
         return cls({name: config}).module(name)
 
 
