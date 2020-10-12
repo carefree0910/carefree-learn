@@ -270,9 +270,11 @@ class Activations:
     @classmethod
     def make(
         cls,
-        name: str,
+        name: Union[str, None],
         config: Union[Dict[str, Any], None],
     ) -> nn.Module:
+        if name is None:
+            return nn.Identity()
         if config is None:
             config = {}
         if name.startswith("leaky_relu"):
