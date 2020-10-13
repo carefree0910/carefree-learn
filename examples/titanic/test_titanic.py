@@ -37,11 +37,8 @@ def _optuna_core(train_file):
     opt = cflearn.Opt(TaskTypes.CLASSIFICATION).optimize(
         train_file,
         model=model,
-        num_jobs=4,
-        num_trial=20,
         temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
-        num_parallel=0,
     )
     return opt.data, opt.pattern
 

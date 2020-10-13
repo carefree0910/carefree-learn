@@ -17,6 +17,7 @@ from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
 from .ensemble import *
+from ..bases import Wrapper
 
 
 class _Tuner:
@@ -103,7 +104,7 @@ class _Tuner:
         num_repeat: int,
         num_parallel: int,
         temp_folder: str,
-    ) -> List[Task]:
+    ) -> Union[List[Task], Wrapper]:
         identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
         params["verbose_level"] = 0
@@ -115,6 +116,9 @@ class _Tuner:
             x, x_cv = self.x.copy(), self.x_cv.copy()
             y = self.y.copy()
             y_cv = None if self.y_cv is None else self.y_cv.copy()
+        if num_repeat <= 1:
+            params["logging_folder"] = temp_folder
+            return make(model, **params).fit(x, y, x_cv, y_cv)
         results = repeat_with(
             x,
             y,
@@ -176,13 +180,23 @@ def tune_with(
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
-    def _creator(_, __, params_) -> Dict[str, List[Task]]:
-        num_jobs_ = num_parallel if hpo.is_sequential else 0
-        tasks = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder)
-        return {model: tasks}
+    created_type = Union[Dict[str, List[Task]], ModelPattern]
 
-    def _converter(created: List[Dict[str, List[Task]]]) -> List[pattern_type]:
-        return tasks_to_patterns(created[0][model], contains_labels=True)
+    def _creator(_, __, params_) -> created_type:
+        num_jobs_ = num_parallel if hpo.is_sequential else 0
+        temp_folder_ = temp_folder
+        if num_repeat <= 1:
+            temp_folder_ = os.path.join(temp_folder, hash_code(str(params_)))
+        results = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
+        if num_repeat <= 1:
+            return results.to_pattern(contains_labels=True)
+        return {model: results}
+
+    if num_repeat <= 1:
+        _converter = None
+    else:
+        def _converter(created: List[created_type]) -> List[pattern_type]:
+            return tasks_to_patterns(created[0][model], contains_labels=True)
 
     if params is None:
         default_init_param = pu.Any(pu.Choice(values=[None, "truncated_normal"]))
@@ -195,7 +209,11 @@ def tune_with(
         }
 
     hpo = HPOBase.make(
-        hpo_method, _creator, params, converter=_converter, verbose_level=verbose_level
+        hpo_method,
+        _creator,
+        params,
+        converter=_converter,
+        verbose_level=verbose_level,
     )
     if hpo.is_sequential:
         if num_jobs is None:
@@ -561,10 +579,10 @@ def optuna_tune(
     params: optuna_params_type = None,
     study_config: Dict[str, Any] = None,
     metrics: Union[str, List[str]] = None,
-    num_jobs: int = 1,
-    num_trial: int = 10,
-    num_repeat: int = 5,
-    num_parallel: int = 4,
+    num_jobs: int = 4,
+    num_trial: int = 50,
+    num_repeat: int = 1,
+    num_parallel: int = 0,
     timeout: float = None,
     score_weights: Union[Dict[str, float], None] = None,
     estimator_scoring_function: Union[str, scoring_fn_type] = "default",
@@ -583,15 +601,28 @@ def optuna_tune(
 
     def objective(trial: Trial) -> float:
         current_params = key_mapping.pop(trial)
-        args = model, current_params, num_repeat, num_parallel, temp_folder
-        patterns = tasks_to_patterns(tuner.train(*args), contains_labels=True)
-        comparer = Comparer({model: patterns}, estimators)
-        comparer.compare(
-            tuner.x_cv,
-            tuner.y_cv,
-            scoring_function=estimator_scoring_function,
-            verbose_level=6,
-        )
+        if num_repeat <= 1:
+            temp_folder_ = os.path.join(temp_folder, str(trial.number))
+            args = model, current_params, num_repeat, num_parallel, temp_folder_
+            m = tuner.train(*args)
+            comparer = estimate(
+                tuner.x_cv,
+                tuner.y_cv,
+                wrappers=m,
+                metrics=metrics,
+                contains_labels=True,
+                comparer_verbose_level=6,
+            )
+        else:
+            args = model, current_params, num_repeat, num_parallel, temp_folder
+            patterns = tasks_to_patterns(tuner.train(*args), contains_labels=True)
+            comparer = Comparer({model: patterns}, estimators)
+            comparer.compare(
+                tuner.x_cv,
+                tuner.y_cv,
+                scoring_function=estimator_scoring_function,
+                verbose_level=6,
+            )
         scores = {k: v[model] for k, v in comparer.final_scores.items()}
         if score_weights is None:
             score = sum(scores.values()) / len(scores)
@@ -653,10 +684,10 @@ class Opt:
         model: str = "fcnn",
         study_config: Dict[str, Any] = None,
         metrics: Union[str, List[str]] = None,
-        num_jobs: int = 1,
-        num_trial: int = 10,
-        num_repeat: int = 5,
-        num_parallel: int = 4,
+        num_jobs: int = 4,
+        num_trial: int = 50,
+        num_repeat: int = 1,
+        num_parallel: int = 0,
         timeout: float = None,
         score_weights: Union[Dict[str, float], None] = None,
         estimator_scoring_function: Union[str, scoring_fn_type] = "default",
