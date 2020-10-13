@@ -37,6 +37,7 @@ class Benchmark(LoggingMixin):
         increment_config: Dict[str, Any] = None,
         data_config: Dict[str, Any] = None,
         read_config: Dict[str, Any] = None,
+        use_tracker: bool = False,
         use_cuda: bool = True,
     ):
         self.data = None
@@ -55,6 +56,7 @@ class Benchmark(LoggingMixin):
         if increment_config is None:
             increment_config = {}
         self.increment_config = increment_config
+        self.use_tracker = use_tracker
         self.use_cuda = use_cuda
         self.experiments = None
 
@@ -87,11 +89,14 @@ class Benchmark(LoggingMixin):
                     increment_config = shallow_copy_dict(self.increment_config)
                     config = update_dict(increment_config, config)
                     self.configs.setdefault(identifier, config)
-                    tracker_config = {
-                        "project_name": self.project_name,
-                        "task_name": task_name,
-                        "overwrite": True,
-                    }
+                    if not self.use_tracker:
+                        tracker_config = None
+                    else:
+                        tracker_config = {
+                            "project_name": self.project_name,
+                            "task_name": task_name,
+                            "overwrite": True,
+                        }
                     experiments.add_task(
                         model=model,
                         data_task=data_tasks[i],
@@ -320,6 +325,7 @@ class Ensemble:
         task_name: str = "bagging",
         models: Union[str, List[str]] = "fcnn",
         increment_config: Dict[str, Any] = None,
+        use_tracker: bool = True,
         use_cuda: bool = True,
     ) -> EnsembleResults:
         if isinstance(models, str):
@@ -335,6 +341,7 @@ class Ensemble:
             project_name=project_name,
             models=models,
             increment_config=increment_config,
+            use_tracker=use_tracker,
             use_cuda=use_cuda,
             data_config=data_config,
             read_config=read_config,
