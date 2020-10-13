@@ -172,9 +172,13 @@ class DNDF(nn.Module):
         self._num_leaf = 2 ** (self._tree_depth + 1)
         self._num_internals = self._num_leaf - 1
         self._output_dim = out_dim
-        tree_proj_config = self._setup_tree_proj(tree_proj_config)
+        if tree_proj_config is None:
+            tree_proj_config = {}
+        tree_proj_config.setdefault("pruner_config", {})
         self.tree_proj = Linear(
-            in_dim, self._num_internals * self._num_tree, **tree_proj_config
+            in_dim,
+            self._num_internals * self._num_tree,
+            **tree_proj_config,
         )
         self.leaves = nn.Parameter(
             torch.empty(self._num_tree, self._num_leaf, self._output_dim)
@@ -198,15 +202,6 @@ class DNDF(nn.Module):
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
             increment_masks.append(increment_mask)
         self.register_buffer("increment_masks", torch.stack(increment_masks))
-
-    @staticmethod
-    def _setup_tree_proj(tree_proj_config):
-        if tree_proj_config is None:
-            tree_proj_config = {}
-        pruner_config = tree_proj_config.pop("pruner_config", {})
-        if pruner_config is not None:
-            tree_proj_config["pruner"] = Pruner(pruner_config)
-        return tree_proj_config
 
     def forward(self, net):
         device = net.device
