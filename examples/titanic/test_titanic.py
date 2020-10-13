@@ -34,26 +34,16 @@ def _hpo_core(train_file):
 
 def _optuna_core(train_file):
     extra_config = {"data_config": {"label_name": "Survived"}}
-    result = cflearn.optuna_tune(
+    opt = cflearn.Opt(TaskTypes.CLASSIFICATION).optimize(
         train_file,
         model=model,
         num_jobs=4,
         num_trial=20,
-        temp_folder="__test_titanic_optuna1__",
-        task_type=TaskTypes.CLASSIFICATION,
+        temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
         num_parallel=0,
     )
-    results = cflearn.repeat_with(
-        train_file,
-        **result.best_param,
-        models=model,
-        temp_folder="__test_titanic_optuna2__",
-        num_repeat=10,
-        num_jobs=0,
-    )
-    ensemble = cflearn.ensemble(results.patterns[model])
-    return results.data, ensemble
+    return opt.data, opt.pattern
 
 
 def _adaboost_core(train_file):
