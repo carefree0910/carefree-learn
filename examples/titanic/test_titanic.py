@@ -12,10 +12,11 @@ file_folder = os.path.dirname(__file__)
 
 def _hpo_core(train_file):
     extra_config = {"data_config": {"label_name": "Survived"}}
+    hpo_temp_folder = "__test_titanic_hpo__"
     result = cflearn.tune_with(
         train_file,
         model=model,
-        temp_folder="__test_titanic1__",
+        temp_folder=os.path.join(hpo_temp_folder, "__tune__"),
         task_type=TaskTypes.CLASSIFICATION,
         extra_config=extra_config,
         num_parallel=0,
@@ -24,7 +25,7 @@ def _hpo_core(train_file):
         train_file,
         **result.best_param,
         models=model,
-        temp_folder="__test_titanic2__",
+        temp_folder=os.path.join(hpo_temp_folder, "__repeat__"),
         num_repeat=10,
         num_jobs=0,
     )
