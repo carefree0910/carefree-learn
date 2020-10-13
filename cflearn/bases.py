@@ -305,6 +305,7 @@ class Pipeline(nn.Module, LoggingMixin):
 
     def _init_config(self, config, is_loading):
         self._wrapper_config = config
+        self.timing = self._wrapper_config["use_timing_context"]
         self.config = config.setdefault("pipeline_config", {})
         self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
         self.batch_size = self.config.setdefault("batch_size", 128)
@@ -817,12 +818,12 @@ class Pipeline(nn.Module, LoggingMixin):
                 for (x_batch, y_batch), index_batch in self._step_tqdm:
                     self._step_count += 1
                     y_batch = self._collate_labels(y_batch)
-                    with timing_context(self, "collate batch"):
+                    with timing_context(self, "collate batch", enable=self.timing):
                         batch = self._collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
-                        with timing_context(self, "model.forward"):
+                        with timing_context(self, "model.forward", enable=self.timing):
                             forward_results = self.model(batch)
-                        with timing_context(self, "loss.forward"):
+                        with timing_context(self, "loss.forward", enable=self.timing):
                             if tr_weights is not None:
                                 batch_sample_weights = tr_weights[index_batch]
                                 forward_results[
@@ -843,20 +844,20 @@ class Pipeline(nn.Module, LoggingMixin):
                                     value=value,
                                     iteration=self._step_count,
                                 )
-                    with timing_context(self, "loss.backward"):
+                    with timing_context(self, "loss.backward", enable=self.timing):
                         loss = loss_dict["loss"]
                         if self._use_amp:
                             loss = self.scaler.scale(loss)
                         loss.backward()
                     if self._clip_norm > 0.0:
-                        with timing_context(self, "clip_norm_step"):
+                        with timing_context(self, "clip_norm_step", enable=self.timing):
                             self._clip_norm_step()
-                    with timing_context(self, "optimizer_step"):
+                    with timing_context(self, "optimizer_step", enable=self.timing):
                         self._optimizer_step()
                     if self.ema_decay is not None:
-                        with timing_context(self, "EMA"):
+                        with timing_context(self, "EMA", enable=self.timing):
                             self.ema_decay()
-                    with timing_context(self, "monitor_step"):
+                    with timing_context(self, "monitor_step", enable=self.timing):
                         terminate = self._monitor_step()
                     if terminate:
                         break
@@ -990,7 +991,9 @@ class Wrapper(LoggingMixin):
         return shallow_copy_dict(config)
 
     def _init_config(self):
+        self.timing = self.config.setdefault("use_timing_context", True)
         self._data_config = self.config.setdefault("data_config", {})
+        self._data_config["use_timing_context"] = self.timing
         self._data_config["default_categorical_process"] = "identical"
         self._read_config = self.config.setdefault("read_config", {})
         self._cv_split = self.config.setdefault("cv_split", 0.1)
@@ -1016,15 +1019,15 @@ class Wrapper(LoggingMixin):
 
     def _prepare_modules(self, *, is_loading: bool = False):
         # model
-        with timing_context(self, "init model"):
+        with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self._model](self.config, self.tr_data, self.device)
         # pipeline
-        with timing_context(self, "init pipeline"):
+        with timing_context(self, "init pipeline", enable=self.timing):
             self.pipeline = Pipeline(
                 self.model, self.tracker, self.config, self._verbose_level, is_loading
             )
         # to device
-        with timing_context(self, "init device"):
+        with timing_context(self, "init device", enable=self.timing):
             self.pipeline.to(self.device)
 
     def _before_loop(

@@ -183,6 +183,7 @@ def tune_with(
     created_type = Union[Dict[str, List[Task]], ModelPattern]
 
     def _creator(_, __, params_) -> created_type:
+        params_["use_timing_context"] = False
         num_jobs_ = num_parallel if hpo.is_sequential else 0
         temp_folder_ = temp_folder
         if num_repeat <= 1:
@@ -195,6 +196,7 @@ def tune_with(
     if num_repeat <= 1:
         _converter = None
     else:
+
         def _converter(created: List[created_type]) -> List[pattern_type]:
             return tasks_to_patterns(created[0][model], contains_labels=True)
 
@@ -601,6 +603,7 @@ def optuna_tune(
 
     def objective(trial: Trial) -> float:
         current_params = key_mapping.pop(trial)
+        current_params["use_timing_context"] = False
         if num_repeat <= 1:
             temp_folder_ = os.path.join(temp_folder, str(trial.number))
             args = model, current_params, num_repeat, num_parallel, temp_folder_
