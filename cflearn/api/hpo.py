@@ -311,6 +311,17 @@ class OptunaParamConverter:
             "tree_depth": OptunaParam(tree_depth_key, [2, tree_depth], "int"),
         }
 
+    @staticmethod
+    def _convert_pruner_config(value: Any) -> optuna_params_type:
+        prefix = value
+        available_methods = ["auto_prune", "surgery", "simplified"]
+        use_pruner_key = f"{prefix}_use_pruner"
+        method_key = f"{prefix}_method"
+        return {
+            "use_pruner": OptunaParam(use_pruner_key, [True, False], "categorical"),
+            "method": OptunaParam(method_key, available_methods, "categorical"),
+        }
+
     def pop(
         self,
         usage: str,
@@ -360,6 +371,18 @@ class OptunaParamConverter:
             tree_depth = tree_depth.pop(trial)
         return {"num_tree": num_tree, "tree_depth": tree_depth}
 
+    @staticmethod
+    def _parse_pruner_config(d: Dict[str, Any], trial: Trial) -> Any:
+        use_pruner = d["use_pruner"]
+        if trial is not None:
+            use_pruner = use_pruner.pop(trial)
+        if not use_pruner:
+            return
+        method = d["method"]
+        if trial is not None:
+            method = method.pop(trial)
+        return {"method": method}
+
     # api
 
     @classmethod
@@ -387,6 +410,15 @@ class OptunaParamConverter:
     ) -> Dict[str, str]:
         key = f"{cls.prefix}[dndf_config]"
         value = f"{prefix}_{num_tree}_{tree_depth}"
+        return {key: value}
+
+    @classmethod
+    def make_pruner_config(
+        cls,
+        prefix: str,
+    ) -> Dict[str, str]:
+        key = f"{cls.prefix}[pruner_config]"
+        value = prefix
         return {key: value}
 
 
