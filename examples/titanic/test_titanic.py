@@ -40,6 +40,8 @@ def _optuna_core(train_file):
         model=model,
         temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
+        num_trial=10,
+        num_jobs=1,
     )
     return opt.data, opt.pattern
 
