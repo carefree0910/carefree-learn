@@ -42,13 +42,12 @@ def _optuna_core(train_file):
         "default_init_method", [None, "truncated_normal"], "categorical"
     )
 
+    model_config = cflearn.OptunaParamConverter.make_hidden_units("mlp", 8, 128, 3)
+    model_config["default_encoding_configs"] = {"init_method": default_init_param}
     optuna_params = {
         "optimizer": optim_param,
         "optimizer_config": {"lr": lr_param},
-        "model_config": {
-            "[^optuna^][hidden_units]": "mlp_8_128_3_log",
-            "default_encoding_configs": {"init_method": default_init_param},
-        },
+        "model_config": model_config,
     }
 
     result = cflearn.optuna_tune(

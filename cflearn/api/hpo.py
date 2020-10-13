@@ -332,6 +332,24 @@ class OptunaParamConverter:
             hidden_units.append(hidden_unit)
         return hidden_units
 
+    # api
+
+    @classmethod
+    def make_hidden_units(
+        cls,
+        prefix: str,
+        low: int,
+        high: int,
+        num_layers: int,
+        step: int = 1,
+        log: bool = True,
+    ) -> Dict[str, str]:
+        key = f"{cls.prefix}[hidden_units]"
+        value = f"{prefix}_{low}_{high}_{num_layers}_{step}"
+        if log:
+            value = f"{value}_log"
+        return {key: value}
+
 
 class OptunaKeyMapping:
     def __init__(self, tuner: _Tuner, optuna_params: optuna_params_type):
@@ -488,4 +506,5 @@ __all__ = [
     "tune_with",
     "optuna_tune",
     "OptunaParam",
+    "OptunaParamConverter",
 ]
