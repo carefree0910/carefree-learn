@@ -6,7 +6,7 @@ import cflearn
 
 from cfdata.tabular import *
 
-model = "tree_dnn"
+model = "fcnn"
 file_folder = os.path.dirname(__file__)
 
 
