@@ -212,6 +212,7 @@ def estimate(
         wrappers = _to_wrappers(wrappers)
         if wrapper_predict_config is None:
             wrapper_predict_config = {}
+        wrapper_predict_config.setdefault("contains_labels", contains_labels)
         for name, wrapper in wrappers.items():
             if y is not None:
                 y = to_2d(y)
