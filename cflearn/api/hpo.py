@@ -177,13 +177,13 @@ def tune_with(
 
     if extra_config is None:
         extra_config = {}
+    extra_config.setdefault("use_timing_context", False)
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
     created_type = Union[Dict[str, List[Task]], ModelPattern]
 
     def _creator(_, __, params_) -> created_type:
-        params_["use_timing_context"] = False
         num_jobs_ = num_parallel if hpo.is_sequential else 0
         temp_folder_ = temp_folder
         if num_repeat <= 1:
@@ -596,6 +596,7 @@ def optuna_tune(
 
     if extra_config is None:
         extra_config = {}
+    extra_config.setdefault("use_timing_context", False)
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
 
     estimators = tuner.make_estimators(metrics)
@@ -603,7 +604,6 @@ def optuna_tune(
 
     def objective(trial: Trial) -> float:
         current_params = key_mapping.pop(trial)
-        current_params["use_timing_context"] = False
         if num_repeat <= 1:
             temp_folder_ = os.path.join(temp_folder, str(trial.number))
             args = model, current_params, num_repeat, num_parallel, temp_folder_
