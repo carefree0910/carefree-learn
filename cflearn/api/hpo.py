@@ -7,6 +7,7 @@ from typing import *
 from cftool.misc import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
+from optuna.trial import Trial
 from cftool.ml.hpo import HPOBase
 from cfdata.tabular.misc import split_file
 
@@ -227,7 +228,7 @@ class OptunaParam(NamedTuple):
     dtype: str  # [int | float | categorical]
     config: Dict[str, Any] = None
 
-    def pop(self, trial: optuna.trial.Trial) -> Any:
+    def pop(self, trial: Trial) -> Any:
         method = getattr(trial, f"suggest_{self.dtype}")
         if self.dtype == "categorical":
             return method(self.name, self.values)
@@ -236,13 +237,108 @@ class OptunaParam(NamedTuple):
         return method(self.name, low, high, **config)
 
 
-optuna_params_type = Dict[str, Union[OptunaParam, "optuna_params_type"]]
+optuna_params_type = Dict[str, Union[Union[OptunaParam, Any], "optuna_params_type"]]
+
+
+class OptunaParamConverter:
+    prefix = "[^optuna^]"
+
+    def get_usage(self, k: str) -> Union[str, None]:
+        if not k.startswith(self.prefix):
+            return
+        usage_k = k[len(self.prefix) :]
+        if not usage_k.startswith("[") or not usage_k.endswith("]"):
+            msg = f"special keys must end with '[]' to indicate its usage"
+            raise ValueError(msg)
+        return usage_k[1:-1]
+
+    def convert(self, optuna_params: optuna_params_type) -> optuna_params_type:
+        def _inner(d: optuna_params_type, current: dict):
+            for k, v in d.items():
+                usage = self.get_usage(k)
+                if usage is not None:
+                    attr = getattr(self, f"_convert_{usage}", None)
+                    if attr is None:
+                        raise NotImplementedError(f"unrecognized usage '{usage}' found")
+                    current[k] = attr(v)
+                    continue
+                if isinstance(v, dict):
+                    _inner(v, current.setdefault(k, {}))
+                    continue
+                if isinstance(v, OptunaParam):
+                    current[k] = v
+                    continue
+
+        new = {}
+        _inner(optuna_params, new)
+        return new
+
+    @staticmethod
+    def _convert_hidden_units(value: Any) -> optuna_params_type:
+        # parse
+        config = {}
+        prefix, low, high, num_layers, *args = value.split("_")
+        low, high, num_layers = map(int, [low, high, num_layers])
+        if args:
+            if len(args) == 1:
+                if args[0] == "log":
+                    config["log"] = True
+                else:
+                    config["step"] = int(args[0])
+            else:
+                config["log"] = True
+                config["step"] = int(args[0])
+        # inject
+        num_layers_name = f"{prefix}_num_layers"
+        rs = {"num_layers": OptunaParam(num_layers_name, [1, num_layers], "int")}
+        for i in range(num_layers):
+            key = f"hidden_unit_{i}"
+            rs[key] = OptunaParam(f"{prefix}_{key}", [low, high], "int", config)
+        return rs
+
+    def pop(
+        self,
+        usage: str,
+        value: Dict[str, OptunaParam],
+        trial: Trial,
+    ) -> Any:
+        attr = getattr(self, f"_parse_{usage}", None)
+        if attr is None:
+            raise NotImplementedError(f"unrecognized usage '{usage}' found")
+        return attr(value, trial)
+
+    def parse(self, usage: str, value: Dict[str, Any]) -> Any:
+        attr = getattr(self, f"_parse_{usage}", None)
+        if attr is None:
+            raise NotImplementedError(f"unrecognized usage '{usage}' found")
+        return attr(value, None)
+
+    @staticmethod
+    def _parse_hidden_units(d: Dict[str, Any], trial: Trial) -> Any:
+        hidden_units = []
+        num_layers = d["num_layers"]
+        if trial is not None:
+            max_layers = num_layers.values[1]
+            num_layers = num_layers.pop(trial)
+            for i in range(num_layers, max_layers):
+                d.pop(f"hidden_unit_{i}", None)
+        for i in range(num_layers):
+            key = f"hidden_unit_{i}"
+            hidden_unit = d.pop(key, None)
+            if hidden_unit is None:
+                raise ValueError(f"'{key}' is not found in `model_config`")
+            if trial is not None:
+                hidden_unit = hidden_unit.pop(trial)
+            hidden_units.append(hidden_unit)
+        return hidden_units
 
 
 class OptunaKeyMapping:
-    def __init__(self, optuna_params: optuna_params_type):
+    def __init__(self, tuner: _Tuner, optuna_params: optuna_params_type):
+        self.tuner = tuner
         self.delim = SAVING_DELIM
-        self.params = optuna_params
+        self.converter = OptunaParamConverter()
+        self.params = self.converter.convert(optuna_params)
         self.optuna_key_mapping: Dict[str, str] = {}
 
         def _inject_mapping(d: optuna_params_type, prefix_list: List[str]):
@@ -253,7 +349,25 @@ class OptunaKeyMapping:
                     continue
                 _inject_mapping(v, new_prefix_list)
 
-        _inject_mapping(optuna_params, [])
+        _inject_mapping(self.params, [])
+
+    def pop(self, trial: Trial) -> Dict[str, Any]:
+        optuna_params = shallow_copy_dict(self.params)
+        current_params = shallow_copy_dict(self.tuner.base_params)
+
+        def _inject_suggestion(d: optuna_params_type, current: dict):
+            for k, v in d.items():
+                usage = self.converter.get_usage(k)
+                if usage is not None:
+                    current[usage] = self.converter.pop(usage, v, trial)
+                    continue
+                if isinstance(v, dict):
+                    _inject_suggestion(v, current.setdefault(k, {}))
+                    continue
+                current[k] = v.pop(trial)
+
+        _inject_suggestion(optuna_params, current_params)
+        return current_params
 
     def parse(self, optuna_param_values: Dict[str, Any]) -> Dict[str, Any]:
         params = {}
@@ -266,47 +380,35 @@ class OptunaKeyMapping:
             local_param[key_path[-1]] = v
         return params
 
+    def convert(self, param_values: Dict[str, Any]) -> Dict[str, Any]:
+        converted = {}
+
+        def _inject_values(d: Dict[str, Any], current: dict):
+            for k, v in d.items():
+                usage = self.converter.get_usage(k)
+                if usage is not None:
+                    current[usage] = self.converter.parse(usage, v)
+                    continue
+                if isinstance(v, dict):
+                    _inject_values(v, current.setdefault(k, {}))
+                    continue
+                current[k] = v
+
+        _inject_values(param_values, converted)
+        return converted
+
 
 class OptunaResult(NamedTuple):
     tuner: _Tuner
     study: optuna.study.Study
     optuna_key_mapping: OptunaKeyMapping
-    extra_config: Dict[str, Any]
 
     @property
     def best_param(self) -> Dict[str, Any]:
         param = shallow_copy_dict(self.tuner.base_params)
         optuna_param = self.optuna_key_mapping.parse(self.study.best_params)
         update_dict(optuna_param, param)
-        self.get_hidden_units(param, None)
-        return update_dict(param, shallow_copy_dict(self.extra_config))
-
-    @staticmethod
-    def get_hidden_units(
-        params: Dict[str, Any],
-        trial: Union[optuna.trial.Trial, None],
-    ) -> Union[List[int], None]:
-        hidden_units = None
-        model_config = params.setdefault("model_config", {})
-        num_layers = model_config.pop("num_layers", None)
-        if num_layers is not None:
-            hidden_units = []
-            if trial is not None:
-                max_layers = num_layers.values[1]
-                num_layers = num_layers.pop(trial)
-                for i in range(num_layers, max_layers):
-                    model_config.pop(f"hidden_unit_{i}", None)
-            for i in range(num_layers):
-                key = f"hidden_unit_{i}"
-                hidden_unit = model_config.pop(key, None)
-                if hidden_unit is None:
-                    raise ValueError(f"'{key}' is not found in `model_config`")
-                if trial is not None:
-                    hidden_unit = hidden_unit.pop(trial)
-                hidden_units.append(hidden_unit)
-            if trial is None:
-                model_config["hidden_units"] = hidden_units
-        return hidden_units
+        return self.optuna_key_mapping.convert(param)
 
 
 def optuna_tune(
@@ -345,31 +447,16 @@ def optuna_tune(
                 "default_encoding_configs": {"init_method": default_init_param},
             },
         }
-    key_mapping = OptunaKeyMapping(params)
 
     if extra_config is None:
         extra_config = {}
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
+
     estimators = tuner.make_estimators(metrics)
+    key_mapping = OptunaKeyMapping(tuner, params)
 
-    def objective(trial: optuna.trial.Trial) -> float:
-        optuna_params = shallow_copy_dict(params)
-        current_params = shallow_copy_dict(tuner.base_params)
-        # handle hidden units
-        model_config = current_params.setdefault("model_config", {})
-        hidden_units = OptunaResult.get_hidden_units(optuna_params, trial)
-        if hidden_units is not None:
-            model_config["hidden_units"] = hidden_units
-        # get other suggestions
-        def _inject_suggestion(d: optuna_params_type, current: dict):
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    _inject_suggestion(v, current.setdefault(k, {}))
-                    continue
-                current[k] = v.pop(trial)
-
-        _inject_suggestion(optuna_params, current_params)
-        # train & estimate
+    def objective(trial: Trial) -> float:
+        current_params = key_mapping.pop(trial)
         args = model, current_params, num_repeat, num_parallel, temp_folder
         patterns = tasks_to_patterns(tuner.train(*args), contains_labels=True)
         comparer = Comparer({model: patterns}, estimators)
@@ -394,7 +481,7 @@ def optuna_tune(
     study = optuna.create_study(**study_config)
     study.optimize(objective, num_trial, timeout, num_jobs)
 
-    return OptunaResult(tuner, study, key_mapping, extra_config)
+    return OptunaResult(tuner, study, key_mapping)
 
 
 __all__ = [

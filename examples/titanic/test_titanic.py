@@ -42,17 +42,11 @@ def _optuna_core(train_file):
         "default_init_method", [None, "truncated_normal"], "categorical"
     )
 
-    def make_hidden_unit_param(i):
-        return cflearn.OptunaParam(f"hidden_unit_{i}", [8, 128], "int", {"log": True})
-
     optuna_params = {
         "optimizer": optim_param,
         "optimizer_config": {"lr": lr_param},
         "model_config": {
-            "num_layers": cflearn.OptunaParam("num_layers", [1, 3], "int"),
-            "hidden_unit_0": make_hidden_unit_param(0),
-            "hidden_unit_1": make_hidden_unit_param(1),
-            "hidden_unit_2": make_hidden_unit_param(2),
+            "[^optuna^][hidden_units]": "mlp_8_128_3_log",
             "default_encoding_configs": {"init_method": default_init_param},
         },
     }
