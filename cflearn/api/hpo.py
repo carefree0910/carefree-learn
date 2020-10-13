@@ -500,6 +500,51 @@ class OptunaResult(NamedTuple):
         return self.optuna_key_mapping.convert(param)
 
 
+class OptunaPresetParams:
+    def __init__(self):
+        lr_param = OptunaParam("lr", [1e-5, 0.1], "float", {"log": True})
+        optim_param = OptunaParam(
+            "optimizer", ["nag", "rmsprop", "adam", "adamw"], "categorical"
+        )
+        default_init_param = OptunaParam(
+            "default_init_method", [None, "truncated_normal"], "categorical"
+        )
+        self.base_params = {
+            "optimizer": optim_param,
+            "optimizer_config": {"lr": lr_param},
+            "model_config": {
+                "default_encoding_configs": {"init_method": default_init_param},
+            },
+        }
+
+    def get(self, model: str) -> optuna_params_type:
+        attr = getattr(self, f"_{model}_preset", None)
+        if attr is None:
+            raise NotImplementedError(f"preset params for '{model}' is not defined")
+        return attr()
+
+    def _fcnn_preset(self) -> optuna_params_type:
+        params = shallow_copy_dict(self.base_params)
+        model_config = params["model_config"]
+        model_config.update(OptunaParamConverter.make_hidden_units("mlp", 8, 2048, 3))
+        mapping_config = {
+            "dropout": OptunaParam("mlp_dropout", [0.0, 0.9], "float"),
+            "batch_norm": OptunaParam("mlp_batch_norm", [False, True], "categorical"),
+        }
+        mapping_config.update(OptunaParamConverter.make_pruner_config("mlp"))
+        model_config["mapping_configs"] = mapping_config
+        model_config["default_encoding_configs"]["embedding_dim"] = OptunaParam(
+            "embedding_dim", [8, "auto"], "categorical"
+        )
+        return params
+
+    def _tree_dnn_preset(self) -> optuna_params_type:
+        params = self._fcnn_preset()
+        model_config = params["model_config"]
+        model_config.update(OptunaParamConverter.make_dndf_config("dndf", 128, 8))
+        return params
+
+
 def optuna_tune(
     x: data_type,
     y: data_type = None,
@@ -522,20 +567,7 @@ def optuna_tune(
     extra_config: Dict[str, Any] = None,
 ) -> OptunaResult:
     if params is None:
-        lr_param = OptunaParam("lr", [1e-5, 0.1], "float", {"log": True})
-        optim_param = OptunaParam(
-            "optimizer", ["sgd", "rmsprop", "adam"], "categorical"
-        )
-        default_init_param = OptunaParam(
-            "default_init_method", [None, "truncated_normal"], "categorical"
-        )
-        params = {
-            "optimizer": optim_param,
-            "optimizer_config": {"lr": lr_param},
-            "model_config": {
-                "default_encoding_configs": {"init_method": default_init_param},
-            },
-        }
+        params = OptunaPresetParams().get(model)
 
     if extra_config is None:
         extra_config = {}
