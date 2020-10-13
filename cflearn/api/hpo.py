@@ -296,6 +296,21 @@ class OptunaParamConverter:
             rs[key] = OptunaParam(f"{prefix}_{key}", [low, high], "int", config)
         return rs
 
+    @staticmethod
+    def _convert_dndf_config(value: Any) -> optuna_params_type:
+        prefix, num_tree, tree_depth = value.split("_")
+        num_tree, tree_depth = map(int, [num_tree, tree_depth])
+        num_tree = max(4, num_tree)
+        tree_depth = max(2, tree_depth)
+        use_dndf_key = f"{prefix}_use_dndf"
+        num_tree_key = f"{prefix}_num_tree"
+        tree_depth_key = f"{prefix}_tree_depth"
+        return {
+            "use_dndf": OptunaParam(use_dndf_key, [True, False], "categorical"),
+            "num_tree": OptunaParam(num_tree_key, [4, num_tree], "int", {"log": True}),
+            "tree_depth": OptunaParam(tree_depth_key, [2, tree_depth], "int"),
+        }
+
     def pop(
         self,
         usage: str,
@@ -332,6 +347,19 @@ class OptunaParamConverter:
             hidden_units.append(hidden_unit)
         return hidden_units
 
+    @staticmethod
+    def _parse_dndf_config(d: Dict[str, Any], trial: Trial) -> Any:
+        use_dndf = d["use_dndf"]
+        if trial is not None:
+            use_dndf = use_dndf.pop(trial)
+        if not use_dndf:
+            return
+        num_tree, tree_depth = d["num_tree"], d["tree_depth"]
+        if trial is not None:
+            num_tree = num_tree.pop(trial)
+            tree_depth = tree_depth.pop(trial)
+        return {"num_tree": num_tree, "tree_depth": tree_depth}
+
     # api
 
     @classmethod
@@ -348,6 +376,17 @@ class OptunaParamConverter:
         value = f"{prefix}_{low}_{high}_{num_layers}_{step}"
         if log:
             value = f"{value}_log"
+        return {key: value}
+
+    @classmethod
+    def make_dndf_config(
+        cls,
+        prefix: str,
+        num_tree: int,
+        tree_depth: int,
+    ) -> Dict[str, str]:
+        key = f"{cls.prefix}[dndf_config]"
+        value = f"{prefix}_{num_tree}_{tree_depth}"
         return {key: value}
 
 
