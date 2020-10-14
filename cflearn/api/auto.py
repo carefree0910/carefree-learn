@@ -61,7 +61,7 @@ class Auto:
 
     # api
 
-    def optimize(
+    def fit(
         self,
         x: data_type,
         y: data_type = None,
