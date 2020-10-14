@@ -14,7 +14,8 @@ from .hpo import optuna_tune
 
 
 class Auto:
-    def __init__(self, task_type: TaskTypes):
+    def __init__(self, task_type: TaskTypes, *, model: str = "fcnn"):
+        self.model = model
         self.task_type = task_type
 
     @property
@@ -57,7 +58,6 @@ class Auto:
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        model: str = "fcnn",
         study_config: Dict[str, Any] = None,
         metrics: Union[str, List[str]] = None,
         num_jobs: int = 4,
@@ -72,6 +72,7 @@ class Auto:
         num_final_repeat: int = 10,
         bagging_config: Dict[str, Any] = None,
     ) -> "Auto":
+        model = self.model
         optuna_temp_folder = os.path.join(temp_folder, "__optuna__")
         self.optuna_result = optuna_tune(
             x,
