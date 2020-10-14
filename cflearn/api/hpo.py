@@ -146,6 +146,21 @@ class HPOResult(NamedTuple):
         return update_dict(param, shallow_copy_dict(self.extra_config))
 
 
+def _init_extra_config(
+    metrics: Union[str, List[str]] = None,
+    score_weights: Union[Dict[str, float], None] = None,
+    extra_config: Dict[str, Any] = None,
+) -> Dict[str, Any]:
+    new = extra_config or {}
+    new.setdefault("use_timing_context", False)
+    if metrics is not None:
+        metric_config = new.setdefault("metric_config", {})
+        metric_config["types"] = metrics
+        if score_weights is not None:
+            metric_config["weights"] = score_weights
+    return new
+
+
 def tune_with(
     x: data_type,
     y: data_type = None,
@@ -175,9 +190,7 @@ def tune_with(
         )
         shutil.rmtree(temp_folder)
 
-    if extra_config is None:
-        extra_config = {}
-    extra_config.setdefault("use_timing_context", False)
+    extra_config = _init_extra_config(metrics, score_weights, extra_config)
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
@@ -594,9 +607,7 @@ def optuna_tune(
     if params is None:
         params = OptunaPresetParams().get(model)
 
-    if extra_config is None:
-        extra_config = {}
-    extra_config.setdefault("use_timing_context", False)
+    extra_config = _init_extra_config(metrics, score_weights, extra_config)
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
 
     estimators = tuner.make_estimators(metrics)
