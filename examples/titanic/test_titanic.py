@@ -1,5 +1,5 @@
 # This is a solution for https://www.kaggle.com/c/titanic
-# Uncomment the `model_config` parts can achieve better performances!
+# Set `CI = False` can achieve better performances!
 
 import os
 import cflearn
@@ -9,9 +9,13 @@ from cfdata.tabular import *
 model = "fcnn"
 file_folder = os.path.dirname(__file__)
 
+CI = True
+
 
 def _hpo_core(train_file):
     extra_config = {"data_config": {"label_name": "Survived"}}
+    if CI:
+        extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     hpo_temp_folder = "__test_titanic_hpo__"
     result = cflearn.tune_with(
         train_file,
@@ -20,14 +24,15 @@ def _hpo_core(train_file):
         task_type=TaskTypes.CLASSIFICATION,
         extra_config=extra_config,
         num_parallel=0,
-        num_search=5,
+        num_repeat=2 if CI else 5,
+        num_search=5 if CI else 10,
     )
     results = cflearn.repeat_with(
         train_file,
         **result.best_param,
         models=model,
         temp_folder=os.path.join(hpo_temp_folder, "__repeat__"),
-        num_repeat=2,
+        num_repeat=2 if CI else 10,
         num_jobs=0,
     )
     ensemble = cflearn.ensemble(results.patterns[model])
@@ -36,23 +41,25 @@ def _hpo_core(train_file):
 
 def _optuna_core(train_file):
     extra_config = {"data_config": {"label_name": "Survived"}}
+    if CI:
+        extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     opt = cflearn.Opt(TaskTypes.CLASSIFICATION).optimize(
         train_file,
         model=model,
         temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
-        num_final_repeat=2,
-        num_trial=4,
+        num_final_repeat=2 if CI else 10,
+        num_repeat=2 if CI else 5,
+        num_trial=4 if CI else 100,
         num_jobs=2,
     )
     return opt.data, opt.pattern
 
 
 def _adaboost_core(train_file):
-    config = {
-        "data_config": {"label_name": "Survived"},
-        # "model_config": {"default_encoding_configs": {"init_method": None}},
-    }
+    config = {"data_config": {"label_name": "Survived"}}
+    if CI:
+        config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     ensemble = cflearn.Ensemble(TaskTypes.CLASSIFICATION, config)
     results = ensemble.adaboost(train_file, model=model)
     return results.data, results.pattern

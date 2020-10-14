@@ -7,8 +7,10 @@ import numpy as np
 from cfdata.tabular import *
 from datetime import datetime, timedelta
 
+CI = True
+
 num_case = 10
-num_sample = 10000
+num_sample = 100 if CI else 10000
 num_history = 5
 sf_name = f"sum_{num_history}"
 pf_name = f"prod_{num_history}"
@@ -17,6 +19,8 @@ sf_file = os.path.join(file_folder, f"{sf_name}.csv")
 pf_file = os.path.join(file_folder, f"{pf_name}.csv")
 sf_te_file = os.path.join(file_folder, f"{sf_name}_te.csv")
 pf_te_file = os.path.join(file_folder, f"{pf_name}_te.csv")
+
+kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
 
 
 def make_datasets():
@@ -81,6 +85,7 @@ def test_ops():
                     "input_linear_config": {"latent_dim": 32},
                 },
             },
+            **kwargs,
         )
 
         tr_file = os.path.join(file_folder, f"{task}.csv")
