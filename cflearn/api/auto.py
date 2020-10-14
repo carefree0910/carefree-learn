@@ -18,6 +18,11 @@ class Auto:
         self.model = model
         self.task_type = task_type
 
+    def __str__(self):
+        return f"Auto_{self.model}({self.task_type})"
+
+    __repr__ = __str__
+
     @property
     def study(self) -> optuna.study.Study:
         return self.optuna_result.study
