@@ -104,7 +104,9 @@ class _Tuner:
         num_repeat: int,
         num_parallel: int,
         temp_folder: str,
-    ) -> Union[List[Task], Wrapper]:
+        *,
+        sequential: bool = False,
+    ) -> Union[List[Union[Task, Wrapper]], Wrapper]:
         identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
         params["verbose_level"] = 0
@@ -116,9 +118,17 @@ class _Tuner:
             x, x_cv = self.x.copy(), self.x_cv.copy()
             y = self.y.copy()
             y_cv = None if self.y_cv is None else self.y_cv.copy()
-        if num_repeat <= 1:
-            params["logging_folder"] = temp_folder
-            return make(model, **params).fit(x, y, x_cv, y_cv)
+        if num_repeat <= 1 or sequential:
+            get = lambda params_: make(model, **params_).fit(x, y, x_cv, y_cv)
+            if num_repeat <= 1:
+                params["logging_folder"] = temp_folder
+                return get(params)
+            wrappers = []
+            for i in range(num_repeat):
+                local_params = shallow_copy_dict(params)
+                local_params["logging_folder"] = os.path.join(temp_folder, str(i))
+                wrappers.append(get(local_params))
+            return wrappers
         results = repeat_with(
             x,
             y,
@@ -596,7 +606,7 @@ def optuna_tune(
     metrics: Union[str, List[str]] = None,
     num_jobs: int = 4,
     num_trial: int = 50,
-    num_repeat: int = 1,
+    num_repeat: int = 5,
     num_parallel: int = 0,
     timeout: float = None,
     score_weights: Union[Dict[str, float], None] = None,
@@ -614,11 +624,11 @@ def optuna_tune(
     key_mapping = OptunaKeyMapping(tuner, params)
 
     def objective(trial: Trial) -> float:
+        temp_folder_ = os.path.join(temp_folder, str(trial.number))
         current_params = key_mapping.pop(trial)
         current_params["trial"] = trial
+        args = model, current_params, num_repeat, num_parallel, temp_folder_
         if num_repeat <= 1:
-            temp_folder_ = os.path.join(temp_folder, str(trial.number))
-            args = model, current_params, num_repeat, num_parallel, temp_folder_
             m = tuner.train(*args)
             comparer = estimate(
                 tuner.x_cv,
@@ -629,8 +639,8 @@ def optuna_tune(
                 comparer_verbose_level=6,
             )
         else:
-            args = model, current_params, num_repeat, num_parallel, temp_folder
-            patterns = tasks_to_patterns(tuner.train(*args), contains_labels=True)
+            wrappers = tuner.train(*args, sequential=True)
+            patterns = [m.to_pattern(contains_labels=True) for m in wrappers]
             comparer = Comparer({model: patterns}, estimators)
             comparer.compare(
                 tuner.x_cv,
@@ -701,7 +711,7 @@ class Opt:
         metrics: Union[str, List[str]] = None,
         num_jobs: int = 4,
         num_trial: int = 50,
-        num_repeat: int = 1,
+        num_repeat: int = 5,
         num_parallel: int = 0,
         timeout: float = None,
         score_weights: Union[Dict[str, float], None] = None,
