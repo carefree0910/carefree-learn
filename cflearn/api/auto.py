@@ -145,10 +145,12 @@ class Auto:
         self,
         evaluator: BaseImportanceEvaluator = None,
         params: List[str] = None,
-        html_path: str = "param_importances.html",
+        export_folder: str = None,
     ) -> Figure:
         fig = vis.plot_param_importances(self.study, evaluator, params)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "param_importances.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
@@ -156,10 +158,12 @@ class Auto:
     def plot_contour(
         self,
         params: List[str] = None,
-        html_path: str = "contour.html",
+        export_folder: str = None,
     ) -> Figure:
         fig = vis.plot_contour(self.study, params)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "contour.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
@@ -167,10 +171,12 @@ class Auto:
     def plot_parallel_coordinate(
         self,
         params: List[str] = None,
-        html_path: str = "parallel_coordinate.html",
+        export_folder: str = None,
     ) -> Figure:
         fig = vis.plot_parallel_coordinate(self.study, params)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "parallel_coordinate.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
@@ -178,37 +184,45 @@ class Auto:
     def plot_slice(
         self,
         params: List[str] = None,
-        html_path: str = "slice.html",
+        export_folder: str = None,
     ) -> Figure:
         fig = vis.plot_slice(self.study, params)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "slice.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
 
     def plot_optimization_history(
         self,
-        html_path: str = "optimization_history.html",
+        export_folder: str = None,
     ) -> Figure:
         fig = vis.plot_optimization_history(self.study)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "optimization_history.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
 
     def plot_intermediate_values(
         self,
-        html_path: str = "intermediate_values.html",
+        export_folder: str = None,
     ) -> Figure:
         fig = vis.plot_intermediate_values(self.study)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "intermediate_values.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
 
-    def plot_edf(self, html_path: str = "edf.html") -> Figure:
+    def plot_edf(self, export_folder: str = None) -> Figure:
         fig = vis.plot_edf(self.study)
-        if html_path is not None:
+        if export_folder is not None:
+            os.makedirs(export_folder, exist_ok=True)
+            html_path = os.path.join(export_folder, "edf.html")
             with open(html_path, "w") as f:
                 f.write(fig.to_html())
         return fig
