@@ -2,10 +2,13 @@ import os
 import optuna
 
 import numpy as np
+import optuna.visualization as vis
 
 from typing import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
+from optuna.importance import BaseImportanceEvaluator
+from plotly.graph_objects import Figure
 
 from .basic import *
 from .ensemble import *
@@ -55,6 +58,8 @@ class Auto:
         new_file = f"{path}_^merged^{ext}"
         with open(new_file, "w") as f:
             f.write("".join(x_merged_lines))
+
+    # api
 
     def optimize(
         self,
@@ -133,6 +138,80 @@ class Auto:
             self.pattern = ensemble(self.repeat_result.patterns[model])
             self.data = self.repeat_result.data
         return self
+
+    # visualization
+
+    def plot_param_importances(
+        self,
+        evaluator: BaseImportanceEvaluator = None,
+        params: List[str] = None,
+        html_path: str = "param_importances.html",
+    ) -> Figure:
+        fig = vis.plot_param_importances(self.study, evaluator, params)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
+
+    def plot_contour(
+        self,
+        params: List[str] = None,
+        html_path: str = "contour.html",
+    ) -> Figure:
+        fig = vis.plot_contour(self.study, params)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
+
+    def plot_parallel_coordinate(
+        self,
+        params: List[str] = None,
+        html_path: str = "parallel_coordinate.html",
+    ) -> Figure:
+        fig = vis.plot_parallel_coordinate(self.study, params)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
+
+    def plot_slice(
+        self,
+        params: List[str] = None,
+        html_path: str = "slice.html",
+    ) -> Figure:
+        fig = vis.plot_slice(self.study, params)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
+
+    def plot_optimization_history(
+        self,
+        html_path: str = "optimization_history.html",
+    ) -> Figure:
+        fig = vis.plot_optimization_history(self.study)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
+
+    def plot_intermediate_values(
+        self,
+        html_path: str = "intermediate_values.html",
+    ) -> Figure:
+        fig = vis.plot_intermediate_values(self.study)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
+
+    def plot_edf(self, html_path: str = "edf.html") -> Figure:
+        fig = vis.plot_edf(self.study)
+        if html_path is not None:
+            with open(html_path, "w") as f:
+                f.write(fig.to_html())
+        return fig
 
 
 __all__ = ["Auto"]
