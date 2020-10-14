@@ -80,9 +80,8 @@ class TestOpenML(unittest.TestCase):
                 run_tasks=True,
                 num_jobs=self.num_jobs,
             )
-            TestOpenML.messages[task_name] = results.comparer.log_statistics(
-                verbose_level=None
-            )
+            msg = results.comparer.log_statistics(verbose_level=None)
+            TestOpenML.messages[task_name] = msg
             benchmark.save(self._get_benchmark_saving_folder(task_name))
             best_methods = list(set(results.best_methods.values()))
             comparer_list.append(results.comparer.select(best_methods))

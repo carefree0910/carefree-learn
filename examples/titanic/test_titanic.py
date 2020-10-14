@@ -45,7 +45,6 @@ def _optuna_core(train_file):
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     opt = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(
         train_file,
-        model=model,
         temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
         num_final_repeat=2 if CI else 10,

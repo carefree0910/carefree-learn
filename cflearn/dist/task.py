@@ -83,10 +83,10 @@ class Task:
         *,
         from_data_folder: bool = False,
     ) -> Tuple[data_type, data_type]:
-        assert self.config is not None
         if not from_data_folder:
             data_folder: Optional[str] = self.saving_folder
         else:
+            assert self.config is not None
             data_folder = self.config.get("data_folder")
             if data_folder is None:
                 raise ValueError("data_folder is not prepared")
