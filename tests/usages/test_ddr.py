@@ -9,7 +9,7 @@ from cflearn.models.ddr import DDRVisualizer
 
 
 def test():
-    power: int = 2  # Set to 5 will get much better results, but will also be very time consuming.
+    power: int = 2
     num_jobs: int = 1
     verbose_level: int = 2
     anchor_ratios = quantiles = [0.1, 0.3, 0.5, 0.7, 0.9]
@@ -23,6 +23,9 @@ def test():
         "verbose_level": verbose_level,
         "num_snapshot_per_epoch": 10,
         "batch_size": 128,
+        "min_epoch": 1,
+        "num_epoch": 2,
+        "max_epoch": 4,
     }
 
     info_dict = {}

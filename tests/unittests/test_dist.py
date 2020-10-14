@@ -6,14 +6,17 @@ import numpy as np
 from cfdata.tabular import *
 
 
+kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
+
+
 class TestDist(unittest.TestCase):
     def test_experiments(self):
         x, y = TabularDataset.iris().xy
         experiments = cflearn.Experiments("__test_experiments__")
-        experiments.add_task(x, y, model="fcnn")
-        experiments.add_task(x, y, model="fcnn")
-        experiments.add_task(x, y, model="tree_dnn")
-        experiments.add_task(x, y, model="tree_dnn")
+        experiments.add_task(x, y, model="fcnn", **kwargs)
+        experiments.add_task(x, y, model="fcnn", **kwargs)
+        experiments.add_task(x, y, model="tree_dnn", **kwargs)
+        experiments.add_task(x, y, model="tree_dnn", **kwargs)
         experiments.run_tasks(num_jobs=2)
         ms = cflearn.transform_experiments(experiments)
         saving_folder = "__test_experiments_save__"
@@ -31,14 +34,14 @@ class TestDist(unittest.TestCase):
             TaskTypes.CLASSIFICATION,
             models=["fcnn", "tree_dnn"],
             temp_folder="__test_benchmark__",
+            increment_config=kwargs.copy(),
         )
         benchmarks = {
             "fcnn": {"default": {}, "sgd": {"optimizer": "sgd"}},
             "tree_dnn": {"default": {}, "adamw": {"optimizer": "adamw"}},
         }
-        msg1 = benchmark.k_fold(
-            3, x, y, num_jobs=2, benchmarks=benchmarks
-        ).comparer.log_statistics()
+        results = benchmark.k_fold(3, x, y, num_jobs=2, benchmarks=benchmarks)
+        msg1 = results.comparer.log_statistics()
         saving_folder = "__test_benchmark_save__"
         benchmark.save(saving_folder)
         loaded_benchmark, loaded_results = cflearn.Benchmark.load(saving_folder)

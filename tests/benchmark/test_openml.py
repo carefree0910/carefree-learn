@@ -67,7 +67,10 @@ class TestOpenML(unittest.TestCase):
                 models=["fcnn", "tree_dnn"],
                 temp_folder=f"__test_openml_{openml_id}__",
                 increment_config={
-                    "data_config": {"categorical_columns": categorical_columns}
+                    "min_epoch": 1,
+                    "num_epoch": 2,
+                    "max_epoch": 4,
+                    "data_config": {"categorical_columns": categorical_columns},
                 },
             )
             results = benchmark.k_random(

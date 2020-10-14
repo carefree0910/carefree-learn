@@ -8,7 +8,15 @@ from cfdata.tabular import TabularDataset
 def test_onnx():
     def _core(dataset):
         x, y = dataset.xy
-        m = cflearn.make(model, verbose_level=0, use_tqdm=False).fit(x, y)
+        m = cflearn.make(
+            model,
+            verbose_level=0,
+            use_tqdm=False,
+            min_epoch=1,
+            num_epoch=2,
+            max_epoch=4,
+        )
+        m.fit(x, y)
         predictions = m.predict(x)
         cflearn.ONNX(m).to_onnx("m.onnx").inject_onnx()
         assert np.allclose(predictions, m.predict(x), atol=1e-4, rtol=1e-4)

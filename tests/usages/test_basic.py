@@ -12,6 +12,8 @@ tr_file, cv_file, te_file = map(
     os.path.join, 3 * [data_folder], ["train.txt", "valid.txt", "test.txt"]
 )
 
+kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
+
 
 def test_array_dataset():
     model = "fcnn"
@@ -21,9 +23,6 @@ def test_array_dataset():
         cv_split=0.0,
         use_amp=True,
         data_config={"numerical_columns": list(range(dataset.x.shape[1]))},
-        min_epoch=100,
-        num_epoch=200,
-        max_epoch=400,
         optimizer="adam",
         optimizer_config={"lr": 3e-4},
         metrics=["acc", "auc"],
@@ -32,6 +31,7 @@ def test_array_dataset():
             "default_encoding_method": "one_hot",
             "mapping_configs": {"batch_norm": True, "dropout": 0.0},
         },
+        **kwargs,
     )
     m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
     cflearn.estimate(*dataset.xy, wrappers=m)
@@ -41,8 +41,8 @@ def test_array_dataset():
 
 
 def test_file_dataset():
-    fcnn = cflearn.make()
-    tree_dnn = cflearn.make("tree_dnn")
+    fcnn = cflearn.make(**kwargs)
+    tree_dnn = cflearn.make("tree_dnn", **kwargs)
     fcnn.fit(tr_file, x_cv=cv_file)
     tree_dnn.fit(tr_file, x_cv=cv_file)
     wrappers = [fcnn, tree_dnn]
@@ -67,6 +67,7 @@ def test_file_dataset():
             num_repeat=num_repeat,
             num_jobs=num_jobs,
             temp_folder="__test_file_dataset__",
+            **kwargs,
         )
     (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(
         results.data.read_file, [tr_file, cv_file, te_file]
@@ -86,21 +87,6 @@ def test_file_dataset():
     cflearn.estimate(te_x, te_y, wrappers=wrappers, other_patterns=other_patterns)
 
 
-def test_hpo():
-    for num_parallel in [0, 2]:
-        cflearn.tune_with(
-            tr_file,
-            x_cv=cv_file,
-            model="linear",
-            temp_folder="__test_hpo__",
-            task_type=TaskTypes.CLASSIFICATION,
-            num_repeat=2,
-            num_parallel=num_parallel,
-            num_search=10,
-        )
-
-
 if __name__ == "__main__":
     test_array_dataset()
     test_file_dataset()
-    test_hpo()

@@ -82,6 +82,9 @@ def make_toy_model(
 ) -> Wrapper:
     if config is None:
         config = {}
+    config.setdefault("min_epoch", 1)
+    config.setdefault("num_epoch", 2)
+    config.setdefault("max_epoch", 4)
     if data_tuple is None:
         if task_type == "reg":
             data_tuple = [[0]], [[1]]

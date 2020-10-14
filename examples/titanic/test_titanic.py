@@ -20,13 +20,14 @@ def _hpo_core(train_file):
         task_type=TaskTypes.CLASSIFICATION,
         extra_config=extra_config,
         num_parallel=0,
+        num_search=5,
     )
     results = cflearn.repeat_with(
         train_file,
         **result.best_param,
         models=model,
         temp_folder=os.path.join(hpo_temp_folder, "__repeat__"),
-        num_repeat=10,
+        num_repeat=2,
         num_jobs=0,
     )
     ensemble = cflearn.ensemble(results.patterns[model])
@@ -40,7 +41,8 @@ def _optuna_core(train_file):
         model=model,
         temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
-        num_trial=10,
+        num_final_repeat=2,
+        num_trial=4,
         num_jobs=2,
     )
     return opt.data, opt.pattern
