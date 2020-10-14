@@ -670,6 +670,10 @@ class Opt:
     def __init__(self, task_type: TaskTypes):
         self.task_type = task_type
 
+    @property
+    def study(self) -> optuna.study.Study:
+        return self.optuna_result.study
+
     def _merge_data(
         self,
         x: data_type,
