@@ -13,6 +13,7 @@ setup(
         "onnx",
         "onnxruntime",
         "optuna",
+        "plotly",
         "trains",
         "carefree-ml>=0.1.0",
         "carefree-data>=0.2.0rc.2",
