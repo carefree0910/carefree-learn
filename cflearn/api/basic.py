@@ -4,6 +4,7 @@ from typing import *
 from cftool.misc import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
+from optuna.trial import Trial
 
 from ..dist import *
 from ..bases import *
@@ -41,6 +42,7 @@ def make(
     logging_file: str = None,
     logging_folder: str = None,
     trigger_logging: bool = None,
+    trial: Trial = None,
     tracker_config: Dict[str, Any] = None,
     cuda: Union[int, str] = None,
     verbose_level: int = 2,
@@ -144,6 +146,7 @@ def make(
     return Wrapper(
         kwargs,
         cuda=cuda,
+        trial=trial,
         tracker_config=tracker_config,
         verbose_level=verbose_level,
     )

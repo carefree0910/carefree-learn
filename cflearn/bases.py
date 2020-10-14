@@ -1,6 +1,7 @@
 import os
 import json
 import torch
+import optuna
 import pprint
 import shutil
 import inspect
@@ -290,12 +291,14 @@ class Pipeline(nn.Module, LoggingMixin):
     def __init__(
         self,
         model: ModelBase,
+        trial: optuna.trial.Trial,
         tracker: Tracker,
         config: Dict[str, Any],
         verbose_level: int,
         is_loading: bool,
     ):
         super().__init__()
+        self.trial = trial
         self.tracker = tracker
         self._init_config(config, is_loading)
         self.model = model
@@ -624,6 +627,10 @@ class Pipeline(nn.Module, LoggingMixin):
     def _monitor_step(self):
         if self._step_count % self.num_step_per_snapshot == 0:
             score, metrics = self._get_metrics()
+            if self.trial is not None:
+                self.trial.report(score, step=self._step_count)
+                if self.trial.should_prune():
+                    raise optuna.TrialPruned()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
                     self.log_msg("start monitoring plateau", self.info_prefix, 2)
@@ -942,10 +949,12 @@ class Wrapper(LoggingMixin):
         config: Union[str, Dict[str, Any]] = None,
         *,
         increment_config: Union[str, Dict[str, Any]] = None,
+        trial: optuna.trial.Trial = None,
         tracker_config: Dict[str, Any] = None,
         cuda: Union[str, int] = None,
         verbose_level: int = 2,
     ):
+        self.trial = trial
         self.tracker = None if tracker_config is None else Tracker(**tracker_config)
         self._verbose_level = int(verbose_level)
         if cuda == "cpu":
@@ -1024,7 +1033,12 @@ class Wrapper(LoggingMixin):
         # pipeline
         with timing_context(self, "init pipeline", enable=self.timing):
             self.pipeline = Pipeline(
-                self.model, self.tracker, self.config, self._verbose_level, is_loading
+                self.model,
+                self.trial,
+                self.tracker,
+                self.config,
+                self._verbose_level,
+                is_loading,
             )
         # to device
         with timing_context(self, "init device", enable=self.timing):

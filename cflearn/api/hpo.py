@@ -615,6 +615,7 @@ def optuna_tune(
 
     def objective(trial: Trial) -> float:
         current_params = key_mapping.pop(trial)
+        current_params["trial"] = trial
         if num_repeat <= 1:
             temp_folder_ = os.path.join(temp_folder, str(trial.number))
             args = model, current_params, num_repeat, num_parallel, temp_folder_
