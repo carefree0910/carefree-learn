@@ -12,6 +12,7 @@ __all__ = [
     "optuna_tune",
     "OptunaParam",
     "OptunaParamConverter",
+    "OptunaPresetParams",
     "Opt",
     # zoo
     "ZooBase",
