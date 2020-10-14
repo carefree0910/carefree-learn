@@ -63,6 +63,7 @@ class Experiments(LoggingMixin):
                 id_data_tasks += [None] * (data_task.idx + 1 - len(id_data_tasks))
             id_data_tasks[data_task.idx] = data_task
         kwargs.setdefault("use_tqdm", False)
+        kwargs.setdefault("verbose_level", 0)
         kwargs["trains_config"] = trains_config
         kwargs["tracker_config"] = tracker_config
         current_tasks = self.tasks.setdefault(identifier, [])
