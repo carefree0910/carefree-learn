@@ -619,8 +619,6 @@ def optuna_tune(
 
     extra_config = _init_extra_config(metrics, score_weights, extra_config)
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
-
-    estimators = tuner.make_estimators(metrics)
     key_mapping = OptunaKeyMapping(tuner, params)
 
     def objective(trial: Trial) -> float:
@@ -639,6 +637,7 @@ def optuna_tune(
                 comparer_verbose_level=6,
             )
         else:
+            estimators = tuner.make_estimators(metrics)
             wrappers = tuner.train(*args, sequential=True)
             patterns = [m.to_pattern(contains_labels=True) for m in wrappers]
             comparer = Comparer({model: patterns}, estimators)
