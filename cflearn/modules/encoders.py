@@ -5,8 +5,8 @@ import logging
 import torch.nn as nn
 
 from typing import *
-from cftool.misc import *
 from abc import ABCMeta, abstractmethod
+from cftool.misc import LoggingMixin, register_core
 
 from ..misc.toolkit import tensor_dict_type, Initializer
 
@@ -24,7 +24,7 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.idx, self.num_values = idx, num_values
         self._init_config(config)
 
-    def _init_config(self, config: Dict[str, Any]):
+    def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
 
     @property
@@ -54,10 +54,10 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return self._core(selected)
 
     @classmethod
-    def register(cls, name: str):
+    def register(cls, name: str) -> Callable[[Type], Type]:
         global encoder_dict
 
-        def before(cls_):
+        def before(cls_: Type) -> None:
             cls_.__identifier__ = name
 
         return register_core(name, encoder_dict, before_register=before)
@@ -88,7 +88,7 @@ class Embedding(EncoderBase):
             embedding_initializer = Initializer(self._init_config_)
             embedding_initializer.initialize(self.embedding.weight, self._init_method)
 
-    def _init_config(self, config: Dict[str, Any]):
+    def _init_config(self, config: Dict[str, Any]) -> None:
         super()._init_config(config)
         self._init_method = self.config.setdefault("init_method", "truncated_normal")
         self._init_config_ = self.config.setdefault(
@@ -117,16 +117,16 @@ class Embedding(EncoderBase):
 
 
 class EncoderStack(nn.Module, LoggingMixin):
-    def __init__(self, *encoders):
+    def __init__(self, *encoders: EncoderBase):
         super().__init__()
-        encoders_ = {}
+        encoders_: Dict[str, EncoderBase] = {}
         for encoder in encoders:
             key = encoder.__identifier__
             if key in encoders_:
                 raise ValueError(f"'{key}' encoder is already stacked")
             encoders_[key] = encoder
         self.encoders = nn.ModuleDict(encoders_)
-        self.sorted_keys = sorted(encoders_)
+        self.sorted_keys = sorted(encoders_.keys())
 
     @property
     def dim(self) -> int:

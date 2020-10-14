@@ -1,11 +1,13 @@
 import torch
-from torch.optim.optimizer import Optimizer, required
+
+from typing import *
+from torch.optim.optimizer import Optimizer
 
 optimizer_dict = {}
 
 
-def register_optimizer(name):
-    def _register(cls_):
+def register_optimizer(name: str) -> Callable[[Type], Type]:
+    def _register(cls_: Type) -> Type:
         global optimizer_dict
         optimizer_dict[name] = cls_
         return cls_
@@ -21,11 +23,17 @@ register_optimizer("rmsprop")(torch.optim.RMSprop)
 
 @register_optimizer("nag")
 class NAG(Optimizer):
-    def __init__(self, params, lr=required, momentum=0, weight_decay=0):
+    def __init__(
+        self,
+        params: Iterable[torch.Tensor],
+        lr: float,
+        momentum: float = 0.0,
+        weight_decay: float = 0.0,
+    ):
         defaults = dict(lr=lr, lr_old=lr, momentum=momentum, weight_decay=weight_decay)
         super().__init__(params, defaults)
 
-    def step(self, closure=None):
+    def step(self, closure: Optional[Callable] = None) -> Optional[Any]:
         loss = None
         if closure is not None:
             loss = closure()

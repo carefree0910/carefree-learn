@@ -3,17 +3,21 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from typing import Union
 from cftool.misc import show_or_save
+
+from ...bases import Wrapper
+from ...misc.toolkit import data_type
 
 
 class DDRPredictor:
-    def __init__(self, ddr):
+    def __init__(self, ddr: Wrapper):
         self.m = ddr
 
-    def mr(self, x):
+    def mr(self, x: data_type):
         return self.m.predict(x, predict_median_residual=True, return_all=True)
 
-    def cdf(self, x, y, *, get_pdf: bool = False):
+    def cdf(self, x: data_type, y: data_type, *, get_pdf: bool = False):
         predictions = self.m.predict(
             x,
             y=y,
@@ -27,18 +31,26 @@ class DDRPredictor:
             return predictions
         return predictions["cdf"]
 
-    def quantile(self, x, q):
+    def quantile(self, x: data_type, q: float):
         predictions = self.m.predict(x, q=q, predict_quantile=True, return_all=True)
         return predictions["quantile"]
 
 
 class DDRVisualizer:
-    def __init__(self, ddr):
+    def __init__(self, ddr: Wrapper):
         self.m = ddr
         self.predictor = DDRPredictor(ddr)
 
     @staticmethod
-    def _prepare_base_figure(x, y, x_base, mean, median, indices, title):
+    def _prepare_base_figure(
+        x: np.ndarray,
+        y: np.ndarray,
+        x_base: np.ndarray,
+        mean: Union[np.ndarray, None],
+        median: np.ndarray,
+        indices: np.ndarray,
+        title: str,
+    ):
         figure = plt.figure()
         plt.title(title)
         plt.scatter(x[indices], y[indices], color="gray", s=15)
@@ -48,20 +60,26 @@ class DDRVisualizer:
         return figure
 
     @staticmethod
-    def _render_figure(x_min, x_max, y_min, y_max, y_padding):
+    def _render_figure(
+        x_min: np.ndarray,
+        x_max: np.ndarray,
+        y_min: float,
+        y_max: float,
+        y_padding: float,
+    ):
         plt.xlim(x_min, x_max)
         plt.ylim(y_min - 0.5 * y_padding, y_max + 0.5 * y_padding)
         plt.legend()
 
     def visualize(
         self,
-        x,
-        y,
-        export_path,
+        x: np.ndarray,
+        y: np.ndarray,
+        export_path: str,
         *,
-        residual=False,
-        quantiles=None,
-        anchor_ratios=None,
+        residual: bool = False,
+        quantiles: np.ndarray = None,
+        anchor_ratios: np.ndarray = None,
         **kwargs,
     ):
         x_min, x_max = np.min(x), np.max(x)
@@ -119,14 +137,14 @@ class DDRVisualizer:
 
     def visualize_multiple(
         self,
-        x,
-        y,
-        x_base,
-        y_matrix,
-        export_folder,
+        x: np.ndarray,
+        y: np.ndarray,
+        x_base: np.ndarray,
+        y_matrix: np.ndarray,
+        export_folder: str,
         *,
-        quantiles=None,
-        anchor_ratios=None,
+        quantiles: np.ndarray = None,
+        anchor_ratios: np.ndarray = None,
     ):
         y_min, y_max = y.min(), y.max()
         y_diff = y_max - y_min

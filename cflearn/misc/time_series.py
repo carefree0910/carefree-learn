@@ -11,12 +11,14 @@ class TSLabelCollator:
     def __init__(
         self,
         data: TabularData,
-        config: Dict[str, Any] = None,
+        config: Optional[Dict[str, Any]] = None,
     ):
         self.data = data
+        if config is None:
+            config = {}
         self._init_config(config)
 
-    def _init_config(self, config: Dict[str, Any]):
+    def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
         self._method = config.setdefault("method", "average")
         if self._method == "average":

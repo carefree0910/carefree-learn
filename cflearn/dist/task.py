@@ -5,7 +5,7 @@ import platform
 import numpy as np
 
 from typing import *
-from cftool.misc import *
+from cftool.misc import Saving, shallow_copy_dict
 
 from ..misc.toolkit import data_type
 
@@ -18,9 +18,9 @@ class Task:
         self.model = model
         self.identifier = identifier
         self.temp_folder = temp_folder
-        self.config = None
+        self.config: Optional[Dict[str, Any]] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Task({self.identifier}_{self.idx})"
 
     __repr__ = __str__
@@ -48,7 +48,7 @@ class Task:
         data_task: "Task" = None,
         trains_config: Dict[str, Any] = None,
         tracker_config: Dict[str, Any] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "Task":
         kwargs["model"] = self.model
         kwargs["logging_folder"] = self.saving_folder
@@ -83,13 +83,15 @@ class Task:
         *,
         from_data_folder: bool = False,
     ) -> Tuple[data_type, data_type]:
+        assert self.config is not None
         if not from_data_folder:
-            data_folder = self.saving_folder
+            data_folder: Optional[str] = self.saving_folder
         else:
             data_folder = self.config.get("data_folder")
             if data_folder is None:
                 raise ValueError("data_folder is not prepared")
         data = []
+        data_folder = str(data_folder)
         for key in [f"x{postfix}", f"y{postfix}"]:
             file = os.path.join(data_folder, f"{key}.npy")
             data.append(None if not os.path.isfile(file) else np.load(file))
@@ -110,8 +112,8 @@ class Task:
 
     def fit(
         self,
-        make: callable,
-        save: callable,
+        make: Callable,
+        save: Callable,
         x: data_type,
         y: data_type = None,
         x_cv: data_type = None,
@@ -120,10 +122,11 @@ class Task:
         sample_weights: np.ndarray = None,
         prepare: bool = True,
         cuda: int = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "Task":
         if prepare:
             self.prepare(x, y, x_cv, y_cv, external=False, **kwargs)
+        assert self.config is not None
         m = make(cuda=cuda, **self.config)
         m.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
         save(m, saving_folder=self.saving_folder)
@@ -157,7 +160,7 @@ class Task:
     # special
 
     @classmethod
-    def data_task(cls, i: int, identifier: str, experiments) -> "Task":
+    def data_task(cls, i: int, identifier: str, experiments: Any) -> "Task":
         return cls(i, "data", identifier, experiments.temp_folder)
 
 

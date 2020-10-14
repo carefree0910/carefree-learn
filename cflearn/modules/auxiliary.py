@@ -9,7 +9,7 @@ from ..misc.toolkit import tensor_dict_type
 
 
 class BN(nn.BatchNorm1d):
-    def forward(self, net):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         if len(net.shape) == 3:
             net = net.transpose(1, 2)
         net = super().forward(net)
@@ -24,10 +24,10 @@ class Dropout(nn.Module):
             msg = f"dropout probability has to be between 0 and 1, but got {dropout}"
             raise ValueError(msg)
         super().__init__()
-        self._mask_cache = None
         self._keep_prob = 1.0 - dropout
+        self._mask_cache: Optional[torch.Tensor] = None
 
-    def forward(self, net, *, reuse: bool = False):
+    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
         if not self.training:
             return net
         if reuse:
@@ -58,13 +58,13 @@ class EMA(nn.Module):
             self.register_buffer("ema_" + name, param.data.clone())
 
     @property
-    def tgt_params(self):
+    def tgt_params(self) -> Iterator[Tuple[str, nn.Parameter]]:
         return map(
             lambda pair: (pair[0].replace(".", "_"), pair[1]),
             filter(lambda pair: pair[1].requires_grad, self._named_parameters),
         )
 
-    def forward(self):
+    def forward(self) -> None:
         for name, param in self.tgt_params:
             tr_name, ema_name = "tr_" + name, "ema_" + name
             setattr(self, tr_name, param.data.clone())
@@ -72,11 +72,12 @@ class EMA(nn.Module):
             ema = (1.0 - self._decay) * param.data + self._decay * ema_attr
             setattr(self, ema_name, ema.clone())
 
-    def train(self, mode: bool = True):
+    def train(self, mode: bool = True) -> "EMA":
         super().train(mode)
         prefix = "tr_" if mode else "ema_"
         for name, param in self.tgt_params:
             param.data = getattr(self, prefix + name).clone()
+        return self
 
     def extra_repr(self) -> str:
         max_str_len = max(len(name) for name, _ in self.tgt_params)
@@ -104,9 +105,11 @@ class MTL(nn.Module):
             self.w = torch.nn.Parameter(torch.ones(num_tasks))
         else:
             raise NotImplementedError(f"MTL method '{method}' not implemented")
-        self._slice, self.registered, self._registered = None, False, {}
+        self.registered = False
+        self._slice: Optional[int] = None
+        self._registered: Dict[str, int] = {}
 
-    def register(self, names: Iterable[str]) -> None:
+    def register(self, names: List[str]) -> None:
         if self.registered:
             raise ValueError("re-register is not permitted")
         self._rev_registered = {}
@@ -133,6 +136,7 @@ class MTL(nn.Module):
         return sum(loss_dict.values())
 
     def _softmax(self, loss_dict: tensor_dict_type) -> torch.Tensor:
+        assert self._slice is not None
         w = self.w if self._slice == self._n_task else self.w[: self._slice]
         softmax_w = nn.functional.softmax(w, dim=0)
         losses = []
@@ -149,6 +153,11 @@ class MTL(nn.Module):
 class Pruner(nn.Module):
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
+        self.eps: torch.Tensor
+        self.alpha: Union[torch.Tensor, nn.Parameter]
+        self.beta: Union[torch.Tensor, nn.Parameter]
+        self.gamma: Union[torch.Tensor, nn.Parameter]
+        self.max_ratio: Union[torch.Tensor, nn.Parameter]
         tensor = partial(torch.tensor, dtype=torch.float32)
         self.method = config.setdefault("method", "auto_prune")
         if self.method == "surgery":
@@ -157,7 +166,7 @@ class Pruner(nn.Module):
             self.register_buffer("gamma", tensor([config.setdefault("gamma", 1e-4)]))
             self.register_buffer("eps", tensor([config.setdefault("eps", 1e-12)]))
             keys = ["alpha", "beta", "gamma", "eps"]
-            self._mask = None
+            self._mask: Optional[torch.Tensor] = None
         elif self.method == "simplified":
             self.register_buffer("alpha", tensor([config.setdefault("alpha", 0.01)]))
             self.register_buffer("beta", tensor([config.setdefault("beta", 1.0)]))
@@ -197,9 +206,9 @@ class Pruner(nn.Module):
                 )
             keys = ["alpha", "beta", "gamma", "max_ratio", "eps"]
         self._repr_keys = keys
-        self.device = None
+        self.device: Optional[torch.device] = None
 
-    def forward(self, w, prune: bool = True):
+    def forward(self, w: torch.Tensor, prune: bool = True) -> torch.Tensor:
         if self.device is None:
             self.device = w.device
         if not prune:

@@ -6,9 +6,11 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-from cftool.misc import *
-from cfdata.types import *
 from abc import ABCMeta, abstractmethod
+from cftool.misc import Incrementer
+from cftool.misc import LoggingMixin
+from cftool.misc import context_error_handler
+from cfdata.types import np_int_type, np_float_type
 
 tensor_dict_type = Dict[str, torch.Tensor]
 data_type = Union[np.ndarray, List[List[float]], List[float], str, None]
@@ -40,7 +42,7 @@ def to_numpy(tensor: torch.Tensor) -> np.ndarray:
 
 def to_2d(arr: data_type) -> data_type:
     if arr is None or isinstance(arr, str):
-        return
+        return None
     if isinstance(arr, np.ndarray):
         return arr.reshape([len(arr), -1])
     if isinstance(arr[0], list):
@@ -48,7 +50,12 @@ def to_2d(arr: data_type) -> data_type:
     return [[elem] for elem in arr]
 
 
-def get_gradient(y, x, retain_graph=False, create_graph=False):
+def get_gradient(
+    y: torch.Tensor,
+    x: torch.Tensor,
+    retain_graph: bool = False,
+    create_graph: bool = False,
+) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
     grads = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph, create_graph)
     if len(grads) == 1:
         return grads[0]
@@ -73,41 +80,41 @@ class Initializer(LoggingMixin):
         "normal",
         "truncated_normal",
     }
-    custom_initializer = {}
+    custom_initializer: Dict[str, Type] = {}
 
-    def __init__(self, config):
+    def __init__(self, config: Dict[str, Any]):
         self.config = config
         self._verbose_level = config.setdefault("verbose_level", 2)
 
-    def initialize(self, param: nn.Parameter, method: str):
+    def initialize(self, param: nn.Parameter, method: str) -> Any:
         custom_initializer = self.custom_initializer.get(method)
         if custom_initializer is None:
             return getattr(self, method)(param)
         return custom_initializer(self, param)
 
     @classmethod
-    def add_initializer(cls, f, name):
+    def add_initializer(cls, f: Type, name: str) -> None:
         if name in cls.defined_initialization:
             print(f"{cls.warning_prefix}'{name}' initializer is already defined")
             return
         cls.defined_initialization.add(name)
         cls.custom_initializer[name] = f
 
-    def xavier_uniform(self, param: nn.Parameter):
+    def xavier_uniform(self, param: nn.Parameter) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.xavier_uniform_(param.data, gain)
 
-    def xavier_normal(self, param: nn.Parameter):
+    def xavier_normal(self, param: nn.Parameter) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.xavier_normal_(param.data, gain)
 
-    def normal(self, param: nn.Parameter):
+    def normal(self, param: nn.Parameter) -> None:
         mean = self.config.setdefault("mean", 0.0)
         std = self.config.setdefault("std", 1.0)
         with torch.no_grad():
             param.data.normal_(mean, std)
 
-    def truncated_normal(self, param: nn.Parameter):
+    def truncated_normal(self, param: nn.Parameter) -> None:
         span = self.config.setdefault("span", 2.0)
         mean = self.config.setdefault("mean", 0.0)
         std = self.config.setdefault("std", 1.0)
@@ -147,8 +154,8 @@ class _multiplied_activation(nn.Module, metaclass=ABCMeta):
     ):
         super().__init__()
         self.trainable = trainable
-        ratio = torch.tensor([ratio], dtype=torch.float32)
-        self.ratio = ratio if not trainable else nn.Parameter(ratio)
+        ratio_ = torch.tensor([ratio], dtype=torch.float32)
+        self.ratio = ratio_ if not trainable else nn.Parameter(ratio_)
 
     @abstractmethod
     def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
@@ -162,7 +169,7 @@ class _multiplied_activation(nn.Module, metaclass=ABCMeta):
 
 
 class Lambda(nn.Module):
-    def __init__(self, fn: callable, name: str = None):
+    def __init__(self, fn: Callable, name: str = None):
         super().__init__()
         self.name = name
         self.fn = fn
@@ -170,7 +177,7 @@ class Lambda(nn.Module):
     def extra_repr(self) -> str:
         return "" if self.name is None else self.name
 
-    def forward(self, *args, **kwargs) -> Any:
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
         return self.fn(*args, **kwargs)
 
 
@@ -199,7 +206,7 @@ class Activations:
             configs = {}
         self.configs = configs
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> nn.Module:
         try:
             return getattr(nn, item)(**self.configs.setdefault(item, {}))
         except AttributeError:
@@ -215,9 +222,9 @@ class Activations:
     # publications
 
     @property
-    def mish(self):
+    def mish(self) -> nn.Module:
         class Mish(nn.Module):
-            def forward(self, x):
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
                 return x * (torch.tanh(nn.functional.softplus(x)))
 
         return Mish()
@@ -225,20 +232,20 @@ class Activations:
     # custom
 
     @property
-    def sign(self):
+    def sign(self) -> nn.Module:
         return Lambda(lambda x: torch.sign(x), "sign")
 
     @property
-    def one_hot(self):
+    def one_hot(self) -> nn.Module:
         f = lambda x: x * (x == torch.max(x, dim=1, keepdim=True)[0]).to(torch.float32)
         return Lambda(f, "one_hot")
 
     @property
-    def sine(self):
+    def sine(self) -> nn.Module:
         return Lambda(lambda x: torch.sin(x), "sine")
 
     @property
-    def multiplied_sine(self):
+    def multiplied_sine(self) -> nn.Module:
         class MultipliedSine(_multiplied_activation):
             def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
                 return torch.sin(multiplied)
@@ -248,7 +255,7 @@ class Activations:
         return MultipliedSine(**config)
 
     @property
-    def multiplied_tanh(self):
+    def multiplied_tanh(self) -> nn.Module:
         class MultipliedTanh(_multiplied_activation):
             def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
                 return torch.tanh(multiplied)
@@ -256,9 +263,9 @@ class Activations:
         return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
 
     @property
-    def multiplied_softmax(self):
+    def multiplied_softmax(self) -> nn.Module:
         class MultipliedSoftmax(_multiplied_activation):
-            def __init__(self, ratio, dim=1, trainable=True):
+            def __init__(self, ratio: float, dim: int = 1, trainable: bool = True):
                 super().__init__(ratio, trainable)
                 self.dim = dim
 
@@ -343,14 +350,14 @@ class TrainMonitor:
 
     def __init__(
         self,
-        sign,
-        num_scores_per_snapshot=1,
-        history_ratio=3,
-        tolerance_ratio=2,
-        extension=5,
-        std_floor=0.001,
-        std_ceiling=0.01,
-        aggressive=False,
+        sign: int,
+        num_scores_per_snapshot: int = 1,
+        history_ratio: int = 3,
+        tolerance_ratio: int = 2,
+        extension: int = 5,
+        std_floor: float = 0.001,
+        std_ceiling: float = 0.01,
+        aggressive: bool = False,
     ):
         self.sign = sign
         self.num_scores_per_snapshot = num_scores_per_snapshot
@@ -359,16 +366,17 @@ class TrainMonitor:
         self.extension = extension
         self.is_aggressive = aggressive
         self.std_floor, self.std_ceiling = std_floor, std_ceiling
-        self._scores = []
+        self._scores: List[float] = []
         self.plateau_flag = False
-        self._is_best = self._running_best = None
-        self._descend_increment = self.num_history * extension / 30
+        self._is_best: Optional[bool] = None
+        self._running_best: Optional[float] = None
+        self._descend_increment = self.num_history * extension / 30.0
         self._incrementer = Incrementer(self.num_history)
 
         self._over_fit_performance = math.inf
         self._best_checkpoint_performance = -math.inf
-        self._descend_counter = self._plateau_counter = self.over_fitting_flag = 0
-        self.info = {
+        self._descend_counter = self._plateau_counter = self.over_fitting_flag = 0.0
+        self.info: Dict[str, Any] = {
             "terminate": False,
             "save_checkpoint": False,
             "save_best": aggressive,
@@ -376,18 +384,18 @@ class TrainMonitor:
         }
 
     @property
-    def log_msg(self):
+    def log_msg(self) -> Callable:
         return self._pipeline.log_msg
 
     @property
-    def plateau_threshold(self):
+    def plateau_threshold(self) -> int:
         return 6 * self.num_tolerance * self.num_history
 
-    def _update_running_info(self, last_score):
+    def _update_running_info(self, last_score: float) -> float:
         self._incrementer.update(last_score)
         if self._running_best is None:
             if self._scores[0] > self._scores[1]:
-                improvement = 0
+                improvement = 0.0
                 self._running_best, self._is_best = self._scores[0], False
             else:
                 improvement = self._scores[1] - self._scores[0]
@@ -401,8 +409,8 @@ class TrainMonitor:
             self._is_best = True
         return improvement
 
-    def _handle_overfitting(self, last_score, res, std):
-        if self._descend_counter == 0:
+    def _handle_overfitting(self, last_score: float, res: float, std: float) -> None:
+        if self._descend_counter == 0.0:
             self.info["save_best"] = True
             self._over_fit_performance = last_score
         self._descend_counter += min(self.num_tolerance / 3, -res / std)
@@ -414,7 +422,13 @@ class TrainMonitor:
         )
         self.over_fitting_flag = 1
 
-    def _handle_recovering(self, improvement, last_score, res, std):
+    def _handle_recovering(
+        self,
+        improvement: float,
+        last_score: float,
+        res: float,
+        std: float,
+    ) -> None:
         if res > 3 * std and self._is_best and improvement > std:
             self.info["save_best"] = True
         new_counter = self._descend_counter - res / std
@@ -422,6 +436,7 @@ class TrainMonitor:
             self._over_fit_performance = math.inf
             if last_score > self._best_checkpoint_performance:
                 self._best_checkpoint_performance = last_score
+                assert self._running_best is not None
                 if last_score > self._running_best - std:
                     self._plateau_counter //= 2
                     self.info["save_checkpoint"] = True
@@ -439,7 +454,7 @@ class TrainMonitor:
                 msg_level=logging.DEBUG,
             )
 
-    def _handle_is_best(self):
+    def _handle_is_best(self) -> None:
         if self._is_best:
             self.info["terminate"] = False
             if self.info["save_best"]:
@@ -455,7 +470,7 @@ class TrainMonitor:
                 else:
                     self.info["info"] += "performance has improved significantly"
 
-    def _handle_period(self, last_score):
+    def _handle_period(self, last_score: float) -> None:
         if self.is_aggressive:
             return
         if (
@@ -471,11 +486,11 @@ class TrainMonitor:
                 "saving checkpoint in case we need to restore"
             )
 
-    def _punish_extension(self):
+    def _punish_extension(self) -> None:
         self.plateau_flag = True
         self._descend_counter += self._descend_increment
 
-    def _handle_pipeline_terminate(self):
+    def _handle_pipeline_terminate(self) -> bool:
         pipeline = self._pipeline
         if self.info["terminate"]:
             self.log_msg(
@@ -509,11 +524,11 @@ class TrainMonitor:
             return True
         return False
 
-    def register_pipeline(self, pipeline):
+    def register_pipeline(self, pipeline: Any) -> "TrainMonitor":
         self._pipeline = pipeline
         return self
 
-    def check_terminate(self, new_metric):
+    def check_terminate(self, new_metric: float) -> bool:
         last_score = new_metric * self.sign
         self._scores.append(last_score)
         n_history = min(self.num_history, len(self._scores))
@@ -603,13 +618,13 @@ class mode_context(context_error_handler):
         else:
             self._grad_context = torch.enable_grad() if use_grad else torch.no_grad()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._to_train)
         if self._grad_context is not None:
             self._grad_context.__enter__()
 
-    def _normal_exit(self, exc_type, exc_val, exc_tb):
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._training)
         if self._grad_context is not None:

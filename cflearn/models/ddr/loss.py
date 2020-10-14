@@ -358,7 +358,7 @@ class DDRLoss(LossBase, LoggingMixin):
             zero = self._zero.repeat(len(target), 1)
             return zero, {"loss": zero}
         if not self.mtl.registered:
-            self.mtl.register(losses.keys())
+            self.mtl.register(list(losses.keys()))
         return self.mtl(losses), losses
 
     def forward(

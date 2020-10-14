@@ -13,7 +13,7 @@ class LossBase(nn.Module, metaclass=ABCMeta):
         self._init_config(config)
         self._reduction = reduction
 
-    def _init_config(self, config: Dict[str, Any]):
+    def _init_config(self, config: Dict[str, Any]) -> None:
         pass
 
     def _reduce(self, losses: torch.Tensor) -> torch.Tensor:
@@ -36,7 +36,7 @@ class LossBase(nn.Module, metaclass=ABCMeta):
 
 
 class FocalLoss(LossBase):
-    def _init_config(self, config: Dict[str, Any]):
+    def _init_config(self, config: Dict[str, Any]) -> None:
         self._eps = config.setdefault("eps", 1e-6)
         self._gamma = config.setdefault("gamma", 2.0)
         alpha = config.setdefault("alpha", None)
