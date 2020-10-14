@@ -1,5 +1,6 @@
 from .hpo import *
 from .zoo import *
+from .auto import *
 from .basic import *
 from .utils import *
 from .ensemble import *
@@ -13,10 +14,11 @@ __all__ = [
     "OptunaParam",
     "OptunaParamConverter",
     "OptunaPresetParams",
-    "Opt",
     # zoo
     "ZooBase",
     "zoo",
+    # auto
+    "Auto",
     # basic
     "make",
     "save",

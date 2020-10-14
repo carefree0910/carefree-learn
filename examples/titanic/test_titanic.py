@@ -43,7 +43,7 @@ def _optuna_core(train_file):
     extra_config = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
-    opt = cflearn.Opt(TaskTypes.CLASSIFICATION).optimize(
+    opt = cflearn.Auto(TaskTypes.CLASSIFICATION).optimize(
         train_file,
         model=model,
         temp_folder="__test_titanic_optuna__",
