@@ -7,6 +7,7 @@ import optuna.visualization as vis
 from typing import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
+from cftool.misc import shallow_copy_dict
 from optuna.importance import BaseImportanceEvaluator
 from plotly.graph_objects import Figure
 
@@ -14,6 +15,7 @@ from .basic import *
 from .ensemble import *
 from ..misc.toolkit import *
 from .hpo import optuna_tune
+from ..bases import Wrapper
 
 
 class Auto:
@@ -109,6 +111,7 @@ class Auto:
             extra_config=extra_config,
             cuda=cuda,
         )
+        num_jobs = max(num_jobs, num_parallel)
         self.best_param = self.optuna_result.best_param
         if bagging_config is not None:
             self.repeat_result = None
@@ -120,7 +123,7 @@ class Auto:
             increment_config.setdefault("verbose_level", 0)
             bagging_config["temp_folder"] = bagging_temp_folder
             bagging_config["use_tracker"] = False
-            bagging_config["num_jobs"] = max(num_parallel, num_jobs)
+            bagging_config["num_jobs"] = num_jobs
             bagging_config["models"] = model
             bagging_config["k"] = num_final_repeat
             x_merged, y_merged = self._merge_data(x, y, x_cv, y_cv)
@@ -128,21 +131,38 @@ class Auto:
             self.pattern = self.bagging_result.pattern
             self.data = self.bagging_result.data
         else:
-            self.bagging_result = None
+            self.repeat_result = self.bagging_result = None
             repeat_temp_folder = os.path.join(temp_folder, "__repeat__")
-            self.repeat_result = repeat_with(
-                x,
-                y,
-                x_cv,
-                y_cv,
-                **self.best_param,
-                models=model,
-                temp_folder=repeat_temp_folder,
-                num_repeat=num_final_repeat,
-                num_jobs=num_jobs,
-            )
-            self.pattern = ensemble(self.repeat_result.patterns[model])
-            self.data = self.repeat_result.data
+            if num_jobs <= 1:
+
+                def get(i: int) -> Wrapper:
+                    kwargs = shallow_copy_dict(self.best_param)
+                    kwargs.setdefault("trigger_logging", False)
+                    kwargs["verbose_level"] = 0
+                    kwargs["use_tqdm"] = False
+                    logging_folder = os.path.join(repeat_temp_folder, str(i))
+                    m = make(model, logging_folder=logging_folder, **kwargs)
+                    return m.fit(x, y, x_cv, y_cv)
+
+                wrappers = list(map(get, range(num_final_repeat)))
+                patterns = [m.to_pattern() for m in wrappers]
+                data = wrappers[0].tr_data
+            else:
+                self.repeat_result = repeat_with(
+                    x,
+                    y,
+                    x_cv,
+                    y_cv,
+                    **self.best_param,
+                    models=model,
+                    temp_folder=repeat_temp_folder,
+                    num_repeat=num_final_repeat,
+                    num_jobs=num_jobs,
+                )
+                patterns = self.repeat_result.patterns[model]
+                data = self.repeat_result.data
+            self.pattern = ensemble(patterns)
+            self.data = data
         return self
 
     # visualization
