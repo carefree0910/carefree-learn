@@ -10,6 +10,7 @@ from .register import *
 __all__ = [
     # hpo
     "tune_with",
+    "optuna_core",
     "optuna_tune",
     "OptunaParam",
     "OptunaParamConverter",

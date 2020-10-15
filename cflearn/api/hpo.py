@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import optuna
 import shutil
@@ -10,6 +11,7 @@ from cftool.misc import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
 from optuna.trial import Trial
+from cftool.dist import Parallel
 from cftool.ml.hpo import HPOBase
 from cfdata.tabular.misc import split_file
 
@@ -642,6 +644,71 @@ class OptunaPresetParams:
         return params
 
 
+class OptunaArgs(NamedTuple):
+    cuda: Union[str, None]
+    num_trial: Union[str, int]
+    config: Union[str, Dict[str, Any]]
+    key_mapping: Union[str, OptunaKeyMapping]
+
+
+def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
+    key_mapping = args.key_mapping
+    if isinstance(key_mapping, str):
+        key_mapping = OptunaKeyMapping.load(key_mapping)
+    tuner = key_mapping.tuner
+
+    config = args.config
+    if isinstance(config, str):
+        config = Saving.load_dict("config", config)
+    model = config["model"]
+    metrics = config["metrics"]
+    timeout = config["timeout"]
+    num_repeat = config["num_repeat"]
+    num_parallel = config["num_parallel"]
+    score_weights = config["score_weights"]
+    estimator_scoring_function = config["estimator_scoring_function"]
+    study_config = config["study_config"]
+    temp_folder = config["temp_folder"]
+
+    def objective(trial: Trial) -> float:
+        temp_folder_ = os.path.join(temp_folder, str(trial.number))
+        current_params = key_mapping.pop(trial)
+        current_params["trial"] = trial
+        args_ = model, current_params, num_repeat, num_parallel, temp_folder_
+        if num_repeat <= 1:
+            m = tuner.train(*args_, cuda=args.cuda)
+            comparer = estimate(
+                tuner.x_cv,
+                tuner.y_cv,
+                wrappers=m,
+                metrics=metrics,
+                contains_labels=True,
+                comparer_verbose_level=6,
+            )
+        else:
+            estimators = tuner.make_estimators(metrics)
+            wrappers = tuner.train(*args_, sequential=True, cuda=args.cuda)
+            patterns = [m.to_pattern(contains_labels=True) for m in wrappers]
+            comparer = Comparer({model: patterns}, estimators)
+            comparer.compare(
+                tuner.x_cv,
+                tuner.y_cv,
+                scoring_function=estimator_scoring_function,
+                verbose_level=6,
+            )
+        scores = {k: v[model] for k, v in comparer.final_scores.items()}
+        if score_weights is None:
+            score = sum(scores.values()) / len(scores)
+        else:
+            weighted = sum(score * score_weights[k] for k, score in scores.items())
+            score = weighted / sum(score_weights.values())
+        return score
+
+    study = optuna.create_study(**study_config)
+    study.optimize(objective, int(args.num_trial), timeout, 1)
+    return study
+
+
 def optuna_tune(
     x: data_type,
     y: data_type = None,
@@ -662,6 +729,7 @@ def optuna_tune(
     estimator_scoring_function: Union[str, scoring_fn_type] = "default",
     temp_folder: str = "__tmp__",
     extra_config: Dict[str, Any] = None,
+    cuda: Union[int, str] = None,
 ) -> OptunaResult:
     if params is None:
         params = OptunaPresetParams().get(model)
@@ -670,52 +738,82 @@ def optuna_tune(
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     key_mapping = OptunaKeyMapping(tuner, params)
 
-    def objective(trial: Trial) -> float:
-        temp_folder_ = os.path.join(temp_folder, str(trial.number))
-        current_params = key_mapping.pop(trial)
-        current_params["trial"] = trial
-        args = model, current_params, num_repeat, num_parallel, temp_folder_
-        if num_repeat <= 1:
-            m = tuner.train(*args)
-            comparer = estimate(
-                tuner.x_cv,
-                tuner.y_cv,
-                wrappers=m,
-                metrics=metrics,
-                contains_labels=True,
-                comparer_verbose_level=6,
+    if num_jobs <= 1:
+        meta_folder = None
+    else:
+        if cuda is not None:
+            print(
+                f"{LoggingMixin.warning_prefix}`cuda` is set to {cuda} "
+                "but will take no effect because `num_jobs` is set "
+                f"to be greater than 1 ({num_jobs})"
             )
-        else:
-            estimators = tuner.make_estimators(metrics)
-            wrappers = tuner.train(*args, sequential=True)
-            patterns = [m.to_pattern(contains_labels=True) for m in wrappers]
-            comparer = Comparer({model: patterns}, estimators)
-            comparer.compare(
-                tuner.x_cv,
-                tuner.y_cv,
-                scoring_function=estimator_scoring_function,
-                verbose_level=6,
-            )
-        scores = {k: v[model] for k, v in comparer.final_scores.items()}
-        if score_weights is None:
-            score = sum(scores.values()) / len(scores)
-        else:
-            weighted = sum(score * score_weights[k] for k, score in scores.items())
-            score = weighted / sum(score_weights.values())
-        return score
+        meta_folder = os.path.join(temp_folder, "__meta__")
 
     if study_config is None:
         study_config = {}
+    if num_jobs <= 1:
+        storage = None
+    else:
+        storage = os.path.join(meta_folder, "shared.db")
+        storage = f"sqlite:///{storage}"
+    study_config["storage"] = storage
     study_config["direction"] = "maximize"
+    study_config["load_if_exists"] = True
     study_config.setdefault("study_name", f"{model}_optuna")
-    study = optuna.create_study(**study_config)
-    study.optimize(objective, num_trial, timeout, num_jobs)
+
+    task_config = {
+        "model": model,
+        "metrics": metrics,
+        "timeout": timeout,
+        "num_repeat": num_repeat,
+        "num_parallel": num_parallel,
+        "score_weights": score_weights,
+        "estimator_scoring_function": estimator_scoring_function,
+        "study_config": study_config,
+        "temp_folder": temp_folder,
+    }
+
+    if num_jobs <= 1:
+        study = optuna_core(OptunaArgs(cuda, num_trial, task_config, key_mapping))
+    else:
+        key_mapping_folder = os.path.join(meta_folder, "__key_mapping__")
+        key_mapping.save(key_mapping_folder)
+
+        task_config_folder = os.path.join(meta_folder, "__task_config__")
+        os.makedirs(task_config_folder)
+        Saving.save_dict(task_config, "config", task_config_folder)
+
+        def _run(num_trial_, cuda=None):
+            python = sys.executable
+            cmd = f"{python} -m {'.'.join(['cflearn', 'dist', 'optuna'])}"
+            cuda_suffix = f"--cuda {cuda}"
+            num_trial_suffix = f"--num_trial {num_trial_}"
+            config_suffix = f"--config {task_config_folder}"
+            key_mapping_suffix = f"--key_mapping {key_mapping_folder}"
+            os.system(
+                f"{cmd} {cuda_suffix} {num_trial_suffix} "
+                f"{config_suffix} {key_mapping_suffix}"
+            )
+
+        parallel = Parallel(
+            num_jobs,
+            use_tqdm=False,
+            use_cuda=torch.cuda.is_available(),
+            logging_folder=meta_folder,
+        )
+
+        num_trials = [num_trial // num_jobs] * num_jobs
+        num_trials[-1] = num_trial - sum(num_trials[:-1])
+        parallel(_run, num_trials)
+
+        study = optuna.create_study(**study_config)
 
     return OptunaResult(tuner, study, key_mapping)
 
 
 __all__ = [
     "tune_with",
+    "optuna_core",
     "optuna_tune",
     "OptunaParam",
     "OptunaParamConverter",
