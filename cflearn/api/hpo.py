@@ -16,9 +16,21 @@ from cftool.ml.hpo import HPOBase
 from cfdata.tabular.misc import split_file
 
 from .basic import *
-from ..dist import *
 from ..misc.toolkit import *
 from ..bases import Wrapper
+
+
+class _TunerResult(NamedTuple):
+    identifier: str
+    repeat_result: RepeatResult
+
+    @property
+    def wrappers(self) -> List[Wrapper]:
+        return self.repeat_result.wrappers[self.identifier]
+
+    @property
+    def patterns(self) -> List[ModelPattern]:
+        return self.repeat_result.patterns[self.identifier]
 
 
 class _Tuner(LoggingMixin):
@@ -115,7 +127,7 @@ class _Tuner(LoggingMixin):
         *,
         cuda: str = None,
         sequential: bool = False,
-    ) -> Union[List[Union[Task, Wrapper]], Wrapper]:
+    ) -> _TunerResult:
         identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
         params["verbose_level"] = 0
@@ -128,18 +140,7 @@ class _Tuner(LoggingMixin):
             x, x_cv = self.x.copy(), self.x_cv.copy()
             y = self.y.copy()
             y_cv = None if self.y_cv is None else self.y_cv.copy()
-        if num_repeat <= 1 or sequential:
-            get = lambda params_: make(model, **params_).fit(x, y, x_cv, y_cv)
-            if num_repeat <= 1:
-                params["logging_folder"] = temp_folder
-                return get(params)
-            wrappers = []
-            for i in range(num_repeat):
-                local_params = shallow_copy_dict(params)
-                local_params["logging_folder"] = os.path.join(temp_folder, str(i))
-                wrappers.append(get(local_params))
-            return wrappers
-        results = repeat_with(
+        repeat_result = repeat_with(
             x,
             y,
             x_cv,
@@ -149,11 +150,11 @@ class _Tuner(LoggingMixin):
             models=model,
             identifiers=identifier,
             temp_folder=temp_folder,
-            return_tasks=True,
-            return_patterns=False,
+            pattern_kwargs={"contains_labels": True},
+            sequential=sequential,
             **params,
         )
-        return results.experiments.tasks[identifier]
+        return _TunerResult(identifier, repeat_result)
 
     def save(self, export_folder: str) -> "_Tuner":
         Saving.prepare_folder(self, export_folder)
@@ -238,24 +239,17 @@ def tune_with(
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
-    created_type = Union[Dict[str, List[Task]], ModelPattern]
+    created_type = Union[Dict[str, List[ModelPattern]], ModelPattern]
 
     def _creator(_, __, params_) -> created_type:
         num_jobs_ = num_parallel if hpo.is_sequential else 0
         temp_folder_ = temp_folder
         if num_repeat <= 1:
             temp_folder_ = os.path.join(temp_folder, hash_code(str(params_)))
-        results = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
+        result = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
         if num_repeat <= 1:
-            return results.to_pattern(contains_labels=True)
-        return {model: results}
-
-    if num_repeat <= 1:
-        _converter = None
-    else:
-
-        def _converter(created: List[created_type]) -> List[pattern_type]:
-            return tasks_to_patterns(created[0][model], contains_labels=True)
+            return result.patterns[0]
+        return {model: result.patterns}
 
     if params is None:
         default_init_param = pu.Any(pu.Choice(values=[None, "truncated_normal"]))
@@ -271,7 +265,6 @@ def tune_with(
         hpo_method,
         _creator,
         params,
-        converter=_converter,
         verbose_level=verbose_level,
     )
     if hpo.is_sequential:
@@ -676,20 +669,19 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         current_params["trial"] = trial
         args_ = model, current_params, num_repeat, num_parallel, temp_folder_
         if num_repeat <= 1:
-            m = tuner.train(*args_, cuda=args.cuda)
+            result = tuner.train(*args_, cuda=cuda)
             comparer = estimate(
                 tuner.x_cv,
                 tuner.y_cv,
-                wrappers=m,
+                wrappers=result.wrappers,
                 metrics=metrics,
                 contains_labels=True,
                 comparer_verbose_level=6,
             )
         else:
             estimators = tuner.make_estimators(metrics)
-            wrappers = tuner.train(*args_, sequential=True, cuda=args.cuda)
-            patterns = [m.to_pattern(contains_labels=True) for m in wrappers]
-            comparer = Comparer({model: patterns}, estimators)
+            result = tuner.train(*args_, sequential=True, cuda=cuda)
+            comparer = Comparer({model: result.patterns}, estimators)
             comparer.compare(
                 tuner.x_cv,
                 tuner.y_cv,
