@@ -133,34 +133,20 @@ class Auto:
         else:
             self.repeat_result = self.bagging_result = None
             repeat_temp_folder = os.path.join(temp_folder, "__repeat__")
-            if num_jobs <= 1:
-
-                def get(i: int) -> Wrapper:
-                    kwargs = shallow_copy_dict(self.best_param)
-                    kwargs.setdefault("trigger_logging", False)
-                    kwargs["verbose_level"] = 0
-                    kwargs["use_tqdm"] = False
-                    logging_folder = os.path.join(repeat_temp_folder, str(i))
-                    m = make(model, logging_folder=logging_folder, **kwargs)
-                    return m.fit(x, y, x_cv, y_cv)
-
-                wrappers = list(map(get, range(num_final_repeat)))
-                patterns = [m.to_pattern() for m in wrappers]
-                data = wrappers[0].tr_data
-            else:
-                self.repeat_result = repeat_with(
-                    x,
-                    y,
-                    x_cv,
-                    y_cv,
-                    **self.best_param,
-                    models=model,
-                    temp_folder=repeat_temp_folder,
-                    num_repeat=num_final_repeat,
-                    num_jobs=num_jobs,
-                )
-                patterns = self.repeat_result.patterns[model]
-                data = self.repeat_result.data
+            self.repeat_result = repeat_with(
+                x,
+                y,
+                x_cv,
+                y_cv,
+                **self.best_param,
+                models=model,
+                sequential=num_jobs <= 1,
+                temp_folder=repeat_temp_folder,
+                num_repeat=num_final_repeat,
+                num_jobs=num_jobs,
+            )
+            patterns = self.repeat_result.patterns[model]
+            data = self.repeat_result.data
             self.pattern = ensemble(patterns)
             self.data = data
         return self

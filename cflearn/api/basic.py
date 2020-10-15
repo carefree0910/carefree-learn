@@ -307,9 +307,9 @@ def transform_experiments(experiments: Experiments) -> Dict[str, List[Wrapper]]:
 
 
 class RepeatResult(NamedTuple):
-    experiments: Experiments
-    data: Union[None, TabularData]
-    patterns: Union[None, Dict[str, List[ModelPattern]]]
+    data: Optional[TabularData]
+    patterns: Optional[Dict[str, List[ModelPattern]]]
+    experiments: Optional[Experiments]
 
     @property
     def models(self) -> Dict[str, List[Wrapper]]:
@@ -328,6 +328,7 @@ def repeat_with(
     num_repeat: int = 5,
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,
+    sequential: bool = False,
     use_tqdm: bool = True,
     **kwargs,
 ) -> RepeatResult:
@@ -342,32 +343,64 @@ def repeat_with(
     kwargs.setdefault("trigger_logging", False)
     kwargs["verbose_level"] = 0
 
-    experiments = Experiments(temp_folder, overwrite=False)
-    experiments.run(
-        None,
-        x,
-        y,
-        x_cv,
-        y_cv,
-        models=models,
-        identifiers=identifiers,
-        num_repeat=num_repeat,
-        num_jobs=num_jobs,
-        use_tqdm=use_tqdm,
-        temp_folder=temp_folder,
-        **kwargs,
-    )
+    if sequential:
+        experiments = None
+        kwargs["use_tqdm"] = False
+
+        if not return_patterns:
+            print(
+                f"{LoggingMixin.warning_prefix}`return_patterns` should be True "
+                "when `sequential` is True, because patterns will always be generated"
+            )
+            return_patterns = True
+
+        def get(i_: int, model_: str) -> Wrapper:
+            kwargs_ = shallow_copy_dict(kwargs)
+            logging_folder = os.path.join(temp_folder, str(i_))
+            m = make(model_, logging_folder=logging_folder, **kwargs_)
+            return m.fit(x, y, x_cv, y_cv)
+
+        wrappers = {}
+        for model in models:
+            wrappers[model] = list(map(get, range(num_repeat), [model] * num_repeat))
+    else:
+        if num_jobs <= 1:
+            print(
+                f"{LoggingMixin.warning_prefix} we suggest setting `sequential` "
+                f"to True when `num_jobs` is {num_jobs}"
+            )
+
+        experiments = Experiments(temp_folder, overwrite=False)
+        experiments.run(
+            None,
+            x,
+            y,
+            x_cv,
+            y_cv,
+            models=models,
+            identifiers=identifiers,
+            num_repeat=num_repeat,
+            num_jobs=num_jobs,
+            use_tqdm=use_tqdm,
+            temp_folder=temp_folder,
+            **kwargs,
+        )
+        wrappers = None
+        if return_patterns:
+            wrappers = transform_experiments(experiments)
+
     patterns = None
     if return_patterns:
-        wrappers = transform_experiments(experiments)
         patterns = {
             model: [m.to_pattern() for m in wrappers]
             for model, wrappers in wrappers.items()
         }
+
     data = None
     if patterns is not None:
         data = patterns[identifiers[0]][0].model.tr_data
-    return RepeatResult(experiments, data, patterns)
+
+    return RepeatResult(data, patterns, experiments)
 
 
 def tasks_to_wrappers(tasks: List[Task]) -> List[Wrapper]:
