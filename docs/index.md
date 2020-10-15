@@ -52,6 +52,79 @@ pip install -e .
 ```
 
 
+## AutoML
+
+`carefree-learn` provides `cflearn.Auto` API for out-of-the-box usages.
+
+### TL; DR
+
+```python
+import cflearn
+
+from cfdata.tabular import *
+
+# prepare iris dataset
+iris = TabularDataset.iris()
+iris = TabularData.from_dataset(iris)
+# split 10% of the data as validation data
+split = iris.split(0.1)
+train, valid = split.remained, split.split
+x_tr, y_tr = train.processed.xy
+x_cv, y_cv = valid.processed.xy
+data = x_tr, y_tr, x_cv, y_cv
+
+
+if __name__ == '__main__':
+    # standard usage
+    fcnn = cflearn.make().fit(*data)
+
+    # 'overfit' validation set
+    auto = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(*data, num_jobs=2)
+
+    # estimate manually
+    predictions = auto.predict(x_cv)
+    print("accuracy:", (y_cv == predictions).mean())
+
+    # estimate with `cflearn`
+    cflearn.estimate(
+        x_cv,
+        y_cv,
+        wrappers=fcnn,
+        other_patterns={"auto": auto.pattern},
+    )
+```
+
+Then you will see something like this:
+
+```text
+================================================================================================================================
+|        metrics         |                       acc                        |                       auc                        |
+--------------------------------------------------------------------------------------------------------------------------------
+|                        |      mean      |      std       |     score      |      mean      |      std       |     score      |
+--------------------------------------------------------------------------------------------------------------------------------
+|          auto          | -- 1.000000 -- | -- 0.000000 -- | -- 1.000000 -- | -- 1.000000 -- | -- 0.000000 -- | -- 1.000000 -- |
+--------------------------------------------------------------------------------------------------------------------------------
+|          fcnn          |    0.933333    | -- 0.000000 -- |    0.933333    |    0.993333    | -- 0.000000 -- |    0.993333    |
+================================================================================================================================
+```
+
+### Explained
+
+`cflearn.Auto.fit` will run through the following steps:
+1. fetch pre-defined hyper-parameters search space from `OptunaPresetParams`.
+2. leverage `optuna` with `cflearn.optuna_tune` to perform hyper-parameters optimization.
+3. use searched hyper-parameters to train multiple neural networks and ensemble them (with `cflearn.ensemble` or `cflearn.Ensemble`).
+4. record all these results to corresponding attributes.
+
+So after `cflearn.Auto.fit`, we can perform visualizations provided by `optuna` easily:
+
+```python
+export_folder = "iris_vis"
+auto.plot_param_importances(export_folder=export_folder)
+auto.plot_intermediate_values(export_folder=export_folder)
+```
+
+
 ## Examples
 
 + [Here](https://github.com/carefree0910/carefree-learn/tree/dev/examples) are some real life examples.
