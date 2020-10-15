@@ -2,7 +2,6 @@ import os
 import optuna
 import shutil
 
-import numpy as np
 import cftool.ml.param_utils as pu
 
 from typing import *
@@ -16,7 +15,6 @@ from cfdata.tabular.misc import split_file
 from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
-from .ensemble import *
 from ..bases import Wrapper
 
 
