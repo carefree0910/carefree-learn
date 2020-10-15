@@ -76,7 +76,7 @@ class Auto:
         *,
         study_config: Dict[str, Any] = None,
         metrics: Union[str, List[str]] = None,
-        num_jobs: int = 4,
+        num_jobs: int = 1,
         num_trial: int = 50,
         num_repeat: int = 5,
         num_parallel: int = 0,

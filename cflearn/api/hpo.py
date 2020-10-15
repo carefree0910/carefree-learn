@@ -17,6 +17,7 @@ from cfdata.tabular.misc import split_file
 
 from .basic import *
 from ..misc.toolkit import *
+from .ensemble import ensemble
 from ..bases import Wrapper
 
 
@@ -239,17 +240,13 @@ def tune_with(
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
-    created_type = Union[Dict[str, List[ModelPattern]], ModelPattern]
-
-    def _creator(_, __, params_) -> created_type:
+    def _creator(_, __, params_) -> pattern_type:
         num_jobs_ = num_parallel if hpo.is_sequential else 0
-        temp_folder_ = temp_folder
-        if num_repeat <= 1:
-            temp_folder_ = os.path.join(temp_folder, hash_code(str(params_)))
+        temp_folder_ = os.path.join(temp_folder, hash_code(str(params_)))
         result = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
         if num_repeat <= 1:
             return result.patterns[0]
-        return {model: result.patterns}
+        return ensemble(result.patterns)
 
     if params is None:
         default_init_param = pu.Any(pu.Choice(values=[None, "truncated_normal"]))
