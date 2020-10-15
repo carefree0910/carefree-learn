@@ -30,6 +30,10 @@ class Auto:
     def study(self) -> optuna.study.Study:
         return self.optuna_result.study
 
+    @property
+    def predict(self) -> Callable:
+        return self.pattern.predict
+
     def _merge_data(
         self,
         x: data_type,
