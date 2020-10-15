@@ -504,7 +504,7 @@ class OptunaParamConverter:
         return {key: value}
 
 
-class OptunaKeyMapping:
+class OptunaKeyMapping(LoggingMixin):
     tuner_folder = "__tuner__"
     optuna_params_name = "__optuna_params__"
 
