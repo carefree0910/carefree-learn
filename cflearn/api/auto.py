@@ -7,6 +7,7 @@ import optuna.visualization as vis
 from typing import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
+from optuna.trial import TrialState
 from optuna.importance import BaseImportanceEvaluator
 from plotly.graph_objects import Figure
 
@@ -33,6 +34,14 @@ class Auto:
     @property
     def predict(self) -> Callable:
         return self.pattern.predict
+
+    @property
+    def pruned_trials(self):
+        return [t for t in self.study.trials if t.state == TrialState.PRUNED]
+
+    @property
+    def complete_trials(self):
+        return [t for t in self.study.trials if t.state == TrialState.COMPLETE]
 
     def _merge_data(
         self,
