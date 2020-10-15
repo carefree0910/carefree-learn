@@ -330,7 +330,7 @@ def repeat_with(
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,
     pattern_kwargs: Dict[str, Any] = None,
-    sequential: bool = False,
+    sequential: bool = None,
     use_tqdm: bool = True,
     **kwargs,
 ) -> RepeatResult:
@@ -345,6 +345,8 @@ def repeat_with(
     kwargs.setdefault("trigger_logging", False)
     kwargs["verbose_level"] = 0
 
+    if sequential is None:
+        sequential = num_jobs <= 1
     if sequential:
         experiments = None
         kwargs["use_tqdm"] = False

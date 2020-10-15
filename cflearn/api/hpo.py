@@ -126,7 +126,7 @@ class _Tuner(LoggingMixin):
         temp_folder: str,
         *,
         cuda: str = None,
-        sequential: bool = False,
+        sequential: bool = None,
     ) -> _TunerResult:
         identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
