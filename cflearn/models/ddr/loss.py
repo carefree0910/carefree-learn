@@ -12,7 +12,7 @@ from ...modules.auxiliary import MTL
 
 
 class DDRLoss(LossBase, LoggingMixin):
-    def _init_config(self, config: Dict[str, Any]):
+    def _init_config(self, config: Dict[str, Any]) -> None:
         device = config["device"]
         self._joint_training = config["joint_training"]
         self._use_dynamic_dual_loss_weights = config["use_dynamic_weights"]
@@ -26,6 +26,13 @@ class DDRLoss(LossBase, LoggingMixin):
         self._target_loss_warned = False
         self._zero = torch.zeros([1, 1], dtype=torch.float32).to(device)
         if self._use_anneal:
+            self._median_anneal: Anneal
+            self._main_anneal: Anneal
+            self._monotonous_anneal: Anneal
+            self._anchor_anneal: Anneal
+            self._dual_anneal: Anneal
+            self._recover_anneal: Anneal
+            self._pressure_anneal: Anneal
             anneal_config = config.setdefault("anneal_config", {})
             anneal_methods = anneal_config.setdefault("methods", {})
             anneal_ratios = anneal_config.setdefault("ratios", {})
@@ -171,12 +178,17 @@ class DDRLoss(LossBase, LoggingMixin):
         if not fetch_cdf or check_monotonous_only:
             cdf_losses = None
         else:
+            assert cdf_raw is not None
+            assert anchor_batch is not None
             cdf_losses = self._get_cdf_losses(target, cdf_raw, anchor_batch)
             if main_anneal is not None:
                 cdf_losses = cdf_losses * main_anneal
             if sampled_cdf_raw is not None:
+                assert sampled_anchors is not None
                 cdf_anchor_losses = self._get_cdf_losses(
-                    target, sampled_cdf_raw, sampled_anchors
+                    target,
+                    sampled_cdf_raw,
+                    sampled_anchors,
                 )
                 if anchor_anneal is not None:
                     cdf_anchor_losses = cdf_anchor_losses * anchor_anneal
@@ -187,25 +199,38 @@ class DDRLoss(LossBase, LoggingMixin):
                 pdf_losses = pdf_losses * monotonous_anneal
         # quantile
         fetch_quantile = quantile_residual is not None
-        quantile_anchor_losses = quantile_monotonous_losses = None
+        quantile_anchor_losses = None
+        quantile_monotonous_losses: Optional[torch.Tensor] = None
         if not fetch_quantile or check_monotonous_only:
             median_residual_losses = quantile_losses = None
         else:
+            assert quantile_sign is not None
+            assert quantile_batch is not None
+            assert median_residual is not None
+            assert quantile_residual is not None
             target_median_residual = target - predictions["median_detach"]
             median_residual_losses = self._get_median_residual_losses(
-                target_median_residual, median_residual, quantile_sign
+                target_median_residual,
+                median_residual,
+                quantile_sign,
             )
             if anchor_anneal is not None:
                 median_residual_losses = median_residual_losses * anchor_anneal
             quantile_losses = self._get_quantile_residual_losses(
-                target_median_residual, quantile_residual, quantile_batch
+                target_median_residual,
+                quantile_residual,
+                quantile_batch,
             )
             quantile_losses = quantile_losses + median_residual_losses
             if main_anneal is not None:
                 quantile_losses = quantile_losses * main_anneal
             if sampled_quantile_residual is not None:
+                assert sampled_quantiles is not None
+                assert sampled_quantile_residual is not None
                 quantile_anchor_losses = self._get_quantile_residual_losses(
-                    target_median_residual, sampled_quantile_residual, sampled_quantiles
+                    target_median_residual,
+                    sampled_quantile_residual,
+                    sampled_quantiles,
                 )
                 if anchor_anneal is not None:
                     quantile_anchor_losses = quantile_anchor_losses * anchor_anneal
@@ -217,7 +242,7 @@ class DDRLoss(LossBase, LoggingMixin):
             if pressure_anneal is not None:
                 median_pressure_losses = median_pressure_losses * pressure_anneal
         # quantile monotonous
-        quantile_monotonous_losses_list = []
+        quantile_monotonous_losses_list: List[torch.Tensor] = []
         if qr_gradient is not None and sampled_qr_gradient is not None:
             qr_g_losses = [relu(-qr_gradient), relu(-sampled_qr_gradient)]
             quantile_monotonous_losses_list += qr_g_losses
@@ -230,6 +255,7 @@ class DDRLoss(LossBase, LoggingMixin):
         if quantile_monotonous_losses_list:
             quantile_monotonous_losses = sum(quantile_monotonous_losses_list)
             if anchor_anneal is not None:
+                assert monotonous_anneal is not None
                 quantile_monotonous_losses = (
                     quantile_monotonous_losses * monotonous_anneal
                 )
@@ -243,6 +269,12 @@ class DDRLoss(LossBase, LoggingMixin):
             dual_cdf_losses = dual_quantile_losses = None
             cdf_recover_losses = quantile_recover_losses = None
         else:
+            assert cdf_losses is not None
+            assert anchor_batch is not None
+            assert dual_quantile is not None
+            assert dual_cdf is not None
+            assert quantile_batch is not None
+            assert quantile_losses is not None
             # dual cdf (cdf -> quantile [recover loss] -> cdf [dual loss])
             (
                 quantile_recover_losses,
@@ -251,8 +283,11 @@ class DDRLoss(LossBase, LoggingMixin):
             if quantile_cdf_raw is None:
                 dual_quantile_losses = None
             else:
+                assert anchor_batch is not None
                 dual_quantile_losses = self._get_cdf_losses(
-                    target, quantile_cdf_raw, anchor_batch
+                    target,
+                    quantile_cdf_raw,
+                    anchor_batch,
                 )
                 if (
                     quantile_recover_losses is None
@@ -268,9 +303,10 @@ class DDRLoss(LossBase, LoggingMixin):
                 dual_quantile_losses = (
                     dual_quantile_losses * dual_quantile_losses_weights
                 )
-            quantile_recover_losses = (
-                quantile_recover_losses * quantile_recover_losses_weights
-            )
+            if quantile_recover_losses is not None:
+                quantile_recover_losses = (
+                    quantile_recover_losses * quantile_recover_losses_weights
+                )
             # dual quantile (quantile -> cdf [recover loss] -> quantile [dual loss])
             (
                 cdf_recover_losses,
@@ -296,7 +332,8 @@ class DDRLoss(LossBase, LoggingMixin):
                 dual_cdf_losses = (
                     dual_cdf_losses * dual_cdf_losses_weights
                 ) + median_residual_losses
-            cdf_recover_losses = cdf_recover_losses * cdf_recover_losses_weights
+            if cdf_recover_losses is not None:
+                cdf_recover_losses = cdf_recover_losses * cdf_recover_losses_weights
         if dual_anneal is not None:
             if dual_cdf_losses is not None:
                 dual_cdf_losses = dual_cdf_losses * dual_anneal
@@ -319,22 +356,24 @@ class DDRLoss(LossBase, LoggingMixin):
                     losses["quantile_anchor"] = quantile_anchor_losses
             else:
                 if fetch_cdf:
+                    assert cdf_losses is not None
                     losses["cdf"] = cdf_losses
                     if cdf_anchor_losses is not None:
                         losses["cdf_anchor"] = cdf_anchor_losses
                 if fetch_quantile:
+                    assert quantile_losses is not None
                     losses["quantile"] = quantile_losses
                     if quantile_anchor_losses is not None:
                         losses["quantile_anchor"] = quantile_anchor_losses
                 if fetch_cdf and fetch_quantile:
-                    losses["quantile_recover"], losses["cdf_recover"] = (
-                        quantile_recover_losses,
-                        cdf_recover_losses,
-                    )
-                    losses["dual_quantile"], losses["dual_cdf"] = (
-                        dual_quantile_losses,
-                        dual_cdf_losses,
-                    )
+                    assert quantile_recover_losses is not None
+                    assert cdf_recover_losses is not None
+                    assert dual_quantile_losses is not None
+                    assert dual_cdf_losses is not None
+                    losses["quantile_recover"] = quantile_recover_losses
+                    losses["cdf_recover"] = cdf_recover_losses
+                    losses["dual_quantile"] = dual_quantile_losses
+                    losses["dual_cdf"] = dual_cdf_losses
         if median_residual_losses is not None:
             losses["median_residual_losses"] = median_residual_losses
         if median_pressure_losses is not None:
@@ -377,47 +416,54 @@ class DDRLoss(LossBase, LoggingMixin):
 
     def _get_dual_recover_losses(
         self,
-        dual_prediction,
-        another_input_batch,
-        another_losses,
-    ):
+        dual_prediction: torch.Tensor,
+        another_input_batch: torch.Tensor,
+        another_losses: torch.Tensor,
+    ) -> Tuple[Optional[torch.Tensor], Optional[torch.Tensor]]:
         if dual_prediction is None:
             recover_losses = recover_loss_weights = None
         else:
             recover_losses = torch.abs(another_input_batch - dual_prediction)
             if not self._use_dynamic_dual_loss_weights:
-                recover_loss_weights = 1.0
+                recover_loss_weights = torch.tensor([1.0])
             else:
                 another_losses_detach = another_losses.detach()
                 recover_loss_weights = 1 / (1 + 2 * torch.tanh(another_losses_detach))
         return recover_losses, recover_loss_weights
 
     @staticmethod
-    def _get_cdf_losses(target, cdf_raw, anchor_batch):
+    def _get_cdf_losses(
+        target: torch.Tensor,
+        cdf_raw: torch.Tensor,
+        anchor_batch: torch.Tensor,
+    ) -> torch.Tensor:
         indicative = (target <= anchor_batch).to(torch.float32)
         return -indicative * cdf_raw + softplus(cdf_raw)
 
     @staticmethod
-    def _get_median_residual_monotonous_losses(median_residual, quantile_sign):
+    def _get_median_residual_monotonous_losses(
+        median_residual: torch.Tensor,
+        quantile_sign: torch.Tensor,
+    ) -> torch.Tensor:
         return relu(-median_residual * quantile_sign)
 
     @staticmethod
     def _get_quantile_residual_losses(
-        target_residual,
-        quantile_residual,
-        quantile_batch,
-    ):
+        target_residual: torch.Tensor,
+        quantile_residual: torch.Tensor,
+        quantile_batch: torch.Tensor,
+    ) -> torch.Tensor:
         quantile_error = target_residual - quantile_residual
-        return torch.max(
-            quantile_batch * quantile_error, (quantile_batch - 1) * quantile_error
-        )
+        q1 = quantile_batch * quantile_error
+        q2 = (quantile_batch - 1) * quantile_error
+        return torch.max(q1, q2)
 
     def _get_median_residual_losses(
         self,
-        target_median_residual,
-        median_residual,
-        quantile_sign,
-    ):
+        target_median_residual: torch.Tensor,
+        median_residual: torch.Tensor,
+        quantile_sign: torch.Tensor,
+    ) -> torch.Tensor:
         same_sign_mask = quantile_sign * torch.sign(target_median_residual) > 0
         tmr, mr = map(
             lambda tensor: tensor[same_sign_mask],
@@ -429,7 +475,10 @@ class DDRLoss(LossBase, LoggingMixin):
         )
         return median_residual_loss + residual_monotonous_losses
 
-    def _get_median_pressure_losses(self, predictions):
+    def _get_median_pressure_losses(
+        self,
+        predictions: tensor_dict_type,
+    ) -> torch.Tensor:
         pressure_pos_dict, pressure_neg_dict = map(
             predictions.get,
             map(lambda attr: f"pressure_sub_quantile_{attr}_dict", ["pos", "neg"]),

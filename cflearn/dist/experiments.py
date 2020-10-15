@@ -4,8 +4,8 @@ import shutil
 import logging
 
 from typing import *
-from cftool.misc import *
 from cftool.dist import Parallel
+from cftool.misc import Saving, LoggingMixin, lock_manager
 
 from .task import Task
 from ..misc.toolkit import data_type
@@ -53,7 +53,7 @@ class Experiments(LoggingMixin):
         trains_config: Dict[str, Any] = None,
         tracker_config: Dict[str, Any] = None,
         data_task: Task = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "Experiments":
         if identifier is None:
             identifier = model
@@ -77,15 +77,15 @@ class Experiments(LoggingMixin):
         *,
         num_jobs: int = 4,
         run_tasks: bool = True,
-        load_task: callable = None,
+        load_task: Callable = None,
         use_tqdm: bool = True,
     ) -> Dict[str, List[Union[Task, Any]]]:
-        def _task(i, identifier_, cuda=None) -> Task:
+        def _task(i: int, identifier_: str, cuda: Optional[int] = None) -> Task:
             return self.tasks[identifier_][i].run_external(cuda)
 
-        arguments = []
+        arguments: List[Tuple[int, str]] = []
         for key in sorted(self.tasks):
-            arguments.extend([[i, key] for i in range(len(self.tasks[key]))])
+            arguments.extend([(i, key) for i in range(len(self.tasks[key]))])
 
         if not run_tasks:
             tasks = []
@@ -104,7 +104,7 @@ class Experiments(LoggingMixin):
             )
             tasks = parallel(_task, *parallel_arguments).ordered_results
 
-        results = {}
+        results: Dict[str, List[Union[Task, Any]]] = {}
         for task, (_, identifier) in zip(tasks, arguments):
             if load_task is None:
                 results.setdefault(identifier, []).append(task)
@@ -116,7 +116,7 @@ class Experiments(LoggingMixin):
 
     def run(
         self,
-        load_task: callable,
+        load_task: Callable,
         x: data_type,
         y: data_type = None,
         x_cv: data_type = None,
@@ -128,7 +128,7 @@ class Experiments(LoggingMixin):
         identifiers: Union[str, List[str]] = None,
         use_tqdm_in_task: bool = False,
         use_tqdm: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> Dict[str, List[Union[Task, Any]]]:
         self.initialize()
         if isinstance(models, str):
@@ -228,8 +228,9 @@ class Experiments(LoggingMixin):
                 tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
                 kwargs = Saving.load_dict("kwargs", abs_folder)
                 data_tasks_mappings = kwargs.pop("data_tasks_mappings")
+                kwargs["overwrite"] = False
                 kwargs["temp_folder"] = tgt_temp_folder
-                experiments = cls(**kwargs, overwrite=False)
+                experiments = cls(**kwargs)
                 # data tasks
                 data_tasks = {}
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
@@ -257,9 +258,9 @@ class Experiments(LoggingMixin):
                         if corresponding_data_tasks is not None:
                             data_task = corresponding_data_tasks[try_idx]
                             if data_task is not None:
-                                local_task.config[
-                                    "data_folder"
-                                ] = data_task.saving_folder
+                                assert local_task.config is not None
+                                data_folder = data_task.saving_folder
+                                local_task.config["data_folder"] = data_folder
                         local_tasks.append(local_task)
         return experiments
 

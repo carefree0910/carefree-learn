@@ -168,7 +168,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return num_history
 
     @property
-    def merged_dim(self):
+    def merged_dim(self) -> int:
         merged_dim = self._categorical_dim + len(self._numerical_columns)
         return merged_dim * self.num_history
 
@@ -210,9 +210,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         )
 
     def _init_input_config(self):
-        self._fc_in_dim, self._fc_out_dim = map(
-            self.config.get, ["fc_in_dim", "fc_out_dim"]
-        )
+        self._fc_in_dim: int = self.config.get("fc_in_dim")
+        self._fc_out_dim: int = self.config.get("fc_out_dim")
         self.out_dim = max(self.tr_data.num_classes, 1)
         if self._fc_in_dim is None:
             self._fc_in_dim = self.merged_dim

@@ -4,7 +4,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import *
+from typing import Any, Dict, List
+from typing import Union, NamedTuple, Optional
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 
@@ -21,7 +22,7 @@ class Linear(nn.Module):
         bias: bool = True,
         pruner_config: dict = None,
         init_method: Union[str, None] = "xavier_uniform",
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
@@ -39,7 +40,7 @@ class Linear(nn.Module):
     def bias(self) -> Union[torch.Tensor, None]:
         return self.linear.bias
 
-    def forward(self, net):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         weight = (
             self.linear.weight
             if self.pruner is None
@@ -47,7 +48,7 @@ class Linear(nn.Module):
         )
         return nn.functional.linear(net, weight, self.linear.bias)
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         if self._init_method is None:
             return
         if self._init_method not in Initializer.defined_initialization:
@@ -71,7 +72,7 @@ class Mapping(nn.Module):
         batch_norm: bool = True,
         activation: str = "ReLU",
         init_method: str = "xavier_uniform",
-        **kwargs,
+        **kwargs: Any,
     ):
         super().__init__()
         self.config = kwargs
@@ -87,7 +88,7 @@ class Mapping(nn.Module):
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:
-            self.activation = None
+            self.activation: Optional[nn.Module] = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
@@ -102,7 +103,7 @@ class Mapping(nn.Module):
     def bias(self) -> Union[torch.Tensor, None]:
         return self.linear.bias
 
-    def forward(self, net, *, reuse: bool = False):
+    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
         net = self.linear(net)
         if self.bn is not None:
             net = self.bn(net)
@@ -124,7 +125,7 @@ class MLP(nn.Module):
         final_mapping_config: Dict[str, Any] = None,
     ):
         super().__init__()
-        mappings = []
+        mappings: List[Union[Linear, Mapping]] = []
         if isinstance(mapping_configs, dict):
             mapping_configs = [mapping_configs] * len(num_units)
         for num_unit, mapping_config in zip(num_units, mapping_configs):
@@ -144,7 +145,7 @@ class MLP(nn.Module):
     def biases(self) -> List[Union[torch.Tensor, None]]:
         return [mapping.bias for mapping in self.mappings]
 
-    def forward(self, net):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         for mapping in self.mappings:
             net = mapping(net)
         return net
@@ -201,9 +202,10 @@ class DNDF(nn.Module):
             increment_mask = np.repeat(increment_mask, num_repeat)
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
             increment_masks.append(increment_mask)
+        self.increment_masks: torch.Tensor
         self.register_buffer("increment_masks", torch.stack(increment_masks))
 
-    def forward(self, net):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         device = net.device
         tree_net = self.tree_proj(net)
         p_left = torch.split(torch.sigmoid(tree_net), self._num_internals, dim=-1)
@@ -220,13 +222,15 @@ class DNDF(nn.Module):
         for i in range(1, self._tree_depth + 1):
             for j, p_flat in enumerate(flat_probabilities):
                 routes[j] *= p_flat.take(batch_indices + self.increment_masks[i])
-        leaves, features = self.leaves, torch.cat(routes, 1)
-        if not self._is_regression and self._output_dim > 1:
-            leaves = nn.functional.softmax(leaves, dim=-1)
+        features = torch.cat(routes, 1)
+        if self._is_regression or self._output_dim <= 1:
+            leaves: Union[torch.Tensor, nn.Parameter] = self.leaves
+        else:
+            leaves = nn.functional.softmax(self.leaves, dim=-1)
         leaves = leaves.view(self._num_tree * self._num_leaf, self._output_dim)
         return features.matmul(leaves) / self._num_tree
 
-    def reset_parameters(self):
+    def reset_parameters(self) -> None:
         self.tree_proj.reset_parameters()
         nn.init.xavier_uniform_(self.leaves.data)
 
@@ -277,7 +281,7 @@ class Attention(nn.Module):
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
-        def _warn(prefix: str):
+        def _warn(prefix: str) -> None:
             msg = (
                 f"self attention is used so `{prefix}_linear_config` will be ignored, "
                 "please use `in_linear_config` instead"
@@ -313,7 +317,7 @@ class Attention(nn.Module):
         self.dropout = dropout
         self.activation = Activations.make(activation, activation_config)
 
-    def _to_heads(self, tensor: torch.Tensor):
+    def _to_heads(self, tensor: torch.Tensor) -> torch.Tensor:
         batch_size, seq_len, in_feature = tensor.shape
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
         return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)

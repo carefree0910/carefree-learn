@@ -26,7 +26,12 @@ class LossBase(nn.Module, metaclass=ABCMeta):
         raise NotImplementedError(f"reduction '{self._reduction}' is not implemented")
 
     @abstractmethod
-    def _core(self, predictions: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def _core(
+        self,
+        predictions: torch.Tensor,
+        target: torch.Tensor,
+        **kwargs: Any,
+    ) -> torch.Tensor:
         # return losses without reduction
         pass
 
@@ -46,7 +51,12 @@ class FocalLoss(LossBase):
             alpha = list(alpha)
         self._alpha = alpha
 
-    def _core(self, predictions: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    def _core(
+        self,
+        predictions: torch.Tensor,
+        target: torch.Tensor,
+        **kwargs: Any,
+    ) -> torch.Tensor:
         logits_mat, target_column = (
             predictions.view(-1, predictions.shape[-1]),
             target.view(-1, 1),

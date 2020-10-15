@@ -23,7 +23,7 @@ class FCNN(ModelBase):
     def input_sample(self) -> tensor_dict_type:
         return super().input_sample
 
-    def _init_input_config(self):
+    def _init_input_config(self) -> None:
         super()._init_input_config()
         if self._fc_in_dim > 512:
             hidden_units = [1024, 1024]
@@ -44,7 +44,7 @@ class FCNN(ModelBase):
         self.hidden_units = self.config.setdefault("hidden_units", hidden_units)
         self.mapping_configs = self.config.setdefault("mapping_configs", {})
 
-    def _init_fcnn(self):
+    def _init_fcnn(self) -> None:
         self._init_input_config()
         final_mapping_config = self.config.setdefault("final_mapping_config", {})
         self.mlp = MLP(
@@ -55,7 +55,7 @@ class FCNN(ModelBase):
             final_mapping_config=final_mapping_config,
         )
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
         if self.tr_data.is_ts:

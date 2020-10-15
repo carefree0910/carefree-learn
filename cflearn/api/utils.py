@@ -32,6 +32,7 @@ class ONNX:
 
     def _init_onnx_session(self, onnx_path: str) -> "ONNX":
         self.ort_session = onnxruntime.InferenceSession(onnx_path)
+        return self
 
     def to_onnx(
         self,
@@ -63,8 +64,9 @@ class ONNX:
     def inject_onnx(self) -> "ONNX":
         self.wrapper.pipeline.onnx = self
         del self.wrapper.model, self.wrapper.pipeline.model
+        return self
 
-    def inference(self, new_inputs: Dict[str, np.ndarray]) -> Dict[str, torch.Tensor]:
+    def inference(self, new_inputs: Dict[str, np.ndarray]) -> tensor_dict_type:
         ort_inputs = {
             node.name: to_standard(new_inputs[node.name])
             for node in self.ort_session.get_inputs()

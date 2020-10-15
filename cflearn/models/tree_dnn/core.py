@@ -1,7 +1,7 @@
 import torch
 import logging
 
-from typing import *
+from typing import Any, Dict
 from cfdata.tabular import TabularData
 
 from ..fcnn.core import FCNN
@@ -55,7 +55,7 @@ class TreeDNN(FCNN):
                 dndf_input_dim -= one_hot_dims * self.num_history
             self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **self._dndf_config)
 
-    def _preset_config(self, tr_data: TabularData):
+    def _preset_config(self, tr_data: TabularData) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("pruner_config", {})
@@ -87,27 +87,32 @@ class TreeDNN(FCNN):
             return split_result.merge()
         numerical = split_result.numerical
         if not use_embedding and not use_one_hot:
+            assert numerical is not None
             return numerical
         categorical = split_result.categorical
         if not categorical:
+            assert numerical is not None
             return numerical
+        assert isinstance(categorical, dict)
         if not use_one_hot:
             embedding = categorical["embedding"]
             if numerical is None:
                 return embedding
             return torch.cat([numerical, embedding], dim=1)
-        if not use_embedding:
-            one_hot = categorical["one_hot"]
-            if numerical is None:
-                return one_hot
-            return torch.cat([numerical, one_hot], dim=1)
+        assert not use_embedding
+        one_hot = categorical["one_hot"]
+        if numerical is None:
+            return one_hot
+        return torch.cat([numerical, one_hot], dim=1)
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch, return_all_encodings=True)
         # fc
         fc_net = self._merge(
-            split_result, self._use_embedding_for_fc, self._use_one_hot_for_fc
+            split_result,
+            self._use_embedding_for_fc,
+            self._use_one_hot_for_fc,
         )
         if self.tr_data.is_ts:
             fc_net = fc_net.view(fc_net.shape[0], -1)
@@ -116,7 +121,9 @@ class TreeDNN(FCNN):
         if self.dndf is None:
             return {"predictions": fc_net}
         dndf_net = self._merge(
-            split_result, self._use_embedding_for_dndf, self._use_one_hot_for_dndf
+            split_result,
+            self._use_embedding_for_dndf,
+            self._use_one_hot_for_dndf,
         )
         if self.tr_data.is_ts:
             dndf_net = dndf_net.view(dndf_net.shape[0], -1)

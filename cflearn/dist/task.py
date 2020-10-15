@@ -101,7 +101,7 @@ class Task:
         Saving.save_dict(config, "config", self.saving_folder)
         return self
 
-    def run_external(self, cuda: int = None) -> "Task":
+    def run_external(self, cuda: Optional[int] = None) -> "Task":
         config = shallow_copy_dict(self.config)
         config["cuda"] = cuda
         self.dump_config(config)

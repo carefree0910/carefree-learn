@@ -12,7 +12,8 @@ from cftool.misc import LoggingMixin
 from cftool.misc import context_error_handler
 from cfdata.types import np_int_type, np_float_type
 
-tensor_dict_type = Dict[str, torch.Tensor]
+
+tensor_dict_type = Dict[str, Union[torch.Tensor, "tensor_dict_type"]]
 data_type = Union[np.ndarray, List[List[float]], List[float], str, None]
 
 
@@ -80,7 +81,7 @@ class Initializer(LoggingMixin):
         "normal",
         "truncated_normal",
     }
-    custom_initializer: Dict[str, Type] = {}
+    custom_initializer: Dict[str, Callable] = {}
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
@@ -93,7 +94,7 @@ class Initializer(LoggingMixin):
         return custom_initializer(self, param)
 
     @classmethod
-    def add_initializer(cls, f: Type, name: str) -> None:
+    def add_initializer(cls, f: Callable, name: str) -> None:
         if name in cls.defined_initialization:
             print(f"{cls.warning_prefix}'{name}' initializer is already defined")
             return

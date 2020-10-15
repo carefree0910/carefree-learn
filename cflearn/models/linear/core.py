@@ -23,12 +23,12 @@ class LinearModel(ModelBase):
     def input_sample(self) -> tensor_dict_type:
         return super().input_sample
 
-    def _init_linear(self):
+    def _init_linear(self) -> None:
         self._init_input_config()
         self._linear_config = self.config.setdefault("linear_config", {})
         self.linear = Linear(self._fc_in_dim, self._fc_out_dim, **self._linear_config)
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
         if self.tr_data.is_ts:
