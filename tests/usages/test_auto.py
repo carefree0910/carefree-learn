@@ -18,10 +18,8 @@ def test_auto():
     for num_jobs in [1, 2]:
         fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)
 
-        auto_kwargs = kwargs.copy()
-        auto_kwargs["num_jobs"] = num_jobs
         auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
-        auto.fit(*data, extra_config=auto_kwargs)
+        auto.fit(*data, num_jobs=num_jobs, extra_config=kwargs.copy())
         predictions = auto.predict(x_cv)
         print("accuracy:", (y_cv == predictions).mean())
 
