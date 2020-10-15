@@ -75,9 +75,8 @@ class SplitFeatures(NamedTuple):
     numerical: Union[torch.Tensor, None]
 
     @property
-    def stacked_categorical(self) -> torch.Tensor:
+    def stacked_categorical(self) -> Optional[torch.Tensor]:
         if not isinstance(self.categorical, dict):
-            assert self.categorical is not None
             return self.categorical
         return torch.cat([self.categorical[k] for k in sorted(self.categorical)], dim=1)
 
