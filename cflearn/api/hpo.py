@@ -111,12 +111,14 @@ class _Tuner(LoggingMixin):
         num_parallel: int,
         temp_folder: str,
         *,
+        cuda: str = None,
         sequential: bool = False,
     ) -> Union[List[Union[Task, Wrapper]], Wrapper]:
         identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
         params["verbose_level"] = 0
         params["use_tqdm"] = False
+        params["cuda"] = cuda
         if isinstance(self.x, str):
             y = y_cv = None
             x, x_cv = self.x, self.x_cv

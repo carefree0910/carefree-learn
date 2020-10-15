@@ -85,6 +85,7 @@ class Auto:
         extra_config: Dict[str, Any] = None,
         num_final_repeat: int = 10,
         bagging_config: Dict[str, Any] = None,
+        cuda: Union[str, int] = None,
     ) -> "Auto":
         model = self.model
         optuna_temp_folder = os.path.join(temp_folder, "__optuna__")
@@ -106,6 +107,7 @@ class Auto:
             estimator_scoring_function=estimator_scoring_function,
             temp_folder=optuna_temp_folder,
             extra_config=extra_config,
+            cuda=cuda,
         )
         self.best_param = self.optuna_result.best_param
         if bagging_config is not None:
