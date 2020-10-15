@@ -14,7 +14,7 @@ data = x_tr, y_tr, x_cv, y_cv
 def test_auto():
     fcnn = cflearn.make(use_tqdm=False).fit(*data)
 
-    auto = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(*data, num_jobs=2)
+    auto = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(*data)
     predictions = auto.predict(x_cv)
     print("accuracy:", (y_cv == predictions).mean())
 

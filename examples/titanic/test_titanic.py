@@ -50,7 +50,6 @@ def _optuna_core(train_file):
         num_final_repeat=2 if CI else 10,
         num_repeat=2 if CI else 5,
         num_trial=4 if CI else 100,
-        num_jobs=2,
     )
     return opt.data, opt.pattern
 
