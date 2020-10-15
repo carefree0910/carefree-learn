@@ -308,8 +308,9 @@ def transform_experiments(experiments: Experiments) -> Dict[str, List[Wrapper]]:
 
 class RepeatResult(NamedTuple):
     data: Optional[TabularData]
-    patterns: Optional[Dict[str, List[ModelPattern]]]
     experiments: Optional[Experiments]
+    wrappers: Optional[Dict[str, List[Wrapper]]]
+    patterns: Optional[Dict[str, List[ModelPattern]]]
 
     @property
     def models(self) -> Dict[str, List[Wrapper]]:
@@ -328,6 +329,7 @@ def repeat_with(
     num_repeat: int = 5,
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,
+    pattern_kwargs: Dict[str, Any] = None,
     sequential: bool = False,
     use_tqdm: bool = True,
     **kwargs,
@@ -360,9 +362,9 @@ def repeat_with(
             m = make(model_, logging_folder=logging_folder, **kwargs_)
             return m.fit(x, y, x_cv, y_cv)
 
-        wrappers = {}
-        for model in models:
-            wrappers[model] = list(map(get, range(num_repeat), [model] * num_repeat))
+        wrappers_dict = {}
+        for model, identifier in zip(models, identifiers):
+            wrappers_dict[identifier] = list(map(get, range(num_repeat), [model] * num_repeat))
     else:
         if num_jobs <= 1:
             print(
@@ -385,22 +387,24 @@ def repeat_with(
             temp_folder=temp_folder,
             **kwargs,
         )
-        wrappers = None
+        wrappers_dict = None
         if return_patterns:
-            wrappers = transform_experiments(experiments)
+            wrappers_dict = transform_experiments(experiments)
 
     patterns = None
     if return_patterns:
+        if pattern_kwargs is None:
+            pattern_kwargs = {}
         patterns = {
-            model: [m.to_pattern() for m in wrappers]
-            for model, wrappers in wrappers.items()
+            model: [m.to_pattern(**pattern_kwargs) for m in wrappers]
+            for model, wrappers in wrappers_dict.items()
         }
 
     data = None
     if patterns is not None:
         data = patterns[identifiers[0]][0].model.tr_data
 
-    return RepeatResult(data, patterns, experiments)
+    return RepeatResult(data, experiments, wrappers_dict, patterns)
 
 
 def tasks_to_wrappers(tasks: List[Task]) -> List[Wrapper]:
@@ -426,6 +430,7 @@ __all__ = [
     "Experiments",
     "ModelPattern",
     "EnsemblePattern",
+    "RepeatResult",
     "SAVING_DELIM",
     "_remove",
 ]

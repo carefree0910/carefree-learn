@@ -35,6 +35,7 @@ __all__ = [
     "Experiments",
     "ModelPattern",
     "EnsemblePattern",
+    "RepeatResult",
     "SAVING_DELIM",
     "_remove",
     # utils
