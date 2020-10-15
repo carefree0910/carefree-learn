@@ -11,17 +11,35 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-from cftool.ml import *
-from cftool.misc import *
-from cfdata.tabular import *
+from cftool.ml import Metrics
+from cftool.ml import Tracker
+from cftool.ml import ScalarEMA
+from cftool.ml import ModelPattern
+from cfdata.tabular import DataLoader
+from cfdata.tabular import ColumnTypes
+from cfdata.tabular import TabularData
+from cfdata.tabular import TabularDataset
+from cfdata.tabular import ImbalancedSampler
+from cftool.misc import Saving
+from cftool.misc import LoggingMixin
+from cftool.misc import timestamp
+from cftool.misc import update_dict
+from cftool.misc import lock_manager
+from cftool.misc import register_core
+from cftool.misc import timing_context
+from cftool.misc import shallow_copy_dict
+from cftool.misc import fix_float_to_length
+from cftool.misc import context_error_handler
 from tqdm import tqdm
 from functools import partial
+from torch.optim import Optimizer
+from torch.optim.lr_scheduler import _LRScheduler
 from cfdata.types import np_int_type
 from trains import Task, Logger
 from abc import ABCMeta, abstractmethod
 
 try:
-    import torch.cuda.amp as amp
+    amp: Optional[Any] = torch.cuda.amp
 except:
     amp = None
 
@@ -36,13 +54,18 @@ model_dict: Dict[str, Type["ModelBase"]] = {}
 
 class amp_autocast_context(context_error_handler):
     def __init__(self, use_amp: bool):
-        self._autocast = None if not use_amp else amp.autocast()
+        if not use_amp:
+            self._autocast = None
+        else:
+            if amp is None:
+                raise ValueError("`amp` is not available but `use_amp` is set to True")
+            self._autocast = amp.autocast()
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self._autocast is not None:
             self._autocast.__enter__()
 
-    def _normal_exit(self, exc_type, exc_val, exc_tb):
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._autocast is not None:
             self._autocast.__exit__(exc_type, exc_val, exc_tb)
 
@@ -54,6 +77,7 @@ class SplitFeatures(NamedTuple):
     @property
     def stacked_categorical(self) -> torch.Tensor:
         if not isinstance(self.categorical, dict):
+            assert self.categorical is not None
             return self.categorical
         return torch.cat([self.categorical[k] for k in sorted(self.categorical)], dim=1)
 
@@ -104,7 +128,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         excluded = 0
         ts_indices = tr_data.ts_indices
         recognizers = tr_data.recognizers
-        self.encoders = {}
+        encoders: Dict[str, EncoderStack] = {}
         self.numerical_columns_mapping = {}
         self.categorical_columns_mapping = {}
         for idx, recognizer in recognizers.items():
@@ -115,10 +139,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                 self.numerical_columns_mapping[idx] = idx - excluded
             else:
-                self._init_encoder(idx)
+                self._init_encoder(idx, encoders)
                 self.categorical_columns_mapping[idx] = idx - excluded
-        if self.encoders:
-            self.encoders = nn.ModuleDict(self.encoders)
+        if encoders:
+            self.encoders = nn.ModuleDict(encoders)
         self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
 
@@ -131,7 +155,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return {"x_batch": x, "y_batch": y}
 
     @abstractmethod
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
         # requires returning `predictions` key
         pass
@@ -174,7 +198,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     @property
     def encoding_dims(self) -> Dict[str, int]:
-        encoding_dims = {}
+        encoding_dims: Dict[str, int] = {}
         for encoder_stack in self.encoders.values():
             dims = encoder_stack.dims
             if not encoding_dims:
@@ -193,10 +217,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             dims[true_idx] = self.encoders[idx_str].dim
         return dims
 
-    def _preset_config(self, tr_data: TabularData):
+    def _preset_config(self, tr_data: TabularData) -> None:
         pass
 
-    def _init_config(self, tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData) -> None:
         self.tr_data = tr_data
         self._loss_config = self.config.setdefault("loss_config", {})
         # TODO : optimize encodings by pre-calculate one-hot encodings in Wrapper
@@ -209,7 +233,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             "default_encoding_method", "embedding"
         )
 
-    def _init_input_config(self):
+    def _init_input_config(self) -> None:
         self._fc_in_dim: int = self.config.get("fc_in_dim")
         self._fc_out_dim: int = self.config.get("fc_out_dim")
         self.out_dim = max(self.tr_data.num_classes, 1)
@@ -218,22 +242,28 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if self._fc_out_dim is None:
             self._fc_out_dim = self.out_dim
 
-    def _init_loss(self, tr_data: TabularData):
+    def _init_loss(self, tr_data: TabularData) -> None:
         if tr_data.is_reg:
-            self.loss = nn.L1Loss(reduction="none")
+            self.loss: nn.Module = nn.L1Loss(reduction="none")
         else:
             self.loss = FocalLoss(self._loss_config, reduction="none")
 
-    def _init_encoder(self, idx: int):
+    def _init_encoder(self, idx: int, encoders: Dict[str, EncoderStack]) -> None:
         methods = self._encoding_methods.setdefault(idx, self._default_encoding_method)
         config = self._encoding_configs.setdefault(idx, self._default_encoding_configs)
         num_values = self.tr_data.recognizers[idx].num_unique_values
         if isinstance(methods, str):
             methods = [methods]
-        encoders = [encoder_dict[method](idx, num_values, config) for method in methods]
-        self.encoders[str(idx)] = EncoderStack(*encoders)
+        local_encoders = [
+            encoder_dict[method](idx, num_values, config) for method in methods
+        ]
+        encoders[str(idx)] = EncoderStack(*local_encoders)
 
-    def _optimizer_step(self, optimizers, grad_scalar):
+    def _optimizer_step(
+        self,
+        optimizers: Dict[str, Optimizer],
+        grad_scalar: Optional["amp.GradScaler"],
+    ) -> None:
         for opt in optimizers.values():
             if grad_scalar is None:
                 opt.step()
@@ -243,7 +273,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             opt.zero_grad()
 
     @staticmethod
-    def _switch_requires_grad(params: List[torch.nn.Parameter], requires_grad: bool):
+    def _switch_requires_grad(
+        params: List[torch.nn.Parameter],
+        requires_grad: bool,
+    ) -> None:
         for param in params:
             param.requires_grad_(requires_grad)
 
@@ -260,27 +293,31 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             categorical_columns.append(
                 encoder(x_batch[..., mapping_idx], return_all=return_all_encodings)
             )
+
+        categorical: Union[torch.Tensor, tensor_dict_type, None]
         if not categorical_columns:
             categorical = None
         elif not return_all_encodings:
             categorical = torch.cat(categorical_columns, dim=1)
         else:
             categorical = collate_tensor_dicts(categorical_columns, dim=1)
+
         numerical = (
             None
             if not self._numerical_columns
             else x_batch[..., self._numerical_columns]
         )
+
         return SplitFeatures(categorical, numerical)
 
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
         return self._split_features(torch.from_numpy(processed).to(device))
 
     @classmethod
-    def register(cls, name: str):
+    def register(cls, name: str) -> Callable[[Type], Type]:
         global model_dict
 
-        def before(cls_):
+        def before(cls_: Type) -> None:
             cls_.__identifier__ = name
 
         return register_core(name, model_dict, before_register=before)
@@ -305,7 +342,7 @@ class Pipeline(nn.Module, LoggingMixin):
         self._no_grad_in_predict = True
         self.onnx = None
 
-    def _init_config(self, config, is_loading):
+    def _init_config(self, config: Dict[str, Any], is_loading: bool) -> None:
         self._wrapper_config = config
         self.timing = self._wrapper_config["use_timing_context"]
         self.config = config.setdefault("pipeline_config", {})
@@ -342,7 +379,7 @@ class Pipeline(nn.Module, LoggingMixin):
         if not 0.0 < ema_decay < 1.0:
             self.ema_decay = None
         else:
-            self.ema_decay = EMA(ema_decay, self.model.named_parameters())
+            self.ema_decay = EMA(ema_decay, list(self.model.named_parameters()))
 
         self._use_amp = config["use_amp"]
         self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
@@ -365,12 +402,12 @@ class Pipeline(nn.Module, LoggingMixin):
             "ts_label_collator_config", {}
         )
 
-    def _make_sampler(self, data, shuffle) -> ImbalancedSampler:
+    def _make_sampler(self, data: TabularData, shuffle: bool) -> ImbalancedSampler:
         config = shallow_copy_dict(self._sampler_config)
         config["shuffle"] = shuffle
         return ImbalancedSampler(data, **config)
 
-    def _init_data(self, tr_data, cv_data):
+    def _init_data(self, tr_data: TabularData, cv_data: TabularData) -> None:
         self.tr_data, self.cv_data = tr_data, cv_data
         self._sampler_config.setdefault("verbose_level", self.tr_data._verbose_level)
         tr_sampler = self._make_sampler(tr_data, self.shuffle_tr)
@@ -397,7 +434,12 @@ class Pipeline(nn.Module, LoggingMixin):
                 verbose_level=self._verbose_level,
             )
 
-    def _define_optimizer(self, params_name, optimizer_base, optimizer_config):
+    def _define_optimizer(
+        self,
+        params_name: str,
+        optimizer_base: Type[Optimizer],
+        optimizer_config: Dict[str, Any],
+    ) -> Optimizer:
         if params_name == "all":
             parameters = self.model.parameters()
         else:
@@ -407,9 +449,10 @@ class Pipeline(nn.Module, LoggingMixin):
         )
         return opt
 
-    def _init_optimizers(self):
+    def _init_optimizers(self) -> None:
         optimizers = self.config.setdefault("optimizers", {"all": {}})
-        self.optimizers, self.schedulers = {}, {}
+        self.optimizers: Dict[str, Optimizer] = {}
+        self.schedulers: Dict[str, Optional[_LRScheduler]] = {}
         for params_name, params_optimizer_config in optimizers.items():
             optimizer = params_optimizer_config.setdefault("optimizer", "adam")
             optimizer_config = params_optimizer_config.setdefault(
@@ -494,7 +537,7 @@ class Pipeline(nn.Module, LoggingMixin):
                     if name == "metrics":
                         self.schedulers_requires_metric.add(key)
 
-    def _init_metrics(self):
+    def _init_metrics(self) -> None:
         # metrics
         metric_config = self.config.setdefault("metric_config", {})
         metric_types = metric_config.setdefault("types", "auto")
@@ -507,7 +550,7 @@ class Pipeline(nn.Module, LoggingMixin):
             metric_types = [metric_types]
         self._metrics_need_loss = False
         self.metrics: Dict[str, Union[Metrics, None]] = {}
-        self.metrics_decay: Dict[str, ScalarEMA] = {}
+        self.metrics_decay: Optional[Dict[str, ScalarEMA]] = {}
         metric_decay = metric_config.setdefault("decay", 0.1)
         for i, metric_type in enumerate(metric_types):
             if metric_type not in Metrics.sign_dict:
@@ -528,21 +571,21 @@ class Pipeline(nn.Module, LoggingMixin):
             self.metrics_weights.setdefault(metric_type, 1.0)
 
     @property
-    def start_snapshot(self):
+    def start_snapshot(self) -> bool:
         return (
             self._step_count >= self.snapshot_start_step
             and self._epoch_count > self.min_epoch
         )
 
     @property
-    def start_monitor_plateau(self):
+    def start_monitor_plateau(self) -> bool:
         return (
             self._step_count
             >= self.plateau_monitor_start_snapshot * self.num_step_per_snapshot
         )
 
     @property
-    def num_step_per_snapshot(self):
+    def num_step_per_snapshot(self) -> int:
         if self._num_step_per_snapshot > 0:
             return self._num_step_per_snapshot
         return max(
@@ -560,7 +603,7 @@ class Pipeline(nn.Module, LoggingMixin):
             return loader
         return tqdm(loader, total=len(loader), leave=False, position=2)
 
-    def _collect_info(self, *, return_only: bool):
+    def _collect_info(self, *, return_only: bool) -> str:
         msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
         msg += (
             pprint.pformat(self._wrapper_config, compact=True) + "\n" + "-" * 100 + "\n"
@@ -610,20 +653,22 @@ class Pipeline(nn.Module, LoggingMixin):
                 y_batch = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
             tensors = [x_batch, y_batch]
         else:
-            tensors = list(map(self._to_device, [x_batch, y_batch]))
+            x_batch, y_batch = map(self._to_device, [x_batch, y_batch])
             if y_batch is not None and self.tr_data.is_clf:
-                tensors[-1] = tensors[-1].to(torch.int64)
+                y_batch = y_batch.to(torch.int64)
+            tensors = [x_batch, y_batch]
         return dict(zip(["x_batch", "y_batch"], tensors))
 
-    def _clip_norm_step(self):
+    def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
             self.model.parameters(), self._clip_norm
         )
 
-    def _optimizer_step(self):
+    def _optimizer_step(self) -> None:
         self.model._optimizer_step(self.optimizers, self.scaler)
 
-    def _monitor_step(self):
+    # return whether we need to terminate
+    def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
             score, metrics = self._get_metrics()
             if self.trial is not None:
@@ -781,7 +826,7 @@ class Pipeline(nn.Module, LoggingMixin):
         tr_data: TabularData,
         cv_data: TabularData,
         tr_weights: np.ndarray,
-    ):
+    ) -> None:
         # data
         self._init_data(tr_data, cv_data)
         # sample weights
@@ -913,7 +958,7 @@ class Pipeline(nn.Module, LoggingMixin):
                 checkpoints[step] = file
         return checkpoints
 
-    def save_checkpoint(self, folder=None):
+    def save_checkpoint(self, folder=None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
         if self.max_snapshot_num > 0:
@@ -924,7 +969,7 @@ class Pipeline(nn.Module, LoggingMixin):
         file = f"pipeline_{self._step_count}.pt"
         torch.save(self.state_dict(), os.path.join(folder, file))
 
-    def restore_checkpoint(self, folder=None):
+    def restore_checkpoint(self, folder=None) -> "Pipeline":
         if folder is None:
             folder = self.checkpoint_folder
         checkpoints = self._filter_checkpoints(folder)

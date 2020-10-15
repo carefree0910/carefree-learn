@@ -49,10 +49,11 @@ class EMA(nn.Module):
     def __init__(
         self,
         decay: float,
-        named_parameters: Iterable[Tuple[str, nn.Parameter]],
+        named_parameters: List[Tuple[str, nn.Parameter]],
     ):
         super().__init__()
-        self._decay, self._named_parameters = decay, list(named_parameters)
+        self._decay = decay
+        self._named_parameters = named_parameters
         for name, param in self.tgt_params:
             self.register_buffer("tr_" + name, param.data.clone())
             self.register_buffer("ema_" + name, param.data.clone())
