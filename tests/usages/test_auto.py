@@ -10,12 +10,18 @@ x_tr, y_tr = train.processed.xy
 x_cv, y_cv = valid.processed.xy
 data = x_tr, y_tr, x_cv, y_cv
 
+CI = True
+kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
+
 
 def test_auto():
     for num_jobs in [1, 2]:
-        fcnn = cflearn.make(use_tqdm=False).fit(*data)
+        fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)
 
-        auto = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(*data, num_jobs=num_jobs)
+        auto_kwargs = kwargs.copy()
+        auto_kwargs["num_jobs"] = num_jobs
+        auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
+        auto.fit(*data, extra_config=auto_kwargs)
         predictions = auto.predict(x_cv)
         print("accuracy:", (y_cv == predictions).mean())
 
