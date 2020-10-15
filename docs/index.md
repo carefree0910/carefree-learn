@@ -128,7 +128,6 @@ auto.plot_intermediate_values(export_folder=export_folder)
 ## Examples
 
 + [Here](https://github.com/carefree0910/carefree-learn/tree/dev/examples) are some real life examples.
-+ For detailed information, please visit the [documentation](http://carefree0910.me/carefree-learn-doc).
 
 ### Quick Start
 
