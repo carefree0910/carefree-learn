@@ -366,7 +366,8 @@ def repeat_with(
 
         wrappers_dict = {}
         for model, identifier in zip(models, identifiers):
-            wrappers_dict[identifier] = list(map(get, range(num_repeat), [model] * num_repeat))
+            model_list = [model] * num_repeat
+            wrappers_dict[identifier] = list(map(get, range(num_repeat), model_list))
     else:
         if num_jobs <= 1:
             print(
