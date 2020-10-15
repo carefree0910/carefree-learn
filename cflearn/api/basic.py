@@ -368,7 +368,7 @@ def repeat_with(
     else:
         if num_jobs <= 1:
             print(
-                f"{LoggingMixin.warning_prefix} we suggest setting `sequential` "
+                f"{LoggingMixin.warning_prefix}we suggest setting `sequential` "
                 f"to True when `num_jobs` is {num_jobs}"
             )
 
