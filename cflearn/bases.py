@@ -141,6 +141,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             else:
                 self._init_encoder(idx, encoders)
                 self.categorical_columns_mapping[idx] = idx - excluded
+        self.encoders = {}
         if encoders:
             self.encoders = nn.ModuleDict(encoders)
         self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
