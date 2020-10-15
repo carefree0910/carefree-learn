@@ -362,10 +362,10 @@ class OptunaParamConverter:
         prefix = value
         available_methods = ["auto_prune", "surgery", "simplified"]
         use_pruner_key = f"{prefix}_use_pruner"
-        method_key = f"{prefix}_method"
+        method_key = f"{prefix}_prune_method"
         return {
             "use_pruner": OptunaParam(use_pruner_key, [True, False], "categorical"),
-            "method": OptunaParam(method_key, available_methods, "categorical"),
+            "prune_method": OptunaParam(method_key, available_methods, "categorical"),
         }
 
     def pop(
@@ -424,7 +424,7 @@ class OptunaParamConverter:
             use_pruner = use_pruner.pop(trial)
         if not use_pruner:
             return
-        method = d["method"]
+        method = d["prune_method"]
         if trial is not None:
             method = method.pop(trial)
         return {"method": method}
