@@ -13,6 +13,7 @@ __all__ = [
     "optuna_tune",
     "OptunaParam",
     "OptunaParamConverter",
+    "OptunaKeyMapping",
     "OptunaPresetParams",
     # zoo
     "ZooBase",

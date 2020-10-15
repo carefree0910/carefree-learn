@@ -1,4 +1,5 @@
 import os
+import torch
 import optuna
 import shutil
 
@@ -18,16 +19,23 @@ from ..misc.toolkit import *
 from ..bases import Wrapper
 
 
-class _Tuner:
+class _Tuner(LoggingMixin):
+    data_file = "__data__.pt"
+    config_name = "__config__"
+
     def __init__(
         self,
-        x: data_type,
-        y: data_type,
-        x_cv: data_type,
-        y_cv: data_type,
-        task_type: TaskTypes,
-        **kwargs,
+        x: Optional[data_type] = None,
+        y: Optional[data_type] = None,
+        x_cv: Optional[data_type] = None,
+        y_cv: Optional[data_type] = None,
+        task_type: Optional[TaskTypes] = None,
+        **kwargs: Any,
     ):
+        # `x` will be None if `load` is called
+        if x is None:
+            return
+
         hpo_cv_split = kwargs.get("hpo_cv_split", 0.1)
         hpo_cv_split_order = kwargs.get("hpo_cv_split_order", "auto")
         need_cv_split = x_cv is None and hpo_cv_split > 0.0
@@ -142,6 +150,30 @@ class _Tuner:
             **params,
         )
         return results.experiments.tasks[identifier]
+
+    def save(self, export_folder: str) -> "_Tuner":
+        Saving.prepare_folder(self, export_folder)
+
+        data_path = os.path.join(export_folder, self.data_file)
+        data = {"x": self.x, "y": self.y, "x_cv": self.x_cv, "y_cv": self.y_cv}
+        torch.save(data, data_path)
+
+        config = {"task_type": self.task_type, "base_params": self.base_params}
+        Saving.save_dict(config, self.config_name, export_folder)
+
+        return self
+
+    @classmethod
+    def load(cls, export_folder: str) -> "_Tuner":
+        instance = cls()
+        data_path = os.path.join(export_folder, cls.data_file)
+        data = torch.load(data_path)
+        instance.x, instance.y = data["x"], data["y"]
+        instance.x_cv, instance.y_cv = data["x_cv"], data["y_cv"]
+        config = Saving.load_dict(cls.config_name, export_folder)
+        instance.task_type = config["task_type"]
+        instance.base_params = config["base_params"]
+        return instance
 
 
 class HPOResult(NamedTuple):
@@ -469,6 +501,9 @@ class OptunaParamConverter:
 
 
 class OptunaKeyMapping:
+    tuner_folder = "__tuner__"
+    optuna_params_name = "__optuna_params__"
+
     def __init__(self, tuner: _Tuner, optuna_params: optuna_params_type):
         self.tuner = tuner
         self.delim = SAVING_DELIM
@@ -485,6 +520,7 @@ class OptunaKeyMapping:
                 _inject_mapping(v, new_prefix_list)
 
         _inject_mapping(self.params, [])
+        self._optuna_params = optuna_params
 
     def pop(self, trial: Trial) -> Dict[str, Any]:
         optuna_params = shallow_copy_dict(self.params)
@@ -531,6 +567,19 @@ class OptunaKeyMapping:
 
         _inject_values(param_values, converted)
         return converted
+
+    def save(self, export_folder: str) -> "OptunaKeyMapping":
+        Saving.prepare_folder(self, export_folder)
+        tuner_folder = os.path.join(export_folder, self.tuner_folder)
+        self.tuner.save(tuner_folder)
+        Saving.save_dict(self._optuna_params, self.optuna_params_name, export_folder)
+
+    @classmethod
+    def load(cls, export_folder: str) -> "OptunaKeyMapping":
+        tuner_folder = os.path.join(export_folder, cls.tuner_folder)
+        tuner = _Tuner.load(tuner_folder)
+        optuna_params = Saving.load_dict(cls.optuna_params_name, export_folder)
+        return cls(tuner, optuna_params)
 
 
 class OptunaResult(NamedTuple):
@@ -668,5 +717,6 @@ __all__ = [
     "optuna_tune",
     "OptunaParam",
     "OptunaParamConverter",
+    "OptunaKeyMapping",
     "OptunaPresetParams",
 ]
