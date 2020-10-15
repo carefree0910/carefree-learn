@@ -71,6 +71,7 @@ class Auto:
         new_file = f"{path}_^merged^{ext}"
         with open(new_file, "w") as f:
             f.write("".join(x_merged_lines))
+        return new_file, None
 
     # api
 
