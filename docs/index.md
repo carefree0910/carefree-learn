@@ -128,6 +128,7 @@ auto.plot_intermediate_values(export_folder=export_folder)
 ## Examples
 
 + [Here](https://github.com/carefree0910/carefree-learn/tree/dev/examples) are some real life examples.
++ For detailed information, please visit the [documentation](http://carefree0910.me/carefree-learn-doc).
 
 ### Quick Start
 
@@ -348,6 +349,20 @@ params = {
 
 !!! info
     It is also worth mentioning that we can pass file datasets into `cflearn.tune_with` as well. See `tests/usages/test_basic.py` for more details.
+
+
+## Citation
+
+If you use `carefree-learn` in your research, we would greatly appreciate if you cite this library using this Bibtex:
+
+```
+@misc{carefree-learn,
+  year={2020},
+  author={Yujian He},
+  title={carefree-learn, a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch},
+  howpublished={\url{https://https://github.com/carefree0910/carefree-learn/}},
+}
+```
 
 
 ## License
