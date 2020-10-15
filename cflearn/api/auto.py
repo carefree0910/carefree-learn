@@ -7,7 +7,6 @@ import optuna.visualization as vis
 from typing import *
 from cftool.ml.utils import *
 from cfdata.tabular import *
-from cftool.misc import shallow_copy_dict
 from optuna.importance import BaseImportanceEvaluator
 from plotly.graph_objects import Figure
 
@@ -15,7 +14,6 @@ from .basic import *
 from .ensemble import *
 from ..misc.toolkit import *
 from .hpo import optuna_tune
-from ..bases import Wrapper
 
 
 class Auto:
