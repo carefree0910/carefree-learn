@@ -570,6 +570,7 @@ class OptunaKeyMapping(LoggingMixin):
         tuner_folder = os.path.join(export_folder, self.tuner_folder)
         self.tuner.save(tuner_folder)
         Saving.save_dict(self._optuna_params, self.optuna_params_name, export_folder)
+        return self
 
     @classmethod
     def load(cls, export_folder: str) -> "OptunaKeyMapping":
@@ -645,6 +646,10 @@ class OptunaArgs(NamedTuple):
 
 
 def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
+    cuda = args.cuda
+    if cuda == "None":
+        cuda = None
+
     key_mapping = args.key_mapping
     if isinstance(key_mapping, str):
         key_mapping = OptunaKeyMapping.load(key_mapping)

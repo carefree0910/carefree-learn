@@ -116,7 +116,7 @@ class Experiments(LoggingMixin):
 
     def run(
         self,
-        load_task: Callable,
+        load_task: Optional[Callable],
         x: data_type,
         y: data_type = None,
         x_cv: data_type = None,
