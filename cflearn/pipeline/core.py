@@ -407,10 +407,9 @@ class Pipeline(LoggingMixin):
                 self._original_data.save(train_data_folder, compress=compress)
             else:
                 self.tr_data.save(train_data_folder, compress=compress)
+                valid_data_folder = os.path.join(folder, "__data__", "valid")
                 if self.cv_data is not None:
-                    self.cv_data.save(
-                        os.path.join(folder, "__data__", "valid"), compress=compress
-                    )
+                    self.cv_data.save(valid_data_folder, compress=compress)
             self.trainer.save_checkpoint(folder)
             self.config["is_binary"] = self._is_binary
             self.config["binary_threshold"] = self._binary_threshold
