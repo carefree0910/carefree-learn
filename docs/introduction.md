@@ -89,7 +89,7 @@ In `carefree-learn`, there are three main design tenets that address this tensio
 
 + Share configurations with one single `config` argument (see [`Configurations`](introduction.md#configurations)).
 + Build some common blocks which shall be leveraged across different models (see [`Common Blocks`](introduction.md#common-structure)).
-+ Divide `carefree-learn` into three parts: [`Model`](introduction.md#model), [`Pipeline`](introduction.md#pipeline) and [`Wrapper`](introduction.md#wrapper), each focuses on certain roles.
++ Divide `carefree-learn` into three parts: [`Model`](introduction.md#model), [`Trainer`](introduction.md#trainer) and [`Pipeline`](introduction.md#pipeline), each focuses on certain roles.
 + Implemente functions (`cflearn.register_*` to be exact) to ensure flexibility and control on different modules and stuffs (see [`Registration`](introduction.md#registration)).
 
 We will introduce the details in the following subsections.
@@ -108,7 +108,7 @@ Recall that `carefree-learn` focuses on tabular datasets, which means `carefree-
 ### Model
 
 !!! info
-    + Source codes path: [bases.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/bases.py){target=_blank} -> `class ModelBase`.
+    + Source codes path: [base.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/models/base.py){target=_blank} -> `class ModelBase`.
 
 In `carefree-learn`, a `Model` should implement the core algorithms.
 
@@ -119,24 +119,24 @@ In `carefree-learn`, a `Model` should implement the core algorithms.
 !!! note
     `Model`s are likely to define `MLP` blocks frequently, as explained in the [`Common Blocks`](introduction.md#common-blocks) section.
 
-### Pipeline
+### Trainer
 
 !!! info
-    + Source codes path: [bases.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/bases.py){target=_blank} -> `class Pipeline`.
+    + Source codes path: [core.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/trainer/core.py){target=_blank} -> `class Trainer`.
 
-In `carefree-learn`, a `Pipeline` should implement the high-level parts, as listed below:
+In `carefree-learn`, a `Trainer` should implement the high-level parts, as listed below:
 
 + It assumes that the input data is already 'processed, nice and clean', but it should take care of getting input data into batches, because in real applications batching is essential for performance.
 + It should take care of the training loop, which includes updating parameters with an optimizer, verbosing metrics, checkpointing, early stopping, logging, etc.
 
-### Wrapper
+### Pipeline
 
 !!! info
-    + Source codes path: [bases.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/bases.py){target=_blank} -> `class Wrapper`.
+    + Source codes path: [core.py](https://github.com/carefree0910/carefree-learn/blob/dev/cflearn/pipeline/core.py){target=_blank} -> `class Pipeline`.
 
-In `carefree-learn`, a `Wrapper` should implement the preparation and API part.
+In `carefree-learn`, a `Pipeline` should implement the preparation and API part.
 
-+ It should not make any assumptions to the input data, it could already be 'nice and clean', but it could also be 'dirty and messy'. Therefore, it needs to transform the original data into 'nice and clean' data and then feed it to `Pipeline`. The data transformations include (this part is mainly handled by [`carefree-data`](https://github.com/carefree0910/carefree-data){target=_blank}, though):
++ It should not make any assumptions to the input data, it could already be 'nice and clean', but it could also be 'dirty and messy'. Therefore, it needs to transform the original data into 'nice and clean' data and then feed it to `Trainer`. The data transformations include (this part is mainly handled by [`carefree-data`](https://github.com/carefree0910/carefree-data){target=_blank}, though):
     + Imputation of missing values.
     + Transforming string columns into categorical columns.
     + Processing numerical columns.
@@ -180,7 +180,7 @@ In `carefree-learn`, we have few args and kwargs in each module. Instead, we'll 
 Since we have many stand-alone modules that provide corresponding functionalities, our configuration (which is a Python dict) will be designed 'hierarchically', and each module can read its specified configuration under its specific 'scope'. If needed, they can also access configurations defined under other 'scopes' easily because the whole configuration dict will be passed to each module.
 
 !!! info
-    Currently we mainly have 6 scopes in use: `root` (`wrapper_config`), `model_config`, `pipeline_config`, `data_config`, `metric_config` and `optimizers`.
+    Currently we mainly have 6 scopes in use: `root` (`pipeline_config`), `model_config`, `trainer_config`, `data_config`, `metric_config` and `optimizers`.
 
 Suppose we have a Python dict named `config` now:
 
@@ -198,8 +198,8 @@ config = {
     "model_config": {
         "...": ...
     },
-    # `pipeline_config` scope
-    "pipeline_config": {
+    # `trainer_config` scope
+    "trainer_config": {
         "...": ...
     },
     ...
@@ -239,7 +239,7 @@ One **`step`** in the training process means that one mini-batch passed through 
 
 ### epochs
 
-In most deep learning processes, training is structured into epochs. An epoch is one iteration over the entire input data, which is constructed by several **`step`**s.
+In most deep learning processes, training is structured into epochs. An epoch is one iteration over the entire input data, which is constructed by several **`step`**s.
 
 ### batch_size
 
@@ -279,7 +279,7 @@ In most cases, we use:
 
 ### metrics
 
-Although `losses` are what we optimize directly during training, `metrics` are what we 'actually' want to optimize (e.g. `acc`, `auc`, `f1-score`, etc.). Sometimes we may want to take multiple `metrics` into consideration, and we may also want to eliminate the fluctuation comes with mini-batch training by applying EMA on the metrics. To make things clearer, we decided to introduce the **`metric_config`** scope (under the **`pipeline_config`** scope). By default:
+Although `losses` are what we optimize directly during training, `metrics` are what we 'actually' want to optimize (e.g. `acc`, `auc`, `f1-score`, etc.). Sometimes we may want to take multiple `metrics` into consideration, and we may also want to eliminate the fluctuation comes with mini-batch training by applying EMA on the metrics. To make things clearer, we decided to introduce the **`metric_config`** scope (under the **`trainer_config`** scope). By default:
 
 + `mae` & `mse` is used for regression tasks, while `auc` & `acc` is used for classification tasks.
 + An EMA with `:::python decay = 0.1` will be used.
@@ -290,7 +290,7 @@ So `carefree-learn` will construct the following configurations for you by defau
 ```json
 {
     ...,
-    "pipeline_config": {
+    "trainer_config": {
         ...,
         "metric_config": {
             "decay": 0.1,
@@ -306,7 +306,7 @@ It's worth mentioning that `carefree-learn` also supports using losses as metric
 ```json
 {
     ...,
-    "pipeline_config": {
+    "trainer_config": {
         ...,
         "metric_config": {
             "decay": 0.1,
@@ -318,12 +318,12 @@ It's worth mentioning that `carefree-learn` also supports using losses as metric
 
 ### optimizers
 
-Sometimes we may want to have different optimizers to optimize different group of parameters. In order to make things easier with flexibility and control, we decided to introduce the **`optimizers`** scope (under the **`pipeline_config`** scope). By default, **all** parameters will be optimized via one single optimizer, so `carefree-learn` will construct the following configurations for you by default:
+Sometimes we may want to have different optimizers to optimize different group of parameters. In order to make things easier with flexibility and control, we decided to introduce the **`optimizers`** scope (under the **`trainer_config`** scope). By default, **all** parameters will be optimized via one single optimizer, so `carefree-learn` will construct the following configurations for you by default:
 
 ```json
 {
     ...,
-    "pipeline_config": {
+    "trainer_config": {
         ...,
         "optimizers": {
             "all": {
@@ -361,7 +361,7 @@ class Foo(ModelBase):
 ```json
 {
     ...,
-    "pipeline_config": {
+    "trainer_config": {
         ...,
         "optimizers": {
             "params1": {

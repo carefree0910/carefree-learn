@@ -172,7 +172,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _init_config(self, tr_data: TabularData) -> None:
         self.tr_data = tr_data
         self._loss_config = self.config.setdefault("loss_config", {})
-        # TODO : optimize encodings by pre-calculate one-hot encodings in Pipeline
+        # TODO : optimize encodings by pre-calculate one-hot encodings in Trainer
         self._encoding_methods = self.config.setdefault("encoding_methods", {})
         self._encoding_configs = self.config.setdefault("encoding_configs", {})
         self._default_encoding_configs = self.config.setdefault(

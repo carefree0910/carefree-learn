@@ -15,7 +15,7 @@ We've mentioned the basic ideas on how to configure `carefree-learn` in [`Introd
 
 ## Design Tenets
 
-There are several common practices for specifying configurations. In many high-level Machine Learning modules (e.g. [scikit-learn](https://scikit-learn.org/stable/){target=_blank}), configurations are directly specified by using args and kwargs to instantiate an object of corresponding algorithm. In `carefree-learn`, however, since we've wrapped many procedures together (in [`Wrapper`](../introduction.md#wrapper)) to provide a more 'carefree' usage, we cannot put all those configurations in the definition of the class because that will be too long and too messy. Instead, we will use one single, shared dict to specify configurations.
+There are several common practices for specifying configurations. In many high-level Machine Learning modules (e.g. [scikit-learn](https://scikit-learn.org/stable/){target=_blank}), configurations are directly specified by using args and kwargs to instantiate an object of corresponding algorithm. In `carefree-learn`, however, since we've wrapped many procedures together (in [`Pipeline`](../introduction.md#pipeline)) to provide a more 'carefree' usage, we cannot put all those configurations in the definition of the class because that will be too long and too messy. Instead, we will use one single, shared dict to specify configurations.
 
 There are several advantages by doing so, as listed below:
 
@@ -31,15 +31,12 @@ There are two ways to specify configurations in `carefree-learn`: directly with 
 
 ### Configure with Python dict
 
-We've left `config` & `increment_config` kwargs for you to specify any configurations directly with Python dict:
-
 ```python
 import cflearn
 
 # specify any configurations
 config = {"foo": 0, "dummy": 1}
-increment_config = {"foo": 2}
-fcnn = cflearn.Wrapper(config, increment_config=increment_config)
+fcnn = cflearn.make(**config)
 
 print(fcnn.config)  # {"foo": 0, "dummy": 1, ...}
 ```
@@ -53,7 +50,7 @@ import cflearn
 
 config = "./configs/basic.json"
 increment_config = {"foo": 2}
-fcnn = cflearn.Wrapper(config, increment_config=increment_config)
+fcnn = cflearn.make(config=config, increment_config=increment_config)
 ```
 
 Since `config` is set to `"./configs/basic.json"`, the file structure should be:
@@ -85,7 +82,7 @@ It is OK to get rid of `increment_config`, in which case the configuration will 
 import cflearn
 
 config = "./configs/basic.json"
-fcnn = cflearn.Wrapper(config)
+fcnn = cflearn.make(config=config)
 
 print(fcnn.config)  # {"foo": 0, "dummy": 1, ...}
 ```
@@ -124,7 +121,7 @@ def make(model: str = "fcnn",
          cuda: Union[int, str] = None,
          verbose_level: int = 2,
          use_tqdm: bool = True,
-         **kwargs) -> Wrapper
+         **kwargs) -> Pipeline
 ```
 
 + **`model`** [default = `:::python "fcnn"`]
