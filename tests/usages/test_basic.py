@@ -80,8 +80,7 @@ def test_file_dataset() -> None:
     )
     tr_y, cv_y, te_y = map(data.transform_labels, [tr_y, cv_y, te_y])
     ensembles = {
-        model: cflearn.ensemble(model_list)
-        for model, model_list in patterns.items()
+        model: cflearn.ensemble(model_list) for model, model_list in patterns.items()
     }
     other_patterns = {}
     for model in models:

@@ -4,15 +4,16 @@ import unittest
 
 import numpy as np
 
+from typing import Any
 from torch.nn import Parameter
 
 
 class TestRegister(unittest.TestCase):
-    def test_initializer(self):
+    def test_initializer(self) -> None:
         initializer = cflearn.Initializer({})
 
         @cflearn.register_initializer("all_one")
-        def all_one(initializer_, parameter):
+        def all_one(_: Any, parameter: Parameter) -> None:
             parameter.fill_(1.0)
 
         n = 100
@@ -22,7 +23,7 @@ class TestRegister(unittest.TestCase):
 
         self.assertTrue(np.allclose(param.data.numpy(), np.ones(n, np.float32)))
 
-    def test_processor(self):
+    def test_processor(self) -> None:
         @cflearn.register_processor("plus_one")
         class PlusOne(cflearn.Processor):
             @property

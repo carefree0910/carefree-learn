@@ -3,20 +3,28 @@ import unittest
 
 import numpy as np
 
-from cfdata.tabular import *
-from sklearn.naive_bayes import *
-from cftool.misc import timestamp
+from typing import Any
+from typing import Tuple
+from sklearn.naive_bayes import GaussianNB
+from sklearn.naive_bayes import MultinomialNB
 from cftool.ml import ModelPattern
+from cftool.misc import timestamp
+from cflearn.bases import Wrapper
+from cfdata.tabular import TabularDataset
 from sklearn.tree import DecisionTreeClassifier
 
 
 class TestTraditional(unittest.TestCase):
     @staticmethod
-    def _train_traditional(model, dataset, sklearn_model):
+    def _train_traditional(
+        model: str,
+        dataset: TabularDataset,
+        sklearn_model: Any,
+    ) -> Tuple[Wrapper, Any, np.ndarray]:
         folder = f"_logging/{model}_{timestamp(ensure_different=True)}"
         kwargs = {"cv_split": 0.0, "logging_folder": folder}
-        m = cflearn.make(model, num_epoch=1, max_epoch=2, **kwargs)
-        m0 = cflearn.make(model, num_epoch=0, max_epoch=0, **kwargs)
+        m = cflearn.make(model, num_epoch=1, max_epoch=2, **kwargs)  # type: ignore
+        m0 = cflearn.make(model, num_epoch=0, max_epoch=0, **kwargs)  # type: ignore
         m.fit(*dataset.xy)
         m0.fit(*dataset.xy)
         cflearn.estimate(*dataset.xy, wrappers={"fit": m, "init": m0})
@@ -30,11 +38,14 @@ class TestTraditional(unittest.TestCase):
             predict_prob_method="predict_proba",
         )
         cflearn.estimate(
-            x, y, metrics=["auc", "acc"], other_patterns={"sklearn": pattern}
+            x,
+            y,
+            metrics=["auc", "acc"],
+            other_patterns={"sklearn": pattern},
         )
         return m, m0, x
 
-    def test_nnb_gnb(self):
+    def test_nnb_gnb(self) -> None:
         gnb = GaussianNB()
         dataset = TabularDataset.iris()
         nnb, nnb0, x = self._train_traditional("nnb", dataset, gnb)
@@ -43,7 +54,7 @@ class TestTraditional(unittest.TestCase):
         self.assertTrue(np.allclose(nnb0.model.std.data.cpu().numpy() ** 2, gnb.sigma_))
         self.assertTrue(np.allclose(nnb0.predict_prob(dataset.x), gnb.predict_proba(x)))
 
-    def test_nnb_mnb(self):
+    def test_nnb_mnb(self) -> None:
         mnb = MultinomialNB()
         dataset = TabularDataset.digits()
         nnb, nnb0, x = self._train_traditional("nnb", dataset, mnb)
@@ -54,7 +65,7 @@ class TestTraditional(unittest.TestCase):
             np.allclose(nnb0.predict_prob(dataset.x), mnb.predict_proba(x), atol=1e-4)
         )
 
-    def test_ndt(self):
+    def test_ndt(self) -> None:
         dt = DecisionTreeClassifier()
         self._train_traditional("ndt", TabularDataset.iris(), dt)
         self._train_traditional("ndt", TabularDataset.digits(), dt)

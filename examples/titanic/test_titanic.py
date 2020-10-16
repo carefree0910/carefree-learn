@@ -4,7 +4,17 @@
 import os
 import cflearn
 
-from cfdata.tabular import *
+from typing import Any
+from typing import Dict
+from typing import Tuple
+from typing import Callable
+
+from cftool.ml import pattern_type
+from cftool.misc import shallow_copy_dict
+from cfdata.tabular import DataTuple
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
+
 
 model = "fcnn"
 file_folder = os.path.dirname(__file__)
@@ -12,12 +22,12 @@ file_folder = os.path.dirname(__file__)
 CI = True
 
 
-def _hpo_core(train_file):
-    extra_config = {"data_config": {"label_name": "Survived"}}
+def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
+    extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     hpo_temp_folder = "__test_titanic_hpo__"
-    result = cflearn.tune_with(
+    tune_result = cflearn.tune_with(
         train_file,
         model=model,
         temp_folder=os.path.join(hpo_temp_folder, "__tune__"),
@@ -27,20 +37,24 @@ def _hpo_core(train_file):
         num_repeat=2 if CI else 5,
         num_search=5 if CI else 10,
     )
-    results = cflearn.repeat_with(
-        train_file,
-        **result.best_param,
-        models=model,
-        temp_folder=os.path.join(hpo_temp_folder, "__repeat__"),
-        num_repeat=2 if CI else 10,
-        num_jobs=0,
+    repeat_config = shallow_copy_dict(tune_result.best_param)
+    repeat_config.update(
+        {
+            "models": model,
+            "temp_folder": os.path.join(hpo_temp_folder, "__repeat__"),
+            "num_repeat": 2 if CI else 10,
+            "num_jobs": 0,
+        }
     )
-    ensemble = cflearn.ensemble(results.patterns[model])
-    return results.data, ensemble
+    repeat_result = cflearn.repeat_with(train_file, **repeat_config)
+    patterns = repeat_result.patterns
+    assert patterns is not None
+    ensemble = cflearn.ensemble(patterns[model])
+    return repeat_result.data, ensemble
 
 
-def _optuna_core(train_file):
-    extra_config = {"data_config": {"label_name": "Survived"}}
+def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
+    extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     opt = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(
@@ -54,8 +68,8 @@ def _optuna_core(train_file):
     return opt.data, opt.pattern
 
 
-def _adaboost_core(train_file):
-    config = {"data_config": {"label_name": "Survived"}}
+def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
+    config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     ensemble = cflearn.Ensemble(TaskTypes.CLASSIFICATION, config)
@@ -63,7 +77,7 @@ def _adaboost_core(train_file):
     return results.data, results.pattern
 
 
-def _test(name, _core):
+def _test(name: str, _core: Callable[[str], Tuple[TabularData, pattern_type]]) -> None:
     train_file = os.path.join(file_folder, "train.csv")
     test_file = os.path.join(file_folder, "test.csv")
     data, pattern = _core(train_file)
@@ -77,12 +91,12 @@ def _test(name, _core):
             f.write(f"{test_id},{prediction}\n")
 
 
-def test_hpo():
+def test_hpo() -> None:
     _test("hpo", _hpo_core)
     _test("optuna", _optuna_core)
 
 
-def test_adaboost():
+def test_adaboost() -> None:
     _test("adaboost", _adaboost_core)
 
 

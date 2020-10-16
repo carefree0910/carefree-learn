@@ -1,7 +1,9 @@
 import os
 import cflearn
 
-from cfdata.tabular import *
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TimeSeriesConfig
+from cfdata.tabular import TimeSeriesModifier
 
 
 CI = True
@@ -10,7 +12,7 @@ file_folder = os.path.dirname(__file__)
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
 
 
-def test_shampoo():
+def test_shampoo() -> None:
     src_file = os.path.join(file_folder, "data.csv")
     tgt_file = os.path.join(file_folder, "new_data.csv")
     ts_config = TimeSeriesConfig(TimeSeriesModifier.id_name, '"Month"')
@@ -29,7 +31,7 @@ def test_shampoo():
     m = cflearn.make(
         ts_config=ts_config,
         aggregation_config=aggregation_config,
-        **kwargs,
+        **kwargs,  # type: ignore
     )
     m.fit(os.path.join(file_folder, tgt_file))
 

@@ -4,8 +4,10 @@ import cflearn
 
 import numpy as np
 
-from cfdata.tabular import *
+from typing import Any
 from datetime import datetime, timedelta
+from cfdata.tabular import TimeSeriesConfig
+
 
 CI = True
 
@@ -23,15 +25,15 @@ pf_te_file = os.path.join(file_folder, f"{pf_name}_te.csv")
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
 
 
-def make_datasets():
-    def write(num_id, num_line, sum_f, prod_f):
+def make_datasets() -> None:
+    def write(num_id: int, num_line: int, sum_f: Any, prod_f: Any) -> None:
         header = "id,Date,Value,Label\n"
         sum_f.write(header)
         prod_f.write(header)
         begin = datetime(2020, 1, 1)
         for i in range(num_id):
             last = None
-            s_label, p_label = 0, 1
+            s_label, p_label = 0.0, 1.0
             id_ = f"case{i}"
             values = []
             for j in range(num_line):
@@ -56,7 +58,7 @@ def make_datasets():
         write(num_case, num_history + 1, sf_te, pf_te)
 
 
-def test_ops():
+def test_ops() -> None:
 
     make_datasets()
 
@@ -85,7 +87,7 @@ def test_ops():
                     "input_linear_config": {"latent_dim": 32},
                 },
             },
-            **kwargs,
+            **kwargs,  # type: ignore
         )
 
         tr_file = os.path.join(file_folder, f"{task}.csv")

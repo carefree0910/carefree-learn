@@ -23,6 +23,7 @@ class TestBlocks(unittest.TestCase):
 
         linear = Linear(input_dim, output_dim)
         linear.weight.data = weight
+        assert linear.bias is not None
         linear.bias.data = bias
         output = linear(net)
 

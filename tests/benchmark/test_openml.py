@@ -2,8 +2,14 @@ import os
 import cflearn
 import unittest
 
-from cftool.ml import *
-from cfdata.tabular import *
+import numpy as np
+
+from cftool.ml import patterns_type
+from cftool.ml import Tracker
+from cftool.ml import Comparer
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
+from typing import Dict
 from cftool.misc import timestamp
 from cfml.misc.toolkit import Experiment
 from scipy.sparse import csr_matrix
@@ -23,13 +29,13 @@ class TestOpenML(unittest.TestCase):
     openml_indices = [38, 389]
     # openml_indices = [38, 46, 179, 184, 389, 554, 772, 917, 1049, 1111, 1120, 1128, 293]
     task_names = [f"openml_{openml_id}" for openml_id in openml_indices]
-    messages = {}
+    messages: Dict[str, str] = {}
 
     @staticmethod
     def _get_benchmark_saving_folder(task_name: str) -> str:
         return os.path.join("benchmarks", f"{task_name}_benchmark")
 
-    def test1(self):
+    def test1(self) -> None:
         for openml_id, task_name in zip(self.openml_indices, self.task_names):
             # preparation
             bunch = fetch_openml(data_id=openml_id)
@@ -89,9 +95,11 @@ class TestOpenML(unittest.TestCase):
             # sklearn
             data_tasks = benchmark.data_tasks
             for data_task in data_tasks:
-                sklearn_patterns = {}
+                assert isinstance(data_task, cflearn.Task)
+                sklearn_patterns: patterns_type = {}
                 x_tr, y_tr = data_task.fetch_data()
                 x_te, y_te = data_task.fetch_data("_te")
+                assert isinstance(y_tr, np.ndarray)
                 for base in sk_bases:
                     clf = base()
                     sklearn_patterns.setdefault(base.__name__, []).append(
@@ -116,7 +124,7 @@ class TestOpenML(unittest.TestCase):
             tracker = Tracker(self.project_name, f"{task_name}_summary")
             tracker.track_message(timestamp(), msg)
 
-    def test2(self):
+    def test2(self) -> None:
         for task_name in self.task_names:
             saving_folder = self._get_benchmark_saving_folder(task_name)
             _, results = cflearn.Benchmark.load(saving_folder)
