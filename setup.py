@@ -12,7 +12,6 @@ setup(
     install_requires=[
         "mypy",
         "black",
-        "isort",
         "onnx",
         "onnxruntime",
         "optuna",
