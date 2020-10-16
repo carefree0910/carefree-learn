@@ -1,4 +1,5 @@
 import os
+import json
 
 from typing import *
 from cftool.misc import timestamp
@@ -16,55 +17,72 @@ from cfdata.tabular import TabularData
 from cfdata.tabular import TimeSeriesConfig
 from optuna.trial import Trial
 
-from ..dist import *
-from ..misc.toolkit import *
+from ..dist import Task
+from ..dist import Experiments
 from ..types import data_type
+from ..types import general_config_type
+from ..misc.toolkit import to_2d
 from ..pipeline.core import Pipeline
+
+
+def _parse_config(config: general_config_type) -> Dict[str, Any]:
+    if config is None:
+        return {}
+    if isinstance(config, str):
+        with open(config, "r") as f:
+            return json.load(f)
+    return shallow_copy_dict(config)
 
 
 def make(
     model: str = "fcnn",
     *,
-    delim: str = None,
-    task_type: str = None,
-    skip_first: bool = None,
-    cv_split: Union[float, int] = 0.1,
-    min_epoch: int = None,
-    num_epoch: int = None,
-    max_epoch: int = None,
-    batch_size: int = None,
-    max_snapshot_num: int = None,
-    clip_norm: float = None,
-    ema_decay: float = None,
-    ts_config: TimeSeriesConfig = None,
-    aggregation: str = None,
-    aggregation_config: Dict[str, Any] = None,
-    ts_label_collator_config: Dict[str, Any] = None,
-    data_config: Dict[str, Any] = None,
-    read_config: Dict[str, Any] = None,
-    model_config: Dict[str, Any] = None,
-    metrics: Union[str, List[str]] = None,
-    metric_config: Dict[str, Any] = None,
-    optimizer: str = None,
-    scheduler: str = None,
-    optimizer_config: Dict[str, Any] = None,
-    scheduler_config: Dict[str, Any] = None,
-    optimizers: Dict[str, Any] = None,
-    logging_file: str = None,
-    logging_folder: str = None,
-    trigger_logging: bool = None,
-    trial: Trial = None,
-    tracker_config: Dict[str, Any] = None,
-    cuda: Union[int, str] = None,
-    verbose_level: int = 2,
-    use_timing_context: bool = True,
-    use_tqdm: bool = True,
+    config: general_config_type = None,
+    increment_config: general_config_type = None,
+    delim: Optional[str] = None,
+    task_type: Optional[str] = None,
+    skip_first: Optional[bool] = None,
+    cv_split: Optional[Union[float, int]] = None,
+    min_epoch: Optional[int] = None,
+    num_epoch: Optional[int] = None,
+    max_epoch: Optional[int] = None,
+    batch_size: Optional[int] = None,
+    max_snapshot_num: Optional[int] = None,
+    clip_norm: Optional[float] = None,
+    ema_decay: Optional[float] = None,
+    ts_config: Optional[TimeSeriesConfig] = None,
+    aggregation: Optional[str] = None,
+    aggregation_config: Optional[Dict[str, Any]] = None,
+    ts_label_collator_config: Optional[Dict[str, Any]] = None,
+    data_config: Optional[Dict[str, Any]] = None,
+    read_config: Optional[Dict[str, Any]] = None,
+    model_config: Optional[Dict[str, Any]] = None,
+    metrics: Optional[Union[str, List[str]]] = None,
+    metric_config: Optional[Dict[str, Any]] = None,
+    optimizer: Optional[str] = None,
+    scheduler: Optional[str] = None,
+    optimizer_config: Optional[Dict[str, Any]] = None,
+    scheduler_config: Optional[Dict[str, Any]] = None,
+    optimizers: Optional[Dict[str, Any]] = None,
+    logging_file: Optional[str] = None,
+    logging_folder: Optional[str] = None,
+    trigger_logging: Optional[bool] = None,
+    trial: Optional[Trial] = None,
+    tracker_config: Optional[Dict[str, Any]] = None,
+    cuda: Optional[Union[int, str]] = None,
+    verbose_level: Optional[int] = None,
+    use_timing_context: Optional[bool] = None,
+    use_tqdm: Optional[bool] = None,
     **kwargs: Any,
 ) -> Pipeline:
+    cfg, inc_cfg = map(_parse_config, [config, increment_config])
+    update_dict(update_dict(inc_cfg, cfg), kwargs)
     # pipeline general
     kwargs["model"] = model
-    kwargs["cv_split"] = cv_split
-    kwargs["use_timing_context"] = use_timing_context
+    if cv_split is not None:
+        kwargs["cv_split"] = cv_split
+    if use_timing_context is not None:
+        kwargs["use_timing_context"] = use_timing_context
     if batch_size is not None:
         kwargs["batch_size"] = batch_size
     if ts_label_collator_config is not None:
@@ -99,7 +117,8 @@ def make(
         kwargs["trigger_logging"] = trigger_logging
     # trainer general
     trainer_config = kwargs.setdefault("trainer_config", {})
-    trainer_config["use_tqdm"] = use_tqdm
+    if use_tqdm is not None:
+        trainer_config["use_tqdm"] = use_tqdm
     if min_epoch is not None:
         trainer_config["min_epoch"] = min_epoch
     if num_epoch is not None:
@@ -154,13 +173,15 @@ def make(
             optimizers = {"all": preset_optimizer}
     if optimizers is not None:
         trainer_config["optimizers"] = optimizers
-    return Pipeline(
-        kwargs,
-        cuda=cuda,
-        trial=trial,
-        tracker_config=tracker_config,
-        verbose_level=verbose_level,
-    )
+    # misc
+    other_kwargs = {
+        "cuda": cuda,
+        "trial": trial,
+        "tracker_config": tracker_config,
+    }
+    if verbose_level is not None:
+        other_kwargs["verbose_level"] = verbose_level
+    return Pipeline(kwargs, **other_kwargs)  # type: ignore
 
 
 SAVING_DELIM = "^_^"

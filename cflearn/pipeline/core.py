@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 import optuna
 import logging
@@ -30,7 +29,6 @@ except:
     amp = None
 
 from ..types import data_type
-from ..types import pipeline_config_type
 from ..models.base import model_dict
 from ..trainer.core import to_prob
 from ..trainer.core import Trainer
@@ -40,21 +38,11 @@ from ..misc.time_series import TSLabelCollator
 trains_logger: Union[Logger, None] = None
 
 
-def parse_config(config: pipeline_config_type) -> Dict[str, Any]:
-    if config is None:
-        return {}
-    if isinstance(config, str):
-        with open(config, "r") as f:
-            return json.load(f)
-    return shallow_copy_dict(config)
-
-
 class Pipeline(LoggingMixin):
     def __init__(
         self,
-        config: pipeline_config_type = None,
+        config: Dict[str, Any],
         *,
-        increment_config: pipeline_config_type = None,
         trial: optuna.trial.Trial = None,
         tracker_config: Dict[str, Any] = None,
         cuda: Union[str, int] = None,
@@ -69,9 +57,7 @@ class Pipeline(LoggingMixin):
             self.device = torch.device(f"cuda:{cuda}")
         else:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.config, increment_config = map(parse_config, [config, increment_config])
-        update_dict(increment_config, self.config)
-        self._init_config()
+        self._init_config(config)
 
     def __str__(self) -> str:
         return f"{type(self.model).__name__}()"  # type: ignore
@@ -94,7 +80,8 @@ class Pipeline(LoggingMixin):
     def binary_threshold(self) -> Union[float, None]:
         return self._binary_threshold
 
-    def _init_config(self) -> None:
+    def _init_config(self, config: Dict[str, Any]) -> None:
+        self.config = config
         self.timing = self.config.setdefault("use_timing_context", True)
         self._data_config = self.config.setdefault("data_config", {})
         self._data_config["use_timing_context"] = self.timing
