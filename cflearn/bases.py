@@ -744,7 +744,7 @@ class Pipeline(nn.Module, LoggingMixin):
                     if metric_ins.requires_prob:
                         metric_predictions = to_prob(predictions)
                     else:
-                        assert isinstance(predictions, torch.Tensor)
+                        assert isinstance(predictions, np.ndarray)
                         metric_predictions = predictions.argmax(1).reshape([-1, 1])
                 sub_metric = metric_ins.metric(labels, metric_predictions)
                 metrics[metric_type] = sub_metric
