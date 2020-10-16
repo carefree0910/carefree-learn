@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = "0.1.3"
+VERSION = "0.1.2"
 DESCRIPTION = "A minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch"
 with open("README.md") as f:
     LONG_DESCRIPTION = f.read()
