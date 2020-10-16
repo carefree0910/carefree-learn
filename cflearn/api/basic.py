@@ -245,9 +245,7 @@ def estimate(
                 metrics = [
                     k for k, v in pipeline.trainer.metrics.items() if v is not None
                 ]
-            # TODO : check whether this is handled correctly
-            with eval_context(pipeline.model):
-                patterns[name] = pipeline.to_pattern(**predict_config)
+            patterns[name] = pipeline.to_pattern(**predict_config)
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
