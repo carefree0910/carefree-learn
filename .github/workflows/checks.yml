@@ -2,9 +2,9 @@ name: Checks
 
 on:
   push:
-    branches:
-      - checks
-  pull_request: {}
+    branches: [ dev ]
+  pull_request:
+    branches: [ dev ]
 
 jobs:
   checks:
