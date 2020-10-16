@@ -89,9 +89,6 @@ def make_toy_model(
 ) -> Pipeline:
     if config is None:
         config = {}
-    config.setdefault("min_epoch", 1)
-    config.setdefault("num_epoch", 2)
-    config.setdefault("max_epoch", 4)
     if data_tuple is not None:
         x, y = data_tuple
         assert isinstance(x, list)
@@ -109,9 +106,9 @@ def make_toy_model(
         },
         "cv_split": 0.0,
         "trigger_logging": False,
-        "min_epoch": 250,
-        "num_epoch": 500,
-        "max_epoch": 1000,
+        "min_epoch": 1,
+        "num_epoch": 2,
+        "max_epoch": 4,
         "optimizer": "sgd",
         "optimizer_config": {"lr": 0.01},
         "task_type": task_type,
