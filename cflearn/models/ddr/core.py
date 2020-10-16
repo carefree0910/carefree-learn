@@ -126,7 +126,7 @@ class DDR(FCNN):
         self.y_min, self.y_max = y_min, y_max
         self.y_diff = y_max - y_min
         if cdf_ratio_anchors is None:
-            self._cdf_ratio_anchors = None
+            self._anchor_choice_array = None
         else:
             anchors = np.asarray(cdf_ratio_anchors, np.float32)
             self._anchor_choice_array = y_min + (y_max - y_min) * anchors
@@ -611,10 +611,10 @@ class DDR(FCNN):
         assert anchor_batch is not None
         cdf, cdf_raw, pdf = self._build_pdf(feature_layers, anchor_batch, True)
         # get specific sampled distribution
-        if not fetch_anchors or self._cdf_ratio_anchors is None:
+        if not fetch_anchors or self._anchor_choice_array is None:
             sampled_anchors = sampled_cdf = sampled_cdf_raw = sampled_pdf = None
         else:
-            num_choices = len(self._cdf_ratio_anchors)
+            num_choices = len(self._anchor_choice_array)
             choice_indices = np.random.randint(0, num_choices, len(cdf))
             chosen = self._anchor_choice_array[choice_indices]
             sampled_anchors = self._convert_np_anchors(chosen)
