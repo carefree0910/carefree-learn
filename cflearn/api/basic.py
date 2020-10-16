@@ -461,6 +461,48 @@ def tasks_to_patterns(tasks: List[Task], **kwargs: Any) -> List[pattern_type]:
     return [m.to_pattern(**kwargs) for m in pipelines]
 
 
+def make_toy_model(
+    model: str = "fcnn",
+    config: Dict[str, Any] = None,
+    *,
+    task_type: str = "reg",
+    data_tuple: Tuple[data_type, data_type] = None,
+) -> Pipeline:
+    if config is None:
+        config = {}
+    if data_tuple is not None:
+        x, y = data_tuple
+        assert isinstance(x, list)
+    else:
+        if task_type == "reg":
+            x, y = [[0]], [[1]]
+        else:
+            x, y = [[0], [1]], [[1], [0]]
+    data_tuple = x, y
+    base_config = {
+        "model": model,
+        "model_config": {
+            "hidden_units": [100],
+            "mapping_configs": {"dropout": 0.0, "batch_norm": False},
+        },
+        "cv_split": 0.0,
+        "trigger_logging": False,
+        "min_epoch": 1,
+        "num_epoch": 2,
+        "max_epoch": 4,
+        "optimizer": "sgd",
+        "optimizer_config": {"lr": 0.01},
+        "task_type": task_type,
+        "data_config": {
+            "valid_columns": list(range(len(x[0]))),
+            "label_process_method": "identical",
+        },
+        "verbose_level": 0,
+    }
+    updated = update_dict(config, base_config)
+    return make(**updated).fit(*data_tuple)
+
+
 __all__ = [
     "make",
     "save",
@@ -471,6 +513,7 @@ __all__ = [
     "tasks_to_pipelines",
     "tasks_to_patterns",
     "transform_experiments",
+    "make_toy_model",
     "Task",
     "Experiments",
     "ModelPattern",

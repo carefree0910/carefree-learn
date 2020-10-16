@@ -2,7 +2,6 @@ from .hpo import *
 from .zoo import *
 from .auto import *
 from .basic import *
-from .utils import *
 from .ensemble import *
 from .register import *
 
@@ -31,6 +30,7 @@ __all__ = [
     "tasks_to_pipelines",
     "tasks_to_patterns",
     "transform_experiments",
+    "make_toy_model",
     "Task",
     "Experiments",
     "ModelPattern",
@@ -38,9 +38,6 @@ __all__ = [
     "RepeatResult",
     "SAVING_DELIM",
     "_remove",
-    # utils
-    "ONNX",
-    "make_toy_model",
     # ensemble
     "Benchmark",
     "ensemble",
