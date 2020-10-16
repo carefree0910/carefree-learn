@@ -425,7 +425,8 @@ class DDRLoss(LossBase, LoggingMixin):
         else:
             recover_losses = torch.abs(another_input_batch - dual_prediction)
             if not self._use_dynamic_dual_loss_weights:
-                recover_loss_weights = torch.tensor([1.0])
+                device = recover_losses.device
+                recover_loss_weights = torch.tensor([1.0], device=device)
             else:
                 another_losses_detach = another_losses.detach()
                 recover_loss_weights = 1 / (1 + 2 * torch.tanh(another_losses_detach))
