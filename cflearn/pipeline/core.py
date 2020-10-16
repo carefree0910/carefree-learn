@@ -444,6 +444,8 @@ class Pipeline(LoggingMixin):
                 pipeline._init_data()
                 pipeline._prepare_modules(is_loading=True)
                 trainer = pipeline.trainer
+                trainer.tr_loader = pipeline.tr_loader
+                trainer.cv_loader = pipeline.cv_loader
                 trainer.restore_checkpoint(folder)
                 trainer._init_metrics()
         return pipeline
