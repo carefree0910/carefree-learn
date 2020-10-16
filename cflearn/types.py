@@ -11,9 +11,11 @@ from typing import Optional
 
 data_type = Optional[Union[np.ndarray, List[List[float]], str]]
 tensor_dict_type = Dict[str, Union[torch.Tensor, Any]]
+pipeline_config_type = Optional[Union[str, Dict[str, Any]]]
 
 
 __all__ = [
     "data_type",
     "tensor_dict_type",
+    "pipeline_config_type",
 ]

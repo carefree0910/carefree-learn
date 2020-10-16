@@ -28,6 +28,7 @@ except:
     amp = None
 
 from ..types import data_type
+from ..types import pipeline_config_type
 from ..models.base import model_dict
 from ..trainer.core import to_prob
 from ..trainer.core import Trainer
@@ -36,12 +37,21 @@ from ..misc.toolkit import to_2d
 trains_logger: Union[Logger, None] = None
 
 
+def parse_config(config: pipeline_config_type) -> Dict[str, Any]:
+    if config is None:
+        return {}
+    if isinstance(config, str):
+        with open(config, "r") as f:
+            return json.load(f)
+    return shallow_copy_dict(config)
+
+
 class Pipeline(LoggingMixin):
     def __init__(
         self,
-        config: Union[str, Dict[str, Any]] = None,
+        config: pipeline_config_type = None,
         *,
-        increment_config: Union[str, Dict[str, Any]] = None,
+        increment_config: pipeline_config_type = None,
         trial: optuna.trial.Trial = None,
         tracker_config: Dict[str, Any] = None,
         cuda: Union[str, int] = None,
@@ -56,9 +66,7 @@ class Pipeline(LoggingMixin):
             self.device = torch.device(f"cuda:{cuda}")
         else:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.config, increment_config = map(
-            self._get_config, [config, increment_config]
-        )
+        self.config, increment_config = map(parse_config, [config, increment_config])
         update_dict(increment_config, self.config)
         self._init_config()
 
@@ -82,15 +90,6 @@ class Pipeline(LoggingMixin):
     @property
     def binary_threshold(self) -> Union[float, None]:
         return self._binary_threshold
-
-    @staticmethod
-    def _get_config(config: Optional[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
-        if config is None:
-            return {}
-        if isinstance(config, str):
-            with open(config, "r") as f:
-                return json.load(f)
-        return shallow_copy_dict(config)
 
     def _init_config(self) -> None:
         self.timing = self.config.setdefault("use_timing_context", True)
