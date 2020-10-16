@@ -81,7 +81,7 @@ class Trainer(nn.Module, LoggingMixin):
         self._init_config(pipeline_config, is_loading)
         self.model = model
         self._verbose_level = verbose_level
-        self._no_grad_in_predict = True
+        self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
 
     def _init_config(self, pipeline_config: Dict[str, Any], is_loading: bool) -> None:
@@ -456,12 +456,12 @@ class Trainer(nn.Module, LoggingMixin):
 
     def _get_results(
         self,
-        no_grad: bool,
+        use_grad: bool,
         loader: DataLoader,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
         return_indices, loader = loader.return_indices, self._to_tqdm(loader)
-        with eval_context(self, use_grad=no_grad):
+        with eval_context(self, use_grad=use_grad):
             results, labels = [], []
             for a, b in loader:
                 if return_indices:
@@ -479,12 +479,12 @@ class Trainer(nn.Module, LoggingMixin):
         return labels, results
 
     def _predict(self, loader: DataLoader, **kwargs: Any) -> Dict[str, np.ndarray]:
-        no_grad = kwargs.pop("no_grad", self._no_grad_in_predict)
+        use_grad = kwargs.pop("use_grad", self._use_grad_in_predict)
         try:
-            labels, results = self._get_results(no_grad, loader, **kwargs)
+            labels, results = self._get_results(use_grad, loader, **kwargs)
         except:
-            no_grad = self._no_grad_in_predict = False
-            labels, results = self._get_results(no_grad, loader, **kwargs)
+            use_grad = self._use_grad_in_predict = True
+            labels, results = self._get_results(use_grad, loader, **kwargs)
         collated = collate_tensor_dicts(results)
         final_results = {k: to_numpy(v) for k, v in collated.items()}
         if labels:

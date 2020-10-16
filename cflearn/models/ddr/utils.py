@@ -23,7 +23,7 @@ class DDRPredictor:
         predictions = self.m.predict(
             x,
             y=y,
-            no_grad=not get_pdf,
+            use_grad=get_pdf,
             requires_recover=False,
             predict_pdf=get_pdf,
             predict_cdf=True,
