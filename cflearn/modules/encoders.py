@@ -8,7 +8,8 @@ from typing import *
 from abc import ABCMeta, abstractmethod
 from cftool.misc import LoggingMixin, register_core
 
-from ..misc.toolkit import tensor_dict_type, Initializer
+from ..types import tensor_dict_type
+from ..misc.toolkit import Initializer
 
 encoder_dict: Dict[str, Type["EncoderBase"]] = {}
 

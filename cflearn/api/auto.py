@@ -14,8 +14,8 @@ from plotly.graph_objects import Figure
 
 from .basic import *
 from .ensemble import *
-from ..misc.toolkit import *
 from .hpo import optuna_tune
+from ..types import data_type
 
 
 class Auto:

@@ -18,9 +18,8 @@ except:
 
 from ..losses import *
 from ..modules import *
+from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
-from ..misc.toolkit import tensor_dict_type
-
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
 

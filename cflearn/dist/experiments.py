@@ -8,7 +8,7 @@ from cftool.dist import Parallel
 from cftool.misc import Saving, LoggingMixin, lock_manager
 
 from .task import Task
-from ..misc.toolkit import data_type
+from ..types import data_type
 
 
 class Experiments(LoggingMixin):

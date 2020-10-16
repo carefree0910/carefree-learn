@@ -37,6 +37,8 @@ except:
 from ..modules import *
 from ..misc.toolkit import *
 from ..misc.time_series import *
+from ..types import data_type
+from ..types import tensor_dict_type
 from ..models.base import collate_tensor_dicts
 from ..models.base import ModelBase
 

@@ -13,9 +13,10 @@ from cfdata.types import np_int_type
 from cfdata.tabular import TabularData
 from cfml.models.naive_bayes import MultinomialNB
 
-from ..base import ModelBase
 from ...misc.toolkit import *
 from ...modules.blocks import *
+from ..base import ModelBase
+from ...types import tensor_dict_type
 
 
 @ModelBase.register("nnb")

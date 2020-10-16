@@ -26,6 +26,7 @@ from cfdata.tabular.misc import split_file
 
 from .basic import *
 from ..misc.toolkit import *
+from ..types import data_type
 from .ensemble import ensemble
 from ..pipeline.core import Pipeline
 

@@ -12,9 +12,7 @@ from cftool.misc import LoggingMixin
 from cftool.misc import context_error_handler
 from cfdata.types import np_int_type, np_float_type
 
-
-tensor_dict_type = Dict[str, Union[torch.Tensor, Any]]
-data_type = Union[np.ndarray, List[List[float]], str, None]
+from ..types import data_type
 
 
 def is_int(arr: np.ndarray) -> bool:
@@ -655,8 +653,6 @@ __all__ = [
     "is_int",
     "is_float",
     "to_standard",
-    "tensor_dict_type",
-    "data_type",
     "to_torch",
     "to_numpy",
     "to_2d",

@@ -6,7 +6,7 @@ from cfdata.tabular import TabularData
 
 from ..base import SplitFeatures
 from ..fcnn.core import FCNN
-from ...misc.toolkit import tensor_dict_type
+from ...types import tensor_dict_type
 from ...modules.blocks import *
 
 

@@ -8,7 +8,7 @@ from typing import Union
 from typing import Optional
 from cftool.misc import show_or_save
 
-from ...misc.toolkit import data_type
+from ...types import data_type
 from ...pipeline.core import Pipeline
 
 

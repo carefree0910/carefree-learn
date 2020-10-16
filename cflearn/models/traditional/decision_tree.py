@@ -8,9 +8,10 @@ from typing import List, Iterator
 from cfdata.tabular import TabularData
 from sklearn.tree import _tree, DecisionTreeClassifier
 
-from ..base import ModelBase
 from ...misc.toolkit import *
 from ...modules.blocks import *
+from ..base import ModelBase
+from ...types import tensor_dict_type
 
 
 def export_structure(tree: DecisionTreeClassifier) -> tuple:

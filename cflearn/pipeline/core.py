@@ -27,12 +27,11 @@ try:
 except:
     amp = None
 
+from ..types import data_type
 from ..models.base import model_dict
 from ..trainer.core import to_prob
 from ..trainer.core import Trainer
 from ..misc.toolkit import to_2d
-from ..misc.toolkit import data_type
-
 
 trains_logger: Union[Logger, None] = None
 

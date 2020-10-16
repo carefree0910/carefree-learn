@@ -18,6 +18,7 @@ from cftool.misc import update_dict
 from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
 from cfdata.tabular import TabularData
+from ...types import tensor_dict_type
 
 try:
     amp: Optional[Any] = torch.cuda.amp

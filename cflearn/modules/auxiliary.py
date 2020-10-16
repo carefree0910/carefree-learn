@@ -5,7 +5,7 @@ from typing import *
 from functools import partial
 from torch.nn.functional import softplus
 
-from ..misc.toolkit import tensor_dict_type
+from ..types import tensor_dict_type
 
 
 class BN(nn.BatchNorm1d):

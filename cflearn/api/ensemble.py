@@ -14,7 +14,6 @@ from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cftool.ml.utils import collate_fn_type
 from cftool.ml.utils import Comparer
-from cftool.ml.utils import EnsemblePattern
 from cfdata.tabular import KFold
 from cfdata.tabular import KRandom
 from cfdata.tabular import KBootstrap
@@ -27,6 +26,7 @@ from .zoo import zoo
 from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
+from ..types import data_type
 from ..pipeline.core import Pipeline
 
 

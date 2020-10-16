@@ -7,7 +7,7 @@ import numpy as np
 from typing import *
 from cftool.misc import Saving, shallow_copy_dict
 
-from ..misc.toolkit import data_type
+from ..types import data_type
 
 IS_LINUX = platform.system() == "Linux"
 

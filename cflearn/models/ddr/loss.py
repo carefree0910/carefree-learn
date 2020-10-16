@@ -7,7 +7,7 @@ from torch.nn.functional import l1_loss, relu, softplus
 
 
 from ...losses import LossBase
-from ...misc.toolkit import tensor_dict_type
+from ...types import tensor_dict_type
 from ...modules.auxiliary import MTL
 
 

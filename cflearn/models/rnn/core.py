@@ -5,7 +5,7 @@ from cfdata.tabular import TabularData
 
 from .rnns import rnn_dict
 from ..fcnn import FCNN
-from ...misc.toolkit import tensor_dict_type
+from ...types import tensor_dict_type
 
 
 @FCNN.register("rnn")

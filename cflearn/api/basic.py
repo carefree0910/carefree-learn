@@ -18,6 +18,7 @@ from optuna.trial import Trial
 
 from ..dist import *
 from ..misc.toolkit import *
+from ..types import data_type
 from ..pipeline.core import Pipeline
 
 

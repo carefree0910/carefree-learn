@@ -5,10 +5,11 @@ import torch.nn as nn
 from typing import Any, Dict
 from cfdata.tabular import TabularData
 
-from ..fcnn import FCNN
 from ...misc.toolkit import *
 from ...modules.blocks import *
 from ...modules.auxiliary import *
+from ..fcnn import FCNN
+from ...types import tensor_dict_type
 
 
 class TransformerLayer(nn.Module):
