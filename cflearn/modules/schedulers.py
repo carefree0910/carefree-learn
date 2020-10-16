@@ -60,25 +60,27 @@ class WarmupScheduler(_LRScheduler):
         self.last_epoch: int = epoch
         if self.last_epoch <= self.warmup_step:
             for param_group, lr in zip(
-                self.optimizer.param_groups, map(self.lr_warmup_func, self.base_lrs)
+                self.optimizer.param_groups,  # type: ignore
+                map(self.lr_warmup_func, self.base_lrs),  # type: ignore
             ):
                 param_group["lr"] = lr
         else:
             if epoch is not None:
                 epoch -= self.warmup_step
-            self.scheduler_afterwards.step(metrics, None)
+            self.scheduler_afterwards.step(metrics, None)  # type: ignore
 
-    def get_lr(self) -> Union[float, List[float]]:
+    def get_lr(self) -> Union[float, List[float]]:  # type: ignore
         if self.last_epoch > self.warmup_step:
             if self.scheduler_afterwards is not None:
                 if not self.finished_warmup:
                     self.finished_warmup = True
-                    self.scheduler_afterwards.base_lrs = list(
-                        map(self.lr_multiplier_func, self.base_lrs)
+                    base_lrs = list(
+                        map(self.lr_multiplier_func, self.base_lrs)  # type: ignore
                     )
+                    self.scheduler_afterwards.base_lrs = base_lrs  # type: ignore
                 return self.scheduler_afterwards.get_lr()
             return list(map(self.lr_multiplier_func, self.base_lrs))
-        return list(map(self.lr_warmup_func, self.base_lrs))
+        return list(map(self.lr_warmup_func, self.base_lrs))  # type: ignore
 
     def step(
         self,

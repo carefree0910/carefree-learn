@@ -134,7 +134,9 @@ class MTL(nn.Module):
 
     @staticmethod
     def _naive(loss_dict: tensor_dict_type) -> torch.Tensor:
-        return sum(loss_dict.values())
+        summary = sum(loss_dict.values())
+        assert isinstance(summary, torch.Tensor)
+        return summary
 
     def _softmax(self, loss_dict: tensor_dict_type) -> torch.Tensor:
         assert self._slice is not None
@@ -144,7 +146,9 @@ class MTL(nn.Module):
         for key, loss in loss_dict.items():
             idx = self._registered.get(key)
             losses.append(loss if idx is None else loss * softmax_w[idx])
-        return sum(losses) * self._slice
+        summary = sum(losses)
+        assert isinstance(summary, torch.Tensor)
+        return summary * self._slice
 
     def extra_repr(self) -> str:
         method = "naive" if self._method is None else self._method
@@ -155,6 +159,7 @@ class Pruner(nn.Module):
     def __init__(self, config: Dict[str, Any]):
         super().__init__()
         self.eps: torch.Tensor
+        self.exp: torch.Tensor
         self.alpha: Union[torch.Tensor, nn.Parameter]
         self.beta: Union[torch.Tensor, nn.Parameter]
         self.gamma: Union[torch.Tensor, nn.Parameter]
@@ -233,7 +238,7 @@ class Pruner(nn.Module):
                     softplus, [self.alpha, self.beta, self.max_ratio]
                 )
             if self.method == "simplified":
-                log_w = torch.min(ratio, beta * w_abs ** self.exp)
+                log_w = torch.min(ratio, beta * torch.pow(w_abs, self.exp))
             else:
                 w_abs_mean = torch.mean(w_abs)
                 gamma = (

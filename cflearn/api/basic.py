@@ -196,10 +196,13 @@ def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
     if not isinstance(wrappers, dict):
         if not isinstance(wrappers, list):
             wrappers = [wrappers]
-        names: List[Any] = [wrapper.model.__identifier__ for wrapper in wrappers]
+        names: List[str] = [
+            wrapper.model.__identifier__ for wrapper in wrappers  # type: ignore
+        ]
         if len(set(names)) != len(wrappers):
             raise ValueError(
-                "wrapper names are not provided but identical wrapper.model is detected"
+                "wrapper names are not provided "
+                "but identical wrapper.model is detected"
             )
         wrappers = dict(zip(names, wrappers))
     return wrappers

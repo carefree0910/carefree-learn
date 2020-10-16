@@ -41,7 +41,7 @@ class EncoderBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         # TODO : cache oob_masks for static datasets
         oob_mask = selected >= self.num_values
         if torch.any(oob_mask):
-            self.log_msg(
+            self.log_msg(  # type: ignore
                 f"out of bound occurred in categorical column {self.idx}, "
                 f"ratio : {torch.mean(oob_mask.to(torch.float)).item():8.6f}",
                 prefix=self.warning_prefix,
@@ -86,6 +86,7 @@ class Embedding(EncoderBase):
         self.embedding = nn.Embedding(num_values, self._dim)
         if self._init_method is not None:
             embedding_initializer = Initializer(self._init_config_)
+            assert isinstance(self.embedding.weight, nn.Parameter)
             embedding_initializer.initialize(self.embedding.weight, self._init_method)
 
     def _init_config(self, config: Dict[str, Any]) -> None:
@@ -121,7 +122,7 @@ class EncoderStack(nn.Module, LoggingMixin):
         super().__init__()
         encoders_: Dict[str, EncoderBase] = {}
         for encoder in encoders:
-            key = encoder.__identifier__
+            key: str = encoder.__identifier__  # type: ignore
             if key in encoders_:
                 raise ValueError(f"'{key}' encoder is already stacked")
             encoders_[key] = encoder

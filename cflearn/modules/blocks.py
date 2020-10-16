@@ -54,6 +54,7 @@ class Linear(nn.Module):
         if self._init_method not in Initializer.defined_initialization:
             return
         initializer = Initializer(self.config.setdefault("initialize_config", {}))
+        assert isinstance(self.linear.weight, nn.Parameter)
         initializer.initialize(self.linear.weight, self._init_method)
         bias_fill = self.config.setdefault("bias_fill", 0.0)
         if self._use_bias:
