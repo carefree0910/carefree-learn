@@ -5,10 +5,11 @@ import numpy as np
 
 from typing import *
 from cftool.misc import shallow_copy_dict
+from cflearn.bases import Wrapper
 from cflearn.models.ddr import DDRVisualizer
 
 
-def test():
+def test() -> None:
     power: int = 2
     num_jobs: int = 1
     verbose_level: int = 2
@@ -31,10 +32,10 @@ def test():
     info_dict = {}
     experiments = cflearn.Experiments("__ddr__")
 
-    def _get_file(folder, task_name):
+    def _get_file(folder: str, task_name: str) -> Optional[str]:
         return None if folder is None else os.path.join(folder, task_name)
 
-    def add_task(f, task_name):
+    def add_task(f: Callable, task_name: str) -> None:
         x = 2 * np.random.random([max(n, 2 * n_cv), 1]) - 1
         y = f(x)
         export_folder_ = os.path.join(export_folder, task_name)
@@ -69,31 +70,40 @@ def test():
             "export_folder": export_folder_,
         }
 
-    def run_tasks():
+    def run_tasks() -> None:
         ms = experiments.run_tasks(
-            num_jobs=num_jobs, run_tasks=fit, load_task=cflearn.load_task
+            num_jobs=num_jobs,
+            run_tasks=fit,
+            load_task=cflearn.load_task,
         )
         for task_name, info in info_dict.items():
             m = ms[task_name][0]
+            assert isinstance(m, Wrapper)
             f = info["f"]
             data_task = info["data_task"]
             export_folder_ = info["export_folder"]
+            assert callable(f)
+            assert isinstance(export_folder_, str)
+            assert isinstance(data_task, cflearn.Task)
             x_cv, y_cv = data_task.fetch_data("_cv")
+            assert isinstance(x_cv, np.ndarray)
             x_min, x_max = x_cv.min(), x_cv.max()
             x_diff = x_max - x_min
             visualizer = DDRVisualizer(m)
             if check_cdf:
                 export_path = _get_file(export_folder_, "cdf.png")
                 visualizer.visualize(
-                    x_cv, y_cv, export_path, anchor_ratios=anchor_ratios
+                    x_cv,
+                    y_cv,
+                    export_path,
+                    anchor_ratios=anchor_ratios,
                 )
             if check_quantile:
                 export_path = _get_file(export_folder_, "quantile.png")
                 visualizer.visualize(x_cv, y_cv, export_path, quantiles=quantiles)
             n_base, n_repeat = 1000, 10000
-            x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, n_base)[
-                ..., None
-            ]
+            x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, n_base)
+            x_base = x_base[..., None]
             x_matrix = np.repeat(x_base, n_repeat, axis=1)
             y_matrix = f(x_matrix)
             if check_cdf:

@@ -164,7 +164,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self,
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
-    ) -> Dict[str, Union[torch.Tensor, float]]:
+    ) -> Dict[str, torch.Tensor]:
         # requires returning `loss` key
         y_batch = batch["y_batch"]
         if self.tr_data.is_clf:
@@ -262,7 +262,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _optimizer_step(
         self,
         optimizers: Dict[str, Optimizer],
-        grad_scalar: Optional["amp.GradScaler"],
+        grad_scalar: Optional["amp.GradScaler"],  # type: ignore
     ) -> None:
         for opt in optimizers.values():
             if grad_scalar is None:
@@ -327,7 +327,7 @@ class Pipeline(nn.Module, LoggingMixin):
     def __init__(
         self,
         model: ModelBase,
-        trial: optuna.trial.Trial,
+        trial: Optional[optuna.trial.Trial],
         tracker: Tracker,
         config: Dict[str, Any],
         verbose_level: int,
@@ -379,7 +379,8 @@ class Pipeline(nn.Module, LoggingMixin):
         if not 0.0 < ema_decay < 1.0:
             self.ema_decay = None
         else:
-            self.ema_decay = EMA(ema_decay, list(self.model.named_parameters()))
+            named_params = list(self.model.named_parameters())
+            self.ema_decay = EMA(ema_decay, named_params)  # type: ignore
 
         self._use_amp = config["use_amp"]
         self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
@@ -390,8 +391,9 @@ class Pipeline(nn.Module, LoggingMixin):
             "checkpoint_folder", os.path.join(self.logging_folder, "checkpoints")
         )
         if not is_loading and os.path.isdir(self.checkpoint_folder):
-            self.log_msg(
-                f"'{self.checkpoint_folder}' already exists, all of its contents will be removed",
+            self.log_msg(  # type: ignore
+                f"'{self.checkpoint_folder}' already exists, "
+                "all of its contents will be removed",
                 self.warning_prefix,
                 msg_level=logging.WARNING,
             )
@@ -493,6 +495,7 @@ class Pipeline(nn.Module, LoggingMixin):
             self._optimizer_type = optimizer
             # scheduler
             plateau_default_config: Dict[str, Any] = {"mode": "max"}
+            assert isinstance(self._verbose_level_, int)
             plateau_default_config.setdefault("verbose", self._verbose_level_ >= 3)
             plateau_default_config.setdefault(
                 "patience",
@@ -565,6 +568,7 @@ class Pipeline(nn.Module, LoggingMixin):
             if not 0.0 < metric_decay < 1.0:
                 self.metrics_decay = None
             else:
+                assert isinstance(self.metrics_decay, dict)
                 self.metrics_decay[metric_type] = ScalarEMA(metric_decay)
         self.metrics_weights = metric_config.setdefault("weights", {})
         for metric_type in metric_types:
@@ -619,7 +623,7 @@ class Pipeline(nn.Module, LoggingMixin):
             ["-" * 100, "=" * 100, "structure", "-" * 100, str(self), "-" * 100, ""]
         )
         if not return_only:
-            self.log_block_msg(msg, verbose_level=4)
+            self.log_block_msg(msg, verbose_level=4)  # type: ignore
         all_msg, msg = msg, "=" * 100 + "\n"
         n_tr = len(self.tr_data)
         n_cv = None if self.cv_data is None else len(self.cv_data)
@@ -627,7 +631,7 @@ class Pipeline(nn.Module, LoggingMixin):
         msg += f"{self.info_prefix}valid    data : {n_cv}\n"
         msg += "-" * 100
         if not return_only:
-            self.log_block_msg(msg, verbose_level=3)
+            self.log_block_msg(msg, verbose_level=3)  # type: ignore
         return "\n".join([all_msg, msg])
 
     def _to_device(self, arr: Union[np.ndarray, None]) -> Union[torch.Tensor, None]:
@@ -677,7 +681,11 @@ class Pipeline(nn.Module, LoggingMixin):
                     raise optuna.TrialPruned()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
-                    self.log_msg("start monitoring plateau", self.info_prefix, 2)
+                    self.log_msg(  # type: ignore
+                        "start monitoring plateau",
+                        self.info_prefix,
+                        2,
+                    )
                 self._monitor.plateau_flag = True
             if self.start_snapshot:
                 if self._monitor.check_terminate(score):
@@ -687,7 +695,7 @@ class Pipeline(nn.Module, LoggingMixin):
                         kwargs = {}
                         if key in self.schedulers_requires_metric:
                             kwargs["metrics"] = score
-                        scheduler.step(**kwargs)
+                        scheduler.step(**kwargs)  # type: ignore
         return False
 
     def _get_metrics(self) -> Tuple[float, Dict[str, float]]:
@@ -701,7 +709,7 @@ class Pipeline(nn.Module, LoggingMixin):
             loader.return_indices = tr_loader.return_indices
             loader.enabled_sampling = False
         if not self._metrics_need_loss:
-            losses = None
+            loss_values = None
             results = self._predict(loader=loader)
             predictions, labels = map(results.get, ["predictions", "labels"])
         else:
@@ -718,13 +726,16 @@ class Pipeline(nn.Module, LoggingMixin):
                         self.model.loss_function(batch, forward_dicts[-1])
                     )
             losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
-            losses = {k: v.mean().item() for k, v in losses.items()}
+            loss_values = {k: v.mean().item() for k, v in losses.items()}
         use_decayed = False
-        signs, metrics, decayed_metrics = {}, {}, {}
+        signs: Dict[str, int] = {}
+        metrics: Dict[str, float] = {}
+        decayed_metrics: Dict[str, float] = {}
         for metric_type, metric_ins in self.metrics.items():
             if metric_ins is None:
+                assert loss_values is not None
                 signs[metric_type] = -1
-                sub_metric = metrics[metric_type] = losses[metric_type]
+                sub_metric = metrics[metric_type] = loss_values[metric_type]
             else:
                 signs[metric_type] = metric_ins.sign
                 if self.tr_data.is_reg:
@@ -733,10 +744,10 @@ class Pipeline(nn.Module, LoggingMixin):
                     if metric_ins.requires_prob:
                         metric_predictions = to_prob(predictions)
                     else:
+                        assert isinstance(predictions, torch.Tensor)
                         metric_predictions = predictions.argmax(1).reshape([-1, 1])
-                sub_metric = metrics[metric_type] = metric_ins.metric(
-                    labels, metric_predictions
-                )
+                sub_metric = metric_ins.metric(labels, metric_predictions)
+                metrics[metric_type] = sub_metric
             if self.metrics_decay is not None and self.start_snapshot:
                 use_decayed = True
                 decayed_metrics[metric_type] = self.metrics_decay[metric_type].update(
@@ -758,12 +769,12 @@ class Pipeline(nn.Module, LoggingMixin):
             v * signs[k] * self.metrics_weights[k]
             for k, v in metrics_for_scoring.items()
         ]
-        score = sum(weighted_scores) / len(weighted_scores)
+        score: float = sum(weighted_scores) / len(weighted_scores)
 
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
 
-        def _metric_verbose(k):
+        def _metric_verbose(k: str) -> str:
             metric_str = fix_float_to_length(metrics[k], 8)
             if not use_decayed:
                 return metric_str
@@ -776,7 +787,7 @@ class Pipeline(nn.Module, LoggingMixin):
         )
         with open(self._log_file, "a") as f:
             f.write(f"{msg}\n")
-        self.log_msg(msg, verbose_level=None)
+        self.log_msg(msg, verbose_level=None)  # type: ignore
 
         return score, metrics
 
@@ -784,7 +795,7 @@ class Pipeline(nn.Module, LoggingMixin):
         self,
         no_grad: bool,
         loader: DataLoader,
-        **kwargs,
+        **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
         return_indices, loader = loader.return_indices, self._to_tqdm(loader)
         with eval_context(self, use_grad=no_grad):
@@ -805,19 +816,19 @@ class Pipeline(nn.Module, LoggingMixin):
                 results.append(rs)
         return labels, results
 
-    def _predict(self, loader: DataLoader, **kwargs) -> Dict[str, np.ndarray]:
+    def _predict(self, loader: DataLoader, **kwargs: Any) -> Dict[str, np.ndarray]:
         no_grad = kwargs.pop("no_grad", self._no_grad_in_predict)
         try:
             labels, results = self._get_results(no_grad, loader, **kwargs)
         except:
             no_grad = self._no_grad_in_predict = False
             labels, results = self._get_results(no_grad, loader, **kwargs)
-        results = collate_tensor_dicts(results)
-        results = {k: to_numpy(v) for k, v in results.items()}
+        collated = collate_tensor_dicts(results)
+        final_results = {k: to_numpy(v) for k, v in collated.items()}
         if labels:
             labels = np.vstack(labels)
-            results["labels"] = labels
-        return results
+            final_results["labels"] = labels
+        return final_results
 
     # api
 
@@ -852,21 +863,21 @@ class Pipeline(nn.Module, LoggingMixin):
         self._log_file = os.path.join(self.logging_folder, log_name)
         with open(self._log_file, "w"):
             pass
-        self._step_tqdm = self._epoch_tqdm = None
+        step_tqdm_legacy = self._epoch_tqdm = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.num_epoch)), position=0)
         while self._epoch_count < self.num_epoch:
             try:
                 self._epoch_count += 1
-                self._step_tqdm = iter(self.tr_loader)
+                step_tqdm = iter(self.tr_loader)
                 if self.use_tqdm:
-                    self._step_tqdm = tqdm(
-                        self._step_tqdm,
+                    step_tqdm_legacy = step_tqdm = tqdm(
+                        step_tqdm,
                         total=len(self.tr_loader),
                         position=1,
                         leave=False,
                     )
-                for (x_batch, y_batch), index_batch in self._step_tqdm:
+                for (x_batch, y_batch), index_batch in step_tqdm:
                     self._step_count += 1
                     y_batch = self._collate_labels(y_batch)
                     with timing_context(self, "collate batch", enable=self.timing):
@@ -898,7 +909,7 @@ class Pipeline(nn.Module, LoggingMixin):
                     with timing_context(self, "loss.backward", enable=self.timing):
                         loss = loss_dict["loss"]
                         if self._use_amp:
-                            loss = self.scaler.scale(loss)
+                            loss = self.scaler.scale(loss)  # type: ignore
                         loss.backward()
                     if self._clip_norm > 0.0:
                         with timing_context(self, "clip_norm_step", enable=self.timing):
@@ -913,23 +924,29 @@ class Pipeline(nn.Module, LoggingMixin):
                     if terminate:
                         break
             except KeyboardInterrupt:
-                self.log_msg(
-                    "keyboard interrupted", self.error_prefix, msg_level=logging.ERROR
+                self.log_msg(  # type: ignore
+                    "keyboard interrupted",
+                    self.error_prefix,
+                    msg_level=logging.ERROR,
                 )
                 terminate = True
             if terminate:
                 if os.path.isdir(self.checkpoint_folder):
-                    self.log_msg(
-                        "rolling back to the best checkpoint", self.info_prefix, 3
+                    self.log_msg(  # type: ignore
+                        "rolling back to the best checkpoint",
+                        self.info_prefix,
+                        3,
                     )
                     self.restore_checkpoint()
                 break
             if self.use_tqdm:
+                assert self._epoch_tqdm is not None
                 self._epoch_tqdm.total = self.num_epoch
                 self._epoch_tqdm.update()
         if self.use_tqdm:
-            if self._step_tqdm is not None:
-                self._step_tqdm.close()
+            if step_tqdm_legacy is not None:
+                step_tqdm_legacy.close()
+            assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
         self._get_metrics()
@@ -940,7 +957,7 @@ class Pipeline(nn.Module, LoggingMixin):
         return_all: bool = False,
         *,
         contains_labels: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         data = self.tr_data.copy_to(x, None, contains_labels=contains_labels)
         loader = DataLoader(self.cv_batch_size, self._make_sampler(data, False))
@@ -950,7 +967,7 @@ class Pipeline(nn.Module, LoggingMixin):
         return predictions["predictions"]
 
     @staticmethod
-    def _filter_checkpoints(folder) -> Dict[int, str]:
+    def _filter_checkpoints(folder: str) -> Dict[int, str]:
         checkpoints = {}
         for file in os.listdir(folder):
             if file.startswith("pipeline_") and file.endswith(".pt"):
@@ -958,7 +975,7 @@ class Pipeline(nn.Module, LoggingMixin):
                 checkpoints[step] = file
         return checkpoints
 
-    def save_checkpoint(self, folder=None) -> None:
+    def save_checkpoint(self, folder: str = None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
         if self.max_snapshot_num > 0:
@@ -969,12 +986,12 @@ class Pipeline(nn.Module, LoggingMixin):
         file = f"pipeline_{self._step_count}.pt"
         torch.save(self.state_dict(), os.path.join(folder, file))
 
-    def restore_checkpoint(self, folder=None) -> "Pipeline":
+    def restore_checkpoint(self, folder: str = None) -> "Pipeline":
         if folder is None:
             folder = self.checkpoint_folder
         checkpoints = self._filter_checkpoints(folder)
         if not checkpoints:
-            self.log_msg(
+            self.log_msg(  # type: ignore
                 f"no pipeline file found in {self.checkpoint_folder}",
                 self.warning_prefix,
                 msg_level=logging.WARNING,
@@ -982,7 +999,11 @@ class Pipeline(nn.Module, LoggingMixin):
             return self
         latest_checkpoint = checkpoints[sorted(checkpoints)[-1]]
         pipeline_file = os.path.join(folder, latest_checkpoint)
-        self.log_msg(f"restoring from {pipeline_file}", self.info_prefix, 4)
+        self.log_msg(  # type: ignore
+            f"restoring from {pipeline_file}",
+            self.info_prefix,
+            4,
+        )
         self.load_state_dict(torch.load(pipeline_file, map_location=self.model.device))
         return self
 
@@ -1013,8 +1034,8 @@ class Wrapper(LoggingMixin):
         update_dict(increment_config, self.config)
         self._init_config()
 
-    def __str__(self):
-        return f"{type(self.model).__name__}()"
+    def __str__(self) -> str:
+        return f"{type(self.model).__name__}()"  # type: ignore
 
     __repr__ = __str__
 
@@ -1024,9 +1045,9 @@ class Wrapper(LoggingMixin):
         return TabularDataset(*raw.xy, task_type=self.tr_data.task_type)
 
     @property
-    def valid_set(self) -> Union[TabularDataset, None]:
+    def valid_set(self) -> Optional[TabularDataset]:
         if self.cv_data is None:
-            return
+            return None
         raw = self.cv_data.raw
         return TabularDataset(*raw.xy, task_type=self.cv_data.task_type)
 
@@ -1035,7 +1056,7 @@ class Wrapper(LoggingMixin):
         return self._binary_threshold
 
     @staticmethod
-    def _get_config(config):
+    def _get_config(config: Optional[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
         if config is None:
             return {}
         if isinstance(config, str):
@@ -1043,7 +1064,7 @@ class Wrapper(LoggingMixin):
                 return json.load(f)
         return shallow_copy_dict(config)
 
-    def _init_config(self):
+    def _init_config(self) -> None:
         self.timing = self.config.setdefault("use_timing_context", True)
         self._data_config = self.config.setdefault("data_config", {})
         self._data_config["use_timing_context"] = self.timing
@@ -1070,7 +1091,7 @@ class Wrapper(LoggingMixin):
             self._verbose_level, self.config.setdefault("trigger_logging", False)
         )
 
-    def _prepare_modules(self, *, is_loading: bool = False):
+    def _prepare_modules(self, *, is_loading: bool = False) -> None:
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self._model](self.config, self.tr_data, self.device)
@@ -1095,7 +1116,7 @@ class Wrapper(LoggingMixin):
         x_cv: data_type,
         y_cv: data_type,
         sample_weights: np.ndarray,
-    ):
+    ) -> None:
         # data
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
@@ -1128,7 +1149,7 @@ class Wrapper(LoggingMixin):
         # modules
         self._prepare_modules()
 
-    def _loop(self):
+    def _loop(self) -> None:
         # training loop
         self.pipeline(self.tr_data, self.cv_data, self.tr_weights)
         # binary threshold
@@ -1197,6 +1218,7 @@ class Wrapper(LoggingMixin):
         self.pipeline.use_tqdm = False
         copied_config = shallow_copy_dict(self.config)
         if queue is not None:
+            assert cloned_task is not None
             cloned_task.set_parameters(copied_config)
             Task.enqueue(cloned_task.id, queue)
             return self
@@ -1237,7 +1259,7 @@ class Wrapper(LoggingMixin):
             .reshape([-1, 1])
         )
 
-    def predict_prob(self, x: data_type, **kwargs) -> np.ndarray:
+    def predict_prob(self, x: data_type, **kwargs: Any) -> np.ndarray:
         if self.tr_data.is_reg:
             raise ValueError("`predict_prob` should not be called on regression tasks")
         if kwargs and self.pipeline.onnx is not None:
@@ -1252,15 +1274,15 @@ class Wrapper(LoggingMixin):
     def to_pattern(
         self,
         *,
-        pre_process: callable = None,
-        **predict_kwargs,
+        pre_process: Callable = None,
+        **predict_kwargs: Any,
     ) -> ModelPattern:
-        def _predict(x):
+        def _predict(x: np.ndarray) -> np.ndarray:
             if pre_process is not None:
                 x = pre_process(x)
             return self.predict(x, **predict_kwargs)
 
-        def _predict_prob(x):
+        def _predict_prob(x: np.ndarray) -> np.ndarray:
             if pre_process is not None:
                 x = pre_process(x)
             return self.predict_prob(x, **predict_kwargs)

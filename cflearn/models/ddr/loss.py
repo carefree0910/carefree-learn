@@ -102,7 +102,7 @@ class DDRLoss(LossBase, LoggingMixin):
         log_likelihood_loss = torch.sum(-torch.log(pdf[~negative_mask]))
         return (monotonous_loss + log_likelihood_loss) / len(pdf)
 
-    def _core(
+    def _core(  # type: ignore
         self,
         predictions: tensor_dict_type,
         target: torch.Tensor,
@@ -242,23 +242,22 @@ class DDRLoss(LossBase, LoggingMixin):
             if pressure_anneal is not None:
                 median_pressure_losses = median_pressure_losses * pressure_anneal
         # quantile monotonous
-        quantile_monotonous_losses_list: List[torch.Tensor] = []
+        qm_losses_list: List[torch.Tensor] = []
         if qr_gradient is not None and sampled_qr_gradient is not None:
             qr_g_losses = [relu(-qr_gradient), relu(-sampled_qr_gradient)]
-            quantile_monotonous_losses_list += qr_g_losses
+            qm_losses_list += qr_g_losses
         if median_residual is not None and quantile_sign is not None:
-            quantile_monotonous_losses_list.append(
+            qm_losses_list.append(
                 self._get_median_residual_monotonous_losses(
                     median_residual, quantile_sign
                 )
             )
-        if quantile_monotonous_losses_list:
-            quantile_monotonous_losses = sum(quantile_monotonous_losses_list)
+        if qm_losses_list:
+            qm_losses: torch.Tensor = sum(qm_losses_list)  # type: ignore
             if anchor_anneal is not None:
                 assert monotonous_anneal is not None
-                quantile_monotonous_losses = (
-                    quantile_monotonous_losses * monotonous_anneal
-                )
+                qm_losses = qm_losses * monotonous_anneal
+            quantile_monotonous_losses = qm_losses
         # dual
         if (
             not self._joint_training
@@ -400,7 +399,7 @@ class DDRLoss(LossBase, LoggingMixin):
             self.mtl.register(list(losses.keys()))
         return self.mtl(losses), losses
 
-    def forward(
+    def forward(  # type: ignore
         self,
         predictions: tensor_dict_type,
         target: torch.Tensor,
@@ -408,7 +407,9 @@ class DDRLoss(LossBase, LoggingMixin):
         check_monotonous_only: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
         losses, losses_dict = self._core(
-            predictions, target, check_monotonous_only=check_monotonous_only
+            predictions,
+            target,
+            check_monotonous_only=check_monotonous_only,
         )
         reduced_losses = self._reduce(losses)
         reduced_losses_dict = {k: self._reduce(v) for k, v in losses_dict.items()}
@@ -480,15 +481,13 @@ class DDRLoss(LossBase, LoggingMixin):
         self,
         predictions: tensor_dict_type,
     ) -> torch.Tensor:
-        pressure_pos_dict, pressure_neg_dict = map(
-            predictions.get,
-            map(lambda attr: f"pressure_sub_quantile_{attr}_dict", ["pos", "neg"]),
-        )
-        additive_pos, additive_neg = pressure_pos_dict["add"], pressure_neg_dict["add"]
-        multiply_pos, multiply_neg = pressure_pos_dict["mul"], pressure_neg_dict["mul"]
+        pp_dict: tensor_dict_type = predictions["pp_dict"]  # type: ignore
+        pn_dict: tensor_dict_type = predictions["pn_dict"]  # type: ignore
+        additive_pos, additive_neg = pp_dict["add"], pn_dict["add"]
+        multiply_pos, multiply_neg = pp_dict["mul"], pn_dict["mul"]
         # additive net & multiply net are tend to be zero here
         # because median pressure batch receives 0.5 as input
-        return sum(
+        loss: torch.Tensor = sum(  # type: ignore
             torch.max(
                 -self._median_pressure * sub_quantile,
                 self._median_pressure_inv * sub_quantile,
@@ -500,6 +499,7 @@ class DDRLoss(LossBase, LoggingMixin):
                 multiply_neg,
             ]
         )
+        return loss
 
 
 __all__ = ["DDRLoss"]

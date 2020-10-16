@@ -3,7 +3,11 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from typing import *
+from typing import Any
+from typing import Dict
+from typing import Tuple
+from typing import Union
+from typing import Callable
 from functools import partial
 from cfdata.types import np_int_type
 from cfdata.tabular import TabularData
@@ -37,7 +41,9 @@ class NNB(ModelBase):
                 self.mu = nn.Parameter(torch.zeros(num_classes, num_numerical))
                 self.std = nn.Parameter(torch.ones(num_classes, num_numerical))
             else:
-                x_numerical = split_result.numerical.cpu().numpy()
+                numerical = split_result.numerical
+                assert isinstance(numerical, torch.Tensor)
+                x_numerical = numerical.cpu().numpy()
                 mu_list, std_list = [], []
                 for k in range(num_classes):
                     local_samples = x_numerical[y_ravel == k]
@@ -56,7 +62,9 @@ class NNB(ModelBase):
             self.log_prior = nn.Parameter(torch.from_numpy(np.log(y_bincount / len(x))))
         else:
             self.mnb = Linear(num_categorical_dim, num_classes, init_method=None)
-            x_mnb = split_result.categorical.cpu().numpy()
+            categorical = split_result.categorical
+            assert isinstance(categorical, torch.Tensor)
+            x_mnb = categorical.cpu().numpy()
             y_mnb = y_ravel.astype(np_int_type)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
             with torch.no_grad():
@@ -76,19 +84,22 @@ class NNB(ModelBase):
     def input_sample(self) -> tensor_dict_type:
         return super().input_sample
 
-    def _preset_config(self, tr_data: TabularData):
+    def _preset_config(self, tr_data: TabularData) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
 
-    def _init_config(self, tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData) -> None:
         super()._init_config(tr_data)
         self.pretrain = self.config.setdefault("pretrain", True)
 
     @property
     def pdf(self) -> Union[Callable[[np.ndarray], np.ndarray], None]:
         if self.normal is None:
-            return
+            return None
 
-        def _pdf(arr):
+        def _pdf(arr: np.ndarray) -> np.ndarray:
+            if self.mu is None:
+                raise ValueError("`mu` is not trained")
+            assert self.normal is not None
             tensor = to_torch(arr).to(self.mu.device)
             pdf = torch.exp(self.normal.log_prob(tensor[..., None, :]))
             return to_numpy(pdf)
@@ -102,7 +113,7 @@ class NNB(ModelBase):
     @property
     def posteriors(self) -> Union[Tuple[np.ndarray, ...], None]:
         if self.mnb is None:
-            return
+            return None
         with torch.no_grad():
             posteriors = tuple(
                 map(
@@ -112,7 +123,7 @@ class NNB(ModelBase):
             )
         return tuple(map(to_numpy, posteriors))
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch)
         # log prior
@@ -122,6 +133,7 @@ class NNB(ModelBase):
             numerical_log_prob = None
         else:
             numerical = split_result.numerical
+            assert isinstance(numerical, torch.Tensor)
             numerical_log_prob = self.normal.log_prob(numerical[..., None, :]).sum(2)
         # categorical
         if self.mnb is None:
@@ -130,8 +142,11 @@ class NNB(ModelBase):
         else:
             categorical = split_result.categorical
             log_posterior = self.log_posterior()
+            assert isinstance(categorical, torch.Tensor)
             categorical_log_prob = nn.functional.linear(
-                categorical, log_posterior, log_prior
+                categorical,
+                log_posterior,
+                log_prior,
             )
         if numerical_log_prob is None:
             predictions = categorical_log_prob
@@ -141,15 +156,27 @@ class NNB(ModelBase):
             predictions = numerical_log_prob + categorical_log_prob
         return {"predictions": predictions}
 
-    def class_log_prior(self, *, numpy: bool = False):
+    def class_log_prior(
+        self,
+        *,
+        numpy: bool = False,
+    ) -> Union[np.ndarray, torch.Tensor]:
         log_prior = self.log_prior if self.mnb is None else self.mnb.linear.bias
         rs = nn.functional.log_softmax(log_prior, dim=0)
         if not numpy:
             return rs
         return to_numpy(rs)
 
-    def log_posterior(self, *, numpy: bool = False, return_groups: bool = False):
-        rs = nn.functional.log_softmax(self.mnb.linear.weight, dim=1)
+    def log_posterior(
+        self,
+        *,
+        numpy: bool = False,
+        return_groups: bool = False,
+    ) -> Union[np.ndarray, torch.Tensor]:
+        mnb = self.mnb
+        if mnb is None:
+            raise ValueError("`mnb` is not trained")
+        rs = nn.functional.log_softmax(mnb.linear.weight, dim=1)
         if not return_groups:
             if not numpy:
                 return rs

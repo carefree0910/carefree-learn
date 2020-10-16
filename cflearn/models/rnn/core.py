@@ -26,7 +26,7 @@ class RNN(FCNN):
         self.config["fc_in_dim"] = rnn_hidden_dim
         self._init_fcnn()
 
-    def _init_config(self, tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData) -> None:
         super()._init_config(tr_data)
         self._rnn_base = rnn_dict[self.config.setdefault("type", "GRU")]
         self._rnn_config = self.config.setdefault("rnn_config", {})
@@ -36,7 +36,7 @@ class RNN(FCNN):
         self._rnn_config.setdefault("hidden_size", 256)
         self._rnn_config.setdefault("bidirectional", False)
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
         for rnn in self.rnn_list:

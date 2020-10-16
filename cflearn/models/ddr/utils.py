@@ -3,7 +3,9 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+from typing import Any
 from typing import Union
+from typing import Optional
 from cftool.misc import show_or_save
 
 from ...bases import Wrapper
@@ -14,10 +16,10 @@ class DDRPredictor:
     def __init__(self, ddr: Wrapper):
         self.m = ddr
 
-    def mr(self, x: data_type):
+    def mr(self, x: data_type) -> np.ndarray:
         return self.m.predict(x, predict_median_residual=True, return_all=True)
 
-    def cdf(self, x: data_type, y: data_type, *, get_pdf: bool = False):
+    def cdf(self, x: data_type, y: data_type, *, get_pdf: bool = False) -> np.ndarray:
         predictions = self.m.predict(
             x,
             y=y,
@@ -31,7 +33,7 @@ class DDRPredictor:
             return predictions
         return predictions["cdf"]
 
-    def quantile(self, x: data_type, q: float):
+    def quantile(self, x: data_type, q: float) -> np.ndarray:
         predictions = self.m.predict(x, q=q, predict_quantile=True, return_all=True)
         return predictions["quantile"]
 
@@ -50,7 +52,7 @@ class DDRVisualizer:
         median: np.ndarray,
         indices: np.ndarray,
         title: str,
-    ):
+    ) -> plt.Figure:
         figure = plt.figure()
         plt.title(title)
         plt.scatter(x[indices], y[indices], color="gray", s=15)
@@ -66,7 +68,7 @@ class DDRVisualizer:
         y_min: float,
         y_max: float,
         y_padding: float,
-    ):
+    ) -> None:
         plt.xlim(x_min, x_max)
         plt.ylim(y_min - 0.5 * y_padding, y_max + 0.5 * y_padding)
         plt.legend()
@@ -75,13 +77,13 @@ class DDRVisualizer:
         self,
         x: np.ndarray,
         y: np.ndarray,
-        export_path: str,
+        export_path: Optional[str],
         *,
         residual: bool = False,
         quantiles: np.ndarray = None,
         anchor_ratios: np.ndarray = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         x_min, x_max = np.min(x), np.max(x)
         y_min, y_max = np.min(y), np.max(y)
         padding, dense = kwargs.get("padding", 1.0), kwargs.get("dense", 400)
@@ -145,12 +147,18 @@ class DDRVisualizer:
         *,
         quantiles: np.ndarray = None,
         anchor_ratios: np.ndarray = None,
-    ):
+    ) -> None:
         y_min, y_max = y.min(), y.max()
         y_diff = y_max - y_min
 
-        def _plot(prefix, num, y_true, predictions, dual_predictions):
-            def _core(pred, *, dual):
+        def _plot(
+            prefix: str,
+            num: int,
+            y_true: np.ndarray,
+            predictions: np.ndarray,
+            dual_predictions: np.ndarray,
+        ) -> None:
+            def _core(pred: np.ndarray, *, dual: bool) -> None:
                 suffix = "_dual" if dual else ""
                 plt.figure()
                 plt.title(f"{prefix} {num:6.4f}")

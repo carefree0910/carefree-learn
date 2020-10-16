@@ -1,6 +1,8 @@
 import cflearn
 
-from cfdata.tabular import *
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
+from cfdata.tabular import TabularDataset
 
 iris = TabularDataset.iris()
 iris = TabularData.from_dataset(iris)
@@ -14,9 +16,9 @@ CI = True
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
 
 
-def test_auto():
+def test_auto() -> None:
     for num_jobs in [1, 2]:
-        fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)
+        fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)  # type: ignore
 
         auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
         auto.fit(*data, num_jobs=num_jobs, extra_config=kwargs.copy())

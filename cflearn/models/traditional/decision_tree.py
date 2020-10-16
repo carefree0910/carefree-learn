@@ -3,7 +3,8 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from typing import *
+from typing import Any, Dict
+from typing import List, Iterator
 from cfdata.tabular import TabularData
 from sklearn.tree import _tree, DecisionTreeClassifier
 
@@ -12,10 +13,10 @@ from ...misc.toolkit import *
 from ...modules.blocks import *
 
 
-def export_structure(tree):
+def export_structure(tree: DecisionTreeClassifier) -> tuple:
     tree = tree.tree_
 
-    def recurse(node, depth):
+    def recurse(node: int, depth: int) -> Iterator:
         feature_dim = tree.feature[node]
         if feature_dim == _tree.TREE_UNDEFINED:
             yield depth, -1, tree.value[node]
@@ -44,22 +45,24 @@ class NDT(ModelBase):
         x_tensor = torch.from_numpy(x).to(device)
         split_result = self._split_features(x_tensor)
         # decision tree
-        self.log_msg("fitting decision tree", self.info_prefix, verbose_level=2)
+        msg = "fitting decision tree"
+        self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
         x_merge = split_result.merge().cpu().numpy()
         self.dt = DecisionTreeClassifier(**self.dt_config, random_state=142857)
         self.dt.fit(x_merge, y_ravel)
         tree_structure = export_structure(self.dt)
         # dt statistics
-        num_leafs = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
-        num_internals = num_leafs - 1
-        msg = f"internals : {num_internals} ; leafs : {num_leafs}"
-        self.log_msg(msg, self.info_prefix, verbose_level=2)
+        num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
+        num_internals = num_leaves - 1
+        msg = f"internals : {num_internals} ; leaves : {num_leaves}"
+        self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
         # transform
         b = np.zeros(num_internals, dtype=np.float32)
         w1 = np.zeros([self.merged_dim, num_internals], dtype=np.float32)
-        w2 = np.zeros([num_internals, num_leafs], dtype=np.float32)
-        w3 = np.zeros([num_leafs, num_classes], dtype=np.float32)
-        node_list, node_sign_list = [], []
+        w2 = np.zeros([num_internals, num_leaves], dtype=np.float32)
+        w3 = np.zeros([num_leaves, num_classes], dtype=np.float32)
+        node_list: List[int] = []
+        node_sign_list: List[int] = []
         node_id_cursor = leaf_id_cursor = 0
         for depth, feat_dim, rs in tree_structure:
             if feat_dim != -1:
@@ -80,8 +83,8 @@ class NDT(ModelBase):
         w1, w2, w3, b = map(torch.from_numpy, [w1, w2, w3, b])
         # construct planes & routes
         self.to_planes = Linear(self.merged_dim, num_internals, init_method=None)
-        self.to_routes = Linear(num_internals, num_leafs, bias=False, init_method=None)
-        self.to_leafs = Linear(num_leafs, num_classes, init_method=None)
+        self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
+        self.to_leafs = Linear(num_leaves, num_classes, init_method=None)
         with torch.no_grad():
             self.to_planes.linear.bias.data = b
             self.to_planes.linear.weight.data = w1.t()
@@ -120,10 +123,10 @@ class NDT(ModelBase):
     def class_prior(self) -> np.ndarray:
         return np.exp(self.class_log_prior)
 
-    def _preset_config(self, tr_data: TabularData):
+    def _preset_config(self, tr_data: TabularData) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
 
-    def _init_config(self, tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData) -> None:
         super()._init_config(tr_data)
         self.dt_config = self.config.setdefault("dt_config", {})
         activation_configs = self.config.setdefault("activation_configs", {})
@@ -138,7 +141,7 @@ class NDT(ModelBase):
         self.routes_activation = activations_ins.module(activations.get("routes"))
         self._init_with_dt = self.config.setdefault("")
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         merged = self._split_features(x_batch).merge()
         planes = self.planes_activation(self.to_planes(merged))

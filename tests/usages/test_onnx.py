@@ -5,8 +5,8 @@ import numpy as np
 from cfdata.tabular import TabularDataset
 
 
-def test_onnx():
-    def _core(dataset):
+def test_onnx() -> None:
+    def _core(dataset: TabularDataset) -> None:
         x, y = dataset.xy
         m = cflearn.make(
             model,

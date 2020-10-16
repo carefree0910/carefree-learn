@@ -3,20 +3,37 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from typing import *
-from cftool.misc import *
-from cfdata.tabular import *
+from typing import Any
+from typing import Set
+from typing import Dict
+from typing import List
+from typing import Tuple
+from typing import Union
+from typing import Optional
+from typing import NamedTuple
+from torch.optim import Optimizer
 from cftool.ml import Metrics
+from cftool.misc import is_numeric
+from cftool.misc import update_dict
+from cftool.misc import timing_context
+from cftool.misc import shallow_copy_dict
+from cfdata.tabular import TabularData
+
+try:
+    amp: Optional[Any] = torch.cuda.amp
+except:
+    amp = None
 
 from .loss import DDRLoss
 from ..fcnn.core import FCNN
 from ...misc.toolkit import *
 from ...modules.blocks import *
 
+proj_type = Optional[Union[Linear, MLP]]
 tensors_type = Union[
     torch.Tensor,
     List[torch.Tensor],
-    Dict[str, Union[torch.Tensor, tensor_dict_type]],
+    Dict[str, Union[torch.Tensor, tensor_dict_type, None]],
 ]
 
 
@@ -24,8 +41,8 @@ class BasicInfo(NamedTuple):
     median: torch.Tensor
     median_detach: torch.Tensor
     feature_layers: List[torch.Tensor]
-    anchor_batch: Union[torch.Tensor, None]
-    quantile_batch: Union[torch.Tensor, None]
+    anchor_batch: Optional[torch.Tensor]
+    quantile_batch: Optional[torch.Tensor]
 
 
 @FCNN.register("ddr")
@@ -39,18 +56,16 @@ class DDR(FCNN):
         if not tr_data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
         super().__init__(config, tr_data, device)
-        self.__feature_params, self.__reg_params = [], []
+        self.__feature_params: List[nn.Parameter] = []
+        self.__reg_params: List[nn.Parameter] = []
         self._inject_median_params()
         self._init_cdf_layers()
         self._init_quantile_layers()
         self._init_parameters()
         self.q_metric = Metrics("quantile")
-        labels = tr_data.processed.y
-        self.y_min, self.y_max = labels.min(), labels.max()
-        self.y_diff = self.y_max - self.y_min
         self._step_count = 0
 
-    def _init_config(self, tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData) -> None:
         # common mapping configs
         self._common_configs = self.config.setdefault("common_configs", {})
         self._common_configs.setdefault("pruner_config", None)
@@ -94,7 +109,9 @@ class DDR(FCNN):
             self._fetches = {fetches}
         else:
             self._fetches = set(fetches)
+
         cdf_ratio_anchors = quantile_anchors = self.default_anchors
+
         if not self.fetch_cdf:
             cdf_ratio_anchors = None
         if not self.fetch_quantile:
@@ -103,10 +120,16 @@ class DDR(FCNN):
             "cdf_ratio_anchors", cdf_ratio_anchors
         )
         quantile_anchors = self.config.setdefault("quantile_anchors", quantile_anchors)
+        labels = tr_data.processed.y
+
+        y_min, y_max = labels.min(), labels.max()
+        self.y_min, self.y_max = y_min, y_max
+        self.y_diff = y_max - y_min
         if cdf_ratio_anchors is None:
             self._cdf_ratio_anchors = None
         else:
-            self._cdf_ratio_anchors = np.asarray(cdf_ratio_anchors, np.float32)
+            anchors = np.asarray(cdf_ratio_anchors, np.float32)
+            self._anchor_choice_array = y_min + (y_max - y_min) * anchors
         if quantile_anchors is None:
             self._quantile_anchors = None
         else:
@@ -153,7 +176,7 @@ class DDR(FCNN):
         self._feature_step = int(self.config.setdefault("feature_step", 5))
         self._synthetic_step = int(self.config.setdefault("synthetic_step", 5))
 
-    def _init_loss(self, tr_data: TabularData):
+    def _init_loss(self, tr_data: TabularData) -> None:
         loss_config = shallow_copy_dict(self._loss_config)
         loss_config["device"] = self.device
         self.loss = DDRLoss(loss_config, "none")
@@ -177,16 +200,18 @@ class DDR(FCNN):
         )
         return mapping_configs, final_mapping_config
 
-    def _inject_median_params(self):
+    def _inject_median_params(self) -> None:
         for mapping in self.mlp.mappings[: self.num_feature_layers]:
             self.__feature_params.extend(mapping.parameters())
         for mapping in self.mlp.mappings[self.num_feature_layers :]:
             self.__reg_params.extend(mapping.parameters())
 
-    def _init_cdf_layers(self):
+    def _init_cdf_layers(self) -> None:
+        self.cdf_reg: proj_type
+        self.cdf_feature_projection: proj_type
         if not self.fetch_cdf:
             self.cdf_reg = self.cdf_feature_projection = None
-            return
+            return None
         cdf_input_dim = self.merged_dim + 1
         if self.num_feature_layers > 0:
             cdf_input_dim += self.feature_dim
@@ -221,10 +246,10 @@ class DDR(FCNN):
             )
             self.__feature_params.extend(self.cdf_feature_projection.parameters())
 
-    def _init_quantile_layers(self):
+    def _init_quantile_layers(self) -> None:
         if not self.fetch_quantile:
             self.median_residual_reg = None
-            self.additive_q_res_reg = self.multiply_q_res_reg = None
+            self.aq_res_reg = self.mq_res_reg = None
             return
         quantile_input_dim = self.merged_dim
         if self.num_feature_layers > 0:
@@ -257,13 +282,13 @@ class DDR(FCNN):
             mapping_configs,
             final_mapping_config,
         )
-        self.additive_q_res_reg = self._make_projection(*q_res_reg_args)
-        self.multiply_q_res_reg = self._make_projection(*q_res_reg_args)
-        self.__reg_params.extend(self.additive_q_res_reg.parameters())
-        self.__reg_params.extend(self.multiply_q_res_reg.parameters())
+        self.aq_res_reg = self._make_projection(*q_res_reg_args)
+        self.mq_res_reg = self._make_projection(*q_res_reg_args)
+        self.__reg_params.extend(self.aq_res_reg.parameters())
+        self.__reg_params.extend(self.mq_res_reg.parameters())
         # feature part
         if self.no_joint_features:
-            self.additive_q_projection = self.multiply_q_projection = None
+            self.aq_proj = self.mq_proj = None
         else:
             quantile_feature_units = self.feature_units.copy()
             mapping_configs, final_mapping_config = self._init_mlp_config(
@@ -276,12 +301,12 @@ class DDR(FCNN):
                 mapping_configs,
                 final_mapping_config,
             )
-            self.additive_q_projection = self._make_projection(*q_feature_proj_args)
-            self.multiply_q_projection = self._make_projection(*q_feature_proj_args)
-            self.__feature_params.extend(self.additive_q_projection.parameters())
-            self.__feature_params.extend(self.multiply_q_projection.parameters())
+            self.aq_proj = self._make_projection(*q_feature_proj_args)  # type: ignore
+            self.mq_proj = self._make_projection(*q_feature_proj_args)  # type: ignore
+            self.__feature_params.extend(self.aq_proj.parameters())
+            self.__feature_params.extend(self.mq_proj.parameters())
 
-    def _init_parameters(self):
+    def _init_parameters(self) -> None:
         all_parameters = set(self.parameters())
         self.__base_params = list(
             all_parameters - set(self.__feature_params) - set(self.__reg_params)
@@ -298,7 +323,11 @@ class DDR(FCNN):
         pipeline_optimizers = update_dict(pipeline_optimizers, optimizers)
         self._pipeline_config["optimizers"] = pipeline_optimizers
 
-    def _optimizer_step(self, optimizers, grad_scalar):
+    def _optimizer_step(
+        self,
+        optimizers: Dict[str, Optimizer],
+        grad_scalar: Optional["amp.GradScaler"],  # type: ignore
+    ) -> None:
         for key in self.target_parameters:
             opt = optimizers[key]
             if grad_scalar is None:
@@ -389,15 +418,19 @@ class DDR(FCNN):
     @staticmethod
     def _merge_responses(
         anchors: torch.Tensor,
-        projection: Union[MLP, None],
+        projection: proj_type,
         feature_layers: List[torch.Tensor],
     ) -> torch.Tensor:
         net = anchors
         if projection is not None:
-            for i, mapping in enumerate(projection.mappings):
-                if i > 0:
-                    net = net + feature_layers[i]
-                net = mapping(net)
+            # TODO : check this condition branch
+            if isinstance(projection, Linear):
+                net = projection(net)
+            else:
+                for i, mapping in enumerate(projection.mappings):
+                    if i > 0:
+                        net = net + feature_layers[i]
+                    net = mapping(net)
         return net
 
     def _build_cdf(
@@ -405,9 +438,12 @@ class DDR(FCNN):
         feature_layers: List[torch.Tensor],
         anchor_batch: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        assert self.cdf_reg is not None
         anchor_batch_ratio = self._get_anchor_batch_ratio(anchor_batch)
         net = self._merge_responses(
-            anchor_batch_ratio, self.cdf_feature_projection, feature_layers
+            anchor_batch_ratio,
+            self.cdf_feature_projection,
+            feature_layers,
         )
         concat_list = [net, anchor_batch_ratio]
         if self.num_feature_layers > 0:
@@ -427,15 +463,17 @@ class DDR(FCNN):
         with mode_context(self, to_train=None, use_grad=True):
             cdf, cdf_raw = self._build_cdf(feature_layers, anchor_batch)
         pdf = get_gradient(cdf, anchor_batch, need_optimization, need_optimization)
+        assert isinstance(pdf, torch.Tensor)
         anchor_batch.requires_grad_(False)
         return cdf, cdf_raw, pdf
 
     def _build_median_residual(
         self,
         feature_layers: List[torch.Tensor],
-        quantile_batch: Union[torch.Tensor, None],
-        sign: torch.Tensor = None,
+        quantile_batch: Optional[torch.Tensor],
+        sign: Optional[torch.Tensor] = None,
     ) -> tensor_dict_type:
+        assert self.median_residual_reg is not None
         concat_list = [feature_layers[-1]]
         if self.num_feature_layers > 0:
             concat_list.append(feature_layers[0])
@@ -445,6 +483,7 @@ class DDR(FCNN):
         mr_pos, mr_neg = torch.chunk(mr, 2, dim=1)
         mr_neg = -mr_neg
         if sign is None:
+            assert quantile_batch is not None
             sign = torch.sign(quantile_batch - 0.5)
         pos_quantile_mask = sign == 1.0
         median_residual = torch.where(pos_quantile_mask, mr_pos, mr_neg)
@@ -463,27 +502,24 @@ class DDR(FCNN):
         keys: Union[str, List[str]] = None,
     ) -> tensors_type:
         add_ratio, mul_ratio = self._get_quantile_batch_ratio(quantile_batch)
-        add_net = self._merge_responses(
-            add_ratio, self.additive_q_projection, feature_layers
-        )
-        mul_net = self._merge_responses(
-            mul_ratio, self.multiply_q_projection, feature_layers
-        )
+        add_net = self._merge_responses(add_ratio, self.aq_proj, feature_layers)
+        mul_net = self._merge_responses(mul_ratio, self.mq_proj, feature_layers)
         concat_list = []
         if self.num_feature_layers > 0:
             concat_list.append(feature_layers[0])
         sub_quantile_dict, sub_quantile_pos_dict, sub_quantile_neg_dict = {}, {}, {}
         mr_results = self._build_median_residual(feature_layers, quantile_batch)
-        median_residual, q_sign, q_pos_mask = map(
-            mr_results.get, ["median_residual", "quantile_sign", "pos_quantile_mask"]
-        )
+        median_residual = mr_results["median_residual"]
+        q_sign, q_pos_mask = map(mr_results.get, ["quantile_sign", "pos_quantile_mask"])
         for res_type, q_features, q_ratio, q_res_reg, activation in zip(
             ["add", "mul"],
             [add_net, mul_net],
             [add_ratio, mul_ratio],
-            [self.additive_q_res_reg, self.multiply_q_res_reg],
+            [self.aq_res_reg, self.mq_res_reg],
             [self.mish, self.relu],
         ):
+            assert q_res_reg is not None
+            assert q_pos_mask is not None
             local_concat_list = concat_list + [q_features, q_ratio]
             local_quantile_features = torch.cat(local_concat_list, dim=1)
             sq = q_res_reg(local_quantile_features)
@@ -496,12 +532,14 @@ class DDR(FCNN):
                 sub_quantile_neg_dict[res_type] = sub_quantile_neg
                 continue
             sub_quantile_dict[res_type] = torch.where(
-                q_pos_mask, sub_quantile_pos, sub_quantile_neg
+                q_pos_mask,
+                sub_quantile_pos,
+                sub_quantile_neg,
             )
         if pressure_batch:
             return {
-                "pressure_sub_quantile_pos_dict": sub_quantile_pos_dict,
-                "pressure_sub_quantile_neg_dict": sub_quantile_neg_dict,
+                "pp_dict": sub_quantile_pos_dict,
+                "pn_dict": sub_quantile_neg_dict,
             }
         quantile_residual = (
             median_residual.detach() * sub_quantile_dict["mul"]
@@ -517,8 +555,12 @@ class DDR(FCNN):
         if keys is None:
             return rs
         if isinstance(keys, str):
-            return rs[keys]
-        return [rs[key] for key in keys]
+            value = rs[keys]
+            assert isinstance(value, torch.Tensor)
+            return value
+        values = [rs[key] for key in keys]
+        assert all(map(lambda v: v is not None, values))
+        return values  # type: ignore
 
     # fetch & combine outputs
 
@@ -537,13 +579,12 @@ class DDR(FCNN):
 
     def _convert_np_anchors(
         self,
-        np_anchors: Union[np.ndarray, None],
-    ) -> Union[torch.Tensor, None]:
+        np_anchors: Optional[np.ndarray],
+    ) -> Optional[torch.Tensor]:
         if np_anchors is None:
-            return
-        return (
-            to_torch(np_anchors.reshape([-1, 1])).to(self.device).requires_grad_(True)
-        )
+            return None
+        tensor = to_torch(np_anchors.reshape([-1, 1]))
+        return tensor.to(self.device).requires_grad_(True)
 
     def _get_feature_layers(self, net: torch.Tensor) -> List[torch.Tensor]:
         feature_layers = [net]
@@ -567,18 +608,17 @@ class DDR(FCNN):
             raise ValueError("distribution could not be fetched")
         anchor_batch = basic_info.anchor_batch
         feature_layers = basic_info.feature_layers
+        assert anchor_batch is not None
         cdf, cdf_raw, pdf = self._build_pdf(feature_layers, anchor_batch, True)
         # get specific sampled distribution
         if not fetch_anchors or self._cdf_ratio_anchors is None:
             sampled_anchors = sampled_cdf = sampled_cdf_raw = sampled_pdf = None
         else:
-            choice_indices = np.random.randint(
-                0, len(self._cdf_ratio_anchors), len(cdf)
-            )
-            choice_array = (
-                self.y_min + (self.y_max - self.y_min) * self._cdf_ratio_anchors
-            )
-            sampled_anchors = self._convert_np_anchors(choice_array[choice_indices])
+            num_choices = len(self._cdf_ratio_anchors)
+            choice_indices = np.random.randint(0, num_choices, len(cdf))
+            chosen = self._anchor_choice_array[choice_indices]
+            sampled_anchors = self._convert_np_anchors(chosen)
+            assert sampled_anchors is not None
             sampled_cdf, sampled_cdf_raw, sampled_pdf = self._build_pdf(
                 feature_layers, sampled_anchors, True
             )
@@ -601,18 +641,22 @@ class DDR(FCNN):
             raise ValueError("quantile could not be fetched")
         quantile_batch = basic_info.quantile_batch
         feature_layers = basic_info.feature_layers
+        assert quantile_batch is not None
         quantile_dict = self._build_quantile_residual(feature_layers, quantile_batch)
+        assert isinstance(quantile_dict, dict)
         # get median pressure
         with torch.no_grad():
             median_pressure_batch = quantile_batch.new_empty(
                 quantile_batch.shape
             ).fill_(0.5)
         median_pressure_batch.requires_grad_(True)
-        quantile_dict.update(
-            self._build_quantile_residual(
-                feature_layers, median_pressure_batch, pressure_batch=True
-            )
+        pressure_dict = self._build_quantile_residual(
+            feature_layers,
+            median_pressure_batch,
+            pressure_batch=True,
         )
+        assert isinstance(pressure_dict, dict)
+        quantile_dict.update(pressure_dict)
         # get specific sampled quantile
         if not fetch_anchors or self._quantile_anchors is None or not self.training:
             sampled_quantiles = smr = sqr = sqs = None
@@ -620,11 +664,13 @@ class DDR(FCNN):
             choice_indices = np.random.randint(
                 0, len(self._quantile_anchors), len(quantile_batch)
             )
-            sampled_quantiles = self._convert_np_anchors(
-                self._quantile_anchors[choice_indices]
-            )
+            chosen = self._quantile_anchors[choice_indices]
+            sampled_quantiles = self._convert_np_anchors(chosen)
+            assert sampled_quantiles is not None
             smr, sqr, sqs = self._build_quantile_residual(
-                feature_layers, sampled_quantiles, keys=self.quantile_residual_core_keys
+                feature_layers,
+                sampled_quantiles,
+                keys=self.quantile_residual_core_keys,
             )
         quantile_dict.update(
             {
@@ -647,7 +693,9 @@ class DDR(FCNN):
             feature_layers, quantile_residual + median_detach
         )
         cmr, cdf_quantile_residual, cqs = self._build_quantile_residual(
-            feature_layers, dual_cdf, keys=self.quantile_residual_core_keys
+            feature_layers,
+            dual_cdf,
+            keys=self.quantile_residual_core_keys,
         )
         return {
             "dual_cdf": dual_cdf,
@@ -665,7 +713,9 @@ class DDR(FCNN):
         median_detach = basic_info.median_detach
         feature_layers = basic_info.feature_layers
         dmr, dual_quantile_residual, dqs = self._build_quantile_residual(
-            feature_layers, cdf, keys=self.quantile_residual_core_keys
+            feature_layers,
+            cdf,
+            keys=self.quantile_residual_core_keys,
         )
         dual_quantile = median_detach + dual_quantile_residual
         quantile_cdf, quantile_cdf_raw = self._build_cdf(feature_layers, dual_quantile)
@@ -696,7 +746,9 @@ class DDR(FCNN):
         feature_layers = self._get_feature_layers(init)
         median = self._get_median(feature_layers)
         quantile = median + self._build_quantile_residual(
-            feature_layers, q_batch, keys="quantile_residual"
+            feature_layers,
+            q_batch,
+            keys="quantile_residual",
         )
         return quantile
 
@@ -738,18 +790,18 @@ class DDR(FCNN):
         if isinstance(elem, torch.Tensor):
             return elem
         if not is_numeric(elem):
-            elem = np.asarray(elem, np.float32)
+            elem_arr = np.asarray(elem, np.float32)
         else:
-            elem = np.repeat(elem, n).astype(np.float32)
-        elem = elem.reshape([-1, 1])
+            elem_arr = np.repeat(elem, n).astype(np.float32)
+        elem_arr = elem_arr.reshape([-1, 1])
         if numpy:
-            return elem
-        elem = torch.from_numpy(elem)
+            return elem_arr
+        elem_tensor = torch.from_numpy(elem_arr)
         if to_device:
-            elem = elem.to(self.device)
-        return elem
+            elem_tensor = elem_tensor.to(self.device)
+        return elem_tensor
 
-    def _core(self, init: torch.Tensor, **kwargs) -> tensor_dict_type:
+    def _core(self, init: torch.Tensor, **kwargs: Any) -> tensor_dict_type:
         # median only
         if kwargs.get("median_only", False):
             with timing_context(self, "forward.no_loss"):
@@ -826,13 +878,22 @@ class DDR(FCNN):
             if not is_synthetic and not fetch_quantile_gradient:
                 quantile_residual_gradient = None
             else:
+                assert quantile_batch is not None
+                assert quantile_residual is not None
                 with timing_context(self, "forward.quantile_gradient"):
                     quantile_residual_gradient = get_gradient(
-                        quantile_residual, quantile_batch, True, True
+                        quantile_residual,
+                        quantile_batch,
+                        True,
+                        True,
                     )
                     if sqr is not None:
+                        assert sampled_quantiles is not None
                         sampled_qr_gradient = get_gradient(
-                            sqr, sampled_quantiles, True, True
+                            sqr,
+                            sampled_quantiles,
+                            True,
+                            True,
                         )
         # build dual
         if (
@@ -843,6 +904,7 @@ class DDR(FCNN):
         ):
             dual_cdf_dict, dual_quantile_dict = {}, {}
         else:
+            assert quantile_residual is not None
             with timing_context(self, "forward.dual_cdf"):
                 dual_cdf_dict = self._get_dual_cdf(basic_info, quantile_residual)
             with timing_context(self, "forward.dual_quantile"):
@@ -868,7 +930,7 @@ class DDR(FCNN):
 
     # API
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         forward_dict = {}
         x_batch = batch["x_batch"]
         init = self._split_features(x_batch).merge()
@@ -912,7 +974,7 @@ class DDR(FCNN):
         self,
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
-    ) -> Dict[str, Union[torch.Tensor, float]]:
+    ) -> Dict[str, torch.Tensor]:
         init = forward_results["init"]
         x_batch, y_batch = map(batch.get, ["x_batch", "y_batch"])
         sample_weights = forward_results.get("batch_sample_weights")
@@ -936,8 +998,10 @@ class DDR(FCNN):
                     synthetic_init, no_loss=False, synthetic=True
                 )
             with timing_context(self, "synthetic.loss"):
-                synthetic_losses, _ = self.loss._core(
-                    synthetic_outputs, y_batch, check_monotonous_only=True
+                synthetic_losses, _ = self.loss._core(  # type: ignore
+                    synthetic_outputs,
+                    y_batch,
+                    check_monotonous_only=True,
                 )
             losses_dict["synthetic"] = synthetic_losses
             losses = losses + synthetic_losses
@@ -952,16 +1016,19 @@ class DDR(FCNN):
         if self.training:
             self._step_count += 1
         else:
-            quantile_losses = []
-            y_batch = to_numpy(y_batch)
-            for q in self._quantile_anchors:
-                self.q_metric.config["q"] = q
-                yq = self._predict_quantile(init, self._expand(len(init), q))
-                quantile_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
-            quantile_metric = (
-                -sum(quantile_losses) / len(quantile_losses) * self.q_metric.sign
-            )
-            losses_dict["ddr"] = torch.tensor([quantile_metric], dtype=torch.float32)
+            if self._quantile_anchors is None:
+                losses_dict["ddr"] = losses_dict["loss"]
+            else:
+                assert isinstance(y_batch, torch.Tensor)
+                q_losses = []
+                y_batch = to_numpy(y_batch)
+                for q in self._quantile_anchors:
+                    self.q_metric.config["q"] = q
+                    yq = self._predict_quantile(init, self._expand(len(init), q))
+                    q_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
+                quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
+                ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)
+                losses_dict["ddr"] = ddr_loss
         return losses_dict
 
 

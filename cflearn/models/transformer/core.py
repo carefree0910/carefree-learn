@@ -2,7 +2,7 @@ import torch
 
 import torch.nn as nn
 
-from typing import *
+from typing import Any, Dict
 from cfdata.tabular import TabularData
 
 from ..fcnn import FCNN
@@ -66,7 +66,7 @@ class Transformer(FCNN):
         super(FCNN, self).__init__(config, tr_data, device)
         self._init_fcnn()
 
-    def _init_config(self, tr_data: TabularData):
+    def _init_config(self, tr_data: TabularData) -> None:
         super()._init_config(tr_data)
         transformer_dim = self.tr_data.processed_dim
         transformer_config = self.config.setdefault("transformer_config", {})
@@ -93,7 +93,7 @@ class Transformer(FCNN):
         self.norm = transformer_config.setdefault("norm", None)
         self.config["fc_in_dim"] = transformer_dim * self.num_history
 
-    def forward(self, batch: tensor_dict_type, **kwargs) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         net = self._split_features(x_batch).merge()
         if self.input_linear is not None:

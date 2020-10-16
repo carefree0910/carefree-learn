@@ -3,7 +3,8 @@ import cflearn
 
 import numpy as np
 
-from cfdata.tabular import *
+from cfdata.tabular import TabularData
+from cfdata.tabular import TabularDataset
 
 
 file_folder = os.path.dirname(__file__)
@@ -15,7 +16,7 @@ tr_file, cv_file, te_file = map(
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
 
 
-def test_array_dataset():
+def test_array_dataset() -> None:
     model = "fcnn"
     dataset = TabularDataset.iris()
     m = cflearn.make(
@@ -31,7 +32,7 @@ def test_array_dataset():
             "default_encoding_method": "one_hot",
             "mapping_configs": {"batch_norm": True, "dropout": 0.0},
         },
-        **kwargs,
+        **kwargs,  # type: ignore
     )
     m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
     cflearn.estimate(*dataset.xy, wrappers=m)
@@ -40,20 +41,20 @@ def test_array_dataset():
     cflearn._remove()
 
 
-def test_file_dataset():
-    fcnn = cflearn.make(**kwargs)
-    tree_dnn = cflearn.make("tree_dnn", **kwargs)
+def test_file_dataset() -> None:
+    fcnn = cflearn.make(**kwargs)  # type: ignore
+    tree_dnn = cflearn.make("tree_dnn", **kwargs)  # type: ignore
     fcnn.fit(tr_file, x_cv=cv_file)
     tree_dnn.fit(tr_file, x_cv=cv_file)
-    wrappers = [fcnn, tree_dnn]
-    cflearn.estimate(tr_file, wrappers=wrappers, contains_labels=True)
-    cflearn.estimate(cv_file, wrappers=wrappers, contains_labels=True)
-    cflearn.estimate(te_file, wrappers=wrappers, contains_labels=True)
-    cflearn.save(wrappers)
-    wrappers = cflearn.load()
-    cflearn.estimate(tr_file, wrappers=wrappers, contains_labels=True)
-    cflearn.estimate(cv_file, wrappers=wrappers, contains_labels=True)
-    cflearn.estimate(te_file, wrappers=wrappers, contains_labels=True)
+    wrappers_list = [fcnn, tree_dnn]
+    cflearn.estimate(tr_file, wrappers=wrappers_list, contains_labels=True)
+    cflearn.estimate(cv_file, wrappers=wrappers_list, contains_labels=True)
+    cflearn.estimate(te_file, wrappers=wrappers_list, contains_labels=True)
+    cflearn.save(wrappers_list)
+    wrappers_dict = cflearn.load()
+    cflearn.estimate(tr_file, wrappers=wrappers_dict, contains_labels=True)
+    cflearn.estimate(cv_file, wrappers=wrappers_dict, contains_labels=True)
+    cflearn.estimate(te_file, wrappers=wrappers_dict, contains_labels=True)
     cflearn._remove()
 
     # Distributed
@@ -67,24 +68,29 @@ def test_file_dataset():
             num_repeat=num_repeat,
             num_jobs=num_jobs,
             temp_folder="__test_file_dataset__",
-            **kwargs,
+            **kwargs,  # type: ignore
         )
+    data = results.data
+    patterns = results.patterns
+    assert isinstance(data, TabularData)
+    assert patterns is not None
     (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(
-        results.data.read_file, [tr_file, cv_file, te_file]
+        data.read_file,
+        [tr_file, cv_file, te_file],
     )
-    tr_y, cv_y, te_y = map(results.data.transform_labels, [tr_y, cv_y, te_y])
+    tr_y, cv_y, te_y = map(data.transform_labels, [tr_y, cv_y, te_y])
     ensembles = {
         model: cflearn.ensemble(model_list)
-        for model, model_list in results.patterns.items()
+        for model, model_list in patterns.items()
     }
     other_patterns = {}
     for model in models:
         repeat_key = f"{model}_{num_repeat}"
-        other_patterns[repeat_key] = results.patterns[model]
+        other_patterns[repeat_key] = patterns[model]
         other_patterns[f"{repeat_key}_ensemble"] = ensembles[model]
-    cflearn.estimate(tr_x, tr_y, wrappers=wrappers, other_patterns=other_patterns)
-    cflearn.estimate(cv_x, cv_y, wrappers=wrappers, other_patterns=other_patterns)
-    cflearn.estimate(te_x, te_y, wrappers=wrappers, other_patterns=other_patterns)
+    cflearn.estimate(tr_x, tr_y, wrappers=wrappers_dict, other_patterns=other_patterns)
+    cflearn.estimate(cv_x, cv_y, wrappers=wrappers_dict, other_patterns=other_patterns)
+    cflearn.estimate(te_x, te_y, wrappers=wrappers_dict, other_patterns=other_patterns)
 
 
 if __name__ == "__main__":

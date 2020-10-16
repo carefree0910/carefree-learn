@@ -35,7 +35,7 @@ class TreeDNN(FCNN):
         self._init_fcnn()
         # dndf
         if self._dndf_config is None:
-            self.log_msg(
+            self.log_msg(  # type: ignore
                 "DNDF is not used in TreeDNN, it will be equivalent to FCNN",
                 prefix=self.warning_prefix,
                 verbose_level=2,

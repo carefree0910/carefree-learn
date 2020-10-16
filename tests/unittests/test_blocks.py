@@ -7,7 +7,7 @@ from cflearn.modules.blocks import *
 
 
 class TestBlocks(unittest.TestCase):
-    def test_linear(self):
+    def test_linear(self) -> None:
         input_dim = 256
         output_dim = 512
         batch_size = 32
@@ -28,7 +28,7 @@ class TestBlocks(unittest.TestCase):
 
         self.assertTrue(torch.allclose(torch_output, output))
 
-    def test_attention(self):
+    def test_attention(self) -> None:
         num_heads = 8
         input_dim = embed_dim = 256
         batch_size = 32

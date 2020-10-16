@@ -134,9 +134,7 @@ class MTL(nn.Module):
 
     @staticmethod
     def _naive(loss_dict: tensor_dict_type) -> torch.Tensor:
-        summary = sum(loss_dict.values())
-        assert isinstance(summary, torch.Tensor)
-        return summary
+        return sum(loss_dict.values())  # type: ignore
 
     def _softmax(self, loss_dict: tensor_dict_type) -> torch.Tensor:
         assert self._slice is not None
@@ -146,9 +144,8 @@ class MTL(nn.Module):
         for key, loss in loss_dict.items():
             idx = self._registered.get(key)
             losses.append(loss if idx is None else loss * softmax_w[idx])
-        summary = sum(losses)
-        assert isinstance(summary, torch.Tensor)
-        return summary * self._slice
+        final_loss: torch.Tensor = sum(losses)  # type: ignore
+        return final_loss * self._slice
 
     def extra_repr(self) -> str:
         method = "naive" if self._method is None else self._method
