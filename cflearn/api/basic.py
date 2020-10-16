@@ -10,6 +10,7 @@ from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 from cftool.ml.utils import ModelPattern
+from cftool.ml.utils import EnsemblePattern
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TimeSeriesConfig
