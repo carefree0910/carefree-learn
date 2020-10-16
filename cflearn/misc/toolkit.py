@@ -308,8 +308,8 @@ class TrainMonitor:
     Warnings
     ----------
     * Performance MUST be evaluated on the cross validation dataset instead of the training set if possible
-    * `register_pipeline` method MUST be called before monitoring
-    * instance passed to`register_pipeline` method MUST be a subclass of `LoggingMixin`,
+    * `register_trainer` method MUST be called before monitoring
+    * instance passed to`register_trainer` method MUST be a subclass of `LoggingMixin`,
       and must include `_epoch_count`, `num_epoch`, `max_epoch` attributes and
       `save_checkpoint` method
 
@@ -339,7 +339,7 @@ class TrainMonitor:
     >>>
     >>> x, y, model = ...
     >>> metric = Metrics("mae")
-    >>> monitor = TrainMonitor(metric.sign).register_pipeline(model)
+    >>> monitor = TrainMonitor(metric.sign).register_trainer(model)
     >>> n_epoch, epoch_count = 20, 0
     >>> while epoch_count <= n_epoch:
     >>>     model.train()
@@ -386,7 +386,7 @@ class TrainMonitor:
 
     @property
     def log_msg(self) -> Callable:
-        return self._pipeline.log_msg
+        return self._trainer.log_msg
 
     @property
     def plateau_threshold(self) -> int:
@@ -417,7 +417,7 @@ class TrainMonitor:
         self._descend_counter += min(self.num_tolerance / 3, -res / std)
         self.log_msg(
             f"descend counter updated : {self._descend_counter:6.4f}",
-            prefix=self._pipeline.info_prefix,
+            prefix=self._trainer.info_prefix,
             verbose_level=6,
             msg_level=logging.DEBUG,
         )
@@ -450,7 +450,7 @@ class TrainMonitor:
             self._descend_counter = max(new_counter, 0)
             self.log_msg(
                 f"descend counter updated : {self._descend_counter:6.4f}",
-                prefix=self._pipeline.info_prefix,
+                prefix=self._trainer.info_prefix,
                 verbose_level=6,
                 msg_level=logging.DEBUG,
             )
@@ -491,42 +491,42 @@ class TrainMonitor:
         self.plateau_flag = True
         self._descend_counter += self._descend_increment
 
-    def _handle_pipeline_terminate(self) -> bool:
-        pipeline = self._pipeline
+    def _handle_trainer_terminate(self) -> bool:
+        trainer = self._trainer
         if self.info["terminate"]:
             self.log_msg(
-                f"early stopped at n_epoch={pipeline._epoch_count} due to '{self.info['info']}'",
-                prefix=pipeline.info_prefix,
+                f"early stopped at n_epoch={trainer._epoch_count} due to '{self.info['info']}'",
+                prefix=trainer.info_prefix,
             )
             return True
         if self.info["save_checkpoint"]:
-            self.log_msg(f"{self.info['info']}", pipeline.info_prefix, 3)
-            pipeline.save_checkpoint()
+            self.log_msg(f"{self.info['info']}", trainer.info_prefix, 3)
+            trainer.save_checkpoint()
         if (
-            pipeline._epoch_count == pipeline.num_epoch
-            and pipeline._epoch_count < pipeline.max_epoch
+            trainer._epoch_count == trainer.num_epoch
+            and trainer._epoch_count < trainer.max_epoch
             and not self.info["terminate"]
         ):
             self._punish_extension()
-            new_epoch = pipeline.num_epoch + self.extension
-            pipeline.num_epoch = min(new_epoch, pipeline.max_epoch)
+            new_epoch = trainer.num_epoch + self.extension
+            trainer.num_epoch = min(new_epoch, trainer.max_epoch)
             self.log_msg(
-                f"extending num_epoch to {pipeline.num_epoch}",
-                prefix=pipeline.info_prefix,
+                f"extending num_epoch to {trainer.num_epoch}",
+                prefix=trainer.info_prefix,
                 verbose_level=3,
             )
-        if pipeline._epoch_count == pipeline.max_epoch:
+        if trainer._epoch_count == trainer.max_epoch:
             if not self.info["terminate"]:
                 self.log_msg(
                     "model seems to be under-fitting but max_epoch reached, "
                     "increasing max_epoch may improve performance.",
-                    pipeline.info_prefix,
+                    trainer.info_prefix,
                 )
             return True
         return False
 
-    def register_pipeline(self, pipeline: Any) -> "TrainMonitor":
-        self._pipeline = pipeline
+    def register_trainer(self, trainer: Any) -> "TrainMonitor":
+        self._trainer = trainer
         return self
 
     def check_terminate(self, new_metric: float) -> bool:
@@ -560,7 +560,7 @@ class TrainMonitor:
             if plateau_updated:
                 self.log_msg(
                     f"plateau counter updated : {self._plateau_counter:>6.4f} / {self.plateau_threshold}",
-                    prefix=self._pipeline.info_prefix,
+                    prefix=self._trainer.info_prefix,
                     verbose_level=6,
                     msg_level=logging.DEBUG,
                 )
@@ -577,7 +577,7 @@ class TrainMonitor:
                     if self.info["save_checkpoint"]:
                         self.info["info"] += " (plateau counter cleared)"
                         self._plateau_counter = 0
-        return self._handle_pipeline_terminate()
+        return self._handle_trainer_terminate()
 
 
 class mode_context(context_error_handler):

@@ -87,30 +87,30 @@ def make(
         kwargs["logging_file"] = logging_file
     if trigger_logging is not None:
         kwargs["trigger_logging"] = trigger_logging
-    # pipeline general
-    pipeline_config = kwargs.setdefault("pipeline_config", {})
-    pipeline_config["use_tqdm"] = use_tqdm
+    # trainer general
+    trainer_config = kwargs.setdefault("trainer_config", {})
+    trainer_config["use_tqdm"] = use_tqdm
     if min_epoch is not None:
-        pipeline_config["min_epoch"] = min_epoch
+        trainer_config["min_epoch"] = min_epoch
     if num_epoch is not None:
-        pipeline_config["num_epoch"] = num_epoch
+        trainer_config["num_epoch"] = num_epoch
     if max_epoch is not None:
-        pipeline_config["max_epoch"] = max_epoch
+        trainer_config["max_epoch"] = max_epoch
     if batch_size is not None:
-        pipeline_config["batch_size"] = batch_size
+        trainer_config["batch_size"] = batch_size
     if max_snapshot_num is not None:
-        pipeline_config["max_snapshot_num"] = max_snapshot_num
+        trainer_config["max_snapshot_num"] = max_snapshot_num
     if clip_norm is not None:
-        pipeline_config["clip_norm"] = clip_norm
+        trainer_config["clip_norm"] = clip_norm
     if ema_decay is not None:
-        pipeline_config["ema_decay"] = ema_decay
-    sampler_config = pipeline_config.setdefault("sampler_config", {})
+        trainer_config["ema_decay"] = ema_decay
+    sampler_config = trainer_config.setdefault("sampler_config", {})
     if aggregation is not None:
         sampler_config["aggregation"] = aggregation
     if aggregation_config is not None:
         sampler_config["aggregation_config"] = aggregation_config
     if ts_label_collator_config is not None:
-        pipeline_config["ts_label_collator_config"] = ts_label_collator_config
+        trainer_config["ts_label_collator_config"] = ts_label_collator_config
     # metrics
     if metric_config is not None:
         if metrics is not None:
@@ -121,7 +121,7 @@ def make(
     elif metrics is not None:
         metric_config = {"types": metrics}
     if metric_config is not None:
-        pipeline_config["metric_config"] = metric_config
+        trainer_config["metric_config"] = metric_config
     # optimizers
     if optimizers is not None:
         if optimizer is not None:
@@ -152,7 +152,7 @@ def make(
         if preset_optimizer:
             optimizers = {"all": preset_optimizer}
     if optimizers is not None:
-        pipeline_config["optimizers"] = optimizers
+        trainer_config["optimizers"] = optimizers
     return Pipeline(
         kwargs,
         cuda=cuda,
@@ -214,7 +214,7 @@ def estimate(
     *,
     contains_labels: bool = False,
     pipelines: pipelines_type = None,
-    pipeline_predict_config: Dict[str, Any] = None,
+    predict_config: Dict[str, Any] = None,
     metrics: Union[str, List[str]] = None,
     other_patterns: Dict[str, patterns_type] = None,
     comparer_verbose_level: Union[int, None] = 1,
@@ -231,9 +231,9 @@ def estimate(
             )
     else:
         pipelines = _to_pipelines(pipelines)
-        if pipeline_predict_config is None:
-            pipeline_predict_config = {}
-        pipeline_predict_config.setdefault("contains_labels", contains_labels)
+        if predict_config is None:
+            predict_config = {}
+        predict_config.setdefault("contains_labels", contains_labels)
         for name, pipeline in pipelines.items():
             if y is not None:
                 y = to_2d(y)
@@ -244,8 +244,9 @@ def estimate(
                 metrics = [
                     k for k, v in pipeline.trainer.metrics.items() if v is not None
                 ]
+            # TODO : check whether this is handled correctly
             with eval_context(pipeline.model):
-                patterns[name] = pipeline.to_pattern(**pipeline_predict_config)
+                patterns[name] = pipeline.to_pattern(**predict_config)
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
@@ -301,7 +302,10 @@ def _fetch_saving_paths(
     return paths
 
 
-def load(identifier: str = "cflearn", saving_folder: str = None) -> pipelines_dict_type:
+def load(
+    identifier: str = "cflearn",
+    saving_folder: str = None,
+) -> pipelines_dict_type:
     paths = _fetch_saving_paths(identifier, saving_folder)
     pipelines = {k: Pipeline.load(v, compress=True) for k, v in paths.items()}
     if not pipelines:

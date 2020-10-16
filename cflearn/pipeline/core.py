@@ -124,8 +124,8 @@ class Pipeline(LoggingMixin):
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self._model](self.config, self.tr_data, self.device)
-        # pipeline
-        with timing_context(self, "init pipeline", enable=self.timing):
+        # trainer
+        with timing_context(self, "init trainer", enable=self.timing):
             self.trainer = Trainer(
                 self.model,
                 self.trial,

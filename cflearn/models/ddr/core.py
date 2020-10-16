@@ -146,13 +146,13 @@ class DDR(FCNN):
         self._loss_config.setdefault("use_anneal", self.num_feature_layers > 0)
         self._loss_config.setdefault("mtl_method", None)
         self._loss_config["joint_training"] = self._joint_training
-        # pipeline config
+        # trainer config
         default_metric_types = (
             ["ddr", "loss"] if self.fetch_quantile else ["mae", "loss"]
         )
-        pipeline_config = self._pipeline_config.setdefault("pipeline_config", {})
-        pipeline_config = update_dict(
-            pipeline_config,
+        trainer_config = self._pipeline_config.setdefault("trainer_config", {})
+        trainer_config = update_dict(
+            trainer_config,
             {
                 "clip_norm": 1.0,
                 "ema_decay": 0.0,
@@ -163,14 +163,14 @@ class DDR(FCNN):
             },
         )
         num_train_samples = tr_data.processed.x.shape[0]
-        num_epoch = pipeline_config["num_epoch"]
-        batch_size = pipeline_config["batch_size"]
+        num_epoch = trainer_config["num_epoch"]
+        batch_size = trainer_config["batch_size"]
         anneal_step = self._loss_config.setdefault(
             "anneal_step", (num_train_samples * num_epoch) // (batch_size * 2)
         )
         self._loss_config.setdefault("anneal_step", anneal_step)
-        self._pipeline_config["pipeline_config"] = pipeline_config
-        self._pipeline_config = pipeline_config
+        self._pipeline_config["trainer_config"] = trainer_config
+        self._trainer_config = trainer_config
         # optimize schema
         self._reg_step = int(self.config.setdefault("reg_step", 10))
         self._feature_step = int(self.config.setdefault("feature_step", 5))
@@ -319,9 +319,9 @@ class DDR(FCNN):
             optimizers["reg_parameters"] = shallow_copy_dict(base_config)
         if self.__base_params:
             optimizers["base_parameters"] = shallow_copy_dict(base_config)
-        pipeline_optimizers = self._pipeline_config.setdefault("optimizers", {})
-        pipeline_optimizers = update_dict(pipeline_optimizers, optimizers)
-        self._pipeline_config["optimizers"] = pipeline_optimizers
+        trainer_optimizers = self._trainer_config.setdefault("optimizers", {})
+        trainer_optimizers = update_dict(trainer_optimizers, optimizers)
+        self._trainer_config["optimizers"] = trainer_optimizers
 
     def _optimizer_step(
         self,

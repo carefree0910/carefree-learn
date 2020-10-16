@@ -147,7 +147,7 @@ class Benchmark(LoggingMixin):
                 x_te,
                 y_te,
                 pipelines=pipelines,
-                pipeline_predict_config=predict_config,
+                predict_config=predict_config,
                 comparer_verbose_level=None,
             )
             comparer_list.append(comparer)
