@@ -65,6 +65,10 @@ def make(
     kwargs["model"] = model
     kwargs["cv_split"] = cv_split
     kwargs["use_timing_context"] = use_timing_context
+    if batch_size is not None:
+        kwargs["batch_size"] = batch_size
+    if ts_label_collator_config is not None:
+        kwargs["ts_label_collator_config"] = ts_label_collator_config
     if data_config is None:
         data_config = {}
     if ts_config is not None:
@@ -79,6 +83,11 @@ def make(
         read_config["skip_first"] = skip_first
     kwargs["data_config"] = data_config
     kwargs["read_config"] = read_config
+    sampler_config = kwargs.setdefault("sampler_config", {})
+    if aggregation is not None:
+        sampler_config["aggregation"] = aggregation
+    if aggregation_config is not None:
+        sampler_config["aggregation_config"] = aggregation_config
     if model_config is not None:
         kwargs["model_config"] = model_config
     if logging_folder is not None:
@@ -97,21 +106,12 @@ def make(
         trainer_config["num_epoch"] = num_epoch
     if max_epoch is not None:
         trainer_config["max_epoch"] = max_epoch
-    if batch_size is not None:
-        trainer_config["batch_size"] = batch_size
     if max_snapshot_num is not None:
         trainer_config["max_snapshot_num"] = max_snapshot_num
     if clip_norm is not None:
         trainer_config["clip_norm"] = clip_norm
     if ema_decay is not None:
         trainer_config["ema_decay"] = ema_decay
-    sampler_config = trainer_config.setdefault("sampler_config", {})
-    if aggregation is not None:
-        sampler_config["aggregation"] = aggregation
-    if aggregation_config is not None:
-        sampler_config["aggregation_config"] = aggregation_config
-    if ts_label_collator_config is not None:
-        trainer_config["ts_label_collator_config"] = ts_label_collator_config
     # metrics
     if metric_config is not None:
         if metrics is not None:

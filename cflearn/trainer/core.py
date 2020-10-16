@@ -14,13 +14,10 @@ from cftool.ml import Metrics
 from cftool.ml import Tracker
 from cftool.ml import ScalarEMA
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
-from cfdata.tabular import ImbalancedSampler
 from cftool.misc import LoggingMixin
 from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import timing_context
-from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from cftool.misc import context_error_handler
 from tqdm import tqdm
@@ -35,8 +32,6 @@ except:
     amp = None
 
 from ..misc.toolkit import *
-from ..misc.time_series import TSLabelCollator
-from ..types import data_type
 from ..types import tensor_dict_type
 from ..modules import optimizer_dict
 from ..modules import scheduler_dict
@@ -93,11 +88,6 @@ class Trainer(nn.Module, LoggingMixin):
         self._pipeline_config = pipeline_config
         self.timing = self._pipeline_config["use_timing_context"]
         self.config = pipeline_config.setdefault("trainer_config", {})
-        self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
-        self.batch_size = self.config.setdefault("batch_size", 128)
-        self.cv_batch_size = self.config.setdefault(
-            "cv_batch_size", 5 * self.batch_size
-        )
         self.use_tqdm = self.config.setdefault("use_tqdm", True)
         self.min_epoch = int(self.config.setdefault("min_epoch", 0))
         num_epoch = self.config.setdefault("num_epoch", max(40, self.min_epoch))
@@ -108,11 +98,11 @@ class Trainer(nn.Module, LoggingMixin):
         num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
         num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
         max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
-        plateau_start_snapshot = self.config.setdefault("plateau_start_snapshot", num_epoch)
+        plateau_start = self.config.setdefault("plateau_start_snapshot", num_epoch)
         self._num_step_per_snapshot = int(num_step_per_snapshot)
         self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
         self.max_step_per_snapshot = int(max_step_per_snapshot)
-        self.plateau_start = int(plateau_start_snapshot)
+        self.plateau_start = int(plateau_start)
 
         self._clip_norm = self.config.setdefault("clip_norm", 0.0)
         ema_decay = self.config.setdefault("ema_decay", 0.0)
@@ -139,44 +129,6 @@ class Trainer(nn.Module, LoggingMixin):
                 msg_level=logging.WARNING,
             )
             shutil.rmtree(self.checkpoint_folder)
-
-        self._sampler_config = self.config.setdefault("sampler_config", {})
-        self._ts_label_collator_config = self.config.setdefault(
-            "ts_label_collator_config", {}
-        )
-
-    def _make_sampler(self, data: TabularData, shuffle: bool) -> ImbalancedSampler:
-        config = shallow_copy_dict(self._sampler_config)
-        config["shuffle"] = shuffle
-        return ImbalancedSampler(data, **config)
-
-    def _init_data(self, tr_data: TabularData, cv_data: TabularData) -> None:
-        self.tr_data, self.cv_data = tr_data, cv_data
-        self._sampler_config.setdefault("verbose_level", self.tr_data._verbose_level)
-        tr_sampler = self._make_sampler(tr_data, self.shuffle_tr)
-        self.tr_loader = DataLoader(
-            self.batch_size,
-            tr_sampler,
-            return_indices=True,
-            verbose_level=self._verbose_level,
-        )
-        if not tr_data.is_ts:
-            self.ts_label_collator = None
-        else:
-            self.ts_label_collator = TSLabelCollator(
-                tr_data,
-                self._ts_label_collator_config,
-            )
-        if cv_data is None:
-            self.cv_loader = None
-        else:
-            cv_sampler = self._make_sampler(cv_data, False)
-            self.cv_loader = DataLoader(
-                self.cv_batch_size,
-                cv_sampler,
-                return_indices=True,
-                verbose_level=self._verbose_level,
-            )
 
     def _define_optimizer(
         self,
@@ -216,9 +168,7 @@ class Trainer(nn.Module, LoggingMixin):
                 warmup_step = scheduler_config.setdefault(
                     "warmup_step", default_warm_up_step
                 )
-                self.plateau_start += int(
-                    warmup_step / self.num_step_per_snapshot
-                )
+                self.plateau_start += int(warmup_step / self.num_step_per_snapshot)
                 self.snapshot_start_step += warmup_step
                 optimizer_config["lr"] /= multiplier
             optimizer_base = (
@@ -265,7 +215,7 @@ class Trainer(nn.Module, LoggingMixin):
         metric_config = self.config.setdefault("metric_config", {})
         metric_types = metric_config.setdefault("types", "auto")
         if metric_types == "auto":
-            if self.tr_data.is_reg:
+            if self.tr_loader.data.is_reg:
                 metric_types = ["mae", "mse"]
             else:
                 metric_types = ["auc", "acc"]
@@ -344,8 +294,8 @@ class Trainer(nn.Module, LoggingMixin):
         if not return_only:
             self.log_block_msg(msg, verbose_level=4)  # type: ignore
         all_msg, msg = msg, "=" * 100 + "\n"
-        n_tr = len(self.tr_data)
-        n_cv = None if self.cv_data is None else len(self.cv_data)
+        n_tr = len(self.tr_loader.sampler)
+        n_cv = None if self.cv_loader is None else len(self.cv_loader.sampler)
         msg += f"{self.info_prefix}training data : {n_tr}\n"
         msg += f"{self.info_prefix}valid    data : {n_cv}\n"
         msg += "-" * 100
@@ -361,11 +311,6 @@ class Trainer(nn.Module, LoggingMixin):
             arr = arr.to(self.model.device)
         return arr
 
-    def _collate_labels(self, y_batch: np.ndarray) -> np.ndarray:
-        if self.ts_label_collator is None:
-            return y_batch
-        return self.ts_label_collator.collate(y_batch)
-
     def _collate_batch(
         self,
         x_batch: np.ndarray,
@@ -377,7 +322,7 @@ class Trainer(nn.Module, LoggingMixin):
             tensors = [x_batch, y_batch]
         else:
             x_batch, y_batch = map(self._to_device, [x_batch, y_batch])
-            if y_batch is not None and self.tr_data.is_clf:
+            if y_batch is not None and self.tr_loader.data.is_clf:
                 y_batch = y_batch.to(torch.int64)
             tensors = [x_batch, y_batch]
         return dict(zip(["x_batch", "y_batch"], tensors))
@@ -436,7 +381,6 @@ class Trainer(nn.Module, LoggingMixin):
             loader = self._to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
             for (x_batch, y_batch), _ in loader:
-                y_batch = self._collate_labels(y_batch)
                 labels.append(y_batch)
                 batch = self._collate_batch(x_batch, y_batch)
                 with eval_context(self):
@@ -457,7 +401,7 @@ class Trainer(nn.Module, LoggingMixin):
                 sub_metric = metrics[metric_type] = loss_values[metric_type]
             else:
                 signs[metric_type] = metric_ins.sign
-                if self.tr_data.is_reg:
+                if self.tr_loader.data.is_reg:
                     metric_predictions = predictions
                 else:
                     if metric_ins.requires_prob:
@@ -525,7 +469,6 @@ class Trainer(nn.Module, LoggingMixin):
                 else:
                     x_batch, y_batch = a, b
                 if y_batch is not None:
-                    y_batch = self._collate_labels(y_batch)
                     labels.append(y_batch)
                 batch = self._collate_batch(x_batch, y_batch)
                 if self.onnx is not None:
@@ -553,12 +496,11 @@ class Trainer(nn.Module, LoggingMixin):
 
     def forward(
         self,
-        tr_data: TabularData,
-        cv_data: TabularData,
+        tr_loader: DataLoader,
+        cv_loader: DataLoader,
         tr_weights: np.ndarray,
     ) -> None:
-        # data
-        self._init_data(tr_data, cv_data)
+        self.tr_loader, self.cv_loader = tr_loader, cv_loader
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)
@@ -598,7 +540,6 @@ class Trainer(nn.Module, LoggingMixin):
                     )
                 for (x_batch, y_batch), index_batch in step_tqdm:
                     self._step_count += 1
-                    y_batch = self._collate_labels(y_batch)
                     with timing_context(self, "collate batch", enable=self.timing):
                         batch = self._collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
@@ -672,14 +613,10 @@ class Trainer(nn.Module, LoggingMixin):
 
     def predict(
         self,
-        x: data_type,
+        loader: DataLoader,
         return_all: bool = False,
-        *,
-        contains_labels: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
-        data = self.tr_data.copy_to(x, None, contains_labels=contains_labels)
-        loader = DataLoader(self.cv_batch_size, self._make_sampler(data, False))
         predictions = self._predict(loader, **kwargs)
         if return_all:
             return predictions

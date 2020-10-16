@@ -130,8 +130,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def num_history(self) -> int:
         num_history = 1
         if self.tr_data.is_ts:
-            trainer_config = self._pipeline_config["trainer_config"]
-            sampler_config = trainer_config["sampler_config"]
+            sampler_config = self._pipeline_config["sampler_config"]
             aggregation_config = sampler_config.get("aggregation_config", {})
             num_history = aggregation_config.get("num_history")
             if num_history is None:

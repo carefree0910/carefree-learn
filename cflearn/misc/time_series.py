@@ -18,6 +18,9 @@ class TSLabelCollator:
             config = {}
         self._init_config(config)
 
+    def __call__(self, y_batch: np.ndarray) -> np.ndarray:
+        return self.fn(y_batch)
+
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
         self._method = config.setdefault("method", "average")
@@ -30,9 +33,6 @@ class TSLabelCollator:
         if custom_method is not None:
             return custom_method
         return getattr(self, f"_{self._method}")
-
-    def collate(self, y_batch: np.ndarray) -> np.ndarray:
-        return self.fn(y_batch)
 
     @staticmethod
     def _last(y_batch: np.ndarray) -> np.ndarray:
