@@ -12,11 +12,11 @@ from ...misc.toolkit import tensor_dict_type
 class RNN(FCNN):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
-        super(FCNN, self).__init__(config, tr_data, device)
+        super(FCNN, self).__init__(pipeline_config, tr_data, device)
         input_dimensions = [self.tr_data.processed_dim]
         rnn_hidden_dim = self._rnn_config["hidden_size"]
         input_dimensions += [rnn_hidden_dim] * (self._rnn_num_layers - 1)

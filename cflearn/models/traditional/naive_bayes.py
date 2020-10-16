@@ -22,11 +22,11 @@ from ...modules.blocks import *
 class NNB(ModelBase):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
-        super().__init__(config, tr_data, device)
+        super().__init__(pipeline_config, tr_data, device)
         # prepare
         x, y = tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), tr_data.num_classes

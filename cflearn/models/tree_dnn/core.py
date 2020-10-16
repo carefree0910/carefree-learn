@@ -14,11 +14,11 @@ from ...modules.blocks import *
 class TreeDNN(FCNN):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
-        super(FCNN, self).__init__(config, tr_data, device)
+        super(FCNN, self).__init__(pipeline_config, tr_data, device)
         encoding_dims = self.encoding_dims
         embedding_dims = encoding_dims.get("embedding", 0)
         one_hot_dims = encoding_dims.get("one_hot", 0)

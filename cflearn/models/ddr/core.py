@@ -49,13 +49,13 @@ class BasicInfo(NamedTuple):
 class DDR(FCNN):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
         if not tr_data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
-        super().__init__(config, tr_data, device)
+        super().__init__(pipeline_config, tr_data, device)
         self.__feature_params: List[nn.Parameter] = []
         self.__reg_params: List[nn.Parameter] = []
         self._inject_median_params()

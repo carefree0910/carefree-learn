@@ -12,11 +12,11 @@ from ...modules.blocks import MLP
 class FCNN(ModelBase):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
-        super().__init__(config, tr_data, device)
+        super().__init__(pipeline_config, tr_data, device)
         self._init_fcnn()
 
     @property

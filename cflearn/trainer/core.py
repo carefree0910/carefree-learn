@@ -72,23 +72,23 @@ class Trainer(nn.Module, LoggingMixin):
         model: ModelBase,
         trial: Optional[optuna.trial.Trial],
         tracker: Tracker,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         verbose_level: int,
         is_loading: bool,
     ):
         super().__init__()
         self.trial = trial
         self.tracker = tracker
-        self._init_config(config, is_loading)
+        self._init_config(pipeline_config, is_loading)
         self.model = model
         self._verbose_level = verbose_level
         self._no_grad_in_predict = True
         self.onnx: Optional[Any] = None
 
-    def _init_config(self, config: Dict[str, Any], is_loading: bool) -> None:
-        self._pipeline_config = config
+    def _init_config(self, pipeline_config: Dict[str, Any], is_loading: bool) -> None:
+        self._pipeline_config = pipeline_config
         self.timing = self._pipeline_config["use_timing_context"]
-        self.config = config.setdefault("trainer_config", {})
+        self.config = pipeline_config.setdefault("trainer_config", {})
         self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
         self.batch_size = self.config.setdefault("batch_size", 128)
         self.cv_batch_size = self.config.setdefault(
@@ -125,11 +125,11 @@ class Trainer(nn.Module, LoggingMixin):
             named_params = list(self.model.named_parameters())
             self.ema_decay = EMA(ema_decay, named_params)  # type: ignore
 
-        self._use_amp = config["use_amp"]
+        self._use_amp = pipeline_config["use_amp"]
         self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
 
-        self._logging_path_ = config["_logging_path_"]
-        self.logging_folder = config["logging_folder"]
+        self._logging_path_ = pipeline_config["_logging_path_"]
+        self.logging_folder = pipeline_config["logging_folder"]
         self.checkpoint_folder = self.config.setdefault(
             "checkpoint_folder", os.path.join(self.logging_folder, "checkpoints")
         )

@@ -65,14 +65,14 @@ class SplitFeatures(NamedTuple):
 class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
         super().__init__()
         self.device = device
-        self._pipeline_config = config
-        self.config = config.setdefault("model_config", {})
+        self._pipeline_config = pipeline_config
+        self.config = pipeline_config.setdefault("model_config", {})
         self._preset_config(tr_data)
         self._init_config(tr_data)
         self._init_loss(tr_data)

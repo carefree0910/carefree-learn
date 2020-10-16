@@ -59,11 +59,11 @@ class TransformerLayer(nn.Module):
 class Transformer(FCNN):
     def __init__(
         self,
-        config: Dict[str, Any],
+        pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         device: torch.device,
     ):
-        super(FCNN, self).__init__(config, tr_data, device)
+        super(FCNN, self).__init__(pipeline_config, tr_data, device)
         self._init_fcnn()
 
     def _init_config(self, tr_data: TabularData) -> None:
