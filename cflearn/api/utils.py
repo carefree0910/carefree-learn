@@ -1,10 +1,10 @@
 import torch
-import onnxruntime
 
 import numpy as np
 
 from typing import *
-from cftool.misc import *
+from cftool.misc import update_dict
+from onnxruntime import InferenceSession
 
 from ..bases import *
 from ..misc.toolkit import *
@@ -19,7 +19,7 @@ class ONNX:
     ):
         self.wrapper = wrapper
         self.model = wrapper.model.cpu()
-        self.ort_session = None
+        self.ort_session: Optional[InferenceSession] = None
         if onnx_path is not None:
             self._init_onnx_session(onnx_path)
         # initialize
@@ -31,14 +31,14 @@ class ONNX:
         self.model.to(self.model.device)
 
     def _init_onnx_session(self, onnx_path: str) -> "ONNX":
-        self.ort_session = onnxruntime.InferenceSession(onnx_path)
+        self.ort_session = InferenceSession(onnx_path)
         return self
 
     def to_onnx(
         self,
         onnx_path: str,
         dynamic_axes: Union[List[int], Dict[int, str]] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> "ONNX":
         kwargs["input_names"] = self.input_names
         kwargs["output_names"] = self.output_names
@@ -67,6 +67,7 @@ class ONNX:
         return self
 
     def inference(self, new_inputs: Dict[str, np.ndarray]) -> tensor_dict_type:
+        assert self.ort_session is not None
         ort_inputs = {
             node.name: to_standard(new_inputs[node.name])
             for node in self.ort_session.get_inputs()
@@ -87,11 +88,15 @@ def make_toy_model(
     config.setdefault("min_epoch", 1)
     config.setdefault("num_epoch", 2)
     config.setdefault("max_epoch", 4)
-    if data_tuple is None:
+    if data_tuple is not None:
+        x, y = data_tuple
+        assert isinstance(x, list)
+    else:
         if task_type == "reg":
-            data_tuple = [[0]], [[1]]
+            x, y = [[0]], [[1]]
         else:
-            data_tuple = [[0], [1]], [[1], [0]]
+            x, y = [[0], [1]], [[1], [0]]
+    data_tuple = x, y
     base_config = {
         "model": model,
         "model_config": {
@@ -107,13 +112,13 @@ def make_toy_model(
         "optimizer_config": {"lr": 0.01},
         "task_type": task_type,
         "data_config": {
-            "valid_columns": list(range(len(data_tuple[0]))),
+            "valid_columns": list(range(len(x[0]))),
             "label_process_method": "identical",
         },
         "verbose_level": 0,
     }
-    config = update_dict(config, base_config)
-    return make(**config).fit(*data_tuple)
+    updated = update_dict(config, base_config)
+    return make(**updated).fit(*data_tuple)
 
 
 __all__ = [

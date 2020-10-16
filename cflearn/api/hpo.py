@@ -4,12 +4,21 @@ import torch
 import optuna
 import shutil
 
+import numpy as np
 import cftool.ml.param_utils as pu
 
 from typing import *
-from cftool.misc import *
-from cftool.ml.utils import *
-from cfdata.tabular import *
+from cftool.misc import hash_code
+from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
+from cftool.misc import Saving
+from cftool.misc import LoggingMixin
+from cftool.ml.utils import pattern_type
+from cftool.ml.utils import scoring_fn_type
+from cftool.ml.utils import Comparer
+from cftool.ml.utils import Estimator
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
 from optuna.trial import Trial
 from cftool.dist import Parallel
 from cftool.ml.hpo import HPOBase
@@ -27,11 +36,17 @@ class _TunerResult(NamedTuple):
 
     @property
     def wrappers(self) -> List[Wrapper]:
-        return self.repeat_result.wrappers[self.identifier]
+        wrappers = self.repeat_result.wrappers
+        if wrappers is None:
+            raise ValueError("`wrappers` are not yet generated")
+        return wrappers[self.identifier]
 
     @property
     def patterns(self) -> List[ModelPattern]:
-        return self.repeat_result.patterns[self.identifier]
+        patterns = self.repeat_result.patterns
+        if patterns is None:
+            raise ValueError("`patterns` are not yet generated")
+        return patterns[self.identifier]
 
 
 class _Tuner(LoggingMixin):
@@ -108,7 +123,10 @@ class _Tuner(LoggingMixin):
         self.y, self.y_cv = y, y_cv
         self.base_params = shallow_copy_dict(kwargs)
 
-    def make_estimators(self, metrics: Union[str, List[str]]) -> List[Estimator]:
+    def make_estimators(
+        self,
+        metrics: Optional[Union[str, List[str]]],
+    ) -> List[Estimator]:
         if metrics is None:
             if self.task_type is None:
                 raise ValueError("either `task_type` or `metrics` should be provided")
@@ -138,9 +156,14 @@ class _Tuner(LoggingMixin):
             y = y_cv = None
             x, x_cv = self.x, self.x_cv
         else:
+            assert isinstance(self.x_cv, (list, np.ndarray))
             x, x_cv = self.x.copy(), self.x_cv.copy()
             y = self.y.copy()
-            y_cv = None if self.y_cv is None else self.y_cv.copy()
+            if self.y_cv is None:
+                y_cv = None
+            else:
+                assert isinstance(self.y_cv, (list, np.ndarray))
+                y_cv = self.y_cv.copy()
         repeat_result = repeat_with(
             x,
             y,
@@ -217,8 +240,8 @@ def tune_with(
     hpo_method: str = "bo",
     params: pu.params_type = None,
     task_type: TaskTypes = None,
-    metrics: Union[str, List[str]] = None,
-    num_jobs: int = None,
+    metrics: Optional[Union[str, List[str]]] = None,
+    num_jobs: Optional[int] = None,
     num_repeat: int = 5,
     num_parallel: int = 4,
     num_search: int = 10,
@@ -240,7 +263,7 @@ def tune_with(
     tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
-    def _creator(_, __, params_) -> pattern_type:
+    def _creator(_: Any, __: Any, params_: Dict[str, Any]) -> pattern_type:
         num_jobs_ = num_parallel if hpo.is_sequential else 0
         temp_folder_ = os.path.join(temp_folder, hash_code(str(params_)))
         result = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
@@ -298,7 +321,7 @@ class OptunaParam(NamedTuple):
     name: str
     values: Any
     dtype: str  # [int | float | categorical]
-    config: Dict[str, Any] = None
+    config: Optional[Dict[str, Any]] = None
 
     def pop(self, trial: Trial) -> Any:
         method = getattr(trial, f"suggest_{self.dtype}")
@@ -309,15 +332,15 @@ class OptunaParam(NamedTuple):
         return method(self.name, low, high, **config)
 
 
-optuna_params_type = Dict[str, Union[Union[OptunaParam, Any], "optuna_params_type"]]
+optuna_params_type = Dict[str, Union[OptunaParam, Dict[str, Any], str]]
 
 
 class OptunaParamConverter:
     prefix = "[^optuna^]"
 
-    def get_usage(self, k: str) -> Union[str, None]:
+    def get_usage(self, k: str) -> Optional[str]:
         if not k.startswith(self.prefix):
-            return
+            return None
         usage_k = k[len(self.prefix) :]
         if not usage_k.startswith("[") or not usage_k.endswith("]"):
             msg = f"special keys must end with '[]' to indicate its usage"
@@ -325,7 +348,7 @@ class OptunaParamConverter:
         return usage_k[1:-1]
 
     def convert(self, optuna_params: optuna_params_type) -> optuna_params_type:
-        def _inner(d: optuna_params_type, current: dict):
+        def _inner(d: optuna_params_type, current: dict) -> None:
             for k, v in d.items():
                 usage = self.get_usage(k)
                 if usage is not None:
@@ -341,14 +364,14 @@ class OptunaParamConverter:
                     current[k] = v
                     continue
 
-        new = {}
+        new: optuna_params_type = {}
         _inner(optuna_params, new)
         return new
 
     @staticmethod
     def _convert_hidden_units(value: Any) -> optuna_params_type:
         # parse
-        config = {}
+        config: Dict[str, Any] = {}
         prefix, low, high, num_layers, *args = value.split("_")
         low, high, num_layers = map(int, [low, high, num_layers])
         if args:
@@ -362,7 +385,9 @@ class OptunaParamConverter:
                 config["step"] = int(args[0])
         # inject
         num_layers_name = f"{prefix}_num_layers"
-        rs = {"num_layers": OptunaParam(num_layers_name, [1, num_layers], "int")}
+        rs: optuna_params_type = {
+            "num_layers": OptunaParam(num_layers_name, [1, num_layers], "int")
+        }
         for i in range(num_layers):
             key = f"hidden_unit_{i}"
             rs[key] = OptunaParam(f"{prefix}_{key}", [low, high], "int", config)
@@ -505,12 +530,13 @@ class OptunaKeyMapping(LoggingMixin):
         self.params = self.converter.convert(optuna_params)
         self.optuna_key_mapping: Dict[str, str] = {}
 
-        def _inject_mapping(d: optuna_params_type, prefix_list: List[str]):
+        def _inject_mapping(d: optuna_params_type, prefix_list: List[str]) -> None:
             for k, v in d.items():
                 new_prefix_list = prefix_list + [k]
                 if isinstance(v, OptunaParam):
                     self.optuna_key_mapping[v.name] = self.delim.join(new_prefix_list)
                     continue
+                assert isinstance(v, dict)
                 _inject_mapping(v, new_prefix_list)
 
         _inject_mapping(self.params, [])
@@ -520,22 +546,24 @@ class OptunaKeyMapping(LoggingMixin):
         optuna_params = shallow_copy_dict(self.params)
         current_params = shallow_copy_dict(self.tuner.base_params)
 
-        def _inject_suggestion(d: optuna_params_type, current: dict):
+        def _inject_suggestion(d: optuna_params_type, current: Dict[str, Any]) -> None:
             for k, v in d.items():
                 usage = self.converter.get_usage(k)
                 if usage is not None:
+                    assert isinstance(v, dict)
                     current[usage] = self.converter.pop(usage, v, trial)
                     continue
                 if isinstance(v, dict):
                     _inject_suggestion(v, current.setdefault(k, {}))
                     continue
+                assert isinstance(v, OptunaParam)
                 current[k] = v.pop(trial)
 
         _inject_suggestion(optuna_params, current_params)
         return current_params
 
     def parse(self, optuna_param_values: Dict[str, Any]) -> Dict[str, Any]:
-        params = {}
+        params: Dict[str, Any] = {}
         for k, v in optuna_param_values.items():
             key_mapping = self.optuna_key_mapping[k]
             key_path = key_mapping.split(self.delim)
@@ -546,9 +574,9 @@ class OptunaKeyMapping(LoggingMixin):
         return params
 
     def convert(self, param_values: Dict[str, Any]) -> Dict[str, Any]:
-        converted = {}
+        converted: Dict[str, Any] = {}
 
-        def _inject_values(d: Dict[str, Any], current: dict):
+        def _inject_values(d: Dict[str, Any], current: dict) -> None:
             for k, v in d.items():
                 usage = self.converter.get_usage(k)
                 if usage is not None:
@@ -591,7 +619,7 @@ class OptunaResult(NamedTuple):
 
 
 class OptunaPresetParams:
-    def __init__(self):
+    def __init__(self) -> None:
         lr_param = OptunaParam("lr", [1e-5, 0.1], "float", {"log": True})
         optim_param = OptunaParam(
             "optimizer", ["nag", "rmsprop", "adam", "adamw"], "categorical"
@@ -617,7 +645,7 @@ class OptunaPresetParams:
         params = shallow_copy_dict(self.base_params)
         model_config = params["model_config"]
         model_config.update(OptunaParamConverter.make_hidden_units("mlp", 8, 2048, 3))
-        mapping_config = {
+        mapping_config: optuna_params_type = {
             "dropout": OptunaParam("mlp_dropout", [0.0, 0.9], "float"),
             "batch_norm": OptunaParam("mlp_batch_norm", [False, True], "categorical"),
         }
@@ -631,6 +659,7 @@ class OptunaPresetParams:
     def _tree_dnn_preset(self) -> optuna_params_type:
         params = self._fcnn_preset()
         model_config = params["model_config"]
+        assert isinstance(model_config, dict)
         model_config.update(OptunaParamConverter.make_dndf_config("dndf", 128, 8))
         return params
 
@@ -647,9 +676,12 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
     if cuda == "None":
         cuda = None
 
-    key_mapping = args.key_mapping
-    if isinstance(key_mapping, str):
-        key_mapping = OptunaKeyMapping.load(key_mapping)
+    key_mapping_arg = args.key_mapping
+    if isinstance(key_mapping_arg, str):
+        key_mapping = OptunaKeyMapping.load(key_mapping_arg)
+    else:
+        assert isinstance(key_mapping_arg, OptunaKeyMapping)
+        key_mapping = key_mapping_arg
     tuner = key_mapping.tuner
 
     config = args.config
@@ -748,6 +780,7 @@ def optuna_tune(
     if num_jobs <= 1:
         storage = None
     else:
+        assert isinstance(meta_folder, str)
         storage = os.path.join(meta_folder, "shared.db")
         storage = f"sqlite:///{storage}"
     study_config["storage"] = storage
@@ -768,8 +801,12 @@ def optuna_tune(
     }
 
     if num_jobs <= 1:
+        if isinstance(cuda, int):
+            cuda = str(cuda)
         study = optuna_core(OptunaArgs(cuda, num_trial, task_config, key_mapping))
     else:
+        assert isinstance(meta_folder, str)
+
         key_mapping_folder = os.path.join(meta_folder, "__key_mapping__")
         key_mapping.save(key_mapping_folder)
 
@@ -777,7 +814,7 @@ def optuna_tune(
         os.makedirs(task_config_folder)
         Saving.save_dict(task_config, "config", task_config_folder)
 
-        def _run(num_trial_, cuda=None):
+        def _run(num_trial_: int, cuda: int = None) -> None:
             python = sys.executable
             cmd = f"{python} -m {'.'.join(['cflearn', 'dist', 'optuna'])}"
             cuda_suffix = f"--cuda {cuda}"

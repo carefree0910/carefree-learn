@@ -13,8 +13,8 @@ from cftool.misc import context_error_handler
 from cfdata.types import np_int_type, np_float_type
 
 
-tensor_dict_type = Dict[str, Union[torch.Tensor, "tensor_dict_type"]]
-data_type = Union[np.ndarray, List[List[float]], List[float], str, None]
+tensor_dict_type = Dict[str, Union[torch.Tensor, Any]]
+data_type = Union[np.ndarray, List[List[float]], str, None]
 
 
 def is_int(arr: np.ndarray) -> bool:
@@ -615,7 +615,7 @@ class mode_context(context_error_handler):
             map(lambda param: param.requires_grad_(False), self._params_required_grad)
         )
         if use_grad is None:
-            self._grad_context = None
+            self._grad_context: Optional[ContextManager] = None
         else:
             self._grad_context = torch.enable_grad() if use_grad else torch.no_grad()
 

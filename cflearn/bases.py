@@ -83,8 +83,10 @@ class SplitFeatures(NamedTuple):
     def merge(self) -> torch.Tensor:
         categorical = self.stacked_categorical
         if categorical is None:
+            assert self.numerical is not None
             return self.numerical
         if self.numerical is None:
+            assert categorical is not None
             return categorical
         return torch.cat([self.numerical, categorical], dim=1)
 
@@ -140,9 +142,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             else:
                 self._init_encoder(idx, encoders)
                 self.categorical_columns_mapping[idx] = idx - excluded
-        self.encoders = {}
-        if encoders:
-            self.encoders = nn.ModuleDict(encoders)
+        self.encoders = nn.ModuleDict(encoders)
         self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
 
@@ -340,7 +340,7 @@ class Pipeline(nn.Module, LoggingMixin):
         self.model = model
         self._verbose_level = verbose_level
         self._no_grad_in_predict = True
-        self.onnx = None
+        self.onnx: Optional[Any] = None
 
     def _init_config(self, config: Dict[str, Any], is_loading: bool) -> None:
         self._wrapper_config = config
@@ -1216,7 +1216,7 @@ class Wrapper(LoggingMixin):
         *,
         return_all: bool = False,
         requires_recover: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         if self.tr_data.is_reg:
             predictions = self.pipeline.predict(x, return_all, **kwargs)

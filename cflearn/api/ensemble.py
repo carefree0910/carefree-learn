@@ -6,12 +6,25 @@ import torch
 import numpy as np
 
 from typing import *
-from cftool.misc import *
-from cftool.ml.utils import *
-from cfdata.tabular import *
+from cftool.misc import hash_code
+from cftool.misc import update_dict
+from cftool.misc import lock_manager
+from cftool.misc import shallow_copy_dict
+from cftool.misc import Saving
+from cftool.misc import LoggingMixin
+from cftool.ml.utils import collate_fn_type
+from cftool.ml.utils import Comparer
+from cftool.ml.utils import EnsemblePattern
+from cfdata.tabular import KFold
+from cfdata.tabular import KRandom
+from cfdata.tabular import KBootstrap
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
+from cfdata.tabular import TabularDataset
 from torch.nn.functional import one_hot
 
 from .zoo import zoo
+from ..bases import Wrapper
 from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
@@ -40,7 +53,9 @@ class Benchmark(LoggingMixin):
         use_tracker: bool = False,
         use_cuda: bool = True,
     ):
-        self.data = None
+        self.data: Optional[TabularData] = None
+        self.experiments: Optional[Experiments] = None
+
         if data_config is None:
             data_config = {}
         if read_config is None:
@@ -58,7 +73,6 @@ class Benchmark(LoggingMixin):
         self.increment_config = increment_config
         self.use_tracker = use_tracker
         self.use_cuda = use_cuda
-        self.experiments = None
 
     @property
     def identifier(self) -> str:
@@ -67,8 +81,11 @@ class Benchmark(LoggingMixin):
         )
 
     @property
-    def data_tasks(self) -> List[Task]:
-        return next(iter(self.experiments.data_tasks.values()))
+    def data_tasks(self) -> List[Optional[Task]]:
+        experiments = self.experiments
+        if experiments is None:
+            raise ValueError("`experiments` are not yet generated")
+        return next(iter(experiments.data_tasks.values()))
 
     def _add_tasks(
         self,
@@ -77,7 +94,7 @@ class Benchmark(LoggingMixin):
         experiments: Experiments,
         benchmarks: Dict[str, Dict[str, Dict[str, Any]]],
     ) -> None:
-        self.configs = {}
+        self.configs: Dict[str, Dict[str, Any]] = {}
         for i in range(len(data_tasks)):
             for model in self.models:
                 model_benchmarks = benchmarks.get(model)
@@ -111,11 +128,17 @@ class Benchmark(LoggingMixin):
         run_tasks: bool = True,
         predict_config: Dict[str, Any] = None,
     ) -> BenchmarkResults:
-        results = self.experiments.run_tasks(
-            num_jobs=num_jobs, run_tasks=run_tasks, load_task=load_task
+        experiments = self.experiments
+        if experiments is None:
+            raise ValueError("`experiments` is not yet defined")
+        results: Dict[str, List[Any]] = experiments.run_tasks(
+            num_jobs=num_jobs,
+            run_tasks=run_tasks,
+            load_task=load_task,
         )
         comparer_list = []
         for i, data_task in enumerate(self.data_tasks):
+            assert data_task is not None
             wrappers = {}
             x_te, y_te = data_task.fetch_data("_te")
             for identifier, ms in results.items():
@@ -135,7 +158,11 @@ class Benchmark(LoggingMixin):
             for metric, identifier in best_methods.items()
         }
         return BenchmarkResults(
-            self.data, best_configs, best_methods, self.experiments, comparer
+            self.data,
+            best_configs,
+            best_methods,
+            experiments,
+            comparer,
         )
 
     def _pre_process(self, x: data_type, y: data_type = None) -> TabularDataset:
@@ -143,9 +170,8 @@ class Benchmark(LoggingMixin):
         task_type = data_config.pop("task_type", None)
         if task_type is not None:
             assert task_type is self.task_type
-        self.data = TabularData.simple(self.task_type, **data_config).read(
-            x, y, **self.read_config
-        )
+        self.data = TabularData.simple(self.task_type, **data_config)
+        self.data.read(x, y, **self.read_config)
         return self.data.to_dataset()
 
     def _k_core(
@@ -153,8 +179,8 @@ class Benchmark(LoggingMixin):
         k_iterator: Iterable,
         num_jobs: int,
         run_tasks: bool,
-        predict_config: Dict[str, Any],
-        benchmarks: Dict[str, Dict[str, Dict[str, Any]]],
+        predict_config: Optional[Dict[str, Any]],
+        benchmarks: Optional[Dict[str, Dict[str, Dict[str, Any]]]],
     ) -> BenchmarkResults:
         if benchmarks is None:
             benchmarks = {}
@@ -180,12 +206,16 @@ class Benchmark(LoggingMixin):
         *,
         num_jobs: int = 4,
         run_tasks: bool = True,
-        predict_config: Dict[str, Any] = None,
-        benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None,
+        predict_config: Optional[Dict[str, Any]] = None,
+        benchmarks: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
     ) -> BenchmarkResults:
         dataset = self._pre_process(x, y)
         return self._k_core(
-            KFold(k, dataset), num_jobs, run_tasks, predict_config, benchmarks
+            KFold(k, dataset),
+            num_jobs,
+            run_tasks,
+            predict_config,
+            benchmarks,
         )
 
     def k_random(
@@ -197,8 +227,8 @@ class Benchmark(LoggingMixin):
         *,
         num_jobs: int = 4,
         run_tasks: bool = True,
-        predict_config: Dict[str, Any] = None,
-        benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = None,
+        predict_config: Optional[Dict[str, Any]] = None,
+        benchmarks: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
     ) -> BenchmarkResults:
         dataset = self._pre_process(x, y)
         return self._k_core(
@@ -216,6 +246,9 @@ class Benchmark(LoggingMixin):
         simplify: bool = True,
         compress: bool = True,
     ) -> "Benchmark":
+        experiments = self.experiments
+        if experiments is None:
+            raise ValueError("`experiments` is not yet defined")
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
@@ -236,8 +269,10 @@ class Benchmark(LoggingMixin):
                 abs_folder,
             )
             experiments_folder = os.path.join(abs_folder, "__experiments__")
-            self.experiments.save(
-                experiments_folder, simplify=simplify, compress=compress
+            experiments.save(
+                experiments_folder,
+                simplify=simplify,
+                compress=compress,
             )
             if compress:
                 Saving.compress(abs_folder, remove_original=True)
@@ -331,9 +366,9 @@ class Ensemble:
         if isinstance(models, str):
             models = [models]
 
-        data_config, read_config = map(
-            self.config.get, ["data_config", "read_config"], [{}, {}]
-        )
+        data_config = self.config.get("data_config", {})
+        read_config = self.config.get("read_config", {})
+
         benchmark = Benchmark(
             task_name,
             self.task_type,
@@ -356,12 +391,14 @@ class Ensemble:
             {model: {"config": shallow_copy_dict(self.config)} for model in models},
         )
 
-        def _pre_process(x_):
+        def _pre_process(x_: np.ndarray) -> np.ndarray:
             return benchmark_results.data.transform(x_, contains_labels=False).x
 
         experiments = benchmark_results.experiments
         ms_dict = transform_experiments(experiments)
-        all_models = sum(ms_dict.values(), [])
+        all_models: List[Wrapper] = []
+        for ms in ms_dict.values():
+            all_models.extend(ms)
         all_patterns = [m.to_pattern(pre_process=_pre_process) for m in all_models]
         ensemble_pattern = ensemble(all_patterns)
 
@@ -392,7 +429,8 @@ class Ensemble:
         for _ in tqdm.tqdm(list(range(k))):
             m = make(model=model, **config)
             m.fit(x, y, sample_weights=sample_weights)
-            predictions = m.predict(x, contains_labels=True).astype(np.float32)
+            predictions: np.ndarray = m.predict(x, contains_labels=True)
+            predictions = predictions.astype(np.float32)
             target = m._original_data.processed.y.astype(np.float32)
             errors = (predictions != target).ravel()
             if sample_weights is None:
@@ -420,4 +458,5 @@ __all__ = [
     "Benchmark",
     "ensemble",
     "Ensemble",
+    "EnsembleResults",
 ]

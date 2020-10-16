@@ -5,9 +5,10 @@ import numpy as np
 import optuna.visualization as vis
 
 from typing import *
-from cftool.ml.utils import *
-from cfdata.tabular import *
-from optuna.trial import TrialState
+from cfdata.tabular import TaskTypes
+from cftool.misc import shallow_copy_dict
+from cftool.ml.utils import scoring_fn_type
+from optuna.trial import TrialState, FrozenTrial
 from optuna.importance import BaseImportanceEvaluator
 from plotly.graph_objects import Figure
 
@@ -22,7 +23,7 @@ class Auto:
         self.model = model
         self.task_type = task_type
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"Auto_{self.model}({self.task_type})"
 
     __repr__ = __str__
@@ -36,11 +37,11 @@ class Auto:
         return self.pattern.predict
 
     @property
-    def pruned_trials(self):
+    def pruned_trials(self) -> List[FrozenTrial]:
         return [t for t in self.study.trials if t.state == TrialState.PRUNED]
 
     @property
-    def complete_trials(self):
+    def complete_trials(self) -> List[FrozenTrial]:
         return [t for t in self.study.trials if t.state == TrialState.COMPLETE]
 
     def _merge_data(
@@ -54,12 +55,18 @@ class Auto:
             return x, y
         if not isinstance(x_cv, str):
             if isinstance(x_cv, list):
+                assert isinstance(x, list)
                 x_merged = x + x_cv
-                y_merged = None if y is None else y + y_cv
+                if y is None:
+                    y_merged = None
+                else:
+                    assert isinstance(y, list) and isinstance(y_cv, list)
+                    y_merged = y + y_cv
             else:
                 x_merged = np.vstack([x, x_cv])
                 y_merged = None if y is None else np.vstack([y, y_cv])
             return x_merged, y_merged
+        assert isinstance(x, str)
         has_column_names = self.optuna_result.tuner.has_column_names
         with open(x, "r") as fx, open(x_cv, "r") as fx_cv:
             x_lines = fx.readlines()
@@ -121,8 +128,9 @@ class Auto:
         )
         num_jobs = max(num_jobs, num_parallel)
         self.best_param = self.optuna_result.best_param
+        self.repeat_result: Optional[RepeatResult] = None
+        self.bagging_result: Optional[EnsembleResults] = None
         if bagging_config is not None:
-            self.repeat_result = None
             bagging_temp_folder = os.path.join(temp_folder, "__bagging__")
             bagging = Ensemble(self.task_type, self.best_param).bagging
             bagging_config.setdefault("task_name", f"{model}_opt")
@@ -139,21 +147,21 @@ class Auto:
             self.pattern = self.bagging_result.pattern
             self.data = self.bagging_result.data
         else:
-            self.repeat_result = self.bagging_result = None
             repeat_temp_folder = os.path.join(temp_folder, "__repeat__")
-            self.repeat_result = repeat_with(
-                x,
-                y,
-                x_cv,
-                y_cv,
-                **self.best_param,
-                models=model,
-                sequential=num_jobs <= 1,
-                temp_folder=repeat_temp_folder,
-                num_repeat=num_final_repeat,
-                num_jobs=num_jobs,
+            repeat_config = shallow_copy_dict(self.best_param)
+            repeat_config.update(
+                {
+                    "models": model,
+                    "sequential": num_jobs <= 1,
+                    "temp_folder": repeat_temp_folder,
+                    "num_repeat": num_final_repeat,
+                    "num_jobs": num_jobs,
+                }
             )
-            patterns = self.repeat_result.patterns[model]
+            self.repeat_result = repeat_with(x, y, x_cv, y_cv, **repeat_config)
+            patterns_dict = self.repeat_result.patterns
+            assert patterns_dict is not None
+            patterns = patterns_dict[model]
             data = self.repeat_result.data
             self.pattern = ensemble(patterns)
             self.data = data

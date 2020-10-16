@@ -38,7 +38,7 @@ class Experiments(LoggingMixin):
 
     def initialize(self) -> "Experiments":
         self.tasks: Dict[str, List[Task]] = {}
-        self.data_tasks: Dict[str, List[Union[Task, None]]] = {}
+        self.data_tasks: Dict[str, List[Optional[Task]]] = {}
         return self
 
     def add_task(

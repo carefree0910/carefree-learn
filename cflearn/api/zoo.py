@@ -1,8 +1,11 @@
 import logging
 
+from abc import *
 from typing import *
-from cftool.misc import *
-from abc import ABCMeta, abstractmethod
+from cftool.misc import update_dict
+from cftool.misc import register_core
+from cftool.misc import shallow_copy_dict
+from cftool.misc import LoggingMixin
 
 from ..bases import *
 from .basic import make
@@ -46,10 +49,10 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
                 )
                 self._model_type = "default"
             config = self.benchmarks["default"]
-        config = shallow_copy_dict(config)
+        new_config = shallow_copy_dict(config)
         if self._increment_config is not None:
-            update_dict(self._increment_config, config)
-        return config
+            update_dict(self._increment_config, new_config)
+        return new_config
 
     @property
     def model(self) -> str:
@@ -60,16 +63,16 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
         """ return corresponding model of self.config """
         return make(self.model, **self.config)
 
-    def switch(self, model_type) -> "ZooBase":
+    def switch(self, model_type: str) -> "ZooBase":
         """ switch to another model_type """
         self._model_type = model_type
         return self
 
     @classmethod
-    def register(cls, name: str):
+    def register(cls, name: str) -> Callable[[Type], Type]:
         global zoo_dict
 
-        def before(cls_):
+        def before(cls_: Type) -> None:
             cls_.__identifier__ = name
 
         return register_core(name, zoo_dict, before_register=before)

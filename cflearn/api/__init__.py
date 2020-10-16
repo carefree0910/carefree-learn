@@ -45,6 +45,7 @@ __all__ = [
     "Benchmark",
     "ensemble",
     "Ensemble",
+    "EnsembleResults",
     # register
     "register_metric",
     "register_optimizer",

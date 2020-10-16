@@ -1,9 +1,18 @@
 import os
 
 from typing import *
-from cftool.misc import *
-from cftool.ml.utils import *
-from cfdata.tabular import *
+from cftool.misc import timestamp
+from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
+from cftool.misc import LoggingMixin
+from cftool.ml.utils import pattern_type
+from cftool.ml.utils import patterns_type
+from cftool.ml.utils import Comparer
+from cftool.ml.utils import Estimator
+from cftool.ml.utils import ModelPattern
+from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
+from cfdata.tabular import TimeSeriesConfig
 from optuna.trial import Trial
 
 from ..dist import *
@@ -48,7 +57,7 @@ def make(
     verbose_level: int = 2,
     use_timing_context: bool = True,
     use_tqdm: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> Wrapper:
     # wrapper general
     kwargs["model"] = model
@@ -157,7 +166,7 @@ wrappers_dict_type = Dict[str, Wrapper]
 wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
 
 
-def _to_saving_path(identifier: str, saving_folder: str) -> str:
+def _to_saving_path(identifier: str, saving_folder: Optional[str]) -> str:
     if saving_folder is None:
         saving_path = identifier
     else:
@@ -186,7 +195,7 @@ def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
     if not isinstance(wrappers, dict):
         if not isinstance(wrappers, list):
             wrappers = [wrappers]
-        names = [wrapper.model.__identifier__ for wrapper in wrappers]
+        names: List[Any] = [wrapper.model.__identifier__ for wrapper in wrappers]
         if len(set(names)) != len(wrappers):
             raise ValueError(
                 "wrapper names are not provided but identical wrapper.model is detected"
@@ -207,8 +216,6 @@ def estimate(
     comparer_verbose_level: Union[int, None] = 1,
 ) -> Comparer:
     patterns = {}
-    if isinstance(metrics, str):
-        metrics = [metrics]
     if wrappers is None:
         if y is None:
             raise ValueError("either `wrappers` or `y` should be provided")
@@ -241,7 +248,14 @@ def estimate(
                     f"{prefix}'{other_name}' is found in `other_patterns`, it will be overwritten"
                 )
         update_dict(other_patterns, patterns)
-    estimators = list(map(Estimator, metrics))
+
+    if isinstance(metrics, list):
+        metrics_list = metrics
+    else:
+        assert isinstance(metrics, str)
+        metrics_list = [metrics]
+
+    estimators = list(map(Estimator, metrics_list))
     comparer = Comparer(patterns, estimators)
     comparer.compare(x, y, verbose_level=comparer_verbose_level)
     return comparer
@@ -250,7 +264,7 @@ def estimate(
 def save(
     wrappers: wrappers_type,
     identifier: str = "cflearn",
-    saving_folder: str = None,
+    saving_folder: Optional[str] = None,
 ) -> wrappers_dict_type:
     wrappers = _to_wrappers(wrappers)
     saving_path = _to_saving_path(identifier, saving_folder)
@@ -261,7 +275,7 @@ def save(
 
 def _fetch_saving_paths(
     identifier: str = "cflearn",
-    saving_folder: str = None,
+    saving_folder: Optional[str] = None,
 ) -> Dict[str, str]:
     paths = {}
     saving_path = _to_saving_path(identifier, saving_folder)
@@ -314,7 +328,10 @@ class RepeatResult(NamedTuple):
 
     @property
     def models(self) -> Dict[str, List[Wrapper]]:
-        return {key: [m.model for m in value] for key, value in self.patterns.items()}
+        patterns = self.patterns
+        if patterns is None:
+            raise ValueError("`patterns` are not yet generated")
+        return {key: [m.model for m in value] for key, value in patterns.items()}
 
 
 def repeat_with(
@@ -332,7 +349,7 @@ def repeat_with(
     pattern_kwargs: Dict[str, Any] = None,
     sequential: bool = None,
     use_tqdm: bool = True,
-    **kwargs,
+    **kwargs: Any,
 ) -> RepeatResult:
 
     if isinstance(models, str):
@@ -347,6 +364,8 @@ def repeat_with(
 
     if sequential is None:
         sequential = num_jobs <= 1
+
+    wrappers_dict: Optional[Dict[str, List[Wrapper]]] = None
     if sequential:
         experiments = None
         kwargs["use_tqdm"] = False
@@ -390,12 +409,12 @@ def repeat_with(
             temp_folder=temp_folder,
             **kwargs,
         )
-        wrappers_dict = None
         if return_patterns:
             wrappers_dict = transform_experiments(experiments)
 
     patterns = None
     if return_patterns:
+        assert wrappers_dict is not None
         if pattern_kwargs is None:
             pattern_kwargs = {}
         patterns = {
@@ -414,7 +433,7 @@ def tasks_to_wrappers(tasks: List[Task]) -> List[Wrapper]:
     return list(map(load_task, tasks))
 
 
-def tasks_to_patterns(tasks: List[Task], **kwargs) -> List[pattern_type]:
+def tasks_to_patterns(tasks: List[Task], **kwargs: Any) -> List[pattern_type]:
     wrappers = tasks_to_wrappers(tasks)
     return [m.to_pattern(**kwargs) for m in wrappers]
 
