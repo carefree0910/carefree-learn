@@ -34,11 +34,13 @@ try:
 except:
     amp = None
 
-from ..modules import *
 from ..misc.toolkit import *
-from ..misc.time_series import *
+from ..misc.time_series import TSLabelCollator
 from ..types import data_type
 from ..types import tensor_dict_type
+from ..modules import optimizer_dict
+from ..modules import scheduler_dict
+from ..modules import EMA
 from ..models.base import collate_tensor_dicts
 from ..models.base import ModelBase
 
@@ -98,26 +100,19 @@ class Trainer(nn.Module, LoggingMixin):
         )
         self.use_tqdm = self.config.setdefault("use_tqdm", True)
         self.min_epoch = int(self.config.setdefault("min_epoch", 0))
-        self.num_epoch = int(
-            self.config.setdefault("num_epoch", max(40, self.min_epoch))
-        )
-        self.max_epoch = int(
-            self.config.setdefault("max_epoch", max(200, self.num_epoch))
-        )
+        num_epoch = self.config.setdefault("num_epoch", max(40, self.min_epoch))
+        max_epoch = self.config.setdefault("max_epoch", max(200, num_epoch))
+        self.num_epoch, self.max_epoch = map(int, [num_epoch, max_epoch])
         self.max_snapshot_num = int(self.config.setdefault("max_snapshot_num", 5))
         self.snapshot_start_step = int(self.config.setdefault("snapshot_start_step", 0))
-        self._num_step_per_snapshot = int(
-            self.config.setdefault("num_step_per_snapshot", 0)
-        )
-        self.num_snapshot_per_epoch = int(
-            self.config.setdefault("num_snapshot_per_epoch", 2)
-        )
-        self.max_step_per_snapshot = int(
-            self.config.setdefault("max_step_per_snapshot", 1000)
-        )
-        self.plateau_monitor_start_snapshot = int(
-            self.config.setdefault("plateau_monitor_start_snapshot", self.num_epoch)
-        )
+        num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
+        num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
+        max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
+        plateau_start_snapshot = self.config.setdefault("plateau_start_snapshot", num_epoch)
+        self._num_step_per_snapshot = int(num_step_per_snapshot)
+        self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
+        self.max_step_per_snapshot = int(max_step_per_snapshot)
+        self.plateau_start = int(plateau_start_snapshot)
 
         self._clip_norm = self.config.setdefault("clip_norm", 0.0)
         ema_decay = self.config.setdefault("ema_decay", 0.0)
@@ -132,8 +127,9 @@ class Trainer(nn.Module, LoggingMixin):
 
         self._logging_path_ = pipeline_config["_logging_path_"]
         self.logging_folder = pipeline_config["logging_folder"]
+        default_checkpoint_folder = os.path.join(self.logging_folder, "checkpoints")
         self.checkpoint_folder = self.config.setdefault(
-            "checkpoint_folder", os.path.join(self.logging_folder, "checkpoints")
+            "checkpoint_folder", default_checkpoint_folder
         )
         if not is_loading and os.path.isdir(self.checkpoint_folder):
             self.log_msg(  # type: ignore
@@ -168,7 +164,8 @@ class Trainer(nn.Module, LoggingMixin):
             self.ts_label_collator = None
         else:
             self.ts_label_collator = TSLabelCollator(
-                tr_data, self._ts_label_collator_config
+                tr_data,
+                self._ts_label_collator_config,
             )
         if cv_data is None:
             self.cv_loader = None
@@ -197,18 +194,14 @@ class Trainer(nn.Module, LoggingMixin):
         return opt
 
     def _init_optimizers(self) -> None:
-        optimizers = self.config.setdefault("optimizers", {"all": {}})
+        optimizers_settings = self.config.setdefault("optimizers", {"all": {}})
         self.optimizers: Dict[str, Optimizer] = {}
         self.schedulers: Dict[str, Optional[_LRScheduler]] = {}
-        for params_name, params_optimizer_config in optimizers.items():
-            optimizer = params_optimizer_config.setdefault("optimizer", "adam")
-            optimizer_config = params_optimizer_config.setdefault(
-                "optimizer_config", {}
-            )
-            scheduler = params_optimizer_config.setdefault("scheduler", "plateau")
-            scheduler_config = params_optimizer_config.setdefault(
-                "scheduler_config", {}
-            )
+        for params_name, opt_setting in optimizers_settings.items():
+            optimizer = opt_setting.setdefault("optimizer", "adam")
+            optimizer_config = opt_setting.setdefault("optimizer_config", {})
+            scheduler = opt_setting.setdefault("scheduler", "plateau")
+            scheduler_config = opt_setting.setdefault("scheduler_config", {})
             # optimizer
             optimizer_config.setdefault("lr", 1e-3)
             if optimizer == "nag":
@@ -218,16 +211,12 @@ class Trainer(nn.Module, LoggingMixin):
                 multiplier = scheduler_config.setdefault("multiplier", 3)
                 default_warm_up_step = min(
                     10 * len(self.tr_loader),
-                    int(
-                        0.25
-                        * self.plateau_monitor_start_snapshot
-                        * self.num_step_per_snapshot
-                    ),
+                    int(0.25 * self.plateau_start * self.num_step_per_snapshot),
                 )
                 warmup_step = scheduler_config.setdefault(
                     "warmup_step", default_warm_up_step
                 )
-                self.plateau_monitor_start_snapshot += int(
+                self.plateau_start += int(
                     warmup_step / self.num_step_per_snapshot
                 )
                 self.snapshot_start_step += warmup_step
@@ -239,38 +228,24 @@ class Trainer(nn.Module, LoggingMixin):
             self.config["optimizer_config"] = optimizer_config
             self._optimizer_type = optimizer
             # scheduler
-            plateau_default_config: Dict[str, Any] = {"mode": "max"}
+            plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
             assert isinstance(self._verbose_level_, int)
-            plateau_default_config.setdefault("verbose", self._verbose_level_ >= 3)
-            plateau_default_config.setdefault(
+            plateau_default_cfg.setdefault("verbose", self._verbose_level_ >= 3)
+            plateau_default_cfg.setdefault(
                 "patience",
                 max(10, self.snapshot_start_step // self.num_step_per_snapshot),
             )
             if scheduler == "plateau":
-                scheduler_config = update_dict(scheduler_config, plateau_default_config)
+                scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
             elif scheduler == "warmup":
-                scheduler_afterwards_base = scheduler_config.get(
-                    "scheduler_afterwards_base", "plateau"
-                )
-                scheduler_afterwards_config = scheduler_config.get(
-                    "scheduler_afterwards_config", {}
-                )
-                if scheduler_afterwards_base is not None and isinstance(
-                    scheduler_afterwards_base, str
-                ):
-                    if scheduler_afterwards_base == "plateau":
-                        scheduler_afterwards_config = update_dict(
-                            scheduler_afterwards_config, plateau_default_config
-                        )
-                    scheduler_afterwards_base = scheduler_dict[
-                        scheduler_afterwards_base
-                    ]
-                scheduler_config[
-                    "scheduler_afterwards_base"
-                ] = scheduler_afterwards_base
-                scheduler_config[
-                    "scheduler_afterwards_config"
-                ] = scheduler_afterwards_config
+                sab = scheduler_config.get("scheduler_afterwards_base", "plateau")
+                sac = scheduler_config.get("scheduler_afterwards_config", {})
+                if sab is not None and isinstance(sab, str):
+                    if sab == "plateau":
+                        sac = update_dict(sac, plateau_default_cfg)
+                    sab = scheduler_dict[sab]
+                scheduler_config["scheduler_afterwards_base"] = sab
+                scheduler_config["scheduler_afterwards_config"] = sac
             if scheduler is None:
                 self.schedulers[params_name] = None
             else:
@@ -306,9 +281,8 @@ class Trainer(nn.Module, LoggingMixin):
                 self._metrics_need_loss = True
                 self.metrics[metric_type] = None
             else:
-                sub_metric_config = metric_config.setdefault(
-                    f"{metric_type}_config", {}
-                )
+                metric_key = f"{metric_type}_config"
+                sub_metric_config = metric_config.setdefault(metric_key, {})
                 self.metrics[metric_type] = Metrics(metric_type, sub_metric_config)
             if not 0.0 < metric_decay < 1.0:
                 self.metrics_decay = None
@@ -328,10 +302,7 @@ class Trainer(nn.Module, LoggingMixin):
 
     @property
     def start_monitor_plateau(self) -> bool:
-        return (
-            self._step_count
-            >= self.plateau_monitor_start_snapshot * self.num_step_per_snapshot
-        )
+        return self._step_count >= self.plateau_start * self.num_step_per_snapshot
 
     @property
     def num_step_per_snapshot(self) -> int:
