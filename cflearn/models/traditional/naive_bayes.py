@@ -13,7 +13,7 @@ from cfdata.types import np_int_type
 from cfdata.tabular import TabularData
 from cfml.models.naive_bayes import MultinomialNB
 
-from ...bases import ModelBase
+from ..base import ModelBase
 from ...misc.toolkit import *
 from ...modules.blocks import *
 

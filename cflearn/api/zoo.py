@@ -7,8 +7,8 @@ from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 
-from ..bases import *
 from .basic import make
+from ..pipeline.core import Pipeline
 
 
 zoo_dict: Dict[str, Type["ZooBase"]] = {}
@@ -59,7 +59,7 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
         return self._model_type
 
     @property
-    def m(self) -> Wrapper:
+    def m(self) -> Pipeline:
         """ return corresponding model of self.config """
         return make(self.model, **self.config)
 

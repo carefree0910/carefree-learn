@@ -27,7 +27,7 @@ from cfdata.tabular.misc import split_file
 from .basic import *
 from ..misc.toolkit import *
 from .ensemble import ensemble
-from ..bases import Wrapper
+from ..pipeline.core import Pipeline
 
 
 class _TunerResult(NamedTuple):
@@ -35,11 +35,11 @@ class _TunerResult(NamedTuple):
     repeat_result: RepeatResult
 
     @property
-    def wrappers(self) -> List[Wrapper]:
-        wrappers = self.repeat_result.wrappers
-        if wrappers is None:
-            raise ValueError("`wrappers` are not yet generated")
-        return wrappers[self.identifier]
+    def pipelines(self) -> List[Pipeline]:
+        pipelines = self.repeat_result.pipelines
+        if pipelines is None:
+            raise ValueError("`pipelines` are not yet generated")
+        return pipelines[self.identifier]
 
     @property
     def patterns(self) -> List[ModelPattern]:
@@ -707,7 +707,7 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
             comparer = estimate(
                 tuner.x_cv,
                 tuner.y_cv,
-                wrappers=result.wrappers,
+                pipelines=result.pipelines,
                 metrics=metrics,
                 contains_labels=True,
                 comparer_verbose_level=6,

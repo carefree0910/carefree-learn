@@ -3,7 +3,7 @@ import torch
 from typing import *
 from cfdata.tabular import TabularData
 
-from ...bases import ModelBase
+from ..base import ModelBase
 from ...misc.toolkit import tensor_dict_type
 from ...modules.blocks import MLP
 

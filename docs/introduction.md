@@ -345,7 +345,7 @@ If we need to apply different optimizers on different parameters (which is quite
 Here's an example:
 
 ```python
-from cflearn.bases import ModelBase
+from cflearn.models.base import ModelBase
 
 @ModelBase.register("foo")
 class Foo(ModelBase):

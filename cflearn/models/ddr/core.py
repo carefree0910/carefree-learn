@@ -150,7 +150,7 @@ class DDR(FCNN):
         default_metric_types = (
             ["ddr", "loss"] if self.fetch_quantile else ["mae", "loss"]
         )
-        pipeline_config = self._wrapper_config.setdefault("pipeline_config", {})
+        pipeline_config = self._pipeline_config.setdefault("pipeline_config", {})
         pipeline_config = update_dict(
             pipeline_config,
             {
@@ -169,7 +169,7 @@ class DDR(FCNN):
             "anneal_step", (num_train_samples * num_epoch) // (batch_size * 2)
         )
         self._loss_config.setdefault("anneal_step", anneal_step)
-        self._wrapper_config["pipeline_config"] = pipeline_config
+        self._pipeline_config["pipeline_config"] = pipeline_config
         self._pipeline_config = pipeline_config
         # optimize schema
         self._reg_step = int(self.config.setdefault("reg_step", 10))

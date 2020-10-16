@@ -8,12 +8,12 @@ from typing import Union
 from typing import Optional
 from cftool.misc import show_or_save
 
-from ...bases import Wrapper
 from ...misc.toolkit import data_type
+from ...pipeline.core import Pipeline
 
 
 class DDRPredictor:
-    def __init__(self, ddr: Wrapper):
+    def __init__(self, ddr: Pipeline):
         self.m = ddr
 
     def mr(self, x: data_type) -> np.ndarray:
@@ -39,7 +39,7 @@ class DDRPredictor:
 
 
 class DDRVisualizer:
-    def __init__(self, ddr: Wrapper):
+    def __init__(self, ddr: Pipeline):
         self.m = ddr
         self.predictor = DDRPredictor(ddr)
 

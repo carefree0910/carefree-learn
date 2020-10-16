@@ -24,10 +24,10 @@ from cfdata.tabular import TabularDataset
 from torch.nn.functional import one_hot
 
 from .zoo import zoo
-from ..bases import Wrapper
 from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
+from ..pipeline.core import Pipeline
 
 
 class BenchmarkResults(NamedTuple):
@@ -139,15 +139,15 @@ class Benchmark(LoggingMixin):
         comparer_list = []
         for i, data_task in enumerate(self.data_tasks):
             assert data_task is not None
-            wrappers = {}
+            pipelines = {}
             x_te, y_te = data_task.fetch_data("_te")
             for identifier, ms in results.items():
-                wrappers[identifier] = ms[i]
+                pipelines[identifier] = ms[i]
             comparer = estimate(
                 x_te,
                 y_te,
-                wrappers=wrappers,
-                wrapper_predict_config=predict_config,
+                pipelines=pipelines,
+                pipeline_predict_config=predict_config,
                 comparer_verbose_level=None,
             )
             comparer_list.append(comparer)
@@ -396,10 +396,10 @@ class Ensemble:
 
         experiments = benchmark_results.experiments
         ms_dict = transform_experiments(experiments)
-        all_models: List[Wrapper] = []
+        all_pipelines: List[Pipeline] = []
         for ms in ms_dict.values():
-            all_models.extend(ms)
-        all_patterns = [m.to_pattern(pre_process=_pre_process) for m in all_models]
+            all_pipelines.extend(ms)
+        all_patterns = [m.to_pattern(pre_process=_pre_process) for m in all_pipelines]
         ensemble_pattern = ensemble(all_patterns)
 
         return EnsembleResults(benchmark_results.data, ensemble_pattern, experiments)

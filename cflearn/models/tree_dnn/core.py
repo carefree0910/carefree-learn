@@ -4,8 +4,8 @@ import logging
 from typing import Any, Dict
 from cfdata.tabular import TabularData
 
+from ..base import SplitFeatures
 from ..fcnn.core import FCNN
-from ...bases import SplitFeatures
 from ...misc.toolkit import tensor_dict_type
 from ...modules.blocks import *
 

@@ -89,7 +89,7 @@ if __name__ == '__main__':
     cflearn.estimate(
         x_cv,
         y_cv,
-        wrappers=fcnn,
+        pipelines=fcnn,
         other_patterns={"auto": auto.pattern},
     )
 ```
@@ -143,7 +143,7 @@ m.predict(x)
 # Make probability predictions
 m.predict_prob(x)
 # Estimate performance
-cflearn.estimate(x, y, wrappers=m)
+cflearn.estimate(x, y, pipelines=m)
 ```
 
 Then you will see something like this:
@@ -171,7 +171,7 @@ Of course, loading `carefree-learn` models are easy too!
 ```python
 m = cflearn.load()
 # You will see exactly the same result as above!
-cflearn.estimate(x, y, wrappers=m)
+cflearn.estimate(x, y, pipelines=m)
 ```
 
 `carefree-learn` can also easily fit / predict / estimate directly on files (file-in, file-out). Suppose we have an 'xor.txt' file with following contents:
@@ -191,7 +191,7 @@ Then `carefree-learn` can be utilized with only one line of code:
 
 ```python
 m = cflearn.make(delim=",", skip_first=False).fit("xor.txt", x_cv="xor.txt")
-cflearn.estimate("xor.txt", wrappers=m)
+cflearn.estimate("xor.txt", pipelines=m)
 ```
 
 After which you will see something like this:
@@ -270,7 +270,7 @@ if __name__ == '__main__':
     )
     # We can further train our model with the best hyper-parameters we've obtained:
     m = cflearn.make(**hpo.best_param).fit(x, y)
-    cflearn.estimate(x, y, wrappers=m)
+    cflearn.estimate(x, y, pipelines=m)
 ```
 
 Then you will see something like this:

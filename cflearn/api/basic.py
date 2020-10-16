@@ -17,8 +17,8 @@ from cfdata.tabular import TimeSeriesConfig
 from optuna.trial import Trial
 
 from ..dist import *
-from ..bases import *
 from ..misc.toolkit import *
+from ..pipeline.core import Pipeline
 
 
 def make(
@@ -59,8 +59,8 @@ def make(
     use_timing_context: bool = True,
     use_tqdm: bool = True,
     **kwargs: Any,
-) -> Wrapper:
-    # wrapper general
+) -> Pipeline:
+    # pipeline general
     kwargs["model"] = model
     kwargs["cv_split"] = cv_split
     kwargs["use_timing_context"] = use_timing_context
@@ -153,7 +153,7 @@ def make(
             optimizers = {"all": preset_optimizer}
     if optimizers is not None:
         pipeline_config["optimizers"] = optimizers
-    return Wrapper(
+    return Pipeline(
         kwargs,
         cuda=cuda,
         trial=trial,
@@ -163,8 +163,8 @@ def make(
 
 
 SAVING_DELIM = "^_^"
-wrappers_dict_type = Dict[str, Wrapper]
-wrappers_type = Union[Wrapper, List[Wrapper], wrappers_dict_type]
+pipelines_dict_type = Dict[str, Pipeline]
+pipelines_type = Union[Pipeline, List[Pipeline], pipelines_dict_type]
 
 
 def _to_saving_path(identifier: str, saving_folder: Optional[str]) -> str:
@@ -192,20 +192,20 @@ def _make_saving_path(name: str, saving_path: str, remove_existing: bool) -> str
     return f"{saving_path}{postfix}"
 
 
-def _to_wrappers(wrappers: wrappers_type) -> wrappers_dict_type:
-    if not isinstance(wrappers, dict):
-        if not isinstance(wrappers, list):
-            wrappers = [wrappers]
+def _to_pipelines(pipelines: pipelines_type) -> pipelines_dict_type:
+    if not isinstance(pipelines, dict):
+        if not isinstance(pipelines, list):
+            pipelines = [pipelines]
         names: List[str] = [
-            wrapper.model.__identifier__ for wrapper in wrappers  # type: ignore
+            pipeline.model.__identifier__ for pipeline in pipelines  # type: ignore
         ]
-        if len(set(names)) != len(wrappers):
+        if len(set(names)) != len(pipelines):
             raise ValueError(
-                "wrapper names are not provided "
-                "but identical wrapper.model is detected"
+                "pipeline names are not provided "
+                "but identical pipeline.model is detected"
             )
-        wrappers = dict(zip(names, wrappers))
-    return wrappers
+        pipelines = dict(zip(names, pipelines))
+    return pipelines
 
 
 def estimate(
@@ -213,37 +213,39 @@ def estimate(
     y: data_type = None,
     *,
     contains_labels: bool = False,
-    wrappers: wrappers_type = None,
-    wrapper_predict_config: Dict[str, Any] = None,
+    pipelines: pipelines_type = None,
+    pipeline_predict_config: Dict[str, Any] = None,
     metrics: Union[str, List[str]] = None,
     other_patterns: Dict[str, patterns_type] = None,
     comparer_verbose_level: Union[int, None] = 1,
 ) -> Comparer:
     patterns = {}
-    if wrappers is None:
+    if pipelines is None:
         if y is None:
-            raise ValueError("either `wrappers` or `y` should be provided")
+            raise ValueError("either `pipelines` or `y` should be provided")
         if metrics is None:
-            raise ValueError("either `wrappers` or `metrics` should be provided")
+            raise ValueError("either `pipelines` or `metrics` should be provided")
         if other_patterns is None:
-            raise ValueError("either `wrappers` or `other_patterns` should be provided")
+            raise ValueError(
+                "either `pipelines` or `other_patterns` should be provided"
+            )
     else:
-        wrappers = _to_wrappers(wrappers)
-        if wrapper_predict_config is None:
-            wrapper_predict_config = {}
-        wrapper_predict_config.setdefault("contains_labels", contains_labels)
-        for name, wrapper in wrappers.items():
+        pipelines = _to_pipelines(pipelines)
+        if pipeline_predict_config is None:
+            pipeline_predict_config = {}
+        pipeline_predict_config.setdefault("contains_labels", contains_labels)
+        for name, pipeline in pipelines.items():
             if y is not None:
                 y = to_2d(y)
             else:
-                x, y = wrapper.tr_data.read_file(x, contains_labels=contains_labels)
-                y = wrapper.tr_data.transform(x, y).y
+                x, y = pipeline.tr_data.read_file(x, contains_labels=contains_labels)
+                y = pipeline.tr_data.transform(x, y).y
             if metrics is None:
                 metrics = [
-                    k for k, v in wrapper.pipeline.metrics.items() if v is not None
+                    k for k, v in pipeline.trainer.metrics.items() if v is not None
                 ]
-            with eval_context(wrapper.model):
-                patterns[name] = wrapper.to_pattern(**wrapper_predict_config)
+            with eval_context(pipeline.model):
+                patterns[name] = pipeline.to_pattern(**pipeline_predict_config)
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
@@ -266,15 +268,15 @@ def estimate(
 
 
 def save(
-    wrappers: wrappers_type,
+    pipelines: pipelines_type,
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
-) -> wrappers_dict_type:
-    wrappers = _to_wrappers(wrappers)
+) -> pipelines_dict_type:
+    pipelines = _to_pipelines(pipelines)
     saving_path = _to_saving_path(identifier, saving_folder)
-    for name, wrapper in wrappers.items():
-        wrapper.save(_make_saving_path(name, saving_path, True), compress=True)
-    return wrappers
+    for name, pipeline in pipelines.items():
+        pipeline.save(_make_saving_path(name, saving_path, True), compress=True)
+    return pipelines
 
 
 def _fetch_saving_paths(
@@ -299,14 +301,14 @@ def _fetch_saving_paths(
     return paths
 
 
-def load(identifier: str = "cflearn", saving_folder: str = None) -> wrappers_dict_type:
+def load(identifier: str = "cflearn", saving_folder: str = None) -> pipelines_dict_type:
     paths = _fetch_saving_paths(identifier, saving_folder)
-    wrappers = {k: Wrapper.load(v, compress=True) for k, v in paths.items()}
-    if not wrappers:
+    pipelines = {k: Pipeline.load(v, compress=True) for k, v in paths.items()}
+    if not pipelines:
         raise ValueError(
             f"'{identifier}' models not found with `saving_folder`={saving_folder}"
         )
-    return wrappers
+    return pipelines
 
 
 def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
@@ -316,26 +318,19 @@ def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
         os.remove(path)
 
 
-def load_task(task: Task) -> Wrapper:
+def load_task(task: Task) -> Pipeline:
     return next(iter(load(saving_folder=task.saving_folder).values()))
 
 
-def transform_experiments(experiments: Experiments) -> Dict[str, List[Wrapper]]:
+def transform_experiments(experiments: Experiments) -> Dict[str, List[Pipeline]]:
     return {k: list(map(load_task, v)) for k, v in experiments.tasks.items()}
 
 
 class RepeatResult(NamedTuple):
     data: Optional[TabularData]
     experiments: Optional[Experiments]
-    wrappers: Optional[Dict[str, List[Wrapper]]]
+    pipelines: Optional[Dict[str, List[Pipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
-
-    @property
-    def models(self) -> Dict[str, List[Wrapper]]:
-        patterns = self.patterns
-        if patterns is None:
-            raise ValueError("`patterns` are not yet generated")
-        return {key: [m.model for m in value] for key, value in patterns.items()}
 
 
 def repeat_with(
@@ -369,7 +364,7 @@ def repeat_with(
     if sequential is None:
         sequential = num_jobs <= 1
 
-    wrappers_dict: Optional[Dict[str, List[Wrapper]]] = None
+    pipelines_dict: Optional[Dict[str, List[Pipeline]]] = None
     if sequential:
         experiments = None
         kwargs["use_tqdm"] = False
@@ -381,16 +376,16 @@ def repeat_with(
             )
             return_patterns = True
 
-        def get(i_: int, model_: str) -> Wrapper:
+        def get(i_: int, model_: str) -> Pipeline:
             kwargs_ = shallow_copy_dict(kwargs)
             logging_folder = os.path.join(temp_folder, str(i_))
             m = make(model_, logging_folder=logging_folder, **kwargs_)
             return m.fit(x, y, x_cv, y_cv)
 
-        wrappers_dict = {}
+        pipelines_dict = {}
         for model, identifier in zip(models, identifiers):
             model_list = [model] * num_repeat
-            wrappers_dict[identifier] = list(map(get, range(num_repeat), model_list))
+            pipelines_dict[identifier] = list(map(get, range(num_repeat), model_list))
     else:
         if num_jobs <= 1:
             print(
@@ -414,32 +409,32 @@ def repeat_with(
             **kwargs,
         )
         if return_patterns:
-            wrappers_dict = transform_experiments(experiments)
+            pipelines_dict = transform_experiments(experiments)
 
     patterns = None
     if return_patterns:
-        assert wrappers_dict is not None
+        assert pipelines_dict is not None
         if pattern_kwargs is None:
             pattern_kwargs = {}
         patterns = {
-            model: [m.to_pattern(**pattern_kwargs) for m in wrappers]
-            for model, wrappers in wrappers_dict.items()
+            model: [m.to_pattern(**pattern_kwargs) for m in pipelines]
+            for model, pipelines in pipelines_dict.items()
         }
 
     data = None
     if patterns is not None:
         data = patterns[identifiers[0]][0].model.tr_data
 
-    return RepeatResult(data, experiments, wrappers_dict, patterns)
+    return RepeatResult(data, experiments, pipelines_dict, patterns)
 
 
-def tasks_to_wrappers(tasks: List[Task]) -> List[Wrapper]:
+def tasks_to_pipelines(tasks: List[Task]) -> List[Pipeline]:
     return list(map(load_task, tasks))
 
 
 def tasks_to_patterns(tasks: List[Task], **kwargs: Any) -> List[pattern_type]:
-    wrappers = tasks_to_wrappers(tasks)
-    return [m.to_pattern(**kwargs) for m in wrappers]
+    pipelines = tasks_to_pipelines(tasks)
+    return [m.to_pattern(**kwargs) for m in pipelines]
 
 
 __all__ = [
@@ -449,7 +444,7 @@ __all__ = [
     "estimate",
     "load_task",
     "repeat_with",
-    "tasks_to_wrappers",
+    "tasks_to_pipelines",
     "tasks_to_patterns",
     "transform_experiments",
     "Task",

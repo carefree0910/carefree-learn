@@ -28,7 +28,7 @@ __all__ = [
     "estimate",
     "load_task",
     "repeat_with",
-    "tasks_to_wrappers",
+    "tasks_to_pipelines",
     "tasks_to_patterns",
     "transform_experiments",
     "Task",

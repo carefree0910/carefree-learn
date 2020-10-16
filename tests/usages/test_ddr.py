@@ -5,8 +5,9 @@ import numpy as np
 
 from typing import *
 from cftool.misc import shallow_copy_dict
-from cflearn.bases import Wrapper
-from cflearn.models.ddr import DDRVisualizer
+
+from cflearn.pipeline.core import Pipeline
+from cflearn.models.ddr.utils import DDRVisualizer
 
 
 def test() -> None:
@@ -78,7 +79,7 @@ def test() -> None:
         )
         for task_name, info in info_dict.items():
             m = ms[task_name][0]
-            assert isinstance(m, Wrapper)
+            assert isinstance(m, Pipeline)
             f = info["f"]
             data_task = info["data_task"]
             export_folder_ = info["export_folder"]

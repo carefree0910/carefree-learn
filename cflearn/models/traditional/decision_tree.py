@@ -8,7 +8,7 @@ from typing import List, Iterator
 from cfdata.tabular import TabularData
 from sklearn.tree import _tree, DecisionTreeClassifier
 
-from ...bases import ModelBase
+from ..base import ModelBase
 from ...misc.toolkit import *
 from ...modules.blocks import *
 

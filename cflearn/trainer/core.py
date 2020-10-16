@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 import optuna
 import pprint
@@ -14,42 +13,39 @@ from typing import *
 from cftool.ml import Metrics
 from cftool.ml import Tracker
 from cftool.ml import ScalarEMA
-from cftool.ml import ModelPattern
 from cfdata.tabular import DataLoader
-from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
-from cfdata.tabular import TabularDataset
 from cfdata.tabular import ImbalancedSampler
-from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cftool.misc import timestamp
 from cftool.misc import update_dict
-from cftool.misc import lock_manager
-from cftool.misc import register_core
 from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from cftool.misc import context_error_handler
 from tqdm import tqdm
-from functools import partial
+from trains import Logger
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from cfdata.types import np_int_type
-from trains import Task, Logger
-from abc import ABCMeta, abstractmethod
 
 try:
     amp: Optional[Any] = torch.cuda.amp
 except:
     amp = None
 
-from .losses import *
-from .modules import *
-from .misc.toolkit import *
-from .misc.time_series import *
+from ..modules import *
+from ..misc.toolkit import *
+from ..misc.time_series import *
+from ..models.base import collate_tensor_dicts
+from ..models.base import ModelBase
+
 
 trains_logger: Union[Logger, None] = None
-model_dict: Dict[str, Type["ModelBase"]] = {}
+
+
+def to_prob(raw: np.ndarray) -> np.ndarray:
+    return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
 
 
 class amp_autocast_context(context_error_handler):
@@ -70,260 +66,7 @@ class amp_autocast_context(context_error_handler):
             self._autocast.__exit__(exc_type, exc_val, exc_tb)
 
 
-class SplitFeatures(NamedTuple):
-    categorical: Union[torch.Tensor, tensor_dict_type, None]
-    numerical: Union[torch.Tensor, None]
-
-    @property
-    def stacked_categorical(self) -> Optional[torch.Tensor]:
-        if not isinstance(self.categorical, dict):
-            return self.categorical
-        return torch.cat([self.categorical[k] for k in sorted(self.categorical)], dim=1)
-
-    def merge(self) -> torch.Tensor:
-        categorical = self.stacked_categorical
-        if categorical is None:
-            assert self.numerical is not None
-            return self.numerical
-        if self.numerical is None:
-            assert categorical is not None
-            return categorical
-        return torch.cat([self.numerical, categorical], dim=1)
-
-
-def to_prob(raw: np.ndarray) -> np.ndarray:
-    return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
-
-
-def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dict_type:
-    results = {}
-    d0 = ds[0]
-    for k in d0.keys():
-        if not isinstance(d0[k], torch.Tensor):
-            continue
-        tensors = []
-        for rs in ds:
-            tensor = rs[k]
-            if len(tensor.shape) == 0:
-                tensor = tensor.reshape([1])
-            tensors.append(tensor)
-        results[k] = torch.cat(tensors, dim=dim)
-    return results
-
-
-class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
-    def __init__(
-        self,
-        config: Dict[str, Any],
-        tr_data: TabularData,
-        device: torch.device,
-    ):
-        super().__init__()
-        self.device = device
-        self._wrapper_config = config
-        self.config = config.setdefault("model_config", {})
-        self._preset_config(tr_data)
-        self._init_config(tr_data)
-        self._init_loss(tr_data)
-        # encoders
-        excluded = 0
-        ts_indices = tr_data.ts_indices
-        recognizers = tr_data.recognizers
-        encoders: Dict[str, EncoderStack] = {}
-        self.numerical_columns_mapping = {}
-        self.categorical_columns_mapping = {}
-        for idx, recognizer in recognizers.items():
-            if idx == -1:
-                continue
-            if not recognizer.info.is_valid or idx in ts_indices:
-                excluded += 1
-            elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
-                self.numerical_columns_mapping[idx] = idx - excluded
-            else:
-                self._init_encoder(idx, encoders)
-                self.categorical_columns_mapping[idx] = idx - excluded
-        self.encoders = nn.ModuleDict(encoders)
-        self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
-        self._numerical_columns = sorted(self.numerical_columns_mapping.values())
-
-    @property
-    @abstractmethod
-    def input_sample(self) -> tensor_dict_type:
-        x = self.tr_data.processed.x[:2]
-        y = self.tr_data.processed.y[:2]
-        x, y = map(to_torch, [x, y])
-        return {"x_batch": x, "y_batch": y}
-
-    @abstractmethod
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
-        # batch will have `categorical`, `numerical` and `labels` keys
-        # requires returning `predictions` key
-        pass
-
-    def loss_function(
-        self,
-        batch: tensor_dict_type,
-        forward_results: tensor_dict_type,
-    ) -> Dict[str, torch.Tensor]:
-        # requires returning `loss` key
-        y_batch = batch["y_batch"]
-        if self.tr_data.is_clf:
-            y_batch = y_batch.view(-1)
-        predictions = forward_results["predictions"]
-        sample_weights = forward_results.get("batch_sample_weights")
-        losses = self.loss(predictions, y_batch)
-        if sample_weights is None:
-            return {"loss": losses.mean()}
-        return {"loss": (losses * sample_weights.to(losses.device)).mean()}
-
-    @property
-    def num_history(self) -> int:
-        num_history = 1
-        if self.tr_data.is_ts:
-            pipeline_config = self._wrapper_config["pipeline_config"]
-            sampler_config = pipeline_config["sampler_config"]
-            aggregation_config = sampler_config.get("aggregation_config", {})
-            num_history = aggregation_config.get("num_history")
-            if num_history is None:
-                raise ValueError(
-                    "please provide `num_history` in `aggregation_config` "
-                    "in `cflearn.make` for time series tasks."
-                )
-        return num_history
-
-    @property
-    def merged_dim(self) -> int:
-        merged_dim = self._categorical_dim + len(self._numerical_columns)
-        return merged_dim * self.num_history
-
-    @property
-    def encoding_dims(self) -> Dict[str, int]:
-        encoding_dims: Dict[str, int] = {}
-        for encoder_stack in self.encoders.values():
-            dims = encoder_stack.dims
-            if not encoding_dims:
-                encoding_dims = dims
-            else:
-                for k, v in dims.items():
-                    encoding_dims[k] += v
-        return encoding_dims
-
-    @property
-    def categorical_dims(self) -> Dict[int, int]:
-        dims = {}
-        for idx_str in sorted(self.encoders):
-            idx = int(idx_str)
-            true_idx = self.categorical_columns_mapping[idx]
-            dims[true_idx] = self.encoders[idx_str].dim
-        return dims
-
-    def _preset_config(self, tr_data: TabularData) -> None:
-        pass
-
-    def _init_config(self, tr_data: TabularData) -> None:
-        self.tr_data = tr_data
-        self._loss_config = self.config.setdefault("loss_config", {})
-        # TODO : optimize encodings by pre-calculate one-hot encodings in Wrapper
-        self._encoding_methods = self.config.setdefault("encoding_methods", {})
-        self._encoding_configs = self.config.setdefault("encoding_configs", {})
-        self._default_encoding_configs = self.config.setdefault(
-            "default_encoding_configs", {}
-        )
-        self._default_encoding_method = self.config.setdefault(
-            "default_encoding_method", "embedding"
-        )
-
-    def _init_input_config(self) -> None:
-        self._fc_in_dim: int = self.config.get("fc_in_dim")
-        self._fc_out_dim: int = self.config.get("fc_out_dim")
-        self.out_dim = max(self.tr_data.num_classes, 1)
-        if self._fc_in_dim is None:
-            self._fc_in_dim = self.merged_dim
-        if self._fc_out_dim is None:
-            self._fc_out_dim = self.out_dim
-
-    def _init_loss(self, tr_data: TabularData) -> None:
-        if tr_data.is_reg:
-            self.loss: nn.Module = nn.L1Loss(reduction="none")
-        else:
-            self.loss = FocalLoss(self._loss_config, reduction="none")
-
-    def _init_encoder(self, idx: int, encoders: Dict[str, EncoderStack]) -> None:
-        methods = self._encoding_methods.setdefault(idx, self._default_encoding_method)
-        config = self._encoding_configs.setdefault(idx, self._default_encoding_configs)
-        num_values = self.tr_data.recognizers[idx].num_unique_values
-        if isinstance(methods, str):
-            methods = [methods]
-        local_encoders = [
-            encoder_dict[method](idx, num_values, config) for method in methods
-        ]
-        encoders[str(idx)] = EncoderStack(*local_encoders)
-
-    def _optimizer_step(
-        self,
-        optimizers: Dict[str, Optimizer],
-        grad_scalar: Optional["amp.GradScaler"],  # type: ignore
-    ) -> None:
-        for opt in optimizers.values():
-            if grad_scalar is None:
-                opt.step()
-            else:
-                grad_scalar.step(opt)
-                grad_scalar.update()
-            opt.zero_grad()
-
-    @staticmethod
-    def _switch_requires_grad(
-        params: List[torch.nn.Parameter],
-        requires_grad: bool,
-    ) -> None:
-        for param in params:
-            param.requires_grad_(requires_grad)
-
-    def _split_features(
-        self,
-        x_batch: torch.Tensor,
-        *,
-        return_all_encodings: bool = False,
-    ) -> SplitFeatures:
-        categorical_columns = []
-        for idx_str in sorted(self.encoders):
-            encoder = self.encoders[idx_str]
-            mapping_idx = self.categorical_columns_mapping[int(idx_str)]
-            categorical_columns.append(
-                encoder(x_batch[..., mapping_idx], return_all=return_all_encodings)
-            )
-
-        categorical: Union[torch.Tensor, tensor_dict_type, None]
-        if not categorical_columns:
-            categorical = None
-        elif not return_all_encodings:
-            categorical = torch.cat(categorical_columns, dim=1)
-        else:
-            categorical = collate_tensor_dicts(categorical_columns, dim=1)
-
-        numerical = (
-            None
-            if not self._numerical_columns
-            else x_batch[..., self._numerical_columns]
-        )
-
-        return SplitFeatures(categorical, numerical)
-
-    def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
-        return self._split_features(torch.from_numpy(processed).to(device))
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        global model_dict
-
-        def before(cls_: Type) -> None:
-            cls_.__identifier__ = name
-
-        return register_core(name, model_dict, before_register=before)
-
-
-class Pipeline(nn.Module, LoggingMixin):
+class Trainer(nn.Module, LoggingMixin):
     def __init__(
         self,
         model: ModelBase,
@@ -343,8 +86,8 @@ class Pipeline(nn.Module, LoggingMixin):
         self.onnx: Optional[Any] = None
 
     def _init_config(self, config: Dict[str, Any], is_loading: bool) -> None:
-        self._wrapper_config = config
-        self.timing = self._wrapper_config["use_timing_context"]
+        self._pipeline_config = config
+        self.timing = self._pipeline_config["use_timing_context"]
         self.config = config.setdefault("pipeline_config", {})
         self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
         self.batch_size = self.config.setdefault("batch_size", 128)
@@ -610,7 +353,10 @@ class Pipeline(nn.Module, LoggingMixin):
     def _collect_info(self, *, return_only: bool) -> str:
         msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
         msg += (
-            pprint.pformat(self._wrapper_config, compact=True) + "\n" + "-" * 100 + "\n"
+            pprint.pformat(self._pipeline_config, compact=True)
+            + "\n"
+            + "-" * 100
+            + "\n"
         )
         msg += "\n".join(["=" * 100, "parameters", "-" * 100, ""])
         for name, param in self.model.named_parameters():
@@ -986,7 +732,7 @@ class Pipeline(nn.Module, LoggingMixin):
         file = f"pipeline_{self._step_count}.pt"
         torch.save(self.state_dict(), os.path.join(folder, file))
 
-    def restore_checkpoint(self, folder: str = None) -> "Pipeline":
+    def restore_checkpoint(self, folder: str = None) -> "Trainer":
         if folder is None:
             folder = self.checkpoint_folder
         checkpoints = self._filter_checkpoints(folder)
@@ -1008,347 +754,8 @@ class Pipeline(nn.Module, LoggingMixin):
         return self
 
 
-class Wrapper(LoggingMixin):
-    def __init__(
-        self,
-        config: Union[str, Dict[str, Any]] = None,
-        *,
-        increment_config: Union[str, Dict[str, Any]] = None,
-        trial: optuna.trial.Trial = None,
-        tracker_config: Dict[str, Any] = None,
-        cuda: Union[str, int] = None,
-        verbose_level: int = 2,
-    ):
-        self.trial = trial
-        self.tracker = None if tracker_config is None else Tracker(**tracker_config)
-        self._verbose_level = int(verbose_level)
-        if cuda == "cpu":
-            self.device = torch.device("cpu")
-        elif cuda is not None:
-            self.device = torch.device(f"cuda:{cuda}")
-        else:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.config, increment_config = map(
-            self._get_config, [config, increment_config]
-        )
-        update_dict(increment_config, self.config)
-        self._init_config()
-
-    def __str__(self) -> str:
-        return f"{type(self.model).__name__}()"  # type: ignore
-
-    __repr__ = __str__
-
-    @property
-    def train_set(self) -> TabularDataset:
-        raw = self.tr_data.raw
-        return TabularDataset(*raw.xy, task_type=self.tr_data.task_type)
-
-    @property
-    def valid_set(self) -> Optional[TabularDataset]:
-        if self.cv_data is None:
-            return None
-        raw = self.cv_data.raw
-        return TabularDataset(*raw.xy, task_type=self.cv_data.task_type)
-
-    @property
-    def binary_threshold(self) -> Union[float, None]:
-        return self._binary_threshold
-
-    @staticmethod
-    def _get_config(config: Optional[Union[str, Dict[str, Any]]]) -> Dict[str, Any]:
-        if config is None:
-            return {}
-        if isinstance(config, str):
-            with open(config, "r") as f:
-                return json.load(f)
-        return shallow_copy_dict(config)
-
-    def _init_config(self) -> None:
-        self.timing = self.config.setdefault("use_timing_context", True)
-        self._data_config = self.config.setdefault("data_config", {})
-        self._data_config["use_timing_context"] = self.timing
-        self._data_config["default_categorical_process"] = "identical"
-        self._read_config = self.config.setdefault("read_config", {})
-        self._cv_split = self.config.setdefault("cv_split", 0.1)
-        self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
-        self._model = self.config.setdefault("model", "fcnn")
-        self._binary_metric = self.config.setdefault("binary_metric", "acc")
-        self._is_binary = self.config.get("is_binary")
-        self._binary_threshold = self.config.get("binary_threshold")
-        self.config.setdefault("use_amp", False)
-        logging_folder = self.config["logging_folder"] = self.config.setdefault(
-            "logging_folder",
-            os.path.join("_logging", model_dict[self._model].__identifier__),
-        )
-        logging_file = self.config.get("logging_file")
-        if logging_file is not None:
-            logging_path = os.path.join(logging_folder, logging_file)
-        else:
-            logging_path = os.path.abspath(self.generate_logging_path(logging_folder))
-        self.config["_logging_path_"] = logging_path
-        self._init_logging(
-            self._verbose_level, self.config.setdefault("trigger_logging", False)
-        )
-
-    def _prepare_modules(self, *, is_loading: bool = False) -> None:
-        # model
-        with timing_context(self, "init model", enable=self.timing):
-            self.model = model_dict[self._model](self.config, self.tr_data, self.device)
-        # pipeline
-        with timing_context(self, "init pipeline", enable=self.timing):
-            self.pipeline = Pipeline(
-                self.model,
-                self.trial,
-                self.tracker,
-                self.config,
-                self._verbose_level,
-                is_loading,
-            )
-        # to device
-        with timing_context(self, "init device", enable=self.timing):
-            self.pipeline.to(self.device)
-
-    def _before_loop(
-        self,
-        x: data_type,
-        y: data_type,
-        x_cv: data_type,
-        y_cv: data_type,
-        sample_weights: np.ndarray,
-    ) -> None:
-        # data
-        y, y_cv = map(to_2d, [y, y_cv])
-        args = (x, y) if y is not None else (x,)
-        self._data_config["verbose_level"] = self._verbose_level
-        self._original_data = TabularData(**self._data_config).read(
-            *args, **self._read_config
-        )
-        self.tr_data = self._original_data
-        self._save_original_data = False
-        self.tr_weights = None
-        if x_cv is not None:
-            self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
-            if sample_weights is not None:
-                self.tr_weights = sample_weights[: len(self.tr_data)]
-        else:
-            if self._cv_split <= 0.0:
-                self.cv_data = None
-                if sample_weights is not None:
-                    self.tr_weights = sample_weights
-            else:
-                self._save_original_data = True
-                split = self.tr_data.split(
-                    self._cv_split,
-                    order=self._cv_split_order,
-                )
-                self.cv_data, self.tr_data = split.split, split.remained
-                # TODO : utilize cv_weights with sample_weights[split.split_indices]
-                if sample_weights is not None:
-                    self.tr_weights = sample_weights[split.remained_indices]
-        # modules
-        self._prepare_modules()
-
-    def _loop(self) -> None:
-        # training loop
-        self.pipeline(self.tr_data, self.cv_data, self.tr_weights)
-        # binary threshold
-        if self._binary_threshold is None:
-            if self.tr_data.num_classes != 2:
-                self._is_binary = False
-                self._binary_threshold = None
-            else:
-                self._is_binary = True
-                x, y = self.tr_data.raw.x, self.tr_data.processed.y
-                probabilities = self.predict_prob(x)
-                try:
-                    threshold = Metrics.get_binary_threshold(
-                        y, probabilities, self._binary_metric
-                    )
-                    self._binary_threshold = threshold
-                except ValueError:
-                    self._binary_threshold = None
-        # logging
-        self.log_timing()
-
-    # api
-
-    def fit(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_cv: data_type = None,
-        y_cv: data_type = None,
-        *,
-        sample_weights: np.ndarray = None,
-    ) -> "Wrapper":
-        self._before_loop(x, y, x_cv, y_cv, sample_weights)
-        self._loop()
-        return self
-
-    def trains(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_cv: data_type = None,
-        y_cv: data_type = None,
-        *,
-        sample_weights: np.ndarray = None,
-        trains_config: Dict[str, Any] = None,
-        keep_task_open: bool = False,
-        queue: str = None,
-    ) -> "Wrapper":
-        if trains_config is None:
-            return self.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
-        # init trains
-        if trains_config is None:
-            trains_config = {}
-        project_name = trains_config.get("project_name")
-        task_name = trains_config.get("task_name")
-        if queue is None:
-            task = Task.init(**trains_config)
-            cloned_task = None
-        else:
-            task = Task.get_task(project_name=project_name, task_name=task_name)
-            cloned_task = Task.clone(source_task=task, parent=task.id)
-        # before loop
-        self._verbose_level = 6
-        self._data_config["verbose_level"] = 6
-        self._before_loop(x, y, x_cv, y_cv, sample_weights)
-        self.pipeline.use_tqdm = False
-        copied_config = shallow_copy_dict(self.config)
-        if queue is not None:
-            assert cloned_task is not None
-            cloned_task.set_parameters(copied_config)
-            Task.enqueue(cloned_task.id, queue)
-            return self
-        # loop
-        task.connect(copied_config)
-        global trains_logger
-        trains_logger = task.get_logger()
-        self._loop()
-        if not keep_task_open:
-            task.close()
-            trains_logger = None
-        return self
-
-    def predict(
-        self,
-        x: data_type,
-        *,
-        return_all: bool = False,
-        requires_recover: bool = True,
-        **kwargs: Any,
-    ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
-        if self.tr_data.is_reg:
-            predictions = self.pipeline.predict(x, return_all, **kwargs)
-            recover = partial(self.tr_data.recover_labels, inplace=True)
-            if not return_all:
-                if requires_recover:
-                    return recover(predictions)
-                return predictions
-            if not requires_recover:
-                return predictions
-            return {k: recover(v) for k, v in predictions.items()}
-        probabilities = self.predict_prob(x, **kwargs)
-        if not self._is_binary or self._binary_threshold is None:
-            return probabilities.argmax(1).reshape([-1, 1])
-        return (
-            (probabilities[..., 1] >= self._binary_threshold)
-            .astype(np_int_type)
-            .reshape([-1, 1])
-        )
-
-    def predict_prob(self, x: data_type, **kwargs: Any) -> np.ndarray:
-        if self.tr_data.is_reg:
-            raise ValueError("`predict_prob` should not be called on regression tasks")
-        if kwargs and self.pipeline.onnx is not None:
-            self.log_msg(
-                "`kwargs` is provided but onnx is in use, it will be ignored",
-                self.warning_prefix,
-                msg_level=logging.WARNING,
-            )
-        raw = self.pipeline.predict(x, **kwargs)
-        return to_prob(raw)
-
-    def to_pattern(
-        self,
-        *,
-        pre_process: Callable = None,
-        **predict_kwargs: Any,
-    ) -> ModelPattern:
-        def _predict(x: np.ndarray) -> np.ndarray:
-            if pre_process is not None:
-                x = pre_process(x)
-            return self.predict(x, **predict_kwargs)
-
-        def _predict_prob(x: np.ndarray) -> np.ndarray:
-            if pre_process is not None:
-                x = pre_process(x)
-            return self.predict_prob(x, **predict_kwargs)
-
-        return ModelPattern(
-            init_method=lambda: self,
-            predict_method=_predict,
-            predict_prob_method=_predict_prob,
-        )
-
-    def save(self, folder: str = None, *, compress: bool = True) -> "Wrapper":
-        if folder is None:
-            folder = self.pipeline.checkpoint_folder
-        abs_folder = os.path.abspath(folder)
-        base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [folder]):
-            Saving.prepare_folder(self, folder)
-            train_data_folder = os.path.join(folder, "__data__", "train")
-            if self._save_original_data:
-                self._original_data.save(train_data_folder, compress=compress)
-            else:
-                self.tr_data.save(train_data_folder, compress=compress)
-                if self.cv_data is not None:
-                    self.cv_data.save(
-                        os.path.join(folder, "__data__", "valid"), compress=compress
-                    )
-            self.pipeline.save_checkpoint(folder)
-            self.config["is_binary"] = self._is_binary
-            self.config["binary_threshold"] = self._binary_threshold
-            Saving.save_dict(self.config, "config", folder)
-            if compress:
-                Saving.compress(abs_folder, remove_original=True)
-        return self
-
-    @classmethod
-    def load(
-        cls,
-        folder: str,
-        *,
-        cuda: int = None,
-        verbose_level: int = 0,
-        compress: bool = True,
-    ) -> "Wrapper":
-        base_folder = os.path.dirname(os.path.abspath(folder))
-        with lock_manager(base_folder, [folder]):
-            with Saving.compress_loader(folder, compress, remove_extracted=True):
-                config = Saving.load_dict("config", folder)
-                wrapper = Wrapper(config, cuda=cuda, verbose_level=verbose_level)
-                tr_data_folder = os.path.join(folder, "__data__", "train")
-                cv_data_folder = os.path.join(folder, "__data__", "valid")
-                tr_data = wrapper.tr_data = TabularData.load(
-                    tr_data_folder, compress=compress
-                )
-                cv_data = None
-                if os.path.isdir(cv_data_folder) or os.path.isfile(
-                    f"{cv_data_folder}.zip"
-                ):
-                    cv_data = wrapper.cv_data = TabularData.load(
-                        cv_data_folder, compress=compress
-                    )
-                wrapper._prepare_modules(is_loading=True)
-                pipeline = wrapper.pipeline
-                pipeline.restore_checkpoint(folder)
-                pipeline._init_data(tr_data, cv_data)
-                pipeline._init_metrics()
-        return wrapper
-
-
-__all__ = ["ModelBase", "model_dict", "Pipeline", "Wrapper"]
+__all__ = [
+    "to_prob",
+    "amp_autocast_context",
+    "Trainer",
+]

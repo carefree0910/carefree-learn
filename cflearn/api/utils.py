@@ -6,19 +6,19 @@ from typing import *
 from cftool.misc import update_dict
 from onnxruntime import InferenceSession
 
-from ..bases import *
 from ..misc.toolkit import *
 from .basic import make
+from ..pipeline.core import Pipeline
 
 
 class ONNX:
     def __init__(
         self,
-        wrapper: Wrapper,
+        pipeline: Pipeline,
         onnx_path: str = None,
     ):
-        self.wrapper = wrapper
-        self.model = wrapper.model.cpu()
+        self.pipeline = pipeline
+        self.model = pipeline.model.cpu()
         self.ort_session: Optional[InferenceSession] = None
         if onnx_path is not None:
             self._init_onnx_session(onnx_path)
@@ -62,8 +62,8 @@ class ONNX:
         return self
 
     def inject_onnx(self) -> "ONNX":
-        self.wrapper.pipeline.onnx = self
-        del self.wrapper.model, self.wrapper.pipeline.model
+        self.pipeline.trainer.onnx = self
+        del self.pipeline.model, self.pipeline.trainer.model
         return self
 
     def inference(self, new_inputs: Dict[str, np.ndarray]) -> tensor_dict_type:
@@ -82,7 +82,7 @@ def make_toy_model(
     *,
     task_type: str = "reg",
     data_tuple: Tuple[data_type, data_type] = None,
-) -> Wrapper:
+) -> Pipeline:
     if config is None:
         config = {}
     config.setdefault("min_epoch", 1)

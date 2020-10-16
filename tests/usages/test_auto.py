@@ -28,7 +28,7 @@ def test_auto() -> None:
         cflearn.estimate(
             x_cv,
             y_cv,
-            wrappers=fcnn,
+            pipelines=fcnn,
             other_patterns={"auto": auto.pattern},
         )
 

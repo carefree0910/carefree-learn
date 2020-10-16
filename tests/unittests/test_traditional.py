@@ -9,9 +9,10 @@ from sklearn.naive_bayes import GaussianNB
 from sklearn.naive_bayes import MultinomialNB
 from cftool.ml import ModelPattern
 from cftool.misc import timestamp
-from cflearn.bases import Wrapper
 from cfdata.tabular import TabularDataset
 from sklearn.tree import DecisionTreeClassifier
+
+from cflearn.pipeline.core import Pipeline
 
 
 class TestTraditional(unittest.TestCase):
@@ -20,14 +21,14 @@ class TestTraditional(unittest.TestCase):
         model: str,
         dataset: TabularDataset,
         sklearn_model: Any,
-    ) -> Tuple[Wrapper, Any, np.ndarray]:
+    ) -> Tuple[Pipeline, Any, np.ndarray]:
         folder = f"_logging/{model}_{timestamp(ensure_different=True)}"
         kwargs = {"cv_split": 0.0, "logging_folder": folder}
         m = cflearn.make(model, num_epoch=1, max_epoch=2, **kwargs)  # type: ignore
         m0 = cflearn.make(model, num_epoch=0, max_epoch=0, **kwargs)  # type: ignore
         m.fit(*dataset.xy)
         m0.fit(*dataset.xy)
-        cflearn.estimate(*dataset.xy, wrappers={"fit": m, "init": m0})
+        cflearn.estimate(*dataset.xy, pipelines={"fit": m, "init": m0})
         x, y = m0.tr_data.processed.xy
         split = m0.model.get_split(x, m0.device)
         x, sk_y = split.merge().cpu().numpy(), y.ravel()
