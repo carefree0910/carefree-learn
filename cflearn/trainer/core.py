@@ -19,7 +19,6 @@ from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import timing_context
 from cftool.misc import fix_float_to_length
-from cftool.misc import context_error_handler
 from tqdm import tqdm
 from trains import Logger
 from torch.optim import Optimizer
@@ -41,24 +40,6 @@ from ..models.base import ModelBase
 
 
 trains_logger: Union[Logger, None] = None
-
-
-class amp_autocast_context(context_error_handler):
-    def __init__(self, use_amp: bool):
-        if not use_amp:
-            self._autocast = None
-        else:
-            if amp is None:
-                raise ValueError("`amp` is not available but `use_amp` is set to True")
-            self._autocast = amp.autocast()
-
-    def __enter__(self) -> None:
-        if self._autocast is not None:
-            self._autocast.__enter__()
-
-    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-        if self._autocast is not None:
-            self._autocast.__exit__(exc_type, exc_val, exc_tb)
 
 
 class Trainer(nn.Module, LoggingMixin):
@@ -662,7 +643,4 @@ class Trainer(nn.Module, LoggingMixin):
         return self
 
 
-__all__ = [
-    "amp_autocast_context",
-    "Trainer",
-]
+__all__ = ["Trainer"]

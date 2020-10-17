@@ -13,6 +13,11 @@ from cftool.misc import context_error_handler
 from cfdata.types import np_int_type
 from cfdata.types import np_float_type
 
+try:
+    amp: Optional[Any] = torch.cuda.amp
+except:
+    amp = None
+
 from ..types import data_type
 from ..types import np_dict_type
 from ..types import tensor_dict_type
@@ -688,6 +693,24 @@ class eval_context(mode_context):
         super().__init__(module, to_train=False, use_grad=use_grad)
 
 
+class amp_autocast_context(context_error_handler):
+    def __init__(self, use_amp: bool):
+        if not use_amp:
+            self._autocast = None
+        else:
+            if amp is None:
+                raise ValueError("`amp` is not available but `use_amp` is set to True")
+            self._autocast = amp.autocast()
+
+    def __enter__(self) -> None:
+        if self._autocast is not None:
+            self._autocast.__enter__()
+
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self._autocast is not None:
+            self._autocast.__exit__(exc_type, exc_val, exc_tb)
+
+
 __all__ = [
     "is_int",
     "is_float",
@@ -705,4 +728,5 @@ __all__ = [
     "mode_context",
     "train_context",
     "eval_context",
+    "amp_autocast_context",
 ]
