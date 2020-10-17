@@ -48,7 +48,7 @@ class DDRVisualizer:
         x: np.ndarray,
         y: np.ndarray,
         x_base: np.ndarray,
-        mean: Union[np.ndarray, None],
+        mean: Optional[np.ndarray],
         median: np.ndarray,
         indices: np.ndarray,
         title: str,

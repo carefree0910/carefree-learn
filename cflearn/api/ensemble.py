@@ -422,9 +422,9 @@ class Ensemble:
         k: int = 10,
         eps: float = 1e-12,
         model: str = "fcnn",
-        predict_config: Dict[str, Any] = None,
-        increment_config: Dict[str, Any] = None,
-        sample_weights: Union[np.ndarray, None] = None,
+        predict_config: Optional[Dict[str, Any]] = None,
+        increment_config: Optional[Dict[str, Any]] = None,
+        sample_weights: Optional[np.ndarray] = None,
         num_test: Union[int, float] = 0.1,
     ) -> EnsembleResults:
         if increment_config is None:

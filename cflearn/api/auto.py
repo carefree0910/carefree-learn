@@ -114,14 +114,14 @@ class Auto:
         num_trial: int = 50,
         num_repeat: int = 5,
         num_parallel: int = 0,
-        timeout: float = None,
-        score_weights: Union[Dict[str, float], None] = None,
+        timeout: Optional[float] = None,
+        score_weights: Optional[Dict[str, float]] = None,
         estimator_scoring_function: Union[str, scoring_fn_type] = "default",
         temp_folder: str = "__tmp__",
-        extra_config: Dict[str, Any] = None,
         num_final_repeat: int = 10,
-        bagging_config: Dict[str, Any] = None,
-        cuda: Union[str, int] = None,
+        bagging_config: Optional[Dict[str, Any]] = None,
+        extra_config: Optional[Dict[str, Any]] = None,
+        cuda: Optional[Union[str, int]] = None,
     ) -> "Auto":
         model = self.model
         optuna_temp_folder = os.path.join(temp_folder, "__optuna__")

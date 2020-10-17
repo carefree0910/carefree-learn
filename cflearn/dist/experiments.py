@@ -168,7 +168,7 @@ class Experiments(LoggingMixin):
             if self.data_tasks:
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
                 for task_name, data_tasks in self.data_tasks.items():
-                    local_mappings: List[Union[str, None]] = [None] * len(data_tasks)
+                    local_mappings: List[Optional[str]] = [None] * len(data_tasks)
                     for data_task in data_tasks:
                         if data_task is None:
                             continue
@@ -236,7 +236,7 @@ class Experiments(LoggingMixin):
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")
                 if os.path.isdir(data_tasks_folder):
                     for task_name, data_tasks_mapping in data_tasks_mappings.items():
-                        local_data_tasks: List[Union[Task, None]] = [None] * len(
+                        local_data_tasks: List[Optional[Task]] = [None] * len(
                             data_tasks_mapping
                         )
                         for data_task_folder in data_tasks_mapping:

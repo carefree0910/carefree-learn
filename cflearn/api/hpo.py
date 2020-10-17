@@ -217,9 +217,9 @@ class HPOResult(NamedTuple):
 
 
 def _init_extra_config(
-    metrics: Union[str, List[str]] = None,
-    score_weights: Union[Dict[str, float], None] = None,
-    extra_config: Dict[str, Any] = None,
+    metrics: Optional[Union[str, List[str]]] = None,
+    score_weights: Optional[Dict[str, float]] = None,
+    extra_config: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     new = extra_config or {}
     new.setdefault("use_timing_context", False)
@@ -247,11 +247,11 @@ def tune_with(
     num_parallel: int = 4,
     num_search: int = 10,
     temp_folder: str = "__tmp__",
-    score_weights: Union[Dict[str, float], None] = None,
+    score_weights: Optional[Dict[str, float]] = None,
     estimator_scoring_function: Union[str, scoring_fn_type] = "default",
-    search_config: Dict[str, Any] = None,
+    search_config: Optional[Dict[str, Any]] = None,
+    extra_config: Optional[Dict[str, Any]] = None,
     verbose_level: int = 2,
-    extra_config: Dict[str, Any] = None,
 ) -> HPOResult:
 
     if os.path.isdir(temp_folder):
@@ -666,7 +666,7 @@ class OptunaPresetParams:
 
 
 class OptunaArgs(NamedTuple):
-    cuda: Union[str, None]
+    cuda: Optional[str]
     num_trial: Union[str, int]
     config: Union[str, Dict[str, Any]]
     key_mapping: Union[str, OptunaKeyMapping]
@@ -751,12 +751,12 @@ def optuna_tune(
     num_trial: int = 50,
     num_repeat: int = 5,
     num_parallel: int = 0,
-    timeout: float = None,
-    score_weights: Union[Dict[str, float], None] = None,
-    estimator_scoring_function: Union[str, scoring_fn_type] = "default",
     temp_folder: str = "__tmp__",
-    extra_config: Dict[str, Any] = None,
-    cuda: Union[int, str] = None,
+    estimator_scoring_function: Union[str, scoring_fn_type] = "default",
+    timeout: Optional[float] = None,
+    score_weights: Optional[Dict[str, float]] = None,
+    extra_config: Optional[Dict[str, Any]] = None,
+    cuda: Optional[Union[int, str]] = None,
 ) -> OptunaResult:
     if params is None:
         params = OptunaPresetParams().get(model)

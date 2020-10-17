@@ -20,8 +20,8 @@ class Linear(nn.Module):
         out_dim: int,
         *,
         bias: bool = True,
-        pruner_config: dict = None,
-        init_method: Union[str, None] = "xavier_uniform",
+        pruner_config: Optional[Dict[str, Any]] = None,
+        init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
     ):
         super().__init__()
@@ -37,7 +37,7 @@ class Linear(nn.Module):
         return self.linear.weight
 
     @property
-    def bias(self) -> Union[torch.Tensor, None]:
+    def bias(self) -> Optional[torch.Tensor]:
         return self.linear.bias
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
@@ -101,7 +101,7 @@ class Mapping(nn.Module):
         return self.linear.weight
 
     @property
-    def bias(self) -> Union[torch.Tensor, None]:
+    def bias(self) -> Optional[torch.Tensor]:
         return self.linear.bias
 
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
@@ -119,7 +119,7 @@ class MLP(nn.Module):
     def __init__(
         self,
         in_dim: int,
-        out_dim: Union[int, None],
+        out_dim: Optional[int],
         num_units: List[int],
         mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         *,
@@ -143,7 +143,7 @@ class MLP(nn.Module):
         return [mapping.weight for mapping in self.mappings]
 
     @property
-    def biases(self) -> List[Union[torch.Tensor, None]]:
+    def biases(self) -> List[Optional[torch.Tensor]]:
         return [mapping.bias for mapping in self.mappings]
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:

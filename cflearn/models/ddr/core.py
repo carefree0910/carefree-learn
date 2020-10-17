@@ -34,7 +34,7 @@ proj_type = Optional[Union[Linear, MLP]]
 tensors_type = Union[
     torch.Tensor,
     List[torch.Tensor],
-    Dict[str, Union[torch.Tensor, tensor_dict_type, None]],
+    Dict[str, Optional[Union[torch.Tensor, tensor_dict_type]]],
 ]
 
 

@@ -240,11 +240,11 @@ def estimate(
     y: data_type = None,
     *,
     contains_labels: bool = False,
-    pipelines: pipelines_type = None,
-    predict_config: Dict[str, Any] = None,
-    metrics: Union[str, List[str]] = None,
-    other_patterns: Dict[str, patterns_type] = None,
-    comparer_verbose_level: Union[int, None] = 1,
+    pipelines: Optional[pipelines_type] = None,
+    predict_config: Optional[Dict[str, Any]] = None,
+    metrics: Optional[Union[str, List[str]]] = None,
+    other_patterns: Optional[Dict[str, patterns_type]] = None,
+    comparer_verbose_level: Optional[int] = 1,
 ) -> Comparer:
     patterns = {}
     if pipelines is None:

@@ -27,8 +27,8 @@ model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
 class SplitFeatures(NamedTuple):
-    categorical: Union[torch.Tensor, tensor_dict_type, None]
-    numerical: Union[torch.Tensor, None]
+    categorical: Optional[Union[torch.Tensor, tensor_dict_type]]
+    numerical: Optional[torch.Tensor]
 
     @property
     def stacked_categorical(self) -> Optional[torch.Tensor]:
@@ -276,7 +276,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 encoder(x_batch[..., mapping_idx], return_all=return_all_encodings)
             )
 
-        categorical: Union[torch.Tensor, tensor_dict_type, None]
+        categorical: Optional[Union[torch.Tensor, tensor_dict_type]]
         if not categorical_columns:
             categorical = None
         elif not return_all_encodings:

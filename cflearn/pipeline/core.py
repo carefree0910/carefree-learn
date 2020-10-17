@@ -31,7 +31,7 @@ from ..pipeline.inference import Inference
 from ..trainer.core import Trainer
 from ..types import data_type
 
-trains_logger: Union[Logger, None] = None
+trains_logger: Optional[Logger] = None
 
 
 class Pipeline(LoggingMixin):
@@ -73,7 +73,7 @@ class Pipeline(LoggingMixin):
         return TabularDataset(*raw.xy, task_type=self.cv_data.task_type)
 
     @property
-    def binary_threshold(self) -> Union[float, None]:
+    def binary_threshold(self) -> Optional[float]:
         return self._binary_threshold
 
     def _init_config(self, config: Dict[str, Any]) -> None:

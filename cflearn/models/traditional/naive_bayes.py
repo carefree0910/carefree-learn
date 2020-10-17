@@ -8,6 +8,7 @@ from typing import Dict
 from typing import Tuple
 from typing import Union
 from typing import Callable
+from typing import Optional
 from functools import partial
 from cfdata.types import np_int_type
 from cfdata.tabular import TabularData
@@ -94,7 +95,7 @@ class NNB(ModelBase):
         self.pretrain = self.config.setdefault("pretrain", True)
 
     @property
-    def pdf(self) -> Union[Callable[[np.ndarray], np.ndarray], None]:
+    def pdf(self) -> Optional[Callable[[np.ndarray], np.ndarray]]:
         if self.normal is None:
             return None
 
@@ -113,7 +114,7 @@ class NNB(ModelBase):
         return np.exp(self.class_log_prior(numpy=True))
 
     @property
-    def posteriors(self) -> Union[Tuple[np.ndarray, ...], None]:
+    def posteriors(self) -> Optional[Tuple[np.ndarray, ...]]:
         if self.mnb is None:
             return None
         with torch.no_grad():

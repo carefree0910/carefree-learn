@@ -34,7 +34,7 @@ from ..models.base import ModelBase
 from ..pipeline.inference import Inference
 
 
-trains_logger: Union[Logger, None] = None
+trains_logger: Optional[Logger] = None
 
 
 class Trainer(LoggingMixin):
@@ -189,7 +189,7 @@ class Trainer(LoggingMixin):
         if not isinstance(metric_types, (list, tuple)):
             metric_types = [metric_types]
         self._metrics_need_loss = False
-        self.metrics: Dict[str, Union[Metrics, None]] = {}
+        self.metrics: Dict[str, Optional[Metrics]] = {}
         self.metrics_decay: Optional[Dict[str, ScalarEMA]] = {}
         metric_decay = metric_config.setdefault("decay", 0.1)
         for i, metric_type in enumerate(metric_types):

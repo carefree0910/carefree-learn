@@ -330,8 +330,8 @@ class Activations:
     @classmethod
     def make(
         cls,
-        name: Union[str, None],
-        config: Union[Dict[str, Any], None],
+        name: Optional[str],
+        config: Optional[Dict[str, Any]],
     ) -> nn.Module:
         if name is None:
             return nn.Identity()
@@ -655,8 +655,8 @@ class mode_context(context_error_handler):
         self,
         module: nn.Module,
         *,
-        to_train: Union[bool, None],
-        use_grad: Union[bool, None],
+        to_train: Optional[bool],
+        use_grad: Optional[bool],
     ):
         self._to_train = to_train
         self._module, self._training = module, module.training
