@@ -82,6 +82,8 @@ def make(
     kwargs["model"] = model
     if cv_split is not None:
         kwargs["cv_split"] = cv_split
+    if use_tqdm is not None:
+        kwargs["use_tqdm"] = use_tqdm
     if use_timing_context is not None:
         kwargs["use_timing_context"] = use_timing_context
     if batch_size is not None:
@@ -118,8 +120,6 @@ def make(
     trainer_config = kwargs.setdefault("trainer_config", {})
     if use_amp is not None:
         trainer_config["use_amp"] = use_amp
-    if use_tqdm is not None:
-        trainer_config["use_tqdm"] = use_tqdm
     if min_epoch is not None:
         trainer_config["min_epoch"] = min_epoch
     if num_epoch is not None:
