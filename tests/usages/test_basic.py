@@ -137,3 +137,4 @@ def test_auto_file() -> None:
 if __name__ == "__main__":
     test_array_dataset()
     test_file_dataset()
+    test_auto_file()
