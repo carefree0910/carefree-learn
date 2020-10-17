@@ -18,43 +18,11 @@ except:
 
 from ..losses import *
 from ..modules import *
-from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
+from ..misc.toolkit import collate_tensor_dicts
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
-
-
-def collate_np_dicts(ds: List[np_dict_type], axis: int = 0) -> np_dict_type:
-    results = {}
-    d0 = ds[0]
-    for k in d0.keys():
-        if not isinstance(d0[k], np.ndarray):
-            continue
-        arrays = []
-        for rs in ds:
-            array = rs[k]
-            if len(array.shape) == 0:
-                array = array.reshape([1])
-            arrays.append(array)
-        results[k] = np.concatenate(arrays, axis=axis)
-    return results
-
-
-def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dict_type:
-    results = {}
-    d0 = ds[0]
-    for k in d0.keys():
-        if not isinstance(d0[k], torch.Tensor):
-            continue
-        tensors = []
-        for rs in ds:
-            tensor = rs[k]
-            if len(tensor.shape) == 0:
-                tensor = tensor.view([1])
-            tensors.append(tensor)
-        results[k] = torch.cat(tensors, dim=dim)
-    return results
 
 
 class SplitFeatures(NamedTuple):
@@ -290,8 +258,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
 
 __all__ = [
-    "collate_np_dicts",
-    "collate_tensor_dicts",
     "SplitFeatures",
     "ModelBase",
 ]

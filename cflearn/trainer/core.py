@@ -37,8 +37,6 @@ from ..types import tensor_dict_type
 from ..modules import optimizer_dict
 from ..modules import scheduler_dict
 from ..modules import EMA
-from ..models.base import collate_np_dicts
-from ..models.base import collate_tensor_dicts
 from ..models.base import ModelBase
 
 

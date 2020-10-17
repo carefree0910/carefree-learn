@@ -10,9 +10,12 @@ from abc import ABCMeta, abstractmethod
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
 from cftool.misc import context_error_handler
-from cfdata.types import np_int_type, np_float_type
+from cfdata.types import np_int_type
+from cfdata.types import np_float_type
 
 from ..types import data_type
+from ..types import np_dict_type
+from ..types import tensor_dict_type
 
 
 def is_int(arr: np.ndarray) -> bool:
@@ -47,6 +50,38 @@ def to_2d(arr: data_type) -> data_type:
     if isinstance(arr[0], list):
         return arr
     return [[elem] for elem in arr]
+
+
+def collate_np_dicts(ds: List[np_dict_type], axis: int = 0) -> np_dict_type:
+    results = {}
+    d0 = ds[0]
+    for k in d0.keys():
+        if not isinstance(d0[k], np.ndarray):
+            continue
+        arrays = []
+        for rs in ds:
+            array = rs[k]
+            if len(array.shape) == 0:
+                array = array.reshape([1])
+            arrays.append(array)
+        results[k] = np.concatenate(arrays, axis=axis)
+    return results
+
+
+def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dict_type:
+    results = {}
+    d0 = ds[0]
+    for k in d0.keys():
+        if not isinstance(d0[k], torch.Tensor):
+            continue
+        tensors = []
+        for rs in ds:
+            tensor = rs[k]
+            if len(tensor.shape) == 0:
+                tensor = tensor.view([1])
+            tensors.append(tensor)
+        results[k] = torch.cat(tensors, dim=dim)
+    return results
 
 
 def get_gradient(
@@ -656,6 +691,8 @@ __all__ = [
     "to_torch",
     "to_numpy",
     "to_2d",
+    "collate_np_dicts",
+    "collate_tensor_dicts",
     "get_gradient",
     "Initializer",
     "Activations",
