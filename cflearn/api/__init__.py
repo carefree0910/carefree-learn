@@ -4,6 +4,7 @@ from .auto import *
 from .basic import *
 from .ensemble import *
 from .register import *
+from .inference import *
 
 
 __all__ = [
@@ -51,4 +52,6 @@ __all__ = [
     "register_processor",
     "Initializer",
     "Processor",
+    # inference
+    "Pack",
 ]

@@ -43,6 +43,7 @@ class Trainer(LoggingMixin):
     def __init__(
         self,
         model: ModelBase,
+        inference: Inference,
         trial: Optional[optuna.trial.Trial],
         tracker: Tracker,
         pipeline_config: Dict[str, Any],
@@ -51,6 +52,7 @@ class Trainer(LoggingMixin):
     ):
         self.trial = trial
         self.tracker = tracker
+        self.inference = inference
         self._init_config(pipeline_config, is_loading)
         self.model = model
         self._verbose_level = verbose_level
@@ -60,8 +62,8 @@ class Trainer(LoggingMixin):
     def _init_config(self, pipeline_config: Dict[str, Any], is_loading: bool) -> None:
         self._pipeline_config = pipeline_config
         self.timing = self._pipeline_config["use_timing_context"]
+        self.use_tqdm = self._pipeline_config["use_tqdm"]
         self.config = pipeline_config.setdefault("trainer_config", {})
-        self.use_tqdm = self.config.setdefault("use_tqdm", True)
         self.min_epoch = int(self.config.setdefault("min_epoch", 0))
         num_epoch = self.config.setdefault("num_epoch", max(40, self.min_epoch))
         max_epoch = self.config.setdefault("max_epoch", max(200, num_epoch))
@@ -285,7 +287,7 @@ class Trainer(LoggingMixin):
             loader.enabled_sampling = False
         if not self._metrics_need_loss:
             loss_values = None
-            results = self.inference.predict(loader=loader)
+            results = self.inference.predict(loader=loader, return_all=True)
             predictions, labels = map(results.get, ["predictions", "labels"])
         else:
             predictions = None
@@ -365,15 +367,6 @@ class Trainer(LoggingMixin):
 
         return score, metrics
 
-    def _prepare(self, tr_loader: DataLoader, cv_loader: DataLoader) -> None:
-        self.tr_loader, self.cv_loader = tr_loader, cv_loader
-        self.inference = Inference(
-            self.tr_loader.data.is_clf,
-            self.model.device,
-            model=self.model,
-            use_tqdm=self.use_tqdm,
-        )
-
     # api
 
     def fit(
@@ -382,7 +375,7 @@ class Trainer(LoggingMixin):
         cv_loader: DataLoader,
         tr_weights: np.ndarray,
     ) -> None:
-        self._prepare(tr_loader, cv_loader)
+        self.tr_loader, self.cv_loader = tr_loader, cv_loader
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)

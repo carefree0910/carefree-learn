@@ -1,18 +1,15 @@
 import os
 import torch
 import optuna
-import logging
 
 import numpy as np
 
 from typing import *
-from cftool.ml import Metrics
-from cftool.ml import Tracker
-from cftool.ml import ModelPattern
 from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
-from cfdata.tabular import ImbalancedSampler
+from cftool.ml import Tracker
+from cftool.ml import ModelPattern
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import timing_context
@@ -20,20 +17,19 @@ from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from trains import Task
 from trains import Logger
-from functools import partial
-from cfdata.types import np_int_type
 
 try:
     amp: Optional[Any] = torch.cuda.amp
 except:
     amp = None
 
-from ..types import data_type
-from ..models.base import model_dict
-from ..trainer.core import Trainer
+from .inference import PreProcessor
 from ..misc.toolkit import to_2d
-from ..misc.toolkit import to_prob
 from ..misc.time_series import TSLabelCollator
+from ..models.base import model_dict
+from ..pipeline.inference import Inference
+from ..trainer.core import Trainer
+from ..types import data_type
 
 trains_logger: Union[Logger, None] = None
 
@@ -82,6 +78,7 @@ class Pipeline(LoggingMixin):
 
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
+        self.use_tqdm = self.config.setdefault("use_tqdm", True)
         self.timing = self.config.setdefault("use_timing_context", True)
         self._data_config = self.config.setdefault("data_config", {})
         self._data_config["use_timing_context"] = self.timing
@@ -117,30 +114,6 @@ class Pipeline(LoggingMixin):
         trigger_logging = self.config.setdefault("trigger_logging", False)
         self._init_logging(self._verbose_level, trigger_logging)
 
-    def _prepare_modules(self, *, is_loading: bool = False) -> None:
-        # model
-        with timing_context(self, "init model", enable=self.timing):
-            args = self.config, self.tr_data, self.cv_data, self.device
-            self.model = model_dict[self._model](*args)
-        # trainer
-        with timing_context(self, "init trainer", enable=self.timing):
-            self.trainer = Trainer(
-                self.model,
-                self.trial,
-                self.tracker,
-                self.config,
-                self._verbose_level,
-                is_loading,
-            )
-        # to device
-        with timing_context(self, "init device", enable=self.timing):
-            self.trainer.model.to(self.device)
-
-    def _make_sampler(self, data: TabularData, shuffle: bool) -> ImbalancedSampler:
-        config = shallow_copy_dict(self._sampler_config)
-        config["shuffle"] = shuffle
-        return ImbalancedSampler(data, **config)
-
     def _init_data(self) -> None:
         if not self.tr_data.is_ts:
             self.ts_label_collator = None
@@ -150,7 +123,8 @@ class Pipeline(LoggingMixin):
                 self._ts_label_collator_config,
             )
         self._sampler_config.setdefault("verbose_level", self.tr_data._verbose_level)
-        tr_sampler = self._make_sampler(self.tr_data, self.shuffle_tr)
+        self.preprocessor = PreProcessor(self._original_data, self._sampler_config)
+        tr_sampler = self.preprocessor.make_sampler(self.tr_data, self.shuffle_tr)
         self.tr_loader = DataLoader(
             self.batch_size,
             tr_sampler,
@@ -161,7 +135,7 @@ class Pipeline(LoggingMixin):
         if self.cv_data is None:
             self.cv_loader = None
         else:
-            cv_sampler = self._make_sampler(self.cv_data, False)
+            cv_sampler = self.preprocessor.make_sampler(self.cv_data, False)
             self.cv_loader = DataLoader(
                 self.cv_batch_size,
                 cv_sampler,
@@ -169,6 +143,40 @@ class Pipeline(LoggingMixin):
                 verbose_level=self._verbose_level,
                 label_collator=self.ts_label_collator,
             )
+
+    def _prepare_modules(self, *, is_loading: bool = False) -> None:
+        # model
+        with timing_context(self, "init model", enable=self.timing):
+            args = self.config, self.tr_data, self.cv_data, self.device
+            self.model = model_dict[self._model](*args)
+        # trainer
+        with timing_context(self, "init trainer", enable=self.timing):
+            if self.preprocessor is None:
+                msg = "`preprocessor` is not defined. Please call `_init_data` first"
+                raise ValueError(msg)
+            self.inference = Inference(
+                self.preprocessor,
+                self.model.device,
+                binary_metric=self._binary_metric,
+                model=self.model,
+                use_tqdm=self.use_tqdm,
+            )
+            self.trainer = Trainer(
+                self.model,
+                self.inference,
+                self.trial,
+                self.tracker,
+                self.config,
+                self._verbose_level,
+                is_loading,
+            )
+        # to device
+        with timing_context(self, "init device", enable=self.timing):
+            self.trainer.model.to(self.device)
+
+    # TODO : Call this frequently
+    def _generate_binary_threshold(self) -> None:
+        self.inference.generate_binary_threshold()
 
     def _before_loop(
         self,
@@ -182,9 +190,8 @@ class Pipeline(LoggingMixin):
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
         self._data_config["verbose_level"] = self._verbose_level
-        self._original_data = TabularData(**self._data_config).read(
-            *args, **self._read_config
-        )
+        self._original_data = TabularData(**self._data_config)
+        self._original_data.read(*args, **self._read_config)
         self.tr_data = self._original_data
         self._save_original_data = False
         self.tr_weights = None
@@ -194,7 +201,7 @@ class Pipeline(LoggingMixin):
                 self.tr_weights = sample_weights[: len(self.tr_data)]
         else:
             if self._cv_split <= 0.0:
-                self.cv_data = None
+                self.cv_data = self.cv_indices = None
                 if sample_weights is not None:
                     self.tr_weights = sample_weights
             else:
@@ -215,23 +222,7 @@ class Pipeline(LoggingMixin):
         # training loop
         self.trainer.fit(self.tr_loader, self.cv_loader, self.tr_weights)
         # binary threshold
-        if self._binary_threshold is None:
-            if self.tr_data.num_classes != 2:
-                self._is_binary = False
-                self._binary_threshold = None
-            else:
-                self._is_binary = True
-                x, y = self.tr_data.raw.x, self.tr_data.processed.y
-                probabilities = self.predict_prob(x)
-                try:
-                    threshold = Metrics.get_binary_threshold(
-                        y,
-                        probabilities,
-                        self._binary_metric,
-                    )
-                    self._binary_threshold = threshold
-                except ValueError:
-                    self._binary_threshold = None
+        self._generate_binary_threshold()
         # logging
         self.log_timing()
 
@@ -306,42 +297,19 @@ class Pipeline(LoggingMixin):
         returns_probabilities: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
-        data = self.tr_loader.data.copy_to(x, None, contains_labels=contains_labels)
-        loader = DataLoader(self.cv_batch_size, self._make_sampler(data, False))
-        predictions = self.trainer.inference.predict(loader, **kwargs)
-        if not return_all:
-            predictions = predictions["predictions"]
-        # check onnx
-        if kwargs and self.trainer.onnx is not None:
-            self.log_msg(
-                "`kwargs` is provided but onnx is in use, it will be ignored",
-                self.warning_prefix,
-                msg_level=logging.WARNING,
-            )
-        # regression
-        if self.tr_data.is_reg:
-            recover = partial(self.tr_data.recover_labels, inplace=True)
-            if not return_all:
-                if requires_recover:
-                    return recover(predictions)
-                return predictions
-            if not requires_recover:
-                return predictions
-            return {k: recover(v) for k, v in predictions.items()}
-        # classification
-        if return_all:
-            raise ValueError("`return_all` is not well defined in classifications")
-        assert isinstance(predictions, np.ndarray)
-        if returns_probabilities:
-            return to_prob(predictions)
-        if not self._is_binary or self._binary_threshold is None:
-            return predictions.argmax(1).reshape([-1, 1])
-        probabilities = to_prob(predictions)
-        return (
-            (probabilities[..., 1] >= self._binary_threshold)
-            .astype(np_int_type)
-            .reshape([-1, 1])
+        loader = self.preprocessor.make_inference_loader(
+            x,
+            self.cv_batch_size,
+            contains_labels=contains_labels,
         )
+        kwargs.update(
+            {
+                "return_all": return_all,
+                "requires_recover": requires_recover,
+                "returns_probabilities": returns_probabilities,
+            }
+        )
+        return self.inference.predict(loader, **kwargs)
 
     def predict_prob(
         self,
@@ -390,6 +358,7 @@ class Pipeline(LoggingMixin):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [folder]):
             Saving.prepare_folder(self, folder)
+            # TODO : save indices instead of instance. Only save original data
             train_data_folder = os.path.join(folder, "__data__", "train")
             if self._save_original_data:
                 self._original_data.save(train_data_folder, compress=compress)
@@ -427,12 +396,14 @@ class Pipeline(LoggingMixin):
                 cv_file = f"{cv_data_folder}.zip"
                 if os.path.isdir(cv_data_folder) or os.path.isfile(cv_file):
                     cv_data = TabularData.load(cv_data_folder, compress=compress)
+                pipeline._original_data = tr_data
                 pipeline.tr_data = tr_data
                 pipeline.cv_data = cv_data
                 pipeline._init_data()
                 pipeline._prepare_modules(is_loading=True)
                 trainer = pipeline.trainer
-                trainer._prepare(pipeline.tr_loader, pipeline.cv_loader)
+                trainer.tr_loader = pipeline.tr_loader
+                trainer.cv_loader = pipeline.cv_loader
                 trainer.restore_checkpoint(folder)
                 trainer._init_metrics()
         return pipeline

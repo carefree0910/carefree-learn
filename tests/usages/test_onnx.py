@@ -18,8 +18,10 @@ def test_onnx() -> None:
         )
         m.fit(x, y)
         predictions = m.predict(x)
-        cflearn.ONNX(m).to_onnx("m.onnx").inject_onnx()
-        assert np.allclose(predictions, m.predict(x), atol=1e-4, rtol=1e-4)
+        predictor_folder = "test_onnx"
+        cflearn.Pack.pack(m, predictor_folder)
+        predictor = cflearn.Pack.get_predictor(predictor_folder)
+        assert np.allclose(predictions, predictor.predict(x), atol=1e-4, rtol=1e-4)
 
     reg_models = ["linear", "fcnn", "tree_dnn"]
     for model in reg_models:

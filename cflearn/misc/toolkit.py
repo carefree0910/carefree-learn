@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import logging
@@ -7,9 +8,11 @@ import torch.nn as nn
 
 from typing import *
 from abc import ABCMeta, abstractmethod
+from cftool.misc import lock_manager
+from cftool.misc import context_error_handler
+from cftool.misc import Saving
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
-from cftool.misc import context_error_handler
 from cfdata.types import np_int_type
 from cfdata.types import np_float_type
 
@@ -91,6 +94,13 @@ def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dic
             tensors.append(tensor)
         results[k] = torch.cat(tensors, dim=dim)
     return results
+
+
+def compress_zip(folder: str, *, remove_original: bool = True) -> None:
+    abs_folder = os.path.abspath(folder)
+    base_folder = os.path.dirname(abs_folder)
+    with lock_manager(base_folder, [folder]):
+        Saving.compress(abs_folder, remove_original=remove_original)
 
 
 def get_gradient(
@@ -721,6 +731,7 @@ __all__ = [
     "to_prob",
     "collate_np_dicts",
     "collate_tensor_dicts",
+    "compress_zip",
     "get_gradient",
     "Initializer",
     "Activations",
