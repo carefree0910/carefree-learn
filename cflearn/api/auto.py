@@ -106,6 +106,7 @@ class Auto:
         y_cv: data_type = None,
         *,
         study_config: Dict[str, Any] = None,
+        predict_config: Optional[Dict[str, Any]] = None,
         metrics: Union[str, List[str]] = None,
         num_jobs: int = 1,
         num_trial: int = 50,
@@ -154,6 +155,7 @@ class Auto:
             increment_config.setdefault("trigger_logging", False)
             increment_config.setdefault("verbose_level", 0)
             bagging_config["temp_folder"] = bagging_temp_folder
+            bagging_config["predict_config"] = predict_config
             bagging_config["use_tracker"] = False
             bagging_config["num_jobs"] = num_jobs
             bagging_config["models"] = model
@@ -171,6 +173,7 @@ class Auto:
                 {
                     "models": model,
                     "sequential": num_jobs <= 1,
+                    "predict_config": predict_config,
                     "temp_folder": repeat_temp_folder,
                     "num_repeat": num_final_repeat,
                     "num_jobs": num_jobs,

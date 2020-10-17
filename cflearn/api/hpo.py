@@ -175,7 +175,7 @@ class _Tuner(LoggingMixin):
             models=model,
             identifiers=identifier,
             temp_folder=temp_folder,
-            pattern_kwargs={"contains_labels": True},
+            predict_config={"contains_labels": True},
             sequential=sequential,
             **params,
         )

@@ -370,11 +370,11 @@ def repeat_with(
     *,
     models: Union[str, List[str]] = "fcnn",
     identifiers: Union[str, List[str]] = None,
+    predict_config: Optional[Dict[str, Any]] = None,
     num_jobs: int = 4,
     num_repeat: int = 5,
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,
-    pattern_kwargs: Dict[str, Any] = None,
     sequential: bool = None,
     use_tqdm: bool = True,
     **kwargs: Any,
@@ -443,10 +443,10 @@ def repeat_with(
     patterns = None
     if return_patterns:
         assert pipelines_dict is not None
-        if pattern_kwargs is None:
-            pattern_kwargs = {}
+        if predict_config is None:
+            predict_config = {}
         patterns = {
-            model: [m.to_pattern(**pattern_kwargs) for m in pipelines]
+            model: [m.to_pattern(**predict_config) for m in pipelines]
             for model, pipelines in pipelines_dict.items()
         }
 
