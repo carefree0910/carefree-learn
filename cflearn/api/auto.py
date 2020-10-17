@@ -1,12 +1,16 @@
 import os
+import torch
 import optuna
 
 import numpy as np
 import optuna.visualization as vis
 
 from typing import *
+from functools import partial
 from cfdata.tabular import TaskTypes
 from cftool.misc import shallow_copy_dict
+from cftool.misc import lock_manager
+from cftool.misc import Saving
 from cftool.ml.utils import scoring_fn_type
 from optuna.trial import TrialState, FrozenTrial
 from optuna.importance import BaseImportanceEvaluator
@@ -15,13 +19,21 @@ from plotly.graph_objects import Figure
 from .basic import *
 from .ensemble import *
 from .hpo import optuna_tune
+from .production import Pack
+from .production import Predictor
 from ..types import data_type
+from ..misc.toolkit import compress_zip
+from ..pipeline.core import Pipeline
 
 
 class Auto:
+    pattern_weights_file = "pattern_weights.npy"
+
     def __init__(self, task_type: TaskTypes, *, model: str = "fcnn"):
         self.model = model
         self.task_type = task_type
+        self.pipelines: Optional[List[Pipeline]] = None
+        self.pattern_weights: Optional[np.ndarray] = None
 
     def __str__(self) -> str:
         return f"Auto_{self.model}({self.task_type})"
@@ -148,6 +160,8 @@ class Auto:
             bagging_config["k"] = num_final_repeat
             x_merged, y_merged = self._merge_data(x, y, x_cv, y_cv)
             self.bagging_result = bagging(x_merged, y_merged, **bagging_config)
+            self.pattern_weights = self.bagging_result.pattern_weights
+            self.pipelines = self.bagging_result.pipelines
             self.pattern = self.bagging_result.pattern
             self.data = self.bagging_result.data
         else:
@@ -164,12 +178,66 @@ class Auto:
             )
             self.repeat_result = repeat_with(x, y, x_cv, y_cv, **repeat_config)
             patterns_dict = self.repeat_result.patterns
-            assert patterns_dict is not None
-            patterns = patterns_dict[model]
+            pipelines_dict = self.repeat_result.pipelines
+            assert patterns_dict is not None and pipelines_dict is not None
             data = self.repeat_result.data
-            self.pattern = ensemble(patterns)
+            self.pipelines = pipelines_dict[model]
+            self.pattern = ensemble(patterns_dict[model])
             self.data = data
         return self
+
+    def pack(
+        self,
+        export_folder: str,
+        *,
+        compress: bool = True,
+        remove_original: bool = True,
+    ) -> "Auto":
+        if self.pipelines is None:
+            raise ValueError("`pipelines` are not yet generated")
+        for i, pipeline in enumerate(self.pipelines):
+            local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
+            Pack.pack(pipeline, local_export_folder)
+        if self.pattern_weights is not None:
+            path = os.path.join(export_folder, self.pattern_weights_file)
+            np.save(path, self.pattern_weights)
+        if compress:
+            compress_zip(export_folder, remove_original=remove_original)
+        return self
+
+    @classmethod
+    def get_predictors(
+        cls,
+        export_folder: str,
+        device: Union[str, torch.device] = "cpu",
+        *,
+        compress: bool = True,
+        use_tqdm: bool = False,
+    ) -> Tuple[List[Predictor], Optional[np.ndarray]]:
+        base_folder = os.path.dirname(os.path.abspath(export_folder))
+        with lock_manager(base_folder, [export_folder]):
+            with Saving.compress_loader(
+                export_folder,
+                compress,
+                remove_extracted=True,
+            ):
+                predictors = []
+                pattern_weights = None
+                for file in os.listdir(export_folder):
+                    if file == cls.pattern_weights_file:
+                        pattern_weights = np.load(os.path.join(export_folder, file))
+                    else:
+                        file_name = os.path.splitext(file)[0]
+                        local_folder = os.path.join(export_folder, file_name)
+                        predictors.append(
+                            Pack.get_predictor(
+                                local_folder,
+                                device,
+                                compress=compress,
+                                use_tqdm=use_tqdm,
+                            )
+                        )
+        return predictors, pattern_weights
 
     # visualization
 
