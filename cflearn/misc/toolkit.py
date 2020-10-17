@@ -52,6 +52,10 @@ def to_2d(arr: data_type) -> data_type:
     return [[elem] for elem in arr]
 
 
+def to_prob(raw: np.ndarray) -> np.ndarray:
+    return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
+
+
 def collate_np_dicts(ds: List[np_dict_type], axis: int = 0) -> np_dict_type:
     results = {}
     d0 = ds[0]
@@ -691,6 +695,7 @@ __all__ = [
     "to_torch",
     "to_numpy",
     "to_2d",
+    "to_prob",
     "collate_np_dicts",
     "collate_tensor_dicts",
     "get_gradient",

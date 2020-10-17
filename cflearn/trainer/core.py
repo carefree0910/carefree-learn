@@ -43,10 +43,6 @@ from ..models.base import ModelBase
 trains_logger: Union[Logger, None] = None
 
 
-def to_prob(raw: np.ndarray) -> np.ndarray:
-    return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
-
-
 class amp_autocast_context(context_error_handler):
     def __init__(self, use_amp: bool):
         if not use_amp:
@@ -667,7 +663,6 @@ class Trainer(nn.Module, LoggingMixin):
 
 
 __all__ = [
-    "to_prob",
     "amp_autocast_context",
     "Trainer",
 ]
