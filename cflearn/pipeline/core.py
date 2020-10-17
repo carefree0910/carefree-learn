@@ -135,7 +135,7 @@ class Pipeline(LoggingMixin):
             )
         # to device
         with timing_context(self, "init device", enable=self.timing):
-            self.trainer.to(self.device)
+            self.trainer.model.to(self.device)
 
     def _make_sampler(self, data: TabularData, shuffle: bool) -> ImbalancedSampler:
         config = shallow_copy_dict(self._sampler_config)

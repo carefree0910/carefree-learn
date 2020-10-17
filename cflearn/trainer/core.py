@@ -6,7 +6,6 @@ import inspect
 import logging
 
 import numpy as np
-import torch.nn as nn
 
 from typing import *
 from cftool.ml import Metrics
@@ -38,7 +37,9 @@ from ..pipeline.inference import Inference
 trains_logger: Union[Logger, None] = None
 
 
-class Trainer(nn.Module, LoggingMixin):
+class Trainer(LoggingMixin):
+    pt_prefix = "model_"
+
     def __init__(
         self,
         model: ModelBase,
@@ -48,7 +49,6 @@ class Trainer(nn.Module, LoggingMixin):
         verbose_level: int,
         is_loading: bool,
     ):
-        super().__init__()
         self.trial = trial
         self.tracker = tracker
         self._init_config(pipeline_config, is_loading)
@@ -494,11 +494,10 @@ class Trainer(nn.Module, LoggingMixin):
         self._step_count = self._epoch_count = -1
         self._get_metrics()
 
-    @staticmethod
-    def _filter_checkpoints(folder: str) -> Dict[int, str]:
+    def _filter_checkpoints(self, folder: str) -> Dict[int, str]:
         checkpoints = {}
         for file in os.listdir(folder):
-            if file.startswith("trainer_") and file.endswith(".pt"):
+            if file.startswith(self.pt_prefix) and file.endswith(".pt"):
                 step = int(os.path.splitext(file)[0].split("_")[1])
                 checkpoints[step] = file
         return checkpoints
@@ -511,8 +510,8 @@ class Trainer(nn.Module, LoggingMixin):
             if len(checkpoints) >= self.max_snapshot_num - 1:
                 for key in sorted(checkpoints)[: -self.max_snapshot_num + 1]:
                     os.remove(os.path.join(folder, checkpoints[key]))
-        file = f"trainer_{self._step_count}.pt"
-        torch.save(self.state_dict(), os.path.join(folder, file))
+        file = f"{self.pt_prefix}{self._step_count}.pt"
+        torch.save(self.model.state_dict(), os.path.join(folder, file))
 
     def restore_checkpoint(self, folder: str = None) -> "Trainer":
         if folder is None:
@@ -520,19 +519,20 @@ class Trainer(nn.Module, LoggingMixin):
         checkpoints = self._filter_checkpoints(folder)
         if not checkpoints:
             self.log_msg(  # type: ignore
-                f"no trainer file found in {self.checkpoint_folder}",
+                f"no model file found in {self.checkpoint_folder}",
                 self.warning_prefix,
                 msg_level=logging.WARNING,
             )
             return self
         latest_checkpoint = checkpoints[sorted(checkpoints)[-1]]
-        trainer_file = os.path.join(folder, latest_checkpoint)
+        model_file = os.path.join(folder, latest_checkpoint)
         self.log_msg(  # type: ignore
-            f"restoring from {trainer_file}",
+            f"restoring from {model_file}",
             self.info_prefix,
             4,
         )
-        self.load_state_dict(torch.load(trainer_file, map_location=self.model.device))
+        states = torch.load(model_file, map_location=self.model.device)
+        self.model.load_state_dict(states)
         return self
 
 
