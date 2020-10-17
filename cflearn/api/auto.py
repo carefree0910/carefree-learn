@@ -37,6 +37,10 @@ class Auto:
         return self.pattern.predict
 
     @property
+    def predict_prob(self) -> Callable:
+        return partial(self.pattern.predict, requires_prob=True)
+
+    @property
     def pruned_trials(self) -> List[FrozenTrial]:
         return [t for t in self.study.trials if t.state == TrialState.PRUNED]
 
