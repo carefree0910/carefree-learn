@@ -19,6 +19,7 @@ from plotly.graph_objects import Figure
 from .basic import *
 from .ensemble import *
 from .hpo import optuna_tune
+from .hpo import optuna_params_type
 from .production import Pack
 from .production import Predictor
 from ..types import data_type
@@ -105,6 +106,7 @@ class Auto:
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
+        params: optuna_params_type = None,
         study_config: Dict[str, Any] = None,
         predict_config: Optional[Dict[str, Any]] = None,
         metrics: Union[str, List[str]] = None,
@@ -130,6 +132,7 @@ class Auto:
             y_cv,
             model=model,
             task_type=self.task_type,
+            params=params,
             study_config=study_config,
             metrics=metrics,
             num_jobs=num_jobs,
