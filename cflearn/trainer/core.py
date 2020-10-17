@@ -78,7 +78,7 @@ class Trainer(LoggingMixin):
         self.plateau_start = int(plateau_start)
 
         self._clip_norm = self.config.setdefault("clip_norm", 0.0)
-        self._use_amp = pipeline_config["use_amp"]
+        self._use_amp = self.config.setdefault("use_amp", False)
         self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
 
         self._logging_path_ = pipeline_config["_logging_path_"]

@@ -104,8 +104,6 @@ class Pipeline(LoggingMixin):
             "ts_label_collator_config", {}
         )
 
-        self.config.setdefault("use_amp", False)
-
         logging_folder = self.config["logging_folder"] = self.config.setdefault(
             "logging_folder",
             os.path.join("_logging", model_dict[self._model].__identifier__),

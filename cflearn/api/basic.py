@@ -37,6 +37,7 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 def make(
     model: str = "fcnn",
     *,
+    use_amp: Optional[bool] = None,
     config: general_config_type = None,
     increment_config: general_config_type = None,
     delim: Optional[str] = None,
@@ -115,6 +116,8 @@ def make(
         kwargs["trigger_logging"] = trigger_logging
     # trainer general
     trainer_config = kwargs.setdefault("trainer_config", {})
+    if use_amp is not None:
+        trainer_config["use_amp"] = use_amp
     if use_tqdm is not None:
         trainer_config["use_tqdm"] = use_tqdm
     if min_epoch is not None:
