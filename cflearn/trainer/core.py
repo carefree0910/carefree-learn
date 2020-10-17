@@ -23,7 +23,6 @@ from tqdm import tqdm
 from trains import Logger
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
-from cfdata.types import np_int_type
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -31,12 +30,11 @@ except:
     amp = None
 
 from ..misc.toolkit import *
-from ..types import np_dict_type
-from ..types import tensor_dict_type
 from ..modules import optimizer_dict
 from ..modules import scheduler_dict
 from ..modules import EMA
 from ..models.base import ModelBase
+from ..pipeline.inference import Inference
 
 
 trains_logger: Union[Logger, None] = None
@@ -280,30 +278,6 @@ class Trainer(nn.Module, LoggingMixin):
             self.log_block_msg(msg, verbose_level=3)  # type: ignore
         return "\n".join([all_msg, msg])
 
-    def _to_device(self, arr: Union[np.ndarray, None]) -> Union[torch.Tensor, None]:
-        if arr is None:
-            return arr
-        arr = to_torch(arr)
-        if self.onnx is None:
-            arr = arr.to(self.model.device)
-        return arr
-
-    def _collate_batch(
-        self,
-        x_batch: np.ndarray,
-        y_batch: np.ndarray,
-    ) -> tensor_dict_type:
-        if self.onnx is not None:
-            if y_batch is None:
-                y_batch = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
-            tensors = [x_batch, y_batch]
-        else:
-            x_batch, y_batch = map(self._to_device, [x_batch, y_batch])
-            if y_batch is not None and self.tr_loader.data.is_clf:
-                y_batch = y_batch.to(torch.int64)
-            tensors = [x_batch, y_batch]
-        return dict(zip(["x_batch", "y_batch"], tensors))
-
     def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
             self.model.parameters(), self._clip_norm
@@ -351,7 +325,7 @@ class Trainer(nn.Module, LoggingMixin):
             loader.enabled_sampling = False
         if not self._metrics_need_loss:
             loss_values = None
-            results = self._predict(loader=loader)
+            results = self.inference.predict(loader=loader)
             predictions, labels = map(results.get, ["predictions", "labels"])
         else:
             predictions = None
@@ -359,7 +333,7 @@ class Trainer(nn.Module, LoggingMixin):
             forward_dicts, loss_dicts, labels = [], [], []
             for (x_batch, y_batch), _ in loader:
                 labels.append(y_batch)
-                batch = self._collate_batch(x_batch, y_batch)
+                batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self):
                     forward_dicts.append(self.model(batch))
                     loss_dicts.append(
@@ -431,45 +405,14 @@ class Trainer(nn.Module, LoggingMixin):
 
         return score, metrics
 
-    def _get_results(
-        self,
-        use_grad: bool,
-        loader: DataLoader,
-        **kwargs: Any,
-    ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
-        return_indices, loader = loader.return_indices, self._to_tqdm(loader)
-        with eval_context(self, use_grad=use_grad):
-            results, labels = [], []
-            for a, b in loader:
-                if return_indices:
-                    x_batch, y_batch = a
-                else:
-                    x_batch, y_batch = a, b
-                if y_batch is not None:
-                    labels.append(y_batch)
-                batch = self._collate_batch(x_batch, y_batch)
-                if self.onnx is not None:
-                    rs = self.onnx.inference(batch)
-                else:
-                    rs = self.model(batch, **kwargs)
-                    for k, v in rs.items():
-                        if isinstance(v, torch.Tensor):
-                            rs[k] = to_numpy(v)
-                results.append(rs)
-        return labels, results
-
-    def _predict(self, loader: DataLoader, **kwargs: Any) -> np_dict_type:
-        use_grad = kwargs.pop("use_grad", self._use_grad_in_predict)
-        try:
-            labels, results = self._get_results(use_grad, loader, **kwargs)
-        except:
-            use_grad = self._use_grad_in_predict = True
-            labels, results = self._get_results(use_grad, loader, **kwargs)
-        collated = collate_np_dicts(results)
-        if labels:
-            labels = np.vstack(labels)
-            collated["labels"] = labels
-        return collated
+    def _prepare(self, tr_loader: DataLoader, cv_loader: DataLoader) -> None:
+        self.tr_loader, self.cv_loader = tr_loader, cv_loader
+        self.inference = Inference(
+            self.tr_loader.data.is_clf,
+            self.model.device,
+            model=self.model,
+            use_tqdm=self.use_tqdm,
+        )
 
     # api
 
@@ -479,7 +422,7 @@ class Trainer(nn.Module, LoggingMixin):
         cv_loader: DataLoader,
         tr_weights: np.ndarray,
     ) -> None:
-        self.tr_loader, self.cv_loader = tr_loader, cv_loader
+        self._prepare(tr_loader, cv_loader)
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)
@@ -520,7 +463,7 @@ class Trainer(nn.Module, LoggingMixin):
                 for (x_batch, y_batch), index_batch in step_tqdm:
                     self._step_count += 1
                     with timing_context(self, "collate batch", enable=self.timing):
-                        batch = self._collate_batch(x_batch, y_batch)
+                        batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
                             forward_results = self.model(batch)
@@ -589,17 +532,6 @@ class Trainer(nn.Module, LoggingMixin):
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
         self._get_metrics()
-
-    def predict(
-        self,
-        loader: DataLoader,
-        return_all: bool = False,
-        **kwargs: Any,
-    ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
-        predictions = self._predict(loader, **kwargs)
-        if return_all:
-            return predictions
-        return predictions["predictions"]
 
     @staticmethod
     def _filter_checkpoints(folder: str) -> Dict[int, str]:

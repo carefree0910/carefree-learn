@@ -13,13 +13,13 @@ from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 from cfdata.tabular import ImbalancedSampler
-from cftool.misc import Saving
-from cftool.misc import LoggingMixin
-from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import timing_context
-from cftool.misc import shallow_copy_dict
-from trains import Task, Logger
+from cftool.misc import Saving
+from cftool.misc import LoggingMixin
+from trains import Task
+from trains import Logger
 from functools import partial
 from cfdata.types import np_int_type
 
@@ -309,7 +309,9 @@ class Pipeline(LoggingMixin):
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         data = self.tr_loader.data.copy_to(x, None, contains_labels=contains_labels)
         loader = DataLoader(self.cv_batch_size, self._make_sampler(data, False))
-        predictions = self.trainer.predict(loader, return_all, **kwargs)
+        predictions = self.trainer.inference.predict(loader, **kwargs)
+        if not return_all:
+            predictions = predictions["predictions"]
         # check onnx
         if kwargs and self.trainer.onnx is not None:
             self.log_msg(
@@ -431,8 +433,7 @@ class Pipeline(LoggingMixin):
                 pipeline._init_data()
                 pipeline._prepare_modules(is_loading=True)
                 trainer = pipeline.trainer
-                trainer.tr_loader = pipeline.tr_loader
-                trainer.cv_loader = pipeline.cv_loader
+                trainer._prepare(pipeline.tr_loader, pipeline.cv_loader)
                 trainer.restore_checkpoint(folder)
                 trainer._init_metrics()
         return pipeline
