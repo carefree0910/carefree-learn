@@ -285,12 +285,13 @@ class Trainer(LoggingMixin):
             loader = tr_loader.copy()
             loader.return_indices = tr_loader.return_indices
             loader.enabled_sampling = False
-        if not self._metrics_need_loss:
-            loss_values = None
-            results = self.inference.predict(loader=loader, return_all=True)
-            predictions, labels = map(results.get, ["predictions", "labels"])
-        else:
-            predictions = None
+        # predictions
+        keys = ["logits", "predictions", "labels"]
+        results = self.inference.predict(loader=loader, return_all=True)
+        logits, predictions, labels = map(results.get, keys)
+        # losses
+        loss_values = None
+        if self._metrics_need_loss:
             loader = self._to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
             for (x_batch, y_batch), _ in loader:
@@ -318,10 +319,13 @@ class Trainer(LoggingMixin):
                     metric_predictions = predictions
                 else:
                     if metric_ins.requires_prob:
-                        metric_predictions = to_prob(predictions)
+                        if logits is None:
+                            msg = "`logits` should be returned in `inference.predict`"
+                            raise ValueError(msg)
+                        metric_predictions = to_prob(logits)
                     else:
                         assert isinstance(predictions, np.ndarray)
-                        metric_predictions = predictions.argmax(1).reshape([-1, 1])
+                        metric_predictions = predictions
                 sub_metric = metric_ins.metric(labels, metric_predictions)
                 metrics[metric_type] = sub_metric
             if self.metrics_decay is not None and self.start_snapshot:

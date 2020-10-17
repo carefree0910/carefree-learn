@@ -264,7 +264,6 @@ class Inference(LoggingMixin):
         *,
         return_all: bool = False,
         requires_recover: bool = True,
-        returns_logits: Optional[bool] = None,
         returns_probabilities: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
@@ -279,11 +278,13 @@ class Inference(LoggingMixin):
         except:
             use_grad = self._use_grad_in_predict = True
             labels, results = self._get_results(use_grad, loader, **kwargs)
+
         # collate
         collated = collate_np_dicts(results)
         if labels:
             labels = np.vstack(labels)
             collated["labels"] = labels
+
         # regression
         if self.data.is_reg:
             recover = partial(self.data.recover_labels, inplace=True)
@@ -295,6 +296,7 @@ class Inference(LoggingMixin):
             if not requires_recover:
                 return collated
             return {k: recover(v) for k, v in collated.items()}
+
         # classification
         def _return(new_predictions: np.ndarray) -> Union[np.ndarray, np_dict_type]:
             if not return_all:
@@ -302,11 +304,7 @@ class Inference(LoggingMixin):
             collated["predictions"] = new_predictions
             return collated
 
-        predictions = collated["predictions"]
-        if returns_logits is None:
-            returns_logits = not returns_probabilities
-        if returns_logits:
-            return _return(predictions)
+        predictions = collated["logits"] = collated["predictions"]
         if returns_probabilities:
             return _return(to_prob(predictions))
         if not self.is_binary or self.binary_threshold is None:
