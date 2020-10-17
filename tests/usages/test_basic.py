@@ -3,6 +3,7 @@ import cflearn
 
 import numpy as np
 
+from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 
@@ -107,6 +108,31 @@ def test_file_dataset() -> None:
         pipelines=pipelines_dict,
         other_patterns=other_patterns,
     )
+
+
+def test_auto_file() -> None:
+    # TODO : in ONNX, device may be mixed up because Pruner's mask will be on cuda:0
+    kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
+    auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
+    predict_config = {"contains_labels": True}
+    auto.fit(
+        tr_file,
+        x_cv=cv_file,
+        num_trial=4,
+        num_repeat=1,
+        predict_config=predict_config,
+        extra_config=kwargs.copy(),
+    )
+    pred1 = auto.predict(te_file)
+    prob1 = auto.predict_prob(te_file)
+    export_folder = "packed"
+    auto.pack(export_folder)
+    predictors, weights = auto.get_predictors(export_folder)
+    pattern = cflearn.Pack.ensemble(predictors, weights, **predict_config)
+    pred2 = pattern.predict(te_file)
+    prob2 = pattern.predict(te_file, requires_prob=True)
+    assert np.allclose(pred1, pred2)
+    assert np.allclose(prob1, prob2)
 
 
 if __name__ == "__main__":
