@@ -1,7 +1,6 @@
 import os
 import torch
 import optuna
-import pprint
 import shutil
 import inspect
 import logging
@@ -240,36 +239,6 @@ class Trainer(nn.Module, LoggingMixin):
             return loader
         return tqdm(loader, total=len(loader), leave=False, position=2)
 
-    def _collect_info(self, *, return_only: bool) -> str:
-        msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
-        msg += (
-            pprint.pformat(self._pipeline_config, compact=True)
-            + "\n"
-            + "-" * 100
-            + "\n"
-        )
-        msg += "\n".join(["=" * 100, "parameters", "-" * 100, ""])
-        for name, param in self.model.named_parameters():
-            if param.requires_grad:
-                msg += name + "\n"
-        msg += "\n".join(["-" * 100, "=" * 100, "buffers", "-" * 100, ""])
-        for name, param in self.named_buffers():
-            msg += name + "\n"
-        msg += "\n".join(
-            ["-" * 100, "=" * 100, "structure", "-" * 100, str(self), "-" * 100, ""]
-        )
-        if not return_only:
-            self.log_block_msg(msg, verbose_level=4)  # type: ignore
-        all_msg, msg = msg, "=" * 100 + "\n"
-        n_tr = len(self.tr_loader.sampler)
-        n_cv = None if self.cv_loader is None else len(self.cv_loader.sampler)
-        msg += f"{self.info_prefix}training data : {n_tr}\n"
-        msg += f"{self.info_prefix}valid    data : {n_cv}\n"
-        msg += "-" * 100
-        if not return_only:
-            self.log_block_msg(msg, verbose_level=3)  # type: ignore
-        return "\n".join([all_msg, msg])
-
     def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
             self.model.parameters(), self._clip_norm
@@ -425,7 +394,7 @@ class Trainer(nn.Module, LoggingMixin):
         # monitor
         self._monitor = TrainMonitor(1).register_trainer(self)
         # train
-        self._collect_info(return_only=False)
+        self.model.info()
         terminate = False
         self._step_count = self._epoch_count = 0
         tuple(
