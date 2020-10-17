@@ -317,7 +317,8 @@ def ensemble(
             pattern_weights = pattern_weights.reshape([-1, 1, 1])
 
             def ensemble_method(
-                arrays: List[np.ndarray], requires_prob: bool
+                arrays: List[np.ndarray],
+                requires_prob: bool,
             ) -> np.ndarray:
                 predictions = np.array(arrays).reshape(
                     [len(arrays), len(arrays[0]), -1]
@@ -334,8 +335,16 @@ def ensemble(
 
 class EnsembleResults(NamedTuple):
     data: TabularData
-    pattern: EnsemblePattern
-    experiments: Union[Experiments, None]
+    pipelines: List[Pipeline]
+    pattern_weights: Optional[np.ndarray]
+    predict_config: Optional[Dict[str, Any]]
+    experiments: Optional[Experiments]
+
+    @property
+    def pattern(self) -> EnsemblePattern:
+        predict_config = self.predict_config or {}
+        patterns = [m.to_pattern(**predict_config) for m in self.pipelines]
+        return ensemble(patterns, pattern_weights=self.pattern_weights)
 
 
 class Ensemble:
@@ -391,18 +400,19 @@ class Ensemble:
             {model: {"config": shallow_copy_dict(self.config)} for model in models},
         )
 
-        def _pre_process(x_: np.ndarray) -> np.ndarray:
-            return benchmark_results.data.transform(x_, contains_labels=False).x
-
         experiments = benchmark_results.experiments
         ms_dict = transform_experiments(experiments)
         all_pipelines: List[Pipeline] = []
         for ms in ms_dict.values():
             all_pipelines.extend(ms)
-        all_patterns = [m.to_pattern(pre_process=_pre_process) for m in all_pipelines]
-        ensemble_pattern = ensemble(all_patterns)
 
-        return EnsembleResults(benchmark_results.data, ensemble_pattern, experiments)
+        return EnsembleResults(
+            benchmark_results.data,
+            all_pipelines,
+            None,
+            predict_config,
+            experiments,
+        )
 
     def adaboost(
         self,
@@ -412,6 +422,7 @@ class Ensemble:
         k: int = 10,
         eps: float = 1e-12,
         model: str = "fcnn",
+        predict_config: Dict[str, Any] = None,
         increment_config: Dict[str, Any] = None,
         sample_weights: Union[np.ndarray, None] = None,
         num_test: Union[int, float] = 0.1,
@@ -425,6 +436,7 @@ class Ensemble:
         config.setdefault("verbose_level", 0)
 
         data = None
+        pipelines = []
         patterns, pattern_weights = [], []
         for _ in tqdm.tqdm(list(range(k))):
             m = make(model=model, **config)
@@ -448,10 +460,18 @@ class Ensemble:
             pattern_weights.append(am)
             if data is None:
                 data = m._original_data
+            pipelines.append(m)
 
-        pattern_weights = np.array(pattern_weights, np.float32)
-        ensemble_pattern = ensemble(patterns, pattern_weights=pattern_weights)
-        return EnsembleResults(data, ensemble_pattern, None)
+        weights_array = np.array(pattern_weights, np.float32)
+        weights_array /= weights_array.sum()
+
+        return EnsembleResults(
+            data,
+            pipelines,
+            weights_array,
+            predict_config,
+            None,
+        )
 
 
 __all__ = [
