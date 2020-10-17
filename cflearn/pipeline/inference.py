@@ -108,13 +108,15 @@ class ONNX:
         else:
             assert model is not None
             self.model = model.cpu()
+            device, self.model.device = self.model.device, "cpu"
             self.ort_session = None
             self.input_sample = self.model.input_sample
             with eval_context(self.model):
                 outputs = self.model(self.input_sample)
             self.input_names = sorted(self.input_sample.keys())
             self.output_names = sorted(outputs.keys())
-            self.model.to(self.model.device)
+            self.model.device = device
+            self.model.to(device)
 
     def to_onnx(
         self,
