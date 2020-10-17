@@ -109,7 +109,7 @@ class ONNX:
         else:
             assert model is not None
             self.model = model.cpu()
-            device, self.model.device = self.model.device, "cpu"
+            device, self.model.device = self.model.device, torch.device("cpu")
             self.ort_session = None
             self.input_sample = self.model.input_sample
             with eval_context(self.model):
@@ -255,7 +255,7 @@ class Inference(LoggingMixin):
                 probabilities,
                 self.binary_metric,
             )
-            self.binary_threshold = threshold
+            self.binary_threshold = threshold.item()
         except ValueError:
             self.binary_threshold = None
 
