@@ -8,6 +8,7 @@ from tqdm import tqdm
 from functools import partial
 from onnxruntime import InferenceSession
 from cftool.ml import Metrics
+from cftool.ml import ModelPattern
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -383,6 +384,12 @@ class Predictor:
         )
         kwargs["contains_labels"] = contains_labels
         return self.inference.predict(loader, **kwargs)
+
+    def to_pattern(self, **kwargs: Any) -> ModelPattern:
+        predict = partial(self.predict, **kwargs)
+        kwargs["returns_probabilities"] = True
+        predict_prob = partial(self.predict, **kwargs)
+        return ModelPattern(predict_method=predict, predict_prob_method=predict_prob)
 
 
 __all__ = [
