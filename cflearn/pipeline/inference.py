@@ -6,6 +6,7 @@ from typing import *
 from onnxruntime import InferenceSession
 
 from .core import Pipeline
+from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import to_standard
@@ -67,14 +68,13 @@ class ONNX:
         del self.pipeline.model, self.pipeline.trainer.model
         return self
 
-    def inference(self, new_inputs: Dict[str, np.ndarray]) -> tensor_dict_type:
+    def inference(self, new_inputs: np_dict_type) -> np_dict_type:
         assert self.ort_session is not None
         ort_inputs = {
             node.name: to_standard(new_inputs[node.name])
             for node in self.ort_session.get_inputs()
         }
-        outputs = dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
-        return {k: to_torch(v) for k, v in outputs.items()}
+        return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
 
 
 __all__ = [

@@ -32,10 +32,12 @@ except:
     amp = None
 
 from ..misc.toolkit import *
+from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..modules import optimizer_dict
 from ..modules import scheduler_dict
 from ..modules import EMA
+from ..models.base import collate_np_dicts
 from ..models.base import collate_tensor_dicts
 from ..models.base import ModelBase
 
@@ -459,7 +461,7 @@ class Trainer(nn.Module, LoggingMixin):
         use_grad: bool,
         loader: DataLoader,
         **kwargs: Any,
-    ) -> Tuple[List[np.ndarray], List[tensor_dict_type]]:
+    ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
         return_indices, loader = loader.return_indices, self._to_tqdm(loader)
         with eval_context(self, use_grad=use_grad):
             results, labels = [], []
@@ -475,22 +477,24 @@ class Trainer(nn.Module, LoggingMixin):
                     rs = self.onnx.inference(batch)
                 else:
                     rs = self.model(batch, **kwargs)
+                    for k, v in rs.items():
+                        if isinstance(v, torch.Tensor):
+                            rs[k] = to_numpy(v)
                 results.append(rs)
         return labels, results
 
-    def _predict(self, loader: DataLoader, **kwargs: Any) -> Dict[str, np.ndarray]:
+    def _predict(self, loader: DataLoader, **kwargs: Any) -> np_dict_type:
         use_grad = kwargs.pop("use_grad", self._use_grad_in_predict)
         try:
             labels, results = self._get_results(use_grad, loader, **kwargs)
         except:
             use_grad = self._use_grad_in_predict = True
             labels, results = self._get_results(use_grad, loader, **kwargs)
-        collated = collate_tensor_dicts(results)
-        final_results = {k: to_numpy(v) for k, v in collated.items()}
+        collated = collate_np_dicts(results)
         if labels:
             labels = np.vstack(labels)
-            final_results["labels"] = labels
-        return final_results
+            collated["labels"] = labels
+        return collated
 
     # api
 
