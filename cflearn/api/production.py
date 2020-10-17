@@ -2,11 +2,18 @@ import os
 import json
 import torch
 
+import numpy as np
+
+from typing import Any
+from typing import List
 from typing import Union
+from typing import Optional
+from cftool.ml import EnsemblePattern
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 
+from .ensemble import ensemble
 from ..misc.toolkit import compress_zip
 from ..pipeline.core import Pipeline
 from ..pipeline.inference import ONNX
@@ -88,6 +95,15 @@ class Pack(LoggingMixin):
                 with open(instance.binary_config_path, "r") as f:
                     predictor.inference.inject_binary_config(json.load(f))
         return predictor
+
+    @staticmethod
+    def ensemble(
+        predictors: List[Predictor],
+        weights: Optional[np.ndarray],
+        **kwargs: Any,
+    ) -> EnsemblePattern:
+        patterns = [predictor.to_pattern(**kwargs) for predictor in predictors]
+        return ensemble(patterns, pattern_weights=weights)
 
 
 __all__ = ["Pack"]
