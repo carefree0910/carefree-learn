@@ -106,8 +106,6 @@ def make(
         sampler_config["aggregation"] = aggregation
     if aggregation_config is not None:
         sampler_config["aggregation_config"] = aggregation_config
-    if model_config is not None:
-        kwargs["model_config"] = model_config
     if logging_folder is not None:
         if logging_file is None:
             logging_file = f"{model}_{timestamp()}.log"
@@ -129,8 +127,12 @@ def make(
         trainer_config["max_snapshot_num"] = max_snapshot_num
     if clip_norm is not None:
         trainer_config["clip_norm"] = clip_norm
+    # model general
+    if model_config is None:
+        model_config = {}
     if ema_decay is not None:
-        trainer_config["ema_decay"] = ema_decay
+        model_config["ema_decay"] = ema_decay
+    kwargs["model_config"] = model_config
     # metrics
     if metric_config is not None:
         if metrics is not None:

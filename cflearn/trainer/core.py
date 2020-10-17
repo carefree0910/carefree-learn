@@ -32,7 +32,6 @@ except:
 from ..misc.toolkit import *
 from ..modules import optimizer_dict
 from ..modules import scheduler_dict
-from ..modules import EMA
 from ..models.base import ModelBase
 from ..pipeline.inference import Inference
 
@@ -80,13 +79,6 @@ class Trainer(nn.Module, LoggingMixin):
         self.plateau_start = int(plateau_start)
 
         self._clip_norm = self.config.setdefault("clip_norm", 0.0)
-        ema_decay = self.config.setdefault("ema_decay", 0.0)
-        if not 0.0 < ema_decay < 1.0:
-            self.ema_decay = None
-        else:
-            named_params = list(self.model.named_parameters())
-            self.ema_decay = EMA(ema_decay, named_params)  # type: ignore
-
         self._use_amp = pipeline_config["use_amp"]
         self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
 
@@ -498,9 +490,9 @@ class Trainer(nn.Module, LoggingMixin):
                             self._clip_norm_step()
                     with timing_context(self, "optimizer_step", enable=self.timing):
                         self._optimizer_step()
-                    if self.ema_decay is not None:
+                    if self.model.use_ema:
                         with timing_context(self, "EMA", enable=self.timing):
-                            self.ema_decay()
+                            self.model.apply_ema()
                     with timing_context(self, "monitor_step", enable=self.timing):
                         terminate = self._monitor_step()
                     if terminate:

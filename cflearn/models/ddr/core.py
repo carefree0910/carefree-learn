@@ -67,6 +67,7 @@ class DDR(FCNN):
         self._step_count = 0
 
     def _init_config(self, tr_data: TabularData) -> None:
+        self.config.setdefault("ema_decay", 0.0)
         # common mapping configs
         self._common_configs = self.config.setdefault("common_configs", {})
         self._common_configs.setdefault("pruner_config", None)
@@ -156,7 +157,6 @@ class DDR(FCNN):
             trainer_config,
             {
                 "clip_norm": 1.0,
-                "ema_decay": 0.0,
                 "num_epoch": 40,
                 "max_epoch": 1000,
                 "batch_size": 128,

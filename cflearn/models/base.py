@@ -54,6 +54,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         device: torch.device,
     ):
         super().__init__()
+        self.ema: Optional[EMA] = None
         self.device = device
         self._pipeline_config = pipeline_config
         self.config = pipeline_config.setdefault("model_config", {})
@@ -94,6 +95,21 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         # batch will have `categorical`, `numerical` and `labels` keys
         # requires returning `predictions` key
         pass
+
+    @property
+    def use_ema(self) -> bool:
+        return self.ema is not None
+
+    def init_ema(self) -> None:
+        ema_decay = self.config.setdefault("ema_decay", 0.0)
+        if 0.0 < ema_decay < 1.0:
+            named_params = list(self.named_parameters())
+            self.ema = EMA(ema_decay, named_params)  # type: ignore
+
+    def apply_ema(self) -> None:
+        if self.ema is None:
+            raise ValueError("`ema` is not defined")
+        self.ema()
 
     def loss_function(
         self,
