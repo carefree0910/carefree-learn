@@ -106,9 +106,8 @@ class Trainer(LoggingMixin):
             parameters = self.model.parameters()
         else:
             parameters = getattr(self.model, params_name)
-        opt = self.optimizers[params_name] = optimizer_base(
-            parameters, **optimizer_config
-        )
+        opt = optimizer_base(parameters, **optimizer_config)
+        self.optimizers[params_name] = opt
         return opt
 
     def _init_optimizers(self) -> None:
