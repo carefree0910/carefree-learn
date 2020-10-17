@@ -16,9 +16,10 @@ class TreeDNN(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
-        super(FCNN, self).__init__(pipeline_config, tr_data, device)
+        super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
         encoding_dims = self.encoding_dims
         embedding_dims = encoding_dims.get("embedding", 0)
         one_hot_dims = encoding_dims.get("one_hot", 0)
@@ -55,7 +56,7 @@ class TreeDNN(FCNN):
                 dndf_input_dim -= one_hot_dims * self.num_history
             self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **self._dndf_config)
 
-    def _preset_config(self, tr_data: TabularData) -> None:
+    def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("pruner_config", {})

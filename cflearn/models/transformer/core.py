@@ -62,13 +62,14 @@ class Transformer(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
-        super(FCNN, self).__init__(pipeline_config, tr_data, device)
+        super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
         self._init_fcnn()
 
-    def _init_config(self, tr_data: TabularData) -> None:
-        super()._init_config(tr_data)
+    def _init_config(self) -> None:
+        super()._init_config()
         transformer_dim = self.tr_data.processed_dim
         transformer_config = self.config.setdefault("transformer_config", {})
         il_config = transformer_config.pop("input_linear_config", None)

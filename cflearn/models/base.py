@@ -52,6 +52,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
         super().__init__()
@@ -59,9 +60,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.device = device
         self._pipeline_config = pipeline_config
         self.config = pipeline_config.setdefault("model_config", {})
-        self._preset_config(tr_data)
-        self._init_config(tr_data)
-        self._init_loss(tr_data)
+        self.tr_data, self.cv_data = tr_data, cv_data
+        self._preset_config()
+        self._init_config()
+        self._init_loss()
         # encoders
         excluded = 0
         ts_indices = tr_data.ts_indices
@@ -121,7 +123,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             + "\n"
         )
         msg += "\n".join(["=" * 100, "parameters", "-" * 100, ""])
-        for name, param in self.model.named_parameters():
+        for name, param in self.named_parameters():
             if param.requires_grad:
                 msg += name + "\n"
         msg += "\n".join(["-" * 100, "=" * 100, "buffers", "-" * 100, ""])
@@ -133,8 +135,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if not return_only:
             self.log_block_msg(msg, verbose_level=4)  # type: ignore
         all_msg, msg = msg, "=" * 100 + "\n"
-        n_tr = len(self.tr_loader.sampler)
-        n_cv = None if self.cv_loader is None else len(self.cv_loader.sampler)
+        n_tr = len(self.tr_data)
+        n_cv = None if self.cv_data is None else len(self.cv_data)
         msg += f"{self.info_prefix}training data : {n_tr}\n"
         msg += f"{self.info_prefix}valid    data : {n_cv}\n"
         msg += "-" * 100
@@ -198,11 +200,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             dims[true_idx] = self.encoders[idx_str].dim
         return dims
 
-    def _preset_config(self, tr_data: TabularData) -> None:
+    def _preset_config(self) -> None:
         pass
 
-    def _init_config(self, tr_data: TabularData) -> None:
-        self.tr_data = tr_data
+    def _init_config(self) -> None:
         self._loss_config = self.config.setdefault("loss_config", {})
         # TODO : optimize encodings by pre-calculate one-hot encodings in Trainer
         self._encoding_methods = self.config.setdefault("encoding_methods", {})
@@ -223,8 +224,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if self._fc_out_dim is None:
             self._fc_out_dim = self.out_dim
 
-    def _init_loss(self, tr_data: TabularData) -> None:
-        if tr_data.is_reg:
+    def _init_loss(self) -> None:
+        if self.tr_data.is_reg:
             self.loss: nn.Module = nn.L1Loss(reduction="none")
         else:
             self.loss = FocalLoss(self._loss_config, reduction="none")

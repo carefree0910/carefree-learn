@@ -14,9 +14,10 @@ class RNN(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
-        super(FCNN, self).__init__(pipeline_config, tr_data, device)
+        super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
         input_dimensions = [self.tr_data.processed_dim]
         rnn_hidden_dim = self._rnn_config["hidden_size"]
         input_dimensions += [rnn_hidden_dim] * (self._rnn_num_layers - 1)
@@ -26,8 +27,8 @@ class RNN(FCNN):
         self.config["fc_in_dim"] = rnn_hidden_dim
         self._init_fcnn()
 
-    def _init_config(self, tr_data: TabularData) -> None:
-        super()._init_config(tr_data)
+    def _init_config(self) -> None:
+        super()._init_config()
         self._rnn_base = rnn_dict[self.config.setdefault("type", "GRU")]
         self._rnn_config = self.config.setdefault("rnn_config", {})
         self._rnn_config["batch_first"] = True

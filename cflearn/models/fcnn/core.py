@@ -14,9 +14,10 @@ class FCNN(ModelBase):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
-        super().__init__(pipeline_config, tr_data, device)
+        super().__init__(pipeline_config, tr_data, cv_data, device)
         self._init_fcnn()
 
     @property

@@ -52,11 +52,12 @@ class DDR(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
         if not tr_data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
-        super().__init__(pipeline_config, tr_data, device)
+        super().__init__(pipeline_config, tr_data, cv_data, device)
         self.__feature_params: List[nn.Parameter] = []
         self.__reg_params: List[nn.Parameter] = []
         self._inject_median_params()
@@ -66,7 +67,7 @@ class DDR(FCNN):
         self.q_metric = Metrics("quantile")
         self._step_count = 0
 
-    def _init_config(self, tr_data: TabularData) -> None:
+    def _init_config(self) -> None:
         self.config.setdefault("ema_decay", 0.0)
         # common mapping configs
         self._common_configs = self.config.setdefault("common_configs", {})
@@ -100,7 +101,7 @@ class DDR(FCNN):
         self.config["hidden_units"] = self.feature_units + self.median_units
         self.config["mapping_configs"] = mapping_configs + median_mapping_configs
         # inherit
-        super()._init_config(tr_data)
+        super()._init_config()
         # common
         self._joint_training = self.config.setdefault("joint_training", True)
         self._use_gradient_loss = self.config.setdefault("use_gradient_loss", True)
@@ -122,7 +123,7 @@ class DDR(FCNN):
             "cdf_ratio_anchors", cdf_ratio_anchors
         )
         quantile_anchors = self.config.setdefault("quantile_anchors", quantile_anchors)
-        labels = tr_data.processed.y
+        labels = self.tr_data.processed.y
 
         y_min, y_max = labels.min(), labels.max()
         self.y_min, self.y_max = y_min, y_max
@@ -163,7 +164,7 @@ class DDR(FCNN):
                 "metric_config": {"types": default_metric_types, "decay": 0.5},
             },
         )
-        num_train_samples = tr_data.processed.x.shape[0]
+        num_train_samples = self.tr_data.processed.x.shape[0]
         num_epoch = trainer_config["num_epoch"]
         batch_size = trainer_config["batch_size"]
         anneal_step = self._loss_config.setdefault(
@@ -177,7 +178,7 @@ class DDR(FCNN):
         self._feature_step = int(self.config.setdefault("feature_step", 5))
         self._synthetic_step = int(self.config.setdefault("synthetic_step", 5))
 
-    def _init_loss(self, tr_data: TabularData) -> None:
+    def _init_loss(self) -> None:
         loss_config = shallow_copy_dict(self._loss_config)
         loss_config["device"] = self.device
         self.loss = DDRLoss(loss_config, "none")

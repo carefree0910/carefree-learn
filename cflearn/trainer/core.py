@@ -294,7 +294,7 @@ class Trainer(LoggingMixin):
             for (x_batch, y_batch), _ in loader:
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
-                with eval_context(self):
+                with eval_context(self.model):
                     forward_dicts.append(self.model(batch))
                     loss_dicts.append(
                         self.model.loss_function(batch, forward_dicts[-1])
@@ -376,7 +376,7 @@ class Trainer(LoggingMixin):
 
     # api
 
-    def forward(
+    def fit(
         self,
         tr_loader: DataLoader,
         cv_loader: DataLoader,

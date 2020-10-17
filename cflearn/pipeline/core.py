@@ -120,7 +120,8 @@ class Pipeline(LoggingMixin):
     def _prepare_modules(self, *, is_loading: bool = False) -> None:
         # model
         with timing_context(self, "init model", enable=self.timing):
-            self.model = model_dict[self._model](self.config, self.tr_data, self.device)
+            args = self.config, self.tr_data, self.cv_data, self.device
+            self.model = model_dict[self._model](*args)
         # trainer
         with timing_context(self, "init trainer", enable=self.timing):
             self.trainer = Trainer(
@@ -212,7 +213,7 @@ class Pipeline(LoggingMixin):
 
     def _loop(self) -> None:
         # training loop
-        self.trainer(self.tr_loader, self.cv_loader, self.tr_weights)
+        self.trainer.fit(self.tr_loader, self.cv_loader, self.tr_weights)
         # binary threshold
         if self._binary_threshold is None:
             if self.tr_data.num_classes != 2:

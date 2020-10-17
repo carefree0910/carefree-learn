@@ -37,9 +37,10 @@ class NDT(ModelBase):
         self,
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
+        cv_data: TabularData,
         device: torch.device,
     ):
-        super().__init__(pipeline_config, tr_data, device)
+        super().__init__(pipeline_config, tr_data, cv_data, device)
         # prepare
         x, y = tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), tr_data.num_classes
@@ -124,11 +125,11 @@ class NDT(ModelBase):
     def class_prior(self) -> np.ndarray:
         return np.exp(self.class_log_prior)
 
-    def _preset_config(self, tr_data: TabularData) -> None:
+    def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
 
-    def _init_config(self, tr_data: TabularData) -> None:
-        super()._init_config(tr_data)
+    def _init_config(self) -> None:
+        super()._init_config()
         self.dt_config = self.config.setdefault("dt_config", {})
         activation_configs = self.config.setdefault("activation_configs", {})
         activation_configs.setdefault("multiplied_tanh", {}).setdefault("ratio", 10.0)
