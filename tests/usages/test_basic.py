@@ -117,8 +117,9 @@ def test_auto_file() -> None:
     auto.fit(
         tr_file,
         x_cv=cv_file,
-        num_trial=4,
         num_repeat=1,
+        num_final_repeat=5,
+        temp_folder="__test_auto_file__",
         predict_config=predict_config,
         extra_config=kwargs.copy(),
     )
@@ -131,7 +132,7 @@ def test_auto_file() -> None:
     pred2 = pattern.predict(te_file)
     prob2 = pattern.predict(te_file, requires_prob=True)
     assert np.allclose(pred1, pred2)
-    assert np.allclose(prob1, prob2)
+    assert np.allclose(prob1, prob2, atol=1e-4, rtol=1e-4)
 
 
 if __name__ == "__main__":
