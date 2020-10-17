@@ -55,8 +55,12 @@ class EMA(nn.Module):
         self._decay = decay
         self._named_parameters = named_parameters
         for name, param in self.tgt_params:
-            self.register_buffer("tr_" + name, param.data.clone())
-            self.register_buffer("ema_" + name, param.data.clone())
+            self.register_buffer(f"{self._prefix(True)}{name}", param.data.clone())
+            self.register_buffer(f"{self._prefix(False)}{name}", param.data.clone())
+
+    @staticmethod
+    def _prefix(train: bool) -> str:
+        return "tr_" if train else "ema_"
 
     @property
     def tgt_params(self) -> Iterator[Tuple[str, nn.Parameter]]:
@@ -67,15 +71,15 @@ class EMA(nn.Module):
 
     def forward(self) -> None:
         for name, param in self.tgt_params:
-            tr_name, ema_name = "tr_" + name, "ema_" + name
-            setattr(self, tr_name, param.data.clone())
+            setattr(self, self._prefix(True), param.data.clone())
+            ema_name = self._prefix(False)
             ema_attr = getattr(self, ema_name)
             ema = (1.0 - self._decay) * param.data + self._decay * ema_attr
             setattr(self, ema_name, ema.clone())
 
     def train(self, mode: bool = True) -> "EMA":
         super().train(mode)
-        prefix = "tr_" if mode else "ema_"
+        prefix = self._prefix(mode)
         for name, param in self.tgt_params:
             param.data = getattr(self, prefix + name).clone()
         return self
