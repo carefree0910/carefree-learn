@@ -4,7 +4,7 @@ from .auto import *
 from .basic import *
 from .ensemble import *
 from .register import *
-from .inference import *
+from .production import *
 
 
 __all__ = [
