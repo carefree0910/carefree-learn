@@ -55,12 +55,13 @@ class EMA(nn.Module):
         self._decay = decay
         self._named_parameters = named_parameters
         for name, param in self.tgt_params:
-            self.register_buffer(f"{self._prefix(True)}{name}", param.data.clone())
-            self.register_buffer(f"{self._prefix(False)}{name}", param.data.clone())
+            self.register_buffer(self.get_name(True, name), param.data.clone())
+            self.register_buffer(self.get_name(False, name), param.data.clone())
 
     @staticmethod
-    def _prefix(train: bool) -> str:
-        return "tr_" if train else "ema_"
+    def get_name(train: bool, name: str) -> str:
+        prefix = "tr" if train else "ema"
+        return f"{prefix}_{name}"
 
     @property
     def tgt_params(self) -> Iterator[Tuple[str, nn.Parameter]]:
@@ -71,17 +72,16 @@ class EMA(nn.Module):
 
     def forward(self) -> None:
         for name, param in self.tgt_params:
-            setattr(self, self._prefix(True), param.data.clone())
-            ema_name = self._prefix(False)
+            setattr(self, self.get_name(True, name), param.data.clone())
+            ema_name = self.get_name(False, name)
             ema_attr = getattr(self, ema_name)
             ema = (1.0 - self._decay) * param.data + self._decay * ema_attr
             setattr(self, ema_name, ema.clone())
 
     def train(self, mode: bool = True) -> "EMA":
         super().train(mode)
-        prefix = self._prefix(mode)
         for name, param in self.tgt_params:
-            param.data = getattr(self, prefix + name).clone()
+            param.data = getattr(self, self.get_name(mode, name)).clone()
         return self
 
     def extra_repr(self) -> str:
