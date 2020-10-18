@@ -157,7 +157,7 @@ class MTL(nn.Module):
 
 
 class Pruner(nn.Module):
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], w_shape: Optional[List[int]] = None):
         super().__init__()
         self.eps: torch.Tensor
         self.exp: torch.Tensor
@@ -168,6 +168,10 @@ class Pruner(nn.Module):
         tensor = partial(torch.tensor, dtype=torch.float32)
         self.method = config.setdefault("method", "auto_prune")
         if self.method == "surgery":
+            if w_shape is None:
+                msg = "`w_shape` of `Pruner` should be provided when `surgery` is used"
+                raise ValueError(msg)
+            self.register_buffer("mask", torch.ones(*w_shape, dtype=torch.float32))
             self.register_buffer("alpha", tensor([config.setdefault("alpha", 1.0)]))
             self.register_buffer("beta", tensor([config.setdefault("beta", 4.0)]))
             self.register_buffer("gamma", tensor([config.setdefault("gamma", 1e-4)]))
@@ -213,23 +217,20 @@ class Pruner(nn.Module):
                 )
             keys = ["alpha", "beta", "gamma", "max_ratio", "eps"]
         self._repr_keys = keys
-        self.device: Optional[torch.device] = None
 
     def forward(self, w: torch.Tensor, prune: bool = True) -> torch.Tensor:
-        if self.device is None:
-            self.device = w.device
         if not prune:
             return w
         w_abs = torch.abs(w)
         if self.method == "surgery":
-            if self._mask is None:
-                self._mask = torch.ones_like(w, dtype=torch.float32).to(self.device)
             mu, std = torch.mean(w_abs), torch.std(w_abs)
-            ones_mask, zeros_mask = self._mask.eq(1.0), self._mask.eq(0.0)
+            zeros_mask = self.mask == 0.0
+            ones_mask = self.mask == 1.0
             to_zeros_mask = ones_mask & (w_abs <= 0.9 * (mu - self.beta * std))
             to_ones_mask = zeros_mask & (w_abs >= 1.1 * (mu + self.beta * std))
-            self._mask[to_zeros_mask], self._mask[to_ones_mask] = 0.0, 1.0
-            mask = self._mask
+            self.mask[to_zeros_mask] = 0.0  # type: ignore
+            self.mask[to_ones_mask] = 1.0  # type: ignore
+            mask = self.mask
             del mu, std, ones_mask, zeros_mask, to_zeros_mask, to_ones_mask
         else:
             if self.method != "auto_prune":

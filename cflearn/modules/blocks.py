@@ -26,7 +26,10 @@ class Linear(nn.Module):
     ):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
-        pruner = None if pruner_config is None else Pruner(pruner_config)
+        if pruner_config is None:
+            pruner = None
+        else:
+            pruner = Pruner(pruner_config, [out_dim, in_dim])
         self.config, self.pruner = kwargs, pruner
         self._use_bias, self._init_method = bias, init_method
         with torch.no_grad():
