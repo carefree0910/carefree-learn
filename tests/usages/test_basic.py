@@ -116,6 +116,7 @@ def test_file_dataset2() -> None:
         "optimizer": "adam",
         "optimizer_config": {"lr": 0.00046240517013441517},
         "model_config": {
+            "ema_decay": 0.9,
             "default_encoding_configs": {
                 "init_method": "truncated_normal",
                 "embedding_dim": 8,
