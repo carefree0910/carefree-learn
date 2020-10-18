@@ -12,7 +12,8 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.ml.utils import scoring_fn_type
-from optuna.trial import TrialState, FrozenTrial
+from optuna.trial import TrialState
+from optuna.trial import FrozenTrial
 from optuna.importance import BaseImportanceEvaluator
 from plotly.graph_objects import Figure
 
