@@ -155,6 +155,24 @@ class MLP(nn.Module):
         return net
 
 
+@torch.jit.script
+def traverse(
+    arange: torch.Tensor,
+    increment_masks: torch.Tensor,
+    flat_probabilities: List[torch.Tensor],
+    tree_depth: int,
+) -> torch.Tensor:
+    device = increment_masks.device
+    batch_indices = torch.reshape(arange, [-1, 1]).to(device)
+    routes = [
+        p_flat.take(batch_indices + increment_masks[0]) for p_flat in flat_probabilities
+    ]
+    for i in range(1, tree_depth + 1):
+        for j, p_flat in enumerate(flat_probabilities):
+            routes[j] *= p_flat.take(batch_indices + increment_masks[i])
+    return torch.cat(routes, 1)
+
+
 class DNDF(nn.Module):
     def __init__(
         self,
@@ -168,11 +186,9 @@ class DNDF(nn.Module):
         is_regression: bool = None,
     ):
         super().__init__()
-        self._num_tree, self._tree_depth, self._output_type = (
-            num_tree,
-            tree_depth,
-            output_type,
-        )
+        self._num_tree = num_tree
+        self._tree_depth = tree_depth
+        self._output_type = output_type
         self._is_regression = out_dim == 1 if is_regression is None else is_regression
         self._num_leaf = 2 ** (self._tree_depth + 1)
         self._num_internals = self._num_leaf - 1
@@ -210,7 +226,6 @@ class DNDF(nn.Module):
         self.register_buffer("increment_masks", torch.stack(increment_masks))
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        device = net.device
         tree_net = self.tree_proj(net)
         p_left = torch.split(torch.sigmoid(tree_net), self._num_internals, dim=-1)
         flat_probabilities = [
@@ -218,15 +233,12 @@ class DNDF(nn.Module):
         ]
         num_flat_prob = 2 * self._num_internals
         arange = torch.arange(0, num_flat_prob * net.shape[0], num_flat_prob)
-        batch_indices = torch.reshape(arange, [-1, 1]).to(device)
-        routes = [
-            p_flat.take(batch_indices + self.increment_masks[0])
-            for p_flat in flat_probabilities
-        ]
-        for i in range(1, self._tree_depth + 1):
-            for j, p_flat in enumerate(flat_probabilities):
-                routes[j] *= p_flat.take(batch_indices + self.increment_masks[i])
-        features = torch.cat(routes, 1)
+        features = traverse(
+            arange,
+            self.increment_masks,
+            flat_probabilities,
+            self._tree_depth,
+        )
         if self._is_regression or self._output_dim <= 1:
             leaves: Union[torch.Tensor, nn.Parameter] = self.leaves
         else:
