@@ -385,6 +385,17 @@ class Predictor:
         kwargs["contains_labels"] = contains_labels
         return self.inference.predict(loader, **kwargs)
 
+    def predict_prob(
+        self,
+        x: data_type,
+        batch_size: int = 256,
+        *,
+        contains_labels: bool = False,
+        **kwargs: Any,
+    ) -> np_dict_type:
+        kwargs["returns_probabilities"] = True
+        return self.predict(x, batch_size, contains_labels=contains_labels, **kwargs)
+
     def to_pattern(self, **kwargs: Any) -> ModelPattern:
         predict = partial(self.predict, **kwargs)
         kwargs["returns_probabilities"] = True
