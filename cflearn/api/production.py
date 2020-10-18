@@ -112,11 +112,14 @@ class Pack(LoggingMixin):
         pipeline: Pipeline,
         export_folder: str,
         *,
+        verbose: bool = True,
         compress: bool = True,
         remove_original: bool = True,
+        **kwargs: Any,
     ) -> None:
+        kwargs["verbose"] = verbose
         instance = cls(export_folder, loading=False)
-        onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path)
+        onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path, **kwargs)
         with open(instance.onnx_output_names_path, "w") as f:
             json.dump(onnx.output_names, f)
         pipeline.preprocessor.save(instance.preprocessor_folder)

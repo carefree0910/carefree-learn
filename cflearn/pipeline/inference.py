@@ -122,6 +122,8 @@ class ONNX:
         self,
         onnx_path: str,
         dynamic_axes: Union[List[int], Dict[int, str]] = None,
+        *,
+        verbose: bool = True,
         **kwargs: Any,
     ) -> "ONNX":
         if self.model is None:
@@ -140,6 +142,7 @@ class ONNX:
         for name in self.input_names + self.output_names:
             dynamic_axes_settings[name] = dynamic_axes
         kwargs["dynamic_axes"] = dynamic_axes_settings
+        kwargs["verbose"] = verbose
         model = self.model.cpu()
         with eval_context(model):
             torch.onnx.export(model, self.input_sample, onnx_path, **kwargs)
