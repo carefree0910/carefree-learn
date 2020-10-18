@@ -8,7 +8,6 @@ from tqdm import tqdm
 from functools import partial
 from onnxruntime import InferenceSession
 from cftool.ml import Metrics
-from cftool.ml import ModelPattern
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -347,65 +346,8 @@ class Inference(LoggingMixin):
         return labels, results
 
 
-class Predictor:
-    def __init__(
-        self,
-        onnx_config: Dict[str, Any],
-        preprocessor_folder: str,
-        device: Union[str, torch.device] = "cpu",
-        *,
-        use_tqdm: bool = False,
-    ):
-        preprocessor = PreProcessor.load(preprocessor_folder)
-        self.inference = Inference(
-            preprocessor,
-            device,
-            onnx_config=onnx_config,
-            use_tqdm=use_tqdm,
-        )
-
-    def __str__(self) -> str:
-        return f"Predictor({self.inference})"
-
-    __repr__ = __str__
-
-    def predict(
-        self,
-        x: data_type,
-        batch_size: int = 256,
-        *,
-        contains_labels: bool = False,
-        **kwargs: Any,
-    ) -> np_dict_type:
-        loader = self.inference.preprocessor.make_inference_loader(
-            x,
-            batch_size,
-            contains_labels=contains_labels,
-        )
-        kwargs["contains_labels"] = contains_labels
-        return self.inference.predict(loader, **kwargs)
-
-    def predict_prob(
-        self,
-        x: data_type,
-        batch_size: int = 256,
-        *,
-        contains_labels: bool = False,
-        **kwargs: Any,
-    ) -> np_dict_type:
-        kwargs["returns_probabilities"] = True
-        return self.predict(x, batch_size, contains_labels=contains_labels, **kwargs)
-
-    def to_pattern(self, **kwargs: Any) -> ModelPattern:
-        predict = partial(self.predict, **kwargs)
-        kwargs["returns_probabilities"] = True
-        predict_prob = partial(self.predict, **kwargs)
-        return ModelPattern(predict_method=predict, predict_prob_method=predict_prob)
-
-
 __all__ = [
     "PreProcessor",
     "ONNX",
     "Inference",
-    "Predictor",
 ]
