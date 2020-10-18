@@ -3,6 +3,7 @@ import cflearn
 
 import numpy as np
 
+from cftool.misc import fix_float_to_length
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
@@ -110,6 +111,55 @@ def test_file_dataset() -> None:
     )
 
 
+def test_file_dataset2() -> None:
+    config = {
+        "optimizer": "adam",
+        "optimizer_config": {"lr": 0.00046240517013441517},
+        "model_config": {
+            "default_encoding_configs": {
+                "init_method": "truncated_normal",
+                "embedding_dim": 8,
+            },
+            "mapping_configs": {
+                "batch_norm": True,
+                "dropout": 0.12810052348936224,
+                "pruner_config": {"method": "surgery"},
+            },
+        },
+    }
+    config.update(kwargs)
+
+    m = cflearn.make(**config).fit(tr_file, x_cv=cv_file)
+    save_name = "__file_trained__"
+    cflearn.save(m, save_name)
+    m2 = cflearn.load(save_name)["fcnn"]
+    pack_name = "__file_packed__"
+    cflearn.Pack.pack(m2, pack_name)
+    m3 = cflearn.Pack.get_predictor(pack_name)
+
+    assert m.binary_threshold is not None
+    b1 = fix_float_to_length(m.binary_threshold, 8)
+    b2 = fix_float_to_length(m2.binary_threshold, 8)
+    b3 = fix_float_to_length(m3.inference.binary_threshold, 8)
+    assert b1 == b2 == b3
+
+    pred1 = m.predict(te_file, contains_labels=True)
+    pred2 = m2.predict(te_file, contains_labels=True)
+    pred3 = m3.predict(te_file, contains_labels=True)
+    pred4 = m3.to_pattern(contains_labels=True).predict(te_file)
+    assert np.allclose(pred1, pred2)
+    assert np.allclose(pred2, pred3)
+    assert np.allclose(pred3, pred4)
+
+    prob1 = m.predict_prob(te_file, contains_labels=True)
+    prob2 = m2.predict_prob(te_file, contains_labels=True)
+    prob3 = m3.predict_prob(te_file, contains_labels=True)
+    prob4 = m3.to_pattern(contains_labels=True).predict(te_file, requires_prob=True)
+    assert np.allclose(prob1, prob2, atol=1e-4, rtol=1e-4)
+    assert np.allclose(prob2, prob3, atol=1e-4, rtol=1e-4)
+    assert np.allclose(prob3, prob4, atol=1e-4, rtol=1e-4)
+
+
 def test_auto_file() -> None:
     # TODO : in ONNX, device may be mixed up because Pruner's mask will be on cuda:0
     auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
@@ -138,4 +188,5 @@ def test_auto_file() -> None:
 if __name__ == "__main__":
     test_array_dataset()
     test_file_dataset()
+    test_file_dataset2()
     test_auto_file()
