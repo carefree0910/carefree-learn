@@ -190,8 +190,7 @@ def make(
 
 
 SAVING_DELIM = "^_^"
-pipelines_dict_type = Dict[str, Pipeline]
-pipelines_type = Union[Pipeline, List[Pipeline], pipelines_dict_type]
+pipelines_type = Union[Pipeline, List[Pipeline], Dict[str, Pipeline]]
 
 
 def _to_saving_path(identifier: str, saving_folder: Optional[str]) -> str:
@@ -219,7 +218,7 @@ def _make_saving_path(name: str, saving_path: str, remove_existing: bool) -> str
     return f"{saving_path}{postfix}"
 
 
-def _to_pipelines(pipelines: pipelines_type) -> pipelines_dict_type:
+def _to_pipelines(pipelines: pipelines_type) -> Dict[str, Pipeline]:
     if not isinstance(pipelines, dict):
         if not isinstance(pipelines, list):
             pipelines = [pipelines]
@@ -297,7 +296,7 @@ def save(
     pipelines: pipelines_type,
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
-) -> pipelines_dict_type:
+) -> Dict[str, Pipeline]:
     pipelines = _to_pipelines(pipelines)
     saving_path = _to_saving_path(identifier, saving_folder)
     for name, pipeline in pipelines.items():
@@ -330,7 +329,7 @@ def _fetch_saving_paths(
 def load(
     identifier: str = "cflearn",
     saving_folder: str = None,
-) -> pipelines_dict_type:
+) -> Dict[str, Pipeline]:
     paths = _fetch_saving_paths(identifier, saving_folder)
     pipelines = {k: Pipeline.load(v, compress=True) for k, v in paths.items()}
     if not pipelines:
