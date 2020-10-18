@@ -45,6 +45,7 @@ class Pipeline(LoggingMixin):
         verbose_level: int = 2,
     ):
         self.trial = trial
+        self.inference: Optional[Inference]
         self.tracker = None if tracker_config is None else Tracker(**tracker_config)
         self._verbose_level = int(verbose_level)
         if cuda == "cpu":
@@ -74,6 +75,8 @@ class Pipeline(LoggingMixin):
 
     @property
     def binary_threshold(self) -> Optional[float]:
+        if self.inference is None:
+            raise ValueError("`inference` is not yet generated")
         return self.inference.binary_threshold
 
     def _init_config(self, config: Dict[str, Any]) -> None:
@@ -176,6 +179,8 @@ class Pipeline(LoggingMixin):
 
     # TODO : Call this frequently
     def _generate_binary_threshold(self) -> None:
+        if self.inference is None:
+            raise ValueError("`inference` is not yet generated")
         self.inference.generate_binary_threshold()
 
     def _before_loop(
@@ -309,6 +314,9 @@ class Pipeline(LoggingMixin):
                 "returns_probabilities": returns_probabilities,
             }
         )
+
+        if self.inference is None:
+            raise ValueError("`inference` is not yet generated")
         return self.inference.predict(loader, **kwargs)
 
     def predict_prob(
@@ -369,6 +377,8 @@ class Pipeline(LoggingMixin):
                     self.cv_data.save(valid_data_folder, compress=compress)
             self.trainer.save_checkpoint(export_folder)
             self.config["is_binary"] = self._is_binary
+            if self.inference is None:
+                raise ValueError("`inference` is not yet generated")
             self.config["binary_config"] = self.inference.binary_config
             Saving.save_dict(self.config, "config", export_folder)
             if compress:
