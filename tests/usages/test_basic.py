@@ -138,9 +138,9 @@ def test_file_dataset2() -> None:
     m3 = cflearn.Pack.get_predictor(pack_name)
 
     assert m.binary_threshold is not None
-    b1 = fix_float_to_length(m.binary_threshold, 8)
-    b2 = fix_float_to_length(m2.binary_threshold, 8)
-    b3 = fix_float_to_length(m3.inference.binary_threshold, 8)
+    b1 = fix_float_to_length(m.binary_threshold, 6)
+    b2 = fix_float_to_length(m2.binary_threshold, 6)
+    b3 = fix_float_to_length(m3.inference.binary_threshold, 6)
     assert b1 == b2 == b3
 
     pred1 = m.predict(te_file, contains_labels=True)
