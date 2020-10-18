@@ -24,12 +24,13 @@ except:
     amp = None
 
 from .inference import PreProcessor
+from ..types import data_type
+from ..models.base import model_dict
+from ..models.base import ModelBase
 from ..misc.toolkit import to_2d
 from ..misc.time_series import TSLabelCollator
-from ..models.base import model_dict
-from ..pipeline.inference import Inference
 from ..trainer.core import Trainer
-from ..types import data_type
+from ..pipeline.inference import Inference
 
 trains_logger: Optional[Logger] = None
 
@@ -45,6 +46,7 @@ class Pipeline(LoggingMixin):
         verbose_level: int = 2,
     ):
         self.trial = trial
+        self.model: Optional[ModelBase] = None
         self.inference: Optional[Inference]
         self.tracker = None if tracker_config is None else Tracker(**tracker_config)
         self._verbose_level = int(verbose_level)
