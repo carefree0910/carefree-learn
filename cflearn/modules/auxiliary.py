@@ -177,7 +177,6 @@ class Pruner(nn.Module):
             self.register_buffer("gamma", tensor([config.setdefault("gamma", 1e-4)]))
             self.register_buffer("eps", tensor([config.setdefault("eps", 1e-12)]))
             keys = ["alpha", "beta", "gamma", "eps"]
-            self._mask: Optional[torch.Tensor] = None
         elif self.method == "simplified":
             self.register_buffer("alpha", tensor([config.setdefault("alpha", 0.01)]))
             self.register_buffer("beta", tensor([config.setdefault("beta", 1.0)]))
@@ -228,8 +227,8 @@ class Pruner(nn.Module):
             ones_mask = self.mask == 1.0
             to_zeros_mask = ones_mask & (w_abs <= 0.9 * (mu - self.beta * std))
             to_ones_mask = zeros_mask & (w_abs >= 1.1 * (mu + self.beta * std))
-            self.mask[to_zeros_mask] = 0.0  # type: ignore
-            self.mask[to_ones_mask] = 1.0  # type: ignore
+            self.mask.masked_fill(to_zeros_mask, 0.0)  # type: ignore
+            self.mask.masked_fill(to_ones_mask, 1.0)  # type: ignore
             mask = self.mask
             del mu, std, ones_mask, zeros_mask, to_zeros_mask, to_ones_mask
         else:
