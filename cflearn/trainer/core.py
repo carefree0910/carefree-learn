@@ -289,6 +289,11 @@ class Trainer(LoggingMixin):
         keys = ["logits", "predictions", "labels"]
         results = self.inference.predict(loader=loader, return_all=True)
         logits, predictions, labels = map(results.get, keys)
+        # binary threshold
+        probabilities = None
+        if self.inference.need_binary_threshold:
+            probabilities = to_prob(logits)
+            self.inference.generate_binary_threshold(labels, probabilities)
         # losses
         loss_values = None
         if self._metrics_need_loss:
@@ -322,7 +327,9 @@ class Trainer(LoggingMixin):
                         if logits is None:
                             msg = "`logits` should be returned in `inference.predict`"
                             raise ValueError(msg)
-                        metric_predictions = to_prob(logits)
+                        if probabilities is None:
+                            probabilities = to_prob(logits)
+                        metric_predictions = probabilities
                     else:
                         assert isinstance(predictions, np.ndarray)
                         metric_predictions = predictions

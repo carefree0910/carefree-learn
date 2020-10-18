@@ -219,6 +219,10 @@ class Inference(LoggingMixin):
             "binary_threshold": self.binary_threshold,
         }
 
+    @property
+    def need_binary_threshold(self) -> bool:
+        return self.is_binary and self.binary_metric is not None
+
     def inject_binary_config(
         self,
         config: Dict[str, Any],
@@ -259,15 +263,20 @@ class Inference(LoggingMixin):
             arrays = [x_batch, y_batch]
         return dict(zip(["x_batch", "y_batch"], arrays))
 
-    def generate_binary_threshold(self) -> None:
-        if not self.is_binary or self.binary_metric is None:
+    def generate_binary_threshold(
+        self,
+        labels: Optional[np.ndarray] = None,
+        probabilities: Optional[np.ndarray] = None,
+    ) -> None:
+        if not self.need_binary_threshold:
             return
-        x, y = self.data.raw.x, self.data.processed.y
-        loader = self.preprocessor.make_inference_loader(x, contains_labels=True)
-        probabilities = self.predict(loader, returns_probabilities=True)
+        if labels is None or probabilities is None:
+            x, labels = self.data.raw.x, self.data.processed.y
+            loader = self.preprocessor.make_inference_loader(x, contains_labels=True)
+            probabilities = self.predict(loader, returns_probabilities=True)
         try:
             threshold = Metrics.get_binary_threshold(
-                y,
+                labels,
                 probabilities,
                 self.binary_metric,
             )

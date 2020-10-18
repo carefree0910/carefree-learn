@@ -181,12 +181,6 @@ class Pipeline(LoggingMixin):
         with timing_context(self, "init device", enable=self.timing):
             self.trainer.model.to(self.device)
 
-    # TODO : Call this frequently
-    def _generate_binary_threshold(self) -> None:
-        if self.inference is None:
-            raise ValueError("`inference` is not yet generated")
-        self.inference.generate_binary_threshold()
-
     def _before_loop(
         self,
         x: data_type,
@@ -231,7 +225,9 @@ class Pipeline(LoggingMixin):
         # training loop
         self.trainer.fit(self.tr_loader, self.cv_loader, self.tr_weights)
         # binary threshold
-        self._generate_binary_threshold()
+        if self.inference is None:
+            raise ValueError("`inference` is not yet generated")
+        self.inference.generate_binary_threshold()
         # logging
         self.log_timing()
 
