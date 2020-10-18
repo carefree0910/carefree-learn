@@ -158,7 +158,8 @@ class Pack(LoggingMixin):
                     use_tqdm=use_tqdm,
                 )
                 with open(instance.binary_config_path, "r") as f:
-                    predictor.inference.inject_binary_config(json.load(f))
+                    cfg = json.load(f)
+                    predictor.inference.inject_binary_config(cfg, generate=True)
         return predictor
 
     @staticmethod

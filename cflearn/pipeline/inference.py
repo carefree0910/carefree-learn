@@ -165,8 +165,8 @@ class Inference(LoggingMixin):
         preprocessor: PreProcessor,
         device: Union[str, torch.device],
         *,
-        binary_metric: Optional[str] = None,
         model: Optional[ModelBase] = None,
+        binary_config: Optional[Dict[str, Any]] = None,
         onnx_config: Optional[Dict[str, Any]] = None,
         use_tqdm: bool = True,
     ):
@@ -181,8 +181,9 @@ class Inference(LoggingMixin):
 
         # binary case
         self.is_binary = self.data.num_classes == 2
-        self.binary_metric = binary_metric
-        self.binary_threshold = None
+        if binary_config is None:
+            binary_config = {}
+        self.inject_binary_config(binary_config)
 
         # onnx
         self.onnx: Optional[ONNX]
@@ -212,10 +213,17 @@ class Inference(LoggingMixin):
             "binary_threshold": self.binary_threshold,
         }
 
-    def inject_binary_config(self, config: Dict[str, Any]) -> None:
-        self.binary_metric = config["binary_metric"]
-        self.binary_threshold = config["binary_threshold"]
-        if self.binary_threshold is None:
+    def inject_binary_config(
+        self,
+        config: Dict[str, Any],
+        *,
+        generate: bool = False,
+    ) -> None:
+        self.binary_metric = config.get("binary_metric")
+        self.binary_threshold = config.get("binary_threshold")
+        has_metric = self.binary_metric is not None
+        has_threshold = self.binary_threshold is None
+        if generate and has_metric and not has_threshold:
             self.generate_binary_threshold()
 
     def _to_device(self, arr: Optional[np.ndarray]) -> Optional[torch.Tensor]:

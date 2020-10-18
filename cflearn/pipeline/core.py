@@ -74,7 +74,7 @@ class Pipeline(LoggingMixin):
 
     @property
     def binary_threshold(self) -> Optional[float]:
-        return self._binary_threshold
+        return self.inference.binary_threshold
 
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
@@ -87,9 +87,9 @@ class Pipeline(LoggingMixin):
         self._cv_split = self.config.setdefault("cv_split", 0.1)
         self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
         self._model = self.config.setdefault("model", "fcnn")
-        self._binary_metric = self.config.setdefault("binary_metric", "acc")
         self._is_binary = self.config.get("is_binary")
-        self._binary_threshold = self.config.get("binary_threshold")
+        self._binary_config = self.config.setdefault("binary_config", {})
+        self._binary_config.setdefault("binary_metric", "acc")
 
         self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
         self.batch_size = self.config.setdefault("batch_size", 128)
@@ -157,8 +157,8 @@ class Pipeline(LoggingMixin):
             self.inference = Inference(
                 self.preprocessor,
                 self.model.device,
-                binary_metric=self._binary_metric,
                 model=self.model,
+                binary_config=self._binary_config,
                 use_tqdm=self.use_tqdm,
             )
             self.trainer = Trainer(
@@ -369,7 +369,7 @@ class Pipeline(LoggingMixin):
                     self.cv_data.save(valid_data_folder, compress=compress)
             self.trainer.save_checkpoint(folder)
             self.config["is_binary"] = self._is_binary
-            self.config["binary_threshold"] = self._binary_threshold
+            self.config["binary_config"] = self.inference.binary_config
             Saving.save_dict(self.config, "config", folder)
             if compress:
                 Saving.compress(abs_folder, remove_original=True)
