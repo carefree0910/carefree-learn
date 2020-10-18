@@ -83,6 +83,7 @@ class Pipeline(LoggingMixin):
 
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
+        self.model_type = self.config.setdefault("model", "fcnn")
         self.use_tqdm = self.config.setdefault("use_tqdm", True)
         self.timing = self.config.setdefault("use_timing_context", True)
         self._data_config = self.config.setdefault("data_config", {})
@@ -91,7 +92,6 @@ class Pipeline(LoggingMixin):
         self._read_config = self.config.setdefault("read_config", {})
         self._cv_split = self.config.setdefault("cv_split", 0.1)
         self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
-        self._model = self.config.setdefault("model", "fcnn")
         self._is_binary = self.config.get("is_binary")
         self._binary_config = self.config.setdefault("binary_config", {})
         self._binary_config.setdefault("binary_metric", "acc")
@@ -106,10 +106,11 @@ class Pipeline(LoggingMixin):
             "ts_label_collator_config", {}
         )
 
-        logging_folder = self.config["logging_folder"] = self.config.setdefault(
+        logging_folder = self.config.setdefault(
             "logging_folder",
-            os.path.join("_logging", model_dict[self._model].__identifier__),
+            os.path.join("_logging", model_dict[self.model_type].__identifier__),
         )
+        self.config["logging_folder"] = logging_folder
         logging_file = self.config.get("logging_file")
         if logging_file is not None:
             logging_path = os.path.join(logging_folder, logging_file)
@@ -153,7 +154,7 @@ class Pipeline(LoggingMixin):
         # model
         with timing_context(self, "init model", enable=self.timing):
             args = self.config, self.tr_data, self.cv_data, self.device
-            self.model = model_dict[self._model](*args)
+            self.model = model_dict[self.model_type](*args)
         # trainer
         with timing_context(self, "init trainer", enable=self.timing):
             if self.preprocessor is None:
