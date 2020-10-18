@@ -67,7 +67,7 @@ class EMA(nn.Module):
     def tgt_params(self) -> Iterator[Tuple[str, nn.Parameter]]:
         return map(
             lambda pair: (pair[0].replace(".", "_"), pair[1]),
-            filter(lambda pair: pair[1].requires_grad, self._named_parameters),
+            self._named_parameters,
         )
 
     def forward(self) -> None:
