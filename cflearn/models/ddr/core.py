@@ -68,7 +68,7 @@ class DDR(FCNN):
         self._step_count = 0
 
     def _init_config(self) -> None:
-        self.config.setdefault("ema_decay", 0.0)
+        self.config.setdefault("ema_decay", 0.999)
         # common mapping configs
         self._common_configs = self.config.setdefault("common_configs", {})
         self._common_configs.setdefault("pruner_config", None)
