@@ -162,7 +162,6 @@ def test_file_dataset2() -> None:
 
 
 def test_auto_file() -> None:
-    # TODO : in ONNX, device may be mixed up because Pruner's mask will be on cuda:0
     auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
     predict_config = {"contains_labels": True}
     auto.fit(

@@ -103,8 +103,6 @@ class Pack(LoggingMixin):
     def preprocessor_folder(self) -> str:
         return os.path.join(self.export_folder, "preprocessor")
 
-    # TODO : check binary threshold, BN, EMA, Dropout, etc.
-
     @classmethod
     def pack(
         cls,
