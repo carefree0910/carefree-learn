@@ -241,7 +241,7 @@ class Benchmark(LoggingMixin):
 
     def save(
         self,
-        saving_folder: str,
+        export_folder: str,
         *,
         simplify: bool = True,
         compress: bool = True,
@@ -249,10 +249,10 @@ class Benchmark(LoggingMixin):
         experiments = self.experiments
         if experiments is None:
             raise ValueError("`experiments` is not yet defined")
-        abs_folder = os.path.abspath(saving_folder)
+        abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [saving_folder]):
-            Saving.prepare_folder(self, saving_folder)
+        with lock_manager(base_folder, [export_folder]):
+            Saving.prepare_folder(self, export_folder)
             Saving.save_dict(
                 {
                     "task_name": self.task_name,

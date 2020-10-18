@@ -351,26 +351,26 @@ class Pipeline(LoggingMixin):
             predict_prob_method=_predict_prob,
         )
 
-    def save(self, folder: str = None, *, compress: bool = True) -> "Pipeline":
-        if folder is None:
-            folder = self.trainer.checkpoint_folder
-        abs_folder = os.path.abspath(folder)
+    def save(self, export_folder: str = None, *, compress: bool = True) -> "Pipeline":
+        if export_folder is None:
+            export_folder = self.trainer.checkpoint_folder
+        abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [folder]):
-            Saving.prepare_folder(self, folder)
+        with lock_manager(base_folder, [export_folder]):
+            Saving.prepare_folder(self, export_folder)
             # TODO : save indices instead of instance. Only save original data
-            train_data_folder = os.path.join(folder, "__data__", "train")
+            train_data_folder = os.path.join(export_folder, "__data__", "train")
             if self._save_original_data:
                 self._original_data.save(train_data_folder, compress=compress)
             else:
                 self.tr_data.save(train_data_folder, compress=compress)
-                valid_data_folder = os.path.join(folder, "__data__", "valid")
+                valid_data_folder = os.path.join(export_folder, "__data__", "valid")
                 if self.cv_data is not None:
                     self.cv_data.save(valid_data_folder, compress=compress)
-            self.trainer.save_checkpoint(folder)
+            self.trainer.save_checkpoint(export_folder)
             self.config["is_binary"] = self._is_binary
             self.config["binary_config"] = self.inference.binary_config
-            Saving.save_dict(self.config, "config", folder)
+            Saving.save_dict(self.config, "config", export_folder)
             if compress:
                 Saving.compress(abs_folder, remove_original=True)
         return self

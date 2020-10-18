@@ -26,7 +26,6 @@ from ..misc.toolkit import to_prob
 from ..misc.toolkit import to_numpy
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import to_standard
-from ..misc.toolkit import compress_zip
 from ..misc.toolkit import collate_np_dicts
 from ..misc.toolkit import eval_context
 
@@ -61,12 +60,19 @@ class PreProcessor(LoggingMixin):
         compress: bool = True,
         remove_original: bool = True,
     ) -> "PreProcessor":
-        Saving.prepare_folder(self, export_folder)
-        data_folder = os.path.join(export_folder, self.data_folder)
-        self.data.save(data_folder)
-        Saving.save_dict(self.sampler_config, self.sampler_config_name, export_folder)
-        if compress:
-            compress_zip(export_folder, remove_original=remove_original)
+        abs_folder = os.path.abspath(export_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [export_folder]):
+            Saving.prepare_folder(self, export_folder)
+            data_folder = os.path.join(export_folder, self.data_folder)
+            self.data.save(data_folder)
+            Saving.save_dict(
+                self.sampler_config,
+                self.sampler_config_name,
+                export_folder,
+            )
+            if compress:
+                Saving.compress(abs_folder, remove_original=remove_original)
         return self
 
     @classmethod

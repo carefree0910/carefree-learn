@@ -96,13 +96,6 @@ def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dic
     return results
 
 
-def compress_zip(folder: str, *, remove_original: bool = True) -> None:
-    abs_folder = os.path.abspath(folder)
-    base_folder = os.path.dirname(abs_folder)
-    with lock_manager(base_folder, [folder]):
-        Saving.compress(abs_folder, remove_original=remove_original)
-
-
 def get_gradient(
     y: torch.Tensor,
     x: torch.Tensor,
@@ -731,7 +724,6 @@ __all__ = [
     "to_prob",
     "collate_np_dicts",
     "collate_tensor_dicts",
-    "compress_zip",
     "get_gradient",
     "Initializer",
     "Activations",

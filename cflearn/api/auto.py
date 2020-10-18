@@ -24,7 +24,6 @@ from .hpo import optuna_params_type
 from .production import Pack
 from .production import Predictor
 from ..types import data_type
-from ..misc.toolkit import compress_zip
 from ..pipeline.core import Pipeline
 
 
@@ -202,14 +201,18 @@ class Auto:
     ) -> "Auto":
         if self.pipelines is None:
             raise ValueError("`pipelines` are not yet generated")
-        for i, pipeline in enumerate(self.pipelines):
-            local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
-            Pack.pack(pipeline, local_export_folder)
-        if self.pattern_weights is not None:
-            path = os.path.join(export_folder, self.pattern_weights_file)
-            np.save(path, self.pattern_weights)
-        if compress:
-            compress_zip(export_folder, remove_original=remove_original)
+        abs_folder = os.path.abspath(export_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [export_folder]):
+            Saving.prepare_folder(self, export_folder)
+            for i, pipeline in enumerate(self.pipelines):
+                local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
+                Pack.pack(pipeline, local_export_folder)
+            if self.pattern_weights is not None:
+                path = os.path.join(export_folder, self.pattern_weights_file)
+                np.save(path, self.pattern_weights)
+            if compress:
+                Saving.compress(abs_folder, remove_original=remove_original)
         return self
 
     @classmethod

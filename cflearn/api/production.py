@@ -19,7 +19,6 @@ from cftool.misc import LoggingMixin
 from .ensemble import ensemble
 from ..types import data_type
 from ..types import np_dict_type
-from ..misc.toolkit import compress_zip
 from ..pipeline.core import Pipeline
 from ..pipeline.inference import ONNX
 from ..pipeline.inference import Inference
@@ -119,14 +118,18 @@ class Pack(LoggingMixin):
     ) -> None:
         kwargs["verbose"] = verbose
         instance = cls(export_folder, loading=False)
-        onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path, **kwargs)
-        with open(instance.onnx_output_names_path, "w") as f:
-            json.dump(onnx.output_names, f)
-        pipeline.preprocessor.save(instance.preprocessor_folder)
-        with open(instance.binary_config_path, "w") as f:
-            json.dump(pipeline.trainer.inference.binary_config, f)
-        if compress:
-            compress_zip(export_folder, remove_original=remove_original)
+        abs_folder = os.path.abspath(export_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [export_folder]):
+            Saving.prepare_folder(instance, export_folder)
+            onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path, **kwargs)
+            with open(instance.onnx_output_names_path, "w") as f:
+                json.dump(onnx.output_names, f)
+            pipeline.preprocessor.save(instance.preprocessor_folder)
+            with open(instance.binary_config_path, "w") as f:
+                json.dump(pipeline.trainer.inference.binary_config, f)
+            if compress:
+                Saving.compress(abs_folder, remove_original=remove_original)
 
     @classmethod
     def get_predictor(
