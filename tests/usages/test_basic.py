@@ -41,7 +41,23 @@ def test_array_dataset() -> None:
     m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
     cflearn.estimate(*dataset.xy, pipelines=m)
     cflearn.save(m)
-    cflearn.estimate(*dataset.xy, pipelines=cflearn.load())
+    m2 = cflearn.load()[model]
+    assert m.tr_data == m2.tr_data
+    assert m.cv_data == m2.cv_data
+    cflearn.estimate(*dataset.xy, pipelines=m2)
+    cflearn._remove()
+    data = TabularData.from_dataset(dataset)
+    split = data.split(0.1)
+    x_tr, y_tr = split.remained.processed.xy
+    x_cv, y_cv = split.split.processed.xy
+    sample_weights = np.random.random(len(dataset))
+    m = cflearn.make(model, use_tqdm=False, **kwargs)
+    m.fit(x_tr, y_tr, x_cv, y_cv, sample_weights=sample_weights)
+    cflearn.save(m)
+    m2 = cflearn.load()[model]
+    assert m.tr_data == m2.tr_data
+    assert m.cv_data == m2.cv_data
+    assert np.allclose(sample_weights, m2.sample_weights)
     cflearn._remove()
 
 
