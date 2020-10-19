@@ -193,10 +193,11 @@ class Pipeline(LoggingMixin):
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
         self._data_config["verbose_level"] = self._verbose_level
+        self.sample_weights = sample_weights.copy()
         self._original_data = TabularData(**self._data_config)
         self._original_data.read(*args, **self._read_config)
         self.tr_data = self._original_data
-        self._save_original_data = False
+        self._save_original_data = x_cv is None
         self.tr_weights = None
         if x_cv is not None:
             self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
@@ -204,16 +205,19 @@ class Pipeline(LoggingMixin):
                 self.tr_weights = sample_weights[: len(self.tr_data)]
         else:
             if self._cv_split <= 0.0:
-                self.cv_data = self.cv_indices = None
+                self.cv_data = None
+                self.tr_split_indices = None
+                self.cv_split_indices = None
                 if sample_weights is not None:
                     self.tr_weights = sample_weights
             else:
-                self._save_original_data = True
                 split = self.tr_data.split(
                     self._cv_split,
                     order=self._cv_split_order,
                 )
-                self.cv_data, self.tr_data = split.split, split.remained
+                self.tr_data, self.cv_data = split.remained, split.split
+                self.tr_split_indices = split.remained_indices
+                self.cv_split_indices = split.split_indices
                 # TODO : utilize cv_weights with sample_weights[split.split_indices]
                 if sample_weights is not None:
                     self.tr_weights = sample_weights[split.remained_indices]
@@ -359,22 +363,46 @@ class Pipeline(LoggingMixin):
             predict_prob_method=_predict_prob,
         )
 
-    def save(self, export_folder: str = None, *, compress: bool = True) -> "Pipeline":
+    data_folder = "data"
+    train_folder = "train"
+    valid_folder = "valid"
+    original_folder = "original"
+    train_indices_file = "train_indices.npy"
+    valid_indices_file = "valid_indices.npy"
+    sample_weights_file = "sample_weights.npy"
+
+    def save(
+        self,
+        export_folder: str = None,
+        *,
+        compress: bool = True,
+        remove_original: bool = True,
+    ) -> "Pipeline":
         if export_folder is None:
             export_folder = self.trainer.checkpoint_folder
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
-            # TODO : save indices instead of instance. Only save original data
-            train_data_folder = os.path.join(export_folder, "__data__", "train")
-            if self._save_original_data:
-                self._original_data.save(train_data_folder, compress=compress)
-            else:
+            data_folder = os.path.join(export_folder, self.data_folder)
+            os.makedirs(data_folder, exist_ok=True)
+            if self.sample_weights is not None:
+                sw_file = os.path.join(data_folder, self.sample_weights_file)
+                np.save(sw_file, self.sample_weights)
+            if not self._save_original_data:
+                train_data_folder = os.path.join(data_folder, self.train_folder)
+                valid_data_folder = os.path.join(data_folder, self.valid_folder)
                 self.tr_data.save(train_data_folder, compress=compress)
-                valid_data_folder = os.path.join(export_folder, "__data__", "valid")
-                if self.cv_data is not None:
-                    self.cv_data.save(valid_data_folder, compress=compress)
+                self.cv_data.save(valid_data_folder, compress=compress)
+            else:
+                original_data_folder = os.path.join(data_folder, self.original_folder)
+                self._original_data.save(original_data_folder, compress=compress)
+                if self.tr_split_indices is not None:
+                    tr_file = os.path.join(data_folder, self.train_indices_file)
+                    np.save(tr_file, self.tr_split_indices)
+                if self.cv_split_indices is not None:
+                    cv_file = os.path.join(data_folder, self.valid_indices_file)
+                    np.save(cv_file, self.cv_split_indices)
             self.trainer.save_checkpoint(export_folder)
             self.config["is_binary"] = self._is_binary
             if self.inference is None:
@@ -382,31 +410,55 @@ class Pipeline(LoggingMixin):
             self.config["binary_config"] = self.inference.binary_config
             Saving.save_dict(self.config, "config", export_folder)
             if compress:
-                Saving.compress(abs_folder, remove_original=True)
+                Saving.compress(abs_folder, remove_original=remove_original)
         return self
 
     @classmethod
     def load(
         cls,
-        folder: str,
+        export_folder: str,
         *,
         cuda: int = None,
         verbose_level: int = 0,
         compress: bool = True,
     ) -> "Pipeline":
-        base_folder = os.path.dirname(os.path.abspath(folder))
-        with lock_manager(base_folder, [folder]):
-            with Saving.compress_loader(folder, compress, remove_extracted=True):
-                config = Saving.load_dict("config", folder)
+        base_folder = os.path.dirname(os.path.abspath(export_folder))
+        with lock_manager(base_folder, [export_folder]):
+            with Saving.compress_loader(export_folder, compress):
+                config = Saving.load_dict("config", export_folder)
                 pipeline = Pipeline(config, cuda=cuda, verbose_level=verbose_level)
-                tr_data_folder = os.path.join(folder, "__data__", "train")
-                cv_data_folder = os.path.join(folder, "__data__", "valid")
-                tr_data = TabularData.load(tr_data_folder, compress=compress)
-                cv_data = None
-                cv_file = f"{cv_data_folder}.zip"
-                if os.path.isdir(cv_data_folder) or os.path.isfile(cv_file):
-                    cv_data = TabularData.load(cv_data_folder, compress=compress)
-                pipeline._original_data = tr_data
+                data_folder = os.path.join(export_folder, cls.data_folder)
+                original_data_folder = os.path.join(data_folder, cls.original_folder)
+                if not os.path.isdir(original_data_folder):
+                    train_data_folder = os.path.join(data_folder, cls.train_folder)
+                    valid_data_folder = os.path.join(data_folder, cls.valid_folder)
+                    try:
+                        tr_data = TabularData.load(train_data_folder, compress=compress)
+                        cv_data = TabularData.load(valid_data_folder, compress=compress)
+                    except Exception as e:
+                        raise ValueError(
+                            f"data information is corrupted ({e}), "
+                            "this may cause by backward compatible breaking"
+                        )
+                    original_data = tr_data
+                else:
+                    original_data = TabularData.load(
+                        original_data_folder,
+                        compress=compress,
+                    )
+                    vi_file = os.path.join(data_folder, cls.valid_indices_file)
+                    if not os.path.isfile(vi_file):
+                        tr_data = original_data
+                        cv_data = None
+                    else:
+                        ti_file = os.path.join(data_folder, cls.train_indices_file)
+                        train_indices, valid_indices = map(np.load, [ti_file, vi_file])
+                        split = original_data.split_with_indices(valid_indices, train_indices)
+                        tr_data, cv_data = split.remained, split.split
+                sw_file = os.path.join(data_folder, cls.sample_weights_file)
+                if os.path.isfile(sw_file):
+                    pipeline.sample_weights = np.load(sw_file)
+                pipeline._original_data = original_data
                 pipeline.tr_data = tr_data
                 pipeline.cv_data = cv_data
                 pipeline._init_data()
@@ -414,7 +466,7 @@ class Pipeline(LoggingMixin):
                 trainer = pipeline.trainer
                 trainer.tr_loader = pipeline.tr_loader
                 trainer.cv_loader = pipeline.cv_loader
-                trainer.restore_checkpoint(folder)
+                trainer.restore_checkpoint(export_folder)
                 trainer._init_metrics()
         return pipeline
 
