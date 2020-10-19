@@ -55,7 +55,8 @@ class TestOpenML(unittest.TestCase):
                 process_methods=None,
                 valid_columns=list(range(x.shape[1])),
                 categorical_columns=categorical_columns,
-            ).read(x, y)
+            )
+            data.read(x, y.reshape([-1, 1]))
 
             comparer_list = []
             sk_bases = [
