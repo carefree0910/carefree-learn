@@ -87,7 +87,7 @@ def test_file_dataset() -> None:
             models=models,
             num_repeat=num_repeat,
             num_jobs=num_jobs,
-            temp_folder="__test_file_dataset__",
+            temp_folder=f"__test_file_dataset_{num_jobs}__",
             **kwargs,  # type: ignore
         )
     data = results.data
