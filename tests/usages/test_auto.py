@@ -21,7 +21,12 @@ def test_auto() -> None:
         fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)  # type: ignore
 
         auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
-        auto.fit(*data, num_jobs=num_jobs, extra_config=kwargs.copy())
+        auto.fit(
+            *data,
+            num_jobs=num_jobs,
+            temp_folder=f"__test_auto_{num_jobs}__",
+            extra_config=kwargs.copy(),
+        )
         predictions = auto.predict(x_cv)
         print("accuracy:", (y_cv == predictions).mean())
 
