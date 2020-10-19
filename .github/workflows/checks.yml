@@ -24,7 +24,7 @@ jobs:
     - name: Install
       run: |
         python -m pip install -U pip
-        pip install --progress-bar off -U .[checking]
+        pip install mypy black
     - name: black
       run: black . --check --diff
     - name: mypy
