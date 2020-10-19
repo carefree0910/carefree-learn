@@ -392,11 +392,11 @@ class Pipeline(LoggingMixin):
             if not self._save_original_data:
                 train_data_folder = os.path.join(data_folder, self.train_folder)
                 valid_data_folder = os.path.join(data_folder, self.valid_folder)
-                self.tr_data.save(train_data_folder, compress=compress)
-                self.cv_data.save(valid_data_folder, compress=compress)
+                self.tr_data.save(train_data_folder, compress=False)
+                self.cv_data.save(valid_data_folder, compress=False)
             else:
                 original_data_folder = os.path.join(data_folder, self.original_folder)
-                self._original_data.save(original_data_folder, compress=compress)
+                self._original_data.save(original_data_folder, compress=False)
                 if self.tr_split_indices is not None:
                     tr_file = os.path.join(data_folder, self.train_indices_file)
                     np.save(tr_file, self.tr_split_indices)
@@ -433,8 +433,8 @@ class Pipeline(LoggingMixin):
                     train_data_folder = os.path.join(data_folder, cls.train_folder)
                     valid_data_folder = os.path.join(data_folder, cls.valid_folder)
                     try:
-                        tr_data = TabularData.load(train_data_folder, compress=compress)
-                        cv_data = TabularData.load(valid_data_folder, compress=compress)
+                        tr_data = TabularData.load(train_data_folder, compress=False)
+                        cv_data = TabularData.load(valid_data_folder, compress=False)
                     except Exception as e:
                         raise ValueError(
                             f"data information is corrupted ({e}), "
@@ -444,7 +444,7 @@ class Pipeline(LoggingMixin):
                 else:
                     original_data = TabularData.load(
                         original_data_folder,
-                        compress=compress,
+                        compress=False,
                     )
                     vi_file = os.path.join(data_folder, cls.valid_indices_file)
                     if not os.path.isfile(vi_file):
@@ -453,7 +453,9 @@ class Pipeline(LoggingMixin):
                     else:
                         ti_file = os.path.join(data_folder, cls.train_indices_file)
                         train_indices, valid_indices = map(np.load, [ti_file, vi_file])
-                        split = original_data.split_with_indices(valid_indices, train_indices)
+                        split = original_data.split_with_indices(
+                            valid_indices, train_indices
+                        )
                         tr_data, cv_data = split.remained, split.split
                 sw_file = os.path.join(data_folder, cls.sample_weights_file)
                 if os.path.isfile(sw_file):
