@@ -59,6 +59,10 @@ class TestToy(unittest.TestCase):
         cflearn.make_toy_model("ddr", data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model("ddr", data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model("ddr", data_tuple=(x_categorical, y_reg))
+        cfg = {"model_config": {"feature_units": []}}
+        cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_mix, y_reg))
+        cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_numerical, y_reg))
+        cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_categorical, y_reg))
 
 
 if __name__ == "__main__":
