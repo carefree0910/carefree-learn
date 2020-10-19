@@ -310,12 +310,12 @@ class DDR(FCNN):
 
     def _init_parameters(self) -> None:
         all_parameters = set(self.parameters())
-        self.__base_params = list(
-            all_parameters - set(self.__feature_params) - set(self.__reg_params)
-        )
+        feature_params = set(self.__feature_params)
+        reg_params = set(self.__feature_params)
+        self.__base_params = list(all_parameters - feature_params - reg_params)
         base_config = {"optimizer": "adam", "optimizer_config": {"lr": 3.5e-4}}
         optimizers = {"all": base_config}
-        if self._feature_step > 0:
+        if self._feature_step > 0 and feature_params:
             optimizers["feature_parameters"] = shallow_copy_dict(base_config)
         if self._reg_step > 0:
             optimizers["reg_parameters"] = shallow_copy_dict(base_config)
