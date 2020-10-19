@@ -71,9 +71,9 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         encoders: Dict[str, EncoderStack] = {}
         self.numerical_columns_mapping = {}
         self.categorical_columns_mapping = {}
-        for idx, recognizer in recognizers.items():
-            if idx == -1:
-                continue
+        sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
+        for idx in sorted_indices:
+            recognizer = recognizers[idx]
             if not recognizer.info.is_valid or idx in ts_indices:
                 excluded += 1
             elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
