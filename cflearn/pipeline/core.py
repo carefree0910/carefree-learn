@@ -193,7 +193,10 @@ class Pipeline(LoggingMixin):
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
         self._data_config["verbose_level"] = self._verbose_level
-        self.sample_weights = sample_weights.copy()
+        if sample_weights is None:
+            self.sample_weights = None
+        else:
+            self.sample_weights = sample_weights.copy()
         self._original_data = TabularData(**self._data_config)
         self._original_data.read(*args, **self._read_config)
         self.tr_data = self._original_data
