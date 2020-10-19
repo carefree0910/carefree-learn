@@ -215,7 +215,7 @@ class DDR(FCNN):
             self.cdf_reg = self.cdf_feature_projection = None
             return None
         cdf_input_dim = self.merged_dim + 1
-        if self.num_feature_layers > 0:
+        if not self.no_joint_features:
             cdf_input_dim += self.feature_dim
         # regression part
         cdf_reg_units = self.config.setdefault("cdf_reg_units", [512])
@@ -342,12 +342,14 @@ class DDR(FCNN):
     @staticmethod
     def _make_projection(
         in_dim: int,
-        out_dim: int,
+        out_dim: Optional[int],
         units: List[int],
         mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         final_mapping_config: Dict[str, Any],
     ) -> Union[Linear, MLP]:
         if not units:
+            if out_dim is None:
+                raise ValueError("either `out_dim` or `units` should be provided")
             return Linear(in_dim, out_dim, **final_mapping_config)
         return MLP(
             in_dim,
@@ -387,7 +389,9 @@ class DDR(FCNN):
 
     @property
     def trigger_feature_update(self) -> bool:
-        return self._feature_step > 0 and self._step_count % self._feature_step == 0
+        step = self._feature_step > 0 and self._step_count % self._feature_step == 0
+        has_features = len(self.__feature_params) > 0
+        return step and has_features
 
     @property
     def trigger_reg_update(self) -> bool:
@@ -423,16 +427,16 @@ class DDR(FCNN):
         projection: proj_type,
         feature_layers: List[torch.Tensor],
     ) -> torch.Tensor:
+        if projection is None:
+            return feature_layers[-1]
         net = anchors
-        if projection is not None:
-            # TODO : check this condition branch
-            if isinstance(projection, Linear):
-                net = projection(net)
-            else:
-                for i, mapping in enumerate(projection.mappings):
-                    if i > 0:
-                        net = net + feature_layers[i]
-                    net = mapping(net)
+        if isinstance(projection, Linear):
+            net = projection(net)
+        else:
+            for i, mapping in enumerate(projection.mappings):
+                if i > 0:
+                    net = net + feature_layers[i]
+                net = mapping(net)
         return net
 
     def _build_cdf(
@@ -448,7 +452,7 @@ class DDR(FCNN):
             feature_layers,
         )
         concat_list = [net, anchor_batch_ratio]
-        if self.num_feature_layers > 0:
+        if not self.no_joint_features:
             concat_list.append(feature_layers[0])
         features = torch.cat(concat_list, dim=1)
         cdf_raw = self.cdf_reg(features)
