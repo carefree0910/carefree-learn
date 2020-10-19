@@ -224,12 +224,12 @@ class DDR(FCNN):
         else:
             bundle = self._init_mlp_config("cdf_reg", True, "ReLU")
             mapping_configs, final_mapping_config = bundle
-            self.cdf_reg = MLP(
+            self.cdf_reg = self._make_projection(
                 cdf_input_dim,
                 1,
                 cdf_reg_units,
                 mapping_configs,
-                final_mapping_config=final_mapping_config,
+                final_mapping_config,
             )
         self.__reg_params.extend(self.cdf_reg.parameters())
         # feature part
@@ -239,12 +239,12 @@ class DDR(FCNN):
             cdf_feature_units = self.feature_units.copy()
             bundle = self._init_mlp_config("cdf_feature", False, "ReLU")
             mapping_configs, final_mapping_config = bundle
-            self.cdf_feature_projection = MLP(
+            self.cdf_feature_projection = self._make_projection(
                 1,
                 None,
                 cdf_feature_units,
                 mapping_configs,
-                final_mapping_config=final_mapping_config,
+                final_mapping_config,
             )
             self.__feature_params.extend(self.cdf_feature_projection.parameters())
 
@@ -263,12 +263,12 @@ class DDR(FCNN):
         median_residual_units = self.config.setdefault("median_residual_units", [512])
         bundle = self._init_mlp_config("median_residual", True, self._q_reg_activation)
         mapping_configs, final_mapping_config = bundle
-        self.median_residual_reg = MLP(
+        self.median_residual_reg = self._make_projection(
             quantile_input_dim,
             2,
             median_residual_units,
             mapping_configs,
-            final_mapping_config=final_mapping_config,
+            final_mapping_config,
         )
         self.__reg_params.extend(self.median_residual_reg.parameters())
         # quantile residual regression part
