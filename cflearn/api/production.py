@@ -15,6 +15,7 @@ from cftool.ml import EnsemblePattern
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
+from cfdata.tabular import TabularData
 
 from .ensemble import ensemble
 from ..types import data_type
@@ -32,9 +33,15 @@ class Predictor:
         preprocessor_folder: str,
         device: Union[str, torch.device] = "cpu",
         *,
+        data: Optional[TabularData] = None,
+        compress: bool = True,
         use_tqdm: bool = False,
     ):
-        preprocessor = PreProcessor.load(preprocessor_folder)
+        preprocessor = PreProcessor.load(
+            preprocessor_folder,
+            data=data,
+            compress=compress,
+        )
         self.inference = Inference(
             preprocessor,
             device,
@@ -111,6 +118,7 @@ class Pack(LoggingMixin):
         *,
         verbose: bool = True,
         compress: bool = True,
+        pack_data: bool = True,
         remove_original: bool = True,
         **kwargs: Any,
     ) -> None:
@@ -123,7 +131,11 @@ class Pack(LoggingMixin):
             onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path, **kwargs)
             with open(instance.onnx_output_names_path, "w") as f:
                 json.dump(onnx.output_names, f)
-            pipeline.preprocessor.save(instance.preprocessor_folder)
+            pipeline.preprocessor.save(
+                instance.preprocessor_folder,
+                save_data=pack_data,
+                compress=False,
+            )
             with open(instance.binary_config_path, "w") as f:
                 json.dump(pipeline.trainer.inference.binary_config, f)
             if compress:
@@ -135,6 +147,7 @@ class Pack(LoggingMixin):
         export_folder: str,
         device: Union[str, torch.device] = "cpu",
         *,
+        data: Optional[TabularData] = None,
         compress: bool = True,
         use_tqdm: bool = False,
     ) -> Predictor:
@@ -156,6 +169,8 @@ class Pack(LoggingMixin):
                     onnx_config,
                     instance.preprocessor_folder,
                     device,
+                    data=data,
+                    compress=False,
                     use_tqdm=use_tqdm,
                 )
                 with open(instance.binary_config_path, "r") as f:

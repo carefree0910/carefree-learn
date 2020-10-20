@@ -58,14 +58,16 @@ class PreProcessor(LoggingMixin):
         export_folder: str,
         *,
         compress: bool = True,
+        save_data: bool = True,
         remove_original: bool = True,
     ) -> "PreProcessor":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
-            data_folder = os.path.join(export_folder, self.data_folder)
-            self.data.save(data_folder)
+            if save_data:
+                data_folder = os.path.join(export_folder, self.data_folder)
+                self.data.save(data_folder, compress=False)
             Saving.save_dict(
                 self.sampler_config,
                 self.sampler_config_name,
@@ -80,6 +82,7 @@ class PreProcessor(LoggingMixin):
         cls,
         export_folder: str,
         *,
+        data: Optional[TabularData] = None,
         compress: bool = True,
     ) -> "PreProcessor":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
@@ -89,8 +92,9 @@ class PreProcessor(LoggingMixin):
                 compress,
                 remove_extracted=True,
             ):
-                data_folder = os.path.join(export_folder, cls.data_folder)
-                data = TabularData.load(data_folder)
+                if data is None:
+                    data_folder = os.path.join(export_folder, cls.data_folder)
+                    data = TabularData.load(data_folder, compress=False)
                 cfg = Saving.load_dict(cls.sampler_config_name, export_folder)
         return cls(data, cfg)
 

@@ -8,6 +8,7 @@ import optuna.visualization as vis
 from typing import *
 from functools import partial
 from cfdata.tabular import TaskTypes
+from cfdata.tabular import TabularData
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -28,6 +29,7 @@ from ..pipeline.core import Pipeline
 
 
 class Auto:
+    data_folder = "__data__"
     pattern_weights_file = "pattern_weights.npy"
 
     def __init__(self, task_type: TaskTypes, *, model: str = "fcnn"):
@@ -205,9 +207,19 @@ class Auto:
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
+            data_folder = os.path.join(export_folder, self.data_folder)
+            first_inference = self.pipelines[0].inference
+            if first_inference is None:
+                raise ValueError("`inference` in pipeline is not yet generated")
+            first_inference.data.save(data_folder, compress=False)
             for i, pipeline in enumerate(self.pipelines):
                 local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
-                Pack.pack(pipeline, local_export_folder)
+                Pack.pack(
+                    pipeline,
+                    local_export_folder,
+                    pack_data=False,
+                    compress=False,
+                )
             if self.pattern_weights is not None:
                 path = os.path.join(export_folder, self.pattern_weights_file)
                 np.save(path, self.pattern_weights)
@@ -231,19 +243,23 @@ class Auto:
                 compress,
                 remove_extracted=True,
             ):
+                data_folder = os.path.join(export_folder, cls.data_folder)
+                data = TabularData.load(data_folder, compress=False)
                 predictors = []
                 pattern_weights = None
-                for file in os.listdir(export_folder):
-                    if file == cls.pattern_weights_file:
-                        pattern_weights = np.load(os.path.join(export_folder, file))
+                for stuff in os.listdir(export_folder):
+                    if stuff == cls.pattern_weights_file:
+                        pattern_weights = np.load(os.path.join(export_folder, stuff))
                     else:
-                        file_name = os.path.splitext(file)[0]
-                        local_folder = os.path.join(export_folder, file_name)
+                        if stuff == cls.data_folder:
+                            continue
+                        local_folder = os.path.join(export_folder, stuff)
                         predictors.append(
                             Pack.get_predictor(
                                 local_folder,
                                 device,
-                                compress=compress,
+                                data=data,
+                                compress=False,
                                 use_tqdm=use_tqdm,
                             )
                         )
