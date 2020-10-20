@@ -1,8 +1,11 @@
 import cflearn
+import platform
 
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
+
+IS_LINUX = platform.system() == "Linux"
 
 iris = TabularDataset.iris()
 iris = TabularData.from_dataset(iris)
@@ -13,11 +16,12 @@ x_cv, y_cv = valid.processed.xy
 data = x_tr, y_tr, x_cv, y_cv
 
 CI = True
+num_jobs_list = [0] if IS_LINUX else [0, 1, 2]
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
 
 
 def test_auto() -> None:
-    for num_jobs in [1, 2]:
+    for num_jobs in num_jobs_list:
         fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)  # type: ignore
 
         auto = cflearn.Auto(TaskTypes.CLASSIFICATION)

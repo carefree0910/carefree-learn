@@ -1,4 +1,5 @@
 import cflearn
+import platform
 import unittest
 
 import numpy as np
@@ -6,7 +7,10 @@ import numpy as np
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularDataset
 
+IS_LINUX = platform.system() == "Linux"
 
+
+num_jobs = 0 if IS_LINUX else 2
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
 
 
@@ -18,7 +22,7 @@ class TestDist(unittest.TestCase):
         experiments.add_task(x, y, model="fcnn", **kwargs)  # type: ignore
         experiments.add_task(x, y, model="tree_dnn", **kwargs)  # type: ignore
         experiments.add_task(x, y, model="tree_dnn", **kwargs)  # type: ignore
-        experiments.run_tasks(num_jobs=2)
+        experiments.run_tasks(num_jobs=num_jobs)
         ms = cflearn.transform_experiments(experiments)
         saving_folder = "__test_experiments_save__"
         experiments.save(saving_folder)
@@ -45,7 +49,7 @@ class TestDist(unittest.TestCase):
             3,
             x,
             y,
-            num_jobs=2,
+            num_jobs=num_jobs,
             benchmarks=benchmarks,  # type: ignore
         )
         msg1 = results.comparer.log_statistics()

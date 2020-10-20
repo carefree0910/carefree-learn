@@ -1,5 +1,6 @@
 import os
 import cflearn
+import platform
 
 import numpy as np
 
@@ -7,6 +8,8 @@ from cftool.misc import fix_float_to_length
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
+
+IS_LINUX = platform.system() == "Linux"
 
 
 file_folder = os.path.dirname(__file__)
@@ -17,6 +20,7 @@ tr_file, cv_file, te_file = map(
     ["train.txt", "valid.txt", "test.txt"],
 )
 
+num_jobs_list = [0] if IS_LINUX else [0, 2]
 kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
 
 
@@ -80,7 +84,7 @@ def test_file_dataset() -> None:
     # Distributed
     num_repeat = 3
     models = ["nnb", "ndt"]
-    for num_jobs in [0, 2]:
+    for num_jobs in num_jobs_list:
         results = cflearn.repeat_with(
             tr_file,
             x_cv=cv_file,
