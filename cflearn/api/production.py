@@ -119,6 +119,7 @@ class Pack(LoggingMixin):
         verbose: bool = True,
         compress: bool = True,
         pack_data: bool = True,
+        retain_data: bool = False,
         remove_original: bool = True,
         **kwargs: Any,
     ) -> None:
@@ -134,6 +135,7 @@ class Pack(LoggingMixin):
             pipeline.preprocessor.save(
                 instance.preprocessor_folder,
                 save_data=pack_data,
+                retain_data=retain_data,
                 compress=False,
             )
             with open(instance.binary_config_path, "w") as f:
@@ -175,7 +177,7 @@ class Pack(LoggingMixin):
                 )
                 with open(instance.binary_config_path, "r") as f:
                     cfg = json.load(f)
-                    predictor.inference.inject_binary_config(cfg, generate=True)
+                    predictor.inference.inject_binary_config(cfg)
         return predictor
 
     @staticmethod

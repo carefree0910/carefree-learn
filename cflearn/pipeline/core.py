@@ -379,6 +379,7 @@ class Pipeline(LoggingMixin):
         export_folder: str = None,
         *,
         compress: bool = True,
+        retain_data: bool = True,
         remove_original: bool = True,
     ) -> "Pipeline":
         if export_folder is None:
@@ -395,11 +396,23 @@ class Pipeline(LoggingMixin):
             if not self._save_original_data:
                 train_data_folder = os.path.join(data_folder, self.train_folder)
                 valid_data_folder = os.path.join(data_folder, self.valid_folder)
-                self.tr_data.save(train_data_folder, compress=False)
-                self.cv_data.save(valid_data_folder, compress=False)
+                self.tr_data.save(
+                    train_data_folder,
+                    retain_data=retain_data,
+                    compress=False,
+                )
+                self.cv_data.save(
+                    valid_data_folder,
+                    retain_data=retain_data,
+                    compress=False,
+                )
             else:
                 original_data_folder = os.path.join(data_folder, self.original_folder)
-                self._original_data.save(original_data_folder, compress=False)
+                self._original_data.save(
+                    original_data_folder,
+                    retain_data=retain_data,
+                    compress=False,
+                )
                 if self.tr_split_indices is not None:
                     tr_file = os.path.join(data_folder, self.train_indices_file)
                     np.save(tr_file, self.tr_split_indices)

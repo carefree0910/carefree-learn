@@ -199,6 +199,7 @@ class Auto:
         export_folder: str,
         *,
         compress: bool = True,
+        retain_data: bool = False,
         remove_original: bool = True,
     ) -> "Auto":
         if self.pipelines is None:
@@ -211,7 +212,11 @@ class Auto:
             first_inference = self.pipelines[0].inference
             if first_inference is None:
                 raise ValueError("`inference` in pipeline is not yet generated")
-            first_inference.data.save(data_folder, compress=False)
+            first_inference.data.save(
+                data_folder,
+                retain_data=retain_data,
+                compress=False,
+            )
             for i, pipeline in enumerate(self.pipelines):
                 local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
                 Pack.pack(

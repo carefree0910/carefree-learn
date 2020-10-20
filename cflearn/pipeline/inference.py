@@ -59,6 +59,7 @@ class PreProcessor(LoggingMixin):
         *,
         compress: bool = True,
         save_data: bool = True,
+        retain_data: bool = False,
         remove_original: bool = True,
     ) -> "PreProcessor":
         abs_folder = os.path.abspath(export_folder)
@@ -67,7 +68,11 @@ class PreProcessor(LoggingMixin):
             Saving.prepare_folder(self, export_folder)
             if save_data:
                 data_folder = os.path.join(export_folder, self.data_folder)
-                self.data.save(data_folder, compress=False)
+                self.data.save(
+                    data_folder,
+                    retain_data=retain_data,
+                    compress=False,
+                )
             Saving.save_dict(
                 self.sampler_config,
                 self.sampler_config_name,
@@ -227,18 +232,9 @@ class Inference(LoggingMixin):
     def need_binary_threshold(self) -> bool:
         return self.is_binary and self.binary_metric is not None
 
-    def inject_binary_config(
-        self,
-        config: Dict[str, Any],
-        *,
-        generate: bool = False,
-    ) -> None:
+    def inject_binary_config(self, config: Dict[str, Any]) -> None:
         self.binary_metric = config.get("binary_metric")
         self.binary_threshold = config.get("binary_threshold")
-        has_metric = self.binary_metric is not None
-        has_threshold = self.binary_threshold is None
-        if generate and has_metric and not has_threshold:
-            self.generate_binary_threshold()
 
     def _to_device(self, arr: Optional[np.ndarray]) -> Optional[torch.Tensor]:
         if arr is None:
