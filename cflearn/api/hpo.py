@@ -788,7 +788,7 @@ class OptunaPresetParams:
         params = self._fcnn_preset()
         if self.kwargs.get("tune_dndf", True):
             dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6)
-            model_config = params["model_config"]
+            model_config = params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
             model_config.update(dndf_param)
         return params
