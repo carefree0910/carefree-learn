@@ -44,11 +44,9 @@ class Linear(nn.Module):
         return self.linear.bias
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        weight = (
-            self.linear.weight
-            if self.pruner is None
-            else self.pruner(self.linear.weight)
-        )
+        if self.pruner is None:
+            return self.linear(net)
+        weight = self.pruner(self.linear.weight)
         return nn.functional.linear(net, weight, self.linear.bias)
 
     def reset_parameters(self) -> None:
