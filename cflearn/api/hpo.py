@@ -380,6 +380,17 @@ class OptunaParamConverter:
         }
 
     @staticmethod
+    def _convert_clip_norm(value: Any) -> optuna_params_type:
+        prefix = value
+        use_clip_norm_key = f"{prefix}_use_clip_norm"
+        clip_norm_key = f"{prefix}_clip_norm"
+        ucn_param = OptunaParam(use_clip_norm_key, [True, False], "categorical")
+        return {
+            "use_clip_norm": ucn_param,
+            "clip_norm": OptunaParam(clip_norm_key, [0.25, 1.25], "float"),
+        }
+
+    @staticmethod
     def _convert_dropout(value: Any) -> optuna_params_type:
         prefix = value
         use_dropout_key = f"{prefix}_use_dropout"
@@ -470,6 +481,18 @@ class OptunaParamConverter:
         return ema_decay
 
     @staticmethod
+    def _parse_clip_norm(d: Dict[str, Any], trial: Trial) -> Any:
+        use_clip_norm = d["use_clip_norm"]
+        if trial is not None:
+            use_clip_norm = use_clip_norm.pop(trial)
+        if not use_clip_norm:
+            return 0.0
+        clip_norm = d["clip_norm"]
+        if trial is not None:
+            clip_norm = clip_norm.pop(trial)
+        return clip_norm
+
+    @staticmethod
     def _parse_dropout(d: Dict[str, Any], trial: Trial) -> Any:
         use_dropout = d["use_dropout"]
         if trial is not None:
@@ -530,6 +553,12 @@ class OptunaParamConverter:
     @classmethod
     def make_ema_decay(cls, prefix: str) -> Dict[str, str]:
         key = f"{cls.prefix}[ema_decay]"
+        value = prefix
+        return {key: value}
+
+    @classmethod
+    def make_clip_norm(cls, prefix: str) -> Dict[str, str]:
+        key = f"{cls.prefix}[clip_norm]"
         value = prefix
         return {key: value}
 
@@ -685,9 +714,12 @@ class OptunaPresetParams:
             "default_encoding_configs": {"init_method": default_init_param},
         }
         model_config.update(OptunaParamConverter.make_ema_decay("general"))
+        trainer_config = {}
+        trainer_config.update(OptunaParamConverter.make_clip_norm("general"))
         self.base_params = {
             "optimizer": optim_param,
             "optimizer_config": {"lr": lr_param},
+            "trainer_config": trainer_config,
             "model_config": model_config,
         }
 
