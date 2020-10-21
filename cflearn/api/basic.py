@@ -95,9 +95,6 @@ def make(
     if data_config is None:
         data_config = {}
     if use_simplify_data is not None:
-        if task_type is None:
-            msg = "`task_type` should be provided when simplified data is used"
-            raise ValueError(msg)
         data_config["simplify"] = use_simplify_data
     if ts_config is not None:
         data_config["time_series_config"] = ts_config
