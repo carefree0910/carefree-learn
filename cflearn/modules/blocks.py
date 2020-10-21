@@ -205,26 +205,33 @@ class DNDF(nn.Module):
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
             increment_masks.append(increment_mask)
         self.increment_masks: torch.Tensor
+        self.register_buffer("tree_arange", torch.arange(num_tree)[..., None, None])
         self.register_buffer("increment_masks", torch.stack(increment_masks))
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
+        num_batch = net.shape[0]
         tree_net = self.tree_proj(net)
-        p_left = torch.split(torch.sigmoid(tree_net), self._num_internals, dim=-1)
-        flat_probabilities = [
-            torch.reshape(torch.cat([p, 1.0 - p], dim=-1), [-1]) for p in p_left
-        ]
+
+        shape = num_batch, -1, self._num_internals
+        p_left = torch.sigmoid(tree_net).view(*shape).transpose(0, 1)
+        p_left = p_left.contiguous().view(p_left.shape[0], -1)
+        p_right = 1.0 - p_left
+        flat_probabilities = torch.cat([p_left, p_right], dim=-1)
         num_flat_prob = 2 * self._num_internals
-        arange = torch.arange(0, num_flat_prob * net.shape[0], num_flat_prob)
         device = self.increment_masks.device
-        batch_indices = torch.reshape(arange, [-1, 1]).to(device)
-        routes = [
-            p_flat.take(batch_indices + self.increment_masks[0])
-            for p_flat in flat_probabilities
-        ]
+        batch_arange = torch.arange(0, num_flat_prob * num_batch, num_flat_prob)
+        batch_indices = batch_arange.view(-1, 1).to(device)
+        current_indices = batch_indices + self.increment_masks[0]
+        flat_dim = flat_probabilities.shape[-1]
+        tree_arange = self.tree_arange * flat_dim
+        routes = flat_probabilities.take(tree_arange + current_indices[None, ...])
+
         for i in range(1, self._tree_depth + 1):
-            for j, p_flat in enumerate(flat_probabilities):
-                routes[j] *= p_flat.take(batch_indices + self.increment_masks[i])
-        features = torch.cat(routes, 1)
+            current_indices = batch_indices + self.increment_masks[i]
+            current_indices = tree_arange + current_indices[None, ...]
+            routes *= flat_probabilities.take(current_indices)
+        features = routes.transpose(0, 1).contiguous().view(num_batch, -1)
+
         if self._is_regression or self._output_dim <= 1:
             leaves: Union[torch.Tensor, nn.Parameter] = self.leaves
         else:
