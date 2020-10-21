@@ -40,9 +40,9 @@ class Pipeline(LoggingMixin):
         self,
         config: Dict[str, Any],
         *,
-        trial: optuna.trial.Trial = None,
-        tracker_config: Dict[str, Any] = None,
-        cuda: Union[str, int] = None,
+        cuda: Optional[Union[str, List[str]]] = None,
+        trial: Optional[Union[str, List[str]]] = None,
+        tracker_config: Optional[Union[str, List[str]]] = None,
         verbose_level: int = 2,
     ):
         self.trial = trial
@@ -247,7 +247,7 @@ class Pipeline(LoggingMixin):
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        sample_weights: np.ndarray = None,
+        sample_weights: Optional[np.ndarray] = None,
     ) -> "Pipeline":
         self._before_loop(x, y, x_cv, y_cv, sample_weights)
         self._loop()
@@ -260,10 +260,10 @@ class Pipeline(LoggingMixin):
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        sample_weights: np.ndarray = None,
-        trains_config: Dict[str, Any] = None,
+        sample_weights: Optional[np.ndarray] = None,
+        trains_config: Optional[Dict[str, Any]] = None,
         keep_task_open: bool = False,
-        queue: str = None,
+        queue: Optional[str] = None,
     ) -> "Pipeline":
         if trains_config is None:
             return self.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
@@ -347,7 +347,7 @@ class Pipeline(LoggingMixin):
     def to_pattern(
         self,
         *,
-        pre_process: Callable = None,
+        pre_process: Optional[Callable] = None,
         **predict_kwargs: Any,
     ) -> ModelPattern:
         def _predict(x: np.ndarray) -> np.ndarray:
@@ -376,7 +376,7 @@ class Pipeline(LoggingMixin):
 
     def save(
         self,
-        export_folder: str = None,
+        export_folder: Optional[str] = None,
         *,
         compress: bool = True,
         retain_data: bool = True,
@@ -434,9 +434,9 @@ class Pipeline(LoggingMixin):
         cls,
         export_folder: str,
         *,
-        cuda: int = None,
-        verbose_level: int = 0,
         compress: bool = True,
+        verbose_level: int = 0,
+        cuda: Optional[int] = None,
     ) -> "Pipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):

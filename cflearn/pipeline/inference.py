@@ -136,7 +136,7 @@ class ONNX:
     def to_onnx(
         self,
         onnx_path: str,
-        dynamic_axes: Union[List[int], Dict[int, str]] = None,
+        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
         verbose: bool = True,
         **kwargs: Any,

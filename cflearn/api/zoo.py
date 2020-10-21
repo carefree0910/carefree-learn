@@ -19,7 +19,7 @@ class ZooBase(LoggingMixin, metaclass=ABCMeta):
         self,
         *,
         model_type: str = "default",
-        increment_config: Dict[str, Any] = None,
+        increment_config: Optional[Dict[str, Any]] = None,
     ):
         self._model_type = model_type
         self._increment_config = increment_config
@@ -155,7 +155,7 @@ def zoo(
     model: str = "fcnn",
     *,
     model_type: str = "default",
-    increment_config: Dict[str, Any] = None,
+    increment_config: Optional[Dict[str, Any]] = None,
 ) -> ZooBase:
     return zoo_dict[model](model_type=model_type, increment_config=increment_config)
 

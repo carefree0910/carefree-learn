@@ -128,10 +128,10 @@ class Auto:
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        params: optuna_params_type = None,
-        study_config: Dict[str, Any] = None,
+        params: Optional[optuna_params_type] = None,
+        study_config: Optional[Dict[str, Any]] = None,
         predict_config: Optional[Dict[str, Any]] = None,
-        metrics: Union[str, List[str]] = None,
+        metrics: Optional[Union[str, List[str]]] = None,
         num_jobs: int = 1,
         num_trial: int = 50,
         num_repeat: int = 5,
@@ -299,9 +299,9 @@ class Auto:
 
     def plot_param_importances(
         self,
-        evaluator: BaseImportanceEvaluator = None,
-        params: List[str] = None,
-        export_folder: str = None,
+        evaluator: Optional[BaseImportanceEvaluator] = None,
+        params: Optional[List[str]] = None,
+        export_folder: Optional[str] = None,
     ) -> Figure:
         fig = vis.plot_param_importances(self.study, evaluator, params)
         if export_folder is not None:
@@ -313,8 +313,8 @@ class Auto:
 
     def plot_contour(
         self,
-        params: List[str] = None,
-        export_folder: str = None,
+        params: Optional[List[str]] = None,
+        export_folder: Optional[str] = None,
     ) -> Figure:
         fig = vis.plot_contour(self.study, params)
         if export_folder is not None:
@@ -326,8 +326,8 @@ class Auto:
 
     def plot_parallel_coordinate(
         self,
-        params: List[str] = None,
-        export_folder: str = None,
+        params: Optional[List[str]] = None,
+        export_folder: Optional[str] = None,
     ) -> Figure:
         fig = vis.plot_parallel_coordinate(self.study, params)
         if export_folder is not None:
@@ -339,8 +339,8 @@ class Auto:
 
     def plot_slice(
         self,
-        params: List[str] = None,
-        export_folder: str = None,
+        params: Optional[List[str]] = None,
+        export_folder: Optional[str] = None,
     ) -> Figure:
         fig = vis.plot_slice(self.study, params)
         if export_folder is not None:
@@ -352,7 +352,7 @@ class Auto:
 
     def plot_optimization_history(
         self,
-        export_folder: str = None,
+        export_folder: Optional[str] = None,
     ) -> Figure:
         fig = vis.plot_optimization_history(self.study)
         if export_folder is not None:
@@ -364,7 +364,7 @@ class Auto:
 
     def plot_intermediate_values(
         self,
-        export_folder: str = None,
+        export_folder: Optional[str] = None,
     ) -> Figure:
         fig = vis.plot_intermediate_values(self.study)
         if export_folder is not None:

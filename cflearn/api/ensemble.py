@@ -44,12 +44,12 @@ class Benchmark(LoggingMixin):
         task_name: str,
         task_type: TaskTypes,
         *,
-        temp_folder: str = None,
+        temp_folder: Optional[str] = None,
         project_name: str = "carefree-learn",
         models: Union[str, List[str]] = "fcnn",
-        increment_config: Dict[str, Any] = None,
-        data_config: Dict[str, Any] = None,
-        read_config: Dict[str, Any] = None,
+        increment_config: Optional[Dict[str, Any]] = None,
+        data_config: Optional[Dict[str, Any]] = None,
+        read_config: Optional[Dict[str, Any]] = None,
         use_tracker: bool = False,
         use_cuda: bool = True,
     ):
@@ -126,7 +126,7 @@ class Benchmark(LoggingMixin):
         self,
         num_jobs: int = 4,
         run_tasks: bool = True,
-        predict_config: Dict[str, Any] = None,
+        predict_config: Optional[Dict[str, Any]] = None,
     ) -> BenchmarkResults:
         experiments = self.experiments
         if experiments is None:
@@ -283,7 +283,7 @@ class Benchmark(LoggingMixin):
         cls,
         saving_folder: str,
         *,
-        predict_config: Dict[str, Any] = None,
+        predict_config: Optional[Dict[str, Any]] = None,
         compress: bool = True,
     ) -> Tuple["Benchmark", BenchmarkResults]:
         abs_folder = os.path.abspath(saving_folder)
@@ -307,8 +307,8 @@ class Benchmark(LoggingMixin):
 def ensemble(
     patterns: List[ModelPattern],
     *,
-    pattern_weights: np.ndarray = None,
-    ensemble_method: Union[str, collate_fn_type] = None,
+    pattern_weights: Optional[np.ndarray] = None,
+    ensemble_method: Optional[Union[str, collate_fn_type]] = None,
 ) -> EnsemblePattern:
     if ensemble_method is None:
         if pattern_weights is None:
@@ -348,7 +348,7 @@ class EnsembleResults(NamedTuple):
 
 
 class Ensemble:
-    def __init__(self, task_type: TaskTypes, config: Dict[str, Any] = None):
+    def __init__(self, task_type: TaskTypes, config: Optional[Dict[str, Any]] = None):
         self.task_type = task_type
         if config is None:
             config = {}
@@ -363,12 +363,12 @@ class Ensemble:
         num_test: Union[int, float] = 0.1,
         num_jobs: int = 4,
         run_tasks: bool = True,
-        temp_folder: str = None,
+        temp_folder: Optional[str] = None,
         project_name: str = "carefree-learn",
         task_name: str = "bagging",
         models: Union[str, List[str]] = "fcnn",
         predict_config: Optional[Dict[str, Any]] = None,
-        increment_config: Dict[str, Any] = None,
+        increment_config: Optional[Dict[str, Any]] = None,
         use_tracker: bool = True,
         use_cuda: bool = True,
     ) -> EnsembleResults:

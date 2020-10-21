@@ -80,8 +80,8 @@ class DDRVisualizer:
         export_path: Optional[str],
         *,
         residual: bool = False,
-        quantiles: np.ndarray = None,
-        anchor_ratios: np.ndarray = None,
+        quantiles: Optional[np.ndarray] = None,
+        anchor_ratios: Optional[np.ndarray] = None,
         **kwargs: Any,
     ) -> None:
         x_min, x_max = np.min(x), np.max(x)
@@ -145,8 +145,8 @@ class DDRVisualizer:
         y_matrix: np.ndarray,
         export_folder: str,
         *,
-        quantiles: np.ndarray = None,
-        anchor_ratios: np.ndarray = None,
+        quantiles: Optional[np.ndarray] = None,
+        anchor_ratios: Optional[np.ndarray] = None,
     ) -> None:
         y_min, y_max = y.min(), y.max()
         y_diff = y_max - y_min

@@ -100,7 +100,7 @@ class MTL(nn.Module):
     def __init__(
         self,
         num_tasks: int,
-        method: str = None,
+        method: Optional[str] = None,
     ):
         super().__init__()
         self._n_task, self._method = num_tasks, method

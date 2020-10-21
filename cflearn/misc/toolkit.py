@@ -247,7 +247,7 @@ class Activations:
 
     """
 
-    def __init__(self, configs: Dict[str, Any] = None):
+    def __init__(self, configs: Optional[Dict[str, Any]] = None):
         if configs is None:
             configs = {}
         self.configs = configs

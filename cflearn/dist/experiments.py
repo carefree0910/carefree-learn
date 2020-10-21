@@ -15,7 +15,7 @@ class Experiments(LoggingMixin):
     def __init__(
         self,
         temp_folder: str = "__tmp__",
-        available_cuda_list: List[int] = None,
+        available_cuda_list: Optional[List[int]] = None,
         *,
         overwrite: bool = True,
         use_cuda: bool = True,
@@ -49,10 +49,10 @@ class Experiments(LoggingMixin):
         y_cv: data_type = None,
         *,
         model: str = "fcnn",
-        identifier: str = None,
-        trains_config: Dict[str, Any] = None,
-        tracker_config: Dict[str, Any] = None,
-        data_task: Task = None,
+        identifier: Optional[str] = None,
+        trains_config: Optional[Dict[str, Any]] = None,
+        tracker_config: Optional[Dict[str, Any]] = None,
+        data_task: Optional[Task] = None,
         **kwargs: Any,
     ) -> "Experiments":
         if identifier is None:
@@ -76,9 +76,9 @@ class Experiments(LoggingMixin):
         self,
         *,
         num_jobs: int = 4,
-        run_tasks: bool = True,
-        load_task: Callable = None,
         use_tqdm: bool = True,
+        run_tasks: bool = True,
+        load_task: Optional[Callable] = None,
     ) -> Dict[str, List[Union[Task, Any]]]:
         def _task(i: int, identifier_: str, cuda: Optional[int] = None) -> Task:
             return self.tasks[identifier_][i].run_external(cuda)
@@ -125,7 +125,7 @@ class Experiments(LoggingMixin):
         num_jobs: int = 4,
         num_repeat: int = 5,
         models: Union[str, List[str]] = "fcnn",
-        identifiers: Union[str, List[str]] = None,
+        identifiers: Optional[Union[str, List[str]]] = None,
         use_tqdm_in_task: bool = False,
         use_tqdm: bool = True,
         **kwargs: Any,

@@ -2,7 +2,9 @@ import torch
 
 import torch.nn as nn
 
-from typing import Any, Dict
+from typing import Any
+from typing import Dict
+from typing import Optional
 from cfdata.tabular import TabularData
 
 from ...misc.toolkit import *
@@ -19,12 +21,12 @@ class TransformerLayer(nn.Module):
         num_heads: int,
         *,
         dropout: float = 0.1,
-        attention_config: Dict[str, Any] = None,
-        activation: str = "ReLU",
-        activation_config: Dict[str, Any] = None,
         latent_dim: int = 2048,
-        to_latent_config: Dict[str, Any] = None,
-        from_latent_config: Dict[str, Any] = None,
+        activation: str = "ReLU",
+        attention_config: Optional[Dict[str, Any]] = None,
+        activation_config: Optional[Dict[str, Any]] = None,
+        to_latent_config: Optional[Dict[str, Any]] = None,
+        from_latent_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         if attention_config is None:

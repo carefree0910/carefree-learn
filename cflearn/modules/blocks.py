@@ -68,8 +68,8 @@ class Mapping(nn.Module):
         in_dim: int,
         out_dim: int,
         *,
-        bias: bool = None,
-        pruner_config: dict = None,
+        bias: Optional[bool] = None,
+        pruner_config: Optional[dict] = None,
         dropout: float = 0.5,
         batch_norm: bool = True,
         activation: str = "ReLU",
@@ -124,7 +124,7 @@ class MLP(nn.Module):
         num_units: List[int],
         mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         *,
-        final_mapping_config: Dict[str, Any] = None,
+        final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         mappings: List[Union[Linear, Mapping]] = []
@@ -161,9 +161,9 @@ class DNDF(nn.Module):
         *,
         num_tree: int = 10,
         tree_depth: int = 4,
-        tree_proj_config: dict = None,
         output_type: str = "output",
-        is_regression: bool = None,
+        is_regression: Optional[bool] = None,
+        tree_proj_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self._num_tree = num_tree
@@ -253,18 +253,18 @@ class Attention(nn.Module):
         input_dim: int,
         num_heads: int = 1,
         *,
-        k_dim: int = None,
-        v_dim: int = None,
-        embed_dim: int = None,
-        is_self_attention: bool = False,
         dropout: float = 0.0,
-        activation: str = None,
-        activation_config: Dict[str, Any] = None,
-        q_linear_config: Dict[str, Any] = None,
-        k_linear_config: Dict[str, Any] = None,
-        v_linear_config: Dict[str, Any] = None,
-        in_linear_config: Dict[str, Any] = None,
-        out_linear_config: Dict[str, Any] = None,
+        is_self_attention: bool = False,
+        k_dim: Optional[int] = None,
+        v_dim: Optional[int] = None,
+        embed_dim: Optional[int] = None,
+        activation: Optional[str] = None,
+        activation_config: Optional[Dict[str, Any]] = None,
+        q_linear_config: Optional[Dict[str, Any]] = None,
+        k_linear_config: Optional[Dict[str, Any]] = None,
+        v_linear_config: Optional[Dict[str, Any]] = None,
+        in_linear_config: Optional[Dict[str, Any]] = None,
+        out_linear_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -334,7 +334,7 @@ class Attention(nn.Module):
         q: torch.Tensor,
         k: torch.Tensor,
         v: torch.Tensor,
-        mask: torch.Tensor = None,
+        mask: Optional[torch.Tensor] = None,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
         k_len = k.shape[1]

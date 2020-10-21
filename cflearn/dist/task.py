@@ -45,9 +45,9 @@ class Task:
         y_cv: data_type = None,
         *,
         external: bool,
-        data_task: "Task" = None,
-        trains_config: Dict[str, Any] = None,
-        tracker_config: Dict[str, Any] = None,
+        data_task: Optional["Task"] = None,
+        trains_config: Optional[Dict[str, Any]] = None,
+        tracker_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> "Task":
         kwargs["model"] = self.model
@@ -119,9 +119,9 @@ class Task:
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        sample_weights: np.ndarray = None,
         prepare: bool = True,
-        cuda: int = None,
+        cuda: Optional[int] = None,
+        sample_weights: Optional[np.ndarray] = None,
         **kwargs: Any,
     ) -> "Task":
         if prepare:

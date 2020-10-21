@@ -505,7 +505,7 @@ class DDR(FCNN):
         quantile_batch: torch.Tensor,
         pressure_batch: bool = False,
         *,
-        keys: Union[str, List[str]] = None,
+        keys: Optional[Union[str, List[str]]] = None,
     ) -> tensors_type:
         add_ratio, mul_ratio = self._get_quantile_batch_ratio(quantile_batch)
         add_net = self._merge_responses(add_ratio, self.aq_proj, feature_layers)

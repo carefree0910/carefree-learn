@@ -335,7 +335,7 @@ def _fetch_saving_paths(
 
 def load(
     identifier: str = "cflearn",
-    saving_folder: str = None,
+    saving_folder: Optional[str] = None,
 ) -> Dict[str, Pipeline]:
     paths = _fetch_saving_paths(identifier, saving_folder)
     pipelines = {k: Pipeline.load(v, compress=True) for k, v in paths.items()}
@@ -375,13 +375,13 @@ def repeat_with(
     y_cv: data_type = None,
     *,
     models: Union[str, List[str]] = "fcnn",
-    identifiers: Union[str, List[str]] = None,
+    identifiers: Optional[Union[str, List[str]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
+    sequential: Optional[bool] = None,
     num_jobs: int = 4,
     num_repeat: int = 5,
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,
-    sequential: bool = None,
     use_tqdm: bool = True,
     **kwargs: Any,
 ) -> RepeatResult:
@@ -487,10 +487,10 @@ def tasks_to_patterns(tasks: List[Task], **kwargs: Any) -> List[pattern_type]:
 
 def make_toy_model(
     model: str = "fcnn",
-    config: Dict[str, Any] = None,
+    config: Optional[Dict[str, Any]] = None,
     *,
     task_type: str = "reg",
-    data_tuple: Tuple[data_type, data_type] = None,
+    data_tuple: Optional[Tuple[data_type, data_type]] = None,
 ) -> Pipeline:
     if config is None:
         config = {}

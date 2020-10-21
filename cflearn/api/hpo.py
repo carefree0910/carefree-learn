@@ -56,10 +56,10 @@ class _Tuner(LoggingMixin):
 
     def __init__(
         self,
-        x: Optional[data_type] = None,
-        y: Optional[data_type] = None,
-        x_cv: Optional[data_type] = None,
-        y_cv: Optional[data_type] = None,
+        x: data_type = None,
+        y: data_type = None,
+        x_cv: data_type = None,
+        y_cv: data_type = None,
         task_type: Optional[TaskTypes] = None,
         **kwargs: Any,
     ):
@@ -160,8 +160,8 @@ class _Tuner(LoggingMixin):
         num_parallel: int,
         temp_folder: str,
         *,
-        cuda: str = None,
-        sequential: bool = None,
+        cuda: Optional[str] = None,
+        sequential: Optional[bool] = None,
     ) -> _TunerResult:
         identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
@@ -243,8 +243,8 @@ def tune_with(
     *,
     model: str = "fcnn",
     hpo_method: str = "bo",
-    params: pu.params_type = None,
-    task_type: TaskTypes = None,
+    task_type: Optional[TaskTypes] = None,
+    params: Optional[pu.params_type] = None,
     metrics: Optional[Union[str, List[str]]] = None,
     num_jobs: Optional[int] = None,
     num_repeat: int = 5,
@@ -873,9 +873,9 @@ def optuna_tune(
     *,
     model: str = "fcnn",
     task_type: TaskTypes = None,
-    params: optuna_params_type = None,
-    study_config: Dict[str, Any] = None,
-    metrics: Union[str, List[str]] = None,
+    params: Optional[optuna_params_type] = None,
+    study_config: Optional[Dict[str, Any]] = None,
+    metrics: Optional[Union[str, List[str]]] = None,
     num_jobs: int = 1,
     num_trial: int = 50,
     num_repeat: int = 5,
