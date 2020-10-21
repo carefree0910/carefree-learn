@@ -16,7 +16,7 @@ from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 
 
-model = "fcnn"
+model = "tree_dnn"
 file_folder = os.path.dirname(__file__)
 
 CI = True
@@ -57,7 +57,8 @@ def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
-    opt = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(
+    auto = cflearn.Auto(TaskTypes.CLASSIFICATION, model=model)
+    auto.fit(
         train_file,
         temp_folder="__test_titanic_optuna__",
         extra_config=extra_config,
@@ -65,7 +66,7 @@ def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
         num_repeat=2 if CI else 5,
         num_trial=4 if CI else 100,
     )
-    return opt.data, opt.pattern
+    return auto.data, auto.pattern
 
 
 def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
