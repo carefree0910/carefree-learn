@@ -738,15 +738,15 @@ class OptunaPresetParams:
             assert isinstance(trainer_config, dict)
             trainer_config.update(OptunaParamConverter.make_clip_norm("general"))
         if tune_init_method:
-            default_init_param = OptunaParam(
-                "default_init_method",
+            default_encoding_init_param = OptunaParam(
+                "default_encoding_init_method",
                 [None, "truncated_normal"],
                 "categorical",
             )
             model_config = self.base_params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
             de_cfg = model_config.setdefault("default_encoding_configs", {})
-            de_cfg["init_method"] = default_init_param
+            de_cfg["init_method"] = default_encoding_init_param
         self.kwargs = kwargs
 
     def get(self, model: str) -> optuna_params_type:
