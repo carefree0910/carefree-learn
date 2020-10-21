@@ -43,7 +43,7 @@ def make(
     config: general_config_type = None,
     increment_config: general_config_type = None,
     delim: Optional[str] = None,
-    task_type: Optional[str] = None,
+    task_type: Optional[Union[str, TaskTypes]] = None,
     skip_first: Optional[bool] = None,
     cv_split: Optional[Union[float, int]] = None,
     min_epoch: Optional[int] = None,
@@ -102,7 +102,11 @@ def make(
     if ts_config is not None:
         data_config["time_series_config"] = ts_config
     if task_type is not None:
-        data_config["task_type"] = TaskTypes.from_str(task_type)
+        if isinstance(task_type, TaskTypes):
+            task_type_ = task_type
+        else:
+            task_type_ = TaskTypes.from_str(task_type)
+        data_config["task_type"] = task_type_
     if read_config is None:
         read_config = {}
     if delim is not None:
