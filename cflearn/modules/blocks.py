@@ -221,7 +221,7 @@ class DNDF(nn.Module):
         batch_indices = batch_arange.view(-1, 1).to(device)
         current_indices = batch_indices + self.increment_masks[0]
         flat_dim = flat_probabilities.shape[-1]
-        tree_arange = self.tree_arange * flat_dim
+        tree_arange = self.tree_arange * flat_dim  # type: ignore
         routes = flat_probabilities.take(tree_arange + current_indices[None, ...])
 
         for i in range(1, self._tree_depth + 1):

@@ -710,7 +710,7 @@ class OptunaPresetParams:
         default_init_param = OptunaParam(
             "default_init_method", [None, "truncated_normal"], "categorical"
         )
-        model_config = {
+        model_config: Dict[str, Any] = {
             "default_encoding_configs": {"init_method": default_init_param},
         }
         model_config.update(OptunaParamConverter.make_ema_decay("general"))
