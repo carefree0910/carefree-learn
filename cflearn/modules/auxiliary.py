@@ -217,9 +217,7 @@ class Pruner(nn.Module):
             keys = ["alpha", "beta", "gamma", "max_ratio", "eps"]
         self._repr_keys = keys
 
-    def forward(self, w: torch.Tensor, prune: bool = True) -> torch.Tensor:
-        if not prune:
-            return w
+    def forward(self, w: torch.Tensor) -> torch.Tensor:
         w_abs = torch.abs(w)
         if self.method == "surgery":
             mu, std = torch.mean(w_abs), torch.std(w_abs)
