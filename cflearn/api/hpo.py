@@ -511,10 +511,7 @@ class OptunaParamConverter:
         return {key: value}
 
     @classmethod
-    def make_pruner_config(
-        cls,
-        prefix: str,
-    ) -> Dict[str, str]:
+    def make_pruner_config(cls, prefix: str) -> Dict[str, str]:
         key = f"{cls.prefix}[pruner_config]"
         value = prefix
         return {key: value}

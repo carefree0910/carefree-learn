@@ -433,10 +433,8 @@ class Trainer(LoggingMixin):
                             forward_results = self.model(batch)
                         with timing_context(self, "loss.forward", enable=self.timing):
                             if tr_weights is not None:
-                                batch_sample_weights = tr_weights[index_batch]
-                                forward_results[
-                                    "batch_sample_weights"
-                                ] = batch_sample_weights
+                                batch_sw = tr_weights[index_batch]
+                                forward_results["batch_sample_weights"] = batch_sw
                             loss_dict = self.model.loss_function(batch, forward_results)
                     if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():
