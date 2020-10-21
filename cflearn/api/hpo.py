@@ -137,6 +137,21 @@ class _Tuner(LoggingMixin):
                 metrics = ["mae", "mse"]
         return list(map(Estimator, metrics))
 
+    def make_data(self) -> Tuple[data_type, data_type, data_type, data_type]:
+        if isinstance(self.x, str):
+            y = y_cv = None
+            x, x_cv = self.x, self.x_cv
+        else:
+            assert isinstance(self.x_cv, (list, np.ndarray))
+            x, x_cv = self.x.copy(), self.x_cv.copy()
+            y = self.y.copy()
+            if self.y_cv is None:
+                y_cv = None
+            else:
+                assert isinstance(self.y_cv, (list, np.ndarray))
+                y_cv = self.y_cv.copy()
+        return x, y, x_cv, y_cv
+
     def train(
         self,
         model: str,
@@ -153,18 +168,7 @@ class _Tuner(LoggingMixin):
         params["verbose_level"] = 0
         params["use_tqdm"] = False
         params["cuda"] = cuda
-        if isinstance(self.x, str):
-            y = y_cv = None
-            x, x_cv = self.x, self.x_cv
-        else:
-            assert isinstance(self.x_cv, (list, np.ndarray))
-            x, x_cv = self.x.copy(), self.x_cv.copy()
-            y = self.y.copy()
-            if self.y_cv is None:
-                y_cv = None
-            else:
-                assert isinstance(self.y_cv, (list, np.ndarray))
-                y_cv = self.y_cv.copy()
+        x, y, x_cv, y_cv = self.make_data()
         repeat_result = repeat_with(
             x,
             y,

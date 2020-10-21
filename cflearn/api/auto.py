@@ -184,6 +184,7 @@ class Auto:
                     "num_jobs": num_jobs,
                 }
             )
+            x, y, x_cv, y_cv = self.optuna_result.tuner.make_data()
             self.repeat_result = repeat_with(x, y, x_cv, y_cv, **repeat_config)
             patterns_dict = self.repeat_result.patterns
             pipelines_dict = self.repeat_result.pipelines
