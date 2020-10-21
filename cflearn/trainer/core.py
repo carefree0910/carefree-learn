@@ -252,10 +252,6 @@ class Trainer(LoggingMixin):
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
             score, metrics = self._get_metrics()
-            if self.trial is not None:
-                self.trial.report(score, step=self._step_count)
-                if self.trial.should_prune():
-                    raise optuna.TrialPruned()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
                     self.log_msg(  # type: ignore
@@ -265,6 +261,10 @@ class Trainer(LoggingMixin):
                     )
                 self._monitor.plateau_flag = True
             if self.start_snapshot:
+                if self.trial is not None:
+                    self.trial.report(score, step=self._step_count)
+                    if self.trial.should_prune():
+                        raise optuna.TrialPruned()
                 if self._monitor.check_terminate(score):
                     return True
                 for key, scheduler in self.schedulers.items():
