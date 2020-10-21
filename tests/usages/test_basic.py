@@ -26,6 +26,20 @@ kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
 
 def test_array_dataset() -> None:
     model = "fcnn"
+    # fake
+    n = 10000
+    x = np.random.random([n, 420])
+    y = np.random.random([n, 1])
+    for use_simplify_data in [True, False]:
+        task_type = TaskTypes.REGRESSION if use_simplify_data else None
+        m = cflearn.make(
+            model,
+            task_type=task_type,
+            use_simplify_data=use_simplify_data,
+            **kwargs,
+        )
+        m.fit(x, y)
+    # iris
     dataset = TabularDataset.iris()
     m = cflearn.make(
         model,
