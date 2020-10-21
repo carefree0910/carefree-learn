@@ -897,7 +897,7 @@ def optuna_tune(
         key_mapping.save(key_mapping_folder)
 
         task_config_folder = os.path.join(meta_folder, "__task_config__")
-        os.makedirs(task_config_folder)
+        os.makedirs(task_config_folder, exist_ok=True)
         Saving.save_dict(task_config, "config", task_config_folder)
 
         def _run(num_trial_: int, cuda: int = None) -> None:
