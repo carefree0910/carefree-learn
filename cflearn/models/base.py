@@ -66,21 +66,25 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._init_loss()
         # encoders
         excluded = 0
-        ts_indices = tr_data.ts_indices
-        recognizers = tr_data.recognizers
-        encoders: Dict[str, EncoderStack] = {}
         self.numerical_columns_mapping = {}
         self.categorical_columns_mapping = {}
-        sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
-        for idx in sorted_indices:
-            recognizer = recognizers[idx]
-            if not recognizer.info.is_valid or idx in ts_indices:
-                excluded += 1
-            elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
-                self.numerical_columns_mapping[idx] = idx - excluded
-            else:
-                self._init_encoder(idx, encoders)
-                self.categorical_columns_mapping[idx] = idx - excluded
+        encoders: Dict[str, EncoderStack] = {}
+        if tr_data.is_simplify:
+            for idx in range(tr_data.raw_dim):
+                self.numerical_columns_mapping[idx] = idx
+        else:
+            ts_indices = tr_data.ts_indices
+            recognizers = tr_data.recognizers
+            sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
+            for idx in sorted_indices:
+                recognizer = recognizers[idx]
+                if not recognizer.info.is_valid or idx in ts_indices:
+                    excluded += 1
+                elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
+                    self.numerical_columns_mapping[idx] = idx - excluded
+                else:
+                    self._init_encoder(idx, encoders)
+                    self.categorical_columns_mapping[idx] = idx - excluded
         self.encoders = nn.ModuleDict(encoders)
         self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
