@@ -370,6 +370,16 @@ class OptunaParamConverter:
         return new
 
     @staticmethod
+    def _convert_dropout(value: Any) -> optuna_params_type:
+        prefix = value
+        use_dropout_key = f"{prefix}_use_dropout"
+        drop_ratio_key = f"{prefix}_drop_ratio"
+        return {
+            "use_dropout": OptunaParam(use_dropout_key, [True, False], "categorical"),
+            "drop_ratio": OptunaParam(drop_ratio_key, [0.1, 0.9], "float"),
+        }
+
+    @staticmethod
     def _convert_hidden_units(value: Any) -> optuna_params_type:
         # parse
         config: Dict[str, Any] = {}
@@ -438,6 +448,18 @@ class OptunaParamConverter:
         return attr(value, None)
 
     @staticmethod
+    def _parse_dropout(d: Dict[str, Any], trial: Trial) -> Any:
+        use_dropout = d["use_dropout"]
+        if trial is not None:
+            use_dropout = use_dropout.pop(trial)
+        if not use_dropout:
+            return 0.0
+        drop_ratio = d["drop_ratio"]
+        if trial is not None:
+            drop_ratio = drop_ratio.pop(trial)
+        return drop_ratio
+
+    @staticmethod
     def _parse_hidden_units(d: Dict[str, Any], trial: Trial) -> Any:
         hidden_units = []
         num_layers = d["num_layers"]
@@ -482,6 +504,12 @@ class OptunaParamConverter:
         return {"method": method}
 
     # api
+
+    @classmethod
+    def make_dropout(cls, prefix: str) -> Dict[str, str]:
+        key = f"{cls.prefix}[dropout]"
+        value = prefix
+        return {key: value}
 
     @classmethod
     def make_hidden_units(
@@ -643,15 +671,13 @@ class OptunaPresetParams:
         params = shallow_copy_dict(self.base_params)
         model_config = params["model_config"]
         model_config.update(OptunaParamConverter.make_hidden_units("mlp", 8, 2048, 3))
-        mapping_config: optuna_params_type = {
-            "dropout": OptunaParam("mlp_dropout", [0.0, 0.9], "float"),
-            "batch_norm": OptunaParam("mlp_batch_norm", [False, True], "categorical"),
-        }
+        batch_norm_param = OptunaParam("mlp_batch_norm", [False, True], "categorical")
+        mapping_config: optuna_params_type = {"batch_norm": batch_norm_param}
         mapping_config.update(OptunaParamConverter.make_pruner_config("mlp"))
+        mapping_config.update(OptunaParamConverter.make_dropout("mlp"))
         model_config["mapping_configs"] = mapping_config
-        model_config["default_encoding_configs"]["embedding_dim"] = OptunaParam(
-            "embedding_dim", [8, "auto"], "categorical"
-        )
+        embedding_dim_param = OptunaParam("embedding_dim", [8, "auto"], "categorical")
+        model_config["default_encoding_configs"]["embedding_dim"] = embedding_dim_param
         return params
 
     def _tree_dnn_preset(self) -> optuna_params_type:
