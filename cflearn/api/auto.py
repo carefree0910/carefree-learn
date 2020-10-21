@@ -22,6 +22,7 @@ from .basic import *
 from .ensemble import *
 from .hpo import optuna_tune
 from .hpo import optuna_params_type
+from .hpo import OptunaPresetParams
 from .production import Pack
 from .production import Predictor
 from ..types import data_type
@@ -32,11 +33,30 @@ class Auto:
     data_folder = "__data__"
     pattern_weights_file = "pattern_weights.npy"
 
-    def __init__(self, task_type: TaskTypes, *, model: str = "fcnn"):
+    def __init__(
+        self,
+        task_type: TaskTypes,
+        *,
+        model: str = "fcnn",
+        tune_lr: bool = True,
+        tune_optimizer: bool = True,
+        tune_ema_decay: bool = True,
+        tune_clip_norm: bool = True,
+        tune_init_method: bool = True,
+        **kwargs: Any,
+    ):
         self.model = model
         self.task_type = task_type
         self.pipelines: Optional[List[Pipeline]] = None
         self.pattern_weights: Optional[np.ndarray] = None
+        self.preset_params = OptunaPresetParams(
+            tune_lr=tune_lr,
+            tune_optimizer=tune_optimizer,
+            tune_ema_decay=tune_ema_decay,
+            tune_clip_norm=tune_clip_norm,
+            tune_init_method=tune_init_method,
+            **kwargs,
+        )
 
     def __str__(self) -> str:
         return f"Auto_{self.model}({self.task_type})"
@@ -127,6 +147,10 @@ class Auto:
     ) -> "Auto":
         model = self.model
         optuna_temp_folder = os.path.join(temp_folder, "__optuna__")
+
+        if params is None:
+            params = self.preset_params.get(model)
+
         self.optuna_result = optuna_tune(
             x,
             y,

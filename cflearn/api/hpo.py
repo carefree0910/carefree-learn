@@ -706,51 +706,91 @@ class OptunaResult(NamedTuple):
 
 
 class OptunaPresetParams:
-    def __init__(self) -> None:
-        lr_param = OptunaParam("lr", [1e-5, 0.1], "float", {"log": True})
-        optim_param = OptunaParam(
-            "optimizer", ["nag", "rmsprop", "adam", "adamw"], "categorical"
-        )
-        default_init_param = OptunaParam(
-            "default_init_method", [None, "truncated_normal"], "categorical"
-        )
-        model_config: Dict[str, Any] = {
-            "default_encoding_configs": {"init_method": default_init_param},
-        }
-        model_config.update(OptunaParamConverter.make_ema_decay("general"))
-        trainer_config = {}
-        trainer_config.update(OptunaParamConverter.make_clip_norm("general"))
-        self.base_params = {
-            "optimizer": optim_param,
-            "optimizer_config": {"lr": lr_param},
-            "trainer_config": trainer_config,
-            "model_config": model_config,
-        }
+    def __init__(
+        self,
+        *,
+        tune_lr: bool = True,
+        tune_optimizer: bool = True,
+        tune_ema_decay: bool = True,
+        tune_clip_norm: bool = True,
+        tune_init_method: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        self.base_params: optuna_params_type = {}
+        if tune_lr:
+            lr_param = OptunaParam("lr", [1e-5, 0.1], "float", {"log": True})
+            optimizer_config = self.base_params.setdefault("optimizer_config", {})
+            assert isinstance(optimizer_config, dict)
+            optimizer_config["lr"] = lr_param
+        if tune_optimizer:
+            optimizer_param = OptunaParam(
+                "optimizer",
+                ["nag", "rmsprop", "adam", "adamw"],
+                "categorical",
+            )
+            self.base_params["optimizer"] = optimizer_param
+        if tune_ema_decay:
+            model_config = self.base_params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            model_config.update(OptunaParamConverter.make_ema_decay("general"))
+        if tune_clip_norm:
+            trainer_config = self.base_params.setdefault("trainer_config", {})
+            assert isinstance(trainer_config, dict)
+            trainer_config.update(OptunaParamConverter.make_clip_norm("general"))
+        if tune_init_method:
+            default_init_param = OptunaParam(
+                "default_init_method",
+                [None, "truncated_normal"],
+                "categorical",
+            )
+            model_config = self.base_params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            de_cfg = model_config.setdefault("default_encoding_configs", {})
+            de_cfg["init_method"] = default_init_param
+        self.kwargs = kwargs
 
     def get(self, model: str) -> optuna_params_type:
         attr = getattr(self, f"_{model}_preset", None)
         if attr is None:
             raise NotImplementedError(f"preset params for '{model}' is not defined")
-        return attr()
+        preset = attr()
+        if not preset:
+            raise ValueError("current preset params is empty")
+        return preset
 
     def _fcnn_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
-        model_config = params["model_config"]
-        model_config.update(OptunaParamConverter.make_hidden_units("mlp", 8, 2048, 3))
-        batch_norm_param = OptunaParam("mlp_batch_norm", [False, True], "categorical")
-        mapping_config: optuna_params_type = {"batch_norm": batch_norm_param}
-        mapping_config.update(OptunaParamConverter.make_pruner_config("mlp"))
-        mapping_config.update(OptunaParamConverter.make_dropout("mlp"))
-        model_config["mapping_configs"] = mapping_config
-        embedding_dim_param = OptunaParam("embedding_dim", [8, "auto"], "categorical")
-        model_config["default_encoding_configs"]["embedding_dim"] = embedding_dim_param
+        if self.kwargs.get("tune_hidden_units", True):
+            hu_param = OptunaParamConverter.make_hidden_units("mlp", 8, 2048, 3)
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            model_config.update(hu_param)
+        mapping_config: optuna_params_type = {}
+        if self.kwargs.get("tune_batch_norm", True):
+            bn_param = OptunaParam("mlp_batch_norm", [False, True], "categorical")
+            mapping_config["batch_norm"] = bn_param
+        if self.kwargs.get("tune_dropout", True):
+            mapping_config.update(OptunaParamConverter.make_dropout("mlp"))
+        if self.kwargs.get("tune_pruner", True):
+            mapping_config.update(OptunaParamConverter.make_pruner_config("mlp"))
+        if mapping_config:
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            model_config["mapping_configs"] = mapping_config
+        if self.kwargs.get("tune_embedding_dim", True):
+            ed_param = OptunaParam("embedding_dim", [8, "auto"], "categorical")
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            model_config["default_encoding_configs"]["embedding_dim"] = ed_param
         return params
 
     def _tree_dnn_preset(self) -> optuna_params_type:
         params = self._fcnn_preset()
-        model_config = params["model_config"]
-        assert isinstance(model_config, dict)
-        model_config.update(OptunaParamConverter.make_dndf_config("dndf", 128, 8))
+        if self.kwargs.get("tune_dndf", True):
+            dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6)
+            model_config = params["model_config"]
+            assert isinstance(model_config, dict)
+            model_config.update(dndf_param)
         return params
 
 
