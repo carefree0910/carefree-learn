@@ -60,7 +60,7 @@ class _Tuner(LoggingMixin):
         y: data_type = None,
         x_cv: data_type = None,
         y_cv: data_type = None,
-        task_type: Optional[TaskTypes] = None,
+        task_type: TaskTypes = TaskTypes.NONE,
         **kwargs: Any,
     ):
         # `x` will be None if `load` is called
@@ -243,7 +243,7 @@ def tune_with(
     *,
     model: str = "fcnn",
     hpo_method: str = "bo",
-    task_type: Optional[TaskTypes] = None,
+    task_type: TaskTypes = TaskTypes.NONE,
     params: Optional[pu.params_type] = None,
     metrics: Optional[Union[str, List[str]]] = None,
     num_jobs: Optional[int] = None,
