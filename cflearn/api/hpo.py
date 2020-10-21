@@ -370,6 +370,16 @@ class OptunaParamConverter:
         return new
 
     @staticmethod
+    def _convert_ema_decay(value: Any) -> optuna_params_type:
+        prefix = value
+        use_ema_key = f"{prefix}_use_ema"
+        ema_decay_key = f"{prefix}_ema_decay"
+        return {
+            "use_ema": OptunaParam(use_ema_key, [True, False], "categorical"),
+            "ema_decay": OptunaParam(ema_decay_key, [0.0, 1.0], "float"),
+        }
+
+    @staticmethod
     def _convert_dropout(value: Any) -> optuna_params_type:
         prefix = value
         use_dropout_key = f"{prefix}_use_dropout"
@@ -448,6 +458,18 @@ class OptunaParamConverter:
         return attr(value, None)
 
     @staticmethod
+    def _parse_ema_decay(d: Dict[str, Any], trial: Trial) -> Any:
+        use_ema = d["use_ema"]
+        if trial is not None:
+            use_ema = use_ema.pop(trial)
+        if not use_ema:
+            return 0.0
+        ema_decay = d["ema_decay"]
+        if trial is not None:
+            ema_decay = ema_decay.pop(trial)
+        return ema_decay
+
+    @staticmethod
     def _parse_dropout(d: Dict[str, Any], trial: Trial) -> Any:
         use_dropout = d["use_dropout"]
         if trial is not None:
@@ -504,6 +526,12 @@ class OptunaParamConverter:
         return {"method": method}
 
     # api
+
+    @classmethod
+    def make_ema_decay(cls, prefix: str) -> Dict[str, str]:
+        key = f"{cls.prefix}[ema_decay]"
+        value = prefix
+        return {key: value}
 
     @classmethod
     def make_dropout(cls, prefix: str) -> Dict[str, str]:
@@ -653,12 +681,14 @@ class OptunaPresetParams:
         default_init_param = OptunaParam(
             "default_init_method", [None, "truncated_normal"], "categorical"
         )
+        model_config = {
+            "default_encoding_configs": {"init_method": default_init_param},
+        }
+        model_config.update(OptunaParamConverter.make_ema_decay("general"))
         self.base_params = {
             "optimizer": optim_param,
             "optimizer_config": {"lr": lr_param},
-            "model_config": {
-                "default_encoding_configs": {"init_method": default_init_param},
-            },
+            "model_config": model_config,
         }
 
     def get(self, model: str) -> optuna_params_type:
