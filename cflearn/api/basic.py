@@ -2,6 +2,7 @@ import os
 import json
 
 from typing import *
+from tqdm import tqdm
 from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
@@ -417,9 +418,22 @@ def repeat_with(
             return m.fit(x, y, x_cv, y_cv)
 
         pipelines_dict = {}
-        for model, identifier in zip(models, identifiers):
-            model_list = [model] * num_repeat
-            pipelines_dict[identifier] = list(map(get, range(num_repeat), model_list))
+        iterator = zip(models, identifiers)
+        if use_tqdm:
+            iterator = tqdm(iterator, total=len(models), position=0)
+        for model, identifier in iterator:
+            local_pipelines = []
+            sub_iterator = range(num_repeat)
+            if use_tqdm:
+                sub_iterator = tqdm(
+                    sub_iterator,
+                    total=num_repeat,
+                    position=1,
+                    leave=False,
+                )
+            for i in sub_iterator:
+                local_pipelines.append(get(i, model))
+            pipelines_dict[identifier] = local_pipelines
     else:
         if num_jobs <= 1:
             print(
