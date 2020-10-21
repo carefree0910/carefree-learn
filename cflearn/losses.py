@@ -57,10 +57,8 @@ class FocalLoss(LossBase):
         target: torch.Tensor,
         **kwargs: Any,
     ) -> torch.Tensor:
-        logits_mat, target_column = (
-            predictions.view(-1, predictions.shape[-1]),
-            target.view(-1, 1),
-        )
+        logits_mat = predictions.view(-1, predictions.shape[-1])
+        target_column = target.view(-1, 1)
         prob_mat = functional.softmax(logits_mat, dim=1) + self._eps
         gathered_prob_flat = prob_mat.gather(dim=1, index=target_column).view(-1)
         gathered_log_prob_flat = gathered_prob_flat.log()
