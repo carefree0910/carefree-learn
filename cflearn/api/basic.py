@@ -39,6 +39,7 @@ def make(
     model: str = "fcnn",
     *,
     use_amp: Optional[bool] = None,
+    use_simplify_data: Optional[bool] = None,
     config: general_config_type = None,
     increment_config: general_config_type = None,
     delim: Optional[str] = None,
@@ -93,6 +94,11 @@ def make(
         kwargs["ts_label_collator_config"] = ts_label_collator_config
     if data_config is None:
         data_config = {}
+    if use_simplify_data is not None:
+        if task_type is None:
+            msg = "`task_type` should be provided when simplified data is used"
+            raise ValueError(msg)
+        data_config["simplify"] = use_simplify_data
     if ts_config is not None:
         data_config["time_series_config"] = ts_config
     if task_type is not None:
