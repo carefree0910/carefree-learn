@@ -40,9 +40,9 @@ class Pipeline(LoggingMixin):
         self,
         config: Dict[str, Any],
         *,
-        cuda: Optional[Union[str, List[str]]] = None,
-        trial: Optional[Union[str, List[str]]] = None,
-        tracker_config: Optional[Union[str, List[str]]] = None,
+        cuda: Optional[Union[int, str]] = None,
+        trial: Optional[optuna.trial.Trial] = None,
+        tracker_config: Optional[Dict[str, Any]] = None,
         verbose_level: int = 2,
     ):
         self.trial = trial
@@ -436,7 +436,7 @@ class Pipeline(LoggingMixin):
         *,
         compress: bool = True,
         verbose_level: int = 0,
-        cuda: Optional[int] = None,
+        cuda: Optional[Union[int, str]] = None,
     ) -> "Pipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
