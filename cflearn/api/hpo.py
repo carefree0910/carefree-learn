@@ -26,8 +26,9 @@ from optuna.trial import Trial
 
 from .basic import *
 from ..misc.toolkit import *
-from ..types import data_type
 from .ensemble import ensemble
+from ..types import data_type
+from ..types import task_type_type
 from ..pipeline.core import Pipeline
 
 
@@ -60,13 +61,14 @@ class _Tuner(LoggingMixin):
         y: data_type = None,
         x_cv: data_type = None,
         y_cv: data_type = None,
-        task_type: TaskTypes = TaskTypes.NONE,
+        task_type: task_type_type = "",
         **kwargs: Any,
     ):
         # `x` will be None if `load` is called
         if x is None:
             return
 
+        task_type = parse_task_type(task_type)
         hpo_cv_split = kwargs.get("hpo_cv_split", 0.1)
         hpo_cv_split_order = kwargs.get("hpo_cv_split_order", "auto")
         need_cv_split = x_cv is None and hpo_cv_split > 0.0
@@ -243,7 +245,7 @@ def tune_with(
     *,
     model: str = "fcnn",
     hpo_method: str = "bo",
-    task_type: TaskTypes = TaskTypes.NONE,
+    task_type: task_type_type = "",
     params: Optional[pu.params_type] = None,
     metrics: Optional[Union[str, List[str]]] = None,
     num_jobs: Optional[int] = None,
@@ -872,7 +874,7 @@ def optuna_tune(
     y_cv: data_type = None,
     *,
     model: str = "fcnn",
-    task_type: TaskTypes = None,
+    task_type: task_type_type = "",
     params: Optional[optuna_params_type] = None,
     study_config: Optional[Dict[str, Any]] = None,
     metrics: Optional[Union[str, List[str]]] = None,

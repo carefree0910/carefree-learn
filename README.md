@@ -73,7 +73,9 @@ if __name__ == '__main__':
     fcnn = cflearn.make().fit(*data)
 
     # 'overfit' validation set
-    auto = cflearn.Auto(TaskTypes.CLASSIFICATION).fit(*data, num_jobs=2)
+    # * `clf` indicates this is a classification task
+    # * for regression tasks, use `reg` instead
+    auto = cflearn.Auto("clf").fit(*data, num_jobs=2)
 
     # estimate manually
     predictions = auto.predict(x_cv)
@@ -252,14 +254,14 @@ You might notice that the best results of each column is 'highlighted' with a pa
 
 ```python
 import cflearn
-from cfdata.tabular import *
+from cfdata.tabular import TabularDataset
  
 if __name__ == '__main__':
     x, y = TabularDataset.iris().xy
     # Bayesian Optimization (BO) will be used as default
     hpo = cflearn.tune_with(
         x, y,
-        task_type=TaskTypes.CLASSIFICATION,
+        task_type="clf",
         num_repeat=2, num_parallel=0, num_search=10
     )
     # We can further train our model with the best hyper-parameters we've obtained:

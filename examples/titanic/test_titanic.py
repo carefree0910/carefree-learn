@@ -12,7 +12,6 @@ from typing import Callable
 from cftool.ml import pattern_type
 from cftool.misc import shallow_copy_dict
 from cfdata.tabular import DataTuple
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 
 
@@ -30,8 +29,8 @@ def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     tune_result = cflearn.tune_with(
         train_file,
         model=model,
+        task_type="clf",
         temp_folder=os.path.join(hpo_temp_folder, "__tune__"),
-        task_type=TaskTypes.CLASSIFICATION,
         extra_config=extra_config,
         num_parallel=0,
         num_repeat=2 if CI else 5,
@@ -57,7 +56,7 @@ def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
-    auto = cflearn.Auto(TaskTypes.CLASSIFICATION, model=model)
+    auto = cflearn.Auto("clf", model=model)
     auto.fit(
         train_file,
         temp_folder="__test_titanic_optuna__",
@@ -73,7 +72,7 @@ def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
-    ensemble = cflearn.Ensemble(TaskTypes.CLASSIFICATION, config)
+    ensemble = cflearn.Ensemble("clf", config)
     results = ensemble.adaboost(train_file, model=model)
     return results.data, results.pattern
 

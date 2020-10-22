@@ -4,18 +4,17 @@ import unittest
 
 import numpy as np
 
+from typing import Dict
+from scipy.sparse import csr_matrix
 from cftool.ml import patterns_type
 from cftool.ml import Tracker
 from cftool.ml import Comparer
-from cfdata.tabular import TaskTypes
-from cfdata.tabular import TabularData
-from typing import Dict
 from cftool.misc import timestamp
+from cfdata.tabular import TabularData
 from cfml.misc.toolkit import Experiment
-from scipy.sparse import csr_matrix
-from sklearn.datasets import fetch_openml
 from sklearn.svm import LinearSVC, SVC
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.datasets import fetch_openml
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 
@@ -70,7 +69,7 @@ class TestOpenML(unittest.TestCase):
             # cflearn benchmark
             benchmark = cflearn.Benchmark(
                 task_name,
-                TaskTypes.CLASSIFICATION,
+                "clf",
                 models=["fcnn", "tree_dnn"],
                 temp_folder=f"__test_openml_{openml_id}__",
                 increment_config={

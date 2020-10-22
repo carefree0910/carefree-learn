@@ -27,6 +27,7 @@ from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
 from ..types import data_type
+from ..types import task_type_type
 from ..pipeline.core import Pipeline
 
 
@@ -42,7 +43,7 @@ class Benchmark(LoggingMixin):
     def __init__(
         self,
         task_name: str,
-        task_type: TaskTypes,
+        task_type: task_type_type,
         *,
         temp_folder: Optional[str] = None,
         project_name: str = "carefree-learn",
@@ -61,7 +62,8 @@ class Benchmark(LoggingMixin):
         if read_config is None:
             read_config = {}
         self.data_config, self.read_config = data_config, read_config
-        self.task_name, self.task_type = task_name, task_type
+        self.task_name = task_name
+        self.task_type = parse_task_type(task_type)
         if temp_folder is None:
             temp_folder = f"__{task_name}__"
         self.temp_folder, self.project_name = temp_folder, project_name
@@ -169,6 +171,7 @@ class Benchmark(LoggingMixin):
         data_config = shallow_copy_dict(self.data_config)
         task_type = data_config.pop("task_type", None)
         if task_type is not None:
+            task_type = parse_task_type(task_type)
             assert task_type is self.task_type
         self.data = TabularData.simple(self.task_type, **data_config)
         self.data.read(x, y, **self.read_config)
@@ -348,8 +351,12 @@ class EnsembleResults(NamedTuple):
 
 
 class Ensemble:
-    def __init__(self, task_type: TaskTypes, config: Optional[Dict[str, Any]] = None):
-        self.task_type = task_type
+    def __init__(
+        self,
+        task_type: task_type_type,
+        config: Optional[Dict[str, Any]] = None,
+    ):
+        self.task_type = parse_task_type(task_type)
         if config is None:
             config = {}
         self.config = config

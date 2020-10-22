@@ -1,7 +1,6 @@
 import cflearn
 import platform
 
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 
@@ -24,7 +23,7 @@ def test_auto() -> None:
     for num_jobs in num_jobs_list:
         fcnn = cflearn.make(use_tqdm=False, **kwargs).fit(*data)  # type: ignore
 
-        auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
+        auto = cflearn.Auto("clf")
         auto.fit(
             *data,
             num_jobs=num_jobs,

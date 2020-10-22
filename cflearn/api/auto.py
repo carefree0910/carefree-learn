@@ -7,7 +7,6 @@ import optuna.visualization as vis
 
 from typing import *
 from functools import partial
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
@@ -26,6 +25,7 @@ from .hpo import OptunaPresetParams
 from .production import Pack
 from .production import Predictor
 from ..types import data_type
+from ..types import task_type_type
 from ..pipeline.core import Pipeline
 
 
@@ -35,7 +35,7 @@ class Auto:
 
     def __init__(
         self,
-        task_type: TaskTypes,
+        task_type: task_type_type,
         *,
         model: str = "fcnn",
         tune_lr: bool = True,
@@ -46,7 +46,7 @@ class Auto:
         **kwargs: Any,
     ):
         self.model = model
-        self.task_type = task_type
+        self.task_type = parse_task_type(task_type)
         self.pipelines: Optional[List[Pipeline]] = None
         self.pattern_weights: Optional[np.ndarray] = None
         self.preset_params = OptunaPresetParams(

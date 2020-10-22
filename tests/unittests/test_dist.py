@@ -4,7 +4,6 @@ import unittest
 
 import numpy as np
 
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularDataset
 
 IS_LINUX = platform.system() == "Linux"
@@ -36,7 +35,7 @@ class TestDist(unittest.TestCase):
         x, y = TabularDataset.iris().xy
         benchmark = cflearn.Benchmark(
             "foo",
-            TaskTypes.CLASSIFICATION,
+            "clf",
             models=["fcnn", "tree_dnn"],
             temp_folder="__test_benchmark__",
             increment_config=kwargs.copy(),

@@ -5,7 +5,6 @@ import platform
 import numpy as np
 
 from cftool.misc import fix_float_to_length
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 
@@ -31,7 +30,7 @@ def test_array_dataset() -> None:
     x = np.random.random([n, 420])
     y = np.random.random([n, 1])
     for use_simplify_data in [True, False]:
-        task_type = TaskTypes.REGRESSION if use_simplify_data else None
+        task_type = "reg" if use_simplify_data else ""
         m = cflearn.make(
             model,
             task_type=task_type,
@@ -196,7 +195,7 @@ def test_file_dataset2() -> None:
 
 
 def test_auto_file() -> None:
-    auto = cflearn.Auto(TaskTypes.CLASSIFICATION)
+    auto = cflearn.Auto("clf")
     predict_config = {"contains_labels": True}
     auto.fit(
         tr_file,
