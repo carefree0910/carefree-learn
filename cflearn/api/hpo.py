@@ -17,13 +17,12 @@ from cftool.misc import LoggingMixin
 from cftool.ml.hpo import HPOBase
 from cftool.ml.utils import pattern_type
 from cftool.ml.utils import scoring_fn_type
-from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
+from cfdata.types import np_float_type
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
-from cfdata.tabular.misc import split_file
 from optuna.trial import Trial
 
 from .basic import *
@@ -51,6 +50,18 @@ class _TunerResult(NamedTuple):
             raise ValueError("`patterns` are not yet generated")
         return patterns[self.identifier]
 
+    @property
+    def weighted_scores(self) -> Dict[str, np.ndarray]:
+        weighted_scores = {}
+        final_results_dict = self.repeat_result.final_results
+        if final_results_dict is None:
+            raise ValueError("training process is corrupted")
+        final_results = final_results_dict[self.identifier]
+        for key in sorted(final_results[0].weighted_scores.keys()):
+            local_scores = [result.weighted_scores[key] for result in final_results]
+            weighted_scores[key] = np.array(local_scores, np_float_type)
+        return weighted_scores
+
 
 class _Tuner(LoggingMixin):
     data_file = "__data__.pt"
@@ -69,20 +80,9 @@ class _Tuner(LoggingMixin):
         if x is None:
             return
 
-        task_type = parse_task_type(task_type)
-        hpo_cv_split = kwargs.get("hpo_cv_split", 0.1)
-        hpo_cv_split_order = kwargs.get("hpo_cv_split_order", "auto")
-        need_cv_split = x_cv is None and hpo_cv_split > 0.0
-
         self.has_column_names = None
         if y is not None:
             y, y_cv = map(to_2d, [y, y_cv])
-            if need_cv_split:
-                data = TabularData.simple(task_type).read(x, y)
-                split = data.split(hpo_cv_split, order=hpo_cv_split_order)
-                tr_data, cv_data = split.remained, split.split
-                x, y = tr_data.raw.xy
-                x_cv, y_cv = cv_data.raw.xy
         elif isinstance(x, str):
             data_config = kwargs.get("data_config", {})
             data_config["task_type"] = task_type
@@ -100,25 +100,12 @@ class _Tuner(LoggingMixin):
             tr_data = TabularData(**data_config)
             tr_data.read(x, **read_config)
             self.has_column_names = tr_data._has_column_names
-
-            if not need_cv_split:
-                y = tr_data.processed.y
-                if x_cv is not None:
-                    if y_cv is None:
-                        y_cv = tr_data.transform(x_cv).y
-                    else:
-                        y_cv = tr_data.transform_labels(y_cv)
-            else:
-                split = tr_data.split(hpo_cv_split, order=hpo_cv_split_order)
-                tr_data, cv_data = split.remained, split.split
-                y, y_cv = tr_data.processed.y, cv_data.processed.y
-                indices_pair = (split.remained_indices, split.split_indices)
-                x, x_cv = split_file(
-                    x,
-                    export_folder="_split",
-                    indices_pair=indices_pair,
-                )
-                x, x_cv = map(os.path.abspath, [x, x_cv])
+            y = tr_data.processed.y
+            if x_cv is not None:
+                if y_cv is None:
+                    y_cv = tr_data.transform(x_cv).y
+                else:
+                    y_cv = tr_data.transform_labels(y_cv)
         else:
             raise ValueError("`x` should be a file when `y` is not provided")
 
@@ -141,13 +128,20 @@ class _Tuner(LoggingMixin):
         return list(map(Estimator, metrics))
 
     def make_data(self) -> Tuple[data_type, data_type, data_type, data_type]:
+        x: data_type
+        y: data_type
         if isinstance(self.x, str):
             y = y_cv = None
             x, x_cv = self.x, self.x_cv
         else:
-            assert isinstance(self.x_cv, (list, np.ndarray))
-            x, x_cv = self.x.copy(), self.x_cv.copy()
-            y = self.y.copy()
+            assert isinstance(self.x, (list, np.ndarray))
+            assert isinstance(self.y, (list, np.ndarray))
+            x, y = self.x.copy(), self.y.copy()
+            if self.x_cv is None:
+                x_cv = None
+            else:
+                assert isinstance(self.x_cv, (list, np.ndarray))
+                x_cv = self.x_cv.copy()
             if self.y_cv is None:
                 y_cv = None
             else:
@@ -825,7 +819,6 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
     timeout = config["timeout"]
     num_repeat = config["num_repeat"]
     num_parallel = config["num_parallel"]
-    score_weights = config["score_weights"]
     estimator_scoring_function = config["estimator_scoring_function"]
     study_config = config["study_config"]
     temp_folder = config["temp_folder"]
@@ -833,35 +826,18 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
     def objective(trial: Trial) -> float:
         temp_folder_ = os.path.join(temp_folder, str(trial.number))
         current_params = key_mapping.pop(trial)
+        current_params["metrics"] = metrics
         current_params["trial"] = trial
         args_ = model, current_params, num_repeat, num_parallel, temp_folder_
-        if num_repeat <= 1:
-            result = tuner.train(*args_, cuda=cuda)
-            comparer = estimate(
-                tuner.x_cv,
-                tuner.y_cv,
-                pipelines=result.pipelines,
-                metrics=metrics,
-                contains_labels=True,
-                comparer_verbose_level=6,
-            )
-        else:
-            estimators = tuner.make_estimators(metrics)
-            result = tuner.train(*args_, sequential=True, cuda=cuda)
-            comparer = Comparer({model: result.patterns}, estimators)
-            comparer.compare(
-                tuner.x_cv,
-                tuner.y_cv,
-                scoring_function=estimator_scoring_function,
-                verbose_level=6,
-            )
-        scores = {k: v[model] for k, v in comparer.final_scores.items()}
-        if score_weights is None:
-            score = sum(scores.values()) / len(scores)
-        else:
-            weighted = sum(score * score_weights[k] for k, score in scores.items())
-            score = weighted / sum(score_weights.values())
-        return score
+        result = tuner.train(*args_, sequential=True, cuda=cuda)
+        final_scores = []
+        weighted_scores = result.weighted_scores
+        estimators = tuner.make_estimators(metrics)
+        for estimator in estimators:
+            metric = estimator.type
+            scoring_fn = estimator.scoring_fn(estimator_scoring_function)
+            final_scores.append(scoring_fn(weighted_scores[metric]))
+        return sum(final_scores) / len(final_scores)
 
     study = optuna.create_study(**study_config)
     study.optimize(objective, int(args.num_trial), timeout, 1)
@@ -927,7 +903,6 @@ def optuna_tune(
         "timeout": timeout,
         "num_repeat": num_repeat,
         "num_parallel": num_parallel,
-        "score_weights": score_weights,
         "estimator_scoring_function": estimator_scoring_function,
         "study_config": study_config,
         "temp_folder": temp_folder,
