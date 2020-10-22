@@ -29,6 +29,11 @@ from .production import Predictor
 from ..types import data_type
 
 
+class UnPacked(NamedTuple):
+    pattern: EnsemblePattern
+    predictors: Dict[str, List[Predictor]]
+
+
 class Auto:
     data_folder = "__data__"
 
@@ -237,14 +242,16 @@ class Auto:
         return self
 
     @classmethod
-    def get_predictors(
+    def unpack(
         cls,
         export_folder: str,
         device: Union[str, torch.device] = "cpu",
         *,
         compress: bool = True,
         use_tqdm: bool = False,
-    ) -> Dict[str, List[Predictor]]:
+        **predict_kwargs: Any,
+    ) -> UnPacked:
+        patterns = []
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(
@@ -261,17 +268,18 @@ class Auto:
                     local_predictors = []
                     model_folder = os.path.join(export_folder, stuff)
                     for sub_folder in os.listdir(model_folder):
-                        local_predictors.append(
-                            Pack.get_predictor(
-                                sub_folder,
-                                device,
-                                data=data,
-                                compress=False,
-                                use_tqdm=use_tqdm,
-                            )
+                        local_predictor = Pack.get_predictor(
+                            sub_folder,
+                            device,
+                            data=data,
+                            compress=False,
+                            use_tqdm=use_tqdm,
                         )
+                        local_predictors.append(local_predictor)
+                        patterns.append(local_predictor.to_pattern(**predict_kwargs))
                     predictors[stuff] = local_predictors
-        return predictors
+        pattern = ensemble(patterns)
+        return UnPacked(pattern, predictors)
 
     # visualization
 

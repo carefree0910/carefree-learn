@@ -210,8 +210,7 @@ def test_auto_file() -> None:
     prob1 = auto.predict_prob(te_file)
     export_folder = "packed"
     auto.pack(export_folder)
-    predictors, weights = auto.get_predictors(export_folder)
-    pattern = cflearn.Pack.ensemble(predictors, weights, **predict_config)
+    pattern = auto.unpack(export_folder, **predict_config).pattern
     pred2 = pattern.predict(te_file)
     prob2 = pattern.predict(te_file, requires_prob=True)
     assert np.allclose(pred1, pred2)
