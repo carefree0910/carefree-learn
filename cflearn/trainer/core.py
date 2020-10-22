@@ -38,6 +38,15 @@ from ..pipeline.inference import Inference
 trains_logger: Optional[Logger] = None
 
 
+class IntermediateResults(NamedTuple):
+    metrics: Dict[str, float]
+    weighted_scores: Dict[str, float]
+
+    @property
+    def final_score(self) -> float:
+        return sum(self.weighted_scores.values()) / len(self.weighted_scores)
+
+
 class Trainer(LoggingMixin):
     pt_prefix = "model_"
 
@@ -56,6 +65,7 @@ class Trainer(LoggingMixin):
         self.inference = inference
         self._init_config(pipeline_config, is_loading)
         self.model = model
+        self.final_results: Optional[IntermediateResults] = None
         self._verbose_level = verbose_level
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
@@ -262,7 +272,7 @@ class Trainer(LoggingMixin):
     # return whether we need to terminate
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
-            score, metrics = self._get_metrics()
+            rs = self._get_metrics()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
                     self.log_msg(  # type: ignore
@@ -272,6 +282,7 @@ class Trainer(LoggingMixin):
                     )
                 self._monitor.plateau_flag = True
             if self.start_snapshot:
+                score = rs.final_score
                 if self.trial is not None:
                     self.trial.report(score, step=self._step_count)
                     if self.trial.should_prune():
@@ -286,7 +297,7 @@ class Trainer(LoggingMixin):
                         scheduler.step(**kwargs)  # type: ignore
         return False
 
-    def _get_metrics(self) -> Tuple[float, Dict[str, float]]:
+    def _get_metrics(self) -> IntermediateResults:
         tr_loader, cv_loader = self.tr_loader, self.cv_loader
         if cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
@@ -356,11 +367,11 @@ class Trainer(LoggingMixin):
                         value=value,
                         iteration=self._step_count,
                     )
-        weighted_scores = [
-            v * signs[k] * self.metrics_weights[k]
+        weighted_scores = {
+            k: v * signs[k] * self.metrics_weights[k]
             for k, v in metrics_for_scoring.items()
-        ]
-        score: float = sum(weighted_scores) / len(weighted_scores)
+        }
+        rs = IntermediateResults(metrics, weighted_scores)
 
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
@@ -374,13 +385,13 @@ class Trainer(LoggingMixin):
         msg = (
             f"| epoch {self._epoch_count:^4d} - step {self._step_count:^6d} | "
             f"{' | '.join([f'{k} : {_metric_verbose(k)}' for k in sorted(metrics)])} | "
-            f"score : {fix_float_to_length(score, 8)} |"
+            f"score : {fix_float_to_length(rs.final_score, 8)} |"
         )
         with open(self._log_file, "a") as f:
             f.write(f"{msg}\n")
         self.log_msg(msg, verbose_level=None)  # type: ignore
 
-        return score, metrics
+        return rs
 
     # api
 
@@ -499,7 +510,7 @@ class Trainer(LoggingMixin):
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
-        self._get_metrics()
+        self.final_results = self._get_metrics()
 
     def _filter_checkpoints(self, folder: str) -> Dict[int, str]:
         checkpoints = {}
@@ -543,4 +554,4 @@ class Trainer(LoggingMixin):
         return self
 
 
-__all__ = ["Trainer"]
+__all__ = ["Trainer", "IntermediateResults"]
