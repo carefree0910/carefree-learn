@@ -506,7 +506,7 @@ def repeat_with(
 
     data = None
     if patterns is not None:
-        data = patterns[identifiers[0]][0].model.tr_data
+        data = patterns[identifiers[0]][0].model._original_data
 
     return RepeatResult(data, experiments, pipelines_dict, patterns)
 
