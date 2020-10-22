@@ -76,6 +76,13 @@ class Pipeline(LoggingMixin):
         return TabularDataset(*raw.xy, task_type=self.cv_data.task_type)
 
     @property
+    def cv_split(self) -> int:
+        if isinstance(self._cv_split, int):
+            return self._cv_split
+        cv_split_num = int(round(self._cv_split * len(self._original_data)))
+        return min(cv_split_num, self._max_cv_split)
+
+    @property
     def binary_threshold(self) -> Optional[float]:
         if self.inference is None:
             raise ValueError("`inference` is not yet generated")
@@ -91,6 +98,7 @@ class Pipeline(LoggingMixin):
         self._data_config["default_categorical_process"] = "identical"
         self._read_config = self.config.setdefault("read_config", {})
         self._cv_split = self.config.setdefault("cv_split", 0.1)
+        self._max_cv_split = self.config.setdefault("max_cv_split", 10000)
         self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
         self._is_binary = self.config.get("is_binary")
         self._binary_config = self.config.setdefault("binary_config", {})
@@ -207,7 +215,7 @@ class Pipeline(LoggingMixin):
             if sample_weights is not None:
                 self.tr_weights = sample_weights[: len(self.tr_data)]
         else:
-            if self._cv_split <= 0.0:
+            if self.cv_split <= 0:
                 self.cv_data = None
                 self.tr_split_indices = None
                 self.cv_split_indices = None
@@ -215,7 +223,7 @@ class Pipeline(LoggingMixin):
                     self.tr_weights = sample_weights
             else:
                 split = self.tr_data.split(
-                    self._cv_split,
+                    self.cv_split,
                     order=self._cv_split_order,
                 )
                 self.tr_data, self.cv_data = split.remained, split.split
