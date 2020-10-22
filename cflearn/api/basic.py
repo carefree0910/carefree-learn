@@ -445,6 +445,7 @@ def repeat_with(
 
         def get(i_: int, model_: str) -> Pipeline:
             kwargs_ = shallow_copy_dict(kwargs)
+            assert model_configs is not None
             model_config = model_configs.setdefault(model_, {})
             kwargs_ = update_dict(model_config, kwargs_)
             logging_folder = os.path.join(temp_folder, str(i_))
