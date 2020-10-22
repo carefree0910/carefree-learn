@@ -150,7 +150,7 @@ class Experiments(LoggingMixin):
             for model, identifier in zip(models, identifiers):
                 kwargs_ = shallow_copy_dict(kwargs)
                 model_config = model_configs.setdefault(model, {})
-                kwargs_ = update_dict(model_config, kwargs_)
+                kwargs_ = update_dict(shallow_copy_dict(model_config), kwargs_)
                 self.add_task(
                     x,
                     y,
