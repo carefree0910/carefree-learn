@@ -4,9 +4,6 @@ import numpy as np
 tr_file = "./train.csv"
 te_file = "./test.csv"
 
-model = "tree_dnn"
-extra_config = {"data_config": {"label_name": "Survived"}}
-
 
 def write_submissions(name: str, predictions_: np.ndarray) -> None:
     with open(te_file, "r") as f:
@@ -19,7 +16,7 @@ def write_submissions(name: str, predictions_: np.ndarray) -> None:
 
 
 # Score : achieved ~0.79
-auto = cflearn.Auto("clf", model=model)
-auto.fit(tr_file, extra_config=extra_config)
+auto = cflearn.Auto("clf")
+auto.fit(tr_file, extra_config={"data_config": {"label_name": "Survived"}})
 predictions = auto.pattern.predict(te_file)
 write_submissions("submissions.csv", predictions)
