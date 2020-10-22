@@ -238,6 +238,7 @@ class Pipeline(LoggingMixin):
 
     def _loop(self) -> None:
         # dump configurations
+        os.makedirs(self.trainer.logging_folder, exist_ok=True)
         Saving.save_dict(self.config, "config", self.trainer.logging_folder)
         # training loop
         self.trainer.fit(self.tr_loader, self.cv_loader, self.tr_weights)

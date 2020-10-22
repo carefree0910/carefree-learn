@@ -101,8 +101,6 @@ class Trainer(LoggingMixin):
         self.checkpoint_folder = self.config.setdefault(
             "checkpoint_folder", default_checkpoint_folder
         )
-        if not is_loading:
-            Saving.prepare_folder(self, self.checkpoint_folder)
 
     def _define_optimizer(
         self,
