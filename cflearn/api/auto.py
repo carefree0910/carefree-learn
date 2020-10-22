@@ -83,42 +83,6 @@ class Auto:
     def complete_trials(self) -> List[FrozenTrial]:
         return [t for t in self.study.trials if t.state == TrialState.COMPLETE]
 
-    def _merge_data(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_cv: data_type = None,
-        y_cv: data_type = None,
-    ) -> Tuple[data_type, data_type]:
-        if x_cv is None:
-            return x, y
-        if not isinstance(x_cv, str):
-            if isinstance(x_cv, list):
-                assert isinstance(x, list)
-                x_merged = x + x_cv
-                if y is None:
-                    y_merged = None
-                else:
-                    assert isinstance(y, list) and isinstance(y_cv, list)
-                    y_merged = y + y_cv
-            else:
-                x_merged = np.vstack([x, x_cv])
-                y_merged = None if y is None else np.vstack([y, y_cv])
-            return x_merged, y_merged
-        assert isinstance(x, str)
-        has_column_names = self.optuna_result.tuner.has_column_names
-        with open(x, "r") as fx, open(x_cv, "r") as fx_cv:
-            x_lines = fx.readlines()
-            x_cv_lines = fx_cv.readlines()
-            if has_column_names:
-                x_cv_lines = x_cv_lines[1:]
-        x_merged_lines = x_lines + x_cv_lines
-        path, ext = os.path.splitext(x)
-        new_file = f"{path}_^merged^{ext}"
-        with open(new_file, "w") as f:
-            f.write("".join(x_merged_lines))
-        return new_file, None
-
     # api
 
     def fit(
