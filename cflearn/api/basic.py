@@ -24,6 +24,8 @@ from ..types import data_type
 from ..types import task_type_type
 from ..types import general_config_type
 from ..misc.toolkit import to_2d
+from ..trainer.core import Trainer
+from ..trainer.core import IntermediateResults
 from ..pipeline.core import Pipeline
 
 
@@ -376,6 +378,27 @@ class RepeatResult(NamedTuple):
     experiments: Optional[Experiments]
     pipelines: Optional[Dict[str, List[Pipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
+
+    @property
+    def trainers(self) -> Optional[Dict[str, List[Trainer]]]:
+        if self.pipelines is None:
+            return None
+        return {k: [m.trainer for m in v] for k, v in self.pipelines.items()}
+
+    @property
+    def final_results(self) -> Optional[Dict[str, List[IntermediateResults]]]:
+        trainers = self.trainers
+        if trainers is None:
+            return None
+        final_results_dict: Dict[str, List[IntermediateResults]] = {}
+        for k, v in trainers.items():
+            local_results = final_results_dict.setdefault(k, [])
+            for trainer in v:
+                final_results = trainer.final_results
+                if final_results is None:
+                    raise ValueError(f"training of `Trainer` ({trainer}) is corrupted")
+                local_results.append(final_results)
+        return final_results_dict
 
 
 # If `x_cv` is not provided, then `KRandom` split will be performed
