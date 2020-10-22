@@ -404,6 +404,7 @@ def repeat_with(
     y_cv: data_type = None,
     *,
     models: Union[str, List[str]] = "fcnn",
+    model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     identifiers: Optional[Union[str, List[str]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     sequential: Optional[bool] = None,
@@ -427,6 +428,8 @@ def repeat_with(
 
     if sequential is None:
         sequential = num_jobs <= 1
+    if model_configs is None:
+        model_configs = {}
 
     pipelines_dict: Optional[Dict[str, List[Pipeline]]] = None
     if sequential:
@@ -442,6 +445,8 @@ def repeat_with(
 
         def get(i_: int, model_: str) -> Pipeline:
             kwargs_ = shallow_copy_dict(kwargs)
+            model_config = model_configs.setdefault(model_, {})
+            kwargs_ = update_dict(model_config, kwargs_)
             logging_folder = os.path.join(temp_folder, str(i_))
             m = make(model_, logging_folder=logging_folder, **kwargs_)
             return m.fit(x, y, x_cv, y_cv)
@@ -478,6 +483,7 @@ def repeat_with(
             x_cv,
             y_cv,
             models=models,
+            model_configs=model_configs,
             identifiers=identifiers,
             num_repeat=num_repeat,
             num_jobs=num_jobs,

@@ -5,7 +5,11 @@ import logging
 
 from typing import *
 from cftool.dist import Parallel
-from cftool.misc import Saving, LoggingMixin, lock_manager
+from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
+from cftool.misc import lock_manager
+from cftool.misc import Saving
+from cftool.misc import LoggingMixin
 
 from .task import Task
 from ..types import data_type
@@ -125,6 +129,7 @@ class Experiments(LoggingMixin):
         num_jobs: int = 4,
         num_repeat: int = 5,
         models: Union[str, List[str]] = "fcnn",
+        model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
         identifiers: Optional[Union[str, List[str]]] = None,
         use_tqdm_in_task: bool = False,
         use_tqdm: bool = True,
@@ -133,6 +138,8 @@ class Experiments(LoggingMixin):
         self.initialize()
         if isinstance(models, str):
             models = [models]
+        if model_configs is None:
+            model_configs = {}
         if identifiers is None:
             identifiers = models.copy()
         elif isinstance(identifiers, str):
@@ -141,6 +148,9 @@ class Experiments(LoggingMixin):
 
         for _ in range(num_repeat):
             for model, identifier in zip(models, identifiers):
+                kwargs_ = shallow_copy_dict(kwargs)
+                model_config = model_configs.setdefault(model, {})
+                kwargs_ = update_dict(model_config, kwargs_)
                 self.add_task(
                     x,
                     y,
@@ -148,7 +158,7 @@ class Experiments(LoggingMixin):
                     y_cv,
                     model=model,
                     identifier=identifier,
-                    **kwargs,
+                    **kwargs_,
                 )
 
         return self.run_tasks(num_jobs=num_jobs, load_task=load_task, use_tqdm=use_tqdm)
