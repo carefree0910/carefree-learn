@@ -138,7 +138,7 @@ class Auto:
         num_parallel: int = 0,
         timeout: Optional[float] = None,
         score_weights: Optional[Dict[str, float]] = None,
-        estimator_scoring_function: Union[str, scoring_fn_type] = "default",
+        estimator_scoring_function: Union[str, scoring_fn_type] = "std",
         temp_folder: str = "__tmp__",
         num_final_repeat: int = 10,
         bagging_config: Optional[Dict[str, Any]] = None,
