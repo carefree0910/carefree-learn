@@ -799,6 +799,17 @@ class OptunaPresetParams:
             model_config.update(dndf_param)
         return params
 
+    # TODO : optimize these three preset
+
+    def _ddr_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
+
+    def _rnn_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
+
+    def _transformer_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
+
 
 class OptunaArgs(NamedTuple):
     cuda: Optional[str]
