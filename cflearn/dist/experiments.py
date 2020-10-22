@@ -142,7 +142,13 @@ class Experiments(LoggingMixin):
         for _ in range(num_repeat):
             for model, identifier in zip(models, identifiers):
                 self.add_task(
-                    x, y, x_cv, y_cv, model=model, identifier=identifier, **kwargs
+                    x,
+                    y,
+                    x_cv,
+                    y_cv,
+                    model=model,
+                    identifier=identifier,
+                    **kwargs,
                 )
 
         return self.run_tasks(num_jobs=num_jobs, load_task=load_task, use_tqdm=use_tqdm)
