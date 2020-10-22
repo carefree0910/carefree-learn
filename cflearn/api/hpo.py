@@ -854,13 +854,14 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
 
 
 def optuna_tune(
-    x: data_type,
+    x: data_type = None,
     y: data_type = None,
     x_cv: data_type = None,
     y_cv: data_type = None,
     *,
     model: str = "fcnn",
     task_type: task_type_type = "",
+    tuner: Optional[_Tuner] = None,
     params: Optional[optuna_params_type] = None,
     study_config: Optional[Dict[str, Any]] = None,
     metrics: Optional[Union[str, List[str]]] = None,
@@ -878,8 +879,11 @@ def optuna_tune(
     if params is None:
         params = OptunaPresetParams().get(model)
 
-    extra_config = _init_extra_config(metrics, score_weights, extra_config)
-    tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
+    if tuner is None:
+        if x is None:
+            raise ValueError("either `x` or `tuner` should be provided")
+        extra_config = _init_extra_config(metrics, score_weights, extra_config)
+        tuner = _Tuner(x, y, x_cv, y_cv, task_type, **extra_config)
     key_mapping = OptunaKeyMapping(tuner, params)
 
     if num_jobs <= 1:
