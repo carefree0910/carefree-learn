@@ -21,6 +21,7 @@ from optuna.trial import Trial
 from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
+from ..types import task_type_type
 from ..types import general_config_type
 from ..misc.toolkit import to_2d
 from ..pipeline.core import Pipeline
@@ -35,6 +36,12 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
     return shallow_copy_dict(config)
 
 
+def parse_task_type(task_type: task_type_type) -> TaskTypes:
+    if isinstance(task_type, TaskTypes):
+        return task_type
+    return TaskTypes.from_str(task_type)
+
+
 def make(
     model: str = "fcnn",
     *,
@@ -43,7 +50,7 @@ def make(
     config: general_config_type = None,
     increment_config: general_config_type = None,
     delim: Optional[str] = None,
-    task_type: Optional[Union[str, TaskTypes]] = None,
+    task_type: Optional[task_type_type] = None,
     skip_first: Optional[bool] = None,
     cv_split: Optional[Union[float, int]] = None,
     min_epoch: Optional[int] = None,
@@ -99,11 +106,7 @@ def make(
     if ts_config is not None:
         data_config["time_series_config"] = ts_config
     if task_type is not None:
-        if isinstance(task_type, TaskTypes):
-            task_type_ = task_type
-        else:
-            task_type_ = TaskTypes.from_str(task_type)
-        data_config["task_type"] = task_type_
+        data_config["task_type"] = parse_task_type(task_type)
     if read_config is None:
         read_config = {}
     if delim is not None:
@@ -541,6 +544,7 @@ __all__ = [
     "estimate",
     "load_task",
     "repeat_with",
+    "parse_task_type",
     "tasks_to_pipelines",
     "tasks_to_patterns",
     "transform_experiments",
