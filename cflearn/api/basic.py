@@ -378,6 +378,7 @@ class RepeatResult(NamedTuple):
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
 
+# If `x_cv` is not provided, then `KRandom` split will be performed
 def repeat_with(
     x: data_type,
     y: data_type = None,
