@@ -23,14 +23,14 @@ try:
 except:
     amp = None
 
+from .inference import Inference
 from .inference import PreProcessor
 from ..types import data_type
-from ..models.base import model_dict
-from ..models.base import ModelBase
 from ..misc.toolkit import to_2d
 from ..misc.time_series import TSLabelCollator
+from ..models.base import model_dict
+from ..models.base import ModelBase
 from ..trainer.core import Trainer
-from ..pipeline.inference import Inference
 
 trains_logger: Optional[Logger] = None
 
