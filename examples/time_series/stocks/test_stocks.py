@@ -1,7 +1,6 @@
 import os
 import cflearn
 
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TimeSeriesConfig
 from cfdata.tabular import TimeSeriesModifier
 
@@ -17,11 +16,7 @@ def test_stocks() -> None:
     tgt_file = os.path.join(file_folder, "new_data.csv")
     ts_config = TimeSeriesConfig("id", "Date")
     aggregation_config = {"num_history": 5}
-    modifier = TimeSeriesModifier(
-        src_file,
-        TaskTypes.TIME_SERIES_REG,
-        ts_config=ts_config,
-    )
+    modifier = TimeSeriesModifier(src_file, "ts_reg", ts_config=ts_config)
     modifier.pad_labels(lambda batch: batch[..., -1, 3:4], offset=1)
     modifier.export_to(tgt_file)
     m = cflearn.make(

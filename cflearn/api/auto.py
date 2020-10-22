@@ -7,11 +7,12 @@ import optuna.visualization as vis
 
 from typing import *
 from functools import partial
-from cfdata.tabular import TabularData
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.ml.utils import scoring_fn_type
+from cfdata.tabular import task_type_type
+from cfdata.tabular import TabularData
 from optuna.trial import TrialState
 from optuna.trial import FrozenTrial
 from optuna.importance import BaseImportanceEvaluator
@@ -25,7 +26,6 @@ from .hpo import OptunaPresetParams
 from .production import Pack
 from .production import Predictor
 from ..types import data_type
-from ..types import task_type_type
 from ..pipeline.core import Pipeline
 
 
@@ -46,7 +46,7 @@ class Auto:
         **kwargs: Any,
     ):
         self.model = model
-        self.task_type = parse_task_type(task_type)
+        self.task_type = task_type
         self.pipelines: Optional[List[Pipeline]] = None
         self.pattern_weights: Optional[np.ndarray] = None
         self.preset_params = OptunaPresetParams(

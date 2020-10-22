@@ -1,7 +1,6 @@
 import os
 import cflearn
 
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TimeSeriesConfig
 from cfdata.tabular import TimeSeriesModifier
 
@@ -16,10 +15,7 @@ def test_shampoo() -> None:
     src_file = os.path.join(file_folder, "data.csv")
     tgt_file = os.path.join(file_folder, "new_data.csv")
     ts_config = TimeSeriesConfig(TimeSeriesModifier.id_name, '"Month"')
-    modifier = TimeSeriesModifier(
-        src_file,
-        TaskTypes.TIME_SERIES_REG,
-    )
+    modifier = TimeSeriesModifier(src_file, "ts_reg")
     modifier.pad_id()
     modifier.pad_labels(
         lambda batch: batch[..., -1, :],

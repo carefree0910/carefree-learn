@@ -19,6 +19,8 @@ from cftool.ml.utils import pattern_type
 from cftool.ml.utils import scoring_fn_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
+from cfdata.tabular import task_type_type
+from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular.misc import split_file
@@ -28,7 +30,6 @@ from .basic import *
 from ..misc.toolkit import *
 from .ensemble import ensemble
 from ..types import data_type
-from ..types import task_type_type
 from ..pipeline.core import Pipeline
 
 
@@ -133,7 +134,7 @@ class _Tuner(LoggingMixin):
         if metrics is None:
             if self.task_type is None:
                 raise ValueError("either `task_type` or `metrics` should be provided")
-            if self.task_type is TaskTypes.CLASSIFICATION:
+            if parse_task_type(self.task_type) is TaskTypes.CLASSIFICATION:
                 metrics = ["acc", "auc"]
             else:
                 metrics = ["mae", "mse"]

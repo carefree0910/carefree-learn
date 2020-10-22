@@ -13,6 +13,8 @@ from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 from cftool.ml.utils import ModelPattern
 from cftool.ml.utils import EnsemblePattern
+from cfdata.tabular import task_type_type
+from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TimeSeriesConfig
@@ -21,7 +23,6 @@ from optuna.trial import Trial
 from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
-from ..types import task_type_type
 from ..types import general_config_type
 from ..misc.toolkit import to_2d
 from ..trainer.core import Trainer
@@ -36,12 +37,6 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
         with open(config, "r") as f:
             return json.load(f)
     return shallow_copy_dict(config)
-
-
-def parse_task_type(task_type: task_type_type) -> TaskTypes:
-    if isinstance(task_type, TaskTypes):
-        return task_type
-    return TaskTypes.from_str(task_type)
 
 
 def make(
@@ -108,7 +103,7 @@ def make(
     if ts_config is not None:
         data_config["time_series_config"] = ts_config
     if task_type is not None:
-        data_config["task_type"] = parse_task_type(task_type)
+        data_config["task_type"] = task_type
     if read_config is None:
         read_config = {}
     if delim is not None:
@@ -523,7 +518,7 @@ def make_toy_model(
     model: str = "fcnn",
     config: Optional[Dict[str, Any]] = None,
     *,
-    task_type: str = "reg",
+    task_type: task_type_type = "reg",
     data_tuple: Optional[Tuple[data_type, data_type]] = None,
 ) -> Pipeline:
     if config is None:
@@ -532,7 +527,7 @@ def make_toy_model(
         x, y = data_tuple
         assert isinstance(x, list)
     else:
-        if task_type == "reg":
+        if parse_task_type(task_type) is TaskTypes.REGRESSION:
             x, y = [[0]], [[1]]
         else:
             x, y = [[0], [1]], [[1], [0]]
@@ -568,7 +563,6 @@ __all__ = [
     "estimate",
     "load_task",
     "repeat_with",
-    "parse_task_type",
     "tasks_to_pipelines",
     "tasks_to_patterns",
     "transform_experiments",

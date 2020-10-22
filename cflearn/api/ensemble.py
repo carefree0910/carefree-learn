@@ -14,10 +14,11 @@ from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cftool.ml.utils import collate_fn_type
 from cftool.ml.utils import Comparer
+from cfdata.tabular import task_type_type
+from cfdata.tabular import parse_task_type
 from cfdata.tabular import KFold
 from cfdata.tabular import KRandom
 from cfdata.tabular import KBootstrap
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 from torch.nn.functional import one_hot
@@ -27,7 +28,6 @@ from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
 from ..types import data_type
-from ..types import task_type_type
 from ..pipeline.core import Pipeline
 
 
@@ -63,7 +63,7 @@ class Benchmark(LoggingMixin):
             read_config = {}
         self.data_config, self.read_config = data_config, read_config
         self.task_name = task_name
-        self.task_type = parse_task_type(task_type)
+        self.task_type = task_type
         if temp_folder is None:
             temp_folder = f"__{task_name}__"
         self.temp_folder, self.project_name = temp_folder, project_name
@@ -171,8 +171,7 @@ class Benchmark(LoggingMixin):
         data_config = shallow_copy_dict(self.data_config)
         task_type = data_config.pop("task_type", None)
         if task_type is not None:
-            task_type = parse_task_type(task_type)
-            assert task_type is self.task_type
+            assert parse_task_type(task_type) is parse_task_type(self.task_type)
         self.data = TabularData.simple(self.task_type, **data_config)
         self.data.read(x, y, **self.read_config)
         return self.data.to_dataset()
@@ -256,10 +255,14 @@ class Benchmark(LoggingMixin):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
+            if isinstance(self.task_type, str):
+                task_type_value = self.task_type
+            else:
+                task_type_value = self.task_type.value
             Saving.save_dict(
                 {
                     "task_name": self.task_name,
-                    "task_type": self.task_type.value,
+                    "task_type": task_type_value,
                     "project_name": self.project_name,
                     "models": self.models,
                     "increment_config": self.increment_config,
@@ -296,7 +299,6 @@ class Benchmark(LoggingMixin):
                 kwargs = Saving.load_dict("kwargs", abs_folder)
                 configs = kwargs.pop("configs")
                 iterator_name = kwargs.pop("iterator_name")
-                kwargs["task_type"] = TaskTypes.from_str(kwargs["task_type"])
                 benchmark = cls(**kwargs)
                 benchmark.configs = configs
                 benchmark._iterator_name = iterator_name
@@ -356,7 +358,7 @@ class Ensemble:
         task_type: task_type_type,
         config: Optional[Dict[str, Any]] = None,
     ):
-        self.task_type = parse_task_type(task_type)
+        self.task_type = task_type
         if config is None:
             config = {}
         self.config = config
