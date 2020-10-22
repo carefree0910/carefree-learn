@@ -448,7 +448,7 @@ def repeat_with(
             assert model_configs is not None
             model_config = model_configs.setdefault(model_, {})
             kwargs_ = update_dict(model_config, kwargs_)
-            logging_folder = os.path.join(temp_folder, str(i_))
+            logging_folder = os.path.join(temp_folder, model_, str(i_))
             m = make(model_, logging_folder=logging_folder, **kwargs_)
             return m.fit(x, y, x_cv, y_cv)
 
