@@ -755,6 +755,15 @@ class OptunaPresetParams:
             raise ValueError("current preset params is empty")
         return preset
 
+    def _nnb_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
+
+    def _ndt_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
+
+    def _linear_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
+
     def _fcnn_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_hidden_units", True):
