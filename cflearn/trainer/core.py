@@ -2,26 +2,26 @@ import os
 import math
 import torch
 import optuna
-import shutil
 import inspect
 import logging
 
 import numpy as np
 
 from typing import *
-from cftool.ml import Metrics
-from cftool.ml import Tracker
-from cftool.ml import ScalarEMA
-from cfdata.tabular import DataLoader
-from cftool.misc import LoggingMixin
-from cftool.misc import timestamp
-from cftool.misc import update_dict
-from cftool.misc import timing_context
-from cftool.misc import fix_float_to_length
 from tqdm import tqdm
 from trains import Logger
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from cftool.ml import Metrics
+from cftool.ml import Tracker
+from cftool.ml import ScalarEMA
+from cftool.misc import timestamp
+from cftool.misc import update_dict
+from cftool.misc import fix_float_to_length
+from cftool.misc import timing_context
+from cftool.misc import Saving
+from cftool.misc import LoggingMixin
+from cfdata.tabular import DataLoader
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -101,14 +101,8 @@ class Trainer(LoggingMixin):
         self.checkpoint_folder = self.config.setdefault(
             "checkpoint_folder", default_checkpoint_folder
         )
-        if not is_loading and os.path.isdir(self.checkpoint_folder):
-            self.log_msg(  # type: ignore
-                f"'{self.checkpoint_folder}' already exists, "
-                "all of its contents will be removed",
-                self.warning_prefix,
-                msg_level=logging.WARNING,
-            )
-            shutil.rmtree(self.checkpoint_folder)
+        if not is_loading:
+            Saving.prepare_folder(self, self.checkpoint_folder)
 
     def _define_optimizer(
         self,

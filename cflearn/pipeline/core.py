@@ -237,6 +237,8 @@ class Pipeline(LoggingMixin):
         self._prepare_modules()
 
     def _loop(self) -> None:
+        # dump configurations
+        Saving.save_dict(self.config, "config", self.trainer.logging_folder)
         # training loop
         self.trainer.fit(self.tr_loader, self.cv_loader, self.tr_weights)
         # binary threshold
