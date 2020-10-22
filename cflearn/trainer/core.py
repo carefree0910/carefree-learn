@@ -289,11 +289,6 @@ class Trainer(LoggingMixin):
         keys = ["logits", "predictions", "labels"]
         results = self.inference.predict(loader=loader, return_all=True)
         logits, predictions, labels = map(results.get, keys)
-        # binary threshold
-        probabilities = None
-        if self.inference.need_binary_threshold:
-            probabilities = to_prob(logits)
-            self.inference.generate_binary_threshold(labels, probabilities)
         # losses
         loss_values = None
         if self._metrics_need_loss:
@@ -327,9 +322,7 @@ class Trainer(LoggingMixin):
                         if logits is None:
                             msg = "`logits` should be returned in `inference.predict`"
                             raise ValueError(msg)
-                        if probabilities is None:
-                            probabilities = to_prob(logits)
-                        metric_predictions = probabilities
+                        metric_predictions = to_prob(logits)
                     else:
                         assert isinstance(predictions, np.ndarray)
                         metric_predictions = predictions
@@ -417,6 +410,8 @@ class Trainer(LoggingMixin):
             try:
                 self._epoch_count += 1
                 step_tqdm = iter(self.tr_loader)
+                if self.start_snapshot and self.inference.need_binary_threshold:
+                    self.inference.generate_binary_threshold()
                 if self.use_tqdm:
                     step_tqdm_legacy = step_tqdm = tqdm(
                         step_tqdm,
