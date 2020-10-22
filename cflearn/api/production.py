@@ -128,7 +128,6 @@ class Pack(LoggingMixin):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            Saving.prepare_folder(instance, export_folder)
             onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path, **kwargs)
             with open(instance.onnx_output_names_path, "w") as f:
                 json.dump(onnx.output_names, f)
