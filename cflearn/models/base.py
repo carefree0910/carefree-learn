@@ -210,8 +210,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _init_config(self) -> None:
         self._loss_config = self.config.setdefault("loss_config", {})
         # TODO : optimize encodings by pre-calculate one-hot encodings in Trainer
-        self._encoding_methods = self.config.setdefault("encoding_methods", {})
-        self._encoding_configs = self.config.setdefault("encoding_configs", {})
+        encoding_methods = self.config.setdefault("encoding_methods", {})
+        encoding_configs = self.config.setdefault("encoding_configs", {})
+        self._encoding_methods = {str(k): v for k, v in encoding_methods.items()}
+        self._encoding_configs = {str(k): v for k, v in encoding_configs.items()}
         self._default_encoding_configs = self.config.setdefault(
             "default_encoding_configs", {}
         )
@@ -235,8 +237,13 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             self.loss = FocalLoss(self._loss_config, reduction="none")
 
     def _init_encoder(self, idx: int, encoders: Dict[str, EncoderStack]) -> None:
-        methods = self._encoding_methods.setdefault(idx, self._default_encoding_method)
-        config = self._encoding_configs.setdefault(idx, self._default_encoding_configs)
+        str_idx = str(idx)
+        methods = self._encoding_methods.setdefault(
+            str_idx, self._default_encoding_method
+        )
+        config = self._encoding_configs.setdefault(
+            str_idx, self._default_encoding_configs
+        )
         num_values = self.tr_data.recognizers[idx].num_unique_values
         if isinstance(methods, str):
             methods = [methods]
