@@ -1,4 +1,5 @@
 import os
+import math
 import torch
 import optuna
 import shutil
@@ -69,7 +70,8 @@ class Trainer(LoggingMixin):
         max_epoch = self.config.setdefault("max_epoch", max(200, num_epoch))
         self.num_epoch, self.max_epoch = map(int, [num_epoch, max_epoch])
         self.max_snapshot_num = int(self.config.setdefault("max_snapshot_num", 5))
-        self.snapshot_start_step = int(self.config.setdefault("snapshot_start_step", 0))
+        self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
+        self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
         num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
         num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
         max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
@@ -136,7 +138,10 @@ class Trainer(LoggingMixin):
                     "warmup_step", default_warm_up_step
                 )
                 self.plateau_start += int(warmup_step / self.num_step_per_snapshot)
-                self.snapshot_start_step += warmup_step
+                if self._snapshot_start_step is not None:
+                    self._snapshot_start_step += warmup_step
+                else:
+                    self.min_num_sample += self.tr_loader.batch_size * warmup_step
                 optimizer_config["lr"] /= multiplier
             optimizer_base = (
                 optimizer_dict[optimizer] if isinstance(optimizer, str) else optimizer
@@ -209,6 +214,12 @@ class Trainer(LoggingMixin):
         self.metrics_weights = metric_config.setdefault("weights", {})
         for metric_type in metric_types:
             self.metrics_weights.setdefault(metric_type, 1.0)
+
+    @property
+    def snapshot_start_step(self) -> int:
+        if self._snapshot_start_step is not None:
+            return self._snapshot_start_step
+        return int(math.ceil(self.min_num_sample / self.tr_loader.batch_size))
 
     @property
     def start_snapshot(self) -> bool:
