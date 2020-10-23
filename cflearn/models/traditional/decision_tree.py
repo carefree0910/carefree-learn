@@ -86,16 +86,16 @@ class NDT(ModelBase):
         # construct planes & routes
         self.to_planes = Linear(self.merged_dim, num_internals, init_method=None)
         self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
-        self.to_leafs = Linear(num_leaves, num_classes, init_method=None)
+        self.to_leaves = Linear(num_leaves, num_classes, init_method=None)
         with torch.no_grad():
             self.to_planes.linear.bias.data = b
             self.to_planes.linear.weight.data = w1.t()
             self.to_routes.linear.weight.data = w2.t()
-            self.to_leafs.linear.weight.data = w3.t()
+            self.to_leaves.linear.weight.data = w3.t()
             uniform = nn.functional.log_softmax(
                 torch.zeros(num_classes, dtype=torch.float32), dim=0
             )
-            self.to_leafs.linear.bias.data = uniform
+            self.to_leaves.linear.bias.data = uniform
 
     @property
     def input_sample(self) -> tensor_dict_type:
@@ -115,11 +115,11 @@ class NDT(ModelBase):
 
     @property
     def class_log_distributions(self) -> np.ndarray:
-        return to_numpy(self.to_leafs.linear.weight)
+        return to_numpy(self.to_leaves.linear.weight)
 
     @property
     def class_log_prior(self) -> np.ndarray:
-        return to_numpy(self.to_leafs.linear.bias)
+        return to_numpy(self.to_leaves.linear.bias)
 
     @property
     def class_prior(self) -> np.ndarray:
@@ -148,8 +148,8 @@ class NDT(ModelBase):
         merged = self._split_features(x_batch).merge()
         planes = self.planes_activation(self.to_planes(merged))
         routes = self.routes_activation(self.to_routes(planes))
-        leafs = self.to_leafs(routes)
-        return {"predictions": leafs}
+        leaves = self.to_leaves(routes)
+        return {"predictions": leaves}
 
 
 __all__ = ["NDT"]
