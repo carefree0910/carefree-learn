@@ -2,6 +2,7 @@ import os
 import torch
 import optuna
 
+import numpy as np
 import optuna.visualization as vis
 
 from typing import *
@@ -192,10 +193,27 @@ class Auto:
         assert self.pipelines is not None
         assert self.patterns is not None
 
+        keys = list(self.patterns.keys())
+        scores = [self.studies[k].best_value for k in keys]
+        keys_arr, scores_arr = map(np.array, [keys, scores])
+        scores_arr /= scores_arr.sum()
+        sorted_indices = np.argsort(scores_arr)[::-1]
+        sorted_keys = keys_arr[sorted_indices].tolist()
+        sorted_weights = scores_arr[sorted_indices].tolist()
+
         all_patterns = []
-        for v in self.patterns.values():
-            all_patterns.extend(v)
-        self.pattern = ensemble(all_patterns)
+        pattern_weights = []
+        for key, weight in zip(sorted_keys, sorted_weights):
+            patterns = self.patterns[key]
+            num_patterns = len(patterns)
+            avg_weight = weight / num_patterns
+            all_patterns.extend(patterns)
+            pattern_weights.extend([avg_weight] * num_patterns)
+
+        self.pattern = ensemble(
+            all_patterns,
+            pattern_weights=np.array(pattern_weights, np.float32),
+        )
 
         return self
 
