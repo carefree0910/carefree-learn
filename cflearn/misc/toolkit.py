@@ -536,7 +536,7 @@ class TrainMonitor:
         self.plateau_flag = True
         self._descend_counter += self._descend_increment
 
-    def _handle_trainer_terminate(self) -> bool:
+    def _handle_trainer_terminate(self, score: float) -> bool:
         trainer = self._trainer
         if self.info["terminate"]:
             self.log_msg(
@@ -546,7 +546,7 @@ class TrainMonitor:
             return True
         if self.info["save_checkpoint"]:
             self.log_msg(f"{self.info['info']}", trainer.info_prefix, 3)
-            trainer.save_checkpoint()
+            trainer.save_checkpoint(score)
         if (
             trainer._epoch_count == trainer.num_epoch
             and trainer._epoch_count < trainer.max_epoch
@@ -622,7 +622,7 @@ class TrainMonitor:
                     if self.info["save_checkpoint"]:
                         self.info["info"] += " (plateau counter cleared)"
                         self._plateau_counter = 0
-        return self._handle_trainer_terminate()
+        return self._handle_trainer_terminate(last_score)
 
 
 class mode_context(context_error_handler):

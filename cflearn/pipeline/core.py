@@ -437,7 +437,11 @@ class Pipeline(LoggingMixin):
                 if self.cv_split_indices is not None:
                     cv_file = os.path.join(data_folder, self.valid_indices_file)
                     np.save(cv_file, self.cv_split_indices)
-            self.trainer.save_checkpoint(export_folder)
+            final_results = self.trainer.final_results
+            if final_results is None:
+                raise ValueError("`final_results` are not generated yet")
+            score = final_results.final_score
+            self.trainer.save_checkpoint(score, export_folder)
             self.config["is_binary"] = self._is_binary
             if self.inference is None:
                 raise ValueError("`inference` is not yet generated")

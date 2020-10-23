@@ -1,4 +1,5 @@
 import os
+import json
 import math
 import torch
 import optuna
@@ -49,6 +50,7 @@ class IntermediateResults(NamedTuple):
 
 class Trainer(LoggingMixin):
     pt_prefix = "model_"
+    scores_file = "scores.json"
 
     def __init__(
         self,
@@ -65,6 +67,7 @@ class Trainer(LoggingMixin):
         self.inference = inference
         self._init_config(pipeline_config, is_loading)
         self.model = model
+        self.checkpoint_scores: Dict[str, float] = {}
         self.final_results: Optional[IntermediateResults] = None
         self._verbose_level = verbose_level
         self._use_grad_in_predict = False
@@ -79,7 +82,7 @@ class Trainer(LoggingMixin):
         num_epoch = self.config.setdefault("num_epoch", max(40, self.min_epoch))
         max_epoch = self.config.setdefault("max_epoch", max(200, num_epoch))
         self.num_epoch, self.max_epoch = map(int, [num_epoch, max_epoch])
-        self.max_snapshot_num = int(self.config.setdefault("max_snapshot_num", 5))
+        self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
         self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
         self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
         num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
@@ -101,6 +104,7 @@ class Trainer(LoggingMixin):
         self.checkpoint_folder = self.config.setdefault(
             "checkpoint_folder", default_checkpoint_folder
         )
+        Saving.prepare_folder(self, self.checkpoint_folder)
 
     def _define_optimizer(
         self,
@@ -264,6 +268,8 @@ class Trainer(LoggingMixin):
     # return whether we need to terminate
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
+            if self.start_snapshot and self.inference.need_binary_threshold:
+                self.inference.generate_binary_threshold()
             rs = self._get_metrics()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
@@ -429,8 +435,6 @@ class Trainer(LoggingMixin):
             try:
                 self._epoch_count += 1
                 step_tqdm = iter(self.tr_loader)
-                if self.start_snapshot and self.inference.need_binary_threshold:
-                    self.inference.generate_binary_threshold()
                 if self.use_tqdm:
                     step_tqdm_legacy = step_tqdm = tqdm(
                         step_tqdm,
@@ -511,29 +515,45 @@ class Trainer(LoggingMixin):
             self.inference.generate_binary_threshold()
         self.final_results = self._get_metrics()
 
-    def _filter_checkpoints(self, folder: str) -> Dict[int, str]:
-        checkpoints = {}
-        for file in os.listdir(folder):
-            if file.startswith(self.pt_prefix) and file.endswith(".pt"):
-                step = int(os.path.splitext(file)[0].split("_")[1])
-                checkpoints[step] = file
-        return checkpoints
+    def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
+        # better checkpoints will be placed earlier
+        # which means `checkpoints[0]` is the best checkpoint
+        if not use_external_scores:
+            scores = self.checkpoint_scores
+        else:
+            with open(os.path.join(folder, self.scores_file), "r") as f:
+                scores = json.load(f)
+        files = [
+            file
+            for file in os.listdir(folder)
+            if file.startswith(self.pt_prefix) and file.endswith(".pt")
+        ]
+        scores_list = [scores.get(file, -math.inf) for file in files]
+        sorted_indices = np.argsort(scores_list)[::-1]
+        return [files[i] for i in sorted_indices]
 
-    def save_checkpoint(self, folder: str = None) -> None:
+    def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
-        if self.max_snapshot_num > 0:
-            checkpoints = self._filter_checkpoints(folder)
-            if len(checkpoints) >= self.max_snapshot_num - 1:
-                for key in sorted(checkpoints)[: -self.max_snapshot_num + 1]:
-                    os.remove(os.path.join(folder, checkpoints[key]))
+        # leave top_k snapshots only
+        if self.max_snapshot_file > 0:
+            checkpoints = self._sorted_checkpoints(folder, False)
+            if len(checkpoints) >= self.max_snapshot_file:
+                for file in checkpoints[self.max_snapshot_file - 1 :]:
+                    self.checkpoint_scores.pop(file)
+                    os.remove(os.path.join(folder, file))
+        # pt
         file = f"{self.pt_prefix}{self._step_count}.pt"
         torch.save(self.model.state_dict(), os.path.join(folder, file))
+        # scores
+        self.checkpoint_scores[file] = score
+        with open(os.path.join(folder, self.scores_file), "w") as f:
+            json.dump(self.checkpoint_scores, f)
 
     def restore_checkpoint(self, folder: str = None) -> "Trainer":
         if folder is None:
             folder = self.checkpoint_folder
-        checkpoints = self._filter_checkpoints(folder)
+        checkpoints = self._sorted_checkpoints(folder, True)
         if not checkpoints:
             self.log_msg(  # type: ignore
                 f"no model file found in {self.checkpoint_folder}",
@@ -541,8 +561,8 @@ class Trainer(LoggingMixin):
                 msg_level=logging.WARNING,
             )
             return self
-        latest_checkpoint = checkpoints[sorted(checkpoints)[-1]]
-        model_file = os.path.join(folder, latest_checkpoint)
+        best_checkpoint = checkpoints[0]
+        model_file = os.path.join(folder, best_checkpoint)
         self.log_msg(  # type: ignore
             f"restoring from {model_file}",
             self.info_prefix,
