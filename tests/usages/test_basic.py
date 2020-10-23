@@ -1,4 +1,5 @@
 import os
+import shutil
 import cflearn
 import platform
 
@@ -19,8 +20,14 @@ tr_file, cv_file, te_file = map(
     ["train.txt", "valid.txt", "test.txt"],
 )
 
+logging_folder = "__logging__"
 num_jobs_list = [0] if IS_LINUX else [0, 2]
-kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
+kwargs = {
+    "min_epoch": 1,
+    "num_epoch": 2,
+    "max_epoch": 4,
+    "logging_folder": logging_folder,
+}
 
 
 def test_array_dataset() -> None:
@@ -38,6 +45,7 @@ def test_array_dataset() -> None:
             **kwargs,
         )
         m.fit(x, y)
+        shutil.rmtree(logging_folder)
     # iris
     dataset = TabularDataset.iris()
     m = cflearn.make(
@@ -62,6 +70,7 @@ def test_array_dataset() -> None:
     assert m.tr_data == m2.tr_data
     assert m.cv_data == m2.cv_data
     cflearn.estimate(*dataset.xy, pipelines=m2)
+    shutil.rmtree(logging_folder)
     cflearn._remove()
     data = TabularData.from_dataset(dataset)
     split = data.split(0.1)
@@ -75,6 +84,7 @@ def test_array_dataset() -> None:
     assert m.tr_data == m2.tr_data
     assert m.cv_data == m2.cv_data
     assert np.allclose(sample_weights, m2.sample_weights)
+    shutil.rmtree(logging_folder)
     cflearn._remove()
 
 
@@ -92,6 +102,7 @@ def test_file_dataset() -> None:
     cflearn.estimate(tr_file, pipelines=pipelines_dict, contains_labels=True)
     cflearn.estimate(cv_file, pipelines=pipelines_dict, contains_labels=True)
     cflearn.estimate(te_file, pipelines=pipelines_dict, contains_labels=True)
+    shutil.rmtree(logging_folder)
     cflearn._remove()
 
     # Distributed
@@ -167,9 +178,12 @@ def test_file_dataset2() -> None:
     save_name = "__file_trained__"
     cflearn.save(m, save_name)
     m2 = cflearn.load(save_name)["fcnn"]
+    shutil.rmtree(logging_folder)
+    cflearn._remove(save_name)
     pack_name = "__file_packed__"
     cflearn.Pack.pack(m2, pack_name)
     m3 = cflearn.Pack.get_predictor(pack_name)
+    os.remove(f"{pack_name}.zip")
 
     assert m.binary_threshold is not None
     b1 = fix_float_to_length(m.binary_threshold, 6)
@@ -197,25 +211,29 @@ def test_file_dataset2() -> None:
 def test_auto_file() -> None:
     auto = cflearn.Auto("clf")
     predict_config = {"contains_labels": True}
+    extra_config = kwargs.copy()
+    extra_config.pop("logging_folder")
     auto.fit(
         tr_file,
         x_cv=cv_file,
         num_trial=3,
         num_repeat=1,
         num_final_repeat=3,
-        temp_folder="__test_auto_file__",
+        temp_folder=logging_folder,
         predict_config=predict_config,
-        extra_config=kwargs.copy(),
+        extra_config=extra_config,
     )
     pred1 = auto.predict(te_file)
     prob1 = auto.predict_prob(te_file)
-    export_folder = "packed"
-    auto.pack(export_folder)
-    pattern = auto.unpack(export_folder, **predict_config).pattern
+    export_name = "packed"
+    auto.pack(export_name)
+    pattern = auto.unpack(export_name, **predict_config).pattern
     pred2 = pattern.predict(te_file)
     prob2 = pattern.predict(te_file, requires_prob=True)
     assert np.allclose(pred1, pred2)
     assert np.allclose(prob1, prob2, atol=1e-4, rtol=1e-4)
+    shutil.rmtree(logging_folder)
+    os.remove(f"{export_name}.zip")
 
 
 if __name__ == "__main__":
