@@ -200,8 +200,9 @@ def test_auto_file() -> None:
     auto.fit(
         tr_file,
         x_cv=cv_file,
+        num_trial=3,
         num_repeat=1,
-        num_final_repeat=5,
+        num_final_repeat=3,
         temp_folder="__test_auto_file__",
         predict_config=predict_config,
         extra_config=kwargs.copy(),

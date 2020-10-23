@@ -107,17 +107,19 @@ Then you will see something like this:
 ### Explained
 
 `cflearn.Auto.fit` will run through the following steps:
-1. fetch pre-defined hyper-parameters search space from `OptunaPresetParams`.
-2. leverage `optuna` with `cflearn.optuna_tune` to perform hyper-parameters optimization.
-3. use searched hyper-parameters to train multiple neural networks and ensemble them (with `cflearn.ensemble` or `cflearn.Ensemble`).
-4. record all these results to corresponding attributes.
+1. define the model space automatically (or manually)
+2. fetch pre-defined hyper-parameters search space of each model from `OptunaPresetParams`.
+3. leverage `optuna` with `cflearn.optuna_tune` to perform hyper-parameters optimization.
+4. use searched hyper-parameters to train each model multiple times (separately).
+5. ensemble all trained models (with `cflearn.ensemble`).
+6. record all these results to corresponding attributes.
 
 So after `cflearn.Auto.fit`, we can perform visualizations provided by `optuna` easily:
 
 ```python
 export_folder = "iris_vis"
-auto.plot_param_importances(export_folder=export_folder)
-auto.plot_intermediate_values(export_folder=export_folder)
+auto.plot_param_importances("fcnn", export_folder=export_folder)
+auto.plot_intermediate_values("fcnn", export_folder=export_folder)
 ```
 
 

@@ -56,7 +56,7 @@ def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
-    auto = cflearn.Auto("clf", model=model)
+    auto = cflearn.Auto("clf", models=model)
     auto.fit(
         train_file,
         temp_folder="__test_titanic_optuna__",
