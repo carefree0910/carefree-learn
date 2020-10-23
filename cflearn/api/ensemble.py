@@ -378,7 +378,7 @@ class Ensemble:
         models: Union[str, List[str]] = "fcnn",
         predict_config: Optional[Dict[str, Any]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
-        use_tracker: bool = True,
+        use_tracker: bool = False,
         use_cuda: bool = True,
     ) -> EnsembleResults:
         if isinstance(models, str):
