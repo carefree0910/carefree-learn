@@ -13,6 +13,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cftool.ml.utils import collate_fn_type
+from cftool.ml.utils import Metrics
 from cftool.ml.utils import Comparer
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
@@ -26,6 +27,7 @@ from .zoo import zoo
 from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
+from .register import register_metric
 from ..types import data_type
 from ..pipeline.core import Pipeline
 
@@ -406,33 +408,55 @@ class Ensemble:
         k: int = 10,
         eps: float = 1e-12,
         model: str = "fcnn",
+        temp_folder: str = "__tmp__",
         predict_config: Optional[Dict[str, Any]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
         sample_weights: Optional[np.ndarray] = None,
-        num_test: Union[int, float] = 0.1,
     ) -> EnsembleResults:
         if increment_config is None:
             increment_config = {}
         config = shallow_copy_dict(self.config)
         update_dict(increment_config, config)
-        config["cv_split"] = num_test
+        config["cv_split"] = 0.0
         config.setdefault("use_tqdm", False)
         config.setdefault("verbose_level", 0)
+
+        class MetricsPlaceholder(NamedTuple):
+            config: Dict[str, Any]
+
+        @register_metric("adaboost_error", -1, False)
+        def adaboost_error(
+            self_: Union[Metrics, MetricsPlaceholder],
+            target_: np.ndarray,
+            predictions_: np.ndarray,
+        ) -> float:
+            target_ = target_.astype(np.float32)
+            predictions_ = predictions_.astype(np.float32)
+            sample_weights_ = self_.config.get("sample_weights")
+            errors = (target_ != predictions_).ravel()
+            if sample_weights_ is None:
+                e_ = errors.mean()
+            else:
+                e_ = sample_weights_[errors].sum() / len(errors)
+            return e_.item()
 
         data = None
         pipelines = []
         patterns, pattern_weights = [], []
-        for _ in tqdm.tqdm(list(range(k))):
-            m = make(model=model, **config)
+        for i in tqdm.tqdm(list(range(k))):
+            cfg = shallow_copy_dict(config)
+            cfg["logging_folder"] = os.path.join(temp_folder, str(i))
+            metric_config = {"sample_weights": sample_weights}
+            if sample_weights is not None:
+                cfg["metrics"] = "adaboost_error"
+                cfg["metric_config"] = metric_config
+            m = make(model=model, **cfg)
             m.fit(x, y, sample_weights=sample_weights)
+            metrics_placeholder = MetricsPlaceholder(metric_config)
             predictions: np.ndarray = m.predict(x, contains_labels=True)
             predictions = predictions.astype(np.float32)
             target = m.data.processed.y.astype(np.float32)
-            errors = (predictions != target).ravel()
-            if sample_weights is None:
-                e = errors.mean()
-            else:
-                e = errors.dot(sample_weights) / len(errors)
+            e = adaboost_error(metrics_placeholder, target, predictions)
             em = min(max(e, eps), 1.0 - eps)
             am = 0.5 * math.log(1.0 / em - 1.0)
             if sample_weights is None:
