@@ -147,16 +147,16 @@ def make(
         model_config["ema_decay"] = ema_decay
     kwargs["model_config"] = model_config
     # metrics
+    metric_config_ = {}
+    if metrics is not None:
+        metric_config_["types"] = metrics
     if metric_config is not None:
-        if metrics is not None:
-            print(
-                f"{LoggingMixin.warning_prefix}`metrics` is set to '{metrics}' "
-                f"but `metric_config` is provided, so `metrics` will be ignored"
-            )
-    elif metrics is not None:
-        metric_config = {"types": metrics}
-    if metric_config is not None:
-        trainer_config["metric_config"] = metric_config
+        if metrics is None or not isinstance(metrics, str):
+            metric_config_.update(metric_config)
+        else:
+            metric_config_[f"{metrics}_config"] = metric_config
+    if metric_config_:
+        trainer_config["metric_config"] = metric_config_
     # optimizers
     if optimizers is not None:
         if optimizer is not None:
