@@ -343,7 +343,6 @@ class EnsembleResults(NamedTuple):
     pipelines: List[Pipeline]
     pattern_weights: Optional[np.ndarray]
     predict_config: Optional[Dict[str, Any]]
-    experiments: Optional[Experiments]
 
     @property
     def pattern(self) -> EnsemblePattern:
@@ -369,59 +368,36 @@ class Ensemble:
         y: data_type = None,
         *,
         k: int = 10,
-        num_test: Union[int, float] = 0.1,
         num_jobs: int = 4,
-        run_tasks: bool = True,
-        temp_folder: Optional[str] = None,
-        project_name: str = "carefree-learn",
-        task_name: str = "bagging",
-        models: Union[str, List[str]] = "fcnn",
+        model: str = "fcnn",
+        model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+        identifiers: Optional[Union[str, List[str]]] = None,
         predict_config: Optional[Dict[str, Any]] = None,
-        increment_config: Optional[Dict[str, Any]] = None,
-        use_tracker: bool = False,
-        use_cuda: bool = True,
+        sequential: Optional[bool] = None,
+        temp_folder: str = "__tmp__",
+        return_patterns: bool = True,
+        use_tqdm: bool = True,
     ) -> EnsembleResults:
-        if isinstance(models, str):
-            models = [models]
-
-        data_config = self.config.get("data_config", {})
-        read_config = self.config.get("read_config", {})
-
-        benchmark = Benchmark(
-            task_name,
-            self.task_type,
+        repeat_result = repeat_with(
+            x,
+            y,
+            models=model,
+            model_configs=model_configs,
+            identifiers=identifiers,
+            predict_config=predict_config,
+            sequential=sequential,
+            num_jobs=num_jobs,
+            num_repeat=k,
             temp_folder=temp_folder,
-            project_name=project_name,
-            models=models,
-            increment_config=increment_config,
-            use_tracker=use_tracker,
-            use_cuda=use_cuda,
-            data_config=data_config,
-            read_config=read_config,
-        )
-        dataset = benchmark._pre_process(x, y)
-        k_bootstrap = KBootstrap(k, num_test, dataset)
-        benchmark_results = benchmark._k_core(
-            k_bootstrap,
-            num_jobs,
-            run_tasks,
-            predict_config,
-            {model: {"config": shallow_copy_dict(self.config)} for model in models},
+            return_patterns=return_patterns,
+            use_tqdm=use_tqdm,
+            **shallow_copy_dict(self.config),
         )
 
-        experiments = benchmark_results.experiments
-        ms_dict = transform_experiments(experiments)
-        all_pipelines: List[Pipeline] = []
-        for ms in ms_dict.values():
-            all_pipelines.extend(ms)
-
-        return EnsembleResults(
-            benchmark_results.data,
-            all_pipelines,
-            None,
-            predict_config,
-            experiments,
-        )
+        data = repeat_result.data
+        pipelines = repeat_result.pipelines
+        assert pipelines is not None
+        return EnsembleResults(data, pipelines[model], None, predict_config)
 
     def adaboost(
         self,
@@ -474,13 +450,7 @@ class Ensemble:
         weights_array = np.array(pattern_weights, np.float32)
         weights_array /= weights_array.sum()
 
-        return EnsembleResults(
-            data,
-            pipelines,
-            weights_array,
-            predict_config,
-            None,
-        )
+        return EnsembleResults(data, pipelines, weights_array, predict_config)
 
 
 __all__ = [
