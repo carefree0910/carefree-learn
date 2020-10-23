@@ -392,12 +392,16 @@ class Trainer(LoggingMixin):
         self,
         tr_loader: DataLoader,
         cv_loader: DataLoader,
-        tr_weights: np.ndarray,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
     ) -> None:
         self.tr_loader, self.cv_loader = tr_loader, cv_loader
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)
+        if cv_weights is not None:
+            cv_weights = to_torch(cv_weights)
+        self.tr_weights, self.cv_weights = tr_weights, cv_weights
         # optimizer
         self._init_optimizers()
         # metrics

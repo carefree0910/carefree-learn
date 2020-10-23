@@ -213,11 +213,12 @@ class Pipeline(LoggingMixin):
         self._original_data.read(*args, **self._read_config)
         self.tr_data = self._original_data
         self._save_original_data = x_cv is None
-        self.tr_weights = None
+        self.tr_weights = self.cv_weights = None
         if x_cv is not None:
             self.cv_data = self.tr_data.copy_to(x_cv, y_cv)
             if sample_weights is not None:
                 self.tr_weights = sample_weights[: len(self.tr_data)]
+                self.cv_weights = sample_weights[len(self.tr_data) :]
         else:
             if self.cv_split <= 0:
                 self.cv_data = None
@@ -236,6 +237,7 @@ class Pipeline(LoggingMixin):
                 # TODO : utilize cv_weights with sample_weights[split.split_indices]
                 if sample_weights is not None:
                     self.tr_weights = sample_weights[split.remained_indices]
+                    self.cv_weights = sample_weights[split.split_indices]
         self._init_data()
         # modules
         self._prepare_modules()
