@@ -16,10 +16,11 @@ def test() -> None:
     verbose_level: int = 2
     anchor_ratios = quantiles = [0.1, 0.3, 0.5, 0.7, 0.9]
     fit, check_cdf, check_quantile = True, True, True
+    logging_folder = "__ddr__"
 
     n = 10 ** power
     n_cv = int(min(10000, n * 0.1))
-    export_folder = f"__tmp__/_pngs/power{power}"
+    export_folder = f"{logging_folder}/_pngs/power{power}"
     config: Dict[str, Any] = {
         "logging_file": f"power{power}.log",
         "verbose_level": verbose_level,
@@ -31,7 +32,7 @@ def test() -> None:
     }
 
     info_dict = {}
-    experiments = cflearn.Experiments("__ddr__")
+    experiments = cflearn.Experiments(logging_folder)
 
     def _get_file(folder: str, task_name: str) -> Optional[str]:
         return None if folder is None else os.path.join(folder, task_name)
@@ -149,6 +150,7 @@ def test() -> None:
     )
 
     run_tasks()
+    cflearn._rmtree(logging_folder)
 
 
 if __name__ == "__main__":

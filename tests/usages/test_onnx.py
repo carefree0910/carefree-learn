@@ -1,3 +1,4 @@
+import os
 import cflearn
 
 import numpy as np
@@ -6,6 +7,8 @@ from cfdata.tabular import TabularDataset
 
 
 def test_onnx() -> None:
+    logging_folder = "__test_onnx__"
+
     def _core(dataset: TabularDataset) -> None:
         x, y = dataset.xy
         m = cflearn.make(
@@ -15,14 +18,16 @@ def test_onnx() -> None:
             min_epoch=1,
             num_epoch=2,
             max_epoch=4,
+            logging_folder=logging_folder,
         )
         m.fit(x, y)
         predictions = m.predict(x)
-        predictor_folder = "test_onnx"
+        predictor_folder = os.path.join(logging_folder, "test_onnx")
         cflearn.Pack.pack(m, predictor_folder)
         predictor = cflearn.Pack.get_predictor(predictor_folder)
         atol = rtol = 1e-2 if model == "tree_dnn" else 1e-4
         assert np.allclose(predictions, predictor.predict(x), atol=atol, rtol=rtol)
+        cflearn._rmtree(logging_folder)
 
     reg_models = ["linear", "fcnn", "tree_dnn"]
     for model in reg_models:

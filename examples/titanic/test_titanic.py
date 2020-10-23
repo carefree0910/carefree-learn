@@ -19,13 +19,14 @@ model = "tree_dnn"
 file_folder = os.path.dirname(__file__)
 
 CI = True
+logging_folder = "__test_titanic__"
 
 
 def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
-    hpo_temp_folder = "__test_titanic_hpo__"
+    hpo_temp_folder = os.path.join(logging_folder, "__test_titanic_hpo__")
     tune_result = cflearn.tune_with(
         train_file,
         model=model,
@@ -49,6 +50,7 @@ def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     patterns = repeat_result.patterns
     assert patterns is not None
     ensemble = cflearn.ensemble(patterns[model])
+    cflearn._rmtree(logging_folder)
     return repeat_result.data, ensemble
 
 
@@ -59,12 +61,13 @@ def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     auto = cflearn.Auto("clf", models=model)
     auto.fit(
         train_file,
-        temp_folder="__test_titanic_optuna__",
+        temp_folder=os.path.join(logging_folder, "__test_titanic_optuna__"),
         extra_config=extra_config,
         num_final_repeat=2 if CI else 10,
         num_repeat=2 if CI else 5,
         num_trial=4 if CI else 100,
     )
+    cflearn._rmtree(logging_folder)
     return auto.data, auto.pattern
 
 
@@ -74,6 +77,7 @@ def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
         config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
     ensemble = cflearn.Ensemble("clf", config)
     results = ensemble.adaboost(train_file, model=model)
+    cflearn._rmtree("_logging")
     return results.data, results.pattern
 
 

@@ -43,11 +43,16 @@ class TestRegister(unittest.TestCase):
             def _recover(self, processed_columns: np.ndarray) -> np.ndarray:
                 return processed_columns - 1
 
-        config = {"data_config": {"label_process_method": "plus_one"}}
+        logging_folder = "__test_register__"
+        config = {
+            "logging_folder": logging_folder,
+            "data_config": {"label_process_method": "plus_one"},
+        }
         toy = cflearn.make_toy_model(config=config)
         y = toy.tr_data.converted.y
         processed_y = toy.tr_data.processed.y
         self.assertTrue(np.allclose(y + 1, processed_y))
+        cflearn._rmtree(logging_folder)
 
 
 if __name__ == "__main__":

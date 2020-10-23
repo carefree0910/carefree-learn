@@ -39,6 +39,7 @@ __all__ = [
     "RepeatResult",
     "SAVING_DELIM",
     "_remove",
+    "_rmtree",
     # ensemble
     "Benchmark",
     "ensemble",

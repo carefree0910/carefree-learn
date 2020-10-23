@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import shutil
 
 from typing import *
 from tqdm import tqdm
@@ -360,6 +362,20 @@ def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
         os.remove(path)
 
 
+def _rmtree(folder: str, patience: float = 10.0) -> None:
+    t = time.time()
+    while True:
+        try:
+            if time.time() - t >= patience:
+                print(f"\n{LoggingMixin.warning_prefix}failed to rmtree: {folder}")
+                break
+            shutil.rmtree(folder)
+            break
+        except:
+            print("", end=".", flush=True)
+            time.sleep(1)
+
+
 def load_task(task: Task) -> Pipeline:
     return next(iter(load(saving_folder=task.saving_folder).values()))
 
@@ -582,4 +598,5 @@ __all__ = [
     "RepeatResult",
     "SAVING_DELIM",
     "_remove",
+    "_rmtree",
 ]

@@ -25,14 +25,15 @@ class TestOpenML(unittest.TestCase):
     num_jobs = 2
     num_repeat = 3
     project_name = "carefree-learn"
+    logging_folder = "__test_openml__"
     openml_indices = [38, 389]
     # openml_indices = [38, 46, 179, 184, 389, 554, 772, 917, 1049, 1111, 1120, 1128, 293]
     task_names = [f"openml_{openml_id}" for openml_id in openml_indices]
     messages: Dict[str, str] = {}
 
-    @staticmethod
-    def _get_benchmark_saving_folder(task_name: str) -> str:
-        return os.path.join("benchmarks", f"{task_name}_benchmark")
+    def _get_benchmark_saving_folder(self, task_name: str) -> str:
+        benchmark_sub_folder = os.path.join("benchmarks", f"{task_name}_benchmark")
+        return os.path.join(self.logging_folder, benchmark_sub_folder)
 
     def test1(self) -> None:
         for openml_id, task_name in zip(self.openml_indices, self.task_names):
@@ -71,7 +72,9 @@ class TestOpenML(unittest.TestCase):
                 task_name,
                 "clf",
                 models=["fcnn", "tree_dnn"],
-                temp_folder=f"__test_openml_{openml_id}__",
+                temp_folder=os.path.join(
+                    self.logging_folder, f"__test_openml_{openml_id}__"
+                ),
                 increment_config={
                     "min_epoch": 1,
                     "num_epoch": 2,
@@ -130,6 +133,7 @@ class TestOpenML(unittest.TestCase):
             _, results = cflearn.Benchmark.load(saving_folder)
             loaded_msg = results.comparer.log_statistics(verbose_level=None)
             self.assertEqual(TestOpenML.messages[task_name], loaded_msg)
+        cflearn._rmtree(self.logging_folder)
 
 
 if __name__ == "__main__":

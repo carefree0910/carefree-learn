@@ -54,6 +54,7 @@ class TestTraditional(unittest.TestCase):
         self.assertTrue(np.allclose(nnb0.model.mu.data.cpu().numpy(), gnb.theta_))
         self.assertTrue(np.allclose(nnb0.model.std.data.cpu().numpy() ** 2, gnb.sigma_))
         self.assertTrue(np.allclose(nnb0.predict_prob(dataset.x), gnb.predict_proba(x)))
+        cflearn._rmtree("_logging")
 
     def test_nnb_mnb(self) -> None:
         mnb = MultinomialNB()
@@ -65,12 +66,14 @@ class TestTraditional(unittest.TestCase):
         self.assertTrue(
             np.allclose(nnb0.predict_prob(dataset.x), mnb.predict_proba(x), atol=1e-4)
         )
+        cflearn._rmtree("_logging")
 
     def test_ndt(self) -> None:
         dt = DecisionTreeClassifier()
         self._train_traditional("ndt", TabularDataset.iris(), dt)
         self._train_traditional("ndt", TabularDataset.digits(), dt)
         self._train_traditional("ndt", TabularDataset.breast_cancer(), dt)
+        cflearn._rmtree("_logging")
 
 
 if __name__ == "__main__":
