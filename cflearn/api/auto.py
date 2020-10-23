@@ -274,6 +274,7 @@ class Auto:
                     local_predictors = []
                     model_folder = os.path.join(export_folder, model)
                     for sub_folder in os.listdir(model_folder):
+                        sub_folder = os.path.join(model_folder, sub_folder)
                         local_predictor = Pack.get_predictor(
                             sub_folder,
                             device,
