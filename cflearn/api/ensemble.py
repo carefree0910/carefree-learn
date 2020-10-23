@@ -300,7 +300,7 @@ class Benchmark(LoggingMixin):
                 kwargs = Saving.load_dict("kwargs", abs_folder)
                 configs = kwargs.pop("configs")
                 iterator_name = kwargs.pop("iterator_name")
-                benchmark = cls(**kwargs)
+                benchmark = cls(**shallow_copy_dict(kwargs))
                 benchmark.configs = configs
                 benchmark._iterator_name = iterator_name
                 benchmark.experiments = Experiments.load(
@@ -361,7 +361,7 @@ class Ensemble:
         self.task_type = task_type
         if config is None:
             config = {}
-        self.config = config
+        self.config = shallow_copy_dict(config)
 
     def bagging(
         self,
@@ -392,7 +392,7 @@ class Ensemble:
             temp_folder=temp_folder,
             return_patterns=return_patterns,
             use_tqdm=use_tqdm,
-            **shallow_copy_dict(self.config),
+            **self.config,
         )
 
         data = repeat_result.data

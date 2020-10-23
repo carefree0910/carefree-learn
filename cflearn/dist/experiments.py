@@ -66,13 +66,22 @@ class Experiments(LoggingMixin):
             if len(id_data_tasks) <= data_task.idx:
                 id_data_tasks += [None] * (data_task.idx + 1 - len(id_data_tasks))
             id_data_tasks[data_task.idx] = data_task
+        kwargs = shallow_copy_dict(kwargs)
         kwargs.setdefault("use_tqdm", False)
         kwargs.setdefault("verbose_level", 0)
         kwargs["trains_config"] = trains_config
         kwargs["tracker_config"] = tracker_config
         current_tasks = self.tasks.setdefault(identifier, [])
         new_task = Task(len(current_tasks), model, identifier, self.temp_folder)
-        new_task.prepare(x, y, x_cv, y_cv, external=True, data_task=data_task, **kwargs)
+        new_task.prepare(
+            x,
+            y,
+            x_cv,
+            y_cv,
+            external=True,
+            data_task=data_task,
+            **shallow_copy_dict(kwargs),
+        )
         current_tasks.append(new_task)
         return self
 
@@ -144,6 +153,8 @@ class Experiments(LoggingMixin):
             identifiers = models.copy()
         elif isinstance(identifiers, str):
             identifiers = [identifiers]
+
+        kwargs = shallow_copy_dict(kwargs)
         kwargs["use_tqdm"] = use_tqdm_in_task
 
         for _ in range(num_repeat):
@@ -158,7 +169,7 @@ class Experiments(LoggingMixin):
                     y_cv,
                     model=model,
                     identifier=identifier,
-                    **kwargs_,
+                    **shallow_copy_dict(kwargs_),
                 )
 
         return self.run_tasks(num_jobs=num_jobs, load_task=load_task, use_tqdm=use_tqdm)
@@ -246,7 +257,7 @@ class Experiments(LoggingMixin):
                 data_tasks_mappings = kwargs.pop("data_tasks_mappings")
                 kwargs["overwrite"] = False
                 kwargs["temp_folder"] = tgt_temp_folder
-                experiments = cls(**kwargs)
+                experiments = cls(**shallow_copy_dict(kwargs))
                 # data tasks
                 data_tasks = {}
                 data_tasks_folder = os.path.join(abs_folder, "__data_tasks__")

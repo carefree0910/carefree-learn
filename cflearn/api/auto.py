@@ -56,7 +56,7 @@ class Auto:
             tune_ema_decay=tune_ema_decay,
             tune_clip_norm=tune_clip_norm,
             tune_init_method=tune_init_method,
-            **kwargs,
+            **shallow_copy_dict(kwargs),
         )
         # models
         if isinstance(models, list):

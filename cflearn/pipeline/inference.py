@@ -143,6 +143,7 @@ class ONNX:
     ) -> "ONNX":
         if self.model is None:
             raise ValueError("`model` is not provided")
+        kwargs = shallow_copy_dict(kwargs)
         kwargs["input_names"] = self.input_names
         kwargs["output_names"] = self.output_names
         kwargs["opset_version"] = 11
@@ -160,7 +161,12 @@ class ONNX:
         kwargs["verbose"] = verbose
         model = self.model.cpu()
         with eval_context(model):
-            torch.onnx.export(model, self.input_sample, onnx_path, **kwargs)
+            torch.onnx.export(
+                model,
+                self.input_sample,
+                onnx_path,
+                **shallow_copy_dict(kwargs),
+            )
         model.to(model.device)
         return self
 
@@ -297,13 +303,23 @@ class Inference(LoggingMixin):
         # Notice : when `return_all` is True,
         # there might not be `predictions` key in the results
 
+        kwargs = shallow_copy_dict(kwargs)
+
         # calculate
         use_grad = kwargs.pop("use_grad", self._use_grad_in_predict)
         try:
-            labels, results = self._get_results(use_grad, loader, **kwargs)
+            labels, results = self._get_results(
+                use_grad,
+                loader,
+                **shallow_copy_dict(kwargs),
+            )
         except:
             use_grad = self._use_grad_in_predict = True
-            labels, results = self._get_results(use_grad, loader, **kwargs)
+            labels, results = self._get_results(
+                use_grad,
+                loader,
+                **shallow_copy_dict(kwargs),
+            )
 
         # collate
         collated = collate_np_dicts(results)
@@ -364,7 +380,7 @@ class Inference(LoggingMixin):
             else:
                 assert self.model is not None
                 with eval_context(self.model, use_grad=use_grad):
-                    rs = self.model(batch, **kwargs)
+                    rs = self.model(batch, **shallow_copy_dict(kwargs))
                 for k, v in rs.items():
                     if isinstance(v, torch.Tensor):
                         rs[k] = to_numpy(v)

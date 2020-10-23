@@ -84,6 +84,7 @@ def make(
     use_tqdm: Optional[bool] = None,
     **kwargs: Any,
 ) -> Pipeline:
+    kwargs = shallow_copy_dict(kwargs)
     cfg, inc_cfg = map(_parse_config, [config, increment_config])
     update_dict(update_dict(inc_cfg, cfg), kwargs)
     # pipeline general
@@ -439,6 +440,7 @@ def repeat_with(
     elif isinstance(identifiers, str):
         identifiers = [identifiers]
 
+    kwargs = shallow_copy_dict(kwargs)
     kwargs.setdefault("trigger_logging", False)
     kwargs["verbose_level"] = 0
 
@@ -466,7 +468,7 @@ def repeat_with(
             kwargs_ = update_dict(shallow_copy_dict(model_config), kwargs_)
             logging_folder = os.path.join(temp_folder, model_, str(i_))
             kwargs_.setdefault("logging_folder", logging_folder)
-            m = make(model_, **kwargs_)
+            m = make(model_, **shallow_copy_dict(kwargs_))
             return m.fit(x, y, x_cv, y_cv)
 
         pipelines_dict = {}
@@ -507,7 +509,7 @@ def repeat_with(
             num_jobs=num_jobs,
             use_tqdm=use_tqdm,
             temp_folder=temp_folder,
-            **kwargs,
+            **shallow_copy_dict(kwargs),
         )
         if return_patterns:
             pipelines_dict = transform_experiments(experiments)
@@ -535,7 +537,7 @@ def tasks_to_pipelines(tasks: List[Task]) -> List[Pipeline]:
 
 def tasks_to_patterns(tasks: List[Task], **kwargs: Any) -> List[pattern_type]:
     pipelines = tasks_to_pipelines(tasks)
-    return [m.to_pattern(**kwargs) for m in pipelines]
+    return [m.to_pattern(**shallow_copy_dict(kwargs)) for m in pipelines]
 
 
 def make_toy_model(

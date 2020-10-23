@@ -12,6 +12,7 @@ from typing import Optional
 from functools import partial
 from cftool.ml import ModelPattern
 from cftool.ml import EnsemblePattern
+from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
@@ -67,8 +68,9 @@ class Predictor:
             batch_size,
             contains_labels=contains_labels,
         )
+        kwargs = shallow_copy_dict(kwargs)
         kwargs["contains_labels"] = contains_labels
-        return self.inference.predict(loader, **kwargs)
+        return self.inference.predict(loader, **shallow_copy_dict(kwargs))
 
     def predict_prob(
         self,
@@ -78,13 +80,20 @@ class Predictor:
         contains_labels: bool = False,
         **kwargs: Any,
     ) -> np_dict_type:
+        kwargs = shallow_copy_dict(kwargs)
         kwargs["returns_probabilities"] = True
-        return self.predict(x, batch_size, contains_labels=contains_labels, **kwargs)
+        return self.predict(
+            x,
+            batch_size,
+            contains_labels=contains_labels,
+            **shallow_copy_dict(kwargs),
+        )
 
     def to_pattern(self, **kwargs: Any) -> ModelPattern:
-        predict = partial(self.predict, **kwargs)
+        kwargs = shallow_copy_dict(kwargs)
+        predict = partial(self.predict, **shallow_copy_dict(kwargs))
         kwargs["returns_probabilities"] = True
-        predict_prob = partial(self.predict, **kwargs)
+        predict_prob = partial(self.predict, **shallow_copy_dict(kwargs))
         return ModelPattern(predict_method=predict, predict_prob_method=predict_prob)
 
 
@@ -123,12 +132,14 @@ class Pack(LoggingMixin):
         remove_original: bool = True,
         **kwargs: Any,
     ) -> None:
+        kwargs = shallow_copy_dict(kwargs)
         kwargs["verbose"] = verbose
         instance = cls(export_folder, loading=False)
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            onnx = ONNX(model=pipeline.model).to_onnx(instance.onnx_path, **kwargs)
+            onnx = ONNX(model=pipeline.model)
+            onnx.to_onnx(instance.onnx_path, **shallow_copy_dict(kwargs))
             with open(instance.onnx_output_names_path, "w") as f:
                 json.dump(onnx.output_names, f)
             pipeline.preprocessor.save(
@@ -185,7 +196,10 @@ class Pack(LoggingMixin):
         weights: Optional[np.ndarray],
         **kwargs: Any,
     ) -> EnsemblePattern:
-        patterns = [predictor.to_pattern(**kwargs) for predictor in predictors]
+        patterns = [
+            predictor.to_pattern(**shallow_copy_dict(kwargs))
+            for predictor in predictors
+        ]
         return ensemble(patterns, pattern_weights=weights)
 
 

@@ -18,6 +18,7 @@ from cftool.ml import Tracker
 from cftool.ml import ScalarEMA
 from cftool.misc import timestamp
 from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from cftool.misc import timing_context
 from cftool.misc import Saving
@@ -292,7 +293,7 @@ class Trainer(LoggingMixin):
                         kwargs = {}
                         if key in self.schedulers_requires_metric:
                             kwargs["metrics"] = score
-                        scheduler.step(**kwargs)  # type: ignore
+                        scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
         return False
 
     def _get_metrics(self) -> IntermediateResults:

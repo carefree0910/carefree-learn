@@ -332,6 +332,7 @@ class Pipeline(LoggingMixin):
             self.cv_batch_size,
             contains_labels=contains_labels,
         )
+        kwargs = shallow_copy_dict(kwargs)
         kwargs.update(
             {
                 "return_all": return_all,
@@ -342,7 +343,7 @@ class Pipeline(LoggingMixin):
 
         if self.inference is None:
             raise ValueError("`inference` is not yet generated")
-        return self.inference.predict(loader, **kwargs)
+        return self.inference.predict(loader, **shallow_copy_dict(kwargs))
 
     def predict_prob(
         self,
@@ -359,7 +360,7 @@ class Pipeline(LoggingMixin):
             return_all=return_all,
             contains_labels=contains_labels,
             returns_probabilities=True,
-            **kwargs,
+            **shallow_copy_dict(kwargs),
         )
 
     def to_pattern(

@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from typing import Any, Dict, List
 from typing import Union, NamedTuple, Optional
+from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 
@@ -30,7 +31,7 @@ class Linear(nn.Module):
             pruner = None
         else:
             pruner = Pruner(pruner_config, [out_dim, in_dim])
-        self.config, self.pruner = kwargs, pruner
+        self.config, self.pruner = shallow_copy_dict(kwargs), pruner
         self._use_bias, self._init_method = bias, init_method
         with torch.no_grad():
             self.reset_parameters()
@@ -77,7 +78,7 @@ class Mapping(nn.Module):
         **kwargs: Any,
     ):
         super().__init__()
-        self.config = kwargs
+        self.config = shallow_copy_dict(kwargs)
         if bias is None:
             bias = not batch_norm
         self.linear = Linear(
@@ -86,7 +87,7 @@ class Mapping(nn.Module):
             bias=bias,
             pruner_config=pruner_config,
             init_method=init_method,
-            **kwargs,
+            **shallow_copy_dict(kwargs),
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:

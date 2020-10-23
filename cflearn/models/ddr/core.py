@@ -973,7 +973,7 @@ class DDR(FCNN):
             forward_dict["mr_pos"] = pos
             forward_dict["mr_neg"] = neg
         if not forward_dict:
-            forward_dict = self._core(init, **kwargs)
+            forward_dict = self._core(init, **shallow_copy_dict(kwargs))
         return forward_dict
 
     def loss_function(

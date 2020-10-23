@@ -50,6 +50,7 @@ class Task:
         tracker_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> "Task":
+        kwargs = shallow_copy_dict(kwargs)
         kwargs["model"] = self.model
         kwargs["logging_folder"] = self.saving_folder
         if tracker_config is not None:
@@ -125,9 +126,10 @@ class Task:
         **kwargs: Any,
     ) -> "Task":
         if prepare:
-            self.prepare(x, y, x_cv, y_cv, external=False, **kwargs)
+            kwargs = shallow_copy_dict(kwargs)
+            self.prepare(x, y, x_cv, y_cv, external=False, **shallow_copy_dict(kwargs))
         assert self.config is not None
-        m = make(cuda=cuda, **self.config)
+        m = make(cuda=cuda, **shallow_copy_dict(self.config))
         m.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
         save(m, saving_folder=self.saving_folder)
         return self
@@ -153,7 +155,7 @@ class Task:
     def load(cls, saving_folder: str) -> "Task":
         kwargs = Saving.load_dict("kwargs", saving_folder)
         config = kwargs.pop("config")
-        task = cls(**kwargs)
+        task = cls(**shallow_copy_dict(kwargs))
         task.config = config
         return task
 

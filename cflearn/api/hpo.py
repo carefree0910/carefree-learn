@@ -80,6 +80,7 @@ class _Tuner(LoggingMixin):
         if x is None:
             return
 
+        kwargs = shallow_copy_dict(kwargs)
         self.has_column_names = None
         if y is not None:
             y, y_cv = map(to_2d, [y, y_cv])
@@ -744,7 +745,7 @@ class OptunaPresetParams:
             assert isinstance(model_config, dict)
             de_cfg = model_config.setdefault("default_encoding_configs", {})
             de_cfg["init_method"] = default_encoding_init_param
-        self.kwargs = kwargs
+        self.kwargs = shallow_copy_dict(kwargs)
 
     def get(self, model: str) -> optuna_params_type:
         attr = getattr(self, f"_{model}_preset", None)
