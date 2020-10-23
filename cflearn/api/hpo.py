@@ -233,6 +233,9 @@ def _init_extra_config(
     return new
 
 
+default_scoring = "default"
+
+
 def tune_with(
     x: data_type,
     y: data_type = None,
@@ -250,7 +253,7 @@ def tune_with(
     num_search: int = 10,
     temp_folder: str = "__tmp__",
     score_weights: Optional[Dict[str, float]] = None,
-    estimator_scoring_function: Union[str, scoring_fn_type] = "std",
+    estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,
     search_config: Optional[Dict[str, Any]] = None,
     extra_config: Optional[Dict[str, Any]] = None,
     verbose_level: int = 2,
@@ -882,7 +885,7 @@ def optuna_tune(
     num_repeat: int = 5,
     num_parallel: int = 0,
     temp_folder: str = "__tmp__",
-    estimator_scoring_function: Union[str, scoring_fn_type] = "std",
+    estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,
     timeout: Optional[float] = None,
     score_weights: Optional[Dict[str, float]] = None,
     extra_config: Optional[Dict[str, Any]] = None,

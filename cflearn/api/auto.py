@@ -22,6 +22,7 @@ from plotly.graph_objects import Figure
 from .basic import *
 from .ensemble import *
 from .hpo import optuna_tune
+from .hpo import default_scoring
 from .hpo import optuna_params_type
 from .hpo import OptunaPresetParams
 from .production import Pack
@@ -127,7 +128,7 @@ class Auto:
         num_parallel: int = 0,
         timeout: Optional[float] = None,
         score_weights: Optional[Dict[str, float]] = None,
-        estimator_scoring_function: Union[str, scoring_fn_type] = "mean",
+        estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,
         temp_folder: str = "__tmp__",
         num_final_repeat: int = 20,
         extra_config: Optional[Dict[str, Any]] = None,
