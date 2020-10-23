@@ -147,7 +147,7 @@ def make(
         model_config["ema_decay"] = ema_decay
     kwargs["model_config"] = model_config
     # metrics
-    metric_config_ = {}
+    metric_config_: Dict[str, Any] = {}
     if metrics is not None:
         metric_config_["types"] = metrics
     if metric_config is not None:
