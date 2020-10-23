@@ -106,8 +106,11 @@ def test_file_dataset() -> None:
     cflearn._remove()
 
     # Distributed
+    results = None
     num_repeat = 3
     models = ["nnb", "ndt"]
+    repeat_kwargs = kwargs.copy()
+    repeat_kwargs.pop("logging_folder")
     for num_jobs in num_jobs_list:
         results = cflearn.repeat_with(
             tr_file,
@@ -115,8 +118,8 @@ def test_file_dataset() -> None:
             models=models,
             num_repeat=num_repeat,
             num_jobs=num_jobs,
-            temp_folder=f"__test_file_dataset_{num_jobs}__",
-            **kwargs,  # type: ignore
+            temp_folder=os.path.join(logging_folder, str(num_jobs)),
+            **repeat_kwargs,  # type: ignore
         )
     data = results.data
     patterns = results.patterns
