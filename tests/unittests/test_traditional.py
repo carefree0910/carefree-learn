@@ -29,7 +29,7 @@ class TestTraditional(unittest.TestCase):
         m.fit(*dataset.xy)
         m0.fit(*dataset.xy)
         cflearn.estimate(*dataset.xy, pipelines={"fit": m, "init": m0})
-        x, y = m0.tr_data.processed.xy
+        x, y = m0.data.processed.xy
         split = m0.model.get_split(x, m0.device)
         x, sk_y = split.merge().cpu().numpy(), y.ravel()
         sklearn_model.fit(x, sk_y)

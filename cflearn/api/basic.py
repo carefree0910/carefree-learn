@@ -274,8 +274,8 @@ def estimate(
             if y is not None:
                 y = to_2d(y)
             else:
-                x, y = pipeline.tr_data.read_file(x, contains_labels=contains_labels)
-                y = pipeline.tr_data.transform(x, y).y
+                x, y = pipeline.data.read_file(x, contains_labels=contains_labels)
+                y = pipeline.data.transform(x, y).y
             if metrics is None:
                 metrics = [
                     k for k, v in pipeline.trainer.metrics.items() if v is not None
@@ -524,7 +524,7 @@ def repeat_with(
 
     data = None
     if patterns is not None:
-        data = patterns[identifiers[0]][0].model._original_data
+        data = patterns[identifiers[0]][0].model.data
 
     return RepeatResult(data, experiments, pipelines_dict, patterns)
 

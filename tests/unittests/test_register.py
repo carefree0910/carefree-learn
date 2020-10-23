@@ -49,8 +49,8 @@ class TestRegister(unittest.TestCase):
             "data_config": {"label_process_method": "plus_one"},
         }
         toy = cflearn.make_toy_model(config=config)
-        y = toy.tr_data.converted.y
-        processed_y = toy.tr_data.processed.y
+        y = toy.data.converted.y
+        processed_y = toy.data.processed.y
         self.assertTrue(np.allclose(y + 1, processed_y))
         cflearn._rmtree(logging_folder)
 

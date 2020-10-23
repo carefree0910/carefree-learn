@@ -428,7 +428,7 @@ class Ensemble:
             m.fit(x, y, sample_weights=sample_weights)
             predictions: np.ndarray = m.predict(x, contains_labels=True)
             predictions = predictions.astype(np.float32)
-            target = m._original_data.processed.y.astype(np.float32)
+            target = m.data.processed.y.astype(np.float32)
             errors = (predictions != target).ravel()
             if sample_weights is None:
                 e = errors.mean()
@@ -444,7 +444,7 @@ class Ensemble:
             patterns.append(m.to_pattern())
             pattern_weights.append(am)
             if data is None:
-                data = m._original_data
+                data = m.data
             pipelines.append(m)
 
         weights_array = np.array(pattern_weights, np.float32)

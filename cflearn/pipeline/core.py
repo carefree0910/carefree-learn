@@ -64,6 +64,10 @@ class Pipeline(LoggingMixin):
     __repr__ = __str__
 
     @property
+    def data(self) -> TabularData:
+        return self._original_data
+
+    @property
     def train_set(self) -> TabularDataset:
         raw = self.tr_data.raw
         return TabularDataset(*raw.xy, task_type=self.tr_data.task_type)
@@ -129,16 +133,16 @@ class Pipeline(LoggingMixin):
         self._init_logging(self._verbose_level, trigger_logging)
 
     def _init_data(self) -> None:
-        if not self.tr_data.is_ts:
+        if not self.data.is_ts:
             self.ts_label_collator = None
         else:
             self.ts_label_collator = TSLabelCollator(
-                self.tr_data,
+                self.data,
                 self._ts_label_collator_config,
             )
-        self._sampler_config.setdefault("verbose_level", self.tr_data._verbose_level)
+        self._sampler_config.setdefault("verbose_level", self.data._verbose_level)
         self.preprocessor = PreProcessor(self._original_data, self._sampler_config)
-        tr_sampler = self.preprocessor.make_sampler(self.tr_data, self.shuffle_tr)
+        tr_sampler = self.preprocessor.make_sampler(self.data, self.shuffle_tr)
         self.tr_loader = DataLoader(
             self.batch_size,
             tr_sampler,
@@ -161,7 +165,7 @@ class Pipeline(LoggingMixin):
     def _prepare_modules(self, *, is_loading: bool = False) -> None:
         # model
         with timing_context(self, "init model", enable=self.timing):
-            args = self.config, self.tr_data, self.cv_data, self.device
+            args = self.config, self.data, self.cv_data, self.device
             self.model = model_dict[self.model_type](*args)
             self.model.init_ema()
         # trainer
@@ -345,7 +349,7 @@ class Pipeline(LoggingMixin):
         contains_labels: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
-        if self.tr_data.is_reg:
+        if self.data.is_reg:
             raise ValueError("`predict_prob` should not be called on regression tasks")
         return self.predict(
             x,
