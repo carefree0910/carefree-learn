@@ -209,7 +209,8 @@ def test_file_dataset2() -> None:
 
 
 def test_auto_file() -> None:
-    auto = cflearn.Auto("clf")
+    # TODO : support nnb, ndt in ONNX
+    auto = cflearn.Auto("clf", models=["fcnn", "tree_dnn"])
     predict_config = {"contains_labels": True}
     extra_config = kwargs.copy()
     extra_config.pop("logging_folder")
