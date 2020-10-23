@@ -245,11 +245,12 @@ class Pipeline(LoggingMixin):
         os.makedirs(self.trainer.logging_folder, exist_ok=True)
         Saving.save_dict(self.config, "config", self.trainer.logging_folder)
         # training loop
-        self.trainer.fit(self.tr_loader, self.cv_loader, self.tr_weights)
-        # binary threshold
-        if self.inference is None:
-            raise ValueError("`inference` is not yet generated")
-        self.inference.generate_binary_threshold()
+        self.trainer.fit(
+            self.tr_loader,
+            self.cv_loader,
+            self.tr_weights,
+            self.cv_weights,
+        )
         # logging
         self.log_timing()
 

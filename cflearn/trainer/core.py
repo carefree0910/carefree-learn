@@ -502,6 +502,8 @@ class Trainer(LoggingMixin):
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
+        if self.inference.need_binary_threshold:
+            self.inference.generate_binary_threshold()
         self.final_results = self._get_metrics()
 
     def _filter_checkpoints(self, folder: str) -> Dict[int, str]:
