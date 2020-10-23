@@ -523,7 +523,10 @@ class Trainer(LoggingMixin):
         if not use_external_scores:
             scores = self.checkpoint_scores
         else:
-            with open(os.path.join(folder, self.scores_file), "r") as f:
+            scores_path = os.path.join(folder, self.scores_file)
+            if not os.path.isfile(scores_path):
+                return []
+            with open(scores_path, "r") as f:
                 scores = json.load(f)
         files = [
             file
