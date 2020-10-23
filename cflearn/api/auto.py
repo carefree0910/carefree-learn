@@ -248,7 +248,8 @@ class Auto:
         device: Union[str, torch.device] = "cpu",
         *,
         compress: bool = True,
-        use_tqdm: bool = False,
+        use_tqdm: bool = True,
+        use_tqdm_in_predictor: bool = False,
         **predict_kwargs: Any,
     ) -> UnPacked:
         patterns = []
@@ -262,22 +263,27 @@ class Auto:
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 data = TabularData.load(data_folder, compress=False)
                 predictors = {}
-                for stuff in os.listdir(export_folder):
-                    if stuff == cls.data_folder:
-                        continue
+                iterator = [
+                    folder
+                    for folder in os.listdir(export_folder)
+                    if folder != cls.data_folder
+                ]
+                if use_tqdm:
+                    iterator = tqdm(iterator)
+                for model in iterator:
                     local_predictors = []
-                    model_folder = os.path.join(export_folder, stuff)
+                    model_folder = os.path.join(export_folder, model)
                     for sub_folder in os.listdir(model_folder):
                         local_predictor = Pack.get_predictor(
                             sub_folder,
                             device,
                             data=data,
                             compress=False,
-                            use_tqdm=use_tqdm,
+                            use_tqdm=use_tqdm_in_predictor,
                         )
                         local_predictors.append(local_predictor)
                         patterns.append(local_predictor.to_pattern(**predict_kwargs))
-                    predictors[stuff] = local_predictors
+                    predictors[model] = local_predictors
         pattern = ensemble(patterns)
         return UnPacked(pattern, predictors)
 
