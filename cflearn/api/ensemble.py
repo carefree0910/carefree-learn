@@ -352,6 +352,10 @@ class EnsembleResults(NamedTuple):
         return ensemble(patterns, pattern_weights=self.pattern_weights)
 
 
+class MetricsPlaceholder(NamedTuple):
+    config: Dict[str, Any]
+
+
 class Ensemble:
     def __init__(
         self,
@@ -420,9 +424,6 @@ class Ensemble:
         config["cv_split"] = 0.0
         config.setdefault("use_tqdm", False)
         config.setdefault("verbose_level", 0)
-
-        class MetricsPlaceholder(NamedTuple):
-            config: Dict[str, Any]
 
         @register_metric("adaboost_error", -1, False)
         def adaboost_error(
