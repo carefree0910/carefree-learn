@@ -18,7 +18,7 @@ setup(
         "plotly",
         "trains",
         "carefree-ml>=0.1.0",
-        "carefree-data>=0.2.0rc.9",
+        "carefree-data>=0.2.0rc.10",
         "carefree-toolkit>=0.2.0rc.5",
         "dill",
         "future",
