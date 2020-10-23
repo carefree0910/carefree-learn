@@ -131,6 +131,7 @@ class NDT(ModelBase):
     def _init_config(self) -> None:
         super()._init_config()
         self.dt_config = self.config.setdefault("dt_config", {})
+        self.dt_config.setdefault("max_depth", 10)
         activation_configs = self.config.setdefault("activation_configs", {})
         activation_configs.setdefault("multiplied_tanh", {}).setdefault("ratio", 10.0)
         activation_configs.setdefault("multiplied_softmax", {}).setdefault(
