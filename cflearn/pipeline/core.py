@@ -142,7 +142,7 @@ class Pipeline(LoggingMixin):
             )
         self._sampler_config.setdefault("verbose_level", self.data._verbose_level)
         self.preprocessor = PreProcessor(self._original_data, self._sampler_config)
-        tr_sampler = self.preprocessor.make_sampler(self.data, self.shuffle_tr)
+        tr_sampler = self.preprocessor.make_sampler(self.tr_data, self.shuffle_tr)
         self.tr_loader = DataLoader(
             self.batch_size,
             tr_sampler,
@@ -165,7 +165,7 @@ class Pipeline(LoggingMixin):
     def _prepare_modules(self, *, is_loading: bool = False) -> None:
         # model
         with timing_context(self, "init model", enable=self.timing):
-            args = self.config, self.data, self.cv_data, self.device
+            args = self.config, self.tr_data, self.cv_data, self.device
             self.model = model_dict[self.model_type](*args)
             self.model.init_ema()
         # trainer
