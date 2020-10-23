@@ -18,7 +18,6 @@ from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import KFold
 from cfdata.tabular import KRandom
-from cfdata.tabular import KBootstrap
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 from torch.nn.functional import one_hot
