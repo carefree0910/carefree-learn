@@ -269,7 +269,7 @@ class Auto:
                     if folder != cls.data_folder
                 ]
                 if use_tqdm:
-                    iterator = tqdm(iterator)
+                    iterator = tqdm(iterator, "unpack")
                 for model in iterator:
                     local_predictors = []
                     model_folder = os.path.join(export_folder, model)
