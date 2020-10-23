@@ -320,6 +320,8 @@ def ensemble(
         if pattern_weights is None:
             ensemble_method = "default"
         else:
+            if abs(pattern_weights.sum() - 1.0) > 1e-4:
+                raise ValueError("`pattern_weights` should sum to 1.0")
             pattern_weights = pattern_weights.reshape([-1, 1, 1])
 
             def ensemble_method(
