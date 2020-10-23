@@ -449,7 +449,8 @@ def repeat_with(
             model_config = model_configs.setdefault(model_, {})
             kwargs_ = update_dict(shallow_copy_dict(model_config), kwargs_)
             logging_folder = os.path.join(temp_folder, model_, str(i_))
-            m = make(model_, logging_folder=logging_folder, **kwargs_)
+            kwargs_.setdefault("logging_folder", logging_folder)
+            m = make(model_, **kwargs_)
             return m.fit(x, y, x_cv, y_cv)
 
         pipelines_dict = {}
