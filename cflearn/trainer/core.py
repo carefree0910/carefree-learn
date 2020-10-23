@@ -305,6 +305,7 @@ class Trainer(LoggingMixin):
             loader = tr_loader.copy()
             loader.return_indices = tr_loader.return_indices
             loader.enabled_sampling = False
+            loader.sampler.shuffle = False
         # predictions
         keys = ["logits", "predictions", "labels"]
         results = self.inference.predict(loader=loader, return_all=True)
