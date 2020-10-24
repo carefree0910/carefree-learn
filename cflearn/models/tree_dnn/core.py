@@ -1,7 +1,9 @@
 import torch
 import logging
 
-from typing import Any, Dict
+from typing import Any
+from typing import Dict
+from typing import Optional
 from cfdata.tabular import TabularData
 
 from ..base import SplitFeatures
@@ -19,21 +21,24 @@ class TreeDNN(FCNN):
         cv_data: TabularData,
         device: torch.device,
     ):
+        self.dndf: Optional[DNDF]
+        self._dndf_config: Dict[str, Any]
         super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
         encoding_dims = self.encoding_dims
         embedding_dims = encoding_dims.get("embedding", 0)
         one_hot_dims = encoding_dims.get("one_hot", 0)
         # fc
-        if not self._numerical_columns:
-            self._use_embedding_for_fc = True
-            self._use_one_hot_for_fc = "one_hot" in self._default_encoding_method
-        fc_in_dim = self.merged_dim
-        if not self._use_embedding_for_fc:
-            fc_in_dim -= embedding_dims * self.num_history
-        if not self._use_one_hot_for_fc:
-            fc_in_dim -= one_hot_dims * self.num_history
-        self.config["fc_in_dim"] = fc_in_dim
-        self._init_fcnn()
+        if self.use_fcnn:
+            if not self._numerical_columns:
+                self._use_embedding_for_fc = True
+                self._use_one_hot_for_fc = "one_hot" in self._default_encoding_method
+            fc_in_dim = self.merged_dim
+            if not self._use_embedding_for_fc:
+                fc_in_dim -= embedding_dims * self.num_history
+            if not self._use_one_hot_for_fc:
+                fc_in_dim -= one_hot_dims * self.num_history
+            self.config["fc_in_dim"] = fc_in_dim
+            self._init_fcnn()
         # dndf
         if self._dndf_config is None:
             self.log_msg(  # type: ignore
@@ -78,6 +83,12 @@ class TreeDNN(FCNN):
             default_encoding_method.append("one_hot")
         self.config.setdefault("default_encoding_method", default_encoding_method)
 
+    def _init_config(self) -> None:
+        super()._init_config()
+        self.use_fcnn = self.config.setdefault("use_fcnn", True)
+        if not self.use_fcnn and self._dndf_config is None:
+            raise ValueError("either `fcnn` or `dndf` should be used")
+
     @staticmethod
     def _merge(
         split_result: SplitFeatures,
@@ -110,16 +121,20 @@ class TreeDNN(FCNN):
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch, return_all_encodings=True)
         # fc
-        fc_net = self._merge(
-            split_result,
-            self._use_embedding_for_fc,
-            self._use_one_hot_for_fc,
-        )
-        if self.tr_data.is_ts:
-            fc_net = fc_net.view(fc_net.shape[0], -1)
-        fc_net = self.mlp(fc_net)
+        if not self.use_fcnn:
+            fc_net = None
+        else:
+            fc_net = self._merge(
+                split_result,
+                self._use_embedding_for_fc,
+                self._use_one_hot_for_fc,
+            )
+            if self.tr_data.is_ts:
+                fc_net = fc_net.view(fc_net.shape[0], -1)
+            fc_net = self.mlp(fc_net)
         # dndf
         if self.dndf is None:
+            assert fc_net is not None
             return {"predictions": fc_net}
         dndf_net = self._merge(
             split_result,
@@ -129,7 +144,24 @@ class TreeDNN(FCNN):
         if self.tr_data.is_ts:
             dndf_net = dndf_net.view(dndf_net.shape[0], -1)
         dndf_net = self.dndf(dndf_net)
+        # merge
+        if fc_net is None:
+            return {"predictions": dndf_net}
         return {"predictions": fc_net + dndf_net}
+
+
+@FCNN.register("tree_linear")
+class TreeLinear(TreeDNN):
+    def _preset_config(self) -> None:
+        super()._preset_config()
+        self.config["use_fcnn"] = False
+
+    def _init_config(self) -> None:
+        super()._init_config()
+        self._fc_out_dim: int = self.config.get("fc_out_dim")
+        self.out_dim = max(self.tr_data.num_classes, 1)
+        if self._fc_out_dim is None:
+            self._fc_out_dim = self.out_dim
 
 
 __all__ = ["TreeDNN"]

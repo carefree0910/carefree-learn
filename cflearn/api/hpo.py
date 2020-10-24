@@ -803,7 +803,10 @@ class OptunaPresetParams:
             model_config.update(dndf_param)
         return params
 
-    # TODO : optimize these three preset
+    # TODO : optimize these four preset
+
+    def _tree_linear_preset(self) -> optuna_params_type:
+        return shallow_copy_dict(self.base_params)
 
     def _ddr_preset(self) -> optuna_params_type:
         return shallow_copy_dict(self.base_params)
