@@ -15,8 +15,8 @@ def write_submissions(name: str, predictions_: np.ndarray) -> None:
             f.write(f"{test_id},{prediction}\n")
 
 
-# Score : achieved ~0.79
-auto = cflearn.Auto("clf")
-auto.fit(tr_file, extra_config={"data_config": {"label_name": "Survived"}})
-predictions = auto.pattern.predict(te_file)
-write_submissions("automl.csv", predictions)
+# Score : achieved ~0.75
+ensemble = cflearn.Ensemble("clf", config={"data_config": {"label_name": "Survived"}})
+result = ensemble.adaboost(tr_file)
+predictions = result.pattern.predict(te_file)
+write_submissions("adaboost.csv", predictions)
