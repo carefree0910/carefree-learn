@@ -38,9 +38,15 @@ class PreProcessor(LoggingMixin):
         self.data = data
         self.sampler_config = sampler_config
 
-    def make_sampler(self, data: TabularData, shuffle: bool) -> ImbalancedSampler:
+    def make_sampler(
+        self,
+        data: TabularData,
+        shuffle: bool,
+        sample_weights: Optional[np.ndarray] = None,
+    ) -> ImbalancedSampler:
         config = shallow_copy_dict(self.sampler_config)
         config["shuffle"] = shuffle
+        config["sample_weights"] = sample_weights
         return ImbalancedSampler(data, **config)
 
     def make_inference_loader(

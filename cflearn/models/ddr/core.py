@@ -983,7 +983,6 @@ class DDR(FCNN):
     ) -> Dict[str, torch.Tensor]:
         init = forward_results["init"]
         x_batch, y_batch = map(batch.get, ["x_batch", "y_batch"])
-        sample_weights = forward_results.get("batch_sample_weights")
         losses, losses_dict = self.loss(forward_results, y_batch)
         if (
             self.training
@@ -1012,13 +1011,7 @@ class DDR(FCNN):
             losses_dict["synthetic"] = synthetic_losses
             losses = losses + synthetic_losses
         losses_dict["loss"] = losses
-        if sample_weights is None:
-            losses_dict = {k: v.mean() for k, v in losses_dict.items()}
-        else:
-            losses_dict = {
-                k: (v * sample_weights.to(v.device)).mean()
-                for k, v in losses_dict.items()
-            }
+        losses_dict = {k: v.mean() for k, v in losses_dict.items()}
         if self.training:
             self._step_count += 1
         else:

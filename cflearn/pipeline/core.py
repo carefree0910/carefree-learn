@@ -142,7 +142,11 @@ class Pipeline(LoggingMixin):
             )
         self._sampler_config.setdefault("verbose_level", self.data._verbose_level)
         self.preprocessor = PreProcessor(self._original_data, self._sampler_config)
-        tr_sampler = self.preprocessor.make_sampler(self.tr_data, self.shuffle_tr)
+        tr_sampler = self.preprocessor.make_sampler(
+            self.tr_data,
+            self.shuffle_tr,
+            self.tr_weights,
+        )
         self.tr_loader = DataLoader(
             self.batch_size,
             tr_sampler,
@@ -227,10 +231,7 @@ class Pipeline(LoggingMixin):
                 if sample_weights is not None:
                     self.tr_weights = sample_weights
             else:
-                split = self.tr_data.split(
-                    self.cv_split,
-                    order=self._cv_split_order,
-                )
+                split = self.tr_data.split(self.cv_split, order=self._cv_split_order)
                 self.tr_data, self.cv_data = split.remained, split.split
                 self.tr_split_indices = split.remained_indices
                 self.cv_split_indices = split.split_indices

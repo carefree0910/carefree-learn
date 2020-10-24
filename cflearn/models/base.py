@@ -158,11 +158,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if self.tr_data.is_clf:
             y_batch = y_batch.view(-1)
         predictions = forward_results["predictions"]
-        sample_weights = forward_results.get("batch_sample_weights")
+        # `sample_weights` could be accessed through
+        # - `forward_results.get("batch_sample_weights")`
         losses = self.loss(predictions, y_batch)
-        if sample_weights is None:
-            return {"loss": losses.mean()}
-        return {"loss": (losses * sample_weights.to(losses.device)).mean()}
+        return {"loss": losses.mean()}
 
     @property
     def num_history(self) -> int:
