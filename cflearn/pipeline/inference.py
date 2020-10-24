@@ -289,7 +289,13 @@ class Inference(LoggingMixin):
                     "either `loader` or `labels` & `probabilities` "
                     "should be provided"
                 )
-            probabilities = self.predict(loader, returns_probabilities=True)
+            results = self.predict(
+                loader,
+                return_all=True,
+                returns_probabilities=True,
+            )
+            labels = results["labels"]
+            probabilities = results["predictions"]
         try:
             threshold = Metrics.get_binary_threshold(
                 labels,
