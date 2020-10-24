@@ -425,6 +425,7 @@ class Ensemble:
         update_dict(increment_config, config)
         config["cv_split"] = 0.0
         config.setdefault("use_tqdm", False)
+        config.setdefault("use_binary_threshold", False)
         config.setdefault("verbose_level", 0)
 
         @register_metric("adaboost_error", -1, False)

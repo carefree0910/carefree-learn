@@ -195,6 +195,7 @@ class Inference(LoggingMixin):
         model: Optional[ModelBase] = None,
         binary_config: Optional[Dict[str, Any]] = None,
         onnx_config: Optional[Dict[str, Any]] = None,
+        use_binary_threshold: bool = True,
         use_tqdm: bool = True,
     ):
         if model is None and onnx_config is None:
@@ -205,6 +206,7 @@ class Inference(LoggingMixin):
         self.data = preprocessor.data
         self.preprocessor = preprocessor
         self._use_grad_in_predict = False
+        self.use_binary_threshold = use_binary_threshold
 
         # binary case
         self.is_binary = self.data.num_classes == 2
@@ -242,6 +244,8 @@ class Inference(LoggingMixin):
 
     @property
     def need_binary_threshold(self) -> bool:
+        if not self.use_binary_threshold:
+            return False
         return self.is_binary and self.binary_metric is not None
 
     def inject_binary_config(self, config: Dict[str, Any]) -> None:

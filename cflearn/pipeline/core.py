@@ -97,6 +97,7 @@ class Pipeline(LoggingMixin):
         self.model_type = self.config.setdefault("model", "fcnn")
         self.use_tqdm = self.config.setdefault("use_tqdm", True)
         self.timing = self.config.setdefault("use_timing_context", True)
+        self.use_binary_threshold = self.config.setdefault("use_binary_threshold", True)
         self._data_config = self.config.setdefault("data_config", {})
         self._data_config["use_timing_context"] = self.timing
         self._data_config["default_categorical_process"] = "identical"
@@ -188,6 +189,7 @@ class Pipeline(LoggingMixin):
                 self.model.device,
                 model=self.model,
                 binary_config=self._binary_config,
+                use_binary_threshold=self.use_binary_threshold,
                 use_tqdm=self.use_tqdm,
             )
             self.trainer = Trainer(
