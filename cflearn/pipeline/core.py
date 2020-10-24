@@ -244,9 +244,12 @@ class Pipeline(LoggingMixin):
         self._prepare_modules()
 
     def _loop(self) -> None:
-        # dump configurations
-        os.makedirs(self.trainer.logging_folder, exist_ok=True)
-        Saving.save_dict(self.config, "config", self.trainer.logging_folder)
+        # dump information
+        logging_folder = self.trainer.logging_folder
+        os.makedirs(logging_folder, exist_ok=True)
+        Saving.save_dict(self.config, "config", logging_folder)
+        with open(os.path.join(logging_folder, "model.txt"), "w") as f:
+            f.write(str(self.model))
         # training loop
         self.trainer.fit(
             self.tr_loader,
