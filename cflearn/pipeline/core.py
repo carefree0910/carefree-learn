@@ -468,6 +468,12 @@ class Pipeline(LoggingMixin):
                 config = Saving.load_dict("config", export_folder)
                 pipeline = Pipeline(config, cuda=cuda, verbose_level=verbose_level)
                 data_folder = os.path.join(export_folder, cls.data_folder)
+                # sample weights
+                tr_weights = cv_weights = sample_weights = None
+                sw_file = os.path.join(data_folder, cls.sample_weights_file)
+                if os.path.isfile(sw_file):
+                    sample_weights = np.load(sw_file)
+                # data
                 original_data_folder = os.path.join(data_folder, cls.original_folder)
                 if not os.path.isdir(original_data_folder):
                     train_data_folder = os.path.join(data_folder, cls.train_folder)
@@ -481,6 +487,9 @@ class Pipeline(LoggingMixin):
                             "this may cause by backward compatible breaking"
                         )
                     original_data = tr_data
+                    if sample_weights is not None:
+                        tr_weights = sample_weights[: len(tr_data)]
+                        cv_weights = sample_weights[len(tr_data) :]
                 else:
                     original_data = TabularData.load(
                         original_data_folder,
@@ -488,6 +497,7 @@ class Pipeline(LoggingMixin):
                     )
                     vi_file = os.path.join(data_folder, cls.valid_indices_file)
                     if not os.path.isfile(vi_file):
+                        tr_weights = sample_weights
                         tr_data = original_data
                         cv_data = None
                     else:
@@ -497,9 +507,12 @@ class Pipeline(LoggingMixin):
                             valid_indices, train_indices
                         )
                         tr_data, cv_data = split.remained, split.split
-                sw_file = os.path.join(data_folder, cls.sample_weights_file)
-                if os.path.isfile(sw_file):
-                    pipeline.sample_weights = np.load(sw_file)
+                        if sample_weights is not None:
+                            tr_weights = sample_weights[train_indices]
+                            cv_weights = sample_weights[valid_indices]
+                pipeline.sample_weights = sample_weights
+                pipeline.tr_weights = tr_weights
+                pipeline.cv_weights = cv_weights
                 pipeline._original_data = original_data
                 pipeline.tr_data = tr_data
                 pipeline.cv_data = cv_data
