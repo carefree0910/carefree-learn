@@ -314,13 +314,17 @@ class Trainer(LoggingMixin):
         if self._metrics_need_loss:
             loader = self._to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
-            for (x_batch, y_batch), _ in loader:
+            for (x_batch, y_batch), batch_indices in loader:
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self.model):
                     forward_dicts.append(self.model(batch))
                     loss_dicts.append(
-                        self.model.loss_function(batch, forward_dicts[-1])
+                        self.model.loss_function(
+                            batch,
+                            batch_indices,
+                            forward_dicts[-1],
+                        )
                     )
             losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
             loss_values = {k: v.mean().item() for k, v in losses.items()}
@@ -445,7 +449,7 @@ class Trainer(LoggingMixin):
                         position=1,
                         leave=False,
                     )
-                for (x_batch, y_batch), index_batch in step_tqdm:
+                for (x_batch, y_batch), batch_indices in step_tqdm:
                     self._step_count += 1
                     with timing_context(self, "collate batch", enable=self.timing):
                         batch = self.inference.collate_batch(x_batch, y_batch)
@@ -453,10 +457,11 @@ class Trainer(LoggingMixin):
                         with timing_context(self, "model.forward", enable=self.timing):
                             forward_results = self.model(batch)
                         with timing_context(self, "loss.forward", enable=self.timing):
-                            if tr_weights is not None:
-                                batch_sw = tr_weights[index_batch]
-                                forward_results["batch_sample_weights"] = batch_sw
-                            loss_dict = self.model.loss_function(batch, forward_results)
+                            loss_dict = self.model.loss_function(
+                                batch,
+                                batch_indices,
+                                forward_results,
+                            )
                     if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():
                             value = tensor.item()

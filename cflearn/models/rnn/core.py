@@ -1,5 +1,7 @@
 import torch
 
+import numpy as np
+
 from typing import *
 from cfdata.tabular import TabularData
 
@@ -15,9 +17,18 @@ class RNN(FCNN):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
-        super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
+        super(FCNN, self).__init__(
+            pipeline_config,
+            tr_data,
+            cv_data,
+            tr_weights,
+            cv_weights,
+            device,
+        )
         input_dimensions = [self.tr_data.processed_dim]
         rnn_hidden_dim = self._rnn_config["hidden_size"]
         input_dimensions += [rnn_hidden_dim] * (self._rnn_num_layers - 1)

@@ -1,5 +1,7 @@
 import torch
 
+import numpy as np
+
 from typing import *
 from cfdata.tabular import TabularData
 
@@ -15,9 +17,18 @@ class FCNN(ModelBase):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
-        super().__init__(pipeline_config, tr_data, cv_data, device)
+        super().__init__(
+            pipeline_config,
+            tr_data,
+            cv_data,
+            tr_weights,
+            cv_weights,
+            device,
+        )
         self._init_fcnn()
 
     @property

@@ -1,5 +1,6 @@
 import torch
 
+import numpy as np
 import torch.nn as nn
 
 from typing import Any
@@ -65,9 +66,18 @@ class Transformer(FCNN):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
-        super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
+        super(FCNN, self).__init__(
+            pipeline_config,
+            tr_data,
+            cv_data,
+            tr_weights,
+            cv_weights,
+            device,
+        )
         self._init_fcnn()
 
     def _init_config(self) -> None:

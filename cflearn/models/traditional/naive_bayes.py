@@ -27,9 +27,18 @@ class NNB(ModelBase):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
-        super().__init__(pipeline_config, tr_data, cv_data, device)
+        super().__init__(
+            pipeline_config,
+            tr_data,
+            cv_data,
+            tr_weights,
+            cv_weights,
+            device,
+        )
         # prepare
         x, y = tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), tr_data.num_classes

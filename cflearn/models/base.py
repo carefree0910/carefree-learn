@@ -53,6 +53,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
         super().__init__()
@@ -61,6 +63,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._pipeline_config = pipeline_config
         self.config = pipeline_config.setdefault("model_config", {})
         self.tr_data, self.cv_data = tr_data, cv_data
+        self.tr_weights, self.cv_weights = tr_weights, cv_weights
         self._preset_config()
         self._init_config()
         self._init_loss()
@@ -151,6 +154,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def loss_function(
         self,
         batch: tensor_dict_type,
+        batch_indices: np.ndarray,
         forward_results: tensor_dict_type,
     ) -> Dict[str, torch.Tensor]:
         # requires returning `loss` key
@@ -158,8 +162,9 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if self.tr_data.is_clf:
             y_batch = y_batch.view(-1)
         predictions = forward_results["predictions"]
-        # `sample_weights` could be accessed through
-        # - `forward_results.get("batch_sample_weights")`
+        # `sample_weights` could be accessed through:
+        # 1) `self.tr_weights[batch_indices]` (for training)
+        # 2) `self.cv_weights[batch_indices]` (for validation)
         losses = self.loss(predictions, y_batch)
         return {"loss": losses.mean()}
 

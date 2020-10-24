@@ -1,6 +1,8 @@
 import torch
 import logging
 
+import numpy as np
+
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -19,11 +21,20 @@ class TreeDNN(FCNN):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
         self.dndf: Optional[DNDF]
         self._dndf_config: Dict[str, Any]
-        super(FCNN, self).__init__(pipeline_config, tr_data, cv_data, device)
+        super(FCNN, self).__init__(
+            pipeline_config,
+            tr_data,
+            cv_data,
+            tr_weights,
+            cv_weights,
+            device,
+        )
         encoding_dims = self.encoding_dims
         embedding_dims = encoding_dims.get("embedding", 0)
         one_hot_dims = encoding_dims.get("one_hot", 0)

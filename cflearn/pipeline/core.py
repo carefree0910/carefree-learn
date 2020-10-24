@@ -169,8 +169,14 @@ class Pipeline(LoggingMixin):
     def _prepare_modules(self, *, is_loading: bool = False) -> None:
         # model
         with timing_context(self, "init model", enable=self.timing):
-            args = self.config, self.tr_data, self.cv_data, self.device
-            self.model = model_dict[self.model_type](*args)
+            self.model = model_dict[self.model_type](
+                self.config,
+                self.tr_data,
+                self.cv_data,
+                self.tr_weights,
+                self.cv_weights,
+                self.device,
+            )
             self.model.init_ema()
         # trainer
         with timing_context(self, "init trainer", enable=self.timing):

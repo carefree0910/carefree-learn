@@ -3,8 +3,11 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from typing import Any, Dict
-from typing import List, Iterator
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Iterator
+from typing import Optional
 from cfdata.tabular import TabularData
 from sklearn.tree import _tree, DecisionTreeClassifier
 
@@ -38,9 +41,18 @@ class NDT(ModelBase):
         pipeline_config: Dict[str, Any],
         tr_data: TabularData,
         cv_data: TabularData,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
         device: torch.device,
     ):
-        super().__init__(pipeline_config, tr_data, cv_data, device)
+        super().__init__(
+            pipeline_config,
+            tr_data,
+            cv_data,
+            tr_weights,
+            cv_weights,
+            device,
+        )
         # prepare
         x, y = tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), tr_data.num_classes
