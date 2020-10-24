@@ -69,6 +69,7 @@ class Trainer(LoggingMixin):
         self._init_config(pipeline_config, is_loading)
         self.model = model
         self.checkpoint_scores: Dict[str, float] = {}
+        self.tr_loader_copy: Optional[DataLoader] = None
         self.final_results: Optional[IntermediateResults] = None
         self._verbose_level = verbose_level
         self._use_grad_in_predict = False
@@ -270,7 +271,7 @@ class Trainer(LoggingMixin):
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
             if self.start_snapshot and self.inference.need_binary_threshold:
-                self.inference.generate_binary_threshold()
+                self.inference.generate_binary_threshold(self.tr_loader_copy)
             rs = self._get_metrics()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
@@ -303,10 +304,7 @@ class Trainer(LoggingMixin):
         if cv_loader is not None:
             loader = cv_loader
         else:
-            loader = tr_loader.copy()
-            loader.return_indices = tr_loader.return_indices
-            loader.enabled_sampling = False
-            loader.sampler.shuffle = False
+            loader = self.tr_loader_copy
         # predictions
         keys = ["logits", "predictions", "labels"]
         results = self.inference.predict(loader=loader, return_all=True)
@@ -404,6 +402,10 @@ class Trainer(LoggingMixin):
         cv_weights: Optional[np.ndarray],
     ) -> None:
         self.tr_loader, self.cv_loader = tr_loader, cv_loader
+        self.tr_loader_copy = tr_loader.copy()
+        self.tr_loader_copy.return_indices = tr_loader.return_indices
+        self.tr_loader_copy.enabled_sampling = False
+        self.tr_loader_copy.sampler.shuffle = False
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)
@@ -514,7 +516,7 @@ class Trainer(LoggingMixin):
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
         if self.inference.need_binary_threshold:
-            self.inference.generate_binary_threshold()
+            self.inference.generate_binary_threshold(self.tr_loader_copy)
         self.final_results = self._get_metrics()
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:

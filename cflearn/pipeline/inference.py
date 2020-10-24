@@ -271,14 +271,18 @@ class Inference(LoggingMixin):
 
     def generate_binary_threshold(
         self,
+        loader: Optional[DataLoader] = None,
         labels: Optional[np.ndarray] = None,
         probabilities: Optional[np.ndarray] = None,
     ) -> None:
         if not self.need_binary_threshold:
             return
         if labels is None or probabilities is None:
-            x, labels = self.data.raw.x, self.data.processed.y
-            loader = self.preprocessor.make_inference_loader(x, contains_labels=True)
+            if loader is None:
+                raise ValueError(
+                    "either `loader` or `labels` & `probabilities` "
+                    "should be provided"
+                )
             probabilities = self.predict(loader, returns_probabilities=True)
         try:
             threshold = Metrics.get_binary_threshold(
