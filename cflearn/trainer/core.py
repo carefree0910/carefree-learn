@@ -314,7 +314,6 @@ class Trainer(LoggingMixin):
         if self._metrics_need_loss:
             loader = self._to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
-            # TODO : check how to apply sample weights here
             for (x_batch, y_batch), _ in loader:
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
