@@ -63,7 +63,7 @@ class NDT(ModelBase):
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
         x_merge = split_result.merge().cpu().numpy()
         self.dt = DecisionTreeClassifier(**self.dt_config, random_state=142857)
-        self.dt.fit(x_merge, y_ravel)
+        self.dt.fit(x_merge, y_ravel, sample_weight=tr_weights)
         tree_structure = export_structure(self.dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
