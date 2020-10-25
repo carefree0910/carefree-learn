@@ -212,7 +212,7 @@ class Auto:
             pattern_weights.extend([avg_weight] * num_patterns)
 
         pattern_weights = np.array(pattern_weights, np.float32)
-        self.pattern = ensemble(all_patterns, pattern_weights=pattern_weights)
+        self.pattern = Ensemble.stacking(all_patterns, pattern_weights=pattern_weights)
 
         return self
 
@@ -319,7 +319,7 @@ class Auto:
                     predictors[model] = local_predictors
 
         pattern_weights = np.array(pattern_weights, np.float32)
-        pattern = ensemble(patterns, pattern_weights=pattern_weights)
+        pattern = Ensemble.stacking(patterns, pattern_weights=pattern_weights)
 
         return UnPacked(pattern, predictors)
 
