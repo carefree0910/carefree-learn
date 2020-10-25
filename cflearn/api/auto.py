@@ -69,7 +69,7 @@ class Auto:
             if models != "auto":
                 self.models = [models]
             else:
-                self.models = ["linear", "fcnn", "tree_dnn", "tree_linear"]
+                self.models = ["linear", "fcnn", "tree_dnn"]
                 parsed_task_type = parse_task_type(task_type)
                 if parsed_task_type.is_ts:
                     self.models += ["rnn", "transformer"]
