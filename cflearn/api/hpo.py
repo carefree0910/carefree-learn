@@ -819,10 +819,16 @@ class OptunaPresetParams:
             model_config.update(dndf_param)
         return params
 
-    # TODO : optimize these four preset
-
     def _tree_linear_preset(self) -> optuna_params_type:
-        return shallow_copy_dict(self.base_params)
+        params = shallow_copy_dict(self.base_params)
+        if self.kwargs.get("tune_dndf", True):
+            dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6, True)
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            model_config.update(dndf_param)
+        return params
+
+    # TODO : optimize these three preset
 
     def _ddr_preset(self) -> optuna_params_type:
         return shallow_copy_dict(self.base_params)
