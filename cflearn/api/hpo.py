@@ -119,7 +119,9 @@ class _Tuner(LoggingMixin):
         self,
         metrics: Optional[Union[str, List[str]]],
     ) -> List[Estimator]:
-        if metrics is None:
+        if isinstance(metrics, str):
+            metrics = [metrics]
+        elif metrics is None:
             if self.task_type is None:
                 raise ValueError("either `task_type` or `metrics` should be provided")
             if parse_task_type(self.task_type) is TaskTypes.CLASSIFICATION:
@@ -865,8 +867,6 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         config = Saving.load_dict("config", config)
     model = config["model"]
     metrics = config["metrics"]
-    if isinstance(metrics, str):
-        metrics = [metrics]
     timeout = config["timeout"]
     num_repeat = config["num_repeat"]
     num_parallel = config["num_parallel"]
