@@ -29,6 +29,17 @@ class TestBlocks(unittest.TestCase):
 
         self.assertTrue(torch.allclose(torch_output, output))
 
+    def test_dndf(self) -> None:
+        input_dim = 256
+        output_dim = 512
+        batch_size = 32
+
+        net = torch.randn(batch_size, input_dim)
+        dndf = DNDF(input_dim, output_dim)
+        probabilities = dndf(net)
+
+        self.assertTrue(torch.allclose(probabilities.sum(1), torch.ones(batch_size)))
+
     def test_attention(self) -> None:
         num_heads = 8
         input_dim = embed_dim = 256
