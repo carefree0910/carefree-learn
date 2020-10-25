@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 import optuna
 
@@ -38,6 +39,7 @@ class UnPacked(NamedTuple):
 
 class Auto:
     data_folder = "__data__"
+    weights_mapping_file = "weights_mapping.json"
 
     def __init__(
         self,
@@ -195,25 +197,22 @@ class Auto:
 
         keys = list(self.patterns.keys())
         scores = [self.studies[k].best_value for k in keys]
-        keys_arr, scores_arr = map(np.array, [keys, scores])
-        scores_arr /= scores_arr.sum()
-        sorted_indices = np.argsort(scores_arr)[::-1]
-        sorted_keys = keys_arr[sorted_indices].tolist()
-        sorted_weights = scores_arr[sorted_indices].tolist()
+        keys_arr, weights_arr = map(np.array, [keys, scores])
+        weights_arr /= weights_arr.sum()
 
         all_patterns = []
         pattern_weights = []
-        for key, weight in zip(sorted_keys, sorted_weights):
+        self.weights_mapping = {}
+        for key, weight in zip(keys, weights_arr.tolist()):
             patterns = self.patterns[key]
             num_patterns = len(patterns)
             avg_weight = weight / num_patterns
             all_patterns.extend(patterns)
+            self.weights_mapping[key] = avg_weight
             pattern_weights.extend([avg_weight] * num_patterns)
 
-        self.pattern = ensemble(
-            all_patterns,
-            pattern_weights=np.array(pattern_weights, np.float32),
-        )
+        pattern_weights = np.array(pattern_weights, np.float32)
+        self.pattern = ensemble(all_patterns, pattern_weights=pattern_weights)
 
         return self
 
@@ -233,6 +232,7 @@ class Auto:
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
+            # data
             data_folder = os.path.join(export_folder, self.data_folder)
             if self.data is None:
                 raise ValueError("`data` is not generated yet")
@@ -241,6 +241,11 @@ class Auto:
                 retain_data=retain_data,
                 compress=False,
             )
+            # weights
+            weights_file = os.path.join(export_folder, self.weights_mapping_file)
+            with open(weights_file, "w") as f:
+                json.dump(self.weights_mapping, f)
+            # core
             iterator = self.models
             if use_tqdm:
                 iterator = tqdm(iterator, "pack")
@@ -272,6 +277,7 @@ class Auto:
         **predict_kwargs: Any,
     ) -> UnPacked:
         patterns = []
+        pattern_weights = []
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(
@@ -279,13 +285,19 @@ class Auto:
                 compress,
                 remove_extracted=True,
             ):
+                # data
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 data = TabularData.load(data_folder, compress=False)
                 predictors = {}
+                # weights
+                weights_file = os.path.join(export_folder, cls.weights_mapping_file)
+                with open(weights_file, "r") as f:
+                    weights_mapping = json.load(f)
+                # core
                 iterator = [
-                    folder
-                    for folder in os.listdir(export_folder)
-                    if folder != cls.data_folder
+                    stuff
+                    for stuff in os.listdir(export_folder)
+                    if stuff != cls.data_folder and stuff != cls.weights_mapping_file
                 ]
                 if use_tqdm:
                     iterator = tqdm(iterator, "unpack")
@@ -303,8 +315,12 @@ class Auto:
                         )
                         local_predictors.append(local_predictor)
                         patterns.append(local_predictor.to_pattern(**predict_kwargs))
+                        pattern_weights.append(weights_mapping[model])
                     predictors[model] = local_predictors
-        pattern = ensemble(patterns)
+
+        pattern_weights = np.array(pattern_weights, np.float32)
+        pattern = ensemble(patterns, pattern_weights=pattern_weights)
+
         return UnPacked(pattern, predictors)
 
     # visualization
