@@ -432,18 +432,28 @@ class OptunaParamConverter:
 
     @staticmethod
     def _convert_dndf_config(value: Any) -> optuna_params_type:
-        prefix, num_tree, tree_depth = value.split("_")
+        split = value.split("_")
+        if len(split) == 3:
+            force = False
+            prefix, num_tree, tree_depth = split
+        else:
+            force = True
+            assert split[-1] == "force"
+            prefix, num_tree, tree_depth = split[:-1]
         num_tree, tree_depth = map(int, [num_tree, tree_depth])
         num_tree = max(4, num_tree)
         tree_depth = max(2, tree_depth)
-        use_dndf_key = f"{prefix}_use_dndf"
         num_tree_key = f"{prefix}_num_tree"
         tree_depth_key = f"{prefix}_tree_depth"
-        return {
-            "use_dndf": OptunaParam(use_dndf_key, [True, False], "categorical"),
+        config = {
             "num_tree": OptunaParam(num_tree_key, [4, num_tree], "int", {"log": True}),
             "tree_depth": OptunaParam(tree_depth_key, [2, tree_depth], "int"),
         }
+        if not force:
+            use_dndf_key = f"{prefix}_use_dndf"
+            use_dndf_param = OptunaParam(use_dndf_key, [True, False], "categorical")
+            config[use_dndf_key] = use_dndf_param
+        return config
 
     @staticmethod
     def _convert_pruner_config(value: Any) -> optuna_params_type:
@@ -530,9 +540,12 @@ class OptunaParamConverter:
 
     @staticmethod
     def _parse_dndf_config(d: Dict[str, Any], trial: Trial) -> Any:
-        use_dndf = d["use_dndf"]
-        if trial is not None:
-            use_dndf = use_dndf.pop(trial)
+        use_dndf = d.get("use_dndf", None)
+        if use_dndf is None:
+            use_dndf = True
+        else:
+            if trial is not None:
+                use_dndf = use_dndf.pop(trial)
         if not use_dndf:
             return
         num_tree, tree_depth = d["num_tree"], d["tree_depth"]
@@ -595,9 +608,12 @@ class OptunaParamConverter:
         prefix: str,
         num_tree: int,
         tree_depth: int,
+        force: bool,
     ) -> Dict[str, str]:
         key = f"{cls.prefix}[dndf_config]"
         value = f"{prefix}_{num_tree}_{tree_depth}"
+        if force:
+            value = f"{value}_force"
         return {key: value}
 
     @classmethod
@@ -797,7 +813,7 @@ class OptunaPresetParams:
     def _tree_dnn_preset(self) -> optuna_params_type:
         params = self._fcnn_preset()
         if self.kwargs.get("tune_dndf", True):
-            dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6)
+            dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6, False)
             model_config = params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
             model_config.update(dndf_param)
