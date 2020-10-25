@@ -111,7 +111,7 @@ Then you will see something like this:
 2. fetch pre-defined hyper-parameters search space of each model from `OptunaPresetParams`.
 3. leverage `optuna` with `cflearn.optuna_tune` to perform hyper-parameters optimization.
 4. use searched hyper-parameters to train each model multiple times (separately).
-5. ensemble all trained models (with `cflearn.ensemble`).
+5. ensemble all trained models (with `cflearn.Ensemble.stacking`).
 6. record all these results to corresponding attributes.
 
 So after `cflearn.Auto.fit`, we can perform visualizations provided by `optuna` easily:
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     results = cflearn.repeat_with(x, y, num_repeat=3, num_jobs=0)
     patterns = results.patterns["fcnn"]
     # And it is fairly straight forward to apply stacking ensemble
-    ensemble = cflearn.ensemble(patterns)
+    ensemble = cflearn.Ensemble.stacking(patterns)
     patterns_dict = {"fcnn_3": patterns, "fcnn_3_ensemble": ensemble}
     cflearn.estimate(x, y, metrics=["acc", "auc"], other_patterns=patterns_dict)
 ```

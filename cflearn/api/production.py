@@ -18,7 +18,6 @@ from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cfdata.tabular import TabularData
 
-from .ensemble import ensemble
 from ..types import data_type
 from ..types import np_dict_type
 from ..pipeline.core import Pipeline

@@ -49,7 +49,7 @@ def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     repeat_result = cflearn.repeat_with(train_file, **repeat_config)
     patterns = repeat_result.patterns
     assert patterns is not None
-    ensemble = cflearn.ensemble(patterns[model])
+    ensemble = cflearn.Ensemble.stacking(patterns[model])
     cflearn._rmtree(logging_folder)
     return repeat_result.data, ensemble
 

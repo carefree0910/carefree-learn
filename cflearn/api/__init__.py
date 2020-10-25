@@ -42,7 +42,6 @@ __all__ = [
     "_rmtree",
     # ensemble
     "Benchmark",
-    "ensemble",
     "Ensemble",
     "EnsembleResults",
     # register

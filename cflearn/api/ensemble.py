@@ -310,37 +310,6 @@ class Benchmark(LoggingMixin):
         return benchmark, results
 
 
-def ensemble(
-    patterns: List[ModelPattern],
-    *,
-    pattern_weights: Optional[np.ndarray] = None,
-    ensemble_method: Optional[Union[str, collate_fn_type]] = None,
-) -> EnsemblePattern:
-    if ensemble_method is None:
-        if pattern_weights is None:
-            ensemble_method = "default"
-        else:
-            if abs(pattern_weights.sum() - 1.0) > 1e-4:
-                raise ValueError("`pattern_weights` should sum to 1.0")
-            pattern_weights = pattern_weights.reshape([-1, 1, 1])
-
-            def ensemble_method(
-                arrays: List[np.ndarray],
-                requires_prob: bool,
-            ) -> np.ndarray:
-                predictions = np.array(arrays).reshape(
-                    [len(arrays), len(arrays[0]), -1]
-                )
-                if requires_prob or not is_int(predictions):
-                    return (predictions * pattern_weights).sum(axis=0)
-                encodings = one_hot(to_torch(predictions).to(torch.long).squeeze())
-                encodings = encodings.to(torch.float32)
-                weighted = (encodings * pattern_weights).sum(dim=0)
-                return to_numpy(weighted.argmax(1)).reshape([-1, 1])
-
-    return EnsemblePattern(patterns, ensemble_method)
-
-
 class EnsembleResults(NamedTuple):
     data: TabularData
     pipelines: List[Pipeline]
@@ -351,7 +320,7 @@ class EnsembleResults(NamedTuple):
     def pattern(self) -> EnsemblePattern:
         predict_config = self.predict_config or {}
         patterns = [m.to_pattern(**predict_config) for m in self.pipelines]
-        return ensemble(patterns, pattern_weights=self.pattern_weights)
+        return Ensemble.stacking(patterns, pattern_weights=self.pattern_weights)
 
 
 class MetricsPlaceholder(NamedTuple):
@@ -368,6 +337,37 @@ class Ensemble:
         if config is None:
             config = {}
         self.config = shallow_copy_dict(config)
+
+    @staticmethod
+    def stacking(
+        patterns: List[ModelPattern],
+        *,
+        pattern_weights: Optional[np.ndarray] = None,
+        ensemble_method: Optional[Union[str, collate_fn_type]] = None,
+    ) -> EnsemblePattern:
+        if ensemble_method is None:
+            if pattern_weights is None:
+                ensemble_method = "default"
+            else:
+                if abs(pattern_weights.sum() - 1.0) > 1e-4:
+                    raise ValueError("`pattern_weights` should sum to 1.0")
+                pattern_weights = pattern_weights.reshape([-1, 1, 1])
+
+                def ensemble_method(
+                    arrays: List[np.ndarray],
+                    requires_prob: bool,
+                ) -> np.ndarray:
+                    predictions = np.array(arrays).reshape(
+                        [len(arrays), len(arrays[0]), -1]
+                    )
+                    if requires_prob or not is_int(predictions):
+                        return (predictions * pattern_weights).sum(axis=0)
+                    encodings = one_hot(to_torch(predictions).to(torch.long).squeeze())
+                    encodings = encodings.to(torch.float32)
+                    weighted = (encodings * pattern_weights).sum(dim=0)
+                    return to_numpy(weighted.argmax(1)).reshape([-1, 1])
+
+        return EnsemblePattern(patterns, ensemble_method)
 
     def bagging(
         self,
@@ -482,7 +482,6 @@ class Ensemble:
 
 __all__ = [
     "Benchmark",
-    "ensemble",
     "Ensemble",
     "EnsembleResults",
 ]

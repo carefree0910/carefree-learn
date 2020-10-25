@@ -27,7 +27,7 @@ from optuna.trial import Trial
 
 from .basic import *
 from ..misc.toolkit import *
-from .ensemble import ensemble
+from .ensemble import Ensemble
 from ..types import data_type
 from ..pipeline.core import Pipeline
 
@@ -275,7 +275,7 @@ def tune_with(
         result = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
         if num_repeat <= 1:
             return result.patterns[0]
-        return ensemble(result.patterns)
+        return Ensemble.stacking(result.patterns)
 
     if params is None:
         default_init_param = pu.Any(pu.Choice(values=[None, "truncated_normal"]))
