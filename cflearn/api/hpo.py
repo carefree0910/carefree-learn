@@ -865,6 +865,8 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         config = Saving.load_dict("config", config)
     model = config["model"]
     metrics = config["metrics"]
+    if isinstance(metrics, str):
+        metrics = [metrics]
     timeout = config["timeout"]
     num_repeat = config["num_repeat"]
     num_parallel = config["num_parallel"]
