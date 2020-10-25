@@ -232,7 +232,8 @@ def test_auto_file() -> None:
     prob1 = auto.predict_prob(te_file)
     export_name = "packed"
     auto.pack(export_name)
-    pattern = auto.unpack(export_name, **predict_config).pattern
+    unpacked = cflearn.Auto.unpack(export_name, **predict_config)
+    pattern = unpacked.pattern
     pred2 = pattern.predict(te_file)
     prob2 = pattern.predict(te_file, requires_prob=True)
     assert np.allclose(pred1, pred2)
