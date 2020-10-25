@@ -169,6 +169,7 @@ class TreeLinear(TreeDNN):
 
     def _init_config(self) -> None:
         super()._init_config()
+        self._loss_config["input_logits"] = False
         self._fc_out_dim: int = self.config.get("fc_out_dim")
         self.out_dim = max(self.tr_data.num_classes, 1)
         if self._fc_out_dim is None:
