@@ -107,6 +107,10 @@ class Pack(LoggingMixin):
         return os.path.join(self.export_folder, "output_names.json")
 
     @property
+    def output_probabilities_path(self) -> str:
+        return os.path.join(self.export_folder, "output_probabilities.txt")
+
+    @property
     def binary_config_path(self) -> str:
         return os.path.join(self.export_folder, "binary_config.json")
 
@@ -133,10 +137,13 @@ class Pack(LoggingMixin):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            onnx = ONNX(model=pipeline.model)
+            model = pipeline.model
+            onnx = ONNX(model=model)
             onnx.to_onnx(instance.onnx_path, **shallow_copy_dict(kwargs))
             with open(instance.onnx_output_names_path, "w") as f:
                 json.dump(onnx.output_names, f)
+            with open(instance.output_probabilities_path, "w") as f:
+                f.write(str(int(model.output_probabilities)))
             pipeline.preprocessor.save(
                 instance.preprocessor_folder,
                 save_data=pack_data,
@@ -171,10 +178,14 @@ class Pack(LoggingMixin):
                 logging_mixin=instance,
             ):
                 with open(instance.onnx_output_names_path, "r") as f:
-                    onnx_config = {
-                        "onnx_path": instance.onnx_path,
-                        "output_names": json.load(f),
-                    }
+                    output_names = json.load(f)
+                with open(instance.output_probabilities_path, "r") as f:
+                    output_probabilities = bool(int(f.read().strip()))
+                onnx_config = {
+                    "onnx_path": instance.onnx_path,
+                    "output_names": output_names,
+                    "output_probabilities": output_probabilities,
+                }
                 predictor = Predictor(
                     onnx_config,
                     instance.preprocessor_folder,

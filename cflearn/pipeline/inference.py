@@ -125,6 +125,7 @@ class ONNX:
             self.model = None
             onnx_path = onnx_config["onnx_path"]
             self.output_names = onnx_config["output_names"]
+            self.output_probabilities = onnx_config["output_probabilities"]
             self.ort_session = InferenceSession(onnx_path)
         else:
             assert model is not None
@@ -136,6 +137,7 @@ class ONNX:
                 outputs = self.model(self.input_sample)
             self.input_names = sorted(self.input_sample.keys())
             self.output_names = sorted(outputs.keys())
+            self.output_probabilities = model.output_probabilities
             self.model.device = device
             self.model.to(device)
 
@@ -225,10 +227,12 @@ class Inference(LoggingMixin):
                     "`model` will be ignored"
                 )
             self.onnx = ONNX(onnx_config=onnx_config)
+            self.output_probabilities = self.onnx.output_probabilities
             self.model = None
         else:
             self.onnx = None
             self.model = model
+            self.output_probabilities = model.output_probabilities
 
     def __str__(self) -> str:
         return f"Inference({self.model if self.model is not None else 'ONNX'})"
@@ -368,13 +372,13 @@ class Inference(LoggingMixin):
 
         predictions = collated["logits"] = collated["predictions"]
         if returns_probabilities:
-            if self.model is None or not self.model.output_probabilities:
+            if not self.output_probabilities:
                 predictions = to_prob(predictions)
             return _return(predictions)
         if not self.is_binary or self.binary_threshold is None:
             return _return(predictions.argmax(1).reshape([-1, 1]))
 
-        if self.model is not None and self.model.output_probabilities:
+        if self.output_probabilities:
             probabilities = predictions
         else:
             probabilities = to_prob(predictions)
