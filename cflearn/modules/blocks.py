@@ -213,9 +213,9 @@ class DNDF(nn.Module):
 
         shape = num_batch, -1, self._num_internals
         p_left = torch.sigmoid(tree_net).view(*shape).transpose(0, 1)
-        p_left = p_left.contiguous().view(p_left.shape[0], -1)
         p_right = 1.0 - p_left
         flat_probabilities = torch.cat([p_left, p_right], dim=-1)
+        flat_probabilities = flat_probabilities.contiguous().view(self._num_tree, -1)
         num_flat_prob = 2 * self._num_internals
         device = self.increment_masks.device
         batch_arange = torch.arange(0, num_flat_prob * num_batch, num_flat_prob)
