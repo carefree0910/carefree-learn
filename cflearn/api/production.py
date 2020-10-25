@@ -193,17 +193,5 @@ class Pack(LoggingMixin):
                     predictor.inference.inject_binary_config(cfg)
         return predictor
 
-    @staticmethod
-    def ensemble(
-        predictors: List[Predictor],
-        weights: Optional[np.ndarray],
-        **kwargs: Any,
-    ) -> EnsemblePattern:
-        patterns = [
-            predictor.to_pattern(**shallow_copy_dict(kwargs))
-            for predictor in predictors
-        ]
-        return ensemble(patterns, pattern_weights=weights)
-
 
 __all__ = ["Pack"]
