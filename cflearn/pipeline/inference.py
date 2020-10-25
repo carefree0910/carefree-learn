@@ -368,13 +368,13 @@ class Inference(LoggingMixin):
 
         predictions = collated["logits"] = collated["predictions"]
         if returns_probabilities:
-            if not self.model.output_probabilities:
+            if self.model is None or not self.model.output_probabilities:
                 predictions = to_prob(predictions)
             return _return(predictions)
         if not self.is_binary or self.binary_threshold is None:
             return _return(predictions.argmax(1).reshape([-1, 1]))
 
-        if self.model.output_probabilities:
+        if self.model is not None and self.model.output_probabilities:
             probabilities = predictions
         else:
             probabilities = to_prob(predictions)

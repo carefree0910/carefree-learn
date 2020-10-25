@@ -445,7 +445,7 @@ class OptunaParamConverter:
         tree_depth = max(2, tree_depth)
         num_tree_key = f"{prefix}_num_tree"
         tree_depth_key = f"{prefix}_tree_depth"
-        config = {
+        config: optuna_params_type = {
             "num_tree": OptunaParam(num_tree_key, [4, num_tree], "int", {"log": True}),
             "tree_depth": OptunaParam(tree_depth_key, [2, tree_depth], "int"),
         }
