@@ -232,6 +232,8 @@ class Inference(LoggingMixin):
         else:
             self.onnx = None
             self.model = model
+            if model is None:
+                raise ValueError("either `onnx_config` or `model` should be provided")
             self.output_probabilities = model.output_probabilities
 
     def __str__(self) -> str:

@@ -138,6 +138,8 @@ class Pack(LoggingMixin):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             model = pipeline.model
+            if model is None:
+                raise ValueError("`model` is not generated yet")
             onnx = ONNX(model=model)
             onnx.to_onnx(instance.onnx_path, **shallow_copy_dict(kwargs))
             with open(instance.onnx_output_names_path, "w") as f:
