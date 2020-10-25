@@ -215,7 +215,8 @@ def test_file_dataset2() -> None:
 
 
 def test_auto_file() -> None:
-    auto = cflearn.Auto("clf")
+    models = ["linear", "fcnn", "tree_dnn", "tree_linear", "nnb", "ndt"]
+    auto = cflearn.Auto("clf", models=models)
     predict_config = {"contains_labels": True}
     extra_config = kwargs.copy()
     extra_config.pop("logging_folder")
