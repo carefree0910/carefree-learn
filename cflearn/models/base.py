@@ -107,6 +107,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         pass
 
     @property
+    def output_probabilities(self) -> bool:
+        return False
+
+    @property
     def use_ema(self) -> bool:
         return self.ema is not None
 

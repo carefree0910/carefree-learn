@@ -163,6 +163,10 @@ class TreeDNN(FCNN):
 
 @FCNN.register("tree_linear")
 class TreeLinear(TreeDNN):
+    @property
+    def output_probabilities(self) -> bool:
+        return True
+
     def _preset_config(self) -> None:
         super()._preset_config()
         self.config["use_fcnn"] = False

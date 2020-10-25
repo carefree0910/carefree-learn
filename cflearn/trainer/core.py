@@ -346,7 +346,10 @@ class Trainer(LoggingMixin):
                         if logits is None:
                             msg = "`logits` should be returned in `inference.predict`"
                             raise ValueError(msg)
-                        metric_predictions = to_prob(logits)
+                        if self.model.output_probabilities:
+                            metric_predictions = logits
+                        else:
+                            metric_predictions = to_prob(logits)
                     else:
                         assert isinstance(predictions, np.ndarray)
                         metric_predictions = predictions
