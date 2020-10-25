@@ -149,13 +149,10 @@ def make(
     kwargs["model_config"] = model_config
     # metrics
     metric_config_: Dict[str, Any] = {}
-    if metrics is not None:
-        metric_config_["types"] = metrics
     if metric_config is not None:
-        if metrics is None or not isinstance(metrics, str):
-            metric_config_.update(metric_config)
-        else:
-            metric_config_[f"{metrics}_config"] = metric_config
+        metric_config_ = metric_config
+    elif metrics is not None:
+        metric_config_["types"] = metrics
     if metric_config_:
         trainer_config["metric_config"] = metric_config_
     # optimizers
