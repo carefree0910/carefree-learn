@@ -6,6 +6,7 @@ import torch
 import numpy as np
 
 from typing import *
+from cftool.dist import Parallel
 from cftool.misc import hash_code
 from cftool.misc import update_dict
 from cftool.misc import lock_manager
@@ -29,15 +30,20 @@ from ..dist import *
 from ..misc.toolkit import *
 from .register import register_metric
 from ..types import data_type
+from ..types import predictor_type
+from ..types import evaluator_type
 from ..pipeline.core import Pipeline
 
 
 class BenchmarkResults(NamedTuple):
     data: TabularData
-    best_configs: Dict[str, Dict[str, Any]]
-    best_methods: Dict[str, str]
-    experiments: Experiments
-    comparer: Comparer
+    # external usage
+    scores: Optional[np.ndarray]
+    # internal usage
+    best_configs: Optional[Dict[str, Dict[str, Any]]]
+    best_methods: Optional[Dict[str, str]]
+    experiments: Optional[Experiments]
+    comparer: Optional[Comparer]
 
 
 class Benchmark(LoggingMixin):
@@ -162,6 +168,7 @@ class Benchmark(LoggingMixin):
         }
         return BenchmarkResults(
             self.data,
+            None,
             best_configs,
             best_methods,
             experiments,
@@ -181,10 +188,33 @@ class Benchmark(LoggingMixin):
         self,
         k_iterator: Iterable,
         num_jobs: int,
+        predictor: predictor_type,
+        evaluator: evaluator_type,
         run_tasks: bool,
         predict_config: Optional[Dict[str, Any]],
         benchmarks: Optional[Dict[str, Dict[str, Dict[str, Any]]]],
     ) -> BenchmarkResults:
+        if predictor is not None and evaluator is not None:
+            indices = []
+            train_datasets = []
+            test_features, test_labels = [], []
+            for i, (train_split, test_split) in enumerate(k_iterator):
+                train_datasets.append(train_split.dataset)
+                te_x, te_y = test_split.dataset.xy
+                test_features.append(te_x)
+                test_labels.append(te_y)
+                indices.append(i)
+            parallel = Parallel(num_jobs)
+            parallel = parallel(predictor, indices, train_datasets, test_features)
+            predictions_list = parallel.ordered_results
+            return BenchmarkResults(
+                self.data,
+                evaluator(predictions_list, test_labels),
+                None,
+                None,
+                None,
+                None,
+            )
         if benchmarks is None:
             benchmarks = {}
         self.experiments = Experiments(self.temp_folder, use_cuda=self.use_cuda)
@@ -208,6 +238,10 @@ class Benchmark(LoggingMixin):
         y: data_type = None,
         *,
         num_jobs: int = 4,
+        # external usage
+        predictor: predictor_type = None,
+        evaluator: evaluator_type = None,
+        # internal usage
         run_tasks: bool = True,
         predict_config: Optional[Dict[str, Any]] = None,
         benchmarks: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
@@ -216,6 +250,8 @@ class Benchmark(LoggingMixin):
         return self._k_core(
             KFold(k, dataset),
             num_jobs,
+            predictor,
+            evaluator,
             run_tasks,
             predict_config,
             benchmarks,
@@ -229,6 +265,10 @@ class Benchmark(LoggingMixin):
         y: data_type = None,
         *,
         num_jobs: int = 4,
+        # external usage
+        predictor: predictor_type = None,
+        evaluator: evaluator_type = None,
+        # internal usage
         run_tasks: bool = True,
         predict_config: Optional[Dict[str, Any]] = None,
         benchmarks: Optional[Dict[str, Dict[str, Dict[str, Any]]]] = None,
@@ -237,6 +277,8 @@ class Benchmark(LoggingMixin):
         return self._k_core(
             KRandom(k, num_test, dataset),
             num_jobs,
+            predictor,
+            evaluator,
             run_tasks,
             predict_config,
             benchmarks,
