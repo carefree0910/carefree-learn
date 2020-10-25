@@ -166,18 +166,18 @@ class Initializer(LoggingMixin):
         std = self.config.setdefault("std", 1.0)
         tol = self.config.setdefault("tol", 0.0)
         epoch = self.config.setdefault("epoch", 20)
-        n_elem = param.numel()
-        weight_base = param.new_empty(n_elem).normal_()
+        num_elem = param.numel()
+        weight_base = param.new_empty(num_elem).normal_()
         get_invalid = lambda w: (w > span) | (w < -span)
         invalid = get_invalid(weight_base)
         success = False
         for _ in range(epoch):
-            n_invalid = int(invalid.sum())
-            if n_invalid / n_elem <= tol:
+            num_invalid = invalid.sum().item()
+            if num_invalid / num_elem <= tol:
                 success = True
                 break
             with torch.no_grad():
-                weight_base[invalid] = param.new_empty(n_invalid).normal_()
+                weight_base[invalid] = param.new_empty(num_invalid).normal_()
                 invalid = get_invalid(weight_base)
         if not success:
             self.log_msg(
