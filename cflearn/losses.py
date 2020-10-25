@@ -42,6 +42,7 @@ class LossBase(nn.Module, metaclass=ABCMeta):
 
 class FocalLoss(LossBase):
     def _init_config(self, config: Dict[str, Any]) -> None:
+        self._input_logits = config.setdefault("input_logits", True)
         self._eps = config.setdefault("eps", 1e-6)
         self._gamma = config.setdefault("gamma", 2.0)
         alpha = config.setdefault("alpha", None)
@@ -57,9 +58,12 @@ class FocalLoss(LossBase):
         target: torch.Tensor,
         **kwargs: Any,
     ) -> torch.Tensor:
-        logits_mat = predictions.view(-1, predictions.shape[-1])
+        if not self._input_logits:
+            prob_mat = predictions.view(-1, predictions.shape[-1]) + self._eps
+        else:
+            logits_mat = predictions.view(-1, predictions.shape[-1])
+            prob_mat = functional.softmax(logits_mat, dim=1) + self._eps
         target_column = target.view(-1, 1)
-        prob_mat = functional.softmax(logits_mat, dim=1) + self._eps
         gathered_prob_flat = prob_mat.gather(dim=1, index=target_column).view(-1)
         gathered_log_prob_flat = gathered_prob_flat.log()
         if self._alpha is not None:
