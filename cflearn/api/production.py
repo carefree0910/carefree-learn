@@ -2,16 +2,12 @@ import os
 import json
 import torch
 
-import numpy as np
-
 from typing import Any
 from typing import Dict
-from typing import List
 from typing import Union
 from typing import Optional
 from functools import partial
 from cftool.ml import ModelPattern
-from cftool.ml import EnsemblePattern
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
