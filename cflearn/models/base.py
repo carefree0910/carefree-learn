@@ -60,8 +60,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._pipeline_config = pipeline_config
         self.timing = self._pipeline_config["use_timing_context"]
         self.config = pipeline_config.setdefault("model_config", {})
-        self.tr_loader, self.cv_loader = tr_loader, cv_loader
-        self.tr_data, self.cv_data = tr_loader.data, cv_loader.data
+        self.tr_loader = tr_loader
+        self.cv_loader = cv_loader
+        self.tr_data = tr_loader.data
+        self.cv_data = None if cv_loader is None else cv_loader.data
         self.tr_weights, self.cv_weights = tr_weights, cv_weights
         self._preset_config()
         self._init_config()
@@ -108,12 +110,15 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if not true_categorical_columns:
             self.encoder = None
         else:
+            loaders = {"tr": self.tr_loader}
+            if self.cv_loader is not None:
+                loaders["cv"] = self.cv_loader
             self.encoder = Encoder(
                 categorical_dims,
                 encoding_methods,
                 encoding_configs,
                 true_categorical_columns,
-                {"tr": self.tr_loader, "cv": self.cv_loader},
+                loaders,
             )
 
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
