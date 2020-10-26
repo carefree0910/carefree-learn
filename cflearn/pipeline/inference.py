@@ -288,6 +288,7 @@ class Inference(LoggingMixin):
     def generate_binary_threshold(
         self,
         loader: Optional[DataLoader] = None,
+        loader_name: Optional[str] = None,
         labels: Optional[np.ndarray] = None,
         probabilities: Optional[np.ndarray] = None,
     ) -> None:
@@ -303,6 +304,7 @@ class Inference(LoggingMixin):
                 loader,
                 return_all=True,
                 returns_probabilities=True,
+                loader_name=loader_name,
             )
             labels = results["labels"]
             probabilities = results["predictions"]

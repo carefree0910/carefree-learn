@@ -263,13 +263,19 @@ class Trainer(LoggingMixin):
 
     @property
     def validation_loader_name(self) -> str:
-        return "tr" if self.validation_loader is self.tr_loader_copy else "cv"
+        loader = self.validation_loader
+        return "tr" if loader is self.tr_loader_copy else "cv"
 
     @property
     def binary_threshold_loader(self) -> DataLoader:
         if self.cv_loader is not None and len(self.cv_loader.data) >= 1000:
             return self.cv_loader
         return self.tr_loader_copy
+
+    @property
+    def binary_threshold_loader_name(self):
+        loader = self.binary_threshold_loader
+        return "tr" if loader is self.tr_loader_copy else "cv"
 
     # core
 
@@ -290,7 +296,9 @@ class Trainer(LoggingMixin):
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
             if self.start_snapshot and self.inference.need_binary_threshold:
-                self.inference.generate_binary_threshold(self.binary_threshold_loader)
+                loader = self.binary_threshold_loader
+                loader_name = self.binary_threshold_loader_name
+                self.inference.generate_binary_threshold(loader, loader_name)
             rs = self._get_metrics()
             if self.start_monitor_plateau:
                 if not self._monitor.plateau_flag:
@@ -542,7 +550,9 @@ class Trainer(LoggingMixin):
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
         if self.inference.need_binary_threshold:
-            self.inference.generate_binary_threshold(self.binary_threshold_loader)
+            loader = self.binary_threshold_loader
+            loader_name = self.binary_threshold_loader_name
+            self.inference.generate_binary_threshold(loader, loader_name)
         self.final_results = self._get_metrics()
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:

@@ -153,9 +153,12 @@ class Pack(LoggingMixin):
                 compress=False,
             )
             with open(instance.binary_config_path, "w") as f:
-                inference = pipeline.trainer.inference
+                trainer = pipeline.trainer
+                inference = trainer.inference
                 if inference.binary_threshold is None:
-                    inference.generate_binary_threshold(pipeline.tr_loader)
+                    loader = trainer.binary_threshold_loader
+                    loader_name = trainer.binary_threshold_loader_name
+                    inference.generate_binary_threshold(loader, loader_name)
                 json.dump(inference.binary_config, f)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
