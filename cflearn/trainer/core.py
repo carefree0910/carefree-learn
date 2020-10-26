@@ -604,6 +604,7 @@ class Trainer(LoggingMixin):
             loader_name = self.binary_threshold_loader_name
             rs = self.inference.generate_binary_threshold(loader, loader_name)
         self.final_results = self._get_metrics(rs)
+        self._log_metrics_msg(self.final_results)
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
         # better checkpoints will be placed earlier
