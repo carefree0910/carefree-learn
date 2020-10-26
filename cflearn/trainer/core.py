@@ -43,6 +43,8 @@ trains_logger: Optional[Logger] = None
 class IntermediateResults(NamedTuple):
     metrics: Dict[str, float]
     weighted_scores: Dict[str, float]
+    use_decayed: bool
+    decayed_metrics: Dict[str, float]
 
     @property
     def final_score(self) -> float:
@@ -259,6 +261,13 @@ class Trainer(LoggingMixin):
         )
 
     @property
+    def log_metrics_msg(self) -> bool:
+        min_period = self.max_step_per_snapshot / 3
+        min_period = math.ceil(min_period / self.num_step_per_snapshot)
+        period = max(1, int(min_period)) * self.num_step_per_snapshot
+        return self._step_count % period == 0
+
+    @property
     def validation_loader(self) -> DataLoader:
         if self.cv_loader is None:
             return self.tr_loader_copy
@@ -295,6 +304,14 @@ class Trainer(LoggingMixin):
     def _optimizer_step(self) -> None:
         self.model._optimizer_step(self.optimizers, self.scaler)
 
+    @staticmethod
+    def _metric_verbose(k: str, intermediate: IntermediateResults) -> str:
+        metric_str = fix_float_to_length(intermediate.metrics[k], 8)
+        if not intermediate.use_decayed:
+            return metric_str
+        decayed = intermediate.decayed_metrics[k]
+        return f"{metric_str} (ema: {fix_float_to_length(decayed, 8)})"
+
     # return whether we need to terminate
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
@@ -318,6 +335,21 @@ class Trainer(LoggingMixin):
                             2,
                         )
                     self._monitor.plateau_flag = True
+
+            with timing_context(self, "monitor.logging", enable=self.timing):
+                if self.log_metrics_msg:
+                    core = " | ".join([
+                        f"{k} : {self._metric_verbose(k, intermediate)}"
+                        for k in sorted(intermediate.metrics)
+                    ])
+                    msg = (
+                        f"| epoch {self._epoch_count:^4d} - "
+                        f"step {self._step_count:^6d} | {core} | "
+                        f"score : {fix_float_to_length(intermediate.final_score, 8)} |"
+                    )
+                    with open(self._log_file, "a") as f:
+                        f.write(f"{msg}\n")
+                    self.log_msg(msg, verbose_level=None)  # type: ignore
 
             with timing_context(self, "monitor.core", enable=self.timing):
                 if self.start_snapshot:
@@ -417,6 +449,8 @@ class Trainer(LoggingMixin):
                     "metric", sub_metric
                 )
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
+        if self._epoch_tqdm is not None:
+            self._epoch_tqdm.set_postfix(metrics_for_scoring)
         if self.tracker is not None or trains_logger is not None:
             for name, value in metrics_for_scoring.items():
                 if self.tracker is not None:
@@ -432,27 +466,12 @@ class Trainer(LoggingMixin):
             k: v * signs[k] * self.metrics_weights[k]
             for k, v in metrics_for_scoring.items()
         }
-        rs = IntermediateResults(metrics, weighted_scores)
-
-        if self._epoch_tqdm is not None:
-            self._epoch_tqdm.set_postfix(metrics_for_scoring)
-
-        def _metric_verbose(k: str) -> str:
-            metric_str = fix_float_to_length(metrics[k], 8)
-            if not use_decayed:
-                return metric_str
-            return f"{metric_str} (ema: {fix_float_to_length(decayed_metrics[k], 8)})"
-
-        msg = (
-            f"| epoch {self._epoch_count:^4d} - step {self._step_count:^6d} | "
-            f"{' | '.join([f'{k} : {_metric_verbose(k)}' for k in sorted(metrics)])} | "
-            f"score : {fix_float_to_length(rs.final_score, 8)} |"
+        return IntermediateResults(
+            metrics,
+            weighted_scores,
+            use_decayed,
+            decayed_metrics,
         )
-        with open(self._log_file, "a") as f:
-            f.write(f"{msg}\n")
-        self.log_msg(msg, verbose_level=None)  # type: ignore
-
-        return rs
 
     # api
 
