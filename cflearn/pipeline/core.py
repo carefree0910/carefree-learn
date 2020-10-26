@@ -105,7 +105,6 @@ class Pipeline(LoggingMixin):
         self._cv_split = self.config.setdefault("cv_split", 0.1)
         self._max_cv_split = self.config.setdefault("max_cv_split", 10000)
         self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
-        self._is_binary = self.config.get("is_binary")
         self._binary_config = self.config.setdefault("binary_config", {})
         self._binary_config.setdefault("binary_metric", "acc")
 
@@ -455,7 +454,6 @@ class Pipeline(LoggingMixin):
                 raise ValueError("`final_results` are not generated yet")
             score = final_results.final_score
             self.trainer.save_checkpoint(score, export_folder)
-            self.config["is_binary"] = self._is_binary
             if self.inference is None:
                 raise ValueError("`inference` is not yet generated")
             self.config["binary_config"] = self.inference.binary_config
