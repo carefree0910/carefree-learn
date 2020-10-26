@@ -80,6 +80,9 @@ class Trainer(LoggingMixin):
         self.timing = self._pipeline_config["use_timing_context"]
         self.use_tqdm = self._pipeline_config["use_tqdm"]
         self.config = pipeline_config.setdefault("trainer_config", {})
+        self.update_bt_runtime = self.config.setdefault(
+            "update_binary_threshold_at_runtime", False
+        )
         self.min_epoch = int(self.config.setdefault("min_epoch", 0))
         num_epoch = self.config.setdefault("num_epoch", max(40, self.min_epoch))
         max_epoch = self.config.setdefault("max_epoch", max(200, num_epoch))
@@ -298,10 +301,12 @@ class Trainer(LoggingMixin):
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
                 rs = None
-                if self.start_snapshot and self.inference.need_binary_threshold:
-                    loader = self.binary_threshold_loader
-                    loader_name = self.binary_threshold_loader_name
-                    rs = self.inference.generate_binary_threshold(loader, loader_name)
+                if self.update_bt_runtime and self.start_snapshot:
+                    inference = self.inference
+                    if inference.need_binary_threshold:
+                        loader = self.binary_threshold_loader
+                        loader_name = self.binary_threshold_loader_name
+                        rs = inference.generate_binary_threshold(loader, loader_name)
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
                 intermediate = self._get_metrics(rs)
