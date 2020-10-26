@@ -84,6 +84,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.merged_dim = 0
         self.one_hot_dim = 0
         self.embedding_dim = 0
+        bounds = torch.tensor(input_dims, dtype=torch.float32) - 1.0
+        self.register_buffer("bounds", bounds)
         self.tgt_columns = np.array(sorted(categorical_columns), np_int_type)
         self.merged_dims = defaultdict(int)
         self.embeddings = nn.ModuleDict()
@@ -117,6 +119,9 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         keys = None
         if loader_name is not None:
             keys = self._get_cache_keys(loader_name)
+        categorical_columns = x_batch[..., self.tgt_columns]
+        if batch_indices is None or loader_name is None:
+            self._oob_imputation(categorical_columns)
         # one hot
         if not self.use_one_hot:
             one_hot = None
@@ -124,7 +129,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             if keys is not None and batch_indices is not None:
                 one_hot = getattr(self, keys["one_hot"])[batch_indices]
             else:
-                one_hot_columns = x_batch[..., self.one_hot_columns]
+                one_hot_columns = categorical_columns[..., self._one_hot_indices]
                 one_hot_encodings = self._one_hot(one_hot_columns)
                 one_hot = torch.cat(one_hot_encodings, dim=1)
         # embedding
@@ -132,9 +137,10 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             embedding = None
         else:
             if keys is not None and batch_indices is not None:
-                indices = getattr(self, keys["embedding"])[batch_indices]
+                indices = getattr(self, keys["indices"])[batch_indices]
+                indices = indices[..., self._embed_indices]
             else:
-                indices = x_batch[..., self.embedding_columns].to(torch.long)
+                indices = categorical_columns[..., self._embed_indices].to(torch.long)
             embedding_encodings = self._embedding(indices.to(torch.long))
             embedding = torch.cat(embedding_encodings, dim=1)
         return EncodingResult(one_hot, embedding)
@@ -190,20 +196,28 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             return 0
         return sum([encodings[i].shape[1] for i in indices])
 
-    # TODO : apply this method to `_one_hot` & `_embedding`
-    def _oob_imputation(self, flat_features: torch.Tensor, num_values: int) -> None:
-        oob_mask = flat_features >= num_values
+    def _oob_imputation(
+        self,
+        categorical_columns: torch.Tensor,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+    ) -> None:
+        if loader_name is None or batch_indices is None:
+            oob_mask = categorical_columns > self.bounds
+        else:
+            keys = self._get_cache_keys(loader_name)
+            oob_mask = getattr(self, keys["oob"])[batch_indices]
         if torch.any(oob_mask):
             self.log_msg(  # type: ignore
-                f"out of bound occurred in categorical column {self.idx}, "
-                f"ratio : {torch.mean(oob_mask.to(torch.float)).item():8.6f}",
+                "out of bound occurred, "
+                f"ratio : {torch.mean(oob_mask.to(torch.float32)).item():8.6f}",
                 prefix=self.warning_prefix,
                 verbose_level=5,
                 msg_level=logging.WARNING,
             )
             # TODO : currently pytorch does not support onnx with bool masks
             #        in the future this line should be un-indented
-            flat_features[oob_mask] = 0
+            categorical_columns[oob_mask] = 0.0
 
     def _one_hot(self, one_hot_columns: torch.Tensor) -> List[torch.Tensor]:
         one_hot_encodings = []
@@ -224,7 +238,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _get_cache_keys(name: str) -> Dict[str, str]:
         return {
             "one_hot": f"{name}_one_hot_cache",
-            "embedding": f"{name}_indices_cache",
+            "indices": f"{name}_indices_cache",
+            "oob": f"{name}_oob_cache",
         }
 
     def _compile(self, loaders: Dict[str, DataLoader]) -> None:
@@ -239,15 +254,20 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 categorical_features.append(x_batch[..., self.tgt_columns])
             tensor = to_torch(np.vstack(categorical_features))
             keys = self._get_cache_keys(name)
+            # compile oob
+            indices = tensor.to(torch.long)
+            self.register_buffer(keys["indices"], indices)
+            self.register_buffer(keys["oob"], tensor > self.bounds)
+            self._oob_imputation(
+                tensor,
+                batch_indices=np.arange(len(tensor)),
+                loader_name=name,
+            )
             # compile one hot
             if self.use_one_hot:
                 one_hot_encodings = self._one_hot(tensor[..., self._one_hot_indices])
                 one_hot_cache = torch.cat(one_hot_encodings, dim=1)
                 self.register_buffer(keys["one_hot"], one_hot_cache)
-            # compile embedding
-            if self.use_embedding:
-                embedding_indices = tensor[..., self._embed_indices].to(torch.long)
-                self.register_buffer(keys["embedding"], embedding_indices)
 
 
 __all__ = ["Encoder", "EncodingResult"]
