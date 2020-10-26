@@ -295,33 +295,40 @@ class Trainer(LoggingMixin):
     # return whether we need to terminate
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
-            if self.start_snapshot and self.inference.need_binary_threshold:
-                loader = self.binary_threshold_loader
-                loader_name = self.binary_threshold_loader_name
-                self.inference.generate_binary_threshold(loader, loader_name)
-            rs = self._get_metrics()
-            if self.start_monitor_plateau:
-                if not self._monitor.plateau_flag:
-                    self.log_msg(  # type: ignore
-                        "start monitoring plateau",
-                        self.info_prefix,
-                        2,
-                    )
-                self._monitor.plateau_flag = True
-            if self.start_snapshot:
-                score = rs.final_score
-                if self.trial is not None:
-                    self.trial.report(score, step=self._step_count)
-                    if self.trial.should_prune():
-                        raise optuna.TrialPruned()
-                if self._monitor.check_terminate(score):
-                    return True
-                for key, scheduler in self.schedulers.items():
-                    if scheduler is not None:
-                        kwargs = {}
-                        if key in self.schedulers_requires_metric:
-                            kwargs["metrics"] = score
-                        scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
+
+            with timing_context(self, "monitor.binary_threshold", enable=self.timing):
+                if self.start_snapshot and self.inference.need_binary_threshold:
+                    loader = self.binary_threshold_loader
+                    loader_name = self.binary_threshold_loader_name
+                    self.inference.generate_binary_threshold(loader, loader_name)
+
+            with timing_context(self, "monitor.get_metrics", enable=self.timing):
+                rs = self._get_metrics()
+                if self.start_monitor_plateau:
+                    if not self._monitor.plateau_flag:
+                        self.log_msg(  # type: ignore
+                            "start monitoring plateau",
+                            self.info_prefix,
+                            2,
+                        )
+                    self._monitor.plateau_flag = True
+
+            with timing_context(self, "monitor.core", enable=self.timing):
+                if self.start_snapshot:
+                    score = rs.final_score
+                    if self.trial is not None:
+                        self.trial.report(score, step=self._step_count)
+                        if self.trial.should_prune():
+                            raise optuna.TrialPruned()
+                    if self._monitor.check_terminate(score):
+                        return True
+                    for key, scheduler in self.schedulers.items():
+                        if scheduler is not None:
+                            kwargs = {}
+                            if key in self.schedulers_requires_metric:
+                                kwargs["metrics"] = score
+                            scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
+
         return False
 
     def _get_metrics(self) -> IntermediateResults:
@@ -519,8 +526,7 @@ class Trainer(LoggingMixin):
                     if self.model.use_ema:
                         with timing_context(self, "EMA", enable=self.timing):
                             self.model.apply_ema()
-                    with timing_context(self, "monitor_step", enable=self.timing):
-                        terminate = self._monitor_step()
+                    terminate = self._monitor_step()
                     if terminate:
                         break
             except KeyboardInterrupt:

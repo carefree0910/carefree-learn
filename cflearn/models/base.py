@@ -58,6 +58,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.device = device
         self.use_tqdm = use_tqdm
         self._pipeline_config = pipeline_config
+        self.timing = self._pipeline_config["use_timing_context"]
         self.config = pipeline_config.setdefault("model_config", {})
         self.tr_loader, self.cv_loader = tr_loader, cv_loader
         self.tr_data, self.cv_data = tr_loader.data, cv_loader.data
@@ -306,9 +307,9 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     ) -> SplitFeatures:
         if self.encoder is None:
             return SplitFeatures(None, x_batch)
-        with timing_context(self, "encoding"):
+        with timing_context(self, "encoding", enable=self.timing):
             encoding_result = self.encoder(x_batch, batch_indices, loader_name)
-        with timing_context(self, "fetch_numerical"):
+        with timing_context(self, "fetch_numerical", enable=self.timing):
             numerical = (
                 None
                 if not self._numerical_columns
