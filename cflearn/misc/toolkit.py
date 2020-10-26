@@ -19,6 +19,7 @@ except:
     amp = None
 
 from ..types import data_type
+from ..types import param_type
 from ..types import np_dict_type
 from ..types import tensor_dict_type
 
@@ -129,7 +130,7 @@ class Initializer(LoggingMixin):
         self.config = config
         self._verbose_level = config.setdefault("verbose_level", 2)
 
-    def initialize(self, param: nn.Parameter, method: str) -> Any:
+    def initialize(self, param: param_type, method: str) -> Any:
         custom_initializer = self.custom_initializer.get(method)
         if custom_initializer is None:
             return getattr(self, method)(param)
@@ -143,21 +144,21 @@ class Initializer(LoggingMixin):
         cls.defined_initialization.add(name)
         cls.custom_initializer[name] = f
 
-    def xavier_uniform(self, param: nn.Parameter) -> None:
+    def xavier_uniform(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.xavier_uniform_(param.data, gain)
 
-    def xavier_normal(self, param: nn.Parameter) -> None:
+    def xavier_normal(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.xavier_normal_(param.data, gain)
 
-    def normal(self, param: nn.Parameter) -> None:
+    def normal(self, param: param_type) -> None:
         mean = self.config.setdefault("mean", 0.0)
         std = self.config.setdefault("std", 1.0)
         with torch.no_grad():
             param.data.normal_(mean, std)
 
-    def truncated_normal(self, param: nn.Parameter) -> None:
+    def truncated_normal(self, param: param_type) -> None:
         span = self.config.setdefault("span", 2.0)
         mean = self.config.setdefault("mean", 0.0)
         std = self.config.setdefault("std", 1.0)
