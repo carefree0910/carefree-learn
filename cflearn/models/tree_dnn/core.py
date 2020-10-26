@@ -120,11 +120,12 @@ class TreeDNN(FCNN):
             return numerical
         if not use_one_hot:
             embedding = categorical.embedding
+            assert embedding is not None
             if numerical is None:
                 return embedding
             return torch.cat([numerical, embedding], dim=1)
-        assert not use_embedding
         one_hot = categorical.one_hot
+        assert not use_embedding and one_hot is not None
         if numerical is None:
             return one_hot
         return torch.cat([numerical, one_hot], dim=1)

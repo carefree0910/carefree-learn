@@ -22,12 +22,14 @@ class EncodingResult(NamedTuple):
     embedding: Optional[torch.Tensor]
 
     @property
-    def merged(self) -> Optional[torch.Tensor]:
+    def merged(self) -> torch.Tensor:
         if self.one_hot is None and self.embedding is None:
-            return None
+            raise ValueError("no data is provided in `EncodingResult`")
         if self.one_hot is None:
+            assert self.embedding is not None
             return self.embedding
         if self.embedding is None:
+            assert self.one_hot is not None
             return self.one_hot
         return torch.cat([self.one_hot, self.embedding], dim=1)
 
@@ -87,11 +89,11 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         bounds = torch.tensor(input_dims, dtype=torch.float32) - 1.0
         self.register_buffer("bounds", bounds)
         self.tgt_columns = np.array(sorted(categorical_columns), np_int_type)
-        self.merged_dims = defaultdict(int)
+        self.merged_dims: Dict[int, int] = defaultdict(int)
         self.embeddings = nn.ModuleDict()
         self.one_hot_encoders = nn.ModuleDict()
-        self._one_hot_indices = []
-        self._embed_indices = []
+        self._one_hot_indices: List[int] = []
+        self._embed_indices: List[int] = []
         for i, (in_dim, methods, config) in enumerate(
             zip(input_dims, methods_list, configs)
         ):

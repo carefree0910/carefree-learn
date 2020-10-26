@@ -31,14 +31,14 @@ class SplitFeatures(NamedTuple):
     numerical: Optional[torch.Tensor]
 
     def merge(self) -> torch.Tensor:
-        categorical = self.categorical.merged
+        categorical = self.categorical
         if categorical is None:
             assert self.numerical is not None
             return self.numerical
+        merged = categorical.merged
         if self.numerical is None:
-            assert categorical is not None
-            return categorical
-        return torch.cat([self.numerical, categorical], dim=1)
+            return merged
+        return torch.cat([self.numerical, merged], dim=1)
 
 
 class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
@@ -237,7 +237,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     @property
     def categorical_dims(self) -> Dict[int, int]:
-        dims = {}
+        dims: Dict[int, int] = {}
         if self.encoder is None:
             return dims
         merged_dims = self.encoder.merged_dims

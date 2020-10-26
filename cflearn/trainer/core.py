@@ -273,7 +273,7 @@ class Trainer(LoggingMixin):
         return self.tr_loader_copy
 
     @property
-    def binary_threshold_loader_name(self):
+    def binary_threshold_loader_name(self) -> str:
         loader = self.binary_threshold_loader
         return "tr" if loader is self.tr_loader_copy else "cv"
 

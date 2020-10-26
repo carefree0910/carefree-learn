@@ -400,7 +400,7 @@ class Inference(LoggingMixin):
         self,
         use_grad: bool,
         loader: DataLoader,
-        loader_name: str,
+        loader_name: Optional[str],
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
         return_indices = loader.return_indices
