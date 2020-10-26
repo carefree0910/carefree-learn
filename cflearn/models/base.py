@@ -7,8 +7,9 @@ import torch.nn as nn
 from typing import *
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
-from cftool.misc import LoggingMixin
 from cftool.misc import register_core
+from cftool.misc import timing_context
+from cftool.misc import LoggingMixin
 from torch.optim import Optimizer
 from abc import ABCMeta, abstractmethod
 
@@ -287,27 +288,28 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         *,
         return_all_encodings: bool = False,
     ) -> SplitFeatures:
-        categorical_columns = []
-        for idx_str in sorted(self.encoders):
-            encoder = self.encoders[idx_str]
-            mapping_idx = self.categorical_columns_mapping[int(idx_str)]
-            categorical_columns.append(
-                encoder(x_batch[..., mapping_idx], return_all=return_all_encodings)
+        with timing_context(self, "collate_categorical_features"):
+            categorical_columns = []
+            for idx_str in sorted(self.encoders):
+                encoder = self.encoders[idx_str]
+                mapping_idx = self.categorical_columns_mapping[int(idx_str)]
+                categorical_columns.append(
+                    encoder(x_batch[..., mapping_idx], return_all=return_all_encodings)
+                )
+            categorical: Optional[Union[torch.Tensor, tensor_dict_type]]
+            if not categorical_columns:
+                categorical = None
+            elif not return_all_encodings:
+                categorical = torch.cat(categorical_columns, dim=1)
+            else:
+                categorical = collate_tensor_dicts(categorical_columns, dim=1)
+
+        with timing_context(self, "fetch_numerical_features"):
+            numerical = (
+                None
+                if not self._numerical_columns
+                else x_batch[..., self._numerical_columns]
             )
-
-        categorical: Optional[Union[torch.Tensor, tensor_dict_type]]
-        if not categorical_columns:
-            categorical = None
-        elif not return_all_encodings:
-            categorical = torch.cat(categorical_columns, dim=1)
-        else:
-            categorical = collate_tensor_dicts(categorical_columns, dim=1)
-
-        numerical = (
-            None
-            if not self._numerical_columns
-            else x_batch[..., self._numerical_columns]
-        )
 
         return SplitFeatures(categorical, numerical)
 
