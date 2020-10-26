@@ -84,7 +84,10 @@ class Pipeline(LoggingMixin):
         if isinstance(self._cv_split, int):
             return self._cv_split
         num_data = len(self._original_data)
-        cv_split_num = int(round(self._cv_split * num_data))
+        if self._cv_split is not None:
+            return int(round(self._cv_split * num_data))
+        default_cv_split = 0.1
+        cv_split_num = int(round(default_cv_split * num_data))
         cv_split_num = max(self._min_cv_split, cv_split_num)
         max_cv_split = int(round(num_data * self._max_cv_split_ratio))
         max_cv_split = min(self._max_cv_split, max_cv_split)
@@ -106,7 +109,7 @@ class Pipeline(LoggingMixin):
         self._data_config["use_timing_context"] = self.timing
         self._data_config["default_categorical_process"] = "identical"
         self._read_config = self.config.setdefault("read_config", {})
-        self._cv_split = self.config.setdefault("cv_split", 0.1)
+        self._cv_split = self.config.setdefault("cv_split", None)
         self._min_cv_split = self.config.setdefault("min_cv_split", 100)
         self._max_cv_split = self.config.setdefault("max_cv_split", 10000)
         self._max_cv_split_ratio = self.config.setdefault("max_cv_split_ratio", 0.5)
