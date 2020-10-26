@@ -262,6 +262,10 @@ class Trainer(LoggingMixin):
         return self.cv_loader
 
     @property
+    def validation_loader_name(self) -> str:
+        return "tr" if self.validation_loader is self.tr_loader_copy else "cv"
+
+    @property
     def binary_threshold_loader(self) -> DataLoader:
         if self.cv_loader is not None and len(self.cv_loader.data) >= 1000:
             return self.cv_loader
@@ -316,7 +320,7 @@ class Trainer(LoggingMixin):
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
         loader = self.validation_loader
-        loader_name = "tr" if loader is self.tr_loader_copy else "cv"
+        loader_name = self.validation_loader_name
         # predictions
         keys = ["logits", "predictions", "labels"]
         results = self.inference.predict(
