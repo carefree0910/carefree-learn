@@ -255,6 +255,12 @@ class Trainer(LoggingMixin):
             ),
         )
 
+    @property
+    def validation_loader(self) -> DataLoader:
+        if self.cv_loader is None:
+            return self.tr_loader_copy
+        return self.cv_loader
+
     # core
 
     def _to_tqdm(self, loader: DataLoader) -> Union[tqdm, DataLoader]:
@@ -301,13 +307,9 @@ class Trainer(LoggingMixin):
         return False
 
     def _get_metrics(self) -> IntermediateResults:
-        tr_loader, cv_loader = self.tr_loader, self.cv_loader
-        if cv_loader is None and self.tr_loader._num_siamese > 1:
+        if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
-        if cv_loader is not None:
-            loader = cv_loader
-        else:
-            loader = self.tr_loader_copy
+        loader = self.validation_loader
         # predictions
         keys = ["logits", "predictions", "labels"]
         results = self.inference.predict(loader=loader, return_all=True)
