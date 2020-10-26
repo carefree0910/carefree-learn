@@ -45,8 +45,7 @@ class NNB(ModelBase):
         # prepare
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
-        x_tensor = torch.from_numpy(x).to(device)
-        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)), "tr")
+        split_result = self._split_features(to_torch(x), np.arange(len(x)), "tr")
         # numerical
         num_numerical = len(self._numerical_columns)
         if num_numerical == 0:

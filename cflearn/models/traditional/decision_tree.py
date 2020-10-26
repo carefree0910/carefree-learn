@@ -59,8 +59,7 @@ class NDT(ModelBase):
         # prepare
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
-        x_tensor = torch.from_numpy(x).to(device)
-        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)), "tr")
+        split_result = self._split_features(to_torch(x), np.arange(len(x)), "tr")
         # decision tree
         msg = "fitting decision tree"
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
