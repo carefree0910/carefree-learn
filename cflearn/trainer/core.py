@@ -297,13 +297,14 @@ class Trainer(LoggingMixin):
         if self._step_count % self.num_step_per_snapshot == 0:
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
+                rs = None
                 if self.start_snapshot and self.inference.need_binary_threshold:
                     loader = self.binary_threshold_loader
                     loader_name = self.binary_threshold_loader_name
-                    self.inference.generate_binary_threshold(loader, loader_name)
+                    rs = self.inference.generate_binary_threshold(loader, loader_name)
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                rs = self._get_metrics()
+                intermediate = self._get_metrics(rs)
                 if self.start_monitor_plateau:
                     if not self._monitor.plateau_flag:
                         self.log_msg(  # type: ignore
@@ -315,7 +316,7 @@ class Trainer(LoggingMixin):
 
             with timing_context(self, "monitor.core", enable=self.timing):
                 if self.start_snapshot:
-                    score = rs.final_score
+                    score = intermediate.final_score
                     if self.trial is not None:
                         self.trial.report(score, step=self._step_count)
                         if self.trial.should_prune():
@@ -331,19 +332,31 @@ class Trainer(LoggingMixin):
 
         return False
 
-    def _get_metrics(self) -> IntermediateResults:
+    def _get_metrics(
+        self,
+        binary_threshold_outputs: Optional[Tuple[np.ndarray, np.ndarray]],
+    ) -> IntermediateResults:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
         loader = self.validation_loader
         loader_name = self.validation_loader_name
         # predictions
-        keys = ["logits", "predictions", "labels"]
-        results = self.inference.predict(
-            loader=loader,
-            loader_name=loader_name,
-            return_all=True,
-        )
-        logits, predictions, labels = map(results.get, keys)
+        if binary_threshold_outputs is not None:
+            labels, probabilities = binary_threshold_outputs
+            if not self.model.output_probabilities:
+                logits = None
+            else:
+                logits = probabilities
+            predictions = self.inference.predict_with(probabilities)
+        else:
+            keys = ["logits", "predictions", "labels"]
+            results = self.inference.predict(
+                loader=loader,
+                loader_name=loader_name,
+                return_all=True,
+            )
+            probabilities = None
+            logits, predictions, labels = map(results.get, keys)
         # losses
         loss_values = None
         if self._metrics_need_loss:
@@ -377,17 +390,20 @@ class Trainer(LoggingMixin):
                 if self.tr_loader.data.is_reg:
                     metric_predictions = predictions
                 else:
-                    if metric_ins.requires_prob:
-                        if logits is None:
+                    if not metric_ins.requires_prob:
+                        assert isinstance(predictions, np.ndarray)
+                        metric_predictions = predictions
+                    else:
+                        if logits is None and probabilities is None:
                             msg = "`logits` should be returned in `inference.predict`"
                             raise ValueError(msg)
                         if self.model.output_probabilities:
                             metric_predictions = logits
                         else:
-                            metric_predictions = to_prob(logits)
-                    else:
-                        assert isinstance(predictions, np.ndarray)
-                        metric_predictions = predictions
+                            if logits is None:
+                                metric_predictions = probabilities
+                            else:
+                                metric_predictions = to_prob(logits)
                 sub_metric = metric_ins.metric(labels, metric_predictions)
                 metrics[metric_type] = sub_metric
             if self.metrics_decay is not None and self.start_snapshot:
@@ -555,11 +571,12 @@ class Trainer(LoggingMixin):
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
         self._step_count = self._epoch_count = -1
+        rs = None
         if self.inference.need_binary_threshold:
             loader = self.binary_threshold_loader
             loader_name = self.binary_threshold_loader_name
-            self.inference.generate_binary_threshold(loader, loader_name)
-        self.final_results = self._get_metrics()
+            rs = self.inference.generate_binary_threshold(loader, loader_name)
+        self.final_results = self._get_metrics(rs)
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
         # better checkpoints will be placed earlier

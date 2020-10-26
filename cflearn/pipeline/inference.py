@@ -289,25 +289,17 @@ class Inference(LoggingMixin):
         self,
         loader: Optional[DataLoader] = None,
         loader_name: Optional[str] = None,
-        labels: Optional[np.ndarray] = None,
-        probabilities: Optional[np.ndarray] = None,
-    ) -> None:
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
         if not self.need_binary_threshold:
-            return
-        if labels is None or probabilities is None:
-            if loader is None:
-                raise ValueError(
-                    "either `loader` or `labels` & `probabilities` "
-                    "should be provided"
-                )
-            results = self.predict(
-                loader,
-                return_all=True,
-                returns_probabilities=True,
-                loader_name=loader_name,
-            )
-            labels = results["labels"]
-            probabilities = results["predictions"]
+            return None
+        results = self.predict(
+            loader,
+            return_all=True,
+            returns_probabilities=True,
+            loader_name=loader_name,
+        )
+        labels = results["labels"]
+        probabilities = results["predictions"]
         try:
             threshold = Metrics.get_binary_threshold(
                 labels,
@@ -317,6 +309,20 @@ class Inference(LoggingMixin):
             self.binary_threshold = threshold.item()
         except ValueError:
             self.binary_threshold = None
+
+        if loader_name == "tr":
+            return None
+        return labels, probabilities
+
+    def predict_with(self, probabilities: np.ndarray) -> np.ndarray:
+        if not self.is_binary or self.binary_threshold is None:
+            return probabilities.argmax(1).reshape([-1, 1])
+        predictions = (
+            (probabilities[..., 1] >= self.binary_threshold)
+            .astype(np_int_type)
+            .reshape([-1, 1])
+        )
+        return predictions
 
     def predict(
         self,
@@ -389,12 +395,7 @@ class Inference(LoggingMixin):
             probabilities = predictions
         else:
             probabilities = to_prob(predictions)
-        predictions = (
-            (probabilities[..., 1] >= self.binary_threshold)
-            .astype(np_int_type)
-            .reshape([-1, 1])
-        )
-        return _return(predictions)
+        return _return(self.predict_with(probabilities))
 
     def _get_results(
         self,
