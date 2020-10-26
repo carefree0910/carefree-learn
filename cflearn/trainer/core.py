@@ -312,6 +312,20 @@ class Trainer(LoggingMixin):
         decayed = intermediate.decayed_metrics[k]
         return f"{metric_str} (ema: {fix_float_to_length(decayed, 8)})"
 
+    def _log_metrics_msg(self, intermediate: IntermediateResults) -> None:
+        core = " | ".join([
+            f"{k} : {self._metric_verbose(k, intermediate)}"
+            for k in sorted(intermediate.metrics)
+        ])
+        msg = (
+            f"| epoch {self._epoch_count:^4d} - "
+            f"step {self._step_count:^6d} | {core} | "
+            f"score : {fix_float_to_length(intermediate.final_score, 8)} |"
+        )
+        with open(self._log_file, "a") as f:
+            f.write(f"{msg}\n")
+        self.log_msg(msg, verbose_level=None)  # type: ignore
+
     # return whether we need to terminate
     def _monitor_step(self) -> bool:
         if self._step_count % self.num_step_per_snapshot == 0:
@@ -338,18 +352,7 @@ class Trainer(LoggingMixin):
 
             with timing_context(self, "monitor.logging", enable=self.timing):
                 if self.log_metrics_msg:
-                    core = " | ".join([
-                        f"{k} : {self._metric_verbose(k, intermediate)}"
-                        for k in sorted(intermediate.metrics)
-                    ])
-                    msg = (
-                        f"| epoch {self._epoch_count:^4d} - "
-                        f"step {self._step_count:^6d} | {core} | "
-                        f"score : {fix_float_to_length(intermediate.final_score, 8)} |"
-                    )
-                    with open(self._log_file, "a") as f:
-                        f.write(f"{msg}\n")
-                    self.log_msg(msg, verbose_level=None)  # type: ignore
+                    self._log_metrics_msg(intermediate)
 
             with timing_context(self, "monitor.core", enable=self.timing):
                 if self.start_snapshot:
