@@ -201,6 +201,9 @@ class Trainer(LoggingMixin):
                 metric_types = ["auc", "acc"]
         if not isinstance(metric_types, (list, tuple)):
             metric_types = [metric_types]
+        if self.inference.use_binary_threshold:
+            if "acc" in metric_types and self.inference.binary_metric is None:
+                self.inference.binary_metric = "acc"
         self._metrics_need_loss = False
         self.metrics: Dict[str, Optional[Metrics]] = {}
         self.metrics_decay: Optional[Dict[str, ScalarEMA]] = {}

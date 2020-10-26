@@ -106,7 +106,6 @@ class Pipeline(LoggingMixin):
         self._max_cv_split = self.config.setdefault("max_cv_split", 10000)
         self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
         self._binary_config = self.config.setdefault("binary_config", {})
-        self._binary_config.setdefault("binary_metric", "acc")
 
         self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
         self.batch_size = self.config.setdefault("batch_size", 128)
