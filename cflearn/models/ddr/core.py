@@ -17,6 +17,7 @@ from cftool.misc import is_numeric
 from cftool.misc import update_dict
 from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from ...types import tensor_dict_type
 
@@ -51,21 +52,24 @@ class DDR(FCNN):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
-        if not tr_data.task_type.is_reg:
+        if not tr_loader.data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
         super().__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
         self.__feature_params: List[nn.Parameter] = []
         self.__reg_params: List[nn.Parameter] = []
@@ -945,10 +949,15 @@ class DDR(FCNN):
 
     # API
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         forward_dict = {}
         x_batch = batch["x_batch"]
-        init = self._split_features(x_batch).merge()
+        init = self._split_features(x_batch, batch_indices).merge()
         if self.tr_data.is_ts:
             init = init.view(init.shape[0], -1)
         predict_pdf, predict_cdf = map(kwargs.get, ["predict_pdf", "predict_cdf"])

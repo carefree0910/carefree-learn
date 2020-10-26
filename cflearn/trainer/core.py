@@ -329,7 +329,7 @@ class Trainer(LoggingMixin):
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self.model):
-                    forward_dicts.append(self.model(batch))
+                    forward_dicts.append(self.model(batch, batch_indices))
                     loss_dicts.append(
                         self.model.loss_function(
                             batch,
@@ -414,15 +414,14 @@ class Trainer(LoggingMixin):
     def fit(
         self,
         tr_loader: DataLoader,
+        tr_loader_copy: DataLoader,
         cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
     ) -> None:
-        self.tr_loader, self.cv_loader = tr_loader, cv_loader
-        self.tr_loader_copy = tr_loader.copy()
-        self.tr_loader_copy.return_indices = tr_loader.return_indices
-        self.tr_loader_copy.enabled_sampling = False
-        self.tr_loader_copy.sampler.shuffle = False
+        self.tr_loader = tr_loader
+        self.tr_loader_copy = tr_loader_copy
+        self.cv_loader = cv_loader
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)
@@ -469,7 +468,7 @@ class Trainer(LoggingMixin):
                         batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
-                            forward_results = self.model(batch)
+                            forward_results = self.model(batch, batch_indices)
                         with timing_context(self, "loss.forward", enable=self.timing):
                             loss_dict = self.model.loss_function(
                                 batch,

@@ -6,9 +6,8 @@ from .schedulers import *
 
 __all__ = [
     "EMA",
-    "EncoderBase",
-    "EncoderStack",
-    "encoder_dict",
+    "Encoder",
+    "EncodingResult",
     "optimizer_dict",
     "register_optimizer",
     "scheduler_dict",

@@ -11,6 +11,7 @@ from typing import Callable
 from typing import Optional
 from functools import partial
 from cfdata.types import np_int_type
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfml.models.naive_bayes import MultinomialNB
 
@@ -25,25 +26,28 @@ class NNB(ModelBase):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         super().__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
         # prepare
-        x, y = tr_data.processed.xy
-        y_ravel, num_classes = y.ravel(), tr_data.num_classes
+        x, y = self.tr_data.processed.xy
+        y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
         x_tensor = torch.from_numpy(x).to(device)
-        split_result = self._split_features(x_tensor)
+        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)))
         # numerical
         num_numerical = len(self._numerical_columns)
         if num_numerical == 0:
@@ -67,16 +71,16 @@ class NNB(ModelBase):
                 )
             self.normal = torch.distributions.Normal(self.mu, self.std)
         # categorical
-        num_categorical_dim = self.encoding_dims.get("one_hot", 0)
-        if num_categorical_dim == 0:
+        one_hot_dim = self.one_hot_dim
+        if one_hot_dim == 0:
             self.mnb = None
             y_bincount = np.bincount(y_ravel).astype(np.float32)
             self.log_prior = nn.Parameter(torch.from_numpy(np.log(y_bincount / len(x))))
         else:
-            self.mnb = Linear(num_categorical_dim, num_classes, init_method=None)
+            self.mnb = Linear(one_hot_dim, num_classes, init_method=None)
             categorical = split_result.categorical
-            assert isinstance(categorical, torch.Tensor)
-            x_mnb = categorical.cpu().numpy()
+            assert categorical is not None and categorical.one_hot is not None
+            x_mnb = categorical.one_hot.cpu().numpy()
             y_mnb = y_ravel.astype(np_int_type)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
             with torch.no_grad():
@@ -135,9 +139,14 @@ class NNB(ModelBase):
             )
         return tuple(map(to_numpy, posteriors))
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        split_result = self._split_features(x_batch)
+        split_result = self._split_features(x_batch, batch_indices)
         # log prior
         log_prior = self.class_log_prior()
         # numerical
@@ -153,10 +162,10 @@ class NNB(ModelBase):
             numerical_log_prob = numerical_log_prob + log_prior
         else:
             categorical = split_result.categorical
+            assert categorical is not None and categorical.one_hot is not None
             log_posterior = self.log_posterior()
-            assert isinstance(categorical, torch.Tensor)
             categorical_log_prob = nn.functional.linear(
-                categorical,
+                categorical.one_hot,
                 log_posterior,
                 log_prior,
             )
@@ -184,7 +193,7 @@ class NNB(ModelBase):
         *,
         numpy: bool = False,
         return_groups: bool = False,
-    ) -> Union[np.ndarray, torch.Tensor]:
+    ) -> Any:
         mnb = self.mnb
         if mnb is None:
             raise ValueError("`mnb` is not trained")

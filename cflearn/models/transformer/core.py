@@ -6,6 +6,7 @@ import torch.nn as nn
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 
 from ...misc.toolkit import *
@@ -64,19 +65,22 @@ class Transformer(FCNN):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         super(FCNN, self).__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
         self._init_fcnn()
 
@@ -107,9 +111,14 @@ class Transformer(FCNN):
         self.norm = transformer_config.setdefault("norm", None)
         self.config["fc_in_dim"] = transformer_dim * self.num_history
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        net = self._split_features(x_batch).merge()
+        net = self._split_features(x_batch, batch_indices).merge()
         if self.input_linear is not None:
             net = self.input_linear(net)
         mask = batch.get("mask")

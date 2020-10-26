@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 from typing import *
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 
 from .rnns import rnn_dict
@@ -15,19 +16,22 @@ class RNN(FCNN):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         super(FCNN, self).__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
         input_dimensions = [self.tr_data.processed_dim]
         rnn_hidden_dim = self._rnn_config["hidden_size"]
@@ -48,9 +52,14 @@ class RNN(FCNN):
         self._rnn_config.setdefault("hidden_size", 256)
         self._rnn_config.setdefault("bidirectional", False)
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        net = self._split_features(x_batch).merge()
+        net = self._split_features(x_batch, batch_indices).merge()
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
         net = self.mlp(net[..., -1, :])

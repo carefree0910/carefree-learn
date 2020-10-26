@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 from typing import *
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 
 from ..base import ModelBase
@@ -15,19 +16,22 @@ class FCNN(ModelBase):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         super().__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
         self._init_fcnn()
 
@@ -67,9 +71,14 @@ class FCNN(ModelBase):
             final_mapping_config=final_mapping_config,
         )
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        net = self._split_features(x_batch).merge()
+        net = self._split_features(x_batch, batch_indices).merge()
         if self.tr_data.is_ts:
             net = net.view(x_batch.shape[0], -1)
         net = self.mlp(net)

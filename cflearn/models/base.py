@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from typing import *
 from cfdata.tabular import ColumnTypes
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cftool.misc import register_core
 from cftool.misc import timing_context
@@ -22,23 +23,16 @@ from ..losses import *
 from ..modules import *
 from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
-from ..misc.toolkit import collate_tensor_dicts
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
 class SplitFeatures(NamedTuple):
-    categorical: Optional[Union[torch.Tensor, tensor_dict_type]]
+    categorical: Optional[EncodingResult]
     numerical: Optional[torch.Tensor]
 
-    @property
-    def stacked_categorical(self) -> Optional[torch.Tensor]:
-        if not isinstance(self.categorical, dict):
-            return self.categorical
-        return torch.cat([self.categorical[k] for k in sorted(self.categorical)], dim=1)
-
     def merge(self) -> torch.Tensor:
-        categorical = self.stacked_categorical
+        categorical = self.categorical.merged
         if categorical is None:
             assert self.numerical is not None
             return self.numerical
@@ -52,33 +46,41 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         super().__init__()
         self.ema: Optional[EMA] = None
         self.device = device
+        self.use_tqdm = use_tqdm
         self._pipeline_config = pipeline_config
         self.config = pipeline_config.setdefault("model_config", {})
-        self.tr_data, self.cv_data = tr_data, cv_data
+        self.tr_loader = tr_loader
+        self.tr_data = tr_loader.data
+        self.cv_data = cv_data
         self.tr_weights, self.cv_weights = tr_weights, cv_weights
         self._preset_config()
         self._init_config()
         self._init_loss()
-        # encoders
+        # encoder
         excluded = 0
         self.numerical_columns_mapping = {}
         self.categorical_columns_mapping = {}
-        encoders: Dict[str, EncoderStack] = {}
-        if tr_data.is_simplify:
-            for idx in range(tr_data.raw_dim):
+        categorical_dims = []
+        encoding_methods = []
+        encoding_configs = []
+        true_categorical_columns = []
+        if self.tr_data.is_simplify:
+            for idx in range(self.tr_data.raw_dim):
                 self.numerical_columns_mapping[idx] = idx
         else:
-            ts_indices = tr_data.ts_indices
-            recognizers = tr_data.recognizers
+            ts_indices = self.tr_data.ts_indices
+            recognizers = self.tr_data.recognizers
             sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
             for idx in sorted_indices:
                 recognizer = recognizers[idx]
@@ -87,10 +89,35 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                     self.numerical_columns_mapping[idx] = idx - excluded
                 else:
-                    self._init_encoder(idx, encoders)
-                    self.categorical_columns_mapping[idx] = idx - excluded
-        self.encoders = nn.ModuleDict(encoders)
-        self._categorical_dim = sum(encoder.dim for encoder in self.encoders.values())
+                    str_idx = str(idx)
+                    categorical_dims.append(
+                        self.tr_data.recognizers[idx].num_unique_values
+                    )
+                    encoding_methods.append(
+                        self._encoding_methods.setdefault(
+                            str_idx, self._default_encoding_method
+                        )
+                    )
+                    encoding_configs.append(
+                        self._encoding_configs.setdefault(
+                            str_idx, self._default_encoding_configs
+                        )
+                    )
+                    true_idx = idx - excluded
+                    true_categorical_columns.append(true_idx)
+                    self.categorical_columns_mapping[idx] = true_idx
+        if not true_categorical_columns:
+            self.encoder = None
+        else:
+            self.encoder = Encoder(
+                categorical_dims,
+                encoding_methods,
+                encoding_configs,
+                true_categorical_columns,
+                self.tr_loader,
+            )
+
+        self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
 
     @property
@@ -102,7 +129,12 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return {"x_batch": x, "y_batch": y}
 
     @abstractmethod
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
         # requires returning `predictions` key
         pass
@@ -193,24 +225,26 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return merged_dim * self.num_history
 
     @property
-    def encoding_dims(self) -> Dict[str, int]:
-        encoding_dims: Dict[str, int] = {}
-        for encoder_stack in self.encoders.values():
-            dims = encoder_stack.dims
-            if not encoding_dims:
-                encoding_dims = dims
-            else:
-                for k, v in dims.items():
-                    encoding_dims[k] += v
-        return encoding_dims
+    def one_hot_dim(self) -> int:
+        if self.encoder is None:
+            return 0
+        return self.encoder.one_hot_dim
+
+    @property
+    def embedding_dim(self) -> int:
+        if self.encoder is None:
+            return 0
+        return self.encoder.embedding_dim
 
     @property
     def categorical_dims(self) -> Dict[int, int]:
         dims = {}
-        for idx_str in sorted(self.encoders):
-            idx = int(idx_str)
+        if self.encoder is None:
+            return dims
+        merged_dims = self.encoder.merged_dims
+        for idx in sorted(merged_dims):
             true_idx = self.categorical_columns_mapping[idx]
-            dims[true_idx] = self.encoders[idx_str].dim
+            dims[true_idx] = merged_dims[idx]
         return dims
 
     def _preset_config(self) -> None:
@@ -218,7 +252,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     def _init_config(self) -> None:
         self._loss_config = self.config.setdefault("loss_config", {})
-        # TODO : optimize encodings by pre-calculate one-hot encodings in Trainer
         encoding_methods = self.config.setdefault("encoding_methods", {})
         encoding_configs = self.config.setdefault("encoding_configs", {})
         self._encoding_methods = {str(k): v for k, v in encoding_methods.items()}
@@ -245,22 +278,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         else:
             self.loss = FocalLoss(self._loss_config, reduction="none")
 
-    def _init_encoder(self, idx: int, encoders: Dict[str, EncoderStack]) -> None:
-        str_idx = str(idx)
-        methods = self._encoding_methods.setdefault(
-            str_idx, self._default_encoding_method
-        )
-        config = self._encoding_configs.setdefault(
-            str_idx, self._default_encoding_configs
-        )
-        num_values = self.tr_data.recognizers[idx].num_unique_values
-        if isinstance(methods, str):
-            methods = [methods]
-        local_encoders = [
-            encoder_dict[method](idx, num_values, config) for method in methods
-        ]
-        encoders[str(idx)] = EncoderStack(*local_encoders)
-
     def _optimizer_step(
         self,
         optimizers: Dict[str, Optimizer],
@@ -285,36 +302,22 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def _split_features(
         self,
         x_batch: torch.Tensor,
-        *,
-        return_all_encodings: bool = False,
+        batch_indices: Optional[np.ndarray],
     ) -> SplitFeatures:
-        with timing_context(self, "collate_categorical_features"):
-            categorical_columns = []
-            for idx_str in sorted(self.encoders):
-                encoder = self.encoders[idx_str]
-                mapping_idx = self.categorical_columns_mapping[int(idx_str)]
-                categorical_columns.append(
-                    encoder(x_batch[..., mapping_idx], return_all=return_all_encodings)
-                )
-            categorical: Optional[Union[torch.Tensor, tensor_dict_type]]
-            if not categorical_columns:
-                categorical = None
-            elif not return_all_encodings:
-                categorical = torch.cat(categorical_columns, dim=1)
-            else:
-                categorical = collate_tensor_dicts(categorical_columns, dim=1)
-
-        with timing_context(self, "fetch_numerical_features"):
+        if self.encoder is None:
+            return SplitFeatures(None, x_batch)
+        with timing_context(self, "encoding"):
+            encoding_result = self.encoder(x_batch, batch_indices)
+        with timing_context(self, "fetch_numerical"):
             numerical = (
                 None
                 if not self._numerical_columns
                 else x_batch[..., self._numerical_columns]
             )
-
-        return SplitFeatures(categorical, numerical)
+        return SplitFeatures(encoding_result, numerical)
 
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
-        return self._split_features(torch.from_numpy(processed).to(device))
+        return self._split_features(torch.from_numpy(processed).to(device), None)
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:

@@ -170,17 +170,22 @@ class Pipeline(LoggingMixin):
                 verbose_level=self._verbose_level,
                 label_collator=self.ts_label_collator,
             )
+        # tr loader copy
+        self.tr_loader_copy = self.tr_loader.copy()
+        self.tr_loader_copy.enabled_sampling = False
+        self.tr_loader_copy.sampler.shuffle = False
 
     def _prepare_modules(self, *, is_loading: bool = False) -> None:
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self.model_type](
                 self.config,
-                self.tr_data,
+                self.tr_loader_copy,
                 self.cv_data,
                 self.tr_weights,
                 self.cv_weights,
                 self.device,
+                use_tqdm=self.use_tqdm,
             )
             self.model.init_ema()
         # trainer
@@ -265,6 +270,7 @@ class Pipeline(LoggingMixin):
         # training loop
         self.trainer.fit(
             self.tr_loader,
+            self.tr_loader_copy,
             self.cv_loader,
             self.tr_weights,
             self.cv_weights,

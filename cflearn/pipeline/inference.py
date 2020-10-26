@@ -397,13 +397,16 @@ class Inference(LoggingMixin):
         loader: DataLoader,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
-        return_indices, loader = loader.return_indices, self.to_tqdm(loader)
+        return_indices = loader.return_indices
+        loader = self.to_tqdm(loader)
         results, labels = [], []
         for a, b in loader:
             if return_indices:
                 x_batch, y_batch = a
+                batch_indices = b
             else:
                 x_batch, y_batch = a, b
+                batch_indices = None
             if y_batch is not None:
                 labels.append(y_batch)
             batch = self.collate_batch(x_batch, y_batch)
@@ -412,7 +415,7 @@ class Inference(LoggingMixin):
             else:
                 assert self.model is not None
                 with eval_context(self.model, use_grad=use_grad):
-                    rs = self.model(batch, **shallow_copy_dict(kwargs))
+                    rs = self.model(batch, batch_indices, **shallow_copy_dict(kwargs))
                 for k, v in rs.items():
                     if isinstance(v, torch.Tensor):
                         rs[k] = to_numpy(v)

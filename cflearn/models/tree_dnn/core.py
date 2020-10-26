@@ -6,6 +6,7 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 
 from ..base import SplitFeatures
@@ -19,25 +20,27 @@ class TreeDNN(FCNN):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         self.dndf: Optional[DNDF]
         self._dndf_config: Dict[str, Any]
         super(FCNN, self).__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
-        encoding_dims = self.encoding_dims
-        embedding_dims = encoding_dims.get("embedding", 0)
-        one_hot_dims = encoding_dims.get("one_hot", 0)
+        one_hot_dim = self.one_hot_dim
+        embedding_dim = self.embedding_dim
         # fc
         if self.use_fcnn:
             if not self._numerical_columns:
@@ -45,9 +48,9 @@ class TreeDNN(FCNN):
                 self._use_one_hot_for_fc = "one_hot" in self._default_encoding_method
             fc_in_dim = self.merged_dim
             if not self._use_embedding_for_fc:
-                fc_in_dim -= embedding_dims * self.num_history
+                fc_in_dim -= embedding_dim * self.num_history
             if not self._use_one_hot_for_fc:
-                fc_in_dim -= one_hot_dims * self.num_history
+                fc_in_dim -= one_hot_dim * self.num_history
             self.config["fc_in_dim"] = fc_in_dim
             self._init_fcnn()
         # dndf
@@ -60,16 +63,16 @@ class TreeDNN(FCNN):
             )
             self.dndf = None
         else:
-            self._dndf_config["is_regression"] = tr_data.is_reg
+            self._dndf_config["is_regression"] = self.tr_data.is_reg
             self._dndf_config.setdefault("tree_proj_config", None)
             if not self._numerical_columns:
                 self._use_embedding_for_dndf = True
                 self._use_one_hot_for_dndf = "one_hot" in self._default_encoding_method
             dndf_input_dim = self.merged_dim
             if not self._use_embedding_for_dndf:
-                dndf_input_dim -= embedding_dims * self.num_history
+                dndf_input_dim -= embedding_dim * self.num_history
             if not self._use_one_hot_for_dndf:
-                dndf_input_dim -= one_hot_dims * self.num_history
+                dndf_input_dim -= one_hot_dim * self.num_history
             self.dndf = DNDF(dndf_input_dim, self._fc_out_dim, **self._dndf_config)
 
     def _preset_config(self) -> None:
@@ -116,21 +119,25 @@ class TreeDNN(FCNN):
         if not categorical:
             assert numerical is not None
             return numerical
-        assert isinstance(categorical, dict)
         if not use_one_hot:
-            embedding = categorical["embedding"]
+            embedding = categorical.embedding
             if numerical is None:
                 return embedding
             return torch.cat([numerical, embedding], dim=1)
         assert not use_embedding
-        one_hot = categorical["one_hot"]
+        one_hot = categorical.one_hot
         if numerical is None:
             return one_hot
         return torch.cat([numerical, one_hot], dim=1)
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        split_result = self._split_features(x_batch, return_all_encodings=True)
+        split_result = self._split_features(x_batch, batch_indices)
         # fc
         if not self.use_fcnn:
             fc_net = None

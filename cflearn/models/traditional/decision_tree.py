@@ -8,6 +8,7 @@ from typing import Dict
 from typing import List
 from typing import Iterator
 from typing import Optional
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from sklearn.tree import _tree, DecisionTreeClassifier
 
@@ -39,25 +40,28 @@ class NDT(ModelBase):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
-        tr_data: TabularData,
+        tr_loader: DataLoader,
         cv_data: TabularData,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
+        *,
+        use_tqdm: bool,
     ):
         super().__init__(
             pipeline_config,
-            tr_data,
+            tr_loader,
             cv_data,
             tr_weights,
             cv_weights,
             device,
+            use_tqdm=use_tqdm,
         )
         # prepare
-        x, y = tr_data.processed.xy
-        y_ravel, num_classes = y.ravel(), tr_data.num_classes
+        x, y = self.tr_data.processed.xy
+        y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
         x_tensor = torch.from_numpy(x).to(device)
-        split_result = self._split_features(x_tensor)
+        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)))
         # decision tree
         msg = "fitting decision tree"
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
@@ -156,9 +160,14 @@ class NDT(ModelBase):
         self.routes_activation = activations_ins.module(activations.get("routes"))
         self._init_with_dt = self.config.setdefault("")
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        merged = self._split_features(x_batch).merge()
+        merged = self._split_features(x_batch, batch_indices).merge()
         planes = self.planes_activation(self.to_planes(merged))
         routes = self.routes_activation(self.to_routes(planes))
         leaves = self.to_leaves(routes)
