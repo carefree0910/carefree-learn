@@ -9,7 +9,6 @@ from typing import List
 from typing import Iterator
 from typing import Optional
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 from sklearn.tree import _tree, DecisionTreeClassifier
 
 from ...misc.toolkit import *
@@ -41,7 +40,7 @@ class NDT(ModelBase):
         self,
         pipeline_config: Dict[str, Any],
         tr_loader: DataLoader,
-        cv_data: TabularData,
+        cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
@@ -51,7 +50,7 @@ class NDT(ModelBase):
         super().__init__(
             pipeline_config,
             tr_loader,
-            cv_data,
+            cv_loader,
             tr_weights,
             cv_weights,
             device,
@@ -61,7 +60,7 @@ class NDT(ModelBase):
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
         x_tensor = torch.from_numpy(x).to(device)
-        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)))
+        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)), "tr")
         # decision tree
         msg = "fitting decision tree"
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
@@ -164,10 +163,11 @@ class NDT(ModelBase):
         self,
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        merged = self._split_features(x_batch, batch_indices).merge()
+        merged = self._split_features(x_batch, batch_indices, loader_name).merge()
         planes = self.planes_activation(self.to_planes(merged))
         routes = self.routes_activation(self.to_routes(planes))
         leaves = self.to_leaves(routes)

@@ -7,7 +7,6 @@ import torch.nn as nn
 from typing import *
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 from cftool.misc import register_core
 from cftool.misc import timing_context
 from cftool.misc import LoggingMixin
@@ -47,7 +46,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self,
         pipeline_config: Dict[str, Any],
         tr_loader: DataLoader,
-        cv_data: TabularData,
+        cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
@@ -60,9 +59,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.use_tqdm = use_tqdm
         self._pipeline_config = pipeline_config
         self.config = pipeline_config.setdefault("model_config", {})
-        self.tr_loader = tr_loader
-        self.tr_data = tr_loader.data
-        self.cv_data = cv_data
+        self.tr_loader, self.cv_loader = tr_loader, cv_loader
+        self.tr_data, self.cv_data = tr_loader.data, cv_loader.data
         self.tr_weights, self.cv_weights = tr_weights, cv_weights
         self._preset_config()
         self._init_config()
@@ -114,7 +112,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 encoding_methods,
                 encoding_configs,
                 true_categorical_columns,
-                self.tr_loader,
+                {"tr": self.tr_loader, "cv": self.cv_loader},
             )
 
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
@@ -133,6 +131,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self,
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
@@ -303,11 +302,12 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self,
         x_batch: torch.Tensor,
         batch_indices: Optional[np.ndarray],
+        loader_name: Optional[str],
     ) -> SplitFeatures:
         if self.encoder is None:
             return SplitFeatures(None, x_batch)
         with timing_context(self, "encoding"):
-            encoding_result = self.encoder(x_batch, batch_indices)
+            encoding_result = self.encoder(x_batch, batch_indices, loader_name)
         with timing_context(self, "fetch_numerical"):
             numerical = (
                 None
@@ -317,7 +317,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return SplitFeatures(encoding_result, numerical)
 
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
-        return self._split_features(torch.from_numpy(processed).to(device), None)
+        return self._split_features(torch.from_numpy(processed).to(device), None, None)
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:

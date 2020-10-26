@@ -18,7 +18,6 @@ from cftool.misc import update_dict
 from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 from ...types import tensor_dict_type
 
 try:
@@ -53,7 +52,7 @@ class DDR(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_loader: DataLoader,
-        cv_data: TabularData,
+        cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
@@ -65,7 +64,7 @@ class DDR(FCNN):
         super().__init__(
             pipeline_config,
             tr_loader,
-            cv_data,
+            cv_loader,
             tr_weights,
             cv_weights,
             device,
@@ -953,11 +952,12 @@ class DDR(FCNN):
         self,
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         forward_dict = {}
         x_batch = batch["x_batch"]
-        init = self._split_features(x_batch, batch_indices).merge()
+        init = self._split_features(x_batch, batch_indices, loader_name).merge()
         if self.tr_data.is_ts:
             init = init.view(init.shape[0], -1)
         predict_pdf, predict_cdf = map(kwargs.get, ["predict_pdf", "predict_cdf"])

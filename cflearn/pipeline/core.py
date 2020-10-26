@@ -170,6 +170,7 @@ class Pipeline(LoggingMixin):
                 verbose_level=self._verbose_level,
                 label_collator=self.ts_label_collator,
             )
+            self.cv_loader.enabled_sampling = False
         # tr loader copy
         self.tr_loader_copy = self.tr_loader.copy()
         self.tr_loader_copy.enabled_sampling = False
@@ -181,7 +182,7 @@ class Pipeline(LoggingMixin):
             self.model = model_dict[self.model_type](
                 self.config,
                 self.tr_loader_copy,
-                self.cv_data,
+                self.cv_loader,
                 self.tr_weights,
                 self.cv_weights,
                 self.device,

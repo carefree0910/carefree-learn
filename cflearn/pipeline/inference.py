@@ -323,6 +323,7 @@ class Inference(LoggingMixin):
         return_all: bool = False,
         requires_recover: bool = True,
         returns_probabilities: bool = False,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
 
@@ -337,6 +338,7 @@ class Inference(LoggingMixin):
             labels, results = self._get_results(
                 use_grad,
                 loader,
+                loader_name,
                 **shallow_copy_dict(kwargs),
             )
         except:
@@ -344,6 +346,7 @@ class Inference(LoggingMixin):
             labels, results = self._get_results(
                 use_grad,
                 loader,
+                loader_name,
                 **shallow_copy_dict(kwargs),
             )
 
@@ -395,6 +398,7 @@ class Inference(LoggingMixin):
         self,
         use_grad: bool,
         loader: DataLoader,
+        loader_name: str,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
         return_indices = loader.return_indices
@@ -415,7 +419,12 @@ class Inference(LoggingMixin):
             else:
                 assert self.model is not None
                 with eval_context(self.model, use_grad=use_grad):
-                    rs = self.model(batch, batch_indices, **shallow_copy_dict(kwargs))
+                    rs = self.model(
+                        batch,
+                        batch_indices,
+                        loader_name,
+                        **shallow_copy_dict(kwargs),
+                    )
                 for k, v in rs.items():
                     if isinstance(v, torch.Tensor):
                         rs[k] = to_numpy(v)

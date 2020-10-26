@@ -316,9 +316,14 @@ class Trainer(LoggingMixin):
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
         loader = self.validation_loader
+        loader_name = "tr" if loader is self.tr_loader_copy else "cv"
         # predictions
         keys = ["logits", "predictions", "labels"]
-        results = self.inference.predict(loader=loader, return_all=True)
+        results = self.inference.predict(
+            loader=loader,
+            loader_name=loader_name,
+            return_all=True,
+        )
         logits, predictions, labels = map(results.get, keys)
         # losses
         loss_values = None
@@ -329,7 +334,7 @@ class Trainer(LoggingMixin):
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self.model):
-                    forward_dicts.append(self.model(batch, batch_indices))
+                    forward_dicts.append(self.model(batch, batch_indices, loader_name))
                     loss_dicts.append(
                         self.model.loss_function(
                             batch,
@@ -468,7 +473,7 @@ class Trainer(LoggingMixin):
                         batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
-                            forward_results = self.model(batch, batch_indices)
+                            forward_results = self.model(batch, batch_indices, "tr")
                         with timing_context(self, "loss.forward", enable=self.timing):
                             loss_dict = self.model.loss_function(
                                 batch,

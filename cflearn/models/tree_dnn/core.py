@@ -7,7 +7,6 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 
 from ..base import SplitFeatures
 from ..fcnn.core import FCNN
@@ -21,7 +20,7 @@ class TreeDNN(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_loader: DataLoader,
-        cv_data: TabularData,
+        cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
@@ -33,7 +32,7 @@ class TreeDNN(FCNN):
         super(FCNN, self).__init__(
             pipeline_config,
             tr_loader,
-            cv_data,
+            cv_loader,
             tr_weights,
             cv_weights,
             device,
@@ -134,10 +133,11 @@ class TreeDNN(FCNN):
         self,
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        split_result = self._split_features(x_batch, batch_indices)
+        split_result = self._split_features(x_batch, batch_indices, loader_name)
         # fc
         if not self.use_fcnn:
             fc_net = None

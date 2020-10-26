@@ -12,7 +12,6 @@ from typing import Optional
 from functools import partial
 from cfdata.types import np_int_type
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 from cfml.models.naive_bayes import MultinomialNB
 
 from ...misc.toolkit import *
@@ -27,7 +26,7 @@ class NNB(ModelBase):
         self,
         pipeline_config: Dict[str, Any],
         tr_loader: DataLoader,
-        cv_data: TabularData,
+        cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
@@ -37,7 +36,7 @@ class NNB(ModelBase):
         super().__init__(
             pipeline_config,
             tr_loader,
-            cv_data,
+            cv_loader,
             tr_weights,
             cv_weights,
             device,
@@ -47,7 +46,7 @@ class NNB(ModelBase):
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
         x_tensor = torch.from_numpy(x).to(device)
-        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)))
+        split_result = self._split_features(x_tensor, np.arange(len(x_tensor)), "tr")
         # numerical
         num_numerical = len(self._numerical_columns)
         if num_numerical == 0:
@@ -143,10 +142,11 @@ class NNB(ModelBase):
         self,
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        split_result = self._split_features(x_batch, batch_indices)
+        split_result = self._split_features(x_batch, batch_indices, loader_name)
         # log prior
         log_prior = self.class_log_prior()
         # numerical

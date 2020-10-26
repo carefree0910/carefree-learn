@@ -66,7 +66,6 @@ class Embedding(nn.Module):
         return self.core(tensor)
 
 
-# TODO : pass in Dict[str, DataLoader] instead of DataLoader
 class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
@@ -74,13 +73,14 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         methods_list: List[Union[str, List[str]]],
         configs: List[Dict[str, Any]],
         categorical_columns: List[int],
-        loader: DataLoader,
+        loaders: Dict[str, DataLoader],
     ):
         super().__init__()
-        if loader.enabled_sampling:
-            raise ValueError("`loader` should not enable sampling in `Encoder`")
-        if loader.sampler.shuffle:
-            raise ValueError("`loader` should not be shuffled in `Encoder`")
+        for loader in loaders.values():
+            if loader.enabled_sampling:
+                raise ValueError("`loader` should not enable sampling in `Encoder`")
+            if loader.sampler.shuffle:
+                raise ValueError("`loader` should not be shuffled in `Encoder`")
         self.merged_dim = 0
         self.one_hot_dim = 0
         self.embedding_dim = 0
@@ -98,7 +98,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             self._register(i, in_dim, methods, config)
         self.one_hot_columns = self.tgt_columns[self._one_hot_indices]
         self.embedding_columns = self.tgt_columns[self._embed_indices]
-        self._compile(loader)
+        self._compile(loaders)
 
     @property
     def use_one_hot(self) -> bool:
@@ -108,18 +108,21 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def use_embedding(self) -> bool:
         return len(self._embed_indices) > 0
 
-    # TODO : pass in `name`, which indicates the name of DataLoader
     def forward(
         self,
         x_batch: torch.Tensor,
         batch_indices: Optional[np.ndarray],
+        loader_name: Optional[str],
     ) -> EncodingResult:
+        keys = None
+        if loader_name is not None:
+            keys = self._get_cache_keys(loader_name)
         # one hot
         if not self.use_one_hot:
             one_hot = None
         else:
-            if batch_indices is not None:
-                one_hot = self.one_hot_cache[batch_indices]
+            if keys is not None and batch_indices is not None:
+                one_hot = getattr(self, keys["one_hot"])[batch_indices]
             else:
                 one_hot_columns = x_batch[..., self.one_hot_columns]
                 one_hot_encodings = self._one_hot(one_hot_columns)
@@ -128,11 +131,10 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if not self._embed_indices:
             embedding = None
         else:
-            indices = x_batch[..., self.tgt_columns[self._embed_indices]]
-            # if batch_indices is not None:
-            #     indices = self.indices_cache[batch_indices]
-            # else:
-            #     indices = x_batch[..., self.embedding_columns].to(torch.long)
+            if keys is not None and batch_indices is not None:
+                indices = getattr(self, keys["embedding"])[batch_indices]
+            else:
+                indices = x_batch[..., self.embedding_columns].to(torch.long)
             embedding_encodings = self._embedding(indices.to(torch.long))
             embedding = torch.cat(embedding_encodings, dim=1)
         return EncodingResult(one_hot, embedding)
@@ -218,25 +220,34 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             embedding_encodings.append(embedding(flat_indices))
         return embedding_encodings
 
-    def _compile(self, loader: DataLoader) -> None:
-        categorical_features = []
-        return_indices = loader.return_indices
-        for a, b in loader:
-            if return_indices:
-                x_batch, y_batch = a
-            else:
-                x_batch, y_batch = a, b
-            categorical_features.append(x_batch[..., self.tgt_columns])
-        tensor = to_torch(np.vstack(categorical_features))
-        # compile one hot
-        if self.use_one_hot:
-            one_hot_encodings = self._one_hot(tensor[..., self._one_hot_indices])
-            one_hot_cache = torch.cat(one_hot_encodings, dim=1)
-            self.register_buffer("one_hot_cache", one_hot_cache)
-        # compile embedding
-        if self.use_embedding:
-            embedding_indices = tensor[..., self._embed_indices].to(torch.long)
-            self.register_buffer("indices_cache", embedding_indices)
+    @staticmethod
+    def _get_cache_keys(name: str) -> Dict[str, str]:
+        return {
+            "one_hot": f"{name}_one_hot_cache",
+            "embedding": f"{name}_indices_cache",
+        }
+
+    def _compile(self, loaders: Dict[str, DataLoader]) -> None:
+        for name, loader in loaders.items():
+            categorical_features = []
+            return_indices = loader.return_indices
+            for a, b in loader:
+                if return_indices:
+                    x_batch, y_batch = a
+                else:
+                    x_batch, y_batch = a, b
+                categorical_features.append(x_batch[..., self.tgt_columns])
+            tensor = to_torch(np.vstack(categorical_features))
+            keys = self._get_cache_keys(name)
+            # compile one hot
+            if self.use_one_hot:
+                one_hot_encodings = self._one_hot(tensor[..., self._one_hot_indices])
+                one_hot_cache = torch.cat(one_hot_encodings, dim=1)
+                self.register_buffer(keys["one_hot"], one_hot_cache)
+            # compile embedding
+            if self.use_embedding:
+                embedding_indices = tensor[..., self._embed_indices].to(torch.long)
+                self.register_buffer(keys["embedding"], embedding_indices)
 
 
 __all__ = ["Encoder", "EncodingResult"]

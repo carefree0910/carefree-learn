@@ -4,7 +4,6 @@ import numpy as np
 
 from typing import *
 from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 
 from .rnns import rnn_dict
 from ..fcnn import FCNN
@@ -17,7 +16,7 @@ class RNN(FCNN):
         self,
         pipeline_config: Dict[str, Any],
         tr_loader: DataLoader,
-        cv_data: TabularData,
+        cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
         device: torch.device,
@@ -27,7 +26,7 @@ class RNN(FCNN):
         super(FCNN, self).__init__(
             pipeline_config,
             tr_loader,
-            cv_data,
+            cv_loader,
             tr_weights,
             cv_weights,
             device,
@@ -56,10 +55,11 @@ class RNN(FCNN):
         self,
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        net = self._split_features(x_batch, batch_indices).merge()
+        net = self._split_features(x_batch, batch_indices, loader_name).merge()
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
         net = self.mlp(net[..., -1, :])
