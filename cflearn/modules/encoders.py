@@ -8,6 +8,7 @@ import torch.nn as nn
 from typing import *
 from abc import ABCMeta
 from collections import defaultdict
+from cftool.misc import timing_context
 from cftool.misc import LoggingMixin
 from cfdata.tabular import DataLoader
 from cfdata.tabular.misc import np_int_type
@@ -102,6 +103,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             self._register(i, in_dim, methods, config)
         self.one_hot_columns = self.tgt_columns[self._one_hot_indices]
         self.embedding_columns = self.tgt_columns[self._embed_indices]
+        self._all_one_hot = len(self.one_hot_columns) == len(input_dims)
+        self._all_embedding = len(self.embedding_columns) == len(input_dims)
         self._compile(loaders)
 
     @property
@@ -131,19 +134,22 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             if keys is not None and batch_indices is not None:
                 one_hot = getattr(self, keys["one_hot"])[batch_indices]
             else:
-                one_hot_columns = categorical_columns[..., self._one_hot_indices]
+                one_hot_columns = categorical_columns
+                if not self._all_one_hot:
+                    one_hot_columns = one_hot_columns[..., self._one_hot_indices]
                 one_hot_encodings = self._one_hot(one_hot_columns)
                 one_hot = torch.cat(one_hot_encodings, dim=1)
         # embedding
         if not self._embed_indices:
             embedding = None
         else:
-            if keys is not None and batch_indices is not None:
-                indices = getattr(self, keys["indices"])[batch_indices]
-                indices = indices[..., self._embed_indices]
+            if keys is None or batch_indices is None:
+                indices = categorical_columns
             else:
-                indices = categorical_columns[..., self._embed_indices].to(torch.long)
-            embedding_encodings = self._embedding(indices.to(torch.long))
+                indices = getattr(self, keys["indices"])[batch_indices]
+            if not self._all_embedding:
+                indices = indices[..., self._embed_indices]
+            embedding_encodings = self._embedding(indices)
             embedding = torch.cat(embedding_encodings, dim=1)
         return EncodingResult(one_hot, embedding)
 
@@ -231,6 +237,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     def _embedding(self, indices_columns: torch.Tensor) -> List[torch.Tensor]:
         embedding_encodings = []
+        indices_columns = indices_columns.to(torch.long)
         for i, flat_indices in enumerate(indices_columns.t()):
             embedding = self.embeddings[str(i)]
             embedding_encodings.append(embedding(flat_indices))
