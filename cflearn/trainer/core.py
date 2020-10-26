@@ -313,10 +313,12 @@ class Trainer(LoggingMixin):
         return f"{metric_str} (ema: {fix_float_to_length(decayed, 8)})"
 
     def _log_metrics_msg(self, intermediate: IntermediateResults) -> None:
-        core = " | ".join([
-            f"{k} : {self._metric_verbose(k, intermediate)}"
-            for k in sorted(intermediate.metrics)
-        ])
+        core = " | ".join(
+            [
+                f"{k} : {self._metric_verbose(k, intermediate)}"
+                for k in sorted(intermediate.metrics)
+            ]
+        )
         msg = (
             f"| epoch {self._epoch_count:^4d} - "
             f"step {self._step_count:^6d} | {core} | "
