@@ -80,6 +80,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         loaders: Dict[str, DataLoader],
     ):
         super().__init__()
+        self._fe_init_method: Optional[str]
+        self._fe_init_config: Optional[Dict[str, Any]]
         self._init_config(config)
         for loader in loaders.values():
             if loader.enabled_sampling:
@@ -97,7 +99,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.one_hot_encoders = nn.ModuleList()
         self._one_hot_indices: List[int] = []
         self._embed_indices: List[int] = []
-        self._embed_dims = []
+        self._embed_dims: List[int] = []
         for i, (in_dim, methods, config) in enumerate(
             zip(input_dims, methods_list, configs)
         ):
@@ -116,6 +118,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 self._fe_init_method = self._de_init_method
             if self._fe_init_config is None:
                 self._fe_init_config = self._de_init_config
+            assert isinstance(self._fe_init_config, dict)
             self.embeddings.append(
                 Embedding(
                     sum(input_dims),
@@ -124,6 +127,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                     self._fe_init_config,
                 )
             )
+            assert isinstance(self.input_dims, torch.Tensor)
             embed_dims_cumsum = self.input_dims[self._embed_indices].cumsum(0)[:-1]
             self.register_buffer("embed_dims_cumsum", embed_dims_cumsum)
         # embedding dropout
@@ -171,7 +175,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             one_hot = None
         else:
             if use_cache:
-                one_hot = getattr(self, keys["one_hot"])[batch_indices]
+                one_hot = getattr(self, keys["one_hot"])[batch_indices]  # type: ignore
             else:
                 one_hot_columns = categorical_columns
                 if not self._all_one_hot:
@@ -184,7 +188,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             if not use_cache:
                 indices = categorical_columns
             else:
-                indices = getattr(self, keys["indices"])[batch_indices]
+                indices = getattr(self, keys["indices"])[batch_indices]  # type: ignore
             if not self._all_embedding:
                 indices = indices[..., self._embed_indices]
             if not use_cache and self._use_fast_embed:
