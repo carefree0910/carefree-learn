@@ -291,11 +291,6 @@ class Trainer(LoggingMixin):
 
     # core
 
-    def _to_tqdm(self, loader: DataLoader) -> Union[tqdm, DataLoader]:
-        if not self.use_tqdm:
-            return loader
-        return tqdm(loader, total=len(loader), leave=False, position=2)
-
     def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
             self.model.parameters(), self._clip_norm
@@ -402,7 +397,7 @@ class Trainer(LoggingMixin):
         # losses
         loss_values = None
         if self._metrics_need_loss:
-            loader = self._to_tqdm(loader)
+            loader = self.inference.to_tqdm(loader)
             forward_dicts, loss_dicts, labels = [], [], []
             for (x_batch, y_batch), batch_indices in loader:
                 labels.append(y_batch)
