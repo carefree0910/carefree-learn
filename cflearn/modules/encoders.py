@@ -182,7 +182,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                     one_hot_columns = one_hot_columns[..., self._one_hot_indices]
                 one_hot = self._one_hot(one_hot_columns)
         # embedding
-        if not self._embed_indices:
+        if not self.use_embedding:
             embedding = None
         else:
             if not use_cache:
@@ -343,10 +343,10 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 one_hot_cache = self._one_hot(tensor[..., self._one_hot_indices])
                 self.register_buffer(keys["one_hot"], one_hot_cache)
             # compile embedding
-            if self._use_fast_embed:
+            if self.use_embedding and self._use_fast_embed:
                 tensor[..., 1:] += self.embed_dims_cumsum
-            indices = tensor.to(torch.long)
-            self.register_buffer(keys["indices"], indices)
+                indices = tensor.to(torch.long)
+                self.register_buffer(keys["indices"], indices)
 
 
 __all__ = ["Encoder", "EncodingResult"]
