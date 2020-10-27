@@ -90,8 +90,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.register_buffer("bounds", bounds)
         self.tgt_columns = np.array(sorted(categorical_columns), np_int_type)
         self.merged_dims: Dict[int, int] = defaultdict(int)
-        self.embeddings = nn.ModuleDict()
-        self.one_hot_encoders = nn.ModuleDict()
+        self.embeddings = nn.ModuleList()
+        self.one_hot_encoders = nn.ModuleList()
         self._one_hot_indices: List[int] = []
         self._embed_indices: List[int] = []
         for i, (in_dim, methods, config) in enumerate(
@@ -167,7 +167,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             attr(i, in_dim, config)
 
     def _register_one_hot(self, i: int, in_dim: int, config: Dict[str, Any]) -> None:
-        self.one_hot_encoders[str(i)] = OneHot(in_dim)
+        self.one_hot_encoders.append(OneHot(in_dim))
         self._one_hot_indices.append(i)
         self.merged_dims[i] += in_dim
         self.one_hot_dim += in_dim
@@ -195,7 +195,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.merged_dims[i] += out_dim
         self.embedding_dim += out_dim
         self.merged_dim += out_dim
-        self.embeddings[str(i)] = Embedding(in_dim, out_dim, init_method, init_config)
+        self.embeddings.append(Embedding(in_dim, out_dim, init_method, init_config))
 
     @staticmethod
     def _get_dim_sum(encodings: List[torch.Tensor], indices: List[int]) -> int:
@@ -226,22 +226,24 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             #        in the future this line should be un-indented
             categorical_columns[oob_mask] = 0.0
 
+    @staticmethod
+    def _to_split(columns: torch.Tensor) -> List[torch.Tensor]:
+        splits = columns.to(torch.long).t().split(1)
+        return [split.view(-1) for split in splits]
+
     def _one_hot(self, one_hot_columns: torch.Tensor) -> List[torch.Tensor]:
-        one_hot_encodings = []
-        one_hot_columns = one_hot_columns.to(torch.long)
-        for i, flat_feature in enumerate(one_hot_columns.t()):
-            encoder = self.one_hot_encoders[str(i)]
-            one_hot_encodings.append(encoder(flat_feature))
-        return one_hot_encodings
+        split = self._to_split(one_hot_columns)
+        return [
+            encoder(flat_feature)
+            for encoder, flat_feature in zip(self.one_hot_encoders, split)
+        ]
 
     def _embedding(self, indices_columns: torch.Tensor) -> List[torch.Tensor]:
-        indices_columns = indices_columns.to(torch.long)
-        split_indices = indices_columns.t().split(1)
-        embedding_encodings = [
-            self.embeddings[str(i)](split.view(-1))
-            for i, split in enumerate(split_indices)
+        split = self._to_split(indices_columns)
+        return [
+            embedding(flat_feature)
+            for embedding, flat_feature in zip(self.embeddings, split)
         ]
-        return embedding_encodings
 
     @staticmethod
     def _get_cache_keys(name: str) -> Dict[str, str]:
