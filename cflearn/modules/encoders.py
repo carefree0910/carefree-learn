@@ -15,6 +15,7 @@ from cfdata.tabular.misc import np_int_type
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import Lambda
 from ..misc.toolkit import Initializer
+from ..modules.auxiliary import Dropout
 
 
 class EncodingResult(NamedTuple):
@@ -76,6 +77,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         configs: List[Dict[str, Any]],
         categorical_columns: List[int],
         loaders: Dict[str, DataLoader],
+        embedding_dropout: float,
     ):
         super().__init__()
         for loader in loaders.values():
@@ -104,6 +106,9 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.embedding_columns = self.tgt_columns[self._embed_indices]
         self._all_one_hot = len(self.one_hot_columns) == len(input_dims)
         self._all_embedding = len(self.embedding_columns) == len(input_dims)
+        self.embedding_dropout = None
+        if self.use_embedding and 0.0 < embedding_dropout < 1.0:
+            self.embedding_dropout = Dropout(embedding_dropout)
         self._compile(loaders)
 
     @property
@@ -150,6 +155,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 indices = indices[..., self._embed_indices]
             embedding_encodings = self._embedding(indices)
             embedding = torch.cat(embedding_encodings, dim=1)
+            if self.embedding_dropout is not None:
+                embedding = self.embedding_dropout(embedding)
         return EncodingResult(one_hot, embedding)
 
     def _register(

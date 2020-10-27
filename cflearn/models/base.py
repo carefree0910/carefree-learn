@@ -113,12 +113,14 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
             loaders = {"tr": self.tr_loader}
             if self.cv_loader is not None:
                 loaders["cv"] = self.cv_loader
+            embedding_dropout = self.config.setdefault("embedding_dropout", 0.2)
             self.encoder = Encoder(
                 categorical_dims,
                 encoding_methods,
                 encoding_configs,
                 true_categorical_columns,
                 loaders,
+                embedding_dropout,
             )
 
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
