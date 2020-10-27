@@ -343,7 +343,7 @@ class Trainer(LoggingMixin):
                         self.log_msg(  # type: ignore
                             "start monitoring plateau",
                             self.info_prefix,
-                            2,
+                            3,
                         )
                     self._monitor.plateau_flag = True
 
