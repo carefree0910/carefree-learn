@@ -236,11 +236,12 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return one_hot_encodings
 
     def _embedding(self, indices_columns: torch.Tensor) -> List[torch.Tensor]:
-        embedding_encodings = []
         indices_columns = indices_columns.to(torch.long)
-        for i, flat_indices in enumerate(indices_columns.t()):
-            embedding = self.embeddings[str(i)]
-            embedding_encodings.append(embedding(flat_indices))
+        split_indices = indices_columns.t().split(1)
+        embedding_encodings = [
+            self.embeddings[str(i)](split.view(-1))
+            for i, split in enumerate(split_indices)
+        ]
         return embedding_encodings
 
     @staticmethod
