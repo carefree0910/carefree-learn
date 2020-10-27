@@ -209,12 +209,6 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self.merged_dim += out_dim
         self.embeddings.append(Embedding(in_dim, out_dim, init_method, init_config))
 
-    @staticmethod
-    def _get_dim_sum(encodings: List[torch.Tensor], indices: List[int]) -> int:
-        if not indices:
-            return 0
-        return sum([encodings[i].shape[1] for i in indices])
-
     def _oob_imputation(
         self,
         categorical_columns: torch.Tensor,
