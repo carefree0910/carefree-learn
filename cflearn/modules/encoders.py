@@ -108,10 +108,32 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             self._register(i, in_dim, methods, config)
         # fast embedding
         if self.use_embedding and self._use_fast_embed:
-            max_embed_dim = max(self._embed_dims)
+            if isinstance(self._unified_embed_dim, int):
+                unified_embed_dim = self._unified_embed_dim
+            else:
+                if self._unified_embed_dim == "max":
+                    unified_embed_dim = max(self._embed_dims)
+                elif self._unified_embed_dim == "mean":
+                    unified_embed_dim = int(
+                        round(sum(self._embed_dims) / self.num_embedding)
+                    )
+                elif self._unified_embed_dim == "median":
+                    half_idx = self.num_embedding // 2
+                    sorted_dims = sorted(self._embed_dims)
+                    if self.num_embedding % 2 != 0:
+                        unified_embed_dim = sorted_dims[half_idx]
+                    else:
+                        left = sorted_dims[half_idx - 1]
+                        right = sorted_dims[half_idx]
+                        unified_embed_dim = int(round(0.5 * (left + right)))
+                else:
+                    raise NotImplementedError(
+                        f"unified embedding dim '{self._unified_embed_dim}' "
+                        "is not recognized"
+                    )
             for i in self._embed_indices:
-                self.merged_dims[i] += max_embed_dim
-            embedding_dim_sum = max_embed_dim * self.num_embedding
+                self.merged_dims[i] += unified_embed_dim
+            embedding_dim_sum = unified_embed_dim * self.num_embedding
             self.embedding_dim = embedding_dim_sum
             self.merged_dim += embedding_dim_sum
             if self._fe_init_method is None:
@@ -122,7 +144,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             self.embeddings.append(
                 Embedding(
                     sum(input_dims),
-                    max_embed_dim,
+                    unified_embed_dim,
                     self._fe_init_method,
                     self._fe_init_config,
                 )
@@ -209,6 +231,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             "default_embedding_init_config", {"mean": 0.0, "std": 0.02}
         )
         self._use_fast_embed = config.setdefault("use_fast_embedding", True)
+        # [ mean | median | max | int ]
+        self._unified_embed_dim = config.setdefault("unified_embedding_dim", "max")
         self._fe_init_method = config.setdefault("fast_embedding_init_method", None)
         self._fe_init_config = config.setdefault("fast_embedding_init_config", None)
 
