@@ -399,9 +399,8 @@ class Ensemble:
                     arrays: List[np.ndarray],
                     requires_prob: bool,
                 ) -> np.ndarray:
-                    predictions = np.array(arrays).reshape(
-                        [len(arrays), len(arrays[0]), -1]
-                    )
+                    shape = [len(arrays), len(arrays[0]), -1]
+                    predictions = np.array(arrays).reshape(shape)
                     if requires_prob or not is_int(predictions):
                         return (predictions * pattern_weights).sum(axis=0)
                     encodings = one_hot(to_torch(predictions).to(torch.long).squeeze())
@@ -494,8 +493,10 @@ class Ensemble:
             cfg["logging_folder"] = os.path.join(temp_folder, str(i))
             metric_config = {"sample_weights": sample_weights}
             if sample_weights is not None:
-                cfg["metrics"] = "adaboost_error"
-                cfg["metric_config"] = metric_config
+                cfg["metric_config"] = {
+                    "types": "adaboost_error",
+                    "adaboost_error_config": metric_config,
+                }
             m = make(model=model, **cfg)
             m.fit(x, y, sample_weights=sample_weights)
             metrics_placeholder = MetricsPlaceholder(metric_config)
