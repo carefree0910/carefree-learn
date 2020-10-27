@@ -450,9 +450,8 @@ class Trainer(LoggingMixin):
                 metrics[metric_type] = sub_metric
             if self.metrics_decay is not None and self.start_snapshot:
                 use_decayed = True
-                decayed_metrics[metric_type] = self.metrics_decay[metric_type].update(
-                    "metric", sub_metric
-                )
+                decayed = self.metrics_decay[metric_type].update("metric", sub_metric)
+                decayed_metrics[metric_type] = decayed
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
