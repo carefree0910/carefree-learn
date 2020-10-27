@@ -8,7 +8,6 @@ import torch.nn as nn
 from typing import *
 from abc import ABCMeta
 from collections import defaultdict
-from cftool.misc import timing_context
 from cftool.misc import LoggingMixin
 from cfdata.tabular import DataLoader
 from cfdata.tabular.misc import np_int_type
