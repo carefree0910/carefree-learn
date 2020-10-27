@@ -72,14 +72,15 @@ class Embedding(nn.Module):
 class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
+        config: Dict[str, Any],
         input_dims: List[int],
         methods_list: List[Union[str, List[str]]],
         configs: List[Dict[str, Any]],
         categorical_columns: List[int],
         loaders: Dict[str, DataLoader],
-        embedding_dropout: float,
     ):
         super().__init__()
+        self._init_config(config)
         for loader in loaders.values():
             if loader.enabled_sampling:
                 raise ValueError("`loader` should not enable sampling in `Encoder`")
@@ -107,8 +108,8 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._all_one_hot = len(self.one_hot_columns) == len(input_dims)
         self._all_embedding = len(self.embedding_columns) == len(input_dims)
         self.embedding_dropout = None
-        if self.use_embedding and 0.0 < embedding_dropout < 1.0:
-            self.embedding_dropout = Dropout(embedding_dropout)
+        if self.use_embedding and 0.0 < self._embed_drop < 1.0:
+            self.embedding_dropout = Dropout(self._embed_drop)
         self._compile(loaders)
 
     @property
@@ -158,6 +159,10 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
         return EncodingResult(one_hot, embedding)
+
+    def _init_config(self, config: Dict[str, Any]) -> None:
+        self.config = config
+        self._embed_drop = config.setdefault("embedding_dropout", 0.2)
 
     def _register(
         self,
