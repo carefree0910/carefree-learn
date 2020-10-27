@@ -185,6 +185,7 @@ class Auto:
             "temp_folder": repeat_temp_folder,
             "num_repeat": num_final_repeat,
             "num_jobs": num_jobs,
+            "cuda": cuda,
         }
         assert tuner is not None
         x, y, x_cv, y_cv = tuner.make_data()
