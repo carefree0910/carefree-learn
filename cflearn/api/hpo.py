@@ -346,19 +346,25 @@ optuna_params_type = Dict[str, Union[OptunaParam, Dict[str, Any], str]]
 class OptunaParamConverter:
     prefix = "[^optuna^]"
 
-    def get_usage(self, k: str) -> Optional[str]:
+    def get_usage(self, k: str) -> Tuple[Optional[str], Optional[str]]:
         if not k.startswith(self.prefix):
-            return None
+            return None, None
         usage_k = k[len(self.prefix) :]
         if not usage_k.startswith("[") or not usage_k.endswith("]"):
             msg = f"special keys must end with '[]' to indicate its usage"
             raise ValueError(msg)
-        return usage_k[1:-1]
+        usage_k = usage_k[1:-1]
+        if not usage_k.startswith("[") or "]" not in usage_k:
+            return usage_k, None
+        user_prefix_end = usage_k.index("]")
+        user_prefix = usage_k[1:user_prefix_end]
+        usage_k = usage_k[user_prefix_end + 1 :]
+        return usage_k, user_prefix
 
     def convert(self, optuna_params: optuna_params_type) -> optuna_params_type:
         def _inner(d: optuna_params_type, current: dict) -> None:
             for k, v in d.items():
-                usage = self.get_usage(k)
+                usage, user_prefix = self.get_usage(k)
                 if usage is not None:
                     attr = getattr(self, f"_convert_{usage}", None)
                     if attr is None:
@@ -568,23 +574,33 @@ class OptunaParamConverter:
             method = method.pop(trial)
         return {"method": method}
 
+    @staticmethod
+    def _make_prefix(prefix: str) -> str:
+        return f"[{prefix}]" if prefix else ""
+
     # api
 
     @classmethod
+    def merge_user_prefix(cls, k: str, user_prefix: str) -> str:
+        if user_prefix is None:
+            return k
+        return f"{user_prefix}_{k}"
+
+    @classmethod
     def make_ema_decay(cls, prefix: str) -> Dict[str, str]:
-        key = f"{cls.prefix}[ema_decay]"
+        key = f"{cls.prefix}[{cls._make_prefix(prefix)}ema_decay]"
         value = prefix
         return {key: value}
 
     @classmethod
     def make_clip_norm(cls, prefix: str) -> Dict[str, str]:
-        key = f"{cls.prefix}[clip_norm]"
+        key = f"{cls.prefix}[{cls._make_prefix(prefix)}clip_norm]"
         value = prefix
         return {key: value}
 
     @classmethod
     def make_dropout(cls, prefix: str) -> Dict[str, str]:
-        key = f"{cls.prefix}[dropout]"
+        key = f"{cls.prefix}[{cls._make_prefix(prefix)}dropout]"
         value = prefix
         return {key: value}
 
@@ -598,7 +614,7 @@ class OptunaParamConverter:
         step: int = 1,
         log: bool = True,
     ) -> Dict[str, str]:
-        key = f"{cls.prefix}[hidden_units]"
+        key = f"{cls.prefix}[{cls._make_prefix(prefix)}hidden_units]"
         value = f"{prefix}_{low}_{high}_{num_layers}_{step}"
         if log:
             value = f"{value}_log"
@@ -612,7 +628,7 @@ class OptunaParamConverter:
         tree_depth: int,
         force: bool,
     ) -> Dict[str, str]:
-        key = f"{cls.prefix}[dndf_config]"
+        key = f"{cls.prefix}[{cls._make_prefix(prefix)}dndf_config]"
         value = f"{prefix}_{num_tree}_{tree_depth}"
         if force:
             value = f"{value}_force"
@@ -620,7 +636,7 @@ class OptunaParamConverter:
 
     @classmethod
     def make_pruner_config(cls, prefix: str) -> Dict[str, str]:
-        key = f"{cls.prefix}[pruner_config]"
+        key = f"{cls.prefix}[{cls._make_prefix(prefix)}pruner_config]"
         value = prefix
         return {key: value}
 
@@ -654,10 +670,11 @@ class OptunaKeyMapping(LoggingMixin):
 
         def _inject_suggestion(d: optuna_params_type, current: Dict[str, Any]) -> None:
             for k, v in d.items():
-                usage = self.converter.get_usage(k)
+                usage, user_prefix = self.converter.get_usage(k)
                 if usage is not None:
                     assert isinstance(v, dict)
-                    current[usage] = self.converter.pop(usage, v, trial)
+                    k = OptunaParamConverter.merge_user_prefix(usage, user_prefix)
+                    current[k] = self.converter.pop(usage, v, trial)
                     continue
                 if isinstance(v, dict):
                     _inject_suggestion(v, current.setdefault(k, {}))
@@ -684,9 +701,9 @@ class OptunaKeyMapping(LoggingMixin):
 
         def _inject_values(d: Dict[str, Any], current: dict) -> None:
             for k, v in d.items():
-                usage = self.converter.get_usage(k)
+                usage, user_prefix = self.converter.get_usage(k)
                 if usage is not None:
-                    current[usage] = self.converter.parse(usage, v)
+                    current[k] = self.converter.parse(usage, v)
                     continue
                 if isinstance(v, dict):
                     _inject_values(v, current.setdefault(k, {}))
@@ -751,11 +768,11 @@ class OptunaPresetParams:
         if tune_ema_decay:
             model_config = self.base_params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
-            model_config.update(OptunaParamConverter.make_ema_decay("general"))
+            model_config.update(OptunaParamConverter.make_ema_decay(""))
         if tune_clip_norm:
             trainer_config = self.base_params.setdefault("trainer_config", {})
             assert isinstance(trainer_config, dict)
-            trainer_config.update(OptunaParamConverter.make_clip_norm("general"))
+            trainer_config.update(OptunaParamConverter.make_clip_norm(""))
         if tune_init_method:
             default_encoding_init_param = OptunaParam(
                 "default_encoding_init_method",
@@ -789,7 +806,7 @@ class OptunaPresetParams:
     def _fcnn_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_hidden_units", True):
-            hu_param = OptunaParamConverter.make_hidden_units("mlp", 8, 2048, 3)
+            hu_param = OptunaParamConverter.make_hidden_units("", 8, 2048, 3)
             model_config = params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
             model_config.update(hu_param)
@@ -798,9 +815,9 @@ class OptunaPresetParams:
             bn_param = OptunaParam("mlp_batch_norm", [False, True], "categorical")
             mapping_config["batch_norm"] = bn_param
         if self.kwargs.get("tune_dropout", True):
-            mapping_config.update(OptunaParamConverter.make_dropout("mlp"))
+            mapping_config.update(OptunaParamConverter.make_dropout(""))
         if self.kwargs.get("tune_pruner", True):
-            mapping_config.update(OptunaParamConverter.make_pruner_config("mlp"))
+            mapping_config.update(OptunaParamConverter.make_pruner_config(""))
         if mapping_config:
             model_config = params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
@@ -815,7 +832,7 @@ class OptunaPresetParams:
     def _tree_dnn_preset(self) -> optuna_params_type:
         params = self._fcnn_preset()
         if self.kwargs.get("tune_dndf", True):
-            dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6, False)
+            dndf_param = OptunaParamConverter.make_dndf_config("", 64, 6, False)
             model_config = params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
             model_config.update(dndf_param)
@@ -824,7 +841,7 @@ class OptunaPresetParams:
     def _tree_linear_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_dndf", True):
-            dndf_param = OptunaParamConverter.make_dndf_config("dndf", 64, 6, True)
+            dndf_param = OptunaParamConverter.make_dndf_config("", 64, 6, True)
             model_config = params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
             model_config.update(dndf_param)
