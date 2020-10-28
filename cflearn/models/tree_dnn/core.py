@@ -2,16 +2,19 @@ import torch
 import logging
 
 import numpy as np
+import torch.nn as nn
 
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import shallow_copy_dict
 from cfdata.tabular import DataLoader
 
+from ...modules.blocks import *
+from ..base import ModelBase
 from ..base import SplitFeatures
 from ..fcnn.core import FCNN
 from ...types import tensor_dict_type
-from ...modules.blocks import *
 
 
 @FCNN.register("tree_dnn")
@@ -188,4 +191,89 @@ class TreeLinear(TreeDNN):
             self._fc_out_dim = self.out_dim
 
 
-__all__ = ["TreeDNN", "TreeLinear"]
+class TreeResBlock(nn.Module):
+    def __init__(self, dim: int, dndf_config: Optional[Dict[str, Any]] = None):
+        super().__init__()
+        if dndf_config is None:
+            dndf_config = {}
+        self.in_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
+        self.inner_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        inner = self.inner_dndf(self.in_dndf(net))
+        return net + inner
+
+
+@ModelBase.register("tree_stack")
+class TreeStack(ModelBase):
+    def __init__(
+        self,
+        pipeline_config: Dict[str, Any],
+        tr_loader: DataLoader,
+        cv_loader: DataLoader,
+        tr_weights: Optional[np.ndarray],
+        cv_weights: Optional[np.ndarray],
+        device: torch.device,
+        *,
+        use_tqdm: bool,
+    ):
+        super().__init__(
+            pipeline_config,
+            tr_loader,
+            cv_loader,
+            tr_weights,
+            cv_weights,
+            device,
+            use_tqdm=use_tqdm,
+        )
+        super()._init_input_config()
+        dim = self._fc_in_dim
+        self.res_blocks = nn.ModuleList()
+        for _ in range(self._num_blocks):
+            self.res_blocks.append(TreeResBlock(dim, self._dndf_config))
+        self.out_dndf = DNDF(
+            dim,
+            self._fc_out_dim,
+            **self._out_dndf_config,
+        )
+
+    @property
+    def input_sample(self) -> tensor_dict_type:
+        return super().input_sample
+
+    @property
+    def output_probabilities(self) -> bool:
+        return True
+
+    def _init_config(self) -> None:
+        super()._init_config()
+        self._loss_config["input_logits"] = False
+        self._num_blocks = self.config.setdefault("num_blocks", 3)
+        if self._num_blocks <= 0:
+            self.log_msg(  # type: ignore
+                "`num_blocks` is 0 in TreeStack, it will be equivalent to TreeLinear",
+                prefix=self.warning_prefix,
+                verbose_level=2,
+                msg_level=logging.WARNING,
+            )
+        self._dndf_config = self.config.setdefault("dndf_config", {})
+        self._out_dndf_config = self.config.setdefault("out_dndf_config", {})
+
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        x_batch = batch["x_batch"]
+        net = self._split_features(x_batch, batch_indices, loader_name).merge()
+        if self.tr_data.is_ts:
+            net = net.view(x_batch.shape[0], -1)
+        for block in self.res_blocks:
+            net = block(net)
+        net = self.out_dndf(net)
+        return {"predictions": net}
+
+
+__all__ = ["TreeDNN", "TreeLinear", "TreeStack"]
