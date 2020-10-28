@@ -849,13 +849,18 @@ class OptunaPresetParams:
 
     def _tree_stack_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
-        model_config = params.setdefault("model_config", {})
-        assert isinstance(model_config, dict)
-        model_config["num_blocks"] = OptunaParam("num_blocks", [0, 3], "int")
+        if self.kwargs.get("tune_num_blocks", True):
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
+            model_config["num_blocks"] = OptunaParam("num_blocks", [0, 3], "int")
         if self.kwargs.get("tune_inner_dndf", False):
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
             inner_param = OptunaParamConverter.make_dndf_config("", 64, 6, True)
             model_config.update(inner_param)
         if self.kwargs.get("tune_dndf", False):
+            model_config = params.setdefault("model_config", {})
+            assert isinstance(model_config, dict)
             out_param = OptunaParamConverter.make_dndf_config("out", 64, 6, True)
             model_config.update(out_param)
         return params
