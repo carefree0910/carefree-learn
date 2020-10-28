@@ -351,15 +351,20 @@ class Trainer(LoggingMixin):
                 if self.log_metrics_msg:
                     self._log_metrics_msg(intermediate)
 
-            with timing_context(self, "monitor.core", enable=self.timing):
-                if self.start_snapshot:
+            if self.start_snapshot:
+                timing_name = "monitor.prune_trial"
+                with timing_context(self, timing_name, enable=self.timing):
                     score = intermediate.final_score
                     if self.trial is not None:
                         self.trial.report(score, step=self._step_count)
                         if self.trial.should_prune():
                             raise optuna.TrialPruned()
+                timing_name = "monitor.check_terminate"
+                with timing_context(self, timing_name, enable=self.timing):
                     if self._monitor.check_terminate(score):
                         return True
+                timing_name = "monitor.scheduler"
+                with timing_context(self, timing_name, enable=self.timing):
                     for key, scheduler in self.schedulers.items():
                         if scheduler is not None:
                             kwargs = {}
