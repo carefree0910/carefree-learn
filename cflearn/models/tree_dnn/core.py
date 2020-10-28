@@ -215,8 +215,9 @@ class TreeStack(ModelBase):
     def _init_config(self) -> None:
         super()._init_config()
         self._loss_config["input_logits"] = False
+        warn_num_blocks = self.config.get("warn_num_blocks", True)
         self._num_blocks = self.config.setdefault("num_blocks", 3)
-        if self._num_blocks <= 0:
+        if warn_num_blocks and self._num_blocks <= 0:
             self.log_msg(  # type: ignore
                 "`num_blocks` is 0 in TreeStack, it will be equivalent to TreeLinear",
                 prefix=self.warning_prefix,
@@ -248,6 +249,7 @@ class TreeLinear(TreeStack):
     def _preset_config(self) -> None:
         super()._preset_config()
         self.config["num_blocks"] = 0
+        self.config["warn_num_blocks"] = False
 
 
 __all__ = ["TreeDNN", "TreeStack", "TreeLinear"]
