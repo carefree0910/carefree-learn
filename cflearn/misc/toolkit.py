@@ -587,9 +587,8 @@ class TrainMonitor:
             plateau_updated = False
             if std < self.std_floor:
                 if self.plateau_flag:
-                    self._plateau_counter += self.std_floor / max(
-                        std, self.std_floor / 6
-                    )
+                    increment = self.std_floor / max(std, self.std_floor / 6)
+                    self._plateau_counter += increment
                     plateau_updated = True
             else:
                 if self._plateau_counter > 0:
@@ -602,7 +601,8 @@ class TrainMonitor:
                     self._handle_recovering(improvement, last_score, res, std)
             if plateau_updated:
                 self.log_msg(
-                    f"plateau counter updated : {self._plateau_counter:>6.4f} / {self.plateau_threshold}",
+                    f"plateau counter updated : {self._plateau_counter:>6.4f} "
+                    f"/ {self.plateau_threshold}",
                     prefix=self._trainer.info_prefix,
                     verbose_level=6,
                     msg_level=logging.DEBUG,
