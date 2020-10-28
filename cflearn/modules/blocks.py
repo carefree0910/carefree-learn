@@ -162,14 +162,12 @@ class DNDF(nn.Module):
         *,
         num_tree: int = 10,
         tree_depth: int = 4,
-        output_type: str = "output",
         is_regression: Optional[bool] = None,
         tree_proj_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self._num_tree = num_tree
         self._tree_depth = tree_depth
-        self._output_type = output_type
         self._is_regression = out_dim == 1 if is_regression is None else is_regression
         self._num_leaf = 2 ** (self._tree_depth + 1)
         self._num_internals = self._num_leaf - 1
