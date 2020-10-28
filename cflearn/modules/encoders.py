@@ -313,8 +313,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     @staticmethod
     def _to_split(columns: torch.Tensor) -> List[torch.Tensor]:
-        splits = columns.to(torch.long).t().split(1)
-        return [split.view(-1) for split in splits]
+        return list(columns.to(torch.long).t().unbind())
 
     def _one_hot(self, one_hot_columns: torch.Tensor) -> torch.Tensor:
         split = self._to_split(one_hot_columns)
