@@ -749,6 +749,7 @@ class OptunaPresetParams:
         tune_optimizer: bool = True,
         tune_ema_decay: bool = True,
         tune_clip_norm: bool = True,
+        tune_batch_size: bool = True,
         tune_init_method: bool = True,
         **kwargs: Any,
     ) -> None:
@@ -773,6 +774,10 @@ class OptunaPresetParams:
             trainer_config = self.base_params.setdefault("trainer_config", {})
             assert isinstance(trainer_config, dict)
             trainer_config.update(OptunaParamConverter.make_clip_norm(""))
+        if tune_batch_size:
+            choices = [16, 32, 64, 128, 256, 512, 1024]
+            bs_param = OptunaParam("batch_size", choices, "categorical")
+            self.base_params["batch_size"] = bs_param
         if tune_init_method:
             default_encoding_init_param = OptunaParam(
                 "default_encoding_init_method",
