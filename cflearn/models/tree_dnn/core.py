@@ -188,4 +188,4 @@ class TreeLinear(TreeDNN):
             self._fc_out_dim = self.out_dim
 
 
-__all__ = ["TreeDNN"]
+__all__ = ["TreeDNN", "TreeLinear"]
