@@ -172,25 +172,6 @@ class TreeDNN(FCNN):
         return {"predictions": fc_net + dndf_net}
 
 
-@FCNN.register("tree_linear")
-class TreeLinear(TreeDNN):
-    @property
-    def output_probabilities(self) -> bool:
-        return True
-
-    def _preset_config(self) -> None:
-        super()._preset_config()
-        self.config["use_fcnn"] = False
-
-    def _init_config(self) -> None:
-        super()._init_config()
-        self._loss_config["input_logits"] = False
-        self._fc_out_dim: int = self.config.get("fc_out_dim")
-        self.out_dim = max(self.tr_data.num_classes, 1)
-        if self._fc_out_dim is None:
-            self._fc_out_dim = self.out_dim
-
-
 class TreeResBlock(nn.Module):
     def __init__(self, dim: int, dndf_config: Optional[Dict[str, Any]] = None):
         super().__init__()
@@ -280,4 +261,11 @@ class TreeStack(ModelBase):
         return {"predictions": net}
 
 
-__all__ = ["TreeDNN", "TreeLinear", "TreeStack"]
+@TreeStack.register("tree_linear")
+class TreeLinear(TreeStack):
+    def _preset_config(self) -> None:
+        super()._preset_config()
+        self.config["num_blocks"] = 0
+
+
+__all__ = ["TreeDNN", "TreeStack", "TreeLinear"]
