@@ -581,7 +581,7 @@ class OptunaParamConverter:
     # api
 
     @classmethod
-    def merge_user_prefix(cls, k: str, user_prefix: str) -> str:
+    def merge_user_prefix(cls, k: str, user_prefix: Optional[str]) -> str:
         if user_prefix is None:
             return k
         return f"{user_prefix}_{k}"
