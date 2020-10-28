@@ -147,10 +147,10 @@ class NDT(ModelBase):
         self.dt_config = self.config.setdefault("dt_config", {})
         self.dt_config.setdefault("max_depth", 10)
         activation_configs = self.config.setdefault("activation_configs", {})
-        activation_configs.setdefault("multiplied_tanh", {}).setdefault("ratio", 10.0)
-        activation_configs.setdefault("multiplied_softmax", {}).setdefault(
-            "ratio", 10.0
-        )
+        m_tanh_cfg = activation_configs.setdefault("multiplied_tanh", {})
+        m_sm_cfg = activation_configs.setdefault("multiplied_softmax", {})
+        m_tanh_cfg.setdefault("ratio", 10.0)
+        m_sm_cfg.setdefault("ratio", 10.0)
         default_activations = {"planes": "sign", "routes": "multiplied_softmax"}
         activations = self.config.setdefault("activations", default_activations)
         activations_ins = Activations(activation_configs)
