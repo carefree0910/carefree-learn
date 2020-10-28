@@ -172,13 +172,12 @@ class DDR(FCNN):
                 "clip_norm": 1.0,
                 "num_epoch": 40,
                 "max_epoch": 1000,
-                "batch_size": 128,
                 "metric_config": {"types": default_metric_types, "decay": 0.5},
             },
         )
-        num_train_samples = self.tr_data.processed.x.shape[0]
         num_epoch = trainer_config["num_epoch"]
-        batch_size = trainer_config["batch_size"]
+        num_train_samples = self.tr_data.processed.x.shape[0]
+        batch_size = self._pipeline_config.setdefault("batch_size", 128)
         anneal_step = self._loss_config.setdefault(
             "anneal_step", (num_train_samples * num_epoch) // (batch_size * 2)
         )
