@@ -31,7 +31,7 @@ From the above, it comes out that `carefree-learn` could be treated as a minimal
 
 ### Pre-Installing PyTorch
 
-Please refer to [PyTorch](https://pytorch.org/get-started/locally/){target=_blank}, and it is highly recommended to pre-install PyTorch with conda.
+`carefree-learn` requires `pytorch==1.6.0`. Please refer to [PyTorch](https://pytorch.org/get-started/locally/){target=_blank}, and it is highly recommended to pre-install PyTorch with conda.
 
 ### pip installation
 
