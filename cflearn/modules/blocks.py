@@ -4,8 +4,12 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import Any, Dict, List
-from typing import Union, NamedTuple, Optional
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Union
+from typing import Optional
+from typing import NamedTuple
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
@@ -241,6 +245,23 @@ class DNDF(nn.Module):
         nn.init.xavier_uniform_(self.leaves.data)
 
 
+class TreeResBlock(nn.Module):
+    def __init__(self, dim: int, dndf_config: Optional[Dict[str, Any]] = None):
+        super().__init__()
+        if dndf_config is None:
+            dndf_config = {}
+        self.dim = float(dim)
+        self.in_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
+        self.inner_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        res = self.in_dndf(net)
+        res = self.dim * res - 1.0
+        res = self.inner_dndf(res)
+        res = self.dim * res - 1.0
+        return net + res
+
+
 class AttentionOutput(NamedTuple):
     output: torch.Tensor
     weights: torch.Tensor
@@ -375,4 +396,11 @@ class Attention(nn.Module):
         return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
 
 
-__all__ = ["Linear", "Mapping", "MLP", "DNDF", "Attention"]
+__all__ = [
+    "Linear",
+    "Mapping",
+    "MLP",
+    "DNDF",
+    "TreeResBlock",
+    "Attention",
+]
