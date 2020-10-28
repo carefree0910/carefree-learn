@@ -196,12 +196,16 @@ class TreeResBlock(nn.Module):
         super().__init__()
         if dndf_config is None:
             dndf_config = {}
+        self.dim = float(dim)
         self.in_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
         self.inner_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        inner = self.inner_dndf(self.in_dndf(net))
-        return net + inner
+        res = self.in_dndf(net)
+        res = self.dim * res - 1.0
+        res = self.inner_dndf(res)
+        res = self.dim * res - 1.0
+        return net + res
 
 
 @ModelBase.register("tree_stack")
