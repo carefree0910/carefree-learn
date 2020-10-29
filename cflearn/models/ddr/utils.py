@@ -4,7 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Any
-from typing import Union
 from typing import Optional
 from cftool.misc import show_or_save
 
@@ -15,9 +14,6 @@ from ...pipeline.core import Pipeline
 class DDRPredictor:
     def __init__(self, ddr: Pipeline):
         self.m = ddr
-
-    def mr(self, x: data_type) -> np.ndarray:
-        return self.m.predict(x, predict_median_residual=True, return_all=True)
 
     def cdf(self, x: data_type, y: data_type, *, get_pdf: bool = False) -> np.ndarray:
         predictions = self.m.predict(
@@ -34,8 +30,8 @@ class DDRPredictor:
         return predictions["cdf"]
 
     def quantile(self, x: data_type, q: float) -> np.ndarray:
-        predictions = self.m.predict(x, q=q, predict_quantile=True, return_all=True)
-        return predictions["quantile"]
+        predictions = self.m.predict(x, q=q, predict_quantiles=True, return_all=True)
+        return predictions["quantiles"]
 
 
 class DDRVisualizer:
@@ -79,9 +75,8 @@ class DDRVisualizer:
         y: np.ndarray,
         export_path: Optional[str],
         *,
-        residual: bool = False,
-        quantiles: Optional[np.ndarray] = None,
-        anchor_ratios: Optional[np.ndarray] = None,
+        q_batch: Optional[np.ndarray] = None,
+        y_batch: Optional[np.ndarray] = None,
         **kwargs: Any,
     ) -> None:
         x_min, x_max = np.min(x), np.max(x)
@@ -96,27 +91,26 @@ class DDRVisualizer:
         mean = None
         median = self.m.predict(x_base)
         fig = DDRVisualizer._prepare_base_figure(
-            x, y, x_base, mean, median, indices, ""
+            x,
+            y,
+            x_base,
+            mean,
+            median,
+            indices,
+            "",
         )
         render_args = x_min, x_max, y_min, y_max, y_padding
-        # median residual
-        if residual:
-            residuals = self.predictor.mr(x_base)
-            pos, neg = map(residuals.get, ["mr_pos", "mr_neg"])
-            plt.plot(x_base.ravel(), pos, label="pos_median_residual")
-            plt.plot(x_base.ravel(), neg, label="neg_median_residual")
-            DDRVisualizer._render_figure(*render_args)
         # quantile curves
-        if quantiles is not None:
-            for q in quantiles:
+        if q_batch is not None:
+            for q in q_batch:
                 quantile_curve = self.predictor.quantile(x_base, q)
                 plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
             DDRVisualizer._render_figure(*render_args)
         # cdf curves
-        if anchor_ratios is not None:
+        if y_batch is not None:
             y_abs_max = np.abs(y).max()
-            ratios, anchors = anchor_ratios, [
-                ratio * (y_max - y_min) + y_min for ratio in anchor_ratios
+            ratios, anchors = y_batch, [
+                ratio * (y_max - y_min) + y_min for ratio in y_batch
             ]
             for ratio, anchor in zip(ratios, anchors):
                 predictions = self.predictor.cdf(x_base, anchor, get_pdf=True)
@@ -145,8 +139,8 @@ class DDRVisualizer:
         y_matrix: np.ndarray,
         export_folder: str,
         *,
-        quantiles: Optional[np.ndarray] = None,
-        anchor_ratios: Optional[np.ndarray] = None,
+        q_batch: Optional[np.ndarray] = None,
+        y_batch: Optional[np.ndarray] = None,
     ) -> None:
         y_min, y_max = y.min(), y.max()
         y_diff = y_max - y_min
@@ -156,49 +150,27 @@ class DDRVisualizer:
             num: int,
             y_true: np.ndarray,
             predictions: np.ndarray,
-            dual_predictions: np.ndarray,
         ) -> None:
-            def _core(pred: np.ndarray, *, dual: bool) -> None:
-                suffix = "_dual" if dual else ""
-                plt.figure()
-                plt.title(f"{prefix} {num:6.4f}")
-                plt.scatter(x[:200], y[:200], color="gray", s=15)
-                plt.plot(x_base, y_true, label="target")
-                plt.plot(x_base, pred, label=f"ddr{suffix}_prediction")
-                plt.legend()
-                show_or_save(
-                    os.path.join(export_folder, f"{prefix}_{num:4.2f}{suffix}.png")
-                )
+            plt.figure()
+            plt.title(f"{prefix} {num:6.4f}")
+            plt.scatter(x[:200], y[:200], color="gray", s=15)
+            plt.plot(x_base, y_true, label="target")
+            plt.plot(x_base, predictions, label=f"ddr_prediction")
+            plt.legend()
+            show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}.png"))
 
-            _core(predictions, dual=False)
-            if dual_predictions is not None:
-                _core(dual_predictions, dual=True)
-
-        if quantiles is not None:
-            for quantile in quantiles:
+        if q_batch is not None:
+            for quantile in q_batch:
                 yq = np.percentile(y_matrix, int(100 * quantile), axis=1)
                 yq_pred = self.predictor.quantile(x_base, quantile)
-                # yqd_pred = ddr.quantile(quantile, x_base, inference_only=True)
-                yqd_pred = None
-                _plot("quantile", quantile, yq, yq_pred, yqd_pred)
-            plt.figure()
-            for quantile in [0.25, 0.5, 0.75]:
-                yq = np.percentile(y_matrix, int(100 * quantile), axis=1)
-                plt.title(f"quantile {quantile:4.2f}")
-                plt.scatter(x[:200], y[:200], color="gray", s=15)
-                plt.plot(x_base, yq, label=f"{quantile:3.2f}")
-                plt.legend()
-            export_path = os.path.join(export_folder, "median_residual.png")
-            self.visualize(x, y, export_path, residual=True)
-        if anchor_ratios is not None:
-            anchors = [ratio * (y_max - y_min) + y_min for ratio in anchor_ratios]
+                _plot("quantile", quantile, yq, yq_pred)
+        if y_batch is not None:
+            anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
             for anchor in anchors:
                 yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
                 yd_pred = self.predictor.cdf(x_base, anchor)
                 yd_pred = yd_pred * y_diff + y_min
-                # ydq_pred = ddr.cdf(data_anchor, x_base, inference_only=True) * y_diff + y_min
-                ydq_pred = None
-                _plot("cdf", anchor, yd, yd_pred, ydq_pred)
+                _plot("cdf", anchor, yd, yd_pred)
 
 
 __all__ = ["DDRPredictor", "DDRVisualizer"]
