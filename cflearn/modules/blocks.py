@@ -11,6 +11,7 @@ from typing import Tuple
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
@@ -268,7 +269,7 @@ class InvertibleBlock(nn.Module):
         self,
         dim: int,
         num_units: Optional[List[int]] = None,
-        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+        mapping_config: Optional[Dict[str, Any]] = None,
     ):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
@@ -279,13 +280,18 @@ class InvertibleBlock(nn.Module):
         else:
             if num_units[-1] != h_dim:
                 raise ValueError(f"last element of `num_units` should be {h_dim}")
-        if mapping_configs is None:
-            mapping_configs = {
+        if mapping_config is None:
+            mapping_config = {}
+        mapping_config = update_dict(
+            mapping_config,
+            {
+                "bias": False,
                 "dropout": 0.0,
                 "batch_norm": False,
-                "activation": "mish",
-            }
-        self.mlp = MLP(h_dim, None, num_units, mapping_configs)
+                "activation": "leaky_relu_0.2",
+            },
+        )
+        self.mlp = MLP(h_dim, None, num_units, mapping_config)
         permute_indices = np.random.permutation(h_dim)
         inverse_indices = np.argsort(permute_indices)
         permute_indices = to_torch(permute_indices).to(torch.long)
