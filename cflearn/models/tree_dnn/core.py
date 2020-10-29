@@ -17,7 +17,7 @@ class TreeDNNCore(nn.Module):
         dndf_input_dim: Optional[int],
         hidden_units: List[int],
         dndf_config: Optional[Dict[str, Any]],
-        mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
+        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
