@@ -2,15 +2,14 @@ import torch
 import logging
 
 import numpy as np
-import torch.nn as nn
 
 from typing import Any
 from typing import Dict
 from typing import Optional
 from cfdata.tabular import DataLoader
 
-from ...modules.blocks import *
 from .core import TreeDNNCore
+from .core import TreeStackCore
 from ..base import ModelBase
 from ..base import SplitFeatures
 from ..fcnn.model import FCNN
@@ -189,16 +188,8 @@ class TreeStack(ModelBase):
             device,
             use_tqdm=use_tqdm,
         )
-        super()._init_input_config()
-        dim = self._fc_in_dim
-        self.res_blocks = nn.ModuleList()
-        for _ in range(self._num_blocks):
-            self.res_blocks.append(TreeResBlock(dim, self._dndf_config))
-        self.out_dndf = DNDF(
-            dim,
-            self._fc_out_dim,
-            **self._out_dndf_config,
-        )
+        cfg = self.get_input_config(self)
+        self.core = TreeStackCore(**cfg)
 
     @property
     def input_sample(self) -> tensor_dict_type:
@@ -208,20 +199,28 @@ class TreeStack(ModelBase):
     def output_probabilities(self) -> bool:
         return True
 
-    def _init_config(self) -> None:
-        super()._init_config()
-        self._loss_config["input_logits"] = False
-        warn_num_blocks = self.config.get("warn_num_blocks", True)
-        self._num_blocks = self.config.setdefault("num_blocks", 3)
-        if warn_num_blocks and self._num_blocks <= 0:
-            self.log_msg(  # type: ignore
+    @staticmethod
+    def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
+        cfg = ModelBase.get_input_config(instance)
+        warn_num_blocks = instance.config.get("warn_num_blocks", True)
+        num_blocks = instance.config.setdefault("num_blocks", 3)
+        if warn_num_blocks and num_blocks <= 0:
+            instance.log_msg(  # type: ignore
                 "`num_blocks` is 0 in TreeStack, it will be equivalent to TreeLinear",
-                prefix=self.warning_prefix,
+                prefix=instance.warning_prefix,
                 verbose_level=2,
                 msg_level=logging.WARNING,
             )
-        self._dndf_config = self.config.setdefault("dndf_config", {})
-        self._out_dndf_config = self.config.setdefault("out_dndf_config", {})
+        dndf_config = instance.config.setdefault("dndf_config", {})
+        out_dndf_config = instance.config.setdefault("out_dndf_config", {})
+        cfg["num_blocks"] = num_blocks
+        cfg["dndf_config"] = dndf_config
+        cfg["out_dndf_config"] = out_dndf_config
+        return cfg
+
+    def _init_config(self) -> None:
+        super()._init_config()
+        self._loss_config["input_logits"] = False
 
     def forward(
         self,
@@ -230,14 +229,7 @@ class TreeStack(ModelBase):
         loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        net = self._split_features(x_batch, batch_indices, loader_name).merge()
-        if self.tr_data.is_ts:
-            net = net.view(x_batch.shape[0], -1)
-        for block in self.res_blocks:
-            net = block(net)
-        net = self.out_dndf(net)
-        return {"predictions": net}
+        return self.common_forward(self, batch, batch_indices, loader_name)
 
 
 @TreeStack.register("tree_linear")
