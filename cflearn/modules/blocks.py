@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
@@ -262,6 +263,55 @@ class TreeResBlock(nn.Module):
         return net + res
 
 
+class InvertibleBlock(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        num_units: Optional[List[int]] = None,
+        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+    ):
+        if dim % 2 != 0:
+            raise ValueError("`dim` should be divided by 2")
+        super().__init__()
+        h_dim = int(dim // 2)
+        if num_units is None:
+            num_units = [h_dim]
+        else:
+            if num_units[-1] != h_dim:
+                raise ValueError(f"last element of `num_units` should be {h_dim}")
+        if mapping_configs is None:
+            mapping_configs = {
+                "dropout": 0.0,
+                "batch_norm": False,
+                "activation": "mish",
+            }
+        self.mlp = MLP(h_dim, None, num_units, mapping_configs)
+        permute_indices = np.random.permutation(h_dim)
+        inverse_indices = np.argsort(permute_indices)
+        permute_indices = to_torch(permute_indices).to(torch.long)
+        inverse_indices = to_torch(inverse_indices).to(torch.long)
+        self.register_buffer("permute_indices", permute_indices)
+        self.register_buffer("inverse_indices", inverse_indices)
+
+    def forward(
+        self,
+        net1: torch.Tensor,
+        net2: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        net1 = net1 + self.mlp(net2)
+        net2 = net2[..., self.permute_indices]
+        return net2, net1
+
+    def inverse(
+        self,
+        net1: torch.Tensor,
+        net2: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        net1 = net1[..., self.inverse_indices]
+        net2 = net2 - self.mlp(net1)
+        return net2, net1
+
+
 class AttentionOutput(NamedTuple):
     output: torch.Tensor
     weights: torch.Tensor
@@ -402,5 +452,6 @@ __all__ = [
     "MLP",
     "DNDF",
     "TreeResBlock",
+    "InvertibleBlock",
     "Attention",
 ]
