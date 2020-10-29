@@ -40,6 +40,19 @@ class TestBlocks(unittest.TestCase):
 
         self.assertTrue(torch.allclose(probabilities.sum(1), torch.ones(batch_size)))
 
+    def test_invertible(self) -> None:
+        dim = 512
+        h_dim = int(dim // 2)
+        batch_size = 32
+
+        net1 = torch.randn(batch_size, h_dim)
+        net2 = torch.randn(batch_size, h_dim)
+        invertible = InvertibleBlock(dim)
+        o1, o2 = invertible(net1, net2)
+        r1, r2 = invertible.inverse(o1, o2)
+        self.assertTrue(torch.allclose(net1, r1, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(net2, r2, rtol=1e-4, atol=1e-4))
+
     def test_attention(self) -> None:
         num_heads = 8
         input_dim = embed_dim = 256
