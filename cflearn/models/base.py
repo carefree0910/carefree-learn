@@ -200,7 +200,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         batch: tensor_dict_type,
         batch_indices: np.ndarray,
         forward_results: tensor_dict_type,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> tensor_dict_type:
         # requires returning `loss` key
         y_batch = batch["y_batch"]
         if self.tr_data.is_clf:
