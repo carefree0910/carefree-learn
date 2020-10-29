@@ -213,6 +213,20 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return {"loss": losses.mean()}
 
     @staticmethod
+    def common_forward(
+        instance: "ModelBase",
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+    ) -> tensor_dict_type:
+        x_batch = batch["x_batch"]
+        net = instance._split_features(x_batch, batch_indices, loader_name).merge()
+        if instance.tr_data.is_ts:
+            net = net.view(x_batch.shape[0], -1)
+        net = instance.core(net)
+        return {"predictions": net}
+
+    @staticmethod
     def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
         in_dim: int = instance.config.get("in_dim")
         out_dim: int = instance.config.get("out_dim")
