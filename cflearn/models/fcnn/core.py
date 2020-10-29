@@ -11,7 +11,7 @@ class FCNNCore(nn.Module):
     def __init__(
         self,
         in_dim: int,
-        out_dim: Optional[int],
+        out_dim: int,
         hidden_units: List[int],
         mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         final_mapping_config: Optional[Dict[str, Any]] = None,

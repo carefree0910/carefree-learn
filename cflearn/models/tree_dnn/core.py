@@ -12,7 +12,7 @@ class TreeDNNCore(nn.Module):
     def __init__(
         self,
         in_dim: int,
-        out_dim: Optional[int],
+        out_dim: int,
         dndf_input_dim: Optional[int],
         hidden_units: List[int],
         dndf_config: Optional[Dict[str, Any]],
