@@ -1,6 +1,12 @@
-from .core import TreeDNN
-from .core import TreeStack
-from .core import TreeLinear
+from .core import TreeDNNCore
+from .model import TreeDNN
+from .model import TreeStack
+from .model import TreeLinear
 
 
-__all__ = ["TreeDNN", "TreeStack", "TreeLinear"]
+__all__ = [
+    "TreeDNNCore",
+    "TreeDNN",
+    "TreeStack",
+    "TreeLinear",
+]
