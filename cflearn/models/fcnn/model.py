@@ -41,7 +41,7 @@ class FCNN(ModelBase):
 
     @staticmethod
     def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
-        cfg = super().get_input_config(instance)
+        cfg = ModelBase.get_input_config(instance)
         in_dim: int = cfg["in_dim"]
         if in_dim > 512:
             hidden_units = [1024, 1024]
