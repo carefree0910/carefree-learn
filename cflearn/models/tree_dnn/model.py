@@ -1,4 +1,5 @@
 import torch
+import typing
 import logging
 
 import numpy as np
@@ -46,6 +47,7 @@ class TreeDNN(ModelBase):
         return super().input_sample
 
     @staticmethod
+    @typing.no_type_check
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         one_hot_dim = instance.one_hot_dim
         embedding_dim = instance.embedding_dim

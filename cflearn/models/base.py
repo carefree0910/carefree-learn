@@ -223,7 +223,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         net = instance._split_features(x_batch, batch_indices, loader_name).merge()
         if instance.tr_data.is_ts:
             net = net.view(x_batch.shape[0], -1)
-        net = instance.core(net)
+        net = instance.core(net)  # type: ignore
         return {"predictions": net}
 
     @staticmethod

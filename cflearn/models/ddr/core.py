@@ -21,10 +21,10 @@ class DDRCore(nn.Module):
         to_latent: bool = True,
         latent_dim: Optional[int] = None,
         num_units: Optional[List[int]] = None,
-        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+        mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        latent_config = {
+        latent_cfg = {
             "bias": False,
             "dropout": 0.0,
             "batch_norm": False,
@@ -37,11 +37,11 @@ class DDRCore(nn.Module):
         else:
             if latent_dim is None:
                 latent_dim = 256
-            self.to_latent = Mapping(in_dim, latent_dim, **latent_config)
+            self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
         # invertible blocks
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
-            block = InvertibleBlock(latent_dim, num_units, mapping_configs)
+            block = InvertibleBlock(latent_dim, num_units, mapping_config)  # type: ignore
             self.blocks.append(block)
         self.num_blocks = num_blocks
 

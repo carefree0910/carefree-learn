@@ -75,14 +75,14 @@ class DDR(ModelBase):
         to_latent = instance.config.setdefault("to_latent", True)
         latent_dim = instance.config.setdefault("latent_dim", 256)
         num_units = instance.config.setdefault("num_units", None)
-        mapping_configs = instance.config.setdefault("mapping_configs", None)
+        mapping_config = instance.config.setdefault("mapping_config", None)
         cfg.update(
             {
                 "num_blocks": num_blocks,
                 "to_latent": to_latent,
                 "latent_dim": latent_dim,
                 "num_units": num_units,
-                "mapping_configs": mapping_configs,
+                "mapping_config": mapping_config,
             }
         )
         return cfg
@@ -103,15 +103,9 @@ class DDR(ModelBase):
         y_min, y_max = labels.min(), labels.max()
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        if y_anchors is None:
-            self._anchor_choice_array = None
-        else:
-            anchors = np.asarray(y_anchors, np.float32)
-            self._anchor_choice_array = y_min + (y_max - y_min) * anchors
-        if q_anchors is None:
-            self._quantile_anchors = None
-        else:
-            self._quantile_anchors = np.asarray(q_anchors, np.float32)
+        anchors = np.asarray(y_anchors, np.float32)
+        self._anchor_choice_array = y_min + (y_max - y_min) * anchors
+        self._quantile_anchors = np.asarray(q_anchors, np.float32)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3)
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})

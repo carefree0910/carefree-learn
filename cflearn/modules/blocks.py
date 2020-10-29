@@ -282,7 +282,7 @@ class InvertibleBlock(nn.Module):
                 raise ValueError(f"last element of `num_units` should be {h_dim}")
         if mapping_config is None:
             mapping_config = {}
-        mapping_config = update_dict(
+        mapping_config_ = update_dict(
             mapping_config,
             {
                 "bias": False,
@@ -291,7 +291,7 @@ class InvertibleBlock(nn.Module):
                 "activation": "leaky_relu_0.2",
             },
         )
-        self.mlp = MLP(h_dim, None, num_units, mapping_config)
+        self.mlp = MLP(h_dim, None, num_units, mapping_config_)
         permute_indices = np.random.permutation(h_dim)
         inverse_indices = np.argsort(permute_indices)
         permute_indices = to_torch(permute_indices).to(torch.long)

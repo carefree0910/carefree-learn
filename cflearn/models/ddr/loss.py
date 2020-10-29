@@ -198,8 +198,9 @@ class DDRLoss(LossBase, LoggingMixin):
         if pdf_losses is not None:
             key = "synthetic_pdf" if check_monotonous_only else "pdf"
             losses[key] = pdf_losses
+        # TODO : check this condition branch and see if it is necessary
         if not losses:
-            zero = self.zero.repeat(len(target), 1)
+            zero = self.zero.repeat(len(target), 1)  # type: ignore
             return zero, {"loss": zero}
         if not self.mtl.registered:
             self.mtl.register(list(losses.keys()))
