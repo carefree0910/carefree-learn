@@ -38,7 +38,7 @@ class TreeDNN(ModelBase):
             device,
             use_tqdm=use_tqdm,
         )
-        cfg = self.get_input_config(self)
+        cfg = self.get_core_config(self)
         self.core = TreeDNNCore(**cfg)
 
     @property
@@ -46,7 +46,7 @@ class TreeDNN(ModelBase):
         return super().input_sample
 
     @staticmethod
-    def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
+    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         one_hot_dim = instance.one_hot_dim
         embedding_dim = instance.embedding_dim
         default_has_one_hot = "one_hot" in instance._default_encoding_method
@@ -60,7 +60,7 @@ class TreeDNN(ModelBase):
         if not instance._use_one_hot_for_mlp:
             mlp_in_dim -= one_hot_dim * instance.num_history
         instance.config["in_dim"] = mlp_in_dim
-        cfg = FCNN.get_input_config(instance)
+        cfg = FCNN.get_core_config(instance)
         # dndf
         if instance._dndf_config is None:
             instance.log_msg(  # type: ignore
@@ -188,7 +188,7 @@ class TreeStack(ModelBase):
             device,
             use_tqdm=use_tqdm,
         )
-        cfg = self.get_input_config(self)
+        cfg = self.get_core_config(self)
         self.core = TreeStackCore(**cfg)
 
     @property
@@ -200,8 +200,8 @@ class TreeStack(ModelBase):
         return True
 
     @staticmethod
-    def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
-        cfg = ModelBase.get_input_config(instance)
+    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
+        cfg = ModelBase.get_core_config(instance)
         warn_num_blocks = instance.config.get("warn_num_blocks", True)
         num_blocks = instance.config.setdefault("num_blocks", 3)
         if warn_num_blocks and num_blocks <= 0:

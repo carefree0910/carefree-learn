@@ -33,7 +33,7 @@ class LinearModel(ModelBase):
             device,
             use_tqdm=use_tqdm,
         )
-        cfg = self.get_input_config(self)
+        cfg = self.get_core_config(self)
         linear_config = self.config.setdefault("linear_config", {})
         self.core = LinearCore(cfg["in_dim"], cfg["out_dim"], linear_config)
 

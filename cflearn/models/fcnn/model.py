@@ -32,7 +32,7 @@ class FCNN(ModelBase):
             device,
             use_tqdm=use_tqdm,
         )
-        cfg = self.get_input_config(self)
+        cfg = self.get_core_config(self)
         self.core = FCNNCore(**cfg)
 
     @property
@@ -40,8 +40,8 @@ class FCNN(ModelBase):
         return super().input_sample
 
     @staticmethod
-    def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
-        cfg = ModelBase.get_input_config(instance)
+    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
+        cfg = ModelBase.get_core_config(instance)
         in_dim: int = cfg["in_dim"]
         if in_dim > 512:
             hidden_units = [1024, 1024]

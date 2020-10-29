@@ -227,7 +227,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return {"predictions": net}
 
     @staticmethod
-    def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
+    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         in_dim: int = instance.config.get("in_dim")
         out_dim: int = instance.config.get("out_dim")
         default_out_dim = max(instance.tr_data.num_classes, 1)
