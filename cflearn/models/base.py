@@ -212,6 +212,17 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         losses = self.loss(predictions, y_batch)
         return {"loss": losses.mean()}
 
+    @staticmethod
+    def get_input_config(instance: "ModelBase") -> Dict[str, Any]:
+        in_dim: int = instance.config.get("in_dim")
+        out_dim: int = instance.config.get("out_dim")
+        default_out_dim = max(instance.tr_data.num_classes, 1)
+        if in_dim is None:
+            in_dim = instance.merged_dim
+        if out_dim is None:
+            out_dim = default_out_dim
+        return {"in_dim": in_dim, "out_dim": out_dim}
+
     @property
     def num_history(self) -> int:
         num_history = 1
@@ -269,15 +280,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._default_encoding_method = self.config.setdefault(
             "default_encoding_method", "embedding"
         )
-
-    def _init_input_config(self) -> None:
-        self._fc_in_dim: int = self.config.get("fc_in_dim")
-        self._fc_out_dim: int = self.config.get("fc_out_dim")
-        self.out_dim = max(self.tr_data.num_classes, 1)
-        if self._fc_in_dim is None:
-            self._fc_in_dim = self.merged_dim
-        if self._fc_out_dim is None:
-            self._fc_out_dim = self.out_dim
 
     def _init_loss(self) -> None:
         if self.tr_data.is_reg:

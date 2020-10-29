@@ -1,4 +1,5 @@
-from .core import FCNN
+from .core import FCNNCore
+from .model import FCNN
 
 
-__all__ = ["FCNN"]
+__all__ = ["FCNNCore", "FCNN"]
