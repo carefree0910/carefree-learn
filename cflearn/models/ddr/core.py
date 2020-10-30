@@ -5,9 +5,7 @@ import torch.nn as nn
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Union
 from typing import Optional
-from cftool.misc import shallow_copy_dict
 
 from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock

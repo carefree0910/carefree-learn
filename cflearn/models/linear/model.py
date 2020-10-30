@@ -1,7 +1,6 @@
 import torch
 
 import numpy as np
-import torch.nn as nn
 
 from typing import *
 from cfdata.tabular import DataLoader
