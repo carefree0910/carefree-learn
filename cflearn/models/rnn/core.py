@@ -1,69 +1,47 @@
 import torch
 
-import numpy as np
+import torch.nn as nn
 
 from typing import *
-from cfdata.tabular import DataLoader
 
 from .rnns import rnn_dict
-from ..fcnn import FCNN
-from ...types import tensor_dict_type
+from ..fcnn.core import FCNNCore
 
 
-@FCNN.register("rnn")
-class RNN(FCNN):
+class RNNCore(nn.Module):
     def __init__(
         self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
+        cell: str,
+        in_dim: int,
+        out_dim: int,
+        cell_config: Dict[str, Any],
+        hidden_units: List[int],
+        num_layers: int = 1,
+        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+        final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
-        super(FCNN, self).__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
-        input_dimensions = [self.tr_data.processed_dim]
-        rnn_hidden_dim = self._rnn_config["hidden_size"]
-        input_dimensions += [rnn_hidden_dim] * (self._rnn_num_layers - 1)
+        super().__init__()
+        # rnn
+        rnn_base = rnn_dict[cell]
+        input_dimensions = [in_dim]
+        hidden_size = cell_config["hidden_size"]
+        input_dimensions += [hidden_size] * (num_layers - 1)
         self.rnn_list = torch.nn.ModuleList(
-            [self._rnn_base(dim, **self._rnn_config) for dim in input_dimensions]
+            [rnn_base(dim, **cell_config) for dim in input_dimensions]
         )
-        self.config["fc_in_dim"] = rnn_hidden_dim
-        self._init_fcnn()
+        # fcnn
+        self.fcnn = FCNNCore(
+            hidden_size,
+            out_dim,
+            hidden_units,
+            mapping_configs,
+            final_mapping_config,
+        )
 
-    def _init_config(self) -> None:
-        super()._init_config()
-        self._rnn_base = rnn_dict[self.config.setdefault("type", "GRU")]
-        self._rnn_config = self.config.setdefault("rnn_config", {})
-        self._rnn_config["batch_first"] = True
-        self._rnn_num_layers = self._rnn_config.pop("num_layers", 1)
-        self._rnn_config["num_layers"] = 1
-        self._rnn_config.setdefault("hidden_size", 256)
-        self._rnn_config.setdefault("bidirectional", False)
-
-    def forward(
-        self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        net = self._split_features(x_batch, batch_indices, loader_name).merge()
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
-        net = self.mlp(net[..., -1, :])
-        return {"predictions": net}
+        return self.fcnn(net[..., -1, :])
 
 
-__all__ = ["RNN"]
+__all__ = ["RNNCore"]
