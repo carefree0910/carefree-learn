@@ -37,7 +37,7 @@ class DDRCore(nn.Module):
         else:
             if latent_dim is None:
                 latent_dim = 512
-            self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)
+            self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
         # pseudo invertible q / y
         q_in_activation = Lambda(torch.atanh, "atanh")
         q_inverse_in_activation = nn.Tanh()

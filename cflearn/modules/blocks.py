@@ -171,6 +171,7 @@ class MLP(nn.Module):
         batch_norm: bool = False,
         activation: Optional[str] = None,
     ) -> "MLP":
+        mapping_config: Dict[str, Any]
         mapping_config = {"bias": bias, "dropout": dropout, "batch_norm": batch_norm}
         if activation is not None:
             mapping_config["activation"] = activation

@@ -102,6 +102,7 @@ class DDRLoss(LossBase, LoggingMixin):
         elif pdf is not None:
             pdf_losses = self._pdf_losses(pdf)
         else:
+            assert sampled_pdf is not None
             pdf_losses = self._pdf_losses(sampled_pdf)
         # combine
         losses = {}
@@ -117,6 +118,8 @@ class DDRLoss(LossBase, LoggingMixin):
             losses[f"{suffix}anchor_y_recover"] = ay_recover_losses
         # common
         if not is_synthetic:
+            assert median_losses is not None
+            assert median_recover_losses is not None
             losses["median"] = median_losses
             losses["median_recover"] = median_recover_losses
             # quantile

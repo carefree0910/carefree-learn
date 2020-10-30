@@ -201,7 +201,7 @@ class DDR(ModelBase):
             results["q_inverse"] = self.q_inv_fn(results["q_inverse"])
         return results
 
-    def _median(self, net: torch.Tensor, do_inverse: bool) -> torch.Tensor:
+    def _median(self, net: torch.Tensor, do_inverse: bool) -> tensor_dict_type:
         return self._quantile(net, None, do_inverse)
 
     def _cdf(
