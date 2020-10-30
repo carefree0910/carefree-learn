@@ -109,7 +109,7 @@ class DDR(ModelBase):
         self.y_min = y_min
         self.y_diff = y_max - y_min
         anchors = np.asarray(y_anchors, np.float32)
-        self._anchor_choice_array = y_min + (y_max - y_min) * anchors
+        self._anchor_choice_array = y_min + self.y_diff * anchors
         self._quantile_anchors = np.asarray(q_anchors, np.float32)
         self._synthetic_range = self.config.setdefault("synthetic_range", 5)
         # loss config
@@ -260,6 +260,7 @@ class DDR(ModelBase):
                 n_repeat = int(batch_size / len(q_batch)) + 1
                 q_batch = np.repeat(q_batch, n_repeat)[:batch_size]
                 y_batch = np.repeat(y_batch, n_repeat)[:batch_size]
+            y_batch = self.y_min + self.y_diff * y_batch
             q_batch = self._convert_np_anchors(q_batch)
             y_batch = self._convert_np_anchors(y_batch)
         # build predictions
