@@ -53,7 +53,7 @@ class DDRCore(nn.Module):
             num_blocks = 3
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
-            block = InvertibleBlock(latent_dim, num_units, mapping_config)  # type: ignore
+            block = InvertibleBlock(latent_dim, True, num_units, mapping_config)
             self.blocks.append(block)
         self.num_blocks = num_blocks
 
