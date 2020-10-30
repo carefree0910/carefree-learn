@@ -159,6 +159,19 @@ class MLP(nn.Module):
             net = mapping(net)
         return net
 
+    @classmethod
+    def simple(
+        cls,
+        in_dim: int,
+        out_dim: Optional[int],
+        num_units: List[int],
+        bias: Optional[bool] = None,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+    ) -> "MLP":
+        mapping_config = {"bias": bias, "dropout": dropout, "batch_norm": batch_norm}
+        return cls(in_dim, out_dim, num_units, mapping_config)
+
 
 class DNDF(nn.Module):
     def __init__(
