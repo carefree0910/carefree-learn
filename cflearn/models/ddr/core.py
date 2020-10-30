@@ -57,20 +57,18 @@ class DDRCore(nn.Module):
             self.blocks.append(block)
         self.num_blocks = num_blocks
 
+    def get_latent(self, x_batch: torch.Tensor) -> torch.Tensor:
+        return x_batch if self.to_latent is None else self.to_latent(x_batch)
+
     def forward(
         self,
-        net: torch.Tensor,
+        latent: torch.Tensor,
         *,
         q_batch: Optional[torch.Tensor] = None,
         y_batch: Optional[torch.Tensor] = None,
         do_inverse: bool = False,
-        is_latent: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[torch.Tensor]]:
-        if is_latent:
-            latent = net
-        else:
-            latent = net if self.to_latent is None else self.to_latent(net)
         # prepare q_latent
         if not median:
             if q_batch is None:
@@ -101,7 +99,6 @@ class DDRCore(nn.Module):
                 q_inverse = self.forward(
                     latent,
                     y_batch=y,
-                    is_latent=True,
                     do_inverse=False,
                 )["q"]
         # simulate cdf
@@ -118,7 +115,6 @@ class DDRCore(nn.Module):
                 y_inverse = self.forward(
                     latent,
                     q_batch=q,
-                    is_latent=True,
                     do_inverse=False,
                 )["y"]
         return {
