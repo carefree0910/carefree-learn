@@ -82,9 +82,9 @@ def test_ops() -> None:
             data_config=data_config,
             model_config={
                 "transformer_config": {
-                    "dropout": 0.0,
                     "num_layers": 1,
-                    "input_linear_config": {"latent_dim": 32},
+                    "latent_dim": 32,
+                    "transformer_layer_config": {"dropout": 0.0},
                 },
             },
             **kwargs,  # type: ignore

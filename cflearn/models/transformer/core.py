@@ -1,18 +1,14 @@
 import torch
 
-import numpy as np
 import torch.nn as nn
 
-from typing import Any
-from typing import Dict
-from typing import Optional
-from cfdata.tabular import DataLoader
+from typing import *
 
-from ...misc.toolkit import *
-from ...modules.blocks import *
-from ...modules.auxiliary import *
-from ..fcnn import FCNN
-from ...types import tensor_dict_type
+from ..fcnn.core import FCNNCore
+from ...misc.toolkit import Activations
+from ...modules.blocks import Linear
+from ...modules.blocks import Dropout
+from ...modules.blocks import Attention
 
 
 class TransformerLayer(nn.Module):
@@ -59,75 +55,69 @@ class TransformerLayer(nn.Module):
         return net
 
 
-@FCNN.register("transformer")
-class Transformer(FCNN):
+class TransformerCore(nn.Module):
     def __init__(
         self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
+        in_dim: int,
+        out_dim: int,
+        num_heads: int,
+        num_layers: int,
+        num_history: int,
+        hidden_units: List[int],
+        to_latent: bool = False,
+        norm: Optional[Callable] = None,
+        latent_dim: Optional[int] = None,
+        input_linear_config: Optional[Dict[str, Any]] = None,
+        transformer_layer_config: Optional[Dict[str, Any]] = None,
+        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+        final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
-        super(FCNN, self).__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
-        self._init_fcnn()
-
-    def _init_config(self) -> None:
-        super()._init_config()
-        transformer_dim = self.tr_data.processed_dim
-        transformer_config = self.config.setdefault("transformer_config", {})
-        il_config = transformer_config.pop("input_linear_config", None)
-        if il_config is None:
+        super().__init__()
+        # latent projection
+        if latent_dim is not None and not to_latent:
+            msg = "`latent_dim` is provided but `to_latent` is set to False"
+            raise ValueError(msg)
+        if latent_dim is None:
+            latent_dim = 256 if to_latent else in_dim
+        if not to_latent:
             self.input_linear = None
         else:
-            il_config.setdefault("bias", False)
-            im_latent_dim = il_config.pop("latent_dim", 256)
-            self.input_linear = Linear(transformer_dim, im_latent_dim, **il_config)
-            transformer_dim = im_latent_dim
-        num_layers = transformer_config.pop("num_layers", 6)
-        num_heads = transformer_config.pop("num_heads", 8)
+            if input_linear_config is None:
+                input_linear_config = {}
+            input_linear_config.setdefault("bias", False)
+            self.input_linear = Linear(in_dim, latent_dim, **input_linear_config)
+            in_dim = latent_dim
+        # transformer blocks
+        self.norm = norm
+        if transformer_layer_config is None:
+            transformer_layer_config = {}
         self.layers = nn.ModuleList(
             [
                 TransformerLayer(
-                    transformer_dim,
+                    in_dim,
                     num_heads,
-                    **transformer_config,
+                    **transformer_layer_config,
                 )
                 for _ in range(num_layers)
             ]
         )
-        self.norm = transformer_config.setdefault("norm", None)
-        self.config["fc_in_dim"] = transformer_dim * self.num_history
+        # final projection
+        self.fcnn = FCNNCore(
+            in_dim * num_history,
+            out_dim,
+            hidden_units,
+            mapping_configs,
+            final_mapping_config,
+        )
 
-    def forward(
-        self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        net = self._split_features(x_batch, batch_indices, loader_name).merge()
+    def forward(self, net: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
         if self.input_linear is not None:
             net = self.input_linear(net)
-        mask = batch.get("mask")
         for layer in self.layers:
             net = layer(net, mask=mask)
         if self.norm is not None:
             net = self.norm(net)
-        net = self.mlp(net.view(net.shape[0], -1))
-        return {"predictions": net}
+        return self.fcnn(net.view(net.shape[0], -1))
 
 
-__all__ = ["Transformer"]
+__all__ = ["TransformerCore"]
