@@ -256,7 +256,6 @@ class DDR(ModelBase):
                 n_repeat = int(batch_size / len(q_batch)) + 1
                 q_batch = np.repeat(q_batch, n_repeat)[:batch_size]
                 y_batch = np.repeat(y_batch, n_repeat)[:batch_size]
-            y_batch = y_batch * self.y_diff + self.y_min
             q_batch = self._convert_np_anchors(q_batch)
             y_batch = self._convert_np_anchors(y_batch)
         # build predictions
