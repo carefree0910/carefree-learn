@@ -174,7 +174,14 @@ class MLP(nn.Module):
         mapping_config = {"bias": bias, "dropout": dropout, "batch_norm": batch_norm}
         if activation is not None:
             mapping_config["activation"] = activation
-        return cls(in_dim, out_dim, num_units, mapping_config)
+        final_mapping_config = {"bias": bias}
+        return cls(
+            in_dim,
+            out_dim,
+            num_units,
+            mapping_config,
+            final_mapping_config=final_mapping_config,
+        )
 
 
 class DNDF(nn.Module):
@@ -305,7 +312,7 @@ class InvertibleBlock(nn.Module):
                 "bias": False,
                 "dropout": 0.0,
                 "batch_norm": False,
-                "activation": "leaky_relu_0.2",
+                "activation": "Tanh",
             },
         )
         self.mlp = MLP(h_dim, None, num_units, mapping_config_)
@@ -333,6 +340,39 @@ class InvertibleBlock(nn.Module):
         net1 = net1[..., self.inverse_indices]
         net2 = net2 - self.mlp(net1)
         return net2, net1
+
+
+class PseudoInvertibleBlock(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        *,
+        in_activation: Optional[nn.Module] = None,
+        inverse_in_activation: Optional[nn.Module] = None,
+    ):
+        super().__init__()
+        dim = max(in_dim, out_dim)
+        self.to_latent = Linear(in_dim, dim, bias=False)
+        self.from_latent = MLP.simple(dim, in_dim, [dim], activation="Tanh")
+        msg = "`in_activation` and `inverse_in_activation` should be provided together"
+        if in_activation is not None and inverse_in_activation is None:
+            raise ValueError(msg)
+        if in_activation is None and inverse_in_activation is not None:
+            raise ValueError(msg)
+        self.in_activation = in_activation
+        self.inverse_in_activation = inverse_in_activation
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        if self.in_activation is not None:
+            net = self.in_activation(net)
+        return self.to_latent(net)
+
+    def inverse(self, net: torch.Tensor) -> torch.Tensor:
+        net = self.from_latent(net)
+        if self.inverse_in_activation is not None:
+            net = self.inverse_in_activation(net)
+        return net
 
 
 class AttentionOutput(NamedTuple):

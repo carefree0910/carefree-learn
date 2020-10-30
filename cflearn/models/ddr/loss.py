@@ -8,16 +8,17 @@ from torch.nn.functional import l1_loss
 
 from ...losses import LossBase
 from ...types import tensor_dict_type
+from ...misc.toolkit import to_numpy
 from ...modules.auxiliary import MTL
 
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
-        self._lb_std = config.setdefault("lambda_std", 1e-5)
-        self._use_anneal = config["use_anneal"]
+        self._lb_recover = config.setdefault("lambda_recover", 10.0)
+        self._use_anneal = False
+        # self._use_anneal = config["use_anneal"]
         self._anneal_step = config["anneal_step"]
-        self.mtl = MTL(7, config["mtl_method"])
-        self.register_buffer("zero", torch.zeros([1, 1], dtype=torch.float32))
+        self.mtl = MTL(18, config["mtl_method"])
         if self._use_anneal:
             self._median_anneal: Anneal
             self._main_anneal: Anneal
@@ -42,7 +43,7 @@ class DDRLoss(LossBase, LoggingMixin):
             }
             default_anneal_floors = {
                 "median_anneal": 1.0,
-                "main_anneal": 0.25,
+                "main_anneal": 0.0,
                 "monotonous_anneal": 0.0,
                 "anchor_anneal": 0.0,
             }
@@ -73,22 +74,15 @@ class DDRLoss(LossBase, LoggingMixin):
                         ),
                     )
 
-    @staticmethod
-    def _pdf_loss(pdf: torch.Tensor) -> torch.Tensor:
-        negative_mask = pdf <= 1e-8
-        monotonous_loss = torch.sum(-pdf[negative_mask])
-        log_likelihood_loss = torch.sum(-torch.log(pdf[~negative_mask]))
-        return (monotonous_loss + log_likelihood_loss) / len(pdf)
-
     def _core(  # type: ignore
         self,
         predictions: tensor_dict_type,
         target: torch.Tensor,
         *,
-        check_monotonous_only: bool = False,
+        is_synthetic: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
         # anneal
-        if not self._use_anneal or not self.training or check_monotonous_only:
+        if not self._use_anneal or not self.training or is_synthetic:
             main_anneal = median_anneal = None
             monotonous_anneal = anchor_anneal = None
         else:
@@ -105,102 +99,140 @@ class DDRLoss(LossBase, LoggingMixin):
                 None if self._median_anneal is None else self._anchor_anneal.pop()
             )
             self._last_main_anneal = main_anneal
-        if self._use_anneal and check_monotonous_only:
+        if self._use_anneal and is_synthetic:
             main_anneal = self._last_main_anneal
         # median
-        median = predictions["predictions"]
-        median_losses = l1_loss(median, target, reduction="none")
+        if is_synthetic:
+            median_losses = median_recover_losses = None
+        else:
+            median = predictions["predictions"]
+            median_inverse = predictions["median_inverse"]
+            median_losses = l1_loss(median, target, reduction="none")
+            median_recover_losses = torch.abs(median_inverse - 0.5)
+            median_recover_losses = self._lb_recover * median_recover_losses
         if median_anneal is not None:
             median_losses = median_losses * median_anneal
-        # quantile
-        quantile_anchor_losses = None
-        if check_monotonous_only:
+            median_recover_losses = median_recover_losses * median_anneal
+        # quantile losses
+        q_batch = predictions["q_batch"]
+        assert q_batch is not None
+        anchor_quantile_losses = None
+        if is_synthetic:
             quantile_losses = None
         else:
-            q_batch = predictions["q_batch"]
-            quantiles = predictions["quantiles"]
-            quantiles_full = predictions["quantiles_full"]
-            assert q_batch is not None
-            assert quantiles is not None
-            assert quantiles_full is not None
-            quantile_losses = self._get_quantile_losses(quantiles, target, q_batch)
-            std_losses = self._lb_std * quantiles_full.std(1, keepdim=True)
-            quantile_losses = quantile_losses + std_losses
+            y = predictions["y"]
+            assert y is not None
+            quantile_losses = self._quantile_losses(y, target, q_batch)
             if main_anneal is not None:
                 quantile_losses = quantile_losses * main_anneal
             sampled_q_batch = predictions["sampled_q_batch"]
             if sampled_q_batch is not None:
-                sampled_quantiles = predictions["sampled_quantiles"]
-                sampled_quantiles_full = predictions["sampled_quantiles_full"]
-                assert sampled_quantiles is not None
-                assert sampled_quantiles_full is not None
-                quantile_anchor_losses = self._get_quantile_losses(
-                    sampled_quantiles,
+                sampled_y = predictions["sampled_y"]
+                assert sampled_y is not None
+                anchor_quantile_losses = self._quantile_losses(
+                    sampled_y,
                     target,
                     sampled_q_batch,
                 )
-                std_losses = self._lb_std * sampled_quantiles_full.std(1, keepdim=True)
-                quantile_anchor_losses = quantile_anchor_losses + std_losses
                 if anchor_anneal is not None:
-                    quantile_anchor_losses = quantile_anchor_losses * anchor_anneal
-        # cdf
-        cdf_anchor_losses = None
-        if check_monotonous_only:
+                    anchor_quantile_losses = anchor_quantile_losses * anchor_anneal
+        # q recover losses
+        q_inverse = predictions["q_inverse"]
+        assert q_inverse is not None
+        q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
+        q_recover_losses = self._lb_recover * q_recover_losses
+        if main_anneal is not None:
+            q_recover_losses = q_recover_losses * main_anneal
+        sampled_q_batch = predictions["sampled_q_batch"]
+        aq_recover_losses = None
+        if sampled_q_batch is not None:
+            sq_inverse = predictions["sampled_q_inverse"]
+            assert sq_inverse is not None
+            aq_recover_losses = l1_loss(sq_inverse, sampled_q_batch, reduction="none")
+            aq_recover_losses = self._lb_recover * aq_recover_losses
+            if anchor_anneal is not None:
+                aq_recover_losses = aq_recover_losses * anchor_anneal
+        # cdf losses
+        y_batch = predictions["y_batch"]
+        assert y_batch is not None
+        anchor_cdf_losses = None
+        if is_synthetic:
             cdf_losses = None
         else:
             cdf = predictions["cdf"]
-            cdf_full = predictions["cdf_full"]
-            y_batch = predictions["y_batch"]
             assert cdf is not None
-            assert cdf_full is not None
-            assert y_batch is not None
-            cdf_losses = self._get_cdf_losses(cdf, target, y_batch)
-            std_losses = self._lb_std * cdf_full.std(1, keepdim=True)
-            cdf_losses = cdf_losses + std_losses
+            cdf_losses = self._cdf_losses(cdf, target, y_batch)
             if main_anneal is not None:
                 cdf_losses = cdf_losses * main_anneal
             sampled_y_batch = predictions["sampled_y_batch"]
             if sampled_y_batch is not None:
                 sampled_cdf = predictions["sampled_cdf"]
-                sampled_cdf_full = predictions["sampled_cdf_full"]
                 assert sampled_cdf is not None
-                assert sampled_cdf_full is not None
-                cdf_anchor_losses = self._get_cdf_losses(
+                anchor_cdf_losses = self._cdf_losses(
                     sampled_cdf,
                     target,
                     sampled_y_batch,
                 )
-                std_losses = self._lb_std * sampled_cdf_full.std(1, keepdim=True)
-                cdf_anchor_losses = cdf_anchor_losses + std_losses
                 if anchor_anneal is not None:
-                    cdf_anchor_losses = cdf_anchor_losses * anchor_anneal
-        # pdf
-        pdf_losses = None
-        pdf, sampled_pdf = map(predictions.get, ["pdf", "sampled_pdf"])
-        if pdf is not None and sampled_pdf is not None:
-            pdf_losses = self._pdf_loss(pdf) + self._pdf_loss(sampled_pdf)
+                    anchor_cdf_losses = anchor_cdf_losses * anchor_anneal
+        # y recover losses
+        ay_recover_losses = None
+        y_inverse = predictions["y_inverse"]
+        assert y_inverse is not None
+        y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
+        y_recover_losses = self._lb_recover * y_recover_losses
+        if main_anneal is not None:
+            y_recover_losses = y_recover_losses * main_anneal
+        sampled_y_batch = predictions["sampled_y_batch"]
+        if sampled_y_batch is not None:
+            sy_inverse = predictions["sampled_y_inverse"]
+            assert sy_inverse is not None
+            ay_recover_losses = l1_loss(sy_inverse, sampled_y_batch, reduction="none")
+            ay_recover_losses = self._lb_recover * ay_recover_losses
             if anchor_anneal is not None:
-                pdf_losses = pdf_losses * monotonous_anneal
-        # combine
-        if check_monotonous_only:
-            losses = {}
+                ay_recover_losses = ay_recover_losses * anchor_anneal
+        # pdf losses
+        pdf, sampled_pdf = map(predictions.get, ["pdf", "sampled_pdf"])
+        if pdf is None and sampled_pdf is None:
+            pdf_losses = None
+        elif pdf is not None and sampled_pdf is not None:
+            pdf_losses = self._pdf_losses(pdf) + self._pdf_losses(sampled_pdf)
+        elif pdf is not None:
+            pdf_losses = self._pdf_losses(pdf)
         else:
-            losses = {"median": median_losses}
-            assert cdf_losses is not None
-            losses["cdf"] = cdf_losses
-            if cdf_anchor_losses is not None:
-                losses["cdf_anchor"] = cdf_anchor_losses
+            pdf_losses = self._pdf_losses(sampled_pdf)
+        if pdf_losses is not None and anchor_anneal is not None:
+            pdf_losses = pdf_losses * monotonous_anneal
+        # combine
+        losses = {}
+        suffix = "" if not is_synthetic else "synthetic_"
+        # q recover
+        assert q_recover_losses is not None
+        losses[f"{suffix}q_recover"] = q_recover_losses
+        if aq_recover_losses is not None:
+            losses[f"{suffix}anchor_q_recover"] = aq_recover_losses
+        # y recover
+        losses[f"{suffix}y_recover"] = y_recover_losses
+        if ay_recover_losses is not None:
+            losses[f"{suffix}anchor_y_recover"] = ay_recover_losses
+        # common
+        if not is_synthetic:
+            losses["median"] = median_losses
+            losses["median_recover"] = median_recover_losses
+            # quantile
             assert quantile_losses is not None
             losses["quantile"] = quantile_losses
-            if quantile_anchor_losses is not None:
-                losses["quantile_anchor"] = quantile_anchor_losses
+            if anchor_quantile_losses is not None:
+                losses["anchor_quantile"] = anchor_quantile_losses
+            # cdf
+            assert cdf_losses is not None
+            losses["cdf"] = cdf_losses
+            if anchor_cdf_losses is not None:
+                losses["anchor_cdf"] = anchor_cdf_losses
+        # pdf
         if pdf_losses is not None:
-            key = "synthetic_pdf" if check_monotonous_only else "pdf"
-            losses[key] = pdf_losses
-        # TODO : check this condition branch and see if it is necessary
-        if not losses:
-            zero = self.zero.repeat(len(target), 1)  # type: ignore
-            return zero, {"loss": zero}
+            losses[f"{suffix}pdf"] = pdf_losses
+        # mtl
         if not self.mtl.registered:
             self.mtl.register(list(losses.keys()))
         return self.mtl(losses), losses
@@ -209,20 +241,25 @@ class DDRLoss(LossBase, LoggingMixin):
         self,
         predictions: tensor_dict_type,
         target: torch.Tensor,
-        *,
-        check_monotonous_only: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
-        losses, losses_dict = self._core(
-            predictions,
-            target,
-            check_monotonous_only=check_monotonous_only,
-        )
+        losses, losses_dict = self._core(predictions, target)
         reduced_losses = self._reduce(losses)
         reduced_losses_dict = {k: self._reduce(v) for k, v in losses_dict.items()}
         return reduced_losses, reduced_losses_dict
 
     @staticmethod
-    def _get_cdf_losses(
+    def _quantile_losses(
+        quantiles: torch.Tensor,
+        target: torch.Tensor,
+        q_batch: torch.Tensor,
+    ) -> torch.Tensor:
+        quantile_error = target - quantiles
+        q1 = q_batch * quantile_error
+        q2 = (q_batch - 1.0) * quantile_error
+        return torch.max(q1, q2)
+
+    @staticmethod
+    def _cdf_losses(
         cdf: torch.Tensor,
         target: torch.Tensor,
         y_batch: torch.Tensor,
@@ -232,15 +269,13 @@ class DDRLoss(LossBase, LoggingMixin):
         return -(mask * torch.log(cdf) + rev_mask * torch.log(1.0 - cdf))
 
     @staticmethod
-    def _get_quantile_losses(
-        quantiles: torch.Tensor,
-        target: torch.Tensor,
-        q_batch: torch.Tensor,
-    ) -> torch.Tensor:
-        quantile_error = target - quantiles
-        q1 = q_batch * quantile_error
-        q2 = (q_batch - 1.0) * quantile_error
-        return torch.max(q1, q2)
+    def _pdf_losses(pdf: torch.Tensor) -> torch.Tensor:
+        negative_mask = pdf <= 1e-8
+        positive_mask = ~negative_mask
+        losses = torch.zeros_like(pdf)
+        losses[negative_mask] = -pdf[negative_mask]
+        losses[positive_mask] = -torch.log(pdf[positive_mask])
+        return losses
 
 
 __all__ = ["DDRLoss"]

@@ -7,16 +7,20 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from ...misc.toolkit import to_numpy
+from ...misc.toolkit import Lambda
+from ...modules.blocks import BN
 from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock
+from ...modules.blocks import PseudoInvertibleBlock
 
 
 class DDRCore(nn.Module):
     def __init__(
         self,
         in_dim: int,
-        num_blocks: int = 3,
         to_latent: bool = True,
+        num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
         num_units: Optional[List[int]] = None,
         mapping_config: Optional[Dict[str, Any]] = None,
@@ -26,7 +30,7 @@ class DDRCore(nn.Module):
             "bias": False,
             "dropout": 0.0,
             "batch_norm": False,
-            "activation": "mish",
+            "activation": None,
         }
         # to latent
         if not to_latent:
@@ -34,9 +38,21 @@ class DDRCore(nn.Module):
             self.to_latent = None
         else:
             if latent_dim is None:
-                latent_dim = 256
-            self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
+                latent_dim = 512
+            self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)
+        # pseudo invertible q / y
+        q_in_activation = Lambda(torch.atanh)
+        q_inverse_in_activation = Lambda(lambda x: 0.5 * (x.tanh() + 1.0))
+        self.q_invertible = PseudoInvertibleBlock(
+            1,
+            latent_dim,
+            in_activation=q_in_activation,
+            inverse_in_activation=q_inverse_in_activation,
+        )
+        self.y_invertible = PseudoInvertibleBlock(1, latent_dim)
         # invertible blocks
+        if num_blocks is None:
+            num_blocks = 3
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, num_units, mapping_config)  # type: ignore
@@ -49,49 +65,69 @@ class DDRCore(nn.Module):
         *,
         q_batch: Optional[torch.Tensor] = None,
         y_batch: Optional[torch.Tensor] = None,
+        do_inverse: bool = False,
+        is_latent: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[torch.Tensor]]:
-        # prepare latent features
-        latent = net if self.to_latent is None else self.to_latent(net)
+        if is_latent:
+            latent = net
+        else:
+            latent = net if self.to_latent is None else self.to_latent(net)
+        # prepare q_latent
         if not median:
             if q_batch is None:
                 q_latent = None
             else:
-                q_latent = latent + torch.atanh(q_batch)
+                q_latent = latent + self.q_invertible(q_batch)
         else:
             if q_batch is not None:
                 msg = "`median` is specified but `q_batch` is still provided"
                 raise ValueError(msg)
             q_latent = latent
+        # prepare y_latent
         if y_batch is None:
             y_latent = None
         else:
-            y_latent = latent + y_batch
+            y_latent = latent + self.y_invertible(y_batch)
         # simulate quantile function
+        q_inverse = None
         if q_latent is None:
-            y_reduced = y_predictions = None
+            y = None
         else:
             q1, q2 = q_latent.chunk(2, dim=1)
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             q_final = torch.cat([q1, q2], dim=1)
-            y_predictions = q_final - latent
-            y_reduced = y_predictions.mean(1, keepdims=True)
+            y = self.y_invertible.inverse(q_final - latent)
+            if do_inverse:
+                q_inverse = self.forward(
+                    latent,
+                    y_batch=y,
+                    is_latent=True,
+                    do_inverse=False,
+                )["q"]
         # simulate cdf
+        y_inverse = None
         if y_latent is None:
-            q_reduced = q_predictions = None
+            q = None
         else:
             y1, y2 = y_latent.chunk(2, dim=1)
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             y_final = torch.cat([y1, y2], dim=1)
-            q_predictions = 0.5 * ((y_final - latent).tanh() + 1.0)
-            q_reduced = q_predictions.mean(1, keepdims=True)
+            q = self.q_invertible.inverse(y_final - latent)
+            if do_inverse:
+                y_inverse = self.forward(
+                    latent,
+                    q_batch=q,
+                    is_latent=True,
+                    do_inverse=False,
+                )["y"]
         return {
-            "q": q_reduced,
-            "y": y_reduced,
-            "q_full": q_predictions,
-            "y_full": y_predictions,
+            "q": q,
+            "y": y,
+            "q_inverse": q_inverse,
+            "y_inverse": y_inverse,
         }
 
 
