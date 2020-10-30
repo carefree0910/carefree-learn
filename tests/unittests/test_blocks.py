@@ -47,9 +47,12 @@ class TestBlocks(unittest.TestCase):
 
         net1 = torch.randn(batch_size, h_dim)
         net2 = torch.randn(batch_size, h_dim)
-        invertible = InvertibleBlock(dim)
+
+        invertible = InvertibleBlock(dim, enable_permutation=False)
         o1, o2 = invertible(net1, net2)
         r1, r2 = invertible.inverse(o1, o2)
+        self.assertTrue(torch.allclose(o1, net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o2, net1 + net2, rtol=1e-4, atol=1e-4))
         self.assertTrue(torch.allclose(net1, r1, rtol=1e-4, atol=1e-4))
         self.assertTrue(torch.allclose(net2, r2, rtol=1e-4, atol=1e-4))
 
