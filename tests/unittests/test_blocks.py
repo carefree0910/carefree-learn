@@ -53,6 +53,14 @@ class TestBlocks(unittest.TestCase):
         self.assertTrue(torch.allclose(net1, r1, rtol=1e-4, atol=1e-4))
         self.assertTrue(torch.allclose(net2, r2, rtol=1e-4, atol=1e-4))
 
+        res_invertible = ResInvertibleBlock(dim)
+        o1, o2 = res_invertible(net1, net2)
+        r1, r2 = res_invertible.inverse(o1, o2)
+        self.assertTrue(torch.allclose(o1, net1 + net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o2, net1 + 2.0 * net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(net1, r1, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(net2, r2, rtol=1e-4, atol=1e-4))
+
     def test_attention(self) -> None:
         num_heads = 8
         input_dim = embed_dim = 256

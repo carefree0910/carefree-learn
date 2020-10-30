@@ -9,9 +9,9 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
@@ -334,6 +334,44 @@ class InvertibleBlock(nn.Module):
         return net2, net1
 
 
+class ResInvertibleBlock(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        *,
+        transition_builder: Optional[Callable[[int], nn.Module]] = None,
+    ):
+        super().__init__()
+
+        def get_block() -> InvertibleBlock:
+            if transition_builder is None:
+                transition = None
+            else:
+                transition = transition_builder(dim)
+            return InvertibleBlock(
+                dim,
+                transition=transition,
+                enable_permutation=False,
+            )
+
+        self.block1 = get_block()
+        self.block2 = get_block()
+
+    def forward(
+        self,
+        net1: torch.Tensor,
+        net2: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.block2(*self.block1(net1, net2))
+
+    def inverse(
+        self,
+        net1: torch.Tensor,
+        net2: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        return self.block1.inverse(*self.block2.inverse(net1, net2))
+
+
 class PseudoInvertibleBlock(nn.Module):
     def __init__(
         self,
@@ -508,5 +546,7 @@ __all__ = [
     "DNDF",
     "TreeResBlock",
     "InvertibleBlock",
+    "ResInvertibleBlock",
+    "PseudoInvertibleBlock",
     "Attention",
 ]
