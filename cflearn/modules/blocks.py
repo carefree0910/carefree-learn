@@ -165,11 +165,15 @@ class MLP(nn.Module):
         in_dim: int,
         out_dim: Optional[int],
         num_units: List[int],
-        bias: Optional[bool] = None,
+        *,
+        bias: bool = False,
         dropout: float = 0.0,
         batch_norm: bool = False,
+        activation: Optional[str] = None,
     ) -> "MLP":
         mapping_config = {"bias": bias, "dropout": dropout, "batch_norm": batch_norm}
+        if activation is not None:
+            mapping_config["activation"] = activation
         return cls(in_dim, out_dim, num_units, mapping_config)
 
 
