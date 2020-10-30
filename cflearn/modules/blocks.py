@@ -295,7 +295,7 @@ class InvertibleBlock(nn.Module):
         dim: int,
         *,
         transition: Optional[nn.Module] = None,
-        enable_permutation: bool = True,
+        enable_permutation: bool = False,
     ):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
@@ -348,11 +348,7 @@ class ResInvertibleBlock(nn.Module):
                 transition = None
             else:
                 transition = transition_builder(dim)
-            return InvertibleBlock(
-                dim,
-                transition=transition,
-                enable_permutation=False,
-            )
+            return InvertibleBlock(dim, transition=transition)
 
         self.block1 = get_block()
         self.block2 = get_block()

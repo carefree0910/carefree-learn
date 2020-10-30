@@ -17,7 +17,6 @@ class DDRCore(nn.Module):
         self,
         in_dim: int,
         to_latent: bool = True,
-        enable_permutation: bool = False,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
         transition_builder: Optional[Callable[[int], nn.Module]] = None,
@@ -59,7 +58,6 @@ class DDRCore(nn.Module):
             block = InvertibleBlock(
                 latent_dim,
                 transition=transition,
-                enable_permutation=enable_permutation,
             )
             self.blocks.append(block)
         self.num_blocks = num_blocks
