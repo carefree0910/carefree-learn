@@ -361,6 +361,8 @@ def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
 
 
 def _rmtree(folder: str, patience: float = 10.0) -> None:
+    if not os.path.isdir(folder):
+        return None
     t = time.time()
     while True:
         try:
