@@ -7,6 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import Callable
 from typing import Optional
 from cftool.ml import Metrics
 from cftool.misc import is_numeric
@@ -176,6 +177,38 @@ class DDR(ModelBase):
 
     # core
 
+    @property
+    def q_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda q: 2.0 * q - 1.0
+
+    @property
+    def q_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda q: 0.5 * (q + 1.0)
+
+    @property
+    def y_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
+
+    @property
+    def y_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
+
+    def _quantile(
+        self,
+        net: torch.Tensor,
+        q_batch: Optional[torch.Tensor],
+        do_inverse: bool,
+    ) -> tensor_dict_type:
+        if q_batch is None:
+            results = self.core(net, median=True, do_inverse=do_inverse)
+        else:
+            q_batch = self.q_fn(q_batch)
+            results = self.core(net, q_batch=q_batch, do_inverse=do_inverse)
+        results["y"] = self.y_inv_fn(results["y"])
+        if do_inverse:
+            results["q_inverse"] = self.q_inv_fn(results["q_inverse"])
+        return results
+
     def _median(self, net: torch.Tensor, do_inverse: bool) -> torch.Tensor:
         return self._quantile(net, None, do_inverse)
 
@@ -189,9 +222,11 @@ class DDR(ModelBase):
     ) -> tensor_dict_type:
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=return_pdf):
-            y_batch_ = (y_batch - self.y_min) / (0.5 * self.y_diff) - 1.0
+            y_batch_ = self.y_fn(y_batch)
             results = self.core(net, y_batch=y_batch_, do_inverse=do_inverse)
-            cdf = results["q"]
+            cdf = results["q"] = self.q_inv_fn(results["q"])
+            if do_inverse:
+                results["y_inverse"] = self.y_inv_fn(results["y_inverse"])
         if not return_pdf:
             pdf = None
         else:
@@ -199,20 +234,6 @@ class DDR(ModelBase):
             assert isinstance(pdf, torch.Tensor)
             y_batch.requires_grad_(False)
         results["pdf"] = pdf
-        return results
-
-    def _quantile(
-        self,
-        net: torch.Tensor,
-        q_batch: Optional[torch.Tensor],
-        do_inverse: bool,
-    ) -> tensor_dict_type:
-        if q_batch is None:
-            results = self.core(net, median=True, do_inverse=do_inverse)
-        else:
-            q_batch = 2.0 * q_batch - 1.0
-            results = self.core(net, q_batch=q_batch, do_inverse=do_inverse)
-        results["y"] = (results["y"] + 1.0) * (0.5 * self.y_diff) + self.y_min
         return results
 
     def _core(self, net: torch.Tensor, synthetic: bool) -> tensor_dict_type:

@@ -41,8 +41,8 @@ class DDRCore(nn.Module):
                 latent_dim = 512
             self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)
         # pseudo invertible q / y
-        q_in_activation = Lambda(torch.atanh)
-        q_inverse_in_activation = Lambda(lambda x: 0.5 * (x.tanh() + 1.0))
+        q_in_activation = Lambda(torch.atanh, "atanh")
+        q_inverse_in_activation = nn.Tanh()
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
