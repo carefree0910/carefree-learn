@@ -5,6 +5,7 @@ import torch.nn as nn
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Callable
 from typing import Optional
 
 from ...misc.toolkit import Lambda
@@ -18,10 +19,10 @@ class DDRCore(nn.Module):
         self,
         in_dim: int,
         to_latent: bool = True,
+        enable_permutation: bool = False,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
-        num_units: Optional[List[int]] = None,
-        mapping_config: Optional[Dict[str, Any]] = None,
+        transition_builder: Optional[Callable[[int], nn.Module]] = None,
     ):
         super().__init__()
         latent_cfg = {
@@ -53,7 +54,15 @@ class DDRCore(nn.Module):
             num_blocks = 3
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
-            block = InvertibleBlock(latent_dim, True, num_units, mapping_config)
+            if transition_builder is None:
+                transition = None
+            else:
+                transition = transition_builder(latent_dim)
+            block = InvertibleBlock(
+                latent_dim,
+                transition=transition,
+                enable_permutation=enable_permutation,
+            )
             self.blocks.append(block)
         self.num_blocks = num_blocks
 

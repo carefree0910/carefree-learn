@@ -293,31 +293,17 @@ class InvertibleBlock(nn.Module):
     def __init__(
         self,
         dim: int,
+        *,
+        transition: Optional[nn.Module] = None,
         enable_permutation: bool = True,
-        num_units: Optional[List[int]] = None,
-        mapping_config: Optional[Dict[str, Any]] = None,
     ):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
         super().__init__()
         h_dim = int(dim // 2)
-        if num_units is None:
-            num_units = [h_dim]
-        else:
-            if num_units[-1] != h_dim:
-                raise ValueError(f"last element of `num_units` should be {h_dim}")
-        if mapping_config is None:
-            mapping_config = {}
-        mapping_config_ = update_dict(
-            mapping_config,
-            {
-                "bias": False,
-                "dropout": 0.0,
-                "batch_norm": False,
-                "activation": "Tanh",
-            },
-        )
-        self.mlp = MLP(h_dim, None, num_units, mapping_config_)
+        if transition is None:
+            transition = nn.Identity()
+        self.transition = transition
         self.enable_permutation = enable_permutation
         if enable_permutation:
             permute_indices = np.random.permutation(h_dim)
@@ -332,7 +318,7 @@ class InvertibleBlock(nn.Module):
         net1: torch.Tensor,
         net2: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        net1 = net1 + self.mlp(net2)
+        net1 = net1 + self.transition(net2)
         if self.enable_permutation:
             net2 = net2[..., self.permute_indices]
         return net2, net1
@@ -344,7 +330,7 @@ class InvertibleBlock(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         if self.enable_permutation:
             net1 = net1[..., self.inverse_indices]
-        net2 = net2 - self.mlp(net1)
+        net2 = net2 - self.transition(net1)
         return net2, net1
 
 
