@@ -8,7 +8,6 @@ from torch.nn.functional import l1_loss
 
 from ...losses import LossBase
 from ...types import tensor_dict_type
-from ...misc.toolkit import to_numpy
 from ...modules.auxiliary import MTL
 
 

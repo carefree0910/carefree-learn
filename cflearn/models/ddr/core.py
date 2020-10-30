@@ -7,9 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from ...misc.toolkit import to_numpy
 from ...misc.toolkit import Lambda
-from ...modules.blocks import BN
 from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import PseudoInvertibleBlock
