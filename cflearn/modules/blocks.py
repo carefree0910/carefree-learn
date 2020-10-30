@@ -293,6 +293,7 @@ class InvertibleBlock(nn.Module):
     def __init__(
         self,
         dim: int,
+        enable_permutation: bool = True,
         num_units: Optional[List[int]] = None,
         mapping_config: Optional[Dict[str, Any]] = None,
     ):
@@ -317,12 +318,14 @@ class InvertibleBlock(nn.Module):
             },
         )
         self.mlp = MLP(h_dim, None, num_units, mapping_config_)
-        permute_indices = np.random.permutation(h_dim)
-        inverse_indices = np.argsort(permute_indices)
-        permute_indices = to_torch(permute_indices).to(torch.long)
-        inverse_indices = to_torch(inverse_indices).to(torch.long)
-        self.register_buffer("permute_indices", permute_indices)
-        self.register_buffer("inverse_indices", inverse_indices)
+        self.enable_permutation = enable_permutation
+        if enable_permutation:
+            permute_indices = np.random.permutation(h_dim)
+            inverse_indices = np.argsort(permute_indices)
+            permute_indices = to_torch(permute_indices).to(torch.long)
+            inverse_indices = to_torch(inverse_indices).to(torch.long)
+            self.register_buffer("permute_indices", permute_indices)
+            self.register_buffer("inverse_indices", inverse_indices)
 
     def forward(
         self,
@@ -330,7 +333,8 @@ class InvertibleBlock(nn.Module):
         net2: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         net1 = net1 + self.mlp(net2)
-        net2 = net2[..., self.permute_indices]
+        if self.enable_permutation:
+            net2 = net2[..., self.permute_indices]
         return net2, net1
 
     def inverse(
@@ -338,7 +342,8 @@ class InvertibleBlock(nn.Module):
         net1: torch.Tensor,
         net2: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        net1 = net1[..., self.inverse_indices]
+        if self.enable_permutation:
+            net1 = net1[..., self.inverse_indices]
         net2 = net2 - self.mlp(net1)
         return net2, net1
 
