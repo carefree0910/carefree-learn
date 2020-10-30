@@ -12,8 +12,8 @@ from ...modules.auxiliary import MTL
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
-        self._lb_recover = config.setdefault("lambda_recover", 10.0)
         self.mtl = MTL(18, config["mtl_method"])
+        self._lb_recover = config.setdefault("lambda_recover", 1.0)
 
     def _core(  # type: ignore
         self,
@@ -171,10 +171,8 @@ class DDRLoss(LossBase, LoggingMixin):
     @staticmethod
     def _pdf_losses(pdf: torch.Tensor) -> torch.Tensor:
         negative_mask = pdf <= 1e-8
-        positive_mask = ~negative_mask
         losses = torch.zeros_like(pdf)
         losses[negative_mask] = -pdf[negative_mask]
-        losses[positive_mask] = -torch.log(pdf[positive_mask])
         return losses
 
 
