@@ -81,7 +81,7 @@ class DDR(ModelBase):
             h_dim = latent_dim_ // 2
             return MLP.simple(h_dim, None, [h_dim], activation="Tanh")
 
-        transition_builder = instance.config.setdefault("transition_builder", builder)
+        transition_builder = instance.config.get("transition_builder", builder)
         cfg.update(
             {
                 "num_blocks": num_blocks,
