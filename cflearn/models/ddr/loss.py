@@ -13,6 +13,8 @@ from ...modules.auxiliary import MTL
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.mtl = MTL(18, config["mtl_method"])
+        self._cdf_floor = config.setdefault("cdf_eps", 1.0e-8)
+        self._cdf_ceiling = 1.0 - self._cdf_floor
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
 
     def _core(  # type: ignore
@@ -161,15 +163,16 @@ class DDRLoss(LossBase, LoggingMixin):
         q2 = (q_batch - 1.0) * quantile_error
         return torch.max(q1, q2)
 
-    @staticmethod
     def _cdf_losses(
+        self,
         cdf: torch.Tensor,
         target: torch.Tensor,
         y_batch: torch.Tensor,
     ) -> torch.Tensor:
         mask = target <= y_batch
-        mask, rev_mask = mask.to(torch.float32), (~mask).to(torch.float32)
-        return -(mask * torch.log(cdf) + rev_mask * torch.log(1.0 - cdf))
+        cdf = torch.clamp(cdf, self._cdf_floor, self._cdf_ceiling)
+        likelihood = torch.where(mask, torch.log(cdf), torch.log(1.0 - cdf))
+        return -likelihood
 
     @staticmethod
     def _pdf_losses(pdf: torch.Tensor) -> torch.Tensor:
