@@ -42,7 +42,9 @@ class DDRCore(nn.Module):
         self.y_invertible = PseudoInvertibleBlock(1, latent_dim)
         # invertible blocks
         if num_blocks is None:
-            num_blocks = 3
+            num_blocks = 4
+        if num_blocks % 2 != 0:
+            raise ValueError("`num_blocks` should be divided by 2")
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, num_units, mapping_config)  # type: ignore
