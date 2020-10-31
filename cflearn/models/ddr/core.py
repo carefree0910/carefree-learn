@@ -7,7 +7,6 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from ...misc.toolkit import Lambda
 from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import PseudoInvertibleBlock
@@ -39,14 +38,7 @@ class DDRCore(nn.Module):
                 latent_dim = 512
             self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
         # pseudo invertible q / y
-        q_in_activation = Lambda(torch.atanh, "atanh")
-        q_inverse_in_activation = nn.Tanh()
-        self.q_invertible = PseudoInvertibleBlock(
-            1,
-            latent_dim,
-            in_activation=q_in_activation,
-            inverse_in_activation=q_inverse_in_activation,
-        )
+        self.q_invertible = PseudoInvertibleBlock(1, latent_dim)
         self.y_invertible = PseudoInvertibleBlock(1, latent_dim)
         # invertible blocks
         if num_blocks is None:
@@ -82,11 +74,6 @@ class DDRCore(nn.Module):
                 msg = "`median` is specified but `q_batch` is still provided"
                 raise ValueError(msg)
             q_latent = latent
-        # prepare y_latent
-        if y_batch is None:
-            y_latent = None
-        else:
-            y_latent = latent + self.y_invertible(y_batch)
         # simulate quantile function
         q_inverse = None
         if q_latent is None:
@@ -104,6 +91,11 @@ class DDRCore(nn.Module):
                     is_latent=True,
                     do_inverse=False,
                 )["q"]
+        # prepare y_latent
+        if y_batch is None:
+            y_latent = None
+        else:
+            y_latent = latent + self.y_invertible(y_batch)
         # simulate cdf
         y_inverse = None
         if y_latent is None:
@@ -113,7 +105,7 @@ class DDRCore(nn.Module):
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             y_final = torch.cat([y1, y2], dim=1)
-            q = self.q_invertible.inverse(y_final - latent)
+            q = torch.tanh(self.q_invertible.inverse(y_final - latent))
             if do_inverse:
                 y_inverse = self.forward(
                     latent,
