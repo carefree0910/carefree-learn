@@ -374,13 +374,19 @@ class PseudoInvertibleBlock(nn.Module):
         in_dim: int,
         out_dim: int,
         *,
+        to_latent: Optional[nn.Module] = None,
+        from_latent: Optional[nn.Module] = None,
         in_activation: Optional[nn.Module] = None,
         inverse_in_activation: Optional[nn.Module] = None,
     ):
         super().__init__()
         dim = max(in_dim, out_dim)
-        self.to_latent = Linear(in_dim, dim, bias=False)
-        self.from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="ReLU")
+        if to_latent is None:
+            to_latent = Linear(in_dim, dim, bias=False)
+        if from_latent is None:
+            from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="ReLU")
+        self.to_latent = to_latent
+        self.from_latent = from_latent
         msg = "`in_activation` and `inverse_in_activation` should be provided together"
         if in_activation is not None and inverse_in_activation is None:
             raise ValueError(msg)
