@@ -313,7 +313,7 @@ class InvertibleBlock(nn.Module):
                 "bias": False,
                 "dropout": 0.0,
                 "batch_norm": False,
-                "activation": "Tanh",
+                "activation": "mish",
             },
         )
         self.mlp = MLP(h_dim, None, num_units, mapping_config_)
