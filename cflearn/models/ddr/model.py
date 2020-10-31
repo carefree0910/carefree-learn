@@ -120,7 +120,7 @@ class DDR(ModelBase):
                 "clip_norm": 1.0,
                 "num_epoch": 40,
                 "max_epoch": 1000,
-                "metric_config": {"types": default_metric_types, "decay": 0.5},
+                "metric_config": {"types": default_metric_types},
             },
         )
         self._pipeline_config["trainer_config"] = trainer_config
