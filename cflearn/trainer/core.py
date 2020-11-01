@@ -547,8 +547,11 @@ class Trainer(LoggingMixin):
                         for name, tensor in loss_dict.items():
                             value = tensor.item()
                             if self.tracker is not None:
-                                it = self._step_count
-                                self.tracker.track_scalar(f"tr_{name}", value, iteration=it)
+                                self.tracker.track_scalar(
+                                    f"tr_{name}",
+                                    value,
+                                    iteration=self._step_count,
+                                )
                             if trains_logger is not None:
                                 trains_logger.report_scalar(
                                     "Training",
