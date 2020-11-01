@@ -170,9 +170,15 @@ class MLP(nn.Module):
         dropout: float = 0.0,
         batch_norm: bool = False,
         activation: Optional[str] = None,
+        pruner_config: Optional[Dict[str, Any]] = None,
     ) -> "MLP":
         mapping_config: Dict[str, Any]
-        mapping_config = {"bias": bias, "dropout": dropout, "batch_norm": batch_norm}
+        mapping_config = {
+            "bias": bias,
+            "dropout": dropout,
+            "batch_norm": batch_norm,
+            "pruner_config": pruner_config,
+        }
         if activation is not None:
             mapping_config["activation"] = activation
         final_mapping_config = {"bias": bias}
