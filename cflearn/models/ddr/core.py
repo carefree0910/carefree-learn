@@ -16,12 +16,16 @@ class DDRCore(nn.Module):
     def __init__(
         self,
         in_dim: int,
+        y_min: float,
+        y_max: float,
         to_latent: bool = True,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
         transition_builder: Callable[[int], nn.Module] = None,
     ):
         super().__init__()
+        self.y_min = y_min
+        self.y_diff = y_max - y_min
         # to latent
         if not to_latent:
             latent_dim = in_dim
@@ -50,6 +54,22 @@ class DDRCore(nn.Module):
             self.blocks.append(block)
         self.num_blocks = num_blocks
 
+    @property
+    def q_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda q: 2.0 * q - 1.0
+
+    @property
+    def q_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda q: 0.5 * (q + 1.0)
+
+    @property
+    def y_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
+
+    @property
+    def y_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+        return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
+
     def forward(
         self,
         net: torch.Tensor,
@@ -69,6 +89,7 @@ class DDRCore(nn.Module):
             if q_batch is None:
                 q_latent = None
             else:
+                q_batch = self.q_fn(q_batch)
                 q_latent = latent + self.q_invertible(q_batch)
         else:
             if q_batch is not None:
@@ -85,6 +106,7 @@ class DDRCore(nn.Module):
                 q1, q2 = block(q1, q2)
             q_final = torch.cat([q1, q2], dim=1)
             y = self.y_invertible.inverse(q_final - latent)
+            y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
                     latent,
@@ -96,6 +118,7 @@ class DDRCore(nn.Module):
         if y_batch is None:
             y_latent = None
         else:
+            y_batch = self.y_fn(y_batch)
             y_latent = latent + self.y_invertible(y_batch)
         # simulate cdf
         y_inverse = None
@@ -107,6 +130,7 @@ class DDRCore(nn.Module):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             y_final = torch.cat([y1, y2], dim=1)
             q = torch.tanh(self.q_invertible.inverse(y_final - latent))
+            q = self.q_inv_fn(q)
             if do_inverse:
                 y_inverse = self.forward(
                     latent,
