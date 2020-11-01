@@ -90,6 +90,7 @@ class DDR(ModelBase):
         super()._init_config()
         # common
         self._step_count = 0
+        self.config.setdefault("ema_decay", 0.999)
         self._synthetic_step = int(self.config.setdefault("synthetic_step", 10))
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
@@ -100,7 +101,7 @@ class DDR(ModelBase):
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
         # trainer config
-        default_metric_types = ["ddr", "loss"]
+        default_metric_types = ["ddr", "q_recover", "median_recover"]
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
             trainer_config,

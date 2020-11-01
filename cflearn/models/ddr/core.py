@@ -43,6 +43,13 @@ class DDRCore(nn.Module):
         # pseudo invertible q / y
         self.q_invertible = PseudoInvertibleBlock(1, latent_dim)
         self.y_invertible = PseudoInvertibleBlock(1, latent_dim)
+        # transition builder
+        def default_transition_builder(dim: int) -> nn.Module:
+            h_dim = int(dim // 2)
+            return MLP.simple(h_dim, None, [h_dim, h_dim], activation="mish")
+
+        if transition_builder is None:
+            transition_builder = default_transition_builder
         # invertible blocks
         if num_blocks is None:
             num_blocks = 4
