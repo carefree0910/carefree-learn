@@ -298,28 +298,28 @@ class InvertibleBlock(nn.Module):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
         super().__init__()
+        h_dim = int(dim // 2)
+        # transition
         if transition_builder is not None:
             transition = transition_builder(dim)
         else:
-            h_dim = int(dim // 2)
             transition = MLP.simple(h_dim, None, [h_dim], activation="mish")
         self.transition = transition
+        # permutation
+        permutation_indices = to_torch(np.random.permutation(dim)).to(torch.long)
+        inv_indices = permutation_indices.argsort()
+        self.register_buffer("indices", permutation_indices)
+        self.register_buffer("inv_indices", inv_indices)
 
-    def forward(
-        self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        net1, net2 = net[..., self.indices].chunk(2, dim=1)
         net1 = net1 + self.transition(net2)
-        return net2, net1
+        return torch.cat([net1, net2], dim=1)
 
-    def inverse(
-        self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        net2 = net2 - self.transition(net1)
-        return net2, net1
+    def inverse(self, net: torch.Tensor) -> torch.Tensor:
+        net1, net2 = net.chunk(2, dim=1)
+        net1 = net1 - self.transition(net2)
+        return torch.cat([net1, net2], dim=1)[..., self.inv_indices]
 
 
 class PseudoInvertibleBlock(nn.Module):

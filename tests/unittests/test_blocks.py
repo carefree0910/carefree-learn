@@ -45,21 +45,11 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, dim)
-        net1, net2 = net.chunk(2, dim=1)
         inv1 = InvertibleBlock(dim)
         inv2 = InvertibleBlock(dim)
-        o11, o12 = inv1(net1, net2)
-        o21, o22 = inv2(o11, o12)
-        outputs = torch.cat([o21, o22], dim=1)
-        r21, r22 = inv2.inverse(o21, o22)
-        r11, r12 = inv1.inverse(r21, r22)
-        self.assertTrue(torch.allclose(net1, r11, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(net2, r12, rtol=1e-4, atol=1e-4))
-        res1_gt = inv1.transition(net2)
-        res2_gt = inv2.transition(res1_gt + net1)
-        residual_gt = torch.cat([res1_gt, res2_gt], dim=1)
-        gt = net + residual_gt
-        self.assertTrue(torch.allclose(outputs, gt, rtol=1e-4, atol=1e-4))
+        outputs = inv2(inv1(net))
+        inverse = inv1.inverse(inv2.inverse(outputs))
+        self.assertTrue(torch.allclose(net, inverse, rtol=1e-4, atol=1e-4))
 
     def test_attention(self) -> None:
         num_heads = 8

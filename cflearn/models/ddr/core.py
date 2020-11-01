@@ -101,11 +101,10 @@ class DDRCore(nn.Module):
         if q_latent is None:
             y = None
         else:
-            q1, q2 = q_latent.chunk(2, dim=1)
+            q_net = q_latent
             for block in self.blocks:
-                q1, q2 = block(q1, q2)
-            q_final = torch.cat([q1, q2], dim=1)
-            y = self.y_invertible.inverse(q_final - latent)
+                q_net = block(q_net)
+            y = self.y_invertible.inverse(q_net - latent)
             y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
@@ -125,11 +124,10 @@ class DDRCore(nn.Module):
         if y_latent is None:
             q = None
         else:
-            y1, y2 = y_latent.chunk(2, dim=1)
+            y_net = y_latent
             for i in range(self.num_blocks):
-                y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
-            y_final = torch.cat([y1, y2], dim=1)
-            q = torch.tanh(self.q_invertible.inverse(y_final - latent))
+                y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
+            q = torch.tanh(self.q_invertible.inverse(y_net - latent))
             q = self.q_inv_fn(q)
             if do_inverse:
                 y_inverse = self.forward(
