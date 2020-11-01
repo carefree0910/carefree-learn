@@ -96,7 +96,6 @@ class DDR(ModelBase):
         self.y_min, self.y_max = labels.min(), labels.max()
         self.y_diff = self.y_max - self.y_min
         self._quantile_anchors = np.linspace(0.05, 0.95, 10).astype(np.float32)
-        self._synthetic_range = self.config.setdefault("synthetic_range", 5)
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
@@ -286,7 +285,12 @@ class DDR(ModelBase):
             and self._step_count % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.forward"):
-                synthetic_net = net.detach() * self._synthetic_range
+                net_min = torch.min(net, dim=0)[0]
+                net_max = torch.max(net, dim=0)[0]
+                net_diff = net_max - net_min
+                synthetic_net = net.new_empty(net.shape)
+                synthetic_net.uniform_(0, 1)
+                synthetic_net = synthetic_net * net_diff + net_min
                 synthetic_outputs = self._core(synthetic_net, True)
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
