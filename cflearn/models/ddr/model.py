@@ -15,7 +15,6 @@ from cftool.misc import update_dict
 from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
 from cfdata.tabular import DataLoader
-from ...types import tensor_dict_type
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -27,6 +26,7 @@ from ...modules.blocks import *
 from .core import DDRCore
 from .loss import DDRLoss
 from ..base import ModelBase
+from ...types import tensor_dict_type
 
 proj_type = Optional[Union[Linear, MLP]]
 tensors_type = Union[

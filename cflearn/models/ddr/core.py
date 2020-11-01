@@ -23,12 +23,6 @@ class DDRCore(nn.Module):
         mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        latent_cfg = {
-            "bias": False,
-            "dropout": 0.0,
-            "batch_norm": False,
-            "activation": None,
-        }
         # to latent
         if not to_latent:
             latent_dim = in_dim
@@ -36,6 +30,12 @@ class DDRCore(nn.Module):
         else:
             if latent_dim is None:
                 latent_dim = 512
+            latent_cfg = {
+                "bias": False,
+                "dropout": 0.0,
+                "batch_norm": False,
+                "activation": None,
+            }
             self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
         # pseudo invertible q / y
         self.q_invertible = PseudoInvertibleBlock(1, latent_dim)
