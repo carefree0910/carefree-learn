@@ -212,9 +212,14 @@ class DDR(ModelBase):
             q_inverse = quantile_results["q_inverse"]
             assert y is not None and q_inverse is not None
         with timing_context(self, "forward.cdf"):
-            cdf_results = self._cdf(net, y_batch, True, True, True)
-            cdf, pdf, y_inverse = map(cdf_results.get, ["q", "pdf", "y_inverse"])
-            assert cdf is not None and pdf is not None and y_inverse is not None
+            cdf_results = self._cdf(net, y_batch, True, True, not synthetic)
+            cdf, pdf = map(cdf_results.get, ["q", "pdf"])
+            assert cdf is not None and pdf is not None
+            if synthetic:
+                y_inverse = None
+            else:
+                y_inverse = cdf_results["y_inverse"]
+                assert y_inverse is not None
         # construct results
         return {
             "net": net,

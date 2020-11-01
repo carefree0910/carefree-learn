@@ -57,10 +57,13 @@ class DDRLoss(LossBase, LoggingMixin):
             assert cdf is not None
             cdf_losses = self._cdf_losses(cdf, target, y_batch)
         # y recover losses
-        y_inverse = predictions["y_inverse"]
-        assert y_inverse is not None
-        y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
-        y_recover_losses = self._lb_recover * y_recover_losses
+        if is_synthetic:
+            y_recover_losses = None
+        else:
+            y_inverse = predictions["y_inverse"]
+            assert y_inverse is not None
+            y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
+            y_recover_losses = self._lb_recover * y_recover_losses
         # pdf losses
         pdf = predictions["pdf"]
         pdf_losses = None if pdf is None else self._pdf_losses(pdf)
@@ -70,7 +73,8 @@ class DDRLoss(LossBase, LoggingMixin):
         # recover losses
         assert q_recover_losses is not None
         losses[f"{suffix}q_recover"] = q_recover_losses
-        losses[f"{suffix}y_recover"] = y_recover_losses
+        if y_recover_losses is not None:
+            losses[f"{suffix}y_recover"] = y_recover_losses
         # common
         if not is_synthetic:
             assert median_losses is not None
