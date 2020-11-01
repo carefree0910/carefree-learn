@@ -92,7 +92,6 @@ class DDR(ModelBase):
         self._step_count = 0
         self._synthetic_step = int(self.config.setdefault("synthetic_step", 10))
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
-        self._use_gradient_loss = self.config.setdefault("use_gradient_loss", True)
         labels = self.tr_data.processed.y
         self.y_min, self.y_max = labels.min(), labels.max()
         self.y_diff = self.y_max - self.y_min
