@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Callable
 from typing import Optional
 
+from ...misc.toolkit import switch_requires_grad
 from ...modules.blocks import MLP
 from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock
@@ -43,6 +44,9 @@ class DDRCore(nn.Module):
         # pseudo invertible q / y
         self.q_invertible = PseudoInvertibleBlock(1, latent_dim)
         self.y_invertible = PseudoInvertibleBlock(1, latent_dim)
+        q_params1 = list(self.q_invertible.to_latent.parameters())
+        q_params2 = list(self.y_invertible.from_latent.parameters())
+        self.q_parameters = q_params1 + q_params2
         # transition builder
         def default_transition_builder(dim: int) -> nn.Module:
             h_dim = int(dim // 2)
@@ -116,7 +120,7 @@ class DDRCore(nn.Module):
             if do_inverse:
                 q_inverse = self.forward(
                     latent,
-                    y_batch=y,
+                    y_batch=y.detach(),
                     is_latent=True,
                     do_inverse=False,
                 )["q"]
@@ -137,12 +141,14 @@ class DDRCore(nn.Module):
             q = torch.tanh(self.q_invertible.inverse(y_net - latent))
             q = self.q_inv_fn(q)
             if do_inverse:
+                switch_requires_grad(self.q_parameters, False)
                 y_inverse = self.forward(
                     latent,
                     q_batch=q,
                     is_latent=True,
                     do_inverse=False,
                 )["y"]
+                switch_requires_grad(self.q_parameters, True)
         return {
             "q": q,
             "y": y,
