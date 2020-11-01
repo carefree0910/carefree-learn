@@ -12,7 +12,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
