@@ -2,11 +2,11 @@ import torch
 
 import torch.nn as nn
 
-from typing import Any
 from typing import Dict
-from typing import List
+from typing import Callable
 from typing import Optional
 
+from ...modules.blocks import MLP
 from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import PseudoInvertibleBlock
@@ -19,8 +19,7 @@ class DDRCore(nn.Module):
         to_latent: bool = True,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
-        num_units: Optional[List[int]] = None,
-        mapping_config: Optional[Dict[str, Any]] = None,
+        transition_builder: Callable[[int], nn.Module] = None,
     ):
         super().__init__()
         # to latent
@@ -47,7 +46,7 @@ class DDRCore(nn.Module):
             raise ValueError("`num_blocks` should be divided by 2")
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
-            block = InvertibleBlock(latent_dim, num_units, mapping_config)  # type: ignore
+            block = InvertibleBlock(latent_dim, transition_builder)
             self.blocks.append(block)
         self.num_blocks = num_blocks
 

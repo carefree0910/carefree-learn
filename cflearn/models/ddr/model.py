@@ -75,15 +75,13 @@ class DDR(ModelBase):
         to_latent = instance.config.setdefault("to_latent", True)
         latent_dim = instance.config.setdefault("latent_dim", None)
         num_blocks = instance.config.setdefault("num_blocks", None)
-        num_units = instance.config.setdefault("num_units", None)
-        mapping_config = instance.config.setdefault("mapping_config", None)
+        transition_builder = instance.config.setdefault("transition_builder", None)
         cfg.update(
             {
                 "num_blocks": num_blocks,
                 "to_latent": to_latent,
                 "latent_dim": latent_dim,
-                "num_units": num_units,
-                "mapping_config": mapping_config,
+                "transition_builder": transition_builder,
             }
         )
         return cfg

@@ -9,6 +9,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
@@ -293,37 +294,24 @@ class InvertibleBlock(nn.Module):
     def __init__(
         self,
         dim: int,
-        num_units: Optional[List[int]] = None,
-        mapping_config: Optional[Dict[str, Any]] = None,
+        transition_builder: Callable[[int], nn.Module] = None,
     ):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
         super().__init__()
-        h_dim = int(dim // 2)
-        if num_units is None:
-            num_units = [h_dim]
+        if transition_builder is not None:
+            transition = transition_builder(dim)
         else:
-            if num_units[-1] != h_dim:
-                raise ValueError(f"last element of `num_units` should be {h_dim}")
-        if mapping_config is None:
-            mapping_config = {}
-        mapping_config_ = update_dict(
-            mapping_config,
-            {
-                "bias": False,
-                "dropout": 0.0,
-                "batch_norm": False,
-                "activation": "mish",
-            },
-        )
-        self.mlp = MLP(h_dim, None, num_units, mapping_config_)
+            h_dim = int(dim // 2)
+            transition = MLP.simple(h_dim, None, [h_dim], activation="mish")
+        self.transition = transition
 
     def forward(
         self,
         net1: torch.Tensor,
         net2: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        net1 = net1 + self.mlp(net2)
+        net1 = net1 + self.transition(net2)
         return net2, net1
 
     def inverse(
@@ -331,7 +319,7 @@ class InvertibleBlock(nn.Module):
         net1: torch.Tensor,
         net2: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        net2 = net2 - self.mlp(net1)
+        net2 = net2 - self.transition(net1)
         return net2, net1
 
 
