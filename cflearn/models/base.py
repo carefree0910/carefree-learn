@@ -314,14 +314,6 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 grad_scalar.update()
             opt.zero_grad()
 
-    @staticmethod
-    def _switch_requires_grad(
-        params: List[torch.nn.Parameter],
-        requires_grad: bool,
-    ) -> None:
-        for param in params:
-            param.requires_grad_(requires_grad)
-
     def _split_features(
         self,
         x_batch: torch.Tensor,

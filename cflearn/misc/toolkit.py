@@ -94,6 +94,11 @@ def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dic
     return results
 
 
+def switch_requires_grad(params: List[nn.Parameter], requires_grad: bool) -> None:
+    for param in params:
+        param.requires_grad_(requires_grad)
+
+
 def get_gradient(
     y: torch.Tensor,
     x: torch.Tensor,
@@ -722,6 +727,7 @@ __all__ = [
     "to_prob",
     "collate_np_dicts",
     "collate_tensor_dicts",
+    "switch_requires_grad",
     "get_gradient",
     "Initializer",
     "Activations",
