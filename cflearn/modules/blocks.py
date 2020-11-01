@@ -334,31 +334,26 @@ class PseudoInvertibleBlock(nn.Module):
         in_dim: int,
         out_dim: int,
         *,
-        in_activation: Optional[nn.Module] = None,
-        inverse_in_activation: Optional[nn.Module] = None,
+        to_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
+        out_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
     ):
         super().__init__()
         dim = max(in_dim, out_dim)
-        self.to_latent = MLP.simple(in_dim, None, [dim, dim], activation="mish")
-        self.from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="mish")
-        msg = "`in_activation` and `inverse_in_activation` should be provided together"
-        if in_activation is not None and inverse_in_activation is None:
-            raise ValueError(msg)
-        if in_activation is None and inverse_in_activation is not None:
-            raise ValueError(msg)
-        self.in_activation = in_activation
-        self.inverse_in_activation = inverse_in_activation
+        if to_transition_builder is not None:
+            self.to_latent = to_transition_builder(in_dim, out_dim)
+        else:
+            num_units = [dim, dim]
+            self.to_latent = MLP.simple(in_dim, None, num_units, activation="mish")
+        if out_transition_builder is not None:
+            self.from_latent = out_transition_builder(out_dim, in_dim)
+        else:
+            self.from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="mish")
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        if self.in_activation is not None:
-            net = self.in_activation(net)
         return self.to_latent(net)
 
     def inverse(self, net: torch.Tensor) -> torch.Tensor:
-        net = self.from_latent(net)
-        if self.inverse_in_activation is not None:
-            net = self.inverse_in_activation(net)
-        return net
+        return self.from_latent(net)
 
 
 class AttentionOutput(NamedTuple):
