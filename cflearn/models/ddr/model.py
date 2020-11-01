@@ -90,7 +90,8 @@ class DDR(ModelBase):
         super()._init_config()
         # common
         self._step_count = 0
-        self._synthetic_step = int(self.config.setdefault("synthetic_step", 5))
+        self._synthetic_step = int(self.config.setdefault("synthetic_step", 10))
+        self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         self._use_gradient_loss = self.config.setdefault("use_gradient_loss", True)
         labels = self.tr_data.processed.y
         self.y_min, self.y_max = labels.min(), labels.max()
@@ -293,9 +294,12 @@ class DDR(ModelBase):
                 net_min = torch.min(net, dim=0)[0]
                 net_max = torch.max(net, dim=0)[0]
                 net_diff = net_max - net_min
+                diff_span = 0.5 * (self._synthetic_range - 1.0) * net_diff
                 synthetic_net = net.new_empty(net.shape)
                 synthetic_net.uniform_(0, 1)
-                synthetic_net = synthetic_net * net_diff + net_min
+                synthetic_net = self._synthetic_range * synthetic_net * net_diff
+                synthetic_net = synthetic_net - (diff_span - net_min)
+                # synthetic_net ~ U_[ -diff_span + min, diff_span + max ]
                 synthetic_outputs = self._core(synthetic_net, True)
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
