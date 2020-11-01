@@ -5,7 +5,6 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -86,25 +85,17 @@ class DDR(ModelBase):
         )
         return cfg
 
-    @property
-    def default_anchors(self) -> np.ndarray:
-        return np.linspace(0.05, 0.95, 10).astype(np.float32)
-
     def _init_config(self) -> None:
         super()._init_config()
         # common
         self._step_count = 0
         self._synthetic_step = int(self.config.setdefault("synthetic_step", 5))
         self._use_gradient_loss = self.config.setdefault("use_gradient_loss", True)
-        y_anchors = self.config.setdefault("cdf_ratio_anchors", self.default_anchors)
-        q_anchors = self.config.setdefault("quantile_anchors", self.default_anchors)
         labels = self.tr_data.processed.y
         y_min, y_max = labels.min(), labels.max()
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        anchors = np.asarray(y_anchors, np.float32)
-        self._anchor_choice_array = y_min + (y_max - y_min) * anchors
-        self._quantile_anchors = np.asarray(q_anchors, np.float32)
+        self._quantile_anchors = np.linspace(0.05, 0.95, 10).astype(np.float32)
         self._synthetic_range = self.config.setdefault("synthetic_range", 5)
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})
@@ -155,15 +146,6 @@ class DDR(ModelBase):
         if to_device:
             elem_tensor = elem_tensor.to(self.device)
         return elem_tensor
-
-    def _sample_anchors(self, n: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        choice_indices = np.random.randint(0, len(self._quantile_anchors), n)
-        chosen = self._quantile_anchors[choice_indices]
-        sampled_q_batch = self._convert_np_anchors(chosen)
-        choice_indices = np.random.randint(0, len(self._anchor_choice_array), n)
-        chosen = self._anchor_choice_array[choice_indices]
-        sampled_y_batch = self._convert_np_anchors(chosen)
-        return sampled_q_batch, sampled_y_batch
 
     # core
 
@@ -233,7 +215,7 @@ class DDR(ModelBase):
                 q_batch = np.random.random([len(net), 1]).astype(np.float32)
                 y_batch = np.random.random([len(net), 1]).astype(np.float32)
             else:
-                q_batch = y_batch = self.default_anchors
+                q_batch = y_batch = self._quantile_anchors
                 n_repeat = int(len(net) / len(q_batch)) + 1
                 q_batch = np.repeat(q_batch, n_repeat)[: len(net)]
                 y_batch = np.repeat(y_batch, n_repeat)[: len(net)]
@@ -257,33 +239,6 @@ class DDR(ModelBase):
             cdf_results = self._cdf(net, y_batch, True, True, True)
             cdf, pdf, y_inverse = map(cdf_results.get, ["q", "pdf", "y_inverse"])
             assert cdf is not None and pdf is not None and y_inverse is not None
-        # build sampled predictions
-        if not self.training:
-            sampled_q_batch = sampled_y_batch = None
-            sampled_y = sampled_cdf = sampled_pdf = None
-            sampled_q_inverse = sampled_y_inverse = None
-        else:
-            sampled_q_batch, sampled_y_batch = self._sample_anchors(len(net))
-            with timing_context(self, "forward.sampled_quantile"):
-                sq_results = self._quantile(net, sampled_q_batch, True)
-                sampled_q_inverse = sq_results["q_inverse"]
-                assert sampled_q_inverse is not None
-                if synthetic:
-                    sampled_y = None
-                else:
-                    sampled_y = sq_results["y"]
-                    assert sampled_y is not None
-            with timing_context(self, "forward.sampled_cdf"):
-                sy_results = self._cdf(net, sampled_y_batch, True, True, True)
-                sampled_pdf = sy_results["pdf"]
-                sampled_y_inverse = sy_results["y_inverse"]
-                assert sampled_pdf is not None
-                assert sampled_y_inverse is not None
-                if synthetic:
-                    sampled_cdf = None
-                else:
-                    sampled_cdf, sampled_pdf = map(sy_results.get, ["q", "pdf"])
-                    assert sampled_cdf is not None
         # construct results
         return {
             "net": net,
@@ -291,18 +246,11 @@ class DDR(ModelBase):
             "median_inverse": median_inverse,
             "q_batch": q_batch,
             "y_batch": y_batch,
-            "sampled_q_batch": sampled_q_batch,
-            "sampled_y_batch": sampled_y_batch,
+            "y": y,
+            "q_inverse": q_inverse,
             "pdf": pdf,
             "cdf": cdf,
             "y_inverse": y_inverse,
-            "y": y,
-            "q_inverse": q_inverse,
-            "sampled_pdf": sampled_pdf,
-            "sampled_cdf": sampled_cdf,
-            "sampled_y_inverse": sampled_y_inverse,
-            "sampled_y": sampled_y,
-            "sampled_q_inverse": sampled_q_inverse,
         }
 
     # API
