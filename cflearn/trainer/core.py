@@ -408,13 +408,20 @@ class Trainer(LoggingMixin):
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self.model):
-                    forward_dicts.append(self.model(batch, batch_indices, loader_name))
+                    forward_dicts.append(
+                        self.model(
+                            batch,
+                            batch_indices,
+                            loader_name,
+                            self._step_count,
+                        )
+                    )
                     loss_dicts.append(
                         self.model.loss_function(
                             batch,
                             batch_indices,
                             forward_dicts[-1],
-                            0,
+                            self._step_count,
                         )
                     )
             losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])

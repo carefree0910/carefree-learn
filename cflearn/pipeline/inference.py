@@ -332,6 +332,7 @@ class Inference(LoggingMixin):
         requires_recover: bool = True,
         returns_probabilities: bool = False,
         loader_name: Optional[str] = None,
+        batch_step: int = -1,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
 
@@ -347,6 +348,7 @@ class Inference(LoggingMixin):
                 use_grad,
                 loader,
                 loader_name,
+                batch_step,
                 **shallow_copy_dict(kwargs),
             )
         except:
@@ -355,6 +357,7 @@ class Inference(LoggingMixin):
                 use_grad,
                 loader,
                 loader_name,
+                batch_step,
                 **shallow_copy_dict(kwargs),
             )
 
@@ -402,6 +405,7 @@ class Inference(LoggingMixin):
         use_grad: bool,
         loader: DataLoader,
         loader_name: Optional[str],
+        batch_step: int,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
         return_indices = loader.return_indices
@@ -426,6 +430,7 @@ class Inference(LoggingMixin):
                         batch,
                         batch_indices,
                         loader_name,
+                        batch_step,
                         **shallow_copy_dict(kwargs),
                     )
                 for k, v in rs.items():

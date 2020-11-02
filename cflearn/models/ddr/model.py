@@ -213,8 +213,8 @@ class DDR(ModelBase):
             q_batch = self._convert_np_anchors(q_batch)
             y_batch = self._convert_np_anchors(y_batch)
         # build predictions
+        do_inverse = batch_step < 0 or batch_step >= self._recover_start_step
         with timing_context(self, "forward.median"):
-            do_inverse = batch_step >= self._recover_start_step
             if synthetic:
                 median = median_inverse = None
             else:
