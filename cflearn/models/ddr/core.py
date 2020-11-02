@@ -8,7 +8,6 @@ from typing import Optional
 
 from ...misc.toolkit import switch_requires_grad
 from ...modules.blocks import MLP
-from ...modules.blocks import Mapping
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import PseudoInvertibleBlock
 
@@ -29,6 +28,14 @@ class DDRCore(nn.Module):
         super().__init__()
         self.y_min = y_min
         self.y_diff = y_max - y_min
+        # builders
+        latent_builder = lambda: to_transition_builder(in_dim, latent_dim)
+        pseudo_builder = lambda: PseudoInvertibleBlock(
+            1,
+            latent_dim,
+            to_transition_builder=to_transition_builder,
+            from_transition_builder=from_transition_builder,
+        )
         # to latent
         if not to_latent:
             latent_dim = in_dim
@@ -36,26 +43,10 @@ class DDRCore(nn.Module):
         else:
             if latent_dim is None:
                 latent_dim = 512
-            latent_cfg = {
-                "bias": False,
-                "dropout": 0.0,
-                "batch_norm": False,
-                "activation": None,
-            }
-            self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
+            self.to_latent = latent_builder()
         # pseudo invertible q / y
-        self.q_invertible = PseudoInvertibleBlock(
-            1,
-            latent_dim,
-            to_transition_builder=to_transition_builder,
-            from_transition_builder=from_transition_builder,
-        )
-        self.y_invertible = PseudoInvertibleBlock(
-            1,
-            latent_dim,
-            to_transition_builder=to_transition_builder,
-            from_transition_builder=from_transition_builder,
-        )
+        self.q_invertible = pseudo_builder()
+        self.y_invertible = pseudo_builder()
         q_params1 = list(self.q_invertible.to_latent.parameters())
         q_params2 = list(self.y_invertible.from_latent.parameters())
         self.q_parameters = q_params1 + q_params2
