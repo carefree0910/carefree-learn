@@ -51,6 +51,13 @@ class DDRCore(nn.Module):
         q_params1 = list(self.q_invertible.to_latent.parameters())
         q_params2 = list(self.y_invertible.from_latent.parameters())
         self.q_parameters = q_params1 + q_params2
+        # add / multiply
+        self.q_add = pseudo_builder("mish", "mish")
+        self.q_mul = pseudo_builder("mish", "mish")
+        self.y_add = pseudo_builder("mish", "mish")
+        self.y_mul = pseudo_builder("mish", "mish")
+        self.xq_add, self.xq_mul = latent_builder("mish"), latent_builder("mish")
+        self.xy_add, self.xy_mul = latent_builder("mish"), latent_builder("mish")
         # transition builder
         def default_transition_builder(dim: int) -> nn.Module:
             h_dim = int(dim // 2)
@@ -117,6 +124,13 @@ class DDRCore(nn.Module):
                 permuted = q_latent[..., self.permutation_indices]
                 q_net = q_net - permuted
             y = self.y_invertible.inverse(q_net)
+            if not median:
+                add_latent, mul_latent = self.xq_add(net), self.xq_mul(net)
+                q_add_latent = self.q_add(q_batch) + add_latent
+                q_mul_latent = self.q_mul(q_batch) * mul_latent
+                y_add = self.q_add.inverse(q_add_latent)
+                y_mul = self.q_mul.inverse(q_mul_latent)
+                y = y + y_add + y_mul
             y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
@@ -149,7 +163,11 @@ class DDRCore(nn.Module):
             for i in range(self.num_blocks):
                 y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
             permuted = y_latent[..., self.permutation_indices]
-            q = torch.tanh(self.q_invertible.inverse(y_net - permuted))
+            q = self.q_invertible.inverse(y_net - permuted)
+            add_latent, mul_latent = self.xy_add(net), self.xy_mul(net)
+            q_add = self.y_add.inverse(self.y_add(y_batch) + add_latent)
+            q_mul = self.y_mul.inverse(self.y_mul(y_batch) * mul_latent)
+            q = torch.tanh(q + q_add + q_mul)
             q = self.q_inv_fn(q)
             if do_inverse:
                 switch_requires_grad(self.q_parameters, False)
