@@ -70,7 +70,6 @@ class DDR(ModelBase):
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         cfg = ModelBase.get_core_config(instance)
-        to_latent = instance.config.setdefault("to_latent", True)
         latent_dim = instance.config.setdefault("latent_dim", None)
         num_blocks = instance.config.setdefault("num_blocks", None)
         transition_builder = instance.config.setdefault("transition_builder", None)
@@ -81,7 +80,6 @@ class DDR(ModelBase):
                 "y_min": instance.y_min,
                 "y_max": instance.y_max,
                 "num_blocks": num_blocks,
-                "to_latent": to_latent,
                 "latent_dim": latent_dim,
                 "transition_builder": transition_builder,
                 "to_transition_builder": to_builder,

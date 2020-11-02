@@ -18,7 +18,6 @@ class DDRCore(nn.Module):
         in_dim: int,
         y_min: float,
         y_max: float,
-        to_latent: bool = True,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
         transition_builder: Callable[[int], nn.Module] = None,
@@ -37,13 +36,9 @@ class DDRCore(nn.Module):
             from_transition_builder=from_transition_builder,
         )
         # to latent
-        if not to_latent:
-            latent_dim = in_dim
-            self.to_latent = None
-        else:
-            if latent_dim is None:
-                latent_dim = 512
-            self.to_latent = latent_builder()
+        if latent_dim is None:
+            latent_dim = 512
+        self.to_latent = latent_builder()
         # pseudo invertible q / y
         self.q_invertible = pseudo_builder()
         self.y_invertible = pseudo_builder()
@@ -90,17 +85,15 @@ class DDRCore(nn.Module):
     def forward(
         self,
         net: torch.Tensor,
+        latent: Optional[torch.Tensor] = None,
         *,
         q_batch: Optional[torch.Tensor] = None,
         y_batch: Optional[torch.Tensor] = None,
         do_inverse: bool = False,
-        is_latent: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[torch.Tensor]]:
-        if is_latent:
-            latent = net
-        else:
-            latent = net if self.to_latent is None else self.to_latent(net)
+        if latent is None:
+            latent = self.to_latent(net)
         # prepare q_latent
         if not median:
             if q_batch is None:
@@ -126,9 +119,9 @@ class DDRCore(nn.Module):
             y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
+                    net,
                     latent,
                     y_batch=y.detach(),
-                    is_latent=True,
                     do_inverse=False,
                 )["q"]
         # prepare y_latent
@@ -151,9 +144,9 @@ class DDRCore(nn.Module):
             if do_inverse:
                 switch_requires_grad(self.q_parameters, False)
                 y_inverse = self.forward(
+                    net,
                     latent,
                     q_batch=q,
-                    is_latent=True,
                     do_inverse=False,
                 )["y"]
                 switch_requires_grad(self.q_parameters, True)
