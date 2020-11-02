@@ -105,7 +105,7 @@ class DDRCore(nn.Module):
             raise ValueError(msg)
         # simulate quantile function
         q_inverse = None
-        if q_latent is None:
+        if q_latent is None and not median:
             y = None
         else:
             q_net = latent if q_latent is None else latent + q_latent
