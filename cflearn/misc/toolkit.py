@@ -271,6 +271,23 @@ class Activations:
     # publications
 
     @property
+    def glu(self) -> nn.Module:
+        in_dim = self.configs.setdefault("glu", {}).get("in_dim")
+        if in_dim is None:
+            raise ValueError("`in_dim` should be provided in glu")
+
+        class GLU(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.linear = nn.Linear(in_dim, 2 * in_dim)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                projection, gate = self.linear(x).chunk(2, dim=1)
+                return projection * torch.sigmoid(gate)
+
+        return GLU()
+
+    @property
     def mish(self) -> nn.Module:
         class Mish(nn.Module):
             def forward(self, x: torch.Tensor) -> torch.Tensor:

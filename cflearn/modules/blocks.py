@@ -180,12 +180,21 @@ class MLP(nn.Module):
         }
         if activation is not None:
             mapping_config["activation"] = activation
+        mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]]
+        if activation != "glu":
+            mapping_configs = mapping_config
+        else:
+            mapping_configs = []
+            for num_unit in num_units:
+                cfg = shallow_copy_dict(mapping_config)
+                cfg["activation_config"] = {"in_dim": num_unit}
+                mapping_configs.append(cfg)
         final_mapping_config = {"bias": bias}
         return cls(
             in_dim,
             out_dim,
             num_units,
-            mapping_config,
+            mapping_configs,
             final_mapping_config=final_mapping_config,
         )
 
