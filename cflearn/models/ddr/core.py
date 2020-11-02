@@ -111,8 +111,9 @@ class DDRCore(nn.Module):
             q_net = latent if q_latent is None else latent + q_latent
             for block in self.blocks:
                 q_net = block(q_net)
-            permuted = (latent + q_latent)[..., self.permutation_indices]
-            q_net = q_net - permuted
+            if q_latent is not None:
+                permuted = q_latent[..., self.permutation_indices]
+                q_net = q_net - permuted
             y = self.y_invertible.inverse(q_net)
             y = self.y_inv_fn(y)
             if do_inverse:
@@ -145,7 +146,7 @@ class DDRCore(nn.Module):
             y_net = latent + y_latent
             for i in range(self.num_blocks):
                 y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
-            permuted = (latent + y_latent)[..., self.permutation_indices]
+            permuted = y_latent[..., self.permutation_indices]
             q = torch.tanh(self.q_invertible.inverse(y_net - permuted))
             q = self.q_inv_fn(q)
             if do_inverse:
