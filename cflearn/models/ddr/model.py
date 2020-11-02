@@ -91,9 +91,15 @@ class DDR(ModelBase):
     def _init_config(self) -> None:
         super()._init_config()
         # common
-        self._step_count = 0
         self.config.setdefault("ema_decay", 0.999)
-        self._synthetic_step = int(self.config.setdefault("synthetic_step", 10))
+        step_per_epoch = len(self.tr_loader)
+        self._recover_start_step = self.config.setdefault(
+            "recover_start_step", 0 * step_per_epoch
+        )
+        self._synthetic_start_step = self.config.setdefault(
+            "synthetic_start_step", 0 * step_per_epoch
+        )
+        self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
         self.y_min, self.y_max = labels.min(), labels.max()
@@ -187,7 +193,12 @@ class DDR(ModelBase):
         results["pdf"] = pdf
         return results
 
-    def _core(self, net: torch.Tensor, synthetic: bool) -> tensor_dict_type:
+    def _core(
+        self,
+        net: torch.Tensor,
+        batch_step: int,
+        synthetic: bool,
+    ) -> tensor_dict_type:
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
             if self.training:
@@ -203,26 +214,25 @@ class DDR(ModelBase):
             y_batch = self._convert_np_anchors(y_batch)
         # build predictions
         with timing_context(self, "forward.median"):
+            do_inverse = batch_step >= self._recover_start_step
             if synthetic:
                 median = median_inverse = None
             else:
-                results = self._median(net, True)
+                results = self._median(net, do_inverse)
                 median = results["y"]
                 median_inverse = results["q_inverse"]
         with timing_context(self, "forward.quantile"):
-            quantile_results = self._quantile(net, q_batch, True)
+            quantile_results = self._quantile(net, q_batch, do_inverse)
             y = quantile_results["y"]
             q_inverse = quantile_results["q_inverse"]
-            assert y is not None and q_inverse is not None
         with timing_context(self, "forward.cdf"):
-            cdf_results = self._cdf(net, y_batch, True, True, not synthetic)
+            cdf_inverse = not synthetic and do_inverse
+            cdf_results = self._cdf(net, y_batch, True, True, cdf_inverse)
             cdf, pdf = map(cdf_results.get, ["q", "pdf"])
-            assert cdf is not None and pdf is not None
-            if synthetic:
+            if not cdf_inverse:
                 y_inverse = None
             else:
                 y_inverse = cdf_results["y_inverse"]
-                assert y_inverse is not None
         # construct results
         return {
             "net": net,
@@ -276,7 +286,7 @@ class DDR(ModelBase):
             q_batch = self._expand(len(net), q)
             forward_dict["quantiles"] = self._quantile(net, q_batch, False)["y"]
         if not forward_dict:
-            forward_dict = self._core(net, False)
+            forward_dict = self._core(net, batch_step, False)
         return forward_dict
 
     def loss_function(
@@ -292,7 +302,8 @@ class DDR(ModelBase):
         if (
             self.training
             and self._synthetic_step > 0
-            and self._step_count % self._synthetic_step == 0
+            and batch_step >= self._synthetic_start_step
+            and batch_step % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.forward"):
                 net_min = torch.min(net, dim=0)[0]
@@ -304,7 +315,7 @@ class DDR(ModelBase):
                 synthetic_net = self._synthetic_range * synthetic_net * net_diff
                 synthetic_net = synthetic_net - (diff_span - net_min)
                 # synthetic_net ~ U_[ -diff_span + min, diff_span + max ]
-                synthetic_outputs = self._core(synthetic_net, True)
+                synthetic_outputs = self._core(synthetic_net, batch_step, True)
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
                     synthetic_outputs,
@@ -315,9 +326,7 @@ class DDR(ModelBase):
             losses = losses + syn_losses
         losses_dict["loss"] = losses
         losses_dict = {k: v.mean() for k, v in losses_dict.items()}
-        if self.training:
-            self._step_count += 1
-        else:
+        if not self.training:
             assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)
