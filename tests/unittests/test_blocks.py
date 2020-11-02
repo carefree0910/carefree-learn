@@ -45,11 +45,24 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, dim)
-        inv1 = InvertibleBlock(dim)
-        inv2 = InvertibleBlock(dim)
-        outputs = inv2(inv1(net))
-        inverse = inv1.inverse(inv2.inverse(outputs))
-        self.assertTrue(torch.allclose(net, inverse, rtol=1e-4, atol=1e-4))
+        builder = lambda _: nn.Identity()
+
+        inv1 = InvertibleBlock(dim, builder)
+        inv2 = InvertibleBlock(dim, builder)
+        o1 = inv1(net)
+        o2 = inv2(o1)
+        r2 = inv2.inverse(o2)
+        r1 = inv1.inverse(r2)
+        self.assertTrue(torch.allclose(net, r1, rtol=1e-4, atol=1e-4))
+        o11, o12 = net[..., inv1.indices].chunk(2, dim=1)
+        o1_pred = torch.cat([o11 + o12, o12], dim=1)
+        self.assertTrue(torch.allclose(o1, o1_pred, rtol=1e-4, atol=1e-4))
+        o21, o22 = o1[..., inv2.indices].chunk(2, dim=1)
+        o2_pred = torch.cat([o21 + o22, o22], dim=1)
+        self.assertTrue(torch.allclose(o2, o2_pred, rtol=1e-4, atol=1e-4))
+        residual = o2 - net[..., inv1.indices[inv2.indices]]
+        collided_ratio = (residual == 0.0).to(torch.float32).mean().item()  # ~0.25
+        self.assertTrue(collided_ratio >= 0.2)
 
     def test_attention(self) -> None:
         num_heads = 8
