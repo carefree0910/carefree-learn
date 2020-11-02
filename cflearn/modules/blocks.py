@@ -335,7 +335,7 @@ class PseudoInvertibleBlock(nn.Module):
         out_dim: int,
         *,
         to_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
-        out_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
+        from_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
     ):
         super().__init__()
         dim = max(in_dim, out_dim)
@@ -344,8 +344,8 @@ class PseudoInvertibleBlock(nn.Module):
         else:
             num_units = [dim, dim, dim]
             self.to_latent = MLP.simple(in_dim, None, num_units, activation="mish")
-        if out_transition_builder is not None:
-            self.from_latent = out_transition_builder(out_dim, in_dim)
+        if from_transition_builder is not None:
+            self.from_latent = from_transition_builder(out_dim, in_dim)
         else:
             self.from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="mish")
 
