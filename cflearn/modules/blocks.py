@@ -187,7 +187,7 @@ class MLP(nn.Module):
             mapping_configs = []
             for num_unit in num_units:
                 cfg = shallow_copy_dict(mapping_config)
-                cfg["activation_config"] = {"in_dim": num_unit}
+                cfg["activation_config"] = {"in_dim": num_unit, "bias": bias}
                 mapping_configs.append(cfg)
         final_mapping_config = {"bias": bias}
         return cls(

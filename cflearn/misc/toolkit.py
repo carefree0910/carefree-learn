@@ -272,14 +272,16 @@ class Activations:
 
     @property
     def glu(self) -> nn.Module:
-        in_dim = self.configs.setdefault("glu", {}).get("in_dim")
+        config = self.configs.setdefault("glu", {})
+        in_dim = config.get("in_dim")
         if in_dim is None:
             raise ValueError("`in_dim` should be provided in glu")
+        bias = config.setdefault("bias", True)
 
         class GLU(nn.Module):
             def __init__(self):
                 super().__init__()
-                self.linear = nn.Linear(in_dim, 2 * in_dim)
+                self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
 
             def forward(self, x: torch.Tensor) -> torch.Tensor:
                 projection, gate = self.linear(x).chunk(2, dim=1)
