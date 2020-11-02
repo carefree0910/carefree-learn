@@ -28,7 +28,11 @@ class DDRCore(nn.Module):
         self.y_min = y_min
         self.y_diff = y_max - y_min
         # builders
-        latent_builder = lambda: to_transition_builder(in_dim, latent_dim)
+        def latent_builder() -> nn.Module:
+            if to_transition_builder is not None:
+                return to_transition_builder(in_dim, latent_dim)
+            return MLP.simple(in_dim, None, [in_dim, latent_dim], activation="mish")
+
         pseudo_builder = lambda: PseudoInvertibleBlock(
             1,
             latent_dim,
