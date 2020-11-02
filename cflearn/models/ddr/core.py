@@ -31,7 +31,7 @@ class DDRCore(nn.Module):
         def latent_builder() -> nn.Module:
             if to_transition_builder is not None:
                 return to_transition_builder(in_dim, latent_dim)
-            return MLP.simple(in_dim, None, [in_dim, latent_dim], activation="mish")
+            return MLP.simple(in_dim, None, [latent_dim, latent_dim], activation="mish")
 
         pseudo_builder = lambda: PseudoInvertibleBlock(
             1,
