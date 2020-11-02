@@ -373,6 +373,7 @@ class PseudoInvertibleBlock(nn.Module):
                 dim,
                 in_dim,
                 [dim, dim],
+                bias=True,
                 activation=from_activation,
             )
 
