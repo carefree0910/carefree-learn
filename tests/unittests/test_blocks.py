@@ -47,8 +47,8 @@ class TestBlocks(unittest.TestCase):
         net = torch.randn(batch_size, dim)
         builder = lambda _: nn.Identity()
 
-        inv1 = InvertibleBlock(dim, builder)
-        inv2 = InvertibleBlock(dim, builder)
+        inv1 = InvertibleBlock(dim, transition_builder=builder)
+        inv2 = InvertibleBlock(dim, transition_builder=builder)
         o1 = inv1(net)
         o2 = inv2(o1)
         r2 = inv2.inverse(o2)

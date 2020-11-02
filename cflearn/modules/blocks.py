@@ -307,6 +307,8 @@ class InvertibleBlock(nn.Module):
     def __init__(
         self,
         dim: int,
+        *,
+        default_activation: str = "mish",
         transition_builder: Callable[[int], nn.Module] = None,
     ):
         if dim % 2 != 0:
@@ -317,7 +319,12 @@ class InvertibleBlock(nn.Module):
         if transition_builder is not None:
             transition = transition_builder(dim)
         else:
-            transition = MLP.simple(h_dim, None, [h_dim], activation="mish")
+            transition = MLP.simple(
+                h_dim,
+                None,
+                [h_dim],
+                activation=default_activation,
+            )
         self.transition = transition
         # permutation
         permutation_indices = to_torch(np.random.permutation(dim)).to(torch.long)
@@ -342,6 +349,8 @@ class PseudoInvertibleBlock(nn.Module):
         in_dim: int,
         out_dim: int,
         *,
+        to_activation: str = "mish",
+        from_activation: str = "mish",
         to_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
         from_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
     ):
@@ -351,11 +360,21 @@ class PseudoInvertibleBlock(nn.Module):
             self.to_latent = to_transition_builder(in_dim, out_dim)
         else:
             num_units = [dim, dim, dim]
-            self.to_latent = MLP.simple(in_dim, None, num_units, activation="mish")
+            self.to_latent = MLP.simple(
+                in_dim,
+                None,
+                num_units,
+                activation=to_activation,
+            )
         if from_transition_builder is not None:
             self.from_latent = from_transition_builder(out_dim, in_dim)
         else:
-            self.from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="mish")
+            self.from_latent = MLP.simple(
+                dim,
+                in_dim,
+                [dim, dim],
+                activation=from_activation,
+            )
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         return self.to_latent(net)
