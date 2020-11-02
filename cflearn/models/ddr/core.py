@@ -86,6 +86,79 @@ class DDRCore(nn.Module):
     def y_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
         return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
 
+    def _get_q_results(
+        self,
+        net: torch.Tensor,
+        latent: torch.Tensor,
+        q_batch: Optional[torch.Tensor] = None,
+        do_inverse: bool = False,
+        median: bool = False,
+    ) -> Dict[str, torch.Tensor]:
+        # prepare q_latent
+        q_latent = None
+        if not median:
+            if q_batch is not None:
+                q_batch = self.q_fn(q_batch)
+                q_latent = self.q_invertible(q_batch)
+        elif q_batch is not None:
+            msg = "`median` is specified but `q_batch` is still provided"
+            raise ValueError(msg)
+        # simulate quantile function
+        q_inverse = None
+        if q_latent is None:
+            y = None
+        else:
+            q_net = latent if q_latent is None else latent + q_latent
+            for block in self.blocks:
+                q_net = block(q_net)
+            permuted = (latent + q_latent)[..., self.permutation_indices]
+            q_net = q_net - permuted
+            y = self.y_invertible.inverse(q_net)
+            y = self.y_inv_fn(y)
+            if do_inverse:
+                q_inverse = self.forward(
+                    net,
+                    latent,
+                    y_batch=y.detach(),
+                    do_inverse=False,
+                )["q"]
+        return {"y": y, "q_inverse": q_inverse}
+
+    def _get_y_results(
+        self,
+        net: torch.Tensor,
+        latent: torch.Tensor,
+        y_batch: Optional[torch.Tensor] = None,
+        do_inverse: bool = False,
+    ) -> Dict[str, torch.Tensor]:
+        # prepare y_latent
+        if y_batch is None:
+            y_latent = None
+        else:
+            y_batch = self.y_fn(y_batch)
+            y_latent = self.y_invertible(y_batch)
+        # simulate cdf
+        y_inverse = None
+        if y_latent is None:
+            q = None
+        else:
+            y_net = latent + y_latent
+            for i in range(self.num_blocks):
+                y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
+            permuted = (latent + y_latent)[..., self.permutation_indices]
+            q = torch.tanh(self.q_invertible.inverse(y_net - permuted))
+            q = self.q_inv_fn(q)
+            if do_inverse:
+                switch_requires_grad(self.q_parameters, False)
+                y_inverse = self.forward(
+                    net,
+                    latent,
+                    q_batch=q,
+                    do_inverse=False,
+                )["y"]
+                switch_requires_grad(self.q_parameters, True)
+        return {"q": q, "y_inverse": y_inverse}
+
     def forward(
         self,
         net: torch.Tensor,
@@ -98,68 +171,10 @@ class DDRCore(nn.Module):
     ) -> Dict[str, Optional[torch.Tensor]]:
         if latent is None:
             latent = self.to_latent(net)
-        # prepare q_latent
-        if not median:
-            if q_batch is None:
-                q_latent = None
-            else:
-                q_batch = self.q_fn(q_batch)
-                q_latent = latent + self.q_invertible(q_batch)
-        else:
-            if q_batch is not None:
-                msg = "`median` is specified but `q_batch` is still provided"
-                raise ValueError(msg)
-            q_latent = latent
-        # simulate quantile function
-        q_inverse = None
-        if q_latent is None:
-            y = None
-        else:
-            q_net = q_latent
-            for block in self.blocks:
-                q_net = block(q_net)
-            permuted = q_latent[..., self.permutation_indices]
-            y = self.y_invertible.inverse(q_net - permuted)
-            y = self.y_inv_fn(y)
-            if do_inverse:
-                q_inverse = self.forward(
-                    net,
-                    latent,
-                    y_batch=y.detach(),
-                    do_inverse=False,
-                )["q"]
-        # prepare y_latent
-        if y_batch is None:
-            y_latent = None
-        else:
-            y_batch = self.y_fn(y_batch)
-            y_latent = latent + self.y_invertible(y_batch)
-        # simulate cdf
-        y_inverse = None
-        if y_latent is None:
-            q = None
-        else:
-            y_net = y_latent
-            for i in range(self.num_blocks):
-                y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
-            permuted = y_latent[..., self.permutation_indices]
-            q = torch.tanh(self.q_invertible.inverse(y_net - permuted))
-            q = self.q_inv_fn(q)
-            if do_inverse:
-                switch_requires_grad(self.q_parameters, False)
-                y_inverse = self.forward(
-                    net,
-                    latent,
-                    q_batch=q,
-                    do_inverse=False,
-                )["y"]
-                switch_requires_grad(self.q_parameters, True)
-        return {
-            "q": q,
-            "y": y,
-            "q_inverse": q_inverse,
-            "y_inverse": y_inverse,
-        }
+        results = {}
+        results.update(self._get_q_results(net, latent, q_batch, do_inverse, median))
+        results.update(self._get_y_results(net, latent, y_batch, do_inverse))
+        return results
 
 
 __all__ = ["DDRCore"]
