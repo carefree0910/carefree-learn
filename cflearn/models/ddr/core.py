@@ -28,44 +28,46 @@ class DDRCore(nn.Module):
         self.y_min = y_min
         self.y_diff = y_max - y_min
         # builders
-        def latent_builder() -> nn.Module:
+        def latent_builder(activation: str) -> nn.Module:
             if to_transition_builder is not None:
                 return to_transition_builder(in_dim, latent_dim)
-            return MLP.simple(in_dim, None, [latent_dim, latent_dim], activation="mish")
+            return MLP.simple(in_dim, None, [latent_dim], activation=activation)
 
-        pseudo_builder = lambda: PseudoInvertibleBlock(
+        pseudo_builder = lambda to_activation, from_activation: PseudoInvertibleBlock(
             1,
             latent_dim,
+            to_activation=to_activation,
+            from_activation=from_activation,
             to_transition_builder=to_transition_builder,
             from_transition_builder=from_transition_builder,
         )
         # to latent
         if latent_dim is None:
             latent_dim = 512
-        self.to_latent = latent_builder()
+        self.to_latent = latent_builder("mish")
         # pseudo invertible q / y
-        self.q_invertible = pseudo_builder()
-        self.y_invertible = pseudo_builder()
+        self.q_invertible = pseudo_builder("mish", "mish")
+        self.y_invertible = pseudo_builder("mish", "mish")
         q_params1 = list(self.q_invertible.to_latent.parameters())
         q_params2 = list(self.y_invertible.from_latent.parameters())
         self.q_parameters = q_params1 + q_params2
         # transition builder
         def default_transition_builder(dim: int) -> nn.Module:
             h_dim = int(dim // 2)
-            return MLP.simple(h_dim, None, [h_dim, h_dim], activation="mish")
+            return MLP.simple(h_dim, None, [h_dim], activation="mish")
 
         if transition_builder is None:
             transition_builder = default_transition_builder
         # invertible blocks
         if num_blocks is None:
-            num_blocks = 4
+            num_blocks = 2
         if num_blocks % 2 != 0:
             raise ValueError("`num_blocks` should be divided by 2")
         self.num_blocks = num_blocks
         self.blocks = nn.ModuleList()
         permutation_indices = torch.arange(latent_dim)
         for _ in range(num_blocks):
-            block = InvertibleBlock(latent_dim, transition_builder)
+            block = InvertibleBlock(latent_dim, transition_builder=transition_builder)
             permutation_indices = permutation_indices[block.indices]
             self.blocks.append(block)
         self.register_buffer("permutation_indices", permutation_indices)
