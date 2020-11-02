@@ -59,11 +59,14 @@ class DDRCore(nn.Module):
             num_blocks = 4
         if num_blocks % 2 != 0:
             raise ValueError("`num_blocks` should be divided by 2")
+        self.num_blocks = num_blocks
         self.blocks = nn.ModuleList()
+        permutation_indices = torch.arange(latent_dim)
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, transition_builder)
+            permutation_indices = permutation_indices[block.indices]
             self.blocks.append(block)
-        self.num_blocks = num_blocks
+        self.register_buffer("permutation_indices", permutation_indices)
 
     @property
     def q_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
@@ -115,7 +118,8 @@ class DDRCore(nn.Module):
             q_net = q_latent
             for block in self.blocks:
                 q_net = block(q_net)
-            y = self.y_invertible.inverse(q_net - latent)
+            permuted = q_latent[..., self.permutation_indices]
+            y = self.y_invertible.inverse(q_net - permuted)
             y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
@@ -138,7 +142,8 @@ class DDRCore(nn.Module):
             y_net = y_latent
             for i in range(self.num_blocks):
                 y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
-            q = torch.tanh(self.q_invertible.inverse(y_net - latent))
+            permuted = y_latent[..., self.permutation_indices]
+            q = torch.tanh(self.q_invertible.inverse(y_net - permuted))
             q = self.q_inv_fn(q)
             if do_inverse:
                 switch_requires_grad(self.q_parameters, False)
