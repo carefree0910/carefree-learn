@@ -16,6 +16,7 @@ class DDRLoss(LossBase, LoggingMixin):
         self._cdf_floor = config.setdefault("cdf_eps", 1.0e-8)
         self._cdf_ceiling = 1.0 - self._cdf_floor
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
+        self.register_buffer("zero", torch.zeros([1], dtype=torch.float32))
 
     def _core(  # type: ignore
         self,
@@ -29,10 +30,13 @@ class DDRLoss(LossBase, LoggingMixin):
             median_losses = median_recover_losses = None
         else:
             median = predictions["predictions"]
-            median_inverse = predictions["median_inverse"]
             median_losses = l1_loss(median, target, reduction="none")
-            median_recover_losses = torch.abs(median_inverse - 0.5)
-            median_recover_losses = self._lb_recover * median_recover_losses
+            median_inverse = predictions["median_inverse"]
+            if median_inverse is None:
+                median_recover_losses = self.zero
+            else:
+                median_recover_losses = torch.abs(median_inverse - 0.5)
+                median_recover_losses = self._lb_recover * median_recover_losses
         # quantile losses
         q_batch = predictions["q_batch"]
         assert q_batch is not None
@@ -44,9 +48,11 @@ class DDRLoss(LossBase, LoggingMixin):
             quantile_losses = self._quantile_losses(y, target, q_batch)
         # q recover losses
         q_inverse = predictions["q_inverse"]
-        assert q_inverse is not None
-        q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
-        q_recover_losses = self._lb_recover * q_recover_losses
+        if q_inverse is None:
+            q_recover_losses = self.zero
+        else:
+            q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
+            q_recover_losses = self._lb_recover * q_recover_losses
         # cdf losses
         y_batch = predictions["y_batch"]
         assert y_batch is not None
@@ -57,13 +63,12 @@ class DDRLoss(LossBase, LoggingMixin):
             assert cdf is not None
             cdf_losses = self._cdf_losses(cdf, target, y_batch)
         # y recover losses
-        if is_synthetic:
-            y_recover_losses = None
-        else:
+        y_recover_losses = None
+        if not is_synthetic:
             y_inverse = predictions["y_inverse"]
-            assert y_inverse is not None
-            y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
-            y_recover_losses = self._lb_recover * y_recover_losses
+            if y_inverse is not None:
+                y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
+                y_recover_losses = self._lb_recover * y_recover_losses
         # pdf losses
         pdf = predictions["pdf"]
         pdf_losses = None if pdf is None else self._pdf_losses(pdf)
