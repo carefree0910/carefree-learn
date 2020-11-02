@@ -59,6 +59,7 @@ class RNN(ModelBase):
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
+        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]

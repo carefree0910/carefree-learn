@@ -244,6 +244,7 @@ class DDR(ModelBase):
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
+        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         # pre-processing
@@ -283,6 +284,7 @@ class DDR(ModelBase):
         batch: tensor_dict_type,
         batch_indices: np.ndarray,
         forward_results: tensor_dict_type,
+        batch_step: int,
     ) -> tensor_dict_type:
         y_batch = batch["y_batch"]
         losses, losses_dict = self.loss(forward_results, y_batch)

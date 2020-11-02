@@ -414,6 +414,7 @@ class Trainer(LoggingMixin):
                             batch,
                             batch_indices,
                             forward_dicts[-1],
+                            0,
                         )
                     )
             losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
@@ -536,12 +537,18 @@ class Trainer(LoggingMixin):
                         batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
-                            forward_results = self.model(batch, batch_indices, "tr")
+                            forward_results = self.model(
+                                batch,
+                                batch_indices,
+                                "tr",
+                                self._step_count,
+                            )
                         with timing_context(self, "loss.forward", enable=self.timing):
                             loss_dict = self.model.loss_function(
                                 batch,
                                 batch_indices,
                                 forward_results,
+                                self._step_count,
                             )
                     if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():

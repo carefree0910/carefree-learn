@@ -140,6 +140,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
+        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
@@ -200,6 +201,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         batch: tensor_dict_type,
         batch_indices: np.ndarray,
         forward_results: tensor_dict_type,
+        batch_step: int,
     ) -> tensor_dict_type:
         # requires returning `loss` key
         y_batch = batch["y_batch"]
