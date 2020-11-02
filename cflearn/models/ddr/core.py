@@ -23,6 +23,8 @@ class DDRCore(nn.Module):
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
         transition_builder: Callable[[int], nn.Module] = None,
+        to_transition_builder: Callable[[int, int], nn.Module] = None,
+        from_transition_builder: Callable[[int, int], nn.Module] = None,
     ):
         super().__init__()
         self.y_min = y_min
@@ -42,8 +44,18 @@ class DDRCore(nn.Module):
             }
             self.to_latent = Mapping(in_dim, latent_dim, **latent_cfg)  # type: ignore
         # pseudo invertible q / y
-        self.q_invertible = PseudoInvertibleBlock(1, latent_dim)
-        self.y_invertible = PseudoInvertibleBlock(1, latent_dim)
+        self.q_invertible = PseudoInvertibleBlock(
+            1,
+            latent_dim,
+            to_transition_builder=to_transition_builder,
+            from_transition_builder=from_transition_builder,
+        )
+        self.y_invertible = PseudoInvertibleBlock(
+            1,
+            latent_dim,
+            to_transition_builder=to_transition_builder,
+            from_transition_builder=from_transition_builder,
+        )
         q_params1 = list(self.q_invertible.to_latent.parameters())
         q_params2 = list(self.y_invertible.from_latent.parameters())
         self.q_parameters = q_params1 + q_params2

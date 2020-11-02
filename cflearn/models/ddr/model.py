@@ -74,6 +74,8 @@ class DDR(ModelBase):
         latent_dim = instance.config.setdefault("latent_dim", None)
         num_blocks = instance.config.setdefault("num_blocks", None)
         transition_builder = instance.config.setdefault("transition_builder", None)
+        to_builder = instance.config.setdefault("to_transition_builder", None)
+        from_builder = instance.config.setdefault("from_transition_builder", None)
         cfg.update(
             {
                 "y_min": instance.y_min,
@@ -82,6 +84,8 @@ class DDR(ModelBase):
                 "to_latent": to_latent,
                 "latent_dim": latent_dim,
                 "transition_builder": transition_builder,
+                "to_transition_builder": to_builder,
+                "from_transition_builder": from_builder,
             }
         )
         return cfg
