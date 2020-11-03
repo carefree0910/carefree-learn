@@ -103,7 +103,14 @@ class DDR(ModelBase):
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
         # trainer config
-        default_metric_types = ["ddr", "loss", "pdf", "cdf", "q_recover", "median_recover"]
+        default_metric_types = [
+            "ddr",
+            "loss",
+            "pdf",
+            "cdf",
+            "q_recover",
+            "median_recover",
+        ]
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
             trainer_config,
