@@ -52,13 +52,6 @@ class DDRCore(nn.Module):
         q_params1 = list(self.q_invertible.to_latent.parameters())
         q_params2 = list(self.y_invertible.from_latent.parameters())
         self.q_parameters = q_params1 + q_params2
-        # add / multiply
-        self.q_add = pseudo_builder("mish", "mish")
-        self.q_mul = pseudo_builder("mish", "mish")
-        self.y_add = pseudo_builder("mish", "mish")
-        self.y_mul = pseudo_builder("mish", "mish")
-        self.xq_add, self.xq_mul = latent_builder("mish"), latent_builder("mish")
-        self.xy_add, self.xy_mul = latent_builder("mish"), latent_builder("mish")
         # transition builder
         def default_transition_builder(dim: int) -> nn.Module:
             h_dim = int(dim // 2)
@@ -121,7 +114,7 @@ class DDRCore(nn.Module):
         if not median:
             if q_batch is not None:
                 q_batch = self.q_fn(q_batch)
-                q_latent = self.q_invertible(q_batch)
+                q_latent = latent + self.q_invertible(q_batch)
         elif q_batch is not None:
             msg = "`median` is specified but `q_batch` is still provided"
             raise ValueError(msg)
@@ -130,18 +123,10 @@ class DDRCore(nn.Module):
         if q_latent is None and not median:
             y = None
         else:
-            q_net = latent if q_latent is None else latent + q_latent
+            q_net = latent if q_latent is None else q_latent
             for block in self.blocks:
                 q_net = block(q_net)
-            if q_latent is not None:
-                permuted = q_latent[..., self.permutation_indices]
-                q_net = q_net - permuted
             y = self.y_invertible.inverse(q_net)
-            if not median:
-                add_latent, mul_latent = self.xq_add(net), self.xq_mul(net)
-                y_add = self.q_add.inverse(self.q_add(q_batch) + add_latent)
-                y_mul = self.q_mul.inverse(self.q_mul(q_batch) * mul_latent)
-                y = y + y_add + y_mul
             y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
@@ -164,21 +149,16 @@ class DDRCore(nn.Module):
             y_latent = None
         else:
             y_batch = self.y_fn(y_batch)
-            y_latent = self.y_invertible(y_batch)
+            y_latent = latent + self.y_invertible(y_batch)
         # simulate cdf
         y_inverse = None
         if y_latent is None:
             q = q_logit = None
         else:
-            y_net = latent + y_latent
+            y_net = y_latent
             for i in range(self.num_blocks):
                 y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
-            permuted = y_latent[..., self.permutation_indices]
-            q = self.q_invertible.inverse(y_net - permuted)
-            add_latent, mul_latent = self.xy_add(net), self.xy_mul(net)
-            q_add = self.y_add.inverse(self.y_add(y_batch) + add_latent)
-            q_mul = self.y_mul.inverse(self.y_mul(y_batch) * mul_latent)
-            q_logit = q + q_add + q_mul
+            q_logit = self.q_invertible.inverse(y_net)
             q = torch.sigmoid(q_logit)
             if do_inverse:
                 switch_requires_grad(self.q_parameters, False)
