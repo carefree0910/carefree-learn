@@ -568,6 +568,7 @@ __all__ = [
     "DNDF",
     "TreeResBlock",
     "InvertibleBlock",
+    "PseudoInvertibleBlock",
     "MonotonousLinear",
     "Attention",
 ]
