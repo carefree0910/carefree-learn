@@ -75,7 +75,10 @@ class DDRCore(nn.Module):
                     ascent=ascent,
                     bias=bias,
                     dropout=dropout,
+                    batch_norm=False,
+                    final_batch_norm=False,
                     activation=activation,
+                    positive_transform="square",
                 )
 
             if len(ascents) == 1:
@@ -112,7 +115,7 @@ class DDRCore(nn.Module):
         # pseudo invertible q / y
         if q_to_latent_builder is None:
             q_to_latent_builder = get_monotonous_builder(
-                False,
+                True,
                 mono_activation,
                 True,
                 "output",
