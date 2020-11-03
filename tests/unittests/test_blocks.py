@@ -67,12 +67,12 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, 1)
-        m1 = MonotonousLinear(1, dim, ascent=True)
-        m2 = MonotonousLinear(dim, 1, ascent=True)
+        m1 = MonotonousMapping(1, dim, ascent=True, dropout=0.5, activation="ReLU")
+        m2 = MonotonousMapping(dim, 1, ascent=True, dropout=0.5, activation="ReLU")
         outputs = m2(m1(net))
         self.assertTrue(torch.allclose(net.argsort(), outputs.argsort()))
-        m1 = MonotonousLinear(1, dim, ascent=False)
-        m2 = MonotonousLinear(dim, 1, ascent=False)
+        m1 = MonotonousMapping(1, dim, ascent=False, dropout=0.5, activation="ReLU")
+        m2 = MonotonousMapping(dim, 1, ascent=False, dropout=0.5, activation="ReLU")
         outputs = m2(m1(net))
         net_indices = net.argsort().numpy().ravel()
         outputs_indices = outputs.argsort().numpy().ravel()[::-1]

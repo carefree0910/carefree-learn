@@ -386,7 +386,7 @@ class PseudoInvertibleBlock(nn.Module):
         return self.from_latent(net)
 
 
-class MonotonousLinear(nn.Module):
+class MonotonousMapping(nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -394,6 +394,8 @@ class MonotonousLinear(nn.Module):
         *,
         ascent: bool,
         bias: bool = True,
+        dropout: float = 0.0,
+        activation: str = None,
         init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
     ):
@@ -408,12 +410,24 @@ class MonotonousLinear(nn.Module):
         self._init_method = init_method
         with torch.no_grad():
             self.reset_parameters()
+        if activation is None:
+            self.activation: Optional[nn.Module] = None
+        else:
+            activation_config = self.config.setdefault("activation_config", None)
+            self.activation = Activations.make(activation, activation_config)
+        use_dropout = 0.0 < dropout < 1.0
+        self.dropout = None if not use_dropout else Dropout(dropout)
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
         weight = F.softplus(self.weight)
         if not self.ascent:
             weight = -weight
-        return F.linear(net, weight, self.bias)
+        net = F.linear(net, weight, self.bias)
+        if self.activation is not None:
+            net = self.activation(net)
+        if self.dropout is not None:
+            net = self.dropout(net, reuse=reuse)
+        return net
 
     def reset_parameters(self) -> None:
         if self._init_method is None:
@@ -569,6 +583,6 @@ __all__ = [
     "TreeResBlock",
     "InvertibleBlock",
     "PseudoInvertibleBlock",
-    "MonotonousLinear",
+    "MonotonousMapping",
     "Attention",
 ]
