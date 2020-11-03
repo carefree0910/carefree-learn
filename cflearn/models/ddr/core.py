@@ -135,7 +135,7 @@ class DDRCore(nn.Module):
             if do_inverse:
                 q_inverse = self.forward(
                     net,
-                    latent,
+                    latent.detach(),
                     y_batch=y.detach(),
                     do_inverse=False,
                 )["q"]
@@ -173,7 +173,7 @@ class DDRCore(nn.Module):
                 switch_requires_grad(self.q_parameters, False)
                 y_inverse = self.forward(
                     net,
-                    latent,
+                    latent.detach(),
                     q_batch=q,
                     do_inverse=False,
                 )["y"]
