@@ -410,13 +410,16 @@ class MonotonousMapping(nn.Module):
             self.activation = Activations.make(activation, activation_config)
         use_dropout = 0.0 < dropout < 1.0
         self.dropout = None if not use_dropout else Dropout(dropout)
-        self.scaler = float(out_dim) * math.log(2.0)
+        if in_dim > out_dim:
+            self.scaler = math.log(2.0 * in_dim)
+        else:
+            self.scaler = out_dim * math.log(2.0)
 
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
-        weight = F.softplus(self.weight) / self.scaler
+        weight = F.softplus(self.weight)
         if not self.ascent:
             weight = -weight
-        net = F.linear(net, weight, self.bias)
+        net = F.linear(net, weight, self.bias) / self.scaler
         if self.activation is not None:
             net = self.activation(net)
         if self.dropout is not None:
