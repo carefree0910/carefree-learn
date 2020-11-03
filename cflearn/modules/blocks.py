@@ -388,7 +388,7 @@ class MonotonousMapping(nn.Module):
         ascent: bool,
         bias: bool = True,
         dropout: float = 0.0,
-        activation: str = None,
+        activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
     ):
@@ -444,7 +444,7 @@ class MonotonousMapping(nn.Module):
         ascent: bool,
         bias: bool = True,
         dropout: float = 0.0,
-        activation: str = None,
+        activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
     ) -> nn.Sequential:
