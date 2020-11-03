@@ -93,12 +93,6 @@ class DDR(ModelBase):
         # common
         self.config.setdefault("ema_decay", 0.999)
         step_per_epoch = len(self.tr_loader)
-        self._recover_start_step = self.config.setdefault(
-            "recover_start_step", 0 * step_per_epoch
-        )
-        self._synthetic_start_step = self.config.setdefault(
-            "synthetic_start_step", 0 * step_per_epoch
-        )
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
@@ -213,20 +207,19 @@ class DDR(ModelBase):
             q_batch = self._convert_np_anchors(q_batch)
             y_batch = self._convert_np_anchors(y_batch)
         # build predictions
-        do_inverse = batch_step < 0 or batch_step >= self._recover_start_step
         with timing_context(self, "forward.median"):
             if synthetic:
                 median = median_inverse = None
             else:
-                results = self._median(net, do_inverse)
+                results = self._median(net, True)
                 median = results["y"]
                 median_inverse = results["q_inverse"]
         with timing_context(self, "forward.quantile"):
-            quantile_results = self._quantile(net, q_batch, do_inverse)
+            quantile_results = self._quantile(net, q_batch, True)
             y = quantile_results["y"]
             q_inverse = quantile_results["q_inverse"]
         with timing_context(self, "forward.cdf"):
-            cdf_inverse = not synthetic and do_inverse
+            cdf_inverse = not synthetic
             cdf_results = self._cdf(net, y_batch, True, True, cdf_inverse)
             cdf, cdf_logit, pdf = map(cdf_results.get, ["q", "q_logit", "pdf"])
             if not cdf_inverse:
@@ -303,7 +296,6 @@ class DDR(ModelBase):
         if (
             self.training
             and self._synthetic_step > 0
-            and batch_step >= self._synthetic_start_step
             and batch_step % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.forward"):
