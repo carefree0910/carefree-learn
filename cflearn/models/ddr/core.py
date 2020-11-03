@@ -2,6 +2,7 @@ import torch
 
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Dict
 from typing import Callable
 from typing import Optional
@@ -73,15 +74,15 @@ class DDRCore(nn.Module):
             self.blocks.append(block)
 
     @property
-    def q_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+    def q_fn(self) -> Callable[[Tensor], Tensor]:
         return lambda q: 2.0 * q - 1.0
 
     @property
-    def y_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+    def y_fn(self) -> Callable[[Tensor], Tensor]:
         return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
 
     @property
-    def y_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
+    def y_inv_fn(self) -> Callable[[Tensor], Tensor]:
         return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
 
     def _detach_q(self) -> context_error_handler:
@@ -100,12 +101,12 @@ class DDRCore(nn.Module):
 
     def _get_q_results(
         self,
-        net: torch.Tensor,
-        latent: torch.Tensor,
-        q_batch: Optional[torch.Tensor] = None,
+        net: Tensor,
+        latent: Tensor,
+        q_batch: Optional[Tensor] = None,
         do_inverse: bool = False,
         median: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Dict[str, Tensor]:
         # prepare q_latent
         q_latent = None
         if not median:
@@ -138,11 +139,11 @@ class DDRCore(nn.Module):
 
     def _get_y_results(
         self,
-        net: torch.Tensor,
-        latent: torch.Tensor,
-        y_batch: Optional[torch.Tensor] = None,
+        net: Tensor,
+        latent: Tensor,
+        y_batch: Optional[Tensor] = None,
         do_inverse: bool = False,
-    ) -> Dict[str, torch.Tensor]:
+    ) -> Dict[str, Tensor]:
         # prepare y_latent
         if y_batch is None:
             y_latent = None
@@ -172,14 +173,14 @@ class DDRCore(nn.Module):
 
     def forward(
         self,
-        net: torch.Tensor,
-        latent: Optional[torch.Tensor] = None,
+        net: Tensor,
+        latent: Optional[Tensor] = None,
         *,
-        q_batch: Optional[torch.Tensor] = None,
-        y_batch: Optional[torch.Tensor] = None,
+        q_batch: Optional[Tensor] = None,
+        y_batch: Optional[Tensor] = None,
         do_inverse: bool = False,
         median: bool = False,
-    ) -> Dict[str, Optional[torch.Tensor]]:
+    ) -> Dict[str, Optional[Tensor]]:
         if latent is None:
             latent = self.to_latent(net)
         results = {}
