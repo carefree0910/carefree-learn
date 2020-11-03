@@ -388,6 +388,7 @@ class MonotonousMapping(nn.Module):
         ascent: bool,
         bias: bool = True,
         dropout: float = 0.0,
+        batch_norm: bool = False,
         activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
@@ -399,6 +400,7 @@ class MonotonousMapping(nn.Module):
             self.bias = None
         else:
             self.bias = nn.Parameter(torch.empty(out_dim))
+        self.bn = None if not batch_norm else BN(out_dim)
         self.config = shallow_copy_dict(kwargs)
         self._init_method = init_method
         with torch.no_grad():
@@ -420,6 +422,8 @@ class MonotonousMapping(nn.Module):
         if not self.ascent:
             weight = -weight
         net = F.linear(net, weight, self.bias) / self.scaler
+        if self.bn is not None:
+            net = self.bn(net)
         if self.activation is not None:
             net = self.activation(net)
         if self.dropout is not None:
@@ -447,6 +451,8 @@ class MonotonousMapping(nn.Module):
         ascent: bool,
         bias: bool = True,
         dropout: float = 0.0,
+        batch_norm: bool = False,
+        final_batch_norm: bool = False,
         activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
@@ -461,6 +467,7 @@ class MonotonousMapping(nn.Module):
                     ascent=ascent,
                     bias=bias,
                     dropout=dropout,
+                    batch_norm=batch_norm,
                     activation=activation,
                     init_method=init_method,
                     **shallow_copy_dict(kwargs),
@@ -474,6 +481,7 @@ class MonotonousMapping(nn.Module):
                     out_dim,
                     ascent=ascent,
                     bias=bias,
+                    batch_norm=final_batch_norm,
                     init_method=init_method,
                     **shallow_copy_dict(kwargs),
                 )

@@ -67,14 +67,21 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, 1)
-        kwargs = {"ascent": True, "dropout": 0.5, "activation": "ReLU"}
-        m1 = MonotonousMapping.stack(1, dim, [dim] * 3, **kwargs)
-        m2 = MonotonousMapping.stack(dim, 1, [dim] * 3, **kwargs)
+        kwargs = {
+            "ascent": True,
+            "num_units": [dim] * 3,
+            "dropout": 0.5,
+            "batch_norm": True,
+            "final_batch_norm": True,
+            "activation": "ReLU",
+        }
+        m1 = MonotonousMapping.stack(1, dim, **kwargs)
+        m2 = MonotonousMapping.stack(dim, 1, **kwargs)
         outputs = m2(m1(net))
         self.assertTrue(torch.allclose(net.argsort(), outputs.argsort()))
         kwargs["ascent"] = False
-        m1 = MonotonousMapping.stack(1, dim, [dim] * 3, **kwargs)
-        m2 = MonotonousMapping.stack(dim, 1, [dim] * 3, **kwargs)
+        m1 = MonotonousMapping.stack(1, dim, **kwargs)
+        m2 = MonotonousMapping.stack(dim, 1, **kwargs)
         outputs = m2(m1(net))
         net_indices = net.argsort().numpy().ravel()
         outputs_indices = outputs.argsort().numpy().ravel()[::-1]
