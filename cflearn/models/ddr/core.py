@@ -139,10 +139,8 @@ class DDRCore(nn.Module):
             y = self.y_invertible.inverse(q_net)
             if not median:
                 add_latent, mul_latent = self.xq_add(net), self.xq_mul(net)
-                q_add_latent = self.q_add(q_batch) + add_latent
-                q_mul_latent = self.q_mul(q_batch) * mul_latent
-                y_add = self.q_add.inverse(q_add_latent)
-                y_mul = self.q_mul.inverse(q_mul_latent)
+                y_add = self.q_add.inverse(self.q_add(q_batch) + add_latent)
+                y_mul = self.q_mul.inverse(self.q_mul(q_batch) * mul_latent)
                 y = y + y_add + y_mul
             y = self.y_inv_fn(y)
             if do_inverse:
