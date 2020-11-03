@@ -54,7 +54,7 @@ class Linear(nn.Module):
         if self.pruner is None:
             return self.linear(net)
         weight = self.pruner(self.linear.weight)
-        return nn.functional.linear(net, weight, self.linear.bias)
+        return F.linear(net, weight, self.linear.bias)
 
     def reset_parameters(self) -> None:
         if self._init_method is None:
@@ -278,7 +278,7 @@ class DNDF(nn.Module):
         if self._is_regression or self._output_dim <= 1:
             leaves: Union[torch.Tensor, nn.Parameter] = self.leaves
         else:
-            leaves = nn.functional.softmax(self.leaves, dim=-1)
+            leaves = F.softmax(self.leaves, dim=-1)
         leaves = leaves.view(self._num_tree * self._num_leaf, self._output_dim)
         return features.matmul(leaves) / self._num_tree
 
