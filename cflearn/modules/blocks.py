@@ -18,6 +18,7 @@ from cfdata.types import np_int_type
 
 from .auxiliary import *
 from ..misc.toolkit import *
+from ..types import tensor_tuple_type
 
 
 class Linear(nn.Module):
@@ -328,19 +329,11 @@ class InvertibleBlock(nn.Module):
             )
         self.transition = transition
 
-    def forward(
-        self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, net1: torch.Tensor, net2: torch.Tensor) -> tensor_tuple_type:
         net1 = net1 + self.transition(net2)
         return net2, net1
 
-    def inverse(
-        self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def inverse(self, net1: torch.Tensor, net2: torch.Tensor) -> tensor_tuple_type:
         net2 = net2 - self.transition(net1)
         return net2, net1
 
