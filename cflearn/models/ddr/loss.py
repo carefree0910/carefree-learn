@@ -15,7 +15,6 @@ class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.mtl = MTL(18, config["mtl_method"])
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
-        self.register_buffer("zero", torch.zeros([1], dtype=torch.float32))
 
     def _core(  # type: ignore
         self,
@@ -31,11 +30,8 @@ class DDRLoss(LossBase, LoggingMixin):
             median = predictions["predictions"]
             median_losses = l1_loss(median, target, reduction="none")
             median_inverse = predictions["median_inverse"]
-            if median_inverse is None:
-                median_recover_losses = self.zero
-            else:
-                median_recover_losses = torch.abs(median_inverse - 0.5)
-                median_recover_losses = self._lb_recover * median_recover_losses
+            median_recover_losses = torch.abs(median_inverse - 0.5)
+            median_recover_losses = self._lb_recover * median_recover_losses
         # quantile losses
         q_batch = predictions["q_batch"]
         assert q_batch is not None
@@ -47,11 +43,8 @@ class DDRLoss(LossBase, LoggingMixin):
             quantile_losses = self._quantile_losses(y, target, q_batch)
         # q recover losses
         q_inverse = predictions["q_inverse"]
-        if q_inverse is None:
-            q_recover_losses = self.zero
-        else:
-            q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
-            q_recover_losses = self._lb_recover * q_recover_losses
+        q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
+        q_recover_losses = self._lb_recover * q_recover_losses
         # cdf losses
         y_batch = predictions["y_batch"]
         assert y_batch is not None

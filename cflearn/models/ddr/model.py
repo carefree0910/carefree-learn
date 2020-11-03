@@ -4,7 +4,6 @@ import numpy as np
 
 from typing import Any
 from typing import Dict
-from typing import List
 from typing import Union
 from typing import Optional
 from cftool.ml import Metrics
@@ -20,18 +19,10 @@ except:
     amp = None
 
 from ...misc.toolkit import *
-from ...modules.blocks import *
 from .core import DDRCore
 from .loss import DDRLoss
 from ..base import ModelBase
 from ...types import tensor_dict_type
-
-proj_type = Optional[Union[Linear, MLP]]
-tensors_type = Union[
-    torch.Tensor,
-    List[torch.Tensor],
-    Dict[str, Optional[Union[torch.Tensor, tensor_dict_type]]],
-]
 
 
 @ModelBase.register("ddr")
