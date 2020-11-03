@@ -1,3 +1,4 @@
+import math
 import torch
 
 import numpy as np
@@ -7,7 +8,6 @@ import torch.nn.functional as F
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -410,9 +410,10 @@ class MonotonousMapping(nn.Module):
             self.activation = Activations.make(activation, activation_config)
         use_dropout = 0.0 < dropout < 1.0
         self.dropout = None if not use_dropout else Dropout(dropout)
+        self.scaler = float(out_dim) * math.log(2.0)
 
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
-        weight = F.softplus(self.weight)
+        weight = F.softplus(self.weight) / self.scaler
         if not self.ascent:
             weight = -weight
         net = F.linear(net, weight, self.bias)
