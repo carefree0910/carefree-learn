@@ -171,6 +171,7 @@ class DDR(ModelBase):
         do_inverse: bool,
     ) -> tensor_dict_type:
         use_grad = self.training or return_pdf
+        y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
             results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
         if not return_pdf:
@@ -179,6 +180,7 @@ class DDR(ModelBase):
             cdf = results["q"]
             pdf = get_gradient(cdf, y_batch, False, False)
             assert isinstance(pdf, torch.Tensor)
+            y_batch.requires_grad_(False)
         results["pdf"] = pdf
         return results
 
