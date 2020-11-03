@@ -183,10 +183,10 @@ class DDR(ModelBase):
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=return_pdf):
             results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
-            cdf = results["q"]
         if not return_pdf:
             pdf = None
         else:
+            cdf = results["q"]
             pdf = get_gradient(cdf, y_batch, need_optimize, need_optimize)
             assert isinstance(pdf, torch.Tensor)
             y_batch.requires_grad_(False)
@@ -228,7 +228,7 @@ class DDR(ModelBase):
         with timing_context(self, "forward.cdf"):
             cdf_inverse = not synthetic and do_inverse
             cdf_results = self._cdf(net, y_batch, True, True, cdf_inverse)
-            cdf, pdf = map(cdf_results.get, ["q", "pdf"])
+            cdf, cdf_logit, pdf = map(cdf_results.get, ["q", "q_logit", "pdf"])
             if not cdf_inverse:
                 y_inverse = None
             else:
@@ -244,6 +244,7 @@ class DDR(ModelBase):
             "q_inverse": q_inverse,
             "pdf": pdf,
             "cdf": cdf,
+            "cdf_logit": cdf_logit,
             "y_inverse": y_inverse,
         }
 

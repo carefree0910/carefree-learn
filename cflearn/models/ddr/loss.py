@@ -3,6 +3,7 @@ import torch
 from typing import *
 from cftool.misc import LoggingMixin
 from torch.nn.functional import l1_loss
+from torch.nn.functional import softplus
 
 
 from ...losses import LossBase
@@ -13,8 +14,6 @@ from ...modules.auxiliary import MTL
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.mtl = MTL(18, config["mtl_method"])
-        self._cdf_floor = config.setdefault("cdf_eps", 1.0e-8)
-        self._cdf_ceiling = 1.0 - self._cdf_floor
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
         self.register_buffer("zero", torch.zeros([1], dtype=torch.float32))
 
@@ -59,9 +58,9 @@ class DDRLoss(LossBase, LoggingMixin):
         if is_synthetic:
             cdf_losses = None
         else:
-            cdf = predictions["cdf"]
-            assert cdf is not None
-            cdf_losses = self._cdf_losses(cdf, target, y_batch)
+            cdf_logit = predictions["cdf_logit"]
+            assert cdf_logit is not None
+            cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
         # y recover losses
         y_recover_losses = None
         if not is_synthetic:
@@ -119,16 +118,14 @@ class DDRLoss(LossBase, LoggingMixin):
         q2 = (q_batch - 1.0) * quantile_error
         return torch.max(q1, q2)
 
+    @staticmethod
     def _cdf_losses(
-        self,
-        cdf: torch.Tensor,
+        cdf_logit: torch.Tensor,
         target: torch.Tensor,
         y_batch: torch.Tensor,
     ) -> torch.Tensor:
-        mask = target <= y_batch
-        cdf = torch.clamp(cdf, self._cdf_floor, self._cdf_ceiling)
-        likelihood = torch.where(mask, torch.log(cdf), torch.log(1.0 - cdf))
-        return -likelihood
+        indicative = (target <= y_batch).to(torch.float32)
+        return -indicative * cdf_logit + softplus(cdf_logit)
 
     @staticmethod
     def _pdf_losses(pdf: torch.Tensor) -> torch.Tensor:

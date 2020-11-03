@@ -87,10 +87,6 @@ class DDRCore(nn.Module):
         return lambda q: 2.0 * q - 1.0
 
     @property
-    def q_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
-        return lambda q: 0.5 * (q + 1.0)
-
-    @property
     def y_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
         return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
 
@@ -174,7 +170,7 @@ class DDRCore(nn.Module):
         # simulate cdf
         y_inverse = None
         if y_latent is None:
-            q = None
+            q = q_logit = None
         else:
             y_net = latent + y_latent
             for i in range(self.num_blocks):
@@ -184,8 +180,8 @@ class DDRCore(nn.Module):
             add_latent, mul_latent = self.xy_add(net), self.xy_mul(net)
             q_add = self.y_add.inverse(self.y_add(y_batch) + add_latent)
             q_mul = self.y_mul.inverse(self.y_mul(y_batch) * mul_latent)
-            q = torch.tanh(q + q_add + q_mul)
-            q = self.q_inv_fn(q)
+            q_logit = q + q_add + q_mul
+            q = torch.sigmoid(q_logit)
             if do_inverse:
                 switch_requires_grad(self.q_parameters, False)
                 y_inverse = self.forward(
@@ -195,7 +191,7 @@ class DDRCore(nn.Module):
                     do_inverse=False,
                 )["y"]
                 switch_requires_grad(self.q_parameters, True)
-        return {"q": q, "y_inverse": y_inverse}
+        return {"q": q, "q_logit": q_logit, "y_inverse": y_inverse}
 
     def forward(
         self,
