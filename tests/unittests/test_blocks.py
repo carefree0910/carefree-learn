@@ -49,20 +49,17 @@ class TestBlocks(unittest.TestCase):
 
         inv1 = InvertibleBlock(dim, transition_builder=builder)
         inv2 = InvertibleBlock(dim, transition_builder=builder)
-        o1 = inv1(net)
-        o2 = inv2(o1)
-        r2 = inv2.inverse(o2)
-        r1 = inv1.inverse(r2)
-        self.assertTrue(torch.allclose(net, r1, rtol=1e-4, atol=1e-4))
-        o11, o12 = net[..., inv1.indices].chunk(2, dim=1)
-        o1_pred = torch.cat([o11 + o12, o12], dim=1)
-        self.assertTrue(torch.allclose(o1, o1_pred, rtol=1e-4, atol=1e-4))
-        o21, o22 = o1[..., inv2.indices].chunk(2, dim=1)
-        o2_pred = torch.cat([o21 + o22, o22], dim=1)
-        self.assertTrue(torch.allclose(o2, o2_pred, rtol=1e-4, atol=1e-4))
-        residual = o2 - net[..., inv1.indices[inv2.indices]]
-        collided_ratio = (residual == 0.0).to(torch.float32).mean().item()  # ~0.25
-        self.assertTrue(collided_ratio >= 0.2)
+        net1, net2 = net.chunk(2, dim=1)
+        o11, o12 = inv1(net1, net2)
+        o21, o22 = inv2(o11, o12)
+        r21, r22 = inv2.inverse(o21, o22)
+        r11, r12 = inv1.inverse(r21, r22)
+        self.assertTrue(torch.allclose(net1, r11, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(net2, r12, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o11, net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o12, net1 + net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o21, o12, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o22, o11 + o12, rtol=1e-4, atol=1e-4))
 
     def test_attention(self) -> None:
         num_heads = 8

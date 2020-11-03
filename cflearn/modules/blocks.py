@@ -7,6 +7,7 @@ import torch.nn.functional as F
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -326,21 +327,22 @@ class InvertibleBlock(nn.Module):
                 activation=default_activation,
             )
         self.transition = transition
-        # permutation
-        permutation_indices = to_torch(np.random.permutation(dim)).to(torch.long)
-        inv_indices = permutation_indices.argsort()
-        self.register_buffer("indices", permutation_indices)
-        self.register_buffer("inv_indices", inv_indices)
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        net1, net2 = net[..., self.indices].chunk(2, dim=1)
+    def forward(
+        self,
+        net1: torch.Tensor,
+        net2: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         net1 = net1 + self.transition(net2)
-        return torch.cat([net1, net2], dim=1)
+        return net2, net1
 
-    def inverse(self, net: torch.Tensor) -> torch.Tensor:
-        net1, net2 = net.chunk(2, dim=1)
-        net1 = net1 - self.transition(net2)
-        return torch.cat([net1, net2], dim=1)[..., self.inv_indices]
+    def inverse(
+        self,
+        net1: torch.Tensor,
+        net2: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        net2 = net2 - self.transition(net1)
+        return net2, net1
 
 
 class PseudoInvertibleBlock(nn.Module):

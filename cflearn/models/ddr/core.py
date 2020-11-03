@@ -67,13 +67,10 @@ class DDRCore(nn.Module):
         self.num_blocks = num_blocks
         self.block_parameters = []
         self.blocks = nn.ModuleList()
-        permutation_indices = torch.arange(latent_dim)
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, transition_builder=transition_builder)
-            permutation_indices = permutation_indices[block.indices]
             self.block_parameters.extend(block.parameters())
             self.blocks.append(block)
-        self.register_buffer("permutation_indices", permutation_indices)
 
     @property
     def q_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
@@ -123,10 +120,12 @@ class DDRCore(nn.Module):
         if q_latent is None and not median:
             y = None
         else:
-            q_net = latent if q_latent is None else q_latent
+            if q_latent is None:
+                q_latent = latent
+            q1, q2 = q_latent.chunk(2, dim=1)
             for block in self.blocks:
-                q_net = block(q_net)
-            y = self.y_invertible.inverse(q_net)
+                q1, q2 = block(q1, q2)
+            y = self.y_invertible.inverse(torch.cat([q1, q2], dim=1))
             y = self.y_inv_fn(y)
             if do_inverse:
                 q_inverse = self.forward(
@@ -155,10 +154,10 @@ class DDRCore(nn.Module):
         if y_latent is None:
             q = q_logit = None
         else:
-            y_net = y_latent
+            y1, y2 = y_latent.chunk(2, dim=1)
             for i in range(self.num_blocks):
-                y_net = self.blocks[self.num_blocks - i - 1].inverse(y_net)
-            q_logit = self.q_invertible.inverse(y_net)
+                y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
+            q_logit = self.q_invertible.inverse(torch.cat([y1, y2], dim=1))
             q = torch.sigmoid(q_logit)
             if do_inverse:
                 switch_requires_grad(self.q_parameters, False)
