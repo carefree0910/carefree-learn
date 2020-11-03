@@ -1,6 +1,7 @@
 import torch
 import unittest
 
+import numpy as np
 import torch.nn as nn
 
 from cflearn.modules.blocks import *
@@ -60,6 +61,22 @@ class TestBlocks(unittest.TestCase):
         self.assertTrue(torch.allclose(o12, net1 + net2, rtol=1e-4, atol=1e-4))
         self.assertTrue(torch.allclose(o21, o12, rtol=1e-4, atol=1e-4))
         self.assertTrue(torch.allclose(o22, o11 + o12, rtol=1e-4, atol=1e-4))
+
+    def test_monotonous(self) -> None:
+        dim = 512
+        batch_size = 32
+
+        net = torch.randn(batch_size, 1)
+        m1 = MonotonousLinear(1, dim, ascent=True)
+        m2 = MonotonousLinear(dim, 1, ascent=True)
+        outputs = m2(m1(net))
+        self.assertTrue(torch.allclose(net.argsort(), outputs.argsort()))
+        m1 = MonotonousLinear(1, dim, ascent=False)
+        m2 = MonotonousLinear(dim, 1, ascent=False)
+        outputs = m2(m1(net))
+        net_indices = net.argsort().numpy().ravel()
+        outputs_indices = outputs.argsort().numpy().ravel()[::-1]
+        self.assertTrue(np.allclose(net_indices, outputs_indices))
 
     def test_attention(self) -> None:
         num_heads = 8

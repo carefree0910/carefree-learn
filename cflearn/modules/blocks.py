@@ -386,6 +386,47 @@ class PseudoInvertibleBlock(nn.Module):
         return self.from_latent(net)
 
 
+class MonotonousLinear(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        *,
+        ascent: bool,
+        bias: bool = True,
+        init_method: Optional[str] = "xavier_uniform",
+        **kwargs: Any,
+    ):
+        super().__init__()
+        self.ascent = ascent
+        self.weight = nn.Parameter(torch.empty(out_dim, in_dim))
+        if not bias:
+            self.bias = None
+        else:
+            self.bias = nn.Parameter(torch.empty(out_dim))
+        self.config = shallow_copy_dict(kwargs)
+        self._init_method = init_method
+        with torch.no_grad():
+            self.reset_parameters()
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        weight = F.softplus(self.weight)
+        if not self.ascent:
+            weight = -weight
+        return F.linear(net, weight, self.bias)
+
+    def reset_parameters(self) -> None:
+        if self._init_method is None:
+            return
+        if self._init_method not in Initializer.defined_initialization:
+            return
+        initializer = Initializer(self.config.setdefault("initialize_config", {}))
+        initializer.initialize(self.weight, self._init_method)
+        bias_fill = self.config.setdefault("bias_fill", 0.0)
+        if self.bias is not None:
+            self.bias.data.fill_(bias_fill)
+
+
 class AttentionOutput(NamedTuple):
     output: torch.Tensor
     weights: torch.Tensor
@@ -527,5 +568,6 @@ __all__ = [
     "DNDF",
     "TreeResBlock",
     "InvertibleBlock",
+    "MonotonousLinear",
     "Attention",
 ]
