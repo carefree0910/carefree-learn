@@ -434,6 +434,49 @@ class MonotonousMapping(nn.Module):
         if self.bias is not None:
             self.bias.data.fill_(bias_fill)
 
+    @classmethod
+    def stack(
+        cls,
+        in_dim: int,
+        out_dim: Optional[int],
+        num_units: List[int],
+        *,
+        ascent: bool,
+        bias: bool = True,
+        dropout: float = 0.0,
+        activation: str = None,
+        init_method: Optional[str] = "xavier_uniform",
+        **kwargs: Any,
+    ) -> nn.Sequential:
+        blocks = []
+        in_dim_ = in_dim
+        for num_unit in num_units:
+            blocks.append(
+                cls(
+                    in_dim_,
+                    num_unit,
+                    ascent=ascent,
+                    bias=bias,
+                    dropout=dropout,
+                    activation=activation,
+                    init_method=init_method,
+                    **shallow_copy_dict(kwargs),
+                )
+            )
+            in_dim_ = num_unit
+        if out_dim is not None:
+            blocks.append(
+                cls(
+                    in_dim_,
+                    out_dim,
+                    ascent=ascent,
+                    bias=bias,
+                    init_method=init_method,
+                    **shallow_copy_dict(kwargs),
+                )
+            )
+        return nn.Sequential(*blocks)
+
 
 class AttentionOutput(NamedTuple):
     output: torch.Tensor
