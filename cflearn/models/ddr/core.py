@@ -5,6 +5,7 @@ import torch.nn as nn
 from typing import Dict
 from typing import Callable
 from typing import Optional
+from cftool.misc import context_error_handler
 
 from ...misc.toolkit import switch_requires_grad
 from ...modules.blocks import MLP
@@ -71,11 +72,13 @@ class DDRCore(nn.Module):
         if num_blocks % 2 != 0:
             raise ValueError("`num_blocks` should be divided by 2")
         self.num_blocks = num_blocks
+        self.block_parameters = []
         self.blocks = nn.ModuleList()
         permutation_indices = torch.arange(latent_dim)
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, transition_builder=transition_builder)
             permutation_indices = permutation_indices[block.indices]
+            self.block_parameters.extend(block.parameters())
             self.blocks.append(block)
         self.register_buffer("permutation_indices", permutation_indices)
 
@@ -94,6 +97,20 @@ class DDRCore(nn.Module):
     @property
     def y_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
         return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
+
+    def _detach_q(self) -> context_error_handler:
+        def switch(requires_grad: bool) -> None:
+            switch_requires_grad(self.q_parameters, requires_grad)
+            switch_requires_grad(self.block_parameters, requires_grad)
+
+        class _(context_error_handler):
+            def __enter__(self):
+                switch(False)
+
+            def _normal_exit(self, exc_type, exc_val, exc_tb):
+                switch(True)
+
+        return _()
 
     def _get_q_results(
         self,
