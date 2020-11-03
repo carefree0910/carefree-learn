@@ -100,14 +100,7 @@ class DDR(ModelBase):
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
         # trainer config
-        default_metric_types = [
-            "ddr",
-            "loss",
-            "pdf",
-            "cdf",
-            "q_recover",
-            "median_recover",
-        ]
+        default_metric_types = ["ddr", "loss", "cdf", "q_recover", "median_recover"]
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
             trainer_config,
@@ -174,20 +167,18 @@ class DDR(ModelBase):
         self,
         net: torch.Tensor,
         y_batch: torch.Tensor,
-        need_optimize: bool,
         return_pdf: bool,
         do_inverse: bool,
     ) -> tensor_dict_type:
-        y_batch.requires_grad_(return_pdf)
-        with mode_context(self, to_train=None, use_grad=return_pdf):
+        use_grad = self.training or return_pdf
+        with mode_context(self, to_train=None, use_grad=use_grad):
             results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
         if not return_pdf:
             pdf = None
         else:
             cdf = results["q"]
-            pdf = get_gradient(cdf, y_batch, need_optimize, need_optimize)
+            pdf = get_gradient(cdf, y_batch, False, False)
             assert isinstance(pdf, torch.Tensor)
-            y_batch.requires_grad_(False)
         results["pdf"] = pdf
         return results
 
@@ -224,7 +215,7 @@ class DDR(ModelBase):
             q_inverse = quantile_results["q_inverse"]
         with timing_context(self, "forward.cdf"):
             cdf_inverse = not synthetic
-            cdf_results = self._cdf(net, y_batch, True, True, cdf_inverse)
+            cdf_results = self._cdf(net, y_batch, False, cdf_inverse)
             cdf, cdf_logit, pdf = map(cdf_results.get, ["q", "q_logit", "pdf"])
             if not cdf_inverse:
                 y_inverse = None
@@ -271,7 +262,7 @@ class DDR(ModelBase):
             y_batch = self._expand(len(net), y, numpy=True)
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
-            results = self._cdf(net, y_batch, False, predict_pdf, False)
+            results = self._cdf(net, y_batch, predict_pdf, False)
             if predict_pdf:
                 forward_dict["pdf"] = results["pdf"]
             if predict_cdf:
