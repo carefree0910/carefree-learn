@@ -675,12 +675,9 @@ class mode_context(context_error_handler):
     ):
         self._to_train = to_train
         self._module, self._training = module, module.training
-        self._params_required_grad = [
-            param for param in module.parameters() if param.requires_grad
-        ]
-        tuple(
-            map(lambda param: param.requires_grad_(False), self._params_required_grad)
-        )
+        self._cache = {p: p.requires_grad for p in module.parameters()}
+        for p in module.parameters():
+            p.requires_grad_(use_grad)
         if use_grad is None:
             self._grad_context: Optional[ContextManager] = None
         else:
@@ -697,7 +694,8 @@ class mode_context(context_error_handler):
             self._module.train(mode=self._training)
         if self._grad_context is not None:
             self._grad_context.__exit__(exc_type, exc_val, exc_tb)
-        tuple(map(lambda param: param.requires_grad_(True), self._params_required_grad))
+        for p, v in self._cache.items():
+            p.requires_grad_(v)
 
 
 class train_context(mode_context):
