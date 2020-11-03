@@ -391,37 +391,53 @@ class MonotonousMapping(nn.Module):
         batch_norm: bool = False,
         activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
+        positive_transform: str = "square",
         **kwargs: Any,
     ):
         super().__init__()
         self.ascent = ascent
+        # weight & bias
         self.weight = nn.Parameter(torch.empty(out_dim, in_dim))
         if not bias:
             self.bias = None
         else:
             self.bias = nn.Parameter(torch.empty(out_dim))
-        self.bn = None if not batch_norm else BN(out_dim)
+        # initialization
         self.config = shallow_copy_dict(kwargs)
         self._init_method = init_method
         with torch.no_grad():
             self.reset_parameters()
+        # dropout
+        use_dropout = 0.0 < dropout < 1.0
+        self.dropout = None if not use_dropout else Dropout(dropout)
+        # batch norm
+        self.bn = None if not batch_norm else BN(out_dim)
+        # activation
         if activation is None:
             self.activation: Optional[nn.Module] = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
-        use_dropout = 0.0 < dropout < 1.0
-        self.dropout = None if not use_dropout else Dropout(dropout)
+        # scaler
+        self.positive_transform = positive_transform
         if in_dim > out_dim:
             self.scaler = math.log(2.0 * in_dim)
         else:
             self.scaler = out_dim * math.log(2.0)
 
+    def _get_positive_weight(self) -> torch.Tensor:
+        if self.positive_transform == "square":
+            return self.weight ** 2 / math.sqrt(self.scaler)
+        if self.positive_transform == "softplus":
+            return F.softplus(self.weight) / self.scaler
+        msg = f"positive transform '{self.positive_transform}' is not implemented"
+        raise NotImplementedError(msg)
+
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
-        weight = F.softplus(self.weight)
+        weight = self._get_positive_weight()
         if not self.ascent:
             weight = -weight
-        net = F.linear(net, weight, self.bias) / self.scaler
+        net = F.linear(net, weight, self.bias)
         if self.bn is not None:
             net = self.bn(net)
         if self.activation is not None:
@@ -455,6 +471,7 @@ class MonotonousMapping(nn.Module):
         final_batch_norm: bool = False,
         activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
+        positive_transform: str = "square",
         **kwargs: Any,
     ) -> nn.Sequential:
         blocks = []
@@ -470,6 +487,7 @@ class MonotonousMapping(nn.Module):
                     batch_norm=batch_norm,
                     activation=activation,
                     init_method=init_method,
+                    positive_transform=positive_transform,
                     **shallow_copy_dict(kwargs),
                 )
             )
@@ -483,6 +501,7 @@ class MonotonousMapping(nn.Module):
                     bias=bias,
                     batch_norm=final_batch_norm,
                     init_method=init_method,
+                    positive_transform=positive_transform,
                     **shallow_copy_dict(kwargs),
                 )
             )
