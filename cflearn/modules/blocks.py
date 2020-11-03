@@ -426,6 +426,8 @@ class MonotonousMapping(nn.Module):
             self.scaler = out_dim * math.log(2.0)
 
     def _get_positive_weight(self) -> torch.Tensor:
+        if self.positive_transform == "abs":
+            return torch.abs(self.weight) / self.scaler
         if self.positive_transform == "square":
             return self.weight ** 2 / math.sqrt(self.scaler)
         if self.positive_transform == "softplus":
