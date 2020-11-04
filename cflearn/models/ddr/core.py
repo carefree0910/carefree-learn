@@ -38,7 +38,6 @@ class DDRCore(nn.Module):
         super().__init__()
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        mono_activation = "Tanh"
         # builders
         def default_latent_builder(in_dim_: int, latent_dim_: int) -> nn.Module:
             return MLP.simple(
@@ -136,12 +135,7 @@ class DDRCore(nn.Module):
         # transition builder
         def default_transition_builder(dim: int) -> nn.Module:
             h_dim = int(dim // 2)
-            return MonotonousMapping(
-                h_dim,
-                h_dim,
-                ascent=True,
-                activation=mono_activation,
-            )
+            return MonotonousMapping.tanh_couple(h_dim, h_dim, h_dim, ascent=True)
 
         if transition_builder is None:
             transition_builder = default_transition_builder
