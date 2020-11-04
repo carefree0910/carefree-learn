@@ -13,7 +13,8 @@ from ...modules.auxiliary import MTL
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
-        self.mtl = MTL(13, config["mtl_method"])
+        self.mtl = MTL(15, config["mtl_method"])
+        self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
 
     def _core(  # type: ignore
@@ -61,6 +62,9 @@ class DDRLoss(LossBase, LoggingMixin):
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
                 y_recover_losses = self._lb_recover * y_recover_losses
+        # pdf losses
+        pdf = predictions["pdf"]
+        pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
         # combine
         losses = {}
         suffix = "" if not is_synthetic else "synthetic_"
@@ -79,6 +83,9 @@ class DDRLoss(LossBase, LoggingMixin):
             losses["quantile"] = quantile_losses
             assert cdf_losses is not None
             losses["cdf"] = cdf_losses
+        # pdf
+        if pdf_losses is not None:
+            losses[f"{suffix}pdf"] = pdf_losses
         # mtl
         if not self.mtl.registered:
             self.mtl.register(list(losses.keys()))
@@ -113,6 +120,15 @@ class DDRLoss(LossBase, LoggingMixin):
     ) -> torch.Tensor:
         indicative = (target <= y_batch).to(torch.float32)
         return -indicative * cdf_logit + softplus(cdf_logit)
+
+    def _pdf_losses(self, pdf: torch.Tensor, is_synthetic: bool) -> torch.Tensor:
+        negative_mask = pdf <= 1e-8
+        losses = torch.zeros_like(pdf)
+        losses[negative_mask] = -pdf[negative_mask]
+        if not is_synthetic:
+            positive_mask = ~negative_mask
+            losses[positive_mask] = -self._lb_pdf * torch.log(pdf[positive_mask])
+        return losses
 
 
 __all__ = ["DDRLoss"]
