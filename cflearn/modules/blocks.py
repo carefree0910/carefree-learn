@@ -396,6 +396,7 @@ class MonotonousMapping(nn.Module):
     ):
         super().__init__()
         self.ascent = ascent
+        self.positive_transform = positive_transform
         # weight & bias
         self.weight = nn.Parameter(torch.empty(out_dim, in_dim))
         if not bias:
@@ -419,7 +420,6 @@ class MonotonousMapping(nn.Module):
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
         # scaler
-        self.positive_transform = positive_transform
         if in_dim > out_dim:
             self.scaler = math.log(2.0 * in_dim)
         else:
@@ -429,7 +429,7 @@ class MonotonousMapping(nn.Module):
         if self.positive_transform == "abs":
             return torch.abs(self.weight) / self.scaler
         if self.positive_transform == "square":
-            return self.weight ** 2 / math.sqrt(self.scaler)
+            return self.weight ** 2
         if self.positive_transform == "softplus":
             return F.softplus(self.weight) / self.scaler
         msg = f"positive transform '{self.positive_transform}' is not implemented"

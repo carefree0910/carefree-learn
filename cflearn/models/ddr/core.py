@@ -75,8 +75,6 @@ class DDRCore(nn.Module):
                     ascent=ascent,
                     bias=bias,
                     dropout=dropout,
-                    batch_norm=False,
-                    final_batch_norm=False,
                     activation=activation,
                     positive_transform="square",
                 )
