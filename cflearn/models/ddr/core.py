@@ -278,15 +278,14 @@ class DDRCore(nn.Module):
             q_logit = self.q_invertible.inverse((y1, y2))
             q = torch.sigmoid(q_logit)
             if do_inverse:
-                switch_requires_grad(self.q_parameters, False)
-                y_inverse = self.forward(
-                    net,
-                    l1.detach(),
-                    l2.detach(),
-                    q_batch=q,
-                    do_inverse=False,
-                )["y"]
-                switch_requires_grad(self.q_parameters, True)
+                with self._detach_q():
+                    y_inverse = self.forward(
+                        net,
+                        l1.detach(),
+                        l2.detach(),
+                        q_batch=q,
+                        do_inverse=False,
+                    )["y"]
         return {"q": q, "q_logit": q_logit, "y_inverse": y_inverse}
 
     def forward(
