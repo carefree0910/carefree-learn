@@ -509,6 +509,46 @@ class MonotonousMapping(nn.Module):
         return nn.Sequential(sigmoid_unit, logit_unit)
 
     @classmethod
+    def tanh_couple(
+        cls,
+        in_dim: int,
+        hidden_dim: int,
+        out_dim: int,
+        *,
+        ascent: bool,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+        **kwargs: Any,
+    ) -> nn.Sequential:
+        init_method = "normal"
+        tanh_unit = cls(
+            in_dim,
+            hidden_dim,
+            ascent=ascent,
+            bias=True,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation="tanh",
+            init_method=init_method,
+            positive_transform="softmax",
+            **kwargs,
+        )
+        atanh_unit = cls(
+            hidden_dim,
+            out_dim,
+            ascent=True,
+            bias=False,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation="atanh",
+            init_method=init_method,
+            positive_transform="softmax",
+            use_scaler=False,
+            **kwargs,
+        )
+        return nn.Sequential(tanh_unit, atanh_unit)
+
+    @classmethod
     def stack(
         cls,
         in_dim: int,
@@ -520,7 +560,7 @@ class MonotonousMapping(nn.Module):
         dropout: float = 0.0,
         batch_norm: bool = False,
         final_batch_norm: bool = False,
-        activation: Optional[str] = "sigmoid_couple",
+        activation: Optional[str] = "tanh_couple",
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
@@ -538,9 +578,9 @@ class MonotonousMapping(nn.Module):
             local_kwargs.update(shallow_copy_dict(kwargs))
             local_kwargs["in_dim"] = in_dim_
             local_kwargs["out_dim"] = out_dim_
-            if activation == "sigmoid_couple":
+            if activation in ("sigmoid_couple", "tanh_couple"):
                 local_kwargs["hidden_dim"] = hidden_dim
-                return cls.sigmoid_couple(**local_kwargs)
+                return getattr(cls, activation)(**local_kwargs)
             local_kwargs["bias"] = bias
             local_kwargs["activation"] = activation
             local_kwargs["init_method"] = init_method
