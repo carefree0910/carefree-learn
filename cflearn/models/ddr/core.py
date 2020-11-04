@@ -60,9 +60,9 @@ class DDRCore(nn.Module):
 
             def _core(in_dim_: int, out_dim_: int, ascent: bool) -> nn.Sequential:
                 if split_input:
-                    num_units = [in_dim_, in_dim_]
+                    num_units = [in_dim_]
                 else:
-                    num_units = [out_dim_, out_dim_, out_dim_]
+                    num_units = [out_dim_, out_dim_]
                     out_dim_ = None
 
                 return MonotonousMapping.stack(

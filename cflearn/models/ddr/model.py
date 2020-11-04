@@ -115,7 +115,7 @@ class DDR(ModelBase):
             "cdf": 1.0,
             "q_ae": 5.0,
             "y_ae": 5.0,
-            "median_ae": 10.0,
+            "median_ae": 5.0,
         }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
