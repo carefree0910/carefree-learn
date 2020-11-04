@@ -6,7 +6,9 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
+from abc import ABCMeta
+from functools import partial
 from cftool.misc import context_error_handler
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
@@ -256,12 +258,17 @@ class Activations:
         self.configs = configs
 
     def __getattr__(self, item: str) -> nn.Module:
+        kwargs = self.configs.setdefault(item, {})
         try:
-            return getattr(nn, item)(**self.configs.setdefault(item, {}))
+            return getattr(nn, item)(**kwargs)
         except AttributeError:
-            raise NotImplementedError(
-                f"neither pytorch nor custom Activations implemented activation '{item}'"
-            )
+            func = getattr(torch, item, None)
+            if func is None:
+                raise NotImplementedError(
+                    "neither pytorch nor custom Activations "
+                    f"implemented activation '{item}'"
+                )
+            return Lambda(partial(func, **kwargs), item)
 
     def module(self, name: str) -> nn.Module:
         if name is None:
