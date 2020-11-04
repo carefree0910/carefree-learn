@@ -161,6 +161,10 @@ class DDRCore(nn.Module):
         return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
 
     @property
+    def q_inv_fn(self) -> Callable[[Tensor], Tensor]:
+        return torch.sigmoid
+
+    @property
     def y_inv_fn(self) -> Callable[[Tensor], Tensor]:
         return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
 
@@ -184,6 +188,7 @@ class DDRCore(nn.Module):
         l1: Tensor,
         l2: Tensor,
         q_batch: Optional[Tensor] = None,
+        auto_encode: bool = False,
         do_inverse: bool = False,
         median: bool = False,
     ) -> Dict[str, Tensor]:
@@ -196,19 +201,23 @@ class DDRCore(nn.Module):
                 raise ValueError(msg)
             q_batch = net.new_zeros(len(net), 1)
         if q_batch is None:
-            q1 = q2 = None
+            q1 = q2 = q_latent = None
         else:
             q_latent = self.q_invertible(q_batch)
             if isinstance(q_latent, tuple):
                 q1, q2 = q_latent
             else:
                 q1, q2 = q_latent.chunk(2, dim=1)
-            q1, q2 = q1 + l1, q2 + l2
         # simulate quantile function
-        q_inverse = None
-        if q_batch is None:
+        q_ae = q_inverse = None
+        if q_latent is None:
             y = None
         else:
+            assert q1 is not None and q2 is not None
+            if auto_encode:
+                q_ae_logit = self.q_invertible.inverse((q1, q2))
+                q_ae = self.q_inv_fn(q_ae_logit)
+            q1, q2 = q1 + l1, q2 + l2
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             y = self.y_invertible.inverse(torch.cat([q1, q2], dim=1))
@@ -221,7 +230,7 @@ class DDRCore(nn.Module):
                     y_batch=y.detach(),
                     do_inverse=False,
                 )["q"]
-        return {"y": y, "q_inverse": q_inverse}
+        return {"y": y, "q_ae": q_ae, "q_inverse": q_inverse}
 
     def _get_y_results(
         self,
@@ -229,11 +238,12 @@ class DDRCore(nn.Module):
         l1: Tensor,
         l2: Tensor,
         y_batch: Optional[Tensor] = None,
+        auto_encode: bool = False,
         do_inverse: bool = False,
     ) -> Dict[str, Tensor]:
         # prepare y_latent
         if y_batch is None:
-            y1 = y2 = None
+            y1 = y2 = y_latent = None
         else:
             y_batch = self.y_fn(y_batch)
             y_latent = self.y_invertible(y_batch)
@@ -241,16 +251,21 @@ class DDRCore(nn.Module):
                 y1, y2 = y_latent
             else:
                 y1, y2 = y_latent.chunk(2, dim=1)
-            y1, y2 = y1 + l1, y2 + l2
         # simulate cdf
-        y_inverse = None
-        if y1 is None or y2 is None:
+        y_ae = y_inverse = None
+        if y_latent is None:
             q = q_logit = None
         else:
+            if auto_encode:
+                if isinstance(y_latent, tuple):
+                    y_latent = torch.cat(y_latent, dim=1)
+                y_ae = self.y_invertible.inverse(y_latent)
+                y_ae = self.y_inv_fn(y_ae)
+            y1, y2 = y1 + l1, y2 + l2
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             q_logit = self.q_invertible.inverse((y1, y2))
-            q = torch.sigmoid(q_logit)
+            q = self.q_inv_fn(q_logit)
             if do_inverse:
                 with self._detach_q():
                     y_inverse = self.forward(
@@ -260,7 +275,7 @@ class DDRCore(nn.Module):
                         q_batch=q,
                         do_inverse=False,
                     )["y"]
-        return {"q": q, "q_logit": q_logit, "y_inverse": y_inverse}
+        return {"q": q, "q_logit": q_logit, "y_ae": y_ae, "y_inverse": y_inverse}
 
     def forward(
         self,
@@ -270,6 +285,7 @@ class DDRCore(nn.Module):
         *,
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
+        auto_encode: bool = False,
         do_inverse: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
@@ -277,8 +293,12 @@ class DDRCore(nn.Module):
             latent = self.to_latent(net)
             l1, l2 = latent.chunk(2, dim=1)
         results = {}
-        results.update(self._get_q_results(net, l1, l2, q_batch, do_inverse, median))
-        results.update(self._get_y_results(net, l1, l2, y_batch, do_inverse))
+        results.update(
+            self._get_q_results(net, l1, l2, q_batch, auto_encode, do_inverse, median)
+        )
+        results.update(
+            self._get_y_results(net, l1, l2, y_batch, auto_encode, do_inverse)
+        )
         return results
 
 

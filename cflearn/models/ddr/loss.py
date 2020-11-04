@@ -5,7 +5,6 @@ from cftool.misc import LoggingMixin
 from torch.nn.functional import l1_loss
 from torch.nn.functional import softplus
 
-
 from ...losses import LossBase
 from ...types import tensor_dict_type
 from ...modules.auxiliary import MTL
@@ -13,7 +12,7 @@ from ...modules.auxiliary import MTL
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
-        self.mtl = MTL(15, config["mtl_method"])
+        self.mtl = MTL(18, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
@@ -27,10 +26,13 @@ class DDRLoss(LossBase, LoggingMixin):
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
         # median
         if is_synthetic:
-            median_losses = median_recover_losses = None
+            median_losses = median_ae_losses = median_recover_losses = None
         else:
             median = predictions["predictions"]
             median_losses = l1_loss(median, target, reduction="none")
+            median_ae = predictions["median_ae"]
+            median_ae_losses = torch.abs(median_ae - 0.5)
+            median_ae_losses = self._lb_recover * median_ae_losses
             median_inverse = predictions["median_inverse"]
             median_recover_losses = torch.abs(median_inverse - 0.5)
             median_recover_losses = self._lb_recover * median_recover_losses
@@ -43,6 +45,13 @@ class DDRLoss(LossBase, LoggingMixin):
             y = predictions["y"]
             assert y is not None
             quantile_losses = self._quantile_losses(y, target, q_batch)
+        # q auto encode losses
+        q_ae = predictions["q_ae"]
+        if q_ae is None:
+            q_ae_losses = None
+        else:
+            q_ae_losses = l1_loss(q_ae, q_batch, reduction="none")
+            q_ae_losses = self._lb_recover * q_ae_losses
         # q recover losses
         q_inverse = predictions["q_inverse"]
         q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
@@ -56,9 +65,13 @@ class DDRLoss(LossBase, LoggingMixin):
             cdf_logit = predictions["cdf_logit"]
             assert cdf_logit is not None
             cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
-        # y recover losses
-        y_recover_losses = None
+        # y auto encode & recover losses
+        y_ae_losses = y_recover_losses = None
         if not is_synthetic:
+            y_ae = predictions["y_ae"]
+            if y_ae is not None:
+                y_ae_losses = l1_loss(y_ae, y_batch, reduction="none")
+                y_ae_losses = self._lb_recover * y_ae_losses
             y_inverse = predictions["y_inverse"]
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
@@ -76,6 +89,12 @@ class DDRLoss(LossBase, LoggingMixin):
             losses[f"{suffix}y_recover"] = y_recover_losses
         # common
         if not is_synthetic:
+            assert median_ae_losses is not None
+            assert q_ae_losses is not None
+            assert y_ae_losses is not None
+            losses["median_ae"] = median_ae_losses
+            losses["q_ae"] = q_ae_losses
+            losses["y_ae"] = y_ae_losses
             assert median_losses is not None
             assert median_recover_losses is not None
             losses["median"] = median_losses

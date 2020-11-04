@@ -104,16 +104,18 @@ class DDR(ModelBase):
             "loss",
             "pdf",
             "cdf",
-            "q_recover",
-            "median_recover",
+            "q_ae",
+            "y_ae",
+            "median_ae",
         ]
         default_metric_weights = {
             "ddr": 5.0,
             "loss": 1.0,
             "pdf": 1.0,
             "cdf": 1.0,
-            "q_recover": 10.0,
-            "median_recover": 10.0,
+            "q_ae": 5.0,
+            "y_ae": 5.0,
+            "median_ae": 10.0,
         }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
@@ -168,16 +170,32 @@ class DDR(ModelBase):
         self,
         net: torch.Tensor,
         q_batch: Optional[torch.Tensor],
+        auto_encode: bool,
         do_inverse: bool,
     ) -> tensor_dict_type:
         if q_batch is None:
-            results = self.core(net, median=True, do_inverse=do_inverse)
+            results = self.core(
+                net,
+                median=True,
+                auto_encode=auto_encode,
+                do_inverse=do_inverse,
+            )
         else:
-            results = self.core(net, q_batch=q_batch, do_inverse=do_inverse)
+            results = self.core(
+                net,
+                q_batch=q_batch,
+                auto_encode=auto_encode,
+                do_inverse=do_inverse,
+            )
         return results
 
-    def _median(self, net: torch.Tensor, do_inverse: bool) -> tensor_dict_type:
-        return self._quantile(net, None, do_inverse)
+    def _median(
+        self,
+        net: torch.Tensor,
+        auto_encode: bool,
+        do_inverse: bool,
+    ) -> tensor_dict_type:
+        return self._quantile(net, None, auto_encode, do_inverse)
 
     def _cdf(
         self,
@@ -185,12 +203,18 @@ class DDR(ModelBase):
         y_batch: torch.Tensor,
         need_optimize: bool,
         return_pdf: bool,
+        auto_encode: bool,
         do_inverse: bool,
     ) -> tensor_dict_type:
         use_grad = self.training or return_pdf
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
-            results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
+            results = self.core(
+                net,
+                y_batch=y_batch,
+                auto_encode=auto_encode,
+                do_inverse=do_inverse,
+            )
         if not return_pdf:
             pdf = None
         else:
@@ -207,6 +231,7 @@ class DDR(ModelBase):
         batch_step: int,
         synthetic: bool,
     ) -> tensor_dict_type:
+        auto_encode = not synthetic
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
             if self.training:
@@ -223,35 +248,41 @@ class DDR(ModelBase):
         # build predictions
         with timing_context(self, "forward.median"):
             if synthetic:
-                median = median_inverse = None
+                median = median_ae = median_inverse = None
             else:
-                results = self._median(net, True)
+                results = self._median(net, auto_encode, True)
                 median = results["y"]
+                median_ae = results["q_ae"]
                 median_inverse = results["q_inverse"]
         with timing_context(self, "forward.quantile"):
-            quantile_results = self._quantile(net, q_batch, True)
+            quantile_results = self._quantile(net, q_batch, auto_encode, True)
             y = quantile_results["y"]
+            q_ae = quantile_results["q_ae"]
             q_inverse = quantile_results["q_inverse"]
         with timing_context(self, "forward.cdf"):
             cdf_inverse = not synthetic
-            cdf_results = self._cdf(net, y_batch, True, True, cdf_inverse)
+            cdf_results = self._cdf(net, y_batch, True, True, auto_encode, cdf_inverse)
             cdf, cdf_logit, pdf = map(cdf_results.get, ["q", "q_logit", "pdf"])
             if not cdf_inverse:
-                y_inverse = None
+                y_ae = y_inverse = None
             else:
+                y_ae = cdf_results["y_ae"]
                 y_inverse = cdf_results["y_inverse"]
         # construct results
         return {
             "net": net,
             "predictions": median,
+            "median_ae": median_ae,
             "median_inverse": median_inverse,
             "q_batch": q_batch,
             "y_batch": y_batch,
             "y": y,
+            "q_ae": q_ae,
             "q_inverse": q_inverse,
             "pdf": pdf,
             "cdf": cdf,
             "cdf_logit": cdf_logit,
+            "y_ae": y_ae,
             "y_inverse": y_inverse,
         }
 
@@ -281,7 +312,7 @@ class DDR(ModelBase):
             y_batch = self._expand(len(net), y, numpy=True)
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
-            results = self._cdf(net, y_batch, False, predict_pdf, False)
+            results = self._cdf(net, y_batch, False, predict_pdf, False, False)
             if predict_pdf:
                 forward_dict["pdf"] = results["pdf"]
             if predict_cdf:
@@ -292,7 +323,7 @@ class DDR(ModelBase):
             if q is None:
                 raise ValueError(f"quantile cannot be predicted without q")
             q_batch = self._expand(len(net), q)
-            forward_dict["quantiles"] = self._quantile(net, q_batch, False)["y"]
+            forward_dict["quantiles"] = self._quantile(net, q_batch, False, False)["y"]
         if not forward_dict:
             forward_dict = self._core(net, batch_step, False)
         return forward_dict
@@ -339,7 +370,7 @@ class DDR(ModelBase):
             y_batch = to_numpy(y_batch)
             for q in self._quantile_anchors:
                 self.q_metric.config["q"] = q
-                yq = self._quantile(net, self._expand(len(net), q), False)["y"]
+                yq = self._quantile(net, self._expand(len(net), q), False, False)["y"]
                 q_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
             ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)
