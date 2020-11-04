@@ -392,6 +392,7 @@ class MonotonousMapping(nn.Module):
         activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "square",
+        use_scaler: bool = True,
         **kwargs: Any,
     ):
         super().__init__()
@@ -418,21 +419,31 @@ class MonotonousMapping(nn.Module):
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
         # scaler
-        if in_dim > out_dim:
-            self.scaler = math.log(2.0 * in_dim)
+        if not use_scaler:
+            self.scaler = None
         else:
-            self.scaler = out_dim * math.log(2.0)
+            if self.positive_transform == "square":
+                scaler = 1.0
+            elif in_dim > out_dim:
+                scaler = math.log(2.0 * in_dim)
+            else:
+                scaler = out_dim * math.log(2.0)
+            self.scaler = nn.Parameter(torch.full([out_dim, 1], 1.0 / scaler))
 
     def _get_positive_weight(self) -> torch.Tensor:
         weight = self.linear.weight
         if self.positive_transform == "abs":
-            return torch.abs(weight) / self.scaler
-        if self.positive_transform == "square":
-            return weight ** 2
-        if self.positive_transform == "softplus":
-            return F.softplus(weight) / self.scaler
-        msg = f"positive transform '{self.positive_transform}' is not implemented"
-        raise NotImplementedError(msg)
+            pos_weight = torch.abs(weight)
+        elif self.positive_transform == "square":
+            pos_weight = weight ** 2
+        elif self.positive_transform == "softplus":
+            pos_weight = F.softplus(weight)
+        else:
+            msg = f"positive transform '{self.positive_transform}' is not implemented"
+            raise NotImplementedError(msg)
+        if self.scaler is None:
+            return pos_weight
+        return self.scaler * pos_weight
 
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
         weight = self._get_positive_weight()
