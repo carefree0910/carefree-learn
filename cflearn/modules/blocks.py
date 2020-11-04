@@ -462,6 +462,12 @@ class MonotonousMapping(nn.Module):
             net = self.dropout(net, reuse=reuse)
         return net
 
+    def extra_repr(self) -> str:
+        msg = f"(positive): {self.positive_transform}"
+        if self.scaler is None:
+            return msg
+        return f"{msg}\n(scaler): {self.scaler.shape}"
+
     @classmethod
     def sigmoid_couple(
         cls,
