@@ -107,6 +107,8 @@ class DDR(ModelBase):
             "q_ae",
             "y_ae",
             "median_ae",
+            "q_latent",
+            "y_latent",
         ]
         default_metric_weights = {
             "ddr": 5.0,
@@ -116,6 +118,8 @@ class DDR(ModelBase):
             "q_ae": 5.0,
             "y_ae": 5.0,
             "median_ae": 5.0,
+            "q_latent": 2.5,
+            "y_latent": 2.5,
         }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(

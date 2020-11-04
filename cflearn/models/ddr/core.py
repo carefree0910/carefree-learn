@@ -281,8 +281,10 @@ class DDRCore(nn.Module):
             yq_latent = torch.cat([y1, y2], dim=1)
             q_logit = self.q_invertible.inverse((y1, y2))
             q = self.q_inv_fn(q_logit)
-            if do_inverse:
-                with self._detach_q():
+            with self._detach_q():
+                if not do_inverse:
+                    q_inverse_latent = self.q_invertible(q.detach())
+                else:
                     inverse_results = self.forward(
                         net,
                         l1.detach(),

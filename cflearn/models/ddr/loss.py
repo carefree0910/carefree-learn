@@ -3,6 +3,7 @@ import torch
 from typing import *
 from cftool.misc import LoggingMixin
 from torch.nn.functional import l1_loss
+from torch.nn.functional import mse_loss
 from torch.nn.functional import softplus
 
 from ...losses import LossBase
@@ -12,10 +13,11 @@ from ...modules.auxiliary import MTL
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
-        self.mtl = MTL(18, config["mtl_method"])
+        self.mtl = MTL(20, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
+        self._lb_latent = config.setdefault("lambda_latent", 10.0)
 
     def _core(  # type: ignore
         self,
@@ -56,6 +58,14 @@ class DDRLoss(LossBase, LoggingMixin):
         q_inverse = predictions["q_inverse"]
         q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
         q_recover_losses = self._lb_recover * q_recover_losses
+        # q latent losses
+        q_latent = predictions["q_latent"]
+        qy_latent = predictions["qy_latent"]
+        y_inverse_latent = predictions["y_inverse_latent"]
+        yq_inverse_latent = predictions["yq_inverse_latent"]
+        q_latent_losses1 = mse_loss(qy_latent, y_inverse_latent.detach())
+        q_latent_losses2 = mse_loss(yq_inverse_latent, q_latent.detach())
+        q_latent_losses = self._lb_latent * (q_latent_losses1 + q_latent_losses2)
         # cdf losses
         y_batch = predictions["y_batch"]
         assert y_batch is not None
@@ -76,6 +86,18 @@ class DDRLoss(LossBase, LoggingMixin):
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
                 y_recover_losses = self._lb_recover * y_recover_losses
+        # y latent losses
+        y_latent = predictions["y_latent"]
+        yq_latent = predictions["yq_latent"]
+        q_inverse_latent = predictions["q_inverse_latent"]
+        y_latent_losses1 = mse_loss(yq_latent, q_inverse_latent.detach())
+        qy_inverse_latent = predictions["qy_inverse_latent"]
+        if qy_inverse_latent is None:
+            y_latent_losses = y_latent_losses1
+        else:
+            y_latent_losses2 = mse_loss(qy_inverse_latent, y_latent.detach())
+            y_latent_losses = y_latent_losses1 + y_latent_losses2
+        y_latent_losses = self._lb_latent * y_latent_losses
         # pdf losses
         pdf = predictions["pdf"]
         pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
@@ -87,6 +109,11 @@ class DDRLoss(LossBase, LoggingMixin):
         losses[f"{suffix}q_recover"] = q_recover_losses
         if y_recover_losses is not None:
             losses[f"{suffix}y_recover"] = y_recover_losses
+        # latent losses
+        assert q_latent_losses is not None
+        assert y_latent_losses is not None
+        losses[f"{suffix}q_latent"] = q_latent_losses
+        losses[f"{suffix}y_latent"] = y_latent_losses
         # common
         if not is_synthetic:
             assert median_ae_losses is not None
