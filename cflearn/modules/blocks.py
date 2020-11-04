@@ -422,7 +422,7 @@ class MonotonousMapping(nn.Module):
         if not use_scaler:
             self.scaler = None
         else:
-            if self.positive_transform == "square":
+            if self.positive_transform in ("square", "softmax"):
                 scaler = 1.0
             elif in_dim > out_dim:
                 scaler = math.log(2.0 * in_dim)
