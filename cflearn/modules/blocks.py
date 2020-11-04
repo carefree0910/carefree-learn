@@ -472,6 +472,7 @@ class MonotonousMapping(nn.Module):
     def sigmoid_couple(
         cls,
         in_dim: int,
+        hidden_dim: int,
         out_dim: int,
         *,
         ascent: bool,
@@ -482,7 +483,7 @@ class MonotonousMapping(nn.Module):
     ) -> nn.Sequential:
         sigmoid_unit = cls(
             in_dim,
-            out_dim,
+            hidden_dim,
             ascent=ascent,
             bias=True,
             dropout=dropout,
@@ -493,7 +494,7 @@ class MonotonousMapping(nn.Module):
             **kwargs,
         )
         logit_unit = cls(
-            out_dim,
+            hidden_dim,
             out_dim,
             ascent=ascent,
             bias=False,
@@ -533,12 +534,13 @@ class MonotonousMapping(nn.Module):
             "init_method": init_method,
         }
 
-        def _make(in_dim_: int, out_dim_: int) -> nn.Module:
+        def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> nn.Module:
             local_kwargs = shallow_copy_dict(common_kwargs)
             local_kwargs.update(shallow_copy_dict(kwargs))
             local_kwargs["in_dim"] = in_dim_
             local_kwargs["out_dim"] = out_dim_
             if activation == "sigmoid_couple":
+                local_kwargs["hidden_dim"] = hidden_dim
                 return cls.sigmoid_couple(**local_kwargs)
             local_kwargs["bias"] = bias
             local_kwargs["activation"] = activation
@@ -548,11 +550,11 @@ class MonotonousMapping(nn.Module):
 
         current_in_dim = in_dim
         for num_unit in num_units:
-            blocks.append(_make(current_in_dim, num_unit))
+            blocks.append(_make(current_in_dim, num_unit, num_unit))
             current_in_dim = num_unit
         if out_dim is not None:
             common_kwargs["batch_norm"] = final_batch_norm
-            blocks.append(_make(current_in_dim, out_dim))
+            blocks.append(_make(current_in_dim, out_dim, current_in_dim))
         return nn.Sequential(*blocks)
 
 
