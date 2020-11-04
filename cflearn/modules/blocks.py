@@ -397,17 +397,15 @@ class MonotonousMapping(nn.Module):
         super().__init__()
         self.ascent = ascent
         self.positive_transform = positive_transform
-        # weight & bias
-        self.weight = nn.Parameter(torch.empty(out_dim, in_dim))
-        if not bias:
-            self.bias = None
-        else:
-            self.bias = nn.Parameter(torch.empty(out_dim))
-        # initialization
         self.config = shallow_copy_dict(kwargs)
-        self._init_method = init_method
-        with torch.no_grad():
-            self.reset_parameters()
+        # linear
+        self.linear = Linear(
+            in_dim,
+            out_dim,
+            bias=bias,
+            init_method=init_method,
+            **kwargs,
+        )
         # dropout
         use_dropout = 0.0 < dropout < 1.0
         self.dropout = None if not use_dropout else Dropout(dropout)
@@ -426,12 +424,13 @@ class MonotonousMapping(nn.Module):
             self.scaler = out_dim * math.log(2.0)
 
     def _get_positive_weight(self) -> torch.Tensor:
+        weight = self.linear.weight
         if self.positive_transform == "abs":
-            return torch.abs(self.weight) / self.scaler
+            return torch.abs(weight) / self.scaler
         if self.positive_transform == "square":
-            return self.weight ** 2
+            return weight ** 2
         if self.positive_transform == "softplus":
-            return F.softplus(self.weight) / self.scaler
+            return F.softplus(weight) / self.scaler
         msg = f"positive transform '{self.positive_transform}' is not implemented"
         raise NotImplementedError(msg)
 
@@ -439,7 +438,7 @@ class MonotonousMapping(nn.Module):
         weight = self._get_positive_weight()
         if not self.ascent:
             weight = -weight
-        net = F.linear(net, weight, self.bias)
+        net = F.linear(net, weight, self.linear.bias)
         if self.bn is not None:
             net = self.bn(net)
         if self.activation is not None:
@@ -448,16 +447,6 @@ class MonotonousMapping(nn.Module):
             net = self.dropout(net, reuse=reuse)
         return net
 
-    def reset_parameters(self) -> None:
-        if self._init_method is None:
-            return
-        if self._init_method not in Initializer.defined_initialization:
-            return
-        initializer = Initializer(self.config.setdefault("initialize_config", {}))
-        initializer.initialize(self.weight, self._init_method)
-        bias_fill = self.config.setdefault("bias_fill", 0.0)
-        if self.bias is not None:
-            self.bias.data.fill_(bias_fill)
 
     @classmethod
     def stack(
