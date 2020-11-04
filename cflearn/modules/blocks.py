@@ -520,50 +520,39 @@ class MonotonousMapping(nn.Module):
         batch_norm: bool = False,
         final_batch_norm: bool = False,
         activation: Optional[str] = "sigmoid_couple",
-        final_activation: Optional[str] = "logit",
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
-        use_final_scaler: bool = False,
         **kwargs: Any,
     ) -> nn.Sequential:
         blocks = []
-        in_dim_ = in_dim
         common_kwargs = {
             "ascent": ascent,
             "dropout": dropout,
             "batch_norm": batch_norm,
             "init_method": init_method,
         }
-        for num_unit in num_units:
+
+        def _make(in_dim_: int, out_dim_: int) -> nn.Module:
             local_kwargs = shallow_copy_dict(common_kwargs)
             local_kwargs.update(shallow_copy_dict(kwargs))
             local_kwargs["in_dim"] = in_dim_
-            local_kwargs["out_dim"] = num_unit
+            local_kwargs["out_dim"] = out_dim_
             if activation == "sigmoid_couple":
-                blocks.append(cls.sigmoid_couple(**local_kwargs))
-            else:
-                local_kwargs["bias"] = bias
-                local_kwargs["activation"] = activation
-                local_kwargs["positive_transform"] = positive_transform
-                local_kwargs["use_scaler"] = use_scaler
-                blocks.append(cls(**local_kwargs))
-            in_dim_ = num_unit
+                return cls.sigmoid_couple(**local_kwargs)
+            local_kwargs["bias"] = bias
+            local_kwargs["activation"] = activation
+            local_kwargs["positive_transform"] = positive_transform
+            local_kwargs["use_scaler"] = use_scaler
+            return cls(**local_kwargs)
+
+        current_in_dim = in_dim
+        for num_unit in num_units:
+            blocks.append(_make(current_in_dim, num_unit))
+            current_in_dim = num_unit
         if out_dim is not None:
-            blocks.append(
-                cls(
-                    in_dim_,
-                    out_dim,
-                    ascent=ascent,
-                    bias=bias,
-                    batch_norm=final_batch_norm,
-                    init_method=init_method,
-                    activation=final_activation,
-                    positive_transform=positive_transform,
-                    use_scaler=use_final_scaler,
-                    **shallow_copy_dict(kwargs),
-                )
-            )
+            common_kwargs["batch_norm"] = final_batch_norm
+            blocks.append(_make(current_in_dim, out_dim))
         return nn.Sequential(*blocks)
 
 
