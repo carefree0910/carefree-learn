@@ -478,9 +478,9 @@ class MonotonousMapping(nn.Module):
         ascent: bool,
         dropout: float = 0.0,
         batch_norm: bool = False,
-        init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
     ) -> nn.Sequential:
+        init_method = "normal"
         sigmoid_unit = cls(
             in_dim,
             hidden_dim,
@@ -531,7 +531,6 @@ class MonotonousMapping(nn.Module):
             "ascent": ascent,
             "dropout": dropout,
             "batch_norm": batch_norm,
-            "init_method": init_method,
         }
 
         def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> nn.Module:
@@ -544,6 +543,7 @@ class MonotonousMapping(nn.Module):
                 return cls.sigmoid_couple(**local_kwargs)
             local_kwargs["bias"] = bias
             local_kwargs["activation"] = activation
+            local_kwargs["init_method"] = init_method
             local_kwargs["positive_transform"] = positive_transform
             local_kwargs["use_scaler"] = use_scaler
             return cls(**local_kwargs)

@@ -10,7 +10,6 @@ from cftool.ml import Metrics
 from cftool.misc import is_numeric
 from cftool.misc import update_dict
 from cftool.misc import timing_context
-from cftool.misc import shallow_copy_dict
 from cfdata.tabular import DataLoader
 
 try:
@@ -108,6 +107,14 @@ class DDR(ModelBase):
             "q_recover",
             "median_recover",
         ]
+        default_metric_weights = {
+            "ddr": 5.0,
+            "loss": 1.0,
+            "pdf": 1.0,
+            "cdf": 1.0,
+            "q_recover": 10.0,
+            "median_recover": 10.0,
+        }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
             trainer_config,
@@ -115,15 +122,17 @@ class DDR(ModelBase):
                 "clip_norm": 1.0,
                 "num_epoch": 40,
                 "max_epoch": 1000,
-                "metric_config": {"types": default_metric_types},
+                "metric_config": {
+                    "types": default_metric_types,
+                    "weights": default_metric_weights,
+                },
             },
         )
         self._pipeline_config["trainer_config"] = trainer_config
         self._trainer_config = trainer_config
 
     def _init_loss(self) -> None:
-        loss_config = shallow_copy_dict(self._loss_config)
-        self.loss = DDRLoss(loss_config, "none")
+        self.loss = DDRLoss(self._loss_config, "none")
 
     # utilities
 

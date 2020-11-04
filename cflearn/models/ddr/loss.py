@@ -15,6 +15,7 @@ class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.mtl = MTL(15, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
+        self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
 
     def _core(  # type: ignore
@@ -122,7 +123,7 @@ class DDRLoss(LossBase, LoggingMixin):
         return -indicative * cdf_logit + softplus(cdf_logit)
 
     def _pdf_losses(self, pdf: torch.Tensor, is_synthetic: bool) -> torch.Tensor:
-        negative_mask = pdf <= 1e-8
+        negative_mask = pdf <= self._pdf_eps
         losses = torch.zeros_like(pdf)
         losses[negative_mask] = -pdf[negative_mask]
         if not is_synthetic:

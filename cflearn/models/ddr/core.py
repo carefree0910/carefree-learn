@@ -51,11 +51,8 @@ class DDRCore(nn.Module):
             latent_builder = default_latent_builder
 
         def get_monotonous_builder(
-            bias: bool,
-            activation: str,
             ascents: Union[bool, List[bool]],
             ascent_split: Optional[str],  # "input" or "output"
-            dropout: float = 0.0,
         ) -> Callable[[int, int], nn.Module]:
             if isinstance(ascents, bool):
                 ascents = [ascents]
@@ -73,10 +70,6 @@ class DDRCore(nn.Module):
                     out_dim_,
                     num_units,
                     ascent=ascent,
-                    bias=bias,
-                    dropout=dropout,
-                    activation=activation,
-                    positive_transform="square",
                 )
 
             if len(ascents) == 1:
@@ -112,19 +105,9 @@ class DDRCore(nn.Module):
         self.to_latent = latent_builder()
         # pseudo invertible q / y
         if q_to_latent_builder is None:
-            q_to_latent_builder = get_monotonous_builder(
-                True,
-                mono_activation,
-                True,
-                "output",
-            )
+            q_to_latent_builder = get_monotonous_builder(True, "output")
         if q_from_latent_builder is None:
-            q_from_latent_builder = get_monotonous_builder(
-                True,
-                mono_activation,
-                [True, False],
-                "input",
-            )
+            q_from_latent_builder = get_monotonous_builder([True, False], "input")
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
@@ -132,19 +115,9 @@ class DDRCore(nn.Module):
             from_transition_builder=q_from_latent_builder,
         )
         if y_to_latent_builder is None:
-            y_to_latent_builder = get_monotonous_builder(
-                True,
-                mono_activation,
-                [True, False],
-                "output",
-            )
+            y_to_latent_builder = get_monotonous_builder([True, False], "output")
         if y_from_latent_builder is None:
-            y_from_latent_builder = get_monotonous_builder(
-                True,
-                mono_activation,
-                True,
-                "input",
-            )
+            y_from_latent_builder = get_monotonous_builder(True, "input")
         self.y_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
