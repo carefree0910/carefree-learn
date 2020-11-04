@@ -306,9 +306,17 @@ class Activations:
 
     # custom
 
+    # TODO : After updated to pytorch>=1.7.0, re-implement this
     @property
     def logit(self) -> nn.Module:
-        return Lambda(lambda x: torch.log(x / (1.0 - x)), "logit")
+        kwargs = self.configs.setdefault("logit", {})
+        eps = kwargs.setdefault("eps", 1.0e-8)
+
+        def _logit(x: torch.Tensor) -> torch.Tensor:
+            x = torch.clamp(x, eps, 1.0 - eps)
+            return torch.log(x / (1.0 - x))
+
+        return Lambda(_logit, f"logit_{eps:.2e}")
 
     @property
     def sign(self) -> nn.Module:
