@@ -204,14 +204,16 @@ class DDRCore(nn.Module):
             q1 = q2 = q_latent = None
         else:
             q_latent = self.q_invertible(q_batch)
-            if isinstance(q_latent, tuple):
-                q1, q2 = q_latent
-            else:
+            if not isinstance(q_latent, tuple):
                 q1, q2 = q_latent.chunk(2, dim=1)
+            else:
+                q1, q2 = q_latent
+                q_latent = torch.cat(q_latent, dim=1)
         # simulate quantile function
         q_ae = q_inverse = None
+        y_inverse_latent = yq_inverse_latent = None
         if q_latent is None:
-            y = None
+            y = qy_latent = None
         else:
             assert q1 is not None and q2 is not None
             if auto_encode:
@@ -220,17 +222,29 @@ class DDRCore(nn.Module):
             q1, q2 = q1 + l1, q2 + l2
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
-            y = self.y_invertible.inverse(torch.cat([q1, q2], dim=1))
+            qy_latent = torch.cat([q1, q2], dim=1)
+            y = self.y_invertible.inverse(qy_latent)
             y = self.y_inv_fn(y)
             if do_inverse:
-                q_inverse = self.forward(
+                inverse_results = self.forward(
                     net,
                     l1.detach(),
                     l2.detach(),
                     y_batch=y.detach(),
                     do_inverse=False,
-                )["q"]
-        return {"y": y, "q_ae": q_ae, "q_inverse": q_inverse}
+                )
+                q_inverse = inverse_results["q"]
+                y_inverse_latent = inverse_results["y_latent"]
+                yq_inverse_latent = inverse_results["yq_latent"]
+        return {
+            "y": y,
+            "q_ae": q_ae,
+            "q_latent": q_latent,
+            "qy_latent": qy_latent,
+            "q_inverse": q_inverse,
+            "y_inverse_latent": y_inverse_latent,
+            "yq_inverse_latent": yq_inverse_latent,
+        }
 
     def _get_y_results(
         self,
@@ -247,35 +261,48 @@ class DDRCore(nn.Module):
         else:
             y_batch = self.y_fn(y_batch)
             y_latent = self.y_invertible(y_batch)
-            if isinstance(y_latent, tuple):
-                y1, y2 = y_latent
-            else:
+            if not isinstance(y_latent, tuple):
                 y1, y2 = y_latent.chunk(2, dim=1)
+            else:
+                y1, y2 = y_latent
+                y_latent = torch.cat(y_latent, dim=1)
         # simulate cdf
         y_ae = y_inverse = None
+        q_inverse_latent = qy_inverse_latent = None
         if y_latent is None:
-            q = q_logit = None
+            q = q_logit = yq_latent = None
         else:
             if auto_encode:
-                if isinstance(y_latent, tuple):
-                    y_latent = torch.cat(y_latent, dim=1)
                 y_ae = self.y_invertible.inverse(y_latent)
                 y_ae = self.y_inv_fn(y_ae)
             y1, y2 = y1 + l1, y2 + l2
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
+            yq_latent = torch.cat([y1, y2], dim=1)
             q_logit = self.q_invertible.inverse((y1, y2))
             q = self.q_inv_fn(q_logit)
             if do_inverse:
                 with self._detach_q():
-                    y_inverse = self.forward(
+                    inverse_results = self.forward(
                         net,
                         l1.detach(),
                         l2.detach(),
                         q_batch=q,
                         do_inverse=False,
-                    )["y"]
-        return {"q": q, "q_logit": q_logit, "y_ae": y_ae, "y_inverse": y_inverse}
+                    )
+                    y_inverse = inverse_results["y"]
+                    q_inverse_latent = inverse_results["q_latent"]
+                    qy_inverse_latent = inverse_results["qy_latent"]
+        return {
+            "q": q,
+            "q_logit": q_logit,
+            "y_ae": y_ae,
+            "y_latent": y_latent,
+            "yq_latent": yq_latent,
+            "y_inverse": y_inverse,
+            "q_inverse_latent": q_inverse_latent,
+            "qy_inverse_latent": qy_inverse_latent,
+        }
 
     def forward(
         self,
