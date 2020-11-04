@@ -437,6 +437,8 @@ class MonotonousMapping(nn.Module):
             pos_weight = torch.abs(weight)
         elif self.positive_transform == "square":
             pos_weight = weight ** 2
+        elif self.positive_transform == "sigmoid":
+            pos_weight = torch.sigmoid(weight)
         elif self.positive_transform == "softmax":
             pos_weight = F.softmax(weight, dim=1)
         elif self.positive_transform == "softplus":
@@ -490,7 +492,7 @@ class MonotonousMapping(nn.Module):
             batch_norm=batch_norm,
             activation="sigmoid",
             init_method=init_method,
-            positive_transform="softmax",
+            positive_transform="softmax" if in_dim > 1 else "sigmoid",
             **kwargs,
         )
         logit_unit = cls(
@@ -530,7 +532,7 @@ class MonotonousMapping(nn.Module):
             batch_norm=batch_norm,
             activation="tanh",
             init_method=init_method,
-            positive_transform="softmax",
+            positive_transform="softmax" if in_dim > 1 else "sigmoid",
             **kwargs,
         )
         atanh_unit = cls(
