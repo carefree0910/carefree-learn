@@ -67,14 +67,7 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, 1)
-        kwargs = {
-            "ascent": True,
-            "num_units": [dim] * 3,
-            "dropout": 0.5,
-            "batch_norm": True,
-            "final_batch_norm": True,
-            "activation": "ReLU",
-        }
+        kwargs = {"ascent": True, "num_units": [dim] * 3, "dropout": 0.5}
         m1 = MonotonousMapping.stack(1, dim, **kwargs)
         m2 = MonotonousMapping.stack(dim, 1, **kwargs)
         outputs = m2(m1(net))
