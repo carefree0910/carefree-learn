@@ -215,24 +215,25 @@ class DDRCore(nn.Module):
         median: bool = False,
     ) -> Dict[str, Tensor]:
         # prepare q_latent
-        q1 = q2 = None
-        if median:
+        if q_batch is not None:
+            q_batch = self.q_fn(q_batch)
+        elif median:
             if q_batch is not None:
                 msg = "`median` is specified but `q_batch` is still provided"
                 raise ValueError(msg)
-            q1, q2 = l1, l2
+            q_batch = net.new_zeros(len(net), 1)
+        if q_batch is None:
+            q1 = q2 = None
         else:
-            if q_batch is not None:
-                q_batch = self.q_fn(q_batch)
-                q_latent = self.q_invertible(q_batch)
-                if isinstance(q_latent, tuple):
-                    q1, q2 = q_latent
-                else:
-                    q1, q2 = q_latent.chunk(2, dim=1)
-                q1, q2 = q1 + l1, q2 + l2
+            q_latent = self.q_invertible(q_batch)
+            if isinstance(q_latent, tuple):
+                q1, q2 = q_latent
+            else:
+                q1, q2 = q_latent.chunk(2, dim=1)
+            q1, q2 = q1 + l1, q2 + l2
         # simulate quantile function
         q_inverse = None
-        if q1 is None and q2 is None and not median:
+        if q_batch is None:
             y = None
         else:
             for block in self.blocks:
