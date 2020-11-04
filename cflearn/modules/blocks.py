@@ -428,7 +428,8 @@ class MonotonousMapping(nn.Module):
                 scaler = math.log(2.0 * in_dim)
             else:
                 scaler = out_dim * math.log(2.0)
-            self.scaler = nn.Parameter(torch.full([out_dim, 1], 1.0 / scaler))
+            scaler = math.log(math.exp(1.0 / scaler) - 1)
+            self.scaler = nn.Parameter(torch.full([out_dim, 1], scaler))
 
     def _get_positive_weight(self) -> torch.Tensor:
         weight = self.linear.weight
@@ -445,7 +446,8 @@ class MonotonousMapping(nn.Module):
             raise NotImplementedError(msg)
         if self.scaler is None:
             return pos_weight
-        return self.scaler * pos_weight
+        scaler = F.softplus(self.scaler)
+        return scaler * pos_weight
 
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
         weight = self._get_positive_weight()
