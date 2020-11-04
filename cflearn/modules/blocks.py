@@ -462,6 +462,44 @@ class MonotonousMapping(nn.Module):
             net = self.dropout(net, reuse=reuse)
         return net
 
+    @classmethod
+    def sigmoid_couple(
+        cls,
+        in_dim: int,
+        out_dim: int,
+        *,
+        ascent: bool,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+        init_method: Optional[str] = "xavier_uniform",
+        **kwargs: Any,
+    ) -> nn.Sequential:
+        sigmoid_unit = cls(
+            in_dim,
+            out_dim,
+            ascent=ascent,
+            bias=True,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation="sigmoid",
+            init_method=init_method,
+            positive_transform="softmax",
+            **kwargs,
+        )
+        logit_unit = cls(
+            out_dim,
+            out_dim,
+            ascent=ascent,
+            bias=False,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation="logit",
+            init_method=init_method,
+            positive_transform="softmax",
+            use_scaler=False,
+            **kwargs,
+        )
+        return nn.Sequential(sigmoid_unit, logit_unit)
 
     @classmethod
     def stack(
