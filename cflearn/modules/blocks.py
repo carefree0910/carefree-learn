@@ -520,8 +520,11 @@ class MonotonousMapping(nn.Module):
         batch_norm: bool = False,
         final_batch_norm: bool = False,
         activation: Optional[str] = "sigmoid_couple",
+        final_activation: Optional[str] = "logit",
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "softmax",
+        use_scaler: bool = True,
+        use_final_scaler: bool = False,
         **kwargs: Any,
     ) -> nn.Sequential:
         blocks = []
@@ -543,6 +546,7 @@ class MonotonousMapping(nn.Module):
                 local_kwargs["bias"] = bias
                 local_kwargs["activation"] = activation
                 local_kwargs["positive_transform"] = positive_transform
+                local_kwargs["use_scaler"] = use_scaler
                 blocks.append(cls(**local_kwargs))
             in_dim_ = num_unit
         if out_dim is not None:
@@ -554,7 +558,9 @@ class MonotonousMapping(nn.Module):
                     bias=bias,
                     batch_norm=final_batch_norm,
                     init_method=init_method,
+                    activation=final_activation,
                     positive_transform=positive_transform,
+                    use_scaler=use_final_scaler,
                     **shallow_copy_dict(kwargs),
                 )
             )
