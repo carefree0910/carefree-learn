@@ -248,43 +248,29 @@ class DDR(ModelBase):
         # build predictions
         with timing_context(self, "forward.median"):
             if synthetic:
-                median = median_ae = median_inverse = None
+                median_rs = {}
             else:
-                results = self._median(net, auto_encode, True)
-                median = results["y"]
-                median_ae = results["q_ae"]
-                median_inverse = results["q_inverse"]
+                rs = self._median(net, auto_encode, True)
+                median_rs = {
+                    "predictions": rs["y"],
+                    "median_ae": rs["q_ae"],
+                    "median_inverse": rs["q_inverse"],
+                }
         with timing_context(self, "forward.quantile"):
-            quantile_results = self._quantile(net, q_batch, auto_encode, True)
-            y = quantile_results["y"]
-            q_ae = quantile_results["q_ae"]
-            q_inverse = quantile_results["q_inverse"]
+            q_rs = self._quantile(net, q_batch, auto_encode, True)
         with timing_context(self, "forward.cdf"):
             cdf_inverse = not synthetic
-            cdf_results = self._cdf(net, y_batch, True, True, auto_encode, cdf_inverse)
-            cdf, cdf_logit, pdf = map(cdf_results.get, ["q", "q_logit", "pdf"])
-            if not cdf_inverse:
-                y_ae = y_inverse = None
-            else:
-                y_ae = cdf_results["y_ae"]
-                y_inverse = cdf_results["y_inverse"]
+            y_rs = self._cdf(net, y_batch, True, True, auto_encode, cdf_inverse)
+            y_rs["cdf"] = y_rs.pop("q")
+            y_rs["cdf_logit"] = y_rs.pop("q_logit")
         # construct results
-        return {
-            "net": net,
-            "predictions": median,
-            "median_ae": median_ae,
-            "median_inverse": median_inverse,
-            "q_batch": q_batch,
-            "y_batch": y_batch,
-            "y": y,
-            "q_ae": q_ae,
-            "q_inverse": q_inverse,
-            "pdf": pdf,
-            "cdf": cdf,
-            "cdf_logit": cdf_logit,
-            "y_ae": y_ae,
-            "y_inverse": y_inverse,
-        }
+        results = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
+        results.update({k: v for k, v in median_rs.items() if v is not None})
+        results.update({k: v for k, v in q_rs.items() if v is not None})
+        results.update({k: v for k, v in y_rs.items() if v is not None})
+        for key in set(median_rs.keys()) | set(q_rs.keys()) | set(y_rs.keys()):
+            results.setdefault(key, None)
+        return results
 
     # API
 
