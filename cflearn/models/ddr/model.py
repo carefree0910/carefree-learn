@@ -125,6 +125,7 @@ class DDR(ModelBase):
                 "num_epoch": 40,
                 "max_epoch": 1000,
                 "metric_config": {
+                    "decay": 0.0,
                     "types": default_metric_types,
                     "weights": default_metric_weights,
                 },
