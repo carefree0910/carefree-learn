@@ -300,6 +300,10 @@ class Activations:
     # custom
 
     @property
+    def logit(self) -> nn.Module:
+        return Lambda(lambda x: torch.log(x / (1.0 - x)), "logit")
+
+    @property
     def sign(self) -> nn.Module:
         return Lambda(lambda x: torch.sign(x), "sign")
 
