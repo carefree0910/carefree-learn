@@ -496,7 +496,7 @@ class MonotonousMapping(nn.Module):
         logit_unit = cls(
             hidden_dim,
             out_dim,
-            ascent=ascent,
+            ascent=True,
             bias=False,
             dropout=dropout,
             batch_norm=batch_norm,
