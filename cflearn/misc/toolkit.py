@@ -319,6 +319,16 @@ class Activations:
         return Lambda(_logit, f"logit_{eps:.2e}")
 
     @property
+    def atanh(self) -> nn.Module:
+        kwargs = self.configs.setdefault("atanh", {})
+        eps = kwargs.setdefault("eps", 1.0e-8)
+
+        def _atanh(x: torch.Tensor) -> torch.Tensor:
+            return torch.atanh(torch.clamp(x, -1.0 + eps, 1.0 - eps))
+
+        return Lambda(_atanh, f"atanh_{eps:.2e}")
+
+    @property
     def sign(self) -> nn.Module:
         return Lambda(lambda x: torch.sign(x), "sign")
 
