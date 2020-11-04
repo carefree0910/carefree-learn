@@ -509,32 +509,35 @@ class MonotonousMapping(nn.Module):
         num_units: List[int],
         *,
         ascent: bool,
-        bias: bool = True,
+        bias: bool = False,
         dropout: float = 0.0,
         batch_norm: bool = False,
         final_batch_norm: bool = False,
-        activation: Optional[str] = None,
+        activation: Optional[str] = "sigmoid_couple",
         init_method: Optional[str] = "xavier_uniform",
-        positive_transform: str = "square",
+        positive_transform: str = "softmax",
         **kwargs: Any,
     ) -> nn.Sequential:
         blocks = []
         in_dim_ = in_dim
+        common_kwargs = {
+            "ascent": ascent,
+            "dropout": dropout,
+            "batch_norm": batch_norm,
+            "init_method": init_method,
+        }
         for num_unit in num_units:
-            blocks.append(
-                cls(
-                    in_dim_,
-                    num_unit,
-                    ascent=ascent,
-                    bias=bias,
-                    dropout=dropout,
-                    batch_norm=batch_norm,
-                    activation=activation,
-                    init_method=init_method,
-                    positive_transform=positive_transform,
-                    **shallow_copy_dict(kwargs),
-                )
-            )
+            local_kwargs = shallow_copy_dict(common_kwargs)
+            local_kwargs.update(shallow_copy_dict(kwargs))
+            local_kwargs["in_dim"] = in_dim_
+            local_kwargs["out_dim"] = num_unit
+            if activation == "sigmoid_couple":
+                blocks.append(cls.sigmoid_couple(**local_kwargs))
+            else:
+                local_kwargs["bias"] = bias
+                local_kwargs["activation"] = activation
+                local_kwargs["positive_transform"] = positive_transform
+                blocks.append(cls(**local_kwargs))
             in_dim_ = num_unit
         if out_dim is not None:
             blocks.append(
