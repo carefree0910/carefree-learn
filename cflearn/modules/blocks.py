@@ -436,6 +436,8 @@ class MonotonousMapping(nn.Module):
             pos_weight = torch.abs(weight)
         elif self.positive_transform == "square":
             pos_weight = weight ** 2
+        elif self.positive_transform == "softmax":
+            pos_weight = F.softmax(weight, dim=1)
         elif self.positive_transform == "softplus":
             pos_weight = F.softplus(weight)
         else:
