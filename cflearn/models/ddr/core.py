@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 
 from torch import Tensor
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Union
@@ -27,7 +28,7 @@ class DDRCore(nn.Module):
         y_max: float,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
-        latent_builder: Optional[Callable[[int], nn.Module]] = None,
+        latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
         transition_builder: Optional[Callable[[int], nn.Module]] = None,
         q_to_latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
         q_from_latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
@@ -39,11 +40,11 @@ class DDRCore(nn.Module):
         self.y_diff = y_max - y_min
         mono_activation = "Tanh"
         # builders
-        def default_latent_builder() -> nn.Module:
+        def default_latent_builder(in_dim_: int, latent_dim_: int) -> nn.Module:
             return MLP.simple(
-                in_dim,
+                in_dim_,
                 None,
-                [latent_dim, latent_dim],
+                [latent_dim_, latent_dim_],
                 activation="mish",
             )
 
@@ -59,15 +60,17 @@ class DDRCore(nn.Module):
             split_input = ascent_split == "input"
 
             def _core(in_dim_: int, out_dim_: int, ascent: bool) -> nn.Sequential:
+                true_out_dim_: Optional[int]
                 if split_input:
                     num_units = [in_dim_]
+                    true_out_dim_ = out_dim_
                 else:
                     num_units = [out_dim_, out_dim_]
-                    out_dim_ = None
+                    true_out_dim_ = None
 
                 return MonotonousMapping.stack(
                     in_dim_,
-                    out_dim_,
+                    true_out_dim_,
                     num_units,
                     ascent=ascent,
                 )
@@ -78,6 +81,7 @@ class DDRCore(nn.Module):
             assert len(ascents) == 2, "currently only split in half is supported"
 
             def _split_core(in_dim_: int, out_dim_: int) -> nn.Module:
+                assert isinstance(ascents, list)
                 if split_input:
                     in_dim_ = int(in_dim_ // len(ascents))
                 else:
@@ -85,8 +89,9 @@ class DDRCore(nn.Module):
                 net_type = Union[Tensor, tensor_tuple_type]
 
                 class MonoSplit(nn.Module):
-                    def __init__(self):
+                    def __init__(self) -> None:
                         super().__init__()
+                        assert isinstance(ascents, list)
                         self.m1 = _core(in_dim_, out_dim_, ascents[0])
                         self.m2 = _core(in_dim_, out_dim_, ascents[1])
 
@@ -102,7 +107,8 @@ class DDRCore(nn.Module):
         # to latent
         if latent_dim is None:
             latent_dim = 512
-        self.to_latent = latent_builder()
+        assert latent_builder is not None
+        self.to_latent = latent_builder(in_dim, latent_dim)
         # pseudo invertible q / y
         if q_to_latent_builder is None:
             q_to_latent_builder = get_monotonous_builder(True, "output")
@@ -145,7 +151,7 @@ class DDRCore(nn.Module):
         if num_blocks % 2 != 0:
             raise ValueError("`num_blocks` should be divided by 2")
         self.num_blocks = num_blocks
-        self.block_parameters = []
+        self.block_parameters: List[nn.Parameter] = []
         self.blocks = nn.ModuleList()
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, transition_builder=transition_builder)
@@ -174,10 +180,10 @@ class DDRCore(nn.Module):
             switch_requires_grad(self.block_parameters, requires_grad)
 
         class _(context_error_handler):
-            def __enter__(self):
+            def __enter__(self) -> None:
                 switch(False)
 
-            def _normal_exit(self, exc_type, exc_val, exc_tb):
+            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 switch(True)
 
         return _()
@@ -191,7 +197,7 @@ class DDRCore(nn.Module):
         auto_encode: bool = False,
         do_inverse: bool = False,
         median: bool = False,
-    ) -> Dict[str, Tensor]:
+    ) -> Dict[str, Optional[Tensor]]:
         # prepare q_latent
         if q_batch is not None:
             q_batch = self.q_fn(q_batch)
@@ -254,7 +260,7 @@ class DDRCore(nn.Module):
         y_batch: Optional[Tensor] = None,
         auto_encode: bool = False,
         do_inverse: bool = False,
-    ) -> Dict[str, Tensor]:
+    ) -> Dict[str, Optional[Tensor]]:
         # prepare y_latent
         if y_batch is None:
             y1 = y2 = y_latent = None
@@ -321,7 +327,8 @@ class DDRCore(nn.Module):
         if l1 is None or l2 is None:
             latent = self.to_latent(net)
             l1, l2 = latent.chunk(2, dim=1)
-        results = {}
+        assert l1 is not None and l2 is not None
+        results: Dict[str, Optional[Tensor]] = {}
         results.update(
             self._get_q_results(net, l1, l2, q_batch, auto_encode, do_inverse, median)
         )

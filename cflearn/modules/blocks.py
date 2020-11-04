@@ -5,6 +5,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -44,14 +45,14 @@ class Linear(nn.Module):
             self.reset_parameters()
 
     @property
-    def weight(self) -> torch.Tensor:
+    def weight(self) -> Tensor:
         return self.linear.weight
 
     @property
-    def bias(self) -> Optional[torch.Tensor]:
+    def bias(self) -> Optional[Tensor]:
         return self.linear.bias
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         if self.pruner is None:
             return self.linear(net)
         weight = self.pruner(self.linear.weight)
@@ -106,14 +107,14 @@ class Mapping(nn.Module):
         self.dropout = None if not use_dropout else Dropout(dropout)
 
     @property
-    def weight(self) -> torch.Tensor:
+    def weight(self) -> Tensor:
         return self.linear.weight
 
     @property
-    def bias(self) -> Optional[torch.Tensor]:
+    def bias(self) -> Optional[Tensor]:
         return self.linear.bias
 
-    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
+    def forward(self, net: Tensor, *, reuse: bool = False) -> Tensor:
         net = self.linear(net)
         if self.bn is not None:
             net = self.bn(net)
@@ -148,14 +149,14 @@ class MLP(nn.Module):
         self.mappings = nn.ModuleList(mappings)
 
     @property
-    def weights(self) -> List[torch.Tensor]:
+    def weights(self) -> List[Tensor]:
         return [mapping.weight for mapping in self.mappings]
 
     @property
-    def biases(self) -> List[Optional[torch.Tensor]]:
+    def biases(self) -> List[Optional[Tensor]]:
         return [mapping.bias for mapping in self.mappings]
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         for mapping in self.mappings:
             net = mapping(net)
         return net
@@ -248,11 +249,11 @@ class DNDF(nn.Module):
             increment_mask = np.repeat(increment_mask, num_repeat)
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
             increment_masks.append(increment_mask)
-        self.increment_masks: torch.Tensor
+        self.increment_masks: Tensor
         self.register_buffer("tree_arange", torch.arange(num_tree)[..., None, None])
         self.register_buffer("increment_masks", torch.stack(increment_masks))
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         num_batch = net.shape[0]
         tree_net = self.tree_proj(net)
 
@@ -277,7 +278,7 @@ class DNDF(nn.Module):
         features = routes.transpose(0, 1).contiguous().view(num_batch, -1)
 
         if self._is_regression or self._output_dim <= 1:
-            leaves: Union[torch.Tensor, nn.Parameter] = self.leaves
+            leaves: Union[Tensor, nn.Parameter] = self.leaves
         else:
             leaves = F.softmax(self.leaves, dim=-1)
         leaves = leaves.view(self._num_tree * self._num_leaf, self._output_dim)
@@ -297,7 +298,7 @@ class TreeResBlock(nn.Module):
         self.in_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
         self.inner_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         res = self.in_dndf(net)
         res = self.dim * res - 1.0
         res = self.inner_dndf(res)
@@ -329,11 +330,11 @@ class InvertibleBlock(nn.Module):
             )
         self.transition = transition
 
-    def forward(self, net1: torch.Tensor, net2: torch.Tensor) -> tensor_tuple_type:
+    def forward(self, net1: Tensor, net2: Tensor) -> tensor_tuple_type:
         net1 = net1 + self.transition(net2)
         return net2, net1
 
-    def inverse(self, net1: torch.Tensor, net2: torch.Tensor) -> tensor_tuple_type:
+    def inverse(self, net1: Tensor, net2: Tensor) -> tensor_tuple_type:
         net2 = net2 - self.transition(net1)
         return net2, net1
 
@@ -372,10 +373,10 @@ class PseudoInvertibleBlock(nn.Module):
                 activation=from_activation,
             )
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Union[Tensor, Any]) -> Tensor:
         return self.to_latent(net)
 
-    def inverse(self, net: torch.Tensor) -> torch.Tensor:
+    def inverse(self, net: Union[Tensor, Any]) -> Tensor:
         return self.from_latent(net)
 
 
@@ -431,7 +432,7 @@ class MonotonousMapping(nn.Module):
             scaler = math.log(math.exp(1.0 / scaler) - 1)
             self.scaler = nn.Parameter(torch.full([out_dim, 1], scaler))
 
-    def _get_positive_weight(self) -> torch.Tensor:
+    def _get_positive_weight(self) -> Tensor:
         weight = self.linear.weight
         if self.positive_transform == "abs":
             pos_weight = torch.abs(weight)
@@ -451,7 +452,7 @@ class MonotonousMapping(nn.Module):
         scaler = F.softplus(self.scaler)
         return scaler * pos_weight
 
-    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
+    def forward(self, net: Tensor, *, reuse: bool = False) -> Tensor:
         weight = self._get_positive_weight()
         if not self.ascent:
             weight = -weight
@@ -601,8 +602,8 @@ class MonotonousMapping(nn.Module):
 
 
 class AttentionOutput(NamedTuple):
-    output: torch.Tensor
-    weights: torch.Tensor
+    output: Tensor
+    weights: Tensor
 
 
 class Attention(nn.Module):
@@ -682,17 +683,17 @@ class Attention(nn.Module):
         self.dropout = dropout
         self.activation = Activations.make(activation, activation_config)
 
-    def _to_heads(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _to_heads(self, tensor: Tensor) -> Tensor:
         batch_size, seq_len, in_feature = tensor.shape
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
         return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)
 
     def forward(
         self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        mask: Optional[Tensor] = None,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
         k_len = k.shape[1]

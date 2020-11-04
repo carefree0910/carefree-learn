@@ -286,7 +286,7 @@ class Activations:
         bias = config.setdefault("bias", True)
 
         class GLU(nn.Module):
-            def __init__(self):
+            def __init__(self) -> None:
                 super().__init__()
                 self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
 
@@ -705,8 +705,9 @@ class mode_context(context_error_handler):
         self._to_train = to_train
         self._module, self._training = module, module.training
         self._cache = {p: p.requires_grad for p in module.parameters()}
-        for p in module.parameters():
-            p.requires_grad_(use_grad)
+        if use_grad is not None:
+            for p in module.parameters():
+                p.requires_grad_(use_grad)
         if use_grad is None:
             self._grad_context: Optional[ContextManager] = None
         else:
