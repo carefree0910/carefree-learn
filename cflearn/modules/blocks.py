@@ -13,6 +13,8 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from torch.nn import Module
+from torch.nn import ModuleList
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
@@ -22,7 +24,7 @@ from ..misc.toolkit import *
 from ..types import tensor_tuple_type
 
 
-class Linear(nn.Module):
+class Linear(Module):
     def __init__(
         self,
         in_dim: int,
@@ -71,7 +73,7 @@ class Linear(nn.Module):
             self.linear.bias.data.fill_(bias_fill)
 
 
-class Mapping(nn.Module):
+class Mapping(Module):
     def __init__(
         self,
         in_dim: int,
@@ -99,7 +101,7 @@ class Mapping(nn.Module):
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:
-            self.activation: Optional[nn.Module] = None
+            self.activation: Optional[Module] = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
@@ -125,7 +127,7 @@ class Mapping(nn.Module):
         return net
 
 
-class MLP(nn.Module):
+class MLP(Module):
     def __init__(
         self,
         in_dim: int,
@@ -146,7 +148,7 @@ class MLP(nn.Module):
             if final_mapping_config is None:
                 final_mapping_config = {}
             mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
-        self.mappings = nn.ModuleList(mappings)
+        self.mappings = ModuleList(mappings)
 
     @property
     def weights(self) -> List[Tensor]:
@@ -202,7 +204,7 @@ class MLP(nn.Module):
         )
 
 
-class DNDF(nn.Module):
+class DNDF(Module):
     def __init__(
         self,
         in_dim: int,
@@ -289,7 +291,7 @@ class DNDF(nn.Module):
         nn.init.xavier_uniform_(self.leaves.data)
 
 
-class TreeResBlock(nn.Module):
+class TreeResBlock(Module):
     def __init__(self, dim: int, dndf_config: Optional[Dict[str, Any]] = None):
         super().__init__()
         if dndf_config is None:
@@ -306,13 +308,13 @@ class TreeResBlock(nn.Module):
         return net + res
 
 
-class InvertibleBlock(nn.Module):
+class InvertibleBlock(Module):
     def __init__(
         self,
         dim: int,
         *,
         default_activation: str = "mish",
-        transition_builder: Callable[[int], nn.Module] = None,
+        transition_builder: Callable[[int], Module] = None,
     ):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
@@ -339,7 +341,7 @@ class InvertibleBlock(nn.Module):
         return net2, net1
 
 
-class PseudoInvertibleBlock(nn.Module):
+class PseudoInvertibleBlock(Module):
     def __init__(
         self,
         in_dim: int,
@@ -347,8 +349,8 @@ class PseudoInvertibleBlock(nn.Module):
         *,
         to_activation: str = "mish",
         from_activation: str = "mish",
-        to_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
-        from_transition_builder: Optional[Callable[[int, int], nn.Module]] = None,
+        to_transition_builder: Optional[Callable[[int, int], Module]] = None,
+        from_transition_builder: Optional[Callable[[int, int], Module]] = None,
     ):
         super().__init__()
         dim = max(in_dim, out_dim)
@@ -380,7 +382,7 @@ class PseudoInvertibleBlock(nn.Module):
         return self.from_latent(net)
 
 
-class MonotonousMapping(nn.Module):
+class MonotonousMapping(Module):
     def __init__(
         self,
         in_dim: int,
@@ -415,7 +417,7 @@ class MonotonousMapping(nn.Module):
         self.bn = None if not batch_norm else BN(out_dim)
         # activation
         if activation is None:
-            self.activation: Optional[nn.Module] = None
+            self.activation: Optional[Module] = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
@@ -576,7 +578,7 @@ class MonotonousMapping(nn.Module):
             "batch_norm": batch_norm,
         }
 
-        def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> nn.Module:
+        def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> Module:
             local_kwargs = shallow_copy_dict(common_kwargs)
             local_kwargs.update(shallow_copy_dict(kwargs))
             local_kwargs["in_dim"] = in_dim_
@@ -606,7 +608,7 @@ class AttentionOutput(NamedTuple):
     weights: Tensor
 
 
-class Attention(nn.Module):
+class Attention(Module):
     def __init__(
         self,
         input_dim: int,
