@@ -88,7 +88,7 @@ class DDR(ModelBase):
         labels = self.tr_data.processed.y
         self.y_min, self.y_max = labels.min(), labels.max()
         self.y_diff = self.y_max - self.y_min
-        quantile_anchors = np.linspace(0.05, 0.95, 10).astype(np.float32)[..., None]
+        quantile_anchors = np.linspace(0.005, 0.995, 100).astype(np.float32)[..., None]
         y_anchor_choices = quantile_anchors * self.y_diff + self.y_min
         self.register_buffer("quantile_anchors", torch.from_numpy(quantile_anchors))
         self.register_buffer("y_anchor_choices", torch.from_numpy(y_anchor_choices))
