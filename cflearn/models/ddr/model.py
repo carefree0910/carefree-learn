@@ -354,7 +354,7 @@ class DDR(ModelBase):
             assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)
-            for q in self.quantile_anchors:  # type: ignore
+            for q in np.linspace(0.005, 0.995, 10):
                 q = q.item()
                 self.q_metric.config["q"] = q
                 yq = self._quantile(net, self._expand(len(net), q), False, False)["y"]
