@@ -581,8 +581,9 @@ class MonotonousMapping(Module):
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
+        return_blocks: bool = False,
         **kwargs: Any,
-    ) -> nn.Sequential:
+    ) -> Union[List[Module], nn.Sequential]:
         blocks = []
         common_kwargs = {
             "ascent": ascent,
@@ -612,6 +613,9 @@ class MonotonousMapping(Module):
         if out_dim is not None:
             common_kwargs["batch_norm"] = final_batch_norm
             blocks.append(_make(current_in_dim, out_dim, current_in_dim))
+
+        if return_blocks:
+            return blocks
         return nn.Sequential(*blocks)
 
 
