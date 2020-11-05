@@ -9,7 +9,6 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
-from functools import partial
 from cftool.misc import context_error_handler
 
 from ...types import tensor_tuple_type
@@ -17,7 +16,72 @@ from ...misc.toolkit import switch_requires_grad
 from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
+from ...modules.blocks import ConditionalBlocks
 from ...modules.blocks import PseudoInvertibleBlock
+
+
+def default_transition_builder(dim: int) -> nn.Module:
+    h_dim = int(dim // 2)
+    return MonotonousMapping.tanh_couple(h_dim, h_dim, h_dim, ascent=True)
+
+
+def monotonous_builder(
+    ascent1: bool,
+    ascent2: bool,
+    to_latent: bool,
+    num_layers: int,
+    condition_dim: int,
+) -> Callable[[int, int], nn.Module]:
+    def _core(in_dim: int, out_dim: int, ascent: bool) -> ConditionalBlocks:
+        true_out_dim: Optional[int]
+        if to_latent:
+            num_units = [out_dim] * (num_layers + 1)
+            true_out_dim = None
+        else:
+            num_units = [in_dim] * num_layers
+            true_out_dim = out_dim
+
+        blocks = MonotonousMapping.stack(
+            in_dim, true_out_dim, num_units, ascent=ascent, return_blocks=True
+        )
+        assert isinstance(blocks, list)
+
+        cond_module = MLP.simple(
+            condition_dim,
+            true_out_dim,
+            num_units,
+            activation="mish",
+        )
+        cond_mappings = cond_module.mappings
+
+        return ConditionalBlocks(nn.ModuleList(blocks), cond_mappings)
+
+    def _split_core(in_dim: int, out_dim: int) -> nn.Module:
+        if not to_latent:
+            in_dim = int(in_dim // 2)
+        else:
+            out_dim = int(out_dim // 2)
+
+        class MonoSplit(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.m1 = _core(in_dim, out_dim, ascent1)
+                self.m2 = _core(in_dim, out_dim, ascent2)
+
+            def forward(
+                self,
+                net: Union[Tensor, tensor_tuple_type],
+                cond: Tensor,
+            ) -> Union[Tensor, tensor_tuple_type]:
+                if to_latent:
+                    assert isinstance(net, Tensor)
+                    return self.m1(net, cond), self.m2(net, cond)
+                assert isinstance(net, tuple)
+                return self.m1(net[0], cond) + self.m2(net[1], cond)
+
+        return MonoSplit()
+
+    return _split_core
 
 
 class DDRCore(nn.Module):
@@ -26,105 +90,37 @@ class DDRCore(nn.Module):
         in_dim: int,
         y_min: float,
         y_max: float,
+        num_layers: Optional[int] = None,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
-        latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
         transition_builder: Optional[Callable[[int], nn.Module]] = None,
-        q_to_latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
-        q_from_latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
-        y_to_latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
-        y_from_latent_builder: Optional[Callable[[int, int], nn.Module]] = None,
     ):
         super().__init__()
+        # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        # builders
-        def default_latent_builder(in_dim_: int, latent_dim_: int) -> nn.Module:
-            return MLP.simple(
-                in_dim_,
-                None,
-                [latent_dim_, latent_dim_],
-                activation="mish",
-            )
-
-        if latent_builder is None:
-            latent_builder = default_latent_builder
-
-        def get_monotonous_builder(
-            ascents: Union[bool, List[bool]],
-            ascent_split: Optional[str],  # "input" or "output"
-        ) -> Callable[[int, int], nn.Module]:
-            if isinstance(ascents, bool):
-                ascents = [ascents]
-            split_input = ascent_split == "input"
-
-            def _core(in_dim_: int, out_dim_: int, ascent: bool) -> nn.Sequential:
-                true_out_dim_: Optional[int]
-                if split_input:
-                    num_units = [in_dim_]
-                    true_out_dim_ = out_dim_
-                else:
-                    num_units = [out_dim_, out_dim_]
-                    true_out_dim_ = None
-
-                return MonotonousMapping.stack(
-                    in_dim_,
-                    true_out_dim_,
-                    num_units,
-                    ascent=ascent,
-                )
-
-            if len(ascents) == 1:
-                return partial(_core, ascent=ascents[0])
-
-            assert len(ascents) == 2, "currently only split in half is supported"
-
-            def _split_core(in_dim_: int, out_dim_: int) -> nn.Module:
-                assert isinstance(ascents, list)
-                if split_input:
-                    in_dim_ = int(in_dim_ // len(ascents))
-                else:
-                    out_dim_ = int(out_dim_ // len(ascents))
-
-                class MonoSplit(nn.Module):
-                    def __init__(self) -> None:
-                        super().__init__()
-                        assert isinstance(ascents, list)
-                        self.m1 = _core(in_dim_, out_dim_, ascents[0])
-                        self.m2 = _core(in_dim_, out_dim_, ascents[1])
-
-                    def forward(
-                        self,
-                        net: Union[Tensor, tensor_tuple_type],
-                    ) -> Union[Tensor, tensor_tuple_type]:
-                        if not split_input:
-                            return self.m1(net), self.m2(net)
-                        return self.m1(net[0]) + self.m2(net[1])
-
-                return MonoSplit()
-
-            return _split_core
-
-        # to latent
+        if num_layers is None:
+            num_layers = 1
+        if num_blocks is None:
+            num_blocks = 2
+        if num_blocks % 2 != 0:
+            raise ValueError("`num_blocks` should be divided by 2")
         if latent_dim is None:
             latent_dim = 512
-        assert latent_builder is not None
-        self.to_latent = latent_builder(in_dim, latent_dim)
+        if transition_builder is None:
+            transition_builder = default_transition_builder
         # pseudo invertible q / y
-        if q_to_latent_builder is None:
-            q_to_latent_builder = get_monotonous_builder(True, "output")
-        if q_from_latent_builder is None:
-            q_from_latent_builder = get_monotonous_builder([True, False], "input")
+        kwargs = {"num_layers": num_layers, "condition_dim": in_dim}
+        q_to_latent_builder = monotonous_builder(True, True, True, **kwargs)
+        q_from_latent_builder = monotonous_builder(True, False, False, **kwargs)
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
             to_transition_builder=q_to_latent_builder,
             from_transition_builder=q_from_latent_builder,
         )
-        if y_to_latent_builder is None:
-            y_to_latent_builder = get_monotonous_builder([True, False], "output")
-        if y_from_latent_builder is None:
-            y_from_latent_builder = get_monotonous_builder(True, "input")
+        y_to_latent_builder = monotonous_builder(True, False, True, **kwargs)
+        y_from_latent_builder = monotonous_builder(True, True, False, **kwargs)
         self.y_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
@@ -134,18 +130,7 @@ class DDRCore(nn.Module):
         q_params1 = list(self.q_invertible.to_latent.parameters())
         q_params2 = list(self.y_invertible.from_latent.parameters())
         self.q_parameters = q_params1 + q_params2
-        # transition builder
-        def default_transition_builder(dim: int) -> nn.Module:
-            h_dim = int(dim // 2)
-            return MonotonousMapping.tanh_couple(h_dim, h_dim, h_dim, ascent=True)
-
-        if transition_builder is None:
-            transition_builder = default_transition_builder
         # invertible blocks
-        if num_blocks is None:
-            num_blocks = 2
-        if num_blocks % 2 != 0:
-            raise ValueError("`num_blocks` should be divided by 2")
         self.num_blocks = num_blocks
         self.block_parameters: List[nn.Parameter] = []
         self.blocks = nn.ModuleList()
@@ -184,11 +169,9 @@ class DDRCore(nn.Module):
 
         return _()
 
-    def _get_q_results(
+    def _q_results(
         self,
         net: Tensor,
-        l1: Tensor,
-        l2: Tensor,
         q_batch: Optional[Tensor] = None,
         auto_encode: bool = False,
         do_inverse: bool = False,
@@ -205,12 +188,8 @@ class DDRCore(nn.Module):
         if q_batch is None:
             q1 = q2 = q_latent = None
         else:
-            q_latent = self.q_invertible(q_batch)
-            if not isinstance(q_latent, tuple):
-                q1, q2 = q_latent.chunk(2, dim=1)
-            else:
-                q1, q2 = q_latent
-                q_latent = torch.cat(q_latent, dim=1)
+            q1, q2 = self.q_invertible(q_batch, net)
+            q_latent = torch.cat([q1, q2], dim=1)
         # simulate quantile function
         q_ae = q_inverse = None
         y_inverse_latent = yq_inverse_latent = None
@@ -219,19 +198,16 @@ class DDRCore(nn.Module):
         else:
             assert q1 is not None and q2 is not None
             if auto_encode:
-                q_ae_logit = self.q_invertible.inverse((q1, q2))
+                q_ae_logit = self.q_invertible.inverse((q1, q2), net)
                 q_ae = self.q_inv_fn(q_ae_logit)
-            q1, q2 = q1 + l1, q2 + l2
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             qy_latent = torch.cat([q1, q2], dim=1)
-            y = self.y_invertible.inverse(qy_latent)
+            y = self.y_invertible.inverse((q1, q2), net)
             y = self.y_inv_fn(y)
             if do_inverse:
                 inverse_results = self.forward(
                     net,
-                    l1.detach(),
-                    l2.detach(),
                     y_batch=y.detach(),
                     do_inverse=False,
                 )
@@ -248,11 +224,9 @@ class DDRCore(nn.Module):
             "yq_inverse_latent": yq_inverse_latent,
         }
 
-    def _get_y_results(
+    def _y_results(
         self,
         net: Tensor,
-        l1: Tensor,
-        l2: Tensor,
         y_batch: Optional[Tensor] = None,
         auto_encode: bool = False,
         do_inverse: bool = False,
@@ -262,12 +236,8 @@ class DDRCore(nn.Module):
             y1 = y2 = y_latent = None
         else:
             y_batch = self.y_fn(y_batch)
-            y_latent = self.y_invertible(y_batch)
-            if not isinstance(y_latent, tuple):
-                y1, y2 = y_latent.chunk(2, dim=1)
-            else:
-                y1, y2 = y_latent
-                y_latent = torch.cat(y_latent, dim=1)
+            y1, y2 = self.y_invertible(y_batch, net)
+            y_latent = torch.cat([y1, y2], dim=1)
         # simulate cdf
         y_ae = y_inverse = None
         q_inverse_latent = qy_inverse_latent = None
@@ -275,22 +245,19 @@ class DDRCore(nn.Module):
             q = q_logit = yq_latent = None
         else:
             if auto_encode:
-                y_ae = self.y_invertible.inverse(y_latent)
+                y_ae = self.y_invertible.inverse((y1, y2), net)
                 y_ae = self.y_inv_fn(y_ae)
-            y1, y2 = y1 + l1, y2 + l2
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             yq_latent = torch.cat([y1, y2], dim=1)
-            q_logit = self.q_invertible.inverse((y1, y2))
+            q_logit = self.q_invertible.inverse((y1, y2), net)
             q = self.q_inv_fn(q_logit)
             with self._detach_q():
                 if not do_inverse:
-                    q_inverse_latent = self.q_invertible(q.detach())
+                    q_inverse_latent = self.q_invertible(q.detach(), net)
                 else:
                     inverse_results = self.forward(
                         net,
-                        l1.detach(),
-                        l2.detach(),
                         q_batch=q,
                         do_inverse=False,
                     )
@@ -311,8 +278,6 @@ class DDRCore(nn.Module):
     def forward(
         self,
         net: Tensor,
-        l1: Optional[Tensor] = None,
-        l2: Optional[Tensor] = None,
         *,
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
@@ -320,17 +285,9 @@ class DDRCore(nn.Module):
         do_inverse: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
-        if l1 is None or l2 is None:
-            latent = self.to_latent(net)
-            l1, l2 = latent.chunk(2, dim=1)
-        assert l1 is not None and l2 is not None
         results: Dict[str, Optional[Tensor]] = {}
-        results.update(
-            self._get_q_results(net, l1, l2, q_batch, auto_encode, do_inverse, median)
-        )
-        results.update(
-            self._get_y_results(net, l1, l2, y_batch, auto_encode, do_inverse)
-        )
+        results.update(self._q_results(net, q_batch, auto_encode, do_inverse, median))
+        results.update(self._y_results(net, y_batch, auto_encode, do_inverse))
         return results
 
 

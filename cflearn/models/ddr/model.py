@@ -55,26 +55,18 @@ class DDR(ModelBase):
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         cfg = ModelBase.get_core_config(instance)
-        latent_dim = instance.config.setdefault("latent_dim", None)
+        num_layers = instance.config.setdefault("num_layers", None)
         num_blocks = instance.config.setdefault("num_blocks", None)
-        latent_builder = instance.config.setdefault("latent_builder", None)
+        latent_dim = instance.config.setdefault("latent_dim", None)
         transition_builder = instance.config.setdefault("transition_builder", None)
-        q_to_builder = instance.config.setdefault("q_to_latent_builder", None)
-        q_from_builder = instance.config.setdefault("q_from_latent_builder", None)
-        y_to_builder = instance.config.setdefault("y_to_latent_builder", None)
-        y_from_builder = instance.config.setdefault("y_from_latent_builder", None)
         cfg.update(
             {
                 "y_min": instance.y_min,
                 "y_max": instance.y_max,
+                "num_layers": num_layers,
                 "num_blocks": num_blocks,
                 "latent_dim": latent_dim,
-                "latent_builder": latent_builder,
                 "transition_builder": transition_builder,
-                "q_to_latent_builder": q_to_builder,
-                "q_from_latent_builder": q_from_builder,
-                "y_to_latent_builder": y_to_builder,
-                "y_from_latent_builder": y_from_builder,
             }
         )
         return cfg
