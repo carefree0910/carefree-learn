@@ -239,8 +239,8 @@ class DDR(ModelBase):
                 y_batch = y_batch * self.y_diff + self.y_min
                 # y_batch = y_batch[np.random.permutation(batch_size)].detach()
             else:
-                q_batch = self.quantile_anchors
-                y_batch = self.y_anchor_choices
+                q_batch = self.quantile_anchors  # type: ignore
+                y_batch = self.y_anchor_choices  # type: ignore
                 n_repeat = int(batch_size / len(q_batch)) + 1
                 q_batch = q_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
                 y_batch = y_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
@@ -263,7 +263,7 @@ class DDR(ModelBase):
             y_rs["cdf"] = y_rs.pop("q")
             y_rs["cdf_logit"] = y_rs.pop("q_logit")
         # construct results
-        results = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
+        results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
         results.update({k: v for k, v in median_rs.items() if v is not None})
         results.update({k: v for k, v in q_rs.items() if v is not None})
         results.update({k: v for k, v in y_rs.items() if v is not None})
@@ -354,7 +354,7 @@ class DDR(ModelBase):
             assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)
-            for q in self.quantile_anchors:
+            for q in self.quantile_anchors:  # type: ignore
                 q = q.item()
                 self.q_metric.config["q"] = q
                 yq = self._quantile(net, self._expand(len(net), q), False, False)["y"]

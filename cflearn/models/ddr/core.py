@@ -85,7 +85,6 @@ class DDRCore(nn.Module):
                     in_dim_ = int(in_dim_ // len(ascents))
                 else:
                     out_dim_ = int(out_dim_ // len(ascents))
-                net_type = Union[Tensor, tensor_tuple_type]
 
                 class MonoSplit(nn.Module):
                     def __init__(self) -> None:
@@ -94,7 +93,10 @@ class DDRCore(nn.Module):
                         self.m1 = _core(in_dim_, out_dim_, ascents[0])
                         self.m2 = _core(in_dim_, out_dim_, ascents[1])
 
-                    def forward(self, net: net_type) -> net_type:
+                    def forward(
+                        self,
+                        net: Union[Tensor, tensor_tuple_type],
+                    ) -> Union[Tensor, tensor_tuple_type]:
                         if not split_input:
                             return self.m1(net), self.m2(net)
                         return self.m1(net[0]) + self.m2(net[1])
