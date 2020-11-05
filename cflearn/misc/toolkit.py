@@ -310,7 +310,7 @@ class Activations:
     @property
     def logit(self) -> nn.Module:
         kwargs = self.configs.setdefault("logit", {})
-        eps = kwargs.setdefault("eps", 1.0e-8)
+        eps = kwargs.setdefault("eps", 1.0e-6)
 
         def _logit(x: torch.Tensor) -> torch.Tensor:
             x = torch.clamp(x, eps, 1.0 - eps)
@@ -321,7 +321,7 @@ class Activations:
     @property
     def atanh(self) -> nn.Module:
         kwargs = self.configs.setdefault("atanh", {})
-        eps = kwargs.setdefault("eps", 1.0e-8)
+        eps = kwargs.setdefault("eps", 1.0e-6)
 
         def _atanh(x: torch.Tensor) -> torch.Tensor:
             return torch.atanh(torch.clamp(x, -1.0 + eps, 1.0 - eps))
