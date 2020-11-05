@@ -88,7 +88,10 @@ class DDR(ModelBase):
         labels = self.tr_data.processed.y
         self.y_min, self.y_max = labels.min(), labels.max()
         self.y_diff = self.y_max - self.y_min
-        self._quantile_anchors = np.linspace(0.05, 0.95, 10).astype(np.float32)
+        quantile_anchors = np.linspace(0.05, 0.95, 10).astype(np.float32)[..., None]
+        y_anchor_choices = quantile_anchors * self.y_diff + self.y_min
+        self.register_buffer("quantile_anchors", torch.from_numpy(quantile_anchors))
+        self.register_buffer("y_anchor_choices", torch.from_numpy(y_anchor_choices))
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
@@ -136,10 +139,6 @@ class DDR(ModelBase):
         self.loss = DDRLoss(self._loss_config, "none")
 
     # utilities
-
-    def _convert_np_anchors(self, np_anchors: np.ndarray) -> torch.Tensor:
-        tensor = to_torch(np_anchors.reshape([-1, 1]))
-        return tensor.to(self.device).requires_grad_(True)
 
     def _expand(
         self,
@@ -227,22 +226,24 @@ class DDR(ModelBase):
     def _core(
         self,
         net: torch.Tensor,
+        y_batch: torch.Tensor,
         synthetic: bool,
     ) -> tensor_dict_type:
+        batch_size = len(net)
         auto_encode = not synthetic
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
             if self.training:
-                q_batch = np.random.random([len(net), 1]).astype(np.float32)
-                y_batch = np.random.random([len(net), 1]).astype(np.float32)
+                q_batch = torch.empty_like(y_batch).uniform_()
+                y_batch = torch.empty_like(y_batch).uniform_()
+                y_batch = y_batch * self.y_diff + self.y_min
+                # y_batch = y_batch[np.random.permutation(batch_size)].detach()
             else:
-                q_batch = y_batch = self._quantile_anchors
-                n_repeat = int(len(net) / len(q_batch)) + 1
-                q_batch = np.repeat(q_batch, n_repeat)[: len(net)]
-                y_batch = np.repeat(y_batch, n_repeat)[: len(net)]
-            y_batch = y_batch * self.y_diff + self.y_min
-            q_batch = self._convert_np_anchors(q_batch)
-            y_batch = self._convert_np_anchors(y_batch)
+                q_batch = self.quantile_anchors
+                y_batch = self.y_anchor_choices
+                n_repeat = int(batch_size / len(q_batch)) + 1
+                q_batch = q_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
+                y_batch = y_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
         # build predictions
         with timing_context(self, "forward.median"):
             if synthetic:
@@ -285,6 +286,7 @@ class DDR(ModelBase):
         net = self._split_features(x_batch, batch_indices, loader_name).merge()
         if self.tr_data.is_ts:
             net = net.view(net.shape[0], -1)
+        y_batch = batch["y_batch"]
         # check inference
         forward_dict = {}
         predict_pdf = kwargs.get("predict_pdf", False)
@@ -309,7 +311,7 @@ class DDR(ModelBase):
             q_batch = self._expand(len(net), q)
             forward_dict["quantiles"] = self._quantile(net, q_batch, False, False)["y"]
         if not forward_dict:
-            forward_dict = self._core(net, False)
+            forward_dict = self._core(net, y_batch, False)
         return forward_dict
 
     def loss_function(
@@ -337,7 +339,7 @@ class DDR(ModelBase):
                 synthetic_net = self._synthetic_range * synthetic_net * net_diff
                 synthetic_net = synthetic_net - (diff_span - net_min)
                 # synthetic_net ~ U_[ -diff_span + min, diff_span + max ]
-                synthetic_outputs = self._core(synthetic_net, True)
+                synthetic_outputs = self._core(synthetic_net, y_batch, True)
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
                     synthetic_outputs,
@@ -352,7 +354,8 @@ class DDR(ModelBase):
             assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)
-            for q in self._quantile_anchors:
+            for q in self.quantile_anchors:
+                q = q.item()
                 self.q_metric.config["q"] = q
                 yq = self._quantile(net, self._expand(len(net), q), False, False)["y"]
                 q_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
