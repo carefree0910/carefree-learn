@@ -228,7 +228,6 @@ class DDR(ModelBase):
     def _core(
         self,
         net: torch.Tensor,
-        batch_step: int,
         synthetic: bool,
     ) -> tensor_dict_type:
         auto_encode = not synthetic
@@ -311,7 +310,7 @@ class DDR(ModelBase):
             q_batch = self._expand(len(net), q)
             forward_dict["quantiles"] = self._quantile(net, q_batch, False, False)["y"]
         if not forward_dict:
-            forward_dict = self._core(net, batch_step, False)
+            forward_dict = self._core(net, False)
         return forward_dict
 
     def loss_function(
@@ -339,7 +338,7 @@ class DDR(ModelBase):
                 synthetic_net = self._synthetic_range * synthetic_net * net_diff
                 synthetic_net = synthetic_net - (diff_span - net_min)
                 # synthetic_net ~ U_[ -diff_span + min, diff_span + max ]
-                synthetic_outputs = self._core(synthetic_net, batch_step, True)
+                synthetic_outputs = self._core(synthetic_net, True)
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
                     synthetic_outputs,
