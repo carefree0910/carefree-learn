@@ -375,11 +375,23 @@ class PseudoInvertibleBlock(Module):
                 activation=from_activation,
             )
 
-    def forward(self, net: Union[Tensor, Any]) -> Tensor:
-        return self.to_latent(net)
+    def forward(
+        self,
+        net: Union[Tensor, Any],
+        cond: Optional[Union[Tensor, Any]] = None,
+    ) -> Tensor:
+        if cond is None:
+            return self.to_latent(net)
+        return self.to_latent(net, cond)
 
-    def inverse(self, net: Union[Tensor, Any]) -> Tensor:
-        return self.from_latent(net)
+    def inverse(
+        self,
+        net: Union[Tensor, Any],
+        cond: Optional[Union[Tensor, Any]] = None,
+    ) -> Tensor:
+        if cond is None:
+            return self.from_latent(net)
+        return self.from_latent(net, cond)
 
 
 class MonotonousMapping(Module):
