@@ -12,11 +12,6 @@ from cftool.misc import update_dict
 from cftool.misc import timing_context
 from cfdata.tabular import DataLoader
 
-try:
-    amp: Optional[Any] = torch.cuda.amp
-except:
-    amp = None
-
 from ...misc.toolkit import *
 from .core import DDRCore
 from .loss import DDRLoss
