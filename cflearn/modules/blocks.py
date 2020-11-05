@@ -619,6 +619,22 @@ class MonotonousMapping(Module):
         return nn.Sequential(*blocks)
 
 
+class ConditionalBlocks(Module):
+    def __init__(self, main_blocks: ModuleList, condition_blocks: ModuleList):
+        super().__init__()
+        if len(main_blocks) != len(condition_blocks):
+            msg = "`main_blocks` and `condition_blocks` should have same sizes"
+            raise ValueError(msg)
+        self.main_blocks = main_blocks
+        self.condition_blocks = condition_blocks
+
+    def forward(self, net: Tensor, cond: Tensor) -> Tensor:
+        for main, condition in zip(self.main_blocks, self.condition_blocks):
+            cond = condition(cond)
+            net = main(net) + cond
+        return net
+
+
 class AttentionOutput(NamedTuple):
     output: Tensor
     weights: Tensor
@@ -762,5 +778,6 @@ __all__ = [
     "InvertibleBlock",
     "PseudoInvertibleBlock",
     "MonotonousMapping",
+    "ConditionalBlocks",
     "Attention",
 ]
