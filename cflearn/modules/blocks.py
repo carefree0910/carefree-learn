@@ -407,6 +407,7 @@ class MonotonousMapping(Module):
         activation: Optional[str] = None,
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "square",
+        scaler: Optional[float] = None,
         use_scaler: bool = True,
         **kwargs: Any,
     ):
@@ -437,12 +438,18 @@ class MonotonousMapping(Module):
         if not use_scaler:
             self.scaler = None
         else:
-            if self.positive_transform in ("square", "softmax"):
-                scaler = 1.0
-            elif in_dim > out_dim:
-                scaler = math.log(2.0 * in_dim)
-            else:
-                scaler = out_dim * math.log(2.0)
+            if scaler is None:
+                if self.positive_transform == "sigmoid":
+                    scaler = 0.25
+                    if bias:
+                        with torch.no_grad():
+                            self.linear.bias.data.fill_(-1.0)
+                elif self.positive_transform in ("square", "softmax"):
+                    scaler = 1.0
+                elif in_dim > out_dim:
+                    scaler = math.log(2.0 * in_dim)
+                else:
+                    scaler = out_dim * math.log(2.0)
             scaler = math.log(math.exp(1.0 / scaler) - 1)
             self.scaler = nn.Parameter(torch.full([out_dim, 1], scaler))
 
@@ -498,6 +505,8 @@ class MonotonousMapping(Module):
         **kwargs: Any,
     ) -> nn.Sequential:
         init_method = "normal"
+        initialize_config = kwargs.setdefault("initialize_config", {})
+        initialize_config.setdefault("std", 3.0)
         sigmoid_unit = cls(
             in_dim,
             hidden_dim,
@@ -508,6 +517,7 @@ class MonotonousMapping(Module):
             activation="sigmoid",
             init_method=init_method,
             positive_transform="softmax" if in_dim > 1 else "sigmoid",
+            scaler=0.35,
             **kwargs,
         )
         logit_unit = cls(
@@ -538,6 +548,8 @@ class MonotonousMapping(Module):
         **kwargs: Any,
     ) -> nn.Sequential:
         init_method = "normal"
+        initialize_config = kwargs.setdefault("initialize_config", {})
+        initialize_config.setdefault("std", 3.0)
         tanh_unit = cls(
             in_dim,
             hidden_dim,
@@ -548,6 +560,7 @@ class MonotonousMapping(Module):
             activation="tanh",
             init_method=init_method,
             positive_transform="softmax" if in_dim > 1 else "sigmoid",
+            scaler=0.35,
             **kwargs,
         )
         atanh_unit = cls(
