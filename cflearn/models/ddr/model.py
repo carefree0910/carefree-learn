@@ -82,8 +82,7 @@ class DDR(ModelBase):
     def _init_config(self) -> None:
         super()._init_config()
         # common
-        self.config.setdefault("ema_decay", 0.999)
-        step_per_epoch = len(self.tr_loader)
+        self.config.setdefault("ema_decay", 0.0)
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
