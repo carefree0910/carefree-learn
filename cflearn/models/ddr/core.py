@@ -283,7 +283,6 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         y_batch: Optional[Tensor] = None,
-        auto_encode: bool = False,
         do_inverse: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         # prepare y_latent
@@ -295,14 +294,11 @@ class DDRCore(nn.Module):
             y1, y2 = y1.net, y2.net
             y_latent = torch.cat([y1, y2], dim=1)
         # simulate cdf
-        y_ae = y_inverse_res = None
+        y_inverse_res = None
         q_inverse_latent = qy_inverse_latent = None
         if y_latent is None:
             q = q_logit = yq_latent = None
         else:
-            if auto_encode:
-                y_ae = self.y_invertible.inverse((y1, y2), net)
-                y_ae = self.y_inv_fn(y_ae.net)
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             yq_latent = torch.cat([y1, y2], dim=1)
@@ -321,7 +317,6 @@ class DDRCore(nn.Module):
         return {
             "q": q,
             "q_logit": q_logit,
-            "y_ae": y_ae,
             "y_latent": y_latent,
             "yq_latent": yq_latent,
             "y_inverse_res": y_inverse_res,
@@ -341,7 +336,7 @@ class DDRCore(nn.Module):
     ) -> Dict[str, Optional[Tensor]]:
         results: Dict[str, Optional[Tensor]] = {}
         results.update(self._q_results(net, q_batch, auto_encode, do_inverse, median))
-        results.update(self._y_results(net, y_batch, auto_encode, do_inverse))
+        results.update(self._y_results(net, y_batch, do_inverse))
         return results
 
 

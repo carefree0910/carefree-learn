@@ -14,7 +14,7 @@ from ...modules.auxiliary import MTL
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.q_only = config["q_only"]
-        self.mtl = MTL(6 if self.q_only else 22, config["mtl_method"])
+        self.mtl = MTL(4 if self.q_only else 20, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
@@ -111,12 +111,8 @@ class DDRLoss(LossBase, LoggingMixin):
             assert cdf_logit is not None
             cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
         # y auto encode & recover losses
-        y_ae_losses = y_recover_losses = None
+        y_recover_losses = None
         if not is_synthetic:
-            y_ae = predictions["y_ae"]
-            if y_ae is not None:
-                y_ae_losses = l1_loss(y_ae, y_batch, reduction="none")
-                y_ae_losses = self._lb_recover * y_ae_losses
             y_inverse = predictions["y_inverse_res"] + predictions["median"]
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
@@ -142,8 +138,6 @@ class DDRLoss(LossBase, LoggingMixin):
         losses = {"y_latent": y_latent_losses}
         if y_recover_losses is not None:
             losses["y_recover"] = y_recover_losses
-        if y_ae_losses is not None:
-            losses["y_ae"] = y_ae_losses
         if cdf_losses is not None:
             losses["cdf"] = cdf_losses
         if pdf_losses is not None:
