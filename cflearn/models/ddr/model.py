@@ -75,6 +75,8 @@ class DDR(ModelBase):
         super()._init_config()
         # common
         self.config.setdefault("ema_decay", 0.0)
+        # TODO : Optimize Structures when `q_only` is True
+        self.q_only = self.config.setdefault("q_only", False)
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
@@ -87,18 +89,20 @@ class DDR(ModelBase):
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
+        self._loss_config["q_only"] = self.q_only
         # trainer config
-        default_metric_types = [
-            "ddr",
-            "loss",
-            "pdf",
-            "cdf",
-            "q_ae",
-            "y_ae",
-            "median_ae",
-            "q_latent",
-            "y_latent",
-        ]
+        default_metric_types = ["ddr"]
+        if not self.q_only:
+            default_metric_types += [
+                "loss",
+                "pdf",
+                "cdf",
+                "q_ae",
+                "y_ae",
+                "median_ae",
+                "q_latent",
+                "y_latent",
+            ]
         default_metric_weights = {
             "ddr": 5.0,
             "loss": 1.0,
