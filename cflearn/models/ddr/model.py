@@ -91,15 +91,13 @@ class DDR(ModelBase):
         self._loss_config.setdefault("mtl_method", None)
         self._loss_config["q_only"] = self.q_only
         # trainer config
-        default_metric_types = ["ddr"]
+        default_metric_types = ["ddr", "loss", "median_ae", "median_affine"]
         if not self.q_only:
             default_metric_types += [
-                "loss",
                 "pdf",
                 "cdf",
                 "q_ae",
                 "y_ae",
-                "median_ae",
                 "q_latent",
                 "y_latent",
             ]
@@ -111,6 +109,7 @@ class DDR(ModelBase):
             "q_ae": 5.0,
             "y_ae": 5.0,
             "median_ae": 5.0,
+            "median_affine": 10.0,
             "q_latent": 2.5,
             "y_latent": 2.5,
         }
