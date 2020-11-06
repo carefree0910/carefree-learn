@@ -56,20 +56,25 @@ class DDRLoss(LossBase, LoggingMixin):
             "quantile_losses": quantile_losses,
         }
 
-    def _qy_losses(self, predictions: tensor_dict_type) -> tensor_dict_type:
+    def _qy_losses(
+        self,
+        predictions: tensor_dict_type,
+        is_synthetic: bool,
+    ) -> tensor_dict_type:
         # median
-        median_ae = predictions["median_ae"]
-        median_ae_losses = torch.abs(median_ae - 0.5)
-        median_ae_losses = self._lb_recover * median_ae_losses
-        median_inverse = predictions["median_inverse"]
-        median_recover_losses = torch.abs(median_inverse - 0.5)
-        median_recover_losses = self._lb_recover * median_recover_losses
+        median_ae_losses = median_recover_losses = None
+        if not is_synthetic:
+            median_ae = predictions["median_ae"]
+            median_ae_losses = torch.abs(median_ae - 0.5)
+            median_ae_losses = self._lb_recover * median_ae_losses
+            median_inverse = predictions["median_inverse"]
+            median_recover_losses = torch.abs(median_inverse - 0.5)
+            median_recover_losses = self._lb_recover * median_recover_losses
         # q auto encode losses
-        q_ae = predictions["q_ae"]
+        q_ae_losses = None
         q_batch = predictions["q_batch"]
-        if q_ae is None:
-            q_ae_losses = None
-        else:
+        if not is_synthetic:
+            q_ae = predictions["q_ae"]
             q_ae_losses = l1_loss(q_ae, q_batch, reduction="none")
             q_ae_losses = self._lb_recover * q_ae_losses
         # q recover losses
@@ -87,13 +92,17 @@ class DDRLoss(LossBase, LoggingMixin):
         qll2 = qll2.mean(1, keepdims=True)
         q_latent_losses = self._lb_latent * (qll1 + qll2)
         # combine
-        return {
-            "median_ae": median_ae_losses,
-            "median_recover": median_recover_losses,
-            "q_ae": q_ae_losses,
-            "q_recover": q_recover_losses,
+        losses = {
             "q_latent": q_latent_losses,
+            "q_recover": q_recover_losses,
         }
+        if median_ae_losses is not None:
+            losses["median_ae"] = median_ae_losses
+        if median_recover_losses is not None:
+            losses["median_recover"] = median_recover_losses
+        if q_ae_losses is not None:
+            losses["q_ae"] = q_ae_losses
+        return losses
 
     def _yq_losses(
         self,
@@ -153,7 +162,7 @@ class DDRLoss(LossBase, LoggingMixin):
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
         losses = self._q_losses(predictions, target, is_synthetic)
         if not self.q_only:
-            losses.update(self._qy_losses(predictions))
+            losses.update(self._qy_losses(predictions, is_synthetic))
             losses.update(self._yq_losses(predictions, target, is_synthetic))
         suffix = "" if not is_synthetic else "synthetic_"
         losses = {f"{suffix}{k}": v for k, v in losses.items()}
