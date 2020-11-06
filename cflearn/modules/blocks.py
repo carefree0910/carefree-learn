@@ -598,8 +598,15 @@ class MonotonousMapping(Module):
 
 
 class ConditionalBlocks(Module):
-    def __init__(self, main_blocks: ModuleList, condition_blocks: ModuleList):
+    def __init__(
+        self,
+        main_blocks: ModuleList,
+        condition_blocks: ModuleList,
+        *,
+        add_last: bool,
+    ):
         super().__init__()
+        self.add_last = add_last
         self.num_blocks = len(main_blocks)
         if self.num_blocks != len(condition_blocks):
             msg = "`main_blocks` and `condition_blocks` should have same sizes"
@@ -607,11 +614,17 @@ class ConditionalBlocks(Module):
         self.main_blocks = main_blocks
         self.condition_blocks = condition_blocks
 
-    def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        for main, condition in zip(self.main_blocks, self.condition_blocks):
+    def forward(self, net: Tensor, cond: Tensor) -> ConditionalOutput:
+        iterator = enumerate(zip(self.main_blocks, self.condition_blocks))
+        for i, (main, condition) in iterator:
             cond = condition(cond)
-            net = main(net) + cond
+            net = main(net)
+            if i < self.num_blocks - 1 or self.add_last:
+                net = net + cond
         return ConditionalOutput(net, cond)
+
+    def extra_repr(self) -> str:
+        return f"(add_last): {self.add_last}"
 
 
 class AttentionOutput(NamedTuple):

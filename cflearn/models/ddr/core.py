@@ -17,6 +17,7 @@ from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
 from ...modules.blocks import ConditionalBlocks
+from ...modules.blocks import ConditionalOutput
 from ...modules.blocks import PseudoInvertibleBlock
 
 
@@ -58,7 +59,11 @@ def monotonous_builder(
         )
         cond_mappings = cond_module.mappings
 
-        return ConditionalBlocks(nn.ModuleList(blocks), cond_mappings)
+        return ConditionalBlocks(
+            nn.ModuleList(blocks),
+            cond_mappings,
+            add_last=to_latent,
+        )
 
     def _split_core(in_dim: int, out_dim: int) -> nn.Module:
         if not to_latent:
