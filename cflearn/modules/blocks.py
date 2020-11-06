@@ -439,18 +439,7 @@ class MonotonousMapping(Module):
             self.scaler = None
         else:
             if scaler is None:
-                if self.positive_transform == "sigmoid":
-                    scaler = 0.25
-                    if bias:
-                        with torch.no_grad():
-                            self.linear.bias.data.fill_(-1.0)
-                elif self.positive_transform in ("square", "softmax"):
-                    scaler = 1.0
-                elif in_dim > out_dim:
-                    scaler = math.log(2.0 * in_dim)
-                else:
-                    scaler = out_dim * math.log(2.0)
-            scaler = math.log(math.exp(1.0 / scaler) - 1)
+                scaler = math.log(math.e - 1)
             self.scaler = nn.Parameter(torch.full([out_dim, 1], scaler))
 
     def _get_positive_weight(self) -> Tensor:
@@ -503,7 +492,7 @@ class MonotonousMapping(Module):
         ascent: bool,
         dropout: float = 0.0,
         batch_norm: bool = False,
-        scaler: Optional[float] = 0.35,
+        scaler: Optional[float] = None,
         **kwargs: Any,
     ) -> nn.Sequential:
         if activation == "tanh":
