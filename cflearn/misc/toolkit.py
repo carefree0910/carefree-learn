@@ -329,6 +329,16 @@ class Activations:
         return Lambda(_atanh, f"atanh_{eps:.2e}")
 
     @property
+    def isoftplus(self) -> nn.Module:
+        kwargs = self.configs.setdefault("isoftplus", {})
+        eps = kwargs.setdefault("eps", 1.0e-6)
+
+        def _isoftplus(x: torch.Tensor) -> torch.Tensor:
+            return torch.log(x.clamp_min(eps).exp() - 1.0)
+
+        return Lambda(_isoftplus, f"isoftplus_{eps:.2e}")
+
+    @property
     def sign(self) -> nn.Module:
         return Lambda(lambda x: torch.sign(x), "sign")
 

@@ -510,6 +510,8 @@ class MonotonousMapping(Module):
             inverse_activation = "atanh"
         elif activation == "sigmoid":
             inverse_activation = "logit"
+        elif activation == "softplus":
+            inverse_activation = "isoftplus"
         else:
             msg = f"inverse activation of '{activation}' is not defined"
             raise NotImplementedError(msg)
