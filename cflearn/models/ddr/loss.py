@@ -152,10 +152,7 @@ class DDRLoss(LossBase, LoggingMixin):
         is_synthetic: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
         losses = self._q_losses(predictions, target, is_synthetic)
-        if self.q_only:
-            if not losses:
-                losses["quantile"] = torch.zeros_like(target)
-        else:
+        if not self.q_only:
             losses.update(self._qy_losses(predictions))
             losses.update(self._yq_losses(predictions, target, is_synthetic))
         suffix = "" if not is_synthetic else "synthetic_"
