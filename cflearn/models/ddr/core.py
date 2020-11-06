@@ -13,6 +13,7 @@ from cftool.misc import context_error_handler
 
 from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
+from ...misc.toolkit import Activations
 from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
@@ -34,17 +35,25 @@ def monotonous_builder(
     condition_dim: int,
 ) -> Callable[[int, int], nn.Module]:
     def _core(in_dim: int, out_dim: int, ascent: bool) -> ConditionalBlocks:
-        true_out_dim: Optional[int]
+        cond_out_dim: Optional[int]
+        block_out_dim: Optional[int]
         if to_latent:
             num_units = [out_dim] * (num_layers + 1)
-            true_out_dim = None
+            cond_out_dim = block_out_dim = None
         else:
             num_units = [in_dim] * num_layers
-            true_out_dim = out_dim
+            if out_dim == 1:
+                cond_out_dim = block_out_dim = 1
+            else:
+                # quantile stuffs
+                # cond  : median, pos_median_res, neg_median_res
+                # block : y_pos_add, y_pos_mul, y_neg_add, y_neg_mul
+                cond_out_dim = out_dim
+                block_out_dim = out_dim + 1
 
         blocks = MonotonousMapping.stack(
             in_dim,
-            true_out_dim,
+            block_out_dim,
             num_units,
             ascent=ascent,
             return_blocks=True,
@@ -53,7 +62,7 @@ def monotonous_builder(
 
         cond_module = MLP.simple(
             condition_dim,
-            true_out_dim,
+            cond_out_dim,
             num_units,
             activation="mish",
         )
@@ -109,6 +118,7 @@ class DDRCore(nn.Module):
         # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
+        self.mish = Activations().mish
         if num_layers is None:
             num_layers = 1
         if num_blocks is None:
@@ -135,7 +145,7 @@ class DDRCore(nn.Module):
         self.y_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
-            1,
+            3,
             to_transition_builder=y_to_latent_builder,
             from_transition_builder=y_from_latent_builder,
         )
@@ -181,6 +191,38 @@ class DDRCore(nn.Module):
 
         return _()
 
+    def _merge_q_outputs(
+        self,
+        outputs: ConditionalOutput,
+        q_batch: Tensor,
+    ) -> Dict[str, Tensor]:
+        y_net = outputs.net
+        cond_net = outputs.cond
+        y_split = y_net.split(1, dim=1)
+        cond_split = cond_net.split(1, dim=1)
+        med, pos_med_res, neg_med_res = cond_split
+        y_pos_add, y_pos_mul, y_neg_add, y_neg_mul = y_split
+        pos_med_res = self.mish(pos_med_res)
+        neg_med_res = -self.mish(neg_med_res)
+        y_pos_mul = y_pos_mul.relu_()
+        y_neg_mul = (1.0 - y_neg_mul).relu_()
+        q_batch_eps = q_batch + 2.0e-8 * torch.empty_like(q_batch).uniform_() - 1.0e-8
+        q_sign = torch.sign(q_batch_eps)
+        q_positive_mask = q_sign == 1.0
+        add_net = torch.where(q_positive_mask, y_pos_add, y_neg_add)
+        mul_net = torch.where(q_positive_mask, y_pos_mul, y_neg_mul)
+        med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
+        y_res = med_res * mul_net + add_net
+        return {
+            "y_res": y_res,
+            "median": med,
+            "med_add": add_net,
+            "med_mul": mul_net,
+            "med_res": med_res,
+            "q_sign": q_sign,
+            "q_positive_mask": q_positive_mask,
+        }
+
     def _q_results(
         self,
         net: Tensor,
@@ -207,7 +249,7 @@ class DDRCore(nn.Module):
         q_ae = q_inverse = None
         y_inverse_latent = yq_inverse_latent = None
         if q_latent is None:
-            y = qy_latent = None
+            y_results = qy_latent = None
         else:
             assert q1 is not None and q2 is not None
             if auto_encode:
@@ -216,22 +258,26 @@ class DDRCore(nn.Module):
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             qy_latent = torch.cat([q1, q2], dim=1)
-            y = self.y_invertible.inverse((q1, q2), net)
-            y = self.y_inv_fn(y)
+            y_pack = self.y_invertible.inverse((q1, q2), net)
+            y_results = self._merge_q_outputs(y_pack, q_batch)
             if do_inverse:
+                y = y_results["y_res"].detach() + y_results["median"].detach()
                 inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
                 y_inverse_latent = inverse_results["y_latent"]
                 yq_inverse_latent = inverse_results["yq_latent"]
-        return {
-            "y": y,
-            "q_ae": q_ae,
-            "q_latent": q_latent,
-            "qy_latent": qy_latent,
-            "q_inverse": q_inverse,
-            "y_inverse_latent": y_inverse_latent,
-            "yq_inverse_latent": yq_inverse_latent,
-        }
+        results = y_results or {}
+        results.update(
+            {
+                "q_ae": q_ae,
+                "q_latent": q_latent,
+                "qy_latent": qy_latent,
+                "q_inverse": q_inverse,
+                "y_inverse_latent": y_inverse_latent,
+                "yq_inverse_latent": yq_inverse_latent,
+            }
+        )
+        return results
 
     def _y_results(
         self,
@@ -249,7 +295,7 @@ class DDRCore(nn.Module):
             y1, y2 = y1.net, y2.net
             y_latent = torch.cat([y1, y2], dim=1)
         # simulate cdf
-        y_ae = y_inverse = None
+        y_ae = y_inverse_res = None
         q_inverse_latent = qy_inverse_latent = None
         if y_latent is None:
             q = q_logit = yq_latent = None
@@ -269,7 +315,7 @@ class DDRCore(nn.Module):
                     q_inverse_latent = torch.cat(q_inverse_latent, dim=1)
                 else:
                     inverse_results = self._q_results(net, q)
-                    y_inverse = inverse_results["y"]
+                    y_inverse_res = inverse_results["y_res"]
                     q_inverse_latent = inverse_results["q_latent"]
                     qy_inverse_latent = inverse_results["qy_latent"]
         return {
@@ -278,7 +324,7 @@ class DDRCore(nn.Module):
             "y_ae": y_ae,
             "y_latent": y_latent,
             "yq_latent": yq_latent,
-            "y_inverse": y_inverse,
+            "y_inverse_res": y_inverse_res,
             "q_inverse_latent": q_inverse_latent,
             "qy_inverse_latent": qy_inverse_latent,
         }

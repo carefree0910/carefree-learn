@@ -247,10 +247,16 @@ class DDR(ModelBase):
             else:
                 rs = self._median(net, auto_encode, True)
                 median_rs = {
-                    "predictions": rs["y"],
+                    "predictions": rs["median"],
+                    "median_med_add": rs["med_add"],
+                    "median_med_mul": rs["med_mul"],
+                    "median_med_res": rs["med_res"],
+                    "median_sign": rs["q_sign"],
+                    "median_positive_mask": rs["q_positive_mask"],
                     "median_ae": rs["q_ae"],
                     "median_inverse": rs["q_inverse"],
                 }
+        # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
             q_rs = self._quantile(net, q_batch, auto_encode, True)
         with timing_context(self, "forward.cdf"):
@@ -305,7 +311,8 @@ class DDR(ModelBase):
             if q is None:
                 raise ValueError(f"quantile cannot be predicted without q")
             q_batch = self._expand(len(net), q)
-            forward_dict["quantiles"] = self._quantile(net, q_batch, False, False)["y"]
+            pack = self._quantile(net, q_batch, False, False)
+            forward_dict["quantiles"] = pack["median"] + pack["y_res"]
         if not forward_dict:
             forward_dict = self._core(net, y_batch, False)
         return forward_dict
@@ -353,7 +360,8 @@ class DDR(ModelBase):
             for q in np.linspace(0.05, 0.95, 10):
                 q = q.item()
                 self.q_metric.config["q"] = q
-                yq = self._quantile(net, self._expand(len(net), q), False, False)["y"]
+                pack = self._quantile(net, self._expand(len(net), q), False, False)
+                yq = pack["y_res"] + pack["median"]
                 q_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
             ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)
