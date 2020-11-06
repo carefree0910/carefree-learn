@@ -120,6 +120,7 @@ class DDRCore(nn.Module):
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
+            1,
             to_transition_builder=q_to_latent_builder,
             from_transition_builder=q_from_latent_builder,
         )
@@ -128,6 +129,7 @@ class DDRCore(nn.Module):
         self.y_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
+            1,
             to_transition_builder=y_to_latent_builder,
             from_transition_builder=y_from_latent_builder,
         )

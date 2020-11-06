@@ -345,6 +345,7 @@ class PseudoInvertibleBlock(Module):
     def __init__(
         self,
         in_dim: int,
+        latent_dim: int,
         out_dim: int,
         *,
         to_activation: str = "mish",
@@ -353,11 +354,10 @@ class PseudoInvertibleBlock(Module):
         from_transition_builder: Optional[Callable[[int, int], Module]] = None,
     ):
         super().__init__()
-        dim = max(in_dim, out_dim)
         if to_transition_builder is not None:
-            self.to_latent = to_transition_builder(in_dim, out_dim)
+            self.to_latent = to_transition_builder(in_dim, latent_dim)
         else:
-            num_units = [dim, dim, dim]
+            num_units = [latent_dim, latent_dim, latent_dim]
             self.to_latent = MLP.simple(
                 in_dim,
                 None,
@@ -365,12 +365,12 @@ class PseudoInvertibleBlock(Module):
                 activation=to_activation,
             )
         if from_transition_builder is not None:
-            self.from_latent = from_transition_builder(out_dim, in_dim)
+            self.from_latent = from_transition_builder(latent_dim, in_dim)
         else:
             self.from_latent = MLP.simple(
-                dim,
-                in_dim,
-                [dim, dim],
+                latent_dim,
+                out_dim,
+                [latent_dim, latent_dim],
                 bias=True,
                 activation=from_activation,
             )
