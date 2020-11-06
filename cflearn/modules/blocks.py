@@ -365,7 +365,7 @@ class PseudoInvertibleBlock(Module):
                 activation=to_activation,
             )
         if from_transition_builder is not None:
-            self.from_latent = from_transition_builder(latent_dim, in_dim)
+            self.from_latent = from_transition_builder(latent_dim, out_dim)
         else:
             self.from_latent = MLP.simple(
                 latent_dim,
