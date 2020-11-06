@@ -552,6 +552,7 @@ class MonotonousMapping(Module):
         init_method: Optional[str] = "normal",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
+        scaler: Optional[float] = None,
         return_blocks: bool = False,
         **kwargs: Any,
     ) -> Union[List[Module], nn.Sequential]:
@@ -569,6 +570,7 @@ class MonotonousMapping(Module):
             local_kwargs["in_dim"] = in_dim_
             local_kwargs["out_dim"] = out_dim_
             if use_couple:
+                local_kwargs["scaler"] = scaler
                 local_kwargs["hidden_dim"] = hidden_dim
                 return cls.make_couple(**local_kwargs)
             local_kwargs["bias"] = bias
