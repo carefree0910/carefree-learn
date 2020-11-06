@@ -487,7 +487,7 @@ class MonotonousMapping(Module):
         return net
 
     def extra_repr(self) -> str:
-        msg = f"(positive): {self.positive_transform}"
+        msg = f"(ascent): {self.ascent}\n(positive): {self.positive_transform}"
         if self.scaler is None:
             return msg
         return f"{msg}\n(scaler): {self.scaler.shape}"
