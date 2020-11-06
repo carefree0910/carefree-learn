@@ -238,18 +238,16 @@ class DDRCore(nn.Module):
                 raise ValueError(msg)
             q_batch = net.new_zeros(len(net), 1)
         if q_batch is None:
-            q1 = q2 = q_latent = None
+            q1 = q2 = None
         else:
             if not median:
                 q_batch = self.q_fn(q_batch)
             q1, q2 = self.q_invertible(q_batch, net)
             q1, q2 = q1.net, q2.net
-            q_latent = torch.cat([q1, q2], dim=1)
         # simulate quantile function
         q_ae = q_inverse = None
-        y_inverse_latent = yq_inverse_latent = None
-        if q_latent is None:
-            y_results = qy_latent = None
+        if q_batch is None:
+            y_results = None
         else:
             assert q1 is not None and q2 is not None
             if auto_encode:
@@ -257,26 +255,14 @@ class DDRCore(nn.Module):
                 q_ae = self.q_inv_fn(q_ae_logit.net)
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
-            qy_latent = torch.cat([q1, q2], dim=1)
             y_pack = self.y_invertible.inverse((q1, q2), net)
             y_results = self._merge_q_outputs(y_pack, q_batch)
             if do_inverse:
                 y = y_results["y_res"].detach() + y_results["median"].detach()
                 inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
-                y_inverse_latent = inverse_results["y_latent"]
-                yq_inverse_latent = inverse_results["yq_latent"]
         results = y_results or {}
-        results.update(
-            {
-                "q_ae": q_ae,
-                "q_latent": q_latent,
-                "qy_latent": qy_latent,
-                "q_inverse": q_inverse,
-                "y_inverse_latent": y_inverse_latent,
-                "yq_inverse_latent": yq_inverse_latent,
-            }
-        )
+        results.update({"q_ae": q_ae, "q_inverse": q_inverse})
         return results
 
     def _y_results(
@@ -287,42 +273,25 @@ class DDRCore(nn.Module):
     ) -> Dict[str, Optional[Tensor]]:
         # prepare y_latent
         if y_batch is None:
-            y1 = y2 = y_latent = None
+            y1 = y2 = None
         else:
             y_batch = self.y_fn(y_batch)
             y1, y2 = self.y_invertible(y_batch, net)
             y1, y2 = y1.net, y2.net
-            y_latent = torch.cat([y1, y2], dim=1)
         # simulate cdf
         y_inverse_res = None
-        q_inverse_latent = qy_inverse_latent = None
-        if y_latent is None:
-            q = q_logit = yq_latent = None
+        if y_batch is None:
+            q = q_logit = None
         else:
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
-            yq_latent = torch.cat([y1, y2], dim=1)
             q_logit = self.q_invertible.inverse((y1, y2), net).net
             q = self.q_inv_fn(q_logit)
-            with self._detach_q():
-                if not do_inverse:
-                    pack = self.q_invertible(q.detach(), net)
-                    q_inverse_latent = pack[0].net, pack[0].net
-                    q_inverse_latent = torch.cat(q_inverse_latent, dim=1)
-                else:
+            if do_inverse:
+                with self._detach_q():
                     inverse_results = self._q_results(net, q)
                     y_inverse_res = inverse_results["y_res"]
-                    q_inverse_latent = inverse_results["q_latent"]
-                    qy_inverse_latent = inverse_results["qy_latent"]
-        return {
-            "q": q,
-            "q_logit": q_logit,
-            "y_latent": y_latent,
-            "yq_latent": yq_latent,
-            "y_inverse_res": y_inverse_res,
-            "q_inverse_latent": q_inverse_latent,
-            "qy_inverse_latent": qy_inverse_latent,
-        }
+        return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
 
     def forward(
         self,

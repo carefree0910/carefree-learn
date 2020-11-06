@@ -18,7 +18,6 @@ class DDRLoss(LossBase, LoggingMixin):
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
-        self._lb_latent = config.setdefault("lambda_latent", 10.0)
 
     def _q_losses(
         self,
@@ -81,21 +80,8 @@ class DDRLoss(LossBase, LoggingMixin):
         q_inverse = predictions["q_inverse"]
         q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
         q_recover_losses = self._lb_recover * q_recover_losses
-        # q latent losses
-        q_latent = predictions["q_latent"]
-        qy_latent = predictions["qy_latent"]
-        y_inverse_latent = predictions["y_inverse_latent"]
-        yq_inverse_latent = predictions["yq_inverse_latent"]
-        qll1 = mse_loss(qy_latent, y_inverse_latent.detach(), reduction="none")
-        qll2 = mse_loss(yq_inverse_latent, q_latent.detach(), reduction="none")
-        qll1 = qll1.mean(1, keepdims=True)
-        qll2 = qll2.mean(1, keepdims=True)
-        q_latent_losses = self._lb_latent * (qll1 + qll2)
         # combine
-        losses = {
-            "q_latent": q_latent_losses,
-            "q_recover": q_recover_losses,
-        }
+        losses = {"q_recover": q_recover_losses}
         if median_ae_losses is not None:
             losses["median_ae"] = median_ae_losses
         if median_recover_losses is not None:
@@ -126,25 +112,11 @@ class DDRLoss(LossBase, LoggingMixin):
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
                 y_recover_losses = self._lb_recover * y_recover_losses
-        # y latent losses
-        y_latent = predictions["y_latent"]
-        yq_latent = predictions["yq_latent"]
-        q_inverse_latent = predictions["q_inverse_latent"]
-        yll1 = mse_loss(yq_latent, q_inverse_latent.detach(), reduction="none")
-        yll1 = yll1.mean(1, keepdims=True)
-        qy_inverse_latent = predictions["qy_inverse_latent"]
-        if qy_inverse_latent is None:
-            y_latent_losses = yll1
-        else:
-            yll2 = mse_loss(qy_inverse_latent, y_latent.detach(), reduction="none")
-            yll2 = yll2.mean(1, keepdims=True)
-            y_latent_losses = yll1 + yll2
-        y_latent_losses = self._lb_latent * y_latent_losses
         # pdf losses
         pdf = predictions["pdf"]
         pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
         # combine
-        losses = {"y_latent": y_latent_losses}
+        losses = {}
         if y_recover_losses is not None:
             losses["y_recover"] = y_recover_losses
         if cdf_losses is not None:
