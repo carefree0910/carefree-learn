@@ -242,20 +242,23 @@ class DDR(ModelBase):
                 y_batch = y_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
         # build predictions
         with timing_context(self, "forward.median"):
+            rs = self._median(net, auto_encode, True)
+            median_rs = {
+                "median_med_add": rs["med_add"],
+                "median_med_mul": rs["med_mul"],
+            }
             if synthetic:
-                median_rs = {}
-            else:
-                rs = self._median(net, auto_encode, True)
-                median_rs = {
+                return median_rs
+            median_rs.update(
+                {
                     "predictions": rs["median"],
-                    "median_med_add": rs["med_add"],
-                    "median_med_mul": rs["med_mul"],
                     "median_med_res": rs["med_res"],
                     "median_sign": rs["q_sign"],
                     "median_positive_mask": rs["q_positive_mask"],
                     "median_ae": rs["q_ae"],
                     "median_inverse": rs["q_inverse"],
                 }
+            )
         # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
             q_rs = self._quantile(net, q_batch, auto_encode, True)

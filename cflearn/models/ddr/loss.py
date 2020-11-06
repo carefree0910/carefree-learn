@@ -26,14 +26,14 @@ class DDRLoss(LossBase, LoggingMixin):
         target: torch.Tensor,
         is_synthetic: bool,
     ) -> tensor_dict_type:
-        if is_synthetic:
-            return {}
         # median
-        median = predictions["predictions"]
-        median_losses = l1_loss(median, target, reduction="none")
         median_med_add = predictions["median_med_add"]
         median_med_mul = predictions["median_med_mul"]
         median_affine_losses = median_med_add.abs() + median_med_mul.abs()
+        if is_synthetic:
+            return {"median_affine": median_affine_losses}
+        median = predictions["predictions"]
+        median_losses = l1_loss(median, target, reduction="none")
         median_sign = predictions["median_sign"]
         median_residual = predictions["median_med_res"]
         target_residual = target - median.detach()
