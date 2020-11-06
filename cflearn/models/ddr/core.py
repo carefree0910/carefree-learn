@@ -76,12 +76,13 @@ def monotonous_builder(
                 self,
                 net: Union[Tensor, tensor_tuple_type],
                 cond: Tensor,
-            ) -> Union[Tensor, tensor_tuple_type]:
+            ) -> Union[Tensor, tensor_tuple_type, ConditionalOutput]:
                 if to_latent:
                     assert isinstance(net, Tensor)
                     return self.m1(net, cond), self.m2(net, cond)
                 assert isinstance(net, tuple)
-                return self.m1(net[0], cond) + self.m2(net[1], cond)
+                o1, o2 = self.m1(net[0], cond), self.m2(net[1], cond)
+                return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond)
 
         return MonoSplit()
 
@@ -195,6 +196,7 @@ class DDRCore(nn.Module):
             if not median:
                 q_batch = self.q_fn(q_batch)
             q1, q2 = self.q_invertible(q_batch, net)
+            q1, q2 = q1.net, q2.net
             q_latent = torch.cat([q1, q2], dim=1)
         # simulate quantile function
         q_ae = q_inverse = None
@@ -205,7 +207,7 @@ class DDRCore(nn.Module):
             assert q1 is not None and q2 is not None
             if auto_encode:
                 q_ae_logit = self.q_invertible.inverse((q1, q2), net)
-                q_ae = self.q_inv_fn(q_ae_logit)
+                q_ae = self.q_inv_fn(q_ae_logit.net)
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             qy_latent = torch.cat([q1, q2], dim=1)
@@ -243,6 +245,7 @@ class DDRCore(nn.Module):
         else:
             y_batch = self.y_fn(y_batch)
             y1, y2 = self.y_invertible(y_batch, net)
+            y1, y2 = y1.net, y2.net
             y_latent = torch.cat([y1, y2], dim=1)
         # simulate cdf
         y_ae = y_inverse = None
@@ -252,15 +255,16 @@ class DDRCore(nn.Module):
         else:
             if auto_encode:
                 y_ae = self.y_invertible.inverse((y1, y2), net)
-                y_ae = self.y_inv_fn(y_ae)
+                y_ae = self.y_inv_fn(y_ae.net)
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             yq_latent = torch.cat([y1, y2], dim=1)
-            q_logit = self.q_invertible.inverse((y1, y2), net)
+            q_logit = self.q_invertible.inverse((y1, y2), net).net
             q = self.q_inv_fn(q_logit)
             with self._detach_q():
                 if not do_inverse:
-                    q_inverse_latent = self.q_invertible(q.detach(), net)
+                    pack = self.q_invertible(q.detach(), net)
+                    q_inverse_latent = pack[0].net, pack[0].net
                     q_inverse_latent = torch.cat(q_inverse_latent, dim=1)
                 else:
                     inverse_results = self.forward(

@@ -341,6 +341,11 @@ class InvertibleBlock(Module):
         return net2, net1
 
 
+class ConditionalOutput(NamedTuple):
+    net: Tensor
+    cond: Tensor
+
+
 class PseudoInvertibleBlock(Module):
     def __init__(
         self,
@@ -379,7 +384,7 @@ class PseudoInvertibleBlock(Module):
         self,
         net: Union[Tensor, Any],
         cond: Optional[Union[Tensor, Any]] = None,
-    ) -> Tensor:
+    ) -> Union[Tensor, ConditionalOutput]:
         if cond is None:
             return self.to_latent(net)
         return self.to_latent(net, cond)
@@ -388,7 +393,7 @@ class PseudoInvertibleBlock(Module):
         self,
         net: Union[Tensor, Any],
         cond: Optional[Union[Tensor, Any]] = None,
-    ) -> Tensor:
+    ) -> Union[Tensor, ConditionalOutput]:
         if cond is None:
             return self.from_latent(net)
         return self.from_latent(net, cond)
@@ -595,7 +600,8 @@ class MonotonousMapping(Module):
 class ConditionalBlocks(Module):
     def __init__(self, main_blocks: ModuleList, condition_blocks: ModuleList):
         super().__init__()
-        if len(main_blocks) != len(condition_blocks):
+        self.num_blocks = len(main_blocks)
+        if self.num_blocks != len(condition_blocks):
             msg = "`main_blocks` and `condition_blocks` should have same sizes"
             raise ValueError(msg)
         self.main_blocks = main_blocks
@@ -605,7 +611,7 @@ class ConditionalBlocks(Module):
         for main, condition in zip(self.main_blocks, self.condition_blocks):
             cond = condition(cond)
             net = main(net) + cond
-        return net
+        return ConditionalOutput(net, cond)
 
 
 class AttentionOutput(NamedTuple):
@@ -752,5 +758,6 @@ __all__ = [
     "PseudoInvertibleBlock",
     "MonotonousMapping",
     "ConditionalBlocks",
+    "ConditionalOutput",
     "Attention",
 ]
