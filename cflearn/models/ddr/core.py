@@ -22,7 +22,7 @@ from ...modules.blocks import PseudoInvertibleBlock
 
 def default_transition_builder(dim: int) -> nn.Module:
     h_dim = int(dim // 2)
-    return MonotonousMapping.tanh_couple(h_dim, h_dim, h_dim, ascent=True)
+    return MonotonousMapping.make_couple(h_dim, h_dim, h_dim, "tanh", ascent=True)
 
 
 def monotonous_builder(
