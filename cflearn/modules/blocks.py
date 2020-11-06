@@ -516,7 +516,7 @@ class MonotonousMapping(Module):
             batch_norm=batch_norm,
             activation=activation,
             init_method=init_method,
-            positive_transform="softmax" if in_dim > 1 else "sigmoid",
+            positive_transform="softmax" if in_dim > 1 else "softplus",
             scaler=scaler,
             **kwargs,
         )
@@ -548,7 +548,7 @@ class MonotonousMapping(Module):
         batch_norm: bool = False,
         final_batch_norm: bool = False,
         use_couple: bool = True,
-        activation: Optional[str] = "tanh",
+        activation: Optional[str] = "sigmoid",
         init_method: Optional[str] = "normal",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
