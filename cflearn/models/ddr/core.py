@@ -144,8 +144,12 @@ class DDRCore(nn.Module):
             self.blocks.append(block)
 
     @property
+    def q_fn(self) -> Callable[[Tensor], Tensor]:
+        return lambda q: 2.0 * q - 1.0
+
+    @property
     def y_fn(self) -> Callable[[Tensor], Tensor]:
-        return lambda y: (y - self.y_min) / self.y_diff
+        return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
 
     @property
     def q_inv_fn(self) -> Callable[[Tensor], Tensor]:
@@ -153,7 +157,7 @@ class DDRCore(nn.Module):
 
     @property
     def y_inv_fn(self) -> Callable[[Tensor], Tensor]:
-        return lambda y: (y * self.y_diff) + self.y_min
+        return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
 
     def _detach_q(self) -> context_error_handler:
         def switch(requires_grad: bool) -> None:
@@ -182,10 +186,12 @@ class DDRCore(nn.Module):
             if q_batch is not None:
                 msg = "`median` is specified but `q_batch` is still provided"
                 raise ValueError(msg)
-            q_batch = net.new_full([len(net), 1], 0.5)
+            q_batch = net.new_zeros(len(net), 1)
         if q_batch is None:
             q1 = q2 = q_latent = None
         else:
+            if not median:
+                q_batch = self.q_fn(q_batch)
             q1, q2 = self.q_invertible(q_batch, net)
             q_latent = torch.cat([q1, q2], dim=1)
         # simulate quantile function
