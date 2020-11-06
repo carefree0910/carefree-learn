@@ -31,12 +31,6 @@ class DDRLoss(LossBase, LoggingMixin):
         # median
         median = predictions["predictions"]
         median_losses = l1_loss(median, target, reduction="none")
-        median_ae = predictions["median_ae"]
-        median_ae_losses = torch.abs(median_ae - 0.5)
-        median_ae_losses = self._lb_recover * median_ae_losses
-        median_inverse = predictions["median_inverse"]
-        median_recover_losses = torch.abs(median_inverse - 0.5)
-        median_recover_losses = self._lb_recover * median_recover_losses
         median_med_add = predictions["median_med_add"]
         median_med_mul = predictions["median_med_mul"]
         median_affine_losses = median_med_add.abs() + median_med_mul.abs()
@@ -56,14 +50,19 @@ class DDRLoss(LossBase, LoggingMixin):
         # combine
         return {
             "median": median_losses,
-            "median_ae": median_ae_losses,
-            "median_recover": median_recover_losses,
             "median_affine": median_affine_losses,
             "median_residual": median_residual_losses,
             "quantile_losses": quantile_losses,
         }
 
     def _qy_losses(self, predictions: tensor_dict_type) -> tensor_dict_type:
+        # median
+        median_ae = predictions["median_ae"]
+        median_ae_losses = torch.abs(median_ae - 0.5)
+        median_ae_losses = self._lb_recover * median_ae_losses
+        median_inverse = predictions["median_inverse"]
+        median_recover_losses = torch.abs(median_inverse - 0.5)
+        median_recover_losses = self._lb_recover * median_recover_losses
         # q auto encode losses
         q_ae = predictions["q_ae"]
         q_batch = predictions["q_batch"]
@@ -86,6 +85,8 @@ class DDRLoss(LossBase, LoggingMixin):
         q_latent_losses = self._lb_latent * (q_latent_losses1 + q_latent_losses2)
         # combine
         return {
+            "median_ae": median_ae_losses,
+            "median_recover": median_recover_losses,
             "q_ae": q_ae_losses,
             "q_recover": q_recover_losses,
             "q_latent": q_latent_losses,
