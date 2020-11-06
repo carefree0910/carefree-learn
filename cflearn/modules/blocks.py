@@ -493,90 +493,56 @@ class MonotonousMapping(Module):
         return f"{msg}\n(scaler): {self.scaler.shape}"
 
     @classmethod
-    def sigmoid_couple(
+    def make_couple(
         cls,
         in_dim: int,
         hidden_dim: int,
         out_dim: int,
+        activation: str,
         *,
         ascent: bool,
         dropout: float = 0.0,
         batch_norm: bool = False,
+        scaler: Optional[float] = 0.35,
         **kwargs: Any,
     ) -> nn.Sequential:
+        if activation == "tanh":
+            inverse_activation = "atanh"
+        elif activation == "sigmoid":
+            inverse_activation = "logit"
+        else:
+            msg = f"inverse activation of '{activation}' is not defined"
+            raise NotImplementedError(msg)
         init_method = "normal"
         initialize_config = kwargs.setdefault("initialize_config", {})
         initialize_config.setdefault("std", 3.0)
-        sigmoid_unit = cls(
+        squash_unit = cls(
             in_dim,
             hidden_dim,
             ascent=ascent,
             bias=True,
             dropout=dropout,
             batch_norm=batch_norm,
-            activation="sigmoid",
+            activation=activation,
             init_method=init_method,
             positive_transform="softmax" if in_dim > 1 else "sigmoid",
-            scaler=0.35,
+            scaler=scaler,
             **kwargs,
         )
-        logit_unit = cls(
+        inverse_unit = cls(
             hidden_dim,
             out_dim,
             ascent=True,
             bias=False,
             dropout=dropout,
             batch_norm=batch_norm,
-            activation="logit",
+            activation=inverse_activation,
             init_method=init_method,
             positive_transform="softmax",
             use_scaler=False,
             **kwargs,
         )
-        return nn.Sequential(sigmoid_unit, logit_unit)
-
-    @classmethod
-    def tanh_couple(
-        cls,
-        in_dim: int,
-        hidden_dim: int,
-        out_dim: int,
-        *,
-        ascent: bool,
-        dropout: float = 0.0,
-        batch_norm: bool = False,
-        **kwargs: Any,
-    ) -> nn.Sequential:
-        init_method = "normal"
-        initialize_config = kwargs.setdefault("initialize_config", {})
-        initialize_config.setdefault("std", 3.0)
-        tanh_unit = cls(
-            in_dim,
-            hidden_dim,
-            ascent=ascent,
-            bias=True,
-            dropout=dropout,
-            batch_norm=batch_norm,
-            activation="tanh",
-            init_method=init_method,
-            positive_transform="softmax" if in_dim > 1 else "sigmoid",
-            scaler=0.35,
-            **kwargs,
-        )
-        atanh_unit = cls(
-            hidden_dim,
-            out_dim,
-            ascent=True,
-            bias=False,
-            dropout=dropout,
-            batch_norm=batch_norm,
-            activation="atanh",
-            init_method=init_method,
-            positive_transform="softmax",
-            use_scaler=False,
-            **kwargs,
-        )
-        return nn.Sequential(tanh_unit, atanh_unit)
+        return nn.Sequential(squash_unit, inverse_unit)
 
     @classmethod
     def stack(
@@ -590,7 +556,8 @@ class MonotonousMapping(Module):
         dropout: float = 0.0,
         batch_norm: bool = False,
         final_batch_norm: bool = False,
-        activation: Optional[str] = "tanh_couple",
+        use_couple: bool = True,
+        activation: Optional[str] = "tanh",
         init_method: Optional[str] = "xavier_uniform",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
@@ -602,6 +569,7 @@ class MonotonousMapping(Module):
             "ascent": ascent,
             "dropout": dropout,
             "batch_norm": batch_norm,
+            "activation": activation,
         }
 
         def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> Module:
@@ -609,11 +577,10 @@ class MonotonousMapping(Module):
             local_kwargs.update(shallow_copy_dict(kwargs))
             local_kwargs["in_dim"] = in_dim_
             local_kwargs["out_dim"] = out_dim_
-            if activation in ("sigmoid_couple", "tanh_couple"):
+            if use_couple:
                 local_kwargs["hidden_dim"] = hidden_dim
-                return getattr(cls, activation)(**local_kwargs)
+                return cls.make_couple(**local_kwargs)
             local_kwargs["bias"] = bias
-            local_kwargs["activation"] = activation
             local_kwargs["init_method"] = init_method
             local_kwargs["positive_transform"] = positive_transform
             local_kwargs["use_scaler"] = use_scaler
