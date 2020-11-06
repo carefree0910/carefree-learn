@@ -51,9 +51,9 @@ class DDRLoss(LossBase, LoggingMixin):
         # combine
         return {
             "median": median_losses,
+            "quantile": quantile_losses,
             "median_affine": median_affine_losses,
             "median_residual": mr_losses,
-            "quantile_losses": quantile_losses,
         }
 
     def _qy_losses(
