@@ -219,11 +219,7 @@ class DDRCore(nn.Module):
             y = self.y_invertible.inverse((q1, q2), net)
             y = self.y_inv_fn(y)
             if do_inverse:
-                inverse_results = self.forward(
-                    net,
-                    y_batch=y.detach(),
-                    do_inverse=False,
-                )
+                inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
                 y_inverse_latent = inverse_results["y_latent"]
                 yq_inverse_latent = inverse_results["yq_latent"]
@@ -272,11 +268,7 @@ class DDRCore(nn.Module):
                     q_inverse_latent = pack[0].net, pack[0].net
                     q_inverse_latent = torch.cat(q_inverse_latent, dim=1)
                 else:
-                    inverse_results = self.forward(
-                        net,
-                        q_batch=q,
-                        do_inverse=False,
-                    )
+                    inverse_results = self._q_results(net, q)
                     y_inverse = inverse_results["y"]
                     q_inverse_latent = inverse_results["q_latent"]
                     qy_inverse_latent = inverse_results["qy_latent"]
