@@ -25,6 +25,7 @@ from ..models.base import ModelBase
 from ..misc.toolkit import to_prob
 from ..misc.toolkit import to_numpy
 from ..misc.toolkit import to_torch
+from ..misc.toolkit import is_float
 from ..misc.toolkit import to_standard
 from ..misc.toolkit import collate_np_dicts
 from ..misc.toolkit import eval_context
@@ -369,15 +370,15 @@ class Inference(LoggingMixin):
 
         # regression
         if self.data.is_reg:
-            recover = partial(self.data.recover_labels, inplace=True)
+            fn = partial(self.data.recover_labels, inplace=True)
             if not return_all:
                 predictions = collated["predictions"]
                 if requires_recover:
-                    return recover(predictions)
+                    return fn(predictions)
                 return predictions
             if not requires_recover:
                 return collated
-            return {k: recover(v) for k, v in collated.items()}
+            return {k: v if not is_float(v) else fn(v) for k, v in collated.items()}
 
         # classification
         def _return(new_predictions: np.ndarray) -> Union[np.ndarray, np_dict_type]:
