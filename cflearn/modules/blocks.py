@@ -493,6 +493,7 @@ class MonotonousMapping(Module):
         dropout: float = 0.0,
         batch_norm: bool = False,
         scaler: Optional[float] = None,
+        init_method: Optional[str] = "normal",
         **kwargs: Any,
     ) -> nn.Sequential:
         if activation == "tanh":
@@ -504,7 +505,6 @@ class MonotonousMapping(Module):
         else:
             msg = f"inverse activation of '{activation}' is not defined"
             raise NotImplementedError(msg)
-        init_method = "normal"
         initialize_config = kwargs.setdefault("initialize_config", {})
         initialize_config.setdefault("std", 3.0)
         squash_unit = cls(
@@ -549,7 +549,7 @@ class MonotonousMapping(Module):
         final_batch_norm: bool = False,
         use_couple: bool = True,
         activation: Optional[str] = "tanh",
-        init_method: Optional[str] = "xavier_uniform",
+        init_method: Optional[str] = "normal",
         positive_transform: str = "softmax",
         use_scaler: bool = True,
         return_blocks: bool = False,
