@@ -262,7 +262,7 @@ class Activations:
         try:
             return getattr(nn, item)(**kwargs)
         except AttributeError:
-            func = getattr(torch, item, None)
+            func = getattr(torch, item, getattr(nn.functional, item, None))
             if func is None:
                 raise NotImplementedError(
                     "neither pytorch nor custom Activations "
