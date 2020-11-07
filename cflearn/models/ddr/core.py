@@ -244,7 +244,6 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         q_batch: Optional[Tensor] = None,
-        auto_encode: bool = False,
         do_inverse: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
@@ -262,14 +261,11 @@ class DDRCore(nn.Module):
             q1, q2 = self.q_invertible(q_batch, net)
             q1, q2 = q1.net, q2.net
         # simulate quantile function
-        q_ae = q_inverse = None
+        q_inverse = None
         if q_batch is None:
             y_results = None
         else:
             assert q1 is not None and q2 is not None
-            if auto_encode:
-                q_ae_logit = self.q_invertible.inverse((q1, q2), net)
-                q_ae = self.q_inv_fn(q_ae_logit.net)
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
@@ -281,7 +277,7 @@ class DDRCore(nn.Module):
                 inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
         results = y_results or {}
-        results.update({"q_ae": q_ae, "q_inverse": q_inverse})
+        results.update({"q_inverse": q_inverse})
         return results
 
     def _y_results(
@@ -318,12 +314,11 @@ class DDRCore(nn.Module):
         *,
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
-        auto_encode: bool = False,
         do_inverse: bool = False,
         median: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         results: Dict[str, Optional[Tensor]] = {}
-        results.update(self._q_results(net, q_batch, auto_encode, do_inverse, median))
+        results.update(self._q_results(net, q_batch, do_inverse, median))
         results.update(self._y_results(net, y_batch, do_inverse))
         return results
 

@@ -13,7 +13,7 @@ from ...modules.auxiliary import MTL
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.q_only = config["q_only"]
-        self.mtl = MTL(4 if self.q_only else 20, config["mtl_method"])
+        self.mtl = MTL(4 if self.q_only else 18, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
@@ -63,33 +63,20 @@ class DDRLoss(LossBase, LoggingMixin):
         is_synthetic: bool,
     ) -> tensor_dict_type:
         # median
-        median_ae_losses = median_recover_losses = None
+        median_recover_losses = None
         if not is_synthetic:
-            median_ae = predictions["median_ae"]
-            median_ae_losses = torch.abs(median_ae - 0.5)
-            median_ae_losses = self._lb_recover * median_ae_losses
             median_inverse = predictions["median_inverse"]
             median_recover_losses = torch.abs(median_inverse - 0.5)
             median_recover_losses = self._lb_recover * median_recover_losses
-        # q auto encode
-        q_ae_losses = None
-        q_batch = predictions["q_batch"]
-        if not is_synthetic:
-            q_ae = predictions["q_ae"]
-            q_ae_losses = l1_loss(q_ae, q_batch, reduction="none")
-            q_ae_losses = self._lb_recover * q_ae_losses
         # q recover
+        q_batch = predictions["q_batch"]
         q_inverse = predictions["q_inverse"]
         q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
         q_recover_losses = self._lb_recover * q_recover_losses
         # combine
         losses = {"q_recover": q_recover_losses}
-        if median_ae_losses is not None:
-            losses["median_ae"] = median_ae_losses
         if median_recover_losses is not None:
             losses["median_recover"] = median_recover_losses
-        if q_ae_losses is not None:
-            losses["q_ae"] = q_ae_losses
         return losses
 
     def _yq_losses(
