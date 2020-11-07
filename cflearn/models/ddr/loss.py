@@ -3,7 +3,6 @@ import torch
 from typing import *
 from cftool.misc import LoggingMixin
 from torch.nn.functional import l1_loss
-from torch.nn.functional import mse_loss
 from torch.nn.functional import softplus
 
 from ...losses import LossBase
@@ -42,7 +41,7 @@ class DDRLoss(LossBase, LoggingMixin):
         mr = median_residual[same_sign_mask]
         mr_losses = torch.zeros_like(target_residual)
         mr_losses[same_sign_mask] = torch.abs(tmr - mr)
-        # quantile losses
+        # quantile
         q_batch = predictions["q_batch"]
         assert q_batch is not None
         y_res = predictions["y_res"]
@@ -70,14 +69,14 @@ class DDRLoss(LossBase, LoggingMixin):
             median_inverse = predictions["median_inverse"]
             median_recover_losses = torch.abs(median_inverse - 0.5)
             median_recover_losses = self._lb_recover * median_recover_losses
-        # q auto encode losses
+        # q auto encode
         q_ae_losses = None
         q_batch = predictions["q_batch"]
         if not is_synthetic:
             q_ae = predictions["q_ae"]
             q_ae_losses = l1_loss(q_ae, q_batch, reduction="none")
             q_ae_losses = self._lb_recover * q_ae_losses
-        # q recover losses
+        # q recover
         q_inverse = predictions["q_inverse"]
         q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
         q_recover_losses = self._lb_recover * q_recover_losses
@@ -97,7 +96,7 @@ class DDRLoss(LossBase, LoggingMixin):
         target: torch.Tensor,
         is_synthetic: bool,
     ) -> tensor_dict_type:
-        # cdf losses
+        # cdf
         y_batch = predictions["y_batch"]
         assert y_batch is not None
         if is_synthetic:
@@ -106,14 +105,14 @@ class DDRLoss(LossBase, LoggingMixin):
             cdf_logit = predictions["cdf_logit"]
             assert cdf_logit is not None
             cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
-        # y auto encode & recover losses
+        # y auto encode & recover
         y_recover_losses = None
         if not is_synthetic:
             y_inverse = predictions["y_inverse_res"] + predictions["median"]
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
                 y_recover_losses = self._lb_recover * y_recover_losses
-        # pdf losses
+        # pdf
         pdf = predictions["pdf"]
         pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
         # combine
