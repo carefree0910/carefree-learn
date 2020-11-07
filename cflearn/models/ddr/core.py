@@ -208,9 +208,8 @@ class DDRCore(nn.Module):
         y_pos_mul = y_pos_mul.relu_()
         y_neg_mul = (1.0 - y_neg_mul).relu_()
         if median:
-            q_sign = q_positive_mask = med_res = y_res = None
-            add_net = 0.5 * (y_pos_add + y_neg_add)
-            mul_net = 0.5 * (y_pos_mul + y_neg_mul)
+            q_sign = q_positive_mask = None
+            y_res = add_net = mul_net = med_res = None
         else:
             q_sign = torch.sign(q_batch)
             q_positive_mask = q_sign == 1.0
@@ -218,15 +217,28 @@ class DDRCore(nn.Module):
             mul_net = torch.where(q_positive_mask, y_pos_mul, y_neg_mul)
             med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
             y_res = med_res * mul_net + add_net
-        return {
-            "y_res": y_res,
-            "median": med,
-            "med_add": add_net,
-            "med_mul": mul_net,
-            "med_res": med_res,
-            "q_sign": q_sign,
-            "q_positive_mask": q_positive_mask,
-        }
+        results = {"median": med}
+        if median:
+            results.update(
+                {
+                    "pos_add": y_pos_add,
+                    "neg_add": y_neg_add,
+                    "pos_mul": y_pos_mul,
+                    "neg_mul": y_neg_mul,
+                }
+            )
+        else:
+            results.update(
+                {
+                    "y_res": y_res,
+                    "med_add": add_net,
+                    "med_mul": mul_net,
+                    "med_res": med_res,
+                    "q_sign": q_sign,
+                    "q_positive_mask": q_positive_mask,
+                }
+            )
+        return results
 
     def _q_results(
         self,

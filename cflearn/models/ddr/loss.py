@@ -25,9 +25,11 @@ class DDRLoss(LossBase, LoggingMixin):
         is_synthetic: bool,
     ) -> tensor_dict_type:
         # median
-        median_med_add = predictions["median_med_add"]
-        median_med_mul = predictions["median_med_mul"]
-        median_affine_losses = median_med_add.abs() + median_med_mul.abs()
+        mpa = predictions["median_pos_add"]
+        mna = predictions["median_neg_add"]
+        mpm = predictions["median_pos_mul"]
+        mnm = predictions["median_neg_mul"]
+        median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
         if is_synthetic:
             return {"median_affine": median_affine_losses}
         median = predictions["predictions"]

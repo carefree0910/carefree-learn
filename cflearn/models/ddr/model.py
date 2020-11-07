@@ -233,8 +233,10 @@ class DDR(ModelBase):
         with timing_context(self, "forward.median"):
             rs = self._median(net, auto_encode, True)
             median_rs = {
-                "median_med_add": rs["med_add"],
-                "median_med_mul": rs["med_mul"],
+                "median_pos_add": rs["pos_add"],
+                "median_neg_add": rs["neg_add"],
+                "median_pos_mul": rs["pos_mul"],
+                "median_neg_mul": rs["neg_mul"],
             }
             if synthetic:
                 if self.q_only:
