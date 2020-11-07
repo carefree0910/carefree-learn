@@ -304,7 +304,7 @@ class DDRCore(nn.Module):
             q = self.q_inv_fn(q_logit)
             if do_inverse:
                 with self._detach_q():
-                    inverse_results = self._q_results(net, q)
+                    inverse_results = self._q_results(net, q.detach())
                     y_inverse_res = inverse_results["y_res"]
         return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
 
