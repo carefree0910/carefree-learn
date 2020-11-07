@@ -109,7 +109,7 @@ class DDR(ModelBase):
         if self.fetch_cdf:
             default_metric_types += ["cdf", "pdf"]
         if self.fetch_q and self.fetch_cdf:
-            default_metric_types.append("loss")
+            default_metric_types += ["q_recover", "y_recover", "loss"]
         default_metric_weights = {
             "ddr": 5.0,
             "median_affine": 10.0,
