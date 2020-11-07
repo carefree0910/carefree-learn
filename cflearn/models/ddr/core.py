@@ -109,6 +109,8 @@ class DDRCore(nn.Module):
         in_dim: int,
         y_min: float,
         y_max: float,
+        fetch_q: bool,
+        fetch_cdf: bool,
         num_layers: Optional[int] = None,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
@@ -118,6 +120,8 @@ class DDRCore(nn.Module):
         # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
+        self.fetch_q = fetch_q
+        self.fetch_cdf = fetch_cdf
         self.mish = Activations().mish
         if num_layers is None:
             num_layers = 1

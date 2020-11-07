@@ -63,6 +63,8 @@ class DDR(ModelBase):
             {
                 "y_min": instance.y_min,
                 "y_max": instance.y_max,
+                "fetch_q": instance.fetch_q,
+                "fetch_cdf": instance.fetch_cdf,
                 "num_layers": num_layers,
                 "num_blocks": num_blocks,
                 "latent_dim": latent_dim,
@@ -71,12 +73,20 @@ class DDR(ModelBase):
         )
         return cfg
 
+    @property
+    def fetch_q(self) -> bool:
+        return "q" in self.fetches
+
+    @property
+    def fetch_cdf(self) -> bool:
+        return "y" in self.fetches
+
     def _init_config(self) -> None:
         super()._init_config()
         # common
         self.config.setdefault("ema_decay", 0.0)
         # TODO : Optimize Structures when `q_only` is True
-        self.q_only = self.config.setdefault("q_only", False)
+        self.fetches = set(self.config.setdefault("fetches", {"q", "cdf"}))
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
@@ -89,10 +99,11 @@ class DDR(ModelBase):
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
-        self._loss_config["q_only"] = self.q_only
+        self._loss_config["fetch_q"] = self.fetch_q
+        self._loss_config["fetch_cdf"] = self.fetch_cdf
         # trainer config
         default_metric_types = ["ddr", "loss", "median_affine"]
-        if not self.q_only:
+        if self.fetch_cdf:
             default_metric_types += ["pdf", "cdf"]
         default_metric_weights = {
             "ddr": 5.0,
@@ -218,7 +229,7 @@ class DDR(ModelBase):
                 "median_neg_mul": rs["neg_mul"],
             }
             if synthetic:
-                if self.q_only:
+                if not self.fetch_cdf:
                     return median_rs
             else:
                 median_rs.update(

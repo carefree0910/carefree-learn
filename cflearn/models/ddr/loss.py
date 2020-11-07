@@ -12,8 +12,9 @@ from ...modules.auxiliary import MTL
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
-        self.q_only = config["q_only"]
-        self.mtl = MTL(4 if self.q_only else 18, config["mtl_method"])
+        self.fetch_q = config["fetch_q"]
+        self.fetch_cdf = config["fetch_cdf"]
+        self.mtl = MTL(8, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
@@ -122,7 +123,7 @@ class DDRLoss(LossBase, LoggingMixin):
         is_synthetic: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
         losses = self._q_losses(predictions, target, is_synthetic)
-        if not self.q_only:
+        if self.fetch_q and self.fetch_cdf:
             losses.update(self._qy_losses(predictions, is_synthetic))
             losses.update(self._yq_losses(predictions, target, is_synthetic))
         suffix = "" if not is_synthetic else "synthetic_"
