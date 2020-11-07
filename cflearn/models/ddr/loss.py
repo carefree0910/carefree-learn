@@ -3,7 +3,7 @@ import torch
 from typing import *
 from cftool.misc import LoggingMixin
 from torch.nn.functional import l1_loss
-
+from torch.nn.functional import softplus
 
 from ...losses import LossBase
 from ...types import tensor_dict_type
@@ -12,8 +12,107 @@ from ...modules.auxiliary import MTL
 
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
+        self.fetch_q = config["fetch_q"]
+        self.fetch_cdf = config["fetch_cdf"]
         self.mtl = MTL(18, config["mtl_method"])
+        self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
+        self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
+
+    def _q_losses(
+        self,
+        predictions: tensor_dict_type,
+        target: torch.Tensor,
+        is_synthetic: bool,
+    ) -> tensor_dict_type:
+        # median
+        mpa = predictions["median_pos_add"]
+        mna = predictions["median_neg_add"]
+        mpm = predictions["median_pos_mul"]
+        mnm = predictions["median_neg_mul"]
+        median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
+        if is_synthetic:
+            return {"median_affine": median_affine_losses}
+        median = predictions["predictions"]
+        median_losses = l1_loss(median, target, reduction="none")
+        # median residual
+        q_sign = predictions["q_sign"]
+        median_residual = predictions["med_res"]
+        target_residual = target - median.detach()
+        same_sign_mask = q_sign * torch.sign(target_residual) > 0
+        tmr = target_residual[same_sign_mask]
+        mr = median_residual[same_sign_mask]
+        mr_losses = torch.zeros_like(target_residual)
+        mr_losses[same_sign_mask] = torch.abs(tmr - mr)
+        # quantile
+        q_batch = predictions["q_batch"]
+        assert q_batch is not None
+        y_res = predictions["y_res"]
+        assert y_res is not None
+        quantile_losses = self._quantile_losses(y_res, target_residual, q_batch)
+        # combine
+        return {
+            "median": median_losses,
+            "quantile": quantile_losses,
+            "median_affine": median_affine_losses,
+            "median_residual": mr_losses,
+        }
+
+    def _y_losses(
+        self,
+        predictions: tensor_dict_type,
+        target: torch.Tensor,
+        is_synthetic: bool,
+    ) -> tensor_dict_type:
+        # cdf
+        cdf_losses = None
+        if not is_synthetic:
+            y_batch = predictions["y_batch"]
+            cdf_logit = predictions["cdf_logit"]
+            assert y_batch is not None and cdf_logit is not None
+            cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
+        # pdf
+        pdf = predictions["pdf"]
+        pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
+        # combine
+        losses = {}
+        if cdf_losses is not None:
+            losses["cdf"] = cdf_losses
+        if pdf_losses is not None:
+            losses["pdf"] = pdf_losses
+        return losses
+
+    def _dual_losses(
+        self,
+        predictions: tensor_dict_type,
+        is_synthetic: bool,
+    ) -> tensor_dict_type:
+        # median recover
+        median_recover_losses = None
+        if not is_synthetic:
+            median_inverse = predictions["median_inverse"]
+            median_recover_losses = torch.abs(median_inverse - 0.5)
+            median_recover_losses = self._lb_recover * median_recover_losses
+        # q recover
+        q_batch = predictions["q_batch"]
+        q_inverse = predictions["q_inverse"]
+        q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
+        q_recover_losses = self._lb_recover * q_recover_losses
+        # y recover
+        y_batch = predictions["y_batch"]
+        y_recover_losses = None
+        if not is_synthetic:
+            y_inverse = predictions["y_inverse_res"] + predictions["median"].detach()
+            if y_inverse is not None:
+                y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
+                y_recover_losses = self._lb_recover * y_recover_losses
+        # combine
+        losses = {"q_recover": q_recover_losses}
+        if median_recover_losses is not None:
+            losses["median_recover"] = median_recover_losses
+        if y_recover_losses is not None:
+            losses["y_recover"] = y_recover_losses
+        return losses
 
     def _core(  # type: ignore
         self,
@@ -22,119 +121,15 @@ class DDRLoss(LossBase, LoggingMixin):
         *,
         is_synthetic: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
-        # median
-        if is_synthetic:
-            median_losses = median_recover_losses = None
-        else:
-            median = predictions["predictions"]
-            median_inverse = predictions["median_inverse"]
-            median_losses = l1_loss(median, target, reduction="none")
-            median_recover_losses = torch.abs(median_inverse - 0.5)
-            median_recover_losses = self._lb_recover * median_recover_losses
-        # quantile losses
-        q_batch = predictions["q_batch"]
-        assert q_batch is not None
-        anchor_quantile_losses = None
-        if is_synthetic:
-            quantile_losses = None
-        else:
-            y = predictions["y"]
-            assert y is not None
-            quantile_losses = self._quantile_losses(y, target, q_batch)
-            sampled_q_batch = predictions["sampled_q_batch"]
-            if sampled_q_batch is not None:
-                sampled_y = predictions["sampled_y"]
-                assert sampled_y is not None
-                anchor_quantile_losses = self._quantile_losses(
-                    sampled_y,
-                    target,
-                    sampled_q_batch,
-                )
-        # q recover losses
-        q_inverse = predictions["q_inverse"]
-        assert q_inverse is not None
-        q_recover_losses = l1_loss(q_inverse, q_batch, reduction="none")
-        q_recover_losses = self._lb_recover * q_recover_losses
-        sampled_q_batch = predictions["sampled_q_batch"]
-        aq_recover_losses = None
-        if sampled_q_batch is not None:
-            sq_inverse = predictions["sampled_q_inverse"]
-            assert sq_inverse is not None
-            aq_recover_losses = l1_loss(sq_inverse, sampled_q_batch, reduction="none")
-            aq_recover_losses = self._lb_recover * aq_recover_losses
-        # cdf losses
-        y_batch = predictions["y_batch"]
-        assert y_batch is not None
-        anchor_cdf_losses = None
-        if is_synthetic:
-            cdf_losses = None
-        else:
-            cdf = predictions["cdf"]
-            assert cdf is not None
-            cdf_losses = self._cdf_losses(cdf, target, y_batch)
-            sampled_y_batch = predictions["sampled_y_batch"]
-            if sampled_y_batch is not None:
-                sampled_cdf = predictions["sampled_cdf"]
-                assert sampled_cdf is not None
-                anchor_cdf_losses = self._cdf_losses(
-                    sampled_cdf,
-                    target,
-                    sampled_y_batch,
-                )
-        # y recover losses
-        ay_recover_losses = None
-        y_inverse = predictions["y_inverse"]
-        assert y_inverse is not None
-        y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
-        y_recover_losses = self._lb_recover * y_recover_losses
-        sampled_y_batch = predictions["sampled_y_batch"]
-        if sampled_y_batch is not None:
-            sy_inverse = predictions["sampled_y_inverse"]
-            assert sy_inverse is not None
-            ay_recover_losses = l1_loss(sy_inverse, sampled_y_batch, reduction="none")
-            ay_recover_losses = self._lb_recover * ay_recover_losses
-        # pdf losses
-        pdf, sampled_pdf = map(predictions.get, ["pdf", "sampled_pdf"])
-        if pdf is None and sampled_pdf is None:
-            pdf_losses = None
-        elif pdf is not None and sampled_pdf is not None:
-            pdf_losses = self._pdf_losses(pdf) + self._pdf_losses(sampled_pdf)
-        elif pdf is not None:
-            pdf_losses = self._pdf_losses(pdf)
-        else:
-            assert sampled_pdf is not None
-            pdf_losses = self._pdf_losses(sampled_pdf)
-        # combine
         losses = {}
+        if self.fetch_q:
+            losses.update(self._q_losses(predictions, target, is_synthetic))
+        if self.fetch_cdf:
+            losses.update(self._y_losses(predictions, target, is_synthetic))
+        if self.fetch_q and self.fetch_cdf:
+            losses.update(self._dual_losses(predictions, is_synthetic))
         suffix = "" if not is_synthetic else "synthetic_"
-        # q recover
-        assert q_recover_losses is not None
-        losses[f"{suffix}q_recover"] = q_recover_losses
-        if aq_recover_losses is not None:
-            losses[f"{suffix}anchor_q_recover"] = aq_recover_losses
-        # y recover
-        losses[f"{suffix}y_recover"] = y_recover_losses
-        if ay_recover_losses is not None:
-            losses[f"{suffix}anchor_y_recover"] = ay_recover_losses
-        # common
-        if not is_synthetic:
-            assert median_losses is not None
-            assert median_recover_losses is not None
-            losses["median"] = median_losses
-            losses["median_recover"] = median_recover_losses
-            # quantile
-            assert quantile_losses is not None
-            losses["quantile"] = quantile_losses
-            if anchor_quantile_losses is not None:
-                losses["anchor_quantile"] = anchor_quantile_losses
-            # cdf
-            assert cdf_losses is not None
-            losses["cdf"] = cdf_losses
-            if anchor_cdf_losses is not None:
-                losses["anchor_cdf"] = anchor_cdf_losses
-        # pdf
-        if pdf_losses is not None:
-            losses[f"{suffix}pdf"] = pdf_losses
+        losses = {f"{suffix}{k}": v for k, v in losses.items()}
         # mtl
         if not self.mtl.registered:
             self.mtl.register(list(losses.keys()))
@@ -152,30 +147,31 @@ class DDRLoss(LossBase, LoggingMixin):
 
     @staticmethod
     def _quantile_losses(
-        quantiles: torch.Tensor,
-        target: torch.Tensor,
+        residual: torch.Tensor,
+        target_residual: torch.Tensor,
         q_batch: torch.Tensor,
     ) -> torch.Tensor:
-        quantile_error = target - quantiles
+        quantile_error = target_residual - residual
         q1 = q_batch * quantile_error
         q2 = (q_batch - 1.0) * quantile_error
         return torch.max(q1, q2)
 
     @staticmethod
     def _cdf_losses(
-        cdf: torch.Tensor,
+        cdf_logit: torch.Tensor,
         target: torch.Tensor,
         y_batch: torch.Tensor,
     ) -> torch.Tensor:
-        mask = target <= y_batch
-        mask, rev_mask = mask.to(torch.float32), (~mask).to(torch.float32)
-        return -(mask * torch.log(cdf) + rev_mask * torch.log(1.0 - cdf))
+        indicative = (target <= y_batch).to(torch.float32)
+        return -indicative * cdf_logit + softplus(cdf_logit)
 
-    @staticmethod
-    def _pdf_losses(pdf: torch.Tensor) -> torch.Tensor:
-        negative_mask = pdf <= 1e-8
+    def _pdf_losses(self, pdf: torch.Tensor, is_synthetic: bool) -> torch.Tensor:
+        negative_mask = pdf <= self._pdf_eps
         losses = torch.zeros_like(pdf)
         losses[negative_mask] = -pdf[negative_mask]
+        if not is_synthetic:
+            positive_mask = ~negative_mask
+            losses[positive_mask] = -self._lb_pdf * torch.log(pdf[positive_mask])
         return losses
 
 

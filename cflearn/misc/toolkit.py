@@ -6,7 +6,9 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-from abc import ABCMeta, abstractmethod
+from abc import abstractmethod
+from abc import ABCMeta
+from functools import partial
 from cftool.misc import context_error_handler
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
@@ -92,6 +94,11 @@ def collate_tensor_dicts(ds: List[tensor_dict_type], dim: int = 0) -> tensor_dic
             tensors.append(tensor)
         results[k] = torch.cat(tensors, dim=dim)
     return results
+
+
+def switch_requires_grad(params: List[nn.Parameter], requires_grad: bool) -> None:
+    for param in params:
+        param.requires_grad_(requires_grad)
 
 
 def get_gradient(
@@ -251,12 +258,17 @@ class Activations:
         self.configs = configs
 
     def __getattr__(self, item: str) -> nn.Module:
+        kwargs = self.configs.setdefault(item, {})
         try:
-            return getattr(nn, item)(**self.configs.setdefault(item, {}))
+            return getattr(nn, item)(**kwargs)
         except AttributeError:
-            raise NotImplementedError(
-                f"neither pytorch nor custom Activations implemented activation '{item}'"
-            )
+            func = getattr(torch, item, getattr(nn.functional, item, None))
+            if func is None:
+                raise NotImplementedError(
+                    "neither pytorch nor custom Activations "
+                    f"implemented activation '{item}'"
+                )
+            return Lambda(partial(func, **kwargs), item)
 
     def module(self, name: str) -> nn.Module:
         if name is None:
@@ -264,6 +276,25 @@ class Activations:
         return getattr(self, name)
 
     # publications
+
+    @property
+    def glu(self) -> nn.Module:
+        config = self.configs.setdefault("glu", {})
+        in_dim = config.get("in_dim")
+        if in_dim is None:
+            raise ValueError("`in_dim` should be provided in glu")
+        bias = config.setdefault("bias", True)
+
+        class GLU(nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
+
+            def forward(self, x: torch.Tensor) -> torch.Tensor:
+                projection, gate = self.linear(x).chunk(2, dim=1)
+                return projection * torch.sigmoid(gate)
+
+        return GLU()
 
     @property
     def mish(self) -> nn.Module:
@@ -274,6 +305,38 @@ class Activations:
         return Mish()
 
     # custom
+
+    # TODO : After updated to pytorch>=1.7.0, re-implement this
+    @property
+    def logit(self) -> nn.Module:
+        kwargs = self.configs.setdefault("logit", {})
+        eps = kwargs.setdefault("eps", 1.0e-6)
+
+        def _logit(x: torch.Tensor) -> torch.Tensor:
+            x = torch.clamp(x, eps, 1.0 - eps)
+            return torch.log(x / (1.0 - x))
+
+        return Lambda(_logit, f"logit_{eps:.2e}")
+
+    @property
+    def atanh(self) -> nn.Module:
+        kwargs = self.configs.setdefault("atanh", {})
+        eps = kwargs.setdefault("eps", 1.0e-6)
+
+        def _atanh(x: torch.Tensor) -> torch.Tensor:
+            return torch.atanh(torch.clamp(x, -1.0 + eps, 1.0 - eps))
+
+        return Lambda(_atanh, f"atanh_{eps:.2e}")
+
+    @property
+    def isoftplus(self) -> nn.Module:
+        kwargs = self.configs.setdefault("isoftplus", {})
+        eps = kwargs.setdefault("eps", 1.0e-6)
+
+        def _isoftplus(x: torch.Tensor) -> torch.Tensor:
+            return torch.log(x.clamp_min(eps).exp() - 1.0)
+
+        return Lambda(_isoftplus, f"isoftplus_{eps:.2e}")
 
     @property
     def sign(self) -> nn.Module:
@@ -651,12 +714,10 @@ class mode_context(context_error_handler):
     ):
         self._to_train = to_train
         self._module, self._training = module, module.training
-        self._params_required_grad = [
-            param for param in module.parameters() if param.requires_grad
-        ]
-        tuple(
-            map(lambda param: param.requires_grad_(False), self._params_required_grad)
-        )
+        self._cache = {p: p.requires_grad for p in module.parameters()}
+        if use_grad is not None:
+            for p in module.parameters():
+                p.requires_grad_(use_grad)
         if use_grad is None:
             self._grad_context: Optional[ContextManager] = None
         else:
@@ -673,7 +734,8 @@ class mode_context(context_error_handler):
             self._module.train(mode=self._training)
         if self._grad_context is not None:
             self._grad_context.__exit__(exc_type, exc_val, exc_tb)
-        tuple(map(lambda param: param.requires_grad_(True), self._params_required_grad))
+        for p, v in self._cache.items():
+            p.requires_grad_(v)
 
 
 class train_context(mode_context):
@@ -722,6 +784,7 @@ __all__ = [
     "to_prob",
     "collate_np_dicts",
     "collate_tensor_dicts",
+    "switch_requires_grad",
     "get_gradient",
     "Initializer",
     "Activations",

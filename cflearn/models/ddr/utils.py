@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Any
+from typing import Tuple
 from typing import Optional
 from cftool.misc import show_or_save
 
@@ -35,26 +36,34 @@ class DDRPredictor:
 
 
 class DDRVisualizer:
-    def __init__(self, ddr: Pipeline):
+    def __init__(
+        self,
+        ddr: Pipeline,
+        dpi: int = 200,
+        figsize: Tuple[int, int] = (8, 6),
+    ):
         self.m = ddr
+        self.dpi = dpi
+        self.figsize = figsize
         self.predictor = DDRPredictor(ddr)
 
-    @staticmethod
     def _prepare_base_figure(
+        self,
         x: np.ndarray,
         y: np.ndarray,
         x_base: np.ndarray,
         mean: Optional[np.ndarray],
-        median: np.ndarray,
+        median: Optional[np.ndarray],
         indices: np.ndarray,
         title: str,
     ) -> plt.Figure:
-        figure = plt.figure()
+        figure = plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.title(title)
         plt.scatter(x[indices], y[indices], color="gray", s=15)
         if mean is not None:
             plt.plot(x_base.ravel(), mean.ravel(), label="mean")
-        plt.plot(x_base.ravel(), median.ravel(), label="median")
+        if median is not None:
+            plt.plot(x_base.ravel(), median.ravel(), label="median")
         return figure
 
     @staticmethod
@@ -77,6 +86,7 @@ class DDRVisualizer:
         *,
         q_batch: Optional[np.ndarray] = None,
         y_batch: Optional[np.ndarray] = None,
+        to_pdf: bool = False,
         **kwargs: Any,
     ) -> None:
         x_min, x_max = np.min(x), np.max(x)
@@ -89,39 +99,31 @@ class DDRVisualizer:
         x_max += x_padding
         x_base = np.linspace(x_min, x_max, dense)[..., None]
         mean = None
-        median = self.m.predict(x_base)
-        fig = DDRVisualizer._prepare_base_figure(
-            x,
-            y,
-            x_base,
-            mean,
-            median,
-            indices,
-            "",
-        )
+        median = None if not self.m.model.fetch_q else self.m.predict(x_base)
+        fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # quantile curves
-        if q_batch is not None:
+        if q_batch is not None and self.m.model.fetch_q:
             for q in q_batch:
                 quantile_curve = self.predictor.quantile(x_base, q)
                 plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
             DDRVisualizer._render_figure(*render_args)
         # cdf curves
-        if y_batch is not None:
+        if y_batch is not None and self.m.model.fetch_cdf:
             y_abs_max = np.abs(y).max()
             ratios, anchors = y_batch, [
                 ratio * (y_max - y_min) + y_min for ratio in y_batch
             ]
             for ratio, anchor in zip(ratios, anchors):
-                predictions = self.predictor.cdf(x_base, anchor, get_pdf=True)
-                pdf, cdf = map(predictions.get, ["pdf", "cdf"])
-                pdf, cdf = (
-                    pdf * (y_abs_max / max(np.abs(pdf).max(), 1e-8)),
-                    cdf * y_abs_max,
-                )
                 anchor_line = np.full(len(x_base), anchor)
-                plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
-                plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
+                predictions = self.predictor.cdf(x_base, anchor, get_pdf=to_pdf)
+                if not to_pdf:
+                    cdf = predictions * y_abs_max
+                    plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
+                else:
+                    pdf = predictions["pdf"]
+                    pdf = pdf * (y_abs_max / max(np.abs(pdf).max(), 1e-8))
+                    plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
                 plt.plot(
                     x_base.ravel(),
                     anchor_line,
@@ -151,7 +153,7 @@ class DDRVisualizer:
             y_true: np.ndarray,
             predictions: np.ndarray,
         ) -> None:
-            plt.figure()
+            plt.figure(figsize=self.figsize, dpi=self.dpi)
             plt.title(f"{prefix} {num:6.4f}")
             plt.scatter(x[:200], y[:200], color="gray", s=15)
             plt.plot(x_base, y_true, label="target")

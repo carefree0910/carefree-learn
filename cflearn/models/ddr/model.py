@@ -1,40 +1,22 @@
 import torch
 
 import numpy as np
-import torch.nn as nn
 
 from typing import Any
 from typing import Dict
-from typing import List
-from typing import Tuple
 from typing import Union
-from typing import Callable
 from typing import Optional
 from cftool.ml import Metrics
 from cftool.misc import is_numeric
 from cftool.misc import update_dict
 from cftool.misc import timing_context
-from cftool.misc import shallow_copy_dict
 from cfdata.tabular import DataLoader
-from ...types import tensor_dict_type
-
-try:
-    amp: Optional[Any] = torch.cuda.amp
-except:
-    amp = None
 
 from ...misc.toolkit import *
-from ...modules.blocks import *
 from .core import DDRCore
 from .loss import DDRLoss
 from ..base import ModelBase
-
-proj_type = Optional[Union[Linear, MLP]]
-tensors_type = Union[
-    torch.Tensor,
-    List[torch.Tensor],
-    Dict[str, Optional[Union[torch.Tensor, tensor_dict_type]]],
-]
+from ...types import tensor_dict_type
 
 
 @ModelBase.register("ddr")
@@ -73,19 +55,18 @@ class DDR(ModelBase):
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         cfg = ModelBase.get_core_config(instance)
-        to_latent = instance.config.setdefault("to_latent", True)
-        latent_dim = instance.config.setdefault("latent_dim", None)
+        num_layers = instance.config.setdefault("num_layers", None)
         num_blocks = instance.config.setdefault("num_blocks", None)
-
-        def builder(latent_dim_: int) -> nn.Module:
-            h_dim = latent_dim_ // 2
-            return MLP.simple(h_dim, None, [h_dim], activation="Tanh")
-
-        transition_builder = instance.config.get("transition_builder", builder)
+        latent_dim = instance.config.setdefault("latent_dim", None)
+        transition_builder = instance.config.setdefault("transition_builder", None)
         cfg.update(
             {
+                "y_min": instance.y_min,
+                "y_max": instance.y_max,
+                "fetch_q": instance.fetch_q,
+                "fetch_cdf": instance.fetch_cdf,
+                "num_layers": num_layers,
                 "num_blocks": num_blocks,
-                "to_latent": to_latent,
                 "latent_dim": latent_dim,
                 "transition_builder": transition_builder,
             }
@@ -93,30 +74,49 @@ class DDR(ModelBase):
         return cfg
 
     @property
-    def default_anchors(self) -> np.ndarray:
-        return np.linspace(0.05, 0.95, 10).astype(np.float32)
+    def fetch_q(self) -> bool:
+        return "q" in self.fetches
+
+    @property
+    def fetch_cdf(self) -> bool:
+        return "cdf" in self.fetches
 
     def _init_config(self) -> None:
         super()._init_config()
         # common
-        self._step_count = 0
-        self._synthetic_step = int(self.config.setdefault("synthetic_step", 5))
-        self._use_gradient_loss = self.config.setdefault("use_gradient_loss", True)
-        y_anchors = self.config.setdefault("cdf_ratio_anchors", self.default_anchors)
-        q_anchors = self.config.setdefault("quantile_anchors", self.default_anchors)
+        self.config.setdefault("ema_decay", 0.0)
+        self.fetches = set(self.config.setdefault("fetches", {"q", "cdf"}))
+        if not self.fetch_q and not self.fetch_cdf:
+            raise ValueError("something must be fetched, either `q` or `cdf`")
+        self._synthetic_step = self.config.setdefault("synthetic_step", 10)
+        self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
-        y_min, y_max = labels.min(), labels.max()
-        self.y_min = y_min
-        self.y_diff = y_max - y_min
-        anchors = np.asarray(y_anchors, np.float32)
-        self._anchor_choice_array = y_min + self.y_diff * anchors
-        self._quantile_anchors = np.asarray(q_anchors, np.float32)
-        self._synthetic_range = self.config.setdefault("synthetic_range", 5)
+        self.y_min, self.y_max = labels.min(), labels.max()
+        self.y_diff = self.y_max - self.y_min
+        quantile_anchors = np.linspace(0.005, 0.995, 100).astype(np.float32)[..., None]
+        y_anchor_choices = quantile_anchors * self.y_diff + self.y_min
+        self.register_buffer("quantile_anchors", torch.from_numpy(quantile_anchors))
+        self.register_buffer("y_anchor_choices", torch.from_numpy(y_anchor_choices))
         # loss config
         self._loss_config = self.config.setdefault("loss_config", {})
         self._loss_config.setdefault("mtl_method", None)
+        self._loss_config["fetch_q"] = self.fetch_q
+        self._loss_config["fetch_cdf"] = self.fetch_cdf
         # trainer config
-        default_metric_types = ["ddr", "loss"]
+        default_metric_types = []
+        if self.fetch_q:
+            default_metric_types += ["ddr", "median_affine"]
+        if self.fetch_cdf:
+            default_metric_types += ["cdf", "pdf"]
+        if self.fetch_q and self.fetch_cdf:
+            default_metric_types += ["q_recover", "y_recover", "loss"]
+        default_metric_weights = {
+            "ddr": 5.0,
+            "median_affine": 10.0,
+            "cdf": 1.0,
+            "pdf": 1.0,
+            "loss": 1.0,
+        }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
             trainer_config,
@@ -124,21 +124,20 @@ class DDR(ModelBase):
                 "clip_norm": 1.0,
                 "num_epoch": 40,
                 "max_epoch": 1000,
-                "metric_config": {"types": default_metric_types, "decay": 0.5},
+                "metric_config": {
+                    "decay": 0.0,
+                    "types": default_metric_types,
+                    "weights": default_metric_weights,
+                },
             },
         )
         self._pipeline_config["trainer_config"] = trainer_config
         self._trainer_config = trainer_config
 
     def _init_loss(self) -> None:
-        loss_config = shallow_copy_dict(self._loss_config)
-        self.loss = DDRLoss(loss_config, "none")
+        self.loss = DDRLoss(self._loss_config, "none")
 
     # utilities
-
-    def _convert_np_anchors(self, np_anchors: np.ndarray) -> torch.Tensor:
-        tensor = to_torch(np_anchors.reshape([-1, 1]))
-        return tensor.to(self.device).requires_grad_(True)
 
     def _expand(
         self,
@@ -162,171 +161,115 @@ class DDR(ModelBase):
             elem_tensor = elem_tensor.to(self.device)
         return elem_tensor
 
-    def _sample_anchors(self, n: int) -> Tuple[torch.Tensor, torch.Tensor]:
-        choice_indices = np.random.randint(0, len(self._quantile_anchors), n)
-        chosen = self._quantile_anchors[choice_indices]
-        sampled_q_batch = self._convert_np_anchors(chosen)
-        choice_indices = np.random.randint(0, len(self._anchor_choice_array), n)
-        chosen = self._anchor_choice_array[choice_indices]
-        sampled_y_batch = self._convert_np_anchors(chosen)
-        return sampled_q_batch, sampled_y_batch
-
     # core
-
-    @property
-    def q_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
-        return lambda q: 2.0 * q - 1.0
-
-    @property
-    def q_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
-        return lambda q: 0.5 * (q + 1.0)
-
-    @property
-    def y_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
-        return lambda y: (y - self.y_min) / (0.5 * self.y_diff) - 1.0
-
-    @property
-    def y_inv_fn(self) -> Callable[[torch.Tensor], torch.Tensor]:
-        return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
 
     def _quantile(
         self,
-        latent: torch.Tensor,
+        net: torch.Tensor,
         q_batch: Optional[torch.Tensor],
         do_inverse: bool,
     ) -> tensor_dict_type:
         if q_batch is None:
-            results = self.core(
-                latent,
-                median=True,
-                do_inverse=do_inverse,
-            )
+            results = self.core(net, median=True, do_inverse=do_inverse)
         else:
-            q_batch = self.q_fn(q_batch)
-            results = self.core(
-                latent,
-                q_batch=q_batch,
-                do_inverse=do_inverse,
-            )
-        results["y"] = self.y_inv_fn(results["y"])
-        if do_inverse:
-            results["q_inverse"] = self.q_inv_fn(results["q_inverse"])
+            results = self.core(net, q_batch=q_batch, do_inverse=do_inverse)
         return results
 
     def _median(
         self,
-        latent: torch.Tensor,
+        net: torch.Tensor,
         do_inverse: bool,
     ) -> tensor_dict_type:
-        return self._quantile(latent, None, do_inverse)
+        return self._quantile(net, None, do_inverse)
 
     def _cdf(
         self,
-        latent: torch.Tensor,
+        net: torch.Tensor,
         y_batch: torch.Tensor,
         need_optimize: bool,
         return_pdf: bool,
         do_inverse: bool,
     ) -> tensor_dict_type:
+        use_grad = self.training or return_pdf
         y_batch.requires_grad_(return_pdf)
-        with mode_context(self, to_train=None, use_grad=return_pdf):
-            y_batch_ = self.y_fn(y_batch)
-            results = self.core(
-                latent,
-                y_batch=y_batch_,
-                do_inverse=do_inverse,
-            )
-            cdf = results["q"] = self.q_inv_fn(results["q"])
-            if do_inverse:
-                results["y_inverse"] = self.y_inv_fn(results["y_inverse"])
+        with mode_context(self, to_train=None, use_grad=use_grad):
+            results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
         if not return_pdf:
             pdf = None
         else:
+            cdf = results["q"]
             pdf = get_gradient(cdf, y_batch, need_optimize, need_optimize)
             assert isinstance(pdf, torch.Tensor)
             y_batch.requires_grad_(False)
         results["pdf"] = pdf
         return results
 
-    def _core(self, latent: torch.Tensor, synthetic: bool) -> tensor_dict_type:
-        batch_size = len(latent)
+    def _core(
+        self,
+        net: torch.Tensor,
+        y_batch: torch.Tensor,
+        synthetic: bool,
+    ) -> tensor_dict_type:
+        batch_size = len(net)
+        # TODO : try to optimize this when `fetches` is not full
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
             if self.training:
-                q_batch = np.random.random([batch_size, 1]).astype(np.float32)
-                y_batch = np.random.random([batch_size, 1]).astype(np.float32)
+                q_batch = torch.empty_like(y_batch).uniform_()
+                y_batch = torch.empty_like(y_batch).uniform_()
+                y_batch = y_batch * self.y_diff + self.y_min
+                # y_batch = y_batch[np.random.permutation(batch_size)].detach()
             else:
-                q_batch = y_batch = self.default_anchors
+                q_batch = self.quantile_anchors  # type: ignore
+                y_batch = self.y_anchor_choices  # type: ignore
                 n_repeat = int(batch_size / len(q_batch)) + 1
-                q_batch = np.repeat(q_batch, n_repeat)[:batch_size]
-                y_batch = np.repeat(y_batch, n_repeat)[:batch_size]
-            y_batch = self.y_min + self.y_diff * y_batch
-            q_batch = self._convert_np_anchors(q_batch)
-            y_batch = self._convert_np_anchors(y_batch)
+                q_batch = q_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
+                y_batch = y_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
         # build predictions
         with timing_context(self, "forward.median"):
-            if synthetic:
-                median = median_inverse = None
-            else:
-                results = self._median(latent, True)
-                median = results["y"]
-                median_inverse = results["q_inverse"]
+            median_rs = {}
+            if self.fetch_q:
+                rs = self._median(net, True)
+                median_rs = {
+                    "median_pos_add": rs["pos_add"],
+                    "median_neg_add": rs["neg_add"],
+                    "median_pos_mul": rs["pos_mul"],
+                    "median_neg_mul": rs["neg_mul"],
+                }
+                if synthetic:
+                    if not self.fetch_cdf:
+                        return median_rs
+                else:
+                    median_rs.update(
+                        {
+                            "predictions": rs["median"],
+                            "median_inverse": rs["q_inverse"],
+                        }
+                    )
+        # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
-            quantile_results = self._quantile(latent, q_batch, True)
-            y = quantile_results["y"]
-            q_inverse = quantile_results["q_inverse"]
-            assert y is not None and q_inverse is not None
+            if not self.fetch_q:
+                q_rs = {}
+            else:
+                q_rs = self._quantile(net, q_batch, True)
         with timing_context(self, "forward.cdf"):
-            cdf_results = self._cdf(latent, y_batch, True, True, True)
-            cdf, pdf, y_inverse = map(cdf_results.get, ["q", "pdf", "y_inverse"])
-            assert cdf is not None and pdf is not None and y_inverse is not None
-        # build sampled predictions
-        if not self.training:
-            sampled_q_batch = sampled_y_batch = None
-            sampled_y = sampled_cdf = sampled_pdf = None
-            sampled_q_inverse = sampled_y_inverse = None
-        else:
-            sampled_q_batch, sampled_y_batch = self._sample_anchors(batch_size)
-            with timing_context(self, "forward.sampled_quantile"):
-                sq_results = self._quantile(latent, sampled_q_batch, True)
-                sampled_q_inverse = sq_results["q_inverse"]
-                assert sampled_q_inverse is not None
-                if synthetic:
-                    sampled_y = None
-                else:
-                    sampled_y = sq_results["y"]
-                    assert sampled_y is not None
-            with timing_context(self, "forward.sampled_cdf"):
-                sy_results = self._cdf(latent, sampled_y_batch, True, True, True)
-                sampled_pdf = sy_results["pdf"]
-                sampled_y_inverse = sy_results["y_inverse"]
-                assert sampled_pdf is not None
-                assert sampled_y_inverse is not None
-                if synthetic:
-                    sampled_cdf = None
-                else:
-                    sampled_cdf, sampled_pdf = map(sy_results.get, ["q", "pdf"])
-                    assert sampled_cdf is not None
+            if not self.fetch_cdf:
+                y_rs = {}
+            else:
+                cdf_inverse = not synthetic
+                y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
+                q = y_rs["cdf"] = y_rs.pop("q")
+                y_rs["cdf_logit"] = y_rs.pop("q_logit")
+                if not self.fetch_q:
+                    y_rs["predictions"] = q
         # construct results
-        return {
-            "latent": latent,
-            "predictions": median,
-            "median_inverse": median_inverse,
-            "q_batch": q_batch,
-            "y_batch": y_batch,
-            "sampled_q_batch": sampled_q_batch,
-            "sampled_y_batch": sampled_y_batch,
-            "y": y,
-            "q_inverse": q_inverse,
-            "pdf": pdf,
-            "cdf": cdf,
-            "y_inverse": y_inverse,
-            "sampled_y": sampled_y,
-            "sampled_q_inverse": sampled_q_inverse,
-            "sampled_cdf": sampled_cdf,
-            "sampled_pdf": sampled_pdf,
-            "sampled_y_inverse": sampled_y_inverse,
-        }
+        results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
+        results.update({k: v for k, v in median_rs.items() if v is not None})
+        results.update({k: v for k, v in q_rs.items() if v is not None})
+        results.update({k: v for k, v in y_rs.items() if v is not None})
+        for key in set(median_rs.keys()) | set(q_rs.keys()) | set(y_rs.keys()):
+            results.setdefault(key, None)
+        return results
 
     # API
 
@@ -335,6 +278,7 @@ class DDR(ModelBase):
         batch: tensor_dict_type,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
+        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         # pre-processing
@@ -342,33 +286,37 @@ class DDR(ModelBase):
         net = self._split_features(x_batch, batch_indices, loader_name).merge()
         if self.tr_data.is_ts:
             net = net.view(net.shape[0], -1)
-        latent = self.core.get_latent(net)
+        y_batch = batch["y_batch"]
         # check inference
         forward_dict = {}
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)
-        predict_quantile = kwargs.get("predict_quantiles", False)
         if predict_pdf or predict_cdf:
+            if not self.fetch_cdf:
+                raise ValueError("cdf function is not fetched")
             y = kwargs.get("y")
             if y is None:
                 raise ValueError(f"pdf / cdf cannot be predicted without y")
-            y_batch = self._expand(len(latent), y, numpy=True)
+            y_batch = self._expand(len(net), y, numpy=True)
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
-            results = self._cdf(latent, y_batch, False, predict_pdf, False)
+            results = self._cdf(net, y_batch, False, predict_pdf, False)
             if predict_pdf:
                 forward_dict["pdf"] = results["pdf"]
             if predict_cdf:
                 forward_dict["cdf"] = results["q"]
+        predict_quantile = kwargs.get("predict_quantiles")
         if predict_quantile:
+            if not self.fetch_q:
+                raise ValueError("quantile function is not fetched")
             q = kwargs.get("q")
             if q is None:
                 raise ValueError(f"quantile cannot be predicted without q")
-            q_batch = self._expand(len(latent), q)
-            forward_dict["quantiles"] = self._quantile(latent, q_batch, False)["y"]
+            q_batch = self._expand(len(net), q)
+            pack = self._quantile(net, q_batch, False)
+            forward_dict["quantiles"] = pack["median"] + pack["y_res"]
         if not forward_dict:
-            forward_dict = self._core(latent, False)
-        forward_dict["net"] = net
+            forward_dict = self._core(net, y_batch, False)
         return forward_dict
 
     def loss_function(
@@ -376,6 +324,7 @@ class DDR(ModelBase):
         batch: tensor_dict_type,
         batch_indices: np.ndarray,
         forward_results: tensor_dict_type,
+        batch_step: int,
     ) -> tensor_dict_type:
         y_batch = batch["y_batch"]
         losses, losses_dict = self.loss(forward_results, y_batch)
@@ -383,12 +332,19 @@ class DDR(ModelBase):
         if (
             self.training
             and self._synthetic_step > 0
-            and self._step_count % self._synthetic_step == 0
+            and batch_step % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.forward"):
-                synthetic_net = net.detach() * self._synthetic_range
-                synthetic_latent = self.core.get_latent(synthetic_net)
-                synthetic_outputs = self._core(synthetic_latent, True)
+                net_min = torch.min(net, dim=0)[0]
+                net_max = torch.max(net, dim=0)[0]
+                net_diff = net_max - net_min
+                diff_span = 0.5 * (self._synthetic_range - 1.0) * net_diff
+                synthetic_net = net.new_empty(net.shape)
+                synthetic_net.uniform_(0, 1)
+                synthetic_net = self._synthetic_range * synthetic_net * net_diff
+                synthetic_net = synthetic_net - (diff_span - net_min)
+                # synthetic_net ~ U_[ -diff_span + min, diff_span + max ]
+                synthetic_outputs = self._core(synthetic_net, y_batch, True)
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
                     synthetic_outputs,
@@ -399,16 +355,15 @@ class DDR(ModelBase):
             losses = losses + syn_losses
         losses_dict["loss"] = losses
         losses_dict = {k: v.mean() for k, v in losses_dict.items()}
-        if self.training:
-            self._step_count += 1
-        else:
+        if not self.training and self.fetch_q:
             assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)
-            latent = forward_results["latent"]
-            for q in self._quantile_anchors:
+            for q in np.linspace(0.05, 0.95, 10):
+                q = q.item()
                 self.q_metric.config["q"] = q
-                yq = self._quantile(latent, self._expand(len(latent), q), False)["y"]
+                pack = self._quantile(net, self._expand(len(net), q), False)
+                yq = pack["y_res"] + pack["median"]
                 q_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
             ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)

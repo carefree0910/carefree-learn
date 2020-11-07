@@ -1,6 +1,7 @@
 import torch
 import unittest
 
+import numpy as np
 import torch.nn as nn
 
 from cflearn.modules.blocks import *
@@ -42,27 +43,42 @@ class TestBlocks(unittest.TestCase):
 
     def test_invertible(self) -> None:
         dim = 512
-        h_dim = int(dim // 2)
         batch_size = 32
 
-        net1 = torch.randn(batch_size, h_dim)
-        net2 = torch.randn(batch_size, h_dim)
+        net = torch.randn(batch_size, dim)
+        builder = lambda _: nn.Identity()
 
-        invertible = InvertibleBlock(dim)
-        o1, o2 = invertible(net1, net2)
-        r1, r2 = invertible.inverse(o1, o2)
-        self.assertTrue(torch.allclose(o1, net2, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(o2, net1 + net2, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(net1, r1, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(net2, r2, rtol=1e-4, atol=1e-4))
+        inv1 = InvertibleBlock(dim, transition_builder=builder)
+        inv2 = InvertibleBlock(dim, transition_builder=builder)
+        net1, net2 = net.chunk(2, dim=1)
+        o11, o12 = inv1(net1, net2)
+        o21, o22 = inv2(o11, o12)
+        r21, r22 = inv2.inverse(o21, o22)
+        r11, r12 = inv1.inverse(r21, r22)
+        self.assertTrue(torch.allclose(net1, r11, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(net2, r12, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o11, net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o12, net1 + net2, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o21, o12, rtol=1e-4, atol=1e-4))
+        self.assertTrue(torch.allclose(o22, o11 + o12, rtol=1e-4, atol=1e-4))
 
-        res_invertible = ResInvertibleBlock(dim)
-        o1, o2 = res_invertible(net1, net2)
-        r1, r2 = res_invertible.inverse(o1, o2)
-        self.assertTrue(torch.allclose(o1, net1 + net2, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(o2, net1 + 2.0 * net2, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(net1, r1, rtol=1e-4, atol=1e-4))
-        self.assertTrue(torch.allclose(net2, r2, rtol=1e-4, atol=1e-4))
+    def test_monotonous(self) -> None:
+        dim = 512
+        batch_size = 32
+
+        net = torch.randn(batch_size, 1)
+        kwargs = {"ascent": True, "num_units": [dim] * 3, "dropout": 0.5}
+        m1 = MonotonousMapping.stack(1, dim, **kwargs)
+        m2 = MonotonousMapping.stack(dim, 1, **kwargs)
+        outputs = m2(m1(net))
+        self.assertTrue(torch.allclose(net.argsort(), outputs.argsort()))
+        kwargs["ascent"] = False
+        m1 = MonotonousMapping.stack(1, dim, **kwargs)
+        m2 = MonotonousMapping.stack(dim, 1, **kwargs)
+        outputs = m2(m1(net))
+        net_indices = net.argsort().numpy().ravel()
+        outputs_indices = outputs.argsort().numpy().ravel()[::-1]
+        self.assertTrue(np.allclose(net_indices, outputs_indices))
 
     def test_attention(self) -> None:
         num_heads = 8

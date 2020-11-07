@@ -408,12 +408,20 @@ class Trainer(LoggingMixin):
                 labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self.model):
-                    forward_dicts.append(self.model(batch, batch_indices, loader_name))
+                    forward_dicts.append(
+                        self.model(
+                            batch,
+                            batch_indices,
+                            loader_name,
+                            self._step_count,
+                        )
+                    )
                     loss_dicts.append(
                         self.model.loss_function(
                             batch,
                             batch_indices,
                             forward_dicts[-1],
+                            self._step_count,
                         )
                     )
             losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
@@ -536,19 +544,28 @@ class Trainer(LoggingMixin):
                         batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
-                            forward_results = self.model(batch, batch_indices, "tr")
+                            forward_results = self.model(
+                                batch,
+                                batch_indices,
+                                "tr",
+                                self._step_count,
+                            )
                         with timing_context(self, "loss.forward", enable=self.timing):
                             loss_dict = self.model.loss_function(
                                 batch,
                                 batch_indices,
                                 forward_results,
+                                self._step_count,
                             )
                     if self.tracker is not None or trains_logger is not None:
                         for name, tensor in loss_dict.items():
                             value = tensor.item()
                             if self.tracker is not None:
-                                it = self._step_count
-                                self.tracker.track_scalar(name, value, iteration=it)
+                                self.tracker.track_scalar(
+                                    f"tr_{name}",
+                                    value,
+                                    iteration=self._step_count,
+                                )
                             if trains_logger is not None:
                                 trains_logger.report_scalar(
                                     "Training",

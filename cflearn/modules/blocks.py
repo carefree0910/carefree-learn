@@ -1,26 +1,30 @@
+import math
 import torch
 
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from torch.nn import Module
+from torch.nn import ModuleList
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 
 from .auxiliary import *
 from ..misc.toolkit import *
+from ..types import tensor_tuple_type
 
 
-class Linear(nn.Module):
+class Linear(Module):
     def __init__(
         self,
         in_dim: int,
@@ -43,18 +47,18 @@ class Linear(nn.Module):
             self.reset_parameters()
 
     @property
-    def weight(self) -> torch.Tensor:
+    def weight(self) -> Tensor:
         return self.linear.weight
 
     @property
-    def bias(self) -> Optional[torch.Tensor]:
+    def bias(self) -> Optional[Tensor]:
         return self.linear.bias
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         if self.pruner is None:
             return self.linear(net)
         weight = self.pruner(self.linear.weight)
-        return nn.functional.linear(net, weight, self.linear.bias)
+        return F.linear(net, weight, self.linear.bias)
 
     def reset_parameters(self) -> None:
         if self._init_method is None:
@@ -69,7 +73,7 @@ class Linear(nn.Module):
             self.linear.bias.data.fill_(bias_fill)
 
 
-class Mapping(nn.Module):
+class Mapping(Module):
     def __init__(
         self,
         in_dim: int,
@@ -97,7 +101,7 @@ class Mapping(nn.Module):
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:
-            self.activation: Optional[nn.Module] = None
+            self.activation: Optional[Module] = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
@@ -105,14 +109,14 @@ class Mapping(nn.Module):
         self.dropout = None if not use_dropout else Dropout(dropout)
 
     @property
-    def weight(self) -> torch.Tensor:
+    def weight(self) -> Tensor:
         return self.linear.weight
 
     @property
-    def bias(self) -> Optional[torch.Tensor]:
+    def bias(self) -> Optional[Tensor]:
         return self.linear.bias
 
-    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
+    def forward(self, net: Tensor, *, reuse: bool = False) -> Tensor:
         net = self.linear(net)
         if self.bn is not None:
             net = self.bn(net)
@@ -123,7 +127,7 @@ class Mapping(nn.Module):
         return net
 
 
-class MLP(nn.Module):
+class MLP(Module):
     def __init__(
         self,
         in_dim: int,
@@ -144,17 +148,17 @@ class MLP(nn.Module):
             if final_mapping_config is None:
                 final_mapping_config = {}
             mappings.append(Linear(in_dim, out_dim, **final_mapping_config))
-        self.mappings = nn.ModuleList(mappings)
+        self.mappings = ModuleList(mappings)
 
     @property
-    def weights(self) -> List[torch.Tensor]:
+    def weights(self) -> List[Tensor]:
         return [mapping.weight for mapping in self.mappings]
 
     @property
-    def biases(self) -> List[Optional[torch.Tensor]]:
+    def biases(self) -> List[Optional[Tensor]]:
         return [mapping.bias for mapping in self.mappings]
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         for mapping in self.mappings:
             net = mapping(net)
         return net
@@ -170,22 +174,37 @@ class MLP(nn.Module):
         dropout: float = 0.0,
         batch_norm: bool = False,
         activation: Optional[str] = None,
+        pruner_config: Optional[Dict[str, Any]] = None,
     ) -> "MLP":
         mapping_config: Dict[str, Any]
-        mapping_config = {"bias": bias, "dropout": dropout, "batch_norm": batch_norm}
+        mapping_config = {
+            "bias": bias,
+            "dropout": dropout,
+            "batch_norm": batch_norm,
+            "pruner_config": pruner_config,
+        }
         if activation is not None:
             mapping_config["activation"] = activation
+        mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]]
+        if activation != "glu":
+            mapping_configs = mapping_config
+        else:
+            mapping_configs = []
+            for num_unit in num_units:
+                cfg = shallow_copy_dict(mapping_config)
+                cfg["activation_config"] = {"in_dim": num_unit, "bias": bias}
+                mapping_configs.append(cfg)
         final_mapping_config = {"bias": bias}
         return cls(
             in_dim,
             out_dim,
             num_units,
-            mapping_config,
+            mapping_configs,
             final_mapping_config=final_mapping_config,
         )
 
 
-class DNDF(nn.Module):
+class DNDF(Module):
     def __init__(
         self,
         in_dim: int,
@@ -232,11 +251,11 @@ class DNDF(nn.Module):
             increment_mask = np.repeat(increment_mask, num_repeat)
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
             increment_masks.append(increment_mask)
-        self.increment_masks: torch.Tensor
+        self.increment_masks: Tensor
         self.register_buffer("tree_arange", torch.arange(num_tree)[..., None, None])
         self.register_buffer("increment_masks", torch.stack(increment_masks))
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         num_batch = net.shape[0]
         tree_net = self.tree_proj(net)
 
@@ -261,9 +280,9 @@ class DNDF(nn.Module):
         features = routes.transpose(0, 1).contiguous().view(num_batch, -1)
 
         if self._is_regression or self._output_dim <= 1:
-            leaves: Union[torch.Tensor, nn.Parameter] = self.leaves
+            leaves: Union[Tensor, nn.Parameter] = self.leaves
         else:
-            leaves = nn.functional.softmax(self.leaves, dim=-1)
+            leaves = F.softmax(self.leaves, dim=-1)
         leaves = leaves.view(self._num_tree * self._num_leaf, self._output_dim)
         return features.matmul(leaves) / self._num_tree
 
@@ -272,7 +291,7 @@ class DNDF(nn.Module):
         nn.init.xavier_uniform_(self.leaves.data)
 
 
-class TreeResBlock(nn.Module):
+class TreeResBlock(Module):
     def __init__(self, dim: int, dndf_config: Optional[Dict[str, Any]] = None):
         super().__init__()
         if dndf_config is None:
@@ -281,7 +300,7 @@ class TreeResBlock(nn.Module):
         self.in_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
         self.inner_dndf = DNDF(dim, dim, **shallow_copy_dict(dndf_config))
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         res = self.in_dndf(net)
         res = self.dim * res - 1.0
         res = self.inner_dndf(res)
@@ -289,130 +308,331 @@ class TreeResBlock(nn.Module):
         return net + res
 
 
-class InvertibleBlock(nn.Module):
+class InvertibleBlock(Module):
     def __init__(
         self,
         dim: int,
         *,
-        transition: Optional[nn.Module] = None,
-        enable_permutation: bool = False,
+        default_activation: str = "mish",
+        transition_builder: Callable[[int], Module] = None,
     ):
         if dim % 2 != 0:
             raise ValueError("`dim` should be divided by 2")
         super().__init__()
         h_dim = int(dim // 2)
-        if transition is None:
-            transition = nn.Identity()
+        # transition
+        if transition_builder is not None:
+            transition = transition_builder(dim)
+        else:
+            transition = MLP.simple(
+                h_dim,
+                None,
+                [h_dim],
+                activation=default_activation,
+            )
         self.transition = transition
-        self.enable_permutation = enable_permutation
-        if enable_permutation:
-            permute_indices = np.random.permutation(h_dim)
-            inverse_indices = np.argsort(permute_indices)
-            permute_indices = to_torch(permute_indices).to(torch.long)
-            inverse_indices = to_torch(inverse_indices).to(torch.long)
-            self.register_buffer("permute_indices", permute_indices)
-            self.register_buffer("inverse_indices", inverse_indices)
 
-    def forward(
-        self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, net1: Tensor, net2: Tensor) -> tensor_tuple_type:
         net1 = net1 + self.transition(net2)
-        if self.enable_permutation:
-            net2 = net2[..., self.permute_indices]
         return net2, net1
 
-    def inverse(
-        self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        if self.enable_permutation:
-            net1 = net1[..., self.inverse_indices]
+    def inverse(self, net1: Tensor, net2: Tensor) -> tensor_tuple_type:
         net2 = net2 - self.transition(net1)
         return net2, net1
 
 
-class ResInvertibleBlock(nn.Module):
+class ConditionalOutput(NamedTuple):
+    net: Tensor
+    cond: Tensor
+
+
+class PseudoInvertibleBlock(Module):
     def __init__(
         self,
-        dim: int,
+        in_dim: int,
+        latent_dim: int,
+        out_dim: int,
         *,
-        transition_builder: Optional[Callable[[int], nn.Module]] = None,
+        to_activation: str = "mish",
+        from_activation: str = "mish",
+        to_transition_builder: Optional[Callable[[int, int], Module]] = None,
+        from_transition_builder: Optional[Callable[[int, int], Module]] = None,
     ):
         super().__init__()
-
-        def get_block() -> InvertibleBlock:
-            if transition_builder is None:
-                transition = None
-            else:
-                transition = transition_builder(dim)
-            return InvertibleBlock(dim, transition=transition)
-
-        self.block1 = get_block()
-        self.block2 = get_block()
+        if to_transition_builder is not None:
+            self.to_latent = to_transition_builder(in_dim, latent_dim)
+        else:
+            num_units = [latent_dim, latent_dim, latent_dim]
+            self.to_latent = MLP.simple(
+                in_dim,
+                None,
+                num_units,
+                activation=to_activation,
+            )
+        if from_transition_builder is not None:
+            self.from_latent = from_transition_builder(latent_dim, out_dim)
+        else:
+            self.from_latent = MLP.simple(
+                latent_dim,
+                out_dim,
+                [latent_dim, latent_dim],
+                bias=True,
+                activation=from_activation,
+            )
 
     def forward(
         self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.block2(*self.block1(net1, net2))
+        net: Union[Tensor, Any],
+        cond: Optional[Union[Tensor, Any]] = None,
+    ) -> Union[Tensor, ConditionalOutput]:
+        if cond is None:
+            return self.to_latent(net)
+        return self.to_latent(net, cond)
 
     def inverse(
         self,
-        net1: torch.Tensor,
-        net2: torch.Tensor,
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
-        return self.block1.inverse(*self.block2.inverse(net1, net2))
+        net: Union[Tensor, Any],
+        cond: Optional[Union[Tensor, Any]] = None,
+    ) -> Union[Tensor, ConditionalOutput]:
+        if cond is None:
+            return self.from_latent(net)
+        return self.from_latent(net, cond)
 
 
-class PseudoInvertibleBlock(nn.Module):
+class MonotonousMapping(Module):
     def __init__(
         self,
         in_dim: int,
         out_dim: int,
         *,
-        to_latent: Optional[nn.Module] = None,
-        from_latent: Optional[nn.Module] = None,
-        in_activation: Optional[nn.Module] = None,
-        inverse_in_activation: Optional[nn.Module] = None,
+        ascent: bool,
+        bias: bool = True,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+        activation: Optional[str] = None,
+        init_method: Optional[str] = "xavier_uniform",
+        positive_transform: str = "square",
+        scaler: Optional[float] = None,
+        use_scaler: bool = True,
+        **kwargs: Any,
     ):
         super().__init__()
-        dim = max(in_dim, out_dim)
-        if to_latent is None:
-            to_latent = Linear(in_dim, dim, bias=False)
-        if from_latent is None:
-            from_latent = MLP.simple(dim, in_dim, [dim, dim], activation="ReLU")
-        self.to_latent = to_latent
-        self.from_latent = from_latent
-        msg = "`in_activation` and `inverse_in_activation` should be provided together"
-        if in_activation is not None and inverse_in_activation is None:
-            raise ValueError(msg)
-        if in_activation is None and inverse_in_activation is not None:
-            raise ValueError(msg)
-        self.in_activation = in_activation
-        self.inverse_in_activation = inverse_in_activation
+        self.ascent = ascent
+        self.positive_transform = positive_transform
+        self.config = shallow_copy_dict(kwargs)
+        # linear
+        self.linear = Linear(
+            in_dim,
+            out_dim,
+            bias=bias,
+            init_method=init_method,
+            **kwargs,
+        )
+        # dropout
+        use_dropout = 0.0 < dropout < 1.0
+        self.dropout = None if not use_dropout else Dropout(dropout)
+        # batch norm
+        self.bn = None if not batch_norm else BN(out_dim)
+        # activation
+        if activation is None:
+            self.activation: Optional[Module] = None
+        else:
+            activation_config = self.config.setdefault("activation_config", None)
+            self.activation = Activations.make(activation, activation_config)
+        # scaler
+        if not use_scaler:
+            self.scaler = None
+        else:
+            if scaler is None:
+                scaler = math.log(math.e - 1)
+            self.scaler = nn.Parameter(torch.full([out_dim, 1], scaler))
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        if self.in_activation is not None:
-            net = self.in_activation(net)
-        return self.to_latent(net)
+    def _get_positive_weight(self) -> Tensor:
+        weight = self.linear.weight
+        if self.positive_transform == "abs":
+            pos_weight = torch.abs(weight)
+        elif self.positive_transform == "square":
+            pos_weight = weight ** 2
+        elif self.positive_transform == "sigmoid":
+            pos_weight = torch.sigmoid(weight)
+        elif self.positive_transform == "softmax":
+            pos_weight = F.softmax(weight, dim=1)
+        elif self.positive_transform == "softplus":
+            pos_weight = F.softplus(weight)
+        else:
+            msg = f"positive transform '{self.positive_transform}' is not implemented"
+            raise NotImplementedError(msg)
+        if self.scaler is None:
+            return pos_weight
+        scaler = F.softplus(self.scaler)
+        return scaler * pos_weight
 
-    def inverse(self, net: torch.Tensor) -> torch.Tensor:
-        net = self.from_latent(net)
-        if self.inverse_in_activation is not None:
-            net = self.inverse_in_activation(net)
+    def forward(self, net: Tensor, *, reuse: bool = False) -> Tensor:
+        weight = self._get_positive_weight()
+        if not self.ascent:
+            weight = -weight
+        net = F.linear(net, weight, self.linear.bias)
+        if self.bn is not None:
+            net = self.bn(net)
+        if self.activation is not None:
+            net = self.activation(net)
+        if self.dropout is not None:
+            net = self.dropout(net, reuse=reuse)
         return net
+
+    def extra_repr(self) -> str:
+        msg = f"(ascent): {self.ascent}\n(positive): {self.positive_transform}"
+        if self.scaler is None:
+            return msg
+        return f"{msg}\n(scaler): {self.scaler.shape}"
+
+    @classmethod
+    def make_couple(
+        cls,
+        in_dim: int,
+        hidden_dim: int,
+        out_dim: int,
+        activation: str,
+        *,
+        ascent: bool,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+        scaler: Optional[float] = None,
+        init_method: Optional[str] = "normal",
+        **kwargs: Any,
+    ) -> nn.Sequential:
+        if activation == "tanh":
+            inverse_activation = "atanh"
+        elif activation == "sigmoid":
+            inverse_activation = "logit"
+        elif activation == "softplus":
+            inverse_activation = "isoftplus"
+        else:
+            msg = f"inverse activation of '{activation}' is not defined"
+            raise NotImplementedError(msg)
+        initialize_config = kwargs.setdefault("initialize_config", {})
+        initialize_config.setdefault("std", 3.0)
+        squash_unit = cls(
+            in_dim,
+            hidden_dim,
+            ascent=ascent,
+            bias=True,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation=activation,
+            init_method=init_method,
+            positive_transform="softmax" if in_dim > 1 else "softplus",
+            scaler=scaler,
+            **kwargs,
+        )
+        inverse_unit = cls(
+            hidden_dim,
+            out_dim,
+            ascent=True,
+            bias=False,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation=inverse_activation,
+            init_method=init_method,
+            positive_transform="softmax",
+            use_scaler=False,
+            **kwargs,
+        )
+        return nn.Sequential(squash_unit, inverse_unit)
+
+    @classmethod
+    def stack(
+        cls,
+        in_dim: int,
+        out_dim: Optional[int],
+        num_units: List[int],
+        *,
+        ascent: bool,
+        bias: bool = False,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+        final_batch_norm: bool = False,
+        use_couple: bool = True,
+        activation: Optional[str] = "sigmoid",
+        init_method: Optional[str] = "normal",
+        positive_transform: str = "softmax",
+        use_scaler: bool = True,
+        scaler: Optional[float] = None,
+        return_blocks: bool = False,
+        **kwargs: Any,
+    ) -> Union[List[Module], nn.Sequential]:
+        blocks = []
+        common_kwargs = {
+            "ascent": ascent,
+            "dropout": dropout,
+            "batch_norm": batch_norm,
+            "activation": activation,
+        }
+
+        def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> Module:
+            local_kwargs = shallow_copy_dict(common_kwargs)
+            local_kwargs.update(shallow_copy_dict(kwargs))
+            local_kwargs["in_dim"] = in_dim_
+            local_kwargs["out_dim"] = out_dim_
+            if use_couple:
+                local_kwargs["scaler"] = scaler
+                local_kwargs["hidden_dim"] = hidden_dim
+                return cls.make_couple(**local_kwargs)
+            local_kwargs["bias"] = bias
+            local_kwargs["init_method"] = init_method
+            local_kwargs["positive_transform"] = positive_transform
+            local_kwargs["use_scaler"] = use_scaler
+            return cls(**local_kwargs)
+
+        current_in_dim = in_dim
+        for num_unit in num_units:
+            blocks.append(_make(current_in_dim, num_unit, num_unit))
+            current_in_dim = num_unit
+        if out_dim is not None:
+            common_kwargs["batch_norm"] = final_batch_norm
+            blocks.append(_make(current_in_dim, out_dim, current_in_dim))
+
+        if return_blocks:
+            return blocks
+        return nn.Sequential(*blocks)
+
+
+class ConditionalBlocks(Module):
+    def __init__(
+        self,
+        main_blocks: ModuleList,
+        condition_blocks: ModuleList,
+        *,
+        add_last: bool,
+    ):
+        super().__init__()
+        self.add_last = add_last
+        self.num_blocks = len(main_blocks)
+        if self.num_blocks != len(condition_blocks):
+            msg = "`main_blocks` and `condition_blocks` should have same sizes"
+            raise ValueError(msg)
+        self.main_blocks = main_blocks
+        self.condition_blocks = condition_blocks
+
+    def forward(self, net: Tensor, cond: Tensor) -> ConditionalOutput:
+        iterator = enumerate(zip(self.main_blocks, self.condition_blocks))
+        for i, (main, condition) in iterator:
+            cond = condition(cond)
+            net = main(net)
+            if i < self.num_blocks - 1 or self.add_last:
+                net = net + cond
+        return ConditionalOutput(net, cond)
+
+    def extra_repr(self) -> str:
+        return f"(add_last): {self.add_last}"
 
 
 class AttentionOutput(NamedTuple):
-    output: torch.Tensor
-    weights: torch.Tensor
+    output: Tensor
+    weights: Tensor
 
 
-class Attention(nn.Module):
+class Attention(Module):
     def __init__(
         self,
         input_dim: int,
@@ -489,17 +709,17 @@ class Attention(nn.Module):
         self.dropout = dropout
         self.activation = Activations.make(activation, activation_config)
 
-    def _to_heads(self, tensor: torch.Tensor) -> torch.Tensor:
+    def _to_heads(self, tensor: Tensor) -> Tensor:
         batch_size, seq_len, in_feature = tensor.shape
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
         return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)
 
     def forward(
         self,
-        q: torch.Tensor,
-        k: torch.Tensor,
-        v: torch.Tensor,
-        mask: Optional[torch.Tensor] = None,
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        mask: Optional[Tensor] = None,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
         k_len = k.shape[1]
@@ -548,7 +768,9 @@ __all__ = [
     "DNDF",
     "TreeResBlock",
     "InvertibleBlock",
-    "ResInvertibleBlock",
     "PseudoInvertibleBlock",
+    "MonotonousMapping",
+    "ConditionalBlocks",
+    "ConditionalOutput",
     "Attention",
 ]
