@@ -242,11 +242,8 @@ class DDR(ModelBase):
             else:
                 median_rs.update(
                     {
-                        "predictions": rs["median"],
-                        "median_med_res": rs["med_res"],
-                        "median_sign": rs["q_sign"],
-                        "median_positive_mask": rs["q_positive_mask"],
                         "median_ae": rs["q_ae"],
+                        "predictions": rs["median"],
                         "median_inverse": rs["q_inverse"],
                     }
                 )

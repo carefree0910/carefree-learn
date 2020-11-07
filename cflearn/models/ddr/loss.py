@@ -33,10 +33,11 @@ class DDRLoss(LossBase, LoggingMixin):
             return {"median_affine": median_affine_losses}
         median = predictions["predictions"]
         median_losses = l1_loss(median, target, reduction="none")
-        median_sign = predictions["median_sign"]
-        median_residual = predictions["median_med_res"]
+        # median residual
+        q_sign = predictions["q_sign"]
+        median_residual = predictions["med_res"]
         target_residual = target - median.detach()
-        same_sign_mask = median_sign * torch.sign(target_residual) > 0
+        same_sign_mask = q_sign * torch.sign(target_residual) > 0
         tmr = target_residual[same_sign_mask]
         mr = median_residual[same_sign_mask]
         mr_losses = torch.zeros_like(target_residual)

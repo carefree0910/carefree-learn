@@ -195,7 +195,8 @@ class DDRCore(nn.Module):
         self,
         outputs: ConditionalOutput,
         q_batch: Tensor,
-    ) -> Dict[str, Tensor]:
+        median: bool,
+    ) -> Dict[str, Optional[Tensor]]:
         y_net = outputs.net
         cond_net = outputs.cond
         y_split = y_net.split(1, dim=1)
@@ -206,13 +207,17 @@ class DDRCore(nn.Module):
         neg_med_res = -self.mish(neg_med_res)
         y_pos_mul = y_pos_mul.relu_()
         y_neg_mul = (1.0 - y_neg_mul).relu_()
-        q_batch_eps = q_batch + 2.0e-8 * torch.empty_like(q_batch).uniform_() - 1.0e-8
-        q_sign = torch.sign(q_batch_eps)
-        q_positive_mask = q_sign == 1.0
-        add_net = torch.where(q_positive_mask, y_pos_add, y_neg_add)
-        mul_net = torch.where(q_positive_mask, y_pos_mul, y_neg_mul)
-        med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
-        y_res = med_res * mul_net + add_net
+        if median:
+            q_sign = q_positive_mask = med_res = y_res = None
+            add_net = 0.5 * (y_pos_add + y_neg_add)
+            mul_net = 0.5 * (y_pos_mul + y_neg_mul)
+        else:
+            q_sign = torch.sign(q_batch)
+            q_positive_mask = q_sign == 1.0
+            add_net = torch.where(q_positive_mask, y_pos_add, y_neg_add)
+            mul_net = torch.where(q_positive_mask, y_pos_mul, y_neg_mul)
+            med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
+            y_res = med_res * mul_net + add_net
         return {
             "y_res": y_res,
             "median": med,
@@ -256,9 +261,11 @@ class DDRCore(nn.Module):
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
-            y_results = self._merge_q_outputs(y_pack, q_batch)
+            y_results = self._merge_q_outputs(y_pack, q_batch, median)
             if do_inverse:
-                y = y_results["y_res"].detach() + y_results["median"].detach()
+                y = y_results["median"].detach()
+                if not median:
+                    y = y + y_results["y_res"].detach()
                 inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
         results = y_results or {}
