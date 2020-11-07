@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Any
+from typing import Dict
 from typing import Tuple
 from typing import Optional
 from cftool.misc import show_or_save
@@ -15,6 +16,9 @@ from ...pipeline.core import Pipeline
 class DDRPredictor:
     def __init__(self, ddr: Pipeline):
         self.m = ddr
+
+    def mr(self, x: data_type) -> Dict[str, np.ndarray]:
+        return self.m.predict(x, predict_median_residual=True, return_all=True)
 
     def cdf(self, x: data_type, y: data_type, *, get_pdf: bool = False) -> np.ndarray:
         predictions = self.m.predict(
@@ -84,6 +88,7 @@ class DDRVisualizer:
         y: np.ndarray,
         export_path: Optional[str],
         *,
+        median_residual: bool = False,
         q_batch: Optional[np.ndarray] = None,
         y_batch: Optional[np.ndarray] = None,
         to_pdf: bool = False,
@@ -104,6 +109,13 @@ class DDRVisualizer:
         median = None if not model.fetch_q else self.m.predict(x_base)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
+        # median residual
+        if median_residual:
+            residuals = self.predictor.mr(x_base)
+            pos, neg = map(residuals.get, ["mr_pos", "mr_neg"])
+            plt.plot(x_base.ravel(), pos, label="pos_median_residual")
+            plt.plot(x_base.ravel(), neg, label="neg_median_residual")
+            DDRVisualizer._render_figure(*render_args)
         # quantile curves
         if q_batch is not None and model.fetch_q:
             for q in q_batch:

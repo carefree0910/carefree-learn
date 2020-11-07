@@ -168,9 +168,15 @@ class DDR(ModelBase):
         net: torch.Tensor,
         q_batch: Optional[torch.Tensor],
         do_inverse: bool,
+        return_mr: bool = False,
     ) -> tensor_dict_type:
         if q_batch is None:
-            results = self.core(net, median=True, do_inverse=do_inverse)
+            results = self.core(
+                net,
+                median=True,
+                return_mr=return_mr,
+                do_inverse=do_inverse,
+            )
         else:
             results = self.core(net, q_batch=q_batch, do_inverse=do_inverse)
         return results
@@ -179,8 +185,9 @@ class DDR(ModelBase):
         self,
         net: torch.Tensor,
         do_inverse: bool,
+        return_mr: bool = False,
     ) -> tensor_dict_type:
-        return self._quantile(net, None, do_inverse)
+        return self._quantile(net, None, do_inverse, return_mr)
 
     def _cdf(
         self,
@@ -283,12 +290,32 @@ class DDR(ModelBase):
     ) -> tensor_dict_type:
         # pre-processing
         x_batch = batch["x_batch"]
+        batch_size = x_batch.shape[0]
         net = self._split_features(x_batch, batch_indices, loader_name).merge()
         if self.tr_data.is_ts:
-            net = net.view(net.shape[0], -1)
+            net = net.view(batch_size, -1)
         y_batch = batch["y_batch"]
-        # check inference
+        # check q inference
         forward_dict = {}
+        predict_mr = kwargs.get("predict_median_residual", False)
+        predict_quantile = kwargs.get("predict_quantiles")
+        if predict_mr or predict_quantile:
+            if not self.fetch_q:
+                raise ValueError("quantile function is not fetched")
+            if predict_mr:
+                pack = self._median(net, False, True)
+                median = pack["median"]
+                pos, neg = pack["pos_med_res"], pack["neg_med_res"]
+                forward_dict["mr_pos"] = pos + median
+                forward_dict["mr_neg"] = -neg + median
+            if predict_quantile:
+                q = kwargs.get("q")
+                if q is None:
+                    raise ValueError(f"quantile cannot be predicted without q")
+                q_batch = self._expand(batch_size, q)
+                pack = self._quantile(net, q_batch, False)
+                forward_dict["quantiles"] = pack["median"] + pack["y_res"]
+        # check y inference
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)
         if predict_pdf or predict_cdf:
@@ -297,7 +324,7 @@ class DDR(ModelBase):
             y = kwargs.get("y")
             if y is None:
                 raise ValueError(f"pdf / cdf cannot be predicted without y")
-            y_batch = self._expand(len(net), y, numpy=True)
+            y_batch = self._expand(batch_size, y, numpy=True)
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
             results = self._cdf(net, y_batch, False, predict_pdf, False)
@@ -305,16 +332,6 @@ class DDR(ModelBase):
                 forward_dict["pdf"] = results["pdf"]
             if predict_cdf:
                 forward_dict["cdf"] = results["q"]
-        predict_quantile = kwargs.get("predict_quantiles")
-        if predict_quantile:
-            if not self.fetch_q:
-                raise ValueError("quantile function is not fetched")
-            q = kwargs.get("q")
-            if q is None:
-                raise ValueError(f"quantile cannot be predicted without q")
-            q_batch = self._expand(len(net), q)
-            pack = self._quantile(net, q_batch, False)
-            forward_dict["quantiles"] = pack["median"] + pack["y_res"]
         if not forward_dict:
             forward_dict = self._core(net, y_batch, False)
         return forward_dict

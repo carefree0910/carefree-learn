@@ -221,6 +221,7 @@ class DDRCore(nn.Module):
         outputs: ConditionalOutput,
         q_batch: Tensor,
         median: bool,
+        return_mr: bool,
     ) -> Dict[str, Optional[Tensor]]:
         y_net = outputs.net
         cond_net = outputs.cond
@@ -243,6 +244,8 @@ class DDRCore(nn.Module):
             med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
             y_res = med_res * mul_net + add_net
         results = {"median": med}
+        if return_mr:
+            results.update({"pos_med_res": pos_med_res, "neg_med_res": neg_med_res})
         if median:
             results.update(
                 {
@@ -271,6 +274,7 @@ class DDRCore(nn.Module):
         q_batch: Optional[Tensor] = None,
         do_inverse: bool = False,
         median: bool = False,
+        return_mr: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         # prepare q_latent
         if q_batch is None and median:
@@ -295,7 +299,7 @@ class DDRCore(nn.Module):
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
             assert isinstance(y_pack, ConditionalOutput)
-            y_results = self._merge_q_outputs(y_pack, q_batch, median)
+            y_results = self._merge_q_outputs(y_pack, q_batch, median, return_mr)
             if do_inverse and self.fetch_cdf:
                 median_output, y_res = map(y_results.get, ["median", "y_res"])
                 assert median_output is not None
@@ -345,14 +349,15 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         *,
+        median: bool = False,
+        return_mr: bool = False,
+        do_inverse: bool = False,
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
-        do_inverse: bool = False,
-        median: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         results: Dict[str, Optional[Tensor]] = {}
         if self.fetch_q:
-            results.update(self._q_results(net, q_batch, do_inverse, median))
+            results.update(self._q_results(net, q_batch, do_inverse, median, return_mr))
         if self.fetch_cdf:
             results.update(self._y_results(net, y_batch, do_inverse))
         return results
