@@ -13,7 +13,6 @@ from cftool.misc import context_error_handler
 
 from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
-from ...misc.toolkit import Activations
 from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
@@ -124,7 +123,6 @@ class DDRCore(nn.Module):
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
         self.fetch_cdf = fetch_cdf
-        self.mish = Activations().mish
         if num_layers is None:
             num_layers = 1
         if num_blocks is None:
@@ -218,8 +216,8 @@ class DDRCore(nn.Module):
 
         return _()
 
+    @staticmethod
     def _merge_q_outputs(
-        self,
         outputs: ConditionalOutput,
         q_batch: Tensor,
         median: bool,
@@ -230,10 +228,10 @@ class DDRCore(nn.Module):
         cond_split = cond_net.split(1, dim=1)
         med, pos_med_res, neg_med_res = cond_split
         y_pos_add, y_pos_mul, y_neg_add, y_neg_mul = y_split
-        pos_med_res = self.mish(pos_med_res)
-        neg_med_res = -self.mish(neg_med_res)
+        pos_med_res = pos_med_res.relu_()
+        neg_med_res = neg_med_res.relu_()
         y_pos_mul = y_pos_mul.relu_()
-        y_neg_mul = (1.0 - y_neg_mul).relu_()
+        y_neg_mul = -y_neg_mul.relu_()
         if median:
             q_sign = q_positive_mask = None
             y_res = add_net = mul_net = med_res = None
