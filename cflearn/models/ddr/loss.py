@@ -14,7 +14,7 @@ class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.fetch_q = config["fetch_q"]
         self.fetch_cdf = config["fetch_cdf"]
-        self.mtl = MTL(8, config["mtl_method"])
+        self.mtl = MTL(18, config["mtl_method"])
         self._lb_pdf = config.setdefault("lambda_pdf", 0.01)
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-8)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
