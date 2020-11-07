@@ -98,18 +98,20 @@ class DDRVisualizer:
         x_min -= x_padding
         x_max += x_padding
         x_base = np.linspace(x_min, x_max, dense)[..., None]
+        model = self.m.model
+        assert model is not None
         mean = None
-        median = None if not self.m.model.fetch_q else self.m.predict(x_base)
+        median = None if not model.fetch_q else self.m.predict(x_base)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # quantile curves
-        if q_batch is not None and self.m.model.fetch_q:
+        if q_batch is not None and model.fetch_q:
             for q in q_batch:
                 quantile_curve = self.predictor.quantile(x_base, q)
                 plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
             DDRVisualizer._render_figure(*render_args)
         # cdf curves
-        if y_batch is not None and self.m.model.fetch_cdf:
+        if y_batch is not None and model.fetch_cdf:
             y_abs_max = np.abs(y).max()
             ratios, anchors = y_batch, [
                 ratio * (y_max - y_min) + y_min for ratio in y_batch

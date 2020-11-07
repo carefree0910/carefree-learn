@@ -296,15 +296,21 @@ class DDRCore(nn.Module):
             for block in self.blocks:
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
+            assert isinstance(y_pack, ConditionalOutput)
             y_results = self._merge_q_outputs(y_pack, q_batch, median)
             if do_inverse and self.fetch_cdf:
-                y = y_results["median"].detach()
+                median_output, y_res = map(y_results.get, ["median", "y_res"])
+                assert median_output is not None
+                y = median_output.detach()
                 if not median:
-                    y = y + y_results["y_res"].detach()
+                    assert y_res is not None
+                    y = y + y_res.detach()
                 inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
-        results = y_results or {}
-        results.update({"q_inverse": q_inverse})
+        results: Dict[str, Optional[Tensor]] = {}
+        if y_results is not None:
+            results.update(y_results)
+        results["q_inverse"] = q_inverse
         return results
 
     def _y_results(
@@ -327,7 +333,9 @@ class DDRCore(nn.Module):
         else:
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
-            q_logit = self.q_invertible.inverse((y1, y2), net).net
+            q_logit_pack = self.q_invertible.inverse((y1, y2), net)
+            assert isinstance(q_logit_pack, ConditionalOutput)
+            q_logit = q_logit_pack.net
             q = self.q_inv_fn(q_logit)
             if do_inverse and self.fetch_q:
                 with self._detach_q():
