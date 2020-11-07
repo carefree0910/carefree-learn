@@ -102,7 +102,7 @@ class DDRLoss(LossBase, LoggingMixin):
         y_batch = predictions["y_batch"]
         y_recover_losses = None
         if not is_synthetic:
-            y_inverse = predictions["y_inverse_res"] + predictions["median"]
+            y_inverse = predictions["y_inverse_res"] + predictions["median"].detach()
             if y_inverse is not None:
                 y_recover_losses = l1_loss(y_inverse, y_batch, reduction="none")
                 y_recover_losses = self._lb_recover * y_recover_losses
