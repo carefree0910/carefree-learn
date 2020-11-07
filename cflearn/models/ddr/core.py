@@ -24,7 +24,7 @@ from ...modules.blocks import PseudoInvertibleBlock
 
 def default_transition_builder(dim: int) -> nn.Module:
     h_dim = int(dim // 2)
-    return MonotonousMapping.make_couple(h_dim, h_dim, h_dim, "tanh", ascent=True)
+    return MonotonousMapping.make_couple(h_dim, h_dim, h_dim, "sigmoid", ascent=True)
 
 
 def monotonous_builder(
@@ -64,7 +64,8 @@ def monotonous_builder(
             condition_dim,
             cond_out_dim,
             num_units,
-            activation="mish",
+            bias=not to_latent,
+            activation="ReLU",
         )
         cond_mappings = cond_module.mappings
 
@@ -120,7 +121,7 @@ class DDRCore(nn.Module):
         # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        self.softplus = Activations().softplus
+        self.mish = Activations().mish
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
@@ -231,10 +232,10 @@ class DDRCore(nn.Module):
         cond_split = cond_net.split(1, dim=1)
         med, pos_med_res, neg_med_res = cond_split
         y_pos_add, y_pos_mul, y_neg_add, y_neg_mul = y_split
-        pos_med_res = self.softplus(pos_med_res)
-        neg_med_res = self.softplus(neg_med_res)
-        y_pos_mul = self.softplus(y_pos_mul)
-        y_neg_mul = -self.softplus(y_neg_mul)
+        y_pos_add = self.mish(y_pos_add)
+        y_neg_add = -self.mish(-y_neg_add)
+        y_pos_mul = y_pos_mul.relu_()
+        y_neg_mul = -(-y_neg_mul).relu_()
         if median:
             q_sign = q_positive_mask = None
             y_res = add_net = mul_net = med_res = None
