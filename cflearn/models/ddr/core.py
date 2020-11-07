@@ -136,7 +136,10 @@ class DDRCore(nn.Module):
         # pseudo invertible q / y
         kwargs = {"num_layers": num_layers, "condition_dim": in_dim}
         q_to_latent_builder = monotonous_builder(True, True, True, **kwargs)
-        q_from_latent_builder = monotonous_builder(True, False, False, **kwargs)
+        if not self.fetch_cdf:
+            q_from_latent_builder = self.dummy_builder
+        else:
+            q_from_latent_builder = monotonous_builder(True, False, False, **kwargs)
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
@@ -144,7 +147,10 @@ class DDRCore(nn.Module):
             to_transition_builder=q_to_latent_builder,
             from_transition_builder=q_from_latent_builder,
         )
-        y_to_latent_builder = monotonous_builder(True, False, True, **kwargs)
+        if not self.fetch_cdf:
+            y_to_latent_builder = self.dummy_builder
+        else:
+            y_to_latent_builder = monotonous_builder(True, False, True, **kwargs)
         y_from_latent_builder = monotonous_builder(True, True, False, **kwargs)
         self.y_invertible = PseudoInvertibleBlock(
             1,
@@ -180,6 +186,10 @@ class DDRCore(nn.Module):
     @property
     def y_inv_fn(self) -> Callable[[Tensor], Tensor]:
         return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
+
+    @property
+    def dummy_builder(self) -> Callable[[int, int], nn.Module]:
+        return lambda _, __: nn.Identity()
 
     def _detach_q(self) -> context_error_handler:
         def switch(requires_grad: bool) -> None:
@@ -274,7 +284,7 @@ class DDRCore(nn.Module):
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
             y_results = self._merge_q_outputs(y_pack, q_batch, median)
-            if do_inverse:
+            if do_inverse and self.fetch_cdf:
                 y = y_results["median"].detach()
                 if not median:
                     y = y + y_results["y_res"].detach()
@@ -323,7 +333,8 @@ class DDRCore(nn.Module):
     ) -> Dict[str, Optional[Tensor]]:
         results: Dict[str, Optional[Tensor]] = {}
         results.update(self._q_results(net, q_batch, do_inverse, median))
-        results.update(self._y_results(net, y_batch, do_inverse))
+        if self.fetch_cdf:
+            results.update(self._y_results(net, y_batch, do_inverse))
         return results
 
 

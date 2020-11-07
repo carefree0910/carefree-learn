@@ -85,7 +85,6 @@ class DDR(ModelBase):
         super()._init_config()
         # common
         self.config.setdefault("ema_decay", 0.0)
-        # TODO : Optimize Structures when `q_only` is True
         self.fetches = set(self.config.setdefault("fetches", {"q", "cdf"}))
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
@@ -242,10 +241,13 @@ class DDR(ModelBase):
         with timing_context(self, "forward.quantile"):
             q_rs = self._quantile(net, q_batch, True)
         with timing_context(self, "forward.cdf"):
-            cdf_inverse = not synthetic
-            y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
-            y_rs["cdf"] = y_rs.pop("q")
-            y_rs["cdf_logit"] = y_rs.pop("q_logit")
+            if not self.fetch_cdf:
+                y_rs = {}
+            else:
+                cdf_inverse = not synthetic
+                y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
+                y_rs["cdf"] = y_rs.pop("q")
+                y_rs["cdf_logit"] = y_rs.pop("q_logit")
         # construct results
         results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
         results.update({k: v for k, v in median_rs.items() if v is not None})
