@@ -79,13 +79,15 @@ class DDR(ModelBase):
 
     @property
     def fetch_cdf(self) -> bool:
-        return "y" in self.fetches
+        return "cdf" in self.fetches
 
     def _init_config(self) -> None:
         super()._init_config()
         # common
         self.config.setdefault("ema_decay", 0.0)
         self.fetches = set(self.config.setdefault("fetches", {"q", "cdf"}))
+        if not self.fetch_q and not self.fetch_cdf:
+            raise ValueError("something must be fetched, either `q` or `cdf`")
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
@@ -101,15 +103,19 @@ class DDR(ModelBase):
         self._loss_config["fetch_q"] = self.fetch_q
         self._loss_config["fetch_cdf"] = self.fetch_cdf
         # trainer config
-        default_metric_types = ["ddr", "loss", "median_affine"]
+        default_metric_types = []
+        if self.fetch_q:
+            default_metric_types += ["ddr", "median_affine"]
         if self.fetch_cdf:
-            default_metric_types += ["pdf", "cdf"]
+            default_metric_types += ["cdf", "pdf"]
+        if self.fetch_q and self.fetch_cdf:
+            default_metric_types.append("loss")
         default_metric_weights = {
             "ddr": 5.0,
-            "loss": 1.0,
-            "pdf": 1.0,
-            "cdf": 1.0,
             "median_affine": 10.0,
+            "cdf": 1.0,
+            "pdf": 1.0,
+            "loss": 1.0,
         }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
@@ -205,6 +211,7 @@ class DDR(ModelBase):
         synthetic: bool,
     ) -> tensor_dict_type:
         batch_size = len(net)
+        # TODO : try to optimize this when `fetches` is not full
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
             if self.training:
@@ -220,34 +227,41 @@ class DDR(ModelBase):
                 y_batch = y_batch.repeat_interleave(n_repeat, dim=0)[:batch_size]
         # build predictions
         with timing_context(self, "forward.median"):
-            rs = self._median(net, True)
-            median_rs = {
-                "median_pos_add": rs["pos_add"],
-                "median_neg_add": rs["neg_add"],
-                "median_pos_mul": rs["pos_mul"],
-                "median_neg_mul": rs["neg_mul"],
-            }
-            if synthetic:
-                if not self.fetch_cdf:
-                    return median_rs
-            else:
-                median_rs.update(
-                    {
-                        "predictions": rs["median"],
-                        "median_inverse": rs["q_inverse"],
-                    }
-                )
+            median_rs = {}
+            if self.fetch_q:
+                rs = self._median(net, True)
+                median_rs = {
+                    "median_pos_add": rs["pos_add"],
+                    "median_neg_add": rs["neg_add"],
+                    "median_pos_mul": rs["pos_mul"],
+                    "median_neg_mul": rs["neg_mul"],
+                }
+                if synthetic:
+                    if not self.fetch_cdf:
+                        return median_rs
+                else:
+                    median_rs.update(
+                        {
+                            "predictions": rs["median"],
+                            "median_inverse": rs["q_inverse"],
+                        }
+                    )
         # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
-            q_rs = self._quantile(net, q_batch, True)
+            if not self.fetch_q:
+                q_rs = {}
+            else:
+                q_rs = self._quantile(net, q_batch, True)
         with timing_context(self, "forward.cdf"):
             if not self.fetch_cdf:
                 y_rs = {}
             else:
                 cdf_inverse = not synthetic
                 y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
-                y_rs["cdf"] = y_rs.pop("q")
+                q = y_rs["cdf"] = y_rs.pop("q")
                 y_rs["cdf_logit"] = y_rs.pop("q_logit")
+                if not self.fetch_q:
+                    y_rs["predictions"] = q
         # construct results
         results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
         results.update({k: v for k, v in median_rs.items() if v is not None})
@@ -278,6 +292,8 @@ class DDR(ModelBase):
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)
         if predict_pdf or predict_cdf:
+            if not self.fetch_cdf:
+                raise ValueError("cdf function is not fetched")
             y = kwargs.get("y")
             if y is None:
                 raise ValueError(f"pdf / cdf cannot be predicted without y")
@@ -291,6 +307,8 @@ class DDR(ModelBase):
                 forward_dict["cdf"] = results["q"]
         predict_quantile = kwargs.get("predict_quantiles")
         if predict_quantile:
+            if not self.fetch_q:
+                raise ValueError("quantile function is not fetched")
             q = kwargs.get("q")
             if q is None:
                 raise ValueError(f"quantile cannot be predicted without q")
@@ -337,7 +355,7 @@ class DDR(ModelBase):
             losses = losses + syn_losses
         losses_dict["loss"] = losses
         losses_dict = {k: v.mean() for k, v in losses_dict.items()}
-        if not self.training:
+        if not self.training and self.fetch_q:
             assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)

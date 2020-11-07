@@ -120,6 +120,8 @@ class DDRCore(nn.Module):
         # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
+        if not fetch_q and not fetch_cdf:
+            raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
         self.fetch_cdf = fetch_cdf
         self.mish = Activations().mish
@@ -133,9 +135,12 @@ class DDRCore(nn.Module):
             latent_dim = 512
         if transition_builder is None:
             transition_builder = default_transition_builder
-        # pseudo invertible q / y
+        # pseudo invertible q
         kwargs = {"num_layers": num_layers, "condition_dim": in_dim}
-        q_to_latent_builder = monotonous_builder(True, True, True, **kwargs)
+        if not self.fetch_q:
+            q_to_latent_builder = self.dummy_builder
+        else:
+            q_to_latent_builder = monotonous_builder(True, True, True, **kwargs)
         if not self.fetch_cdf:
             q_from_latent_builder = self.dummy_builder
         else:
@@ -147,11 +152,15 @@ class DDRCore(nn.Module):
             to_transition_builder=q_to_latent_builder,
             from_transition_builder=q_from_latent_builder,
         )
+        # pseudo invertible y
         if not self.fetch_cdf:
             y_to_latent_builder = self.dummy_builder
         else:
             y_to_latent_builder = monotonous_builder(True, False, True, **kwargs)
-        y_from_latent_builder = monotonous_builder(True, True, False, **kwargs)
+        if not self.fetch_q:
+            y_from_latent_builder = self.dummy_builder
+        else:
+            y_from_latent_builder = monotonous_builder(True, True, False, **kwargs)
         self.y_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
@@ -159,9 +168,13 @@ class DDRCore(nn.Module):
             to_transition_builder=y_to_latent_builder,
             from_transition_builder=y_from_latent_builder,
         )
-        q_params1 = list(self.q_invertible.to_latent.parameters())
-        q_params2 = list(self.y_invertible.from_latent.parameters())
-        self.q_parameters = q_params1 + q_params2
+        # q parameters
+        if not self.fetch_q:
+            self.q_parameters = []
+        else:
+            q_params1 = list(self.q_invertible.to_latent.parameters())
+            q_params2 = list(self.y_invertible.from_latent.parameters())
+            self.q_parameters = q_params1 + q_params2
         # invertible blocks
         self.num_blocks = num_blocks
         self.block_parameters: List[nn.Parameter] = []
@@ -316,7 +329,7 @@ class DDRCore(nn.Module):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             q_logit = self.q_invertible.inverse((y1, y2), net).net
             q = self.q_inv_fn(q_logit)
-            if do_inverse:
+            if do_inverse and self.fetch_q:
                 with self._detach_q():
                     inverse_results = self._q_results(net, q.detach())
                     y_inverse_res = inverse_results["y_res"]
@@ -332,7 +345,8 @@ class DDRCore(nn.Module):
         median: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         results: Dict[str, Optional[Tensor]] = {}
-        results.update(self._q_results(net, q_batch, do_inverse, median))
+        if self.fetch_q:
+            results.update(self._q_results(net, q_batch, do_inverse, median))
         if self.fetch_cdf:
             results.update(self._y_results(net, y_batch, do_inverse))
         return results

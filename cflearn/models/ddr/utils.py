@@ -53,7 +53,7 @@ class DDRVisualizer:
         y: np.ndarray,
         x_base: np.ndarray,
         mean: Optional[np.ndarray],
-        median: np.ndarray,
+        median: Optional[np.ndarray],
         indices: np.ndarray,
         title: str,
     ) -> plt.Figure:
@@ -62,7 +62,8 @@ class DDRVisualizer:
         plt.scatter(x[indices], y[indices], color="gray", s=15)
         if mean is not None:
             plt.plot(x_base.ravel(), mean.ravel(), label="mean")
-        plt.plot(x_base.ravel(), median.ravel(), label="median")
+        if median is not None:
+            plt.plot(x_base.ravel(), median.ravel(), label="median")
         return figure
 
     @staticmethod
@@ -98,17 +99,17 @@ class DDRVisualizer:
         x_max += x_padding
         x_base = np.linspace(x_min, x_max, dense)[..., None]
         mean = None
-        median = self.m.predict(x_base)
+        median = None if not self.m.model.fetch_q else self.m.predict(x_base)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # quantile curves
-        if q_batch is not None:
+        if q_batch is not None and self.m.model.fetch_q:
             for q in q_batch:
                 quantile_curve = self.predictor.quantile(x_base, q)
                 plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
             DDRVisualizer._render_figure(*render_args)
         # cdf curves
-        if y_batch is not None:
+        if y_batch is not None and self.m.model.fetch_cdf:
             y_abs_max = np.abs(y).max()
             ratios, anchors = y_batch, [
                 ratio * (y_max - y_min) + y_min for ratio in y_batch
