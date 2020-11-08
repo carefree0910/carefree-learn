@@ -256,7 +256,7 @@ class DDRCore(nn.Module):
         results = {"median": med}
         if return_mr:
             results.update({"pos_med_res": pos_med_res, "neg_med_res": neg_med_res})
-        if median:
+        if median or return_mr:
             results.update(
                 {
                     "pos_add": y_pos_add,
@@ -265,6 +265,8 @@ class DDRCore(nn.Module):
                     "neg_mul": y_neg_mul,
                 }
             )
+            if return_mr:
+                results["q_positive_mask"] = q_positive_mask
         else:
             results.update(
                 {

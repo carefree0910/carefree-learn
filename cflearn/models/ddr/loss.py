@@ -25,14 +25,22 @@ class DDRLoss(LossBase, LoggingMixin):
         target: torch.Tensor,
         is_synthetic: bool,
     ) -> tensor_dict_type:
-        # median
+        # median affine
         mpa = predictions["median_pos_add"]
         mna = predictions["median_neg_add"]
         mpm = predictions["median_pos_mul"]
         mnm = predictions["median_neg_mul"]
-        median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
-        if is_synthetic:
+        if not is_synthetic:
+            median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
+        else:
+            mpr = predictions["median_pos_res"].detach()
+            mnr = predictions["median_neg_res"].detach()
+            mask = predictions["median_positive_mask"]
+            mpr_losses = (mpr * (1.0 - mpm) - mpa).abs()
+            mnr_losses = (mnr * (1.0 + mnm) + mna).abs()
+            median_affine_losses = torch.where(mask, mpr_losses, mnr_losses).abs()
             return {"median_affine": median_affine_losses}
+        # median
         median = predictions["predictions"]
         median_losses = l1_loss(median, target, reduction="none")
         # median residual

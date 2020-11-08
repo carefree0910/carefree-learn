@@ -170,22 +170,19 @@ class DDR(ModelBase):
         do_inverse: bool,
         return_mr: bool = False,
     ) -> tensor_dict_type:
-        if q_batch is None:
-            results = self.core(
-                net,
-                median=True,
-                return_mr=return_mr,
-                do_inverse=do_inverse,
-            )
-        else:
-            results = self.core(net, q_batch=q_batch, do_inverse=do_inverse)
-        return results
+        return self.core(
+            net,
+            q_batch=q_batch,
+            median=q_batch is None,
+            return_mr=return_mr,
+            do_inverse=do_inverse,
+        )
 
     def _median(
         self,
         net: torch.Tensor,
         do_inverse: bool,
-        return_mr: bool = False,
+        return_mr: bool,
     ) -> tensor_dict_type:
         return self._quantile(net, None, do_inverse, return_mr)
 
@@ -221,11 +218,18 @@ class DDR(ModelBase):
         # TODO : try to optimize this when `fetches` is not full
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
+            q_synthetic_batch = None
             if self.training:
                 q_batch = torch.empty_like(y_batch).uniform_()
                 y_batch = torch.empty_like(y_batch).uniform_()
                 y_batch = y_batch * self.y_diff + self.y_min
                 # y_batch = y_batch[np.random.permutation(batch_size)].detach()
+                if synthetic:
+                    q_synthetic_batch = torch.empty_like(y_batch)
+                    random_indices = torch.randint(2, [batch_size])
+                    mask = random_indices == 0
+                    q_synthetic_batch[mask] = 0.25
+                    q_synthetic_batch[~mask] = 0.75
             else:
                 q_batch = self.quantile_anchors  # type: ignore
                 y_batch = self.y_anchor_choices  # type: ignore
@@ -236,23 +240,23 @@ class DDR(ModelBase):
         with timing_context(self, "forward.median"):
             median_rs = {}
             if self.fetch_q:
-                rs = self._median(net, True)
+                rs = self._quantile(net, q_synthetic_batch, False, True)
                 median_rs = {
                     "median_pos_add": rs["pos_add"],
                     "median_neg_add": rs["neg_add"],
                     "median_pos_mul": rs["pos_mul"],
                     "median_neg_mul": rs["neg_mul"],
+                    "median_pos_res": rs["pos_med_res"],
+                    "median_neg_res": rs["neg_med_res"],
                 }
                 if synthetic:
+                    median_rs["median_positive_mask"] = rs["q_positive_mask"]
                     if not self.fetch_cdf:
                         return median_rs
                 else:
-                    median_rs.update(
-                        {
-                            "predictions": rs["median"],
-                            "median_inverse": rs["q_inverse"],
-                        }
-                    )
+                    median_rs["predictions"] = rs["median"]
+                    if self.fetch_cdf:
+                        median_rs["median_inverse"] = rs["q_inverse"]
         # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
             if not self.fetch_q:
