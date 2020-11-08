@@ -206,13 +206,15 @@ class DDRCore(nn.Module):
         return lambda _, __: nn.Identity()
 
     def _detach_q(self) -> context_error_handler:
+        fetch_q = self.fetch_q
+
         def switch(requires_grad: bool) -> None:
             switch_requires_grad(self.q_parameters, requires_grad)
             switch_requires_grad(self.block_parameters, requires_grad)
 
         class _(context_error_handler):
             def __enter__(self) -> None:
-                switch(False)
+                switch(not fetch_q)
 
             def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 switch(True)
@@ -336,14 +338,14 @@ class DDRCore(nn.Module):
         if y_batch is None:
             q = q_logit = None
         else:
-            for i in range(self.num_blocks):
-                y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
-            q_logit_pack = self.q_invertible.inverse((y1, y2), net)
-            assert isinstance(q_logit_pack, ConditionalOutput)
-            q_logit = q_logit_pack.net
-            q = self.q_inv_fn(q_logit)
-            if do_inverse and self.fetch_q:
-                with self._detach_q():
+            with self._detach_q():
+                for i in range(self.num_blocks):
+                    y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
+                q_logit_pack = self.q_invertible.inverse((y1, y2), net)
+                assert isinstance(q_logit_pack, ConditionalOutput)
+                q_logit = q_logit_pack.net
+                q = self.q_inv_fn(q_logit)
+                if do_inverse and self.fetch_q:
                     inverse_results = self._q_results(net, q.detach())
                     y_inverse_res = inverse_results["y_res"]
         return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
