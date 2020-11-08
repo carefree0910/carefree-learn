@@ -239,12 +239,16 @@ class DDR(ModelBase):
         with timing_context(self, "forward.median"):
             median_rs = {}
             if self.fetch_q:
-                rs = self._quantile(net, None, False)
+                rs = self._quantile(net, None, not synthetic)
                 median_rs = {
                     "median_med_add": rs["med_add"],
                     "median_med_mul": rs["med_mul"],
                 }
-                if synthetic:
+                if not synthetic:
+                    median_rs["predictions"] = rs["median"]
+                    if self.fetch_cdf:
+                        median_rs["median_inverse"] = rs["q_inverse"]
+                else:
                     assert q_synthetic_batch is not None
                     rs = self._quantile(net, q_synthetic_batch, False, True)
                     median_rs.update(
@@ -256,10 +260,6 @@ class DDR(ModelBase):
                     )
                     if not self.fetch_cdf:
                         return median_rs
-                else:
-                    median_rs["predictions"] = rs["median"]
-                    if self.fetch_cdf:
-                        median_rs["median_inverse"] = rs["q_inverse"]
         # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
             if not self.fetch_q:
