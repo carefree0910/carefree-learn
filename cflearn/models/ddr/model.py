@@ -240,17 +240,27 @@ class DDR(ModelBase):
         with timing_context(self, "forward.median"):
             median_rs = {}
             if self.fetch_q:
-                rs = self._quantile(net, q_synthetic_batch, False, True)
+                rs = self._quantile(net, None, False)
                 median_rs = {
                     "median_pos_add": rs["pos_add"],
                     "median_neg_add": rs["neg_add"],
                     "median_pos_mul": rs["pos_mul"],
                     "median_neg_mul": rs["neg_mul"],
-                    "median_pos_res": rs["pos_med_res"],
-                    "median_neg_res": rs["neg_med_res"],
                 }
                 if synthetic:
-                    median_rs["median_positive_mask"] = rs["q_positive_mask"]
+                    assert q_synthetic_batch is not None
+                    rs = self._quantile(net, q_synthetic_batch, False, True)
+                    median_rs.update(
+                        {
+                            "syn_med_pos_add": rs["pos_add"],
+                            "syn_med_neg_add": rs["neg_add"],
+                            "syn_med_pos_mul": rs["pos_mul"],
+                            "syn_med_neg_mul": rs["neg_mul"],
+                            "syn_med_pos_res": rs["pos_med_res"],
+                            "syn_med_neg_res": rs["neg_med_res"],
+                        }
+                    )
+                    median_rs["syn_med_positive_mask"] = rs["q_positive_mask"]
                     if not self.fetch_cdf:
                         return median_rs
                 else:

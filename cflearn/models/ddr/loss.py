@@ -30,15 +30,19 @@ class DDRLoss(LossBase, LoggingMixin):
         mna = predictions["median_neg_add"]
         mpm = predictions["median_pos_mul"]
         mnm = predictions["median_neg_mul"]
-        if not is_synthetic:
-            median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
-        else:
-            mpr = predictions["median_pos_res"].detach()
-            mnr = predictions["median_neg_res"].detach()
-            mask = predictions["median_positive_mask"]
-            mpr_losses = (mpr * (1.0 - mpm) - mpa).abs()
-            mnr_losses = (mnr * (1.0 + mnm) + mna).abs()
-            median_affine_losses = torch.where(mask, mpr_losses, mnr_losses).abs()
+        median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
+        if is_synthetic:
+            syn_mpa = predictions["syn_med_pos_add"]
+            syn_mna = predictions["syn_med_neg_add"]
+            syn_mpm = predictions["syn_med_pos_mul"]
+            syn_mnm = predictions["syn_med_neg_mul"]
+            mpr = predictions["syn_med_pos_res"].detach()
+            mnr = predictions["syn_med_neg_res"].detach()
+            mask = predictions["syn_med_positive_mask"]
+            mpr_losses = (mpr * (1.0 - syn_mpm) - syn_mpa).abs()
+            mnr_losses = (mnr * (1.0 + syn_mnm) + syn_mna).abs()
+            mpn_losses = torch.where(mask, mpr_losses, mnr_losses).abs()
+            median_affine_losses = median_affine_losses + mpn_losses
             return {"median_affine": median_affine_losses}
         # median
         median = predictions["predictions"]
