@@ -602,11 +602,13 @@ class ConditionalBlocks(Module):
         self,
         main_blocks: ModuleList,
         condition_blocks: ModuleList,
+        detach_condition: bool = False,
         *,
         add_last: bool,
     ):
         super().__init__()
         self.add_last = add_last
+        self.detach_condition = detach_condition
         self.num_blocks = len(main_blocks)
         if self.num_blocks != len(condition_blocks):
             msg = "`main_blocks` and `condition_blocks` should have same sizes"
@@ -620,11 +622,13 @@ class ConditionalBlocks(Module):
             cond = condition(cond)
             net = main(net)
             if i < self.num_blocks - 1 or self.add_last:
-                net = net + cond
+                net = net + (cond.detach() if self.detach_condition else cond)
         return ConditionalOutput(net, cond)
 
     def extra_repr(self) -> str:
-        return f"(add_last): {self.add_last}"
+        add_last = f"(add_last): {self.add_last}"
+        detach_condition = f"(detach_condition): {self.detach_condition}"
+        return f"{add_last}\n{detach_condition}"
 
 
 class AttentionOutput(NamedTuple):
