@@ -41,9 +41,11 @@ class DDRLoss(LossBase, LoggingMixin):
             mask = predictions["syn_med_positive_mask"]
             mpr_losses = (mpr * (1.0 - syn_mpm) - syn_mpa).abs()
             mnr_losses = (mnr * (1.0 + syn_mnm) + syn_mna).abs()
-            mpn_losses = torch.where(mask, mpr_losses, mnr_losses).abs()
-            median_affine_losses = median_affine_losses + mpn_losses
-            return {"median_affine": median_affine_losses}
+            mr_anchor_losses = torch.where(mask, mpr_losses, mnr_losses).abs()
+            return {
+                "median_affine": median_affine_losses,
+                "median_residual_anchor": mr_anchor_losses,
+            }
         # median
         median = predictions["predictions"]
         median_losses = l1_loss(median, target, reduction="none")
