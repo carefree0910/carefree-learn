@@ -495,6 +495,7 @@ class MonotonousMapping(Module):
         activation: str,
         *,
         ascent: bool,
+        bias: bool = True,
         dropout: float = 0.0,
         batch_norm: bool = False,
         use_residual: bool = False,
@@ -517,7 +518,7 @@ class MonotonousMapping(Module):
             in_dim,
             hidden_dim,
             ascent=ascent,
-            bias=True,
+            bias=bias,
             dropout=dropout,
             batch_norm=batch_norm,
             activation=activation,
@@ -579,6 +580,7 @@ class MonotonousMapping(Module):
         batch_norm: bool = False,
         final_batch_norm: bool = False,
         use_couple: bool = True,
+        use_couple_bias: bool = True,
         use_residual: bool = False,
         activation: Optional[str] = "sigmoid",
         init_method: Optional[str] = "normal",
@@ -610,6 +612,7 @@ class MonotonousMapping(Module):
                 local_kwargs["scaler"] = scaler
                 local_kwargs["hidden_dim"] = hidden_dim
                 local_kwargs["use_residual"] = use_residual_
+                local_kwargs["bias"] = use_couple_bias
                 return cls.make_couple(**local_kwargs)
             local_kwargs["bias"] = bias
             local_kwargs["init_method"] = init_method
