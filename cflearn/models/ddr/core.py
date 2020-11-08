@@ -123,7 +123,8 @@ class DDRCore(nn.Module):
         # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        self.mish = Activations().mish
+        self.tanh = Activations().tanh
+        self.softplus = Activations().softplus
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
@@ -235,11 +236,13 @@ class DDRCore(nn.Module):
         y_split = y_net.split(1, dim=1)
         cond_split = cond_net.split(1, dim=1)
         med, pos_med_res, neg_med_res = cond_split
+        pos_med_res = self.softplus(pos_med_res)
+        neg_med_res = self.softplus(neg_med_res)
         y_pos_add, y_pos_mul, y_neg_add, y_neg_mul = y_split
-        y_pos_add = self.mish(y_pos_add)
-        y_neg_add = -self.mish(-y_neg_add)
-        y_pos_mul = y_pos_mul.relu_()
-        y_neg_mul = -(-y_neg_mul).relu_()
+        y_pos_add = y_pos_add.relu_()
+        y_neg_add = -(-y_neg_add).relu_()
+        y_pos_mul = self.tanh(y_pos_mul) + 1.0
+        y_neg_mul = -self.tanh(-y_neg_mul) - 1.0
         if median:
             q_sign = q_positive_mask = None
             y_res = add_net = mul_net = med_res = None
