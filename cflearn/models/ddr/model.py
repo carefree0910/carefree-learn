@@ -315,6 +315,8 @@ class DDR(ModelBase):
                 q_batch = self._expand(batch_size, q)
                 pack = self._quantile(net, q_batch, False)
                 forward_dict["quantiles"] = pack["median"] + pack["y_res"]
+                forward_dict["med_add"] = pack["med_add"]
+                forward_dict["med_mul"] = pack["med_mul"]
         # check y inference
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)

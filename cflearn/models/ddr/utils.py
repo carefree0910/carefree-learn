@@ -34,9 +34,20 @@ class DDRPredictor:
             return predictions
         return predictions["cdf"]
 
-    def quantile(self, x: data_type, q: float) -> np.ndarray:
-        predictions = self.m.predict(x, q=q, predict_quantiles=True, return_all=True)
-        return predictions["quantiles"]
+    def quantile(
+        self,
+        x: data_type,
+        q: float,
+        *,
+        recover: bool = True,
+    ) -> Dict[str, np.ndarray]:
+        return self.m.predict(
+            x,
+            q=q,
+            requires_recover=recover,
+            predict_quantiles=True,
+            return_all=True,
+        )
 
 
 class DDRVisualizer:
@@ -89,6 +100,8 @@ class DDRVisualizer:
         export_path: Optional[str],
         *,
         median_residual: bool = False,
+        add_affine: bool = False,
+        mul_affine: bool = False,
         q_batch: Optional[np.ndarray] = None,
         y_batch: Optional[np.ndarray] = None,
         to_pdf: bool = False,
@@ -105,8 +118,12 @@ class DDRVisualizer:
         x_base = np.linspace(x_min, x_max, dense)[..., None]
         model = self.m.model
         assert model is not None
+        affine = add_affine or mul_affine
         mean = None
-        median = None if not model.fetch_q else self.m.predict(x_base)
+        if not model.fetch_q or affine:
+            median = None
+        else:
+            median = self.m.predict(x_base)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # median residual
@@ -118,10 +135,25 @@ class DDRVisualizer:
             DDRVisualizer._render_figure(*render_args)
         # quantile curves
         if q_batch is not None and model.fetch_q:
-            for q in q_batch:
-                quantile_curve = self.predictor.quantile(x_base, q)
-                plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
-            DDRVisualizer._render_figure(*render_args)
+            if not affine:
+                for q in q_batch:
+                    quantile_curve = self.predictor.quantile(x_base, q)["quantiles"]
+                    plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
+                DDRVisualizer._render_figure(*render_args)
+            else:
+                med_add_list, med_mul_list = [], []
+                for q in q_batch:
+                    med_predictions = self.predictor.quantile(x_base, q, recover=False)
+                    med_add_list.append(med_predictions["med_add"])
+                    med_mul_list.append(med_predictions["med_mul"])
+                if add_affine:
+                    for q, med_add in zip(q_batch, med_add_list):
+                        plt.plot(x_base.ravel(), med_add, label=f"med_add {q:4.2f}")
+                    DDRVisualizer._render_figure(*render_args)
+                if mul_affine:
+                    for q, med_mul in zip(q_batch, med_mul_list):
+                        plt.plot(x_base.ravel(), med_mul, label=f"med_mul {q:4.2f}")
+                    DDRVisualizer._render_figure(*render_args)
         # cdf curves
         if y_batch is not None and model.fetch_cdf:
             y_abs_max = np.abs(y).max()
@@ -144,7 +176,7 @@ class DDRVisualizer:
                     label=f"anchor {ratio:4.2f}",
                     color="gray",
                 )
-            DDRVisualizer._render_figure(x_min, x_max, y_min, y_max, y_padding)
+            DDRVisualizer._render_figure(*render_args)
         show_or_save(export_path, fig)
 
     def visualize_multiple(
@@ -164,13 +196,14 @@ class DDRVisualizer:
         def _plot(
             prefix: str,
             num: int,
-            y_true: np.ndarray,
+            y_true: Optional[np.ndarray],
             predictions: np.ndarray,
         ) -> None:
             plt.figure(figsize=self.figsize, dpi=self.dpi)
             plt.title(f"{prefix} {num:6.4f}")
             plt.scatter(x[:200], y[:200], color="gray", s=15)
-            plt.plot(x_base, y_true, label="target")
+            if y_true is not None:
+                plt.plot(x_base, y_true, label="target")
             plt.plot(x_base, predictions, label=f"ddr_prediction")
             plt.legend()
             show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}.png"))
@@ -178,8 +211,8 @@ class DDRVisualizer:
         if q_batch is not None:
             for quantile in q_batch:
                 yq = np.percentile(y_matrix, int(100 * quantile), axis=1)
-                yq_pred = self.predictor.quantile(x_base, quantile)
-                _plot("quantile", quantile, yq, yq_pred)
+                yq_predictions = self.predictor.quantile(x_base, quantile)["quantiles"]
+                _plot("quantile", quantile, yq, yq_predictions)
         if y_batch is not None:
             anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
             for anchor in anchors:
