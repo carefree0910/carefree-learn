@@ -641,6 +641,7 @@ class ConditionalBlocks(Module):
         detach_condition: bool = False,
         *,
         add_last: bool,
+        cond_transform_fn: Optional[Callable[[Tensor, Tensor], Tensor]] = None,
     ):
         super().__init__()
         self.add_last = add_last
@@ -651,6 +652,7 @@ class ConditionalBlocks(Module):
             raise ValueError(msg)
         self.main_blocks = main_blocks
         self.condition_blocks = condition_blocks
+        self.cond_transform_fn = cond_transform_fn
 
     def forward(self, net: Tensor, cond: Tensor) -> ConditionalOutput:
         iterator = enumerate(zip(self.main_blocks, self.condition_blocks))
@@ -658,7 +660,10 @@ class ConditionalBlocks(Module):
             cond = condition(cond)
             net = main(net)
             if i < self.num_blocks - 1 or self.add_last:
-                net = net + (cond.detach() if self.detach_condition else cond)
+                cond_ = cond.detach() if self.detach_condition else cond
+                if self.cond_transform_fn is not None:
+                    cond_ = self.cond_transform_fn(net, cond_)
+                net = net + cond_
         return ConditionalOutput(net, cond)
 
     def extra_repr(self) -> str:
