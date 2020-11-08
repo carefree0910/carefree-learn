@@ -497,10 +497,11 @@ class MonotonousMapping(Module):
         ascent: bool,
         dropout: float = 0.0,
         batch_norm: bool = False,
+        use_residual: bool = False,
         scaler: Optional[float] = None,
         init_method: Optional[str] = "normal",
         **kwargs: Any,
-    ) -> nn.Sequential:
+    ) -> Module:
         if activation == "tanh":
             inverse_activation = "atanh"
         elif activation == "sigmoid":
@@ -538,7 +539,32 @@ class MonotonousMapping(Module):
             use_scaler=False,
             **kwargs,
         )
-        return nn.Sequential(squash_unit, inverse_unit)
+
+        class Couple(Module):
+            def __init__(self):
+                super().__init__()
+                self.squash = squash_unit
+                self.inverse = inverse_unit
+                self.use_residual = use_residual
+
+            def forward(self, net: Tensor) -> Tensor:
+                squashed = self.squash(net)
+                inversed = self.inverse(squashed)
+                if not self.use_residual:
+                    return inversed
+                if in_dim == out_dim:
+                    return net + inversed
+                if hidden_dim == out_dim:
+                    return squashed + inversed
+                raise ValueError(
+                    "either `in_dim` or `hidden_dim` should be identical with "
+                    "`out_dim` when `use_residual` is True"
+                )
+
+            def extra_repr(self) -> str:
+                return f"(residual): {self.use_residual}"
+
+        return Couple()
 
     @classmethod
     def stack(
@@ -553,6 +579,7 @@ class MonotonousMapping(Module):
         batch_norm: bool = False,
         final_batch_norm: bool = False,
         use_couple: bool = True,
+        use_residual: bool = False,
         activation: Optional[str] = "sigmoid",
         init_method: Optional[str] = "normal",
         positive_transform: str = "softmax",
@@ -560,7 +587,7 @@ class MonotonousMapping(Module):
         scaler: Optional[float] = None,
         return_blocks: bool = False,
         **kwargs: Any,
-    ) -> Union[List[Module], nn.Sequential]:
+    ) -> Union[List[Module], Module]:
         blocks = []
         common_kwargs = {
             "ascent": ascent,
@@ -569,7 +596,12 @@ class MonotonousMapping(Module):
             "activation": activation,
         }
 
-        def _make(in_dim_: int, out_dim_: int, hidden_dim: int) -> Module:
+        def _make(
+            in_dim_: int,
+            out_dim_: int,
+            hidden_dim: int,
+            use_residual_: bool,
+        ) -> Module:
             local_kwargs = shallow_copy_dict(common_kwargs)
             local_kwargs.update(shallow_copy_dict(kwargs))
             local_kwargs["in_dim"] = in_dim_
@@ -577,6 +609,7 @@ class MonotonousMapping(Module):
             if use_couple:
                 local_kwargs["scaler"] = scaler
                 local_kwargs["hidden_dim"] = hidden_dim
+                local_kwargs["use_residual"] = use_residual_
                 return cls.make_couple(**local_kwargs)
             local_kwargs["bias"] = bias
             local_kwargs["init_method"] = init_method
@@ -586,11 +619,11 @@ class MonotonousMapping(Module):
 
         current_in_dim = in_dim
         for num_unit in num_units:
-            blocks.append(_make(current_in_dim, num_unit, num_unit))
+            blocks.append(_make(current_in_dim, num_unit, num_unit, use_residual))
             current_in_dim = num_unit
         if out_dim is not None:
             common_kwargs["batch_norm"] = final_batch_norm
-            blocks.append(_make(current_in_dim, out_dim, current_in_dim))
+            blocks.append(_make(current_in_dim, out_dim, current_in_dim, False))
 
         if return_blocks:
             return blocks
