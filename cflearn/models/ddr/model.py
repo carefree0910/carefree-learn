@@ -105,14 +105,13 @@ class DDR(ModelBase):
         # trainer config
         default_metric_types = []
         if self.fetch_q:
-            default_metric_types += ["ddr", "median_affine"]
+            default_metric_types += ["ddr"]
         if self.fetch_cdf:
             default_metric_types += ["cdf", "pdf"]
         if self.fetch_q and self.fetch_cdf:
             default_metric_types += ["q_recover", "y_recover", "loss"]
         default_metric_weights = {
             "ddr": 5.0,
-            "median_affine": 10.0,
             "cdf": 1.0,
             "pdf": 1.0,
             "loss": 1.0,
@@ -242,25 +241,19 @@ class DDR(ModelBase):
             if self.fetch_q:
                 rs = self._quantile(net, None, False)
                 median_rs = {
-                    "median_pos_add": rs["pos_add"],
-                    "median_neg_add": rs["neg_add"],
-                    "median_pos_mul": rs["pos_mul"],
-                    "median_neg_mul": rs["neg_mul"],
+                    "median_med_add": rs["med_add"],
+                    "median_med_mul": rs["med_mul"],
                 }
                 if synthetic:
                     assert q_synthetic_batch is not None
                     rs = self._quantile(net, q_synthetic_batch, False, True)
                     median_rs.update(
                         {
-                            "syn_med_pos_add": rs["pos_add"],
-                            "syn_med_neg_add": rs["neg_add"],
-                            "syn_med_pos_mul": rs["pos_mul"],
-                            "syn_med_neg_mul": rs["neg_mul"],
-                            "syn_med_pos_res": rs["pos_med_res"],
-                            "syn_med_neg_res": rs["neg_med_res"],
+                            "syn_med_add": rs["med_add"],
+                            "syn_med_mul": rs["med_mul"],
+                            "syn_med_res": rs["med_res"],
                         }
                     )
-                    median_rs["syn_med_positive_mask"] = rs["q_positive_mask"]
                     if not self.fetch_cdf:
                         return median_rs
                 else:

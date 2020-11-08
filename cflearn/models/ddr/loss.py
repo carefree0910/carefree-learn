@@ -26,26 +26,12 @@ class DDRLoss(LossBase, LoggingMixin):
         is_synthetic: bool,
     ) -> tensor_dict_type:
         # median affine
-        mpa = predictions["median_pos_add"]
-        mna = predictions["median_neg_add"]
-        mpm = predictions["median_pos_mul"]
-        mnm = predictions["median_neg_mul"]
-        median_affine_losses = mpa.abs() + mna.abs() + mpm.abs() + mnm.abs()
         if is_synthetic:
-            syn_mpa = predictions["syn_med_pos_add"]
-            syn_mna = predictions["syn_med_neg_add"]
-            syn_mpm = predictions["syn_med_pos_mul"]
-            syn_mnm = predictions["syn_med_neg_mul"]
-            mpr = predictions["syn_med_pos_res"].detach()
-            mnr = predictions["syn_med_neg_res"].detach()
-            mask = predictions["syn_med_positive_mask"]
-            mpr_losses = (mpr * (1.0 - syn_mpm) - syn_mpa).abs()
-            mnr_losses = (mnr * (1.0 + syn_mnm) + syn_mna).abs()
-            mr_anchor_losses = torch.where(mask, mpr_losses, mnr_losses).abs()
-            return {
-                "median_affine": median_affine_losses,
-                "median_residual_anchor": mr_anchor_losses,
-            }
+            syn_med_add = predictions["syn_med_add"].abs()
+            syn_med_mul = predictions["syn_med_mul"].abs()
+            syn_med_res = predictions["syn_med_res"].detach()
+            mr_anchor_losses = (syn_med_res * (1.0 - syn_med_mul) - syn_med_add).abs()
+            return {"median_residual_anchor": mr_anchor_losses}
         # median
         median = predictions["predictions"]
         median_losses = l1_loss(median, target, reduction="none")
@@ -69,7 +55,6 @@ class DDRLoss(LossBase, LoggingMixin):
         return {
             "median": median_losses,
             "quantile": quantile_losses,
-            "median_affine": median_affine_losses,
             "median_residual": mr_losses,
         }
 

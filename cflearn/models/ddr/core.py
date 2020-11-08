@@ -31,6 +31,7 @@ def monotonous_builder(
     ascent1: bool,
     ascent2: bool,
     to_latent: bool,
+    use_couple_bias: bool,
     num_layers: int,
     condition_dim: int,
 ) -> Callable[[int, int], nn.Module]:
@@ -47,15 +48,16 @@ def monotonous_builder(
             else:
                 # quantile stuffs
                 # cond  : median, pos_median_res, neg_median_res
-                # block : y_pos_add, y_pos_mul, y_neg_add, y_neg_mul
+                # block : y_add, y_mul
                 cond_out_dim = out_dim
-                block_out_dim = out_dim + 1
+                block_out_dim = out_dim - 1
 
         blocks = MonotonousMapping.stack(
             in_dim,
             block_out_dim,
             num_units,
             ascent=ascent,
+            use_couple_bias=use_couple_bias,
             activation="sigmoid" if to_latent else "tanh",
             return_blocks=True,
         )
@@ -66,15 +68,17 @@ def monotonous_builder(
             cond_out_dim,
             num_units,
             bias=not to_latent,
-            activation="mish" if to_latent else "ReLU",
+            activation="mish",
         )
         cond_mappings = cond_module.mappings
+        cond_transform_fn = lambda net, cond: torch.tanh(2.0 * net) * cond
 
         return ConditionalBlocks(
             nn.ModuleList(blocks),
             cond_mappings,
-            detach_condition=not to_latent,
             add_last=to_latent,
+            detach_condition=not to_latent,
+            cond_transform_fn=cond_transform_fn,
         )
 
     def _split_core(in_dim: int, out_dim: int) -> nn.Module:
@@ -144,11 +148,23 @@ class DDRCore(nn.Module):
         if not self.fetch_q:
             q_to_latent_builder = self.dummy_builder
         else:
-            q_to_latent_builder = monotonous_builder(True, True, True, **kwargs)
+            q_to_latent_builder = monotonous_builder(
+                ascent1=True,
+                ascent2=True,
+                to_latent=True,
+                use_couple_bias=False,
+                **kwargs,
+            )
         if not self.fetch_cdf:
             q_from_latent_builder = self.dummy_builder
         else:
-            q_from_latent_builder = monotonous_builder(True, False, False, **kwargs)
+            q_from_latent_builder = monotonous_builder(
+                ascent1=True,
+                ascent2=False,
+                to_latent=False,
+                use_couple_bias=True,
+                **kwargs,
+            )
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
@@ -160,11 +176,23 @@ class DDRCore(nn.Module):
         if not self.fetch_cdf:
             y_to_latent_builder = self.dummy_builder
         else:
-            y_to_latent_builder = monotonous_builder(True, False, True, **kwargs)
+            y_to_latent_builder = monotonous_builder(
+                ascent1=True,
+                ascent2=False,
+                to_latent=True,
+                use_couple_bias=True,
+                **kwargs,
+            )
         if not self.fetch_q:
             y_from_latent_builder = self.dummy_builder
         else:
-            y_from_latent_builder = monotonous_builder(True, True, False, **kwargs)
+            y_from_latent_builder = monotonous_builder(
+                ascent1=True,
+                ascent2=True,
+                to_latent=False,
+                use_couple_bias=False,
+                **kwargs,
+            )
         self.y_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
@@ -233,51 +261,26 @@ class DDRCore(nn.Module):
     ) -> Dict[str, Optional[Tensor]]:
         y_net = outputs.net
         cond_net = outputs.cond
-        y_split = y_net.split(1, dim=1)
-        cond_split = cond_net.split(1, dim=1)
-        med, pos_med_res, neg_med_res = cond_split
+        med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
         pos_med_res = self.softplus(pos_med_res)
         neg_med_res = self.softplus(neg_med_res)
-        y_pos_add, y_pos_mul, y_neg_add, y_neg_mul = y_split
-        y_pos_add = y_pos_add.relu_()
-        y_neg_add = -(-y_neg_add).relu_()
-        y_pos_mul = self.tanh(y_pos_mul) + 1.0
-        y_neg_mul = -self.tanh(-y_neg_mul) - 1.0
-        if median:
-            q_sign = q_positive_mask = None
-            y_res = add_net = mul_net = med_res = None
-        else:
+        y_add, y_mul = y_net.split(1, dim=1)
+        results = {"median": med, "med_add": y_add, "med_mul": y_mul}
+        if not median or return_mr:
             q_sign = torch.sign(q_batch)
             q_positive_mask = q_sign == 1.0
-            add_net = torch.where(q_positive_mask, y_pos_add, y_neg_add)
-            mul_net = torch.where(q_positive_mask, y_pos_mul, y_neg_mul)
             med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
-            y_res = med_res * mul_net + add_net
-        results = {"median": med}
-        if return_mr:
-            results.update({"pos_med_res": pos_med_res, "neg_med_res": neg_med_res})
-        if median or return_mr:
+            y_res = med_res * y_mul + y_add
             results.update(
                 {
-                    "pos_add": y_pos_add,
-                    "neg_add": y_neg_add,
-                    "pos_mul": y_pos_mul,
-                    "neg_mul": y_neg_mul,
-                }
-            )
-            if return_mr:
-                results["q_positive_mask"] = q_positive_mask
-        else:
-            results.update(
-                {
-                    "y_res": y_res,
-                    "med_add": add_net,
-                    "med_mul": mul_net,
                     "med_res": med_res,
-                    "q_sign": q_sign,
+                    "pos_med_res": pos_med_res,
+                    "neg_med_res": neg_med_res,
                     "q_positive_mask": q_positive_mask,
                 }
             )
+            if not median:
+                results.update({"y_res": y_res, "q_sign": q_sign})
         return results
 
     def _q_results(
