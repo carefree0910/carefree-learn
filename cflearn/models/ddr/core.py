@@ -56,6 +56,7 @@ def monotonous_builder(
             block_out_dim,
             num_units,
             ascent=ascent,
+            activation="sigmoid" if to_latent else "tanh",
             return_blocks=True,
         )
         assert isinstance(blocks, list)
@@ -65,7 +66,7 @@ def monotonous_builder(
             cond_out_dim,
             num_units,
             bias=not to_latent,
-            activation="ReLU",
+            activation="mish" if to_latent else "ReLU",
         )
         cond_mappings = cond_module.mappings
 
