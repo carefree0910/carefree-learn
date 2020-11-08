@@ -542,7 +542,7 @@ class MonotonousMapping(Module):
         )
 
         class Couple(Module):
-            def __init__(self):
+            def __init__(self) -> None:
                 super().__init__()
                 self.squash = squash_unit
                 self.inverse = inverse_unit
