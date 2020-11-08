@@ -72,6 +72,7 @@ def monotonous_builder(
         return ConditionalBlocks(
             nn.ModuleList(blocks),
             cond_mappings,
+            detach_condition=not to_latent,
             add_last=to_latent,
         )
 
