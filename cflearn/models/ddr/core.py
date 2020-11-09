@@ -27,6 +27,22 @@ def default_transition_builder(dim: int) -> nn.Module:
     return MonotonousMapping.make_couple(h_dim, h_dim, h_dim, "sigmoid", ascent=True)
 
 
+def get_cond_mappings(
+    condition_dim: int,
+    cond_out_dim: int,
+    num_units: List[int],
+    bias: bool,
+) -> nn.ModuleList:
+    cond_module = MLP.simple(
+        condition_dim,
+        cond_out_dim,
+        num_units,
+        bias=bias,
+        activation="mish",
+    )
+    return cond_module.mappings
+
+
 def monotonous_builder(
     ascent1: bool,
     ascent2: bool,
@@ -63,14 +79,12 @@ def monotonous_builder(
         )
         assert isinstance(blocks, list)
 
-        cond_module = MLP.simple(
+        cond_mappings = get_cond_mappings(
             condition_dim,
             cond_out_dim,
             num_units,
-            bias=not to_latent,
-            activation="mish",
+            not to_latent,
         )
-        cond_mappings = cond_module.mappings
         cond_transform_fn = lambda net, cond: torch.tanh(2.0 * net) * cond
 
         return ConditionalBlocks(
