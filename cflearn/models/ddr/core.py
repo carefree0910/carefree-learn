@@ -23,7 +23,7 @@ from ...modules.blocks import ConditionalOutput
 from ...modules.blocks import PseudoInvertibleBlock
 
 
-def default_transition_builder(dim: int) -> nn.Module:
+def transition_builder(dim: int) -> nn.Module:
     h_dim = int(dim // 2)
     return MonotonousMapping.make_couple(h_dim, h_dim, h_dim, "sigmoid", ascent=True)
 
@@ -169,7 +169,6 @@ class DDRCore(nn.Module):
         num_layers: Optional[int] = None,
         num_blocks: Optional[int] = None,
         latent_dim: Optional[int] = None,
-        transition_builder: Optional[Callable[[int], nn.Module]] = None,
     ):
         super().__init__()
         # common
@@ -190,8 +189,6 @@ class DDRCore(nn.Module):
         if latent_dim is None:
             latent_dim = 512
         self.latent_dim = latent_dim
-        if transition_builder is None:
-            transition_builder = default_transition_builder
         # pseudo invertible q
         kwargs = {"num_layers": num_layers, "condition_dim": in_dim}
         if not self.fetch_q:
