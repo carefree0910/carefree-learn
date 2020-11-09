@@ -179,13 +179,8 @@ class DDR(ModelBase):
             do_inverse=do_inverse,
         )
 
-    def _median(
-        self,
-        net: torch.Tensor,
-        do_inverse: bool,
-        return_mr: bool,
-    ) -> tensor_dict_type:
-        return self._quantile(net, None, do_inverse, return_mr)
+    def _median(self, net: torch.Tensor, return_mr: bool) -> tensor_dict_type:
+        return self._quantile(net, None, False, return_mr)
 
     def _cdf(
         self,
@@ -241,7 +236,7 @@ class DDR(ModelBase):
         with timing_context(self, "forward.median"):
             median_rs = {}
             if self.fetch_q:
-                rs = self._quantile(net, None, not synthetic)
+                rs = self._median(net, not synthetic)
                 median_rs = {
                     "median_med_add": rs["med_add"],
                     "median_med_mul": rs["med_mul"],
@@ -310,7 +305,7 @@ class DDR(ModelBase):
             if not self.fetch_q:
                 raise ValueError("quantile function is not fetched")
             if predict_mr:
-                pack = self._median(net, False, True)
+                pack = self._median(net, True)
                 median = pack["median"]
                 pos, neg = pack["pos_med_res"], pack["neg_med_res"]
                 forward_dict["mr_pos"] = pos + median

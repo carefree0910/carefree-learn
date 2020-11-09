@@ -315,19 +315,22 @@ class DDRCore(nn.Module):
         q_batch: Tensor,
         median: bool,
         return_mr: bool,
+        comes_from_y_invertible: bool,
     ) -> Dict[str, Optional[Tensor]]:
         y_net = outputs.net
         cond_net = outputs.cond
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
         pos_med_res = self.softplus(pos_med_res)
         neg_med_res = self.softplus(neg_med_res)
-        y_add, y_mul = y_net.split(1, dim=1)
-        results = {"median": med, "med_add": y_add, "med_mul": y_mul}
+        results = {"median": med}
+        y_add = y_mul = None
+        if comes_from_y_invertible:
+            y_add, y_mul = y_net.split(1, dim=1)
+            results.update({"med_add": y_add, "med_mul": y_mul})
         if not median or return_mr:
             q_sign = torch.sign(q_batch)
             q_positive_mask = q_sign == 1.0
             med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
-            y_res = med_res * y_mul + y_add
             results.update(
                 {
                     "med_res": med_res,
@@ -336,7 +339,8 @@ class DDRCore(nn.Module):
                     "q_positive_mask": q_positive_mask,
                 }
             )
-            if not median:
+            if not median and comes_from_y_invertible:
+                y_res = med_res * y_mul + y_add
                 results.update({"y_res": y_res, "q_sign": q_sign})
         return results
 
@@ -346,11 +350,23 @@ class DDRCore(nn.Module):
         median: bool = False,
         return_mr: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
-        q_batch = net.new_zeros(len(net), 1)
-        q1 = q2 = net.new_zeros(len(net), self.latent_dim // 2)
-        y_pack = self.y_invertible.inverse((q1, q2), net)
-        assert isinstance(y_pack, ConditionalOutput)
-        return self._merge_q_outputs(y_pack, q_batch, median, return_mr)
+        dummy_batch = net.new_zeros(len(net), 1)
+        d1 = d2 = net.new_zeros(len(net), self.latent_dim // 2)
+        if not self.fetch_q:
+            comes_from_y_invertible = False
+            inverse_method = self.q_invertible.inverse
+        else:
+            comes_from_y_invertible = True
+            inverse_method = self.y_invertible.inverse
+        pack = inverse_method((d1, d2), net)
+        assert isinstance(pack, ConditionalOutput)
+        return self._merge_q_outputs(
+            pack,
+            dummy_batch,
+            median,
+            return_mr,
+            comes_from_y_invertible,
+        )
 
     def _q_results(
         self,
@@ -375,7 +391,7 @@ class DDRCore(nn.Module):
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
             assert isinstance(y_pack, ConditionalOutput)
-            y_results = self._merge_q_outputs(y_pack, q_batch, False, False)
+            y_results = self._merge_q_outputs(y_pack, q_batch, False, False, True)
             if do_inverse and self.fetch_cdf:
                 median_output, y_res = map(y_results.get, ["median", "y_res"])
                 assert median_output is not None and y_res is not None
@@ -428,11 +444,9 @@ class DDRCore(nn.Module):
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
     ) -> Dict[str, Optional[Tensor]]:
-        results = {}
-        if self.fetch_q:
-            results.update(self._median_results(net, median, return_mr))
-            if not median:
-                results.update(self._q_results(net, q_batch, do_inverse))
+        results = self._median_results(net, median, return_mr)
+        if self.fetch_q and not median:
+            results.update(self._q_results(net, q_batch, do_inverse))
         if self.fetch_cdf and not median:
             results.update(self._y_results(net, y_batch, do_inverse))
         return results
