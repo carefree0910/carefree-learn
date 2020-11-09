@@ -25,7 +25,7 @@ class DDRLoss(LossBase, LoggingMixin):
         target: torch.Tensor,
         is_synthetic: bool,
     ) -> tensor_dict_type:
-        # median affine
+        # median residual anchor
         if is_synthetic:
             syn_med_add = predictions["syn_med_add"].abs()
             syn_med_mul = predictions["syn_med_mul"].abs()
