@@ -65,14 +65,19 @@ class MonoSplit(nn.Module):
     def forward(
         self,
         net: Union[Tensor, tensor_tuple_type],
-        cond: Tensor,
+        cond: Union[Tensor, tensor_tuple_type],
     ) -> Union[Tensor, tensor_tuple_type, ConditionalOutput]:
         if self.to_latent:
             assert isinstance(net, Tensor)
             return self.m1(net, cond), self.m2(net, cond)
         assert isinstance(net, tuple)
-        o1, o2 = self.m1(net[0], cond), self.m2(net[1], cond)
-        return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond)
+        if isinstance(cond, tuple):
+            cond1, cond2 = cond
+        else:
+            cond1 = cond2 = cond
+        o1, o2 = self.m1(net[0], cond1), self.m2(net[1], cond2)
+        responses = o1.responses, o2.responses
+        return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond, responses)
 
 
 def cond_transform_fn(net: Tensor, cond: Tensor) -> Tensor:
@@ -316,20 +321,19 @@ class DDRCore(nn.Module):
             "q_positive_mask": q_positive_mask,
         }
 
-    def _median_results(self, net: Tensor) -> tensor_dict_type:
+    def _median_pack(self, net: Tensor) -> ConditionalOutput:
         dummy1 = dummy2 = net.new_zeros(len(net), self.latent_dim // 2)
         if not self.fetch_q:
             inverse_method = self.q_invertible.inverse
         else:
             inverse_method = self.y_invertible.inverse
-        pack = inverse_method((dummy1, dummy2), net)
-        assert isinstance(pack, ConditionalOutput)
-        return self._get_median_outputs(pack)
+        return inverse_method((dummy1, dummy2), net)
 
     def _q_results(
         self,
         net: Tensor,
         q_batch: Tensor,
+        median_responses: List[Tensor],
         do_inverse: bool = False,
     ) -> tensor_dict_type:
         # prepare q_latent
@@ -339,7 +343,7 @@ class DDRCore(nn.Module):
         # simulate quantile function
         for block in self.blocks:
             q1, q2 = block(q1, q2)
-        y_pack = self.y_invertible.inverse((q1, q2), net)
+        y_pack = self.y_invertible.inverse((q1, q2), median_responses)
         assert isinstance(y_pack, ConditionalOutput)
         median_outputs = self._get_median_outputs(y_pack)
         results = self._merge_q_outputs(q_batch, y_pack, median_outputs)
@@ -347,7 +351,7 @@ class DDRCore(nn.Module):
         if do_inverse and self.fetch_cdf:
             y_res = results["y_res"]
             assert y_res is not None
-            inverse_results = self._y_results(net, y_res.detach())
+            inverse_results = self._y_results(net, y_res.detach(), median_responses)
             q_inverse = inverse_results["q"]
         results["q_inverse"] = q_inverse
         return results
@@ -356,6 +360,7 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         median_residual: Tensor,
+        median_responses: List[Tensor],
         do_inverse: bool = False,
     ) -> tensor_dict_type:
         # prepare y_latent
@@ -365,13 +370,13 @@ class DDRCore(nn.Module):
         with self._detach_q():
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
-            q_logit_pack = self.q_invertible.inverse((y1, y2), net)
+            q_logit_pack = self.q_invertible.inverse((y1, y2), median_responses)
             assert isinstance(q_logit_pack, ConditionalOutput)
             q_logit = q_logit_pack.net
             q = self.q_inv_fn(q_logit)
             y_inverse_res = None
             if do_inverse and self.fetch_q:
-                inverse_results = self._q_results(net, q.detach())
+                inverse_results = self._q_results(net, q.detach(), median_responses)
                 y_inverse_res = inverse_results["y_res"]
         return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
 
@@ -384,12 +389,14 @@ class DDRCore(nn.Module):
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
     ) -> tensor_dict_type:
-        results = self._median_results(net)
+        median_pack = self._median_pack(net)
+        median_responses = median_pack.responses
+        results = self._get_median_outputs(median_pack)
         if self.fetch_q and not median and q_batch is not None:
-            results.update(self._q_results(net, q_batch, do_inverse))
+            results.update(self._q_results(net, q_batch, median_responses, do_inverse))
         if self.fetch_cdf and not median and y_batch is not None:
-            median_residual = y_batch - results["median"].detach()
-            results.update(self._y_results(net, median_residual, do_inverse))
+            mr = y_batch - results["median"].detach()
+            results.update(self._y_results(net, mr, median_responses, do_inverse))
         return results
 
 
