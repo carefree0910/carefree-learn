@@ -87,12 +87,6 @@ class DDRLoss(LossBase, LoggingMixin):
         predictions: tensor_dict_type,
         is_synthetic: bool,
     ) -> tensor_dict_type:
-        # median recover
-        median_recover_losses = None
-        if not is_synthetic:
-            median_inverse = predictions["median_inverse"]
-            median_recover_losses = torch.abs(median_inverse - 0.5)
-            median_recover_losses = self._lb_recover * median_recover_losses
         # q recover
         q_batch = predictions["q_batch"]
         q_inverse = predictions["q_inverse"]
@@ -108,8 +102,6 @@ class DDRLoss(LossBase, LoggingMixin):
                 y_recover_losses = self._lb_recover * y_recover_losses
         # combine
         losses = {"q_recover": q_recover_losses}
-        if median_recover_losses is not None:
-            losses["median_recover"] = median_recover_losses
         if y_recover_losses is not None:
             losses["y_recover"] = y_recover_losses
         return losses

@@ -248,8 +248,6 @@ class DDR(ModelBase):
                 }
                 if not synthetic:
                     median_rs["predictions"] = rs["median"]
-                    if self.fetch_cdf:
-                        median_rs["median_inverse"] = rs["q_inverse"]
                 else:
                     assert q_synthetic_batch is not None
                     rs = self._quantile(net, q_synthetic_batch, False, True)

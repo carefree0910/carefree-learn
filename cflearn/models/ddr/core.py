@@ -189,6 +189,7 @@ class DDRCore(nn.Module):
             raise ValueError("`num_blocks` should be divided by 2")
         if latent_dim is None:
             latent_dim = 512
+        self.latent_dim = latent_dim
         if transition_builder is None:
             transition_builder = default_transition_builder
         # pseudo invertible q
@@ -216,7 +217,7 @@ class DDRCore(nn.Module):
         self.q_invertible = PseudoInvertibleBlock(
             1,
             latent_dim,
-            1,
+            3,
             to_transition_builder=q_to_latent_builder,
             from_transition_builder=q_from_latent_builder,
         )
@@ -339,25 +340,29 @@ class DDRCore(nn.Module):
                 results.update({"y_res": y_res, "q_sign": q_sign})
         return results
 
+    def _median_results(
+        self,
+        net: Tensor,
+        median: bool = False,
+        return_mr: bool = False,
+    ) -> Dict[str, Optional[Tensor]]:
+        q_batch = net.new_zeros(len(net), 1)
+        q1 = q2 = net.new_zeros(len(net), self.latent_dim // 2)
+        y_pack = self.y_invertible.inverse((q1, q2), net)
+        assert isinstance(y_pack, ConditionalOutput)
+        return self._merge_q_outputs(y_pack, q_batch, median, return_mr)
+
     def _q_results(
         self,
         net: Tensor,
         q_batch: Optional[Tensor] = None,
         do_inverse: bool = False,
-        median: bool = False,
-        return_mr: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         # prepare q_latent
-        if q_batch is None and median:
-            if q_batch is not None:
-                msg = "`median` is specified but `q_batch` is still provided"
-                raise ValueError(msg)
-            q_batch = net.new_zeros(len(net), 1)
         if q_batch is None:
             q1 = q2 = None
         else:
-            if not median:
-                q_batch = self.q_fn(q_batch)
+            q_batch = self.q_fn(q_batch)
             q1, q2 = self.q_invertible(q_batch, net)
             q1, q2 = q1.net, q2.net
         # simulate quantile function
@@ -370,14 +375,11 @@ class DDRCore(nn.Module):
                 q1, q2 = block(q1, q2)
             y_pack = self.y_invertible.inverse((q1, q2), net)
             assert isinstance(y_pack, ConditionalOutput)
-            y_results = self._merge_q_outputs(y_pack, q_batch, median, return_mr)
+            y_results = self._merge_q_outputs(y_pack, q_batch, False, False)
             if do_inverse and self.fetch_cdf:
                 median_output, y_res = map(y_results.get, ["median", "y_res"])
-                assert median_output is not None
-                y = median_output.detach()
-                if not median:
-                    assert y_res is not None
-                    y = y + y_res.detach()
+                assert median_output is not None and y_res is not None
+                y = median_output.detach() + y_res.detach()
                 inverse_results = self._y_results(net, y)
                 q_inverse = inverse_results["q"]
         results: Dict[str, Optional[Tensor]] = {}
@@ -426,10 +428,12 @@ class DDRCore(nn.Module):
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
     ) -> Dict[str, Optional[Tensor]]:
-        results: Dict[str, Optional[Tensor]] = {}
+        results = {}
         if self.fetch_q:
-            results.update(self._q_results(net, q_batch, do_inverse, median, return_mr))
-        if self.fetch_cdf:
+            results.update(self._median_results(net, median, return_mr))
+            if not median:
+                results.update(self._q_results(net, q_batch, do_inverse))
+        if self.fetch_cdf and not median:
             results.update(self._y_results(net, y_batch, do_inverse))
         return results
 
