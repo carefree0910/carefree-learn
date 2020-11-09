@@ -12,9 +12,9 @@ from typing import Optional
 from functools import partial
 from cftool.misc import context_error_handler
 
+from ...types import tensor_dict_type
 from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
-from ...misc.toolkit import Activations
 from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
@@ -301,7 +301,7 @@ class DDRCore(nn.Module):
         median: bool,
         return_mr: bool,
         comes_from_y_invertible: bool,
-    ) -> Dict[str, Optional[Tensor]]:
+    ) -> tensor_dict_type:
         y_net = outputs.net
         cond_net = outputs.cond
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
@@ -332,7 +332,7 @@ class DDRCore(nn.Module):
         net: Tensor,
         median: bool = False,
         return_mr: bool = False,
-    ) -> Dict[str, Optional[Tensor]]:
+    ) -> tensor_dict_type:
         dummy_batch = net.new_zeros(len(net), 1)
         d1 = d2 = net.new_zeros(len(net), self.latent_dim // 2)
         if not self.fetch_q:
@@ -356,7 +356,7 @@ class DDRCore(nn.Module):
         net: Tensor,
         q_batch: Tensor,
         do_inverse: bool = False,
-    ) -> Dict[str, Optional[Tensor]]:
+    ) -> tensor_dict_type:
         # prepare q_latent
         q_batch = self.q_fn(q_batch)
         q1, q2 = self.q_invertible(q_batch, net)
@@ -383,7 +383,7 @@ class DDRCore(nn.Module):
         median: Tensor,
         y_batch: Tensor,
         do_inverse: bool = False,
-    ) -> Dict[str, Optional[Tensor]]:
+    ) -> tensor_dict_type:
         # prepare y_latent
         y_batch = self.y_fn(y_batch, median)
         y1, y2 = self.y_invertible(y_batch, net)
@@ -411,7 +411,7 @@ class DDRCore(nn.Module):
         do_inverse: bool = False,
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
-    ) -> Dict[str, Optional[Tensor]]:
+    ) -> tensor_dict_type:
         results = self._median_results(net, median, return_mr)
         if self.fetch_q and not median and q_batch is not None:
             results.update(self._q_results(net, q_batch, do_inverse))
