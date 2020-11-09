@@ -180,7 +180,7 @@ class DDR(ModelBase):
         )
 
     def _median(self, net: torch.Tensor, return_mr: bool) -> tensor_dict_type:
-        return self._quantile(net, None, False, return_mr)
+        return self.core(net, median=True, return_mr=return_mr)
 
     def _cdf(
         self,
@@ -235,26 +235,29 @@ class DDR(ModelBase):
         # build predictions
         with timing_context(self, "forward.median"):
             median_rs = {}
-            if self.fetch_q:
-                rs = self._median(net, not synthetic)
+            rs = self._median(net, not synthetic)
+            if not synthetic:
+                median_rs = {
+                    "predictions": rs["median"],
+                    "med_pos_med_res": rs["pos_med_res"],
+                    "med_neg_med_res": rs["neg_med_res"],
+                }
+            elif self.fetch_q:
                 median_rs = {
                     "median_med_add": rs["med_add"],
                     "median_med_mul": rs["med_mul"],
                 }
-                if not synthetic:
-                    median_rs["predictions"] = rs["median"]
-                else:
-                    assert q_synthetic_batch is not None
-                    rs = self._quantile(net, q_synthetic_batch, False, True)
-                    median_rs.update(
-                        {
-                            "syn_med_add": rs["med_add"],
-                            "syn_med_mul": rs["med_mul"],
-                            "syn_med_res": rs["med_res"],
-                        }
-                    )
-                    if not self.fetch_cdf:
-                        return median_rs
+                assert q_synthetic_batch is not None
+                rs = self._quantile(net, q_synthetic_batch, False, True)
+                median_rs.update(
+                    {
+                        "syn_med_add": rs["med_add"],
+                        "syn_med_mul": rs["med_mul"],
+                        "syn_med_res": rs["med_res"],
+                    }
+                )
+                if not self.fetch_cdf:
+                    return median_rs
         # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
             if not self.fetch_q:
@@ -297,28 +300,28 @@ class DDR(ModelBase):
         if self.tr_data.is_ts:
             net = net.view(batch_size, -1)
         y_batch = batch["y_batch"]
-        # check q inference
         forward_dict = {}
+        # check median residual inference
         predict_mr = kwargs.get("predict_median_residual", False)
+        if predict_mr:
+            pack = self._median(net, True)
+            median = pack["median"]
+            pos, neg = pack["pos_med_res"], pack["neg_med_res"]
+            forward_dict["mr_pos"] = pos + median
+            forward_dict["mr_neg"] = -neg + median
+        # check q inference
         predict_quantile = kwargs.get("predict_quantiles")
-        if predict_mr or predict_quantile:
+        if predict_quantile:
             if not self.fetch_q:
                 raise ValueError("quantile function is not fetched")
-            if predict_mr:
-                pack = self._median(net, True)
-                median = pack["median"]
-                pos, neg = pack["pos_med_res"], pack["neg_med_res"]
-                forward_dict["mr_pos"] = pos + median
-                forward_dict["mr_neg"] = -neg + median
-            if predict_quantile:
-                q = kwargs.get("q")
-                if q is None:
-                    raise ValueError(f"quantile cannot be predicted without q")
-                q_batch = self._expand(batch_size, q)
-                pack = self._quantile(net, q_batch, False)
-                forward_dict["quantiles"] = pack["median"] + pack["y_res"]
-                forward_dict["med_add"] = pack["med_add"]
-                forward_dict["med_mul"] = pack["med_mul"]
+            q = kwargs.get("q")
+            if q is None:
+                raise ValueError(f"quantile cannot be predicted without q")
+            q_batch = self._expand(batch_size, q)
+            pack = self._quantile(net, q_batch, False)
+            forward_dict["quantiles"] = pack["median"] + pack["y_res"]
+            forward_dict["med_add"] = pack["med_add"]
+            forward_dict["med_mul"] = pack["med_mul"]
         # check y inference
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)

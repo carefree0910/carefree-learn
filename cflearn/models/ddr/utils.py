@@ -120,10 +120,7 @@ class DDRVisualizer:
         assert model is not None
         affine = add_affine or mul_affine
         mean = None
-        if not model.fetch_q or affine:
-            median = None
-        else:
-            median = self.m.predict(x_base)
+        median = self.m.predict(x_base)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # median residual

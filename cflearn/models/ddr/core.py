@@ -341,7 +341,7 @@ class DDRCore(nn.Module):
             )
             if not median and comes_from_y_invertible:
                 y_res = med_res * y_mul + y_add
-                results.update({"y_res": y_res, "q_sign": q_sign})
+                results["y_res"] = y_res
         return results
 
     def _median_results(

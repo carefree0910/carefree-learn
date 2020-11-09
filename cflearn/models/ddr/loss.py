@@ -19,10 +19,28 @@ class DDRLoss(LossBase, LoggingMixin):
         self._pdf_eps = config.setdefault("pdf_eps", 1.0e-12)
         self._lb_recover = config.setdefault("lambda_recover", 1.0)
 
+    @staticmethod
+    def _median_losses(
+        predictions: tensor_dict_type,
+        target: torch.Tensor,
+    ) -> Tuple[torch.Tensor, tensor_dict_type]:
+        # median
+        median = predictions["predictions"]
+        median_losses = l1_loss(median, target, reduction="none")
+        # median residual
+        pos_med_res = predictions["med_pos_med_res"]
+        neg_med_res = predictions["med_neg_med_res"]
+        target_median_residual = target - median.detach()
+        tmr_sign_mask = torch.sign(target_median_residual) > 0
+        mr_prediction = torch.where(tmr_sign_mask, pos_med_res, -neg_med_res)
+        mr_losses = torch.abs(target_median_residual - mr_prediction)
+        losses_dict = {"median": median_losses, "median_residual": mr_losses}
+        return target_median_residual, losses_dict
+
     def _q_losses(
         self,
         predictions: tensor_dict_type,
-        target: torch.Tensor,
+        target_median_residual: Optional[torch.Tensor],
         is_synthetic: bool,
     ) -> tensor_dict_type:
         # median residual anchor
@@ -32,31 +50,13 @@ class DDRLoss(LossBase, LoggingMixin):
             syn_med_res = predictions["syn_med_res"].detach()
             mr_anchor_losses = (syn_med_res * (1.0 - syn_med_mul) - syn_med_add).abs()
             return {"median_residual_anchor": mr_anchor_losses}
-        # median
-        median = predictions["predictions"]
-        median_losses = l1_loss(median, target, reduction="none")
-        # median residual
-        q_sign = predictions["q_sign"]
-        median_residual = predictions["med_res"]
-        target_residual = target - median.detach()
-        tmr_sign = torch.sign(target_residual)
-        same_sign_mask = q_sign * tmr_sign > 0
-        tmr = (target_residual * tmr_sign)[same_sign_mask]
-        mr = median_residual[same_sign_mask]
-        mr_losses = torch.zeros_like(target_residual)
-        mr_losses[same_sign_mask] = torch.abs(tmr - mr)
         # quantile
         q_batch = predictions["q_batch"]
         assert q_batch is not None
         y_res = predictions["y_res"]
         assert y_res is not None
-        quantile_losses = self._quantile_losses(y_res, target_residual, q_batch)
-        # combine
-        return {
-            "median": median_losses,
-            "quantile": quantile_losses,
-            "median_residual": mr_losses,
-        }
+        quantile_losses = self._quantile_losses(y_res, target_median_residual, q_batch)
+        return {"quantile": quantile_losses}
 
     def _y_losses(
         self,
@@ -113,9 +113,12 @@ class DDRLoss(LossBase, LoggingMixin):
         *,
         is_synthetic: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
-        losses = {}
+        if is_synthetic:
+            tmr, losses = None, {}
+        else:
+            tmr, losses = self._median_losses(predictions, target)
         if self.fetch_q:
-            losses.update(self._q_losses(predictions, target, is_synthetic))
+            losses.update(self._q_losses(predictions, tmr, is_synthetic))
         if self.fetch_cdf:
             losses.update(self._y_losses(predictions, target, is_synthetic))
         if self.fetch_q and self.fetch_cdf:
