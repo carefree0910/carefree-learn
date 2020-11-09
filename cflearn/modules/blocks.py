@@ -344,6 +344,7 @@ class InvertibleBlock(Module):
 class ConditionalOutput(NamedTuple):
     net: Tensor
     cond: Tensor
+    responses: List[Tensor]
 
 
 class PseudoInvertibleBlock(Module):
@@ -654,17 +655,30 @@ class ConditionalBlocks(Module):
         self.condition_blocks = condition_blocks
         self.cond_transform_fn = cond_transform_fn
 
-    def forward(self, net: Tensor, cond: Tensor) -> ConditionalOutput:
-        iterator = enumerate(zip(self.main_blocks, self.condition_blocks))
-        for i, (main, condition) in iterator:
-            cond = condition(cond)
+    def forward(
+        self,
+        net: Tensor,
+        cond: Union[Tensor, List[Tensor]],
+    ) -> ConditionalOutput:
+        if isinstance(cond, list):
+            cond_responses = cond
+            detached_responses = [net.detach() for net in cond]
+        else:
+            cond_responses = []
+            detached_responses = []
+            for condition in self.condition_blocks:
+                cond = condition(cond)
+                cond_responses.append(cond)
+                detached_responses.append(cond.detach())
+        responses = detached_responses if self.detach_condition else cond_responses
+        iterator = enumerate(zip(self.main_blocks, responses))
+        for i, (main, response) in iterator:
             net = main(net)
             if i < self.num_blocks - 1 or self.add_last:
-                cond_ = cond.detach() if self.detach_condition else cond
                 if self.cond_transform_fn is not None:
-                    cond_ = self.cond_transform_fn(net, cond_)
-                net = net + cond_
-        return ConditionalOutput(net, cond)
+                    response = self.cond_transform_fn(net, response)
+                net = net + response
+        return ConditionalOutput(net, cond_responses[-1], responses)
 
     def extra_repr(self) -> str:
         add_last = f"(add_last): {self.add_last}"
