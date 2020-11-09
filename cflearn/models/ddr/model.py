@@ -192,15 +192,19 @@ class DDR(ModelBase):
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
             results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
+        cdf = results["q"]
         if not return_pdf:
             pdf = None
         else:
-            cdf = results["q"]
             pdf = get_gradient(cdf, y_batch, need_optimize, need_optimize)
             assert isinstance(pdf, torch.Tensor)
             y_batch.requires_grad_(False)
-        results["pdf"] = pdf
-        return results
+        return {
+            "cdf": cdf,
+            "pdf": pdf,
+            "cdf_logit": results["q_logit"],
+            "y_inverse_res": results["y_inverse_res"],
+        }
 
     def _core(
         self,
@@ -268,8 +272,6 @@ class DDR(ModelBase):
             else:
                 cdf_inverse = not synthetic
                 y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
-                y_rs["cdf"] = y_rs.pop("q")
-                y_rs["cdf_logit"] = y_rs.pop("q_logit")
         # construct results
         results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
         results.update({k: v for k, v in median_rs.items() if v is not None})
@@ -330,11 +332,7 @@ class DDR(ModelBase):
             y_batch = self._expand(batch_size, y, numpy=True)
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
-            results = self._cdf(net, y_batch, False, predict_pdf, False)
-            if predict_pdf:
-                forward_dict["pdf"] = results["pdf"]
-            if predict_cdf:
-                forward_dict["cdf"] = results["q"]
+            forward_dict = self._cdf(net, y_batch, False, predict_pdf, False)
         if not forward_dict:
             forward_dict = self._core(net, y_batch, False)
         return forward_dict
