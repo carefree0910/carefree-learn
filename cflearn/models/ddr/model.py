@@ -60,8 +60,6 @@ class DDR(ModelBase):
         latent_dim = instance.config.setdefault("latent_dim", None)
         cfg.update(
             {
-                "y_min": instance.y_min,
-                "y_max": instance.y_max,
                 "fetch_q": instance.fetch_q,
                 "fetch_cdf": instance.fetch_cdf,
                 "num_layers": num_layers,

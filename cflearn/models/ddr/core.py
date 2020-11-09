@@ -164,8 +164,6 @@ class DDRCore(nn.Module):
     def __init__(
         self,
         in_dim: int,
-        y_min: float,
-        y_max: float,
         fetch_q: bool,
         fetch_cdf: bool,
         num_layers: Optional[int] = None,
@@ -174,8 +172,6 @@ class DDRCore(nn.Module):
     ):
         super().__init__()
         # common
-        self.y_min = y_min
-        self.y_diff = y_max - y_min
         self.softplus = Activations().softplus
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
@@ -273,7 +269,7 @@ class DDRCore(nn.Module):
 
     @property
     def y_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
-        return lambda y, median: (y - median.detach()) / self.y_diff
+        return lambda y, median: y - median.detach()
 
     @property
     def q_inv_fn(self) -> Callable[[Tensor], Tensor]:
