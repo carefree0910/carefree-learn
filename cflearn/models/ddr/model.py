@@ -103,13 +103,13 @@ class DDR(ModelBase):
         self._loss_config["fetch_q"] = self.fetch_q
         self._loss_config["fetch_cdf"] = self.fetch_cdf
         # trainer config
-        default_metric_types = []
+        default_metric_types = ["loss"]
         if self.fetch_q:
             default_metric_types += ["ddr"]
         if self.fetch_cdf:
             default_metric_types += ["cdf", "pdf"]
         if self.fetch_q and self.fetch_cdf:
-            default_metric_types += ["q_recover", "y_recover", "loss"]
+            default_metric_types += ["q_recover", "y_recover"]
         default_metric_weights = {
             "ddr": 5.0,
             "cdf": 1.0,
