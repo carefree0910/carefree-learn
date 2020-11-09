@@ -51,12 +51,15 @@ class MonoSplit(nn.Module):
         ascent1: bool,
         ascent2: bool,
         to_latent: bool,
-        builder: Callable[[int, int, bool], nn.Module],
+        builder: Callable[[int, int, bool], ConditionalBlocks],
+        builder2: Optional[Callable[[int, int, bool], ConditionalBlocks]] = None,
     ) -> None:
         super().__init__()
+        if builder2 is None:
+            builder2 = builder
         self.to_latent = to_latent
         self.m1 = builder(in_dim, out_dim, ascent1)
-        self.m2 = builder(in_dim, out_dim, ascent2)
+        self.m2 = builder2(in_dim, out_dim, ascent2)
 
     def forward(
         self,
