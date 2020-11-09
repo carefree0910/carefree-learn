@@ -9,6 +9,7 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
+from functools import partial
 from cftool.misc import context_error_handler
 
 from ...types import tensor_tuple_type
@@ -81,8 +82,14 @@ def monotonous_builder(
     use_couple_bias: bool,
     num_layers: int,
     condition_dim: int,
+    invertible_module: PseudoInvertibleBlock = None,
 ) -> Callable[[int, int], nn.Module]:
-    def _core(in_dim: int, out_dim: int, ascent: bool) -> ConditionalBlocks:
+    def _core(
+        in_dim: int,
+        out_dim: int,
+        ascent: bool,
+        cond_mappings: Optional[nn.ModuleList] = None,
+    ) -> ConditionalBlocks:
         cond_out_dim: Optional[int]
         block_out_dim: Optional[int]
         if to_latent:
@@ -90,14 +97,15 @@ def monotonous_builder(
             cond_out_dim = block_out_dim = None
         else:
             num_units = [in_dim] * num_layers
-            if out_dim == 1:
-                cond_out_dim = block_out_dim = 1
+            # cond  : median, pos_median_res, neg_median_res
+            assert out_dim == 3
+            cond_out_dim = out_dim
+            # block : cdf
+            if cond_mappings is None:
+                block_out_dim = 1
+            # block : y_add, y_mul
             else:
-                # quantile stuffs
-                # cond  : median, pos_median_res, neg_median_res
-                # block : y_add, y_mul
-                cond_out_dim = out_dim
-                block_out_dim = out_dim - 1
+                block_out_dim = 2
 
         blocks = MonotonousMapping.stack(
             in_dim,
@@ -110,12 +118,13 @@ def monotonous_builder(
         )
         assert isinstance(blocks, list)
 
-        cond_mappings = get_cond_mappings(
-            condition_dim,
-            cond_out_dim,
-            num_units,
-            not to_latent,
-        )
+        if cond_mappings is None or len(cond_mappings) == 0:
+            cond_mappings = get_cond_mappings(
+                condition_dim,
+                cond_out_dim,
+                num_units,
+                not to_latent,
+            )
         cond_transform_fn = lambda net, cond: torch.tanh(2.0 * net) * cond
 
         return ConditionalBlocks(
@@ -131,7 +140,20 @@ def monotonous_builder(
             in_dim = int(in_dim // 2)
         else:
             out_dim = int(out_dim // 2)
-        return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, _core)
+        if invertible_module is None:
+            return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, _core)
+        # reuse MonoSplit parameters
+        from_latent1 = invertible_module.from_latent
+        if isinstance(from_latent1, nn.Identity):
+            cond_blocks1 = cond_blocks2 = []
+        else:
+            m1 = from_latent1.m1
+            m2 = invertible_module.from_latent.m2
+            cond_blocks1 = m1.condition_blocks
+            cond_blocks2 = m2.condition_blocks
+        b1 = partial(_core, cond_mappings=cond_blocks1)
+        b2 = partial(_core, cond_mappings=cond_blocks2)
+        return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, b1, b2)
 
     return _split_core
 
@@ -217,6 +239,7 @@ class DDRCore(nn.Module):
                 ascent2=True,
                 to_latent=False,
                 use_couple_bias=False,
+                invertible_module=self.q_invertible,
                 **kwargs,
             )
         self.y_invertible = PseudoInvertibleBlock(
@@ -226,6 +249,13 @@ class DDRCore(nn.Module):
             to_transition_builder=y_to_latent_builder,
             from_transition_builder=y_from_latent_builder,
         )
+        if self.fetch_q and self.fetch_cdf:
+            q_cond_blocks1 = self.q_invertible.from_latent.m1.condition_blocks
+            q_cond_blocks2 = self.q_invertible.from_latent.m2.condition_blocks
+            y_cond_blocks1 = self.y_invertible.from_latent.m1.condition_blocks
+            y_cond_blocks2 = self.y_invertible.from_latent.m2.condition_blocks
+            assert q_cond_blocks1 is y_cond_blocks1
+            assert q_cond_blocks2 is y_cond_blocks2
         # q parameters
         if not self.fetch_q:
             self.q_parameters = []
