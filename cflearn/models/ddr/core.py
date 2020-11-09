@@ -295,61 +295,40 @@ class DDRCore(nn.Module):
         return _()
 
     @staticmethod
-    def _merge_q_outputs(
-        outputs: ConditionalOutput,
-        q_batch: Tensor,
-        median: bool,
-        return_mr: bool,
-        comes_from_y_invertible: bool,
-    ) -> tensor_dict_type:
-        y_net = outputs.net
+    def _get_median_outputs(outputs: ConditionalOutput) -> tensor_dict_type:
         cond_net = outputs.cond
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
-        results = {"median": med}
-        y_add = y_mul = None
-        if comes_from_y_invertible:
-            y_add, y_mul = y_net.split(1, dim=1)
-            results.update({"med_add": y_add, "med_mul": y_mul})
-        if not median or return_mr:
-            q_sign = torch.sign(q_batch)
-            q_positive_mask = q_sign == 1.0
-            med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
-            results.update(
-                {
-                    "med_res": med_res,
-                    "pos_med_res": pos_med_res,
-                    "neg_med_res": neg_med_res,
-                    "q_positive_mask": q_positive_mask,
-                }
-            )
-            if not median and comes_from_y_invertible:
-                y_res = med_res.detach() * y_mul + y_add
-                results["y_res"] = y_res
-        return results
+        return {"median": med, "pos_med_res": pos_med_res, "neg_med_res": neg_med_res}
 
-    def _median_results(
-        self,
-        net: Tensor,
-        median: bool = False,
-        return_mr: bool = False,
+    @staticmethod
+    def _merge_q_outputs(
+        q_batch: Tensor,
+        outputs: ConditionalOutput,
+        median_outputs: tensor_dict_type,
     ) -> tensor_dict_type:
-        dummy_batch = net.new_zeros(len(net), 1)
-        d1 = d2 = net.new_zeros(len(net), self.latent_dim // 2)
+        pos_med_res = median_outputs["pos_med_res"]
+        neg_med_res = median_outputs["neg_med_res"]
+        q_positive_mask = torch.sign(q_batch) == 1.0
+        med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
+        y_add, y_mul = outputs.net.split(1, dim=1)
+        y_res = med_res.detach() * y_mul + y_add
+        return {
+            "y_res": y_res,
+            "med_add": y_add,
+            "med_mul": y_mul,
+            "med_res": med_res,
+            "q_positive_mask": q_positive_mask,
+        }
+
+    def _median_results(self, net: Tensor) -> tensor_dict_type:
+        dummy1 = dummy2 = net.new_zeros(len(net), self.latent_dim // 2)
         if not self.fetch_q:
-            comes_from_y_invertible = False
             inverse_method = self.q_invertible.inverse
         else:
-            comes_from_y_invertible = True
             inverse_method = self.y_invertible.inverse
-        pack = inverse_method((d1, d2), net)
+        pack = inverse_method((dummy1, dummy2), net)
         assert isinstance(pack, ConditionalOutput)
-        return self._merge_q_outputs(
-            pack,
-            dummy_batch,
-            median,
-            return_mr,
-            comes_from_y_invertible,
-        )
+        return self._get_median_outputs(pack)
 
     def _q_results(
         self,
@@ -366,10 +345,12 @@ class DDRCore(nn.Module):
             q1, q2 = block(q1, q2)
         y_pack = self.y_invertible.inverse((q1, q2), net)
         assert isinstance(y_pack, ConditionalOutput)
-        results = self._merge_q_outputs(y_pack, q_batch, False, False, True)
+        median_outputs = self._get_median_outputs(y_pack)
+        results = self._merge_q_outputs(q_batch, y_pack, median_outputs)
         q_inverse = None
         if do_inverse and self.fetch_cdf:
-            median, y_res = map(results.get, ["median", "y_res"])
+            y_res = results["y_res"]
+            median = median_outputs["median"]
             assert median is not None and y_res is not None
             median, y_res = median.detach(), y_res.detach()
             inverse_results = self._y_results(net, median, median + y_res)
@@ -407,12 +388,11 @@ class DDRCore(nn.Module):
         net: Tensor,
         *,
         median: bool = False,
-        return_mr: bool = False,
         do_inverse: bool = False,
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
     ) -> tensor_dict_type:
-        results = self._median_results(net, median, return_mr)
+        results = self._median_results(net)
         if self.fetch_q and not median and q_batch is not None:
             results.update(self._q_results(net, q_batch, do_inverse))
         if self.fetch_cdf and not median and y_batch is not None:

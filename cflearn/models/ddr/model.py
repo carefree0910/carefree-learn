@@ -165,18 +165,16 @@ class DDR(ModelBase):
         net: torch.Tensor,
         q_batch: Optional[torch.Tensor],
         do_inverse: bool,
-        return_mr: bool = False,
     ) -> tensor_dict_type:
         return self.core(
             net,
             q_batch=q_batch,
             median=q_batch is None,
-            return_mr=return_mr,
             do_inverse=do_inverse,
         )
 
-    def _median(self, net: torch.Tensor, return_mr: bool) -> tensor_dict_type:
-        return self.core(net, median=True, return_mr=return_mr)
+    def _median(self, net: torch.Tensor) -> tensor_dict_type:
+        return self.core(net, median=True)
 
     def _cdf(
         self,
@@ -235,7 +233,7 @@ class DDR(ModelBase):
         # build predictions
         with timing_context(self, "forward.median"):
             median_rs = {}
-            rs = self._median(net, not synthetic)
+            rs = self._median(net)
             if not synthetic:
                 median_rs = {
                     "predictions": rs["median"],
@@ -244,7 +242,7 @@ class DDR(ModelBase):
                 }
             elif self.fetch_q:
                 assert q_synthetic_batch is not None
-                rs = self._quantile(net, q_synthetic_batch, False, True)
+                rs = self._quantile(net, q_synthetic_batch, True)
                 median_rs = {
                     "syn_med_add": rs["med_add"],
                     "syn_med_mul": rs["med_mul"],
@@ -294,7 +292,7 @@ class DDR(ModelBase):
         # check median residual inference
         predict_mr = kwargs.get("predict_median_residual", False)
         if predict_mr:
-            pack = self._median(net, True)
+            pack = self._median(net)
             median = pack["median"]
             pos, neg = pack["pos_med_res"], pack["neg_med_res"]
             forward_dict["mr_pos"] = pos + median
