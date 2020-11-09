@@ -114,6 +114,8 @@ class DDR(ModelBase):
             "ddr": 5.0,
             "cdf": 1.0,
             "pdf": 1.0,
+            "q_recover": 10.0,
+            "y_recover": 1.0,
             "loss": 1.0,
         }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
