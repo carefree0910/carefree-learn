@@ -43,6 +43,34 @@ def get_cond_mappings(
     return cond_module.mappings
 
 
+class MonoSplit(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        ascent1: bool,
+        ascent2: bool,
+        to_latent: bool,
+        builder: Callable[[int, int, bool], nn.Module],
+    ) -> None:
+        super().__init__()
+        self.to_latent = to_latent
+        self.m1 = builder(in_dim, out_dim, ascent1)
+        self.m2 = builder(in_dim, out_dim, ascent2)
+
+    def forward(
+        self,
+        net: Union[Tensor, tensor_tuple_type],
+        cond: Tensor,
+    ) -> Union[Tensor, tensor_tuple_type, ConditionalOutput]:
+        if self.to_latent:
+            assert isinstance(net, Tensor)
+            return self.m1(net, cond), self.m2(net, cond)
+        assert isinstance(net, tuple)
+        o1, o2 = self.m1(net[0], cond), self.m2(net[1], cond)
+        return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond)
+
+
 def monotonous_builder(
     ascent1: bool,
     ascent2: bool,
@@ -100,26 +128,7 @@ def monotonous_builder(
             in_dim = int(in_dim // 2)
         else:
             out_dim = int(out_dim // 2)
-
-        class MonoSplit(nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.m1 = _core(in_dim, out_dim, ascent1)
-                self.m2 = _core(in_dim, out_dim, ascent2)
-
-            def forward(
-                self,
-                net: Union[Tensor, tensor_tuple_type],
-                cond: Tensor,
-            ) -> Union[Tensor, tensor_tuple_type, ConditionalOutput]:
-                if to_latent:
-                    assert isinstance(net, Tensor)
-                    return self.m1(net, cond), self.m2(net, cond)
-                assert isinstance(net, tuple)
-                o1, o2 = self.m1(net[0], cond), self.m2(net[1], cond)
-                return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond)
-
-        return MonoSplit()
+        return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, _core)
 
     return _split_core
 
