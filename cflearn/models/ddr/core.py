@@ -267,10 +267,6 @@ class DDRCore(nn.Module):
         return lambda q: 2.0 * q - 1.0
 
     @property
-    def y_fn(self) -> Callable[[Tensor, Tensor], Tensor]:
-        return lambda y, median: y - median.detach()
-
-    @property
     def q_inv_fn(self) -> Callable[[Tensor], Tensor]:
         return torch.sigmoid
 
@@ -350,10 +346,8 @@ class DDRCore(nn.Module):
         q_inverse = None
         if do_inverse and self.fetch_cdf:
             y_res = results["y_res"]
-            median = median_outputs["median"]
-            assert median is not None and y_res is not None
-            median, y_res = median.detach(), y_res.detach()
-            inverse_results = self._y_results(net, median, median + y_res)
+            assert y_res is not None
+            inverse_results = self._y_results(net, y_res.detach())
             q_inverse = inverse_results["q"]
         results["q_inverse"] = q_inverse
         return results
@@ -361,13 +355,11 @@ class DDRCore(nn.Module):
     def _y_results(
         self,
         net: Tensor,
-        median: Tensor,
-        y_batch: Tensor,
+        median_residual: Tensor,
         do_inverse: bool = False,
     ) -> tensor_dict_type:
         # prepare y_latent
-        y_batch = self.y_fn(y_batch, median)
-        y1, y2 = self.y_invertible(y_batch, net)
+        y1, y2 = self.y_invertible(median_residual, net)
         y1, y2 = y1.net, y2.net
         # simulate cdf
         with self._detach_q():
@@ -396,7 +388,8 @@ class DDRCore(nn.Module):
         if self.fetch_q and not median and q_batch is not None:
             results.update(self._q_results(net, q_batch, do_inverse))
         if self.fetch_cdf and not median and y_batch is not None:
-            results.update(self._y_results(net, results["median"], y_batch, do_inverse))
+            median_residual = y_batch - results["median"].detach()
+            results.update(self._y_results(net, median_residual, do_inverse))
         return results
 
 
