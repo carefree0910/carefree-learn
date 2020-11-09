@@ -363,36 +363,26 @@ class DDRCore(nn.Module):
     def _q_results(
         self,
         net: Tensor,
-        q_batch: Optional[Tensor] = None,
+        q_batch: Tensor,
         do_inverse: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         # prepare q_latent
-        if q_batch is None:
-            q1 = q2 = None
-        else:
-            q_batch = self.q_fn(q_batch)
-            q1, q2 = self.q_invertible(q_batch, net)
-            q1, q2 = q1.net, q2.net
+        q_batch = self.q_fn(q_batch)
+        q1, q2 = self.q_invertible(q_batch, net)
+        q1, q2 = q1.net, q2.net
         # simulate quantile function
+        for block in self.blocks:
+            q1, q2 = block(q1, q2)
+        y_pack = self.y_invertible.inverse((q1, q2), net)
+        assert isinstance(y_pack, ConditionalOutput)
+        results = self._merge_q_outputs(y_pack, q_batch, False, False, True)
         q_inverse = None
-        if q_batch is None:
-            y_results = None
-        else:
-            assert q1 is not None and q2 is not None
-            for block in self.blocks:
-                q1, q2 = block(q1, q2)
-            y_pack = self.y_invertible.inverse((q1, q2), net)
-            assert isinstance(y_pack, ConditionalOutput)
-            y_results = self._merge_q_outputs(y_pack, q_batch, False, False, True)
-            if do_inverse and self.fetch_cdf:
-                median, y_res = map(y_results.get, ["median", "y_res"])
-                assert median is not None and y_res is not None
-                median, y_res = median.detach(), y_res.detach()
-                inverse_results = self._y_results(net, median, median + y_res)
-                q_inverse = inverse_results["q"]
-        results: Dict[str, Optional[Tensor]] = {}
-        if y_results is not None:
-            results.update(y_results)
+        if do_inverse and self.fetch_cdf:
+            median, y_res = map(results.get, ["median", "y_res"])
+            assert median is not None and y_res is not None
+            median, y_res = median.detach(), y_res.detach()
+            inverse_results = self._y_results(net, median, median + y_res)
+            q_inverse = inverse_results["q"]
         results["q_inverse"] = q_inverse
         return results
 
@@ -400,31 +390,25 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         median: Tensor,
-        y_batch: Optional[Tensor] = None,
+        y_batch: Tensor,
         do_inverse: bool = False,
     ) -> Dict[str, Optional[Tensor]]:
         # prepare y_latent
-        if y_batch is None:
-            y1 = y2 = None
-        else:
-            y_batch = self.y_fn(y_batch, median)
-            y1, y2 = self.y_invertible(y_batch, net)
-            y1, y2 = y1.net, y2.net
+        y_batch = self.y_fn(y_batch, median)
+        y1, y2 = self.y_invertible(y_batch, net)
+        y1, y2 = y1.net, y2.net
         # simulate cdf
-        y_inverse_res = None
-        if y_batch is None:
-            q = q_logit = None
-        else:
-            with self._detach_q():
-                for i in range(self.num_blocks):
-                    y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
-                q_logit_pack = self.q_invertible.inverse((y1, y2), net)
-                assert isinstance(q_logit_pack, ConditionalOutput)
-                q_logit = q_logit_pack.net
-                q = self.q_inv_fn(q_logit)
-                if do_inverse and self.fetch_q:
-                    inverse_results = self._q_results(net, q.detach())
-                    y_inverse_res = inverse_results["y_res"]
+        with self._detach_q():
+            for i in range(self.num_blocks):
+                y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
+            q_logit_pack = self.q_invertible.inverse((y1, y2), net)
+            assert isinstance(q_logit_pack, ConditionalOutput)
+            q_logit = q_logit_pack.net
+            q = self.q_inv_fn(q_logit)
+            y_inverse_res = None
+            if do_inverse and self.fetch_q:
+                inverse_results = self._q_results(net, q.detach())
+                y_inverse_res = inverse_results["y_res"]
         return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
 
     def forward(
@@ -438,9 +422,9 @@ class DDRCore(nn.Module):
         y_batch: Optional[Tensor] = None,
     ) -> Dict[str, Optional[Tensor]]:
         results = self._median_results(net, median, return_mr)
-        if self.fetch_q and not median:
+        if self.fetch_q and not median and q_batch is not None:
             results.update(self._q_results(net, q_batch, do_inverse))
-        if self.fetch_cdf and not median:
+        if self.fetch_cdf and not median and y_batch is not None:
             results.update(self._y_results(net, results["median"], y_batch, do_inverse))
         return results
 
