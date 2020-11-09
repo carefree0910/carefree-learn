@@ -245,19 +245,13 @@ class DDR(ModelBase):
                     "med_neg_med_res": rs["neg_med_res"],
                 }
             elif self.fetch_q:
-                median_rs = {
-                    "median_med_add": rs["med_add"],
-                    "median_med_mul": rs["med_mul"],
-                }
                 assert q_synthetic_batch is not None
                 rs = self._quantile(net, q_synthetic_batch, False, True)
-                median_rs.update(
-                    {
-                        "syn_med_add": rs["med_add"],
-                        "syn_med_mul": rs["med_mul"],
-                        "syn_med_res": rs["med_res"],
-                    }
-                )
+                median_rs = {
+                    "syn_med_add": rs["med_add"],
+                    "syn_med_mul": rs["med_mul"],
+                    "syn_med_res": rs["med_res"],
+                }
                 if not self.fetch_cdf:
                     return median_rs
         # TODO : Some of the calculations in `forward.median` could be reused

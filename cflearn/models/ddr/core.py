@@ -173,7 +173,6 @@ class DDRCore(nn.Module):
         # common
         self.y_min = y_min
         self.y_diff = y_max - y_min
-        self.tanh = Activations().tanh
         self.softplus = Activations().softplus
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
@@ -276,10 +275,6 @@ class DDRCore(nn.Module):
     @property
     def q_inv_fn(self) -> Callable[[Tensor], Tensor]:
         return torch.sigmoid
-
-    @property
-    def y_inv_fn(self) -> Callable[[Tensor], Tensor]:
-        return lambda y: (y + 1.0) * (0.5 * self.y_diff) + self.y_min
 
     @property
     def dummy_builder(self) -> Callable[[int, int], nn.Module]:
