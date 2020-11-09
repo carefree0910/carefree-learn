@@ -4,11 +4,12 @@ import torch.nn as nn
 
 from torch import Tensor
 from typing import Any
-from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from functools import partial
 from cftool.misc import context_error_handler
 
@@ -19,7 +20,6 @@ from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
 from ...modules.blocks import ConditionalBlocks
-from ...modules.blocks import ConditionalOutput
 from ...modules.blocks import PseudoInvertibleBlock
 
 
@@ -44,6 +44,15 @@ def get_cond_mappings(
     return cond_module.mappings
 
 
+responses_tuple_type = Tuple[List[Tensor], List[Tensor]]
+
+
+class Pack(NamedTuple):
+    net: Tensor
+    cond: Tensor
+    responses_tuple: responses_tuple_type
+
+
 class MonoSplit(nn.Module):
     def __init__(
         self,
@@ -65,8 +74,8 @@ class MonoSplit(nn.Module):
     def forward(
         self,
         net: Union[Tensor, tensor_tuple_type],
-        cond: Union[Tensor, tensor_tuple_type],
-    ) -> Union[Tensor, tensor_tuple_type, ConditionalOutput]:
+        cond: Union[Tensor, responses_tuple_type],
+    ) -> Union[tensor_tuple_type, Pack]:
         if self.to_latent:
             assert isinstance(net, Tensor)
             return self.m1(net, cond), self.m2(net, cond)
@@ -76,8 +85,7 @@ class MonoSplit(nn.Module):
         else:
             cond1 = cond2 = cond
         o1, o2 = self.m1(net[0], cond1), self.m2(net[1], cond2)
-        responses = o1.responses, o2.responses
-        return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond, responses)
+        return Pack(o1.net + o2.net, o1.cond + o2.cond, (o1.responses, o2.responses))
 
 
 def cond_transform_fn(net: Tensor, cond: Tensor) -> Tensor:
@@ -296,22 +304,22 @@ class DDRCore(nn.Module):
         return _()
 
     @staticmethod
-    def _get_median_outputs(outputs: ConditionalOutput) -> tensor_dict_type:
-        cond_net = outputs.cond
+    def _get_median_outputs(pack: Pack) -> tensor_dict_type:
+        cond_net = pack.cond
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
         return {"median": med, "pos_med_res": pos_med_res, "neg_med_res": neg_med_res}
 
     @staticmethod
-    def _merge_q_outputs(
+    def _merge_y_pack(
+        pack: Pack,
         q_batch: Tensor,
-        outputs: ConditionalOutput,
         median_outputs: tensor_dict_type,
     ) -> tensor_dict_type:
         pos_med_res = median_outputs["pos_med_res"]
         neg_med_res = median_outputs["neg_med_res"]
         q_positive_mask = torch.sign(q_batch) == 1.0
         med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
-        y_add, y_mul = outputs.net.split(1, dim=1)
+        y_add, y_mul = pack.net.split(1, dim=1)
         y_res = med_res.detach() * y_mul + y_add
         return {
             "y_res": y_res,
@@ -321,7 +329,7 @@ class DDRCore(nn.Module):
             "q_positive_mask": q_positive_mask,
         }
 
-    def _median_pack(self, net: Tensor) -> ConditionalOutput:
+    def _median_pack(self, net: Tensor) -> Pack:
         dummy1 = dummy2 = net.new_zeros(len(net), self.latent_dim // 2)
         if not self.fetch_q:
             inverse_method = self.q_invertible.inverse
@@ -333,7 +341,7 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         q_batch: Tensor,
-        median_responses: List[Tensor],
+        median_responses: responses_tuple_type,
         do_inverse: bool = False,
     ) -> tensor_dict_type:
         # prepare q_latent
@@ -344,9 +352,9 @@ class DDRCore(nn.Module):
         for block in self.blocks:
             q1, q2 = block(q1, q2)
         y_pack = self.y_invertible.inverse((q1, q2), median_responses)
-        assert isinstance(y_pack, ConditionalOutput)
+        assert isinstance(y_pack, Pack)
         median_outputs = self._get_median_outputs(y_pack)
-        results = self._merge_q_outputs(q_batch, y_pack, median_outputs)
+        results = self._merge_y_pack(y_pack, q_batch, median_outputs)
         q_inverse = None
         if do_inverse and self.fetch_cdf:
             y_res = results["y_res"]
@@ -360,7 +368,7 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         median_residual: Tensor,
-        median_responses: List[Tensor],
+        median_responses: responses_tuple_type,
         do_inverse: bool = False,
     ) -> tensor_dict_type:
         # prepare y_latent
@@ -371,7 +379,7 @@ class DDRCore(nn.Module):
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             q_logit_pack = self.q_invertible.inverse((y1, y2), median_responses)
-            assert isinstance(q_logit_pack, ConditionalOutput)
+            assert isinstance(q_logit_pack, Pack)
             q_logit = q_logit_pack.net
             q = self.q_inv_fn(q_logit)
             y_inverse_res = None
@@ -390,7 +398,7 @@ class DDRCore(nn.Module):
         y_batch: Optional[Tensor] = None,
     ) -> tensor_dict_type:
         median_pack = self._median_pack(net)
-        median_responses = median_pack.responses
+        median_responses = median_pack.responses_tuple
         results = self._get_median_outputs(median_pack)
         if self.fetch_q and not median and q_batch is not None:
             results.update(self._q_results(net, q_batch, median_responses, do_inverse))

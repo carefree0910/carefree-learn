@@ -385,7 +385,7 @@ class PseudoInvertibleBlock(Module):
         self,
         net: Union[Tensor, Any],
         cond: Optional[Union[Tensor, Any]] = None,
-    ) -> Union[Tensor, ConditionalOutput]:
+    ) -> Union[Tensor, Any]:
         if cond is None:
             return self.to_latent(net)
         return self.to_latent(net, cond)
@@ -394,7 +394,7 @@ class PseudoInvertibleBlock(Module):
         self,
         net: Union[Tensor, Any],
         cond: Optional[Union[Tensor, Any]] = None,
-    ) -> Union[Tensor, ConditionalOutput]:
+    ) -> Union[Tensor, Any]:
         if cond is None:
             return self.from_latent(net)
         return self.from_latent(net, cond)
