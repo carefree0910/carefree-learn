@@ -79,7 +79,6 @@ def monotonous_builder(
     ascent1: bool,
     ascent2: bool,
     to_latent: bool,
-    use_couple_bias: bool,
     num_layers: int,
     condition_dim: int,
     invertible_module: PseudoInvertibleBlock = None,
@@ -112,7 +111,7 @@ def monotonous_builder(
             block_out_dim,
             num_units,
             ascent=ascent,
-            use_couple_bias=use_couple_bias,
+            use_couple_bias=False,
             activation="sigmoid" if to_latent else "tanh",
             return_blocks=True,
         )
@@ -198,7 +197,6 @@ class DDRCore(nn.Module):
                 ascent1=True,
                 ascent2=True,
                 to_latent=True,
-                use_couple_bias=False,
                 **kwargs,
             )
         if not self.fetch_cdf:
@@ -208,7 +206,6 @@ class DDRCore(nn.Module):
                 ascent1=True,
                 ascent2=False,
                 to_latent=False,
-                use_couple_bias=True,
                 **kwargs,
             )
         self.q_invertible = PseudoInvertibleBlock(
@@ -226,7 +223,6 @@ class DDRCore(nn.Module):
                 ascent1=True,
                 ascent2=False,
                 to_latent=True,
-                use_couple_bias=True,
                 **kwargs,
             )
         if not self.fetch_q:
@@ -236,7 +232,6 @@ class DDRCore(nn.Module):
                 ascent1=True,
                 ascent2=True,
                 to_latent=False,
-                use_couple_bias=False,
                 invertible_module=self.q_invertible,
                 **kwargs,
             )
