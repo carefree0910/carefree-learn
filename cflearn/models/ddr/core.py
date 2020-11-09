@@ -75,6 +75,10 @@ class MonoSplit(nn.Module):
         return ConditionalOutput(o1.net + o2.net, o1.cond + o2.cond)
 
 
+def cond_transform_fn(net: Tensor, cond: Tensor) -> Tensor:
+    return torch.tanh(2.0 * net) * cond
+
+
 def monotonous_builder(
     ascent1: bool,
     ascent2: bool,
@@ -124,7 +128,6 @@ def monotonous_builder(
                 num_units,
                 not to_latent,
             )
-        cond_transform_fn = lambda net, cond: torch.tanh(2.0 * net) * cond
 
         return ConditionalBlocks(
             nn.ModuleList(blocks),
