@@ -270,10 +270,8 @@ class DDR(ModelBase):
             else:
                 cdf_inverse = not synthetic
                 y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
-                q = y_rs["cdf"] = y_rs.pop("q")
+                y_rs["cdf"] = y_rs.pop("q")
                 y_rs["cdf_logit"] = y_rs.pop("q_logit")
-                if not self.fetch_q:
-                    y_rs["predictions"] = q
         # construct results
         results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
         results.update({k: v for k, v in median_rs.items() if v is not None})
