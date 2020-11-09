@@ -172,7 +172,6 @@ class DDRCore(nn.Module):
     ):
         super().__init__()
         # common
-        self.softplus = Activations().softplus
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
@@ -295,8 +294,8 @@ class DDRCore(nn.Module):
 
         return _()
 
+    @staticmethod
     def _merge_q_outputs(
-        self,
         outputs: ConditionalOutput,
         q_batch: Tensor,
         median: bool,
@@ -306,8 +305,6 @@ class DDRCore(nn.Module):
         y_net = outputs.net
         cond_net = outputs.cond
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
-        pos_med_res = self.softplus(pos_med_res)
-        neg_med_res = self.softplus(neg_med_res)
         results = {"median": med}
         y_add = y_mul = None
         if comes_from_y_invertible:
