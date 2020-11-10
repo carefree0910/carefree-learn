@@ -642,7 +642,7 @@ class ConditionalBlocks(Module):
         detach_condition: bool = False,
         *,
         add_last: bool,
-        cond_mixture_module: Optional[Module] = None,
+        cond_mixtures: Optional[ModuleList] = None,
     ):
         super().__init__()
         self.add_last = add_last
@@ -653,7 +653,7 @@ class ConditionalBlocks(Module):
             raise ValueError(msg)
         self.main_blocks = main_blocks
         self.condition_blocks = condition_blocks
-        self.cond_mixture = cond_mixture_module
+        self.cond_mixtures = cond_mixtures
 
     def forward(
         self,
@@ -675,10 +675,10 @@ class ConditionalBlocks(Module):
         for i, (main, response) in iterator:
             net = main(net)
             if i < self.num_blocks - 1 or self.add_last:
-                if self.cond_mixture is None:
+                if self.cond_mixtures is None:
                     net = net + response
                 else:
-                    net = self.cond_mixture(net, response)
+                    net = self.cond_mixtures[i](net, response)
         return ConditionalOutput(net, cond_responses[-1], responses)
 
     def extra_repr(self) -> str:

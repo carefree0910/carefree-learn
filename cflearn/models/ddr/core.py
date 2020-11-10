@@ -149,12 +149,13 @@ def monotonous_builder(
                 to_latent,
             )
 
+        cond_mixtures = nn.ModuleList([CondMixture() for _ in range(len(num_units))])
         return ConditionalBlocks(
             nn.ModuleList(blocks),
             cond_mappings,
             add_last=to_latent,
             detach_condition=not to_latent,
-            cond_mixture_module=CondMixture(),
+            cond_mixtures=cond_mixtures,
         )
 
     def _split_core(in_dim: int, out_dim: int) -> nn.Module:
