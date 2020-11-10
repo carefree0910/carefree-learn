@@ -370,6 +370,14 @@ class Activations:
         return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
 
     @property
+    def multiplied_sigmoid(self) -> nn.Module:
+        class MultipliedSigmoid(_multiplied_activation):
+            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+                return torch.sigmoid(multiplied)
+
+        return MultipliedSigmoid(**self.configs.setdefault("multiplied_sigmoid", {}))
+
+    @property
     def multiplied_softmax(self) -> nn.Module:
         class MultipliedSoftmax(_multiplied_activation):
             def __init__(self, ratio: float, dim: int = 1, trainable: bool = True):
