@@ -16,6 +16,7 @@ from cftool.misc import context_error_handler
 from ...types import tensor_dict_type
 from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
+from ...misc.toolkit import Activations
 from ...modules.blocks import MLP
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
@@ -88,8 +89,14 @@ class MonoSplit(nn.Module):
         return Pack(o1.net + o2.net, o1.cond + o2.cond, (o1.responses, o2.responses))
 
 
-def cond_transform_fn(net: Tensor, cond: Tensor) -> Tensor:
-    return torch.tanh(2.0 * net) * cond
+class CondMixture(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.m_tanh = Activations.make("multiplied_tanh", {"ratio": 2.0})
+
+    def forward(self, net: Tensor, cond: Tensor) -> Tensor:
+        cond = self.m_tanh(net) * cond
+        return net + cond
 
 
 def monotonous_builder(
@@ -147,7 +154,7 @@ def monotonous_builder(
             cond_mappings,
             add_last=to_latent,
             detach_condition=not to_latent,
-            cond_transform_fn=cond_transform_fn,
+            cond_mixture_module=CondMixture(),
         )
 
     def _split_core(in_dim: int, out_dim: int) -> nn.Module:

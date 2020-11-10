@@ -642,7 +642,7 @@ class ConditionalBlocks(Module):
         detach_condition: bool = False,
         *,
         add_last: bool,
-        cond_transform_fn: Optional[Callable[[Tensor, Tensor], Tensor]] = None,
+        cond_mixture_module: Optional[Module] = None,
     ):
         super().__init__()
         self.add_last = add_last
@@ -653,7 +653,7 @@ class ConditionalBlocks(Module):
             raise ValueError(msg)
         self.main_blocks = main_blocks
         self.condition_blocks = condition_blocks
-        self.cond_transform_fn = cond_transform_fn
+        self.cond_mixture = cond_mixture_module
 
     def forward(
         self,
@@ -675,9 +675,10 @@ class ConditionalBlocks(Module):
         for i, (main, response) in iterator:
             net = main(net)
             if i < self.num_blocks - 1 or self.add_last:
-                if self.cond_transform_fn is not None:
-                    response = self.cond_transform_fn(net, response)
-                net = net + response
+                if self.cond_mixture is None:
+                    net = net + response
+                else:
+                    net = self.cond_mixture(net, response)
         return ConditionalOutput(net, cond_responses[-1], responses)
 
     def extra_repr(self) -> str:
