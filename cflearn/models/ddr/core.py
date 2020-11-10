@@ -341,6 +341,7 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         q_batch: Tensor,
+        median_outputs: tensor_dict_type,
         median_responses: responses_tuple_type,
         do_inverse: bool = False,
     ) -> tensor_dict_type:
@@ -353,13 +354,17 @@ class DDRCore(nn.Module):
             q1, q2 = block(q1, q2)
         y_pack = self.y_invertible.inverse((q1, q2), median_responses)
         assert isinstance(y_pack, Pack)
-        median_outputs = self._get_median_outputs(y_pack)
         results = self._merge_y_pack(y_pack, q_batch, median_outputs)
         q_inverse = None
         if do_inverse and self.fetch_cdf:
             y_res = results["y_res"]
             assert y_res is not None
-            inverse_results = self._y_results(net, y_res.detach(), median_responses)
+            inverse_results = self._y_results(
+                net,
+                y_res.detach(),
+                median_outputs,
+                median_responses,
+            )
             q_inverse = inverse_results["q"]
         results["q_inverse"] = q_inverse
         return results
@@ -368,6 +373,7 @@ class DDRCore(nn.Module):
         self,
         net: Tensor,
         median_residual: Tensor,
+        median_outputs: tensor_dict_type,
         median_responses: responses_tuple_type,
         do_inverse: bool = False,
     ) -> tensor_dict_type:
@@ -384,7 +390,12 @@ class DDRCore(nn.Module):
             q = self.q_inv_fn(q_logit)
             y_inverse_res = None
             if do_inverse and self.fetch_q:
-                inverse_results = self._q_results(net, q.detach(), median_responses)
+                inverse_results = self._q_results(
+                    net,
+                    q.detach(),
+                    median_outputs,
+                    median_responses,
+                )
                 y_inverse_res = inverse_results["y_res"]
         return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
 
@@ -399,12 +410,28 @@ class DDRCore(nn.Module):
     ) -> tensor_dict_type:
         median_pack = self._median_pack(net)
         median_responses = median_pack.responses_tuple
-        results = self._get_median_outputs(median_pack)
+        results = median_outputs = self._get_median_outputs(median_pack)
         if self.fetch_q and not median and q_batch is not None:
-            results.update(self._q_results(net, q_batch, median_responses, do_inverse))
+            results.update(
+                self._q_results(
+                    net,
+                    q_batch,
+                    median_outputs,
+                    median_responses,
+                    do_inverse,
+                )
+            )
         if self.fetch_cdf and not median and y_batch is not None:
             mr = y_batch - results["median"].detach()
-            results.update(self._y_results(net, mr, median_responses, do_inverse))
+            results.update(
+                self._y_results(
+                    net,
+                    mr,
+                    median_outputs,
+                    median_responses,
+                    do_inverse,
+                )
+            )
         return results
 
 
