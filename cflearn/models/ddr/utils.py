@@ -154,9 +154,8 @@ class DDRVisualizer:
         # cdf curves
         if y_batch is not None and model.fetch_cdf:
             y_abs_max = np.abs(y).max()
-            ratios, anchors = y_batch, [
-                ratio * (y_max - y_min) + y_min for ratio in y_batch
-            ]
+            ratios = y_batch
+            anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
             for ratio, anchor in zip(ratios, anchors):
                 anchor_line = np.full(len(x_base), anchor)
                 predictions = self.predictor.cdf(x_base, anchor, get_pdf=to_pdf)
