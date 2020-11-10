@@ -194,6 +194,7 @@ class DDRVisualizer:
             num: int,
             y_true: Optional[np.ndarray],
             predictions: np.ndarray,
+            anchor_line_: Optional[np.ndarray],
         ) -> None:
             plt.figure(figsize=self.figsize, dpi=self.dpi)
             plt.title(f"{prefix} {num:6.4f}")
@@ -201,6 +202,8 @@ class DDRVisualizer:
             if y_true is not None:
                 plt.plot(x_base, y_true, label="target")
             plt.plot(x_base, predictions, label=f"ddr_prediction")
+            if anchor_line_ is not None:
+                plt.plot(x_base.ravel(), anchor_line_, color="gray")
             plt.legend()
             show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}.png"))
 
@@ -208,14 +211,15 @@ class DDRVisualizer:
             for quantile in q_batch:
                 yq = np.percentile(y_matrix, int(100 * quantile), axis=1)
                 yq_predictions = self.predictor.quantile(x_base, quantile)["quantiles"]
-                _plot("quantile", quantile, yq, yq_predictions)
+                _plot("quantile", quantile, yq, yq_predictions, None)
         if y_batch is not None:
             anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
             for anchor in anchors:
+                anchor_line = np.full(len(x_base), anchor)
                 yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
                 yd_pred = self.predictor.cdf(x_base, anchor)
                 yd_pred = yd_pred * y_diff + y_min
-                _plot("cdf", anchor, yd, yd_pred)
+                _plot("cdf", anchor, yd, yd_pred, anchor_line)
 
 
 __all__ = ["DDRPredictor", "DDRVisualizer"]
