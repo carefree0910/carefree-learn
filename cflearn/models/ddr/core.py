@@ -309,6 +309,14 @@ class DDRCore(nn.Module):
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
         return {"median": med, "pos_med_res": pos_med_res, "neg_med_res": neg_med_res}
 
+    def _median_pack(self, net: Tensor) -> Pack:
+        dummy1 = dummy2 = net.new_zeros(len(net), self.latent_dim // 2)
+        if not self.fetch_q:
+            inverse_method = self.q_invertible.inverse
+        else:
+            inverse_method = self.y_invertible.inverse
+        return inverse_method((dummy1, dummy2), net)
+
     @staticmethod
     def _merge_y_pack(
         pack: Pack,
@@ -328,14 +336,6 @@ class DDRCore(nn.Module):
             "med_res": med_res,
             "q_positive_mask": q_positive_mask,
         }
-
-    def _median_pack(self, net: Tensor) -> Pack:
-        dummy1 = dummy2 = net.new_zeros(len(net), self.latent_dim // 2)
-        if not self.fetch_q:
-            inverse_method = self.q_invertible.inverse
-        else:
-            inverse_method = self.y_invertible.inverse
-        return inverse_method((dummy1, dummy2), net)
 
     def _q_results(
         self,
