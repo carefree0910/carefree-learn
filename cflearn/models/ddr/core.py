@@ -326,9 +326,9 @@ class DDRCore(nn.Module):
         pos_med_res = median_outputs["pos_med_res"]
         neg_med_res = median_outputs["neg_med_res"]
         q_positive_mask = torch.sign(q_batch) == 1.0
-        med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res)
+        med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res).detach()
         y_add, y_mul = pack.net.split(1, dim=1)
-        y_res = med_res.detach() * y_mul + y_add
+        y_res = med_res * y_mul + y_add
         return {
             "y_res": y_res,
             "med_add": y_add,
