@@ -92,7 +92,7 @@ class MonoSplit(nn.Module):
 class CondMixture(nn.Module):
     def __init__(self):
         super().__init__()
-        self.m_tanh = Activations.make("multiplied_tanh", {"ratio": 2.0})
+        self.m_tanh = Activations.make("multiplied_tanh", {"ratio": 0.5})
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
         cond = self.m_tanh(net) * cond.relu()
@@ -123,9 +123,9 @@ def monotonous_builder(
             # cond  : median, pos_median_res, neg_median_res
             assert out_dim == 3
             cond_out_dim = out_dim
-            # block : cdf
+            # block : cdf, cdf_add, cdf_mul
             if cond_mappings is None:
-                block_out_dim = 1
+                block_out_dim = 3
             # block : y_add, y_mul
             else:
                 block_out_dim = 2
@@ -193,6 +193,7 @@ class DDRCore(nn.Module):
     ):
         super().__init__()
         # common
+        self.cup_masked = Activations.make("cup_masked", {"bias": 2.0, "ratio": 2.0})
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
@@ -346,7 +347,8 @@ class DDRCore(nn.Module):
         }
 
     def _merge_q_pack(self, pack: Pack) -> tensor_dict_type:
-        q_logit = pack.net
+        q_logit, q_logit_add, q_logit_mul = pack.net.chunk(3, dim=1)
+        q_logit = q_logit * (1.0 + self.cup_masked(q_logit_mul)) + q_logit_add
         return {"q": self.q_inv_fn(q_logit), "q_logit": q_logit}
 
     def _q_results(
