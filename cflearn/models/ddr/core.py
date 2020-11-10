@@ -30,16 +30,16 @@ def transition_builder(dim: int) -> nn.Module:
 
 def get_cond_mappings(
     condition_dim: int,
-    cond_out_dim: int,
+    cond_out_dim: Optional[int],
     num_units: List[int],
-    bias: bool,
+    to_latent: bool,
 ) -> nn.ModuleList:
     cond_module = MLP.simple(
         condition_dim,
         cond_out_dim,
         num_units,
-        bias=bias,
-        activation="mish",
+        bias=not to_latent,
+        activation="glu",
     )
     return cond_module.mappings
 
@@ -139,7 +139,7 @@ def monotonous_builder(
                 condition_dim,
                 cond_out_dim,
                 num_units,
-                not to_latent,
+                to_latent,
             )
 
         return ConditionalBlocks(
