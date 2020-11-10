@@ -389,6 +389,28 @@ class Activations:
 
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
 
+    @property
+    def cup_masked(self) -> nn.Module:
+        class CupMasked(nn.Module):
+            def __init__(self, bias: float, ratio: float, trainable: bool = True):
+                super().__init__()
+                sigmoid_kwargs = {"ratio": ratio, "trainable": trainable}
+                self.sigmoid = Activations.make("multiplied_sigmoid", sigmoid_kwargs)
+                bias = math.log(math.exp(bias) - 1.0)
+                bias_ = torch.tensor([bias], dtype=torch.float32)
+                self.bias = bias_ if not trainable else nn.Parameter(bias_)
+
+            def forward(self, net: torch.Tensor) -> torch.Tensor:
+                net_abs = net.abs()
+                bias = nn.functional.softplus(self.bias)
+                cup_mask = self.sigmoid(net_abs - bias)
+                return net_abs * cup_mask
+
+            def extra_repr(self) -> str:
+                return f"(bias): {self.bias.item()}"
+
+        return CupMasked(**self.configs.setdefault("cup_masked", {}))
+
     @classmethod
     def make(
         cls,
