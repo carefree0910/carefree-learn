@@ -95,7 +95,7 @@ class CondMixture(nn.Module):
         self.m_tanh = Activations.make("multiplied_tanh", {"ratio": 2.0})
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        cond = self.m_tanh(net) * cond
+        cond = self.m_tanh(net) * cond.relu()
         return net + cond
 
 
