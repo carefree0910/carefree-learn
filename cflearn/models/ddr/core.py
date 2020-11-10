@@ -92,10 +92,11 @@ class MonoSplit(nn.Module):
 class CondMixture(nn.Module):
     def __init__(self):
         super().__init__()
-        self.m_tanh = Activations.make("multiplied_tanh", {"ratio": 0.5})
+        tanh_kwargs = {"ratio": 0.25, "trainable": False}
+        self.m_tanh = Activations.make("multiplied_tanh", tanh_kwargs)
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        cond = self.m_tanh(net) * cond.relu()
+        cond = self.m_tanh(net * torch.sign(cond)) * cond
         return net + cond
 
 
