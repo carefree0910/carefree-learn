@@ -337,6 +337,10 @@ class DDRCore(nn.Module):
             "q_positive_mask": q_positive_mask,
         }
 
+    def _merge_q_pack(self, pack: Pack) -> tensor_dict_type:
+        q_logit = pack.net
+        return {"q": self.q_inv_fn(q_logit), "q_logit": q_logit}
+
     def _q_results(
         self,
         net: Tensor,
@@ -386,18 +390,18 @@ class DDRCore(nn.Module):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             q_logit_pack = self.q_invertible.inverse((y1, y2), median_responses)
             assert isinstance(q_logit_pack, Pack)
-            q_logit = q_logit_pack.net
-            q = self.q_inv_fn(q_logit)
+            results = self._merge_q_pack(q_logit_pack)
             y_inverse_res = None
             if do_inverse and self.fetch_q:
                 inverse_results = self._q_results(
                     net,
-                    q.detach(),
+                    results["q"].detach(),
                     median_outputs,
                     median_responses,
                 )
                 y_inverse_res = inverse_results["y_res"]
-        return {"q": q, "q_logit": q_logit, "y_inverse_res": y_inverse_res}
+            results["y_inverse_res"] = y_inverse_res
+        return results
 
     def forward(
         self,
