@@ -209,6 +209,10 @@ class DDR(ModelBase):
         synthetic: bool,
     ) -> tensor_dict_type:
         batch_size = len(net)
+        mask: Optional[torch.Tensor] = None
+        if synthetic:
+            random_indices = torch.randint(2, [batch_size, 1], device=net.device)
+            mask = random_indices == 0
         # TODO : try to optimize this when `fetches` is not full
         # generate quantile / anchor batch
         with timing_context(self, "forward.generate_anchors"):
@@ -220,8 +224,6 @@ class DDR(ModelBase):
                 # y_batch = y_batch[np.random.permutation(batch_size)].detach()
                 if synthetic:
                     q_synthetic_batch = torch.empty_like(y_batch)
-                    random_indices = torch.randint(2, [batch_size])
-                    mask = random_indices == 0
                     q_synthetic_batch[mask] = 0.25
                     q_synthetic_batch[~mask] = 0.75
             else:
@@ -240,16 +242,30 @@ class DDR(ModelBase):
                     "med_pos_med_res": rs["pos_med_res"],
                     "med_neg_med_res": rs["neg_med_res"],
                 }
-            elif self.fetch_q:
-                assert q_synthetic_batch is not None
-                rs = self._quantile(net, q_synthetic_batch, True)
-                median_rs = {
-                    "syn_med_add": rs["med_add"],
-                    "syn_med_mul": rs["med_mul"],
-                    "syn_med_res": rs["med_res"],
-                }
-                if not self.fetch_cdf:
-                    return median_rs
+        # synthetic predictions
+        with timing_context(self, "forward.synthetic"):
+            if synthetic:
+                if self.fetch_q:
+                    assert q_synthetic_batch is not None
+                    q_rs = self._quantile(net, q_synthetic_batch, True)
+                    median_rs.update(
+                        {
+                            "syn_med_add": q_rs["med_add"],
+                            "syn_med_mul": q_rs["med_mul"],
+                            "syn_med_res": q_rs["med_res"],
+                        }
+                    )
+                    if not self.fetch_cdf:
+                        return median_rs
+                if self.fetch_cdf:
+                    pos_med_res = rs["pos_med_res"]
+                    neg_med_res = rs["neg_med_res"]
+                    y_syn_batch = torch.where(mask, pos_med_res, -neg_med_res)
+                    y_syn_batch = y_syn_batch.detach() + rs["median"].detach()
+                    y_rs = self._cdf(net, y_syn_batch, False, False, False)
+                    median_rs.update({"syn_cdf": y_rs["cdf"], "syn_pos_mask": mask})
+                    if not self.fetch_q:
+                        return median_rs
         # TODO : Some of the calculations in `forward.median` could be reused
         with timing_context(self, "forward.quantile"):
             if not self.fetch_q:

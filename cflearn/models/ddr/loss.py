@@ -64,20 +64,23 @@ class DDRLoss(LossBase, LoggingMixin):
         target: torch.Tensor,
         is_synthetic: bool,
     ) -> tensor_dict_type:
+        # median residual anchor
+        if is_synthetic:
+            syn_cdf = predictions["syn_cdf"]
+            syn_pos_mask = predictions["syn_pos_mask"]
+            syn_anchors = torch.full_like(syn_cdf, 0.25)
+            syn_anchors[syn_pos_mask] = 0.75
+            return {"cdf_anchor": (syn_cdf - syn_anchors).abs()}
         # cdf
-        cdf_losses = None
-        if not is_synthetic:
-            y_batch = predictions["y_batch"]
-            cdf_logit = predictions["cdf_logit"]
-            assert y_batch is not None and cdf_logit is not None
-            cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
+        y_batch = predictions["y_batch"]
+        cdf_logit = predictions["cdf_logit"]
+        assert y_batch is not None and cdf_logit is not None
+        cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
         # pdf
         pdf = predictions["pdf"]
         pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
         # combine
-        losses = {}
-        if cdf_losses is not None:
-            losses["cdf"] = cdf_losses
+        losses = {"cdf": cdf_losses}
         if pdf_losses is not None:
             losses["pdf"] = pdf_losses
         return losses
