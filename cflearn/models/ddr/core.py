@@ -94,11 +94,17 @@ class MonoSplit(Module):
 class CondMixture(Module):
     def __init__(self):
         super().__init__()
-        tanh_kwargs = {"ratio": 0.25, "trainable": False}
-        self.m_tanh = Activations.make("multiplied_tanh", tanh_kwargs)
+        activations = Activations(
+            {
+                "multiplied_tanh": {"ratio": 0.25, "trainable": False},
+                "cup_masked": {"bias": 1.0, "ratio": 4.0, "retain_sign": True},
+            }
+        )
+        self.m_tanh = activations.multiplied_tanh
+        self.cup_masked = activations.cup_masked
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        cond = self.m_tanh(net * torch.sign(cond)) * cond
+        cond = self.m_tanh(net * torch.sign(cond)) * self.cup_masked(cond)
         return net + cond
 
 
