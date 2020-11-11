@@ -340,7 +340,17 @@ class Activations:
 
     @property
     def sign(self) -> nn.Module:
-        return Lambda(lambda x: torch.sign(x), "sign")
+        config = self.configs.setdefault("sign", {})
+        randomize_at_zero = config.setdefault("randomize_at_zero", False)
+        eps = config.setdefault("eps", 1e-12)
+        suffix = "_randomized" if randomize_at_zero else ""
+
+        def _core(x: torch.Tensor) -> torch.Tensor:
+            if randomize_at_zero:
+                x = x + (2 * torch.empty_like(x).uniform_() - 1.0) * eps
+            return torch.sign(x)
+
+        return Lambda(_core, f"sign{suffix}")
 
     @property
     def one_hot(self) -> nn.Module:
