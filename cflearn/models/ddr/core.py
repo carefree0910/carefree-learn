@@ -88,7 +88,9 @@ class MonoSplit(Module):
         else:
             cond1 = cond2 = cond
         o1, o2 = self.m1(net[0], cond1), self.m2(net[1], cond2)
-        return Pack(o1.net + o2.net, o1.cond + o2.cond, (o1.responses, o2.responses))
+        net = 0.5 * (o1.net + o2.net)
+        cond = 0.5 * (o1.cond + o2.cond)
+        return Pack(net, cond, (o1.responses, o2.responses))
 
 
 class CondMixture(Module):
