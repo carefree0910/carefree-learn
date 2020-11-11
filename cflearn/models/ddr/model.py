@@ -107,12 +107,12 @@ class DDR(ModelBase):
         if self.fetch_q and self.fetch_cdf:
             default_metric_types += ["q_recover", "y_recover"]
         default_metric_weights = {
+            "loss": 1.0,
             "ddr": 5.0,
-            "cdf": 1.0,
+            "cdf": 5.0,
             "pdf": 1.0,
             "q_recover": 10.0,
             "y_recover": 1.0,
-            "loss": 1.0,
         }
         trainer_config = self._pipeline_config.setdefault("trainer_config", {})
         trainer_config = update_dict(
