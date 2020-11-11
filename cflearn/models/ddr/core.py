@@ -362,7 +362,12 @@ class DDRCore(Module):
         q_logit, q_logit_add, q_logit_mul = pack.net.chunk(3, dim=1)
         q_logit_add, q_logit_mul = map(self.cup_masked, [q_logit_add, q_logit_mul])
         q_logit = q_logit * (1.0 + q_logit_mul) + q_logit_add
-        return {"q": self.q_inv_fn(q_logit), "q_logit": q_logit}
+        return {
+            "q": self.q_inv_fn(q_logit),
+            "q_logit": q_logit,
+            "q_logit_add": q_logit_add,
+            "q_logit_mul": q_logit_mul,
+        }
 
     def _q_results(
         self,

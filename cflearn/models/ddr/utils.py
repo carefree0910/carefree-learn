@@ -20,7 +20,14 @@ class DDRPredictor:
     def mr(self, x: data_type) -> Dict[str, np.ndarray]:
         return self.m.predict(x, predict_median_residual=True, return_all=True)
 
-    def cdf(self, x: data_type, y: data_type, *, get_pdf: bool = False) -> np.ndarray:
+    def cdf(
+        self,
+        x: data_type,
+        y: data_type,
+        *,
+        recover: bool = True,
+        get_pdf: bool = False,
+    ) -> Dict[str, np.ndarray]:
         predictions = self.m.predict(
             x,
             y=y,
@@ -30,9 +37,7 @@ class DDRPredictor:
             predict_cdf=True,
             return_all=True,
         )
-        if get_pdf:
-            return predictions
-        return predictions["cdf"]
+        return predictions
 
     def quantile(
         self,
@@ -102,6 +107,8 @@ class DDRVisualizer:
         median_residual: bool = False,
         add_affine: bool = False,
         mul_affine: bool = False,
+        cdf_logit_add: bool = False,
+        cdf_logit_mul: bool = False,
         q_batch: Optional[np.ndarray] = None,
         y_batch: Optional[np.ndarray] = None,
         to_pdf: bool = False,
@@ -118,7 +125,6 @@ class DDRVisualizer:
         x_base = np.linspace(x_min, x_max, dense)[..., None]
         model = self.m.model
         assert model is not None
-        affine = add_affine or mul_affine
         mean = None
         median = self.m.predict(x_base)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
@@ -132,6 +138,7 @@ class DDRVisualizer:
             DDRVisualizer._render_figure(*render_args)
         # quantile curves
         if q_batch is not None and model.fetch_q:
+            affine = add_affine or mul_affine
             if not affine:
                 for q in q_batch:
                     quantile_curve = self.predictor.quantile(x_base, q)["quantiles"]
@@ -156,23 +163,41 @@ class DDRVisualizer:
             y_abs_max = np.abs(y).max()
             ratios = y_batch
             anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
-            for ratio, anchor in zip(ratios, anchors):
-                anchor_line = np.full(len(x_base), anchor)
-                predictions = self.predictor.cdf(x_base, anchor, get_pdf=to_pdf)
-                if not to_pdf:
-                    cdf = predictions * y_abs_max
-                    plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
-                else:
-                    pdf = predictions["pdf"]
-                    pdf = pdf * (y_abs_max / max(np.abs(pdf).max(), 1e-8))
-                    plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
-                plt.plot(
-                    x_base.ravel(),
-                    anchor_line,
-                    label=f"anchor {ratio:4.2f}",
-                    color="gray",
-                )
-            DDRVisualizer._render_figure(*render_args)
+            affine = cdf_logit_add or cdf_logit_mul
+            if not affine:
+                for ratio, anchor in zip(ratios, anchors):
+                    anchor_line = np.full(len(x_base), anchor)
+                    predictions = self.predictor.cdf(x_base, anchor, get_pdf=to_pdf)
+                    if not to_pdf:
+                        cdf = predictions["cdf"] * y_abs_max
+                        plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
+                    else:
+                        pdf = predictions["pdf"]
+                        pdf = pdf * (y_abs_max / max(np.abs(pdf).max(), 1e-8))
+                        plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
+                    plt.plot(
+                        x_base.ravel(),
+                        anchor_line,
+                        label=f"anchor {ratio:4.2f}",
+                        color="gray",
+                    )
+                DDRVisualizer._render_figure(*render_args)
+            else:
+                cdf_logit_add_list, cdf_logit_mul_list = [], []
+                for ratio, anchor in zip(ratios, anchors):
+                    cdf_predictions = self.predictor.cdf(x_base, anchor, recover=False)
+                    cdf_logit_add_list.append(cdf_predictions["cdf_logit_add"])
+                    cdf_logit_mul_list.append(cdf_predictions["cdf_logit_mul"])
+                if cdf_logit_add:
+                    for ratio, cdf_logit_add in zip(ratios, cdf_logit_add_list):
+                        label = f"cdf_logit_add {ratio:4.2f}"
+                        plt.plot(x_base.ravel(), cdf_logit_add, label=label)
+                    DDRVisualizer._render_figure(*render_args)
+                if cdf_logit_mul:
+                    for ratio, cdf_logit_mul in zip(ratios, cdf_logit_mul_list):
+                        label = f"cdf_logit_mul {ratio:4.2f}"
+                        plt.plot(x_base.ravel(), cdf_logit_mul, label=label)
+                    DDRVisualizer._render_figure(*render_args)
         show_or_save(export_path, fig)
 
     def visualize_multiple(
@@ -217,7 +242,7 @@ class DDRVisualizer:
             for anchor in anchors:
                 anchor_line = np.full(len(x_base), anchor)
                 yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
-                yd_pred = self.predictor.cdf(x_base, anchor)
+                yd_pred = self.predictor.cdf(x_base, anchor)["cdf"]
                 yd_pred = yd_pred * y_diff + y_min
                 _plot("cdf", anchor, yd, yd_pred, anchor_line)
 

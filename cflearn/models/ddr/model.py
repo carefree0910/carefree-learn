@@ -199,6 +199,8 @@ class DDR(ModelBase):
             "cdf": cdf,
             "pdf": pdf,
             "cdf_logit": results["q_logit"],
+            "cdf_logit_add": results["q_logit_add"],
+            "cdf_logit_mul": results["q_logit_mul"],
             "y_inverse_res": results["y_inverse_res"],
         }
 
