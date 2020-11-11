@@ -11,6 +11,8 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from functools import partial
+from torch.nn import Module
+from torch.nn import ModuleList
 from cftool.misc import context_error_handler
 
 from ...types import tensor_dict_type
@@ -24,7 +26,7 @@ from ...modules.blocks import ConditionalBlocks
 from ...modules.blocks import PseudoInvertibleBlock
 
 
-def transition_builder(dim: int) -> nn.Module:
+def transition_builder(dim: int) -> Module:
     h_dim = int(dim // 2)
     return MonotonousMapping.make_couple(h_dim, h_dim, h_dim, "sigmoid", ascent=True)
 
@@ -34,7 +36,7 @@ def get_cond_mappings(
     cond_out_dim: Optional[int],
     num_units: List[int],
     to_latent: bool,
-) -> nn.ModuleList:
+) -> ModuleList:
     cond_module = MLP.simple(
         condition_dim,
         cond_out_dim,
@@ -54,7 +56,7 @@ class Pack(NamedTuple):
     responses_tuple: responses_tuple_type
 
 
-class MonoSplit(nn.Module):
+class MonoSplit(Module):
     def __init__(
         self,
         in_dim: int,
@@ -89,7 +91,7 @@ class MonoSplit(nn.Module):
         return Pack(o1.net + o2.net, o1.cond + o2.cond, (o1.responses, o2.responses))
 
 
-class CondMixture(nn.Module):
+class CondMixture(Module):
     def __init__(self):
         super().__init__()
         tanh_kwargs = {"ratio": 0.25, "trainable": False}
@@ -107,12 +109,12 @@ def monotonous_builder(
     num_layers: int,
     condition_dim: int,
     invertible_module: PseudoInvertibleBlock = None,
-) -> Callable[[int, int], nn.Module]:
+) -> Callable[[int, int], Module]:
     def _core(
         in_dim: int,
         out_dim: int,
         ascent: bool,
-        cond_mappings: Optional[nn.ModuleList] = None,
+        cond_mappings: Optional[ModuleList] = None,
     ) -> ConditionalBlocks:
         cond_out_dim: Optional[int]
         block_out_dim: Optional[int]
@@ -150,16 +152,16 @@ def monotonous_builder(
                 to_latent,
             )
 
-        cond_mixtures = nn.ModuleList([CondMixture() for _ in range(len(num_units))])
+        cond_mixtures = ModuleList([CondMixture() for _ in range(len(num_units))])
         return ConditionalBlocks(
-            nn.ModuleList(blocks),
+            ModuleList(blocks),
             cond_mappings,
             add_last=to_latent,
             detach_condition=not to_latent,
             cond_mixtures=cond_mixtures,
         )
 
-    def _split_core(in_dim: int, out_dim: int) -> nn.Module:
+    def _split_core(in_dim: int, out_dim: int) -> Module:
         if not to_latent:
             in_dim = int(in_dim // 2)
         else:
@@ -182,7 +184,7 @@ def monotonous_builder(
     return _split_core
 
 
-class DDRCore(nn.Module):
+class DDRCore(Module):
     def __init__(
         self,
         in_dim: int,
@@ -279,7 +281,7 @@ class DDRCore(nn.Module):
         # invertible blocks
         self.num_blocks = num_blocks
         self.block_parameters: List[nn.Parameter] = []
-        self.blocks = nn.ModuleList()
+        self.blocks = ModuleList()
         for _ in range(num_blocks):
             block = InvertibleBlock(latent_dim, transition_builder=transition_builder)
             self.block_parameters.extend(block.parameters())
@@ -294,7 +296,7 @@ class DDRCore(nn.Module):
         return torch.sigmoid
 
     @property
-    def dummy_builder(self) -> Callable[[int, int], nn.Module]:
+    def dummy_builder(self) -> Callable[[int, int], Module]:
         return lambda _, __: nn.Identity()
 
     def _detach_q(self) -> context_error_handler:
