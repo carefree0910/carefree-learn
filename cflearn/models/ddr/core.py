@@ -206,9 +206,6 @@ class DDRCore(Module):
         # common
         cup_kwargs = {"bias": 4.0, "ratio": 4.0, "trainable": True}
         self.cup_masked = Activations.make("cup_masked", cup_kwargs)
-        cup_kwargs = cup_kwargs.copy()
-        cup_kwargs["retain_sign"] = True
-        self.cup_masked_retain_sign = Activations.make("cup_masked", cup_kwargs)
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
@@ -363,9 +360,8 @@ class DDRCore(Module):
 
     def _merge_q_pack(self, pack: Pack) -> tensor_dict_type:
         q_logit, q_logit_add, q_logit_mul = pack.net.chunk(3, dim=1)
-        q_logit_add = self.cup_masked_retain_sign(q_logit_add)
         q_logit_mul = self.cup_masked(q_logit_mul)
-        q_logit = q_logit * (1.0 + q_logit_mul) + q_logit_add
+        q_logit = q_logit * q_logit_mul + q_logit_add
         return {
             "q": self.q_inv_fn(q_logit),
             "q_logit": q_logit,
