@@ -397,4 +397,16 @@ class DDR(ModelBase):
         return losses_dict
 
 
-__all__ = ["DDR"]
+@ModelBase.register("ddr_q")
+class Quantile(DDR):
+    def _preset_config(self) -> None:
+        self.config["fetches"] = {"q"}
+
+
+@ModelBase.register("ddr_cdf")
+class CDF(DDR):
+    def _preset_config(self) -> None:
+        self.config["fetches"] = {"cdf"}
+
+
+__all__ = ["CDF", "DDR", "Quantile"]
