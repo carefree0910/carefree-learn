@@ -500,11 +500,14 @@ class MonotonousMapping(Module):
         dropout: float = 0.0,
         batch_norm: bool = False,
         use_residual: bool = False,
+        use_inverse_activation: bool = True,
         scaler: Optional[float] = None,
         init_method: Optional[str] = "normal",
         **kwargs: Any,
     ) -> Module:
-        if activation == "tanh":
+        if not use_inverse_activation:
+            inverse_activation = None
+        elif activation == "tanh":
             inverse_activation = "atanh"
         elif activation == "sigmoid":
             inverse_activation = "logit"
@@ -582,7 +585,8 @@ class MonotonousMapping(Module):
         final_batch_norm: bool = False,
         use_couple: bool = True,
         use_couple_bias: bool = True,
-        use_residual: bool = False,
+        use_couple_residual: bool = False,
+        use_couple_inverse_activation: bool = True,
         activation: Optional[str] = "sigmoid",
         init_method: Optional[str] = "normal",
         positive_transform: str = "softmax",
@@ -603,7 +607,8 @@ class MonotonousMapping(Module):
             in_dim_: int,
             out_dim_: int,
             hidden_dim: int,
-            use_residual_: bool,
+            use_residual: bool,
+            use_inverse_activation: bool,
         ) -> Module:
             local_kwargs = shallow_copy_dict(common_kwargs)
             local_kwargs.update(shallow_copy_dict(kwargs))
@@ -612,7 +617,8 @@ class MonotonousMapping(Module):
             if use_couple:
                 local_kwargs["scaler"] = scaler
                 local_kwargs["hidden_dim"] = hidden_dim
-                local_kwargs["use_residual"] = use_residual_
+                local_kwargs["use_residual"] = use_residual
+                local_kwargs["use_inverse_activation"] = use_inverse_activation
                 local_kwargs["bias"] = use_couple_bias
                 return cls.make_couple(**local_kwargs)
             local_kwargs["bias"] = bias
@@ -623,11 +629,27 @@ class MonotonousMapping(Module):
 
         current_in_dim = in_dim
         for num_unit in num_units:
-            blocks.append(_make(current_in_dim, num_unit, num_unit, use_residual))
+            blocks.append(
+                _make(
+                    current_in_dim,
+                    num_unit,
+                    num_unit,
+                    use_couple_residual,
+                    True,
+                )
+            )
             current_in_dim = num_unit
         if out_dim is not None:
             common_kwargs["batch_norm"] = final_batch_norm
-            blocks.append(_make(current_in_dim, out_dim, current_in_dim, False))
+            blocks.append(
+                _make(
+                    current_in_dim,
+                    out_dim,
+                    current_in_dim,
+                    False,
+                    use_couple_inverse_activation,
+                )
+            )
 
         if return_blocks:
             return blocks
