@@ -402,22 +402,36 @@ class Activations:
     @property
     def cup_masked(self) -> nn.Module:
         class CupMasked(nn.Module):
-            def __init__(self, bias: float, ratio: float, trainable: bool = True):
+            def __init__(
+                self,
+                bias: float = 2.0,
+                ratio: float = 2.0,
+                retain_sign: bool = False,
+                trainable: bool = True,
+            ):
                 super().__init__()
                 sigmoid_kwargs = {"ratio": ratio, "trainable": trainable}
                 self.sigmoid = Activations.make("multiplied_sigmoid", sigmoid_kwargs)
                 bias = math.log(math.exp(bias) - 1.0)
                 bias_ = torch.tensor([bias], dtype=torch.float32)
                 self.bias = bias_ if not trainable else nn.Parameter(bias_)
+                self.retain_sign = retain_sign
+                self.trainable = trainable
 
             def forward(self, net: torch.Tensor) -> torch.Tensor:
                 net_abs = net.abs()
                 bias = nn.functional.softplus(self.bias)
                 cup_mask = self.sigmoid(net_abs - bias)
-                return net_abs * cup_mask
+                masked = net_abs * cup_mask
+                if not self.retain_sign:
+                    return masked
+                return masked * torch.sign(net)
 
             def extra_repr(self) -> str:
-                return f"(bias): {self.bias.item()}"
+                bias_str = f"(bias): {self.bias.item()}"
+                positive_str = f"(positive): {not self.retain_sign}"
+                trainable_str = f"(trainable): {self.trainable}"
+                return f"{bias_str}\n{positive_str}\n{trainable_str}"
 
         return CupMasked(**self.configs.setdefault("cup_masked", {}))
 
