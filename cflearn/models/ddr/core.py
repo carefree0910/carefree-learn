@@ -132,11 +132,11 @@ class MonoCross(CrossBase):
 
 
 def get_q_cross_builder(to_latent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross.make(dim, to_latent)
+    return lambda dim: MonoCross.make(dim, to_latent, centralize=to_latent)
 
 
 def get_y_cross_builder(to_latent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross.make(dim, to_latent, centralize=False)
+    return lambda dim: MonoCross.make(dim, to_latent, centralize=not to_latent)
 
 
 def monotonous_builder(
