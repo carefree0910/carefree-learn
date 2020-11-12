@@ -64,7 +64,10 @@ class DDRLoss(LossBase, LoggingMixin):
         # median residual anchor
         if is_synthetic:
             syn_cdf_logit_mul = predictions["syn_cdf_logit_mul"]
-            return {"cdf_anchor": (syn_cdf_logit_mul.abs() - 1.0).abs()}
+            syn_med_cdf_logit_mul = predictions["syn_med_cdf_logit_mul"]
+            res_losses = (syn_cdf_logit_mul.abs() - 1.0).abs()
+            med_losses = syn_med_cdf_logit_mul.abs()
+            return {"cdf_anchor": res_losses + med_losses}
         # cdf
         y_batch = predictions["y_batch"]
         cdf_logit = predictions["cdf_logit"]

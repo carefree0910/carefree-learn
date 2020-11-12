@@ -19,7 +19,6 @@ from cftool.misc import context_error_handler
 from ...types import tensor_dict_type
 from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
-from ...misc.toolkit import Activations
 from ...modules.blocks import MLP
 from ...modules.blocks import CrossBase
 from ...modules.blocks import CrossBlock
@@ -97,18 +96,39 @@ class MonoSplit(Module):
 
 
 class MonoCross(CrossBase):
-    def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        *,
+        centralize: bool = True,
+        **kwargs: Any,
+    ):
         super().__init__()
         kwargs["bias"] = False
         self.mapping = MonotonousMapping(in_dim, out_dim, ascent=True, **kwargs)
+        self.centralize = centralize
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        return self.mapping(net * cond.abs()) * torch.sigmoid(cond)
+        crossed = self.mapping(net * cond.abs()) * torch.sigmoid(cond)
+        if self.centralize:
+            return crossed
+        return crossed + cond
+
+    def extra_repr(self) -> str:
+        return f"(centralize): {self.centralize}"
 
     @classmethod
-    def make(cls, dim: int, inner: bool, **kwargs: Any) -> "MonoCross":
+    def make(
+        cls,
+        dim: int,
+        inner: bool,
+        *,
+        centralize: bool = True,
+        **kwargs: Any,
+    ) -> "MonoCross":
         out_dim = 1 if inner else dim
-        return cls(dim, out_dim, **kwargs)
+        return cls(dim, out_dim, centralize=centralize, **kwargs)
 
 
 def get_q_cross_builder(to_latent: bool) -> Callable[[int], Module]:
@@ -116,7 +136,7 @@ def get_q_cross_builder(to_latent: bool) -> Callable[[int], Module]:
 
 
 def get_y_cross_builder(to_latent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross.make(dim, to_latent)
+    return lambda dim: MonoCross.make(dim, to_latent, centralize=False)
 
 
 def monotonous_builder(
@@ -423,13 +443,13 @@ class DDRCore(Module):
     def _y_results(
         self,
         net: Tensor,
-        median_residual: Tensor,
+        y_batch: Tensor,
         median_outputs: tensor_dict_type,
         median_responses: responses_tuple_type,
         do_inverse: bool = False,
     ) -> tensor_dict_type:
         # prepare y_latent
-        y1, y2 = self.y_invertible(median_residual, net)
+        y1, y2 = self.y_invertible(y_batch, net)
         y1, y2 = y1.net, y2.net
         # simulate cdf
         with self._detach_q():
@@ -473,11 +493,10 @@ class DDRCore(Module):
                 )
             )
         if self.fetch_cdf and not median and y_batch is not None:
-            mr = y_batch - results["median"].detach()
             results.update(
                 self._y_results(
                     net,
-                    mr,
+                    y_batch,
                     median_outputs,
                     median_responses,
                     do_inverse,

@@ -253,12 +253,19 @@ class DDR(ModelBase):
                     if not self.fetch_cdf:
                         return median_rs
                 if self.fetch_cdf:
+                    median = rs["median"].detach()
                     pos_med_res = rs["pos_med_res"]
                     neg_med_res = rs["neg_med_res"]
                     y_syn_batch = torch.where(mask, pos_med_res, -neg_med_res)
-                    y_syn_batch = y_syn_batch.detach() + rs["median"].detach()
+                    y_syn_batch = y_syn_batch.detach() + median
                     y_rs = self._cdf(net, y_syn_batch, False, False, False)
-                    median_rs.update({"syn_cdf_logit_mul": y_rs["cdf_logit_mul"]})
+                    y_med_rs = self._cdf(net, median, False, False, False)
+                    median_rs.update(
+                        {
+                            "syn_cdf_logit_mul": y_rs["cdf_logit_mul"],
+                            "syn_med_cdf_logit_mul": y_med_rs["cdf_logit_mul"],
+                        }
+                    )
                     if not self.fetch_q:
                         return median_rs
         # TODO : Some of the calculations in `forward.median` could be reused
