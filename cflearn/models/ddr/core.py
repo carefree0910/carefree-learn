@@ -105,7 +105,7 @@ class MonoCross(CrossBase):
         **kwargs: Any,
     ):
         super().__init__()
-        kwargs["bias"] = False
+        kwargs["bias"] = not centralize
         self.mapping = MonotonousMapping(in_dim, out_dim, ascent=True, **kwargs)
         self.centralize = centralize
 
