@@ -685,6 +685,7 @@ class MonotonousMapping(Module):
                     True,
                 )
             )
+            common_kwargs["ascent"] = True
             current_in_dim = num_unit
         if out_dim is not None:
             common_kwargs["batch_norm"] = final_batch_norm

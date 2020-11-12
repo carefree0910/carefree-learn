@@ -114,7 +114,7 @@ class MonoCross(CrossBase):
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
         if self.mapping is None:
             return cond
-        return self.mapping(net * torch.tanh(cond)) * cond
+        return self.mapping(net * cond.abs()) * torch.sigmoid(cond)
 
     @classmethod
     def make(
@@ -278,7 +278,7 @@ class DDRCore(Module):
             q_from_latent_builder = monotonous_builder(
                 is_q=True,
                 ascent1=True,
-                ascent2=False,
+                ascent2=True,
                 to_latent=False,
                 **kwargs,
             )
@@ -296,7 +296,7 @@ class DDRCore(Module):
             y_to_latent_builder = monotonous_builder(
                 is_q=False,
                 ascent1=True,
-                ascent2=False,
+                ascent2=num_blocks == 0,
                 to_latent=True,
                 **kwargs,
             )
