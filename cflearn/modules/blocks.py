@@ -128,6 +128,33 @@ class Mapping(Module):
             net = self.dropout(net, reuse=reuse)
         return net
 
+    @classmethod
+    def simple(
+        cls,
+        in_dim: int,
+        out_dim: Optional[int],
+        *,
+        bias: bool = False,
+        dropout: float = 0.0,
+        batch_norm: bool = False,
+        activation: Optional[str] = None,
+        pruner_config: Optional[Dict[str, Any]] = None,
+    ) -> "Mapping":
+        if activation != "glu":
+            activation_config = {}
+        else:
+            activation_config = {"in_dim": out_dim, "bias": bias}
+        return cls(
+            in_dim,
+            out_dim,
+            bias=bias,
+            pruner_config=pruner_config,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation=activation,
+            activation_config=activation_config,
+        )
+
 
 class MLP(Module):
     def __init__(
