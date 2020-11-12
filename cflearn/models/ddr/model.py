@@ -224,6 +224,7 @@ class DDR(ModelBase):
                 y_batch = y_batch * self.y_diff + self.y_min
                 # y_batch = y_batch[np.random.permutation(batch_size)].detach()
                 if synthetic:
+                    assert mask is not None
                     q_synthetic_batch = torch.empty_like(y_batch)
                     q_synthetic_batch[mask] = 0.25
                     q_synthetic_batch[~mask] = 0.75
@@ -256,6 +257,7 @@ class DDR(ModelBase):
                     median = rs["median"].detach()
                     pos_med_res = rs["pos_med_res"]
                     neg_med_res = rs["neg_med_res"]
+                    assert mask is not None
                     y_syn_batch = torch.where(mask, pos_med_res, -neg_med_res)
                     y_syn_batch = y_syn_batch.detach() + median
                     y_rs = self._cdf(net, y_syn_batch, False, False, False)

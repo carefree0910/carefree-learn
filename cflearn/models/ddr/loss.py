@@ -51,7 +51,7 @@ class DDRLoss(LossBase, LoggingMixin):
         q_batch = predictions["q_batch"]
         assert q_batch is not None
         y_res = predictions["y_res"]
-        assert y_res is not None
+        assert y_res is not None and target_median_residual is not None
         quantile_losses = self._quantile_losses(y_res, target_median_residual, q_batch)
         return {"quantile": quantile_losses}
 
@@ -113,6 +113,7 @@ class DDRLoss(LossBase, LoggingMixin):
         *,
         is_synthetic: bool = False,
     ) -> Tuple[torch.Tensor, tensor_dict_type]:
+        losses: tensor_dict_type
         if is_synthetic:
             tmr, losses = None, {}
         else:

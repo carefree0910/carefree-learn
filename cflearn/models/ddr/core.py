@@ -81,14 +81,16 @@ class MonoSplit(Module):
             assert isinstance(net, Tensor)
             return self.m1(net, cond), self.m2(net, cond)
         assert isinstance(net, tuple)
+        cond1: Union[Tensor, List[Tensor]]
+        cond2: Union[Tensor, List[Tensor]]
         if isinstance(cond, tuple):
             cond1, cond2 = cond
         else:
             cond1 = cond2 = cond
         o1, o2 = self.m1(net[0], cond1), self.m2(net[1], cond2)
-        net = 0.5 * (o1.net + o2.net)
-        cond = 0.5 * (o1.cond + o2.cond)
-        return Pack(net, cond, (o1.responses, o2.responses))
+        merged_net = 0.5 * (o1.net + o2.net)
+        merged_cond = 0.5 * (o1.cond + o2.cond)
+        return Pack(merged_net, merged_cond, (o1.responses, o2.responses))
 
 
 class MonoCross(CrossBase):
@@ -254,7 +256,7 @@ class DDRCore(Module):
                 ascent1=True,
                 ascent2=True,
                 to_latent=True,
-                **kwargs,
+                **kwargs,  # type: ignore
             )
         if not self.fetch_cdf:
             q_from_latent_builder = self.dummy_builder
@@ -264,7 +266,7 @@ class DDRCore(Module):
                 ascent1=True,
                 ascent2=True,
                 to_latent=False,
-                **kwargs,
+                **kwargs,  # type: ignore
             )
         self.q_invertible = PseudoInvertibleBlock(
             1,
@@ -282,12 +284,12 @@ class DDRCore(Module):
                 ascent1=True,
                 ascent2=num_blocks == 0,
                 to_latent=True,
-                **kwargs,
+                **kwargs,  # type: ignore
             )
         if not self.fetch_q:
             y_from_latent_builder = self.dummy_builder
         else:
-            y_from_latent_builder = monotonous_builder(
+            y_from_latent_builder = monotonous_builder(  # type: ignore
                 is_q=False,
                 ascent1=True,
                 ascent2=True,

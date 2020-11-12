@@ -85,7 +85,7 @@ class Mapping(Module):
         pruner_config: Optional[dict] = None,
         dropout: float = 0.5,
         batch_norm: bool = True,
-        activation: str = "ReLU",
+        activation: Optional[str] = "ReLU",
         init_method: str = "xavier_uniform",
         **kwargs: Any,
     ):
@@ -132,7 +132,7 @@ class Mapping(Module):
     def simple(
         cls,
         in_dim: int,
-        out_dim: Optional[int],
+        out_dim: int,
         *,
         bias: bool = False,
         dropout: float = 0.0,
@@ -765,6 +765,7 @@ class ConditionalBlocks(Module):
             detached_responses = []
             for condition in self.condition_blocks:
                 cond = condition(cond)
+                assert isinstance(cond, Tensor)
                 cond_responses.append(cond)
                 detached_responses.append(cond.detach())
         responses = detached_responses if self.detach_condition else cond_responses
