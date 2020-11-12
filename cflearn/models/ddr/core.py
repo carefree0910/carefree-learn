@@ -20,6 +20,8 @@ from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
 from ...misc.toolkit import Activations
 from ...modules.blocks import MLP
+from ...modules.blocks import CrossBase
+from ...modules.blocks import CrossBlock
 from ...modules.blocks import InvertibleBlock
 from ...modules.blocks import MonotonousMapping
 from ...modules.blocks import ConditionalBlocks
@@ -93,7 +95,7 @@ class MonoSplit(Module):
         return Pack(net, cond, (o1.responses, o2.responses))
 
 
-class CondMixture(Module):
+class MonoCross(CrossBase):
     def __init__(self):
         super().__init__()
         activations = Activations(
@@ -106,11 +108,19 @@ class CondMixture(Module):
         self.cup_masked = activations.cup_masked
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        cond = self.m_tanh(net * torch.sign(cond)) * self.cup_masked(cond)
-        return net + cond
+        return self.m_tanh(net * torch.sign(cond)) * self.cup_masked(cond)
+
+
+def get_q_cross_builder(to_latent: bool, ascent: bool) -> Callable[[int], Module]:
+    return lambda dim: MonoCross()
+
+
+def get_y_cross_builder(to_latent: bool, ascent: bool) -> Callable[[int], Module]:
+    return lambda dim: MonoCross()
 
 
 def monotonous_builder(
+    is_q: bool,
     ascent1: bool,
     ascent2: bool,
     to_latent: bool,
@@ -160,7 +170,20 @@ def monotonous_builder(
                 to_latent,
             )
 
-        cond_mixtures = ModuleList([CondMixture() for _ in range(len(num_units))])
+        if is_q:
+            cross_builder = get_q_cross_builder(to_latent, ascent)
+        else:
+            cross_builder = get_y_cross_builder(to_latent, ascent)
+        cond_mixtures = ModuleList(
+            [
+                CrossBlock(
+                    unit,
+                    False,
+                    cross_builder=cross_builder,
+                )
+                for unit in num_units
+            ]
+        )
         return ConditionalBlocks(
             ModuleList(blocks),
             cond_mappings,
@@ -225,6 +248,7 @@ class DDRCore(Module):
             q_to_latent_builder = self.dummy_builder
         else:
             q_to_latent_builder = monotonous_builder(
+                is_q=True,
                 ascent1=True,
                 ascent2=True,
                 to_latent=True,
@@ -234,6 +258,7 @@ class DDRCore(Module):
             q_from_latent_builder = self.dummy_builder
         else:
             q_from_latent_builder = monotonous_builder(
+                is_q=True,
                 ascent1=True,
                 ascent2=False,
                 to_latent=False,
@@ -251,6 +276,7 @@ class DDRCore(Module):
             y_to_latent_builder = self.dummy_builder
         else:
             y_to_latent_builder = monotonous_builder(
+                is_q=False,
                 ascent1=True,
                 ascent2=False,
                 to_latent=True,
@@ -260,6 +286,7 @@ class DDRCore(Module):
             y_from_latent_builder = self.dummy_builder
         else:
             y_from_latent_builder = monotonous_builder(
+                is_q=False,
                 ascent1=True,
                 ascent2=True,
                 to_latent=False,
