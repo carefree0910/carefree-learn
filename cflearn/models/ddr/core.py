@@ -96,45 +96,26 @@ class MonoSplit(Module):
 
 
 class MonoCross(CrossBase):
-    def __init__(
-        self,
-        in_dim: int,
-        out_dim: int,
-        *,
-        simplify: bool = False,
-        **kwargs: Any,
-    ):
+    def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
         super().__init__()
-        if simplify:
-            self.mapping = None
-        else:
-            kwargs["bias"] = False
-            self.mapping = MonotonousMapping(in_dim, out_dim, ascent=True, **kwargs)
+        kwargs["bias"] = False
+        self.mapping = MonotonousMapping(in_dim, out_dim, ascent=True, **kwargs)
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        if self.mapping is None:
-            return cond
         return self.mapping(net * cond.abs()) * torch.sigmoid(cond)
 
     @classmethod
-    def make(
-        cls,
-        dim: int,
-        inner: bool,
-        *,
-        simplify: bool = False,
-        **kwargs: Any,
-    ) -> "MonoCross":
+    def make(cls, dim: int, inner: bool, **kwargs: Any) -> "MonoCross":
         out_dim = 1 if inner else dim
-        return cls(dim, out_dim, simplify=simplify, **kwargs)
+        return cls(dim, out_dim, **kwargs)
 
 
 def get_q_cross_builder(to_latent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross.make(dim, to_latent, simplify=not to_latent)
+    return lambda dim: MonoCross.make(dim, to_latent)
 
 
 def get_y_cross_builder(to_latent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross.make(dim, to_latent, simplify=to_latent)
+    return lambda dim: MonoCross.make(dim, to_latent)
 
 
 def monotonous_builder(
