@@ -78,7 +78,7 @@ class DDRLoss(LossBase, LoggingMixin):
         cdf_losses = self._cdf_losses(cdf_logit, target, y_batch)
         # pdf
         pdf = predictions["pdf"]
-        pdf_losses = None if pdf is None else self._pdf_losses(pdf, is_synthetic)
+        pdf_losses = None if pdf is None else self._pdf_losses(pdf)
         # combine
         losses = {"cdf": cdf_losses}
         if pdf_losses is not None:
@@ -163,13 +163,12 @@ class DDRLoss(LossBase, LoggingMixin):
         indicative = (target <= y_batch).to(torch.float32)
         return -indicative * cdf_logit + softplus(cdf_logit)
 
-    def _pdf_losses(self, pdf: torch.Tensor, is_synthetic: bool) -> torch.Tensor:
+    def _pdf_losses(self, pdf: torch.Tensor) -> torch.Tensor:
         negative_mask = pdf <= self._pdf_eps
         losses = torch.zeros_like(pdf)
         losses[negative_mask] = -pdf[negative_mask]
-        if not is_synthetic:
-            positive_mask = ~negative_mask
-            losses[positive_mask] = -self._lb_pdf * torch.log(pdf[positive_mask])
+        positive_mask = ~negative_mask
+        losses[positive_mask] = -self._lb_pdf * torch.log(pdf[positive_mask])
         return losses
 
 
