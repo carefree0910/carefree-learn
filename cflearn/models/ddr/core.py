@@ -1,3 +1,4 @@
+import math
 import torch
 
 import torch.nn as nn
@@ -143,12 +144,8 @@ def monotonous_builder(
             # cond  : median, pos_median_res, neg_median_res
             assert out_dim == 3
             cond_out_dim = out_dim
-            # block : cdf, cdf_add, cdf_mul
-            if cond_mappings is None:
-                block_out_dim = 3
-            # block : y_add, y_mul
-            else:
-                block_out_dim = 2
+            # block : y_add, y_mul / cdf_add, cdf_mul
+            block_out_dim = 2
 
         blocks = MonotonousMapping.stack(
             in_dim,
@@ -226,8 +223,7 @@ class DDRCore(Module):
     ):
         super().__init__()
         # common
-        cup_kwargs = {"bias": 4.0, "ratio": 4.0, "trainable": True}
-        self.cup_masked = Activations.make("cup_masked", cup_kwargs)
+        self.register_buffer("cdf_logit_anchor", torch.tensor([math.log(3.0)]))
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
@@ -385,9 +381,8 @@ class DDRCore(Module):
         }
 
     def _merge_q_pack(self, pack: Pack) -> tensor_dict_type:
-        q_logit, q_logit_add, q_logit_mul = pack.net.chunk(3, dim=1)
-        q_logit_mul = self.cup_masked(q_logit_mul)
-        q_logit = q_logit * q_logit_mul + q_logit_add
+        q_logit_add, q_logit_mul = pack.net.chunk(2, dim=1)
+        q_logit = self.cdf_logit_anchor * q_logit_mul + q_logit_add
         return {
             "q": self.q_inv_fn(q_logit),
             "q_logit": q_logit,
