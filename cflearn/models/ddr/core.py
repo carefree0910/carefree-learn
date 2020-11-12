@@ -11,7 +11,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from functools import partial
 from torch.nn import Module
 from torch.nn import ModuleList
 from cftool.misc import context_error_handler
@@ -67,14 +66,11 @@ class MonoSplit(Module):
         ascent2: bool,
         to_latent: bool,
         builder: Callable[[int, int, bool], ConditionalBlocks],
-        builder2: Optional[Callable[[int, int, bool], ConditionalBlocks]] = None,
     ) -> None:
         super().__init__()
-        if builder2 is None:
-            builder2 = builder
         self.to_latent = to_latent
         self.m1 = builder(in_dim, out_dim, ascent1)
-        self.m2 = builder2(in_dim, out_dim, ascent2)
+        self.m2 = builder(in_dim, out_dim, ascent2)
 
     def forward(
         self,
@@ -146,13 +142,12 @@ def monotonous_builder(
     to_latent: bool,
     num_layers: int,
     condition_dim: int,
-    invertible_module: PseudoInvertibleBlock = None,
+    cond_mappings: Optional[ModuleList] = None,
 ) -> Callable[[int, int], Module]:
     def _core(
         in_dim: int,
         out_dim: int,
         ascent: bool,
-        cond_mappings: Optional[ModuleList] = None,
     ) -> ConditionalBlocks:
         cond_out_dim: Optional[int]
         block_out_dim: Optional[int]
@@ -161,9 +156,9 @@ def monotonous_builder(
             cond_out_dim = block_out_dim = None
         else:
             num_units = [in_dim] * num_layers
-            # cond  : median, pos_median_res, neg_median_res
-            assert out_dim == 3
-            cond_out_dim = out_dim
+            # only cdf will initialize cond mappings here
+            # q will utilize median mappings defined outside
+            cond_out_dim = 1
             # block : y_mul / cdf_mul
             block_out_dim = 1
 
@@ -172,14 +167,16 @@ def monotonous_builder(
             block_out_dim,
             num_units,
             ascent=ascent,
-            use_couple_bias=False,
+            use_couple_bias=(is_q and not to_latent) or (not is_q and to_latent),
             activation="sigmoid" if to_latent else "tanh",
             return_blocks=True,
         )
         assert isinstance(blocks, list)
 
-        if cond_mappings is None or len(cond_mappings) == 0:
-            cond_mappings = get_cond_mappings(
+        if cond_mappings is not None:
+            cond_mappings_ = cond_mappings
+        else:
+            cond_mappings_ = get_cond_mappings(
                 condition_dim,
                 cond_out_dim,
                 num_units,
@@ -202,7 +199,7 @@ def monotonous_builder(
         )
         return ConditionalBlocks(
             ModuleList(blocks),
-            cond_mappings,
+            cond_mappings_,
             add_last=to_latent,
             detach_condition=not to_latent,
             cond_mixtures=cond_mixtures,
@@ -213,20 +210,7 @@ def monotonous_builder(
             in_dim = int(in_dim // 2)
         else:
             out_dim = int(out_dim // 2)
-        if invertible_module is None:
-            return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, _core)
-        # reuse MonoSplit parameters
-        from_latent1 = invertible_module.from_latent
-        if isinstance(from_latent1, nn.Identity):
-            cond_blocks1 = cond_blocks2 = []
-        else:
-            m1 = from_latent1.m1
-            m2 = invertible_module.from_latent.m2
-            cond_blocks1 = m1.condition_blocks
-            cond_blocks2 = m2.condition_blocks
-        b1 = partial(_core, cond_mappings=cond_blocks1)
-        b2 = partial(_core, cond_mappings=cond_blocks2)
-        return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, b1, b2)
+        return MonoSplit(in_dim, out_dim, ascent1, ascent2, to_latent, _core)
 
     return _split_core
 
@@ -257,6 +241,9 @@ class DDRCore(Module):
         if latent_dim is None:
             latent_dim = 512
         self.latent_dim = latent_dim
+        # median mappings
+        median_units = [latent_dim] * num_layers
+        self.median_mappings = get_cond_mappings(1, 3, median_units, False)
         # pseudo invertible q
         kwargs = {"num_layers": num_layers, "condition_dim": in_dim}
         if not self.fetch_q:
@@ -305,7 +292,7 @@ class DDRCore(Module):
                 ascent1=True,
                 ascent2=True,
                 to_latent=False,
-                invertible_module=self.q_invertible,
+                cond_mappings=self.median_mappings,
                 **kwargs,
             )
         self.y_invertible = PseudoInvertibleBlock(
@@ -315,13 +302,6 @@ class DDRCore(Module):
             to_transition_builder=y_to_latent_builder,
             from_transition_builder=y_from_latent_builder,
         )
-        if self.fetch_q and self.fetch_cdf:
-            q_cond_blocks1 = self.q_invertible.from_latent.m1.condition_blocks
-            q_cond_blocks2 = self.q_invertible.from_latent.m2.condition_blocks
-            y_cond_blocks1 = self.y_invertible.from_latent.m1.condition_blocks
-            y_cond_blocks2 = self.y_invertible.from_latent.m2.condition_blocks
-            assert q_cond_blocks1 is y_cond_blocks1
-            assert q_cond_blocks2 is y_cond_blocks2
         # q parameters
         if not self.fetch_q:
             self.q_parameters = []
@@ -372,13 +352,19 @@ class DDRCore(Module):
         med, pos_med_res, neg_med_res = cond_net.split(1, dim=1)
         return {"median": med, "pos_med_res": pos_med_res, "neg_med_res": neg_med_res}
 
-    def _median_pack(self, net: Tensor) -> Pack:
-        dummy1 = dummy2 = net.new_zeros(len(net), self.latent_dim // 2)
-        if not self.fetch_q:
-            inverse_method = self.q_invertible.inverse
-        else:
-            inverse_method = self.y_invertible.inverse
-        return inverse_method((dummy1, dummy2), net)
+    def _get_median_pack(self, net: Tensor) -> Pack:
+        zeros = torch.zeros_like(net)
+        res1, res2 = [], []
+        for i, mapping in enumerate(self.median_mappings):
+            net = mapping(net)
+            if i == len(self.median_mappings) - 1:
+                res1.append(zeros)
+                res2.append(zeros)
+            else:
+                chunked = net.chunk(2, dim=1)
+                res1.append(chunked[0])
+                res2.append(chunked[1])
+        return Pack(zeros, net, (res1, res2))
 
     @staticmethod
     def _merge_y_pack(
@@ -479,7 +465,7 @@ class DDRCore(Module):
         q_batch: Optional[Tensor] = None,
         y_batch: Optional[Tensor] = None,
     ) -> tensor_dict_type:
-        median_pack = self._median_pack(net)
+        median_pack = self._get_median_pack(net)
         median_responses = median_pack.responses_tuple
         results = median_outputs = self._get_median_outputs(median_pack)
         if self.fetch_q and not median and q_batch is not None:
