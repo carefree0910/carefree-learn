@@ -5,6 +5,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from abc import abstractmethod
+from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -291,18 +293,34 @@ class DNDF(Module):
         nn.init.xavier_uniform_(self.leaves.data)
 
 
+class CrossBase(Module, metaclass=ABCMeta):
+    @abstractmethod
+    def forward(self, x: Tensor, x0: Tensor) -> Tensor:
+        pass
+
+
+class InnerCross(CrossBase):
+    def __init__(self, dim: int, **kwargs: Any):
+        super().__init__()
+        self.inner = Linear(dim, 1, bias=False, **kwargs)
+
+    def forward(self, x: Tensor, x0: Tensor) -> Tensor:
+        return x0 * self.inner(x)
+
+
 class CrossBlock(Module):
     def __init__(
         self,
         dim: int,
         bias: bool = True,
-        linear_config: Optional[Dict[str, Any]] = None,
+        *,
+        cross_builder: Callable[[int], Module] = None,
         **kwargs: Any,
     ):
         super().__init__()
-        if linear_config is None:
-            linear_config = {}
-        self.inner = Linear(dim, 1, bias=False, **linear_config)
+        if cross_builder is None:
+            cross_builder = lambda dim_: InnerCross(dim_)
+        self.cross = cross_builder(dim)
         if not bias:
             self.bias = None
         else:
@@ -311,7 +329,7 @@ class CrossBlock(Module):
                 self.bias.data.fill_(kwargs.get("bias_fill", 0.0))
 
     def forward(self, x: Tensor, x0: Tensor) -> Tensor:
-        crossed = x0 * self.inner(x) + x
+        crossed = self.cross(x, x0) + x
         if self.bias is None:
             return crossed
         return crossed + self.bias
