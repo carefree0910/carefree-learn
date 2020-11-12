@@ -291,6 +291,35 @@ class DNDF(Module):
         nn.init.xavier_uniform_(self.leaves.data)
 
 
+class CrossBlock(Module):
+    def __init__(
+        self,
+        dim: int,
+        bias: bool = True,
+        linear_config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ):
+        super().__init__()
+        if linear_config is None:
+            linear_config = {}
+        self.inner = Linear(dim, 1, bias=False, **linear_config)
+        if not bias:
+            self.bias = None
+        else:
+            self.bias = nn.Parameter(torch.empty(1, dim))
+            with torch.no_grad():
+                self.bias.data.fill_(kwargs.get("bias_fill", 0.0))
+
+    def forward(self, x: Tensor, x0: Tensor) -> Tensor:
+        crossed = x0 * self.inner(x) + x
+        if self.bias is None:
+            return crossed
+        return crossed + self.bias
+
+    def extra_repr(self) -> str:
+        return f"(bias): {False if self.bias is None else True}"
+
+
 class TreeResBlock(Module):
     def __init__(self, dim: int, dndf_config: Optional[Dict[str, Any]] = None):
         super().__init__()
@@ -848,6 +877,7 @@ __all__ = [
     "Mapping",
     "MLP",
     "DNDF",
+    "CrossBlock",
     "TreeResBlock",
     "InvertibleBlock",
     "PseudoInvertibleBlock",
