@@ -25,7 +25,6 @@ class DDRPredictor:
         x: data_type,
         y: data_type,
         *,
-        recover: bool = True,
         get_pdf: bool = False,
     ) -> Dict[str, np.ndarray]:
         predictions = self.m.predict(
@@ -105,9 +104,7 @@ class DDRVisualizer:
         export_path: Optional[str],
         *,
         median_residual: bool = False,
-        add_affine: bool = False,
         mul_affine: bool = False,
-        cdf_logit_add: bool = False,
         cdf_logit_mul: bool = False,
         q_batch: Optional[np.ndarray] = None,
         y_batch: Optional[np.ndarray] = None,
@@ -138,33 +135,23 @@ class DDRVisualizer:
             DDRVisualizer._render_figure(*render_args)
         # quantile curves
         if q_batch is not None and model.fetch_q:
-            affine = add_affine or mul_affine
-            if not affine:
+            if not mul_affine:
                 for q in q_batch:
                     quantile_curve = self.predictor.quantile(x_base, q)["quantiles"]
                     plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
                 DDRVisualizer._render_figure(*render_args)
             else:
-                med_add_list, med_mul_list = [], []
                 for q in q_batch:
                     med_predictions = self.predictor.quantile(x_base, q, recover=False)
-                    med_add_list.append(med_predictions["med_add"])
-                    med_mul_list.append(med_predictions["med_mul"])
-                if add_affine:
-                    for q, med_add in zip(q_batch, med_add_list):
-                        plt.plot(x_base.ravel(), med_add, label=f"med_add {q:4.2f}")
-                    DDRVisualizer._render_figure(*render_args)
-                if mul_affine:
-                    for q, med_mul in zip(q_batch, med_mul_list):
-                        plt.plot(x_base.ravel(), med_mul, label=f"med_mul {q:4.2f}")
-                    DDRVisualizer._render_figure(*render_args)
+                    med_mul = med_predictions["med_mul"]
+                    plt.plot(x_base.ravel(), med_mul, label=f"med_mul {q:4.2f}")
+                DDRVisualizer._render_figure(*render_args)
         # cdf curves
         if y_batch is not None and model.fetch_cdf:
             y_abs_max = np.abs(y).max()
             ratios = y_batch
             anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
-            affine = cdf_logit_add or cdf_logit_mul
-            if not affine:
+            if not cdf_logit_mul:
                 for ratio, anchor in zip(ratios, anchors):
                     anchor_line = np.full(len(x_base), anchor)
                     predictions = self.predictor.cdf(x_base, anchor, get_pdf=to_pdf)
@@ -183,21 +170,12 @@ class DDRVisualizer:
                     )
                 DDRVisualizer._render_figure(*render_args)
             else:
-                cdf_logit_add_list, cdf_logit_mul_list = [], []
                 for ratio, anchor in zip(ratios, anchors):
-                    cdf_predictions = self.predictor.cdf(x_base, anchor, recover=False)
-                    cdf_logit_add_list.append(cdf_predictions["cdf_logit_add"])
-                    cdf_logit_mul_list.append(cdf_predictions["cdf_logit_mul"])
-                if cdf_logit_add:
-                    for ratio, cdf_logit_add in zip(ratios, cdf_logit_add_list):
-                        label = f"cdf_logit_add {ratio:4.2f}"
-                        plt.plot(x_base.ravel(), cdf_logit_add, label=label)
-                    DDRVisualizer._render_figure(*render_args)
-                if cdf_logit_mul:
-                    for ratio, cdf_logit_mul in zip(ratios, cdf_logit_mul_list):
-                        label = f"cdf_logit_mul {ratio:4.2f}"
-                        plt.plot(x_base.ravel(), cdf_logit_mul, label=label)
-                    DDRVisualizer._render_figure(*render_args)
+                    cdf_predictions = self.predictor.cdf(x_base, anchor)
+                    cdf_logit_mul = cdf_predictions["cdf_logit_mul"]
+                    label = f"cdf_logit_mul {ratio:4.2f}"
+                    plt.plot(x_base.ravel(), cdf_logit_mul, label=label)
+                DDRVisualizer._render_figure(*render_args)
         show_or_save(export_path, fig)
 
     def visualize_multiple(

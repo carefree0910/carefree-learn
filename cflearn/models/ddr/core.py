@@ -144,8 +144,8 @@ def monotonous_builder(
             # cond  : median, pos_median_res, neg_median_res
             assert out_dim == 3
             cond_out_dim = out_dim
-            # block : y_add, y_mul / cdf_add, cdf_mul
-            block_out_dim = 2
+            # block : y_mul / cdf_mul
+            block_out_dim = 1
 
         blocks = MonotonousMapping.stack(
             in_dim,
@@ -370,23 +370,21 @@ class DDRCore(Module):
         neg_med_res = median_outputs["neg_med_res"]
         q_positive_mask = torch.sign(q_batch) == 1.0
         med_res = torch.where(q_positive_mask, pos_med_res, neg_med_res).detach()
-        y_add, y_mul = pack.net.split(1, dim=1)
-        y_res = med_res * y_mul + y_add
+        y_mul = pack.net
+        y_res = med_res * y_mul
         return {
             "y_res": y_res,
-            "med_add": y_add,
             "med_mul": y_mul,
             "med_res": med_res,
             "q_positive_mask": q_positive_mask,
         }
 
     def _merge_q_pack(self, pack: Pack) -> tensor_dict_type:
-        q_logit_add, q_logit_mul = pack.net.chunk(2, dim=1)
-        q_logit = self.cdf_logit_anchor * q_logit_mul + q_logit_add
+        q_logit_mul = pack.net
+        q_logit = self.cdf_logit_anchor * q_logit_mul
         return {
             "q": self.q_inv_fn(q_logit),
             "q_logit": q_logit,
-            "q_logit_add": q_logit_add,
             "q_logit_mul": q_logit_mul,
         }
 

@@ -199,7 +199,6 @@ class DDR(ModelBase):
             "cdf": cdf,
             "pdf": pdf,
             "cdf_logit": results["q_logit"],
-            "cdf_logit_add": results["q_logit_add"],
             "cdf_logit_mul": results["q_logit_mul"],
             "y_inverse_res": results["y_inverse_res"],
         }
@@ -250,13 +249,7 @@ class DDR(ModelBase):
                 if self.fetch_q:
                     assert q_synthetic_batch is not None
                     q_rs = self._quantile(net, q_synthetic_batch, True)
-                    median_rs.update(
-                        {
-                            "syn_med_add": q_rs["med_add"],
-                            "syn_med_mul": q_rs["med_mul"],
-                            "syn_med_res": q_rs["med_res"],
-                        }
-                    )
+                    median_rs["syn_med_mul"] = q_rs["med_mul"]
                     if not self.fetch_cdf:
                         return median_rs
                 if self.fetch_cdf:
@@ -265,7 +258,7 @@ class DDR(ModelBase):
                     y_syn_batch = torch.where(mask, pos_med_res, -neg_med_res)
                     y_syn_batch = y_syn_batch.detach() + rs["median"].detach()
                     y_rs = self._cdf(net, y_syn_batch, False, False, False)
-                    median_rs.update({"syn_cdf": y_rs["cdf"], "syn_pos_mask": mask})
+                    median_rs.update({"syn_cdf_logit_mul": y_rs["cdf_logit_mul"]})
                     if not self.fetch_q:
                         return median_rs
         # TODO : Some of the calculations in `forward.median` could be reused
@@ -326,7 +319,6 @@ class DDR(ModelBase):
             q_batch = self._expand(batch_size, q)
             pack = self._quantile(net, q_batch, False)
             forward_dict["quantiles"] = pack["median"] + pack["y_res"]
-            forward_dict["med_add"] = pack["med_add"]
             forward_dict["med_mul"] = pack["med_mul"]
         # check y inference
         predict_pdf = kwargs.get("predict_pdf", False)

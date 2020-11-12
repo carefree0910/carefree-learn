@@ -45,11 +45,8 @@ class DDRLoss(LossBase, LoggingMixin):
     ) -> tensor_dict_type:
         # median residual anchor
         if is_synthetic:
-            syn_med_add = predictions["syn_med_add"].abs()
             syn_med_mul = predictions["syn_med_mul"].abs()
-            syn_med_res = predictions["syn_med_res"].detach()
-            mr_anchor_losses = (syn_med_res * (1.0 - syn_med_mul) - syn_med_add).abs()
-            return {"median_residual_anchor": mr_anchor_losses}
+            return {"median_residual_anchor": (syn_med_mul.abs() - 1.0).abs()}
         # quantile
         q_batch = predictions["q_batch"]
         assert q_batch is not None
@@ -66,11 +63,8 @@ class DDRLoss(LossBase, LoggingMixin):
     ) -> tensor_dict_type:
         # median residual anchor
         if is_synthetic:
-            syn_cdf = predictions["syn_cdf"]
-            syn_pos_mask = predictions["syn_pos_mask"]
-            syn_anchors = torch.full_like(syn_cdf, 0.25)
-            syn_anchors[syn_pos_mask] = 0.75
-            return {"cdf_anchor": (syn_cdf - syn_anchors).abs()}
+            syn_cdf_logit_mul = predictions["syn_cdf_logit_mul"]
+            return {"cdf_anchor": (syn_cdf_logit_mul.abs() - 1.0).abs()}
         # cdf
         y_batch = predictions["y_batch"]
         cdf_logit = predictions["cdf_logit"]
