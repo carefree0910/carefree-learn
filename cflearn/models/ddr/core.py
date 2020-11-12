@@ -96,27 +96,45 @@ class MonoSplit(Module):
 
 
 class MonoCross(CrossBase):
-    def __init__(self):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        *,
+        simplify: bool = False,
+        **kwargs: Any,
+    ):
         super().__init__()
-        activations = Activations(
-            {
-                "multiplied_tanh": {"ratio": 0.25, "trainable": False},
-                "cup_masked": {"bias": 1.0, "ratio": 4.0, "retain_sign": True},
-            }
-        )
-        self.m_tanh = activations.multiplied_tanh
-        self.cup_masked = activations.cup_masked
+        if simplify:
+            self.mapping = None
+        else:
+            kwargs["bias"] = False
+            self.mapping = MonotonousMapping(in_dim, out_dim, ascent=True, **kwargs)
 
     def forward(self, net: Tensor, cond: Tensor) -> Tensor:
-        return self.m_tanh(net * torch.sign(cond)) * self.cup_masked(cond)
+        if self.mapping is None:
+            return cond
+        return self.mapping(net * torch.tanh(cond)) * cond
+
+    @classmethod
+    def make(
+        cls,
+        dim: int,
+        inner: bool,
+        *,
+        simplify: bool = False,
+        **kwargs: Any,
+    ) -> "MonoCross":
+        out_dim = 1 if inner else dim
+        return cls(dim, out_dim, simplify=simplify, **kwargs)
 
 
-def get_q_cross_builder(to_latent: bool, ascent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross()
+def get_q_cross_builder(to_latent: bool) -> Callable[[int], Module]:
+    return lambda dim: MonoCross.make(dim, to_latent, simplify=not to_latent)
 
 
-def get_y_cross_builder(to_latent: bool, ascent: bool) -> Callable[[int], Module]:
-    return lambda dim: MonoCross()
+def get_y_cross_builder(to_latent: bool) -> Callable[[int], Module]:
+    return lambda dim: MonoCross.make(dim, to_latent, simplify=to_latent)
 
 
 def monotonous_builder(
@@ -171,9 +189,9 @@ def monotonous_builder(
             )
 
         if is_q:
-            cross_builder = get_q_cross_builder(to_latent, ascent)
+            cross_builder = get_q_cross_builder(to_latent)
         else:
-            cross_builder = get_y_cross_builder(to_latent, ascent)
+            cross_builder = get_y_cross_builder(to_latent)
         cond_mixtures = ModuleList(
             [
                 CrossBlock(
