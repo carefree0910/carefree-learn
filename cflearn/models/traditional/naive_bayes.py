@@ -94,6 +94,8 @@ class NNB(ModelBase):
                     mnb.feature_log_prob, self.log_posterior(numpy=True), atol=1e-6
                 )
 
+    def define_transforms(self) -> None:
+        pass
 
     def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
@@ -143,14 +145,14 @@ class NNB(ModelBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        split_result = self._split_features(x_batch, batch_indices, loader_name)
+        split = self._split_features(x_batch, batch_indices, loader_name)
         # log prior
         log_prior = self.class_log_prior()
         # numerical
         if self.normal is None:
             numerical_log_prob = None
         else:
-            numerical = split_result.numerical
+            numerical = split.numerical
             assert isinstance(numerical, torch.Tensor)
             numerical_log_prob = self.normal.log_prob(numerical[..., None, :]).sum(2)
         # categorical
@@ -158,7 +160,7 @@ class NNB(ModelBase):
             categorical_log_prob = None
             numerical_log_prob = numerical_log_prob + log_prior
         else:
-            categorical = split_result.categorical
+            categorical = split.categorical
             assert categorical is not None and categorical.one_hot is not None
             log_posterior = self.log_posterior()
             categorical_log_prob = nn.functional.linear(

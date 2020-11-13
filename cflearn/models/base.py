@@ -68,6 +68,21 @@ class SplitFeatures(NamedTuple):
         return torch.cat([self.numerical, merged], dim=1)
 
 
+class Transform(nn.Module):
+    def __init__(self, embedding: bool, one_hot: bool):
+        super().__init__()
+        self.use_embedding = embedding
+        self.use_one_hot = one_hot
+
+    def forward(self, split: SplitFeatures) -> torch.Tensor:
+        return split.merge(self.use_embedding, self.use_one_hot)
+
+    def extra_repr(self) -> str:
+        embedding_str = f"(use_embedding): {self.use_embedding}"
+        one_hot_str = f"(use_one_hot): {self.use_one_hot}"
+        return f"{embedding_str}\n{one_hot_str}"
+
+
 class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
@@ -162,6 +177,12 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         x, y = map(to_torch, [x, y])
         return {"x_batch": x, "y_batch": y}
 
+    def define_transforms(self) -> None:
+        self.add_transform("basic", True, True)
+
+    def add_transform(self, key: str, embedding: bool, one_hot: bool) -> None:
+        self.transforms[key] = Transform(embedding, one_hot)
+
     @abstractmethod
     def forward(
         self,
@@ -252,7 +273,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         loader_name: Optional[str] = None,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        net = instance._split_features(x_batch, batch_indices, loader_name).merge()
+        split = instance._split_features(x_batch, batch_indices, loader_name)
+        net = instance.transforms["basic"](split)
         if instance.tr_data.is_ts:
             net = net.view(x_batch.shape[0], -1)
         net = instance.core(net)  # type: ignore
@@ -315,7 +337,10 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         pass
 
     def _init_config(self) -> None:
-        self._loss_config = self.config.setdefault("loss_config", {})
+        # transform
+        self.transforms = nn.ModuleDict()
+        self.define_transforms()
+        # encoding
         encoding_methods = self.config.setdefault("encoding_methods", {})
         encoding_configs = self.config.setdefault("encoding_configs", {})
         self._encoding_methods = {str(k): v for k, v in encoding_methods.items()}
@@ -326,6 +351,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._default_encoding_method = self.config.setdefault(
             "default_encoding_method", "embedding"
         )
+        # loss
+        self._loss_config = self.config.setdefault("loss_config", {})
 
     def _init_loss(self) -> None:
         if self.tr_data.is_reg:

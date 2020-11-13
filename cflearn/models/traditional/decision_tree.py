@@ -59,11 +59,11 @@ class NDT(ModelBase):
         # prepare
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
-        split_result = self._split_features(to_torch(x), np.arange(len(x)), "tr")
+        split = self._split_features(to_torch(x), np.arange(len(x)), "tr")
         # decision tree
         msg = "fitting decision tree"
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
-        x_merge = split_result.merge().cpu().numpy()
+        x_merge = self.transforms["basic"](split).cpu().numpy()
         self.dt = DecisionTreeClassifier(**self.dt_config, random_state=142857)
         self.dt.fit(x_merge, y_ravel, sample_weight=tr_weights)
         tree_structure = export_structure(self.dt)
@@ -163,7 +163,8 @@ class NDT(ModelBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        merged = self._split_features(x_batch, batch_indices, loader_name).merge()
+        split = self._split_features(x_batch, batch_indices, loader_name)
+        merged = self.transforms["basic"](split)
         planes = self.planes_activation(self.to_planes(merged))
         routes = self.routes_activation(self.to_routes(planes))
         leaves = self.to_leaves(routes)

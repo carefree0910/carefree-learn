@@ -59,7 +59,8 @@ class RNN(ModelBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        net = self._split_features(x_batch, batch_indices, loader_name).merge()
+        split = self._split_features(x_batch, batch_indices, loader_name)
+        net = self.transforms["basic"](split)
         return {"predictions": self.core(net)}
 
 

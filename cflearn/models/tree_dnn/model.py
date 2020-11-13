@@ -50,14 +50,14 @@ class TreeDNN(ModelBase):
         default_has_one_hot = "one_hot" in instance._default_encoding_method
         # fcnn
         if not instance._numerical_columns:
-            instance._use_embedding_for_mlp = True
-            instance._use_one_hot_for_mlp = default_has_one_hot
-        mlp_in_dim = instance.merged_dim
-        if not instance._use_embedding_for_mlp:
-            mlp_in_dim -= embedding_dim * instance.num_history
-        if not instance._use_one_hot_for_mlp:
-            mlp_in_dim -= one_hot_dim * instance.num_history
-        instance.config["in_dim"] = mlp_in_dim
+            instance._use_embedding_for_fcnn = True
+            instance._use_one_hot_for_fcnn = default_has_one_hot
+        fcnn_in_dim = instance.merged_dim
+        if not instance._use_embedding_for_fcnn:
+            fcnn_in_dim -= embedding_dim * instance.num_history
+        if not instance._use_one_hot_for_fcnn:
+            fcnn_in_dim -= one_hot_dim * instance.num_history
+        instance.config["in_dim"] = fcnn_in_dim
         cfg = FCNN.get_core_config(instance)
         # dndf
         if instance._dndf_config is None:
@@ -83,25 +83,34 @@ class TreeDNN(ModelBase):
         cfg["dndf_input_dim"] = dndf_input_dim
         return cfg
 
+    def define_transforms(self) -> None:
+        self.add_transform(
+            "fcnn",
+            self.config["use_embedding_for_fcnn"],
+            self.config["use_one_hot_for_fcnn"],
+        )
+        self.add_transform(
+            "dndf",
+            self.config["use_embedding_for_dndf"],
+            self.config["use_one_hot_for_dndf"],
+        )
+
     def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("pruner_config", {})
-        self._use_embedding_for_mlp = self.config.setdefault(
-            "use_embedding_for_fc", True
-        )
-        self._use_one_hot_for_mlp = self.config.setdefault("use_one_hot_for_fc", False)
+        fcnn_one_hot = self.config.setdefault("use_one_hot_for_fcnn", False)
+        fcnn_embedding = self.config.setdefault("use_embedding_for_fcnn", True)
         self._dndf_config = self.config.setdefault("dndf_config", {})
-        self._use_embedding_for_dndf = self._use_one_hot_for_dndf = False
-        if self._dndf_config is not None:
-            self._use_embedding_for_dndf = self.config.setdefault(
-                "use_embedding_for_dndf", True
-            )
-            self._use_one_hot_for_dndf = self.config.setdefault(
-                "use_one_hot_for_dndf", True
-            )
+        has_dndf = self._dndf_config is not None
+        dndf_one_hot = self.config.setdefault("use_one_hot_for_dndf", has_dndf)
+        dndf_embedding = self.config.setdefault("use_embedding_for_dndf", has_dndf)
+        self._use_one_hot_for_fcnn = fcnn_one_hot
+        self._use_embedding_for_fcnn = fcnn_embedding
+        self._use_one_hot_for_dndf = dndf_one_hot
+        self._use_embedding_for_dndf = dndf_embedding
         default_encoding_method = ["embedding"]
-        if self._use_one_hot_for_mlp or self._use_one_hot_for_dndf:
+        if fcnn_one_hot or dndf_one_hot:
             default_encoding_method.append("one_hot")
         self.config.setdefault("default_encoding_method", default_encoding_method)
 
@@ -114,22 +123,16 @@ class TreeDNN(ModelBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
-        split_result = self._split_features(x_batch, batch_indices, loader_name)
+        split = self._split_features(x_batch, batch_indices, loader_name)
         # fcnn
-        fcnn_net = split_result.merge(
-            self._use_embedding_for_mlp,
-            self._use_one_hot_for_mlp,
-        )
+        fcnn_net = self.transforms["fcnn"](split)
         if self.tr_data.is_ts:
             fcnn_net = fcnn_net.view(fcnn_net.shape[0], -1)
         # dndf
         if self.core.dndf is None:
             dndf_net = None
         else:
-            dndf_net = split_result.merge(
-                self._use_embedding_for_dndf,
-                self._use_one_hot_for_dndf,
-            )
+            dndf_net = self.transforms["dndf"](split)
             if self.tr_data.is_ts:
                 dndf_net = dndf_net.view(dndf_net.shape[0], -1)
         return {"predictions": self.core(fcnn_net, dndf_net)}

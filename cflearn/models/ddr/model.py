@@ -300,7 +300,8 @@ class DDR(ModelBase):
         # pre-processing
         x_batch = batch["x_batch"]
         batch_size = x_batch.shape[0]
-        net = self._split_features(x_batch, batch_indices, loader_name).merge()
+        split = self._split_features(x_batch, batch_indices, loader_name)
+        net = self.transforms["basic"](split)
         if self.tr_data.is_ts:
             net = net.view(batch_size, -1)
         y_batch = batch["y_batch"]
