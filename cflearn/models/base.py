@@ -144,7 +144,7 @@ class PipePlaceholder(Pipe):
         extract_kwargs: Optional[Dict[str, Any]] = None,
         head_kwargs: Optional[Dict[str, Any]] = None,
     ) -> None:
-        return None
+        raise ValueError("`PipePlaceholder.forward` should not be called")
 
 
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
@@ -349,14 +349,19 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     def merge_outputs(
         self,
-        outputs: Dict[str, Tensor],
+        outputs: tensor_dict_type,
         **kwargs: Any,
-    ) -> Dict[str, Tensor]:
+    ) -> tensor_dict_type:
         # requires returning `predictions` key
         values = list(outputs.values())
-        output = values[0]
-        for value in values[1:]:
-            output = output + value
+        output = None
+        for value in values:
+            if value is None:
+                continue
+            if output is None:
+                output = value
+            else:
+                output = output + value
         return {"predictions": output}
 
     def forward(
@@ -370,7 +375,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         # batch will have `categorical`, `numerical` and `labels` keys
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
-        outputs = {key: self.execute(key, split) for key in self.pipes.keys()}
+        outputs = {
+            key: None if key in self.bypassed_pipes else self.execute(key, split)
+            for key in self.pipes.keys()
+        }
         return self.merge_outputs(outputs, **kwargs)
 
     # API

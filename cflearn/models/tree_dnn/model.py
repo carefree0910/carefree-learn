@@ -74,6 +74,8 @@ class TreeDNN(ModelBase):
         cfg = self.get_core_config(self)
         self.define_head_config("fcnn", cfg["fcnn_config"])
         self.define_head_config("dndf", cfg["dndf_config"])
+        if self._dndf_config is None:
+            self.bypass_pipe("dndf")
 
     def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})

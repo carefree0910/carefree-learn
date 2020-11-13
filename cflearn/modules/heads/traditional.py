@@ -142,8 +142,6 @@ class NNBMNBHead(HeadBase):
                 )
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        if self.mnb is None:
-            return net
         return linear(net, self.log_posterior(), self.class_log_prior())
 
     def class_log_prior(
@@ -216,8 +214,6 @@ class NNBNormalHead(HeadBase):
             self.normal = torch.distributions.Normal(self.mu, self.std)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        if self.normal is None:
-            return net
         return self.normal.log_prob(net[..., None, :]).sum(2)
 
 
