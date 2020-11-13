@@ -13,6 +13,7 @@ from cflearn.models.ddr.utils import DDRVisualizer
 CI = True
 power: int = 2
 num_jobs: int = 1
+padding: float = 1.0
 
 
 def test() -> None:
@@ -91,15 +92,24 @@ def test() -> None:
             x_min, x_max = x_cv.min(), x_cv.max()
             x_diff = x_max - x_min
             visualizer = DDRVisualizer(m)
-            export_path = _get_file(export_folder_, "cdf.png")
-            visualizer.visualize(
-                x_cv,
-                y_cv,
-                export_path,
-                y_batch=y_batch,
-            )
-            export_path = _get_file(export_folder_, "quantile.png")
-            visualizer.visualize(x_cv, y_cv, export_path, q_batch=q_batch)
+            # median residual
+            export_path = _get_file(export_folder, "mr.png")
+            visualizer.visualize(x_cv, y_cv, export_path, median_residual=True, padding=padding)
+            # quantile
+            q_kwargs = {"q_batch": q_batch, "padding": padding}
+            export_path = _get_file(export_folder, "quantile.png")
+            visualizer.visualize(x_cv, y_cv, export_path, **q_kwargs)
+            export_path = _get_file(export_folder, "med_mul.png")
+            visualizer.visualize(x_cv, y_cv, export_path, mul_affine=True, **q_kwargs)
+            # cdf
+            y_kwargs = {"y_batch": y_batch, "padding": padding}
+            cdf_path = _get_file(export_folder, "cdf.png")
+            pdf_path = _get_file(export_folder, "pdf.png")
+            visualizer.visualize(x_cv, y_cv, cdf_path, **y_kwargs)
+            visualizer.visualize(x_cv, y_cv, pdf_path, to_pdf=True, **y_kwargs)
+            export_path = _get_file(export_folder, "cdf_logit_mul.png")
+            visualizer.visualize(x_cv, y_cv, export_path, cdf_logit_mul=True, **y_kwargs)
+            # multiple
             n_base, n_repeat = 1000, 10000
             x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, n_base)
             x_base = x_base[..., None]
@@ -110,16 +120,16 @@ def test() -> None:
                 y_cv,
                 x_base,
                 y_matrix,
-                export_folder_,
-                y_batch=y_batch,
+                export_folder,
+                q_batch=q_batch,
             )
             visualizer.visualize_multiple(
                 x_cv,
                 y_cv,
                 x_base,
                 y_matrix,
-                export_folder_,
-                q_batch=q_batch,
+                export_folder,
+                y_batch=y_batch,
             )
 
     add_task(lambda x: x + np.random.random(x.shape) * 3, "linear_constant")
