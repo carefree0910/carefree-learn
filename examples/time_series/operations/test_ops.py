@@ -22,7 +22,7 @@ pf_file = os.path.join(file_folder, f"{pf_name}.csv")
 sf_te_file = os.path.join(file_folder, f"{sf_name}_te.csv")
 pf_te_file = os.path.join(file_folder, f"{pf_name}_te.csv")
 
-kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
+kwargs = {"fixed_epoch": 3} if CI else {}
 
 
 def make_datasets() -> None:

@@ -32,7 +32,7 @@ def test() -> None:
         "batch_size": 128,
     }
     if CI:
-        config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
+        config.update({"fixed_epoch": 3})
 
     info_dict = {}
     experiments = cflearn.Experiments(logging_folder)

@@ -20,7 +20,7 @@ CI = True
 model = "fcnn"
 logging_folder = "__test_auto__"
 num_jobs_list = [0] if IS_LINUX else [0, 1, 2]
-kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
+kwargs = {"fixed_epoch": 3} if CI else {}
 kwargs["logging_folder"] = logging_folder
 
 

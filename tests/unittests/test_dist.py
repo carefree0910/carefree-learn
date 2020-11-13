@@ -12,7 +12,7 @@ IS_LINUX = platform.system() == "Linux"
 
 num_jobs = 0 if IS_LINUX else 2
 logging_folder = "__test_dist__"
-kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4}
+kwargs = {"fixed_epoch": 3}
 
 
 class TestDist(unittest.TestCase):

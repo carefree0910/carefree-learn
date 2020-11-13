@@ -8,7 +8,7 @@ from cfdata.tabular import TimeSeriesModifier
 CI = True
 
 file_folder = os.path.dirname(__file__)
-kwargs = {"min_epoch": 1, "num_epoch": 2, "max_epoch": 4} if CI else {}
+kwargs = {"fixed_epoch": 3} if CI else {}
 
 
 def test_stocks() -> None:

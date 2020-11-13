@@ -25,7 +25,7 @@ logging_folder = "__test_titanic__"
 def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
-        extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
+        extra_config.update({"fixed_epoch": 3})
     hpo_temp_folder = os.path.join(logging_folder, "__test_titanic_hpo__")
     tune_result = cflearn.tune_with(
         train_file,
@@ -57,7 +57,7 @@ def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
 def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
-        extra_config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
+        extra_config.update({"fixed_epoch": 3})
     auto = cflearn.Auto("clf", models=model)
     auto.fit(
         train_file,
@@ -74,7 +74,7 @@ def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
 def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
-        config.update({"min_epoch": 1, "num_epoch": 2, "max_epoch": 4})
+        config.update({"fixed_epoch": 3})
     ensemble = cflearn.Ensemble("clf", config)
     results = ensemble.adaboost(train_file, model=model)
     cflearn._rmtree("_logging")
