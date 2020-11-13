@@ -9,12 +9,13 @@ from typing import Dict
 from typing import Type
 from typing import Callable
 from cftool.misc import register_core
+from cftool.misc import LoggingMixin
 
 
 head_dict: Dict[str, Type["HeadBase"]] = {}
 
 
-class HeadBase(nn.Module, metaclass=ABCMeta):
+class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     @abstractmethod
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         pass
