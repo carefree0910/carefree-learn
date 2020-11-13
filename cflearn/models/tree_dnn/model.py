@@ -11,6 +11,8 @@ from ..fcnn.model import FCNN
 
 
 @ModelBase.register("tree_dnn")
+@ModelBase.register_pipe("fcnn")
+@ModelBase.register_pipe("dndf")
 class TreeDNN(ModelBase):
     @staticmethod
     @typing.no_type_check
@@ -28,7 +30,7 @@ class TreeDNN(ModelBase):
         if not instance._use_one_hot_for_fcnn:
             fcnn_in_dim -= one_hot_dim * instance.num_history
         instance.config["in_dim"] = fcnn_in_dim
-        cfg = FCNN.get_core_config(instance)
+        fcnn_cfg = FCNN.get_core_config(instance)
         # dndf
         if instance._dndf_config is None:
             instance.log_msg(  # type: ignore
@@ -49,34 +51,31 @@ class TreeDNN(ModelBase):
                 dndf_input_dim -= embedding_dim * instance.num_history
             if not instance._use_one_hot_for_dndf:
                 dndf_input_dim -= one_hot_dim * instance.num_history
-        cfg["dndf_config"] = instance._dndf_config
-        cfg["dndf_input_dim"] = dndf_input_dim
-        return cfg
+        dndf_cfg = {
+            "in_dim": dndf_input_dim,
+            "out_dim": fcnn_cfg["out_dim"],
+            "config": instance._dndf_config,
+        }
+        return {"fcnn_config": fcnn_cfg, "dndf_config": dndf_cfg}
 
-    def define_transforms(self) -> None:
-        self.add_transform(
+    def define_pipe_configs(self) -> None:
+        self.define_transform_config(
             "fcnn",
-            self.config["use_one_hot_for_fcnn"],
-            self.config["use_embedding_for_fcnn"],
-            False,
+            {
+                "one_hot": self._use_one_hot_for_fcnn,
+                "embedding": self._use_embedding_for_fcnn,
+            },
         )
-        self.add_transform(
+        self.define_transform_config(
             "dndf",
-            self.config["use_one_hot_for_dndf"],
-            self.config["use_embedding_for_dndf"],
-            False,
+            {
+                "one_hot": self._use_one_hot_for_dndf,
+                "embedding": self._use_embedding_for_dndf,
+            },
         )
-
-    def define_extractors(self) -> None:
-        self.add_extractor("fcnn")
-        self.add_extractor("dndf")
-
-    def define_heads(self) -> None:
         cfg = self.get_core_config(self)
-        core = TreeDNNCore(**cfg)
-        self.add_head("fcnn", core.fcnn)
-        if core.dndf is not None:
-            self.add_head("dndf", core.dndf)
+        self.define_head_config("fcnn", cfg["fcnn_config"])
+        self.define_head_config("dndf", cfg["dndf_config"])
 
     def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
