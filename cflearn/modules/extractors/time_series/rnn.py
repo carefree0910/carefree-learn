@@ -4,7 +4,7 @@ from typing import Any
 from typing import Dict
 
 from ..base import ExtractorBase
-from ..transform import Transform
+from ...transform.core import Transform
 
 
 rnn_dict = {"LSTM": torch.nn.LSTM, "GRU": torch.nn.GRU, "RNN": torch.nn.RNN}

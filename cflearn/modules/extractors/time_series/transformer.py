@@ -5,7 +5,7 @@ import torch.nn as nn
 from typing import *
 
 from ..base import ExtractorBase
-from ..transform import Transform
+from ...transform.core import Transform
 from ....misc.toolkit import Activations
 from ....modules.blocks import Linear
 from ....modules.blocks import Dropout

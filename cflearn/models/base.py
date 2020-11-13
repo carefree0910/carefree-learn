@@ -29,10 +29,10 @@ from ..modules.pipe import Pipe
 from ..modules.pipe import PipeConfig
 from ..modules.pipe import PipePlaceholder
 from ..modules.heads import HeadBase
+from ..modules.transform import Transform
+from ..modules.transform import Dimensions
+from ..modules.transform import SplitFeatures
 from ..modules.extractors import ExtractorBase
-from ..modules.extractors import Transform
-from ..modules.extractors import Dimensions
-from ..modules.extractors import SplitFeatures
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
 

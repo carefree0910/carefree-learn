@@ -10,7 +10,7 @@ from typing import Type
 from typing import Callable
 from cftool.misc import register_core
 
-from .transform import Transform
+from ..transform.core import Transform
 
 
 extractor_dict: Dict[str, Type["ExtractorBase"]] = {}
