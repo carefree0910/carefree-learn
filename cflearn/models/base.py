@@ -24,11 +24,13 @@ except:
 from ..losses import *
 from ..modules import *
 from ..types import tensor_dict_type
+from ..misc.configs import Configs
 from ..misc.toolkit import to_torch
 from ..modules.pipe import Pipe
 from ..modules.pipe import PipeConfig
 from ..modules.pipe import PipePlaceholder
 from ..modules.heads import HeadBase
+from ..modules.heads import HeadConfigs
 from ..modules.transform import Transform
 from ..modules.transform import Dimensions
 from ..modules.transform import SplitFeatures
@@ -134,9 +136,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         for key, pipe_config in self.registered_pipes.items():
             local_configs = self.pipe_configs.setdefault(key, {})
             transform_config = local_configs.setdefault("transform", {})
-            transform_config.setdefault("one_hot", True)
-            transform_config.setdefault("embedding", True)
-            transform_config.setdefault("only_categorical", False)
             extractor_config = local_configs.setdefault("extractor", {})
             head_config = local_configs.setdefault("head", {})
             self.add_pipe(
@@ -173,14 +172,30 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         extractor_config: Dict[str, Any],
         head_config: Dict[str, Any],
     ) -> None:
-        transform = Transform(self.dimensions, **transform_config)
+        transform_cfg = Configs.get(
+            "transform",
+            pipe_config.transform,
+            **transform_config,
+        )
+        transform = Transform(self.dimensions, **transform_cfg.pop())
+        extractor_cfg = Configs.get(
+            pipe_config.extractor,
+            pipe_config.extractor_config,
+            **extractor_config,
+        )
         extractor = ExtractorBase.make(
             pipe_config.extractor,
             transform,
-            extractor_config,
+            extractor_cfg.pop(),
         )
         head_config["in_dim"] = extractor.out_dim
-        head = HeadBase.make(pipe_config.head, head_config)
+        head_cfg = HeadConfigs.get(
+            pipe_config.head,
+            pipe_config.head_config,
+            tr_data=self.tr_data,
+            **head_config,
+        )
+        head = HeadBase.make(pipe_config.head, head_cfg.pop())
         args = extractor, head
         if key not in self.bypassed_pipes:
             self.pipes[key] = Pipe(*args)
@@ -239,14 +254,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self.loss: Module = nn.L1Loss(reduction="none")
         else:
             self.loss = FocalLoss(self._loss_config, reduction="none")
-
-    @staticmethod
-    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        out_dim: int = instance.config.get("out_dim")
-        default_out_dim = max(instance.tr_data.num_classes, 1)
-        if out_dim is None:
-            out_dim = default_out_dim
-        return {"out_dim": out_dim}
 
     def define_pipe_configs(self) -> None:
         pass
@@ -424,16 +431,22 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def register_pipe(
         cls,
         key: str,
-        head: Optional[str] = None,
+        *,
+        transform: str = "default",
         extractor: Optional[str] = None,
+        head: Optional[str] = None,
+        extractor_config: str = "default",
+        head_config: str = "default",
     ) -> Callable[[Type], Type]:
         if head is None:
             head = key
         elif extractor is None:
             extractor = key
+        if extractor is None:
+            extractor = "identity"
 
         def _core(cls_: Type) -> Type:
-            cfg = PipeConfig(extractor, head)
+            cfg = PipeConfig(transform, extractor, head, extractor_config, head_config)
             if cls_.registered_pipes is None:
                 cls_.registered_pipes = {key: cfg}
             else:

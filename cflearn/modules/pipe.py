@@ -12,8 +12,11 @@ from .extractors import ExtractorBase
 
 
 class PipeConfig(NamedTuple):
-    extractor: Optional[str]
-    head: Optional[str]
+    transform: str
+    extractor: str
+    head: str
+    extractor_config: str
+    head_config: str
 
 
 class Pipe(Module):

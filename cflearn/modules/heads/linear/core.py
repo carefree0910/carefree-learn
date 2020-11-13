@@ -4,8 +4,8 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .base import HeadBase
-from ..blocks import Linear as Lin
+from ..base import HeadBase
+from ...blocks import Linear as Lin
 
 
 @HeadBase.register("linear")

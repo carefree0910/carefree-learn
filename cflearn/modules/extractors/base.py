@@ -43,12 +43,10 @@ class ExtractorBase(nn.Module, metaclass=ABCMeta):
     @classmethod
     def make(
         cls,
-        name: Optional[str],
+        name: str,
         transform: Transform,
         config: Dict[str, Any],
     ) -> "ExtractorBase":
-        if name is None:
-            name = "identity"
         return extractor_dict[name](transform, **config)
 
 

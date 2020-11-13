@@ -1,6 +1,6 @@
 import torch
 
-from .base import ExtractorBase
+from ..base import ExtractorBase
 
 
 @ExtractorBase.register("identity")
