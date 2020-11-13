@@ -1,24 +1,22 @@
 import torch
 
-import torch.nn as nn
+from typing import Any
+from typing import Dict
 
-from typing import *
-
-from .rnns import rnn_dict
-from ..fcnn.core import FCNNCore
+from ..base import ExtractorBase
 
 
-class RNNCore(nn.Module):
+rnn_dict = {"LSTM": torch.nn.LSTM, "GRU": torch.nn.GRU, "RNN": torch.nn.RNN}
+
+
+@ExtractorBase.register("rnn")
+class RNN(ExtractorBase):
     def __init__(
         self,
         cell: str,
         in_dim: int,
-        out_dim: int,
         cell_config: Dict[str, Any],
-        hidden_units: List[int],
         num_layers: int = 1,
-        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
-        final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         # rnn
@@ -29,19 +27,15 @@ class RNNCore(nn.Module):
         self.rnn_list = torch.nn.ModuleList(
             [rnn_base(dim, **cell_config) for dim in input_dimensions]
         )
-        # fcnn
-        self.fcnn = FCNNCore(
-            hidden_size,
-            out_dim,
-            hidden_units,
-            mapping_configs,
-            final_mapping_config,
-        )
+
+    @property
+    def flatten_ts(self) -> bool:
+        return False
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
-        return self.fcnn(net[..., -1, :])
+        return net[..., -1, :]
 
 
-__all__ = ["RNNCore"]
+__all__ = ["RNN"]

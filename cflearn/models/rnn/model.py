@@ -1,32 +1,30 @@
-import numpy as np
-
 from typing import *
 
-from .core import RNNCore
 from ..base import ModelBase
 from ..fcnn import FCNN
-from ...types import tensor_dict_type
 
 
 @ModelBase.register("rnn")
+@ModelBase.register_pipe("rnn", head="fcnn", extractor="rnn")
 class RNN(ModelBase):
-    def define_heads(self) -> None:
+    def define_pipe_configs(self) -> None:
         cfg = self.get_core_config(self)
-        self.add_head("basic", RNNCore(**cfg))
+        self.define_head_config("rnn", cfg["fcnn"])
+        self.define_extractor_config("rnn", cfg["rnn"])
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        rnn_config = instance.config.setdefault("rnn_config", {})
-        rnn_config.setdefault("cell", "GRU")
-        rnn_config.setdefault("num_layers", 1)
-        cell_config = rnn_config.setdefault("cell_config", {})
+        rnn_cfg = instance.config.setdefault("rnn_config", {})
+        rnn_cfg["in_dim"] = instance.tr_data.processed_dim
+        rnn_cfg.setdefault("cell", "GRU")
+        rnn_cfg.setdefault("num_layers", 1)
+        cell_config = rnn_cfg.setdefault("cell_config", {})
         cell_config["batch_first"] = True
-        cell_config.setdefault("hidden_size", 256)
+        hidden_size = cell_config.setdefault("hidden_size", 256)
         cell_config.setdefault("bidirectional", False)
-        cfg = FCNN.get_core_config(instance)
-        cfg["in_dim"] = instance.tr_data.processed_dim
-        cfg.update(rnn_config)
-        return cfg
+        fcnn_cfg = FCNN.get_core_config(instance)
+        fcnn_cfg["in_dim"] = hidden_size
+        return {"fcnn": fcnn_cfg, "rnn": rnn_cfg}
 
 
 __all__ = ["RNN"]
