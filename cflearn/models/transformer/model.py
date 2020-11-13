@@ -1,11 +1,8 @@
-import torch
-
 import numpy as np
 
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cfdata.tabular import DataLoader
 
 from .core import TransformerCore
 from ..base import ModelBase

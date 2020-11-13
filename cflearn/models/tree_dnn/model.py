@@ -1,4 +1,3 @@
-import torch
 import typing
 import logging
 
@@ -7,12 +6,10 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cfdata.tabular import DataLoader
 
 from .core import TreeDNNCore
 from .core import TreeStackCore
 from ..base import ModelBase
-from ..base import SplitFeatures
 from ..fcnn.model import FCNN
 from ...types import tensor_dict_type
 

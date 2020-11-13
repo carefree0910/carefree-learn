@@ -1,9 +1,6 @@
-import torch
-
 import numpy as np
 
 from typing import *
-from cfdata.tabular import DataLoader
 
 from .core import RNNCore
 from ..base import ModelBase

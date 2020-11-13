@@ -10,7 +10,6 @@ from cftool.ml import Metrics
 from cftool.misc import is_numeric
 from cftool.misc import update_dict
 from cftool.misc import timing_context
-from cfdata.tabular import DataLoader
 
 from ...misc.toolkit import *
 from .core import DDRCore
