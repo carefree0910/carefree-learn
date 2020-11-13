@@ -46,7 +46,6 @@ class Task:
         *,
         external: bool,
         data_task: Optional["Task"] = None,
-        trains_config: Optional[Dict[str, Any]] = None,
         tracker_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> "Task":
@@ -55,8 +54,6 @@ class Task:
         kwargs["logging_folder"] = self.saving_folder
         if tracker_config is not None:
             kwargs["tracker_config"] = tracker_config
-        if trains_config is not None:
-            kwargs["trains_config"] = trains_config
         if external:
             kwargs["trigger_logging"] = True
             if data_task is not None:
@@ -70,7 +67,7 @@ class Task:
         self.config = kwargs
         return self
 
-    # external run (use m.trains())
+    # external run
 
     def dump_data(self, x: data_type, y: data_type = None, postfix: str = "") -> None:
         for key, value in zip([f"x{postfix}", f"y{postfix}"], [x, y]):
@@ -109,7 +106,7 @@ class Task:
         os.system(f"{self.run_command} --config_folder {self.saving_folder}")
         return self
 
-    # internal fit (use m.fit())
+    # internal fit
 
     def fit(
         self,

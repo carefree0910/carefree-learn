@@ -10,7 +10,6 @@ import numpy as np
 
 from typing import *
 from tqdm import tqdm
-from trains import Logger
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from cftool.ml import Metrics
@@ -35,9 +34,6 @@ from ..modules import optimizer_dict
 from ..modules import scheduler_dict
 from ..models.base import ModelBase
 from ..pipeline.inference import Inference
-
-
-trains_logger: Optional[Logger] = None
 
 
 class IntermediateResults(NamedTuple):
@@ -493,17 +489,10 @@ class Trainer(LoggingMixin):
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
-        if self.tracker is not None or trains_logger is not None:
+        if self.tracker is not None:
             for name, value in metrics_for_scoring.items():
                 if self.tracker is not None:
                     self.tracker.track_scalar(name, value, iteration=self._step_count)
-                if trains_logger is not None:
-                    trains_logger.report_scalar(
-                        title="Evaluating",
-                        series=name,
-                        value=value,
-                        iteration=self._step_count,
-                    )
         weighted_scores = {
             k: v * signs[k] * self.metrics_weights[k]
             for k, v in metrics_for_scoring.items()
@@ -588,20 +577,13 @@ class Trainer(LoggingMixin):
                                 forward_results,
                                 self._step_count,
                             )
-                    if self.tracker is not None or trains_logger is not None:
+                    if self.tracker is not None:
                         for name, tensor in loss_dict.items():
                             value = tensor.item()
                             if self.tracker is not None:
                                 self.tracker.track_scalar(
                                     f"tr_{name}",
                                     value,
-                                    iteration=self._step_count,
-                                )
-                            if trains_logger is not None:
-                                trains_logger.report_scalar(
-                                    "Training",
-                                    series=name,
-                                    value=value,
                                     iteration=self._step_count,
                                 )
                     with timing_context(self, "loss.backward", enable=self.timing):

@@ -23,7 +23,6 @@ if __name__ == "__main__":
             data_file = os.path.join(data_folder, f"{key}.npy")
             if os.path.isfile(data_file):
                 data_list[i] = np.load(data_file)
-    trains_config = config.pop("trains_config", None)
     m = cflearn.make(**config)
-    m.trains(*data_list, sample_weights=sample_weights, trains_config=trains_config)
+    m.fit(*data_list, sample_weights=sample_weights)
     cflearn.save(m, saving_folder=logging_folder)

@@ -15,8 +15,6 @@ from cftool.misc import lock_manager
 from cftool.misc import timing_context
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
-from trains import Task
-from trains import Logger
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -31,8 +29,6 @@ from ..misc.time_series import TSLabelCollator
 from ..models.base import model_dict
 from ..models.base import ModelBase
 from ..trainer.core import Trainer
-
-trains_logger: Optional[Logger] = None
 
 
 class Pipeline(LoggingMixin):
@@ -296,52 +292,6 @@ class Pipeline(LoggingMixin):
     ) -> "Pipeline":
         self._before_loop(x, y, x_cv, y_cv, sample_weights)
         self._loop()
-        return self
-
-    def trains(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_cv: data_type = None,
-        y_cv: data_type = None,
-        *,
-        sample_weights: Optional[np.ndarray] = None,
-        trains_config: Optional[Dict[str, Any]] = None,
-        keep_task_open: bool = False,
-        queue: Optional[str] = None,
-    ) -> "Pipeline":
-        if trains_config is None:
-            return self.fit(x, y, x_cv, y_cv, sample_weights=sample_weights)
-        # init trains
-        if trains_config is None:
-            trains_config = {}
-        project_name = trains_config.get("project_name")
-        task_name = trains_config.get("task_name")
-        if queue is None:
-            task = Task.init(**trains_config)
-            cloned_task = None
-        else:
-            task = Task.get_task(project_name=project_name, task_name=task_name)
-            cloned_task = Task.clone(source_task=task, parent=task.id)
-        # before loop
-        self._verbose_level = 6
-        self._data_config["verbose_level"] = 6
-        self._before_loop(x, y, x_cv, y_cv, sample_weights)
-        self.trainer.use_tqdm = False
-        copied_config = shallow_copy_dict(self.config)
-        if queue is not None:
-            assert cloned_task is not None
-            cloned_task.set_parameters(copied_config)
-            Task.enqueue(cloned_task.id, queue)
-            return self
-        # loop
-        task.connect(copied_config)
-        global trains_logger
-        trains_logger = task.get_logger()
-        self._loop()
-        if not keep_task_open:
-            task.close()
-            trains_logger = None
         return self
 
     def predict(
