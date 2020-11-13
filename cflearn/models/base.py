@@ -36,14 +36,19 @@ class SplitFeatures(NamedTuple):
 
     def merge(
         self,
-        only_categorical: bool = False,
-        use_embedding: bool = True,
         use_one_hot: bool = True,
+        use_embedding: bool = True,
+        only_categorical: bool = False,
     ) -> Tensor:
         if use_embedding and use_one_hot:
             return self._merge_all(only_categorical)
         numerical = None if only_categorical else self.numerical
         if not use_embedding and not use_one_hot:
+            if only_categorical:
+                raise ValueError(
+                    "`only_categorical` is set to True, "
+                    "but neither `one_hot` nor `embedding` is used"
+                )
             assert numerical is not None
             return numerical
         categorical = self.categorical
@@ -86,18 +91,18 @@ class Transform(Module):
         only_categorical: bool,
     ):
         super().__init__()
-        self.only_categorical = only_categorical
-        self.use_embedding = embedding
         self.use_one_hot = one_hot
+        self.use_embedding = embedding
+        self.only_categorical = only_categorical
 
     def forward(self, split: SplitFeatures) -> Tensor:
-        return split.merge(self.only_categorical, self.use_embedding, self.use_one_hot)
+        return split.merge(self.use_one_hot, self.use_embedding, self.only_categorical)
 
     def extra_repr(self) -> str:
-        only_str = "" if not self.only_categorical else "(only): categorical\n"
-        embedding_str = f"(use_embedding): {self.use_embedding}"
         one_hot_str = f"(use_one_hot): {self.use_one_hot}"
-        return f"{only_str}{embedding_str}\n{one_hot_str}"
+        embedding_str = f"(use_embedding): {self.use_embedding}"
+        only_str = "" if not self.only_categorical else "(only): categorical\n"
+        return f"{only_str}{one_hot_str}\n{embedding_str}"
 
 
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
@@ -252,6 +257,21 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             only_categorical=only_categorical,
         )
 
+    def define_extractors(self) -> None:
+        self.add_extractor("basic")
+
+    def add_extractor(
+        self,
+        key: str,
+        transform: Optional[str] = None,
+        core: Module = nn.Identity(),
+    ) -> None:
+        self.extractors[key] = core
+        if transform is None:
+            transform = key
+        if transform not in self.transforms:
+            raise ValueError(f"transform '{transform}' is not defined")
+        self.extractor_transforms[key] = transform
 
     @abstractmethod
     def forward(
@@ -353,6 +373,15 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             )
         return SplitFeatures(encoding_result, numerical)
 
+    def extract(self, extractor: str, split: SplitFeatures) -> Tensor:
+        transform = self.extractor_transforms[extractor]
+        net = self.transforms[transform](split)
+        net = self.extractors[extractor](net)
+        # TODO : optimize this when extractor is RNN
+        if self.tr_data.is_ts:
+            net = net.view(net.shape[0], -1)
+        return net
+
     @staticmethod
     def common_forward(
         instance: "ModelBase",
@@ -362,9 +391,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split = instance._split_features(x_batch, batch_indices, loader_name)
-        net = instance.transforms["basic"](split)
-        if instance.tr_data.is_ts:
-            net = net.view(x_batch.shape[0], -1)
+        net = instance.extract("basic", split)
         net = instance.core(net)  # type: ignore
         return {"predictions": net}
 
@@ -386,6 +413,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         # transform
         self.transforms = ModuleDict()
         self.define_transforms()
+        # extractor
+        self.extractors = ModuleDict()
+        self.extractor_transforms = {}
+        self.define_extractors()
         # encoding
         encoding_methods = self.config.setdefault("encoding_methods", {})
         encoding_configs = self.config.setdefault("encoding_configs", {})

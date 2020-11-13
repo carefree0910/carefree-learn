@@ -45,7 +45,7 @@ class NNB(ModelBase):
         # prepare
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
-        split_result = self._split_features(to_torch(x), np.arange(len(x)), "tr")
+        split = self._split_features(to_torch(x), np.arange(len(x)), "tr")
         # numerical
         num_numerical = len(self._numerical_columns)
         if num_numerical == 0:
@@ -55,7 +55,7 @@ class NNB(ModelBase):
                 self.mu = nn.Parameter(torch.zeros(num_classes, num_numerical))
                 self.std = nn.Parameter(torch.ones(num_classes, num_numerical))
             else:
-                numerical = split_result.numerical
+                numerical = self.extract("numerical", split)
                 assert isinstance(numerical, torch.Tensor)
                 x_numerical = numerical.cpu().numpy()
                 mu_list, std_list = [], []
@@ -76,9 +76,8 @@ class NNB(ModelBase):
             self.log_prior = nn.Parameter(torch.from_numpy(np.log(y_bincount / len(x))))
         else:
             self.mnb = Linear(one_hot_dim, num_classes, init_method=None)
-            categorical = split_result.categorical
-            assert categorical is not None and categorical.one_hot is not None
-            x_mnb = categorical.one_hot.cpu().numpy()
+            categorical = self.extract("categorical", split)
+            x_mnb = categorical.cpu().numpy()
             y_mnb = y_ravel.astype(np_int_type)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
             with torch.no_grad():
@@ -97,6 +96,10 @@ class NNB(ModelBase):
     def define_transforms(self) -> None:
         self.add_transform("numerical", False, False, False)
         self.add_transform("categorical", True, False, True)
+
+    def define_extractors(self) -> None:
+        self.add_extractor("numerical")
+        self.add_extractor("categorical")
 
     def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
@@ -153,14 +156,14 @@ class NNB(ModelBase):
         if self.normal is None:
             numerical_log_prob = None
         else:
-            numerical = self.transforms["numerical"](split)
+            numerical = self.extract("numerical", split)
             numerical_log_prob = self.normal.log_prob(numerical[..., None, :]).sum(2)
         # categorical
         if self.mnb is None:
             categorical_log_prob = None
             numerical_log_prob = numerical_log_prob + log_prior
         else:
-            categorical = self.transforms["categorical"](split)
+            categorical = self.extract("categorical", split)
             log_posterior = self.log_posterior()
             categorical_log_prob = nn.functional.linear(
                 categorical,

@@ -65,11 +65,7 @@ class Transformer(ModelBase):
         batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        split = self._split_features(x_batch, batch_indices, loader_name)
-        net = self.transforms["basic"](split)
-        net = self.core(net, batch.get("mask"))
-        return {"predictions": net}
+        self.common_forward(self, batch, batch_indices, loader_name)
 
 
 __all__ = ["Transformer"]

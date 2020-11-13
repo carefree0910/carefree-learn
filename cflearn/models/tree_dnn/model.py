@@ -86,16 +86,20 @@ class TreeDNN(ModelBase):
     def define_transforms(self) -> None:
         self.add_transform(
             "fcnn",
-            False,
             self.config["use_one_hot_for_fcnn"],
             self.config["use_embedding_for_fcnn"],
+            False,
         )
         self.add_transform(
             "dndf",
-            False,
             self.config["use_one_hot_for_dndf"],
             self.config["use_embedding_for_dndf"],
+            False,
         )
+
+    def define_extractors(self) -> None:
+        self.add_extractor("fcnn")
+        self.add_extractor("dndf")
 
     def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
@@ -127,14 +131,14 @@ class TreeDNN(ModelBase):
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
         # fcnn
-        fcnn_net = self.transforms["fcnn"](split)
+        fcnn_net = self.extract("fcnn", split)
         if self.tr_data.is_ts:
             fcnn_net = fcnn_net.view(fcnn_net.shape[0], -1)
         # dndf
         if self.core.dndf is None:
             dndf_net = None
         else:
-            dndf_net = self.transforms["dndf"](split)
+            dndf_net = self.extract("dndf", split)
             if self.tr_data.is_ts:
                 dndf_net = dndf_net.view(dndf_net.shape[0], -1)
         return {"predictions": self.core(fcnn_net, dndf_net)}

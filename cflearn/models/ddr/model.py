@@ -299,12 +299,10 @@ class DDR(ModelBase):
     ) -> tensor_dict_type:
         # pre-processing
         x_batch = batch["x_batch"]
+        y_batch = batch["y_batch"]
         batch_size = x_batch.shape[0]
         split = self._split_features(x_batch, batch_indices, loader_name)
-        net = self.transforms["basic"](split)
-        if self.tr_data.is_ts:
-            net = net.view(batch_size, -1)
-        y_batch = batch["y_batch"]
+        net = self.extract("basic", split)
         forward_dict = {}
         # check median residual inference
         predict_mr = kwargs.get("predict_median_residual", False)
