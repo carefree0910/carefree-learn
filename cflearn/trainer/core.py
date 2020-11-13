@@ -77,6 +77,39 @@ class Trainer(LoggingMixin):
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
 
+    def _init_epoch_settings(self) -> None:
+        min_epoch = self.config.setdefault("min_epoch", None)
+        num_epoch = self.config.setdefault("num_epoch", None)
+        max_epoch = self.config.setdefault("max_epoch", None)
+        no_min, no_num, no_max = min_epoch is None, num_epoch is None, max_epoch is None
+        default_min, default_num, default_max = 0, 40, 200
+        if no_min and no_num and no_max:
+            min_epoch = default_min
+            num_epoch = default_num
+            max_epoch = default_max
+        elif no_min and no_num:
+            min_epoch = min(default_min, max_epoch)
+            num_epoch = min(default_num, max_epoch)
+        elif no_min and no_max:
+            min_epoch = min(default_min, num_epoch)
+            max_epoch = max(default_max, num_epoch)
+        elif no_num and no_max:
+            num_epoch = max(default_num, min_epoch)
+            max_epoch = max(default_max, min_epoch)
+        elif no_min:
+            if num_epoch > max_epoch:
+                raise ValueError("`num_epoch` should not be greater than `max_epoch`")
+            min_epoch = min(default_min, num_epoch)
+        elif no_num:
+            if min_epoch > max_epoch:
+                raise ValueError("`min_epoch` should not be greater than `max_epoch`")
+            num_epoch = max(min(default_num, max_epoch), min_epoch)
+        elif no_max:
+            if min_epoch > num_epoch:
+                raise ValueError("`min_epoch` should not be greater than `num_epoch`")
+            max_epoch = max(default_max, num_epoch)
+        self.min_epoch, self.num_epoch, self.max_epoch = min_epoch, num_epoch, max_epoch
+
     def _init_config(self, pipeline_config: Dict[str, Any], is_loading: bool) -> None:
         self._pipeline_config = pipeline_config
         self.timing = self._pipeline_config["use_timing_context"]
@@ -85,17 +118,14 @@ class Trainer(LoggingMixin):
         self.update_bt_runtime = self.config.setdefault(
             "update_binary_threshold_at_runtime", False
         )
-        self.min_epoch = int(self.config.setdefault("min_epoch", 0))
-        num_epoch = self.config.setdefault("num_epoch", max(40, self.min_epoch))
-        max_epoch = self.config.setdefault("max_epoch", max(200, num_epoch))
-        self.num_epoch, self.max_epoch = map(int, [num_epoch, max_epoch])
+        self._init_epoch_settings()
         self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
         self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
         self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
         num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
         num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
         max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
-        plateau_start = self.config.setdefault("plateau_start_snapshot", num_epoch)
+        plateau_start = self.config.setdefault("plateau_start_snapshot", self.num_epoch)
         self._num_step_per_snapshot = int(num_step_per_snapshot)
         self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
         self.max_step_per_snapshot = int(max_step_per_snapshot)
