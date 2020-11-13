@@ -38,10 +38,6 @@ class Transformer(ModelBase):
         cfg = self.get_core_config(self)
         self.core = TransformerCore(**cfg)
 
-    @property
-    def input_sample(self) -> tensor_dict_type:
-        return super().input_sample
-
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         in_dim = instance.tr_data.processed_dim

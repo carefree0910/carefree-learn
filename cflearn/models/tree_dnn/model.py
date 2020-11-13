@@ -42,10 +42,6 @@ class TreeDNN(ModelBase):
         cfg = self.get_core_config(self)
         self.core = TreeDNNCore(**cfg)
 
-    @property
-    def input_sample(self) -> tensor_dict_type:
-        return super().input_sample
-
     @staticmethod
     @typing.no_type_check
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
@@ -163,10 +159,6 @@ class TreeStack(ModelBase):
         )
         cfg = self.get_core_config(self)
         self.core = TreeStackCore(**cfg)
-
-    @property
-    def input_sample(self) -> tensor_dict_type:
-        return super().input_sample
 
     @property
     def output_probabilities(self) -> bool:

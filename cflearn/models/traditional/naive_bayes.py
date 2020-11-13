@@ -94,9 +94,6 @@ class NNB(ModelBase):
                     mnb.feature_log_prob, self.log_posterior(numpy=True), atol=1e-6
                 )
 
-    @property
-    def input_sample(self) -> tensor_dict_type:
-        return super().input_sample
 
     def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")

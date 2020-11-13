@@ -153,8 +153,9 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
 
+    # Inheritance
+
     @property
-    @abstractmethod
     def input_sample(self) -> tensor_dict_type:
         x = self.tr_data.processed.x[:2]
         y = self.tr_data.processed.y[:2]
@@ -177,6 +178,8 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     @property
     def output_probabilities(self) -> bool:
         return False
+
+    # API
 
     @property
     def use_ema(self) -> bool:

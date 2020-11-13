@@ -48,10 +48,6 @@ class DDR(ModelBase):
         assert cfg.pop("out_dim") == 1
         self.core = DDRCore(**cfg)
 
-    @property
-    def input_sample(self) -> tensor_dict_type:
-        return super().input_sample
-
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         cfg = ModelBase.get_core_config(instance)

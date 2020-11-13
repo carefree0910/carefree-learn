@@ -36,10 +36,6 @@ class LinearModel(ModelBase):
         linear_config = self.config.setdefault("linear_config", {})
         self.core = LinearCore(cfg["in_dim"], cfg["out_dim"], linear_config)
 
-    @property
-    def input_sample(self) -> tensor_dict_type:
-        return super().input_sample
-
     def forward(
         self,
         batch: tensor_dict_type,
