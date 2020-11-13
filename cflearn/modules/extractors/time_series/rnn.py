@@ -4,7 +4,7 @@ from typing import Any
 from typing import Dict
 
 from ..base import ExtractorBase
-from ...transform.core import Transform
+from ...transform.core import Dimensions
 
 
 rnn_dict = {"LSTM": torch.nn.LSTM, "GRU": torch.nn.GRU, "RNN": torch.nn.RNN}
@@ -14,13 +14,14 @@ rnn_dict = {"LSTM": torch.nn.LSTM, "GRU": torch.nn.GRU, "RNN": torch.nn.RNN}
 class RNN(ExtractorBase):
     def __init__(
         self,
-        transform: Transform,
+        in_flat_dim: int,
+        dimensions: Dimensions,
         cell: str,
         cell_config: Dict[str, Any],
         num_layers: int = 1,
     ):
-        super().__init__(transform)
-        in_dim = transform.out_dim // transform.dimensions.num_history
+        super().__init__(in_flat_dim, dimensions)
+        in_dim = in_flat_dim // dimensions.num_history
         # rnn
         rnn_base = rnn_dict[cell]
         input_dimensions = [in_dim]

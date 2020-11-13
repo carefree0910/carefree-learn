@@ -7,7 +7,7 @@ from ..base import ExtractorBase
 class Identity(ExtractorBase):
     @property
     def out_dim(self) -> int:
-        return self.transform.out_dim
+        return self.in_flat_dim
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         return net

@@ -5,7 +5,7 @@ import torch.nn as nn
 from typing import *
 
 from ..base import ExtractorBase
-from ...transform.core import Transform
+from ...transform.core import Dimensions
 from ....misc.toolkit import Activations
 from ....modules.blocks import Linear
 from ....modules.blocks import Dropout
@@ -60,7 +60,8 @@ class TransformerLayer(nn.Module):
 class Transformer(ExtractorBase):
     def __init__(
         self,
-        transform: Transform,
+        in_flat_dim: int,
+        dimensions: Dimensions,
         num_heads: int,
         num_layers: int,
         to_latent: bool = False,
@@ -69,12 +70,12 @@ class Transformer(ExtractorBase):
         input_linear_config: Optional[Dict[str, Any]] = None,
         transformer_layer_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(transform)
+        super().__init__(in_flat_dim, dimensions)
         # latent projection
         if latent_dim is not None and not to_latent:
             msg = "`latent_dim` is provided but `to_latent` is set to False"
             raise ValueError(msg)
-        in_dim = transform.out_dim // transform.dimensions.num_history
+        in_dim = in_flat_dim // dimensions.num_history
         if latent_dim is None:
             latent_dim = 256 if to_latent else in_dim
         self.latent_dim = latent_dim

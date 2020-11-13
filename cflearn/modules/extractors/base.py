@@ -8,19 +8,19 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Callable
-from typing import Optional
 from cftool.misc import register_core
 
-from ..transform.core import Transform
+from ..transform.core import Dimensions
 
 
 extractor_dict: Dict[str, Type["ExtractorBase"]] = {}
 
 
 class ExtractorBase(nn.Module, metaclass=ABCMeta):
-    def __init__(self, transform: Transform, **kwargs: Any):
+    def __init__(self, in_flat_dim: int, dimensions: Dimensions, **kwargs: Any):
         super().__init__()
-        self.transform = transform
+        self.in_flat_dim = in_flat_dim
+        self.dimensions = dimensions
 
     @property
     def flatten_ts(self) -> bool:
@@ -44,10 +44,11 @@ class ExtractorBase(nn.Module, metaclass=ABCMeta):
     def make(
         cls,
         name: str,
-        transform: Transform,
+        in_dim: int,
+        dimensions: Dimensions,
         config: Dict[str, Any],
     ) -> "ExtractorBase":
-        return extractor_dict[name](transform, **config)
+        return extractor_dict[name](in_dim, dimensions, **config)
 
 
 __all__ = ["ExtractorBase"]

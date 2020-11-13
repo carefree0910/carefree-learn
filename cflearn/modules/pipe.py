@@ -7,6 +7,7 @@ from typing import NamedTuple
 from torch.nn import Module
 
 from .heads import HeadBase
+from .transform import Transform
 from .transform import SplitFeatures
 from .extractors import ExtractorBase
 
@@ -20,14 +21,11 @@ class PipeConfig(NamedTuple):
 
 
 class Pipe(Module):
-    def __init__(self, extractor: ExtractorBase, head: HeadBase):
+    def __init__(self, transform: Transform, extractor: ExtractorBase, head: HeadBase):
         super().__init__()
+        self.transform = transform
         self.extractor = extractor
         self.head = head
-
-    @property
-    def transform(self) -> Module:
-        return self.extractor.transform
 
     def forward(
         self,
