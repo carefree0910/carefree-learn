@@ -1,6 +1,7 @@
 import torch
 
 import numpy as np
+import torch.nn as nn
 
 from torch import Tensor
 from typing import Any
@@ -59,6 +60,22 @@ class NNB(ModelBase):
         self.pretrain = self.config.setdefault("pretrain", True)
 
     @property
+    def mnb(self) -> nn.Module:
+        return self.pipes["nnb_mnb"].head
+
+    @property
+    def normal(self) -> nn.Module:
+        return self.pipes["nnb_normal"].head
+
+    @property
+    def class_log_prior(self) -> Callable:
+        return self.mnb.class_log_prior
+
+    @property
+    def log_posterior(self) -> Callable:
+        return self.mnb.log_posterior
+
+    @property
     def pdf(self) -> Optional[Callable[[np.ndarray], np.ndarray]]:
         if self.normal is None:
             return None
@@ -95,18 +112,15 @@ class NNB(ModelBase):
         outputs: Dict[str, Tensor],
         **kwargs: Any,
     ) -> Dict[str, Tensor]:
-        # heads
-        mnb = self.pipes["nnb_mnb"].head
-        normal = self.pipes["nnb_normal"].head
         # numerical
-        if normal.mu is None:
+        if self.normal.mu is None:
             numerical_log_prob = None
         else:
             numerical_log_prob = outputs["nnb_normal"]
         # categorical
-        if mnb.mnb is None:
+        if self.mnb.mnb is None:
             categorical_log_prob = None
-            numerical_log_prob = numerical_log_prob + mnb.class_log_prior()
+            numerical_log_prob = numerical_log_prob + self.class_log_prior()
         else:
             categorical_log_prob = outputs["nnb_mnb"]
         if numerical_log_prob is None:
