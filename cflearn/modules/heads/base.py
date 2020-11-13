@@ -26,6 +26,10 @@ class HeadConfigs(Configs):
         self.tr_data = tr_data
 
     @property
+    def in_dim(self) -> int:
+        return self.config["in_dim"]
+
+    @property
     def out_dim(self) -> int:
         out_dim: int = self.config.get("out_dim")
         default_out_dim = max(self.tr_data.num_classes, 1)

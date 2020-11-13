@@ -6,8 +6,8 @@ from typing import List
 from typing import Union
 from typing import Optional
 
-from .base import HeadBase
-from ...modules.blocks import MLP
+from ..base import HeadBase
+from ...blocks import MLP
 
 
 @HeadBase.register("fcnn")
