@@ -245,7 +245,7 @@ class DDRCore(Module):
         self.latent_dim = latent_dim
         # median mappings
         median_units = [latent_dim] * num_layers
-        self.median_mappings = get_cond_mappings(1, 3, median_units, False)
+        self.median_mappings = get_cond_mappings(in_dim, 3, median_units, False)
         # pseudo invertible q
         kwargs = {"num_layers": num_layers, "condition_dim": in_dim}
         if not self.fetch_q:
