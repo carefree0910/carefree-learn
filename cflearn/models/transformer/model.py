@@ -1,39 +1,35 @@
-import numpy as np
-
 from typing import Any
 from typing import Dict
-from typing import Optional
 
-from .core import TransformerCore
 from ..base import ModelBase
 from ..fcnn import FCNN
-from ...types import tensor_dict_type
 
 
 @ModelBase.register("transformer")
+@ModelBase.register_pipe("transformer", head="fcnn", extractor="transformer")
 class Transformer(ModelBase):
-    def define_heads(self) -> None:
+    def define_pipe_configs(self) -> None:
         cfg = self.get_core_config(self)
-        self.add_head("basic", TransformerCore(**cfg))
+        self.define_head_config("transformer", cfg["fcnn"])
+        self.define_extractor_config("transformer", cfg["transformer"])
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         in_dim = instance.tr_data.processed_dim
-        transformer_config = instance.config.setdefault("transformer_config", {})
-        latent_dim = transformer_config.setdefault("latent_dim", None)
-        transformer_config.setdefault("to_latent", latent_dim is not None)
-        il_config = transformer_config.setdefault("input_linear_config", None)
+        transformer_cfg = instance.config.setdefault("transformer_config", {})
+        transformer_cfg["in_dim"] = in_dim
+        latent_dim = transformer_cfg.setdefault("latent_dim", 256)
+        transformer_cfg.setdefault("to_latent", latent_dim is not None)
+        il_config = transformer_cfg.setdefault("input_linear_config", None)
         if il_config is not None:
             il_config.setdefault("bias", False)
-        transformer_config.setdefault("num_layers", 6)
-        transformer_config.setdefault("num_heads", 8)
-        transformer_config.setdefault("norm", None)
-        transformer_config.setdefault("transformer_layer_config", {})
-        cfg = FCNN.get_core_config(instance)
-        cfg.update(transformer_config)
-        cfg["num_history"] = instance.num_history
-        cfg["in_dim"] = in_dim
-        return cfg
+        transformer_cfg.setdefault("num_layers", 6)
+        transformer_cfg.setdefault("num_heads", 8)
+        transformer_cfg.setdefault("norm", None)
+        transformer_cfg.setdefault("transformer_layer_config", {})
+        fcnn_cfg = FCNN.get_core_config(instance)
+        fcnn_cfg["in_dim"] = instance.num_history * latent_dim
+        return {"fcnn": fcnn_cfg, "transformer": transformer_cfg}
 
 
 __all__ = ["Transformer"]

@@ -4,11 +4,11 @@ import torch.nn as nn
 
 from typing import *
 
-from ..fcnn.core import FCNNCore
-from ...misc.toolkit import Activations
-from ...modules.blocks import Linear
-from ...modules.blocks import Dropout
-from ...modules.blocks import Attention
+from ..base import ExtractorBase
+from ....misc.toolkit import Activations
+from ....modules.blocks import Linear
+from ....modules.blocks import Dropout
+from ....modules.blocks import Attention
 
 
 class TransformerLayer(nn.Module):
@@ -55,22 +55,18 @@ class TransformerLayer(nn.Module):
         return net
 
 
-class TransformerCore(nn.Module):
+@ExtractorBase.register("transformer")
+class Transformer(ExtractorBase):
     def __init__(
         self,
         in_dim: int,
-        out_dim: int,
         num_heads: int,
         num_layers: int,
-        num_history: int,
-        hidden_units: List[int],
         to_latent: bool = False,
         norm: Optional[Callable] = None,
         latent_dim: Optional[int] = None,
         input_linear_config: Optional[Dict[str, Any]] = None,
         transformer_layer_config: Optional[Dict[str, Any]] = None,
-        mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
-        final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         # latent projection
@@ -101,23 +97,19 @@ class TransformerCore(nn.Module):
                 for _ in range(num_layers)
             ]
         )
-        # final projection
-        self.fcnn = FCNNCore(
-            in_dim * num_history,
-            out_dim,
-            hidden_units,
-            mapping_configs,
-            final_mapping_config,
-        )
 
-    def forward(self, net: torch.Tensor, mask: Optional[torch.Tensor]) -> torch.Tensor:
+    @property
+    def flatten_ts(self) -> bool:
+        return False
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         if self.input_linear is not None:
             net = self.input_linear(net)
         for layer in self.layers:
-            net = layer(net, mask=mask)
+            net = layer(net, mask=None)
         if self.norm is not None:
             net = self.norm(net)
-        return self.fcnn(net.view(net.shape[0], -1))
+        return net.view(net.shape[0], -1)
 
 
-__all__ = ["TransformerCore"]
+__all__ = ["Transformer"]
