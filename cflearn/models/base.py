@@ -5,13 +5,17 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
+from abc import abstractmethod
+from abc import ABCMeta
+from torch import Tensor
+from torch.nn import Module
+from torch.nn import ModuleDict
+from torch.optim import Optimizer
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import DataLoader
 from cftool.misc import register_core
 from cftool.misc import timing_context
 from cftool.misc import LoggingMixin
-from torch.optim import Optimizer
-from abc import ABCMeta, abstractmethod
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -28,21 +32,24 @@ model_dict: Dict[str, Type["ModelBase"]] = {}
 
 class SplitFeatures(NamedTuple):
     categorical: Optional[EncodingResult]
-    numerical: Optional[torch.Tensor]
+    numerical: Optional[Tensor]
 
     def merge(
         self,
+        only_categorical: bool = False,
         use_embedding: bool = True,
         use_one_hot: bool = True,
-    ) -> torch.Tensor:
+    ) -> Tensor:
         if use_embedding and use_one_hot:
-            return self._merge_all()
-        numerical = self.numerical
+            return self._merge_all(only_categorical)
+        numerical = None if only_categorical else self.numerical
         if not use_embedding and not use_one_hot:
             assert numerical is not None
             return numerical
         categorical = self.categorical
         if not categorical:
+            if only_categorical:
+                raise ValueError("categorical is not available")
             assert numerical is not None
             return numerical
         if not use_one_hot:
@@ -57,33 +64,43 @@ class SplitFeatures(NamedTuple):
             return one_hot
         return torch.cat([numerical, one_hot], dim=1)
 
-    def _merge_all(self) -> torch.Tensor:
+    def _merge_all(self, only_categorical: bool) -> Tensor:
         categorical = self.categorical
         if categorical is None:
+            if only_categorical:
+                raise ValueError("categorical is not available")
             assert self.numerical is not None
             return self.numerical
         merged = categorical.merged
-        if self.numerical is None:
+        if only_categorical or self.numerical is None:
             return merged
         return torch.cat([self.numerical, merged], dim=1)
 
 
-class Transform(nn.Module):
-    def __init__(self, embedding: bool, one_hot: bool):
+class Transform(Module):
+    def __init__(
+        self,
+        *,
+        one_hot: bool,
+        embedding: bool,
+        only_categorical: bool,
+    ):
         super().__init__()
+        self.only_categorical = only_categorical
         self.use_embedding = embedding
         self.use_one_hot = one_hot
 
-    def forward(self, split: SplitFeatures) -> torch.Tensor:
-        return split.merge(self.use_embedding, self.use_one_hot)
+    def forward(self, split: SplitFeatures) -> Tensor:
+        return split.merge(self.only_categorical, self.use_embedding, self.use_one_hot)
 
     def extra_repr(self) -> str:
+        only_str = "" if not self.only_categorical else "(only): categorical\n"
         embedding_str = f"(use_embedding): {self.use_embedding}"
         one_hot_str = f"(use_one_hot): {self.use_one_hot}"
-        return f"{embedding_str}\n{one_hot_str}"
+        return f"{only_str}{embedding_str}\n{one_hot_str}"
 
 
-class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
+class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
@@ -178,10 +195,21 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return {"x_batch": x, "y_batch": y}
 
     def define_transforms(self) -> None:
-        self.add_transform("basic", True, True)
+        self.add_transform("basic", True, True, False)
 
-    def add_transform(self, key: str, embedding: bool, one_hot: bool) -> None:
-        self.transforms[key] = Transform(embedding, one_hot)
+    def add_transform(
+        self,
+        key: str,
+        one_hot: bool,
+        embedding: bool,
+        only_categorical: bool,
+    ) -> None:
+        self.transforms[key] = Transform(
+            one_hot=one_hot,
+            embedding=embedding,
+            only_categorical=only_categorical,
+        )
+
 
     @abstractmethod
     def forward(
@@ -338,7 +366,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     def _init_config(self) -> None:
         # transform
-        self.transforms = nn.ModuleDict()
+        self.transforms = ModuleDict()
         self.define_transforms()
         # encoding
         encoding_methods = self.config.setdefault("encoding_methods", {})
@@ -356,7 +384,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     def _init_loss(self) -> None:
         if self.tr_data.is_reg:
-            self.loss: nn.Module = nn.L1Loss(reduction="none")
+            self.loss: Module = nn.L1Loss(reduction="none")
         else:
             self.loss = FocalLoss(self._loss_config, reduction="none")
 
@@ -375,7 +403,7 @@ class ModelBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     def _split_features(
         self,
-        x_batch: torch.Tensor,
+        x_batch: Tensor,
         batch_indices: Optional[np.ndarray],
         loader_name: Optional[str],
     ) -> SplitFeatures:

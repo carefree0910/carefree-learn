@@ -86,13 +86,15 @@ class TreeDNN(ModelBase):
     def define_transforms(self) -> None:
         self.add_transform(
             "fcnn",
-            self.config["use_embedding_for_fcnn"],
+            False,
             self.config["use_one_hot_for_fcnn"],
+            self.config["use_embedding_for_fcnn"],
         )
         self.add_transform(
             "dndf",
-            self.config["use_embedding_for_dndf"],
+            False,
             self.config["use_one_hot_for_dndf"],
+            self.config["use_embedding_for_dndf"],
         )
 
     def _preset_config(self) -> None:

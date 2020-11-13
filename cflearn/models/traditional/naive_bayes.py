@@ -95,7 +95,8 @@ class NNB(ModelBase):
                 )
 
     def define_transforms(self) -> None:
-        pass
+        self.add_transform("numerical", False, False, False)
+        self.add_transform("categorical", True, False, True)
 
     def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
@@ -152,19 +153,17 @@ class NNB(ModelBase):
         if self.normal is None:
             numerical_log_prob = None
         else:
-            numerical = split.numerical
-            assert isinstance(numerical, torch.Tensor)
+            numerical = self.transforms["numerical"](split)
             numerical_log_prob = self.normal.log_prob(numerical[..., None, :]).sum(2)
         # categorical
         if self.mnb is None:
             categorical_log_prob = None
             numerical_log_prob = numerical_log_prob + log_prior
         else:
-            categorical = split.categorical
-            assert categorical is not None and categorical.one_hot is not None
+            categorical = self.transforms["categorical"](split)
             log_posterior = self.log_posterior()
             categorical_log_prob = nn.functional.linear(
-                categorical.one_hot,
+                categorical,
                 log_posterior,
                 log_prior,
             )
