@@ -300,7 +300,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def define_heads(self) -> None:
         pass
 
-    @abstractmethod
     def forward(
         self,
         batch: tensor_dict_type,
@@ -311,7 +310,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
         # requires returning `predictions` key
-        pass
+        x_batch = batch["x_batch"]
+        split = self._split_features(x_batch, batch_indices, loader_name)
+        return {"predictions": self.execute("basic", split)}
 
     @property
     def output_probabilities(self) -> bool:
@@ -446,17 +447,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             extract_kwargs=extract_kwargs,
             execute_kwargs=execute_kwargs,
         )
-
-    @staticmethod
-    def common_forward(
-        instance: "ModelBase",
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-    ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        split = instance._split_features(x_batch, batch_indices, loader_name)
-        return {"predictions": instance.execute("basic", split)}
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:

@@ -45,15 +45,5 @@ class FCNN(ModelBase):
         )
         return cfg
 
-    def forward(
-        self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        batch_step: int = 0,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return self.common_forward(self, batch, batch_indices, loader_name)
-
 
 __all__ = ["FCNN"]
