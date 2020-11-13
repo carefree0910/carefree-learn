@@ -1,19 +1,14 @@
-import numpy as np
-
-from typing import *
-
-from .core import LinearCore
 from ..base import ModelBase
-from ...types import tensor_dict_type
 
 
 @ModelBase.register("linear")
+@ModelBase.register_pipe("linear")
 class LinearModel(ModelBase):
-    def define_heads(self) -> None:
+    def define_head_configs(self) -> None:
         cfg = self.get_core_config(self)
         linear_config = self.config.setdefault("linear_config", {})
-        core = LinearCore(cfg["in_dim"], cfg["out_dim"], linear_config)
-        self.add_head("basic", core)
+        cfg["linear_config"] = linear_config
+        self.define_head_config("linear", cfg)
 
 
 __all__ = ["LinearModel"]

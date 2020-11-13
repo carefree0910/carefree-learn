@@ -24,6 +24,8 @@ except:
 
 from ..losses import *
 from ..modules import *
+from .heads import HeadBase
+from .extractors import ExtractorBase
 from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
 
@@ -105,7 +107,39 @@ class Transform(Module):
         return f"{only_str}{one_hot_str}\n{embedding_str}"
 
 
+class PipeConfig(NamedTuple):
+    one_hot: bool
+    embedding: bool
+    only_categorical: bool
+    extractor: str
+    head: str
+
+
+class Pipe(Module):
+    def __init__(self, transform: Transform, extractor: Module, head: Module):
+        super().__init__()
+        self.transform = transform
+        self.extractor = extractor
+        self.head = head
+
+    def forward(
+        self,
+        inp: Union[Tensor, SplitFeatures],
+        extract_kwargs: Optional[Dict[str, Any]] = None,
+        head_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Tensor:
+        net = inp if isinstance(inp, Tensor) else self.transform(inp)
+        if extract_kwargs is None:
+            extract_kwargs = {}
+        net = self.extractor(net, **extract_kwargs)
+        if head_kwargs is None:
+            head_kwargs = {}
+        return self.head(net, **head_kwargs)
+
+
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
+    registered_pipes: Dict[str, PipeConfig] = {}
+
     def __init__(
         self,
         pipeline_config: Dict[str, Any],
@@ -188,18 +222,14 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             )
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
-        # main structures
-        # transform
-        self.transforms = ModuleDict()
-        self.define_transforms()
-        # extractor
-        self.extractors = ModuleDict()
-        self.extractor_transforms = {}
-        self.define_extractors()
-        # head
-        self.heads = ModuleDict()
-        self.head_extractors = {}
-        self.define_heads()
+        # pipes
+        self.pipes = ModuleDict()
+        self.define_head_configs()
+        for key, pipe_config in self.registered_pipes.items():
+            local_configs = self.pipe_configs.setdefault(key, {})
+            extractor_config = local_configs.setdefault("extractor", {})
+            head_config = local_configs.setdefault("head", {})
+            self.add_pipe(key, pipe_config, extractor_config, head_config)
 
     @property
     def num_history(self) -> int:
@@ -243,18 +273,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             dims[true_idx] = merged_dims[idx]
         return dims
 
-    # Inheritance
-
     @property
-    def input_sample(self) -> tensor_dict_type:
-        x = self.tr_data.processed.x[:2]
-        y = self.tr_data.processed.y[:2]
-        x, y = map(to_torch, [x, y])
-        return {"x_batch": x, "y_batch": y}
-
-    @property
-    def output_probabilities(self) -> bool:
-        return False
+    def pipe_configs(self):
+        return self.config.setdefault("pipe_configs", {})
 
     def add_transform(
         self,
@@ -294,15 +315,47 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             extractor = key
         self.head_extractors[key] = extractor
 
+    def add_pipe(
+        self,
+        key: str,
+        pipe_config: PipeConfig,
+        extractor_config: Dict[str, Any],
+        head_config: Dict[str, Any],
+    ) -> None:
+        transform = Transform(
+            one_hot=pipe_config.one_hot,
+            embedding=pipe_config.embedding,
+            only_categorical=pipe_config.only_categorical,
+        )
+        extractor = ExtractorBase.make(pipe_config.extractor, extractor_config)
+        head = HeadBase.make(pipe_config.head, head_config)
+        self.pipes[key] = Pipe(transform, extractor, head)
+
     def define_transforms(self) -> None:
         self.add_transform("basic", True, True, False)
 
     def define_extractors(self) -> None:
         self.add_extractor("basic")
 
-    @abstractmethod
-    def define_heads(self) -> None:
+    def define_head_config(self, pipe: str, config: Dict[str, Any]) -> None:
+        pipe_config = self.pipe_configs.setdefault(pipe, {})
+        pipe_config["head"] = config
+
+    def define_head_configs(self) -> None:
         pass
+
+    # Inheritance
+
+    @property
+    def input_sample(self) -> tensor_dict_type:
+        x = self.tr_data.processed.x[:2]
+        y = self.tr_data.processed.y[:2]
+        x, y = map(to_torch, [x, y])
+        return {"x_batch": x, "y_batch": y}
+
+    @property
+    def output_probabilities(self) -> bool:
+        return False
 
     def merge_outputs(
         self,
@@ -315,6 +368,20 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         for value in values[1:]:
             output = output + value
         return {"predictions": output}
+
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+        batch_step: int = 0,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        # batch will have `categorical`, `numerical` and `labels` keys
+        x_batch = batch["x_batch"]
+        split = self._split_features(x_batch, batch_indices, loader_name)
+        outputs = {key: self.execute(key, split) for key in self.pipes.keys()}
+        return self.merge_outputs(outputs, **kwargs)
 
     # API
 
@@ -417,48 +484,30 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     def execute(
         self,
-        head: str,
+        pipe: str,
         net: Union[Tensor, SplitFeatures],
         *,
         extract_kwargs: Optional[Dict[str, Any]] = None,
-        execute_kwargs: Optional[Dict[str, Any]] = None,
+        head_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Tensor:
-        if isinstance(net, SplitFeatures):
-            net = self.extract(self.head_extractors[head], net, extract_kwargs)
-        if execute_kwargs is None:
-            execute_kwargs = {}
-        return self.heads[head](net, **execute_kwargs)
+        return self.pipes[pipe](net, extract_kwargs, head_kwargs)
 
     def try_execute(
         self,
-        head: str,
+        pipe: str,
         split: SplitFeatures,
         *,
         extract_kwargs: Optional[Dict[str, Any]] = None,
-        execute_kwargs: Optional[Dict[str, Any]] = None,
+        head_kwargs: Optional[Dict[str, Any]] = None,
     ) -> Optional[Tensor]:
-        if head not in self.head_extractors:
+        if pipe not in self.pipes:
             return None
         return self.execute(
-            head,
+            pipe,
             split,
             extract_kwargs=extract_kwargs,
-            execute_kwargs=execute_kwargs,
+            head_kwargs=head_kwargs,
         )
-
-    def forward(
-        self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        batch_step: int = 0,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        # batch will have `categorical`, `numerical` and `labels` keys
-        x_batch = batch["x_batch"]
-        split = self._split_features(x_batch, batch_indices, loader_name)
-        outputs = {key: self.execute(key, split) for key in self.heads.keys()}
-        return self.merge_outputs(outputs, **kwargs)
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
@@ -519,6 +568,26 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             cls_.__identifier__ = name
 
         return register_core(name, model_dict, before_register=before)
+
+    @classmethod
+    def register_pipe(
+        cls,
+        key: str,
+        head: Optional[str] = None,
+        one_hot: bool = True,
+        embedding: bool = True,
+        only_categorical: bool = False,
+        extractor: str = "identity",
+    ) -> Callable[[Type], Type]:
+        if head is None:
+            head = key
+
+        def _core(cls_: Type) -> Type:
+            cfg = PipeConfig(one_hot, embedding, only_categorical, extractor, head)
+            cls_.registered_pipes[key] = cfg
+            return cls_
+
+        return _core
 
 
 __all__ = [
