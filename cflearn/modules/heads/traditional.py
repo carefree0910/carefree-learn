@@ -44,9 +44,9 @@ def export_structure(tree: DecisionTreeClassifier) -> tuple:
 class NDTHead(HeadBase):
     def __init__(
         self,
+        in_dim: int,
         dt: DecisionTreeClassifier,
         num_classes: int,
-        merged_dim: int,
         activations: Dict[str, str],
         activation_configs: Dict[str, Any],
     ):
@@ -59,7 +59,7 @@ class NDTHead(HeadBase):
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
         # transform
         b = np.zeros(num_internals, dtype=np.float32)
-        w1 = np.zeros([merged_dim, num_internals], dtype=np.float32)
+        w1 = np.zeros([in_dim, num_internals], dtype=np.float32)
         w2 = np.zeros([num_internals, num_leaves], dtype=np.float32)
         w3 = np.zeros([num_leaves, num_classes], dtype=np.float32)
         node_list: List[int] = []
@@ -83,7 +83,7 @@ class NDTHead(HeadBase):
                 leaf_id_cursor += 1
         w1, w2, w3, b = map(torch.from_numpy, [w1, w2, w3, b])
         # construct planes & routes
-        self.to_planes = Linear(merged_dim, num_internals, init_method=None)
+        self.to_planes = Linear(in_dim, num_internals, init_method=None)
         self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
         self.to_leaves = Linear(num_leaves, num_classes, init_method=None)
         with torch.no_grad():
@@ -112,9 +112,9 @@ class NDTHead(HeadBase):
 class NNBMNBHead(HeadBase):
     def __init__(
         self,
+        in_dim: int,
         y_ravel: np.ndarray,
         num_classes: int,
-        one_hot_dim: int,
         categorical: Optional[torch.Tensor],
     ):
         super().__init__()
@@ -124,7 +124,7 @@ class NNBMNBHead(HeadBase):
             log_prior = torch.from_numpy(np.log(y_bincount / len(y_ravel)))
             self.log_prior = nn.Parameter(log_prior)
         else:
-            self.mnb = Linear(one_hot_dim, num_classes, init_method=None)
+            self.mnb = Linear(in_dim, num_classes, init_method=None)
             x_mnb = categorical.cpu().numpy()
             y_mnb = y_ravel.astype(np_int_type)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
@@ -187,6 +187,7 @@ class NNBMNBHead(HeadBase):
 class NNBNormalHead(HeadBase):
     def __init__(
         self,
+        in_dim: int,
         y_ravel: np.ndarray,
         num_classes: int,
         pretrain: bool,
@@ -196,10 +197,9 @@ class NNBNormalHead(HeadBase):
         if numerical is None:
             self.mu = self.std = self.normal = None
         else:
-            num_numerical = numerical.shape[1]
             if not pretrain:
-                self.mu = nn.Parameter(torch.zeros(num_classes, num_numerical))
-                self.std = nn.Parameter(torch.ones(num_classes, num_numerical))
+                self.mu = nn.Parameter(torch.zeros(num_classes, in_dim))
+                self.std = nn.Parameter(torch.ones(num_classes, in_dim))
             else:
                 x_numerical = numerical.cpu().numpy()
                 mu_list, std_list = [], []

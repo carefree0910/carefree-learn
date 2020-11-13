@@ -15,21 +15,8 @@ class TreeDNN(ModelBase):
     @staticmethod
     @typing.no_type_check
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        one_hot_dim = instance.one_hot_dim
-        embedding_dim = instance.embedding_dim
         default_has_one_hot = "one_hot" in instance._default_encoding_method
-        # fcnn
-        if not instance._numerical_columns:
-            instance._use_embedding_for_fcnn = True
-            instance._use_one_hot_for_fcnn = default_has_one_hot
-        fcnn_in_dim = instance.merged_dim
-        if not instance._use_embedding_for_fcnn:
-            fcnn_in_dim -= embedding_dim * instance.num_history
-        if not instance._use_one_hot_for_fcnn:
-            fcnn_in_dim -= one_hot_dim * instance.num_history
-        instance.config["in_dim"] = fcnn_in_dim
         fcnn_cfg = FCNN.get_core_config(instance)
-        # dndf
         if instance._dndf_config is None:
             instance.log_msg(  # type: ignore
                 "DNDF is not used in TreeDNN, it will be equivalent to FCNN",
@@ -37,20 +24,13 @@ class TreeDNN(ModelBase):
                 verbose_level=2,
                 msg_level=logging.WARNING,
             )
-            dndf_input_dim = None
         else:
             instance._dndf_config["is_regression"] = instance.tr_data.is_reg
             instance._dndf_config.setdefault("tree_proj_config", None)
-            if not instance._numerical_columns:
+            if not instance.dimensions.has_numerical:
                 instance._use_embedding_for_dndf = True
                 instance._use_one_hot_for_dndf = default_has_one_hot
-            dndf_input_dim = instance.merged_dim
-            if not instance._use_embedding_for_dndf:
-                dndf_input_dim -= embedding_dim * instance.num_history
-            if not instance._use_one_hot_for_dndf:
-                dndf_input_dim -= one_hot_dim * instance.num_history
         dndf_cfg = {
-            "in_dim": dndf_input_dim,
             "out_dim": fcnn_cfg["out_dim"],
             "config": instance._dndf_config,
         }

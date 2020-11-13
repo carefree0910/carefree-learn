@@ -15,15 +15,13 @@ class RNN(ModelBase):
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         rnn_cfg = instance.config.setdefault("rnn_config", {})
-        rnn_cfg["in_dim"] = instance.tr_data.processed_dim
         rnn_cfg.setdefault("cell", "GRU")
         rnn_cfg.setdefault("num_layers", 1)
         cell_config = rnn_cfg.setdefault("cell_config", {})
         cell_config["batch_first"] = True
-        hidden_size = cell_config.setdefault("hidden_size", 256)
+        cell_config.setdefault("hidden_size", 256)
         cell_config.setdefault("bidirectional", False)
         fcnn_cfg = FCNN.get_core_config(instance)
-        fcnn_cfg["in_dim"] = hidden_size
         return {"fcnn": fcnn_cfg, "rnn": rnn_cfg}
 
 

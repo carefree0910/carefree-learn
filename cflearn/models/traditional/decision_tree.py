@@ -61,7 +61,6 @@ class NDT(ModelBase):
             {
                 "dt": self.dt,
                 "num_classes": num_classes,
-                "merged_dim": self.merged_dim,
                 "activations": activations,
                 "activation_configs": activation_configs,
             },

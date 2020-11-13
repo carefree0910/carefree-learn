@@ -81,18 +81,18 @@ class NNB(ModelBase):
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
         split = self._split_features(to_torch(x), np.arange(len(x)), "tr")
-        if not self._numerical_columns:
+        if not self.dimensions.has_numerical:
             numerical = None
         else:
             numerical = split.numerical
-        if self.one_hot_dim == 0:
+        if self.dimensions.one_hot_dim == 0:
             categorical = None
         else:
             categorical = split.categorical.one_hot
         common_config = {"y_ravel": y_ravel, "num_classes": num_classes}
         # mnb
         mnb_config = shallow_copy_dict(common_config)
-        mnb_config.update({"one_hot_dim": self.one_hot_dim, "categorical": categorical})
+        mnb_config.update({"categorical": categorical})
         self.define_head_config("nnb_mnb", mnb_config)
         self.define_transform_config(
             "nnb_mnb",

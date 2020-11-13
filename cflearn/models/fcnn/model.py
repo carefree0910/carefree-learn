@@ -13,7 +13,8 @@ class FCNN(ModelBase):
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         cfg = ModelBase.get_core_config(instance)
-        in_dim: int = cfg["in_dim"]
+        # TODO : Fix this by introducing `Config` class & move this process to `Head`
+        in_dim: int = 512
         if in_dim > 512:
             hidden_units = [1024, 1024]
         elif in_dim > 256:

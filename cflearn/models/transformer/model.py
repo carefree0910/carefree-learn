@@ -17,7 +17,6 @@ class Transformer(ModelBase):
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
         in_dim = instance.tr_data.processed_dim
         transformer_cfg = instance.config.setdefault("transformer_config", {})
-        transformer_cfg["in_dim"] = in_dim
         latent_dim = transformer_cfg.setdefault("latent_dim", 256)
         transformer_cfg.setdefault("to_latent", latent_dim is not None)
         il_config = transformer_cfg.setdefault("input_linear_config", None)
@@ -28,7 +27,6 @@ class Transformer(ModelBase):
         transformer_cfg.setdefault("norm", None)
         transformer_cfg.setdefault("transformer_layer_config", {})
         fcnn_cfg = FCNN.get_core_config(instance)
-        fcnn_cfg["in_dim"] = instance.num_history * latent_dim
         return {"fcnn": fcnn_cfg, "transformer": transformer_cfg}
 
 

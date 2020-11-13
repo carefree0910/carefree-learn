@@ -25,126 +25,16 @@ from ..losses import *
 from ..modules import *
 from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
+from ..modules.pipe import Pipe
+from ..modules.pipe import PipeConfig
+from ..modules.pipe import PipePlaceholder
 from ..modules.heads import HeadBase
 from ..modules.extractors import ExtractorBase
+from ..modules.extractors import Transform
+from ..modules.extractors import Dimensions
+from ..modules.extractors import SplitFeatures
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
-
-
-class SplitFeatures(NamedTuple):
-    categorical: Optional[EncodingResult]
-    numerical: Optional[Tensor]
-
-    def merge(
-        self,
-        use_one_hot: bool = True,
-        use_embedding: bool = True,
-        only_categorical: bool = False,
-    ) -> Tensor:
-        if use_embedding and use_one_hot:
-            return self._merge_all(only_categorical)
-        numerical = None if only_categorical else self.numerical
-        if not use_embedding and not use_one_hot:
-            if only_categorical:
-                raise ValueError(
-                    "`only_categorical` is set to True, "
-                    "but neither `one_hot` nor `embedding` is used"
-                )
-            assert numerical is not None
-            return numerical
-        categorical = self.categorical
-        if not categorical:
-            if only_categorical:
-                raise ValueError("categorical is not available")
-            assert numerical is not None
-            return numerical
-        if not use_one_hot:
-            embedding = categorical.embedding
-            assert embedding is not None
-            if numerical is None:
-                return embedding
-            return torch.cat([numerical, embedding], dim=1)
-        one_hot = categorical.one_hot
-        assert not use_embedding and one_hot is not None
-        if numerical is None:
-            return one_hot
-        return torch.cat([numerical, one_hot], dim=1)
-
-    def _merge_all(self, only_categorical: bool) -> Tensor:
-        categorical = self.categorical
-        if categorical is None:
-            if only_categorical:
-                raise ValueError("categorical is not available")
-            assert self.numerical is not None
-            return self.numerical
-        merged = categorical.merged
-        if only_categorical or self.numerical is None:
-            return merged
-        return torch.cat([self.numerical, merged], dim=1)
-
-
-class Transform(Module):
-    def __init__(
-        self,
-        *,
-        one_hot: bool,
-        embedding: bool,
-        only_categorical: bool,
-    ):
-        super().__init__()
-        self.use_one_hot = one_hot
-        self.use_embedding = embedding
-        self.only_categorical = only_categorical
-
-    def forward(self, split: SplitFeatures) -> Tensor:
-        return split.merge(self.use_one_hot, self.use_embedding, self.only_categorical)
-
-    def extra_repr(self) -> str:
-        one_hot_str = f"(use_one_hot): {self.use_one_hot}"
-        embedding_str = f"(use_embedding): {self.use_embedding}"
-        only_str = "" if not self.only_categorical else "(only): categorical\n"
-        return f"{only_str}{one_hot_str}\n{embedding_str}"
-
-
-class PipeConfig(NamedTuple):
-    extractor: str
-    head: str
-
-
-class Pipe(Module):
-    def __init__(self, transform: Transform, extractor: ExtractorBase, head: HeadBase):
-        super().__init__()
-        self.transform = transform
-        self.extractor = extractor
-        self.head = head
-
-    def forward(
-        self,
-        inp: Union[Tensor, SplitFeatures],
-        extract_kwargs: Optional[Dict[str, Any]] = None,
-        head_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Tensor:
-        net = inp if isinstance(inp, Tensor) else self.transform(inp)
-        if extract_kwargs is None:
-            extract_kwargs = {}
-        net = self.extractor(net, **extract_kwargs)
-        net_shape = net.shape
-        if self.extractor.flatten_ts:
-            if len(net_shape) == 3:
-                net = net.view(net_shape[0], -1)
-        if head_kwargs is None:
-            head_kwargs = {}
-        return self.head(net, **head_kwargs)
-
-
-class PipePlaceholder(Pipe):
-    def forward(
-        self,
-        inp: Union[Tensor, SplitFeatures],
-        extract_kwargs: Optional[Dict[str, Any]] = None,
-        head_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> None:
-        raise ValueError("`PipePlaceholder.forward` should not be called")
 
 
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
@@ -178,15 +68,15 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._init_loss()
         # encoder
         excluded = 0
-        self.numerical_columns_mapping = {}
-        self.categorical_columns_mapping = {}
+        numerical_columns_mapping = {}
+        categorical_columns_mapping = {}
         categorical_dims = []
         encoding_methods = []
         encoding_configs = []
         true_categorical_columns = []
         if self.tr_data.is_simplify:
             for idx in range(self.tr_data.raw_dim):
-                self.numerical_columns_mapping[idx] = idx
+                numerical_columns_mapping[idx] = idx
         else:
             ts_indices = self.tr_data.ts_indices
             recognizers = self.tr_data.recognizers
@@ -196,7 +86,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 if not recognizer.info.is_valid or idx in ts_indices:
                     excluded += 1
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
-                    self.numerical_columns_mapping[idx] = idx - excluded
+                    numerical_columns_mapping[idx] = idx - excluded
                 else:
                     str_idx = str(idx)
                     categorical_dims.append(
@@ -214,7 +104,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                     )
                     true_idx = idx - excluded
                     true_categorical_columns.append(true_idx)
-                    self.categorical_columns_mapping[idx] = true_idx
+                    categorical_columns_mapping[idx] = true_idx
         if not true_categorical_columns:
             self.encoder = None
         else:
@@ -230,8 +120,13 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 true_categorical_columns,
                 loaders,
             )
-        self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
-        self._numerical_columns = sorted(self.numerical_columns_mapping.values())
+        # dimensions
+        self.dimensions = Dimensions(
+            self.encoder,
+            numerical_columns_mapping,
+            categorical_columns_mapping,
+            self.num_history,
+        )
         # pipes
         self.pipes = ModuleDict()
         self.bypassed_pipes = set()
@@ -267,34 +162,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         return num_history
 
     @property
-    def merged_dim(self) -> int:
-        merged_dim = self._categorical_dim + len(self._numerical_columns)
-        return merged_dim * self.num_history
-
-    @property
-    def one_hot_dim(self) -> int:
-        if self.encoder is None:
-            return 0
-        return self.encoder.one_hot_dim
-
-    @property
-    def embedding_dim(self) -> int:
-        if self.encoder is None:
-            return 0
-        return self.encoder.embedding_dim
-
-    @property
-    def categorical_dims(self) -> Dict[int, int]:
-        dims: Dict[int, int] = {}
-        if self.encoder is None:
-            return dims
-        merged_dims = self.encoder.merged_dims
-        for idx in sorted(merged_dims):
-            true_idx = self.categorical_columns_mapping[idx]
-            dims[true_idx] = merged_dims[idx]
-        return dims
-
-    @property
     def pipe_configs(self):
         return self.config.setdefault("pipe_configs", {})
 
@@ -306,10 +173,15 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         extractor_config: Dict[str, Any],
         head_config: Dict[str, Any],
     ) -> None:
-        transform = Transform(**transform_config)
-        extractor = ExtractorBase.make(pipe_config.extractor, extractor_config)
+        transform = Transform(self.dimensions, **transform_config)
+        extractor = ExtractorBase.make(
+            pipe_config.extractor,
+            transform,
+            extractor_config,
+        )
+        head_config["in_dim"] = extractor.out_dim
         head = HeadBase.make(pipe_config.head, head_config)
-        args = transform, extractor, head
+        args = extractor, head
         if key not in self.bypassed_pipes:
             self.pipes[key] = Pipe(*args)
         else:
@@ -457,11 +329,11 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         with timing_context(self, "encoding", enable=self.timing):
             encoding_result = self.encoder(x_batch, batch_indices, loader_name)
         with timing_context(self, "fetch_numerical", enable=self.timing):
-            numerical = (
-                None
-                if not self._numerical_columns
-                else x_batch[..., self._numerical_columns]
-            )
+            numerical_columns = self.dimensions._numerical_columns
+            if not numerical_columns:
+                numerical = None
+            else:
+                numerical = x_batch[..., numerical_columns]
         return SplitFeatures(encoding_result, numerical)
 
     def execute(
@@ -493,14 +365,11 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        in_dim: int = instance.config.get("in_dim")
         out_dim: int = instance.config.get("out_dim")
         default_out_dim = max(instance.tr_data.num_classes, 1)
-        if in_dim is None:
-            in_dim = instance.merged_dim
         if out_dim is None:
             out_dim = default_out_dim
-        return {"in_dim": in_dim, "out_dim": out_dim}
+        return {"out_dim": out_dim}
 
     def _preset_config(self) -> None:
         pass
@@ -572,7 +441,4 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         return _core
 
 
-__all__ = [
-    "SplitFeatures",
-    "ModelBase",
-]
+__all__ = ["ModelBase"]
