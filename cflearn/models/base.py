@@ -137,6 +137,16 @@ class Pipe(Module):
         return self.head(net, **head_kwargs)
 
 
+class PipePlaceholder(Pipe):
+    def forward(
+        self,
+        inp: Union[Tensor, SplitFeatures],
+        extract_kwargs: Optional[Dict[str, Any]] = None,
+        head_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        return None
+
+
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     registered_pipes: Optional[Dict[str, PipeConfig]] = None
 
@@ -224,6 +234,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
         # pipes
         self.pipes = ModuleDict()
+        self.bypassed_pipes = set()
         self.define_pipe_configs()
         for key, pipe_config in self.registered_pipes.items():
             local_configs = self.pipe_configs.setdefault(key, {})
@@ -298,8 +309,14 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         transform = Transform(**transform_config)
         extractor = ExtractorBase.make(pipe_config.extractor, extractor_config)
         head = HeadBase.make(pipe_config.head, head_config)
-        self.pipes[key] = Pipe(transform, extractor, head)
+        args = transform, extractor, head
+        if key not in self.bypassed_pipes:
+            self.pipes[key] = Pipe(*args)
+        else:
+            self.pipes[key] = PipePlaceholder(*args)
 
+    def bypass_pipe(self, key: str) -> None:
+        self.bypassed_pipes.add(key)
 
     def _define_config(self, pipe: str, key: str, config: Dict[str, Any]) -> None:
         pipe_config = self.pipe_configs.setdefault(pipe, {})

@@ -98,6 +98,8 @@ class NNB(ModelBase):
             "nnb_mnb",
             {"one_hot": True, "embedding": False, "only_categorical": True},
         )
+        if categorical is None:
+            self.bypass_pipe("nnb_mnb")
         # normal
         normal_config = shallow_copy_dict(common_config)
         normal_config.update({"numerical": numerical, "pretrain": self.pretrain})
@@ -106,6 +108,8 @@ class NNB(ModelBase):
             "nnb_normal",
             {"one_hot": False, "embedding": False, "only_categorical": False},
         )
+        if numerical is None:
+            self.bypass_pipe("nnb_normal")
 
     def merge_outputs(
         self,
