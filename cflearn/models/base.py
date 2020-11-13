@@ -30,7 +30,34 @@ class SplitFeatures(NamedTuple):
     categorical: Optional[EncodingResult]
     numerical: Optional[torch.Tensor]
 
-    def merge(self) -> torch.Tensor:
+    def merge(
+        self,
+        use_embedding: bool = True,
+        use_one_hot: bool = True,
+    ) -> torch.Tensor:
+        if use_embedding and use_one_hot:
+            return self._merge_all()
+        numerical = self.numerical
+        if not use_embedding and not use_one_hot:
+            assert numerical is not None
+            return numerical
+        categorical = self.categorical
+        if not categorical:
+            assert numerical is not None
+            return numerical
+        if not use_one_hot:
+            embedding = categorical.embedding
+            assert embedding is not None
+            if numerical is None:
+                return embedding
+            return torch.cat([numerical, embedding], dim=1)
+        one_hot = categorical.one_hot
+        assert not use_embedding and one_hot is not None
+        if numerical is None:
+            return one_hot
+        return torch.cat([numerical, one_hot], dim=1)
+
+    def _merge_all(self) -> torch.Tensor:
         categorical = self.categorical
         if categorical is None:
             assert self.numerical is not None

@@ -109,34 +109,6 @@ class TreeDNN(ModelBase):
             default_encoding_method.append("one_hot")
         self.config.setdefault("default_encoding_method", default_encoding_method)
 
-    @staticmethod
-    def _merge(
-        split_result: SplitFeatures,
-        use_embedding: bool,
-        use_one_hot: bool,
-    ) -> torch.Tensor:
-        if use_embedding and use_one_hot:
-            return split_result.merge()
-        numerical = split_result.numerical
-        if not use_embedding and not use_one_hot:
-            assert numerical is not None
-            return numerical
-        categorical = split_result.categorical
-        if not categorical:
-            assert numerical is not None
-            return numerical
-        if not use_one_hot:
-            embedding = categorical.embedding
-            assert embedding is not None
-            if numerical is None:
-                return embedding
-            return torch.cat([numerical, embedding], dim=1)
-        one_hot = categorical.one_hot
-        assert not use_embedding and one_hot is not None
-        if numerical is None:
-            return one_hot
-        return torch.cat([numerical, one_hot], dim=1)
-
     def forward(
         self,
         batch: tensor_dict_type,
@@ -148,8 +120,7 @@ class TreeDNN(ModelBase):
         x_batch = batch["x_batch"]
         split_result = self._split_features(x_batch, batch_indices, loader_name)
         # fcnn
-        fcnn_net = self._merge(
-            split_result,
+        fcnn_net = split_result.merge(
             self._use_embedding_for_mlp,
             self._use_one_hot_for_mlp,
         )
@@ -159,8 +130,7 @@ class TreeDNN(ModelBase):
         if self.core.dndf is None:
             dndf_net = None
         else:
-            dndf_net = self._merge(
-                split_result,
+            dndf_net = split_result.merge(
                 self._use_embedding_for_dndf,
                 self._use_one_hot_for_dndf,
             )
