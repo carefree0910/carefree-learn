@@ -94,7 +94,13 @@ def test() -> None:
             visualizer = DDRVisualizer(m)
             # median residual
             export_path = _get_file(export_folder, "mr.png")
-            visualizer.visualize(x_cv, y_cv, export_path, median_residual=True, padding=padding)
+            visualizer.visualize(
+                x_cv,
+                y_cv,
+                export_path,
+                median_residual=True,
+                padding=padding,
+            )
             # quantile
             q_kwargs = {"q_batch": q_batch, "padding": padding}
             export_path = _get_file(export_folder, "quantile.png")
@@ -108,7 +114,13 @@ def test() -> None:
             visualizer.visualize(x_cv, y_cv, cdf_path, **y_kwargs)
             visualizer.visualize(x_cv, y_cv, pdf_path, to_pdf=True, **y_kwargs)
             export_path = _get_file(export_folder, "cdf_logit_mul.png")
-            visualizer.visualize(x_cv, y_cv, export_path, cdf_logit_mul=True, **y_kwargs)
+            visualizer.visualize(
+                x_cv,
+                y_cv,
+                export_path,
+                cdf_logit_mul=True,
+                **y_kwargs,
+            )
             # multiple
             n_base, n_repeat = 1000, 10000
             x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, n_base)
