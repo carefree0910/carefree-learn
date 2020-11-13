@@ -1,17 +1,14 @@
-import numpy as np
-
 from typing import *
 
-from .core import FCNNCore
 from ..base import ModelBase
-from ...types import tensor_dict_type
 
 
 @ModelBase.register("fcnn")
+@ModelBase.register_pipe("fcnn")
 class FCNN(ModelBase):
-    def define_heads(self) -> None:
+    def define_pipe_configs(self) -> None:
         cfg = self.get_core_config(self)
-        self.add_head("basic", FCNNCore(**cfg))
+        self.define_head_config("fcnn", cfg)
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:

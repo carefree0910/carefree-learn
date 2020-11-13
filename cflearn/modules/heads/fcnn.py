@@ -1,13 +1,17 @@
 import torch
 
-import torch.nn as nn
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Union
+from typing import Optional
 
-from typing import *
-
+from .base import HeadBase
 from ...modules.blocks import MLP
 
 
-class FCNNCore(nn.Module):
+@HeadBase.register("fcnn")
+class FCNNHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
@@ -31,4 +35,4 @@ class FCNNCore(nn.Module):
         return self.mlp(net)
 
 
-__all__ = ["FCNNCore"]
+__all__ = ["FCNNHead"]
