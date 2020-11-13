@@ -5,7 +5,6 @@ import numpy as np
 import torch.nn as nn
 
 from typing import *
-from abc import abstractmethod
 from abc import ABCMeta
 from torch import Tensor
 from torch.nn import Module
@@ -24,10 +23,10 @@ except:
 
 from ..losses import *
 from ..modules import *
-from .heads import HeadBase
-from .extractors import ExtractorBase
 from ..types import tensor_dict_type
 from ..misc.toolkit import to_torch
+from ..modules.heads import HeadBase
+from ..modules.extractors import ExtractorBase
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
 
