@@ -74,7 +74,7 @@ class Transformer(ExtractorBase):
         if latent_dim is not None and not to_latent:
             msg = "`latent_dim` is provided but `to_latent` is set to False"
             raise ValueError(msg)
-        in_dim = transform.out_dim
+        in_dim = transform.out_dim // transform.dimensions.num_history
         if latent_dim is None:
             latent_dim = 256 if to_latent else in_dim
         self.latent_dim = latent_dim
