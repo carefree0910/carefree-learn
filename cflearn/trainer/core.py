@@ -551,10 +551,11 @@ class Trainer(LoggingMixin):
             )
         )
         log_name = f"{timestamp()}.txt"
-        self._log_file = os.path.join(self.logging_folder, log_name)
+        self._log_file: str = os.path.join(self.logging_folder, log_name)
         with open(self._log_file, "w"):
             pass
-        step_tqdm_legacy = self._epoch_tqdm = None
+        step_tqdm_legacy = None
+        self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.num_epoch)), position=0)
         while self._epoch_count < self.num_epoch:
