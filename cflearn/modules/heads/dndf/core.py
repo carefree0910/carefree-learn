@@ -4,8 +4,8 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .base import HeadBase
-from ...modules.blocks import DNDF
+from ..base import HeadBase
+from ....modules.blocks import DNDF
 
 
 @HeadBase.register("dndf")

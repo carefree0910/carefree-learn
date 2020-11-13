@@ -1,80 +1,20 @@
-import typing
 import logging
 
 from typing import Any
 from typing import Dict
 
 from ..base import ModelBase
-from ..fcnn.model import FCNN
 
 
 @ModelBase.register("tree_dnn")
-@ModelBase.register_pipe("fcnn")
 @ModelBase.register_pipe("dndf")
+@ModelBase.register_pipe("fcnn", transform="embedding")
 class TreeDNN(ModelBase):
-    @staticmethod
-    @typing.no_type_check
-    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        default_has_one_hot = "one_hot" in instance._default_encoding_method
-        fcnn_cfg = FCNN.get_core_config(instance)
-        if instance._dndf_config is None:
-            instance.log_msg(  # type: ignore
-                "DNDF is not used in TreeDNN, it will be equivalent to FCNN",
-                prefix=instance.warning_prefix,
-                verbose_level=2,
-                msg_level=logging.WARNING,
-            )
-        else:
-            instance._dndf_config["is_regression"] = instance.tr_data.is_reg
-            instance._dndf_config.setdefault("tree_proj_config", None)
-            if not instance.dimensions.has_numerical:
-                instance._use_embedding_for_dndf = True
-                instance._use_one_hot_for_dndf = default_has_one_hot
-        dndf_cfg = {
-            "out_dim": fcnn_cfg["out_dim"],
-            "config": instance._dndf_config,
-        }
-        return {"fcnn_config": fcnn_cfg, "dndf_config": dndf_cfg}
-
-    def define_pipe_configs(self) -> None:
-        self.define_transform_config(
-            "fcnn",
-            {
-                "one_hot": self._use_one_hot_for_fcnn,
-                "embedding": self._use_embedding_for_fcnn,
-            },
-        )
-        self.define_transform_config(
-            "dndf",
-            {
-                "one_hot": self._use_one_hot_for_dndf,
-                "embedding": self._use_embedding_for_dndf,
-            },
-        )
-        cfg = self.get_core_config(self)
-        self.define_head_config("fcnn", cfg["fcnn_config"])
-        self.define_head_config("dndf", cfg["dndf_config"])
-        if self._dndf_config is None:
-            self.bypass_pipe("dndf")
-
     def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
             mapping_configs.setdefault("pruner_config", {})
-        fcnn_one_hot = self.config.setdefault("use_one_hot_for_fcnn", False)
-        fcnn_embedding = self.config.setdefault("use_embedding_for_fcnn", True)
-        self._dndf_config = self.config.setdefault("dndf_config", {})
-        has_dndf = self._dndf_config is not None
-        dndf_one_hot = self.config.setdefault("use_one_hot_for_dndf", has_dndf)
-        dndf_embedding = self.config.setdefault("use_embedding_for_dndf", has_dndf)
-        self._use_one_hot_for_fcnn = fcnn_one_hot
-        self._use_embedding_for_fcnn = fcnn_embedding
-        self._use_one_hot_for_dndf = dndf_one_hot
-        self._use_embedding_for_dndf = dndf_embedding
-        default_encoding_method = ["embedding"]
-        if fcnn_one_hot or dndf_one_hot:
-            default_encoding_method.append("one_hot")
-        self.config.setdefault("default_encoding_method", default_encoding_method)
+        self.config.setdefault("default_encoding_method", ["embedding", "one_hot"])
 
 
 @ModelBase.register("tree_stack")
