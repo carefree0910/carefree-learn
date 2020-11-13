@@ -216,6 +216,38 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def output_probabilities(self) -> bool:
         return False
 
+    def _preset_config(self) -> None:
+        pass
+
+    def _init_config(self) -> None:
+        # encoding
+        encoding_methods = self.config.setdefault("encoding_methods", {})
+        encoding_configs = self.config.setdefault("encoding_configs", {})
+        self._encoding_methods = {str(k): v for k, v in encoding_methods.items()}
+        self._encoding_configs = {str(k): v for k, v in encoding_configs.items()}
+        self._default_encoding_configs = self.config.setdefault(
+            "default_encoding_configs", {}
+        )
+        self._default_encoding_method = self.config.setdefault(
+            "default_encoding_method", "embedding"
+        )
+        # loss
+        self._loss_config = self.config.setdefault("loss_config", {})
+
+    def _init_loss(self) -> None:
+        if self.tr_data.is_reg:
+            self.loss: Module = nn.L1Loss(reduction="none")
+        else:
+            self.loss = FocalLoss(self._loss_config, reduction="none")
+
+    @staticmethod
+    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
+        out_dim: int = instance.config.get("out_dim")
+        default_out_dim = max(instance.tr_data.num_classes, 1)
+        if out_dim is None:
+            out_dim = default_out_dim
+        return {"out_dim": out_dim}
+
     def define_pipe_configs(self) -> None:
         pass
 
@@ -252,6 +284,24 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             for key in self.pipes.keys()
         }
         return self.merge_outputs(outputs, **kwargs)
+
+    def loss_function(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: np.ndarray,
+        forward_results: tensor_dict_type,
+        batch_step: int,
+    ) -> tensor_dict_type:
+        # requires returning `loss` key
+        y_batch = batch["y_batch"]
+        if self.tr_data.is_clf:
+            y_batch = y_batch.view(-1)
+        predictions = forward_results["predictions"]
+        # `sample_weights` could be accessed through:
+        # 1) `self.tr_weights[batch_indices]` (for training)
+        # 2) `self.cv_weights[batch_indices]` (for validation)
+        losses = self.loss(predictions, y_batch)
+        return {"loss": losses.mean()}
 
     # API
 
@@ -300,24 +350,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self.log_block_msg(msg, verbose_level=3)  # type: ignore
         return "\n".join([all_msg, msg])
 
-    def loss_function(
-        self,
-        batch: tensor_dict_type,
-        batch_indices: np.ndarray,
-        forward_results: tensor_dict_type,
-        batch_step: int,
-    ) -> tensor_dict_type:
-        # requires returning `loss` key
-        y_batch = batch["y_batch"]
-        if self.tr_data.is_clf:
-            y_batch = y_batch.view(-1)
-        predictions = forward_results["predictions"]
-        # `sample_weights` could be accessed through:
-        # 1) `self.tr_weights[batch_indices]` (for training)
-        # 2) `self.cv_weights[batch_indices]` (for validation)
-        losses = self.loss(predictions, y_batch)
-        return {"loss": losses.mean()}
-
     def _split_features(
         self,
         x_batch: Tensor,
@@ -362,38 +394,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             extract_kwargs=extract_kwargs,
             head_kwargs=head_kwargs,
         )
-
-    @staticmethod
-    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        out_dim: int = instance.config.get("out_dim")
-        default_out_dim = max(instance.tr_data.num_classes, 1)
-        if out_dim is None:
-            out_dim = default_out_dim
-        return {"out_dim": out_dim}
-
-    def _preset_config(self) -> None:
-        pass
-
-    def _init_config(self) -> None:
-        # encoding
-        encoding_methods = self.config.setdefault("encoding_methods", {})
-        encoding_configs = self.config.setdefault("encoding_configs", {})
-        self._encoding_methods = {str(k): v for k, v in encoding_methods.items()}
-        self._encoding_configs = {str(k): v for k, v in encoding_configs.items()}
-        self._default_encoding_configs = self.config.setdefault(
-            "default_encoding_configs", {}
-        )
-        self._default_encoding_method = self.config.setdefault(
-            "default_encoding_method", "embedding"
-        )
-        # loss
-        self._loss_config = self.config.setdefault("loss_config", {})
-
-    def _init_loss(self) -> None:
-        if self.tr_data.is_reg:
-            self.loss: Module = nn.L1Loss(reduction="none")
-        else:
-            self.loss = FocalLoss(self._loss_config, reduction="none")
 
     def _optimizer_step(
         self,
