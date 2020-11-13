@@ -56,6 +56,7 @@ class Pipeline(LoggingMixin):
             self.device = torch.device(f"cuda:{cuda}")
         else:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        LoggingMixin.reset_logging()
         self._init_config(config)
 
     def __str__(self) -> str:
