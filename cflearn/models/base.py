@@ -186,9 +186,20 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 true_categorical_columns,
                 loaders,
             )
-
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
+        # main structures
+        # transform
+        self.transforms = ModuleDict()
+        self.define_transforms()
+        # extractor
+        self.extractors = ModuleDict()
+        self.extractor_transforms = {}
+        self.define_extractors()
+        # head
+        self.heads = ModuleDict()
+        self.head_extractors = {}
+        self.define_heads()
 
     @property
     def num_history(self) -> int:
@@ -241,9 +252,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         x, y = map(to_torch, [x, y])
         return {"x_batch": x, "y_batch": y}
 
-    def define_transforms(self) -> None:
-        self.add_transform("basic", True, True, False)
-
     def add_transform(
         self,
         key: str,
@@ -257,9 +265,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             only_categorical=only_categorical,
         )
 
-    def define_extractors(self) -> None:
-        self.add_extractor("basic")
-
     def add_extractor(
         self,
         key: str,
@@ -272,6 +277,28 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         if transform not in self.transforms:
             raise ValueError(f"transform '{transform}' is not defined")
         self.extractor_transforms[key] = transform
+
+    def add_head(
+        self,
+        key: str,
+        core: Module,
+        *,
+        extractor: Optional[str] = None,
+    ) -> None:
+        self.heads[key] = core
+        if extractor is None:
+            extractor = key
+        self.head_extractors[key] = extractor
+
+    def define_transforms(self) -> None:
+        self.add_transform("basic", True, True, False)
+
+    def define_extractors(self) -> None:
+        self.add_extractor("basic")
+
+    @abstractmethod
+    def define_heads(self) -> None:
+        pass
 
     @abstractmethod
     def forward(
@@ -373,14 +400,52 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             )
         return SplitFeatures(encoding_result, numerical)
 
-    def extract(self, extractor: str, split: SplitFeatures) -> Tensor:
+    def extract(
+        self,
+        extractor: str,
+        split: SplitFeatures,
+        extract_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Tensor:
         transform = self.extractor_transforms[extractor]
         net = self.transforms[transform](split)
-        net = self.extractors[extractor](net)
+        if extract_kwargs is None:
+            extract_kwargs = {}
+        net = self.extractors[extractor](net, **extract_kwargs)
         # TODO : optimize this when extractor is RNN
         if self.tr_data.is_ts:
             net = net.view(net.shape[0], -1)
         return net
+
+    def execute(
+        self,
+        head: str,
+        net: Union[Tensor, SplitFeatures],
+        *,
+        extract_kwargs: Optional[Dict[str, Any]] = None,
+        execute_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Tensor:
+        if isinstance(net, SplitFeatures):
+            net = self.extract(self.head_extractors[head], net, extract_kwargs)
+        if execute_kwargs is None:
+            execute_kwargs = {}
+        return self.heads[head](net, **execute_kwargs)
+
+    def try_execute(
+        self,
+        head: str,
+        split: SplitFeatures,
+        *,
+        extract_kwargs: Optional[Dict[str, Any]] = None,
+        execute_kwargs: Optional[Dict[str, Any]] = None,
+    ) -> Optional[Tensor]:
+        if head not in self.head_extractors:
+            return None
+        return self.execute(
+            head,
+            split,
+            extract_kwargs=extract_kwargs,
+            execute_kwargs=execute_kwargs,
+        )
 
     @staticmethod
     def common_forward(
@@ -391,9 +456,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split = instance._split_features(x_batch, batch_indices, loader_name)
-        net = instance.extract("basic", split)
-        net = instance.core(net)  # type: ignore
-        return {"predictions": net}
+        return {"predictions": instance.execute("basic", split)}
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
@@ -410,13 +473,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         pass
 
     def _init_config(self) -> None:
-        # transform
-        self.transforms = ModuleDict()
-        self.define_transforms()
-        # extractor
-        self.extractors = ModuleDict()
-        self.extractor_transforms = {}
-        self.define_extractors()
         # encoding
         encoding_methods = self.config.setdefault("encoding_methods", {})
         encoding_configs = self.config.setdefault("encoding_configs", {})

@@ -4,12 +4,11 @@ import numpy as np
 import torch.nn as nn
 
 from typing import Any
-from typing import Dict
 from typing import List
 from typing import Iterator
 from typing import Optional
-from cfdata.tabular import DataLoader
 from sklearn.tree import _tree, DecisionTreeClassifier
+from torch.nn.functional import log_softmax
 
 from ...misc.toolkit import *
 from ...modules.blocks import *
@@ -36,37 +35,44 @@ def export_structure(tree: DecisionTreeClassifier) -> tuple:
 
 @ModelBase.register("ndt")
 class NDT(ModelBase):
-    def __init__(
-        self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
-    ):
-        super().__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
+    @property
+    def hyperplane_weights(self) -> np.ndarray:
+        return to_numpy(self.to_planes.linear.weight)
+
+    @property
+    def hyperplane_thresholds(self) -> np.ndarray:
+        return to_numpy(-self.to_planes.linear.bias)
+
+    @property
+    def route_weights(self) -> np.ndarray:
+        return to_numpy(self.to_routes.linear.weight)
+
+    @property
+    def class_log_distributions(self) -> np.ndarray:
+        return to_numpy(self.to_leaves.linear.weight)
+
+    @property
+    def class_log_prior(self) -> np.ndarray:
+        return to_numpy(self.to_leaves.linear.bias)
+
+    @property
+    def class_prior(self) -> np.ndarray:
+        return np.exp(self.class_log_prior)
+
+    def define_heads(self) -> None:
         # prepare
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
         # decision tree
+        dt_config = self.config.setdefault("dt_config", {})
+        dt_config.setdefault("max_depth", 10)
         msg = "fitting decision tree"
         self.log_msg(msg, self.info_prefix, verbose_level=2)  # type: ignore
         split = self._split_features(to_torch(x), np.arange(len(x)), "tr")
         x_merge = self.extract("basic", split)
         x_merge = x_merge.cpu().numpy()
-        self.dt = DecisionTreeClassifier(**self.dt_config, random_state=142857)
-        self.dt.fit(x_merge, y_ravel, sample_weight=tr_weights)
+        self.dt = DecisionTreeClassifier(**dt_config, random_state=142857)
+        self.dt.fit(x_merge, y_ravel, sample_weight=self.tr_weights)
         tree_structure = export_structure(self.dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
@@ -99,50 +105,17 @@ class NDT(ModelBase):
                 leaf_id_cursor += 1
         w1, w2, w3, b = map(torch.from_numpy, [w1, w2, w3, b])
         # construct planes & routes
-        self.to_planes = Linear(self.merged_dim, num_internals, init_method=None)
-        self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
-        self.to_leaves = Linear(num_leaves, num_classes, init_method=None)
+        to_planes = Linear(self.merged_dim, num_internals, init_method=None)
+        to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
+        to_leaves = Linear(num_leaves, num_classes, init_method=None)
         with torch.no_grad():
-            self.to_planes.linear.bias.data = b
-            self.to_planes.linear.weight.data = w1.t()
-            self.to_routes.linear.weight.data = w2.t()
-            self.to_leaves.linear.weight.data = w3.t()
-            uniform = nn.functional.log_softmax(
-                torch.zeros(num_classes, dtype=torch.float32), dim=0
-            )
-            self.to_leaves.linear.bias.data = uniform
-
-    @property
-    def hyperplane_weights(self) -> np.ndarray:
-        return to_numpy(self.to_planes.linear.weight)
-
-    @property
-    def hyperplane_thresholds(self) -> np.ndarray:
-        return to_numpy(-self.to_planes.linear.bias)
-
-    @property
-    def route_weights(self) -> np.ndarray:
-        return to_numpy(self.to_routes.linear.weight)
-
-    @property
-    def class_log_distributions(self) -> np.ndarray:
-        return to_numpy(self.to_leaves.linear.weight)
-
-    @property
-    def class_log_prior(self) -> np.ndarray:
-        return to_numpy(self.to_leaves.linear.bias)
-
-    @property
-    def class_prior(self) -> np.ndarray:
-        return np.exp(self.class_log_prior)
-
-    def _preset_config(self) -> None:
-        self.config.setdefault("default_encoding_method", "one_hot")
-
-    def _init_config(self) -> None:
-        super()._init_config()
-        self.dt_config = self.config.setdefault("dt_config", {})
-        self.dt_config.setdefault("max_depth", 10)
+            to_planes.linear.bias.data = b
+            to_planes.linear.weight.data = w1.t()
+            to_routes.linear.weight.data = w2.t()
+            to_leaves.linear.weight.data = w3.t()
+            uniform = log_softmax(torch.zeros(num_classes, dtype=torch.float32), dim=0)
+            to_leaves.linear.bias.data = uniform
+        # activations
         activation_configs = self.config.setdefault("activation_configs", {})
         m_tanh_cfg = activation_configs.setdefault("multiplied_tanh", {})
         m_sm_cfg = activation_configs.setdefault("multiplied_softmax", {})
@@ -151,9 +124,27 @@ class NDT(ModelBase):
         default_activations = {"planes": "sign", "routes": "multiplied_softmax"}
         activations = self.config.setdefault("activations", default_activations)
         activations_ins = Activations(activation_configs)
-        self.planes_activation = activations_ins.module(activations.get("planes"))
-        self.routes_activation = activations_ins.module(activations.get("routes"))
-        self._init_with_dt = self.config.setdefault("")
+        planes_activation = activations_ins.module(activations.get("planes"))
+        routes_activation = activations_ins.module(activations.get("routes"))
+
+        class DT(nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.to_planes = to_planes
+                self.to_routes = to_routes
+                self.to_leaves = to_leaves
+                self.planes_activation = planes_activation
+                self.routes_activation = routes_activation
+
+            def forward(self, net: torch.Tensor) -> torch.Tensor:
+                planes = self.planes_activation(self.to_planes(net))
+                routes = self.routes_activation(self.to_routes(planes))
+                return self.to_leaves(routes)
+
+        self.add_head("basic", DT())
+
+    def _preset_config(self) -> None:
+        self.config.setdefault("default_encoding_method", "one_hot")
 
     def forward(
         self,
@@ -163,13 +154,7 @@ class NDT(ModelBase):
         batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        split = self._split_features(x_batch, batch_indices, loader_name)
-        net = self.extract("basic", split)
-        planes = self.planes_activation(self.to_planes(net))
-        routes = self.routes_activation(self.to_routes(planes))
-        leaves = self.to_leaves(routes)
-        return {"predictions": leaves}
+        return self.common_forward(self, batch, batch_indices, loader_name)
 
 
 __all__ = ["NDT"]

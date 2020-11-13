@@ -555,6 +555,7 @@ def make_toy_model(
     *,
     task_type: task_type_type = "reg",
     data_tuple: Optional[Tuple[data_type, data_type]] = None,
+    cuda: Optional[Union[int, str]] = "cpu",
 ) -> Pipeline:
     if config is None:
         config = {}
@@ -586,6 +587,7 @@ def make_toy_model(
             "label_process_method": "identical",
         },
         "verbose_level": 0,
+        "cuda": cuda,
     }
     updated = update_dict(config, base_config)
     return make(**updated).fit(*data_tuple)

@@ -840,6 +840,7 @@ __all__ = [
     "collate_tensor_dicts",
     "switch_requires_grad",
     "get_gradient",
+    "Lambda",
     "Initializer",
     "Activations",
     "TrainMonitor",

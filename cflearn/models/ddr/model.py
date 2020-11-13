@@ -21,32 +21,13 @@ from ...types import tensor_dict_type
 
 @ModelBase.register("ddr")
 class DDR(ModelBase):
-    def __init__(
-        self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
-    ):
-        if not tr_loader.data.task_type.is_reg:
+    def define_heads(self) -> None:
+        if not self.tr_loader.data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
-        super().__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
         self.q_metric = Metrics("quantile")
         cfg = self.get_core_config(self)
         assert cfg.pop("out_dim") == 1
-        self.core = DDRCore(**cfg)
+        self.add_head("basic", DDRCore(**cfg))
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
@@ -162,15 +143,15 @@ class DDR(ModelBase):
         q_batch: Optional[torch.Tensor],
         do_inverse: bool,
     ) -> tensor_dict_type:
-        return self.core(
-            net,
-            q_batch=q_batch,
-            median=q_batch is None,
-            do_inverse=do_inverse,
-        )
+        kwargs = {
+            "q_batch": q_batch,
+            "median": q_batch is None,
+            "do_inverse": do_inverse,
+        }
+        return self.execute("basic", net, execute_kwargs=kwargs)
 
     def _median(self, net: torch.Tensor) -> tensor_dict_type:
-        return self.core(net, median=True)
+        return self.execute("basic", net, execute_kwargs={"median": True})
 
     def _cdf(
         self,
@@ -183,7 +164,8 @@ class DDR(ModelBase):
         use_grad = self.training or return_pdf
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
-            results = self.core(net, y_batch=y_batch, do_inverse=do_inverse)
+            kwargs = {"y_batch": y_batch, "do_inverse": do_inverse}
+            results = self.execute("basic", net, execute_kwargs=kwargs)
         cdf = results["q"]
         if not return_pdf:
             pdf = None

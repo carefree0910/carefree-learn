@@ -19,29 +19,6 @@ from ...types import tensor_dict_type
 
 @ModelBase.register("tree_dnn")
 class TreeDNN(ModelBase):
-    def __init__(
-        self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
-    ):
-        super().__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
-        cfg = self.get_core_config(self)
-        self.core = TreeDNNCore(**cfg)
-
     @staticmethod
     @typing.no_type_check
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
@@ -101,6 +78,13 @@ class TreeDNN(ModelBase):
         self.add_extractor("fcnn")
         self.add_extractor("dndf")
 
+    def define_heads(self) -> None:
+        cfg = self.get_core_config(self)
+        core = TreeDNNCore(**cfg)
+        self.add_head("fcnn", core.fcnn)
+        if core.dndf is not None:
+            self.add_head("dndf", core.dndf)
+
     def _preset_config(self) -> None:
         mapping_configs = self.config.setdefault("mapping_configs", {})
         if isinstance(mapping_configs, dict):
@@ -130,44 +114,18 @@ class TreeDNN(ModelBase):
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
-        # fcnn
-        fcnn_net = self.extract("fcnn", split)
-        if self.tr_data.is_ts:
-            fcnn_net = fcnn_net.view(fcnn_net.shape[0], -1)
-        # dndf
-        if self.core.dndf is None:
-            dndf_net = None
-        else:
-            dndf_net = self.extract("dndf", split)
-            if self.tr_data.is_ts:
-                dndf_net = dndf_net.view(dndf_net.shape[0], -1)
-        return {"predictions": self.core(fcnn_net, dndf_net)}
+        net = self.execute("fcnn", split)
+        dndf_net = self.try_execute("dndf", split)
+        if dndf_net is not None:
+            net = net + dndf_net
+        return {"predictions": net}
 
 
 @ModelBase.register("tree_stack")
 class TreeStack(ModelBase):
-    def __init__(
-        self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
-    ):
-        super().__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
+    def define_heads(self) -> None:
         cfg = self.get_core_config(self)
-        self.core = TreeStackCore(**cfg)
+        self.add_head("basic", TreeStackCore(**cfg))
 
     @property
     def output_probabilities(self) -> bool:

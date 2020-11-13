@@ -15,28 +15,9 @@ from ...types import tensor_dict_type
 
 @ModelBase.register("transformer")
 class Transformer(ModelBase):
-    def __init__(
-        self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
-    ):
-        super().__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
+    def define_heads(self) -> None:
         cfg = self.get_core_config(self)
-        self.core = TransformerCore(**cfg)
+        self.add_head("basic", TransformerCore(**cfg))
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:

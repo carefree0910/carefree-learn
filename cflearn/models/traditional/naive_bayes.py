@@ -4,14 +4,15 @@ import numpy as np
 import torch.nn as nn
 
 from typing import Any
-from typing import Dict
 from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
 from functools import partial
 from cfdata.types import np_int_type
-from cfdata.tabular import DataLoader
+from torch.nn.functional import linear
+from torch.nn.functional import softmax
+from torch.nn.functional import log_softmax
 from cfml.models.naive_bayes import MultinomialNB
 
 from ...misc.toolkit import *
@@ -22,26 +23,15 @@ from ...types import tensor_dict_type
 
 @ModelBase.register("nnb")
 class NNB(ModelBase):
-    def __init__(
-        self,
-        pipeline_config: Dict[str, Any],
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
-        tr_weights: Optional[np.ndarray],
-        cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
-    ):
-        super().__init__(
-            pipeline_config,
-            tr_loader,
-            cv_loader,
-            tr_weights,
-            cv_weights,
-            device,
-            use_tqdm=use_tqdm,
-        )
+    def define_transforms(self) -> None:
+        self.add_transform("numerical", False, False, False)
+        self.add_transform("categorical", True, False, True)
+
+    def define_extractors(self) -> None:
+        self.add_extractor("numerical")
+        self.add_extractor("categorical")
+
+    def define_heads(self) -> None:
         # prepare
         x, y = self.tr_data.processed.xy
         y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
@@ -49,7 +39,7 @@ class NNB(ModelBase):
         # numerical
         num_numerical = len(self._numerical_columns)
         if num_numerical == 0:
-            self.mu = self.std = self.normal = None
+            self.mu = self.std = None
         else:
             if not self.pretrain:
                 self.mu = nn.Parameter(torch.zeros(num_classes, num_numerical))
@@ -67,7 +57,12 @@ class NNB(ModelBase):
                     lambda lst: nn.Parameter(torch.from_numpy(np.vstack(lst))),
                     [mu_list, std_list],
                 )
-            self.normal = torch.distributions.Normal(self.mu, self.std)
+            normal = torch.distributions.Normal(self.mu, self.std)
+            normal_head = Lambda(
+                lambda net: normal.log_prob(net[..., None, :]).sum(2),
+                "normal_head",
+            )
+            self.add_head("numerical", normal_head)
         # categorical
         one_hot_dim = self.one_hot_dim
         if one_hot_dim == 0:
@@ -92,14 +87,15 @@ class NNB(ModelBase):
                 assert np.allclose(
                     mnb.feature_log_prob, self.log_posterior(numpy=True), atol=1e-6
                 )
-
-    def define_transforms(self) -> None:
-        self.add_transform("numerical", False, False, False)
-        self.add_transform("categorical", True, False, True)
-
-    def define_extractors(self) -> None:
-        self.add_extractor("numerical")
-        self.add_extractor("categorical")
+            mnb_head = Lambda(
+                lambda net: linear(
+                    net,
+                    self.log_posterior(),
+                    self.class_log_prior(),
+                ),
+                "mnb_head",
+            )
+            self.add_head("categorical", mnb_head)
 
     def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
@@ -134,7 +130,7 @@ class NNB(ModelBase):
         with torch.no_grad():
             posteriors = tuple(
                 map(
-                    partial(nn.functional.softmax, dim=1),
+                    partial(softmax, dim=1),
                     self.log_posterior(return_groups=True),
                 )
             )
@@ -150,26 +146,17 @@ class NNB(ModelBase):
     ) -> tensor_dict_type:
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
-        # log prior
-        log_prior = self.class_log_prior()
         # numerical
-        if self.normal is None:
+        if self.mu is None:
             numerical_log_prob = None
         else:
-            numerical = self.extract("numerical", split)
-            numerical_log_prob = self.normal.log_prob(numerical[..., None, :]).sum(2)
+            numerical_log_prob = self.execute("numerical", split)
         # categorical
         if self.mnb is None:
             categorical_log_prob = None
-            numerical_log_prob = numerical_log_prob + log_prior
+            numerical_log_prob = numerical_log_prob + self.class_log_prior()
         else:
-            categorical = self.extract("categorical", split)
-            log_posterior = self.log_posterior()
-            categorical_log_prob = nn.functional.linear(
-                categorical,
-                log_posterior,
-                log_prior,
-            )
+            categorical_log_prob = self.execute("categorical", split)
         if numerical_log_prob is None:
             predictions = categorical_log_prob
         elif categorical_log_prob is None:
@@ -184,7 +171,7 @@ class NNB(ModelBase):
         numpy: bool = False,
     ) -> Union[np.ndarray, torch.Tensor]:
         log_prior = self.log_prior if self.mnb is None else self.mnb.linear.bias
-        rs = nn.functional.log_softmax(log_prior, dim=0)
+        rs = log_softmax(log_prior, dim=0)
         if not numpy:
             return rs
         return to_numpy(rs)
@@ -198,7 +185,7 @@ class NNB(ModelBase):
         mnb = self.mnb
         if mnb is None:
             raise ValueError("`mnb` is not trained")
-        rs = nn.functional.log_softmax(mnb.linear.weight, dim=1)
+        rs = log_softmax(mnb.linear.weight, dim=1)
         if not return_groups:
             if not numpy:
                 return rs
@@ -209,7 +196,7 @@ class NNB(ModelBase):
             categorical_dims[idx] for idx in sorted_categorical_indices
         ]
         grouped_weights = map(
-            lambda tensor: nn.functional.log_softmax(tensor, dim=1),
+            lambda tensor: log_softmax(tensor, dim=1),
             torch.split(rs, num_categorical_list, dim=1),
         )
         if not numpy:
