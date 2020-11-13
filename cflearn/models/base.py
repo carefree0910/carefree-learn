@@ -287,44 +287,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def pipe_configs(self):
         return self.config.setdefault("pipe_configs", {})
 
-    def add_transform(
-        self,
-        key: str,
-        one_hot: bool,
-        embedding: bool,
-        only_categorical: bool,
-    ) -> None:
-        self.transforms[key] = Transform(
-            one_hot=one_hot,
-            embedding=embedding,
-            only_categorical=only_categorical,
-        )
-
-    def add_extractor(
-        self,
-        key: str,
-        transform: Optional[str] = None,
-        core: Module = nn.Identity(),
-    ) -> None:
-        self.extractors[key] = core
-        if transform is None:
-            transform = key
-        if transform not in self.transforms:
-            raise ValueError(f"transform '{transform}' is not defined")
-        self.extractor_transforms[key] = transform
-
-    def add_head(
-        self,
-        key: str,
-        core: Module,
-        *,
-        extractor: Optional[str] = None,
-    ) -> None:
-        self.heads[key] = core
-        if extractor is None:
-            extractor = key
-        self.head_extractors[key] = extractor
-
     def add_pipe(
         self,
         key: str,
@@ -338,11 +300,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head = HeadBase.make(pipe_config.head, head_config)
         self.pipes[key] = Pipe(transform, extractor, head)
 
-    def define_transforms(self) -> None:
-        self.add_transform("basic", True, True, False)
-
-    def define_extractors(self) -> None:
-        self.add_extractor("basic")
 
     def _define_config(self, pipe: str, key: str, config: Dict[str, Any]) -> None:
         pipe_config = self.pipe_configs.setdefault(pipe, {})
