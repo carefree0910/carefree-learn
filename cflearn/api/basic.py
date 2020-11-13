@@ -55,6 +55,7 @@ def make(
     min_epoch: Optional[int] = None,
     num_epoch: Optional[int] = None,
     max_epoch: Optional[int] = None,
+    fixed_epoch: Optional[int] = None,
     batch_size: Optional[int] = None,
     max_snapshot_num: Optional[int] = None,
     clip_norm: Optional[float] = None,
@@ -131,6 +132,15 @@ def make(
     trainer_config = kwargs.setdefault("trainer_config", {})
     if use_amp is not None:
         trainer_config["use_amp"] = use_amp
+    if fixed_epoch is not None:
+        msg = "`{}` should not be provided when `fixed_epoch` is provided"
+        if min_epoch is not None:
+            raise ValueError(msg.format("min_epoch"))
+        if num_epoch is not None:
+            raise ValueError(msg.format("num_epoch"))
+        if max_epoch is not None:
+            raise ValueError(msg.format("max_epoch"))
+        min_epoch = num_epoch = max_epoch = fixed_epoch
     if min_epoch is not None:
         trainer_config["min_epoch"] = min_epoch
     if num_epoch is not None:
