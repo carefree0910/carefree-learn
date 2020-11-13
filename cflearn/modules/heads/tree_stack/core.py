@@ -4,9 +4,9 @@ import torch.nn as nn
 
 from typing import *
 
-from .base import HeadBase
-from ...modules.blocks import DNDF
-from ...modules.blocks import TreeResBlock
+from ..base import HeadBase
+from ...blocks import DNDF
+from ...blocks import TreeResBlock
 
 
 @HeadBase.register("tree_stack")
