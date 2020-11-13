@@ -185,6 +185,48 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._categorical_dim = 0 if self.encoder is None else self.encoder.merged_dim
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
 
+    @property
+    def num_history(self) -> int:
+        num_history = 1
+        if self.tr_data.is_ts:
+            sampler_config = self._pipeline_config["sampler_config"]
+            aggregation_config = sampler_config.get("aggregation_config", {})
+            num_history = aggregation_config.get("num_history")
+            if num_history is None:
+                raise ValueError(
+                    "please provide `num_history` in `aggregation_config` "
+                    "in `cflearn.make` for time series tasks."
+                )
+        return num_history
+
+    @property
+    def merged_dim(self) -> int:
+        merged_dim = self._categorical_dim + len(self._numerical_columns)
+        return merged_dim * self.num_history
+
+    @property
+    def one_hot_dim(self) -> int:
+        if self.encoder is None:
+            return 0
+        return self.encoder.one_hot_dim
+
+    @property
+    def embedding_dim(self) -> int:
+        if self.encoder is None:
+            return 0
+        return self.encoder.embedding_dim
+
+    @property
+    def categorical_dims(self) -> Dict[int, int]:
+        dims: Dict[int, int] = {}
+        if self.encoder is None:
+            return dims
+        merged_dims = self.encoder.merged_dims
+        for idx in sorted(merged_dims):
+            true_idx = self.categorical_columns_mapping[idx]
+            dims[true_idx] = merged_dims[idx]
+        return dims
+
     # Inheritance
 
     @property
@@ -293,6 +335,24 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         losses = self.loss(predictions, y_batch)
         return {"loss": losses.mean()}
 
+    def _split_features(
+        self,
+        x_batch: Tensor,
+        batch_indices: Optional[np.ndarray],
+        loader_name: Optional[str],
+    ) -> SplitFeatures:
+        if self.encoder is None:
+            return SplitFeatures(None, x_batch)
+        with timing_context(self, "encoding", enable=self.timing):
+            encoding_result = self.encoder(x_batch, batch_indices, loader_name)
+        with timing_context(self, "fetch_numerical", enable=self.timing):
+            numerical = (
+                None
+                if not self._numerical_columns
+                else x_batch[..., self._numerical_columns]
+            )
+        return SplitFeatures(encoding_result, numerical)
+
     @staticmethod
     def common_forward(
         instance: "ModelBase",
@@ -318,48 +378,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         if out_dim is None:
             out_dim = default_out_dim
         return {"in_dim": in_dim, "out_dim": out_dim}
-
-    @property
-    def num_history(self) -> int:
-        num_history = 1
-        if self.tr_data.is_ts:
-            sampler_config = self._pipeline_config["sampler_config"]
-            aggregation_config = sampler_config.get("aggregation_config", {})
-            num_history = aggregation_config.get("num_history")
-            if num_history is None:
-                raise ValueError(
-                    "please provide `num_history` in `aggregation_config` "
-                    "in `cflearn.make` for time series tasks."
-                )
-        return num_history
-
-    @property
-    def merged_dim(self) -> int:
-        merged_dim = self._categorical_dim + len(self._numerical_columns)
-        return merged_dim * self.num_history
-
-    @property
-    def one_hot_dim(self) -> int:
-        if self.encoder is None:
-            return 0
-        return self.encoder.one_hot_dim
-
-    @property
-    def embedding_dim(self) -> int:
-        if self.encoder is None:
-            return 0
-        return self.encoder.embedding_dim
-
-    @property
-    def categorical_dims(self) -> Dict[int, int]:
-        dims: Dict[int, int] = {}
-        if self.encoder is None:
-            return dims
-        merged_dims = self.encoder.merged_dims
-        for idx in sorted(merged_dims):
-            true_idx = self.categorical_columns_mapping[idx]
-            dims[true_idx] = merged_dims[idx]
-        return dims
 
     def _preset_config(self) -> None:
         pass
@@ -400,24 +418,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 grad_scalar.step(opt)
                 grad_scalar.update()
             opt.zero_grad()
-
-    def _split_features(
-        self,
-        x_batch: Tensor,
-        batch_indices: Optional[np.ndarray],
-        loader_name: Optional[str],
-    ) -> SplitFeatures:
-        if self.encoder is None:
-            return SplitFeatures(None, x_batch)
-        with timing_context(self, "encoding", enable=self.timing):
-            encoding_result = self.encoder(x_batch, batch_indices, loader_name)
-        with timing_context(self, "fetch_numerical", enable=self.timing):
-            numerical = (
-                None
-                if not self._numerical_columns
-                else x_batch[..., self._numerical_columns]
-            )
-        return SplitFeatures(encoding_result, numerical)
 
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
         return self._split_features(torch.from_numpy(processed).to(device), None, None)
