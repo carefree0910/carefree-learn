@@ -112,7 +112,7 @@ class PipeConfig(NamedTuple):
 
 
 class Pipe(Module):
-    def __init__(self, transform: Transform, extractor: Module, head: Module):
+    def __init__(self, transform: Transform, extractor: ExtractorBase, head: HeadBase):
         super().__init__()
         self.transform = transform
         self.extractor = extractor
@@ -128,6 +128,10 @@ class Pipe(Module):
         if extract_kwargs is None:
             extract_kwargs = {}
         net = self.extractor(net, **extract_kwargs)
+        net_shape = net.shape
+        if self.extractor.flatten_ts:
+            if len(net_shape) == 3:
+                net = net.view(net_shape[0], -1)
         if head_kwargs is None:
             head_kwargs = {}
         return self.head(net, **head_kwargs)

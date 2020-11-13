@@ -15,16 +15,13 @@ extractor_dict: Dict[str, Type["ExtractorBase"]] = {}
 
 
 class ExtractorBase(nn.Module, metaclass=ABCMeta):
-    def __init__(self, config: Dict[str, Any]):
-        super().__init__()
-        self._init_config(config)
+    @property
+    def flatten_ts(self) -> bool:
+        return True
 
     @abstractmethod
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         pass
-
-    def _init_config(self, config: Dict[str, Any]):
-        self.config = config
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:
@@ -33,7 +30,7 @@ class ExtractorBase(nn.Module, metaclass=ABCMeta):
 
     @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> "ExtractorBase":
-        return extractor_dict[name](config)
+        return extractor_dict[name](**config)
 
 
 __all__ = ["ExtractorBase"]
