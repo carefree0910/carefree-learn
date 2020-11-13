@@ -478,22 +478,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             )
         return SplitFeatures(encoding_result, numerical)
 
-    def extract(
-        self,
-        extractor: str,
-        split: SplitFeatures,
-        extract_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Tensor:
-        transform = self.extractor_transforms[extractor]
-        net = self.transforms[transform](split)
-        if extract_kwargs is None:
-            extract_kwargs = {}
-        net = self.extractors[extractor](net, **extract_kwargs)
-        # TODO : optimize this when extractor is RNN
-        if self.tr_data.is_ts:
-            net = net.view(net.shape[0], -1)
-        return net
-
     def execute(
         self,
         pipe: str,
