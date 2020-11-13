@@ -15,10 +15,6 @@ head_dict: Dict[str, Type["HeadBase"]] = {}
 
 
 class HeadBase(nn.Module, metaclass=ABCMeta):
-    def __init__(self, config: Dict[str, Any]):
-        super().__init__()
-        self._init_config(config)
-
     @abstractmethod
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         pass
@@ -33,7 +29,7 @@ class HeadBase(nn.Module, metaclass=ABCMeta):
 
     @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> "HeadBase":
-        return head_dict[name](config)
+        return head_dict[name](**config)
 
 
 __all__ = ["HeadBase"]

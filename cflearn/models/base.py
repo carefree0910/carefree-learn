@@ -107,9 +107,6 @@ class Transform(Module):
 
 
 class PipeConfig(NamedTuple):
-    one_hot: bool
-    embedding: bool
-    only_categorical: bool
     extractor: str
     head: str
 
@@ -137,7 +134,7 @@ class Pipe(Module):
 
 
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
-    registered_pipes: Dict[str, PipeConfig] = {}
+    registered_pipes: Optional[Dict[str, PipeConfig]] = None
 
     def __init__(
         self,
@@ -223,12 +220,22 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._numerical_columns = sorted(self.numerical_columns_mapping.values())
         # pipes
         self.pipes = ModuleDict()
-        self.define_head_configs()
+        self.define_pipe_configs()
         for key, pipe_config in self.registered_pipes.items():
             local_configs = self.pipe_configs.setdefault(key, {})
+            transform_config = local_configs.setdefault("transform", {})
+            transform_config.setdefault("one_hot", True)
+            transform_config.setdefault("embedding", True)
+            transform_config.setdefault("only_categorical", False)
             extractor_config = local_configs.setdefault("extractor", {})
             head_config = local_configs.setdefault("head", {})
-            self.add_pipe(key, pipe_config, extractor_config, head_config)
+            self.add_pipe(
+                key,
+                pipe_config,
+                transform_config,
+                extractor_config,
+                head_config,
+            )
 
     @property
     def num_history(self) -> int:
@@ -318,14 +325,11 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self,
         key: str,
         pipe_config: PipeConfig,
+        transform_config: Dict[str, bool],
         extractor_config: Dict[str, Any],
         head_config: Dict[str, Any],
     ) -> None:
-        transform = Transform(
-            one_hot=pipe_config.one_hot,
-            embedding=pipe_config.embedding,
-            only_categorical=pipe_config.only_categorical,
-        )
+        transform = Transform(**transform_config)
         extractor = ExtractorBase.make(pipe_config.extractor, extractor_config)
         head = HeadBase.make(pipe_config.head, head_config)
         self.pipes[key] = Pipe(transform, extractor, head)
@@ -336,12 +340,18 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def define_extractors(self) -> None:
         self.add_extractor("basic")
 
-    def define_head_config(self, pipe: str, config: Dict[str, Any]) -> None:
+    def _define_config(self, pipe: str, key: str, config: Dict[str, Any]) -> None:
         pipe_config = self.pipe_configs.setdefault(pipe, {})
-        pipe_config["head"] = config
+        pipe_config[key] = config
 
-    def define_head_configs(self) -> None:
-        pass
+    def define_transform_config(self, pipe: str, config: Dict[str, Any]) -> None:
+        self._define_config(pipe, "transform", config)
+
+    def define_extractor_config(self, pipe: str, config: Dict[str, Any]) -> None:
+        self._define_config(pipe, "extractor", config)
+
+    def define_head_config(self, pipe: str, config: Dict[str, Any]) -> None:
+        self._define_config(pipe, "head", config)
 
     # Inheritance
 
@@ -355,6 +365,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     @property
     def output_probabilities(self) -> bool:
         return False
+
+    def define_pipe_configs(self) -> None:
+        pass
 
     def merge_outputs(
         self,
@@ -573,17 +586,17 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         cls,
         key: str,
         head: Optional[str] = None,
-        one_hot: bool = True,
-        embedding: bool = True,
-        only_categorical: bool = False,
         extractor: str = "identity",
     ) -> Callable[[Type], Type]:
         if head is None:
             head = key
 
         def _core(cls_: Type) -> Type:
-            cfg = PipeConfig(one_hot, embedding, only_categorical, extractor, head)
-            cls_.registered_pipes[key] = cfg
+            cfg = PipeConfig(extractor, head)
+            if cls_.registered_pipes is None:
+                cls_.registered_pipes = {key: cfg}
+            else:
+                cls_.registered_pipes[key] = cfg
             return cls_
 
         return _core
