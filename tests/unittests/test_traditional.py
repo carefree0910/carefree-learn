@@ -51,8 +51,9 @@ class TestTraditional(unittest.TestCase):
         dataset = TabularDataset.iris()
         nnb, nnb0, x = self._train_traditional("nnb", dataset, gnb)
         self.assertTrue(np.allclose(nnb0.model.class_prior, gnb.class_prior_))
-        self.assertTrue(np.allclose(nnb0.model.mu.data.cpu().numpy(), gnb.theta_))
-        self.assertTrue(np.allclose(nnb0.model.std.data.cpu().numpy() ** 2, gnb.sigma_))
+        normal = nnb0.model.normal
+        self.assertTrue(np.allclose(normal.mu.data.cpu().numpy(), gnb.theta_))
+        self.assertTrue(np.allclose(normal.std.data.cpu().numpy() ** 2, gnb.sigma_))
         self.assertTrue(np.allclose(nnb0.predict_prob(dataset.x), gnb.predict_proba(x)))
         cflearn._rmtree("_logging")
 
