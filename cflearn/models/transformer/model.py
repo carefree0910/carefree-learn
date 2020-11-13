@@ -15,7 +15,6 @@ class Transformer(ModelBase):
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        in_dim = instance.tr_data.processed_dim
         transformer_cfg = instance.config.setdefault("transformer_config", {})
         latent_dim = transformer_cfg.setdefault("latent_dim", 256)
         transformer_cfg.setdefault("to_latent", latent_dim is not None)

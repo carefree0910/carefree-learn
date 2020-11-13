@@ -6,8 +6,8 @@ from typing import Optional
 from typing import NamedTuple
 from torch.nn import Module
 
-from cflearn.modules.encoders import Encoder
-from cflearn.modules.encoders import EncodingResult
+from ..encoders import Encoder
+from ..encoders import EncodingResult
 
 
 class SplitFeatures(NamedTuple):

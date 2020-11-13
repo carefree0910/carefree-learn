@@ -7,8 +7,8 @@ from typing import NamedTuple
 from torch.nn import Module
 
 from .heads import HeadBase
+from .transform import SplitFeatures
 from .extractors import ExtractorBase
-from .extractors import SplitFeatures
 
 
 class PipeConfig(NamedTuple):
