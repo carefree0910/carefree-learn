@@ -1,17 +1,13 @@
 import typing
 import logging
 
-import numpy as np
-
 from typing import Any
 from typing import Dict
-from typing import Optional
 
 from .core import TreeDNNCore
 from .core import TreeStackCore
 from ..base import ModelBase
 from ..fcnn.model import FCNN
-from ...types import tensor_dict_type
 
 
 @ModelBase.register("tree_dnn")
@@ -100,22 +96,6 @@ class TreeDNN(ModelBase):
         if fcnn_one_hot or dndf_one_hot:
             default_encoding_method.append("one_hot")
         self.config.setdefault("default_encoding_method", default_encoding_method)
-
-    def forward(
-        self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        batch_step: int = 0,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        split = self._split_features(x_batch, batch_indices, loader_name)
-        net = self.execute("fcnn", split)
-        dndf_net = self.try_execute("dndf", split)
-        if dndf_net is not None:
-            net = net + dndf_net
-        return {"predictions": net}
 
 
 @ModelBase.register("tree_stack")

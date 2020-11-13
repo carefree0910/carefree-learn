@@ -252,6 +252,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         x, y = map(to_torch, [x, y])
         return {"x_batch": x, "y_batch": y}
 
+    @property
+    def output_probabilities(self) -> bool:
+        return False
+
     def add_transform(
         self,
         key: str,
@@ -300,23 +304,17 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def define_heads(self) -> None:
         pass
 
-    def forward(
+    def merge_outputs(
         self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        batch_step: int = 0,
+        outputs: Dict[str, Tensor],
         **kwargs: Any,
-    ) -> tensor_dict_type:
-        # batch will have `categorical`, `numerical` and `labels` keys
+    ) -> Dict[str, Tensor]:
         # requires returning `predictions` key
-        x_batch = batch["x_batch"]
-        split = self._split_features(x_batch, batch_indices, loader_name)
-        return {"predictions": self.execute("basic", split)}
-
-    @property
-    def output_probabilities(self) -> bool:
-        return False
+        values = list(outputs.values())
+        output = values[0]
+        for value in values[1:]:
+            output = output + value
+        return {"predictions": output}
 
     # API
 
@@ -447,6 +445,20 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             extract_kwargs=extract_kwargs,
             execute_kwargs=execute_kwargs,
         )
+
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+        batch_step: int = 0,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        # batch will have `categorical`, `numerical` and `labels` keys
+        x_batch = batch["x_batch"]
+        split = self._split_features(x_batch, batch_indices, loader_name)
+        outputs = {key: self.execute(key, split) for key in self.heads.keys()}
+        return self.merge_outputs(outputs, **kwargs)
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:

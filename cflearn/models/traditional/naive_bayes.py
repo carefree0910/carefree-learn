@@ -3,7 +3,9 @@ import torch
 import numpy as np
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
+from typing import Dict
 from typing import Tuple
 from typing import Union
 from typing import Callable
@@ -136,27 +138,22 @@ class NNB(ModelBase):
             )
         return tuple(map(to_numpy, posteriors))
 
-    def forward(
+    def merge_outputs(
         self,
-        batch: tensor_dict_type,
-        batch_indices: Optional[np.ndarray] = None,
-        loader_name: Optional[str] = None,
-        batch_step: int = 0,
+        outputs: Dict[str, Tensor],
         **kwargs: Any,
-    ) -> tensor_dict_type:
-        x_batch = batch["x_batch"]
-        split = self._split_features(x_batch, batch_indices, loader_name)
+    ) -> Dict[str, Tensor]:
         # numerical
         if self.mu is None:
             numerical_log_prob = None
         else:
-            numerical_log_prob = self.execute("numerical", split)
+            numerical_log_prob = outputs["numerical"]
         # categorical
         if self.mnb is None:
             categorical_log_prob = None
             numerical_log_prob = numerical_log_prob + self.class_log_prior()
         else:
-            categorical_log_prob = self.execute("categorical", split)
+            categorical_log_prob = outputs["categorical"]
         if numerical_log_prob is None:
             predictions = categorical_log_prob
         elif categorical_log_prob is None:
