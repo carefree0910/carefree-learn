@@ -4,8 +4,6 @@ import logging
 from typing import Any
 from typing import Dict
 
-from .core import TreeDNNCore
-from .core import TreeStackCore
 from ..base import ModelBase
 from ..fcnn.model import FCNN
 
@@ -98,10 +96,11 @@ class TreeDNN(ModelBase):
 
 
 @ModelBase.register("tree_stack")
+@ModelBase.register_pipe("tree_stack")
 class TreeStack(ModelBase):
-    def define_heads(self) -> None:
+    def define_pipe_configs(self) -> None:
         cfg = self.get_core_config(self)
-        self.add_head("basic", TreeStackCore(**cfg))
+        self.define_head_config("tree_stack", cfg)
 
     @property
     def output_probabilities(self) -> bool:

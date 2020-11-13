@@ -4,11 +4,13 @@ import torch.nn as nn
 
 from typing import *
 
+from .base import HeadBase
 from ...modules.blocks import DNDF
 from ...modules.blocks import TreeResBlock
 
 
-class TreeStackCore(nn.Module):
+@HeadBase.register("tree_stack")
+class TreeStackHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
@@ -33,4 +35,4 @@ class TreeStackCore(nn.Module):
         return self.out_dndf(net)
 
 
-__all__ = ["TreeStackCore"]
+__all__ = ["TreeStackHead"]
