@@ -17,7 +17,7 @@ setup(
         "optuna",
         "plotly",
         "carefree-ml>=0.1.0",
-        "carefree-data>=0.2.0rc.13",
+        "carefree-data>=0.2.0rc.14",
         "carefree-toolkit>=0.2.0rc.6",
         "dill",
         "future",

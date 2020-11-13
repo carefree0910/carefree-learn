@@ -14,7 +14,7 @@ kwargs = {"fixed_epoch": 3} if CI else {}
 def test_shampoo() -> None:
     src_file = os.path.join(file_folder, "data.csv")
     tgt_file = os.path.join(file_folder, "new_data.csv")
-    ts_config = TimeSeriesConfig(TimeSeriesModifier.id_name, '"Month"')
+    ts_config = TimeSeriesConfig(TimeSeriesModifier.id_name, "Month")
     modifier = TimeSeriesModifier(src_file, "ts_reg")
     modifier.pad_id()
     modifier.pad_labels(
