@@ -15,6 +15,7 @@ from torch.nn import Module
 from torch.nn import ModuleList
 from cftool.misc import context_error_handler
 
+from .base import HeadBase
 from ...types import tensor_dict_type
 from ...types import tensor_tuple_type
 from ...misc.toolkit import switch_requires_grad
@@ -217,7 +218,8 @@ def monotonous_builder(
     return _split_core
 
 
-class DDRCore(Module):
+@HeadBase.register("ddr")
+class DDRHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
@@ -493,4 +495,4 @@ class DDRCore(Module):
         return results
 
 
-__all__ = ["DDRCore"]
+__all__ = ["DDRHead"]

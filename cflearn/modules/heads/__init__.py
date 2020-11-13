@@ -1,3 +1,4 @@
+from .ddr import DDRHead
 from .base import HeadBase
 from .dndf import DNDFHead
 from .fcnn import FCNNHead

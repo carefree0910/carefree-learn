@@ -12,21 +12,21 @@ from cftool.misc import update_dict
 from cftool.misc import timing_context
 
 from ...misc.toolkit import *
-from .core import DDRCore
 from .loss import DDRLoss
 from ..base import ModelBase
 from ...types import tensor_dict_type
 
 
 @ModelBase.register("ddr")
+@ModelBase.register_pipe("ddr")
 class DDR(ModelBase):
-    def define_heads(self) -> None:
+    def define_pipe_configs(self) -> None:
         if not self.tr_loader.data.task_type.is_reg:
             raise ValueError("DDR can only deal with regression problems")
         self.q_metric = Metrics("quantile")
         cfg = self.get_core_config(self)
         assert cfg.pop("out_dim") == 1
-        self.add_head("basic", DDRCore(**cfg))
+        self.define_head_config("ddr", cfg)
 
     @staticmethod
     def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
@@ -147,10 +147,10 @@ class DDR(ModelBase):
             "median": q_batch is None,
             "do_inverse": do_inverse,
         }
-        return self.execute("basic", net, head_kwargs=kwargs)
+        return self.execute("ddr", net, head_kwargs=kwargs)
 
     def _median(self, net: torch.Tensor) -> tensor_dict_type:
-        return self.execute("basic", net, head_kwargs={"median": True})
+        return self.execute("ddr", net, head_kwargs={"median": True})
 
     def _cdf(
         self,
@@ -164,7 +164,7 @@ class DDR(ModelBase):
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
             kwargs = {"y_batch": y_batch, "do_inverse": do_inverse}
-            results = self.execute("basic", net, head_kwargs=kwargs)
+            results = self.execute("ddr", net, head_kwargs=kwargs)
         cdf = results["q"]
         if not return_pdf:
             pdf = None
