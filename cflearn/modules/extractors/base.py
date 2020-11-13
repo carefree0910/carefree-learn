@@ -8,6 +8,7 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Callable
+from typing import Optional
 from cftool.misc import register_core
 
 from ..transform.core import Transform
@@ -42,10 +43,12 @@ class ExtractorBase(nn.Module, metaclass=ABCMeta):
     @classmethod
     def make(
         cls,
-        name: str,
+        name: Optional[str],
         transform: Transform,
         config: Dict[str, Any],
     ) -> "ExtractorBase":
+        if name is None:
+            name = "identity"
         return extractor_dict[name](transform, **config)
 
 

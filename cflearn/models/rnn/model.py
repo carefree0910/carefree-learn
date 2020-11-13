@@ -5,7 +5,7 @@ from ..fcnn import FCNN
 
 
 @ModelBase.register("rnn")
-@ModelBase.register_pipe("rnn", head="fcnn", extractor="rnn")
+@ModelBase.register_pipe("rnn", head="fcnn")
 class RNN(ModelBase):
     def define_pipe_configs(self) -> None:
         cfg = self.get_core_config(self)

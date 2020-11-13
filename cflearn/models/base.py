@@ -425,10 +425,12 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         cls,
         key: str,
         head: Optional[str] = None,
-        extractor: str = "identity",
+        extractor: Optional[str] = None,
     ) -> Callable[[Type], Type]:
         if head is None:
             head = key
+        elif extractor is None:
+            extractor = key
 
         def _core(cls_: Type) -> Type:
             cfg = PipeConfig(extractor, head)

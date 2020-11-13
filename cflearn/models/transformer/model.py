@@ -6,7 +6,7 @@ from ..fcnn import FCNN
 
 
 @ModelBase.register("transformer")
-@ModelBase.register_pipe("transformer", head="fcnn", extractor="transformer")
+@ModelBase.register_pipe("transformer", head="fcnn")
 class Transformer(ModelBase):
     def define_pipe_configs(self) -> None:
         cfg = self.get_core_config(self)
