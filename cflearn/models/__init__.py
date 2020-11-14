@@ -6,3 +6,4 @@ from .fcnn import *
 from .linear import *
 from .tree_dnn import *
 from .transformer import *
+from .base import ModelBase
