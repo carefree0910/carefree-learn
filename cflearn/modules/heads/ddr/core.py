@@ -15,17 +15,17 @@ from torch.nn import Module
 from torch.nn import ModuleList
 from cftool.misc import context_error_handler
 
-from .base import HeadBase
-from ...types import tensor_dict_type
-from ...types import tensor_tuple_type
-from ...misc.toolkit import switch_requires_grad
-from ...modules.blocks import MLP
-from ...modules.blocks import CrossBase
-from ...modules.blocks import CrossBlock
-from ...modules.blocks import InvertibleBlock
-from ...modules.blocks import MonotonousMapping
-from ...modules.blocks import ConditionalBlocks
-from ...modules.blocks import PseudoInvertibleBlock
+from ..base import HeadBase
+from ...blocks import MLP
+from ...blocks import CrossBase
+from ...blocks import CrossBlock
+from ...blocks import InvertibleBlock
+from ...blocks import MonotonousMapping
+from ...blocks import ConditionalBlocks
+from ...blocks import PseudoInvertibleBlock
+from ....types import tensor_dict_type
+from ....types import tensor_tuple_type
+from ....misc.toolkit import switch_requires_grad
 
 
 def transition_builder(dim: int) -> Module:
@@ -223,27 +223,23 @@ class DDRHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
+        out_dim: int,
         fetch_q: bool,
         fetch_cdf: bool,
-        num_layers: Optional[int] = None,
-        num_blocks: Optional[int] = None,
-        latent_dim: Optional[int] = None,
+        num_layers: int,
+        num_blocks: int,
+        latent_dim: int,
     ):
         super().__init__()
+        assert out_dim == 1
         # common
         self.register_buffer("cdf_logit_anchor", torch.tensor([math.log(3.0)]))
         if not fetch_q and not fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         self.fetch_q = fetch_q
         self.fetch_cdf = fetch_cdf
-        if num_layers is None:
-            num_layers = 1
-        if num_blocks is None:
-            num_blocks = 2
         if num_blocks % 2 != 0:
             raise ValueError("`num_blocks` should be divided by 2")
-        if latent_dim is None:
-            latent_dim = 512
         self.latent_dim = latent_dim
         # median mappings
         median_units = [latent_dim] * num_layers

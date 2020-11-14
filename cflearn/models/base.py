@@ -167,6 +167,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def pipe_configs(self):
         return self.config.setdefault("pipe_configs", {})
 
+    def get_pipe_config(self, pipe: str, part: str) -> Dict[str, Any]:
+        return self.pipe_configs.setdefault(pipe, {}).setdefault(part, {})
+
     def add_pipe(
         self,
         key: str,

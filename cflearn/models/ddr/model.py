@@ -20,46 +20,17 @@ from ...types import tensor_dict_type
 @ModelBase.register("ddr")
 @ModelBase.register_pipe("ddr")
 class DDR(ModelBase):
-    def define_pipe_configs(self) -> None:
-        if not self.tr_loader.data.task_type.is_reg:
-            raise ValueError("DDR can only deal with regression problems")
-        self.q_metric = Metrics("quantile")
-        cfg = self.get_core_config(self)
-        assert cfg.pop("out_dim") == 1
-        self.define_head_config("ddr", cfg)
-
-    @staticmethod
-    def get_core_config(instance: "ModelBase") -> Dict[str, Any]:
-        cfg = ModelBase.get_core_config(instance)
-        num_layers = instance.config.setdefault("num_layers", None)
-        num_blocks = instance.config.setdefault("num_blocks", None)
-        latent_dim = instance.config.setdefault("latent_dim", None)
-        cfg.update(
-            {
-                "fetch_q": instance.fetch_q,
-                "fetch_cdf": instance.fetch_cdf,
-                "num_layers": num_layers,
-                "num_blocks": num_blocks,
-                "latent_dim": latent_dim,
-            }
-        )
-        return cfg
-
-    @property
-    def fetch_q(self) -> bool:
-        return "q" in self.fetches
-
-    @property
-    def fetch_cdf(self) -> bool:
-        return "cdf" in self.fetches
-
     def _init_config(self) -> None:
         super()._init_config()
-        # common
-        self.config.setdefault("ema_decay", 0.0)
-        self.fetches = set(self.config.setdefault("fetches", {"q", "cdf"}))
+        # pipe
+        head_config = self.get_pipe_config("ddr", "head")
+        self.fetch_cdf = head_config["fetch_cdf"]
+        self.fetch_q = head_config["fetch_q"]
         if not self.fetch_q and not self.fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
+        # common
+        self.q_metric = Metrics("quantile")
+        self.config.setdefault("ema_decay", 0.0)
         self._synthetic_step = self.config.setdefault("synthetic_step", 10)
         self._synthetic_range = self.config.setdefault("synthetic_range", 3.0)
         labels = self.tr_data.processed.y
@@ -376,13 +347,17 @@ class DDR(ModelBase):
 @ModelBase.register("ddr_q")
 class Quantile(DDR):
     def _preset_config(self) -> None:
-        self.config["fetches"] = {"q"}
+        head_config = self.get_pipe_config("ddr", "head")
+        head_config["fetch_cdf"] = False
+        head_config["fetch_q"] = True
 
 
 @ModelBase.register("ddr_cdf")
 class CDF(DDR):
     def _preset_config(self) -> None:
-        self.config["fetches"] = {"cdf"}
+        head_config = self.get_pipe_config("ddr", "head")
+        head_config["fetch_cdf"] = True
+        head_config["fetch_q"] = False
 
 
 __all__ = ["CDF", "DDR", "Quantile"]
