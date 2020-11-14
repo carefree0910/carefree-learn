@@ -207,6 +207,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             head_cfg = HeadConfigs.get(
                 pipe_config.head_scope,
                 pipe_config.head_config,
+                in_dim=extractor.out_dim,
                 tr_data=self.tr_data,
                 dimensions=self.dimensions,
                 **head_config,
@@ -215,7 +216,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self._head_configs[head_key] = head_config
         if pipe_config.use_head_meta:
             head_config = head_config[pipe_config.head]
-        head_config["in_dim"] = extractor.out_dim
         head = HeadBase.make(pipe_config.head, head_config)
         args = transform, extractor, head
         if key not in self.bypassed_pipes:
