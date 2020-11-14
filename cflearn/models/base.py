@@ -173,20 +173,25 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         extractor_config: Dict[str, Any],
         head_config: Dict[str, Any],
     ) -> None:
+        # transform
         transform_cfg = Configs.get(
             "transform",
             pipe_config.transform,
             **transform_config,
         )
         transform = Transform(self.dimensions, **transform_cfg.pop())
-        extractor_config = self._extractor_configs.setdefault(
-            pipe_config.extractor_key,
-            Configs.get(
+        # extractor
+        extractor_key = pipe_config.extractor_key
+        if extractor_key in self._extractor_configs:
+            extractor_config = self._extractor_configs[extractor_key]
+        else:
+            extractor_cfg = Configs.get(
                 pipe_config.extractor_scope,
                 pipe_config.extractor_config,
                 **extractor_config,
-            ).pop(),
-        )
+            )
+            extractor_config = extractor_cfg.pop()
+            self._extractor_configs[extractor_key] = extractor_config
         if pipe_config.use_extractor_meta:
             extractor_config = extractor_config[pipe_config.extractor]
         extractor = ExtractorBase.make(
@@ -195,16 +200,19 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             transform.dimensions,
             extractor_config,
         )
-        head_config = self._head_configs.setdefault(
-            pipe_config.head_key,
-            HeadConfigs.get(
+        head_key = pipe_config.head_key
+        if head_key in self._head_configs:
+            head_config = self._head_configs[head_key]
+        else:
+            head_cfg = HeadConfigs.get(
                 pipe_config.head_scope,
                 pipe_config.head_config,
                 tr_data=self.tr_data,
                 dimensions=self.dimensions,
                 **head_config,
-            ).pop(),
-        )
+            )
+            head_config = head_cfg.pop()
+            self._head_configs[head_key] = head_config
         if pipe_config.use_head_meta:
             head_config = head_config[pipe_config.head]
         head_config["in_dim"] = extractor.out_dim
