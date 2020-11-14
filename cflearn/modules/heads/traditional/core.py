@@ -16,11 +16,11 @@ from torch.nn.functional import linear
 from torch.nn.functional import log_softmax
 from cfml.models.naive_bayes import MultinomialNB
 
-from .base import HeadBase
-from ...misc.toolkit import to_numpy
-from ...misc.toolkit import to_torch
-from ...misc.toolkit import Activations
-from ...modules.blocks import Linear
+from ..base import HeadBase
+from ...blocks import Linear
+from ....misc.toolkit import to_numpy
+from ....misc.toolkit import to_torch
+from ....misc.toolkit import Activations
 
 
 def export_structure(tree: DecisionTreeClassifier) -> tuple:
@@ -45,8 +45,8 @@ class NDTHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
+        out_dim: int,
         dt: DecisionTreeClassifier,
-        num_classes: int,
         activations: Dict[str, str],
         activation_configs: Dict[str, Any],
     ):
@@ -61,7 +61,7 @@ class NDTHead(HeadBase):
         b = np.zeros(num_internals, dtype=np.float32)
         w1 = np.zeros([in_dim, num_internals], dtype=np.float32)
         w2 = np.zeros([num_internals, num_leaves], dtype=np.float32)
-        w3 = np.zeros([num_leaves, num_classes], dtype=np.float32)
+        w3 = np.zeros([num_leaves, out_dim], dtype=np.float32)
         node_list: List[int] = []
         node_sign_list: List[int] = []
         node_id_cursor = leaf_id_cursor = 0
@@ -85,13 +85,13 @@ class NDTHead(HeadBase):
         # construct planes & routes
         self.to_planes = Linear(in_dim, num_internals, init_method=None)
         self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
-        self.to_leaves = Linear(num_leaves, num_classes, init_method=None)
+        self.to_leaves = Linear(num_leaves, out_dim, init_method=None)
         with torch.no_grad():
             self.to_planes.linear.bias.data = b
             self.to_planes.linear.weight.data = w1.t()
             self.to_routes.linear.weight.data = w2.t()
             self.to_leaves.linear.weight.data = w3.t()
-            uniform = log_softmax(torch.zeros(num_classes, dtype=torch.float32), dim=0)
+            uniform = log_softmax(torch.zeros(out_dim, dtype=torch.float32), dim=0)
             self.to_leaves.linear.bias.data = uniform
         # activations
         m_tanh_cfg = activation_configs.setdefault("multiplied_tanh", {})
@@ -113,8 +113,8 @@ class NNBMNBHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
+        out_dim: int,
         y_ravel: np.ndarray,
-        num_classes: int,
         categorical: Optional[torch.Tensor],
     ):
         super().__init__()
@@ -124,7 +124,7 @@ class NNBMNBHead(HeadBase):
             log_prior = torch.from_numpy(np.log(y_bincount / len(y_ravel)))
             self.log_prior = nn.Parameter(log_prior)
         else:
-            self.mnb = Linear(in_dim, num_classes, init_method=None)
+            self.mnb = Linear(in_dim, out_dim, init_method=None)
             x_mnb = categorical.cpu().numpy()
             y_mnb = y_ravel.astype(np_int_type)
             mnb = MultinomialNB().fit(x_mnb, y_mnb)
@@ -188,8 +188,8 @@ class NNBNormalHead(HeadBase):
     def __init__(
         self,
         in_dim: int,
+        out_dim: int,
         y_ravel: np.ndarray,
-        num_classes: int,
         pretrain: bool,
         numerical: Optional[torch.Tensor],
     ):
@@ -198,12 +198,12 @@ class NNBNormalHead(HeadBase):
             self.mu = self.std = self.normal = None
         else:
             if not pretrain:
-                self.mu = nn.Parameter(torch.zeros(num_classes, in_dim))
-                self.std = nn.Parameter(torch.ones(num_classes, in_dim))
+                self.mu = nn.Parameter(torch.zeros(out_dim, in_dim))
+                self.std = nn.Parameter(torch.ones(out_dim, in_dim))
             else:
                 x_numerical = numerical.cpu().numpy()
                 mu_list, std_list = [], []
-                for k in range(num_classes):
+                for k in range(out_dim):
                     local_samples = x_numerical[y_ravel == k]
                     mu_list.append(local_samples.mean(0))
                     std_list.append(local_samples.std(0))

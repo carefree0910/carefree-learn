@@ -8,12 +8,13 @@ from typing import Optional
 from cftool.misc import update_dict
 from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
+from cftool.misc import LoggingMixin
 
 
 configs_dict: Dict[str, Dict[str, Type["Configs"]]] = {}
 
 
-class Configs(ABC):
+class Configs(ABC, LoggingMixin):
     def __init__(self, config: Optional[Dict[str, Any]] = None):
         if config is None:
             config = {}

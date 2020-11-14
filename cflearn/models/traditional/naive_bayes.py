@@ -10,7 +10,6 @@ from typing import Tuple
 from typing import Callable
 from typing import Optional
 from functools import partial
-from cftool.misc import shallow_copy_dict
 from torch.nn.functional import softmax
 
 from ...misc.toolkit import *
@@ -18,15 +17,19 @@ from ..base import ModelBase
 
 
 @ModelBase.register("nnb")
-@ModelBase.register_pipe("nnb_mnb")
-@ModelBase.register_pipe("nnb_normal")
+@ModelBase.register_pipe(
+    "nnb_mnb",
+    transform="one_hot_only",
+    head_meta_scope="nnb_meta",
+)
+@ModelBase.register_pipe(
+    "nnb_normal",
+    transform="numerical",
+    head_meta_scope="nnb_meta",
+)
 class NNB(ModelBase):
     def _preset_config(self) -> None:
         self.config.setdefault("default_encoding_method", "one_hot")
-
-    def _init_config(self) -> None:
-        super()._init_config()
-        self.pretrain = self.config.setdefault("pretrain", True)
 
     @property
     def mnb(self) -> nn.Module:
@@ -75,41 +78,6 @@ class NNB(ModelBase):
                 )
             )
         return tuple(map(to_numpy, posteriors))
-
-    def define_pipe_configs(self) -> None:
-        # prepare
-        x, y = self.tr_data.processed.xy
-        y_ravel, num_classes = y.ravel(), self.tr_data.num_classes
-        split = self._split_features(to_torch(x), np.arange(len(x)), "tr")
-        if not self.dimensions.has_numerical:
-            numerical = None
-        else:
-            numerical = split.numerical
-        if self.dimensions.one_hot_dim == 0:
-            categorical = None
-        else:
-            categorical = split.categorical.one_hot
-        common_config = {"y_ravel": y_ravel, "num_classes": num_classes}
-        # mnb
-        mnb_config = shallow_copy_dict(common_config)
-        mnb_config.update({"categorical": categorical})
-        self.define_head_config("nnb_mnb", mnb_config)
-        self.define_transform_config(
-            "nnb_mnb",
-            {"one_hot": True, "embedding": False, "only_categorical": True},
-        )
-        if categorical is None:
-            self.bypass_pipe("nnb_mnb")
-        # normal
-        normal_config = shallow_copy_dict(common_config)
-        normal_config.update({"numerical": numerical, "pretrain": self.pretrain})
-        self.define_head_config("nnb_normal", normal_config)
-        self.define_transform_config(
-            "nnb_normal",
-            {"one_hot": False, "embedding": False, "only_categorical": False},
-        )
-        if numerical is None:
-            self.bypass_pipe("nnb_normal")
 
     def merge_outputs(
         self,

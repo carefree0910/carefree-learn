@@ -1,5 +1,6 @@
 import torch
 
+import numpy as np
 import torch.nn as nn
 
 from abc import abstractmethod
@@ -26,12 +27,14 @@ class HeadConfigs(Configs):
         self,
         in_dim: int,
         tr_data: TabularData,
+        tr_weights: Optional[np.ndarray],
         dimensions: Dimensions,
         config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(config)
         self.in_dim = in_dim
         self.tr_data = tr_data
+        self.tr_weights = tr_weights
         self.dimensions = dimensions
 
     @property
@@ -42,11 +45,12 @@ class HeadConfigs(Configs):
             out_dim = default_out_dim
         return out_dim
 
-    def pop(self) -> Dict[str, Any]:
-        config = super().pop()
+    def inject_dimensions(self, config: Dict[str, Any]) -> None:
         config["in_dim"] = self.in_dim
         config["out_dim"] = self.out_dim
-        return config
+
+    def should_bypass(self, config: Dict[str, Any]) -> bool:
+        return False
 
     @classmethod
     def get(
@@ -56,6 +60,7 @@ class HeadConfigs(Configs):
         *,
         in_dim: Optional[int] = None,
         tr_data: Optional[TabularData] = None,
+        tr_weights: Optional[np.ndarray] = None,
         dimensions: Optional[Dimensions] = None,
         **kwargs: Any,
     ) -> "HeadConfigs":
@@ -68,7 +73,7 @@ class HeadConfigs(Configs):
         cfg_type = configs_dict[scope][name]
         if not issubclass(cfg_type, HeadConfigs):
             raise ValueError(f"'{name}' under '{scope}' scope is not `HeadConfigs`")
-        return cfg_type(in_dim, tr_data, dimensions, kwargs)
+        return cfg_type(in_dim, tr_data, tr_weights, dimensions, kwargs)
 
 
 class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):

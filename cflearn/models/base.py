@@ -134,6 +134,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self.define_pipe_configs()
         self._extractor_configs = {}
         self._head_configs = {}
+        self._head_config_ins_dict = {}
+        self._bypass_info_dict = {}
         for key, pipe_config in self.registered_pipes.items():
             local_configs = self.pipe_configs.setdefault(key, {})
             transform_config = local_configs.setdefault("transform", {})
@@ -203,28 +205,36 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head_key = pipe_config.head_key
         if head_key in self._head_configs:
             head_config = self._head_configs[head_key]
+            head_cfg = self._head_config_ins_dict[head_key]
+            bypass_info = self._bypass_info_dict[head_key]
         else:
             head_cfg = HeadConfigs.get(
                 pipe_config.head_scope,
                 pipe_config.head_config,
                 in_dim=extractor.out_dim,
                 tr_data=self.tr_data,
+                tr_weights=self.tr_weights,
                 dimensions=self.dimensions,
                 **head_config,
             )
             head_config = head_cfg.pop()
+            bypass_info = head_cfg.should_bypass(head_config)
             self._head_configs[head_key] = head_config
-        if pipe_config.use_head_meta:
+            self._head_config_ins_dict[head_key] = head_cfg
+            self._bypass_info_dict[head_key] = bypass_info
+        if not pipe_config.use_head_meta:
+            should_bypass = bypass_info
+        else:
             head_config = head_config[pipe_config.head]
+            should_bypass = bypass_info[pipe_config.head]
+        head_cfg.inject_dimensions(head_config)
         head = HeadBase.make(pipe_config.head, head_config)
         args = transform, extractor, head
-        if key not in self.bypassed_pipes:
+        if not should_bypass:
             self.pipes[key] = Pipe(*args)
         else:
+            self.bypassed_pipes.add(key)
             self.pipes[key] = PipePlaceholder(*args)
-
-    def bypass_pipe(self, key: str) -> None:
-        self.bypassed_pipes.add(key)
 
     def _define_config(self, pipe: str, key: str, config: Dict[str, Any]) -> None:
         pipe_config = self.pipe_configs.setdefault(pipe, {})
