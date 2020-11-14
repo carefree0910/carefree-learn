@@ -131,7 +131,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         # pipes
         self.pipes = ModuleDict()
         self.bypassed_pipes = set()
-        self.define_pipe_configs()
         self._extractor_configs = {}
         self._head_configs = {}
         self._head_config_ins_dict = {}
@@ -239,19 +238,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self.bypassed_pipes.add(key)
             self.pipes[key] = PipePlaceholder(*args)
 
-    def _define_config(self, pipe: str, key: str, config: Dict[str, Any]) -> None:
-        pipe_config = self.pipe_configs.setdefault(pipe, {})
-        pipe_config[key] = config
-
-    def define_transform_config(self, pipe: str, config: Dict[str, Any]) -> None:
-        self._define_config(pipe, "transform", config)
-
-    def define_extractor_config(self, pipe: str, config: Dict[str, Any]) -> None:
-        self._define_config(pipe, "extractor", config)
-
-    def define_head_config(self, pipe: str, config: Dict[str, Any]) -> None:
-        self._define_config(pipe, "head", config)
-
     # Inheritance
 
     @property
@@ -288,9 +274,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self.loss: Module = nn.L1Loss(reduction="none")
         else:
             self.loss = FocalLoss(self._loss_config, reduction="none")
-
-    def define_pipe_configs(self) -> None:
-        pass
 
     def merge_outputs(
         self,
