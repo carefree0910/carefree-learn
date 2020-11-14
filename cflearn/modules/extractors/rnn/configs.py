@@ -14,7 +14,7 @@ class DefaultRNNConfig(Configs):
                 "batch_first": True,
                 "hidden_size": 256,
                 "bidirectional": False,
-            }
+            },
         }
 
 
