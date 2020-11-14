@@ -568,12 +568,21 @@ def make_toy_model(
         else:
             x, y = [[0], [1]], [[1], [0]]
     data_tuple = x, y
+    model_config = {}
+    if model in ("fcnn", "tree_dnn"):
+        model_config = {
+            "pipe_configs": {
+                "fcnn": {
+                    "head": {
+                        "hidden_units": [100],
+                        "mapping_configs": {"dropout": 0.0, "batch_norm": False},
+                    }
+                }
+            }
+        }
     base_config = {
         "model": model,
-        "model_config": {
-            "hidden_units": [100],
-            "mapping_configs": {"dropout": 0.0, "batch_norm": False},
-        },
+        "model_config": model_config,
         "cv_split": 0.0,
         "trigger_logging": False,
         "min_epoch": 1,
