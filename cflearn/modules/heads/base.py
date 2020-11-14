@@ -13,6 +13,7 @@ from cftool.misc import register_core
 from cftool.misc import LoggingMixin
 from cfdata.tabular import TabularData
 
+from ..transform import Dimensions
 from ...misc.configs import configs_dict
 from ...misc.configs import Configs
 
@@ -21,9 +22,15 @@ head_dict: Dict[str, Type["HeadBase"]] = {}
 
 
 class HeadConfigs(Configs):
-    def __init__(self, tr_data: TabularData, config: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        tr_data: TabularData,
+        dimensions: Dimensions,
+        config: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(config)
         self.tr_data = tr_data
+        self.dimensions = dimensions
 
     @property
     def in_dim(self) -> int:
@@ -49,14 +56,17 @@ class HeadConfigs(Configs):
         name: str,
         *,
         tr_data: Optional[TabularData] = None,
+        dimensions: Optional[Dimensions] = None,
         **kwargs: Any,
     ) -> "HeadConfigs":
         if tr_data is None:
             raise ValueError("`tr_data` must be provided for `HeadConfigs`")
+        if dimensions is None:
+            raise ValueError("`dimensions` must be provided for `HeadConfigs`")
         cfg_type = configs_dict[scope][name]
         if not issubclass(cfg_type, HeadConfigs):
             raise ValueError(f"'{name}' under '{scope}' scope is not `HeadConfigs`")
-        return cfg_type(tr_data, kwargs)
+        return cfg_type(tr_data, dimensions, kwargs)
 
 
 class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):

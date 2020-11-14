@@ -201,6 +201,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 pipe_config.head_scope,
                 pipe_config.head_config,
                 tr_data=self.tr_data,
+                dimensions=self.dimensions,
                 **head_config,
             ).pop(),
         )
