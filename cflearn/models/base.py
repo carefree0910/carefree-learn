@@ -210,6 +210,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         if head_key in self._head_configs:
             head_config = self._head_configs[head_key]
             head_cfg = self._head_config_ins_dict[head_key]
+            head_cfg.in_dim = extractor.out_dim
             bypass_info = self._bypass_info_dict[head_key]
         else:
             head_cfg = HeadConfigs.get(
