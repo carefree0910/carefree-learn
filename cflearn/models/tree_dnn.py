@@ -16,10 +16,6 @@ class TreeStack(ModelBase):
     def output_probabilities(self) -> bool:
         return True
 
-    def _init_config(self) -> None:
-        super()._init_config()
-        self._loss_config["input_logits"] = False
-
 
 @TreeStack.register("tree_linear")
 @ModelBase.register_pipe("tree_stack", head_config="linear")

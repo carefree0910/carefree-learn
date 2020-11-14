@@ -268,6 +268,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         )
         # loss
         self._loss_config = self.config.setdefault("loss_config", {})
+        self._loss_config["input_logits"] = not self.output_probabilities
 
     def _init_loss(self) -> None:
         if self.tr_data.is_reg:
