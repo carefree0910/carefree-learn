@@ -12,8 +12,8 @@ from typing import Optional
 from functools import partial
 from torch.nn.functional import softmax
 
-from ...misc.toolkit import *
-from ..base import ModelBase
+from ..misc.toolkit import *
+from .base import ModelBase
 
 
 @ModelBase.register("nnb")

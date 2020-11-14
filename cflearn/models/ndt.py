@@ -1,8 +1,8 @@
 import numpy as np
 import torch.nn as nn
 
-from ..base import ModelBase
-from ...misc.toolkit import to_numpy
+from .base import ModelBase
+from ..misc.toolkit import to_numpy
 
 
 @ModelBase.register("ndt")

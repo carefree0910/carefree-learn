@@ -1,4 +1,4 @@
-from ..base import ModelBase
+from .base import ModelBase
 
 
 @ModelBase.register("transformer")

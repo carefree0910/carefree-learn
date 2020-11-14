@@ -1,9 +1,4 @@
-import logging
-
-from typing import Any
-from typing import Dict
-
-from ..base import ModelBase
+from .base import ModelBase
 
 
 @ModelBase.register("tree_dnn")
