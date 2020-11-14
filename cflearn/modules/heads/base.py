@@ -80,7 +80,7 @@ class HeadConfigs(Configs):
 
 class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(self, **kwargs: Any):
-        pass
+        super().__init__()
 
     @abstractmethod
     def forward(self, net: torch.Tensor) -> Union[torch.Tensor, tensor_dict_type]:
