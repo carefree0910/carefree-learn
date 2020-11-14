@@ -130,11 +130,13 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         )
         # pipes
         self.pipes = ModuleDict()
-        self.bypassed_pipes = set()
-        self._extractor_configs = {}
-        self._head_configs = {}
-        self._head_config_ins_dict = {}
-        self._bypass_info_dict = {}
+        self.bypassed_pipes: Set[str] = set()
+        self._extractor_configs: Dict[str, Dict[str, Any]] = {}
+        self._head_configs: Dict[str, Dict[str, Any]] = {}
+        self._head_config_ins_dict: Dict[str, HeadConfigs] = {}
+        self._bypass_info_dict: Dict[str, Union[bool, Dict[str, bool]]] = {}
+        if self.registered_pipes is None:
+            raise ValueError(f"No `pipe` is registered in {type(self).__name__}")
         for key, pipe_config in self.registered_pipes.items():
             local_configs = self.pipe_configs.setdefault(key, {})
             transform_config = local_configs.setdefault("transform", {})
@@ -163,7 +165,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         return num_history
 
     @property
-    def pipe_configs(self):
+    def pipe_configs(self) -> Dict[str, Any]:
         return self.config.setdefault("pipe_configs", {})
 
     def get_pipe_config(self, pipe: str, part: str) -> Dict[str, Any]:
@@ -227,6 +229,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         if not pipe_config.use_head_meta:
             should_bypass = bypass_info
         else:
+            assert isinstance(bypass_info, dict)
             head_config = head_config[pipe_config.head]
             should_bypass = bypass_info[pipe_config.head]
         head_cfg.inject_dimensions(head_config)
@@ -395,7 +398,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         *,
         extract_kwargs: Optional[Dict[str, Any]] = None,
         head_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Tensor:
+    ) -> Union[Tensor, tensor_dict_type]:
         return self.pipes[pipe](net, extract_kwargs, head_kwargs)
 
     def try_execute(
@@ -405,7 +408,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         *,
         extract_kwargs: Optional[Dict[str, Any]] = None,
         head_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Tensor]:
+    ) -> Optional[Union[Tensor, tensor_dict_type]]:
         if pipe not in self.pipes:
             return None
         return self.execute(
@@ -461,6 +464,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             extractor = "identity"
 
         def _core(cls_: Type) -> Type:
+            assert head is not None
+            assert extractor is not None
             cfg = PipeConfig(
                 transform,
                 extractor,

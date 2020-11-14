@@ -270,7 +270,7 @@ class Activations:
                 )
             return Lambda(partial(func, **kwargs), item)
 
-    def module(self, name: str) -> nn.Module:
+    def module(self, name: Optional[str]) -> nn.Module:
         if name is None:
             return nn.Identity()
         return getattr(self, name)

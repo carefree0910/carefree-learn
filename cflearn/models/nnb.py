@@ -41,11 +41,11 @@ class NNB(ModelBase):
 
     @property
     def class_log_prior(self) -> Callable:
-        return self.mnb.class_log_prior
+        return self.mnb.class_log_prior  # type: ignore
 
     @property
     def log_posterior(self) -> Callable:
-        return self.mnb.log_posterior
+        return self.mnb.log_posterior  # type: ignore
 
     @property
     def pdf(self) -> Optional[Callable[[np.ndarray], np.ndarray]]:
@@ -56,8 +56,8 @@ class NNB(ModelBase):
             if self.mu is None:
                 raise ValueError("`mu` is not trained")
             assert self.normal is not None
-            tensor = to_torch(arr).to(self.mu.device)
-            pdf = torch.exp(self.normal.log_prob(tensor[..., None, :]))
+            tensor = to_torch(arr).to(self.mu.device)  # type: ignore
+            pdf = torch.exp(self.normal.log_prob(tensor[..., None, :]))  # type: ignore
             return to_numpy(pdf)
 
         return _pdf

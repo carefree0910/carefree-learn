@@ -90,7 +90,7 @@ class PipePlaceholder(Pipe):
         inp: Union[Tensor, SplitFeatures],
         extract_kwargs: Optional[Dict[str, Any]] = None,
         head_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> None:
+    ) -> Tensor:
         raise ValueError("`PipePlaceholder.forward` should not be called")
 
 

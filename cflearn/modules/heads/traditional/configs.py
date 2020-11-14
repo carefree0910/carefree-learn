@@ -30,11 +30,17 @@ class DefaultNNBMetaConfig(HeadConfigs):
         if self.dimensions.one_hot_dim == 0:
             categorical = None
         else:
+            assert split.categorical is not None
             categorical = split.categorical.one_hot
         common_config = {"y_ravel": y.ravel()}
         # mnb
         mnb_config = shallow_copy_dict(common_config)
-        mnb_config.update({"categorical": categorical})
+        mnb_config.update(
+            {
+                "categorical": categorical,
+                "categorical_dims": self.dimensions.categorical_dims,
+            }
+        )
         # normal
         normal_config = shallow_copy_dict(common_config)
         normal_config.update({"numerical": numerical, "pretrain": True})

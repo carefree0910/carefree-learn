@@ -8,6 +8,7 @@ from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import Type
+from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import register_core
@@ -15,6 +16,7 @@ from cftool.misc import LoggingMixin
 from cfdata.tabular import TabularData
 
 from ..transform import Dimensions
+from ...types import tensor_dict_type
 from ...misc.configs import configs_dict
 from ...misc.configs import Configs
 
@@ -39,7 +41,7 @@ class HeadConfigs(Configs):
 
     @property
     def out_dim(self) -> int:
-        out_dim: int = self.config.get("out_dim")
+        out_dim = self.config.get("out_dim")
         default_out_dim = max(self.tr_data.num_classes, 1)
         if out_dim is None:
             out_dim = default_out_dim
@@ -49,7 +51,7 @@ class HeadConfigs(Configs):
         config["in_dim"] = self.in_dim
         config["out_dim"] = self.out_dim
 
-    def should_bypass(self, config: Dict[str, Any]) -> bool:
+    def should_bypass(self, config: Dict[str, Any]) -> Union[bool, Dict[str, bool]]:
         return False
 
     @classmethod
@@ -77,12 +79,12 @@ class HeadConfigs(Configs):
 
 
 class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
-    @abstractmethod
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def __init__(self, **kwargs: Any):
         pass
 
-    def _init_config(self, config: Dict[str, Any]):
-        self.config = config
+    @abstractmethod
+    def forward(self, net: torch.Tensor) -> Union[torch.Tensor, tensor_dict_type]:
+        pass
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:

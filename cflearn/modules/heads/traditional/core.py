@@ -116,8 +116,10 @@ class NNBMNBHead(HeadBase):
         out_dim: int,
         y_ravel: np.ndarray,
         categorical: Optional[torch.Tensor],
+        categorical_dims: Dict[int, int],
     ):
         super().__init__()
+        self.categorical_dims = categorical_dims
         if categorical is None:
             self.mnb = None
             y_bincount = np.bincount(y_ravel).astype(np.float32)
@@ -214,6 +216,9 @@ class NNBNormalHead(HeadBase):
             self.normal = torch.distributions.Normal(self.mu, self.std)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
+        if self.normal is None:
+            msg = "`NNBNormalHead` should be bypassed when `normal` is not available"
+            raise ValueError(msg)
         return self.normal.log_prob(net[..., None, :]).sum(2)
 
 

@@ -117,10 +117,14 @@ class DDR(ModelBase):
             "median": q_batch is None,
             "do_inverse": do_inverse,
         }
-        return self.execute("ddr", net, head_kwargs=kwargs)
+        results = self.execute("ddr", net, head_kwargs=kwargs)
+        assert isinstance(results, dict)
+        return results
 
     def _median(self, net: torch.Tensor) -> tensor_dict_type:
-        return self.execute("ddr", net, head_kwargs={"median": True})
+        results = self.execute("ddr", net, head_kwargs={"median": True})
+        assert isinstance(results, dict)
+        return results
 
     def _cdf(
         self,
@@ -135,6 +139,7 @@ class DDR(ModelBase):
         with mode_context(self, to_train=None, use_grad=use_grad):
             kwargs = {"y_batch": y_batch, "do_inverse": do_inverse}
             results = self.execute("ddr", net, head_kwargs=kwargs)
+        assert isinstance(results, dict)
         cdf = results["q"]
         if not return_pdf:
             pdf = None
