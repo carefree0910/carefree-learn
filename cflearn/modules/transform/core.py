@@ -107,11 +107,7 @@ class Dimensions(LoggingMixin):
         dims: Dict[int, int] = {}
         if self.encoder is None:
             return dims
-        merged_dims = self.encoder.merged_dims
-        for idx in sorted(merged_dims):
-            true_idx = self.categorical_columns_mapping[idx]
-            dims[true_idx] = merged_dims[idx]
-        return dims
+        return self.encoder.merged_dims
 
     def split_features(
         self,
