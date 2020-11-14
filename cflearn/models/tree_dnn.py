@@ -3,12 +3,9 @@ from .base import ModelBase
 
 @ModelBase.register("tree_dnn")
 @ModelBase.register_pipe("dndf")
-@ModelBase.register_pipe("fcnn", transform="embedding")
+@ModelBase.register_pipe("fcnn", transform="embedding", head_config="pruned")
 class TreeDNN(ModelBase):
     def _preset_config(self) -> None:
-        mapping_configs = self.config.setdefault("mapping_configs", {})
-        if isinstance(mapping_configs, dict):
-            mapping_configs.setdefault("pruner_config", {})
         self.config.setdefault("default_encoding_method", ["embedding", "one_hot"])
 
 

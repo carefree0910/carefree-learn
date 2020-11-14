@@ -31,6 +31,14 @@ class DefaultFCNNConfig(HeadConfigs):
         }
 
 
+@HeadConfigs.register("fcnn", "pruned")
+class PrunedFCNNConfig(DefaultFCNNConfig):
+    def get_default(self) -> Dict[str, Any]:
+        config = super().get_default()
+        config["mapping_configs"]["pruner_config"] = {}
+        return config
+
+
 __all__ = [
     "DefaultFCNNConfig",
 ]
