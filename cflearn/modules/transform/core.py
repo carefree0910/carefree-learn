@@ -163,8 +163,8 @@ class Transform(Module):
     def extra_repr(self) -> str:
         one_hot_str = f"(use_one_hot): {self.use_one_hot}"
         embedding_str = f"(use_embedding): {self.use_embedding}"
-        only_str = "" if not self.only_categorical else "(only): categorical\n"
-        return f"{only_str}{one_hot_str}\n{embedding_str}"
+        only_str = f"(only_categorical): {self.only_categorical}"
+        return f"{one_hot_str}\n{embedding_str}\n{only_str}"
 
 
 __all__ = ["SplitFeatures", "Dimensions", "Transform"]
