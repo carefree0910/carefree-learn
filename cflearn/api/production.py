@@ -16,10 +16,10 @@ from cfdata.tabular import TabularData
 
 from ..types import data_type
 from ..types import np_dict_type
-from ..pipeline.core import Pipeline
-from ..pipeline.inference import ONNX
-from ..pipeline.inference import Inference
-from ..pipeline.inference import PreProcessor
+from ..pipeline import Pipeline
+from ..inference import ONNX
+from ..inference import Inference
+from ..inference import PreProcessor
 
 
 class Predictor:

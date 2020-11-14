@@ -26,10 +26,10 @@ from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
 from ..types import general_config_type
+from ..trainer import Trainer
+from ..trainer import IntermediateResults
+from ..pipeline import Pipeline
 from ..misc.toolkit import to_2d
-from ..trainer.core import Trainer
-from ..trainer.core import IntermediateResults
-from ..pipeline.core import Pipeline
 
 
 def _parse_config(config: general_config_type) -> Dict[str, Any]:

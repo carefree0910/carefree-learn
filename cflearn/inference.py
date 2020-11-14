@@ -18,17 +18,17 @@ from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfdata.tabular import ImbalancedSampler
 
-from ..types import data_type
-from ..types import np_dict_type
-from ..types import tensor_dict_type
-from ..models.base import ModelBase
-from ..misc.toolkit import to_prob
-from ..misc.toolkit import to_numpy
-from ..misc.toolkit import to_torch
-from ..misc.toolkit import is_float
-from ..misc.toolkit import to_standard
-from ..misc.toolkit import collate_np_dicts
-from ..misc.toolkit import eval_context
+from .types import data_type
+from .types import np_dict_type
+from .types import tensor_dict_type
+from .models.base import ModelBase
+from .misc.toolkit import to_prob
+from .misc.toolkit import to_numpy
+from .misc.toolkit import to_torch
+from .misc.toolkit import is_float
+from .misc.toolkit import to_standard
+from .misc.toolkit import collate_np_dicts
+from .misc.toolkit import eval_context
 
 
 class PreProcessor(LoggingMixin):

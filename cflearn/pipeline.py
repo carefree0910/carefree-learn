@@ -21,14 +21,14 @@ try:
 except:
     amp = None
 
+from .types import data_type
+from .trainer import Trainer
 from .inference import Inference
 from .inference import PreProcessor
-from ..types import data_type
-from ..misc.toolkit import to_2d
-from ..misc.time_series import TSLabelCollator
-from ..models.base import model_dict
-from ..models.base import ModelBase
-from ..trainer.core import Trainer
+from .misc.toolkit import to_2d
+from .misc.time_series import TSLabelCollator
+from .models.base import model_dict
+from .models.base import ModelBase
 
 
 class Pipeline(LoggingMixin):

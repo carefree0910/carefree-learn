@@ -8,7 +8,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 
 from .basic import make
-from ..pipeline.core import Pipeline
+from ..pipeline import Pipeline
 
 
 zoo_dict: Dict[str, Type["ZooBase"]] = {}

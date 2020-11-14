@@ -12,7 +12,7 @@ from cftool.misc import timestamp
 from cfdata.tabular import TabularDataset
 from sklearn.tree import DecisionTreeClassifier
 
-from cflearn.pipeline.core import Pipeline
+from cflearn.pipeline import Pipeline
 
 
 class TestTraditional(unittest.TestCase):

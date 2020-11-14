@@ -6,7 +6,7 @@ import numpy as np
 from typing import *
 from cftool.misc import shallow_copy_dict
 
-from cflearn.pipeline.core import Pipeline
+from cflearn.pipeline import Pipeline
 from cflearn.models.ddr.utils import DDRVisualizer
 
 

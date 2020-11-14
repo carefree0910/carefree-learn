@@ -10,7 +10,7 @@ from typing import Optional
 from cftool.misc import show_or_save
 
 from ...types import data_type
-from ...pipeline.core import Pipeline
+from ...pipeline import Pipeline
 
 
 class DDRPredictor:

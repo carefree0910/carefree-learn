@@ -24,15 +24,15 @@ from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 from torch.nn.functional import one_hot
 
-from .zoo import zoo
 from .basic import *
 from ..dist import *
 from ..misc.toolkit import *
+from .zoo import zoo
 from .register import register_metric
 from ..types import data_type
 from ..types import predictor_type
 from ..types import evaluator_type
-from ..pipeline.core import Pipeline
+from ..pipeline import Pipeline
 
 
 class BenchmarkResults(NamedTuple):

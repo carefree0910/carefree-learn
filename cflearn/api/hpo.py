@@ -29,7 +29,7 @@ from .basic import *
 from ..misc.toolkit import *
 from .ensemble import Ensemble
 from ..types import data_type
-from ..pipeline.core import Pipeline
+from ..pipeline import Pipeline
 
 
 class _TunerResult(NamedTuple):

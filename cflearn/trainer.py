@@ -29,11 +29,11 @@ try:
 except:
     amp = None
 
-from ..misc.toolkit import *
-from ..modules import optimizer_dict
-from ..modules import scheduler_dict
-from ..models.base import ModelBase
-from ..pipeline.inference import Inference
+from .misc.toolkit import *
+from .modules import optimizer_dict
+from .modules import scheduler_dict
+from .inference import Inference
+from .models.base import ModelBase
 
 
 class IntermediateResults(NamedTuple):
