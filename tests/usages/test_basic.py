@@ -170,10 +170,16 @@ def test_file_dataset2() -> None:
                 "init_method": "truncated_normal",
                 "embedding_dim": 8,
             },
-            "mapping_configs": {
-                "batch_norm": True,
-                "dropout": 0.12810052348936224,
-                "pruner_config": {"method": "surgery"},
+            "pipe_configs": {
+                "fcnn": {
+                    "head": {
+                        "mapping_configs": {
+                            "batch_norm": True,
+                            "dropout": 0.12810052348936224,
+                            "pruner_config": {"method": "surgery"},
+                        },
+                    }
+                }
             },
         },
     }

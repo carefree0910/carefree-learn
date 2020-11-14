@@ -64,7 +64,11 @@ class TestToy(unittest.TestCase):
         cflearn.make_toy_model("ddr", data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model("ddr", data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model("ddr", data_tuple=(x_categorical, y_reg))
-        cfg = {"model_config": {"num_blocks": 0, "num_layers": 0}}
+        cfg = {
+            "model_config": {
+                "pipe_configs": {"ddr": {"head": {"num_blocks": 0, "num_layers": 0}}}
+            }
+        }
         cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_categorical, y_reg))
