@@ -18,6 +18,44 @@ class PipeConfig(NamedTuple):
     head: str
     extractor_config: str
     head_config: str
+    extractor_meta_scope: Optional[str]
+    head_meta_scope: Optional[str]
+
+    @property
+    def use_extractor_meta(self) -> bool:
+        return self.extractor_meta_scope is not None
+
+    @property
+    def use_head_meta(self) -> bool:
+        return self.head_meta_scope is not None
+
+    @property
+    def extractor_scope(self) -> str:
+        if self.extractor_meta_scope is None:
+            return self.extractor
+        return self.extractor_meta_scope
+
+    @property
+    def head_scope(self) -> str:
+        if self.head_meta_scope is None:
+            return self.head
+        return self.head_meta_scope
+
+    @property
+    def extractor_key(self) -> str:
+        if self.extractor_meta_scope is None:
+            prefix = self.extractor
+        else:
+            prefix = self.extractor_meta_scope
+        return f"{prefix}_{self.extractor_config}"
+
+    @property
+    def head_key(self) -> str:
+        if self.head_meta_scope is None:
+            prefix = self.head
+        else:
+            prefix = self.head_meta_scope
+        return f"{prefix}_{self.head_config}"
 
 
 class Pipe(Module):

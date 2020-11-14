@@ -132,6 +132,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self.pipes = ModuleDict()
         self.bypassed_pipes = set()
         self.define_pipe_configs()
+        self._extractor_configs = {}
+        self._head_configs = {}
         for key, pipe_config in self.registered_pipes.items():
             local_configs = self.pipe_configs.setdefault(key, {})
             transform_config = local_configs.setdefault("transform", {})
@@ -177,25 +179,35 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             **transform_config,
         )
         transform = Transform(self.dimensions, **transform_cfg.pop())
-        extractor_cfg = Configs.get(
-            pipe_config.extractor,
-            pipe_config.extractor_config,
-            **extractor_config,
+        extractor_config = self._extractor_configs.setdefault(
+            pipe_config.extractor_key,
+            Configs.get(
+                pipe_config.extractor_scope,
+                pipe_config.extractor_config,
+                **extractor_config,
+            ).pop(),
         )
+        if pipe_config.use_extractor_meta:
+            extractor_config = extractor_config[pipe_config.extractor]
         extractor = ExtractorBase.make(
             pipe_config.extractor,
             transform.out_dim,
             transform.dimensions,
-            extractor_cfg.pop(),
+            extractor_config,
         )
+        head_config = self._head_configs.setdefault(
+            pipe_config.head_key,
+            HeadConfigs.get(
+                pipe_config.head_scope,
+                pipe_config.head_config,
+                tr_data=self.tr_data,
+                **head_config,
+            ).pop(),
+        )
+        if pipe_config.use_head_meta:
+            head_config = head_config[pipe_config.head]
         head_config["in_dim"] = extractor.out_dim
-        head_cfg = HeadConfigs.get(
-            pipe_config.head,
-            pipe_config.head_config,
-            tr_data=self.tr_data,
-            **head_config,
-        )
-        head = HeadBase.make(pipe_config.head, head_cfg.pop())
+        head = HeadBase.make(pipe_config.head, head_config)
         args = transform, extractor, head
         if key not in self.bypassed_pipes:
             self.pipes[key] = Pipe(*args)
@@ -432,6 +444,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head: Optional[str] = None,
         extractor_config: str = "default",
         head_config: str = "default",
+        extractor_meta_scope: Optional[str] = None,
+        head_meta_scope: Optional[str] = None,
     ) -> Callable[[Type], Type]:
         if head is None:
             head = key
@@ -441,7 +455,15 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             extractor = "identity"
 
         def _core(cls_: Type) -> Type:
-            cfg = PipeConfig(transform, extractor, head, extractor_config, head_config)
+            cfg = PipeConfig(
+                transform,
+                extractor,
+                head,
+                extractor_config,
+                head_config,
+                extractor_meta_scope,
+                head_meta_scope,
+            )
             if cls_.registered_pipes is None:
                 cls_.registered_pipes = {key: cfg}
             else:
