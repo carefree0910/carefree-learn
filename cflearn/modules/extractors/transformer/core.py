@@ -64,37 +64,22 @@ class Transformer(ExtractorBase):
         dimensions: Dimensions,
         num_heads: int,
         num_layers: int,
-        to_latent: bool = False,
-        norm: Optional[Callable] = None,
-        latent_dim: Optional[int] = None,
-        input_linear_config: Optional[Dict[str, Any]] = None,
-        transformer_layer_config: Optional[Dict[str, Any]] = None,
+        latent_dim: int,
+        norm: Optional[Callable],
+        input_linear_config: Dict[str, Any],
+        transformer_layer_config: Dict[str, Any],
     ):
         super().__init__(in_flat_dim, dimensions)
         # latent projection
-        if latent_dim is not None and not to_latent:
-            msg = "`latent_dim` is provided but `to_latent` is set to False"
-            raise ValueError(msg)
         in_dim = in_flat_dim // dimensions.num_history
-        if latent_dim is None:
-            latent_dim = 256 if to_latent else in_dim
+        self.input_linear = Linear(in_dim, latent_dim, **input_linear_config)
         self.latent_dim = latent_dim
-        if not to_latent:
-            self.input_linear = None
-        else:
-            if input_linear_config is None:
-                input_linear_config = {}
-            input_linear_config.setdefault("bias", False)
-            self.input_linear = Linear(in_dim, latent_dim, **input_linear_config)
-            in_dim = latent_dim
         # transformer blocks
         self.norm = norm
-        if transformer_layer_config is None:
-            transformer_layer_config = {}
         self.layers = nn.ModuleList(
             [
                 TransformerLayer(
-                    in_dim,
+                    latent_dim,
                     num_heads,
                     **transformer_layer_config,
                 )
@@ -108,7 +93,7 @@ class Transformer(ExtractorBase):
 
     @property
     def out_dim(self) -> int:
-        return self.latent_dim * self.transform.dimensions.num_history
+        return self.latent_dim * self.dimensions.num_history
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         if self.input_linear is not None:
