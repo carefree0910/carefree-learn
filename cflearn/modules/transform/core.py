@@ -1,10 +1,14 @@
 import torch
 
+import numpy as np
+
 from torch import Tensor
 from typing import Dict
 from typing import Optional
 from typing import NamedTuple
 from torch.nn import Module
+from cftool.misc import timing_context
+from cftool.misc import LoggingMixin
 
 from ..encoders import Encoder
 from ..encoders import EncodingResult
@@ -62,7 +66,7 @@ class SplitFeatures(NamedTuple):
         return torch.cat([self.numerical, merged], dim=1)
 
 
-class Dimensions:
+class Dimensions(LoggingMixin):
     def __init__(
         self,
         encoder: Optional[Encoder],
@@ -108,6 +112,25 @@ class Dimensions:
             true_idx = self.categorical_columns_mapping[idx]
             dims[true_idx] = merged_dims[idx]
         return dims
+
+    def split_features(
+        self,
+        x_batch: Tensor,
+        batch_indices: Optional[np.ndarray],
+        loader_name: Optional[str],
+        enable_timing: bool = True,
+    ) -> SplitFeatures:
+        if self.encoder is None:
+            return SplitFeatures(None, x_batch)
+        with timing_context(self, "encoding", enable=enable_timing):
+            encoding_result = self.encoder(x_batch, batch_indices, loader_name)
+        with timing_context(self, "fetch_numerical", enable=enable_timing):
+            numerical_columns = self._numerical_columns
+            if not numerical_columns:
+                numerical = None
+            else:
+                numerical = x_batch[..., numerical_columns]
+        return SplitFeatures(encoding_result, numerical)
 
 
 class Transform(Module):

@@ -13,7 +13,6 @@ from torch.optim import Optimizer
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import DataLoader
 from cftool.misc import register_core
-from cftool.misc import timing_context
 from cftool.misc import LoggingMixin
 
 try:
@@ -364,17 +363,12 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         batch_indices: Optional[np.ndarray],
         loader_name: Optional[str],
     ) -> SplitFeatures:
-        if self.encoder is None:
-            return SplitFeatures(None, x_batch)
-        with timing_context(self, "encoding", enable=self.timing):
-            encoding_result = self.encoder(x_batch, batch_indices, loader_name)
-        with timing_context(self, "fetch_numerical", enable=self.timing):
-            numerical_columns = self.dimensions._numerical_columns
-            if not numerical_columns:
-                numerical = None
-            else:
-                numerical = x_batch[..., numerical_columns]
-        return SplitFeatures(encoding_result, numerical)
+        return self.dimensions.split_features(
+            x_batch,
+            batch_indices,
+            loader_name,
+            enable_timing=self.timing,
+        )
 
     def execute(
         self,
