@@ -23,8 +23,8 @@ class DDR(ModelBase):
         super()._init_config()
         # pipe
         head_config = self.get_pipe_config("ddr", "head")
-        self.fetch_cdf = head_config["fetch_cdf"]
-        self.fetch_q = head_config["fetch_q"]
+        self.fetch_cdf = head_config.setdefault("fetch_cdf", True)
+        self.fetch_q = head_config.setdefault("fetch_q", True)
         if not self.fetch_q and not self.fetch_cdf:
             raise ValueError("something must be fetched, either `q` or `cdf`")
         # common
