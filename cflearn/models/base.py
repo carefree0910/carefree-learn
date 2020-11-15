@@ -402,23 +402,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     ) -> Union[Tensor, tensor_dict_type]:
         return self.pipes[pipe](net, extract_kwargs, head_kwargs)
 
-    def try_execute(
-        self,
-        pipe: str,
-        split: SplitFeatures,
-        *,
-        extract_kwargs: Optional[Dict[str, Any]] = None,
-        head_kwargs: Optional[Dict[str, Any]] = None,
-    ) -> Optional[Union[Tensor, tensor_dict_type]]:
-        if pipe not in self.pipes:
-            return None
-        return self.execute(
-            pipe,
-            split,
-            extract_kwargs=extract_kwargs,
-            head_kwargs=head_kwargs,
-        )
-
     def _optimizer_step(
         self,
         optimizers: Dict[str, Optimizer],
