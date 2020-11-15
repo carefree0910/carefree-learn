@@ -14,7 +14,7 @@ class NDT(ModelBase):
 
     @property
     def head(self) -> nn.Module:
-        return self.head["ndt"]
+        return self.heads["ndt"]
 
     @property
     def to_planes(self) -> Linear:

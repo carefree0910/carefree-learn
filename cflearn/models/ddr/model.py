@@ -109,7 +109,7 @@ class DDR(ModelBase):
 
     def _quantile(
         self,
-        split: SplitFeatures,
+        net: Union[torch.Tensor, SplitFeatures],
         q_batch: Optional[torch.Tensor],
         do_inverse: bool,
     ) -> tensor_dict_type:
@@ -120,22 +120,26 @@ class DDR(ModelBase):
                 "do_inverse": do_inverse,
             }
         }
-        results = self.execute(split, clear_cache=False, head_kwargs_dict=kwargs)
+        results = self.execute(net, clear_cache=False, head_kwargs_dict=kwargs)
         assert isinstance(results, dict)
-        return results["ddr"]
+        ddr_results = results["ddr"]
+        assert isinstance(ddr_results, dict)
+        return ddr_results
 
-    def _median(self, split: SplitFeatures) -> tensor_dict_type:
+    def _median(self, net: Union[torch.Tensor, SplitFeatures]) -> tensor_dict_type:
         results = self.execute(
-            split,
+            net,
             clear_cache=False,
             head_kwargs_dict={"ddr": {"median": True}},
         )
         assert isinstance(results, dict)
-        return results["ddr"]
+        ddr_results = results["ddr"]
+        assert isinstance(ddr_results, dict)
+        return ddr_results
 
     def _cdf(
         self,
-        split: SplitFeatures,
+        net: Union[torch.Tensor, SplitFeatures],
         y_batch: torch.Tensor,
         need_optimize: bool,
         return_pdf: bool,
@@ -145,10 +149,11 @@ class DDR(ModelBase):
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
             kwargs = {"ddr": {"y_batch": y_batch, "do_inverse": do_inverse}}
-            results = self.execute(split, clear_cache=False, head_kwargs_dict=kwargs)
-        results = results["ddr"]
+            results = self.execute(net, clear_cache=False, head_kwargs_dict=kwargs)
         assert isinstance(results, dict)
-        cdf = results["q"]
+        ddr_results = results["ddr"]
+        assert isinstance(ddr_results, dict)
+        cdf = ddr_results["q"]
         if not return_pdf:
             pdf = None
         else:

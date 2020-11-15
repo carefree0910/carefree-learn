@@ -457,7 +457,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         clear_cache: bool = True,
         extract_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
         head_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
-    ) -> Union[Tensor, tensor_dict_type]:
+    ) -> tensor_dict_type:
         results: Dict[str, Tensor] = {}
         for key, (transform_key, executor_key, _) in self.pipes.items():
             if key in self.bypassed_pipes:
