@@ -232,6 +232,53 @@ class MLP(Module):
             final_mapping_config=final_mapping_config,
         )
 
+    @classmethod
+    def funnel(
+        cls,
+        in_dim: int,
+        out_dim: int,
+        max_dim: int,
+        num_layers: int,
+        *,
+        bias: bool = True,
+        max_dropout: float = 0.0,
+        batch_norm: bool = False,
+        activation: Optional[str] = None,
+        pruner_config: Optional[Dict[str, Any]] = None,
+        final_mapping_config: Optional[Dict[str, Any]] = None,
+    ):
+        dim = None
+        dim_decrease = int(math.ceil((max_dim - out_dim) / num_layers))
+        drop_decrease = max_dropout / num_layers
+        num_units = []
+        mapping_configs = []
+        current_drop = max_dropout
+        for i in range(num_layers):
+            # mapping config
+            mapping_config = {
+                "bias": bias,
+                "dropout": current_drop,
+                "batch_norm": batch_norm,
+                "pruner_config": pruner_config,
+            }
+            if activation is not None:
+                mapping_config["activation"] = activation
+            mapping_configs.append(mapping_config)
+            current_drop -= drop_decrease
+            # num unit
+            if i == 0:
+                dim = max_dim
+            else:
+                dim -= dim_decrease
+            num_units.append(dim)
+        return cls(
+            in_dim,
+            out_dim,
+            num_units,
+            mapping_configs,
+            final_mapping_config=final_mapping_config,
+        )
+
 
 class DNDF(Module):
     def __init__(
