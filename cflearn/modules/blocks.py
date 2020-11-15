@@ -11,6 +11,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -156,6 +157,66 @@ class Mapping(Module):
         )
 
 
+class ResBlock(Module):
+    def __init__(
+        self,
+        in_dim: int,
+        latent_dim: int,
+        *,
+        bias: Optional[bool] = None,
+        pruner_config: Optional[dict] = None,
+        dropout: float = 0.0,
+        batch_norm: bool = True,
+        activation: Optional[str] = "ReLU",
+        init_method: str = "xavier_uniform",
+        **kwargs: Any,
+    ):
+        super().__init__()
+        self.in_bn = None if not batch_norm else BN(in_dim)
+        if activation is None:
+            self.in_activation: Optional[Module] = None
+        else:
+            activation_config = kwargs.setdefault("activation_config", None)
+            self.in_activation = Activations.make(activation, activation_config)
+        self.mapping = Mapping(
+            in_dim,
+            latent_dim,
+            bias=bias,
+            pruner_config=pruner_config,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation=activation,
+            init_method=init_method,
+            **kwargs,
+        )
+        self.linear = Linear(
+            latent_dim,
+            latent_dim,
+            bias=bias,
+            pruner_config=pruner_config,
+            init_method=init_method,
+            **kwargs,
+        )
+        self.res_linear = Linear(
+            in_dim,
+            latent_dim,
+            bias=bias,
+            pruner_config=pruner_config,
+            init_method=init_method,
+            **kwargs,
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        latent = net
+        if self.in_bn is not None:
+            latent = self.in_bn(latent)
+        if self.in_activation is not None:
+            latent = self.in_activation(latent)
+        latent = self.mapping(latent)
+        latent = self.linear(latent)
+        return self.res_linear(net) + latent
+
+
 class MLP(Module):
     def __init__(
         self,
@@ -232,6 +293,29 @@ class MLP(Module):
             final_mapping_config=final_mapping_config,
         )
 
+    @staticmethod
+    def get_funnel_settings(
+        max_dropout: float,
+        max_dim: int,
+        out_dim: int,
+        num_layers: int,
+    ) -> Tuple[List[float], List[int]]:
+        dim = None
+        dim_decrease = int(math.ceil((max_dim - out_dim) / num_layers))
+        drop_decrease = max_dropout / num_layers
+        dropouts = []
+        num_units = []
+        current_drop = max_dropout
+        for i in range(num_layers):
+            dropouts.append(current_drop)
+            current_drop -= drop_decrease
+            if i == 0:
+                dim = max_dim
+            else:
+                dim -= dim_decrease
+            num_units.append(dim)
+        return dropouts, num_units
+
     @classmethod
     def funnel(
         cls,
@@ -241,36 +325,29 @@ class MLP(Module):
         num_layers: int,
         *,
         bias: bool = True,
-        max_dropout: float = 0.0,
+        max_dropout: float = 0.1,
         batch_norm: bool = False,
-        activation: Optional[str] = None,
+        activation: Optional[str] = "relu",
         pruner_config: Optional[Dict[str, Any]] = None,
         final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
-        dim = None
-        dim_decrease = int(math.ceil((max_dim - out_dim) / num_layers))
-        drop_decrease = max_dropout / num_layers
-        num_units = []
+        dropouts, num_units = cls.get_funnel_settings(
+            max_dropout,
+            max_dim,
+            out_dim,
+            num_layers,
+        )
         mapping_configs = []
-        current_drop = max_dropout
-        for i in range(num_layers):
-            # mapping config
+        for dropout in dropouts:
             mapping_config = {
                 "bias": bias,
-                "dropout": current_drop,
+                "dropout": dropout,
                 "batch_norm": batch_norm,
                 "pruner_config": pruner_config,
             }
             if activation is not None:
                 mapping_config["activation"] = activation
             mapping_configs.append(mapping_config)
-            current_drop -= drop_decrease
-            # num unit
-            if i == 0:
-                dim = max_dim
-            else:
-                dim -= dim_decrease
-            num_units.append(dim)
         return cls(
             in_dim,
             out_dim,
@@ -278,6 +355,48 @@ class MLP(Module):
             mapping_configs,
             final_mapping_config=final_mapping_config,
         )
+
+    @classmethod
+    def res_funnel(
+        cls,
+        in_dim: int,
+        out_dim: int,
+        max_dim: int,
+        num_layers: int,
+        *,
+        bias: bool = True,
+        max_dropout: float = 0.1,
+        batch_norm: bool = True,
+        activation: Optional[str] = "relu",
+        pruner_config: Optional[Dict[str, Any]] = None,
+    ) -> nn.Sequential:
+        dropouts, num_units = cls.get_funnel_settings(
+            max_dropout,
+            max_dim,
+            out_dim,
+            num_layers,
+        )
+        blocks = [Linear(in_dim, max_dim, bias=bias, pruner_config=pruner_config)]
+        dim = max_dim
+        for dropout, num_unit in zip(dropouts[1:], num_units[1:]):
+            blocks.append(
+                ResBlock(
+                    dim,
+                    num_unit,
+                    bias=bias,
+                    pruner_config=pruner_config,
+                    dropout=dropout,
+                    batch_norm=batch_norm,
+                    activation=activation,
+                )
+            )
+            dim = num_unit
+
+        blocks.append(BN(dim))
+        if activation is not None:
+            blocks.append(Activations.make(activation, None))
+        blocks.append(Linear(dim, out_dim, bias=bias, pruner_config=pruner_config))
+        return nn.Sequential(*blocks)
 
 
 class DNDF(Module):
