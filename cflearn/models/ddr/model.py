@@ -170,11 +170,11 @@ class DDR(ModelBase):
 
     def _core(
         self,
+        batch_size: int,
         split: SplitFeatures,
         y_batch: torch.Tensor,
         synthetic: bool,
     ) -> tensor_dict_type:
-        batch_size = len(y_batch)
         mask: Optional[torch.Tensor] = None
         if synthetic:
             random_indices = torch.randint(2, [batch_size, 1], device=y_batch.device)
@@ -307,7 +307,7 @@ class DDR(ModelBase):
             y_batch = to_torch(y_batch).to(self.device)
             forward_dict = self._cdf(split, y_batch, False, predict_pdf, False)
         if not forward_dict:
-            forward_dict = self._core(split, y_batch, False)
+            forward_dict = self._core(batch_size, split, y_batch, False)
         self.clear_execute_cache()
         return forward_dict
 
@@ -336,7 +336,12 @@ class DDR(ModelBase):
                 synthetic_net = self._synthetic_range * synthetic_net * net_diff
                 synthetic_net = synthetic_net - (diff_span - net_min)
                 # synthetic_net ~ U_[ -diff_span + min, diff_span + max ]
-                synthetic_outputs = self._core(synthetic_net, y_batch, True)
+                synthetic_outputs = self._core(
+                    net.shape[0],
+                    synthetic_net,
+                    y_batch,
+                    True,
+                )
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
                     synthetic_outputs,
