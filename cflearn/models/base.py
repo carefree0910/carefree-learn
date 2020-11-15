@@ -25,9 +25,6 @@ from ..modules import *
 from ..types import tensor_dict_type
 from ..misc.configs import Configs
 from ..misc.toolkit import to_torch
-from ..modules.pipe import Pipe
-from ..modules.pipe import PipeConfig
-from ..modules.pipe import PipePlaceholder
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
 from ..modules.transform import Transform
@@ -36,6 +33,52 @@ from ..modules.transform import SplitFeatures
 from ..modules.extractors import ExtractorBase
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
+
+
+class PipeConfig(NamedTuple):
+    transform: str
+    extractor: str
+    head: str
+    extractor_config: str
+    head_config: str
+    extractor_meta_scope: Optional[str]
+    head_meta_scope: Optional[str]
+
+    @property
+    def use_extractor_meta(self) -> bool:
+        return self.extractor_meta_scope is not None
+
+    @property
+    def use_head_meta(self) -> bool:
+        return self.head_meta_scope is not None
+
+    @property
+    def extractor_scope(self) -> str:
+        if self.extractor_meta_scope is None:
+            return self.extractor
+        return self.extractor_meta_scope
+
+    @property
+    def head_scope(self) -> str:
+        if self.head_meta_scope is None:
+            return self.head
+        return self.head_meta_scope
+
+    @property
+    def extractor_key(self) -> str:
+        if self.extractor_meta_scope is None:
+            prefix = self.extractor
+        else:
+            prefix = self.extractor_meta_scope
+        return f"{prefix}_{self.extractor_config}"
+
+    @property
+    def head_key(self) -> str:
+        if self.head_meta_scope is None:
+            prefix = self.head
+        else:
+            prefix = self.head_meta_scope
+        return f"{prefix}_{self.head_config}"
 
 
 class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
@@ -129,7 +172,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self.num_history,
         )
         # pipes
-        self.pipes = ModuleDict()
+        self.pipes: Dict[str, Tuple[str, str, str]] = {}
+        self.transforms = ModuleDict()
+        self.extractors = ModuleDict()
+        self.heads = ModuleDict()
         self.bypassed_pipes: Set[str] = set()
         self._extractor_configs: Dict[str, Dict[str, Any]] = {}
         self._head_configs: Dict[str, Dict[str, Any]] = {}
@@ -149,6 +195,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 extractor_config,
                 head_config,
             )
+        # caches
+        self._transform_cache: Dict[str, Tensor] = {}
+        self._extractor_cache: Dict[str, Tensor] = {}
 
     @property
     def num_history(self) -> int:
@@ -235,12 +284,13 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             should_bypass = bypass_info[pipe_config.head]
         head_cfg.inject_dimensions(head_config)
         head = HeadBase.make(pipe_config.head, head_config)
-        args = transform, extractor, head
-        if not should_bypass:
-            self.pipes[key] = Pipe(*args)
-        else:
+        # gather
+        self.pipes[key] = pipe_config.transform, pipe_config.extractor, pipe_config.head
+        self.transforms[key] = transform
+        self.extractors[key] = extractor
+        self.heads[key] = head
+        if should_bypass:
             self.bypassed_pipes.add(key)
-            self.pipes[key] = PipePlaceholder(*args)
 
     # Inheritance
 
@@ -308,10 +358,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         # batch will have `categorical`, `numerical` and `labels` keys
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
-        outputs = {
-            key: None if key in self.bypassed_pipes else self.execute(key, split)
-            for key in self.pipes.keys()
-        }
+        outputs = self.execute(split)
         return self.merge_outputs(outputs, **kwargs)
 
     def loss_function(
@@ -394,13 +441,59 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     def execute(
         self,
-        pipe: str,
         net: Union[Tensor, SplitFeatures],
         *,
-        extract_kwargs: Optional[Dict[str, Any]] = None,
-        head_kwargs: Optional[Dict[str, Any]] = None,
+        clear_cache: bool = True,
+        extract_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
+        head_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Union[Tensor, tensor_dict_type]:
-        return self.pipes[pipe](net, extract_kwargs, head_kwargs)
+        # transform
+        transformed_dict: Dict[str, Tensor] = {}
+        for key, transform in self.transforms.items():
+            if key in self.bypassed_pipes:
+                continue
+            transform_key = transform.key
+            value = self._transform_cache.get(transform_key)
+            if value is None:
+                value = net if isinstance(net, Tensor) else transform(net)
+                self._transform_cache[transform_key] = value
+            transformed_dict[key] = value
+        # extract
+        if extract_kwargs_dict is None:
+            extract_kwargs_dict = {}
+        extracted_dict: Dict[str, Tensor] = {}
+        for key, extractor in self.extractors.items():
+            if key in self.bypassed_pipes:
+                continue
+            value = self._extractor_cache.get(key)
+            if value is None:
+                extract_kwargs = extract_kwargs_dict.get(key, {})
+                transformed = transformed_dict[key]
+                value = extractor(transformed, **extract_kwargs)
+                value_shape = value.shape
+                if extractor.flatten_ts:
+                    if len(value_shape) == 3:
+                        value = value.view(value_shape[0], -1)
+                self._extractor_cache[key] = value
+            extracted_dict[key] = value
+        # execute
+        if head_kwargs_dict is None:
+            head_kwargs_dict = {}
+        results: Dict[str, Tensor] = {}
+        for key, head in self.heads.items():
+            if key in self.bypassed_pipes:
+                continue
+            extracted = extracted_dict[key]
+            head_kwargs = head_kwargs_dict.get(key, {})
+            results[key] = head(extracted, **head_kwargs)
+        # finalize
+        if clear_cache:
+            self.clear_execute_cache()
+        return results
+
+    def clear_execute_cache(self) -> None:
+        self._transform_cache = {}
+        self._extractor_cache = {}
 
     def _optimizer_step(
         self,

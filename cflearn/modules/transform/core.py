@@ -145,6 +145,10 @@ class Transform(Module):
         self.only_categorical = only_categorical
 
     @property
+    def key(self) -> str:
+        return f"{self.use_one_hot}_{self.use_embedding}_{self.only_categorical}"
+
+    @property
     def out_dim(self) -> int:
         out_dim = self.dimensions.merged_dim
         if not self.use_one_hot:

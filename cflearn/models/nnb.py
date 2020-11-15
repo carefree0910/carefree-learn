@@ -33,11 +33,11 @@ class NNB(ModelBase):
 
     @property
     def mnb(self) -> nn.Module:
-        return self.pipes["nnb_mnb"].head
+        return self.heads["nnb_mnb"]
 
     @property
     def normal(self) -> nn.Module:
-        return self.pipes["nnb_normal"].head
+        return self.heads["nnb_normal"]
 
     @property
     def class_log_prior(self) -> Callable:

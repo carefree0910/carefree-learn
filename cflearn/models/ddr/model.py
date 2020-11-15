@@ -14,6 +14,7 @@ from ...misc.toolkit import *
 from .loss import DDRLoss
 from ..base import ModelBase
 from ...types import tensor_dict_type
+from ...modules.transform.core import SplitFeatures
 
 
 @ModelBase.register("ddr")
@@ -108,27 +109,33 @@ class DDR(ModelBase):
 
     def _quantile(
         self,
-        net: torch.Tensor,
+        split: SplitFeatures,
         q_batch: Optional[torch.Tensor],
         do_inverse: bool,
     ) -> tensor_dict_type:
         kwargs = {
-            "q_batch": q_batch,
-            "median": q_batch is None,
-            "do_inverse": do_inverse,
+            "ddr": {
+                "q_batch": q_batch,
+                "median": q_batch is None,
+                "do_inverse": do_inverse,
+            }
         }
-        results = self.execute("ddr", net, head_kwargs=kwargs)
+        results = self.execute(split, clear_cache=False, head_kwargs_dict=kwargs)
         assert isinstance(results, dict)
-        return results
+        return results["ddr"]
 
-    def _median(self, net: torch.Tensor) -> tensor_dict_type:
-        results = self.execute("ddr", net, head_kwargs={"median": True})
+    def _median(self, split: SplitFeatures) -> tensor_dict_type:
+        results = self.execute(
+            split,
+            clear_cache=False,
+            head_kwargs_dict={"ddr": {"median": True}},
+        )
         assert isinstance(results, dict)
-        return results
+        return results["ddr"]
 
     def _cdf(
         self,
-        net: torch.Tensor,
+        split: SplitFeatures,
         y_batch: torch.Tensor,
         need_optimize: bool,
         return_pdf: bool,
@@ -137,8 +144,9 @@ class DDR(ModelBase):
         use_grad = self.training or return_pdf
         y_batch.requires_grad_(return_pdf)
         with mode_context(self, to_train=None, use_grad=use_grad):
-            kwargs = {"y_batch": y_batch, "do_inverse": do_inverse}
-            results = self.execute("ddr", net, head_kwargs=kwargs)
+            kwargs = {"ddr": {"y_batch": y_batch, "do_inverse": do_inverse}}
+            results = self.execute(split, clear_cache=False, head_kwargs_dict=kwargs)
+        results = results["ddr"]
         assert isinstance(results, dict)
         cdf = results["q"]
         if not return_pdf:
@@ -157,14 +165,14 @@ class DDR(ModelBase):
 
     def _core(
         self,
-        net: torch.Tensor,
+        split: SplitFeatures,
         y_batch: torch.Tensor,
         synthetic: bool,
     ) -> tensor_dict_type:
-        batch_size = len(net)
+        batch_size = len(y_batch)
         mask: Optional[torch.Tensor] = None
         if synthetic:
-            random_indices = torch.randint(2, [batch_size, 1], device=net.device)
+            random_indices = torch.randint(2, [batch_size, 1], device=y_batch.device)
             mask = random_indices == 0
         # TODO : try to optimize this when `fetches` is not full
         # generate quantile / anchor batch
@@ -189,7 +197,7 @@ class DDR(ModelBase):
         # build predictions
         with timing_context(self, "forward.median"):
             median_rs = {}
-            rs = self._median(net)
+            rs = self._median(split)
             if not synthetic:
                 median_rs = {
                     "predictions": rs["median"],
@@ -201,7 +209,7 @@ class DDR(ModelBase):
             if synthetic:
                 if self.fetch_q:
                     assert q_synthetic_batch is not None
-                    q_rs = self._quantile(net, q_synthetic_batch, True)
+                    q_rs = self._quantile(split, q_synthetic_batch, True)
                     median_rs["syn_med_mul"] = q_rs["med_mul"]
                     if not self.fetch_cdf:
                         return median_rs
@@ -212,8 +220,8 @@ class DDR(ModelBase):
                     assert mask is not None
                     y_syn_batch = torch.where(mask, pos_med_res, -neg_med_res)
                     y_syn_batch = y_syn_batch.detach() + median
-                    y_rs = self._cdf(net, y_syn_batch, False, False, False)
-                    y_med_rs = self._cdf(net, median, False, False, False)
+                    y_rs = self._cdf(split, y_syn_batch, False, False, False)
+                    y_med_rs = self._cdf(split, median, False, False, False)
                     median_rs.update(
                         {
                             "syn_cdf_logit_mul": y_rs["cdf_logit_mul"],
@@ -227,14 +235,15 @@ class DDR(ModelBase):
             if not self.fetch_q:
                 q_rs = {}
             else:
-                q_rs = self._quantile(net, q_batch, True)
+                q_rs = self._quantile(split, q_batch, True)
         with timing_context(self, "forward.cdf"):
             if not self.fetch_cdf:
                 y_rs = {}
             else:
                 cdf_inverse = not synthetic
-                y_rs = self._cdf(net, y_batch, True, True, cdf_inverse)
+                y_rs = self._cdf(split, y_batch, True, True, cdf_inverse)
         # construct results
+        net = list(self._transform_cache.values())[0]
         results: tensor_dict_type = {"net": net, "q_batch": q_batch, "y_batch": y_batch}
         results.update({k: v for k, v in median_rs.items() if v is not None})
         results.update({k: v for k, v in q_rs.items() if v is not None})
@@ -257,12 +266,12 @@ class DDR(ModelBase):
         x_batch = batch["x_batch"]
         y_batch = batch["y_batch"]
         batch_size = x_batch.shape[0]
-        net = self._split_features(x_batch, batch_indices, loader_name).merge()
+        split = self._split_features(x_batch, batch_indices, loader_name)
         forward_dict = {}
         # check median residual inference
         predict_mr = kwargs.get("predict_median_residual", False)
         if predict_mr:
-            pack = self._median(net)
+            pack = self._median(split)
             median = pack["median"]
             pos, neg = pack["pos_med_res"], pack["neg_med_res"]
             forward_dict["mr_pos"] = pos + median
@@ -276,7 +285,7 @@ class DDR(ModelBase):
             if q is None:
                 raise ValueError(f"quantile cannot be predicted without q")
             q_batch = self._expand(batch_size, q)
-            pack = self._quantile(net, q_batch, False)
+            pack = self._quantile(split, q_batch, False)
             forward_dict["quantiles"] = pack["median"] + pack["y_res"]
             forward_dict["med_mul"] = pack["med_mul"]
         # check y inference
@@ -291,9 +300,10 @@ class DDR(ModelBase):
             y_batch = self._expand(batch_size, y, numpy=True)
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
-            forward_dict = self._cdf(net, y_batch, False, predict_pdf, False)
+            forward_dict = self._cdf(split, y_batch, False, predict_pdf, False)
         if not forward_dict:
-            forward_dict = self._core(net, y_batch, False)
+            forward_dict = self._core(split, y_batch, False)
+        self.clear_execute_cache()
         return forward_dict
 
     def loss_function(
@@ -345,6 +355,7 @@ class DDR(ModelBase):
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
             ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)
             losses_dict["ddr"] = ddr_loss
+        self.clear_execute_cache()
         return losses_dict
 
 
