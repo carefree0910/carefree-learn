@@ -39,7 +39,15 @@ class Configs(ABC, LoggingMixin):
     @classmethod
     def register(cls, scope: str, name: str) -> Callable[[Type], Type]:
         global configs_dict
-        return register_core(name, configs_dict.setdefault(scope, {}))
+
+        def before(cls_: Type) -> None:
+            cls_.name = name
+
+        return register_core(
+            name,
+            configs_dict.setdefault(scope, {}),
+            before_register=before,
+        )
 
     @classmethod
     def get(cls, scope: str, name: str, **kwargs: Any) -> "Configs":

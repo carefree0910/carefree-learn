@@ -38,6 +38,7 @@ model_dict: Dict[str, Type["ModelBase"]] = {}
 class PipeConfig(NamedTuple):
     transform: str
     extractor: str
+    reuse_extractor: bool
     head: str
     extractor_config: str
     head_config: str
@@ -65,15 +66,15 @@ class PipeConfig(NamedTuple):
         return self.head_meta_scope
 
     @property
-    def extractor_key(self) -> str:
+    def extractor_config_key(self) -> str:
         if self.extractor_meta_scope is None:
             prefix = self.extractor
         else:
             prefix = self.extractor_meta_scope
-        return f"{prefix}_{self.extractor_config}"
+        return f"{prefix}_{self.extractor_config}_{self.transform}"
 
     @property
-    def head_key(self) -> str:
+    def head_config_key(self) -> str:
         if self.head_meta_scope is None:
             prefix = self.head
         else:
@@ -236,31 +237,41 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         )
         transform = Transform(self.dimensions, **transform_cfg.pop())
         # extractor
-        extractor_key = pipe_config.extractor_key
-        if extractor_key in self._extractor_configs:
-            extractor_config = self._extractor_configs[extractor_key]
+        extractor_cfg_key = pipe_config.extractor_config_key
+        extractor_exists = extractor_cfg_key in self.extractors
+        if pipe_config.reuse_extractor and extractor_exists:
+            extractor = self.extractors[extractor_cfg_key]
         else:
-            extractor_cfg = Configs.get(
-                pipe_config.extractor_scope,
-                pipe_config.extractor_config,
-                **extractor_config,
+            if extractor_exists:
+                new_index = 1
+                new_extractor_cfg_key = extractor_cfg_key
+                while new_extractor_cfg_key in self.extractors:
+                    new_extractor_cfg_key = f"{extractor_cfg_key}_{new_index}"
+                extractor_cfg_key = new_extractor_cfg_key
+            if extractor_cfg_key in self._extractor_configs:
+                extractor_config = self._extractor_configs[extractor_cfg_key]
+            else:
+                extractor_cfg = Configs.get(
+                    pipe_config.extractor_scope,
+                    pipe_config.extractor_config,
+                    **extractor_config,
+                )
+                extractor_config = extractor_cfg.pop()
+                self._extractor_configs[extractor_cfg_key] = extractor_config
+            if pipe_config.use_extractor_meta:
+                extractor_config = extractor_config[pipe_config.extractor]
+            extractor = ExtractorBase.make(
+                pipe_config.extractor,
+                transform.out_dim,
+                transform.dimensions,
+                extractor_config,
             )
-            extractor_config = extractor_cfg.pop()
-            self._extractor_configs[extractor_key] = extractor_config
-        if pipe_config.use_extractor_meta:
-            extractor_config = extractor_config[pipe_config.extractor]
-        extractor = ExtractorBase.make(
-            pipe_config.extractor,
-            transform.out_dim,
-            transform.dimensions,
-            extractor_config,
-        )
-        head_key = pipe_config.head_key
-        if head_key in self._head_configs:
-            head_config = self._head_configs[head_key]
-            head_cfg = self._head_config_ins_dict[head_key]
+        head_cfg_key = pipe_config.head_config_key
+        if head_cfg_key in self._head_configs:
+            head_config = self._head_configs[head_cfg_key]
+            head_cfg = self._head_config_ins_dict[head_cfg_key]
             head_cfg.in_dim = extractor.out_dim
-            bypass_info = self._bypass_info_dict[head_key]
+            bypass_info = self._bypass_info_dict[head_cfg_key]
         else:
             head_cfg = HeadConfigs.get(
                 pipe_config.head_scope,
@@ -273,9 +284,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             )
             head_config = head_cfg.pop()
             bypass_info = head_cfg.should_bypass(head_config)
-            self._head_configs[head_key] = head_config
-            self._head_config_ins_dict[head_key] = head_cfg
-            self._bypass_info_dict[head_key] = bypass_info
+            self._head_configs[head_cfg_key] = head_config
+            self._head_config_ins_dict[head_cfg_key] = head_cfg
+            self._bypass_info_dict[head_cfg_key] = bypass_info
         if not pipe_config.use_head_meta:
             should_bypass = bypass_info
         else:
@@ -285,9 +296,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head_cfg.inject_dimensions(head_config)
         head = HeadBase.make(pipe_config.head, head_config)
         # gather
-        self.pipes[key] = pipe_config.transform, pipe_config.extractor, pipe_config.head
-        self.transforms[key] = transform
-        self.extractors[key] = extractor
+        self.pipes[key] = transform_cfg.name, extractor_cfg_key, head_cfg_key
+        self.transforms[transform_cfg.name] = transform
+        self.extractors[extractor_cfg_key] = extractor
         self.heads[key] = head
         if should_bypass:
             self.bypassed_pipes.add(key)
@@ -447,45 +458,34 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         extract_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
         head_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Union[Tensor, tensor_dict_type]:
-        # transform
-        transformed_dict: Dict[str, Tensor] = {}
-        for key, transform in self.transforms.items():
-            if key in self.bypassed_pipes:
-                continue
-            transform_key = transform.key
-            value = self._transform_cache.get(transform_key)
-            if value is None:
-                value = net if isinstance(net, Tensor) else transform(net)
-                self._transform_cache[transform_key] = value
-            transformed_dict[key] = value
-        # extract
-        if extract_kwargs_dict is None:
-            extract_kwargs_dict = {}
-        extracted_dict: Dict[str, Tensor] = {}
-        for key, extractor in self.extractors.items():
-            if key in self.bypassed_pipes:
-                continue
-            value = self._extractor_cache.get(key)
-            if value is None:
-                extract_kwargs = extract_kwargs_dict.get(key, {})
-                transformed = transformed_dict[key]
-                value = extractor(transformed, **extract_kwargs)
-                value_shape = value.shape
-                if extractor.flatten_ts:
-                    if len(value_shape) == 3:
-                        value = value.view(value_shape[0], -1)
-                self._extractor_cache[key] = value
-            extracted_dict[key] = value
-        # execute
-        if head_kwargs_dict is None:
-            head_kwargs_dict = {}
         results: Dict[str, Tensor] = {}
-        for key, head in self.heads.items():
+        for key, (transform_key, executor_key, _) in self.pipes.items():
             if key in self.bypassed_pipes:
                 continue
-            extracted = extracted_dict[key]
+            # transform
+            transformed = self._transform_cache.get(transform_key)
+            if transformed is None:
+                transform = self.transforms[transform_key]
+                transformed = net if isinstance(net, Tensor) else transform(net)
+                self._transform_cache[transform_key] = transformed
+            # extract
+            if extract_kwargs_dict is None:
+                extract_kwargs_dict = {}
+            extracted = self._extractor_cache.get(executor_key)
+            if extracted is None:
+                extractor = self.extractors[executor_key]
+                extract_kwargs = extract_kwargs_dict.get(executor_key, {})
+                extracted = extractor(transformed, **extract_kwargs)
+                extracted_shape = extracted.shape
+                if extractor.flatten_ts:
+                    if len(extracted_shape) == 3:
+                        extracted = extracted.view(extracted_shape[0], -1)
+                self._extractor_cache[executor_key] = extracted
+            # execute
+            if head_kwargs_dict is None:
+                head_kwargs_dict = {}
             head_kwargs = head_kwargs_dict.get(key, {})
-            results[key] = head(extracted, **head_kwargs)
+            results[key] = self.heads[key](extracted, **head_kwargs)
         # finalize
         if clear_cache:
             self.clear_execute_cache()
@@ -527,6 +527,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         *,
         transform: str = "default",
         extractor: Optional[str] = None,
+        reuse_extractor: bool = True,
         head: Optional[str] = None,
         extractor_config: str = "default",
         head_config: str = "default",
@@ -546,6 +547,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             cfg = PipeConfig(
                 transform,
                 extractor,
+                reuse_extractor,
                 head,
                 extractor_config,
                 head_config,
