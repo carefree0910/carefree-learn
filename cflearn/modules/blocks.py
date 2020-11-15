@@ -189,6 +189,8 @@ class ResBlock(Module):
             init_method=init_method,
             **kwargs,
         )
+        if bias is None:
+            bias = True
         self.linear = Linear(
             latent_dim,
             latent_dim,
@@ -312,6 +314,7 @@ class MLP(Module):
             if i == 0:
                 dim = max_dim
             else:
+                assert dim is not None
                 dim -= dim_decrease
             num_units.append(dim)
         return dropouts, num_units
@@ -330,7 +333,7 @@ class MLP(Module):
         activation: Optional[str] = "relu",
         pruner_config: Optional[Dict[str, Any]] = None,
         final_mapping_config: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> "MLP":
         dropouts, num_units = cls.get_funnel_settings(
             max_dropout,
             max_dim,
@@ -339,7 +342,7 @@ class MLP(Module):
         )
         mapping_configs = []
         for dropout in dropouts:
-            mapping_config = {
+            mapping_config: Dict[str, Any] = {
                 "bias": bias,
                 "dropout": dropout,
                 "batch_norm": batch_norm,
@@ -376,7 +379,8 @@ class MLP(Module):
             out_dim,
             num_layers,
         )
-        blocks = [Linear(in_dim, max_dim, bias=bias, pruner_config=pruner_config)]
+        in_linear = Linear(in_dim, max_dim, bias=bias, pruner_config=pruner_config)
+        blocks: List[Module] = [in_linear]
         dim = max_dim
         for dropout, num_unit in zip(dropouts[1:], num_units[1:]):
             blocks.append(
