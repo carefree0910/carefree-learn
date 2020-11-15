@@ -163,9 +163,9 @@ class DDR(ModelBase):
         return {
             "cdf": cdf,
             "pdf": pdf,
-            "cdf_logit": results["q_logit"],
-            "cdf_logit_mul": results["q_logit_mul"],
-            "y_inverse_res": results["y_inverse_res"],
+            "cdf_logit": ddr_results["q_logit"],
+            "cdf_logit_mul": ddr_results["q_logit_mul"],
+            "y_inverse_res": ddr_results["y_inverse_res"],
         }
 
     def _core(
