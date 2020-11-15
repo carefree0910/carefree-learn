@@ -513,10 +513,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     def extra_repr(self) -> str:
         pipe_str = "\n".join(
-            [
-                f"  ({key}): {' -> '.join(pipe[1:])}"
-                for key, pipe in self.pipes.items()
-            ]
+            [f"  ({key}): {' -> '.join(pipe[1:])}" for key, pipe in self.pipes.items()]
         )
         return f"(pipes): Pipes(\n{pipe_str}\n)"
 
