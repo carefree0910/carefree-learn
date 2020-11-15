@@ -185,18 +185,19 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._bypass_info_dict: Dict[str, Union[bool, Dict[str, bool]]] = {}
         if self.registered_pipes is None:
             raise ValueError(f"No `pipe` is registered in {type(self).__name__}")
-        for key, pipe_config in self.registered_pipes.items():
-            local_configs = self.pipe_configs.setdefault(key, {})
-            transform_config = local_configs.setdefault("transform", {})
-            extractor_config = local_configs.setdefault("extractor", {})
-            head_config = local_configs.setdefault("head", {})
-            self.add_pipe(
-                key,
-                pipe_config,
-                transform_config,
-                extractor_config,
-                head_config,
-            )
+        with torch.no_grad():
+            for key, pipe_config in self.registered_pipes.items():
+                local_configs = self.pipe_configs.setdefault(key, {})
+                transform_config = local_configs.setdefault("transform", {})
+                extractor_config = local_configs.setdefault("extractor", {})
+                head_config = local_configs.setdefault("head", {})
+                self.add_pipe(
+                    key,
+                    pipe_config,
+                    transform_config,
+                    extractor_config,
+                    head_config,
+                )
         # caches
         self._transform_cache: Dict[str, Tensor] = {}
         self._extractor_cache: Dict[str, Tensor] = {}
@@ -519,7 +520,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             opt.zero_grad()
 
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
-        return self._split_features(torch.from_numpy(processed).to(device), None, None)
+        with torch.no_grad():
+            return self._split_features(to_torch(processed).to(device), None, None)
 
     def extra_repr(self) -> str:
         pipe_str = "\n".join(
