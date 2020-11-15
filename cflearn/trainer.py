@@ -9,6 +9,8 @@ import logging
 import numpy as np
 
 from typing import *
+from abc import abstractmethod
+from abc import ABC
 from tqdm import tqdm
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
@@ -21,6 +23,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from cftool.misc import timing_context
 from cftool.misc import Saving
+from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
 from cfdata.tabular import DataLoader
 
@@ -155,7 +158,296 @@ class TrainerState:
         return self.epoch == self.max_epoch
 
 
-class Trainer(LoggingMixin):
+# Should define `TrainerState` as `self.state`
+class MonitoredMixin(ABC, LoggingMixin):
+    @abstractmethod
+    def on_save_checkpoint(self, score: float) -> None:
+        pass
+
+
+class TrainMonitor:
+    """
+    Util class to monitor training process of a neural network
+    * If overfitting, it will tell the model to early-stop
+    * If underfitting, it will tell the model to extend training process
+    * If better performance acquired, it will tell the model to save a checkpoint
+    * If performance sticks on a plateau, it will tell the model to stop training (to save time)
+
+    Warnings
+    ----------
+    * Performance should represent 'score', i.e. the higher the better
+    * Performance MUST be evaluated on the cross validation dataset instead of the training set if possible
+    * `register_trainer` method MUST be called before monitoring
+    * instance passed to`register_trainer` method MUST be a subclass of `LoggingMixin`,
+      and must include `_epoch_count`, `num_epoch`, `max_epoch` attributes and
+      `save_checkpoint` method
+
+    Parameters
+    ----------
+    monitored : MonitoredMixin, monitored instance
+    num_scores_per_snapshot : int, indicates snapshot frequency
+        * `TrainMonitor` will perform a snapshot every `num_scores_per_snapshot` scores are recorded
+    history_ratio : float, indicates the ratio of the history's window width
+        * history window width will be `num_scores_per_snapshot` * `history_ratio`
+    tolerance_ratio : float, indicates the ratio of tolerance
+        * tolerance base will be `num_scores_per_snapshot` * `tolerance_ratio`
+        * judgements of 'overfitting' and 'performance sticks on a plateau' will based on 'tolerance base'
+    extension : int, indicates how much epoch to extend when underfitting occurs
+    std_floor : float, indicates the floor of history's std used for judgements
+    std_ceiling : float, indicates the ceiling of history's std used for judgements
+    aggressive : bool, indicates the strategy of monitoring
+        * True  : it will tell the model to save every checkpoint when better metric is reached
+        * False : it will be more careful since better metric may lead to
+        more seriously over-fitting on cross validation set
+
+    Examples
+    ----------
+    >>> from cftool.ml import Metrics
+    >>>
+    >>> x, y, model = ...
+    >>> metric = Metrics("mae")
+    >>> monitor = TrainMonitor.monitor(model)
+    >>> n_epoch, epoch_count = 20, 0
+    >>> while epoch_count <= n_epoch:
+    >>>     model.train()
+    >>>     predictions = model.predict(x)
+    >>>     score = metric.metric(y, predictions) * metric.sign
+    >>>     if monitor.check_terminate(score):
+    >>>         break
+
+    """
+
+    def __init__(
+        self,
+        monitored: MonitoredMixin,
+        num_scores_per_snapshot: int = 1,
+        history_ratio: int = 3,
+        tolerance_ratio: int = 2,
+        extension: int = 5,
+        std_floor: float = 0.001,
+        std_ceiling: float = 0.01,
+        aggressive: bool = False,
+    ):
+        self.monitored = monitored
+        self.num_scores_per_snapshot = num_scores_per_snapshot
+        self.num_history = int(num_scores_per_snapshot * history_ratio)
+        self.num_tolerance = int(num_scores_per_snapshot * tolerance_ratio)
+        self.extension = extension
+        self.is_aggressive = aggressive
+        self.std_floor, self.std_ceiling = std_floor, std_ceiling
+        self._scores: List[float] = []
+        self.plateau_flag = False
+        self._is_best: Optional[bool] = None
+        self._running_best: Optional[float] = None
+        self._descend_increment = self.num_history * extension / 30.0
+        self._incrementer = Incrementer(self.num_history)
+
+        self._over_fit_performance = math.inf
+        self._best_checkpoint_performance = -math.inf
+        self._descend_counter = self._plateau_counter = self.over_fitting_flag = 0.0
+        self.info: Dict[str, Any] = {
+            "terminate": False,
+            "save_checkpoint": False,
+            "save_best": aggressive,
+            "info": None,
+        }
+
+    @property
+    def state(self) -> TrainerState:
+        return self.monitored.state
+
+    @property
+    def log_msg(self) -> Callable:
+        return self.monitored.log_msg
+
+    @property
+    def plateau_threshold(self) -> int:
+        return 6 * self.num_tolerance * self.num_history
+
+    def _update_running_info(self, last_score: float) -> float:
+        self._incrementer.update(last_score)
+        if self._running_best is None:
+            if self._scores[0] > self._scores[1]:
+                improvement = 0.0
+                self._running_best, self._is_best = self._scores[0], False
+            else:
+                improvement = self._scores[1] - self._scores[0]
+                self._running_best, self._is_best = self._scores[1], True
+        elif self._running_best > last_score:
+            improvement = 0
+            self._is_best = False
+        else:
+            improvement = last_score - self._running_best
+            self._running_best = last_score
+            self._is_best = True
+        return improvement
+
+    def _handle_overfitting(self, last_score: float, res: float, std: float) -> None:
+        if self._descend_counter == 0.0:
+            self.info["save_best"] = True
+            self._over_fit_performance = last_score
+        self._descend_counter += min(self.num_tolerance / 3, -res / std)
+        self.log_msg(
+            f"descend counter updated : {self._descend_counter:6.4f}",
+            prefix=self.monitored.info_prefix,
+            verbose_level=6,
+            msg_level=logging.DEBUG,
+        )
+        self.over_fitting_flag = 1
+
+    def _handle_recovering(
+        self,
+        improvement: float,
+        last_score: float,
+        res: float,
+        std: float,
+    ) -> None:
+        if res > 3 * std and self._is_best and improvement > std:
+            self.info["save_best"] = True
+        new_counter = self._descend_counter - res / std
+        if self._descend_counter > 0 >= new_counter:
+            self._over_fit_performance = math.inf
+            if last_score > self._best_checkpoint_performance:
+                self._best_checkpoint_performance = last_score
+                assert self._running_best is not None
+                if last_score > self._running_best - std:
+                    self._plateau_counter //= 2
+                    self.info["save_checkpoint"] = True
+                    self.info["info"] = (
+                        f"current snapshot ({len(self._scores)}) seems to be working well, "
+                        "saving checkpoint in case we need to restore"
+                    )
+            self.over_fitting_flag = 0
+        if self._descend_counter > 0:
+            self._descend_counter = max(new_counter, 0)
+            self.log_msg(
+                f"descend counter updated : {self._descend_counter:6.4f}",
+                prefix=self.monitored.info_prefix,
+                verbose_level=6,
+                msg_level=logging.DEBUG,
+            )
+
+    def _handle_is_best(self) -> None:
+        if self._is_best:
+            self.info["terminate"] = False
+            if self.info["save_best"]:
+                self._plateau_counter //= 2
+                self.info["save_checkpoint"] = True
+                self.info["save_best"] = self.is_aggressive
+                self.info["info"] = (
+                    f"current snapshot ({len(self._scores)}) leads to best result we've ever had, "
+                    "saving checkpoint since "
+                )
+                if self.over_fitting_flag:
+                    self.info["info"] += "we've suffered from over-fitting"
+                else:
+                    self.info["info"] += "performance has improved significantly"
+
+    def _handle_period(self, last_score: float) -> None:
+        if self.is_aggressive:
+            return
+        if (
+            len(self._scores) % self.num_scores_per_snapshot == 0
+            and last_score > self._best_checkpoint_performance
+        ):
+            self._best_checkpoint_performance = last_score
+            self._plateau_counter //= 2
+            self.info["terminate"] = False
+            self.info["save_checkpoint"] = True
+            self.info["info"] = (
+                f"current snapshot ({len(self._scores)}) leads to best checkpoint we've ever had, "
+                "saving checkpoint in case we need to restore"
+            )
+
+    def _punish_extension(self) -> None:
+        self.plateau_flag = True
+        self._descend_counter += self._descend_increment
+
+    def _handle_trainer_terminate(self, score: float) -> bool:
+        if self.info["terminate"]:
+            self.log_msg(
+                f"early stopped at n_epoch={self.state.epoch} "
+                f"due to '{self.info['info']}'",
+                prefix=self.monitored.info_prefix,
+            )
+            return True
+        if self.info["save_checkpoint"]:
+            self.log_msg(f"{self.info['info']}", self.monitored.info_prefix, 3)
+            self.monitored.on_save_checkpoint(score)
+        if self.state.should_extend_epoch and not self.info["terminate"]:
+            self._punish_extension()
+            new_epoch = self.state.num_epoch + self.extension
+            self.state.num_epoch = min(new_epoch, self.state.max_epoch)
+            self.log_msg(
+                f"extending num_epoch to {self.state.num_epoch}",
+                prefix=self.monitored.info_prefix,
+                verbose_level=3,
+            )
+        if self.state.reached_max_epoch:
+            if not self.info["terminate"]:
+                self.log_msg(
+                    "model seems to be under-fitting but max_epoch reached, "
+                    "increasing max_epoch may improve performance.",
+                    self.monitored.info_prefix,
+                )
+            return True
+        return False
+
+    def check_terminate(self, new_score: float) -> bool:
+        self._scores.append(new_score)
+        n_history = min(self.num_history, len(self._scores))
+        if math.isnan(new_score):
+            self.info["terminate"] = True
+            self.info["info"] = "nan metric encountered"
+        elif n_history != 1:
+            improvement = self._update_running_info(new_score)
+            self.info["save_checkpoint"] = False
+            mean, std = self._incrementer.mean, self._incrementer.std
+            std = min(std, self.std_ceiling)
+            plateau_updated = False
+            if std < self.std_floor:
+                if self.plateau_flag:
+                    increment = self.std_floor / max(std, self.std_floor / 6)
+                    self._plateau_counter += increment
+                    plateau_updated = True
+            else:
+                if self._plateau_counter > 0:
+                    self._plateau_counter = max(self._plateau_counter - 1, 0)
+                    plateau_updated = True
+                res = new_score - mean
+                if res < -std and new_score < self._over_fit_performance - std:
+                    self._handle_overfitting(new_score, res, std)
+                elif res > std:
+                    self._handle_recovering(improvement, new_score, res, std)
+            if plateau_updated:
+                self.log_msg(
+                    f"plateau counter updated : {self._plateau_counter:>6.4f} "
+                    f"/ {self.plateau_threshold}",
+                    prefix=self.monitored.info_prefix,
+                    verbose_level=6,
+                    msg_level=logging.DEBUG,
+                )
+            if self._plateau_counter >= self.plateau_threshold:
+                self.info["info"] = "performance not improving"
+                self.info["terminate"] = True
+            else:
+                if self._descend_counter >= self.num_tolerance:
+                    self.info["info"] = "over-fitting"
+                    self.info["terminate"] = True
+                else:
+                    self._handle_is_best()
+                    self._handle_period(new_score)
+                    if self.info["save_checkpoint"]:
+                        self.info["info"] += " (plateau counter cleared)"
+                        self._plateau_counter = 0
+        return self._handle_trainer_terminate(new_score)
+
+    @classmethod
+    def monitor(cls, monitored: MonitoredMixin, **kwargs: Any) -> "TrainMonitor":
+        return cls(monitored, **kwargs)
+
+
+class Trainer(MonitoredMixin):
     pt_prefix = "model_"
     scores_file = "scores.json"
 
@@ -542,6 +834,9 @@ class Trainer(LoggingMixin):
             decayed_metrics,
         )
 
+    def on_save_checkpoint(self, score: float) -> None:
+        self.save_checkpoint(score)
+
     # api
 
     def fit(
@@ -567,7 +862,7 @@ class Trainer(LoggingMixin):
         # metrics
         self._init_metrics()
         # monitor
-        self._monitor = TrainMonitor(1).register_trainer(self)
+        self._monitor = TrainMonitor.monitor(self)
         # train
         self.model.info()
         terminate = False
@@ -734,4 +1029,10 @@ class Trainer(LoggingMixin):
         return self
 
 
-__all__ = ["Trainer", "IntermediateResults"]
+__all__ = [
+    "IntermediateResults",
+    "TrainerState",
+    "MonitoredMixin",
+    "TrainMonitor",
+    "Trainer",
+]
