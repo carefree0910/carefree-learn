@@ -164,7 +164,7 @@ class Trainer(LoggingMixin):
         model: ModelBase,
         inference: Inference,
         trial: Optional[optuna.trial.Trial],
-        tracker: Tracker,
+        tracker: Optional[Tracker],
         pipeline_config: Dict[str, Any],
         verbose_level: int,
         is_loading: bool,
