@@ -9,9 +9,6 @@ from ..modules.blocks import Linear
 @ModelBase.register("ndt")
 @ModelBase.register_pipe("ndt")
 class NDT(ModelBase):
-    def _preset_config(self) -> None:
-        self.config.setdefault("default_encoding_method", "one_hot")
-
     @property
     def head(self) -> nn.Module:
         return self.heads["ndt"]

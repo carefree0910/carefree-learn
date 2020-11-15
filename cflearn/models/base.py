@@ -27,6 +27,7 @@ from ..misc.configs import Configs
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
+from ..modules.transform import transform_config_mapping
 from ..modules.transform import Transform
 from ..modules.transform import Dimensions
 from ..modules.transform import SplitFeatures
@@ -328,8 +329,17 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._default_encoding_configs = self.config.setdefault(
             "default_encoding_configs", {}
         )
+        default_encoding_method = set()
+        if self.registered_pipes is None:
+            raise ValueError(f"No `pipe` is registered in {type(self).__name__}")
+        for pipe_config in self.registered_pipes.values():
+            transform_config = transform_config_mapping[pipe_config.transform]
+            if transform_config["one_hot"]:
+                default_encoding_method.add("one_hot")
+            if transform_config["embedding"]:
+                default_encoding_method.add("embedding")
         self._default_encoding_method = self.config.setdefault(
-            "default_encoding_method", "embedding"
+            "default_encoding_method", list(default_encoding_method)
         )
         # loss
         self._loss_config = self.config.setdefault("loss_config", {})

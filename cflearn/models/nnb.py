@@ -28,9 +28,6 @@ from .base import ModelBase
     head_meta_scope="nnb_meta",
 )
 class NNB(ModelBase):
-    def _preset_config(self) -> None:
-        self.config.setdefault("default_encoding_method", "one_hot")
-
     @property
     def mnb(self) -> nn.Module:
         return self.heads["nnb_mnb"]

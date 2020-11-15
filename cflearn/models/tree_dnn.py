@@ -5,8 +5,7 @@ from .base import ModelBase
 @ModelBase.register_pipe("dndf")
 @ModelBase.register_pipe("fcnn", transform="embedding", head_config="pruned")
 class TreeDNN(ModelBase):
-    def _preset_config(self) -> None:
-        self.config.setdefault("default_encoding_method", ["embedding", "one_hot"])
+    pass
 
 
 @ModelBase.register("tree_stack")
