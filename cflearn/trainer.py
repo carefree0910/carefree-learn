@@ -47,31 +47,26 @@ class IntermediateResults(NamedTuple):
         return sum(self.weighted_scores.values()) / len(self.weighted_scores)
 
 
-class Trainer(LoggingMixin):
-    pt_prefix = "model_"
-    scores_file = "scores.json"
-
-    def __init__(
-        self,
-        model: ModelBase,
-        inference: Inference,
-        trial: Optional[optuna.trial.Trial],
-        tracker: Tracker,
-        pipeline_config: Dict[str, Any],
-        verbose_level: int,
-        is_loading: bool,
-    ):
-        self.trial = trial
-        self.tracker = tracker
-        self.inference = inference
-        self._init_config(pipeline_config, is_loading)
-        self.model = model
-        self.checkpoint_scores: Dict[str, float] = {}
-        self.tr_loader_copy: Optional[DataLoader] = None
-        self.final_results: Optional[IntermediateResults] = None
-        self._verbose_level = verbose_level
-        self._use_grad_in_predict = False
-        self.onnx: Optional[Any] = None
+class TrainerState:
+    def __init__(self, trainer_config: Dict[str, Any]):
+        # properties
+        self.step = self.epoch = 0
+        self.batch_size: int
+        self.num_step_per_epoch: int
+        # settings
+        self.config = trainer_config
+        self._init_epoch_settings()
+        self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
+        self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
+        self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
+        num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
+        num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
+        max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
+        plateau_start = self.config.setdefault("plateau_start_snapshot", self.num_epoch)
+        self._num_step_per_snapshot = int(num_step_per_snapshot)
+        self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
+        self.max_step_per_snapshot = int(max_step_per_snapshot)
+        self.plateau_start = int(plateau_start)
 
     def _init_epoch_settings(self) -> None:
         min_epoch = self.config.setdefault("min_epoch", None)
@@ -106,7 +101,80 @@ class Trainer(LoggingMixin):
             max_epoch = max(default_max, num_epoch)
         self.min_epoch, self.num_epoch, self.max_epoch = min_epoch, num_epoch, max_epoch
 
+    def inject_loader(self, loader: DataLoader) -> None:
+        self.batch_size = loader.batch_size
+        self.num_step_per_epoch = len(loader)
+
+    @property
+    def snapshot_start_step(self) -> int:
+        if self._snapshot_start_step is not None:
+            return self._snapshot_start_step
+        return int(math.ceil(self.min_num_sample / self.batch_size))
+
+    @property
+    def num_step_per_snapshot(self) -> int:
+        if self._num_step_per_snapshot > 0:
+            return self._num_step_per_snapshot
+        return max(
+            1,
+            min(
+                self.max_step_per_snapshot,
+                int(self.num_step_per_epoch / self.num_snapshot_per_epoch),
+            ),
+        )
+
+    @property
+    def should_train(self) -> bool:
+        return self.epoch < self.num_epoch
+
+    @property
+    def should_monitor(self) -> bool:
+        return self.step % self.num_step_per_snapshot == 0
+
+    @property
+    def should_log_metrics_msg(self) -> bool:
+        min_period = self.max_step_per_snapshot / 3
+        min_period = math.ceil(min_period / self.num_step_per_snapshot)
+        period = max(1, int(min_period)) * self.num_step_per_snapshot
+        return self.step % period == 0
+
+    @property
+    def should_start_snapshot(self) -> bool:
+        return self.step >= self.snapshot_start_step and self.epoch > self.min_epoch
+
+    @property
+    def should_start_monitor_plateau(self) -> bool:
+        return self.step >= self.plateau_start * self.num_step_per_snapshot
+
+
+class Trainer(LoggingMixin):
+    pt_prefix = "model_"
+    scores_file = "scores.json"
+
+    def __init__(
+        self,
+        model: ModelBase,
+        inference: Inference,
+        trial: Optional[optuna.trial.Trial],
+        tracker: Tracker,
+        pipeline_config: Dict[str, Any],
+        verbose_level: int,
+        is_loading: bool,
+    ):
+        self.trial = trial
+        self.tracker = tracker
+        self.inference = inference
+        self._init_config(pipeline_config, is_loading)
+        self.model = model
+        self.checkpoint_scores: Dict[str, float] = {}
+        self.tr_loader_copy: Optional[DataLoader] = None
+        self.final_results: Optional[IntermediateResults] = None
+        self._verbose_level = verbose_level
+        self._use_grad_in_predict = False
+        self.onnx: Optional[Any] = None
+
     def _init_config(self, pipeline_config: Dict[str, Any], is_loading: bool) -> None:
+        # common
         self._pipeline_config = pipeline_config
         self.timing = self._pipeline_config["use_timing_context"]
         self.use_tqdm = self._pipeline_config["use_tqdm"]
@@ -114,23 +182,12 @@ class Trainer(LoggingMixin):
         self.update_bt_runtime = self.config.setdefault(
             "update_binary_threshold_at_runtime", False
         )
-        self._init_epoch_settings()
-        self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
-        self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
-        self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
-        num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
-        num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
-        max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
-        plateau_start = self.config.setdefault("plateau_start_snapshot", self.num_epoch)
-        self._num_step_per_snapshot = int(num_step_per_snapshot)
-        self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
-        self.max_step_per_snapshot = int(max_step_per_snapshot)
-        self.plateau_start = int(plateau_start)
-
         self._clip_norm = self.config.setdefault("clip_norm", 0.0)
         self._use_amp = self.config.setdefault("use_amp", False)
         self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
-
+        # trainer state
+        self.state = TrainerState(self.config)
+        # logging
         self._logging_path_ = pipeline_config["_logging_path_"]
         self.logging_folder = pipeline_config["logging_folder"]
         default_checkpoint_folder = os.path.join(self.logging_folder, "checkpoints")
@@ -171,16 +228,22 @@ class Trainer(LoggingMixin):
                 multiplier = scheduler_config.setdefault("multiplier", 3)
                 default_warm_up_step = min(
                     10 * len(self.tr_loader),
-                    int(0.25 * self.plateau_start * self.num_step_per_snapshot),
+                    int(
+                        0.25
+                        * self.state.plateau_start
+                        * self.state.num_step_per_snapshot
+                    ),
                 )
                 warmup_step = scheduler_config.setdefault(
                     "warmup_step", default_warm_up_step
                 )
-                self.plateau_start += int(warmup_step / self.num_step_per_snapshot)
-                if self._snapshot_start_step is not None:
-                    self._snapshot_start_step += warmup_step
+                self.state.plateau_start += int(
+                    warmup_step / self.state.num_step_per_snapshot
+                )
+                if self.state._snapshot_start_step is not None:
+                    self.state._snapshot_start_step += warmup_step
                 else:
-                    self.min_num_sample += self.tr_loader.batch_size * warmup_step
+                    self.state.min_num_sample += self.tr_loader.batch_size * warmup_step
                 optimizer_config["lr"] /= multiplier
             optimizer_base = (
                 optimizer_dict[optimizer] if isinstance(optimizer, str) else optimizer
@@ -194,7 +257,10 @@ class Trainer(LoggingMixin):
             plateau_default_cfg.setdefault("verbose", self._verbose_level_ >= 3)
             plateau_default_cfg.setdefault(
                 "patience",
-                max(10, self.snapshot_start_step // self.num_step_per_snapshot),
+                max(
+                    10,
+                    self.state.snapshot_start_step // self.state.num_step_per_snapshot,
+                ),
             )
             if scheduler == "plateau":
                 scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
@@ -258,42 +324,6 @@ class Trainer(LoggingMixin):
             self.metrics_weights.setdefault(metric_type, 1.0)
 
     @property
-    def snapshot_start_step(self) -> int:
-        if self._snapshot_start_step is not None:
-            return self._snapshot_start_step
-        return int(math.ceil(self.min_num_sample / self.tr_loader.batch_size))
-
-    @property
-    def start_snapshot(self) -> bool:
-        return (
-            self._step_count >= self.snapshot_start_step
-            and self._epoch_count > self.min_epoch
-        )
-
-    @property
-    def start_monitor_plateau(self) -> bool:
-        return self._step_count >= self.plateau_start * self.num_step_per_snapshot
-
-    @property
-    def num_step_per_snapshot(self) -> int:
-        if self._num_step_per_snapshot > 0:
-            return self._num_step_per_snapshot
-        return max(
-            1,
-            min(
-                self.max_step_per_snapshot,
-                int(len(self.tr_loader) / self.num_snapshot_per_epoch),
-            ),
-        )
-
-    @property
-    def log_metrics_msg(self) -> bool:
-        min_period = self.max_step_per_snapshot / 3
-        min_period = math.ceil(min_period / self.num_step_per_snapshot)
-        period = max(1, int(min_period)) * self.num_step_per_snapshot
-        return self._step_count % period == 0
-
-    @property
     def validation_loader(self) -> DataLoader:
         if self.cv_loader is None:
             return self.tr_loader_copy
@@ -341,8 +371,8 @@ class Trainer(LoggingMixin):
             ]
         )
         msg = (
-            f"| epoch {self._epoch_count:^4d} - "
-            f"step {self._step_count:^6d} | {core} | "
+            f"| epoch {self.state.epoch:^4d} - "
+            f"step {self.state.step:^6d} | {core} | "
             f"score : {fix_float_to_length(intermediate.final_score, 8)} |"
         )
         with open(self._log_file, "a") as f:
@@ -351,11 +381,11 @@ class Trainer(LoggingMixin):
 
     # return whether we need to terminate
     def _monitor_step(self) -> bool:
-        if self._step_count % self.num_step_per_snapshot == 0:
+        if self.state.should_monitor:
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
                 rs = None
-                if self.update_bt_runtime and self.start_snapshot:
+                if self.update_bt_runtime and self.state.should_start_snapshot:
                     inference = self.inference
                     if inference.need_binary_threshold:
                         loader = self.binary_threshold_loader
@@ -364,7 +394,7 @@ class Trainer(LoggingMixin):
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
                 intermediate = self._get_metrics(rs)
-                if self.start_monitor_plateau:
+                if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
                         self.log_msg(  # type: ignore
                             "start monitoring plateau",
@@ -374,15 +404,15 @@ class Trainer(LoggingMixin):
                     self._monitor.plateau_flag = True
 
             with timing_context(self, "monitor.logging", enable=self.timing):
-                if self.log_metrics_msg:
+                if self.state.should_log_metrics_msg:
                     self._log_metrics_msg(intermediate)
 
-            if self.start_snapshot:
+            if self.state.should_start_snapshot:
                 timing_name = "monitor.prune_trial"
                 with timing_context(self, timing_name, enable=self.timing):
                     score = intermediate.final_score
                     if self.trial is not None:
-                        self.trial.report(score, step=self._step_count)
+                        self.trial.report(score, step=self.state.step)
                         if self.trial.should_prune():
                             raise optuna.TrialPruned()
                 timing_name = "monitor.check_terminate"
@@ -439,7 +469,7 @@ class Trainer(LoggingMixin):
                             batch,
                             batch_indices,
                             loader_name,
-                            self._step_count,
+                            self.state.step,
                         )
                     )
                     loss_dicts.append(
@@ -447,7 +477,7 @@ class Trainer(LoggingMixin):
                             batch,
                             batch_indices,
                             forward_dicts[-1],
-                            self._step_count,
+                            self.state.step,
                         )
                     )
             losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
@@ -482,7 +512,7 @@ class Trainer(LoggingMixin):
                                 metric_predictions = to_prob(logits)
                 sub_metric = metric_ins.metric(labels, metric_predictions)
                 metrics[metric_type] = sub_metric
-            if self.metrics_decay is not None and self.start_snapshot:
+            if self.metrics_decay is not None and self.state.should_start_snapshot:
                 use_decayed = True
                 decayed = self.metrics_decay[metric_type].update("metric", sub_metric)
                 decayed_metrics[metric_type] = decayed
@@ -492,7 +522,7 @@ class Trainer(LoggingMixin):
         if self.tracker is not None:
             for name, value in metrics_for_scoring.items():
                 if self.tracker is not None:
-                    self.tracker.track_scalar(name, value, iteration=self._step_count)
+                    self.tracker.track_scalar(name, value, iteration=self.state.step)
         weighted_scores = {
             k: v * signs[k] * self.metrics_weights[k]
             for k, v in metrics_for_scoring.items()
@@ -517,6 +547,7 @@ class Trainer(LoggingMixin):
         self.tr_loader = tr_loader
         self.tr_loader_copy = tr_loader_copy
         self.cv_loader = cv_loader
+        self.state.inject_loader(tr_loader)
         # sample weights
         if tr_weights is not None:
             tr_weights = to_torch(tr_weights)
@@ -532,7 +563,6 @@ class Trainer(LoggingMixin):
         # train
         self.model.info()
         terminate = False
-        self._step_count = self._epoch_count = 0
         tuple(
             map(
                 lambda n: os.makedirs(n, exist_ok=True),
@@ -546,10 +576,10 @@ class Trainer(LoggingMixin):
         step_tqdm_legacy = None
         self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
-            self._epoch_tqdm = tqdm(list(range(self.num_epoch)), position=0)
-        while self._epoch_count < self.num_epoch:
+            self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
+        while self.state.should_train:
             try:
-                self._epoch_count += 1
+                self.state.epoch += 1
                 step_tqdm = iter(self.tr_loader)
                 if self.use_tqdm:
                     step_tqdm_legacy = step_tqdm = tqdm(
@@ -559,7 +589,7 @@ class Trainer(LoggingMixin):
                         leave=False,
                     )
                 for (x_batch, y_batch), batch_indices in step_tqdm:
-                    self._step_count += 1
+                    self.state.step += 1
                     with timing_context(self, "collate batch", enable=self.timing):
                         batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self._use_amp):
@@ -568,14 +598,14 @@ class Trainer(LoggingMixin):
                                 batch,
                                 batch_indices,
                                 "tr",
-                                self._step_count,
+                                self.state.step,
                             )
                         with timing_context(self, "loss.forward", enable=self.timing):
                             loss_dict = self.model.loss_function(
                                 batch,
                                 batch_indices,
                                 forward_results,
-                                self._step_count,
+                                self.state.step,
                             )
                     if self.tracker is not None:
                         for name, tensor in loss_dict.items():
@@ -584,7 +614,7 @@ class Trainer(LoggingMixin):
                                 self.tracker.track_scalar(
                                     f"tr_{name}",
                                     value,
-                                    iteration=self._step_count,
+                                    iteration=self.state.step,
                                 )
                     with timing_context(self, "loss.backward", enable=self.timing):
                         loss = loss_dict["loss"]
@@ -620,14 +650,13 @@ class Trainer(LoggingMixin):
                 break
             if self.use_tqdm:
                 assert self._epoch_tqdm is not None
-                self._epoch_tqdm.total = self.num_epoch
+                self._epoch_tqdm.total = self.state.num_epoch
                 self._epoch_tqdm.update()
         if self.use_tqdm:
             if step_tqdm_legacy is not None:
                 step_tqdm_legacy.close()
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
-        self._step_count = self._epoch_count = -1
         rs = None
         if self.inference.need_binary_threshold:
             loader = self.binary_threshold_loader
@@ -660,14 +689,14 @@ class Trainer(LoggingMixin):
         if folder is None:
             folder = self.checkpoint_folder
         # leave top_k snapshots only
-        if self.max_snapshot_file > 0:
+        if self.state.max_snapshot_file > 0:
             checkpoints = self._sorted_checkpoints(folder, False)
-            if len(checkpoints) >= self.max_snapshot_file:
-                for file in checkpoints[self.max_snapshot_file - 1 :]:
+            if len(checkpoints) >= self.state.max_snapshot_file:
+                for file in checkpoints[self.state.max_snapshot_file - 1 :]:
                     self.checkpoint_scores.pop(file)
                     os.remove(os.path.join(folder, file))
         # pt
-        file = f"{self.pt_prefix}{self._step_count}.pt"
+        file = f"{self.pt_prefix}{self.state.epoch}.pt"
         torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
         self.checkpoint_scores[file] = score
