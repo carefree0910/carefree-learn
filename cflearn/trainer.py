@@ -146,6 +146,14 @@ class TrainerState:
     def should_start_monitor_plateau(self) -> bool:
         return self.step >= self.plateau_start * self.num_step_per_snapshot
 
+    @property
+    def should_extend_epoch(self) -> bool:
+        return self.epoch == self.num_epoch and self.epoch < self.max_epoch
+
+    @property
+    def reached_max_epoch(self) -> bool:
+        return self.epoch == self.max_epoch
+
 
 class Trainer(LoggingMixin):
     pt_prefix = "model_"

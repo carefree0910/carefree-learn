@@ -655,27 +655,24 @@ class TrainMonitor:
         trainer = self._trainer
         if self.info["terminate"]:
             self.log_msg(
-                f"early stopped at n_epoch={trainer._epoch_count} due to '{self.info['info']}'",
+                f"early stopped at n_epoch={trainer.state.epoch} "
+                f"due to '{self.info['info']}'",
                 prefix=trainer.info_prefix,
             )
             return True
         if self.info["save_checkpoint"]:
             self.log_msg(f"{self.info['info']}", trainer.info_prefix, 3)
             trainer.save_checkpoint(score)
-        if (
-            trainer._epoch_count == trainer.num_epoch
-            and trainer._epoch_count < trainer.max_epoch
-            and not self.info["terminate"]
-        ):
+        if trainer.state.should_extend_epoch and not self.info["terminate"]:
             self._punish_extension()
-            new_epoch = trainer.num_epoch + self.extension
-            trainer.num_epoch = min(new_epoch, trainer.max_epoch)
+            new_epoch = trainer.state.num_epoch + self.extension
+            trainer.state.num_epoch = min(new_epoch, trainer.state.max_epoch)
             self.log_msg(
-                f"extending num_epoch to {trainer.num_epoch}",
+                f"extending num_epoch to {trainer.state.num_epoch}",
                 prefix=trainer.info_prefix,
                 verbose_level=3,
             )
-        if trainer._epoch_count == trainer.max_epoch:
+        if trainer.state.reached_max_epoch:
             if not self.info["terminate"]:
                 self.log_msg(
                     "model seems to be under-fitting but max_epoch reached, "
