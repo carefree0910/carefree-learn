@@ -71,7 +71,7 @@ class PipeConfig(NamedTuple):
             prefix = self.extractor
         else:
             prefix = self.extractor_meta_scope
-        return f"{prefix}_{self.extractor_config}_{self.transform}"
+        return f"{self.transform}_{prefix}_{self.extractor_config}"
 
     @property
     def head_config_key(self) -> str:
@@ -510,6 +510,15 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
         return self._split_features(torch.from_numpy(processed).to(device), None, None)
+
+    def extra_repr(self) -> str:
+        pipe_str = "\n".join(
+            [
+                f"  ({key}): {' -> '.join(pipe[1:])}"
+                for key, pipe in self.pipes.items()
+            ]
+        )
+        return f"(pipes): Pipes(\n{pipe_str}\n)"
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:
