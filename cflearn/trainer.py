@@ -759,28 +759,24 @@ class Trainer(MonitoredMixin):
         loss_values = None
         if self._metrics_need_loss:
             loader = self.inference.to_tqdm(loader)
-            forward_dicts, loss_dicts, labels = [], [], []
+            loss_dicts = []
             for (x_batch, y_batch), batch_indices in loader:
-                labels.append(y_batch)
                 batch = self.inference.collate_batch(x_batch, y_batch)
                 with eval_context(self.model):
-                    forward_dicts.append(
-                        self.model(
-                            batch,
-                            batch_indices,
-                            loader_name,
-                            self.state.step,
-                        )
-                    )
                     loss_dicts.append(
                         self.model.loss_function(
                             batch,
                             batch_indices,
-                            forward_dicts[-1],
+                            self.model(
+                                batch,
+                                batch_indices,
+                                loader_name,
+                                self.state.step,
+                            ),
                             self.state.step,
                         )
                     )
-            losses, forwards = map(collate_tensor_dicts, [loss_dicts, forward_dicts])
+            losses = collate_tensor_dicts(loss_dicts)
             loss_values = {k: v.mean().item() for k, v in losses.items()}
         use_decayed = False
         signs: Dict[str, int] = {}
