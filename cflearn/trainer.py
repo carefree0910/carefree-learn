@@ -961,6 +961,7 @@ class Trainer(MonitoredMixin):
             loader = self.binary_threshold_loader
             loader_name = self.binary_threshold_loader_name
             rs = self.inference.generate_binary_threshold(loader, loader_name)
+        self.state.epoch = self.state.step = -1
         self.final_results = self._get_metrics(rs)
         self._log_metrics_msg(self.final_results)
 
