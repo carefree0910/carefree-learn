@@ -238,12 +238,14 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head_config: Dict[str, Any],
     ) -> None:
         # transform
-        transform_cfg = Configs.get(
-            "transform",
-            pipe_config.transform,
-            **transform_config,
-        )
-        transform = Transform(self.dimensions, **transform_cfg.pop())
+        transform_key = pipe_config.transform
+        if transform_key in self.transforms:
+            transform_exists = True
+            transform = self.transforms[transform_key]
+        else:
+            transform_exists = False
+            transform_cfg = Configs.get("transform", transform_key, **transform_config)
+            transform = Transform(self.dimensions, **transform_cfg.pop())
         # extractor
         extractor_cfg_key = pipe_config.extractor_config_key
         extractor_exists = extractor_cfg_key in self.extractors
@@ -304,8 +306,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head_cfg.inject_dimensions(head_config)
         head = HeadBase.make(pipe_config.head, head_config)
         # gather
-        self.pipes[key] = transform_cfg.name, extractor_cfg_key, head_cfg_key
-        self.transforms[transform_cfg.name] = transform
+        self.pipes[key] = transform_key, extractor_cfg_key, head_cfg_key
+        if not transform_exists:
+            self.transforms[transform_key] = transform
         self.extractors[extractor_cfg_key] = extractor
         self.heads[key] = head
         if should_bypass:
