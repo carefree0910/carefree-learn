@@ -129,7 +129,12 @@ class Elements(NamedTuple):
     def from_kwargs(cls, kwargs: Dict[str, Any]) -> "Elements":
         spec = inspect.getfullargspec(cls).args[1:-1]
         main_configs = {key: kwargs.pop(key) for key in spec if key in kwargs}
-        return cls(**main_configs, extra_config=kwargs)
+        existing_extra_config = main_configs.get("extra_config")
+        if existing_extra_config is None:
+            main_configs["extra_config"] = kwargs
+        else:
+            update_dict(kwargs, existing_extra_config)
+        return cls(**main_configs)
 
 
 class Environment:
@@ -140,7 +145,7 @@ class Environment:
         return self.config[item]
 
     @property
-    def device(self):
+    def device(self) -> torch.device:
         cuda = self.cuda
         if cuda == "cpu":
             return torch.device("cpu")
