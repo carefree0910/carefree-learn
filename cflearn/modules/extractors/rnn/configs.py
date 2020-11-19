@@ -1,7 +1,7 @@
 from typing import Any
 from typing import Dict
 
-from ....misc.configs import Configs
+from ....configs import Configs
 
 
 @Configs.register("rnn", "default")

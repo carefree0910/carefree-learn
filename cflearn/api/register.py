@@ -3,7 +3,7 @@ from cftool.ml.utils import register_metric
 from cfdata.tabular.processors.base import Processor
 
 from ..modules import *
-from ..misc.configs import Configs
+from ..configs import Configs
 from ..misc.toolkit import Initializer
 from ..models.base import ModelBase
 from ..modules.heads.base import HeadConfigs

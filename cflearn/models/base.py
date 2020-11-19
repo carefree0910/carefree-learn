@@ -23,7 +23,7 @@ except:
 from ..losses import *
 from ..modules import *
 from ..types import tensor_dict_type
-from ..misc.configs import Configs
+from ..configs import Configs
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs

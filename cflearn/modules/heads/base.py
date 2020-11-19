@@ -17,8 +17,8 @@ from cfdata.tabular import TabularData
 
 from ..transform import Dimensions
 from ...types import tensor_dict_type
-from ...misc.configs import configs_dict
-from ...misc.configs import Configs
+from ...configs import configs_dict
+from ...configs import Configs
 
 
 head_dict: Dict[str, Type["HeadBase"]] = {}
