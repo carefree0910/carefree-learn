@@ -363,11 +363,13 @@ class Environment:
         if optimizers is not None:
             trainer_config["optimizers"] = optimizers
         # misc
-        kwargs.update({
-            "cuda": elements.cuda,
-            "trial": elements.trial,
-            "tracker_config": elements.tracker_config,
-        })
+        kwargs.update(
+            {
+                "cuda": elements.cuda,
+                "trial": elements.trial,
+                "tracker_config": elements.tracker_config,
+            }
+        )
         if elements.verbose_level is not None:
             kwargs["verbose_level"] = elements.verbose_level
         return cls.from_config(kwargs)
