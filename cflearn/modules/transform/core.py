@@ -82,12 +82,8 @@ class Dimensions(LoggingMixin):
         self.num_history = num_history
 
     @property
-    def has_numerical(self) -> bool:
-        return len(self._numerical_columns) > 0
-
-    @property
     def merged_dim(self) -> int:
-        merged_dim = self._categorical_dim + len(self._numerical_columns)
+        merged_dim = self._categorical_dim + self.numerical_dim
         return merged_dim * self.num_history
 
     @property
@@ -108,6 +104,14 @@ class Dimensions(LoggingMixin):
         if self.encoder is None:
             return dims
         return self.encoder.merged_dims
+
+    @property
+    def numerical_dim(self) -> int:
+        return len(self._numerical_columns)
+
+    @property
+    def has_numerical(self) -> bool:
+        return self.numerical_dim > 0
 
     def split_features(
         self,
@@ -151,6 +155,8 @@ class Transform(Module):
             out_dim -= self.dimensions.one_hot_dim * self.dimensions.num_history
         if not self.use_embedding:
             out_dim -= self.dimensions.embedding_dim * self.dimensions.num_history
+        if self.only_categorical:
+            out_dim -= self.dimensions.numerical_dim
         return out_dim
 
     def forward(self, split: SplitFeatures) -> Tensor:
