@@ -1,11 +1,9 @@
 import os
-import json
 import time
 import shutil
 
 from typing import *
 from tqdm import tqdm
-from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
@@ -19,13 +17,11 @@ from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularData
-from cfdata.tabular import TimeSeriesConfig
-from optuna.trial import Trial
 
 from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
-from ..types import general_config_type
+from ..configs import Elements
 from ..configs import Environment
 from ..trainer import Trainer
 from ..trainer import IntermediateResults
@@ -33,179 +29,9 @@ from ..pipeline import Pipeline
 from ..misc.toolkit import to_2d
 
 
-def _parse_config(config: general_config_type) -> Dict[str, Any]:
-    if config is None:
-        return {}
-    if isinstance(config, str):
-        with open(config, "r") as f:
-            return json.load(f)
-    return shallow_copy_dict(config)
-
-
-def make(
-    model: str = "fcnn",
-    *,
-    use_amp: Optional[bool] = None,
-    use_simplify_data: Optional[bool] = None,
-    config: general_config_type = None,
-    increment_config: general_config_type = None,
-    delim: Optional[str] = None,
-    task_type: Optional[task_type_type] = None,
-    skip_first: Optional[bool] = None,
-    cv_split: Optional[Union[float, int]] = None,
-    min_epoch: Optional[int] = None,
-    num_epoch: Optional[int] = None,
-    max_epoch: Optional[int] = None,
-    fixed_epoch: Optional[int] = None,
-    batch_size: Optional[int] = None,
-    max_snapshot_num: Optional[int] = None,
-    clip_norm: Optional[float] = None,
-    ema_decay: Optional[float] = None,
-    ts_config: Optional[TimeSeriesConfig] = None,
-    aggregation: Optional[str] = None,
-    aggregation_config: Optional[Dict[str, Any]] = None,
-    ts_label_collator_config: Optional[Dict[str, Any]] = None,
-    data_config: Optional[Dict[str, Any]] = None,
-    read_config: Optional[Dict[str, Any]] = None,
-    model_config: Optional[Dict[str, Any]] = None,
-    metrics: Optional[Union[str, List[str]]] = None,
-    metric_config: Optional[Dict[str, Any]] = None,
-    optimizer: Optional[str] = None,
-    scheduler: Optional[str] = None,
-    optimizer_config: Optional[Dict[str, Any]] = None,
-    scheduler_config: Optional[Dict[str, Any]] = None,
-    optimizers: Optional[Dict[str, Any]] = None,
-    logging_file: Optional[str] = None,
-    logging_folder: Optional[str] = None,
-    trigger_logging: Optional[bool] = None,
-    trial: Optional[Trial] = None,
-    tracker_config: Optional[Dict[str, Any]] = None,
-    cuda: Optional[Union[int, str]] = None,
-    verbose_level: Optional[int] = None,
-    use_timing_context: Optional[bool] = None,
-    use_tqdm: Optional[bool] = None,
-    **kwargs: Any,
-) -> Pipeline:
-    kwargs = shallow_copy_dict(kwargs)
-    cfg, inc_cfg = map(_parse_config, [config, increment_config])
-    update_dict(update_dict(inc_cfg, cfg), kwargs)
-    # pipeline general
+def make(model: str = "fcnn", **kwargs: Any) -> Pipeline:
     kwargs["model"] = model
-    if cv_split is not None:
-        kwargs["cv_split"] = cv_split
-    if use_tqdm is not None:
-        kwargs["use_tqdm"] = use_tqdm
-    if use_timing_context is not None:
-        kwargs["use_timing_context"] = use_timing_context
-    if batch_size is not None:
-        kwargs["batch_size"] = batch_size
-    if ts_label_collator_config is not None:
-        kwargs["ts_label_collator_config"] = ts_label_collator_config
-    if data_config is None:
-        data_config = {}
-    if use_simplify_data is not None:
-        data_config["simplify"] = use_simplify_data
-    if ts_config is not None:
-        data_config["time_series_config"] = ts_config
-    if task_type is not None:
-        data_config["task_type"] = task_type
-    if read_config is None:
-        read_config = {}
-    if delim is not None:
-        read_config["delim"] = delim
-    if skip_first is not None:
-        read_config["skip_first"] = skip_first
-    kwargs["data_config"] = data_config
-    kwargs["read_config"] = read_config
-    sampler_config = kwargs.setdefault("sampler_config", {})
-    if aggregation is not None:
-        sampler_config["aggregation"] = aggregation
-    if aggregation_config is not None:
-        sampler_config["aggregation_config"] = aggregation_config
-    if logging_folder is not None:
-        if logging_file is None:
-            logging_file = f"{model}_{timestamp()}.log"
-        kwargs["logging_folder"] = logging_folder
-        kwargs["logging_file"] = logging_file
-    if trigger_logging is not None:
-        kwargs["trigger_logging"] = trigger_logging
-    # trainer general
-    trainer_config = kwargs.setdefault("trainer_config", {})
-    if use_amp is not None:
-        trainer_config["use_amp"] = use_amp
-    if fixed_epoch is not None:
-        msg = "`{}` should not be provided when `fixed_epoch` is provided"
-        if min_epoch is not None:
-            raise ValueError(msg.format("min_epoch"))
-        if num_epoch is not None:
-            raise ValueError(msg.format("num_epoch"))
-        if max_epoch is not None:
-            raise ValueError(msg.format("max_epoch"))
-        min_epoch = num_epoch = max_epoch = fixed_epoch
-    if min_epoch is not None:
-        trainer_config["min_epoch"] = min_epoch
-    if num_epoch is not None:
-        trainer_config["num_epoch"] = num_epoch
-    if max_epoch is not None:
-        trainer_config["max_epoch"] = max_epoch
-    if max_snapshot_num is not None:
-        trainer_config["max_snapshot_num"] = max_snapshot_num
-    if clip_norm is not None:
-        trainer_config["clip_norm"] = clip_norm
-    # model general
-    if model_config is None:
-        model_config = {}
-    if ema_decay is not None:
-        model_config["ema_decay"] = ema_decay
-    kwargs["model_config"] = model_config
-    # metrics
-    metric_config_: Dict[str, Any] = {}
-    if metric_config is not None:
-        metric_config_ = metric_config
-    elif metrics is not None:
-        metric_config_["types"] = metrics
-    if metric_config_:
-        trainer_config["metric_config"] = metric_config_
-    # optimizers
-    if optimizers is not None:
-        if optimizer is not None:
-            print(
-                f"{LoggingMixin.warning_prefix}`optimizer` is set to '{optimizer}' "
-                f"but `optimizers` is provided, so `optimizer` will be ignored"
-            )
-        if optimizer_config is not None:
-            print(
-                f"{LoggingMixin.warning_prefix}`optimizer_config` is set to '{optimizer_config}' "
-                f"but `optimizers` is provided, so `optimizer_config` will be ignored"
-            )
-    else:
-        preset_optimizer = {}
-        if optimizer is not None:
-            if optimizer_config is None:
-                optimizer_config = {}
-            preset_optimizer = {
-                "optimizer": optimizer,
-                "optimizer_config": optimizer_config,
-            }
-        if scheduler is not None:
-            if scheduler_config is None:
-                scheduler_config = {}
-            preset_optimizer.update(
-                {"scheduler": scheduler, "scheduler_config": scheduler_config}
-            )
-        if preset_optimizer:
-            optimizers = {"all": preset_optimizer}
-    if optimizers is not None:
-        trainer_config["optimizers"] = optimizers
-    # misc
-    kwargs.update({
-        "cuda": cuda,
-        "trial": trial,
-        "tracker_config": tracker_config,
-    })
-    if verbose_level is not None:
-        kwargs["verbose_level"] = verbose_level
-    return Pipeline(Environment.from_config(kwargs))
+    return Pipeline(Environment.from_elements(Elements.from_kwargs(kwargs)))
 
 
 SAVING_DELIM = "^_^"
