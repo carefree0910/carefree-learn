@@ -10,7 +10,7 @@ from torch.nn import Parameter
 
 class TestRegister(unittest.TestCase):
     def test_initializer(self) -> None:
-        initializer = cflearn.Initializer({})
+        initializer = cflearn.Initializer()
 
         @cflearn.register_initializer("all_one")
         def all_one(_: Any, parameter: Parameter) -> None:

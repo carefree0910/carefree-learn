@@ -118,7 +118,7 @@ class Initializer(LoggingMixin):
 
     Examples
     --------
-    >>> initializer = Initializer({})
+    >>> initializer = Initializer()
     >>> linear = nn.Linear(10, 10)
     >>> initializer.xavier_uniform(linear.weight)
 
@@ -132,9 +132,9 @@ class Initializer(LoggingMixin):
     }
     custom_initializer: Dict[str, Callable] = {}
 
-    def __init__(self, config: Dict[str, Any]):
-        self.config = config
-        self._verbose_level = config.setdefault("verbose_level", 2)
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        self.config = config or {}
+        self._verbose_level = self.config.setdefault("verbose_level", 2)
 
     def initialize(self, param: param_type, method: str) -> Any:
         custom_initializer = self.custom_initializer.get(method)
