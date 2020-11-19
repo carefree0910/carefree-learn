@@ -1,6 +1,5 @@
 import os
 import torch
-import optuna
 
 import numpy as np
 
@@ -8,7 +7,6 @@ from typing import *
 from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
-from cftool.ml import Tracker
 from cftool.ml import ModelPattern
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
@@ -22,6 +20,7 @@ except:
     amp = None
 
 from .types import data_type
+from .configs import Environment
 from .trainer import Trainer
 from .inference import Inference
 from .inference import PreProcessor
@@ -32,28 +31,22 @@ from .models.base import ModelBase
 
 
 class Pipeline(LoggingMixin):
-    def __init__(
-        self,
-        config: Dict[str, Any],
-        *,
-        cuda: Optional[Union[int, str]] = None,
-        trial: Optional[optuna.trial.Trial] = None,
-        tracker_config: Optional[Dict[str, Any]] = None,
-        verbose_level: int = 2,
-    ):
-        self.trial = trial
+    def __init__(self, environment: Environment):
+        self.environment = environment
+        self.device = environment.device
         self.model: Optional[ModelBase] = None
         self.inference: Optional[Inference]
-        self.tracker = None if tracker_config is None else Tracker(**tracker_config)
-        self._verbose_level = int(verbose_level)
-        if cuda == "cpu":
-            self.device = torch.device("cpu")
-        elif cuda is not None:
-            self.device = torch.device(f"cuda:{cuda}")
-        else:
-            self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         LoggingMixin.reset_logging()
-        self._init_config(config)
+        self.config = environment.pipeline_config
+        self.model_type = environment.model
+        self.timing = self.config.setdefault("use_timing_context", True)
+        self.data_config["use_timing_context"] = self.timing
+        self.data_config["default_categorical_process"] = "identical"
+        self.sampler_config = self.config.setdefault("sampler_config", {})
+        self._init_logging(environment.verbose_level, environment.trigger_logging)
+
+    def __getattr__(self, item: str) -> Any:
+        return self.environment.config.get(item)
 
     def __str__(self) -> str:
         return f"{type(self.model).__name__}()"  # type: ignore
@@ -77,17 +70,17 @@ class Pipeline(LoggingMixin):
         return TabularDataset(*raw.xy, task_type=self.cv_data.task_type)
 
     @property
-    def cv_split(self) -> int:
-        if isinstance(self._cv_split, int):
-            return self._cv_split
+    def int_cv_split(self) -> int:
+        if isinstance(self.cv_split, int):
+            return self.cv_split
         num_data = len(self._original_data)
-        if self._cv_split is not None:
-            return int(round(self._cv_split * num_data))
+        if self.cv_split is not None:
+            return int(round(self.cv_split * num_data))
         default_cv_split = 0.1
         cv_split_num = int(round(default_cv_split * num_data))
-        cv_split_num = max(self._min_cv_split, cv_split_num)
-        max_cv_split = int(round(num_data * self._max_cv_split_ratio))
-        max_cv_split = min(self._max_cv_split, max_cv_split)
+        cv_split_num = max(self.min_cv_split, cv_split_num)
+        max_cv_split = int(round(num_data * self.max_cv_split_ratio))
+        max_cv_split = min(self.max_cv_split, max_cv_split)
         return min(cv_split_num, max_cv_split)
 
     @property
@@ -96,57 +89,16 @@ class Pipeline(LoggingMixin):
             raise ValueError("`inference` is not yet generated")
         return self.inference.binary_threshold
 
-    def _init_config(self, config: Dict[str, Any]) -> None:
-        self.config = config
-        self.model_type = self.config.setdefault("model", "fcnn")
-        self.use_tqdm = self.config.setdefault("use_tqdm", True)
-        self.timing = self.config.setdefault("use_timing_context", True)
-        self.use_binary_threshold = self.config.setdefault("use_binary_threshold", True)
-        self._data_config = self.config.setdefault("data_config", {})
-        self._data_config["use_timing_context"] = self.timing
-        self._data_config["default_categorical_process"] = "identical"
-        self._read_config = self.config.setdefault("read_config", {})
-        self._cv_split = self.config.setdefault("cv_split", None)
-        self._min_cv_split = self.config.setdefault("min_cv_split", 100)
-        self._max_cv_split = self.config.setdefault("max_cv_split", 10000)
-        self._max_cv_split_ratio = self.config.setdefault("max_cv_split_ratio", 0.5)
-        self._cv_split_order = self.config.setdefault("cv_split_order", "auto")
-        self._binary_config = self.config.setdefault("binary_config", {})
-
-        self.shuffle_tr = self.config.setdefault("shuffle_tr", True)
-        self.batch_size = self.config.setdefault("batch_size", 128)
-        default_cv_bz = 5 * self.batch_size
-        self.cv_batch_size = self.config.setdefault("cv_batch_size", default_cv_bz)
-
-        self._sampler_config = self.config.setdefault("sampler_config", {})
-        self._ts_label_collator_config = self.config.setdefault(
-            "ts_label_collator_config", {}
-        )
-
-        logging_folder = self.config.setdefault(
-            "logging_folder",
-            os.path.join("_logging", model_dict[self.model_type].__identifier__),
-        )
-        self.config["logging_folder"] = logging_folder
-        logging_file = self.config.get("logging_file")
-        if logging_file is not None:
-            logging_path = os.path.join(logging_folder, logging_file)
-        else:
-            logging_path = os.path.abspath(self.generate_logging_path(logging_folder))
-        self.config["_logging_path_"] = logging_path
-        trigger_logging = self.config.setdefault("trigger_logging", False)
-        self._init_logging(self._verbose_level, trigger_logging)
-
     def _init_data(self) -> None:
         if not self.data.is_ts:
             self.ts_label_collator = None
         else:
             self.ts_label_collator = TSLabelCollator(
                 self.data,
-                self._ts_label_collator_config,
+                self.ts_label_collator_config,
             )
-        self._sampler_config.setdefault("verbose_level", self.data._verbose_level)
-        self.preprocessor = PreProcessor(self._original_data, self._sampler_config)
+        self.sampler_config.setdefault("verbose_level", self.data._verbose_level)
+        self.preprocessor = PreProcessor(self._original_data, self.sampler_config)
         tr_sampler = self.preprocessor.make_sampler(
             self.tr_data,
             self.shuffle_tr,
@@ -180,13 +132,11 @@ class Pipeline(LoggingMixin):
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self.model_type](
-                self.config,
+                self.environment,
                 self.tr_loader_copy,
                 self.cv_loader,
                 self.tr_weights,
                 self.cv_weights,
-                self.device,
-                use_tqdm=self.use_tqdm,
             )
             self.model.init_ema()
         # trainer
@@ -196,19 +146,16 @@ class Pipeline(LoggingMixin):
                 raise ValueError(msg)
             self.inference = Inference(
                 self.preprocessor,
-                self.model.device,
+                self.device,
                 model=self.model,
-                binary_config=self._binary_config,
+                binary_config=self.binary_config,
                 use_binary_threshold=self.use_binary_threshold,
                 use_tqdm=self.use_tqdm,
             )
             self.trainer = Trainer(
                 self.model,
                 self.inference,
-                self.trial,
-                self.tracker,
-                self.config,
-                self._verbose_level,
+                self.environment,
                 is_loading,
             )
         # to device
@@ -226,13 +173,13 @@ class Pipeline(LoggingMixin):
         # data
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
-        self._data_config["verbose_level"] = self._verbose_level
+        self.data_config["verbose_level"] = self._verbose_level
         if sample_weights is None:
             self.sample_weights = None
         else:
             self.sample_weights = sample_weights.copy()
-        self._original_data = TabularData(**self._data_config)
-        self._original_data.read(*args, **self._read_config)
+        self._original_data = TabularData(**self.data_config)
+        self._original_data.read(*args, **self.read_config)
         self.tr_data = self._original_data
         self._save_original_data = x_cv is None
         self.tr_weights = self.cv_weights = None
@@ -242,14 +189,14 @@ class Pipeline(LoggingMixin):
                 self.tr_weights = sample_weights[: len(self.tr_data)]
                 self.cv_weights = sample_weights[len(self.tr_data) :]
         else:
-            if self.cv_split <= 0:
+            if self.int_cv_split <= 0:
                 self.cv_data = None
                 self.tr_split_indices = None
                 self.cv_split_indices = None
                 if sample_weights is not None:
                     self.tr_weights = sample_weights
             else:
-                split = self.tr_data.split(self.cv_split, order=self._cv_split_order)
+                split = self.tr_data.split(self.int_cv_split, order=self.cv_split_order)
                 self.tr_data, self.cv_data = split.remained, split.split
                 self.tr_split_indices = split.remained_indices
                 self.cv_split_indices = split.split_indices
@@ -263,7 +210,7 @@ class Pipeline(LoggingMixin):
 
     def _loop(self) -> None:
         # dump information
-        logging_folder = self.trainer.logging_folder
+        logging_folder = self.logging_folder
         os.makedirs(logging_folder, exist_ok=True)
         Saving.save_dict(self.config, "config", logging_folder)
         with open(os.path.join(logging_folder, "model.txt"), "w") as f:
@@ -441,7 +388,8 @@ class Pipeline(LoggingMixin):
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 config = Saving.load_dict("config", export_folder)
-                pipeline = Pipeline(config, cuda=cuda, verbose_level=verbose_level)
+                config.update({"verbose_level": verbose_level, "cuda": cuda})
+                pipeline = Pipeline(Environment.from_config(config))
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 # sample weights
                 tr_weights = cv_weights = sample_weights = None

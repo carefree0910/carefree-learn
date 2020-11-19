@@ -24,6 +24,7 @@ from ..losses import *
 from ..modules import *
 from ..types import tensor_dict_type
 from ..configs import Configs
+from ..configs import Environment
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
@@ -88,22 +89,18 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     def __init__(
         self,
-        pipeline_config: Dict[str, Any],
+        environment: Environment,
         tr_loader: DataLoader,
         cv_loader: DataLoader,
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
-        device: torch.device,
-        *,
-        use_tqdm: bool,
     ):
         super().__init__()
         self.ema: Optional[EMA] = None
-        self.device = device
-        self.use_tqdm = use_tqdm
-        self._pipeline_config = pipeline_config
-        self.timing = self._pipeline_config["use_timing_context"]
-        self.config = pipeline_config.setdefault("model_config", {})
+        self.environment = environment
+        self.device = environment.device
+        self.timing = environment.use_timing_context
+        self.config = environment.model_config
         self.tr_loader = tr_loader
         self.cv_loader = cv_loader
         self.tr_data = tr_loader.data
@@ -139,13 +136,13 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                         self.tr_data.recognizers[idx].num_unique_values
                     )
                     encoding_methods.append(
-                        self._encoding_methods.setdefault(
-                            str_idx, self._default_encoding_method
+                        self.encoding_methods.setdefault(
+                            str_idx, self.default_encoding_method
                         )
                     )
                     encoding_configs.append(
-                        self._encoding_configs.setdefault(
-                            str_idx, self._default_encoding_configs
+                        self.encoding_configs.setdefault(
+                            str_idx, self.default_encoding_configs
                         )
                     )
                     true_idx = idx - excluded
@@ -202,11 +199,20 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._transform_cache: Dict[str, Tensor] = {}
         self._extractor_cache: Dict[str, Tensor] = {}
 
+    def __getattr__(self, item: str) -> Any:
+        value = self.config.get(item)
+        if value is not None:
+            return value
+        value = self.environment.config.get(item)
+        if value is not None:
+            return value
+        return super().__getattr__(item)
+
     @property
     def num_history(self) -> int:
         num_history = 1
         if self.tr_data.is_ts:
-            sampler_config = self._pipeline_config["sampler_config"]
+            sampler_config = self.environment.sampler_config
             aggregation_config = sampler_config.get("aggregation_config", {})
             num_history = aggregation_config.get("num_history")
             if num_history is None:
@@ -322,14 +328,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         pass
 
     def _init_config(self) -> None:
-        # encoding
-        encoding_methods = self.config.setdefault("encoding_methods", {})
-        encoding_configs = self.config.setdefault("encoding_configs", {})
-        self._encoding_methods = {str(k): v for k, v in encoding_methods.items()}
-        self._encoding_configs = {str(k): v for k, v in encoding_configs.items()}
-        self._default_encoding_configs = self.config.setdefault(
-            "default_encoding_configs", {}
-        )
         default_encoding_method = set()
         if self.registered_pipes is None:
             raise ValueError(f"No `pipe` is registered in {type(self).__name__}")
@@ -339,18 +337,16 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 default_encoding_method.add("one_hot")
             if transform_config["embedding"]:
                 default_encoding_method.add("embedding")
-        self._default_encoding_method = self.config.setdefault(
+        self.default_encoding_method = self.config.setdefault(
             "default_encoding_method", list(default_encoding_method)
         )
-        # loss
-        self._loss_config = self.config.setdefault("loss_config", {})
-        self._loss_config["input_logits"] = not self.output_probabilities
+        self.loss_config["input_logits"] = not self.output_probabilities
 
     def _init_loss(self) -> None:
         if self.tr_data.is_reg:
             self.loss: Module = nn.L1Loss(reduction="none")
         else:
-            self.loss = FocalLoss(self._loss_config, reduction="none")
+            self.loss = FocalLoss(self.loss_config, reduction="none")
 
     def merge_outputs(
         self,
@@ -421,7 +417,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def info(self, *, return_only: bool = False) -> str:
         msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
         msg += (
-            pprint.pformat(self._pipeline_config, compact=True)
+            pprint.pformat(self.environment.config, compact=True)
             + "\n"
             + "-" * 100
             + "\n"

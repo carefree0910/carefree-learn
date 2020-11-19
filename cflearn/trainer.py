@@ -33,6 +33,7 @@ except:
     amp = None
 
 from .misc.toolkit import *
+from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
 from .inference import Inference
@@ -455,46 +456,38 @@ class Trainer(MonitoredMixin):
         self,
         model: ModelBase,
         inference: Inference,
-        trial: Optional[optuna.trial.Trial],
-        tracker: Optional[Tracker],
-        pipeline_config: Dict[str, Any],
-        verbose_level: int,
+        environment: Environment,
         is_loading: bool,
     ):
-        self.trial = trial
-        self.tracker = tracker
-        self.inference = inference
-        self._init_config(pipeline_config, is_loading)
+        # common
         self.model = model
+        self.inference = inference
+        self.environment = environment
+        self.trial = environment.trial
+        self.device = environment.device
+        if environment.tracker_config is None:
+            self.tracker = None
+        else:
+            self.tracker = Tracker(**environment.tracker_config)
         self.checkpoint_scores: Dict[str, float] = {}
         self.tr_loader_copy: Optional[DataLoader] = None
         self.final_results: Optional[IntermediateResults] = None
-        self._verbose_level = verbose_level
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
-
-    def _init_config(self, pipeline_config: Dict[str, Any], is_loading: bool) -> None:
-        # common
-        self._pipeline_config = pipeline_config
-        self.timing = self._pipeline_config["use_timing_context"]
-        self.use_tqdm = self._pipeline_config["use_tqdm"]
-        self.config = pipeline_config.setdefault("trainer_config", {})
-        self.update_bt_runtime = self.config.setdefault(
-            "update_binary_threshold_at_runtime", False
-        )
-        self._clip_norm = self.config.setdefault("clip_norm", 0.0)
-        self._use_amp = self.config.setdefault("use_amp", False)
-        self.scaler = None if amp is None or not self._use_amp else amp.GradScaler()
-        # trainer state
+        # config based
+        self.timing = environment.use_timing_context
+        self.config = environment.trainer_config
+        self._verbose_level = environment.verbose_level
+        self.update_bt_runtime = self.update_binary_threshold_at_runtime
+        self.scaler = None if amp is None or not self.use_amp else amp.GradScaler()
         self.state = TrainerState(self.config)
-        # logging
-        self._logging_path_ = pipeline_config["_logging_path_"]
-        self.logging_folder = pipeline_config["logging_folder"]
-        default_checkpoint_folder = os.path.join(self.logging_folder, "checkpoints")
-        self.checkpoint_folder = self.config.setdefault(
-            "checkpoint_folder", default_checkpoint_folder
-        )
         Saving.prepare_folder(self, self.checkpoint_folder)
+
+    def __getattr__(self, item: str) -> Any:
+        value = self.config.get(item)
+        if value is not None:
+            return value
+        return self.environment.config[item]
 
     def _define_optimizer(
         self,
@@ -649,7 +642,7 @@ class Trainer(MonitoredMixin):
 
     def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(), self._clip_norm
+            self.model.parameters(), self.clip_norm
         )
 
     def _optimizer_step(self) -> None:
@@ -891,7 +884,7 @@ class Trainer(MonitoredMixin):
                     self.state.step += 1
                     with timing_context(self, "collate batch", enable=self.timing):
                         batch = self.inference.collate_batch(x_batch, y_batch)
-                    with amp_autocast_context(self._use_amp):
+                    with amp_autocast_context(self.use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
                             forward_results = self.model(
                                 batch,
@@ -917,10 +910,10 @@ class Trainer(MonitoredMixin):
                                 )
                     with timing_context(self, "loss.backward", enable=self.timing):
                         loss = loss_dict["loss"]
-                        if self._use_amp:
+                        if self.use_amp:
                             loss = self.scaler.scale(loss)  # type: ignore
                         loss.backward()
-                    if self._clip_norm > 0.0:
+                    if self.clip_norm > 0.0:
                         with timing_context(self, "clip_norm_step", enable=self.timing):
                             self._clip_norm_step()
                     with timing_context(self, "optimizer_step", enable=self.timing):
@@ -1021,7 +1014,7 @@ class Trainer(MonitoredMixin):
             self.info_prefix,
             4,
         )
-        states = torch.load(model_file, map_location=self.model.device)
+        states = torch.load(model_file, map_location=self.device)
         self.model.load_state_dict(states)
         return self
 

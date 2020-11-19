@@ -26,6 +26,7 @@ from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
 from ..types import general_config_type
+from ..configs import Environment
 from ..trainer import Trainer
 from ..trainer import IntermediateResults
 from ..pipeline import Pipeline
@@ -197,14 +198,14 @@ def make(
     if optimizers is not None:
         trainer_config["optimizers"] = optimizers
     # misc
-    other_kwargs = {
+    kwargs.update({
         "cuda": cuda,
         "trial": trial,
         "tracker_config": tracker_config,
-    }
+    })
     if verbose_level is not None:
-        other_kwargs["verbose_level"] = verbose_level
-    return Pipeline(kwargs, **other_kwargs)  # type: ignore
+        kwargs["verbose_level"] = verbose_level
+    return Pipeline(Environment.from_config(kwargs))
 
 
 SAVING_DELIM = "^_^"

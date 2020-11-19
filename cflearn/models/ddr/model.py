@@ -61,7 +61,7 @@ class DDR(ModelBase):
             "q_recover": 10.0,
             "y_recover": 1.0,
         }
-        trainer_config = self._pipeline_config.setdefault("trainer_config", {})
+        trainer_config = self.environment.trainer_config
         trainer_config = update_dict(
             trainer_config,
             {
@@ -75,8 +75,7 @@ class DDR(ModelBase):
                 },
             },
         )
-        self._pipeline_config["trainer_config"] = trainer_config
-        self._trainer_config = trainer_config
+        self.environment.config["trainer_config"] = trainer_config
 
     def _init_loss(self) -> None:
         self.loss = DDRLoss(self._loss_config, "none")
