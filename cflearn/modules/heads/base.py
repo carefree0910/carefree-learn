@@ -42,7 +42,10 @@ class HeadConfigs(Configs):
     @property
     def out_dim(self) -> int:
         out_dim = self.config.get("out_dim")
-        default_out_dim = max(self.tr_data.num_classes, 1)
+        if self.tr_data.is_clf:
+            default_out_dim = self.tr_data.num_classes
+        else:
+            default_out_dim = self.tr_data.processed.y.shape[1]
         if out_dim is None:
             out_dim = default_out_dim
         return out_dim
