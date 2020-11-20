@@ -25,9 +25,9 @@ import cflearn
 import numpy as np
 from cflearn import ModelBase
 
-@ModelBase.register("wnd_full")
-@ModelBase.register_pipe("fcnn")
-@ModelBase.register_pipe("linear")
+@cflearn.register_model("wnd_full")
+@cflearn.register_pipe("fcnn")
+@cflearn.register_pipe("linear")
 class WideAndDeepFull(ModelBase):
     pass
 
