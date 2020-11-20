@@ -6,3 +6,4 @@ _*/
 build/*
 carefree_learn.egg-info
 pip-wheel-metadata
+**/.ipynb_checkpoints/*
