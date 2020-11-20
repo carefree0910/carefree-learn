@@ -3,6 +3,7 @@ import cflearn
 # preparation
 data_config = {"label_name": "Survived"}
 
+
 def write_submissions(name, predictions_):
     with open("test.csv", "r") as f:
         f.readline()
@@ -11,6 +12,7 @@ def write_submissions(name, predictions_):
         f.write("PassengerId,Survived\n")
         for test_id, prediction in zip(id_list, predictions_.ravel()):
             f.write(f"{test_id},{prediction}\n")
+
 
 # wide and deep
 m = cflearn.make("wnd", data_config=data_config)
