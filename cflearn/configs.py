@@ -303,11 +303,12 @@ class Elements(NamedTuple):
         # trainer -> optimizers
         optimizers_settings = trainer_config.setdefault("optimizers", {"all": {}})
         for params_name, opt_setting in optimizers_settings.items():
-            opt_setting.setdefault("optimizer", "adam")
+            opt_setting.setdefault("optimizer", "adamw")
             optimizer_config = opt_setting.setdefault("optimizer_config", {})
             opt_setting.setdefault("scheduler", "plateau")
             opt_setting.setdefault("scheduler_config", {})
             optimizer_config.setdefault("lr", 1e-3)
+        kwargs["optimizers"] = optimizers_settings
         # trainer -> metrics
         metric_config = trainer_config.setdefault("metric_config", {})
         metric_config.setdefault("decay", 0.1)

@@ -477,10 +477,10 @@ class Trainer(MonitoredMixin):
         self.optimizers: Dict[str, Optimizer] = {}
         self.schedulers: Dict[str, Optional[_LRScheduler]] = {}
         for params_name, opt_setting in optimizers_settings.items():
-            optimizer = opt_setting.setdefault("optimizer", "adam")
-            optimizer_config = opt_setting.setdefault("optimizer_config", {})
-            scheduler = opt_setting.setdefault("scheduler", "plateau")
-            scheduler_config = opt_setting.setdefault("scheduler_config", {})
+            optimizer = opt_setting["optimizer"]
+            optimizer_config = opt_setting["optimizer_config"]
+            scheduler = opt_setting["scheduler"]
+            scheduler_config = opt_setting["scheduler_config"]
             # optimizer
             optimizer_config.setdefault("lr", 1e-3)
             if optimizer == "nag":
@@ -543,6 +543,8 @@ class Trainer(MonitoredMixin):
                 self.schedulers[params_name] = scheduler(opt, **scheduler_config)
         self.schedulers_requires_metric = set()
         for key, scheduler in self.schedulers.items():
+            if scheduler is None:
+                continue
             signature = inspect.signature(scheduler.step)
             for name, param in signature.parameters.items():
                 if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
