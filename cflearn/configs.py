@@ -86,8 +86,6 @@ class Elements(NamedTuple):
     model: str = "fcnn"
     use_amp: Optional[bool] = None
     use_simplify_data: Optional[bool] = None
-    config: general_config_type = None
-    increment_config: general_config_type = None
     delim: Optional[str] = None
     task_type: Optional[task_type_type] = None
     skip_first: Optional[bool] = None
@@ -126,48 +124,13 @@ class Elements(NamedTuple):
     extra_config: Optional[Dict[str, Any]] = None
 
     @classmethod
-    def from_kwargs(cls, kwargs: Dict[str, Any]) -> "Elements":
-        spec = inspect.getfullargspec(cls).args[1:-1]
-        main_configs = {key: kwargs.pop(key) for key in spec if key in kwargs}
-        existing_extra_config = main_configs.get("extra_config")
-        if existing_extra_config is None:
-            main_configs["extra_config"] = kwargs
-        else:
-            update_dict(kwargs, existing_extra_config)
-        return cls(**main_configs)
-
-
-class Environment:
-    def __init__(self, config: Optional[Dict[str, Any]]):
-        self.config = self.pop(config)
-
-    def __getattr__(self, item: str) -> Any:
-        return self.config[item]
-
-    @property
-    def device(self) -> torch.device:
-        cuda = self.cuda
-        if cuda == "cpu":
-            return torch.device("cpu")
-        if cuda is not None:
-            return torch.device(f"cuda:{cuda}")
-        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    @property
-    def pipeline_config(self) -> Dict[str, Any]:
-        return self.config
-
-    @property
-    def trainer_config(self) -> Dict[str, Any]:
-        return self.config["trainer_config"]
-
-    @property
-    def model_config(self) -> Dict[str, Any]:
-        return self.config["model_config"]
-
-    @staticmethod
-    def pop(config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
-        kwargs: Dict[str, Any] = config or {}
+    def make(
+        cls,
+        config: Optional[Dict[str, Any]] = None,
+        increment_config: Optional[Dict[str, Any]] = None,
+    ) -> "Elements":
+        cfg, inc_cfg = map(_parse_config, [config, increment_config])
+        kwargs = update_dict(inc_cfg, cfg)
         # pipeline general
         model = kwargs.setdefault("model", "fcnn")
         kwargs.setdefault("model", "fcnn")
@@ -231,16 +194,44 @@ class Environment:
         model_config["encoding_configs"] = encoding_configs
         model_config.setdefault("default_encoding_configs", {})
         model_config.setdefault("loss_config", {})
-        return kwargs
+        # convert to `Elements`
+        spec = inspect.getfullargspec(cls).args[1:-1]
+        main_configs = {key: kwargs.pop(key) for key in spec if key in kwargs}
+        existing_extra_config = main_configs.get("extra_config")
+        if existing_extra_config is None:
+            main_configs["extra_config"] = kwargs
+        else:
+            update_dict(kwargs, existing_extra_config)
+        return cls(**main_configs)
 
-    @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> "Environment":
-        return cls(config)
 
-    @classmethod
-    def from_json(cls, json_path: str) -> "Environment":
-        with open(json_path, "r") as f:
-            return cls(json.load(f))
+class Environment:
+    def __init__(self, config: Dict[str, Any]):
+        self.config = config
+
+    def __getattr__(self, item: str) -> Any:
+        return self.config[item]
+
+    @property
+    def device(self) -> torch.device:
+        cuda = self.cuda
+        if cuda == "cpu":
+            return torch.device("cpu")
+        if cuda is not None:
+            return torch.device(f"cuda:{cuda}")
+        return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    @property
+    def pipeline_config(self) -> Dict[str, Any]:
+        return self.config
+
+    @property
+    def trainer_config(self) -> Dict[str, Any]:
+        return self.config["trainer_config"]
+
+    @property
+    def model_config(self) -> Dict[str, Any]:
+        return self.config["model_config"]
 
     @classmethod
     def from_elements(cls, elements: Elements) -> "Environment":
@@ -248,8 +239,6 @@ class Environment:
             kwargs = {}
         else:
             kwargs = shallow_copy_dict(elements.extra_config)
-        cfg, inc_cfg = map(_parse_config, [elements.config, elements.increment_config])
-        update_dict(update_dict(inc_cfg, cfg), kwargs)
         # pipeline general
         kwargs["model"] = elements.model
         if elements.cv_split is not None:
@@ -377,7 +366,7 @@ class Environment:
         )
         if elements.verbose_level is not None:
             kwargs["verbose_level"] = elements.verbose_level
-        return cls.from_config(kwargs)
+        return cls(kwargs)
 
 
 __all__ = ["configs_dict", "Configs", "Elements", "Environment"]

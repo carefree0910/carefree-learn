@@ -389,7 +389,7 @@ class Pipeline(LoggingMixin):
             with Saving.compress_loader(export_folder, compress):
                 config = Saving.load_dict("config", export_folder)
                 config.update({"verbose_level": verbose_level, "cuda": cuda})
-                pipeline = Pipeline(Environment.from_config(config))
+                pipeline = Pipeline(Environment(config))
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 # sample weights
                 tr_weights = cv_weights = sample_weights = None

@@ -31,7 +31,7 @@ from ..misc.toolkit import to_2d
 
 def make(model: str = "fcnn", **kwargs: Any) -> Pipeline:
     kwargs["model"] = model
-    return Pipeline(Environment.from_elements(Elements.from_kwargs(kwargs)))
+    return Pipeline(Environment.from_elements(Elements.make(kwargs)))
 
 
 SAVING_DELIM = "^_^"
