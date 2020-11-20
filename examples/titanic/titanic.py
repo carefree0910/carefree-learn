@@ -1,4 +1,11 @@
+import torch
 import cflearn
+
+import numpy as np
+
+# for reproduction
+np.random.seed(142857)
+torch.manual_seed(142857)
 
 # preparation
 data_config = {"label_name": "Survived"}
