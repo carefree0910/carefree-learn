@@ -81,6 +81,11 @@ pip install carefree-learn
 ```
 
 
+## Examples
+
++ [Titanic](https://carefree0910.me/carefree-learn-doc/docs/user-guides/examples/#titanic) – the best, first challenge for you to dive into ML competitions and familiarize yourself with how the Kaggle platform works.
+
+
 ## Citation
 
 If you use `carefree-learn` in your research, we would greatly appreciate if you cite this library using this Bibtex:
