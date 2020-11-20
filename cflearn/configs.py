@@ -95,7 +95,7 @@ class Elements(NamedTuple):
     max_epoch: Optional[int] = None
     fixed_epoch: Optional[int] = None
     batch_size: Optional[int] = None
-    max_snapshot_num: Optional[int] = None
+    max_snapshot_file: Optional[int] = None
     clip_norm: Optional[float] = None
     ema_decay: Optional[float] = None
     ts_config: Optional[TimeSeriesConfig] = None
@@ -325,8 +325,8 @@ class Environment:
         trainer_config["min_epoch"] = min_epoch
         trainer_config["num_epoch"] = num_epoch
         trainer_config["max_epoch"] = max_epoch
-        if elements.max_snapshot_num is not None:
-            trainer_config["max_snapshot_num"] = elements.max_snapshot_num
+        if elements.max_snapshot_file is not None:
+            trainer_config["max_snapshot_file"] = elements.max_snapshot_file
         if elements.clip_norm is not None:
             trainer_config["clip_norm"] = elements.clip_norm
         # model general
