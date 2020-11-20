@@ -59,7 +59,9 @@ class TrainerState:
         self.num_step_per_epoch: int
         # settings
         self.config = trainer_config
-        self._init_epoch_settings()
+        self.min_epoch = self.config["min_epoch"]
+        self.num_epoch = self.config["num_epoch"]
+        self.max_epoch = self.config["max_epoch"]
         self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
         self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
         self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
@@ -71,39 +73,6 @@ class TrainerState:
         self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
         self.max_step_per_snapshot = int(max_step_per_snapshot)
         self.plateau_start = int(plateau_start)
-
-    def _init_epoch_settings(self) -> None:
-        min_epoch = self.config.setdefault("min_epoch", None)
-        num_epoch = self.config.setdefault("num_epoch", None)
-        max_epoch = self.config.setdefault("max_epoch", None)
-        no_min, no_num, no_max = min_epoch is None, num_epoch is None, max_epoch is None
-        default_min, default_num, default_max = 0, 40, 200
-        if no_min and no_num and no_max:
-            min_epoch = default_min
-            num_epoch = default_num
-            max_epoch = default_max
-        elif no_min and no_num:
-            min_epoch = min(default_min, max_epoch)
-            num_epoch = min(default_num, max_epoch)
-        elif no_min and no_max:
-            min_epoch = min(default_min, num_epoch)
-            max_epoch = max(default_max, num_epoch)
-        elif no_num and no_max:
-            num_epoch = max(default_num, min_epoch)
-            max_epoch = max(default_max, min_epoch)
-        elif no_min:
-            if num_epoch > max_epoch:
-                raise ValueError("`num_epoch` should not be greater than `max_epoch`")
-            min_epoch = min(default_min, num_epoch)
-        elif no_num:
-            if min_epoch > max_epoch:
-                raise ValueError("`min_epoch` should not be greater than `max_epoch`")
-            num_epoch = max(min(default_num, max_epoch), min_epoch)
-        elif no_max:
-            if min_epoch > num_epoch:
-                raise ValueError("`min_epoch` should not be greater than `num_epoch`")
-            max_epoch = max(default_max, num_epoch)
-        self.min_epoch, self.num_epoch, self.max_epoch = min_epoch, num_epoch, max_epoch
 
     def inject_loader(self, loader: DataLoader) -> None:
         self.batch_size = loader.batch_size

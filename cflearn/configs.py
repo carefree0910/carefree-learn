@@ -295,12 +295,36 @@ class Environment:
             if max_epoch is not None:
                 raise ValueError(msg.format("max_epoch"))
             min_epoch = num_epoch = max_epoch = elements.fixed_epoch
-        if min_epoch is not None:
-            trainer_config["min_epoch"] = min_epoch
-        if num_epoch is not None:
-            trainer_config["num_epoch"] = num_epoch
-        if max_epoch is not None:
-            trainer_config["max_epoch"] = max_epoch
+        no_min, no_num, no_max = min_epoch is None, num_epoch is None, max_epoch is None
+        default_min, default_num, default_max = 0, 40, 200
+        if no_min and no_num and no_max:
+            min_epoch = default_min
+            num_epoch = default_num
+            max_epoch = default_max
+        elif no_min and no_num:
+            min_epoch = min(default_min, max_epoch)
+            num_epoch = min(default_num, max_epoch)
+        elif no_min and no_max:
+            min_epoch = min(default_min, num_epoch)
+            max_epoch = max(default_max, num_epoch)
+        elif no_num and no_max:
+            num_epoch = max(default_num, min_epoch)
+            max_epoch = max(default_max, min_epoch)
+        elif no_min:
+            if num_epoch > max_epoch:
+                raise ValueError("`num_epoch` should not be greater than `max_epoch`")
+            min_epoch = min(default_min, num_epoch)
+        elif no_num:
+            if min_epoch > max_epoch:
+                raise ValueError("`min_epoch` should not be greater than `max_epoch`")
+            num_epoch = max(min(default_num, max_epoch), min_epoch)
+        elif no_max:
+            if min_epoch > num_epoch:
+                raise ValueError("`min_epoch` should not be greater than `num_epoch`")
+            max_epoch = max(default_max, num_epoch)
+        trainer_config["min_epoch"] = min_epoch
+        trainer_config["num_epoch"] = num_epoch
+        trainer_config["max_epoch"] = max_epoch
         if elements.max_snapshot_num is not None:
             trainer_config["max_snapshot_num"] = elements.max_snapshot_num
         if elements.clip_norm is not None:
