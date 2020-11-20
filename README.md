@@ -2,6 +2,7 @@
 
 `carefree-learn` is a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on [PyTorch](https://pytorch.org/).
 
+
 ## Carefree?
 
 `carefree-learn` aims to provide **CAREFREE** usages for both users and developers.
@@ -37,6 +38,7 @@ m = cflearn.make("wnd_full").fit(x, y)
 
 > Please refer to [Quick Start](https://carefree0910.me/carefree-learn-doc/docs/getting-started/quick-start) and [Build Your Own Models](https://carefree0910.me/carefree-learn-doc/docs/developer-guides/build-your-own-models) for detailed information.
 
+
 ## Why carefree-learn?
 
 `carefree-learn`
@@ -58,6 +60,26 @@ m = cflearn.make("wnd_full").fit(x, y)
     + [`carefree-data`](https://github.com/carefree0910/carefree-data): a lightweight tool to read -> convert -> process **ANY** tabular datasets. It also utilizes [cython](https://cython.org/) to accelerate critical procedures.
 
 From the above, it comes out that `carefree-learn` could be treated as a minimal **Auto**matic **M**achine **L**earning (AutoML) solution for tabular datasets when it is fully utilized. However, this is not built on the sacrifice of flexibility. In fact, the functionality we've mentioned are all wrapped into individual modules in `carefree-learn` and allow users to customize them easily.
+
+
+## Installation
+
+`carefree-learn` requires Python 3.6 or higher.
+
+### Pre-Installing PyTorch
+
+`carefree-learn` requires `pytorch==1.6.0`. Please refer to [PyTorch](https://pytorch.org/get-started/locally/), and it is highly recommended to pre-install PyTorch with conda.
+
+### pip installation
+
+After installing PyTorch, installation of `carefree-learn` would be rather easy:
+
+> If you pre-installed PyTorch with conda, remember to activate the corresponding environment!
+
+```bash
+pip install carefree-learn
+```
+
 
 ## Citation
 
