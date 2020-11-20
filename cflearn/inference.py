@@ -4,9 +4,9 @@ import torch
 import numpy as np
 
 from typing import *
-from tqdm import tqdm
 from functools import partial
 from onnxruntime import InferenceSession
+from tqdm.autonotebook import tqdm
 from cftool.ml import Metrics
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager

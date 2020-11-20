@@ -7,8 +7,8 @@ import numpy as np
 import optuna.visualization as vis
 
 from typing import *
-from tqdm import tqdm
 from functools import partial
+from tqdm.autonotebook import tqdm
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving

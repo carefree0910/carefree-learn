@@ -1,11 +1,11 @@
 import os
 import math
-import tqdm
 import torch
 
 import numpy as np
 
 from typing import *
+from tqdm.autonotebook import tqdm
 from cftool.dist import Parallel
 from cftool.misc import hash_code
 from cftool.misc import update_dict
@@ -13,15 +13,15 @@ from cftool.misc import lock_manager
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
-from cftool.ml.utils import collate_fn_type
-from cftool.ml.utils import Metrics
-from cftool.ml.utils import Comparer
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import KFold
 from cfdata.tabular import KRandom
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
+from cftool.ml.utils import collate_fn_type
+from cftool.ml.utils import Metrics
+from cftool.ml.utils import Comparer
 from torch.nn.functional import one_hot
 
 from .basic import *
@@ -488,7 +488,7 @@ class Ensemble:
         data = None
         pipelines = []
         patterns, pattern_weights = [], []
-        for i in tqdm.tqdm(list(range(k))):
+        for i in tqdm(list(range(k))):
             cfg = shallow_copy_dict(config)
             cfg["logging_folder"] = os.path.join(temp_folder, str(i))
             metric_config = {"sample_weights": sample_weights}

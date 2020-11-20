@@ -11,7 +11,7 @@ import numpy as np
 from typing import *
 from abc import abstractmethod
 from abc import ABC
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from cftool.ml import Metrics

@@ -3,7 +3,7 @@ import time
 import shutil
 
 from typing import *
-from tqdm import tqdm
+from tqdm.autonotebook import tqdm
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
