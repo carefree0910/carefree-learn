@@ -103,7 +103,7 @@ class Elements(NamedTuple):
     clip_norm: float = 0.0
     ema_decay: float = 0.0
     ts_config: Optional[TimeSeriesConfig] = None
-    aggregation: Optional[str] = None
+    aggregation: str = "continuous"
     aggregation_config: Optional[Dict[str, Any]] = None
     ts_label_collator_config: Optional[Dict[str, Any]] = None
     model_config: Optional[Dict[str, Any]] = None
