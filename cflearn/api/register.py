@@ -6,7 +6,9 @@ from ..modules import *
 from ..configs import Configs
 from ..misc.toolkit import Initializer
 from ..models.base import ModelBase
-from ..modules.heads.base import HeadConfigs
+from ..modules.heads import HeadBase
+from ..modules.heads import HeadConfigs
+from ..modules.extractors import ExtractorBase
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -23,6 +25,14 @@ def register_processor(name: str) -> Callable[[Type], Type]:
 
 def register_model(name: str) -> Callable[[Type], Type]:
     return ModelBase.register(name)
+
+
+def register_extractor(name: str) -> Callable[[Type], Type]:
+    return ExtractorBase.register(name)
+
+
+def register_head(name: str) -> Callable[[Type], Type]:
+    return HeadBase.register(name)
 
 
 def register_pipe(
@@ -58,6 +68,8 @@ def register_head_config(scope: str, name: str) -> Callable[[Type], Type]:
 
 __all__ = [
     "register_pipe",
+    "register_head",
+    "register_extractor",
     "register_model",
     "register_config",
     "register_head_config",
