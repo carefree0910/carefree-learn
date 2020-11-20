@@ -25,7 +25,7 @@ __all__ = [
     "make",
     "save",
     "load",
-    "estimate",
+    "evaluate",
     "load_task",
     "repeat_with",
     "tasks_to_pipelines",

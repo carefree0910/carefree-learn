@@ -113,7 +113,7 @@ class TestOpenML(unittest.TestCase):
                         )
                     )
                 comparer_list.append(
-                    cflearn.estimate(
+                    cflearn.evaluate(
                         x_te,
                         y_te,
                         metrics=["acc", "auc"],

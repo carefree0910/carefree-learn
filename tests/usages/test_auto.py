@@ -43,7 +43,7 @@ def test_auto() -> None:
         predictions = auto.predict(x_cv)
         print("accuracy:", (y_cv == predictions).mean())
 
-        cflearn.estimate(
+        cflearn.evaluate(
             x_cv,
             y_cv,
             pipelines=fcnn,

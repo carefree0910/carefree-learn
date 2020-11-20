@@ -61,12 +61,12 @@ def test_array_dataset() -> None:
         **kwargs,  # type: ignore
     )
     m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
-    cflearn.estimate(*dataset.xy, pipelines=m)
+    cflearn.evaluate(*dataset.xy, pipelines=m)
     cflearn.save(m)
     m2 = cflearn.load()[model]
     assert m.tr_data == m2.tr_data
     assert m.cv_data == m2.cv_data
-    cflearn.estimate(*dataset.xy, pipelines=m2)
+    cflearn.evaluate(*dataset.xy, pipelines=m2)
     cflearn._rmtree(logging_folder)
     cflearn._remove()
     data = TabularData.from_dataset(dataset)
@@ -91,14 +91,14 @@ def test_file_dataset() -> None:
     fcnn.fit(tr_file, x_cv=cv_file)
     tree_dnn.fit(tr_file, x_cv=cv_file)
     pipeline_list = [fcnn, tree_dnn]
-    cflearn.estimate(tr_file, pipelines=pipeline_list, contains_labels=True)
-    cflearn.estimate(cv_file, pipelines=pipeline_list, contains_labels=True)
-    cflearn.estimate(te_file, pipelines=pipeline_list, contains_labels=True)
+    cflearn.evaluate(tr_file, pipelines=pipeline_list, contains_labels=True)
+    cflearn.evaluate(cv_file, pipelines=pipeline_list, contains_labels=True)
+    cflearn.evaluate(te_file, pipelines=pipeline_list, contains_labels=True)
     cflearn.save(pipeline_list)
     pipelines_dict = cflearn.load()
-    cflearn.estimate(tr_file, pipelines=pipelines_dict, contains_labels=True)
-    cflearn.estimate(cv_file, pipelines=pipelines_dict, contains_labels=True)
-    cflearn.estimate(te_file, pipelines=pipelines_dict, contains_labels=True)
+    cflearn.evaluate(tr_file, pipelines=pipelines_dict, contains_labels=True)
+    cflearn.evaluate(cv_file, pipelines=pipelines_dict, contains_labels=True)
+    cflearn.evaluate(te_file, pipelines=pipelines_dict, contains_labels=True)
     cflearn._rmtree(logging_folder)
     cflearn._remove()
 
@@ -138,19 +138,19 @@ def test_file_dataset() -> None:
         repeat_key = f"{model}_{num_repeat}"
         other_patterns[repeat_key] = patterns[model]
         other_patterns[f"{repeat_key}_ensemble"] = ensembles[model]
-    cflearn.estimate(
+    cflearn.evaluate(
         tr_x,
         tr_y,
         pipelines=pipelines_dict,
         other_patterns=other_patterns,
     )
-    cflearn.estimate(
+    cflearn.evaluate(
         cv_x,
         cv_y,
         pipelines=pipelines_dict,
         other_patterns=other_patterns,
     )
-    cflearn.estimate(
+    cflearn.evaluate(
         te_x,
         te_y,
         pipelines=pipelines_dict,

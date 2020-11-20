@@ -152,7 +152,7 @@ class Benchmark(LoggingMixin):
             x_te, y_te = data_task.fetch_data("_te")
             for identifier, ms in results.items():
                 pipelines[identifier] = ms[i]
-            comparer = estimate(
+            comparer = evaluate(
                 x_te,
                 y_te,
                 pipelines=pipelines,
