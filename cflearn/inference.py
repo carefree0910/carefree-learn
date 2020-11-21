@@ -334,6 +334,7 @@ class Inference(LoggingMixin):
         returns_probabilities: bool = False,
         loader_name: Optional[str] = None,
         batch_step: int = -1,
+        use_tqdm: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
 
@@ -350,6 +351,7 @@ class Inference(LoggingMixin):
                 loader,
                 loader_name,
                 batch_step,
+                use_tqdm,
                 **shallow_copy_dict(kwargs),
             )
         except:
@@ -359,6 +361,7 @@ class Inference(LoggingMixin):
                 loader,
                 loader_name,
                 batch_step,
+                use_tqdm,
                 **shallow_copy_dict(kwargs),
             )
 
@@ -407,10 +410,12 @@ class Inference(LoggingMixin):
         loader: DataLoader,
         loader_name: Optional[str],
         batch_step: int,
+        use_tqdm: bool,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
         return_indices = loader.return_indices
-        loader = self.to_tqdm(loader)
+        if use_tqdm:
+            loader = self.to_tqdm(loader)
         results, labels = [], []
         for a, b in loader:
             if return_indices:

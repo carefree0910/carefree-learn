@@ -722,7 +722,6 @@ class Trainer(MonitoredMixin):
         # losses
         loss_values = None
         if self._metrics_need_loss:
-            loader = self.inference.to_tqdm(loader)
             loss_dicts = []
             for (x_batch, y_batch), batch_indices in loader:
                 batch = self.inference.collate_batch(x_batch, y_batch)
