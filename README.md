@@ -35,7 +35,7 @@ y = np.random.random([1000, 1])
 m = cflearn.make("wnd_full").fit(x, y)
 ```
 
-> Please refer to [Quick Start](https://carefree0910.me/carefree-learn-doc/docs/getting-started/quick-start) and [Build Your Own Models](https://carefree0910.me/carefree-learn-doc/docs/developer-guides/build-your-own-models) for detailed information.
+> Please refer to [Quick Start](https://carefree0910.me/carefree-learn-doc/docs/getting-started/quick-start) and [Build Your Own Models](https://carefree0910.me/carefree-learn-doc/docs/developer-guides/customization) for detailed information.
 
 
 ## Why carefree-learn?
