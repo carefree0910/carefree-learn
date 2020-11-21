@@ -23,12 +23,11 @@ m = cflearn.make().fit(x, y)
 ```python
 import cflearn
 import numpy as np
-from cflearn import ModelBase
 
 @cflearn.register_model("wnd_full")
 @cflearn.register_pipe("fcnn")
 @cflearn.register_pipe("linear")
-class WideAndDeepFull(ModelBase):
+class WideAndDeepFull(cflearn.ModelBase):
     pass
 
 x = np.random.random([1000, 10])
