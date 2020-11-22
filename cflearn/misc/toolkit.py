@@ -438,7 +438,7 @@ class Activations:
     def make(
         cls,
         name: Optional[str],
-        config: Optional[Dict[str, Any]],
+        config: Optional[Dict[str, Any]] = None,
     ) -> nn.Module:
         if name is None:
             return nn.Identity()

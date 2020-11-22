@@ -398,7 +398,7 @@ class MLP(Module):
 
         blocks.append(BN(dim))
         if activation is not None:
-            blocks.append(Activations.make(activation, None))
+            blocks.append(Activations.make(activation))
         blocks.append(Linear(dim, out_dim, bias=bias, pruner_config=pruner_config))
         return nn.Sequential(*blocks)
 
