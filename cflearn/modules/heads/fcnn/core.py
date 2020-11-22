@@ -20,7 +20,7 @@ class FCNNHead(HeadBase):
         mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         if mapping_configs is None:
             mapping_configs = {}
         self.mlp = MLP(

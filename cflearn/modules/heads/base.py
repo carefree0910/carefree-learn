@@ -82,8 +82,9 @@ class HeadConfigs(Configs):
 
 
 class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
-    def __init__(self, **kwargs: Any):
+    def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
         super().__init__()
+        self.in_dim, self.out_dim = in_dim, out_dim
 
     @abstractmethod
     def forward(self, net: torch.Tensor) -> Union[torch.Tensor, tensor_dict_type]:

@@ -32,7 +32,7 @@ class DDRHead(HeadBase):
         num_blocks: int,
         latent_dim: int,
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         assert out_dim == 1
         # common
         self.register_buffer("cdf_logit_anchor", torch.tensor([math.log(3.0)]))

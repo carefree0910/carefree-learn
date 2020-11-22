@@ -16,7 +16,7 @@ class DNDFHead(HeadBase):
         out_dim: int,
         config: Optional[Dict[str, Any]],
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         if config is None:
             self.dndf = None
         else:

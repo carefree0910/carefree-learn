@@ -69,7 +69,7 @@ print(f"w: {prod_linear.weight.item():8.6f}, b: {prod_linear.bias.item():8.6f}")
 @cflearn.register_head("mixture_head")
 class MixtureHead(cflearn.HeadBase):
     def __init__(self, in_dim: int, out_dim: int, target_dim: int):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         self.dim = target_dim
         self.linear = Linear(in_dim, 1)
 

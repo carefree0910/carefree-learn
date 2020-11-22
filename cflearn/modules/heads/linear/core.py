@@ -16,7 +16,7 @@ class LinearHead(HeadBase):
         out_dim: int,
         linear_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         if linear_config is None:
             linear_config = {}
         self.linear = Lin(in_dim, out_dim, **linear_config)

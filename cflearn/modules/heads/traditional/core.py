@@ -50,7 +50,7 @@ class NDTHead(HeadBase):
         activations: Dict[str, str],
         activation_configs: Dict[str, Any],
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         tree_structure = export_structure(dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
@@ -118,7 +118,7 @@ class NNBMNBHead(HeadBase):
         categorical: Optional[torch.Tensor],
         categorical_dims: Dict[int, int],
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         self.categorical_dims = categorical_dims
         if categorical is None:
             self.mnb = None
@@ -195,7 +195,7 @@ class NNBNormalHead(HeadBase):
         pretrain: bool,
         numerical: Optional[torch.Tensor],
     ):
-        super().__init__()
+        super().__init__(in_dim, out_dim)
         if numerical is None:
             self.mu = self.std = self.normal = None
         else:
