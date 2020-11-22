@@ -24,16 +24,23 @@ def register_processor(name: str) -> Callable[[Type], Type]:
     return Processor.register(name)
 
 
-def register_model(name: str) -> Callable[[Type], Type]:
-    return ModelBase.register(name)
-
-
 def register_extractor(name: str) -> Callable[[Type], Type]:
     return ExtractorBase.register(name)
 
 
 def register_head(name: str) -> Callable[[Type], Type]:
     return HeadBase.register(name)
+
+
+class PipeInfo(NamedTuple):
+    key: str
+    transform: str = "default"
+    extractor: Optional[str] = None
+    head: Optional[str] = None
+    extractor_config: str = "default"
+    head_config: str = "default"
+    extractor_meta_scope: Optional[str] = None
+    head_meta_scope: Optional[str] = None
 
 
 def register_pipe(
@@ -57,6 +64,33 @@ def register_pipe(
         extractor_meta_scope=extractor_meta_scope,
         head_meta_scope=head_meta_scope,
     )
+
+
+def register_model(
+    name: str,
+    *,
+    pipes: Optional[List[PipeInfo]] = None,
+) -> Optional[Callable[[Type], Type]]:
+    if pipes is None:
+        return ModelBase.register(name)
+
+    @ModelBase.register(name)
+    class _(ModelBase):
+        pass
+
+    for pipe in pipes:
+        _ = register_pipe(
+            pipe.key,
+            transform=pipe.transform,
+            extractor=pipe.extractor,
+            head=pipe.head,
+            extractor_config=pipe.extractor_config,
+            head_config=pipe.head_config,
+            extractor_meta_scope=pipe.extractor_meta_scope,
+            head_meta_scope=pipe.head_meta_scope,
+        )(_)
+
+    return None
 
 
 def _register_config(
@@ -110,4 +144,5 @@ __all__ = [
     "register_processor",
     "Initializer",
     "Processor",
+    "PipeInfo",
 ]

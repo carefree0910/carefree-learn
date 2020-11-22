@@ -44,13 +44,10 @@ class ProdExtractor(cflearn.ExtractorBase):
 
 
 cflearn.register_config("prod_extractor", "default", config={})
-
-
-@cflearn.register_model("prod")
-@cflearn.register_pipe("linear", extractor="prod_extractor")
-class ProdNetwork(cflearn.ModelBase):
-    pass
-
+cflearn.register_model(
+    "prod",
+    pipes=[cflearn.PipeInfo("linear", extractor="prod_extractor")],
+)
 
 linear = cflearn.make("linear", **kwargs).fit(x, y_prod)
 fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_prod)
@@ -79,24 +76,23 @@ class MixtureHead(cflearn.HeadBase):
 
 cflearn.register_head_config("mixture", "add", head_config={"target_dim": 0})
 cflearn.register_head_config("mixture", "prod", head_config={"target_dim": 1})
-
-
-@cflearn.register_model("mixture")
-@cflearn.register_pipe(
-    "add",
-    extractor="identity",
-    head="mixture",
-    head_config="add",
+cflearn.register_model(
+    "mixture",
+    pipes=[
+        cflearn.PipeInfo(
+            "add",
+            extractor="identity",
+            head="mixture",
+            head_config="add",
+        ),
+        cflearn.PipeInfo(
+            "prod",
+            extractor="prod_extractor",
+            head="mixture",
+            head_config="prod",
+        )
+    ]
 )
-@cflearn.register_pipe(
-    "prod",
-    extractor="prod_extractor",
-    head="mixture",
-    head_config="prod",
-)
-class MixtureNetwork(cflearn.ModelBase):
-    pass
-
 
 linear = cflearn.make("linear", **kwargs).fit(x, y_mix)
 fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_mix)

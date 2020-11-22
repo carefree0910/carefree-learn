@@ -58,6 +58,7 @@ __all__ = [
     "register_processor",
     "Initializer",
     "Processor",
+    "PipeInfo",
     # inference
     "Pack",
 ]
