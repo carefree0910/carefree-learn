@@ -17,8 +17,7 @@ __all__ = [
     "OptunaKeyMapping",
     "OptunaPresetParams",
     # zoo
-    "ZooBase",
-    "zoo",
+    "Zoo",
     # auto
     "Auto",
     # basic
