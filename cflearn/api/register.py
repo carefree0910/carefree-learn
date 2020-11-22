@@ -1,4 +1,5 @@
 from typing import *
+from cftool.misc import shallow_copy_dict
 from cftool.ml.utils import register_metric
 from cfdata.tabular.processors.base import Processor
 
@@ -58,12 +59,41 @@ def register_pipe(
     )
 
 
-def register_config(scope: str, name: str) -> Callable[[Type], Type]:
-    return Configs.register(scope, name)
+def _register_config(
+    base: Type[Configs],
+    scope: str,
+    name: str,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[Callable[[Type], Type]]:
+    if config is None:
+        return base.register(scope, name)
+
+    def register(config_: Dict[str, Any]) -> None:
+        @base.register(scope, name)
+        class _(base):  # type: ignore
+            def get_default(self) -> Dict[str, Any]:
+                return shallow_copy_dict(config_)
+
+    register(config)
+    return None
 
 
-def register_head_config(scope: str, name: str) -> Callable[[Type], Type]:
-    return HeadConfigs.register(scope, name)
+def register_config(
+    scope: str,
+    name: str,
+    *,
+    config: Optional[Dict[str, Any]] = None,
+) -> Optional[Callable[[Type], Type]]:
+    return _register_config(Configs, scope, name, config)  # type: ignore
+
+
+def register_head_config(
+    scope: str,
+    name: str,
+    *,
+    head_config: Optional[Dict[str, Any]] = None,
+) -> Optional[Callable[[Type], Type]]:
+    return _register_config(HeadConfigs, scope, name, head_config)  # type: ignore
 
 
 __all__ = [

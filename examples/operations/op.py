@@ -43,10 +43,7 @@ class ProdExtractor(cflearn.ExtractorBase):
         return net.prod(dim=1, keepdim=True)
 
 
-@cflearn.register_config("prod_extractor", "default")
-class ProdExtractorConfig(cflearn.Configs):
-    def get_default(self) -> Dict[str, Any]:
-        return {}
+cflearn.register_config("prod_extractor", "default", config={})
 
 
 @cflearn.register_model("prod")
@@ -80,16 +77,8 @@ class MixtureHead(cflearn.HeadBase):
         return torch.cat(tensors, dim=1)
 
 
-@cflearn.register_head_config("mixture", "add")
-class MixtureHeadAddConfig(cflearn.HeadConfigs):
-    def get_default(self) -> Dict[str, Any]:
-        return {"target_dim": 0}
-
-
-@cflearn.register_head_config("mixture", "prod")
-class MixtureHeadProdConfig(cflearn.HeadConfigs):
-    def get_default(self) -> Dict[str, Any]:
-        return {"target_dim": 1}
+cflearn.register_head_config("mixture", "add", head_config={"target_dim": 0})
+cflearn.register_head_config("mixture", "prod", head_config={"target_dim": 1})
 
 
 @cflearn.register_model("mixture")
