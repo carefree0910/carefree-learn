@@ -15,6 +15,7 @@ from cftool.misc import register_core
 from cftool.misc import LoggingMixin
 from cfdata.tabular import TabularData
 
+from ..transform import Transform
 from ..transform import Dimensions
 from ...types import tensor_dict_type
 from ...configs import configs_dict
@@ -53,9 +54,6 @@ class HeadConfigs(Configs):
     def inject_dimensions(self, config: Dict[str, Any]) -> None:
         config["in_dim"] = self.in_dim
         config["out_dim"] = self.out_dim
-
-    def should_bypass(self, config: Dict[str, Any]) -> Union[bool, Dict[str, bool]]:
-        return False
 
     @classmethod
     def get(

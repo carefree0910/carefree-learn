@@ -12,13 +12,6 @@ from ....misc.toolkit import to_torch
 
 @HeadConfigs.register("nnb_meta", "default")
 class DefaultNNBMetaConfig(HeadConfigs):
-    def should_bypass(self, config: Dict[str, Any]) -> Union[bool, Dict[str, bool]]:
-        mnb, normal = config["nnb_mnb"], config["nnb_normal"]
-        return {
-            "nnb_mnb": mnb["categorical"] is None,
-            "nnb_normal": normal["numerical"] is None,
-        }
-
     def get_default(self) -> Dict[str, Any]:
         # prepare
         x, y = self.tr_data.processed.xy

@@ -179,7 +179,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._extractor_configs: Dict[str, Dict[str, Any]] = {}
         self._head_configs: Dict[str, Dict[str, Any]] = {}
         self._head_config_ins_dict: Dict[str, HeadConfigs] = {}
-        self._bypass_info_dict: Dict[str, Union[bool, Dict[str, bool]]] = {}
         if self.registered_pipes is None:
             raise ValueError(f"No `pipe` is registered in {type(self).__name__}")
         with torch.no_grad():
@@ -276,12 +275,12 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 transform.dimensions,
                 extractor_config,
             )
+        # head
         head_cfg_key = pipe_config.head_config_key
         if head_cfg_key in self._head_configs:
             head_config = self._head_configs[head_cfg_key]
             head_cfg = self._head_config_ins_dict[head_cfg_key]
             head_cfg.in_dim = extractor.out_dim
-            bypass_info = self._bypass_info_dict[head_cfg_key]
         else:
             head_cfg = HeadConfigs.get(
                 pipe_config.head_scope,
@@ -293,16 +292,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                 **head_config,
             )
             head_config = head_cfg.pop()
-            bypass_info = head_cfg.should_bypass(head_config)
             self._head_configs[head_cfg_key] = head_config
             self._head_config_ins_dict[head_cfg_key] = head_cfg
-            self._bypass_info_dict[head_cfg_key] = bypass_info
-        if not pipe_config.use_head_meta:
-            should_bypass = bypass_info
-        else:
-            assert isinstance(bypass_info, dict)
+        if pipe_config.use_head_meta:
             head_config = head_config[pipe_config.head]
-            should_bypass = bypass_info[pipe_config.head]
         head_cfg.inject_dimensions(head_config)
         head = HeadBase.make(pipe_config.head, head_config)
         # gather
@@ -311,7 +304,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             self.transforms[transform_key] = transform
         self.extractors[extractor_cfg_key] = extractor
         self.heads[key] = head
-        if should_bypass:
+        # bypass
+        if transform.out_dim == 0 or extractor.out_dim == 0:
             self.bypassed_pipes.add(key)
 
     # Inheritance
