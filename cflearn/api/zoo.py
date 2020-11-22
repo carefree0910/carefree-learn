@@ -81,7 +81,7 @@ class Zoo(LoggingMixin, metaclass=ABCMeta):
     ) -> None:
         global registered_benchmarks
         model_dict = registered_benchmarks.setdefault(model, {})
-        pipe_configs = {}
+        pipe_configs: Dict[str, Any] = {}
         if transform_configs is not None:
             for pipe, transform_config in transform_configs.items():
                 pipe_configs.setdefault(pipe, {})["transform"] = transform_config
