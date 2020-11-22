@@ -79,7 +79,7 @@ def register_model(
         pass
 
     for pipe in pipes:
-        _ = register_pipe(
+        _ = register_pipe(  # type: ignore
             pipe.key,
             transform=pipe.transform,
             extractor=pipe.extractor,

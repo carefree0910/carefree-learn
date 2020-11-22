@@ -90,8 +90,8 @@ cflearn.register_model(
             extractor="prod_extractor",
             head="mixture",
             head_config="prod",
-        )
-    ]
+        ),
+    ],
 )
 
 linear = cflearn.make("linear", **kwargs).fit(x, y_mix)
