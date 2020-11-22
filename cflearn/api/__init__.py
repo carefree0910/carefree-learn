@@ -41,7 +41,6 @@ __all__ = [
     "_remove",
     "_rmtree",
     # ensemble
-    "Benchmark",
     "Ensemble",
     "EnsembleResults",
     # register
