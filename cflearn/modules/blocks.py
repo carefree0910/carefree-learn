@@ -510,6 +510,7 @@ class CrossBlock(Module):
         self,
         dim: int,
         bias: bool = True,
+        residual: bool = True,
         *,
         cross_builder: Callable[[int], Module] = None,
         **kwargs: Any,
@@ -524,9 +525,12 @@ class CrossBlock(Module):
             self.bias = nn.Parameter(torch.empty(1, dim))
             with torch.no_grad():
                 self.bias.data.fill_(kwargs.get("bias_fill", 0.0))
+        self.residual = residual
 
     def forward(self, x: Tensor, x0: Tensor) -> Tensor:
-        crossed = self.cross(x, x0) + x
+        crossed = self.cross(x, x0)
+        if self.residual:
+            crossed = crossed + x
         if self.bias is None:
             return crossed
         return crossed + self.bias
