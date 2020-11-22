@@ -66,7 +66,7 @@ print(f"w: {prod_linear.weight.item():8.6f}, b: {prod_linear.bias.item():8.6f}")
 # mixture
 
 
-@cflearn.register_head("mixture_head")
+@cflearn.register_head("mixture")
 class MixtureHead(cflearn.HeadBase):
     def __init__(self, in_dim: int, out_dim: int, target_dim: int):
         super().__init__(in_dim, out_dim)
@@ -80,13 +80,13 @@ class MixtureHead(cflearn.HeadBase):
         return torch.cat(tensors, dim=1)
 
 
-@cflearn.register_head_config("mixture_head", "add")
+@cflearn.register_head_config("mixture", "add")
 class MixtureHeadAddConfig(cflearn.HeadConfigs):
     def get_default(self) -> Dict[str, Any]:
         return {"target_dim": 0}
 
 
-@cflearn.register_head_config("mixture_head", "prod")
+@cflearn.register_head_config("mixture", "prod")
 class MixtureHeadProdConfig(cflearn.HeadConfigs):
     def get_default(self) -> Dict[str, Any]:
         return {"target_dim": 1}
@@ -96,13 +96,13 @@ class MixtureHeadProdConfig(cflearn.HeadConfigs):
 @cflearn.register_pipe(
     "add",
     extractor="identity",
-    head="mixture_head",
+    head="mixture",
     head_config="add",
 )
 @cflearn.register_pipe(
     "prod",
     extractor="prod_extractor",
-    head="mixture_head",
+    head="mixture",
     head_config="prod",
 )
 class MixtureNetwork(cflearn.ModelBase):
