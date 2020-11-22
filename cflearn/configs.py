@@ -109,8 +109,8 @@ class Elements(NamedTuple):
     model_config: Optional[Dict[str, Any]] = None
     metrics: Union[str, List[str]] = "auto"
     metric_config: Optional[Dict[str, Any]] = None
-    optimizer: Optional[str] = None
-    scheduler: Optional[str] = None
+    optimizer: Optional[str] = "adamw"
+    scheduler: Optional[str] = "plateau"
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
     optimizers: Optional[Dict[str, Any]] = None
@@ -216,8 +216,8 @@ class Elements(NamedTuple):
         optimizer = kwargs.pop("optimizer")
         scheduler = kwargs.pop("scheduler")
         optimizers = kwargs.pop("optimizers")
-        optimizer_config = kwargs.pop("optimizer_config")
-        scheduler_config = kwargs.pop("scheduler_config")
+        optimizer_config = kwargs.pop("optimizer_config") or {}
+        scheduler_config = kwargs.pop("scheduler_config") or {}
         if optimizers is not None:
             if optimizer is not None:
                 print(
@@ -246,17 +246,17 @@ class Elements(NamedTuple):
         else:
             preset_optimizer = {}
             if optimizer is not None:
-                if optimizer_config is None:
-                    optimizer_config = {}
+                optimizer_config.setdefault("lr", 1e-3)
                 preset_optimizer = {
                     "optimizer": optimizer,
                     "optimizer_config": optimizer_config,
                 }
             if scheduler is not None:
-                if scheduler_config is None:
-                    scheduler_config = {}
                 preset_optimizer.update(
-                    {"scheduler": scheduler, "scheduler_config": scheduler_config}
+                    {
+                        "scheduler": scheduler,
+                        "scheduler_config": scheduler_config,
+                    }
                 )
             if preset_optimizer:
                 optimizers = {"all": preset_optimizer}
@@ -300,15 +300,6 @@ class Elements(NamedTuple):
         trainer_config["use_amp"] = use_amp and amp is not None
         default_checkpoint_folder = os.path.join(log_folder, "checkpoints")
         trainer_config.setdefault("checkpoint_folder", default_checkpoint_folder)
-        # trainer -> optimizers
-        optimizers_settings = trainer_config.setdefault("optimizers", {"all": {}})
-        for params_name, opt_setting in optimizers_settings.items():
-            opt_setting.setdefault("optimizer", "adamw")
-            optimizer_config = opt_setting.setdefault("optimizer_config", {})
-            opt_setting.setdefault("scheduler", "plateau")
-            opt_setting.setdefault("scheduler_config", {})
-            optimizer_config.setdefault("lr", 1e-3)
-        kwargs["optimizers"] = optimizers_settings
         # trainer -> metrics
         metric_config = trainer_config.setdefault("metric_config", {})
         metric_config.setdefault("decay", 0.1)
