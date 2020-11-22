@@ -6,6 +6,7 @@ from typing import Optional
 
 from ..base import HeadBase
 from ....modules.blocks import DNDF
+from ....modules.blocks import Linear
 
 
 @HeadBase.register("dndf")
@@ -17,14 +18,21 @@ class DNDFHead(HeadBase):
         config: Optional[Dict[str, Any]],
     ):
         super().__init__(in_dim, out_dim)
-        if config is None:
-            self.dndf = None
-        else:
+        if config is not None:
             self.dndf = DNDF(in_dim, out_dim, **config)
+            self.linear = None
+        else:
+            self.dndf = None
+            self.linear = Linear(in_dim, out_dim)
+            self.log_msg(
+                "`config` is not provided for `DNDFHead`, "
+                "a `Linear` will be used instead of `DNDF`",
+                self.warning_prefix,
+            )
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         if self.dndf is None:
-            return net
+            return self.linear(net)
         return self.dndf(net)
 
 
