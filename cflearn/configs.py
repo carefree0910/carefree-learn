@@ -20,7 +20,6 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.tabular import task_type_type
 from cfdata.tabular import TimeSeriesConfig
-from optuna.trial import Trial
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -84,14 +83,16 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 
 class Elements(NamedTuple):
     model: str = "fcnn"
+    data_config: Optional[Dict[str, Any]] = None
     task_type: Optional[task_type_type] = None
     use_simplify_data: bool = False
-    data_config: Optional[Dict[str, Any]] = None
+    ts_config: Optional[TimeSeriesConfig] = None
+    aggregation: str = "continuous"
+    aggregation_config: Optional[Dict[str, Any]] = None
+    ts_label_collator_config: Optional[Dict[str, Any]] = None
     delim: Optional[str] = None
     has_column_names: Optional[bool] = None
     read_config: Optional[Dict[str, Any]] = None
-    batch_size: int = 128
-    cv_split: Optional[Union[float, int]] = None
     logging_folder: Optional[str] = None
     logging_file: Optional[str] = None
     use_amp: bool = False
@@ -102,10 +103,6 @@ class Elements(NamedTuple):
     max_snapshot_file: int = 5
     clip_norm: float = 0.0
     ema_decay: float = 0.0
-    ts_config: Optional[TimeSeriesConfig] = None
-    aggregation: str = "continuous"
-    aggregation_config: Optional[Dict[str, Any]] = None
-    ts_label_collator_config: Optional[Dict[str, Any]] = None
     model_config: Optional[Dict[str, Any]] = None
     metrics: Union[str, List[str]] = "auto"
     metric_config: Optional[Dict[str, Any]] = None
@@ -114,15 +111,14 @@ class Elements(NamedTuple):
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
     optimizers: Optional[Dict[str, Any]] = None
-    trigger_logging: bool = False
-    trial: Optional[Trial] = None
-    tracker_config: Optional[Dict[str, Any]] = None
-    cuda: Optional[Union[int, str]] = None
-    verbose_level: int = 2
-    use_timing_context: bool = True
-    use_tqdm: bool = True
     extra_config: Optional[Dict[str, Any]] = None
     user_defined_config: Optional[Dict[str, Any]] = None
+
+    affected_mappings = {
+        "use_simplify_data": {"simplify"},
+        "ts_config": {"time_series_config"},
+        "fixed_epoch": {"min_epoch", "num_epoch", "max_epoch"},
+    }
 
     def to_config(self) -> Dict[str, Any]:
         if self.extra_config is None:
@@ -137,19 +133,19 @@ class Elements(NamedTuple):
                 kwargs[key] = value
         # data
         data_config = self.data_config or {}
-        data_config["simplify"] = kwargs.pop("use_simplify_data")
-        data_config["time_series_config"] = kwargs.pop("ts_config")
         task_type = kwargs.pop("task_type")
         if task_type is not None:
             data_config["task_type"] = task_type
+        data_config["simplify"] = kwargs.pop("use_simplify_data")
+        data_config["time_series_config"] = kwargs.pop("ts_config")
+        sampler_config = kwargs.setdefault("sampler_config", {})
+        sampler_config["aggregation"] = kwargs.pop("aggregation")
+        sampler_config["aggregation_config"] = kwargs.pop("aggregation_config")
         read_config = self.read_config or {}
         read_config["delim"] = kwargs.pop("delim")
         read_config["has_column_names"] = kwargs.pop("has_column_names")
         kwargs["data_config"] = data_config
         kwargs["read_config"] = read_config
-        sampler_config = kwargs.setdefault("sampler_config", {})
-        sampler_config["aggregation"] = kwargs.pop("aggregation")
-        sampler_config["aggregation_config"] = kwargs.pop("aggregation_config")
         # logging
         if self.logging_folder is not None:
             if self.logging_file is not None:
@@ -279,6 +275,7 @@ class Elements(NamedTuple):
         kwargs.setdefault("use_binary_threshold", True)
         kwargs.setdefault("data_config", {})
         kwargs.setdefault("read_config", {})
+        kwargs.setdefault("cv_split", None)
         kwargs.setdefault("min_cv_split", 100)
         kwargs.setdefault("max_cv_split", 10000)
         kwargs.setdefault("max_cv_split_ratio", 0.5)
@@ -315,6 +312,14 @@ class Elements(NamedTuple):
         model_config["encoding_configs"] = encoding_configs
         model_config.setdefault("default_encoding_configs", {})
         model_config.setdefault("loss_config", {})
+        # misc
+        kwargs.setdefault("cuda", None)
+        kwargs.setdefault("trial", None)
+        kwargs.setdefault("use_tqdm", True)
+        kwargs.setdefault("verbose_level", 2)
+        kwargs.setdefault("tracker_config", None)
+        kwargs.setdefault("trigger_logging", False)
+        kwargs.setdefault("use_timing_context", True)
         # convert to `Elements`
         spec = inspect.getfullargspec(cls).args[1:-2]
         main_configs = {key: kwargs.pop(key) for key in spec if key in kwargs}
@@ -342,13 +347,17 @@ class Environment:
         return self.config[item]
 
     def update_default_config(self, new_default_config: Dict[str, Any]) -> None:
+        user_affected = set()
+        for key in self.user_defined_config.keys():
+            user_affected.update(Elements.affected_mappings.get(key, {key}))
+
         def _core(current: Dict[str, Any], new_default: Dict[str, Any]) -> None:
             for k, new_default_v in new_default.items():
                 current_v = current.get(k)
                 if current_v is None:
                     current[k] = new_default_v
                 elif not isinstance(new_default_v, dict):
-                    if k not in self.user_defined_config:
+                    if k not in user_affected:
                         current[k] = new_default_v
                 else:
                     _core(current_v, new_default_v)
