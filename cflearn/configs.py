@@ -341,7 +341,7 @@ class Environment:
     def __getattr__(self, item: str) -> Any:
         return self.config[item]
 
-    def update_default_config(self, new_default_config: Dict[str, Any]):
+    def update_default_config(self, new_default_config: Dict[str, Any]) -> None:
         def _core(current: Dict[str, Any], new_default: Dict[str, Any]) -> None:
             for k, new_default_v in new_default.items():
                 current_v = current.get(k)
