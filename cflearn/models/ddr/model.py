@@ -7,7 +7,6 @@ from typing import Union
 from typing import Optional
 from cftool.ml import Metrics
 from cftool.misc import is_numeric
-from cftool.misc import update_dict
 from cftool.misc import timing_context
 
 from ...misc.toolkit import *
@@ -61,10 +60,8 @@ class DDR(ModelBase):
             "q_recover": 10.0,
             "y_recover": 1.0,
         }
-        trainer_config = self.environment.trainer_config
-        trainer_config = update_dict(
-            trainer_config,
-            {
+        new_default_config = {
+            "trainer_config": {
                 "clip_norm": 1.0,
                 "num_epoch": 40,
                 "max_epoch": 1000,
@@ -73,9 +70,9 @@ class DDR(ModelBase):
                     "types": default_metric_types,
                     "weights": default_metric_weights,
                 },
-            },
-        )
-        self.environment.config["trainer_config"] = trainer_config
+            }
+        }
+        self.environment.update_default_config(new_default_config)
 
     def _init_loss(self) -> None:
         self.loss = DDRLoss(self._loss_config, "none")

@@ -122,6 +122,7 @@ class Elements(NamedTuple):
     use_timing_context: bool = True
     use_tqdm: bool = True
     extra_config: Optional[Dict[str, Any]] = None
+    user_defined_config: Optional[Dict[str, Any]] = None
 
     def to_config(self) -> Dict[str, Any]:
         if self.extra_config is None:
@@ -129,7 +130,7 @@ class Elements(NamedTuple):
         else:
             kwargs = shallow_copy_dict(self.extra_config)
         # inject fields
-        spec = inspect.getfullargspec(type(self)).args[1:-1]
+        spec = inspect.getfullargspec(type(self)).args[1:-2]
         for key in spec:
             value = getattr(self, key)
             if value is not None or key not in kwargs:
@@ -272,6 +273,7 @@ class Elements(NamedTuple):
     ) -> "Elements":
         cfg, inc_cfg = map(_parse_config, [config, increment_config])
         kwargs = update_dict(inc_cfg, cfg)
+        user_defined_config = shallow_copy_dict(kwargs)
         # pipeline general
         model = kwargs.setdefault("model", "fcnn")
         kwargs.setdefault("use_binary_threshold", True)
@@ -314,22 +316,44 @@ class Elements(NamedTuple):
         model_config.setdefault("default_encoding_configs", {})
         model_config.setdefault("loss_config", {})
         # convert to `Elements`
-        spec = inspect.getfullargspec(cls).args[1:-1]
+        spec = inspect.getfullargspec(cls).args[1:-2]
         main_configs = {key: kwargs.pop(key) for key in spec if key in kwargs}
         existing_extra_config = main_configs.get("extra_config")
         if existing_extra_config is None:
             main_configs["extra_config"] = kwargs
         else:
             update_dict(kwargs, existing_extra_config)
+        main_configs["user_defined_config"] = user_defined_config
         return cls(**main_configs)
 
 
 class Environment:
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(
+        self,
+        config: Dict[str, Any],
+        user_defined_config: Optional[Dict[str, Any]] = None,
+    ):
         self.config = config
+        if user_defined_config is None:
+            user_defined_config = user_defined_config
+        self.user_defined_config = user_defined_config
 
     def __getattr__(self, item: str) -> Any:
         return self.config[item]
+
+    def update_default_config(self, new_default_config: Dict[str, Any]):
+        def _core(current: Dict[str, Any], new_default: Dict[str, Any]) -> None:
+            for k, new_default_v in new_default.items():
+                current_v = current.get(k)
+                if current_v is None:
+                    current[k] = new_default_v
+                elif not isinstance(new_default_v, dict):
+                    if k not in self.user_defined_config:
+                        current[k] = new_default_v
+                else:
+                    _core(current_v, new_default_v)
+
+        _core(self.config, new_default_config)
 
     @property
     def device(self) -> torch.device:
@@ -354,7 +378,7 @@ class Environment:
 
     @classmethod
     def from_elements(cls, elements: Elements) -> "Environment":
-        return cls(elements.to_config())
+        return cls(elements.to_config(), elements.user_defined_config)
 
 
 __all__ = ["configs_dict", "Configs", "Elements", "Environment"]
