@@ -6,6 +6,7 @@ import inspect
 from abc import abstractmethod
 from abc import ABC
 from typing import Any
+from typing import Set
 from typing import Dict
 from typing import List
 from typing import Type
@@ -114,11 +115,13 @@ class Elements(NamedTuple):
     extra_config: Optional[Dict[str, Any]] = None
     user_defined_config: Optional[Dict[str, Any]] = None
 
-    affected_mappings = {
-        "use_simplify_data": {"simplify"},
-        "ts_config": {"time_series_config"},
-        "fixed_epoch": {"min_epoch", "num_epoch", "max_epoch"},
-    }
+    @staticmethod
+    def affected_mappings() -> Dict[str, Set[str]]:
+        return {
+            "use_simplify_data": {"simplify"},
+            "ts_config": {"time_series_config"},
+            "fixed_epoch": {"min_epoch", "num_epoch", "max_epoch"},
+        }
 
     def to_config(self) -> Dict[str, Any]:
         if self.extra_config is None:
@@ -348,8 +351,9 @@ class Environment:
 
     def update_default_config(self, new_default_config: Dict[str, Any]) -> None:
         user_affected = set()
+        affected_mappings = Elements.affected_mappings()
         for key in self.user_defined_config.keys():
-            user_affected.update(Elements.affected_mappings.get(key, {key}))
+            user_affected.update(affected_mappings.get(key, {key}))
 
         def _core(current: Dict[str, Any], new_default: Dict[str, Any]) -> None:
             for k, new_default_v in new_default.items():
