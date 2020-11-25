@@ -63,7 +63,7 @@ def test_array_dataset() -> None:
     m.fit(*dataset.xy, sample_weights=np.random.random(len(dataset.x)))
     cflearn.evaluate(*dataset.xy, pipelines=m)
     cflearn.save(m)
-    m2 = cflearn.load()[model]
+    m2 = cflearn.load()[model][0]
     assert m.tr_data == m2.tr_data
     assert m.cv_data == m2.cv_data
     cflearn.evaluate(*dataset.xy, pipelines=m2)
@@ -77,7 +77,7 @@ def test_array_dataset() -> None:
     m = cflearn.make(model, use_tqdm=False, **kwargs)
     m.fit(x_tr, y_tr, x_cv, y_cv, sample_weights=sample_weights)
     cflearn.save(m)
-    m2 = cflearn.load()[model]
+    m2 = cflearn.load()[model][0]
     assert m.tr_data == m2.tr_data
     assert m.cv_data == m2.cv_data
     assert np.allclose(sample_weights, m2.sample_weights)
@@ -186,7 +186,7 @@ def test_file_dataset2() -> None:
     m = cflearn.make(**config).fit(tr_file, x_cv=cv_file)
     save_name = "__file_trained__"
     cflearn.save(m, save_name)
-    m2 = cflearn.load(save_name)["fcnn"]
+    m2 = cflearn.load(save_name)["fcnn"][0]
     pack_name = "__file_packed__"
     cflearn.Pack.pack(m2, pack_name)
     m3 = cflearn.Pack.get_predictor(pack_name)

@@ -33,7 +33,12 @@ def make(model: str = "fcnn", **kwargs: Any) -> Pipeline:
 
 
 SAVING_DELIM = "^_^"
-pipelines_type = Union[Pipeline, List[Pipeline], Dict[str, Pipeline]]
+pipelines_type = Union[
+    Pipeline,
+    List[Pipeline],
+    Dict[str, Pipeline],
+    Dict[str, List[Pipeline]],
+]
 
 
 def _to_saving_path(identifier: str, saving_folder: Optional[str]) -> str:
@@ -44,10 +49,15 @@ def _to_saving_path(identifier: str, saving_folder: Optional[str]) -> str:
     return saving_path
 
 
-def _make_saving_path(name: str, saving_path: str, remove_existing: bool) -> str:
+def _make_saving_path(
+    i: int,
+    name: str,
+    saving_path: str,
+    remove_existing: bool,
+) -> str:
     saving_path = os.path.abspath(saving_path)
     saving_folder, identifier = os.path.split(saving_path)
-    postfix = f"{SAVING_DELIM}{name}"
+    postfix = f"{SAVING_DELIM}{name}{SAVING_DELIM}{i:04d}"
     if os.path.isdir(saving_folder) and remove_existing:
         for existing_model in os.listdir(saving_folder):
             if os.path.isdir(os.path.join(saving_folder, existing_model)):
@@ -61,20 +71,22 @@ def _make_saving_path(name: str, saving_path: str, remove_existing: bool) -> str
     return f"{saving_path}{postfix}"
 
 
-def _to_pipelines(pipelines: pipelines_type) -> Dict[str, Pipeline]:
-    if not isinstance(pipelines, dict):
+def _to_pipelines(pipelines: pipelines_type) -> Dict[str, List[Pipeline]]:
+    if isinstance(pipelines, dict):
+        pipeline_dict = {}
+        for key, value in pipelines.items():
+            if isinstance(value, list):
+                pipeline_dict[key] = value
+            else:
+                pipeline_dict[key] = [value]
+    else:
         if not isinstance(pipelines, list):
             pipelines = [pipelines]
-        names: List[str] = [
-            pipeline.model.__identifier__ for pipeline in pipelines  # type: ignore
-        ]
-        if len(set(names)) != len(pipelines):
-            raise ValueError(
-                "pipeline names are not provided "
-                "but identical pipeline.model is detected"
-            )
-        pipelines = dict(zip(names, pipelines))
-    return pipelines
+        pipeline_dict = {}
+        for pipeline in pipelines:
+            key = pipeline.model.__identifier__
+            pipeline_dict.setdefault(key, []).append(pipeline)
+    return pipeline_dict
 
 
 def evaluate(
@@ -103,23 +115,29 @@ def evaluate(
         if predict_config is None:
             predict_config = {}
         predict_config.setdefault("contains_labels", contains_labels)
-        for name, pipeline in pipelines.items():
+        for name, pipeline_list in pipelines.items():
+            first_pipeline = pipeline_list[0]
+            data = first_pipeline.data
             if y is not None:
                 y = to_2d(y)
             else:
-                x, y = pipeline.data.read_file(x, contains_labels=contains_labels)
-                y = pipeline.data.transform(x, y).y
+                x, y = data.read_file(x, contains_labels=contains_labels)
+                y = data.transform(x, y).y
             if metrics is None:
                 metrics = [
-                    k for k, v in pipeline.trainer.metrics.items() if v is not None
+                    k
+                    for k, v in first_pipeline.trainer.metrics.items()
+                    if v is not None
                 ]
-            patterns[name] = pipeline.to_pattern(**predict_config)
+            patterns[name] = [
+                pipeline.to_pattern(**predict_config) for pipeline in pipeline_list
+            ]
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
-                prefix = LoggingMixin.warning_prefix
                 print(
-                    f"{prefix}'{other_name}' is found in `other_patterns`, it will be overwritten"
+                    f"{LoggingMixin.warning_prefix}'{other_name}' is found in "
+                    "`other_patterns`, it will be overwritten"
                 )
         update_dict(other_patterns, patterns)
 
@@ -141,22 +159,23 @@ def save(
     saving_folder: Optional[str] = None,
     *,
     retain_data: bool = True,
-) -> Dict[str, Pipeline]:
-    pipelines = _to_pipelines(pipelines)
+) -> Dict[str, List[Pipeline]]:
+    pipeline_dict = _to_pipelines(pipelines)
     saving_path = _to_saving_path(identifier, saving_folder)
-    for name, pipeline in pipelines.items():
-        pipeline.save(
-            _make_saving_path(name, saving_path, True),
-            retain_data=retain_data,
-            compress=True,
-        )
+    for name, pipeline_list in pipeline_dict.items():
+        for i, pipeline in enumerate(pipeline_list):
+            pipeline.save(
+                _make_saving_path(i, name, saving_path, True),
+                retain_data=retain_data,
+                compress=True,
+            )
     return pipelines
 
 
 def _fetch_saving_paths(
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
-) -> Dict[str, str]:
+) -> Dict[str, List[str]]:
     paths = {}
     saving_path = _to_saving_path(identifier, saving_folder)
     saving_path = os.path.abspath(saving_path)
@@ -168,19 +187,23 @@ def _fetch_saving_paths(
         if existing_extension != ".zip":
             continue
         if SAVING_DELIM in existing_model:
-            *folder, name = existing_model.split(SAVING_DELIM)
+            *folder, name, i = existing_model.split(SAVING_DELIM)
             if os.path.join(base_folder, SAVING_DELIM.join(folder)) != saving_path:
                 continue
-            paths[name] = _make_saving_path(name, saving_path, False)
+            new_path = _make_saving_path(int(i), name, saving_path, False)
+            paths.setdefault(name, []).append(new_path)
     return paths
 
 
 def load(
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
-) -> Dict[str, Pipeline]:
+) -> Dict[str, List[Pipeline]]:
     paths = _fetch_saving_paths(identifier, saving_folder)
-    pipelines = {k: Pipeline.load(v, compress=True) for k, v in paths.items()}
+    pipelines = {
+        k: [Pipeline.load(v, compress=True) for v in v_list]
+        for k, v_list in paths.items()
+    }
     if not pipelines:
         raise ValueError(
             f"'{identifier}' models not found with `saving_folder`={saving_folder}"
@@ -189,10 +212,11 @@ def load(
 
 
 def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
-    for path in _fetch_saving_paths(identifier, saving_folder).values():
-        path = f"{path}.zip"
-        print(f"{LoggingMixin.info_prefix}removing {path}...")
-        os.remove(path)
+    for path_list in _fetch_saving_paths(identifier, saving_folder).values():
+        for path in path_list:
+            path = f"{path}.zip"
+            print(f"{LoggingMixin.info_prefix}removing {path}...")
+            os.remove(path)
 
 
 def _rmtree(folder: str, patience: float = 10.0) -> None:
@@ -212,7 +236,7 @@ def _rmtree(folder: str, patience: float = 10.0) -> None:
 
 
 def load_task(task: Task) -> Pipeline:
-    return next(iter(load(saving_folder=task.saving_folder).values()))
+    return next(iter(load(saving_folder=task.saving_folder).values()))[0]
 
 
 def transform_experiments(experiments: Experiments) -> Dict[str, List[Pipeline]]:
