@@ -377,11 +377,21 @@ class Inference(LoggingMixin):
             if not return_all:
                 predictions = collated["predictions"]
                 if requires_recover:
-                    return fn(predictions)
+                    if predictions.shape[1] == 1:
+                        return fn(predictions)
+                    return np.apply_along_axis(fn, axis=0, arr=predictions).squeeze()
                 return predictions
             if not requires_recover:
                 return collated
-            return {k: v if not is_float(v) else fn(v) for k, v in collated.items()}
+            recovered = {}
+            for k, v in collated.items():
+                if is_float(v):
+                    if v.shape[1] == 1:
+                        v = fn(v)
+                    else:
+                        v = np.apply_along_axis(fn, axis=0, arr=v).squeeze()
+                recovered[k] = v
+            return recovered
 
         # classification
         def _return(new_predictions: np.ndarray) -> Union[np.ndarray, np_dict_type]:
