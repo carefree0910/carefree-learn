@@ -163,6 +163,7 @@ def evaluate(
     if isinstance(metric_configs, list):
         metric_configs_list = metric_configs
     else:
+        assert isinstance(metric_configs, dict)
         metric_configs_list = [metric_configs]
 
     estimators = [
