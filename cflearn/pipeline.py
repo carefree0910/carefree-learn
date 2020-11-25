@@ -20,6 +20,7 @@ except:
     amp = None
 
 from .types import data_type
+from .configs import Elements
 from .configs import Environment
 from .trainer import Trainer
 from .inference import Inference
@@ -317,6 +318,10 @@ class Pipeline(LoggingMixin):
     valid_indices_file = "valid_indices.npy"
     sample_weights_file = "sample_weights.npy"
 
+    @classmethod
+    def make(cls, config: Dict[str, Any]) -> "Pipeline":
+        return cls(Environment.from_elements(Elements.make(config)))
+
     def save(
         self,
         export_folder: Optional[str] = None,
@@ -389,7 +394,7 @@ class Pipeline(LoggingMixin):
             with Saving.compress_loader(export_folder, compress):
                 config = Saving.load_dict("config", export_folder)
                 config.update({"verbose_level": verbose_level, "cuda": cuda})
-                pipeline = Pipeline(Environment(config))
+                pipeline = cls.make(config)
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 # sample weights
                 tr_weights = cv_weights = sample_weights = None
