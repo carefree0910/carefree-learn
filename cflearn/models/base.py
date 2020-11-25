@@ -199,13 +199,17 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._extractor_cache: Dict[str, Tensor] = {}
 
     def __getattr__(self, item: str) -> Any:
-        value = self.config.get(item)
-        if value is not None:
-            return value
-        value = self.environment.config.get(item)
-        if value is not None:
-            return value
-        return super().__getattr__(item)
+        try:
+            return super().__getattr__(item)
+        except AttributeError:
+            value = self.config.get(item)
+            if value is not None:
+                return value
+            value = self.environment.config.get(item)
+            if value is not None:
+                return value
+            msg = f"attribute '{item}' is not defined in {type(self).__name__}"
+            raise AttributeError(msg)
 
     @property
     def num_history(self) -> int:
