@@ -373,9 +373,10 @@ class Inference(LoggingMixin):
 
         # regression
         if self.data.is_reg:
+            return_key = kwargs.get("return_key", "predictions")
             fn = partial(self.data.recover_labels, inplace=True)
             if not return_all:
-                predictions = collated["predictions"]
+                predictions = collated[return_key]
                 if requires_recover:
                     if predictions.shape[1] == 1:
                         return fn(predictions)
