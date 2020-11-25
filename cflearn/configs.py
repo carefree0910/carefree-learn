@@ -118,6 +118,7 @@ class Elements(NamedTuple):
     @staticmethod
     def affected_mappings() -> Dict[str, Set[str]]:
         return {
+            "metrics": {"metric_config"},
             "use_simplify_data": {"simplify"},
             "ts_config": {"time_series_config"},
             "fixed_epoch": {"min_epoch", "num_epoch", "max_epoch"},
@@ -352,20 +353,25 @@ class Environment:
     def update_default_config(self, new_default_config: Dict[str, Any]) -> None:
         user_affected = set()
         affected_mappings = Elements.affected_mappings()
-        for key in self.user_defined_config.keys():
-            user_affected.update(affected_mappings.get(key, {key}))
+
+        def _inject_affected(current: Dict[str, Any]) -> None:
+            for key, value in current.items():
+                user_affected.update(affected_mappings.get(key, {key}))
+                if isinstance(value, dict):
+                    _inject_affected(value)
 
         def _core(current: Dict[str, Any], new_default: Dict[str, Any]) -> None:
             for k, new_default_v in new_default.items():
                 current_v = current.get(k)
                 if current_v is None:
                     current[k] = new_default_v
-                elif not isinstance(new_default_v, dict):
-                    if k not in user_affected:
+                elif k not in user_affected:
+                    if not isinstance(new_default_v, dict):
                         current[k] = new_default_v
-                else:
-                    _core(current_v, new_default_v)
+                    else:
+                        _core(current_v, new_default_v)
 
+        _inject_affected(self.user_defined_config)
         _core(self.config, new_default_config)
 
     @property
