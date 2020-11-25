@@ -263,6 +263,8 @@ class Elements(NamedTuple):
                 optimizers = {"all": preset_optimizer}
         if optimizers is not None:
             trainer_config["optimizers"] = optimizers
+        # inject user defined configs
+        update_dict(self.user_defined_config, kwargs)
         return kwargs
 
     @classmethod
