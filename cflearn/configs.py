@@ -96,6 +96,8 @@ class Elements(NamedTuple):
     read_config: Optional[Dict[str, Any]] = None
     logging_folder: Optional[str] = None
     logging_file: Optional[str] = None
+    batch_size: int = 128
+    cv_split: Optional[Union[float, int]] = None
     use_amp: bool = False
     min_epoch: Optional[int] = None
     num_epoch: Optional[int] = None
@@ -112,6 +114,11 @@ class Elements(NamedTuple):
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
     optimizers: Optional[Dict[str, Any]] = None
+    verbose_level: int = 2
+    use_tqdm: bool = True
+    trigger_logging: bool = False
+    cuda: Optional[Union[int, str]] = None
+    tracker_config: Optional[Dict[str, Any]] = None
     extra_config: Optional[Dict[str, Any]] = None
     user_defined_config: Optional[Dict[str, Any]] = None
 
