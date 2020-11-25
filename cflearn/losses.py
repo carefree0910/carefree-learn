@@ -164,7 +164,10 @@ class FocalLoss(LossBase):
             alpha = [alpha, 1 - alpha]
         elif isinstance(alpha, (list, tuple)):
             alpha = list(alpha)
-        self._alpha = alpha
+        if alpha is None:
+            self.alpha = None
+        else:
+            self.register_buffer("alpha", to_torch(np.array(alpha, np.float32)))
 
     def _core(
         self,
@@ -180,10 +183,8 @@ class FocalLoss(LossBase):
         target_column = target.view(-1, 1)
         gathered_prob_flat = prob_mat.gather(dim=1, index=target_column).view(-1)
         gathered_log_prob_flat = gathered_prob_flat.log()
-        if self._alpha is not None:
-            if isinstance(self._alpha, list):
-                self._alpha = torch.tensor(self._alpha).to(predictions)
-            alpha_target = self._alpha.gather(dim=0, index=target_column.view(-1))
+        if self.alpha is not None:
+            alpha_target = self.alpha.gather(dim=0, index=target_column.view(-1))
             gathered_log_prob_flat = gathered_log_prob_flat * alpha_target
         return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 
