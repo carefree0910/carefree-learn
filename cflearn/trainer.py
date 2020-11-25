@@ -716,15 +716,15 @@ class Trainer(MonitoredMixin):
             else:
                 logits = probabilities
             predictions = self.inference.predict_with(probabilities)
+            results = {"predictions": predictions}
         else:
-            keys = ["logits", "predictions", "labels"]
             results = self.inference.predict(
                 loader=loader,
                 loader_name=loader_name,
                 return_all=True,
             )
             probabilities = None
-            logits, predictions, labels = map(results.get, keys)
+            logits, labels = map(results.get, ["logits", "labels"])
         # losses
         loss_values = None
         if self._metrics_need_loss:
@@ -759,10 +759,14 @@ class Trainer(MonitoredMixin):
             else:
                 signs[metric_type] = metric_ins.sign
                 if self.tr_loader.data.is_reg:
-                    metric_predictions = predictions
+                    if metric_type == "quantile":
+                        metric_key = "quantiles"
+                    else:
+                        metric_key = "predictions"
+                    metric_predictions = results[metric_key]
                 else:
                     if not metric_ins.requires_prob:
-                        metric_predictions = predictions
+                        metric_predictions = results["predictions"]
                     else:
                         if logits is None and probabilities is None:
                             msg = "`logits` should be returned in `inference.predict`"
