@@ -4,6 +4,7 @@ from cftool.ml.utils import register_metric
 from cfdata.tabular.processors.base import Processor
 
 from ..modules import *
+from ..losses import LossBase
 from ..configs import Configs
 from ..misc.toolkit import Initializer
 from ..models.base import ModelBase
@@ -22,6 +23,10 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
 
 def register_processor(name: str) -> Callable[[Type], Type]:
     return Processor.register(name)
+
+
+def register_loss(name: str) -> Callable[[Type], Type]:
+    return LossBase.register(name)
 
 
 def register_extractor(name: str) -> Callable[[Type], Type]:
@@ -142,7 +147,9 @@ __all__ = [
     "register_scheduler",
     "register_initializer",
     "register_processor",
+    "register_loss",
     "Initializer",
     "Processor",
+    "LossBase",
     "PipeInfo",
 ]

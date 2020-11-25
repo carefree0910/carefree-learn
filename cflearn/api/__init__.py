@@ -54,8 +54,10 @@ __all__ = [
     "register_scheduler",
     "register_initializer",
     "register_processor",
+    "register_loss",
     "Initializer",
     "Processor",
+    "LossBase",
     "PipeInfo",
     # inference
     "Pack",
