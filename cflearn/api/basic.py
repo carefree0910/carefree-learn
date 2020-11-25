@@ -98,6 +98,7 @@ def evaluate(
     pipelines: Optional[pipelines_type] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     metrics: Optional[Union[str, List[str]]] = None,
+    metric_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
     other_patterns: Optional[Dict[str, patterns_type]] = None,
     comparer_verbose_level: Optional[int] = 1,
 ) -> Comparer:
@@ -111,6 +112,8 @@ def evaluate(
             raise ValueError("either `pipelines` or `y` should be provided")
         if metrics is None:
             raise ValueError("either `pipelines` or `metrics` should be provided")
+        if metric_configs is None:
+            metric_configs = [{} for _ in range(len(metrics))]
         if other_patterns is None:
             raise ValueError(
                 "either `pipelines` or `other_patterns` should be provided"
@@ -134,6 +137,12 @@ def evaluate(
                     for k, v in first_pipeline.trainer.metrics.items()
                     if v is not None
                 ]
+            if metric_configs is None:
+                metric_configs = [
+                    v.config
+                    for k, v in first_pipeline.trainer.metrics.items()
+                    if v is not None
+                ]
             patterns[name] = [
                 pipeline.to_pattern(**predict_config) for pipeline in pipeline_list
             ]
@@ -151,8 +160,15 @@ def evaluate(
     else:
         assert isinstance(metrics, str)
         metrics_list = [metrics]
+    if isinstance(metric_configs, list):
+        metric_configs_list = metric_configs
+    else:
+        metric_configs_list = [metric_configs]
 
-    estimators = list(map(Estimator, metrics_list))
+    estimators = [
+        Estimator(metric, metric_config=metric_config)
+        for metric, metric_config in zip(metrics_list, metric_configs_list)
+    ]
     comparer = Comparer(patterns, estimators)
     comparer.compare(x, y, verbose_level=comparer_verbose_level)
     return comparer
