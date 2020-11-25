@@ -94,13 +94,17 @@ def evaluate(
     x: data_type,
     y: data_type = None,
     *,
-    contains_labels: bool = False,
+    contains_labels: bool = True,
     pipelines: Optional[pipelines_type] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     metrics: Optional[Union[str, List[str]]] = None,
     other_patterns: Optional[Dict[str, patterns_type]] = None,
     comparer_verbose_level: Optional[int] = 1,
 ) -> Comparer:
+    if not contains_labels:
+        msg = "`cflearn.evaluate` must be called with `contains_labels = True`"
+        raise ValueError(msg)
+
     patterns = {}
     if pipelines is None:
         if y is None:
