@@ -107,6 +107,8 @@ class Elements(NamedTuple):
     clip_norm: float = 0.0
     ema_decay: float = 0.0
     model_config: Optional[Dict[str, Any]] = None
+    loss: str = "auto"
+    loss_config: Optional[Dict[str, Any]] = None
     metrics: Union[str, List[str]] = "auto"
     metric_config: Optional[Dict[str, Any]] = None
     optimizer: Optional[str] = "adamw"
@@ -214,6 +216,8 @@ class Elements(NamedTuple):
         # model
         model_config = self.model_config or {}
         model_config["ema_decay"] = kwargs.pop("ema_decay")
+        model_config["loss"] = kwargs.pop("loss")
+        model_config["loss_config"] = kwargs.pop("loss_config") or {}
         kwargs["model_config"] = model_config
         # metrics
         metric_config = kwargs.pop("metric_config") or {}
