@@ -5,7 +5,9 @@ import matplotlib.pyplot as plt
 
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Tuple
+from typing import Union
 from typing import Optional
 from cftool.misc import show_or_save
 
@@ -41,7 +43,7 @@ class DDRPredictor:
     def quantile(
         self,
         x: data_type,
-        q: float,
+        q: Union[float, List[float]],
         *,
         recover: bool = True,
     ) -> Dict[str, np.ndarray]:
@@ -137,15 +139,16 @@ class DDRVisualizer:
             DDRVisualizer._render_figure(*render_args)
         # quantile curves
         if q_batch is not None and model.fetch_q:
+            q_list = q_batch.tolist()
             if not mul_affine:
-                for q in q_batch:
-                    quantile_curve = self.predictor.quantile(x_base, q)["quantiles"]
+                quantile_curves = self.predictor.quantile(x_base, q_list)["quantiles"]
+                for q, quantile_curve in zip(q_list, quantile_curves.T):
                     plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
                 DDRVisualizer._render_figure(*render_args)
             else:
-                for q in q_batch:
-                    med_predictions = self.predictor.quantile(x_base, q, recover=False)
-                    med_mul = med_predictions["med_mul"]
+                med_predictions = self.predictor.quantile(x_base, q_list, recover=False)
+                med_mul_cat = med_predictions["med_mul"]
+                for q, med_mul in zip(q_batch, med_mul_cat.T):
                     plt.plot(x_base.ravel(), med_mul, label=f"med_mul {q:4.2f}")
                 DDRVisualizer._render_figure(*render_args)
         # cdf curves
@@ -213,10 +216,11 @@ class DDRVisualizer:
             show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}.png"))
 
         if q_batch is not None:
-            for quantile in q_batch:
-                yq = np.percentile(y_matrix, int(100 * quantile), axis=1)
-                yq_predictions = self.predictor.quantile(x_base, quantile)["quantiles"]
-                _plot("quantile", quantile, yq, yq_predictions, None)
+            q_list = q_batch.tolist()
+            yq_predictions = self.predictor.quantile(x_base, q_list)["quantiles"]
+            for q, yq_pred in zip(q_list, yq_predictions.T):
+                yq = np.percentile(y_matrix, int(100 * q), axis=1)
+                _plot("quantile", q, yq, yq_pred, None)
         if y_batch is not None:
             anchors = [ratio * (y_max - y_min) + y_min for ratio in y_batch]
             for anchor in anchors:

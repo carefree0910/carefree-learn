@@ -49,17 +49,23 @@ class QuantileFCNN(ModelBase):
             **kwargs,
         )
         predictions = results["predictions"]
-        median = predictions[..., self.median_idx : self.median_idx + 1]
+        median = predictions[..., [self.median_idx]]
         results = {"predictions": median, "quantiles": predictions}
         q = kwargs.get("q")
         if q is not None:
-            q = int(round(100 * q))
-            try:
-                idx = self.quantiles.index(q)
-            except ValueError:
-                msg = f"quantile '{q}' is not included in the preset quantiles"
-                raise ValueError(msg)
-            results["quantiles"] = predictions[..., idx : idx + 1]
+            fn = lambda q_: int(round(100 * q_))
+            if not isinstance(q, (list, tuple)):
+                q_list = [fn(q)]
+            else:
+                q_list = list(map(fn, q))
+            indices = []
+            for q in sorted(q_list):
+                try:
+                    indices.append(self.quantiles.index(q))
+                except ValueError:
+                    msg = f"quantile '{q}' is not included in the preset quantiles"
+                    raise ValueError(msg)
+            results["quantiles"] = predictions[..., indices]
         return results
 
 

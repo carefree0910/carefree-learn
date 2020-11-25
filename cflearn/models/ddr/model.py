@@ -275,10 +275,19 @@ class DDR(ModelBase):
             q = kwargs.get("q")
             if q is None:
                 raise ValueError(f"quantile cannot be predicted without q")
-            q_batch = self._expand(batch_size, q)
-            pack = self._quantile(split, q_batch, False)
-            forward_dict["quantiles"] = pack["median"] + pack["y_res"]
-            forward_dict["med_mul"] = pack["med_mul"]
+            quantiles_list, med_mul_list = [], []
+            q_list = [q] if isinstance(q, float) else q
+            for q in q_list:
+                q_batch = self._expand(batch_size, q)
+                pack = self._quantile(split, q_batch, False)
+                quantiles_list.append(pack["median"] + pack["y_res"])
+                med_mul_list.append(pack["med_mul"])
+            if len(q_list) == 1:
+                forward_dict["quantiles"] = quantiles_list[0]
+                forward_dict["med_mul"] = med_mul_list[0]
+            else:
+                forward_dict["quantiles"] = torch.cat(quantiles_list, dim=1)
+                forward_dict["med_mul"] = torch.cat(med_mul_list, dim=1)
         # check y inference
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)
