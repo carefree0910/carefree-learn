@@ -393,11 +393,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         y_batch = batch["y_batch"]
         if self.tr_data.is_clf:
             y_batch = y_batch.view(-1)
-        predictions = forward_results["predictions"]
         # `sample_weights` could be accessed through:
         # 1) `self.tr_weights[batch_indices]` (for training)
         # 2) `self.cv_weights[batch_indices]` (for validation)
-        losses = self.loss(predictions, y_batch)
+        losses = self.loss(forward_results, y_batch)
         return {"loss": losses.mean()}
 
     # API
