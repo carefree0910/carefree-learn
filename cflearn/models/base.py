@@ -2,7 +2,6 @@ import torch
 import pprint
 
 import numpy as np
-import torch.nn as nn
 
 from typing import *
 from abc import ABCMeta
@@ -20,9 +19,9 @@ try:
 except:
     amp = None
 
-from ..losses import *
 from ..modules import *
 from ..types import tensor_dict_type
+from ..losses import LossBase
 from ..configs import Configs
 from ..configs import Environment
 from ..misc.toolkit import to_torch
@@ -96,6 +95,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         cv_weights: Optional[np.ndarray],
     ):
         super().__init__()
+        # common
         self.ema: Optional[EMA] = None
         self.environment = environment
         self.device = environment.device
@@ -108,7 +108,15 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self.tr_weights, self.cv_weights = tr_weights, cv_weights
         self._preset_config()
         self._init_config()
-        self._init_loss()
+        # loss
+        self.loss_name = self.config.setdefault("loss", "auto")
+        if self.loss_name == "auto":
+            if self.tr_data.is_reg:
+                self.loss_name = "mae"
+            else:
+                self.loss_name = "focal"
+        loss_config = self.config.setdefault("loss_config", {})
+        self.loss = LossBase.make(self.loss_name, loss_config, "none")
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -342,12 +350,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             "default_encoding_method", list(default_encoding_method)
         )
         self.loss_config["input_logits"] = not self.output_probabilities
-
-    def _init_loss(self) -> None:
-        if self.tr_data.is_reg:
-            self.loss: Module = nn.L1Loss(reduction="none")
-        else:
-            self.loss = FocalLoss(self.loss_config, reduction="none")
 
     def merge_outputs(
         self,

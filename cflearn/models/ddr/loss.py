@@ -10,6 +10,7 @@ from ...types import tensor_dict_type
 from ...modules.auxiliary import MTL
 
 
+@LossBase.register("ddr")
 class DDRLoss(LossBase, LoggingMixin):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.fetch_q = config["fetch_q"]

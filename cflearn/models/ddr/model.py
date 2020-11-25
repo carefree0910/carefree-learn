@@ -10,7 +10,6 @@ from cftool.misc import is_numeric
 from cftool.misc import timing_context
 
 from ...misc.toolkit import *
-from .loss import DDRLoss
 from ..base import ModelBase
 from ...types import tensor_dict_type
 from ...modules.transform.core import SplitFeatures
@@ -40,10 +39,11 @@ class DDR(ModelBase):
         self.register_buffer("quantile_anchors", torch.from_numpy(quantile_anchors))
         self.register_buffer("y_anchor_choices", torch.from_numpy(y_anchor_choices))
         # loss config
-        self._loss_config = self.config.setdefault("loss_config", {})
-        self._loss_config.setdefault("mtl_method", None)
-        self._loss_config["fetch_q"] = self.fetch_q
-        self._loss_config["fetch_cdf"] = self.fetch_cdf
+        self.config["loss"] = "ddr"
+        loss_config = self.config.setdefault("loss_config", {})
+        loss_config.setdefault("mtl_method", None)
+        loss_config["fetch_q"] = self.fetch_q
+        loss_config["fetch_cdf"] = self.fetch_cdf
         # trainer config
         default_metric_types = ["loss"]
         if self.fetch_q:
@@ -73,9 +73,6 @@ class DDR(ModelBase):
             }
         }
         self.environment.update_default_config(new_default_config)
-
-    def _init_loss(self) -> None:
-        self.loss = DDRLoss(self._loss_config, "none")
 
     # utilities
 
