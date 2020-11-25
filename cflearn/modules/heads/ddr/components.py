@@ -70,9 +70,7 @@ class MonoSplit(Module):
         cond: Union[Tensor, responses_tuple_type],
     ) -> Union[tensor_tuple_type, Pack]:
         if self.to_latent:
-            assert isinstance(net, Tensor)
             return self.m1(net, cond), self.m2(net, cond)
-        assert isinstance(net, tuple)
         cond1: Union[Tensor, List[Tensor]]
         cond2: Union[Tensor, List[Tensor]]
         if isinstance(cond, tuple):

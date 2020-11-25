@@ -212,8 +212,7 @@ class DDRHead(HeadBase):
         for block in self.blocks:
             q1, q2 = block(q1, q2)
         y_pack = self.y_invertible.inverse((q1, q2), median_responses)
-        assert isinstance(y_pack, Pack)
-        results = self._merge_y_pack(y_pack, q_batch, median_outputs)
+        results = self._merge_y_pack(y_pack, q_batch, median_outputs)  # type: ignore
         q_inverse = None
         if do_inverse and self.fetch_cdf:
             y_res = results["y_res"]
@@ -244,8 +243,7 @@ class DDRHead(HeadBase):
             for i in range(self.num_blocks):
                 y1, y2 = self.blocks[self.num_blocks - i - 1].inverse(y1, y2)
             q_logit_pack = self.q_invertible.inverse((y1, y2), median_responses)
-            assert isinstance(q_logit_pack, Pack)
-            results = self._merge_q_pack(q_logit_pack)
+            results = self._merge_q_pack(q_logit_pack)  # type: ignore
             y_inverse_res = None
             if do_inverse and self.fetch_q:
                 inverse_results = self._q_results(

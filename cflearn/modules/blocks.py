@@ -939,9 +939,8 @@ class ConditionalBlocks(Module):
             detached_responses = []
             for condition in self.condition_blocks:
                 cond = condition(cond)
-                assert isinstance(cond, Tensor)
-                cond_responses.append(cond)
-                detached_responses.append(cond.detach())
+                cond_responses.append(cond)  # type: ignore
+                detached_responses.append(cond.detach())  # type: ignore
         responses = detached_responses if self.detach_condition else cond_responses
         iterator = enumerate(zip(self.main_blocks, responses))
         for i, (main, response) in iterator:

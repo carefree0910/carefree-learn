@@ -756,7 +756,6 @@ class Trainer(MonitoredMixin):
                     metric_predictions = predictions
                 else:
                     if not metric_ins.requires_prob:
-                        assert isinstance(predictions, np.ndarray)
                         metric_predictions = predictions
                     else:
                         if logits is None and probabilities is None:

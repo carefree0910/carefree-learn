@@ -117,10 +117,8 @@ class DDR(ModelBase):
             }
         }
         results = self.execute(net, clear_cache=False, head_kwargs_dict=kwargs)
-        assert isinstance(results, dict)
         ddr_results = results["ddr"]
-        assert isinstance(ddr_results, dict)
-        return ddr_results
+        return ddr_results  # type: ignore
 
     def _median(self, net: Union[torch.Tensor, SplitFeatures]) -> tensor_dict_type:
         results = self.execute(
@@ -128,10 +126,8 @@ class DDR(ModelBase):
             clear_cache=False,
             head_kwargs_dict={"ddr": {"median": True}},
         )
-        assert isinstance(results, dict)
         ddr_results = results["ddr"]
-        assert isinstance(ddr_results, dict)
-        return ddr_results
+        return ddr_results  # type: ignore
 
     def _cdf(
         self,
@@ -146,22 +142,19 @@ class DDR(ModelBase):
         with mode_context(self, to_train=None, use_grad=use_grad):
             kwargs = {"ddr": {"y_batch": y_batch, "do_inverse": do_inverse}}
             results = self.execute(net, clear_cache=False, head_kwargs_dict=kwargs)
-        assert isinstance(results, dict)
-        ddr_results = results["ddr"]
-        assert isinstance(ddr_results, dict)
-        cdf = ddr_results["q"]
+        ddr_results = results["ddr"]  # type: ignore
+        cdf = ddr_results["q"]  # type: ignore
         if not return_pdf:
             pdf = None
         else:
             pdf = get_gradient(cdf, y_batch, need_optimize, need_optimize)
-            assert isinstance(pdf, torch.Tensor)
             y_batch.requires_grad_(False)
         return {
             "cdf": cdf,
             "pdf": pdf,
-            "cdf_logit": ddr_results["q_logit"],
-            "cdf_logit_mul": ddr_results["q_logit_mul"],
-            "y_inverse_res": ddr_results["y_inverse_res"],
+            "cdf_logit": ddr_results["q_logit"],  # type: ignore
+            "cdf_logit_mul": ddr_results["q_logit_mul"],  # type: ignore
+            "y_inverse_res": ddr_results["y_inverse_res"],  # type: ignore
         }
 
     def _core(
@@ -349,7 +342,6 @@ class DDR(ModelBase):
         losses_dict["loss"] = losses
         losses_dict = {k: v.mean() for k, v in losses_dict.items()}
         if not self.training and self.fetch_q:
-            assert isinstance(y_batch, torch.Tensor)
             q_losses = []
             y_batch = to_numpy(y_batch)
             for q in np.linspace(0.05, 0.95, 10):
