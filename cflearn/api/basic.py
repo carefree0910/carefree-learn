@@ -84,6 +84,7 @@ def _to_pipelines(pipelines: pipelines_type) -> Dict[str, List[Pipeline]]:
             pipelines = [pipelines]
         pipeline_dict = {}
         for pipeline in pipelines:
+            assert pipeline.model is not None
             key = pipeline.model.__identifier__
             pipeline_dict.setdefault(key, []).append(pipeline)
     return pipeline_dict
@@ -169,14 +170,14 @@ def save(
                 retain_data=retain_data,
                 compress=True,
             )
-    return pipelines
+    return pipeline_dict
 
 
 def _fetch_saving_paths(
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
 ) -> Dict[str, List[str]]:
-    paths = {}
+    paths: Dict[str, List[str]] = {}
     saving_path = _to_saving_path(identifier, saving_folder)
     saving_path = os.path.abspath(saving_path)
     base_folder = os.path.dirname(saving_path)
