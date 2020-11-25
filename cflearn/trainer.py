@@ -560,6 +560,12 @@ class Trainer(MonitoredMixin):
                 metric_types = ["mae", "mse"]
             else:
                 metric_types = ["auc", "acc"]
+            loss_name = self.environment.model_config["loss"]
+            if loss_name in Metrics.sign_dict and loss_name not in metric_types:
+                metric_types = [loss_name]
+                if loss_name == "quantile":
+                    loss_config = self.environment.model_config["loss_config"]
+                    metric_config["quantile_config"] = loss_config
         if not isinstance(metric_types, (list, tuple)):
             metric_types = [metric_types]
         if self.inference.use_binary_threshold:
