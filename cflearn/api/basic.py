@@ -284,7 +284,7 @@ def repeat_with(
     identifiers: Optional[Union[str, List[str]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     sequential: Optional[bool] = None,
-    num_jobs: int = 4,
+    num_jobs: int = 1,
     num_repeat: int = 5,
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,

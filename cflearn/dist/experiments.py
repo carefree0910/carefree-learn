@@ -86,7 +86,7 @@ class Experiments(LoggingMixin):
     def run_tasks(
         self,
         *,
-        num_jobs: int = 4,
+        num_jobs: int = 1,
         use_tqdm: bool = True,
         run_tasks: bool = True,
         load_task: Optional[Callable] = None,
@@ -133,7 +133,7 @@ class Experiments(LoggingMixin):
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        num_jobs: int = 4,
+        num_jobs: int = 1,
         num_repeat: int = 5,
         models: Union[str, List[str]] = "fcnn",
         model_configs: Optional[Dict[str, Dict[str, Any]]] = None,

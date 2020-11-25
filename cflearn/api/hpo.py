@@ -251,7 +251,7 @@ def tune_with(
     metrics: Optional[Union[str, List[str]]] = None,
     num_jobs: Optional[int] = None,
     num_repeat: int = 5,
-    num_parallel: int = 4,
+    num_parallel: int = 1,
     num_search: int = 10,
     temp_folder: str = "__tmp__",
     score_weights: Optional[Dict[str, float]] = None,
@@ -272,7 +272,7 @@ def tune_with(
     x, y, x_cv, y_cv = tuner.x, tuner.y, tuner.x_cv, tuner.y_cv
 
     def _creator(_: Any, __: Any, params_: Dict[str, Any]) -> pattern_type:
-        num_jobs_ = num_parallel if hpo.is_sequential else 0
+        num_jobs_ = num_parallel if hpo.is_sequential else 1
         temp_folder_ = os.path.join(temp_folder, hash_code(str(params_)))
         result = tuner.train(model, params_, num_repeat, num_jobs_, temp_folder_)
         if num_repeat <= 1:
@@ -950,7 +950,7 @@ def optuna_tune(
     num_jobs: int = 1,
     num_trial: int = 50,
     num_repeat: int = 5,
-    num_parallel: int = 0,
+    num_parallel: int = 1,
     temp_folder: str = "__tmp__",
     estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,
     timeout: Optional[float] = None,

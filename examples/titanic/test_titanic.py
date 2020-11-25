@@ -33,7 +33,7 @@ def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
         task_type="clf",
         temp_folder=os.path.join(hpo_temp_folder, "__tune__"),
         extra_config=extra_config,
-        num_parallel=0,
+        num_parallel=1,
         num_repeat=2 if CI else 5,
         num_search=5 if CI else 10,
     )

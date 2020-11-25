@@ -128,7 +128,7 @@ class Auto:
         num_jobs: int = 1,
         num_trial: int = 20,
         num_repeat: int = 5,
-        num_parallel: int = 0,
+        num_parallel: int = 1,
         timeout: Optional[float] = None,
         score_weights: Optional[Dict[str, float]] = None,
         estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,

@@ -85,7 +85,7 @@ class Ensemble:
         y: data_type = None,
         *,
         k: int = 10,
-        num_jobs: int = 4,
+        num_jobs: int = 1,
         model: str = "fcnn",
         model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
         identifiers: Optional[Union[str, List[str]]] = None,
