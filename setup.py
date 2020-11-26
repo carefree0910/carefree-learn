@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = "0.1.3"
+VERSION = "0.1.4"
 DESCRIPTION = "A minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch"
 with open("README.md", encoding="utf-8") as f:
     LONG_DESCRIPTION = f.read()
@@ -18,7 +18,7 @@ setup(
         "plotly",
         "carefree-ml>=0.1.0",
         "carefree-data>=0.2.1",
-        "carefree-toolkit>=0.2.0",
+        "carefree-toolkit>=0.2.1",
         "dill",
         "future",
         "psutil",
