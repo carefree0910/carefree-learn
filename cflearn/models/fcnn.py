@@ -59,7 +59,7 @@ class QuantileFCNN(ModelBase):
             else:
                 q_list = list(map(fn, q))
             indices = []
-            for q in sorted(q_list):
+            for q in q_list:
                 try:
                     indices.append(self.quantiles.index(q))
                 except ValueError:
