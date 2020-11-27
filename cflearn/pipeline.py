@@ -312,8 +312,8 @@ class Pipeline(LoggingMixin):
         unique_extractors = sorted(set(extractors_mapping.values()))
         all_heads = sorted(heads_mapping.values())
 
-        box_width = 0.4
-        box_height = 0.25
+        box_width = 0.5
+        box_height = 0.4
         half_box_width = 0.5 * box_width
         x_scale, y_scale = 6, 5
         x_positions = [0, 0.75, 1.5]
@@ -322,6 +322,7 @@ class Pipeline(LoggingMixin):
         x_diff = x_max - x_min
         nodes_list = [unique_transforms, unique_extractors, all_heads]
         y_max = float(max(map(len, nodes_list))) * y_gap  # type: ignore
+        y_max = max(1.5, y_max)
         fig = plt.figure(dpi=100, figsize=[(x_diff + 2.0) * x_scale, y_max * y_scale])
 
         ax = fig.add_subplot(111)
