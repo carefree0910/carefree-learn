@@ -33,6 +33,7 @@ class Predictor:
         compress: bool = True,
         use_tqdm: bool = False,
     ):
+        self.device = device
         preprocessor = PreProcessor.load(
             preprocessor_folder,
             data=data,
@@ -40,7 +41,6 @@ class Predictor:
         )
         self.inference = Inference(
             preprocessor,
-            device,
             onnx_config=onnx_config,
             use_tqdm=use_tqdm,
         )
@@ -60,7 +60,9 @@ class Predictor:
     ) -> np_dict_type:
         loader = self.inference.preprocessor.make_inference_loader(
             x,
+            self.device,
             batch_size,
+            is_onnx=self.inference.onnx is not None,
             contains_labels=contains_labels,
         )
         kwargs = shallow_copy_dict(kwargs)

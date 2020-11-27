@@ -13,22 +13,20 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
-from cfdata.types import np_float_type
 from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfdata.tabular import ImbalancedSampler
 
 from .types import data_type
 from .types import np_dict_type
-from .types import tensor_dict_type
 from .models.base import ModelBase
 from .misc.toolkit import to_prob
 from .misc.toolkit import to_numpy
-from .misc.toolkit import to_torch
 from .misc.toolkit import is_float
 from .misc.toolkit import to_standard
 from .misc.toolkit import collate_np_dicts
 from .misc.toolkit import eval_context
+from .misc.toolkit import PrefetchLoader
 
 
 class PreProcessor(LoggingMixin):
@@ -53,12 +51,15 @@ class PreProcessor(LoggingMixin):
     def make_inference_loader(
         self,
         x: data_type,
+        device: Union[str, torch.device],
         batch_size: int = 256,
         *,
+        is_onnx: bool,
         contains_labels: bool = False,
     ) -> DataLoader:
         data = self.data.copy_to(x, None, contains_labels=contains_labels)
-        return DataLoader(batch_size, self.make_sampler(data, False))
+        loader = DataLoader(batch_size, self.make_sampler(data, False))
+        return PrefetchLoader(loader, device, is_onnx=is_onnx)
 
     def save(
         self,
@@ -193,7 +194,6 @@ class Inference(LoggingMixin):
     def __init__(
         self,
         preprocessor: PreProcessor,
-        device: Union[str, torch.device],
         *,
         model: Optional[ModelBase] = None,
         binary_config: Optional[Dict[str, Any]] = None,
@@ -204,7 +204,6 @@ class Inference(LoggingMixin):
         if model is None and onnx_config is None:
             raise ValueError("either `model` or `onnx_config` should be provided")
 
-        self.device = device
         self.use_tqdm = use_tqdm
         self.data = preprocessor.data
         self.preprocessor = preprocessor
@@ -259,32 +258,10 @@ class Inference(LoggingMixin):
         self.binary_metric = config.get("binary_metric")
         self.binary_threshold = config.get("binary_threshold")
 
-    def _to_device(self, arr: Optional[np.ndarray]) -> Optional[torch.Tensor]:
-        if arr is None:
-            return arr
-        return to_torch(arr).to(self.device)
-
     def to_tqdm(self, loader: DataLoader) -> Union[tqdm, DataLoader]:
         if not self.use_tqdm:
             return loader
         return tqdm(loader, total=len(loader), leave=False, position=2)
-
-    def collate_batch(
-        self,
-        x_batch: np.ndarray,
-        y_batch: np.ndarray,
-    ) -> Union[np_dict_type, tensor_dict_type]:
-        x_batch = x_batch.astype(np_float_type)
-        if self.onnx is not None:
-            if y_batch is None:
-                y_batch = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
-            arrays = [x_batch, y_batch]
-        else:
-            x_batch, y_batch = list(map(self._to_device, [x_batch, y_batch]))
-            if y_batch is not None and self.data.is_clf:
-                y_batch = y_batch.to(torch.int64)
-            arrays = [x_batch, y_batch]
-        return dict(zip(["x_batch", "y_batch"], arrays))
 
     def generate_binary_threshold(
         self,
@@ -418,26 +395,21 @@ class Inference(LoggingMixin):
     def _get_results(
         self,
         use_grad: bool,
-        loader: DataLoader,
+        loader: PrefetchLoader,
         loader_name: Optional[str],
         batch_step: int,
         use_tqdm: bool,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
-        return_indices = loader.return_indices
         if use_tqdm:
             loader = self.to_tqdm(loader)
         results, labels = [], []
-        for a, b in loader:
-            if return_indices:
-                x_batch, y_batch = a
-                batch_indices = b
-            else:
-                x_batch, y_batch = a, b
-                batch_indices = None
+        for batch, batch_indices in loader:
+            y_batch = batch["y_batch"]
             if y_batch is not None:
+                if not isinstance(y_batch, np.ndarray):
+                    y_batch = to_numpy(y_batch)
                 labels.append(y_batch)
-            batch = self.collate_batch(x_batch, y_batch)
             if self.onnx is not None:
                 rs = self.onnx.inference(batch)
             else:

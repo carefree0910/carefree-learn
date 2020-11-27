@@ -26,6 +26,7 @@ from .trainer import Trainer
 from .inference import Inference
 from .inference import PreProcessor
 from .misc.toolkit import to_2d
+from .misc.toolkit import PrefetchLoader
 from .misc.time_series import TSLabelCollator
 from .models.base import model_dict
 from .models.base import ModelBase
@@ -147,7 +148,6 @@ class Pipeline(LoggingMixin):
                 raise ValueError(msg)
             self.inference = Inference(
                 self.preprocessor,
-                self.device,
                 model=self.model,
                 binary_config=self.binary_config,
                 use_binary_threshold=self.use_binary_threshold,
@@ -254,7 +254,9 @@ class Pipeline(LoggingMixin):
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
         loader = self.preprocessor.make_inference_loader(
             x,
+            self.device,
             self.cv_batch_size,
+            is_onnx=self.inference.onnx is not None,
             contains_labels=contains_labels,
         )
         kwargs = shallow_copy_dict(kwargs)
@@ -447,8 +449,12 @@ class Pipeline(LoggingMixin):
                 pipeline._init_data()
                 pipeline._prepare_modules(is_loading=True)
                 trainer = pipeline.trainer
-                trainer.tr_loader = pipeline.tr_loader
-                trainer.cv_loader = pipeline.cv_loader
+                trainer.tr_loader = PrefetchLoader(pipeline.tr_loader, pipeline.device)
+                cv_loader = pipeline.cv_loader
+                if cv_loader is None:
+                    trainer.cv_loader = None
+                else:
+                    trainer.cv_loader = PrefetchLoader(cv_loader, pipeline.device)
                 trainer.restore_checkpoint(export_folder)
                 trainer._init_metrics()
         return pipeline

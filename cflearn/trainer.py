@@ -729,8 +729,7 @@ class Trainer(MonitoredMixin):
         loss_values = None
         if self._metrics_need_loss:
             loss_dicts = []
-            for (x_batch, y_batch), batch_indices in loader:
-                batch = self.inference.collate_batch(x_batch, y_batch)
+            for batch, batch_indices in loader:
                 with eval_context(self.model):
                     loss_dicts.append(
                         self.model.loss_function(
@@ -815,9 +814,12 @@ class Trainer(MonitoredMixin):
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
     ) -> None:
-        self.tr_loader = tr_loader
-        self.tr_loader_copy = tr_loader_copy
-        self.cv_loader = cv_loader
+        self.tr_loader = PrefetchLoader(tr_loader, self.device)
+        self.tr_loader_copy = PrefetchLoader(tr_loader_copy, self.device)
+        if cv_loader is None:
+            self.cv_loader = None
+        else:
+            self.cv_loader = PrefetchLoader(cv_loader, self.device)
         self.state.inject_loader(tr_loader)
         # sample weights
         if tr_weights is not None:
@@ -859,10 +861,8 @@ class Trainer(MonitoredMixin):
                         position=1,
                         leave=False,
                     )
-                for (x_batch, y_batch), batch_indices in step_tqdm:
+                for batch, batch_indices in step_tqdm:
                     self.state.step += 1
-                    with timing_context(self, "collate batch", enable=self.timing):
-                        batch = self.inference.collate_batch(x_batch, y_batch)
                     with amp_autocast_context(self.use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
                             forward_results = self.model(
