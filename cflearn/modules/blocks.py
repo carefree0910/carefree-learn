@@ -327,7 +327,7 @@ class MLP(Module):
         max_dim: int,
         num_layers: int,
         *,
-        bias: bool = True,
+        bias: Optional[bool] = None,
         max_dropout: float = 0.1,
         batch_norm: bool = False,
         activation: Optional[str] = "relu",
