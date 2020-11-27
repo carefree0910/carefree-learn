@@ -285,20 +285,25 @@ class Pipeline(LoggingMixin):
 
     def draw(self, export_path: Optional[str] = None) -> "Pipeline":
         pipes = model_dict[self.model_type].registered_pipes
-        transforms_mapping = {}
-        extractors_mapping = {}
-        heads_mapping = {}
+        if pipes is None:
+            raise ValueError("pipes have not yet been registered")
+        transforms_mapping: Dict[str, str] = {}
+        extractors_mapping: Dict[str, Tuple[str, ...]] = {}
+        heads_mapping: Dict[str, Tuple[str, str]] = {}
         sorted_keys = sorted(pipes)
         for key in sorted_keys:
             pipe_cfg = pipes[key]
             transforms_mapping[key] = pipe_cfg.transform
-            extractor_key = pipe_cfg.extractor, pipe_cfg.extractor_config_key
+            extractor_key: Tuple[str, ...] = (
+                pipe_cfg.extractor,
+                pipe_cfg.extractor_config_key,
+            )
             if not pipe_cfg.reuse_extractor:
                 cursor = 0
-                new_extractor_key = extractor_key
+                new_extractor_key: Tuple[str, ...] = extractor_key
                 while new_extractor_key in extractors_mapping.values():
                     cursor += 1
-                    new_extractor_key = tuple(*extractor_key, cursor)
+                    new_extractor_key = extractor_key + (str(cursor),)
                 extractor_key = new_extractor_key
             extractors_mapping[key] = extractor_key
             head_key = pipe_cfg.head_config_key
@@ -315,8 +320,8 @@ class Pipeline(LoggingMixin):
         y_gap = box_height * 2.5
         x_min, x_max = x_positions[0], x_positions[-1]
         x_diff = x_max - x_min
-        y_max = max(map(len, [unique_transforms, unique_extractors, all_heads]))
-        y_max *= y_gap
+        nodes_list = [unique_transforms, unique_extractors, all_heads]
+        y_max = float(max(map(len, nodes_list))) * y_gap  # type: ignore
         fig = plt.figure(dpi=100, figsize=[(x_diff + 2.0) * x_scale, y_max * y_scale])
 
         ax = fig.add_subplot(111)
@@ -363,10 +368,10 @@ class Pipeline(LoggingMixin):
         for key in sorted_keys:
             transform = transforms_mapping[key]
             extractor = extractors_mapping[key]
-            head = heads_mapping[key]
+            head_tuple = heads_mapping[key]
             x1, y1 = transform_positions[transform]
             x2, y2 = extractor_positions[extractor]
-            x3, y3 = head_positions[head]
+            x3, y3 = head_positions[head_tuple]
             self._arrow(ax, x1, y1, x2, y2, half_box_width)
             self._arrow(ax, x2, y2, x3, y3, half_box_width)
 
