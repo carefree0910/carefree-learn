@@ -5,6 +5,7 @@ from .basic import *
 from .ensemble import *
 from .register import *
 from .production import *
+from .protocol import *
 
 
 __all__ = [
@@ -59,6 +60,8 @@ __all__ = [
     "Processor",
     "LossBase",
     "PipeInfo",
-    # inference
+    # production
     "Pack",
+    # protocol
+    "PipelineProtocol",
 ]
