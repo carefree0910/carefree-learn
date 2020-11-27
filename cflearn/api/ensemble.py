@@ -113,7 +113,7 @@ class Ensemble:
 
         data = repeat_result.data
         pipelines = repeat_result.pipelines
-        assert pipelines is not None
+        assert data is not None and pipelines is not None
         return EnsembleResults(data, pipelines[model], None, predict_config)
 
     def adaboost(
@@ -189,6 +189,7 @@ class Ensemble:
         weights_array = np.array(pattern_weights, np.float32)
         weights_array /= weights_array.sum()
 
+        assert data is not None
         return EnsembleResults(data, pipelines, weights_array, predict_config)
 
 
