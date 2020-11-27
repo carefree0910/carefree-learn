@@ -2,12 +2,15 @@ import os
 import torch
 
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatch
 
 from typing import *
 from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 from cftool.ml import ModelPattern
+from cftool.misc import show_or_save
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import timing_context
@@ -227,7 +230,147 @@ class Pipeline(LoggingMixin):
         # logging
         self.log_timing()
 
+    @staticmethod
+    def _rectangle(
+        ax: Any,
+        x: float,
+        y: float,
+        width: float,
+        height: float,
+        color: Any,
+        text: str,
+    ) -> Tuple[float, float]:
+        rectangle = mpatch.Rectangle(
+            (x, y),
+            width,
+            height,
+            color=color,
+            alpha=0.8,
+            ec="#000000",
+        )
+        ax.add_artist(rectangle)
+        rx, ry = rectangle.get_xy()
+        cx = rx + 0.5 * rectangle.get_width()
+        cy = ry + 0.5 * rectangle.get_height()
+        ax.annotate(
+            text,
+            (cx, cy),
+            color="black",
+            fontsize=16,
+            ha="center",
+            va="center",
+        )
+        return cx, cy
+
+    @staticmethod
+    def _arrow(
+        ax: Any,
+        lx: float,
+        ly: float,
+        rx: float,
+        ry: float,
+        half_box_width: float,
+    ) -> None:
+        lx += half_box_width
+        rx -= half_box_width
+        ax.annotate(
+            text="", xy=(rx, ry), xytext=(lx, ly),
+            xycoords="data", arrowprops=dict(arrowstyle="->", color="black")
+        )
+
     # api
+
+    def draw(self, export_path: Optional[str] = None) -> "Pipeline":
+        pipes = model_dict[self.model_type].registered_pipes
+        transforms_mapping = {}
+        extractors_mapping = {}
+        heads_mapping = {}
+        sorted_keys = sorted(pipes)
+        for key in sorted_keys:
+            pipe_cfg = pipes[key]
+            transforms_mapping[key] = pipe_cfg.transform
+            extractor_key = pipe_cfg.extractor, pipe_cfg.extractor_config_key
+            if not pipe_cfg.reuse_extractor:
+                cursor = 0
+                new_extractor_key = extractor_key
+                while new_extractor_key in extractors_mapping.values():
+                    cursor += 1
+                    new_extractor_key = tuple(*extractor_key, cursor)
+                extractor_key = new_extractor_key
+            extractors_mapping[key] = extractor_key
+            head_key = pipe_cfg.head_config_key
+            heads_mapping[key] = key, head_key
+        unique_transforms = sorted(set(transforms_mapping.values()))
+        unique_extractors = sorted(set(extractors_mapping.values()))
+        all_heads = sorted(heads_mapping.values())
+
+        box_width = 0.4
+        box_height = 0.25
+        half_box_width = 0.5 * box_width
+        x_scale, y_scale = 6, 5
+        x_positions = [0, 0.75, 1.5]
+        y_gap = box_height * 2.5
+        x_min, x_max = x_positions[0], x_positions[-1]
+        x_diff = x_max - x_min
+        y_max = max(map(len, [unique_transforms, unique_extractors, all_heads]))
+        y_max *= y_gap
+        fig = plt.figure(dpi=100, figsize=[(x_diff + 2.0) * x_scale, y_max * y_scale])
+
+        ax = fig.add_subplot(111)
+        fig.patch.set_alpha(0)
+        ax.patch.set_alpha(0)
+        ax.tick_params(labelbottom=False, bottom=False)
+        ax.tick_params(labelleft=False, left=False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["top"].set_visible(False)
+        ax.spines["left"].set_visible(False)
+        ax.spines["bottom"].set_visible(False)
+        colors = plt.cm.Paired([i / 3 for i in range(3)])
+
+        # rectangle
+        delim = "-" * 16
+        color = colors[0]
+        x = x_positions[0]
+        transform_positions = {}
+        extractor_positions = {}
+        head_positions = {}
+        for i, transform in enumerate(unique_transforms):
+            y = (i + 0.5) * (y_max / len(unique_transforms))
+            args = ax, x, y, box_width, box_height, color
+            cx, cy = self._rectangle(*args, f"Transform\n{delim}\n{transform}")
+            transform_positions[transform] = cx, cy
+        color = colors[1]
+        x = x_positions[1]
+        for i, extractor in enumerate(unique_extractors):
+            y = (i + 0.5) * (y_max / len(unique_extractors))
+            extractor_str = extractor[1]
+            extractor_str = "_".join(extractor_str.split("_")[-2:])
+            args = ax, x, y, box_width, box_height, color
+            cx, cy = self._rectangle(*args, f"Extractor\n{delim}\n{extractor_str}")
+            extractor_positions[extractor] = cx, cy
+        color = colors[2]
+        x = x_positions[2]
+        for i, (key, head) in enumerate(all_heads):
+            y = (i + 0.5) * (y_max / len(all_heads))
+            args = ax, x, y, box_width, box_height, color
+            cx, cy = self._rectangle(*args, f"Head\n{delim}\n{head}")
+            head_positions[(key, head)] = cx, cy
+
+        # arrows
+        for key in sorted_keys:
+            transform = transforms_mapping[key]
+            extractor = extractors_mapping[key]
+            head = heads_mapping[key]
+            x1, y1 = transform_positions[transform]
+            x2, y2 = extractor_positions[extractor]
+            x3, y3 = head_positions[head]
+            self._arrow(ax, x1, y1, x2, y2, half_box_width)
+            self._arrow(ax, x2, y2, x3, y3, half_box_width)
+
+        ax.set_xlim(x_min, x_max + box_width + 0.1)
+        ax.set_ylim(0, y_max + box_height)
+        show_or_save(export_path, fig)
+        return self
 
     def fit(
         self,
