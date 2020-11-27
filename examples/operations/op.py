@@ -3,8 +3,6 @@ import cflearn
 
 import numpy as np
 
-from typing import Any
-from typing import Dict
 from cflearn.modules.blocks import Linear
 
 # for reproduction
