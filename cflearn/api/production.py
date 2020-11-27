@@ -4,6 +4,7 @@ import torch
 
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Union
 from typing import Optional
 from functools import partial
@@ -164,6 +165,25 @@ class Pack(LoggingMixin):
                 json.dump(inference.binary_config, f)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
+
+    @classmethod
+    def pack_multiple(
+        cls,
+        pipelines: List[Pipeline],
+        export_folder: str,
+        *,
+        verbose: bool = True,
+    ) -> None:
+        """ This method will simply pack onnx models and won't retain data """
+        for i, pipeline in enumerate(pipelines):
+            local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
+            Pack.pack(
+                pipeline,
+                local_export_folder,
+                verbose=verbose,
+                pack_data=False,
+                compress=False,
+            )
 
     @classmethod
     def get_predictor(

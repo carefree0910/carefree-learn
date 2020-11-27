@@ -253,15 +253,7 @@ class Auto:
             for model in iterator:
                 pipelines = self.pipelines[model]
                 model_folder = os.path.join(export_folder, model)
-                for i, pipeline in enumerate(pipelines):
-                    local_export_folder = os.path.join(model_folder, f"m_{i:04d}")
-                    Pack.pack(
-                        pipeline,
-                        local_export_folder,
-                        verbose=verbose,
-                        pack_data=False,
-                        compress=False,
-                    )
+                Pack.pack_multiple(pipelines, model_folder, verbose=verbose)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
