@@ -64,4 +64,6 @@ __all__ = [
     "Pack",
     # protocol
     "PipelineProtocol",
+    "DataProtocol",
+    "DataLoaderProtocol",
 ]

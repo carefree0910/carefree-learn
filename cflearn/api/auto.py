@@ -15,7 +15,6 @@ from cftool.misc import Saving
 from cftool.ml.utils import scoring_fn_type
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
-from cfdata.tabular import TabularData
 from optuna.trial import TrialState
 from optuna.trial import FrozenTrial
 from optuna.importance import BaseImportanceEvaluator
@@ -29,6 +28,7 @@ from .hpo import optuna_params_type
 from .hpo import OptunaPresetParams
 from .production import Pack
 from .production import Predictor
+from ..data import TabularData
 from ..types import data_type
 
 

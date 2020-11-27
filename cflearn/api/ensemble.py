@@ -9,7 +9,6 @@ from tqdm.autonotebook import tqdm
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cfdata.tabular import task_type_type
-from cfdata.tabular import TabularData
 from cftool.ml.utils import collate_fn_type
 from cftool.ml.utils import Metrics
 from torch.nn.functional import one_hot
@@ -17,6 +16,7 @@ from torch.nn.functional import one_hot
 from .basic import *
 from ..misc.toolkit import *
 from .register import register_metric
+from ..data import TabularData
 from ..types import data_type
 from ..pipeline import Pipeline
 

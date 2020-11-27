@@ -13,20 +13,20 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
-from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 from cfdata.tabular import ImbalancedSampler
 
+from .data import TabularData
+from .data import TabularLoader
+from .data import PrefetchLoader
 from .types import data_type
 from .types import np_dict_type
-from .models.base import ModelBase
 from .misc.toolkit import to_prob
 from .misc.toolkit import to_numpy
 from .misc.toolkit import is_float
 from .misc.toolkit import to_standard
 from .misc.toolkit import collate_np_dicts
 from .misc.toolkit import eval_context
-from .misc.toolkit import PrefetchLoader
+from .models.base import ModelBase
 
 
 class PreProcessor(LoggingMixin):
@@ -56,9 +56,9 @@ class PreProcessor(LoggingMixin):
         *,
         is_onnx: bool,
         contains_labels: bool = False,
-    ) -> DataLoader:
+    ) -> PrefetchLoader:
         data = self.data.copy_to(x, None, contains_labels=contains_labels)
-        loader = DataLoader(batch_size, self.make_sampler(data, False))
+        loader = TabularLoader(batch_size, self.make_sampler(data, False))
         return PrefetchLoader(loader, device, is_onnx=is_onnx)
 
     def save(
@@ -258,18 +258,20 @@ class Inference(LoggingMixin):
         self.binary_metric = config.get("binary_metric")
         self.binary_threshold = config.get("binary_threshold")
 
-    def to_tqdm(self, loader: DataLoader) -> Union[tqdm, DataLoader]:
+    def to_tqdm(self, loader: PrefetchLoader) -> Union[tqdm, PrefetchLoader]:
         if not self.use_tqdm:
             return loader
         return tqdm(loader, total=len(loader), leave=False, position=2)
 
     def generate_binary_threshold(
         self,
-        loader: Optional[DataLoader] = None,
+        loader: Optional[PrefetchLoader] = None,
         loader_name: Optional[str] = None,
     ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
         if not self.need_binary_threshold:
             return None
+        if loader is None:
+            raise ValueError("`loader` should be provided")
         results = self.predict(
             loader,
             return_all=True,
@@ -304,7 +306,7 @@ class Inference(LoggingMixin):
 
     def predict(
         self,
-        loader: DataLoader,
+        loader: PrefetchLoader,
         *,
         return_all: bool = False,
         requires_recover: bool = True,

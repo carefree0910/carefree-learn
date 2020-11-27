@@ -25,7 +25,6 @@ from cftool.misc import timing_context
 from cftool.misc import Saving
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
-from cfdata.tabular import DataLoader
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -33,6 +32,8 @@ except:
     amp = None
 
 from .misc.toolkit import *
+from .data import TabularLoader
+from .data import PrefetchLoader
 from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
@@ -74,7 +75,7 @@ class TrainerState:
         self.max_step_per_snapshot = int(max_step_per_snapshot)
         self.plateau_start = int(plateau_start)
 
-    def inject_loader(self, loader: DataLoader) -> None:
+    def inject_loader(self, loader: TabularLoader) -> None:
         self.batch_size = loader.batch_size
         self.num_step_per_epoch = len(loader)
 
@@ -439,7 +440,7 @@ class Trainer(MonitoredMixin):
         else:
             self.tracker = Tracker(**environment.tracker_config)
         self.checkpoint_scores: Dict[str, float] = {}
-        self.tr_loader_copy: Optional[DataLoader] = None
+        self.tr_loader_copy: Optional[PrefetchLoader] = None
         self.final_results: Optional[IntermediateResults] = None
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
@@ -594,8 +595,10 @@ class Trainer(MonitoredMixin):
             self.metrics_weights.setdefault(metric_type, 1.0)
 
     @property
-    def validation_loader(self) -> DataLoader:
+    def validation_loader(self) -> PrefetchLoader:
         if self.cv_loader is None:
+            if self.tr_loader_copy is None:
+                raise ValueError("`tr_loader_copy` is not yet generated")
             return self.tr_loader_copy
         return self.cv_loader
 
@@ -605,9 +608,11 @@ class Trainer(MonitoredMixin):
         return "tr" if loader is self.tr_loader_copy else "cv"
 
     @property
-    def binary_threshold_loader(self) -> DataLoader:
+    def binary_threshold_loader(self) -> PrefetchLoader:
         if self.cv_loader is not None and len(self.cv_loader.data) >= 1000:
             return self.cv_loader
+        if self.tr_loader_copy is None:
+            raise ValueError("`tr_loader_copy` is not yet generated")
         return self.tr_loader_copy
 
     @property
@@ -808,14 +813,15 @@ class Trainer(MonitoredMixin):
 
     def fit(
         self,
-        tr_loader: DataLoader,
-        tr_loader_copy: DataLoader,
-        cv_loader: DataLoader,
+        tr_loader: TabularLoader,
+        tr_loader_copy: TabularLoader,
+        cv_loader: Optional[TabularLoader],
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
     ) -> None:
         self.tr_loader = PrefetchLoader(tr_loader, self.device)
         self.tr_loader_copy = PrefetchLoader(tr_loader_copy, self.device)
+        self.cv_loader: Optional[PrefetchLoader]
         if cv_loader is None:
             self.cv_loader = None
         else:

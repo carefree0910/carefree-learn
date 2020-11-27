@@ -10,7 +10,6 @@ from torch.nn import Module
 from torch.nn import ModuleDict
 from torch.optim import Optimizer
 from cfdata.tabular import ColumnTypes
-from cfdata.tabular import DataLoader
 from cftool.misc import register_core
 from cftool.misc import LoggingMixin
 
@@ -20,6 +19,7 @@ except:
     amp = None
 
 from ..modules import *
+from ..data import TabularLoader
 from ..types import tensor_dict_type
 from ..losses import LossBase
 from ..configs import Configs
@@ -89,8 +89,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
         environment: Environment,
-        tr_loader: DataLoader,
-        cv_loader: DataLoader,
+        tr_loader: TabularLoader,
+        cv_loader: Optional[TabularLoader],
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
     ):

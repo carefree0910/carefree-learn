@@ -5,6 +5,7 @@ from abc import ABCMeta
 from typing import Any
 from cftool.ml import ModelPattern
 from cftool.misc import LoggingMixin
+from cfdata.tabular import DataLoader
 from cfdata.tabular import TabularData
 
 
@@ -40,6 +41,16 @@ class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
         return ModelPattern(predict_method=lambda x: self.predict(x, **predict_config))
 
 
+class DataProtocol(TabularData):
+    pass
+
+
+class DataLoaderProtocol(DataLoader):
+    pass
+
+
 __all__ = [
     "PipelineProtocol",
+    "DataProtocol",
+    "DataLoaderProtocol",
 ]

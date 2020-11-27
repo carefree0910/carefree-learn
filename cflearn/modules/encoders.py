@@ -9,9 +9,9 @@ from typing import *
 from abc import ABCMeta
 from collections import defaultdict
 from cftool.misc import LoggingMixin
-from cfdata.tabular import DataLoader
 from cfdata.tabular.misc import np_int_type
 
+from ..data import TabularLoader
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import Lambda
 from ..misc.toolkit import Initializer
@@ -77,7 +77,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         methods_list: List[Union[str, List[str]]],
         configs: List[Dict[str, Any]],
         categorical_columns: List[int],
-        loaders: Dict[str, DataLoader],
+        loaders: Dict[str, TabularLoader],
     ):
         super().__init__()
         self._fe_init_method: Optional[str]
@@ -250,7 +250,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 raise NotImplementedError(msg)
             attr(i, in_dim, config)
 
-    def _register_one_hot(self, i: int, in_dim: int, config: Dict[str, Any]) -> None:
+    def _register_one_hot(self, i: int, in_dim: int, _: Dict[str, Any]) -> None:
         self.one_hot_encoders.append(OneHot(in_dim))
         self._one_hot_indices.append(i)
         self.merged_dims[i] += in_dim
@@ -342,7 +342,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             "oob": f"{name}_oob_cache",
         }
 
-    def _compile(self, loaders: Dict[str, DataLoader]) -> None:
+    def _compile(self, loaders: Dict[str, TabularLoader]) -> None:
         for name, loader in loaders.items():
             categorical_features = []
             return_indices = loader.return_indices

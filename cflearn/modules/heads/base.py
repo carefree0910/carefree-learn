@@ -13,9 +13,9 @@ from typing import Callable
 from typing import Optional
 from cftool.misc import register_core
 from cftool.misc import LoggingMixin
-from cfdata.tabular import TabularData
 
 from ..transform import Dimensions
+from ...data import TabularData
 from ...types import tensor_dict_type
 from ...configs import configs_dict
 from ...configs import Configs

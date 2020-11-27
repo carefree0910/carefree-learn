@@ -22,12 +22,12 @@ from cfdata.types import np_float_type
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
-from cfdata.tabular import TabularData
 from optuna.trial import Trial
 
 from .basic import *
 from ..misc.toolkit import *
 from .ensemble import Ensemble
+from ..data import TabularData
 from ..types import data_type
 from ..pipeline import Pipeline
 

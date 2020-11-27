@@ -6,8 +6,6 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatch
 
 from typing import *
-from cfdata.tabular import DataLoader
-from cfdata.tabular import TabularData
 from cfdata.tabular import TabularDataset
 from cftool.ml import ModelPattern
 from cftool.misc import show_or_save
@@ -22,6 +20,9 @@ try:
 except:
     amp = None
 
+from .data import TabularData
+from .data import TabularLoader
+from .data import PrefetchLoader
 from .types import data_type
 from .configs import Elements
 from .configs import Environment
@@ -29,7 +30,6 @@ from .trainer import Trainer
 from .inference import Inference
 from .inference import PreProcessor
 from .misc.toolkit import to_2d
-from .misc.toolkit import PrefetchLoader
 from .misc.time_series import TSLabelCollator
 from .models.base import model_dict
 from .models.base import ModelBase
@@ -109,7 +109,7 @@ class Pipeline(LoggingMixin):
             self.shuffle_tr,
             self.tr_weights,
         )
-        self.tr_loader = DataLoader(
+        self.tr_loader = TabularLoader(
             self.batch_size,
             tr_sampler,
             return_indices=True,
@@ -120,7 +120,7 @@ class Pipeline(LoggingMixin):
             self.cv_loader = None
         else:
             cv_sampler = self.preprocessor.make_sampler(self.cv_data, False)
-            self.cv_loader = DataLoader(
+            self.cv_loader = TabularLoader(
                 self.cv_batch_size,
                 cv_sampler,
                 return_indices=True,

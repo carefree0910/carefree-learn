@@ -16,8 +16,8 @@ from cftool.ml.utils import EnsemblePattern
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
-from cfdata.tabular import TabularData
 
+from ..data import TabularData
 from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
