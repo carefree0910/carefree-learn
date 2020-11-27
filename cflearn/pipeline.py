@@ -283,7 +283,12 @@ class Pipeline(LoggingMixin):
 
     # api
 
-    def draw(self, export_path: Optional[str] = None) -> "Pipeline":
+    def draw(
+        self,
+        export_path: Optional[str] = None,
+        *,
+        transparent: bool = True,
+    ) -> "Pipeline":
         pipes = model_dict[self.model_type].registered_pipes
         if pipes is None:
             raise ValueError("pipes have not yet been registered")
@@ -326,8 +331,9 @@ class Pipeline(LoggingMixin):
         fig = plt.figure(dpi=100, figsize=[(x_diff + 2.0) * x_scale, y_max * y_scale])
 
         ax = fig.add_subplot(111)
-        fig.patch.set_alpha(0)
-        ax.patch.set_alpha(0)
+        if transparent:
+            fig.patch.set_alpha(0)
+            ax.patch.set_alpha(0)
         ax.tick_params(labelbottom=False, bottom=False)
         ax.tick_params(labelleft=False, left=False)
         ax.spines["right"].set_visible(False)
