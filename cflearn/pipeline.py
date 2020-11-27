@@ -274,8 +274,11 @@ class Pipeline(LoggingMixin):
         lx += half_box_width
         rx -= half_box_width
         ax.annotate(
-            text="", xy=(rx, ry), xytext=(lx, ly),
-            xycoords="data", arrowprops=dict(arrowstyle="->", color="black")
+            text="",
+            xy=(rx, ry),
+            xytext=(lx, ly),
+            xycoords="data",
+            arrowprops=dict(arrowstyle="->", color="black"),
         )
 
     # api
