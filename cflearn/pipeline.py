@@ -252,6 +252,8 @@ class Pipeline(LoggingMixin):
         returns_probabilities: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+        if self.inference is None:
+            raise ValueError("`inference` is not yet generated")
         loader = self.preprocessor.make_inference_loader(
             x,
             self.device,
