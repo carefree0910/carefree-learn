@@ -9,7 +9,7 @@ from cfdata.tabular import TabularData
 
 
 class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
-    def __init__(self):
+    def __init__(self) -> None:
         self.data = TabularData.simple("reg", simplify=True)
 
     def fit(
@@ -36,7 +36,7 @@ class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
     def predict(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
         pass
 
-    def to_pattern(self, **predict_config) -> ModelPattern:
+    def to_pattern(self, **predict_config: Any) -> ModelPattern:
         return ModelPattern(predict_method=lambda x: self.predict(x, **predict_config))
 
 
