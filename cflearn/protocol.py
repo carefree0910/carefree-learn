@@ -235,6 +235,7 @@ class DataLoaderProtocol(Protocol):
     enabled_sampling: bool
     return_indices: bool
     batch_size: int
+    _verbose_level: int
 
     @abstractmethod
     def __init__(
@@ -244,8 +245,24 @@ class DataLoaderProtocol(Protocol):
         *,
         return_indices: bool = False,
         verbose_level: int = 2,
+        **kwargs: Any,
     ):
         pass
+
+    # TODO : this is really weird but currently `Protocol`
+    #  will clear up the original `__init__`, so we have to define another
+    def _init_(
+        self,
+        batch_size: int,
+        sampler: SamplerProtocol,
+        *,
+        return_indices: bool = False,
+        verbose_level: int = 2,
+    ) -> None:
+        self.batch_size = batch_size
+        self.sampler = sampler
+        self.return_indices = return_indices
+        self._verbose_level = verbose_level
 
     @abstractmethod
     def __len__(self) -> int:
