@@ -272,5 +272,6 @@ class DataLoaderProtocol(Protocol):
 __all__ = [
     "PipelineProtocol",
     "DataProtocol",
+    "SamplerProtocol",
     "DataLoaderProtocol",
 ]
