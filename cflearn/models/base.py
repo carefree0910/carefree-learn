@@ -134,15 +134,14 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
             for idx in sorted_indices:
                 recognizer = recognizers[idx]
+                assert recognizer is not None
                 if not recognizer.info.is_valid or idx in ts_indices:
                     excluded += 1
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                     numerical_columns_mapping[idx] = idx - excluded
                 else:
                     str_idx = str(idx)
-                    categorical_dims.append(
-                        self.tr_data.recognizers[idx].num_unique_values
-                    )
+                    categorical_dims.append(recognizer.num_unique_values)
                     encoding_methods.append(
                         self.encoding_methods.setdefault(
                             str_idx, self.default_encoding_method

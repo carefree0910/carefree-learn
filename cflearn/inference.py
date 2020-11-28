@@ -43,7 +43,7 @@ class PreProcessor(LoggingMixin):
         sampler_config: Dict[str, Any],
     ):
         self.data = data
-        self.data_protocol = data.__identifier__
+        self.data_protocol = data.__identifier__  # type: ignore
         self.loader_protocol = loader_protocol
         self.sampler_protocol = sampler_protocol
         self.sampler_config = sampler_config

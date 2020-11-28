@@ -235,11 +235,11 @@ class Auto:
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
             # data
-            with open(os.path.join(export_folder, self.data_protocol_file), "w") as f:
-                f.write(self.data.__identifier__)
-            data_folder = os.path.join(export_folder, self.data_folder)
             if self.data is None:
                 raise ValueError("`data` is not generated yet")
+            with open(os.path.join(export_folder, self.data_protocol_file), "w") as f:
+                f.write(self.data.__identifier__)  # type: ignore
+            data_folder = os.path.join(export_folder, self.data_folder)
             self.data.save(
                 data_folder,
                 retain_data=retain_data,

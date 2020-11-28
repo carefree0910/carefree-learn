@@ -19,6 +19,7 @@ from cftool.misc import LoggingMixin
 from cfdata.tabular import data_type
 from cfdata.tabular import batch_type
 from cfdata.tabular import str_data_type
+from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
 from cfdata.tabular import TabularData
 from cfdata.tabular.wrapper import TabularSplit
@@ -68,7 +69,9 @@ class DataProtocol(Protocol):
     is_simplify: bool
     raw_dim: int
     num_classes: int
+    task_type: TaskTypes
 
+    raw: DataTuple
     processed: DataTuple
     ts_indices: Set[int]
     recognizers: Dict[int, Optional[Recognizer]]
@@ -117,15 +120,7 @@ class DataProtocol(Protocol):
         pass
 
     @abstractmethod
-    def transform(
-        self,
-        x: Union[str, data_type],
-        y: data_type = None,
-        *,
-        contains_labels: bool = True,
-        return_converted: bool = False,
-        **kwargs: Any,
-    ) -> Union[DataTuple, Tuple[DataTuple, DataTuple]]:
+    def transform(self, x: Union[str, data_type], y: data_type = None) -> DataTuple:
         pass
 
     @abstractmethod

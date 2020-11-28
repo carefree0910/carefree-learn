@@ -129,6 +129,8 @@ def evaluate(
             if y is not None:
                 y = to_2d(y)
             else:
+                if not isinstance(x, str):
+                    raise ValueError("`x` should be str when `y` is not provided")
                 x, y = data.read_file(x, contains_labels=contains_labels)
                 y = data.transform(x, y).y
             if metrics is None:

@@ -37,6 +37,13 @@ from .models.base import ModelBase
 
 class Pipeline(LoggingMixin):
     def __init__(self, environment: Environment):
+        # typing
+        self.tr_data: DataProtocol
+        self.cv_data: Optional[DataProtocol]
+        self.tr_loader: DataLoaderProtocol
+        self.tr_loader_copy: DataLoaderProtocol
+        self.cv_loader: Optional[DataLoaderProtocol]
+        # common
         self.environment = environment
         self.device = environment.device
         self.model: Optional[ModelBase] = None
@@ -511,6 +518,7 @@ class Pipeline(LoggingMixin):
                 sw_file = os.path.join(data_folder, self.sample_weights_file)
                 np.save(sw_file, self.sample_weights)
             if not self._save_original_data:
+                assert self.cv_data is not None
                 train_data_folder = os.path.join(data_folder, self.train_folder)
                 valid_data_folder = os.path.join(data_folder, self.valid_folder)
                 self.tr_data.save(
@@ -571,6 +579,7 @@ class Pipeline(LoggingMixin):
                 if os.path.isfile(sw_file):
                     sample_weights = np.load(sw_file)
                 # data
+                cv_data: Optional[DataProtocol]
                 data_base = DataProtocol.get(pipeline.data_protocol)
                 original_data_folder = os.path.join(data_folder, cls.original_folder)
                 if not os.path.isdir(original_data_folder):
