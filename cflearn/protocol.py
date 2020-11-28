@@ -77,7 +77,6 @@ class DataProtocol(Protocol):
     is_simplify: bool
     raw_dim: int
     num_classes: int
-    task_type: TaskTypes
 
     raw: DataTuple
     processed: DataTuple
@@ -179,6 +178,16 @@ class DataProtocol(Protocol):
     @property
     def is_reg(self) -> bool:
         return not self.is_clf
+
+    @property
+    def task_type(self) -> TaskTypes:
+        if not self.is_ts:
+            if self.is_clf:
+                return TaskTypes.CLASSIFICATION
+            return TaskTypes.REGRESSION
+        if self.is_clf:
+            return TaskTypes.TIME_SERIES_CLF
+        return TaskTypes.TIME_SERIES_REG
 
     @classmethod
     def get(cls, name: str) -> Type["DataProtocol"]:
