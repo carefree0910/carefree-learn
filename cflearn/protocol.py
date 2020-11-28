@@ -11,9 +11,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-
-# TODO : use `from typing import ...` after python3.8 has been widely used
-from typing_extensions import Protocol
 from cftool.ml import ModelPattern
 from cftool.misc import register_core
 from cftool.misc import LoggingMixin
@@ -70,7 +67,7 @@ class DataSplit(NamedTuple):
     remained_indices: np.ndarray
 
 
-class DataProtocol(Protocol):
+class DataProtocol:
     is_ts: bool
     is_clf: bool
     is_simplify: bool
@@ -88,7 +85,7 @@ class DataProtocol(Protocol):
 
     @abstractmethod
     def __init__(self, **kwargs: Any):
-        pass
+        self._verbose_level = kwargs.get("verbose_level", 2)
 
     @abstractmethod
     def __len__(self) -> int:
@@ -202,12 +199,12 @@ class DataProtocol(Protocol):
         return register_core(name, data_dict, before_register=before)
 
 
-class SamplerProtocol(Protocol):
+class SamplerProtocol:
     shuffle: bool
 
     @abstractmethod
     def __init__(self, data: DataProtocol, **kwargs: Any):
-        pass
+        self.data = data
 
     @classmethod
     def get(cls, name: str) -> Type["SamplerProtocol"]:
@@ -227,7 +224,7 @@ class SamplerProtocol(Protocol):
         return register_core(name, sampler_dict, before_register=before)
 
 
-class DataLoaderProtocol(Protocol):
+class DataLoaderProtocol:
     _num_siamese: int = 1
 
     data: DataProtocol
@@ -247,18 +244,6 @@ class DataLoaderProtocol(Protocol):
         verbose_level: int = 2,
         **kwargs: Any,
     ):
-        pass
-
-    # TODO : this is really weird but currently `Protocol`
-    #  will clear up the original `__init__`, so we have to define another
-    def _init_(
-        self,
-        batch_size: int,
-        sampler: SamplerProtocol,
-        *,
-        return_indices: bool = False,
-        verbose_level: int = 2,
-    ) -> None:
         self.batch_size = batch_size
         self.sampler = sampler
         self.return_indices = return_indices
