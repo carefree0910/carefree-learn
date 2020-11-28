@@ -78,6 +78,7 @@ class DataProtocol(Protocol):
     num_classes: int
 
     raw: DataTuple
+    converted: DataTuple
     processed: DataTuple
     ts_indices: Set[int]
     recognizers: Dict[int, Optional[Recognizer]]
