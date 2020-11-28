@@ -10,6 +10,7 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 
 # TODO : use `from typing import ...` after python3.8 has been widely used
 from typing_extensions import Protocol
@@ -63,6 +64,13 @@ sampler_dict: Dict[str, Type["SamplerProtocol"]] = {}
 loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
 
 
+class DataSplit(NamedTuple):
+    split: "DataProtocol"
+    remained: "DataProtocol"
+    split_indices: np.ndarray
+    remained_indices: np.ndarray
+
+
 class DataProtocol(Protocol):
     is_ts: bool
     is_clf: bool
@@ -108,7 +116,7 @@ class DataProtocol(Protocol):
         pass
 
     @abstractmethod
-    def split(self, n: Union[int, float], *, order: str = "auto") -> TabularSplit:
+    def split(self, n: Union[int, float], *, order: str = "auto") -> DataSplit:
         pass
 
     @abstractmethod
@@ -116,7 +124,7 @@ class DataProtocol(Protocol):
         self,
         split_indices: np.ndarray,
         remained_indices: np.ndarray,
-    ) -> TabularSplit:
+    ) -> DataSplit:
         pass
 
     @abstractmethod
@@ -271,6 +279,7 @@ class DataLoaderProtocol(Protocol):
 
 __all__ = [
     "PipelineProtocol",
+    "DataSplit",
     "DataProtocol",
     "SamplerProtocol",
     "DataLoaderProtocol",
