@@ -23,7 +23,6 @@ from cfdata.tabular import str_data_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
 from cfdata.tabular import TabularData
-from cfdata.tabular.wrapper import TabularSplit
 from cfdata.tabular.recognizer import Recognizer
 
 
