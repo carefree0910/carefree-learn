@@ -131,12 +131,7 @@ class DataProtocol(Protocol):
         pass
 
     @abstractmethod
-    def transform_labels(
-        self,
-        y: data_type,
-        *,
-        return_converted: bool = False,
-    ) -> Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]:
+    def transform_labels(self, y: data_type) -> np.ndarray:
         pass
 
     @abstractmethod
