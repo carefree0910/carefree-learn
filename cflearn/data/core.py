@@ -6,20 +6,31 @@ from typing import Union
 from typing import Optional
 from cfdata.types import np_int_type
 from cfdata.types import np_float_type
+from cfdata.tabular import DataLoader
+from cfdata.tabular import ImbalancedSampler
+from cfdata.tabular import TabularData as TD
 
 from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..types import tensor_batch_type
-from ..api.protocol import DataProtocol
-from ..api.protocol import DataLoaderProtocol
+from ..protocol import DataProtocol
+from ..protocol import SamplerProtocol
+from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 
 
-class TabularData(DataProtocol):
+@DataProtocol.register("tabular")
+class TabularData(TD, DataProtocol):
     pass
 
 
-class TabularLoader(DataLoaderProtocol):
+@SamplerProtocol.register("tabular")
+class TabularSampler(ImbalancedSampler, SamplerProtocol):
+    pass
+
+
+@DataLoaderProtocol.register("tabular")
+class TabularLoader(DataLoader, DataLoaderProtocol):
     pass
 
 
@@ -121,6 +132,7 @@ class PrefetchLoader:
 
 __all__ = [
     "TabularData",
+    "TabularSampler",
     "TabularLoader",
     "PrefetchLoader",
 ]

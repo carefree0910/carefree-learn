@@ -84,6 +84,9 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 
 class Elements(NamedTuple):
     model: str = "fcnn"
+    data_protocol: str = "tabular"
+    loader_protocol: str = "tabular"
+    sampler_protocol: str = "tabular"
     data_config: Optional[Dict[str, Any]] = None
     task_type: Optional[task_type_type] = None
     use_simplify_data: bool = False

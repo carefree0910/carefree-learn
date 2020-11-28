@@ -28,8 +28,8 @@ from .hpo import optuna_params_type
 from .hpo import OptunaPresetParams
 from .production import Pack
 from .production import Predictor
-from ..data import TabularData
 from ..types import data_type
+from ..protocol import DataProtocol
 
 
 class UnPacked(NamedTuple):
@@ -39,6 +39,7 @@ class UnPacked(NamedTuple):
 
 class Auto:
     data_folder = "__data__"
+    data_protocol_file = "data_protocol.txt"
     weights_mapping_file = "weights_mapping.json"
 
     def __init__(
@@ -234,6 +235,8 @@ class Auto:
         with lock_manager(base_folder, [export_folder]):
             Saving.prepare_folder(self, export_folder)
             # data
+            with open(os.path.join(export_folder, self.data_protocol_file), "w") as f:
+                f.write(self.data.__identifier__)
             data_folder = os.path.join(export_folder, self.data_folder)
             if self.data is None:
                 raise ValueError("`data` is not generated yet")
@@ -279,8 +282,11 @@ class Auto:
                 remove_extracted=True,
             ):
                 # data
+                protocol_path = os.path.join(export_folder, cls.data_protocol_file)
+                with open(protocol_path, "r") as f:
+                    data_protocol = f.read().strip()
                 data_folder = os.path.join(export_folder, cls.data_folder)
-                data = TabularData.load(data_folder, compress=False)
+                data = DataProtocol.get(data_protocol).load(data_folder, compress=False)
                 predictors = {}
                 # weights
                 weights_file = os.path.join(export_folder, cls.weights_mapping_file)
@@ -290,7 +296,9 @@ class Auto:
                 iterator = [
                     stuff
                     for stuff in os.listdir(export_folder)
-                    if stuff != cls.data_folder and stuff != cls.weights_mapping_file
+                    if stuff != cls.data_folder
+                    and stuff != cls.weights_mapping_file
+                    and stuff != cls.data_protocol_file
                 ]
                 if use_tqdm:
                     iterator = tqdm(iterator, "unpack")

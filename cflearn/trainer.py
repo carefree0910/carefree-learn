@@ -32,11 +32,11 @@ except:
     amp = None
 
 from .misc.toolkit import *
-from .data import TabularLoader
 from .data import PrefetchLoader
 from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
+from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .models.base import ModelBase
 
@@ -75,7 +75,7 @@ class TrainerState:
         self.max_step_per_snapshot = int(max_step_per_snapshot)
         self.plateau_start = int(plateau_start)
 
-    def inject_loader(self, loader: TabularLoader) -> None:
+    def inject_loader(self, loader: DataLoaderProtocol) -> None:
         self.batch_size = loader.batch_size
         self.num_step_per_epoch = len(loader)
 
@@ -813,9 +813,9 @@ class Trainer(MonitoredMixin):
 
     def fit(
         self,
-        tr_loader: TabularLoader,
-        tr_loader_copy: TabularLoader,
-        cv_loader: Optional[TabularLoader],
+        tr_loader: DataLoaderProtocol,
+        tr_loader_copy: DataLoaderProtocol,
+        cv_loader: Optional[DataLoaderProtocol],
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
     ) -> None:

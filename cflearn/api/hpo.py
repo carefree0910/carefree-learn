@@ -27,9 +27,9 @@ from optuna.trial import Trial
 from .basic import *
 from ..misc.toolkit import *
 from .ensemble import Ensemble
-from ..data import TabularData
 from ..types import data_type
 from ..pipeline import Pipeline
+from ..protocol import DataProtocol
 
 
 class _TunerResult(NamedTuple):
@@ -98,7 +98,8 @@ class _Tuner(LoggingMixin):
                 )
             if y is not None:
                 read_config["y"] = y
-            tr_data = TabularData(**data_config)
+            data_protocol = kwargs.get("data_protocol", "tabular")
+            tr_data = DataProtocol.make(data_protocol, **data_config)
             tr_data.read(x, **read_config)
             self.has_column_names = tr_data._has_column_names
             y = tr_data.processed.y

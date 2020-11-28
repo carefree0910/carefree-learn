@@ -20,13 +20,13 @@ try:
 except:
     amp = None
 
-from .data import TabularData
-from .data import TabularLoader
 from .data import PrefetchLoader
 from .types import data_type
 from .configs import Elements
 from .configs import Environment
 from .trainer import Trainer
+from .protocol import DataProtocol
+from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .inference import PreProcessor
 from .misc.toolkit import to_2d
@@ -59,7 +59,7 @@ class Pipeline(LoggingMixin):
     __repr__ = __str__
 
     @property
-    def data(self) -> TabularData:
+    def data(self) -> DataProtocol:
         return self._original_data
 
     @property
@@ -103,13 +103,19 @@ class Pipeline(LoggingMixin):
                 self.ts_label_collator_config,
             )
         self.sampler_config.setdefault("verbose_level", self.data._verbose_level)
-        self.preprocessor = PreProcessor(self._original_data, self.sampler_config)
+        self.preprocessor = PreProcessor(
+            self._original_data,
+            self.loader_protocol,
+            self.sampler_protocol,
+            self.sampler_config,
+        )
         tr_sampler = self.preprocessor.make_sampler(
             self.tr_data,
             self.shuffle_tr,
             self.tr_weights,
         )
-        self.tr_loader = TabularLoader(
+        self.tr_loader = DataLoaderProtocol.make(
+            self.loader_protocol,
             self.batch_size,
             tr_sampler,
             return_indices=True,
@@ -120,7 +126,8 @@ class Pipeline(LoggingMixin):
             self.cv_loader = None
         else:
             cv_sampler = self.preprocessor.make_sampler(self.cv_data, False)
-            self.cv_loader = TabularLoader(
+            self.cv_loader = DataLoaderProtocol.make(
+                self.loader_protocol,
                 self.cv_batch_size,
                 cv_sampler,
                 return_indices=True,
@@ -182,7 +189,7 @@ class Pipeline(LoggingMixin):
             self.sample_weights = None
         else:
             self.sample_weights = sample_weights.copy()
-        self._original_data = TabularData(**self.data_config)
+        self._original_data = DataProtocol.make(self.data_protocol, **self.data_config)
         self._original_data.read(*args, **self.read_config)
         self.tr_data = self._original_data
         self._save_original_data = x_cv is None
@@ -564,13 +571,14 @@ class Pipeline(LoggingMixin):
                 if os.path.isfile(sw_file):
                     sample_weights = np.load(sw_file)
                 # data
+                data_base = DataProtocol.get(pipeline.data_protocol)
                 original_data_folder = os.path.join(data_folder, cls.original_folder)
                 if not os.path.isdir(original_data_folder):
                     train_data_folder = os.path.join(data_folder, cls.train_folder)
                     valid_data_folder = os.path.join(data_folder, cls.valid_folder)
                     try:
-                        tr_data = TabularData.load(train_data_folder, compress=False)
-                        cv_data = TabularData.load(valid_data_folder, compress=False)
+                        tr_data = data_base.load(train_data_folder, compress=False)
+                        cv_data = data_base.load(valid_data_folder, compress=False)
                     except Exception as e:
                         raise ValueError(
                             f"data information is corrupted ({e}), "
@@ -581,7 +589,7 @@ class Pipeline(LoggingMixin):
                         tr_weights = sample_weights[: len(tr_data)]
                         cv_weights = sample_weights[len(tr_data) :]
                 else:
-                    original_data = TabularData.load(
+                    original_data = data_base.load(
                         original_data_folder,
                         compress=False,
                     )

@@ -14,10 +14,10 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 
-from ..data import TabularData
 from ..types import data_type
 from ..types import np_dict_type
 from ..pipeline import Pipeline
+from ..protocol import DataProtocol
 from ..inference import ONNX
 from ..inference import Inference
 from ..inference import PreProcessor
@@ -30,7 +30,7 @@ class Predictor:
         preprocessor_folder: str,
         device: Union[str, torch.device] = "cpu",
         *,
-        data: Optional[TabularData] = None,
+        data: Optional[DataProtocol] = None,
         compress: bool = True,
         use_tqdm: bool = False,
     ):
@@ -191,7 +191,7 @@ class Pack(LoggingMixin):
         export_folder: str,
         device: Union[str, torch.device] = "cpu",
         *,
-        data: Optional[TabularData] = None,
+        data: Optional[DataProtocol] = None,
         compress: bool = True,
         use_tqdm: bool = False,
     ) -> Predictor:

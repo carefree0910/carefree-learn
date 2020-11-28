@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 
 import numpy as np
@@ -13,13 +14,13 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
-from cfdata.tabular import ImbalancedSampler
 
-from .data import TabularData
-from .data import TabularLoader
 from .data import PrefetchLoader
 from .types import data_type
 from .types import np_dict_type
+from .protocol import DataProtocol
+from .protocol import SamplerProtocol
+from .protocol import DataLoaderProtocol
 from .misc.toolkit import to_prob
 from .misc.toolkit import to_numpy
 from .misc.toolkit import is_float
@@ -31,22 +32,32 @@ from .models.base import ModelBase
 
 class PreProcessor(LoggingMixin):
     data_folder = "data"
+    protocols_file = "protocols.json"
     sampler_config_name = "sampler_config"
 
-    def __init__(self, data: TabularData, sampler_config: Dict[str, Any]):
+    def __init__(
+        self,
+        data: DataProtocol,
+        loader_protocol: str,
+        sampler_protocol: str,
+        sampler_config: Dict[str, Any],
+    ):
         self.data = data
+        self.data_protocol = data.__identifier__
+        self.loader_protocol = loader_protocol
+        self.sampler_protocol = sampler_protocol
         self.sampler_config = sampler_config
 
     def make_sampler(
         self,
-        data: TabularData,
+        data: DataProtocol,
         shuffle: bool,
         sample_weights: Optional[np.ndarray] = None,
-    ) -> ImbalancedSampler:
+    ) -> SamplerProtocol:
         config = shallow_copy_dict(self.sampler_config)
         config["shuffle"] = shuffle
         config["sample_weights"] = sample_weights
-        return ImbalancedSampler(data, **config)
+        return SamplerProtocol.make(self.sampler_protocol, data, **config)
 
     def make_inference_loader(
         self,
@@ -58,7 +69,11 @@ class PreProcessor(LoggingMixin):
         contains_labels: bool = False,
     ) -> PrefetchLoader:
         data = self.data.copy_to(x, None, contains_labels=contains_labels)
-        loader = TabularLoader(batch_size, self.make_sampler(data, False))
+        loader = DataLoaderProtocol.make(
+            self.loader_protocol,
+            batch_size,
+            self.make_sampler(data, False),
+        )
         return PrefetchLoader(loader, device, is_onnx=is_onnx)
 
     def save(
@@ -81,6 +96,15 @@ class PreProcessor(LoggingMixin):
                     retain_data=retain_data,
                     compress=False,
                 )
+            with open(os.path.join(export_folder, self.protocols_file), "w") as f:
+                json.dump(
+                    {
+                        "data": self.data_protocol,
+                        "loader": self.loader_protocol,
+                        "sampler": self.sampler_protocol,
+                    },
+                    f,
+                )
             Saving.save_dict(
                 self.sampler_config,
                 self.sampler_config_name,
@@ -95,7 +119,7 @@ class PreProcessor(LoggingMixin):
         cls,
         export_folder: str,
         *,
-        data: Optional[TabularData] = None,
+        data: Optional[DataProtocol] = None,
         compress: bool = True,
     ) -> "PreProcessor":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
@@ -105,11 +129,17 @@ class PreProcessor(LoggingMixin):
                 compress,
                 remove_extracted=True,
             ):
+                with open(os.path.join(export_folder, cls.protocols_file), "r") as f:
+                    protocols = json.load(f)
+                data_protocol = protocols["data"]
+                loader_protocol = protocols["loader"]
+                sampler_protocol = protocols["sampler"]
                 if data is None:
                     data_folder = os.path.join(export_folder, cls.data_folder)
-                    data = TabularData.load(data_folder, compress=False)
-                cfg = Saving.load_dict(cls.sampler_config_name, export_folder)
-        return cls(data, cfg)
+                    data_base = DataProtocol.get(data_protocol)
+                    data = data_base.load(data_folder, compress=False)
+                sampler_cfg = Saving.load_dict(cls.sampler_config_name, export_folder)
+        return cls(data, loader_protocol, sampler_protocol, sampler_cfg)
 
 
 class ONNX:

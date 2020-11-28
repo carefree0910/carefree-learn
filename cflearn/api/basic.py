@@ -17,13 +17,13 @@ from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 
-from ..data import TabularData
 from ..dist import Task
 from ..dist import Experiments
 from ..types import data_type
 from ..trainer import Trainer
 from ..trainer import IntermediateResults
 from ..pipeline import Pipeline
+from ..protocol import DataProtocol
 from ..misc.toolkit import to_2d
 
 
@@ -266,7 +266,7 @@ def transform_experiments(experiments: Experiments) -> Dict[str, List[Pipeline]]
 
 
 class RepeatResult(NamedTuple):
-    data: Optional[TabularData]
+    data: Optional[DataProtocol]
     experiments: Optional[Experiments]
     pipelines: Optional[Dict[str, List[Pipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]

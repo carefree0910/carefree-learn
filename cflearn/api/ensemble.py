@@ -16,13 +16,13 @@ from torch.nn.functional import one_hot
 from .basic import *
 from ..misc.toolkit import *
 from .register import register_metric
-from ..data import TabularData
 from ..types import data_type
 from ..pipeline import Pipeline
+from ..protocol import DataProtocol
 
 
 class EnsembleResults(NamedTuple):
-    data: TabularData
+    data: DataProtocol
     pipelines: List[Pipeline]
     pattern_weights: Optional[np.ndarray]
     predict_config: Optional[Dict[str, Any]]

@@ -15,10 +15,10 @@ from cftool.misc import register_core
 from cftool.misc import LoggingMixin
 
 from ..transform import Dimensions
-from ...data import TabularData
 from ...types import tensor_dict_type
 from ...configs import configs_dict
 from ...configs import Configs
+from ...protocol import DataProtocol
 
 
 head_dict: Dict[str, Type["HeadBase"]] = {}
@@ -28,7 +28,7 @@ class HeadConfigs(Configs):
     def __init__(
         self,
         in_dim: int,
-        tr_data: TabularData,
+        tr_data: DataProtocol,
         tr_weights: Optional[np.ndarray],
         dimensions: Dimensions,
         config: Optional[Dict[str, Any]] = None,
@@ -61,7 +61,7 @@ class HeadConfigs(Configs):
         name: str,
         *,
         in_dim: Optional[int] = None,
-        tr_data: Optional[TabularData] = None,
+        tr_data: Optional[DataProtocol] = None,
         tr_weights: Optional[np.ndarray] = None,
         dimensions: Optional[Dimensions] = None,
         **kwargs: Any,

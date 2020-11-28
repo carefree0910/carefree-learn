@@ -19,11 +19,11 @@ except:
     amp = None
 
 from ..modules import *
-from ..data import TabularLoader
 from ..types import tensor_dict_type
 from ..losses import LossBase
 from ..configs import Configs
 from ..configs import Environment
+from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
@@ -89,8 +89,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def __init__(
         self,
         environment: Environment,
-        tr_loader: TabularLoader,
-        cv_loader: Optional[TabularLoader],
+        tr_loader: DataLoaderProtocol,
+        cv_loader: Optional[DataLoaderProtocol],
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
     ):

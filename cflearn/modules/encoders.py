@@ -11,7 +11,7 @@ from collections import defaultdict
 from cftool.misc import LoggingMixin
 from cfdata.tabular.misc import np_int_type
 
-from ..data import TabularLoader
+from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import Lambda
 from ..misc.toolkit import Initializer
@@ -77,7 +77,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         methods_list: List[Union[str, List[str]]],
         configs: List[Dict[str, Any]],
         categorical_columns: List[int],
-        loaders: Dict[str, TabularLoader],
+        loaders: Dict[str, DataLoaderProtocol],
     ):
         super().__init__()
         self._fe_init_method: Optional[str]
@@ -342,7 +342,7 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
             "oob": f"{name}_oob_cache",
         }
 
-    def _compile(self, loaders: Dict[str, TabularLoader]) -> None:
+    def _compile(self, loaders: Dict[str, DataLoaderProtocol]) -> None:
         for name, loader in loaders.items():
             categorical_features = []
             return_indices = loader.return_indices
