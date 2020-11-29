@@ -449,7 +449,7 @@ class Trainer(MonitoredMixin):
         self.config = environment.trainer_config
         self._verbose_level = environment.verbose_level
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
-        self.scaler = None if amp is None or not self.use_amp else amp.GradScaler()
+        self.grad_scaler = None if amp is None or not self.use_amp else amp.GradScaler()
         self.state = TrainerState(self.config)
         Saving.prepare_folder(self, self.checkpoint_folder)
 
@@ -628,7 +628,13 @@ class Trainer(MonitoredMixin):
         )
 
     def _optimizer_step(self) -> None:
-        self.model._optimizer_step(self.optimizers, self.scaler)
+        for opt in self.optimizers.values():
+            if self.grad_scaler is None:
+                opt.step()
+            else:
+                self.grad_scaler.step(opt)
+                self.grad_scaler.update()
+            opt.zero_grad()
 
     @staticmethod
     def _metric_verbose(k: str, intermediate: IntermediateResults) -> str:
@@ -896,7 +902,7 @@ class Trainer(MonitoredMixin):
                     with timing_context(self, "loss.backward", enable=self.timing):
                         loss = loss_dict["loss"]
                         if self.use_amp:
-                            loss = self.scaler.scale(loss)  # type: ignore
+                            loss = self.grad_scaler.scale(loss)  # type: ignore
                         loss.backward()
                     if self.clip_norm > 0.0:
                         with timing_context(self, "clip_norm_step", enable=self.timing):

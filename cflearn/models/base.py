@@ -503,19 +503,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         self._transform_cache = {}
         self._extractor_cache = {}
 
-    def _optimizer_step(
-        self,
-        optimizers: Dict[str, Optimizer],
-        grad_scalar: Optional["amp.GradScaler"],  # type: ignore
-    ) -> None:
-        for opt in optimizers.values():
-            if grad_scalar is None:
-                opt.step()
-            else:
-                grad_scalar.step(opt)
-                grad_scalar.update()
-            opt.zero_grad()
-
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
         with torch.no_grad():
             return self._split_features(to_torch(processed).to(device), None, None)
