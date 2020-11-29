@@ -8,7 +8,6 @@ from abc import ABCMeta
 from torch import Tensor
 from torch.nn import Module
 from torch.nn import ModuleDict
-from torch.optim import Optimizer
 from cfdata.tabular import ColumnTypes
 from cftool.misc import register_core
 from cftool.misc import LoggingMixin
