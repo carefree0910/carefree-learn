@@ -852,22 +852,22 @@ class Trainer(MonitoredMixin):
         self._log_file: str = os.path.join(self.logging_folder, log_name)
         with open(self._log_file, "w"):
             pass
-        step_tqdm_legacy = None
+        step_tqdm = None
         self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
         while self.state.should_train:
             try:
                 self.state.epoch += 1
-                step_tqdm = iter(self.tr_loader)
+                step_iterator = self.tr_loader
                 if self.use_tqdm:
-                    step_tqdm_legacy = step_tqdm = tqdm(
-                        step_tqdm,
+                    step_tqdm = step_iterator = tqdm(
+                        step_iterator,
                         total=len(self.tr_loader),
                         position=1,
                         leave=False,
                     )
-                for batch, batch_indices in step_tqdm:
+                for batch, batch_indices in step_iterator:
                     self.state.step += 1
                     with amp_autocast_context(self.use_amp):
                         with timing_context(self, "model.forward", enable=self.timing):
@@ -930,8 +930,8 @@ class Trainer(MonitoredMixin):
                 self._epoch_tqdm.total = self.state.num_epoch
                 self._epoch_tqdm.update()
         if self.use_tqdm:
-            if step_tqdm_legacy is not None:
-                step_tqdm_legacy.close()
+            if step_tqdm is not None:
+                step_tqdm.close()
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
         rs = None
