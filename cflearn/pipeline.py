@@ -335,7 +335,7 @@ class Pipeline(LoggingMixin):
         box_height = 0.4
         half_box_width = 0.5 * box_width
         x_scale, y_scale = 6, 5
-        x_positions = [0, 0.75, 1.5]
+        x_positions = [0, 0.75, 1.5, 2.25]
         y_gap = box_height * 2.5
         x_min, x_max = x_positions[0], x_positions[-1]
         x_diff = x_max - x_min
@@ -354,7 +354,7 @@ class Pipeline(LoggingMixin):
         ax.spines["top"].set_visible(False)
         ax.spines["left"].set_visible(False)
         ax.spines["bottom"].set_visible(False)
-        colors = plt.cm.Paired([i / 3 for i in range(3)])
+        colors = plt.cm.Paired([i / 6 for i in range(4)])
 
         # rectangle
         delim = "-" * 16
@@ -384,6 +384,12 @@ class Pipeline(LoggingMixin):
             args = ax, x, y, box_width, box_height, color
             cx, cy = self._rectangle(*args, f"Head\n{delim}\n{head}")
             head_positions[(key, head)] = cx, cy
+        color = colors[3]
+        x, y = x_positions[3], 0.5 * y_max
+        args = ax, x, y, box_width, box_height, color
+        aggregator = self.environment.model_config["aggregator"]
+        cx, cy = self._rectangle(*args, f"Aggregator\n{delim}\n{aggregator}")
+        aggregator_position = cx, cy
 
         # arrows
         for key in sorted_keys:
@@ -395,6 +401,7 @@ class Pipeline(LoggingMixin):
             x3, y3 = head_positions[head_tuple]
             self._arrow(ax, x1, y1, x2, y2, half_box_width)
             self._arrow(ax, x2, y2, x3, y3, half_box_width)
+            self._arrow(ax, x3, y3, *aggregator_position, half_box_width)
 
         ax.set_xlim(x_min, x_max + box_width + 0.1)
         ax.set_ylim(0, y_max + box_height)
