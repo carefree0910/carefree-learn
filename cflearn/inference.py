@@ -348,7 +348,7 @@ class Inference(LoggingMixin):
     ) -> Union[np.ndarray, np_dict_type]:
 
         # Notice : when `return_all` is True,
-        # there might not be `predictions` key in the results
+        #  there might not be `predictions` key in the results
 
         kwargs = shallow_copy_dict(kwargs)
 

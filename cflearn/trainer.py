@@ -950,8 +950,8 @@ class Trainer(MonitoredMixin):
         self._log_metrics_msg(self.final_results)
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
-        # better checkpoints will be placed earlier
-        # which means `checkpoints[0]` is the best checkpoint
+        # better checkpoints will be placed earlier,
+        #  which means `checkpoints[0]` is the best checkpoint
         if not use_external_scores:
             scores = self.checkpoint_scores
         else:
