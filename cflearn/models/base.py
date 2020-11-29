@@ -333,10 +333,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
 
     @property
     def input_sample(self) -> tensor_dict_type:
-        x = self.tr_data.processed.x[:2]
-        y = self.tr_data.processed.y[:2]
-        x, y = map(to_torch, [x, y])
-        return {"x_batch": x, "y_batch": y}
+        batch = next(iter(self.tr_loader.copy()))
+        sample = batch[0] if self.tr_loader.return_indices else batch
+        x_batch, y_batch = map(to_torch, sample)
+        return {"x_batch": x_batch, "y_batch": y_batch}
 
     @property
     def output_probabilities(self) -> bool:
