@@ -454,7 +454,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> tensor_dict_type:
         results: Dict[str, Tensor] = {}
-        for key, (transform_key, executor_key, _) in self.pipes.items():
+        for key, (transform_key, extractor_key, _) in self.pipes.items():
             if key in self.bypassed_pipes:
                 continue
             # transform
@@ -466,16 +466,16 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             # extract
             if extract_kwargs_dict is None:
                 extract_kwargs_dict = {}
-            extracted = self._extractor_cache.get(executor_key)
+            extracted = self._extractor_cache.get(extractor_key)
             if extracted is None:
-                extractor = self.extractors[executor_key]
-                extract_kwargs = extract_kwargs_dict.get(executor_key, {})
+                extractor = self.extractors[extractor_key]
+                extract_kwargs = extract_kwargs_dict.get(extractor_key, {})
                 extracted = extractor(transformed, **extract_kwargs)
                 extracted_shape = extracted.shape
                 if extractor.flatten_ts:
                     if len(extracted_shape) == 3:
                         extracted = extracted.view(extracted_shape[0], -1)
-                self._extractor_cache[executor_key] = extracted
+                self._extractor_cache[extractor_key] = extracted
             # execute
             if head_kwargs_dict is None:
                 head_kwargs_dict = {}
