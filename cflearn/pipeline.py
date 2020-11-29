@@ -613,19 +613,12 @@ class Pipeline(LoggingMixin):
         return self
 
     @classmethod
-    def load(
-        cls,
-        export_folder: str,
-        *,
-        compress: bool = True,
-        verbose_level: int = 0,
-        cuda: Optional[Union[int, str]] = None,
-    ) -> "Pipeline":
+    def load(cls, export_folder: str, *, compress: bool = True) -> "Pipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 config = Saving.load_dict("config", export_folder)
-                config.update({"verbose_level": verbose_level, "cuda": cuda})
+                config.update({"verbose_level": 0})
                 pipeline = cls.make(config)
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 # sample weights
