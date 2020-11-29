@@ -295,6 +295,35 @@ class Pipeline(LoggingMixin):
             arrowprops=dict(arrowstyle="->", color="black"),
         )
 
+    @staticmethod
+    def _box_msg(key: Tuple[str, str, str, str], delim: str) -> str:
+        scope, meta, config = key[1:]
+        if meta is None:
+            scope_str = ""
+            extractor_str = f"{scope}_{config}"
+        else:
+            scope_str = f"\n{scope}"
+            extractor_str = f"{meta}_{config}"
+        return f"Extractor\n{delim}\n{extractor_str}{scope_str}"
+
+    @staticmethod
+    def _rectangles(
+        ax: Any,
+        color: Any,
+        x: float,
+        y_max: float,
+        box_width: float,
+        box_height: float,
+        delim: str,
+        keys: List[Tuple[str, str, str, str]],
+        positions: Dict[Tuple[str, str, str, str], Tuple[float, float]],
+    ) -> None:
+        for i, key in enumerate(keys):
+            y = (i + 0.5) * (y_max / len(keys))
+            args = ax, x, y, box_width, box_height, color
+            cx, cy = Pipeline._rectangle(*args, Pipeline._box_msg(key, delim))
+            positions[key] = cx, cy
+
     # api
 
     def draw(
@@ -314,8 +343,10 @@ class Pipeline(LoggingMixin):
             pipe_cfg = pipes[key]
             transforms_mapping[key] = pipe_cfg.transform
             extractor_key: Tuple[str, ...] = (
+                pipe_cfg.transform,
                 pipe_cfg.extractor,
-                pipe_cfg.extractor_config_key,
+                pipe_cfg.extractor_meta_scope,
+                pipe_cfg.extractor_config,
             )
             if not pipe_cfg.reuse_extractor:
                 cursor = 0
@@ -325,8 +356,12 @@ class Pipeline(LoggingMixin):
                     new_extractor_key = extractor_key + (str(cursor),)
                 extractor_key = new_extractor_key
             extractors_mapping[key] = extractor_key
-            head_key = pipe_cfg.head_config_key
-            heads_mapping[key] = key, head_key
+            heads_mapping[key] = (
+                key,
+                pipe_cfg.head,
+                pipe_cfg.head_meta_scope,
+                pipe_cfg.head_config,
+            )
         unique_transforms = sorted(set(transforms_mapping.values()))
         unique_extractors = sorted(set(extractors_mapping.values()))
         all_heads = sorted(heads_mapping.values())
@@ -370,20 +405,30 @@ class Pipeline(LoggingMixin):
             transform_positions[transform] = cx, cy
         color = colors[1]
         x = x_positions[1]
-        for i, extractor in enumerate(unique_extractors):
-            y = (i + 0.5) * (y_max / len(unique_extractors))
-            extractor_str = extractor[1]
-            extractor_str = "_".join(extractor_str.split("_")[-2:])
-            args = ax, x, y, box_width, box_height, color
-            cx, cy = self._rectangle(*args, f"Extractor\n{delim}\n{extractor_str}")
-            extractor_positions[extractor] = cx, cy
+        self._rectangles(
+            ax,
+            color,
+            x,
+            y_max,
+            box_width,
+            box_height,
+            delim,
+            unique_extractors,
+            extractor_positions,
+        )
         color = colors[2]
         x = x_positions[2]
-        for i, (key, head) in enumerate(all_heads):
-            y = (i + 0.5) * (y_max / len(all_heads))
-            args = ax, x, y, box_width, box_height, color
-            cx, cy = self._rectangle(*args, f"Head\n{delim}\n{head}")
-            head_positions[(key, head)] = cx, cy
+        self._rectangles(
+            ax,
+            color,
+            x,
+            y_max,
+            box_width,
+            box_height,
+            delim,
+            all_heads,
+            head_positions,
+        )
         color = colors[3]
         x, y = x_positions[3], 0.5 * y_max
         args = ax, x, y, box_width, box_height, color
