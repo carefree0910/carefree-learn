@@ -35,6 +35,9 @@ from .models.base import model_dict
 from .models.base import ModelBase
 
 
+key_type = Tuple[Union[str, Optional[str]], ...]
+
+
 class Pipeline(LoggingMixin):
     def __init__(self, environment: Environment):
         # typing
@@ -296,7 +299,7 @@ class Pipeline(LoggingMixin):
         )
 
     @staticmethod
-    def _box_msg(key: Tuple[str, str, str, str], delim: str) -> str:
+    def _box_msg(key: key_type, delim: str) -> str:
         scope, meta, config = key[1:]
         if meta is None:
             scope_str = ""
@@ -315,8 +318,8 @@ class Pipeline(LoggingMixin):
         box_width: float,
         box_height: float,
         delim: str,
-        keys: List[Tuple[str, str, str, str]],
-        positions: Dict[Tuple[str, str, str, str], Tuple[float, float]],
+        keys: List[key_type],
+        positions: Dict[key_type, Tuple[float, float]],
     ) -> None:
         for i, key in enumerate(keys):
             y = (i + 0.5) * (y_max / len(keys))
@@ -336,13 +339,13 @@ class Pipeline(LoggingMixin):
         if pipes is None:
             raise ValueError("pipes have not yet been registered")
         transforms_mapping: Dict[str, str] = {}
-        extractors_mapping: Dict[str, Tuple[str, ...]] = {}
-        heads_mapping: Dict[str, Tuple[str, str]] = {}
+        extractors_mapping: Dict[str, key_type] = {}
+        heads_mapping: Dict[str, key_type] = {}
         sorted_keys = sorted(pipes)
         for key in sorted_keys:
             pipe_cfg = pipes[key]
             transforms_mapping[key] = pipe_cfg.transform
-            extractor_key: Tuple[str, ...] = (
+            extractor_key: key_type = (
                 pipe_cfg.transform,
                 pipe_cfg.extractor,
                 pipe_cfg.extractor_meta_scope,
@@ -350,7 +353,7 @@ class Pipeline(LoggingMixin):
             )
             if not pipe_cfg.reuse_extractor:
                 cursor = 0
-                new_extractor_key: Tuple[str, ...] = extractor_key
+                new_extractor_key: key_type = extractor_key
                 while new_extractor_key in extractors_mapping.values():
                     cursor += 1
                     new_extractor_key = extractor_key + (str(cursor),)
@@ -396,8 +399,8 @@ class Pipeline(LoggingMixin):
         color = colors[0]
         x = x_positions[0]
         transform_positions = {}
-        extractor_positions = {}
-        head_positions = {}
+        extractor_positions: Dict[key_type, Tuple[float, float]] = {}
+        head_positions: Dict[key_type, Tuple[float, float]] = {}
         for i, transform in enumerate(unique_transforms):
             y = (i + 0.5) * (y_max / len(unique_transforms))
             args = ax, x, y, box_width, box_height, color
