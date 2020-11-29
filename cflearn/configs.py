@@ -84,6 +84,8 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 
 class Elements(NamedTuple):
     model: str = "fcnn"
+    aggregator: str = "sum"
+    aggregator_config: Optional[Dict[str, Any]] = None
     data_protocol: str = "tabular"
     loader_protocol: str = "tabular"
     sampler_protocol: str = "tabular"
@@ -218,6 +220,8 @@ class Elements(NamedTuple):
         trainer_config["clip_norm"] = kwargs.pop("clip_norm")
         # model
         model_config = self.model_config or {}
+        model_config["aggregator"] = kwargs.pop("aggregator")
+        model_config["aggregator_config"] = kwargs.pop("aggregator_config") or {}
         model_config["ema_decay"] = kwargs.pop("ema_decay")
         model_config["loss"] = kwargs.pop("loss")
         model_config["loss_config"] = kwargs.pop("loss_config") or {}

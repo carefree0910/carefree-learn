@@ -32,6 +32,7 @@ from ..modules.transform import Transform
 from ..modules.transform import Dimensions
 from ..modules.transform import SplitFeatures
 from ..modules.extractors import ExtractorBase
+from ..modules.aggregators import AggregatorBase
 
 model_dict: Dict[str, Type["ModelBase"]] = {}
 
@@ -201,6 +202,9 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
                     extractor_config,
                     head_config,
                 )
+        aggregator = self.config["aggregator"]
+        aggregator_config = self.config["aggregator_config"]
+        self.aggregator = AggregatorBase.make(aggregator, **aggregator_config)
         # caches
         self._transform_cache: Dict[str, Tensor] = {}
         self._extractor_cache: Dict[str, Tensor] = {}
@@ -350,23 +354,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         )
         self.loss_config["input_logits"] = not self.output_probabilities
 
-    def merge_outputs(
-        self,
-        outputs: tensor_dict_type,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        # requires returning `predictions` key
-        values = list(outputs.values())
-        output = None
-        for value in values:
-            if value is None:
-                continue
-            if output is None:
-                output = value
-            else:
-                output = output + value
-        return {"predictions": output}
-
     def forward(
         self,
         batch: tensor_dict_type,
@@ -379,7 +366,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
         outputs = self.execute(split)
-        return self.merge_outputs(outputs, **kwargs)
+        return self.aggregator.reduce(outputs, **kwargs)
 
     def loss_function(
         self,
