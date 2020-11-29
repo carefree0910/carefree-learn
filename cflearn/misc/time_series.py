@@ -2,7 +2,8 @@ import numpy as np
 
 from typing import *
 from cftool.ml import EnsemblePattern
-from cfdata.tabular import TabularData
+
+from ..protocol import DataProtocol
 
 
 class TSLabelCollator:
@@ -10,7 +11,7 @@ class TSLabelCollator:
 
     def __init__(
         self,
-        data: TabularData,
+        data: DataProtocol,
         config: Optional[Dict[str, Any]] = None,
     ):
         self.data = data
