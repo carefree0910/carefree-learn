@@ -76,6 +76,11 @@ class PipeConfig(NamedTuple):
         return f"{self.transform}_{prefix}_{self.extractor_config}"
 
     @property
+    def extractor_unique_key(self) -> str:
+        prefix = f"{self.extractor_meta_scope}_{self.extractor}"
+        return f"{self.transform}_{prefix}_{self.extractor_config}"
+
+    @property
     def head_config_key(self) -> str:
         if self.head_meta_scope is None:
             prefix = self.head
@@ -262,16 +267,17 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             transform = Transform(self.dimensions, **transform_cfg.pop())
         # extractor
         extractor_cfg_key = pipe_config.extractor_config_key
-        extractor_exists = extractor_cfg_key in self.extractors
+        extractor_unique_key = pipe_config.extractor_unique_key
+        extractor_exists = extractor_unique_key in self.extractors
         if pipe_config.reuse_extractor and extractor_exists:
             extractor = self.extractors[extractor_cfg_key]
         else:
             if extractor_exists:
                 new_index = 1
-                new_extractor_cfg_key = extractor_cfg_key
-                while new_extractor_cfg_key in self.extractors:
-                    new_extractor_cfg_key = f"{extractor_cfg_key}_{new_index}"
-                extractor_cfg_key = new_extractor_cfg_key
+                new_extractor_unique_key = extractor_unique_key
+                while new_extractor_unique_key in self.extractors:
+                    new_extractor_unique_key = f"{extractor_cfg_key}_{new_index}"
+                extractor_unique_key = new_extractor_unique_key
             if extractor_cfg_key in self._extractor_configs:
                 extractor_config = self._extractor_configs[extractor_cfg_key]
             else:
@@ -314,10 +320,10 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         head_cfg.inject_dimensions(head_config)
         head = HeadBase.make(pipe_config.head, head_config)
         # gather
-        self.pipes[key] = transform_key, extractor_cfg_key, head_cfg_key
+        self.pipes[key] = transform_key, extractor_unique_key, head_cfg_key
         if not transform_exists:
             self.transforms[transform_key] = transform
-        self.extractors[extractor_cfg_key] = extractor
+        self.extractors[extractor_unique_key] = extractor
         self.heads[key] = head
         # bypass
         if transform.out_dim == 0 or extractor.out_dim == 0:
