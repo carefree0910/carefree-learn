@@ -47,7 +47,7 @@ class PrefetchLoader:
         self.is_onnx = is_onnx
         self.data = loader.data
         self.return_indices = loader.return_indices
-        self.stream = None if self.is_cpu else torch.cuda.Stream()
+        self.stream = None if self.is_cpu else torch.cuda.Stream(device)
         self.next_batch: Union[np_dict_type, tensor_dict_type]
         self.next_batch_indices: Optional[torch.Tensor]
         self.stop_at_next_batch = False
@@ -67,7 +67,7 @@ class PrefetchLoader:
         if self.stop_at_next_batch:
             raise StopIteration
         if not self.is_cpu:
-            torch.cuda.current_stream().wait_stream(self.stream)
+            torch.cuda.current_stream(self.device).wait_stream(self.stream)
         batch, batch_indices = self.next_batch, self.next_batch_indices
         self.preload()
         return batch, batch_indices
