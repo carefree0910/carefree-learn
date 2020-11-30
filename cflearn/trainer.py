@@ -486,7 +486,7 @@ class Trainer(MonitoredMixin):
             experiment_id = experiment.experiment_id
         else:
             experiment_id = self.mlflow_client.create_experiment(task_name)
-        run_tags: Optional[Dict[str, Any]] = mlflow_config.setdefault("run_tags", {})
+        run_tags: Dict[str, Any] = mlflow_config.setdefault("run_tags", {})
         run_tags.setdefault(MLFLOW_USER, getpass.getuser())
         run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
         self.run_id = run.info.run_id
