@@ -376,7 +376,7 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     def loss_function(
         self,
         batch: tensor_dict_type,
-        batch_indices: np.ndarray,
+        batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
         batch_step: int,
     ) -> tensor_dict_type:
