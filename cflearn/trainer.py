@@ -4,6 +4,7 @@ import math
 import torch
 import mlflow
 import optuna
+import getpass
 import inspect
 import logging
 
@@ -25,6 +26,7 @@ from cftool.misc import timing_context
 from cftool.misc import Saving
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
+from mlflow.utils.mlflow_tags import MLFLOW_USER
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -464,8 +466,9 @@ class Trainer(MonitoredMixin):
         mlflow_config = environment.mlflow_config
         if mlflow_config is None:
             return None
-        default_task = f"{self.model.__identifier__}({self.model.tr_data.task_type})"
-        task_name = mlflow_config.setdefault("task_name", default_task)
+        model = self.model.__identifier__
+        task_type = self.model.tr_data.task_type.value
+        task_name = mlflow_config.setdefault("task_name", f"{model}({task_type})")
         default_tracking_folder = os.path.join(
             os.path.expanduser("~"),
             ".carefree-learn",
@@ -475,6 +478,7 @@ class Trainer(MonitoredMixin):
             "tracking_folder",
             default_tracking_folder,
         )
+        os.makedirs(tracking_folder, exist_ok=True)
         tracking_uri = f"file:///{os.path.abspath(tracking_folder)}"
         self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
         experiment = self.mlflow_client.get_experiment_by_name(task_name)
@@ -482,7 +486,8 @@ class Trainer(MonitoredMixin):
             experiment_id = experiment.experiment_id
         else:
             experiment_id = self.mlflow_client.create_experiment(task_name)
-        run_tags: Optional[Dict[str, Any]] = mlflow_config.setdefault("run_tags", None)
+        run_tags: Optional[Dict[str, Any]] = mlflow_config.setdefault("run_tags", {})
+        run_tags.setdefault(MLFLOW_USER, getpass.getuser())
         run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
         self.run_id = run.info.run_id
 
