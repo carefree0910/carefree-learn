@@ -125,7 +125,7 @@ class Elements(NamedTuple):
     use_tqdm: bool = True
     trigger_logging: bool = False
     cuda: Optional[Union[int, str]] = None
-    tracker_config: Optional[Dict[str, Any]] = None
+    mlflow_config: Optional[Dict[str, Any]] = None
     extra_config: Optional[Dict[str, Any]] = None
     user_defined_config: Optional[Dict[str, Any]] = None
 
@@ -341,7 +341,7 @@ class Elements(NamedTuple):
         kwargs.setdefault("trial", None)
         kwargs.setdefault("use_tqdm", True)
         kwargs.setdefault("verbose_level", 2)
-        kwargs.setdefault("tracker_config", None)
+        kwargs.setdefault("mlflow_config", None)
         kwargs.setdefault("trigger_logging", False)
         kwargs.setdefault("use_timing_context", True)
         # convert to `Elements`

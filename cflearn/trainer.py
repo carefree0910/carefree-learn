@@ -2,6 +2,7 @@ import os
 import json
 import math
 import torch
+import mlflow
 import optuna
 import inspect
 import logging
@@ -15,7 +16,6 @@ from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from cftool.ml import Metrics
-from cftool.ml import Tracker
 from cftool.ml import ScalarEMA
 from cftool.misc import timestamp
 from cftool.misc import update_dict
@@ -435,10 +435,7 @@ class Trainer(MonitoredMixin):
         self.environment = environment
         self.trial = environment.trial
         self.device = environment.device
-        if environment.tracker_config is None:
-            self.tracker = None
-        else:
-            self.tracker = Tracker(**environment.tracker_config)
+        self._init_mlflow(environment)
         self.checkpoint_scores: Dict[str, float] = {}
         self.tr_loader_copy: Optional[PrefetchLoader] = None
         self.final_results: Optional[IntermediateResults] = None
@@ -458,6 +455,50 @@ class Trainer(MonitoredMixin):
         if value is not None:
             return value
         return self.environment.config[item]
+
+    # mlflow
+
+    def _init_mlflow(self, environment: Environment) -> None:
+        self.run_id: Optional[str] = None
+        self.mlflow_client: Optional[mlflow.tracking.MlflowClient] = None
+        mlflow_config = environment.mlflow_config
+        if mlflow_config is None:
+            return None
+        default_task = f"{self.model.__identifier__}({self.model.tr_data.task_type})"
+        task_name = mlflow_config.setdefault("task_name", default_task)
+        default_tracking_folder = os.path.join(
+            os.path.expanduser("~"),
+            ".carefree-learn",
+            "mlruns",
+        )
+        tracking_folder = mlflow_config.setdefault(
+            "tracking_folder",
+            default_tracking_folder,
+        )
+        tracking_uri = f"file:///{os.path.abspath(tracking_folder)}"
+        self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
+        experiment = self.mlflow_client.get_experiment_by_name(task_name)
+        if experiment is not None:
+            experiment_id = experiment.experiment_id
+        else:
+            experiment_id = self.mlflow_client.create_experiment(task_name)
+        run_tags: Optional[Dict[str, Any]] = mlflow_config.setdefault("run_tags", None)
+        run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
+        self.run_id = run.info.run_id
+
+    def _log_metrics(self, metrics: Dict[str, float]) -> None:
+        if self.mlflow_client is None:
+            return None
+        assert self.run_id is not None
+        for key, value in metrics.items():
+            self.mlflow_client.log_metric(self.run_id, key, value, step=self.state.step)
+
+    def _end_run(self) -> None:
+        if self.mlflow_client is None:
+            return None
+        self.mlflow_client.set_terminated(self.run_id)
+
+    # init
 
     def _define_optimizer(
         self,
@@ -797,10 +838,7 @@ class Trainer(MonitoredMixin):
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
-        if self.tracker is not None:
-            for name, value in metrics_for_scoring.items():
-                if self.tracker is not None:
-                    self.tracker.track_scalar(name, value, iteration=self.state.step)
+        self._log_metrics(metrics_for_scoring)
         weighted_scores = {
             k: v * signs[k] * self.metrics_weights[k]
             for k, v in metrics_for_scoring.items()
@@ -890,15 +928,8 @@ class Trainer(MonitoredMixin):
                                 forward_results,
                                 self.state.step,
                             )
-                    if self.tracker is not None:
-                        for name, tensor in loss_dict.items():
-                            value = tensor.item()
-                            if self.tracker is not None:
-                                self.tracker.track_scalar(
-                                    f"tr_{name}",
-                                    value,
-                                    iteration=self.state.step,
-                                )
+                    loss_items = {f"tr_{k}": v.item() for k, v in loss_dict.items()}
+                    self._log_metrics(loss_items)
                     with timing_context(self, "loss.backward", enable=self.timing):
                         loss = loss_dict["loss"]
                         if self.use_amp:
@@ -948,6 +979,7 @@ class Trainer(MonitoredMixin):
         self.state.epoch = self.state.step = -1
         self.final_results = self._get_metrics(rs)
         self._log_metrics_msg(self.final_results)
+        self._end_run()
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
         # better checkpoints will be placed earlier,

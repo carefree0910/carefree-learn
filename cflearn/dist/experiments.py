@@ -54,7 +54,7 @@ class Experiments(LoggingMixin):
         *,
         model: str = "fcnn",
         identifier: Optional[str] = None,
-        tracker_config: Optional[Dict[str, Any]] = None,
+        mlflow_config: Optional[Dict[str, Any]] = None,
         data_task: Optional[Task] = None,
         **kwargs: Any,
     ) -> "Experiments":
@@ -68,7 +68,7 @@ class Experiments(LoggingMixin):
         kwargs = shallow_copy_dict(kwargs)
         kwargs.setdefault("use_tqdm", False)
         kwargs.setdefault("verbose_level", 0)
-        kwargs["tracker_config"] = tracker_config
+        kwargs["mlflow_config"] = mlflow_config
         current_tasks = self.tasks.setdefault(identifier, [])
         new_task = Task(len(current_tasks), model, identifier, self.temp_folder)
         new_task.prepare(

@@ -53,17 +53,16 @@ def test() -> None:
         data_task.dump_data(x[n_cv:], y[n_cv:])
         data_task.dump_data(x[:n_cv], y[:n_cv], "_cv")
         if not CI:
-            tracker_config = None
+            mlflow_config = None
         else:
-            tracker_config = {
+            mlflow_config = {
                 "project_name": "carefree-learn",
                 "task_name": task_name,
-                "overwrite": True,
             }
         experiments.add_task(
             model="ddr",
             identifier=task_name,
-            tracker_config=tracker_config,
+            mlflow_config=mlflow_config,
             data_task=data_task,
             **local_config,
         )

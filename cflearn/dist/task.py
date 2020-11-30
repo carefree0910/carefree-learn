@@ -46,14 +46,14 @@ class Task:
         *,
         external: bool,
         data_task: Optional["Task"] = None,
-        tracker_config: Optional[Dict[str, Any]] = None,
+        mlflow_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> "Task":
         kwargs = shallow_copy_dict(kwargs)
         kwargs["model"] = self.model
         kwargs["logging_folder"] = self.saving_folder
-        if tracker_config is not None:
-            kwargs["tracker_config"] = tracker_config
+        if mlflow_config is not None:
+            kwargs["mlflow_config"] = mlflow_config
         if external:
             kwargs["trigger_logging"] = True
             if data_task is not None:
