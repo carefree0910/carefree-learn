@@ -510,7 +510,6 @@ class Trainer(MonitoredMixin):
     def _log_metrics(self, metrics: Dict[str, float]) -> None:
         if self.mlflow_client is None:
             return None
-        assert self.run_id is not None
         for key, value in metrics.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=self.state.step)
 
