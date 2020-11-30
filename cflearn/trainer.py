@@ -27,6 +27,7 @@ from cftool.misc import Saving
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
 from mlflow.utils.mlflow_tags import MLFLOW_USER
+from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -488,6 +489,9 @@ class Trainer(MonitoredMixin):
             experiment_id = self.mlflow_client.create_experiment(task_name)
         run_tags: Dict[str, Any] = mlflow_config.setdefault("run_tags", {})
         run_tags.setdefault(MLFLOW_USER, getpass.getuser())
+        run_name = mlflow_config.setdefault("run_name", None)
+        if run_name is not None:
+            run_tags.setdefault(MLFLOW_RUN_NAME, run_name)
         run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
         self.run_id = run.info.run_id
 
