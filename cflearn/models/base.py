@@ -269,13 +269,13 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
         extractor_unique_key = pipe_config.extractor_unique_key
         extractor_exists = extractor_unique_key in self.extractors
         if pipe_config.reuse_extractor and extractor_exists:
-            extractor = self.extractors[extractor_cfg_key]
+            extractor = self.extractors[extractor_unique_key]
         else:
             if extractor_exists:
                 new_index = 1
                 new_extractor_unique_key = extractor_unique_key
                 while new_extractor_unique_key in self.extractors:
-                    new_extractor_unique_key = f"{extractor_cfg_key}_{new_index}"
+                    new_extractor_unique_key = f"{extractor_unique_key}_{new_index}"
                 extractor_unique_key = new_extractor_unique_key
             if extractor_cfg_key in self._extractor_configs:
                 extractor_config = self._extractor_configs[extractor_cfg_key]
