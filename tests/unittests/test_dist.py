@@ -28,7 +28,10 @@ class TestDist(unittest.TestCase):
         loaded = cflearn.Experiments.load(saving_folder)
         ms_loaded = cflearn.transform_experiments(loaded)
         self.assertTrue(
-            np.allclose(ms["fcnn"][1].predict(x), ms_loaded["fcnn"][1].predict(x))
+            np.allclose(
+                ms["fcnn"][1].predict(x),
+                ms_loaded["fcnn"][1].predict(x),
+            )
         )
         cflearn._rmtree(logging_folder)
 

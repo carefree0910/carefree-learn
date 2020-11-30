@@ -22,7 +22,7 @@ class TestTraditional(unittest.TestCase):
         dataset: TabularDataset,
         sklearn_model: Any,
     ) -> Tuple[Pipeline, Any, np.ndarray]:
-        folder = f"_logging/{model}_{timestamp(ensure_different=True)}"
+        folder = f"_logs/{model}_{timestamp(ensure_different=True)}"
         kwargs = {"cv_split": 0.0, "logging_folder": folder}
         m = cflearn.make(model, num_epoch=1, max_epoch=2, **kwargs)  # type: ignore
         m0 = cflearn.make(model, num_epoch=0, max_epoch=0, **kwargs)  # type: ignore
@@ -55,26 +55,33 @@ class TestTraditional(unittest.TestCase):
         self.assertTrue(np.allclose(normal.mu.data.cpu().numpy(), gnb.theta_))
         self.assertTrue(np.allclose(normal.std.data.cpu().numpy() ** 2, gnb.sigma_))
         self.assertTrue(np.allclose(nnb0.predict_prob(dataset.x), gnb.predict_proba(x)))
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_nnb_mnb(self) -> None:
         mnb = MultinomialNB()
         dataset = TabularDataset.digits()
         nnb, nnb0, x = self._train_traditional("nnb", dataset, mnb)
         self.assertTrue(
-            np.allclose(nnb0.model.class_log_prior(numpy=True), mnb.class_log_prior_)
+            np.allclose(
+                nnb0.model.class_log_prior(numpy=True),
+                mnb.class_log_prior_,
+            )
         )
         self.assertTrue(
-            np.allclose(nnb0.predict_prob(dataset.x), mnb.predict_proba(x), atol=1e-4)
+            np.allclose(
+                nnb0.predict_prob(dataset.x),
+                mnb.predict_proba(x),
+                atol=1e-4,
+            )
         )
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_ndt(self) -> None:
         dt = DecisionTreeClassifier()
         self._train_traditional("ndt", TabularDataset.iris(), dt)
         self._train_traditional("ndt", TabularDataset.digits(), dt)
         self._train_traditional("ndt", TabularDataset.breast_cancer(), dt)
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
 
 if __name__ == "__main__":

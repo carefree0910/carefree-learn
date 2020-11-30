@@ -12,15 +12,19 @@ class TestToy(unittest.TestCase):
     def test_linear_toy(self) -> None:
         cflearn.make_toy_model("linear", task_type="clf", data_tuple=(x_mix, y_clf))
         cflearn.make_toy_model(
-            "linear", task_type="clf", data_tuple=(x_numerical, y_clf)
+            "linear",
+            task_type="clf",
+            data_tuple=(x_numerical, y_clf),
         )
         cflearn.make_toy_model(
-            "linear", task_type="clf", data_tuple=(x_categorical, y_clf)
+            "linear",
+            task_type="clf",
+            data_tuple=(x_categorical, y_clf),
         )
         cflearn.make_toy_model("linear", data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model("linear", data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model("linear", data_tuple=(x_categorical, y_reg))
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_fcnn_toy(self) -> None:
         cflearn.make_toy_model(task_type="clf", data_tuple=(x_mix, y_clf))
@@ -29,36 +33,44 @@ class TestToy(unittest.TestCase):
         cflearn.make_toy_model(data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model(data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model(data_tuple=(x_categorical, y_reg))
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_nnb_toy(self) -> None:
         cflearn.make_toy_model("nnb", task_type="clf", data_tuple=(x_mix, y_clf))
         cflearn.make_toy_model("nnb", task_type="clf", data_tuple=(x_numerical, y_clf))
         cflearn.make_toy_model(
-            "nnb", task_type="clf", data_tuple=(x_categorical, y_clf)
+            "nnb",
+            task_type="clf",
+            data_tuple=(x_categorical, y_clf),
         )
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_ndt_toy(self) -> None:
         cflearn.make_toy_model("ndt", task_type="clf", data_tuple=(x_mix, y_clf))
         cflearn.make_toy_model("ndt", task_type="clf", data_tuple=(x_numerical, y_clf))
         cflearn.make_toy_model(
-            "ndt", task_type="clf", data_tuple=(x_categorical, y_clf)
+            "ndt",
+            task_type="clf",
+            data_tuple=(x_categorical, y_clf),
         )
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_tree_dnn_toy(self) -> None:
         cflearn.make_toy_model("tree_dnn", task_type="clf", data_tuple=(x_mix, y_clf))
         cflearn.make_toy_model(
-            "tree_dnn", task_type="clf", data_tuple=(x_numerical, y_clf)
+            "tree_dnn",
+            task_type="clf",
+            data_tuple=(x_numerical, y_clf),
         )
         cflearn.make_toy_model(
-            "tree_dnn", task_type="clf", data_tuple=(x_categorical, y_clf)
+            "tree_dnn",
+            task_type="clf",
+            data_tuple=(x_categorical, y_clf),
         )
         cflearn.make_toy_model("tree_dnn", data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model("tree_dnn", data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model("tree_dnn", data_tuple=(x_categorical, y_reg))
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
     def test_ddr_toy(self) -> None:
         cflearn.make_toy_model("ddr", data_tuple=(x_mix, y_reg))
@@ -72,7 +84,7 @@ class TestToy(unittest.TestCase):
         cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_mix, y_reg))
         cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_numerical, y_reg))
         cflearn.make_toy_model("ddr", config=cfg, data_tuple=(x_categorical, y_reg))
-        cflearn._rmtree("_logging")
+        cflearn._rmtree("_logs")
 
 
 if __name__ == "__main__":
