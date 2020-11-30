@@ -7,3 +7,4 @@ from .data import PrefetchLoader
 from .modules.heads import HeadBase
 from .modules.heads import HeadConfigs
 from .modules.extractors import ExtractorBase
+from .modules.aggregators import AggregatorBase

@@ -43,9 +43,10 @@ __all__ = [
     "Ensemble",
     "EnsembleResults",
     # register
-    "register_pipe",
-    "register_head",
     "register_extractor",
+    "register_head",
+    "register_aggregator",
+    "register_pipe",
     "register_model",
     "register_config",
     "register_head_config",

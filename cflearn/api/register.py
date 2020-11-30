@@ -11,6 +11,7 @@ from ..models.base import ModelBase
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
 from ..modules.extractors import ExtractorBase
+from ..modules.aggregators import AggregatorBase
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -35,6 +36,10 @@ def register_extractor(name: str) -> Callable[[Type], Type]:
 
 def register_head(name: str) -> Callable[[Type], Type]:
     return HeadBase.register(name)
+
+
+def register_aggregator(name: str) -> Callable[[Type], Type]:
+    return AggregatorBase.register(name)
 
 
 class PipeInfo(NamedTuple):
@@ -136,9 +141,10 @@ def register_head_config(
 
 
 __all__ = [
-    "register_pipe",
-    "register_head",
     "register_extractor",
+    "register_head",
+    "register_aggregator",
+    "register_pipe",
     "register_model",
     "register_config",
     "register_head_config",
