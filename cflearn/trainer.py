@@ -496,6 +496,7 @@ class Trainer(MonitoredMixin):
     def _end_run(self) -> None:
         if self.mlflow_client is None:
             return None
+        self.mlflow_client.log_artifacts(self.run_id, self.logging_folder)
         self.mlflow_client.set_terminated(self.run_id)
 
     # init

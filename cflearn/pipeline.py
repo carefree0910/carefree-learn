@@ -58,6 +58,7 @@ class Pipeline(LoggingMixin):
         self.data_config["use_timing_context"] = self.timing
         self.data_config["default_categorical_process"] = "identical"
         self.sampler_config = self.config.setdefault("sampler_config", {})
+        Saving.prepare_folder(self, self.logging_folder)
         self._init_logging(environment.verbose_level, environment.trigger_logging)
 
     def __getattr__(self, item: str) -> Any:
