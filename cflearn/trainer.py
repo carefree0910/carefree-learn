@@ -486,6 +486,22 @@ class Trainer(MonitoredMixin):
         run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
         self.run_id = run.info.run_id
 
+    def _prepare_log(self) -> None:
+        tuple(
+            map(
+                lambda folder: os.makedirs(folder, exist_ok=True),
+                [self.logging_folder, self.checkpoint_folder],
+            )
+        )
+        log_name = f"{timestamp()}.txt"
+        self._log_file: str = os.path.join(self.logging_folder, log_name)
+        with open(self._log_file, "w"):
+            pass
+        if self.mlflow_client is None:
+            return None
+        for key, value in self.environment.config.items():
+            self.mlflow_client.log_param(self.run_id, key, value)
+
     def _log_metrics(self, metrics: Dict[str, float]) -> None:
         if self.mlflow_client is None:
             return None
@@ -886,21 +902,12 @@ class Trainer(MonitoredMixin):
         self._monitor = TrainMonitor.monitor(self)
         # train
         self.model.info()
-        terminate = False
-        tuple(
-            map(
-                lambda n: os.makedirs(n, exist_ok=True),
-                [self.logging_folder, self.checkpoint_folder],
-            )
-        )
-        log_name = f"{timestamp()}.txt"
-        self._log_file: str = os.path.join(self.logging_folder, log_name)
-        with open(self._log_file, "w"):
-            pass
+        self._prepare_log()
         step_tqdm = None
         self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
+        terminate = False
         while self.state.should_train:
             try:
                 self.state.epoch += 1
