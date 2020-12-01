@@ -160,7 +160,8 @@ class Task:
 
     @classmethod
     def data_task(cls, i: int, identifier: str, experiments: Any) -> "Task":
-        return cls(i, "data", identifier, experiments.temp_folder)
+        data_folder = os.path.join(experiments.temp_folder, "__data__")
+        return cls(i, "data", identifier, data_folder)
 
 
 __all__ = ["Task"]
