@@ -241,12 +241,17 @@ class PackModel(PythonModel):
         context: PythonModelContext,
         model_input: Any,
     ) -> np.ndarray:
-        data = model_input.values
-        config = shallow_copy_dict(context.artifacts)
-        key = config.pop("predict_key", "predictions")
-        config.setdefault("contains_labels", False)
-        outputs = self.predictor.predict(data, **config)
-        return outputs[key]
+        """
+        model_inputs should be a pd.DataFrame which looks like:
+
+        |    file    |   other keys   |
+        |  "xxx.csv" |  other values  |
+
+        """
+        columns = model_input.columns
+        data = model_input.values.ravel()
+        kwargs = dict(zip(columns[1:], data[1:]))
+        return self.predictor.predict(data[0], **kwargs)
 
 
 __all__ = ["Pack", "PackModel"]
