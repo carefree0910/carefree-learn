@@ -254,8 +254,15 @@ class Pipeline(LoggingMixin):
             self.tr_weights,
             self.cv_weights,
         )
-        # logging
         self.log_timing()
+        # finalize mlflow
+        run_id = self.trainer.run_id
+        mlflow_client = self.trainer.mlflow_client
+        if mlflow_client is not None:
+            if self.environment.log_pipeline_to_artifacts:
+                self.save(os.path.join(self.logging_folder, "pipeline"))
+            mlflow_client.log_artifacts(run_id, self.logging_folder)
+            mlflow_client.set_terminated(run_id)
 
     @staticmethod
     def _rectangle(

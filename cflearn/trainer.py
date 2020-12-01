@@ -509,12 +509,6 @@ class Trainer(MonitoredMixin):
         for key, value in metrics.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=self.state.step)
 
-    def _end_run(self) -> None:
-        if self.mlflow_client is None:
-            return None
-        self.mlflow_client.log_artifacts(self.run_id, self.logging_folder)
-        self.mlflow_client.set_terminated(self.run_id)
-
     # init
 
     def _define_optimizer(
@@ -990,7 +984,6 @@ class Trainer(MonitoredMixin):
         self._log_metrics_msg(self.final_results)
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)
-        self._end_run()
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
         # better checkpoints will be placed earlier,
