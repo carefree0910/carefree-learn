@@ -435,6 +435,7 @@ class Trainer(MonitoredMixin):
         self.model = model
         self.inference = inference
         self.environment = environment
+        self.is_loading = is_loading
         self.trial = environment.trial
         self.device = environment.device
         self._init_mlflow(environment)
@@ -463,7 +464,7 @@ class Trainer(MonitoredMixin):
         self.run_id: Optional[str] = None
         self.mlflow_client: Optional[mlflow.tracking.MlflowClient] = None
         mlflow_config = environment.mlflow_config
-        if mlflow_config is None:
+        if mlflow_config is None or self.is_loading:
             return None
         model = self.model.__identifier__
         task_type = self.model.tr_data.task_type.value
