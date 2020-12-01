@@ -86,6 +86,7 @@ class Elements(NamedTuple):
     model: str = "fcnn"
     aggregator: str = "sum"
     aggregator_config: Optional[Dict[str, Any]] = None
+    production: str = "pack"
     data_protocol: str = "tabular"
     loader_protocol: str = "tabular"
     sampler_protocol: str = "tabular"
