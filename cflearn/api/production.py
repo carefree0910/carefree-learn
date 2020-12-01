@@ -273,7 +273,7 @@ class PackModel(PythonModelBase):
 
 @PythonModelBase.register("pipeline")
 class PipelineModel(PythonModelBase):
-    def load_context(self, context):
+    def load_context(self, context: PythonModelContext) -> None:
         export_folder = context.artifacts["export_folder"]
         self.predictor = Pipeline.load(export_folder, compress=False)
 

@@ -181,8 +181,6 @@ def save(
     pipelines: pipelines_type,
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
-    *,
-    retain_data: bool = True,
 ) -> Dict[str, List[Pipeline]]:
     pipeline_dict = _to_pipelines(pipelines)
     saving_path = _to_saving_path(identifier, saving_folder)
@@ -190,7 +188,6 @@ def save(
         for i, pipeline in enumerate(pipeline_list):
             pipeline.save(
                 _make_saving_path(i, name, saving_path, True),
-                retain_data=retain_data,
                 compress=True,
             )
     return pipeline_dict
