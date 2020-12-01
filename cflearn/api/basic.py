@@ -390,7 +390,6 @@ def repeat_with(
             num_repeat=num_repeat,
             num_jobs=num_jobs,
             use_tqdm=use_tqdm,
-            temp_folder=temp_folder,
             **shallow_copy_dict(kwargs),
         )
         if return_patterns:
