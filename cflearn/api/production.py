@@ -4,13 +4,17 @@ import torch
 
 import numpy as np
 
+from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Union
+from typing import Callable
 from typing import Optional
 from functools import partial
 from cftool.ml import ModelPattern
+from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -231,10 +235,11 @@ class Pack(LoggingMixin):
         return predictor
 
 
-class PackModel(PythonModel):
-    def load_context(self, context: PythonModelContext) -> None:
-        pack_folder = context.artifacts["pack_folder"]
-        self.predictor = Pack.get_predictor(pack_folder, compress=False)
+python_models: Dict[str, Type["PythonModelBase"]] = {}
+
+
+class PythonModelBase(PythonModel, metaclass=ABCMeta):
+    """ Should implement self.predictor """
 
     def predict(
         self,
@@ -253,5 +258,24 @@ class PackModel(PythonModel):
         kwargs = dict(zip(columns[1:], data[1:]))
         return self.predictor.predict(data[0], **kwargs)
 
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global python_models
+        return register_core(name, python_models)
 
-__all__ = ["Pack", "PackModel"]
+
+@PythonModelBase.register("pack")
+class PackModel(PythonModelBase):
+    def load_context(self, context: PythonModelContext) -> None:
+        pack_folder = context.artifacts["pack_folder"]
+        self.predictor = Pack.get_predictor(pack_folder, compress=False)
+
+
+@PythonModelBase.register("pipeline")
+class PipelineModel(PythonModelBase):
+    def load_context(self, context):
+        export_folder = context.artifacts["export_folder"]
+        self.predictor = Pipeline.load(export_folder, compress=False)
+
+
+__all__ = ["Pack", "PackModel", "PipelineModel"]

@@ -63,4 +63,5 @@ __all__ = [
     # production
     "Pack",
     "PackModel",
+    "PipelineModel",
 ]
