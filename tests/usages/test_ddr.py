@@ -55,10 +55,7 @@ def test() -> None:
         if not CI:
             mlflow_config = None
         else:
-            mlflow_config = {
-                "project_name": "carefree-learn",
-                "task_name": task_name,
-            }
+            mlflow_config = {"task_name": task_name}
         experiments.add_task(
             model="ddr",
             identifier=task_name,
