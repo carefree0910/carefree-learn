@@ -1,5 +1,6 @@
 import os
 import torch
+import shutil
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -58,8 +59,6 @@ class Pipeline(LoggingMixin):
         self.data_config["use_timing_context"] = self.timing
         self.data_config["default_categorical_process"] = "identical"
         self.sampler_config = self.config.setdefault("sampler_config", {})
-        Saving.prepare_folder(self, self.logging_folder)
-        self._init_logging(environment.verbose_level, environment.trigger_logging)
 
     def __getattr__(self, item: str) -> Any:
         return self.environment.config.get(item)
@@ -152,6 +151,16 @@ class Pipeline(LoggingMixin):
         self.tr_loader_copy.sampler.shuffle = False
 
     def _prepare_modules(self, *, is_loading: bool = False) -> None:
+        # logging
+        if not is_loading:
+            if os.path.isdir(self.logging_folder):
+                print(
+                    f"{self.warning_prefix}'{self.logging_folder}' already exists, "
+                    "it will be cleared up to store our logging"
+                )
+                shutil.rmtree(self.logging_folder)
+            os.makedirs(self.logging_folder)
+        self._init_logging(self.environment.verbose_level, self.trigger_logging)
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self.model_type](

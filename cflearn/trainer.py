@@ -451,7 +451,6 @@ class Trainer(MonitoredMixin):
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
         self.grad_scaler = None if amp is None or not self.use_amp else amp.GradScaler()
         self.state = TrainerState(self.config)
-        Saving.prepare_folder(self, self.checkpoint_folder)
 
     def __getattr__(self, item: str) -> Any:
         value = self.config.get(item)
