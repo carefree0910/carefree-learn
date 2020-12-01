@@ -365,7 +365,7 @@ class Environment:
     ):
         self.config = config
         if user_defined_config is None:
-            user_defined_config = config
+            user_defined_config = {}
         self.user_defined_config = user_defined_config
 
     def __getattr__(self, item: str) -> Any:

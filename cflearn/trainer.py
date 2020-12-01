@@ -519,7 +519,7 @@ class Trainer(MonitoredMixin):
             pass
         if self.mlflow_client is None:
             return None
-        for key, value in self.environment.config.items():
+        for key, value in self.environment.user_defined_config.items():
             self.mlflow_client.log_param(self.run_id, key, value)
 
     def _log_metrics(self, metrics: Dict[str, float]) -> None:
