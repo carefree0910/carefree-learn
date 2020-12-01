@@ -23,7 +23,6 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from cftool.misc import timing_context
-from cftool.misc import Saving
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
 from mlflow.utils.mlflow_tags import MLFLOW_USER
