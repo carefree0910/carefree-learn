@@ -35,7 +35,7 @@ jobs:
         run: |
           pip install pytest
           pip install pytest-cov
-          sudo pytest -v --cov
+          sudo python -m pytest -v --cov
 
   windows:
 
@@ -96,4 +96,4 @@ jobs:
         run: |
           pip install pytest
           pip install pytest-cov
-          sudo pytest -v --cov
+          sudo python -m pytest -v --cov
