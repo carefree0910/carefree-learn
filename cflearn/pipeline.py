@@ -576,7 +576,6 @@ class Pipeline(LoggingMixin):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            Saving.prepare_folder(self, export_folder)
             data_folder = os.path.join(export_folder, self.data_folder)
             os.makedirs(data_folder, exist_ok=True)
             if self.sample_weights is not None:
