@@ -907,7 +907,7 @@ class Trainer(MonitoredMixin):
         self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
-        terminate = False
+        has_ckpt = terminate = False
         while self.state.should_train:
             try:
                 self.state.epoch += 1
@@ -963,6 +963,7 @@ class Trainer(MonitoredMixin):
                 terminate = True
             if terminate:
                 if os.path.isdir(self.checkpoint_folder):
+                    has_ckpt = True
                     self.log_msg(  # type: ignore
                         "rolling back to the best checkpoint",
                         self.info_prefix,
@@ -984,9 +985,12 @@ class Trainer(MonitoredMixin):
             loader = self.binary_threshold_loader
             loader_name = self.binary_threshold_loader_name
             rs = self.inference.generate_binary_threshold(loader, loader_name)
-        self.state.epoch = self.state.step = -1
+        # finalize
         self.final_results = self._get_metrics(rs)
+        self.state.epoch = self.state.step = -1
         self._log_metrics_msg(self.final_results)
+        if not has_ckpt:
+            self.save_checkpoint(self.final_results.final_score)
         self._end_run()
 
     def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
