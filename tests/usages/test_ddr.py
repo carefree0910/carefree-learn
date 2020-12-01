@@ -170,6 +170,7 @@ def test() -> None:
     run_tasks()
     if CI:
         cflearn._rmtree(logging_folder)
+        cflearn._rmtree("mlruns")
 
 
 if __name__ == "__main__":

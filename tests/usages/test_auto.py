@@ -21,15 +21,15 @@ model = "fcnn"
 logging_folder = "__test_auto__"
 num_jobs_list = [0] if IS_LINUX else [0, 1, 2]
 kwargs = {"fixed_epoch": 3} if CI else {}
-kwargs["logging_folder"] = logging_folder
 
 
 def test_auto() -> None:
     for num_jobs in num_jobs_list:
         local_kwargs = shallow_copy_dict(kwargs)
-        local_logging_folder = os.path.join(logging_folder, str(num_jobs))
-        local_kwargs["logging_folder"] = local_logging_folder
+        local_temp_folder = os.path.join(logging_folder, str(num_jobs))
+        local_kwargs["logging_folder"] = os.path.join(local_temp_folder, "_logs")
         fcnn = cflearn.make(use_tqdm=False, **local_kwargs).fit(*data)  # type: ignore
+        local_kwargs = shallow_copy_dict(kwargs)
 
         auto = cflearn.Auto("clf", models=model)
         auto.fit(
@@ -37,7 +37,7 @@ def test_auto() -> None:
             num_trial=10,
             num_jobs=num_jobs,
             num_final_repeat=3,
-            temp_folder=logging_folder,
+            temp_folder=local_temp_folder,
             extra_config=shallow_copy_dict(local_kwargs),
         )
         predictions = auto.predict(x_cv)
@@ -54,8 +54,8 @@ def test_auto() -> None:
         auto.plot_param_importances(model, export_folder=export_folder)
         auto.plot_intermediate_values(model, export_folder=export_folder)
 
-        cflearn._rmtree(local_logging_folder)
         cflearn._rmtree(export_folder)
+    cflearn._rmtree(logging_folder)
 
 
 if __name__ == "__main__":
