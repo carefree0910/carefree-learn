@@ -8,3 +8,4 @@ carefree_learn.egg-info
 pip-wheel-metadata
 **/.ipynb_checkpoints/*
 dist/*
+**/mlruns/*
