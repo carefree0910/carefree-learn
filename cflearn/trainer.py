@@ -470,17 +470,10 @@ class Trainer(MonitoredMixin):
         model = self.model.__identifier__
         task_type = self.model.tr_data.task_type.value
         task_name = mlflow_config.setdefault("task_name", f"{model}({task_type})")
-        default_tracking_folder = os.path.join(
-            os.path.expanduser("~"),
-            ".carefree-learn",
-            "mlruns",
-        )
-        tracking_folder = mlflow_config.setdefault(
-            "tracking_folder",
-            default_tracking_folder,
-        )
-        os.makedirs(tracking_folder, exist_ok=True)
-        tracking_uri = f"file:///{os.path.abspath(tracking_folder)}"
+        tracking_folder = mlflow_config.setdefault("tracking_folder", os.getcwd())
+        tracking_dir = os.path.abspath(os.path.join(tracking_folder, "mlruns"))
+        os.makedirs(tracking_dir, exist_ok=True)
+        tracking_uri = f"file:///{tracking_dir}"
         self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
         experiment = self.mlflow_client.get_experiment_by_name(task_name)
         if experiment is not None:
