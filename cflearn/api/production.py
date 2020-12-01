@@ -2,6 +2,8 @@ import os
 import json
 import torch
 
+import numpy as np
+
 from typing import Any
 from typing import Dict
 from typing import List
@@ -13,6 +15,8 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
+from mlflow.pyfunc import PythonModel
+from mlflow.pyfunc import PythonModelContext
 
 from ..types import data_type
 from ..types import np_dict_type
@@ -227,4 +231,22 @@ class Pack(LoggingMixin):
         return predictor
 
 
-__all__ = ["Pack"]
+class PackModel(PythonModel):
+    def load_context(self, context: PythonModelContext) -> None:
+        pack_folder = context.artifacts["pack_folder"]
+        self.predictor = Pack.get_predictor(pack_folder, compress=False)
+
+    def predict(
+        self,
+        context: PythonModelContext,
+        model_input: Any,
+    ) -> np.ndarray:
+        data = model_input.values
+        config = shallow_copy_dict(context.artifacts)
+        key = config.pop("predict_key", "predictions")
+        config.setdefault("contains_labels", False)
+        outputs = self.predictor.predict(data, **config)
+        return outputs[key]
+
+
+__all__ = ["Pack", "PackModel"]

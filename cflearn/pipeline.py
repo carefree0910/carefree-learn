@@ -260,9 +260,25 @@ class Pipeline(LoggingMixin):
         run_id = self.trainer.run_id
         mlflow_client = self.trainer.mlflow_client
         if mlflow_client is not None:
+            # log model
+            import mlflow
+            import cflearn
+
+            pack_folder = os.path.join(self.logging_folder, "__packed__")
+            cflearn.Pack.pack(self, pack_folder, compress=False, verbose=False)
+            root_folder = os.path.join(os.path.dirname(__file__), os.pardir)
+            mlflow.pyfunc.save_model(
+                os.path.join(self.logging_folder, "__pyfunc__"),
+                python_model=cflearn.PackModel(),
+                artifacts={"pack_folder": pack_folder},
+                conda_env=os.path.join(os.path.abspath(root_folder), "conda.yml"),
+            )
+            cflearn._rmtree(pack_folder)
+            # log artifacts
             if self.environment.log_pipeline_to_artifacts:
                 self.save(os.path.join(self.logging_folder, "pipeline"))
             mlflow_client.log_artifacts(run_id, self.logging_folder)
+            # terminate
             mlflow_client.set_terminated(run_id)
 
     @staticmethod

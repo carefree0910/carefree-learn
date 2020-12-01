@@ -62,4 +62,5 @@ __all__ = [
     "PipeInfo",
     # production
     "Pack",
+    "PackModel",
 ]
