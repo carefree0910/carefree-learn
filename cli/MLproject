@@ -1,0 +1,26 @@
+name: carefree-learn
+
+conda_env: conda.yml
+
+entry_points:
+  main:
+    parameters:
+      model: {type: str, default: "fcnn"}
+      config: {type: str, default: ""}
+      root_dir: {type: path, default: "./"}
+      train_file: {type: str}
+      valid_file: {type: str, default: ""}
+      saving_folder: {type: str, default: ""}
+
+    command: |
+      python main.py \
+        --model {model} \
+        --config {config} \
+        --root_dir {root_dir} \
+        --train_file {train_file} \
+        --valid_file {valid_file} \
+        --saving_folder {saving_folder}
+
+  test:
+    command: |
+      pytest ../ -v --cov

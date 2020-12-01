@@ -1,3 +1,4 @@
+import os
 import math
 import torch
 import logging
@@ -8,6 +9,7 @@ import torch.nn as nn
 from typing import *
 from abc import abstractmethod
 from abc import ABCMeta
+from argparse import Namespace
 from functools import partial
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
@@ -110,6 +112,16 @@ def get_gradient(
     if len(grads) == 1:
         return grads[0]
     return grads
+
+
+def parse_args(args: Any) -> Namespace:
+    return Namespace(**{k: None if not v else v for k, v in args.__dict__.items()})
+
+
+def parse_path(path: Optional[str], root_dir: str) -> Optional[str]:
+    if path is None:
+        return None
+    return os.path.abspath(os.path.join(root_dir, path))
 
 
 class Initializer(LoggingMixin):

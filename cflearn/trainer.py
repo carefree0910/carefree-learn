@@ -28,6 +28,7 @@ from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -481,12 +482,19 @@ class Trainer(MonitoredMixin):
             experiment_id = experiment.experiment_id
         else:
             experiment_id = self.mlflow_client.create_experiment(task_name)
-        run_tags: Dict[str, Any] = mlflow_config.setdefault("run_tags", {})
-        run_tags.setdefault(MLFLOW_USER, getpass.getuser())
-        run_name = mlflow_config.setdefault("run_name", None)
-        if run_name is not None:
-            run_tags.setdefault(MLFLOW_RUN_NAME, run_name)
-        run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
+
+        if _RUN_ID_ENV_VAR in os.environ:
+            existing_run_id = os.environ[_RUN_ID_ENV_VAR]
+            del os.environ[_RUN_ID_ENV_VAR]
+            run = mlflow.start_run(existing_run_id, experiment_id=experiment_id)
+        else:
+            run_tags: Dict[str, Any] = mlflow_config.setdefault("run_tags", {})
+            run_tags.setdefault(MLFLOW_USER, getpass.getuser())
+            run_name = mlflow_config.setdefault("run_name", None)
+            if run_name is not None:
+                run_tags.setdefault(MLFLOW_RUN_NAME, run_name)
+            run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
+
         self.run_id = run.info.run_id
 
     def _prepare_log(self) -> None:
