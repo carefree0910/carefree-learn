@@ -160,7 +160,7 @@ class Pipeline(LoggingMixin):
                 )
                 shutil.rmtree(self.logging_folder)
             os.makedirs(self.logging_folder)
-        self._init_logging(self.environment.verbose_level, self.trigger_logging)
+        self._init_logging(self.verbose_level, self.trigger_logging)
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self.model_type](

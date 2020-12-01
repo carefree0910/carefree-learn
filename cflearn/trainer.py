@@ -573,8 +573,7 @@ class Trainer(MonitoredMixin):
             self._optimizer_type = optimizer
             # scheduler
             plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
-            assert isinstance(self._verbose_level_, int)
-            plateau_default_cfg.setdefault("verbose", self._verbose_level_ >= 3)
+            plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
             plateau_default_cfg.setdefault(
                 "patience",
                 max(
