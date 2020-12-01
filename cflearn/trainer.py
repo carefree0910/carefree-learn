@@ -485,11 +485,13 @@ class Trainer(MonitoredMixin):
             experiment_id = self.mlflow_client.create_experiment(task_name)
 
         run = None
+        self.from_external = False
         if _RUN_ID_ENV_VAR in os.environ:
             existing_run_id = os.environ[_RUN_ID_ENV_VAR]
             del os.environ[_RUN_ID_ENV_VAR]
             try:
                 run = self.mlflow_client.get_run(existing_run_id)
+                self.from_external = True
             except MlflowException:
                 print(
                     f"{self.warning_prefix}`run_id` is found in environment but "
@@ -519,8 +521,9 @@ class Trainer(MonitoredMixin):
             pass
         if self.mlflow_client is None:
             return None
-        for key, value in self.environment.user_defined_config.items():
-            self.mlflow_client.log_param(self.run_id, key, value)
+        if not self.from_external:
+            for key, value in self.environment.user_defined_config.items():
+                self.mlflow_client.log_param(self.run_id, key, value)
 
     def _log_metrics(self, metrics: Dict[str, float]) -> None:
         if self.mlflow_client is None:
