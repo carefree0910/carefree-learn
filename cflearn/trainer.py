@@ -26,6 +26,7 @@ from cftool.misc import fix_float_to_length
 from cftool.misc import timing_context
 from cftool.misc import Incrementer
 from cftool.misc import LoggingMixin
+from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
@@ -483,11 +484,19 @@ class Trainer(MonitoredMixin):
         else:
             experiment_id = self.mlflow_client.create_experiment(task_name)
 
+        run = None
         if _RUN_ID_ENV_VAR in os.environ:
             existing_run_id = os.environ[_RUN_ID_ENV_VAR]
             del os.environ[_RUN_ID_ENV_VAR]
-            run = mlflow.start_run(existing_run_id, experiment_id=experiment_id)
-        else:
+            try:
+                run = self.mlflow_client.get_run(existing_run_id)
+            except MlflowException:
+                print(
+                    f"{self.warning_prefix}`run_id` is found in environment but "
+                    "corresponding mlflow run does not exist. This might cause by "
+                    "external calls."
+                )
+        if run is None:
             run_tags: Dict[str, Any] = mlflow_config.setdefault("run_tags", {})
             run_tags.setdefault(MLFLOW_USER, getpass.getuser())
             run_name = mlflow_config.setdefault("run_name", None)
