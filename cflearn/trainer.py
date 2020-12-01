@@ -7,6 +7,7 @@ import optuna
 import getpass
 import inspect
 import logging
+import platform
 
 import numpy as np
 
@@ -472,7 +473,8 @@ class Trainer(MonitoredMixin):
         tracking_folder = mlflow_config.setdefault("tracking_folder", os.getcwd())
         tracking_dir = os.path.abspath(os.path.join(tracking_folder, "mlruns"))
         os.makedirs(tracking_dir, exist_ok=True)
-        tracking_uri = f"file:///{tracking_dir}"
+        delim = "/" if platform.system() == "Windows" else ""
+        tracking_uri = f"file://{delim}{tracking_dir}"
         self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
         experiment = self.mlflow_client.get_experiment_by_name(task_name)
         if experiment is not None:
