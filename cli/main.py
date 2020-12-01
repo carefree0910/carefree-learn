@@ -22,8 +22,8 @@ if __name__ == "__main__":
     x, x_cv = args.train_file, args.valid_file
     x, x_cv, saving_folder = map(parse_path, [x, x_cv, saving_folder], 3 * [root_dir])
     config = _parse_config(args.config)
+    config.setdefault("log_pipeline_to_artifacts", True)
     mlflow_config = config.setdefault("mlflow_config", {})
     mlflow_config["tracking_folder"] = root_dir
     mlflow_config["task_name"] = mlflow.get_experiment(_active_experiment_id).name
     m = cflearn.make(args.model, **config).fit(x, x_cv=x_cv)
-    cflearn.save(m, saving_folder=saving_folder)
