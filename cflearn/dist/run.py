@@ -15,7 +15,9 @@ if __name__ == "__main__":
     config = Saving.load_dict("config", args.config_folder)
     sample_weights = config.pop("sample_weights", None)
     logging_folder = config["logging_folder"]
-    data_folder = config.get("data_folder", logging_folder)
+    data_folder = config.get("data_folder")
+    if data_folder is None:
+        raise ValueError("`data_folder` should be provided")
     keys = ["x", "y", "x_cv", "y_cv"]
     data_list = list(map(config.pop, keys, 4 * [None]))
     if data_list[0] is None:

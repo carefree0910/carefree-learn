@@ -26,6 +26,30 @@ class Task:
     __repr__ = __str__
 
     @property
+    def data_folder(self) -> str:
+        if self.model == "data":
+            folder = self.temp_folder
+        else:
+            folder = os.path.join(self.temp_folder, "__data__")
+        folder = os.path.join(folder, self.identifier, str(self.idx))
+        folder = os.path.abspath(folder)
+        os.makedirs(folder, exist_ok=True)
+        return folder
+
+    @property
+    def config_folder(self) -> str:
+        folder = os.path.abspath(
+            os.path.join(
+                self.temp_folder,
+                "__config__",
+                self.identifier,
+                str(self.idx),
+            )
+        )
+        os.makedirs(folder, exist_ok=True)
+        return folder
+
+    @property
     def saving_folder(self) -> str:
         folder = os.path.join(self.temp_folder, self.identifier, str(self.idx))
         folder = os.path.abspath(folder)
@@ -51,19 +75,19 @@ class Task:
     ) -> "Task":
         kwargs = shallow_copy_dict(kwargs)
         kwargs["model"] = self.model
+        kwargs["data_folder"] = self.data_folder
         kwargs["logging_folder"] = self.saving_folder
         if mlflow_config is not None:
             kwargs["mlflow_config"] = mlflow_config
         if external:
             kwargs["trigger_logging"] = True
-            if data_task is not None:
-                kwargs["data_folder"] = data_task.saving_folder
-            elif not isinstance(x, np.ndarray):
-                kwargs["x"], kwargs["y"] = x, y
-                kwargs["x_cv"], kwargs["y_cv"] = x_cv, y_cv
-            else:
-                self.dump_data(x, y)
-                self.dump_data(x_cv, y_cv, "_cv")
+            if data_task is None:
+                if not isinstance(x, np.ndarray):
+                    kwargs["x"], kwargs["y"] = x, y
+                    kwargs["x_cv"], kwargs["y_cv"] = x_cv, y_cv
+                else:
+                    self.dump_data(x, y)
+                    self.dump_data(x_cv, y_cv, "_cv")
         self.config = kwargs
         return self
 
@@ -73,37 +97,24 @@ class Task:
         for key, value in zip([f"x{postfix}", f"y{postfix}"], [x, y]):
             if value is None:
                 continue
-            np.save(os.path.join(self.saving_folder, f"{key}.npy"), value)
+            np.save(os.path.join(self.data_folder, f"{key}.npy"), value)
 
-    def fetch_data(
-        self,
-        postfix: str = "",
-        *,
-        from_data_folder: bool = False,
-    ) -> Tuple[data_type, data_type]:
-        if not from_data_folder:
-            data_folder: Optional[str] = self.saving_folder
-        else:
-            assert self.config is not None
-            data_folder = self.config.get("data_folder")
-            if data_folder is None:
-                raise ValueError("data_folder is not prepared")
+    def fetch_data(self, postfix: str = "") -> Tuple[data_type, data_type]:
         data = []
-        data_folder = str(data_folder)
         for key in [f"x{postfix}", f"y{postfix}"]:
-            file = os.path.join(data_folder, f"{key}.npy")
+            file = os.path.join(self.data_folder, f"{key}.npy")
             data.append(None if not os.path.isfile(file) else np.load(file))
         return data[0], data[1]
 
     def dump_config(self, config: Dict[str, Any]) -> "Task":
-        Saving.save_dict(config, "config", self.saving_folder)
+        Saving.save_dict(config, "config", self.config_folder)
         return self
 
     def run_external(self, cuda: Optional[int] = None) -> "Task":
         config = shallow_copy_dict(self.config)
         config["cuda"] = cuda
         self.dump_config(config)
-        os.system(f"{self.run_command} --config_folder {self.saving_folder}")
+        os.system(f"{self.run_command} --config_folder {self.config_folder}")
         return self
 
     # internal fit

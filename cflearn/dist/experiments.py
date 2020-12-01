@@ -203,12 +203,11 @@ class Experiments(LoggingMixin):
                         )
                         local_mappings[idx] = tgt_data_folder
                         data_task.save(tgt_data_folder)
-                        for file in os.listdir(data_task.saving_folder):
-                            if file.endswith(".npy"):
-                                shutil.copy(
-                                    os.path.join(data_task.saving_folder, file),
-                                    os.path.join(tgt_data_folder, file),
-                                )
+                        for file in os.listdir(data_task.data_folder):
+                            shutil.copy(
+                                os.path.join(data_task.data_folder, file),
+                                os.path.join(tgt_data_folder, file),
+                            )
                     mappings[task_name] = local_mappings
             # temp folder
             tgt_temp_folder = os.path.join(abs_folder, "__tmp__")
@@ -284,8 +283,7 @@ class Experiments(LoggingMixin):
                             data_task = corresponding_data_tasks[try_idx]
                             if data_task is not None:
                                 assert local_task.config is not None
-                                data_folder = data_task.saving_folder
-                                local_task.config["data_folder"] = data_folder
+                                local_task.config["data_folder"] = data_task.data_folder
                         local_tasks.append(local_task)
         return experiments
 

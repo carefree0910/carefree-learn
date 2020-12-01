@@ -154,10 +154,11 @@ class Pipeline(LoggingMixin):
         # logging
         if not is_loading:
             if os.path.isdir(self.logging_folder):
-                print(
-                    f"{self.warning_prefix}'{self.logging_folder}' already exists, "
-                    "it will be cleared up to store our logging"
-                )
+                if os.listdir(self.logging_folder):
+                    print(
+                        f"{self.warning_prefix}'{self.logging_folder}' already exists, "
+                        "it will be cleared up to store our logging"
+                    )
                 shutil.rmtree(self.logging_folder)
             os.makedirs(self.logging_folder)
         self._init_logging(self.verbose_level, self.trigger_logging)
