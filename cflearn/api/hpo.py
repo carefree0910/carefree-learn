@@ -119,16 +119,23 @@ class _Tuner(LoggingMixin):
     def make_estimators(
         self,
         metrics: Optional[Union[str, List[str]]],
+        repeat_result: Optional[RepeatResult],
     ) -> List[Estimator]:
         if isinstance(metrics, str):
             metrics = [metrics]
         elif metrics is None:
             if self.task_type is None:
                 raise ValueError("either `task_type` or `metrics` should be provided")
-            if parse_task_type(self.task_type) is TaskTypes.CLASSIFICATION:
-                metrics = ["acc", "auc"]
+            if repeat_result is not None:
+                if repeat_result.pipelines is None:
+                    raise ValueError("pipelines are not provided in `repeat_result`")
+                pipeline = list(repeat_result.pipelines.values())[0][0]
+                metrics = sorted(pipeline.trainer.metrics)
             else:
-                metrics = ["mae", "mse"]
+                if parse_task_type(self.task_type) is TaskTypes.CLASSIFICATION:
+                    metrics = ["acc", "auc"]
+                else:
+                    metrics = ["mae", "mse"]
         return list(map(Estimator, metrics))
 
     def make_data(self) -> Tuple[data_type, data_type, data_type, data_type]:
@@ -321,7 +328,7 @@ def tune_with(
     search_config.setdefault(
         "parallel_logging_folder", os.path.join(temp_folder, "__hpo_parallel__")
     )
-    estimators = tuner.make_estimators(metrics)
+    estimators = tuner.make_estimators(metrics, None)
     hpo.search(x, y, estimators, x_cv, y_cv, **search_config)
     return HPOResult(hpo, extra_config)
 
@@ -939,7 +946,7 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         result = tuner.train(*args_, sequential=num_jobs > 1, cuda=cuda)
         final_scores = []
         weighted_scores = result.weighted_scores
-        estimators = tuner.make_estimators(metrics)
+        estimators = tuner.make_estimators(metrics, result.repeat_result)
         for estimator in estimators:
             metric = estimator.type
             scoring_fn = estimator.scoring_fn(estimator_scoring_function)
