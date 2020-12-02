@@ -5,7 +5,6 @@ import torch
 import mlflow
 import optuna
 import getpass
-import inspect
 import logging
 
 import numpy as np
@@ -622,11 +621,8 @@ class Trainer(MonitoredMixin):
         for key, scheduler in self.schedulers.items():
             if scheduler is None:
                 continue
-            signature = inspect.signature(scheduler.step)
-            for name, param in signature.parameters.items():
-                if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                    if name == "metrics":
-                        self.schedulers_requires_metric.add(key)
+            if scheduler_requires_metric(scheduler):
+                self.schedulers_requires_metric.add(key)
 
     def _init_metrics(self) -> None:
         # metrics

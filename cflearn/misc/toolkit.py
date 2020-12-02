@@ -1,6 +1,7 @@
 import os
 import math
 import torch
+import inspect
 import logging
 import platform
 
@@ -113,6 +114,15 @@ def get_gradient(
     if len(grads) == 1:
         return grads[0]
     return grads
+
+
+def scheduler_requires_metric(scheduler: Any) -> bool:
+    signature = inspect.signature(scheduler.step)
+    for name, param in signature.parameters.items():
+        if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+            if name == "metrics":
+                return True
+    return False
 
 
 def parse_uri(path: str) -> str:
@@ -579,6 +589,7 @@ __all__ = [
     "collate_tensor_dicts",
     "switch_requires_grad",
     "get_gradient",
+    "scheduler_requires_metric",
     "parse_uri",
     "to_relative",
     "parse_args",
