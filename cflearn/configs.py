@@ -118,7 +118,7 @@ class Elements(NamedTuple):
     metrics: Union[str, List[str]] = "auto"
     metric_config: Optional[Dict[str, Any]] = None
     optimizer: Optional[str] = "adamw"
-    scheduler: Optional[str] = "plateau"
+    scheduler: Optional[str] = "warmup"
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
     optimizers: Optional[Dict[str, Any]] = None
