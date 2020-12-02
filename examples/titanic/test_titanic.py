@@ -20,9 +20,10 @@ file_folder = os.path.dirname(__file__)
 
 CI = True
 logging_folder = "__test_titanic__"
+return_type = Tuple[TabularData, pattern_type]
 
 
-def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
+def _hpo_core(train_file: str) -> return_type:
     extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         extra_config.update({"fixed_epoch": 3})
@@ -54,24 +55,29 @@ def _hpo_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     return repeat_result.data, ensemble
 
 
-def _optuna_core(train_file: str) -> Tuple[TabularData, pattern_type]:
-    extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
-    if CI:
-        extra_config.update({"fixed_epoch": 3})
-    auto = cflearn.Auto("clf", models=model)
-    auto.fit(
-        train_file,
-        temp_folder=os.path.join(logging_folder, "__test_titanic_optuna__"),
-        extra_config=extra_config,
-        num_final_repeat=2 if CI else 10,
-        num_repeat=2 if CI else 5,
-        num_trial=4 if CI else 100,
-    )
-    cflearn._rmtree(logging_folder)
-    return auto.data, auto.pattern
+def _optuna_trial(num_parallel: int) -> Callable[[str], return_type]:
+    def _optuna_core(train_file: str) -> return_type:
+        extra_config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
+        if CI:
+            extra_config.update({"fixed_epoch": 3})
+        auto = cflearn.Auto("clf", models=model)
+        temp_folder = os.path.join(logging_folder, "__optuna__", str(num_parallel))
+        auto.fit(
+            train_file,
+            temp_folder=temp_folder,
+            extra_config=extra_config,
+            num_final_repeat=2 if CI else 10,
+            num_repeat=2 if CI else 5,
+            num_trial=4 if CI else 100,
+            num_parallel=num_parallel,
+        )
+        cflearn._rmtree(logging_folder)
+        return auto.data, auto.pattern
+
+    return _optuna_core
 
 
-def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
+def _adaboost_core(train_file: str) -> return_type:
     config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         config.update({"fixed_epoch": 3})
@@ -81,7 +87,7 @@ def _adaboost_core(train_file: str) -> Tuple[TabularData, pattern_type]:
     return results.data, results.pattern
 
 
-def _test(name: str, _core: Callable[[str], Tuple[TabularData, pattern_type]]) -> None:
+def _test(name: str, _core: Callable[[str], return_type]) -> None:
     train_file = os.path.join(file_folder, "train.csv")
     test_file = os.path.join(file_folder, "test.csv")
     data, pattern = _core(train_file)
@@ -97,7 +103,8 @@ def _test(name: str, _core: Callable[[str], Tuple[TabularData, pattern_type]]) -
 
 def test_hpo() -> None:
     _test("hpo", _hpo_core)
-    _test("optuna", _optuna_core)
+    _test("optuna1", _optuna_trial(1))
+    _test("optuna2", _optuna_trial(2))
 
 
 def test_adaboost() -> None:
