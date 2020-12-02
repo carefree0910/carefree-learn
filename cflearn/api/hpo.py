@@ -748,6 +748,7 @@ class OptunaPresetParams:
         *,
         tune_lr: bool = True,
         tune_optimizer: bool = True,
+        tune_scheduler: bool = True,
         tune_ema_decay: bool = True,
         tune_clip_norm: bool = True,
         tune_batch_size: bool = True,
@@ -767,6 +768,13 @@ class OptunaPresetParams:
                 "categorical",
             )
             self.base_params["optimizer"] = optimizer_param
+        if tune_scheduler:
+            scheduler_param = OptunaParam(
+                "scheduler",
+                ["step", "plateau", "warmup"],
+                "categorical",
+            )
+            self.base_params["scheduler"] = scheduler_param
         if tune_ema_decay:
             model_config = self.base_params.setdefault("model_config", {})
             assert isinstance(model_config, dict)
