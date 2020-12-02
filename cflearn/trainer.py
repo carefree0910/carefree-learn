@@ -609,7 +609,9 @@ class Trainer(MonitoredMixin):
                 sab = scheduler_config.get("scheduler_afterwards_base", "plateau")
                 sac = scheduler_config.get("scheduler_afterwards_config", {})
                 if sab is not None and isinstance(sab, str):
-                    if sab == "plateau":
+                    if sab == "step":
+                        sac = update_dict(sac, step_default_cfg)
+                    elif sab == "plateau":
                         sac = update_dict(sac, plateau_default_cfg)
                     sab = scheduler_dict[sab]
                 scheduler_config["scheduler_afterwards_base"] = sab
