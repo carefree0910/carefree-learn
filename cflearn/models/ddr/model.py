@@ -60,7 +60,12 @@ class DDR(ModelBase):
             "q_recover": 10.0,
             "y_recover": 1.0,
         }
+        # pipeline config
+        # TODO : Support ONNX in DDR
+        production = "pipeline"
+        # inject new default
         new_default_config = {
+            "production": production,
             "trainer_config": {
                 "clip_norm": 1.0,
                 "num_epoch": 40,
@@ -70,7 +75,7 @@ class DDR(ModelBase):
                     "types": default_metric_types,
                     "weights": default_metric_weights,
                 },
-            }
+            },
         }
         self.environment.update_default_config(new_default_config)
 
