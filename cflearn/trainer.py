@@ -589,6 +589,7 @@ class Trainer(MonitoredMixin):
             self.config["optimizer_config"] = optimizer_config
             self._optimizer_type = optimizer
             # scheduler
+            step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
             plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
             plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
             plateau_default_cfg.setdefault(
@@ -598,7 +599,9 @@ class Trainer(MonitoredMixin):
                     self.state.snapshot_start_step // self.state.num_step_per_snapshot,
                 ),
             )
-            if scheduler == "plateau":
+            if scheduler == "step":
+                scheduler_config = update_dict(scheduler_config, step_default_cfg)
+            elif scheduler == "plateau":
                 scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
             elif scheduler == "warmup":
                 sab = scheduler_config.get("scheduler_afterwards_base", "plateau")

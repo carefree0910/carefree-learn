@@ -1,6 +1,8 @@
 from typing import *
 from torch.optim import Optimizer
-from torch.optim.lr_scheduler import _LRScheduler, ReduceLROnPlateau
+from torch.optim.lr_scheduler import _LRScheduler
+from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 scheduler_dict = {}
 
@@ -14,6 +16,7 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
     return _register
 
 
+register_scheduler("step")(StepLR)
 register_scheduler("plateau")(ReduceLROnPlateau)
 
 
