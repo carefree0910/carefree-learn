@@ -721,7 +721,12 @@ class Trainer(MonitoredMixin):
                 scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
                 if self.mlflow_client is not None:
                     lr = scheduler.optimizer.param_groups[0]["lr"]
-                    self.mlflow_client.log_metric(self.run_id, f"lr-{key}", lr)
+                    self.mlflow_client.log_metric(
+                        self.run_id,
+                        f"lr-{key}",
+                        lr,
+                        step=self.state.step,
+                    )
 
     @staticmethod
     def _metric_verbose(k: str, intermediate: IntermediateResults) -> str:
