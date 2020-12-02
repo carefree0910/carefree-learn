@@ -50,7 +50,7 @@ class WarmupScheduler(_LRScheduler):
 
     @property
     def lr_warmup_func(self) -> Callable[[float], float]:
-        multiplier = (self.multiplier - 1.0) * self.last_epoch / self.warmup_step + 1.0
+        multiplier = (self.multiplier - 1.0) * self.last_epoch / self.warmup_step + 1.0  # type: ignore
         return lambda lr: lr * multiplier
 
     @property
@@ -58,7 +58,7 @@ class WarmupScheduler(_LRScheduler):
         return lambda lr: lr * self.multiplier
 
     def get_lr(self) -> List[float]:  # type: ignore
-        if self.last_epoch > self.warmup_step:
+        if self.last_epoch > self.warmup_step:  # type: ignore
             if self.scheduler_afterwards is not None:
                 if not self.finished_warmup:
                     self.finished_warmup = True
@@ -83,7 +83,7 @@ class WarmupScheduler(_LRScheduler):
             self.scheduler_afterwards.step(epoch)
         else:
             assert metrics is not None
-            self.scheduler_afterwards.step(metrics, epoch)
+            self.scheduler_afterwards.step(metrics, epoch)  # type: ignore
 
 
 __all__ = ["scheduler_dict", "register_scheduler"]
