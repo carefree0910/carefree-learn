@@ -55,6 +55,26 @@ class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
         return ModelPattern(predict_method=lambda x: self.predict(x, **predict_config))
 
 
+class PatternPipeline(PipelineProtocol):
+    def __init__(self, pattern: ModelPattern):
+        self.pattern = pattern
+
+    def _core(
+        self,
+        x: np.ndarray,
+        y: np.ndarray,
+        x_cv: np.ndarray,
+        y_cv: np.ndarray,
+    ) -> "PipelineProtocol":
+        pass
+
+    def predict(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
+        return self.pattern.predict(x, **kwargs)
+
+    def to_pattern(self, **predict_config: Any) -> ModelPattern:
+        return self.pattern
+
+
 data_dict: Dict[str, Type["DataProtocol"]] = {}
 sampler_dict: Dict[str, Type["SamplerProtocol"]] = {}
 loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
@@ -285,6 +305,7 @@ class DataLoaderProtocol:
 
 __all__ = [
     "PipelineProtocol",
+    "PatternPipeline",
     "DataSplit",
     "DataProtocol",
     "SamplerProtocol",
