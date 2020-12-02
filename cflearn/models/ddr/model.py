@@ -3,6 +3,7 @@ import torch
 import numpy as np
 
 from typing import Any
+from typing import Dict
 from typing import Union
 from typing import Optional
 from cftool.ml import Metrics
@@ -46,8 +47,10 @@ class DDR(ModelBase):
         loss_config["fetch_cdf"] = self.fetch_cdf
         # trainer config
         default_metric_types = ["loss"]
+        self.quantile_metric_config = None
         if self.fetch_q:
-            default_metric_types += ["ddr"]
+            default_metric_types += ["ddr", "quantile"]
+            self.quantile_metric_config = {"q": np.linspace(0.1, 0.9, 5)}
         if self.fetch_cdf:
             default_metric_types += ["cdf", "pdf"]
         if self.fetch_q and self.fetch_cdf:
@@ -55,6 +58,7 @@ class DDR(ModelBase):
         default_metric_weights = {
             "loss": 1.0,
             "ddr": 5.0,
+            "quantile": 1.0,
             "cdf": 5.0,
             "pdf": 1.0,
             "q_recover": 10.0,
@@ -74,6 +78,7 @@ class DDR(ModelBase):
                     "decay": 0.0,
                     "types": default_metric_types,
                     "weights": default_metric_weights,
+                    "quantile_config": self.quantile_metric_config,
                 },
             },
         }
@@ -248,6 +253,38 @@ class DDR(ModelBase):
             results.setdefault(key, None)
         return results
 
+    def _predict_quantile(
+        self,
+        split: SplitFeatures,
+        batch_size: int,
+        kwargs: Dict[str, Any],
+        q: Optional[np.ndarray] = None,
+    ) -> Dict[str, torch.Tensor]:
+        if not self.fetch_q:
+            raise ValueError("quantile function is not fetched")
+        if q is not None:
+            q = q.tolist()
+        else:
+            q = kwargs.get("q")
+        if q is None:
+            raise ValueError(f"quantile cannot be predicted without q")
+        quantiles_list, med_mul_list = [], []
+        q_list = [q] if isinstance(q, float) else q
+        for q in q_list:
+            q_batch = self._expand(batch_size, q)
+            pack = self._quantile(split, q_batch, False)
+            quantiles_list.append(pack["median"] + pack["y_res"])
+            med_mul_list.append(pack["med_mul"])
+        if len(q_list) == 1:
+            return {
+                "quantiles": quantiles_list[0],
+                "med_mul": med_mul_list[0]
+            }
+        return {
+            "quantiles": torch.cat(quantiles_list, dim=1),
+            "med_mul": torch.cat(med_mul_list, dim=1),
+        }
+
     # API
 
     def forward(
@@ -275,24 +312,7 @@ class DDR(ModelBase):
         # check q inference
         predict_quantile = kwargs.get("predict_quantiles")
         if predict_quantile:
-            if not self.fetch_q:
-                raise ValueError("quantile function is not fetched")
-            q = kwargs.get("q")
-            if q is None:
-                raise ValueError(f"quantile cannot be predicted without q")
-            quantiles_list, med_mul_list = [], []
-            q_list = [q] if isinstance(q, float) else q
-            for q in q_list:
-                q_batch = self._expand(batch_size, q)
-                pack = self._quantile(split, q_batch, False)
-                quantiles_list.append(pack["median"] + pack["y_res"])
-                med_mul_list.append(pack["med_mul"])
-            if len(q_list) == 1:
-                forward_dict["quantiles"] = quantiles_list[0]
-                forward_dict["med_mul"] = med_mul_list[0]
-            else:
-                forward_dict["quantiles"] = torch.cat(quantiles_list, dim=1)
-                forward_dict["med_mul"] = torch.cat(med_mul_list, dim=1)
+            forward_dict.update(self._predict_quantile(split, batch_size, kwargs))
         # check y inference
         predict_pdf = kwargs.get("predict_pdf", False)
         predict_cdf = kwargs.get("predict_cdf", False)
@@ -306,6 +326,11 @@ class DDR(ModelBase):
             y_batch = self.tr_data.transform_labels(y_batch)
             y_batch = to_torch(y_batch).to(self.device)
             forward_dict = self._cdf(split, y_batch, False, predict_pdf, False)
+        # check quantile metric
+        getting_metrics = kwargs.get("getting_metrics", False)
+        if getting_metrics and self.quantile_metric_config is not None:
+            q = self.quantile_metric_config["q"]
+            forward_dict.update(self._predict_quantile(split, batch_size, kwargs, q))
         if not forward_dict:
             forward_dict = self._core(batch_size, split, y_batch, False)
         self.clear_execute_cache()

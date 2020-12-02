@@ -828,6 +828,7 @@ class Trainer(MonitoredMixin):
                 loader=loader,
                 loader_name=loader_name,
                 return_all=True,
+                getting_metrics=True,
             )
             probabilities = None
             logits, labels = map(results.get, ["logits", "labels"])
