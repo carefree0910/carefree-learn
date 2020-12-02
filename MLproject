@@ -21,6 +21,24 @@ entry_points:
         --valid_file {valid_file} \
         --saving_folder {saving_folder}
 
+  inference:
+    parameters:
+      host: { type: str, default: "127.0.0.1" }
+      port: { type: str, default: "5000" }
+      adapter: { type: str, default: "http" }
+      config: { type: str, default: "" }
+      test_file: { type: path }
+      export_file: { type: str, default: "" }
+
+    command: |
+      python cli/inference.py \
+        --host {host} \
+        --port {port} \
+        --adapter {adapter} \
+        --config {config} \
+        --test_file {test_file} \
+        --export_file {export_file}
+
   test:
     command: |
       pytest -v --cov
