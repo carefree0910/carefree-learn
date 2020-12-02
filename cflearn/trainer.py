@@ -716,13 +716,15 @@ class Trainer(MonitoredMixin):
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
                 kwargs = {}
+                should_log_lr = self.state.should_monitor
                 if key in self.schedulers_requires_metric:
                     if self.intermediate is None or not self.intermediate_updated:
                         continue
                     kwargs["metrics"] = self.intermediate.final_score
                     self.intermediate_updated = False
+                    should_log_lr = True
                 scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
-                if self.mlflow_client is not None:
+                if self.mlflow_client is not None and should_log_lr:
                     lr = scheduler.optimizer.param_groups[0]["lr"]
                     self.mlflow_client.log_metric(
                         self.run_id,
