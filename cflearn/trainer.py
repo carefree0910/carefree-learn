@@ -443,6 +443,8 @@ class Trainer(MonitoredMixin):
         self._init_mlflow(environment)
         self.checkpoint_scores: Dict[str, float] = {}
         self.tr_loader_copy: Optional[PrefetchLoader] = None
+        self.intermediate: Optional[IntermediateResults] = None
+        self.intermediate_updated = False
         self.final_results: Optional[IntermediateResults] = None
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
@@ -707,6 +709,17 @@ class Trainer(MonitoredMixin):
                 self.grad_scaler.update()
             opt.zero_grad()
 
+    def _scheduler_step(self) -> None:
+        for key, scheduler in self.schedulers.items():
+            if scheduler is not None:
+                kwargs = {}
+                if key in self.schedulers_requires_metric:
+                    if self.intermediate is None or not self.intermediate_updated:
+                        continue
+                    kwargs["metrics"] = self.intermediate.final_score
+                    self.intermediate_updated = False
+                scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
+
     @staticmethod
     def _metric_verbose(k: str, intermediate: IntermediateResults) -> str:
         metric_str = fix_float_to_length(intermediate.metrics[k], 8)
@@ -745,7 +758,8 @@ class Trainer(MonitoredMixin):
                         rs = inference.generate_binary_threshold(loader, loader_name)
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                intermediate = self._get_metrics(rs)
+                self.intermediate = self._get_metrics(rs)
+                self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
                         self.log_msg(  # type: ignore
@@ -757,12 +771,12 @@ class Trainer(MonitoredMixin):
 
             with timing_context(self, "monitor.logging", enable=self.timing):
                 if self.state.should_log_metrics_msg:
-                    self._log_metrics_msg(intermediate)
+                    self._log_metrics_msg(self.intermediate)
 
             if self.state.should_start_snapshot:
                 timing_name = "monitor.prune_trial"
                 with timing_context(self, timing_name, enable=self.timing):
-                    score = intermediate.final_score
+                    score = self.intermediate.final_score
                     if self.trial is not None:
                         self.trial.report(score, step=self.state.step)
                         if self.trial.should_prune():
@@ -771,14 +785,6 @@ class Trainer(MonitoredMixin):
                 with timing_context(self, timing_name, enable=self.timing):
                     if self._monitor.check_terminate(score):
                         return True
-                timing_name = "monitor.scheduler"
-                with timing_context(self, timing_name, enable=self.timing):
-                    for key, scheduler in self.schedulers.items():
-                        if scheduler is not None:
-                            kwargs = {}
-                            if key in self.schedulers_requires_metric:
-                                kwargs["metrics"] = score
-                            scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
 
         return False
 
@@ -961,6 +967,8 @@ class Trainer(MonitoredMixin):
                             self._clip_norm_step()
                     with timing_context(self, "optimizer_step", enable=self.timing):
                         self._optimizer_step()
+                    with timing_context(self, "scheduler_step", enable=self.timing):
+                        self._scheduler_step()
                     if self.model.use_ema:
                         with timing_context(self, "EMA", enable=self.timing):
                             self.model.apply_ema()
