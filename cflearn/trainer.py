@@ -624,7 +624,9 @@ class Trainer(MonitoredMixin):
         for key, scheduler in self.schedulers.items():
             if scheduler is None:
                 continue
-            if scheduler_requires_metric(scheduler):
+            if isinstance(scheduler, WarmupScheduler):
+                scheduler = scheduler.scheduler_afterwards
+            if scheduler is not None and scheduler_requires_metric(scheduler):
                 self.schedulers_requires_metric.add(key)
 
     def _init_metrics(self) -> None:
