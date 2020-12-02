@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 import shutil
 
@@ -26,6 +27,7 @@ from .types import data_type
 from .configs import Elements
 from .configs import Environment
 from .trainer import Trainer
+from .trainer import IntermediateResults
 from .protocol import DataProtocol
 from .protocol import DataLoaderProtocol
 from .inference import Inference
@@ -601,6 +603,7 @@ class Pipeline(LoggingMixin):
     train_indices_file = "train_indices.npy"
     valid_indices_file = "valid_indices.npy"
     sample_weights_file = "sample_weights.npy"
+    final_results_file = "final_results.json"
 
     @classmethod
     def make(cls, config: Dict[str, Any]) -> "Pipeline":
@@ -641,6 +644,8 @@ class Pipeline(LoggingMixin):
             final_results = self.trainer.final_results
             if final_results is None:
                 raise ValueError("`final_results` are not generated yet")
+            with open(os.path.join(export_folder, self.final_results_file), "w") as f:
+                json.dump(final_results, f)
             score = final_results.final_score
             self.trainer.save_checkpoint(score, export_folder)
             if self.inference is None:
@@ -721,6 +726,9 @@ class Pipeline(LoggingMixin):
                     trainer.cv_loader = PrefetchLoader(cv_loader, pipeline.device)
                 trainer.restore_checkpoint(export_folder)
                 trainer._init_metrics()
+                final_results_path = os.path.join(export_folder, cls.final_results_file)
+                with open(final_results_path, "r") as f:
+                    trainer.final_results = IntermediateResults(*json.load(f))
         return pipeline
 
 
