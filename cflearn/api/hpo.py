@@ -917,6 +917,7 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
     model = config["model"]
     metrics = config["metrics"]
     timeout = config["timeout"]
+    num_jobs = config["num_jobs"]
     num_repeat = config["num_repeat"]
     num_parallel = config["num_parallel"]
     estimator_scoring_function = config["estimator_scoring_function"]
@@ -929,7 +930,7 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         current_params["metrics"] = metrics
         current_params["trial"] = trial
         args_ = model, current_params, num_repeat, num_parallel, temp_folder_
-        result = tuner.train(*args_, sequential=True, cuda=cuda)
+        result = tuner.train(*args_, sequential=num_jobs > 1, cuda=cuda)
         final_scores = []
         weighted_scores = result.weighted_scores
         estimators = tuner.make_estimators(metrics)
@@ -1005,6 +1006,7 @@ def optuna_tune(
         "model": model,
         "metrics": metrics,
         "timeout": timeout,
+        "num_jobs": num_jobs,
         "num_repeat": num_repeat,
         "num_parallel": num_parallel,
         "estimator_scoring_function": estimator_scoring_function,
