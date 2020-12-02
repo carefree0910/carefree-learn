@@ -884,6 +884,12 @@ class OptunaPresetParams:
     def _ddr_preset(self) -> optuna_params_type:
         return shallow_copy_dict(self.base_params)
 
+    def _ddr_q_preset(self) -> optuna_params_type:
+        return self._ddr_preset()
+
+    def _ddr_cdf_preset(self) -> optuna_params_type:
+        return self._ddr_preset()
+
     def _rnn_preset(self) -> optuna_params_type:
         return shallow_copy_dict(self.base_params)
 
