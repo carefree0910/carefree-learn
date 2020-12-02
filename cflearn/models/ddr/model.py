@@ -276,10 +276,7 @@ class DDR(ModelBase):
             quantiles_list.append(pack["median"] + pack["y_res"])
             med_mul_list.append(pack["med_mul"])
         if len(q_list) == 1:
-            return {
-                "quantiles": quantiles_list[0],
-                "med_mul": med_mul_list[0]
-            }
+            return {"quantiles": quantiles_list[0], "med_mul": med_mul_list[0]}
         return {
             "quantiles": torch.cat(quantiles_list, dim=1),
             "med_mul": torch.cat(med_mul_list, dim=1),
