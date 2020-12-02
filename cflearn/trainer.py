@@ -560,8 +560,32 @@ class Trainer(MonitoredMixin):
             optimizer_config = opt_setting["optimizer_config"]
             scheduler = opt_setting["scheduler"]
             scheduler_config = opt_setting["scheduler_config"]
-            # optimizer
-            optimizer_config.setdefault("lr", 1e-3)
+            # we need to consider warmup here because it will modify the `lr`
+            if scheduler != "warmup":
+                optimizer_config.setdefault("lr", 1e-3)
+            else:
+                multiplier = scheduler_config.setdefault("multiplier", 3)
+                optimizer_config.setdefault("lr", multiplier * 1.0e-3)
+                default_warm_up_step = min(
+                    10 * len(self.tr_loader),
+                    int(
+                        0.25
+                        * self.state.plateau_start
+                        * self.state.num_step_per_snapshot
+                    ),
+                )
+                warmup_step = scheduler_config.setdefault(
+                    "warmup_step", default_warm_up_step
+                )
+                self.state.plateau_start += int(
+                    warmup_step / self.state.num_step_per_snapshot
+                )
+                if self.state._snapshot_start_step is not None:
+                    self.state._snapshot_start_step += warmup_step
+                else:
+                    self.state.min_num_sample += self.tr_loader.batch_size * warmup_step
+                optimizer_config["lr"] /= multiplier
+            # the default settings of optimizers
             if optimizer == "nag":
                 optimizer_config.setdefault("momentum", 0.999)
                 optimizer_config.setdefault("weight_decay", 1e-7)
@@ -588,26 +612,6 @@ class Trainer(MonitoredMixin):
             elif scheduler == "plateau":
                 scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
             elif scheduler == "warmup":
-                multiplier = scheduler_config.setdefault("multiplier", 3)
-                default_warm_up_step = min(
-                    10 * len(self.tr_loader),
-                    int(
-                        0.25
-                        * self.state.plateau_start
-                        * self.state.num_step_per_snapshot
-                    ),
-                )
-                warmup_step = scheduler_config.setdefault(
-                    "warmup_step", default_warm_up_step
-                )
-                self.state.plateau_start += int(
-                    warmup_step / self.state.num_step_per_snapshot
-                )
-                if self.state._snapshot_start_step is not None:
-                    self.state._snapshot_start_step += warmup_step
-                else:
-                    self.state.min_num_sample += self.tr_loader.batch_size * warmup_step
-                optimizer_config["lr"] /= multiplier
                 sab = scheduler_config.get("scheduler_afterwards_base", "plateau")
                 sac = scheduler_config.get("scheduler_afterwards_config", {})
                 if sab is not None and isinstance(sab, str):
