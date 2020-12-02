@@ -31,6 +31,7 @@ from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .inference import PreProcessor
 from .misc.toolkit import to_2d
+from .misc.toolkit import to_relative
 from .misc.time_series import TSLabelCollator
 from .models.base import model_dict
 from .models.base import ModelBase
@@ -485,10 +486,12 @@ class Pipeline(LoggingMixin):
             import mlflow
             import cflearn
 
+            cwd = os.getcwd()
             root_folder = os.path.join(os.path.dirname(__file__), os.pardir)
             conda_env = os.path.join(os.path.abspath(root_folder), "conda.yml")
             if self.production == "pack":
                 pack_folder = os.path.join(self.logging_folder, "__packed__")
+                pack_folder = to_relative(os.path.abspath(pack_folder), cwd)
                 cflearn.Pack.pack(self, pack_folder, compress=False, verbose=False)
                 mlflow.pyfunc.save_model(
                     os.path.join(self.logging_folder, "__pyfunc__"),
@@ -499,6 +502,7 @@ class Pipeline(LoggingMixin):
                 cflearn._rmtree(pack_folder)
             elif self.production == "pipeline":
                 export_folder = os.path.join(self.logging_folder, "pipeline")
+                export_folder = to_relative(os.path.abspath(export_folder), cwd)
                 self.save(export_folder, compress=False)
                 mlflow.pyfunc.save_model(
                     os.path.join(self.logging_folder, "__pyfunc__"),

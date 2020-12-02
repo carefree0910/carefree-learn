@@ -2,6 +2,7 @@ import os
 import math
 import torch
 import logging
+import platform
 
 import numpy as np
 import torch.nn as nn
@@ -112,6 +113,16 @@ def get_gradient(
     if len(grads) == 1:
         return grads[0]
     return grads
+
+
+def parse_uri(path: str) -> str:
+    delim = "/" if platform.system() == "Windows" else ""
+    return f"file://{delim}{path}"
+
+
+def to_relative(abs_folder: str, root_abs_folder: str) -> str:
+    common_prefix = os.path.commonpath([root_abs_folder, abs_folder])
+    return os.path.relpath(abs_folder, common_prefix)
 
 
 def parse_args(args: Any) -> Namespace:
@@ -568,6 +579,10 @@ __all__ = [
     "collate_tensor_dicts",
     "switch_requires_grad",
     "get_gradient",
+    "parse_uri",
+    "to_relative",
+    "parse_args",
+    "parse_path",
     "Lambda",
     "Initializer",
     "Activations",
