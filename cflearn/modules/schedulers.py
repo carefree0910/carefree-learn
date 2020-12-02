@@ -26,6 +26,9 @@ class ReduceLROnPlateauWithGet(ReduceLROnPlateau):
     def get_lr(self) -> List[float]:
         return [group["lr"] for group in self.optimizer.param_groups]  # type: ignore
 
+    def get_last_lr(self) -> List[float]:
+        return self.get_lr()
+
 
 @register_scheduler("warmup")
 class WarmupScheduler(_LRScheduler):

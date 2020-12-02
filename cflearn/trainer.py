@@ -732,7 +732,7 @@ class Trainer(MonitoredMixin):
                     self.mlflow_client.log_metric(
                         self.run_id,
                         f"lr-{key}",
-                        scheduler.get_lr()[0],  # type: ignore
+                        scheduler.get_last_lr()[0],  # type: ignore
                         step=self.state.step,
                     )
 
