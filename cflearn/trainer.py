@@ -42,6 +42,7 @@ from .modules import scheduler_dict
 from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .models.base import ModelBase
+from .modules.schedulers import WarmupScheduler
 
 
 class IntermediateResults(NamedTuple):
@@ -107,6 +108,10 @@ class TrainerState:
     @property
     def should_monitor(self) -> bool:
         return self.step % self.num_step_per_snapshot == 0
+
+    @property
+    def should_log_lr(self) -> bool:
+        return self.step % 100 == 0
 
     @property
     def should_log_metrics_msg(self) -> bool:
@@ -560,7 +565,29 @@ class Trainer(MonitoredMixin):
             if optimizer == "nag":
                 optimizer_config.setdefault("momentum", 0.999)
                 optimizer_config.setdefault("weight_decay", 1e-7)
-            if scheduler == "warmup":
+            if not isinstance(optimizer, str):
+                optimizer_base = optimizer
+            else:
+                optimizer_base = optimizer_dict[optimizer]
+            opt = self._define_optimizer(params_name, optimizer_base, optimizer_config)
+            self.config["optimizer_config"] = optimizer_config
+            self._optimizer_type = optimizer
+            # scheduler
+            step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
+            plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
+            plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
+            plateau_default_cfg.setdefault(
+                "patience",
+                max(
+                    10,
+                    self.state.snapshot_start_step // self.state.num_step_per_snapshot,
+                ),
+            )
+            if scheduler == "step":
+                scheduler_config = update_dict(scheduler_config, step_default_cfg)
+            elif scheduler == "plateau":
+                scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
+            elif scheduler == "warmup":
                 multiplier = scheduler_config.setdefault("multiplier", 3)
                 default_warm_up_step = min(
                     10 * len(self.tr_loader),
@@ -581,28 +608,6 @@ class Trainer(MonitoredMixin):
                 else:
                     self.state.min_num_sample += self.tr_loader.batch_size * warmup_step
                 optimizer_config["lr"] /= multiplier
-            optimizer_base = (
-                optimizer_dict[optimizer] if isinstance(optimizer, str) else optimizer
-            )
-            opt = self._define_optimizer(params_name, optimizer_base, optimizer_config)
-            self.config["optimizer_config"] = optimizer_config
-            self._optimizer_type = optimizer
-            # scheduler
-            step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
-            plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
-            plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
-            plateau_default_cfg.setdefault(
-                "patience",
-                max(
-                    10,
-                    self.state.snapshot_start_step // self.state.num_step_per_snapshot,
-                ),
-            )
-            if scheduler == "step":
-                scheduler_config = update_dict(scheduler_config, step_default_cfg)
-            elif scheduler == "plateau":
-                scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
-            elif scheduler == "warmup":
                 sab = scheduler_config.get("scheduler_afterwards_base", "plateau")
                 sac = scheduler_config.get("scheduler_afterwards_config", {})
                 if sab is not None and isinstance(sab, str):
@@ -712,8 +717,11 @@ class Trainer(MonitoredMixin):
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
                 kwargs = {}
-                should_log_lr = self.state.should_monitor
-                if key in self.schedulers_requires_metric:
+                should_log_lr = self.state.should_log_lr
+                if key in self.schedulers_requires_metric and not (
+                    isinstance(scheduler, WarmupScheduler)
+                    and not scheduler.finished_warmup
+                ):
                     if self.intermediate is None or not self.intermediate_updated:
                         continue
                     kwargs["metrics"] = self.intermediate.final_score
@@ -721,11 +729,10 @@ class Trainer(MonitoredMixin):
                     should_log_lr = True
                 scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
                 if self.mlflow_client is not None and should_log_lr:
-                    lr = scheduler.optimizer.param_groups[0]["lr"]  # type: ignore
                     self.mlflow_client.log_metric(
                         self.run_id,
                         f"lr-{key}",
-                        lr,
+                        scheduler.get_lr()[0],  # type: ignore
                         step=self.state.step,
                     )
 
