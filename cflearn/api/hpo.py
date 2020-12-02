@@ -52,16 +52,16 @@ class _TunerResult(NamedTuple):
         return patterns[self.identifier]
 
     @property
-    def weighted_scores(self) -> Dict[str, np.ndarray]:
-        weighted_scores = {}
+    def weighted_metrics(self) -> Dict[str, np.ndarray]:
+        weighted_metrics = {}
         final_results_dict = self.repeat_result.final_results
         if final_results_dict is None:
             raise ValueError("training process is corrupted")
         final_results = final_results_dict[self.identifier]
         for key in sorted(final_results[0].weighted_scores.keys()):
-            local_scores = [result.weighted_scores[key] for result in final_results]
-            weighted_scores[key] = np.array(local_scores, np_float_type)
-        return weighted_scores
+            local_metrics = [result.weighted_metrics[key] for result in final_results]
+            weighted_metrics[key] = np.array(local_metrics, np_float_type)
+        return weighted_metrics
 
 
 class _Tuner(LoggingMixin):
@@ -952,12 +952,11 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         sequential = None if num_jobs <= 1 else True
         result = tuner.train(*args_, sequential=sequential, cuda=cuda)
         final_scores = []
-        weighted_scores = result.weighted_scores
+        weighted_metrics = result.weighted_metrics
         estimators = tuner.make_estimators(metrics, result.repeat_result)
         for estimator in estimators:
-            metric = estimator.type
             scoring_fn = estimator.scoring_fn(estimator_scoring_function)
-            final_scores.append(scoring_fn(weighted_scores[metric]))
+            final_scores.append(scoring_fn(weighted_metrics[estimator.type]))
         return sum(final_scores) / len(final_scores)
 
     study = optuna.create_study(**study_config)

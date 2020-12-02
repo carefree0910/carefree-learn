@@ -47,6 +47,7 @@ from .modules.schedulers import WarmupScheduler
 
 class IntermediateResults(NamedTuple):
     metrics: Dict[str, float]
+    weighted_metrics: Dict[str, float]
     weighted_scores: Dict[str, float]
     use_decayed: bool
     decayed_metrics: Dict[str, float]
@@ -894,12 +895,14 @@ class Trainer(MonitoredMixin):
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
         self._log_metrics(metrics_for_scoring)
-        weighted_scores = {
-            k: float(v * signs[k] * self.metrics_weights[k])
+        weighted_metrics = {
+            k: float(v * self.metrics_weights[k])
             for k, v in metrics_for_scoring.items()
         }
+        weighted_scores = {k: v * signs[k] for k, v in weighted_metrics.items()}
         return IntermediateResults(
             metrics,
+            weighted_metrics,
             weighted_scores,
             use_decayed,
             decayed_metrics,
