@@ -73,20 +73,19 @@ class WarmupScheduler(_LRScheduler):
             return list(map(self.lr_multiplier_func, self.base_lrs))
         return list(map(self.lr_warmup_func, self.base_lrs))  # type: ignore
 
-    def step(
-        self,
-        epoch: Optional[int] = None,
-        metrics: Optional[float] = None,
-    ) -> None:
+    def get_last_lr(self) -> List[float]:
+        if not self.finished_warmup:
+            return super().get_last_lr()
+        return self.scheduler_afterwards.get_last_lr()
+
+    def step(self, metrics: Optional[float] = None) -> None:
         if not self.finished_warmup or self.scheduler_afterwards is None:
-            return super().step(epoch)
-        if epoch is not None:
-            epoch -= self.warmup_step
+            return super().step()
         if not self.requires_metric:
-            self.scheduler_afterwards.step(epoch)
+            self.scheduler_afterwards.step()
         else:
             assert metrics is not None
-            self.scheduler_afterwards.step(metrics, epoch)  # type: ignore
+            self.scheduler_afterwards.step(metrics)  # type: ignore
 
 
 __all__ = ["scheduler_dict", "register_scheduler"]
