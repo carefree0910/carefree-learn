@@ -884,7 +884,7 @@ class Trainer(MonitoredMixin):
                             else:
                                 metric_predictions = to_prob(logits)
                 sub_metric = metric_ins.metric(labels, metric_predictions)
-                metrics[metric_type] = sub_metric
+                metrics[metric_type] = float(sub_metric)
             if self.metrics_decay is not None and self.state.should_start_snapshot:
                 use_decayed = True
                 decayed = self.metrics_decay[metric_type].update("metric", sub_metric)
@@ -894,7 +894,7 @@ class Trainer(MonitoredMixin):
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
         self._log_metrics(metrics_for_scoring)
         weighted_scores = {
-            k: v * signs[k] * self.metrics_weights[k]
+            k: float(v * signs[k] * self.metrics_weights[k])
             for k, v in metrics_for_scoring.items()
         }
         return IntermediateResults(
