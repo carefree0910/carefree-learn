@@ -725,7 +725,7 @@ class Trainer(MonitoredMixin):
                     should_log_lr = True
                 scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
                 if self.mlflow_client is not None and should_log_lr:
-                    lr = scheduler.optimizer.param_groups[0]["lr"]
+                    lr = scheduler.optimizer.param_groups[0]["lr"]  # type: ignore
                     self.mlflow_client.log_metric(
                         self.run_id,
                         f"lr-{key}",
