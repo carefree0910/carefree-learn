@@ -75,8 +75,8 @@ class WarmupScheduler(_LRScheduler):
 
     def get_last_lr(self) -> List[float]:
         if not self.finished_warmup:
-            return super().get_last_lr()
-        return self.scheduler_afterwards.get_last_lr()
+            return super().get_last_lr()  # type: ignore
+        return self.scheduler_afterwards.get_last_lr()  # type: ignore
 
     def step(self, metrics: Optional[float] = None) -> None:
         if not self.finished_warmup or self.scheduler_afterwards is None:
