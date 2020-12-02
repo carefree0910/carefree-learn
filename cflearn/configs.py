@@ -115,8 +115,10 @@ class Elements(NamedTuple):
     model_config: Optional[Dict[str, Any]] = None
     loss: str = "auto"
     loss_config: Optional[Dict[str, Any]] = None
+    default_encoding_init_method: Optional[str] = None
     metrics: Union[str, List[str]] = "auto"
     metric_config: Optional[Dict[str, Any]] = None
+    lr: Optional[float] = None
     optimizer: Optional[str] = "adamw"
     scheduler: Optional[str] = "warmup"
     optimizer_config: Optional[Dict[str, Any]] = None
@@ -227,6 +229,10 @@ class Elements(NamedTuple):
         model_config["ema_decay"] = kwargs.pop("ema_decay")
         model_config["loss"] = kwargs.pop("loss")
         model_config["loss_config"] = kwargs.pop("loss_config") or {}
+        default_encoding_init_method = kwargs.pop("default_encoding_init_method")
+        if default_encoding_init_method is not None:
+            de_cfg = model_config.setdefault("default_encoding_configs", {})
+            de_cfg["init_method"] = default_encoding_init_method
         kwargs["model_config"] = model_config
         # metrics
         metric_config = kwargs.pop("metric_config") or {}
@@ -234,6 +240,7 @@ class Elements(NamedTuple):
             metric_config["types"] = kwargs.pop("metrics")
         trainer_config["metric_config"] = metric_config
         # optimizers
+        lr = kwargs.pop("lr")
         optimizer = kwargs.pop("optimizer")
         scheduler = kwargs.pop("scheduler")
         optimizers = kwargs.pop("optimizers")
@@ -265,21 +272,16 @@ class Elements(NamedTuple):
                     "so `scheduler_config` will be ignored"
                 )
         else:
-            preset_optimizer = {}
-            if optimizer is not None:
-                preset_optimizer = {
+            if lr is not None:
+                optimizer_config["lr"] = lr
+            optimizers = {
+                "all": {
                     "optimizer": optimizer,
+                    "scheduler": scheduler,
                     "optimizer_config": optimizer_config,
+                    "scheduler_config": scheduler_config,
                 }
-            if scheduler is not None:
-                preset_optimizer.update(
-                    {
-                        "scheduler": scheduler,
-                        "scheduler_config": scheduler_config,
-                    }
-                )
-            if preset_optimizer:
-                optimizers = {"all": preset_optimizer}
+            }
         if optimizers is not None:
             trainer_config["optimizers"] = optimizers
         # inject user defined configs
