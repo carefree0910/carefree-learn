@@ -267,7 +267,6 @@ class Elements(NamedTuple):
         else:
             preset_optimizer = {}
             if optimizer is not None:
-                optimizer_config.setdefault("lr", 1e-3)
                 preset_optimizer = {
                     "optimizer": optimizer,
                     "optimizer_config": optimizer_config,
