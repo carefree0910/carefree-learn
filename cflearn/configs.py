@@ -136,9 +136,9 @@ class Elements(NamedTuple):
     @staticmethod
     def affected_mappings() -> Dict[str, Set[str]]:
         return {
-            "metrics": {"metric_config"},
+            "metrics": {"metric_config*"},
             "use_simplify_data": {"simplify"},
-            "ts_config": {"time_series_config"},
+            "ts_config": {"time_series_config*"},
             "fixed_epoch": {"min_epoch", "num_epoch", "max_epoch"},
         }
 
@@ -388,9 +388,12 @@ class Environment:
                 current_v = current.get(k)
                 if current_v is None:
                     current[k] = new_default_v
-                elif k not in user_affected:
+                else:
+                    if f"{k}*" in user_affected:
+                        continue
                     if not isinstance(new_default_v, dict):
-                        current[k] = new_default_v
+                        if k not in user_affected:
+                            current[k] = new_default_v
                     else:
                         _core(current_v, new_default_v)
 
