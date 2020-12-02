@@ -57,6 +57,7 @@ class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
 
 class PatternPipeline(PipelineProtocol):
     def __init__(self, pattern: ModelPattern):
+        super().__init__()
         self.pattern = pattern
 
     def _core(
