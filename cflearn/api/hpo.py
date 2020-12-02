@@ -940,10 +940,11 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
     def objective(trial: Trial) -> float:
         temp_folder_ = os.path.join(temp_folder, str(trial.number))
         current_params = key_mapping.pop(trial)
-        current_params["metrics"] = metrics
-        current_params["trial"] = trial
+        if metrics is not None:
+            current_params["metrics"] = metrics
         args_ = model, current_params, num_repeat, num_parallel, temp_folder_
-        result = tuner.train(*args_, sequential=num_jobs > 1, cuda=cuda)
+        sequential = None if num_jobs <= 1 else True
+        result = tuner.train(*args_, sequential=sequential, cuda=cuda)
         final_scores = []
         weighted_scores = result.weighted_scores
         estimators = tuner.make_estimators(metrics, result.repeat_result)
