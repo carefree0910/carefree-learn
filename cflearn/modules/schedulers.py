@@ -17,7 +17,12 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
 
 
 register_scheduler("step")(StepLR)
-register_scheduler("plateau")(ReduceLROnPlateau)
+
+
+@register_scheduler("plateau")
+class ReduceLROnPlateauWithGet(ReduceLROnPlateau):
+    def get_lr(self) -> List[float]:
+        return [group["lr"] for group in self.optimizer.param_groups]  # type: ignore
 
 
 @register_scheduler("warmup")
