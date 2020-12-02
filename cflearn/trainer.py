@@ -111,7 +111,8 @@ class TrainerState:
 
     @property
     def should_log_lr(self) -> bool:
-        return self.step % 100 == 0
+        denominator = min(5 * self.num_step_per_epoch, 100)
+        return self.step % denominator == 0
 
     @property
     def should_log_metrics_msg(self) -> bool:
