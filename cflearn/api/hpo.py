@@ -17,6 +17,7 @@ from cftool.misc import LoggingMixin
 from cftool.ml.hpo import HPOBase
 from cftool.ml.utils import pattern_type
 from cftool.ml.utils import scoring_fn_type
+from cftool.ml.utils import Metrics
 from cftool.ml.utils import Estimator
 from cfdata.types import np_float_type
 from cfdata.tabular import task_type_type
@@ -130,8 +131,13 @@ class _Tuner(LoggingMixin):
                 if repeat_result.pipelines is None:
                     raise ValueError("pipelines are not provided in `repeat_result`")
                 pipeline = list(repeat_result.pipelines.values())[0][0]
-                metrics = sorted(pipeline.trainer.metrics)
-            else:
+                metrics = []
+                for metric in sorted(pipeline.trainer.metrics):
+                    if metric in Metrics.sign_dict:
+                        metrics.append(metric)
+                if not metrics:
+                    metrics = None
+            if metrics is None:
                 if parse_task_type(self.task_type) is TaskTypes.CLASSIFICATION:
                     metrics = ["acc", "auc"]
                 else:
