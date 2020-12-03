@@ -23,7 +23,6 @@ setup(
         "dill",
         "future",
         "psutil",
-        "tb-nightly",
         "cython>=0.29.12",
         "numpy>=1.16.2",
         "scipy>=1.2.1",
