@@ -50,7 +50,10 @@ class DDR(ModelBase):
         self.quantile_metric_config = None
         if self.fetch_q:
             default_metric_types += ["ddr", "quantile"]
-            self.quantile_metric_config = {"q": np.linspace(0.1, 0.9, 5)}
+            default_q = np.linspace(0.1, 0.9, 5).tolist()
+            qmq = self.config.setdefault("quantile_metric_q", default_q)
+            qmq = np.asarray(qmq, np.float32)
+            self.quantile_metric_config = {"q": qmq}
         if self.fetch_cdf:
             default_metric_types += ["cdf", "pdf"]
         if self.fetch_q and self.fetch_cdf:
