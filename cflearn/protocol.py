@@ -1,6 +1,7 @@
 import numpy as np
 
 from abc import abstractmethod
+from abc import ABC
 from abc import ABCMeta
 from typing import Any
 from typing import Set
@@ -88,7 +89,7 @@ class DataSplit(NamedTuple):
     remained_indices: np.ndarray
 
 
-class DataProtocol:
+class DataProtocol(ABC):
     is_ts: bool
     is_clf: bool
     is_simplify: bool
@@ -220,7 +221,7 @@ class DataProtocol:
         return register_core(name, data_dict, before_register=before)
 
 
-class SamplerProtocol:
+class SamplerProtocol(ABC):
     shuffle: bool
 
     @abstractmethod
@@ -245,7 +246,7 @@ class SamplerProtocol:
         return register_core(name, sampler_dict, before_register=before)
 
 
-class DataLoaderProtocol:
+class DataLoaderProtocol(ABC):
     _num_siamese: int = 1
 
     data: DataProtocol
