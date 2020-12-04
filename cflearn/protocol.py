@@ -464,6 +464,11 @@ class TrainerState:
         return self.step % denominator == 0
 
     @property
+    def should_log_scalar(self) -> bool:
+        denominator = min(self.num_step_per_epoch, 4)
+        return self.step % denominator == 0
+
+    @property
     def should_log_metrics_msg(self) -> bool:
         min_period = self.max_step_per_snapshot / 3
         min_period = math.ceil(min_period / self.num_step_per_snapshot)

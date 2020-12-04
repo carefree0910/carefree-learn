@@ -853,7 +853,8 @@ class Trainer(MonitoredMixin):
                     self.state,
                 )
         loss_items = {f"tr_{k}": v.item() for k, v in loss_dict.items()}
-        self._log_metrics(loss_items)
+        if self.state.should_log_scalar:
+            self._log_metrics(loss_items)
         with timing_context(self, "loss.backward", enable=self.timing):
             loss = loss_dict["loss"]
             if self.use_amp:
