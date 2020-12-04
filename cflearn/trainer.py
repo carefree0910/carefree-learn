@@ -344,9 +344,6 @@ class StepOutputs(NamedTuple):
 
 
 class Trainer(MonitoredMixin):
-    pt_prefix = "model_"
-    scores_file = "scores.json"
-
     def __init__(
         self,
         model: ModelProtocol,
@@ -975,65 +972,28 @@ class Trainer(MonitoredMixin):
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)
 
-    def _sorted_checkpoints(self, folder: str, use_external_scores: bool) -> List[str]:
-        # better checkpoints will be placed earlier,
-        #  which means `checkpoints[0]` is the best checkpoint
-        if not use_external_scores:
-            scores = self.checkpoint_scores
-        else:
-            scores_path = os.path.join(folder, self.scores_file)
-            if not os.path.isfile(scores_path):
-                return []
-            with open(scores_path, "r") as f:
-                scores = json.load(f)
-        files = [
-            file
-            for file in os.listdir(folder)
-            if file.startswith(self.pt_prefix) and file.endswith(".pt")
-        ]
-        scores_list = [scores.get(file, -math.inf) for file in files]
-        sorted_indices = np.argsort(scores_list)[::-1]
-        return [files[i] for i in sorted_indices]
-
     def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
         # leave top_k snapshots only
         if self.state.max_snapshot_file > 0:
-            checkpoints = self._sorted_checkpoints(folder, False)
+            checkpoints = self.model.sorted_checkpoints(folder)
             if len(checkpoints) >= self.state.max_snapshot_file:
                 for file in checkpoints[self.state.max_snapshot_file - 1 :]:
                     self.checkpoint_scores.pop(file)
                     os.remove(os.path.join(folder, file))
         # pt
-        file = f"{self.pt_prefix}{self.state.epoch}.pt"
+        file = f"{self.model.pt_prefix}{self.state.epoch}.pt"
         torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
         self.checkpoint_scores[file] = score
-        with open(os.path.join(folder, self.scores_file), "w") as f:
+        with open(os.path.join(folder, self.model.scores_file), "w") as f:
             json.dump(self.checkpoint_scores, f)
 
     def restore_checkpoint(self, folder: str = None) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
-        checkpoints = self._sorted_checkpoints(folder, True)
-        if not checkpoints:
-            self.log_msg(  # type: ignore
-                f"no model file found in {self.checkpoint_folder}",
-                self.warning_prefix,
-                msg_level=logging.WARNING,
-            )
-            return False
-        best_checkpoint = checkpoints[0]
-        model_file = os.path.join(folder, best_checkpoint)
-        self.log_msg(  # type: ignore
-            f"restoring from {model_file}",
-            self.info_prefix,
-            4,
-        )
-        states = torch.load(model_file, map_location=self.device)
-        self.model.load_state_dict(states)
-        return True
+        return self.model.restore_checkpoint(folder)
 
 
 __all__ = [

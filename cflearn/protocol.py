@@ -1,7 +1,9 @@
+import os
+import json
 import math
-
 import torch
 import pprint
+import logging
 
 import numpy as np
 import torch.nn as nn
@@ -509,6 +511,9 @@ class TrainerDataProtocol(ABC):
 
 
 class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
+    pt_prefix: str = "model_"
+    scores_file: str = "scores.json"
+
     __identifier__: str
     data: DataProtocol
     ema: Optional[EMA] = None
@@ -556,6 +561,43 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         if not return_only:
             self.log_block_msg(msg, verbose_level=3)  # type: ignore
         return "\n".join([all_msg, msg])
+
+    def sorted_checkpoints(self, folder: str) -> List[str]:
+        # better checkpoints will be placed earlier,
+        #  which means `checkpoints[0]` is the best checkpoint
+        scores_path = os.path.join(folder, self.scores_file)
+        if not os.path.isfile(scores_path):
+            return []
+        with open(scores_path, "r") as f:
+            scores = json.load(f)
+        files = [
+            file
+            for file in os.listdir(folder)
+            if file.startswith(self.pt_prefix) and file.endswith(".pt")
+        ]
+        scores_list = [scores.get(file, -math.inf) for file in files]
+        sorted_indices = np.argsort(scores_list)[::-1]
+        return [files[i] for i in sorted_indices]
+
+    def restore_checkpoint(self, folder: str = None) -> bool:
+        checkpoints = self.sorted_checkpoints(folder)
+        if not checkpoints:
+            self.log_msg(  # type: ignore
+                f"no model file found in {folder}",
+                self.warning_prefix,
+                msg_level=logging.WARNING,
+            )
+            return False
+        best_checkpoint = checkpoints[0]
+        model_file = os.path.join(folder, best_checkpoint)
+        self.log_msg(  # type: ignore
+            f"restoring from {model_file}",
+            self.info_prefix,
+            4,
+        )
+        states = torch.load(model_file, map_location=self.device)
+        self.load_state_dict(states)
+        return True
 
     @property
     @abstractmethod
