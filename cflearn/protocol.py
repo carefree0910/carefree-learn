@@ -1,4 +1,8 @@
+import torch
+import pprint
+
 import numpy as np
+import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABC
@@ -22,6 +26,9 @@ from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
 from cfdata.tabular import TabularData
 from cfdata.tabular.recognizer import Recognizer
+
+from .types import tensor_dict_type
+from .modules.blocks import EMA
 
 
 class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
@@ -80,6 +87,7 @@ class PatternPipeline(PipelineProtocol):
 data_dict: Dict[str, Type["DataProtocol"]] = {}
 sampler_dict: Dict[str, Type["SamplerProtocol"]] = {}
 loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
+model_dict: Dict[str, Type["ModelProtocol"]] = {}
 
 
 class DataSplit(NamedTuple):
@@ -305,6 +313,93 @@ class DataLoaderProtocol(ABC):
         return register_core(name, loader_dict, before_register=before)
 
 
+# This protocol is meant to fit with and only with `Trainer`
+class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
+    output_probabilities: bool
+    # this is needed iff we want to utilize `_init_mlflow` in `Trainer`
+    tr_data: Optional[DataProtocol] = None
+
+    @property
+    def use_ema(self) -> bool:
+        return self.ema is not None
+
+    def init_ema(self) -> None:
+        ema_decay = self.config.setdefault("ema_decay", 0.0)
+        if 0.0 < ema_decay < 1.0:
+            named_params = list(self.named_parameters())
+            self.ema = EMA(ema_decay, named_params)  # type: ignore
+
+    def apply_ema(self) -> None:
+        if self.ema is None:
+            raise ValueError("`ema` is not defined")
+        self.ema()
+
+    def info(self, *, return_only: bool = False) -> str:
+        msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
+        msg += (
+            pprint.pformat(self.configurations, compact=True)
+            + "\n"
+            + "-" * 100
+            + "\n"
+        )
+        msg += "\n".join(["=" * 100, "parameters", "-" * 100, ""])
+        for name, param in self.named_parameters():
+            if param.requires_grad:
+                msg += name + "\n"
+        msg += "\n".join(["-" * 100, "=" * 100, "buffers", "-" * 100, ""])
+        for name, param in self.named_buffers():
+            msg += name + "\n"
+        msg += "\n".join(
+            ["-" * 100, "=" * 100, "structure", "-" * 100, str(self), "-" * 100, ""]
+        )
+        if not return_only:
+            self.log_block_msg(msg, verbose_level=4)  # type: ignore
+        all_msg, msg = msg, "=" * 100 + "\n"
+        n_tr = len(self.tr_data)
+        n_cv = None if self.cv_data is None else len(self.cv_data)
+        msg += f"{self.info_prefix}training data : {n_tr}\n"
+        msg += f"{self.info_prefix}valid    data : {n_cv}\n"
+        msg += "-" * 100
+        if not return_only:
+            self.log_block_msg(msg, verbose_level=3)  # type: ignore
+        return "\n".join([all_msg, msg])
+
+    @property
+    @abstractmethod
+    def configurations(self) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+        batch_step: int = 0,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        pass
+
+    @abstractmethod
+    def loss_function(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[torch.Tensor],
+        forward_results: tensor_dict_type,
+        batch_step: int,
+    ) -> tensor_dict_type:
+        pass
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global model_dict
+
+        def before(cls_: Type) -> None:
+            cls_.__identifier__ = name
+
+        return register_core(name, model_dict, before_register=before)
+
+
 __all__ = [
     "PipelineProtocol",
     "PatternPipeline",
@@ -312,4 +407,5 @@ __all__ = [
     "DataProtocol",
     "SamplerProtocol",
     "DataLoaderProtocol",
+    "ModelProtocol",
 ]

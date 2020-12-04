@@ -1,16 +1,12 @@
 import torch
-import pprint
 
 import numpy as np
 
 from typing import *
 from abc import ABCMeta
 from torch import Tensor
-from torch.nn import Module
 from torch.nn import ModuleDict
 from cfdata.tabular import ColumnTypes
-from cftool.misc import register_core
-from cftool.misc import LoggingMixin
 
 try:
     amp: Optional[Any] = torch.cuda.amp
@@ -22,6 +18,7 @@ from ..types import tensor_dict_type
 from ..losses import LossBase
 from ..configs import Configs
 from ..configs import Environment
+from ..protocol import ModelProtocol
 from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
@@ -32,8 +29,6 @@ from ..modules.transform import Dimensions
 from ..modules.transform import SplitFeatures
 from ..modules.extractors import ExtractorBase
 from ..modules.aggregators import AggregatorBase
-
-model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
 class PipeConfig(NamedTuple):
@@ -88,7 +83,7 @@ class PipeConfig(NamedTuple):
         return f"{prefix}_{self.head_config}"
 
 
-class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
+class ModelBase(ModelProtocol, metaclass=ABCMeta):
     registered_pipes: Optional[Dict[str, PipeConfig]] = None
 
     def __init__(
@@ -393,49 +388,8 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
     # API
 
     @property
-    def use_ema(self) -> bool:
-        return self.ema is not None
-
-    def init_ema(self) -> None:
-        ema_decay = self.config.setdefault("ema_decay", 0.0)
-        if 0.0 < ema_decay < 1.0:
-            named_params = list(self.named_parameters())
-            self.ema = EMA(ema_decay, named_params)  # type: ignore
-
-    def apply_ema(self) -> None:
-        if self.ema is None:
-            raise ValueError("`ema` is not defined")
-        self.ema()
-
-    def info(self, *, return_only: bool = False) -> str:
-        msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
-        msg += (
-            pprint.pformat(self.environment.config, compact=True)
-            + "\n"
-            + "-" * 100
-            + "\n"
-        )
-        msg += "\n".join(["=" * 100, "parameters", "-" * 100, ""])
-        for name, param in self.named_parameters():
-            if param.requires_grad:
-                msg += name + "\n"
-        msg += "\n".join(["-" * 100, "=" * 100, "buffers", "-" * 100, ""])
-        for name, param in self.named_buffers():
-            msg += name + "\n"
-        msg += "\n".join(
-            ["-" * 100, "=" * 100, "structure", "-" * 100, str(self), "-" * 100, ""]
-        )
-        if not return_only:
-            self.log_block_msg(msg, verbose_level=4)  # type: ignore
-        all_msg, msg = msg, "=" * 100 + "\n"
-        n_tr = len(self.tr_data)
-        n_cv = None if self.cv_data is None else len(self.cv_data)
-        msg += f"{self.info_prefix}training data : {n_tr}\n"
-        msg += f"{self.info_prefix}valid    data : {n_cv}\n"
-        msg += "-" * 100
-        if not return_only:
-            self.log_block_msg(msg, verbose_level=3)  # type: ignore
-        return "\n".join([all_msg, msg])
+    def configurations(self) -> Dict[str, Any]:
+        return self.environment.config
 
     def _split_features(
         self,
@@ -504,15 +458,6 @@ class ModelBase(Module, LoggingMixin, metaclass=ABCMeta):
             [f"  ({key}): {' -> '.join(pipe[1:])}" for key, pipe in self.pipes.items()]
         )
         return f"(pipes): Pipes(\n{pipe_str}\n)"
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        global model_dict
-
-        def before(cls_: Type) -> None:
-            cls_.__identifier__ = name
-
-        return register_core(name, model_dict, before_register=before)
 
     @classmethod
     def register_pipe(

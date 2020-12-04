@@ -6,6 +6,7 @@ from cfdata.tabular.processors.base import Processor
 from ..modules import *
 from ..losses import LossBase
 from ..configs import Configs
+from ..protocol import ModelProtocol
 from ..misc.toolkit import Initializer
 from ..models.base import ModelBase
 from ..modules.heads import HeadBase
@@ -82,9 +83,9 @@ def register_model(
     pipes: Optional[List[PipeInfo]] = None,
 ) -> Optional[Callable[[Type], Type]]:
     if pipes is None:
-        return ModelBase.register(name)
+        return ModelProtocol.register(name)
 
-    @ModelBase.register(name)
+    @ModelProtocol.register(name)
     class _(ModelBase):
         pass
 
