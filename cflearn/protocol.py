@@ -270,7 +270,6 @@ class SamplerProtocol(ABC):
 class DataLoaderProtocol(ABC):
     is_onnx: bool = False
     _num_siamese: int = 1
-    collate_fn: Optional[Callable] = None
 
     data: DataProtocol
     sampler: SamplerProtocol
@@ -303,7 +302,7 @@ class DataLoaderProtocol(ABC):
         pass
 
     @abstractmethod
-    def __next__(self) -> batch_type:
+    def __next__(self) -> Any:
         pass
 
     @abstractmethod
@@ -369,7 +368,7 @@ class PrefetchLoader:
 
     def preload(self) -> None:
         try:
-            sample = next(self.loader)
+            sample = self.loader.__next__()
         except StopIteration:
             self.stop_at_next_batch = True
             return None
@@ -380,11 +379,7 @@ class PrefetchLoader:
             sample, batch_indices = sample
             indices_tensor = to_torch(batch_indices).to(torch.long)
 
-        if self.loader.collate_fn is None:
-            self.next_batch = sample
-        else:
-            self.next_batch = self.loader.collate_fn(sample)
-
+        self.next_batch = sample
         if self.is_cpu:
             self.next_batch_indices = indices_tensor
             return None

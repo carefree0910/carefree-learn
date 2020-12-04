@@ -346,11 +346,10 @@ class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
         for name, loader in loaders.items():
             categorical_features = []
             return_indices = loader.return_indices
-            for a, b in loader:
+            for sample in loader:
                 if return_indices:
-                    x_batch, y_batch = a
-                else:
-                    x_batch, y_batch = a, b
+                    sample = sample[0]
+                x_batch = sample["x_batch"]
                 categorical_features.append(x_batch[..., self.tgt_columns])
             tensor = to_torch(np.vstack(categorical_features))
             keys = self._get_cache_keys(name)

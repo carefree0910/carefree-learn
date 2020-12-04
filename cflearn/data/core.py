@@ -1,17 +1,17 @@
+import copy
 import torch
 
 import numpy as np
 
-from typing import Tuple
-from typing import Union
+from typing import Any
+from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
 from cfdata.types import np_int_type
 from cfdata.types import np_float_type
 from cfdata.tabular import DataLoader
 from cfdata.tabular import ImbalancedSampler
 from cfdata.tabular import TabularData as TD
 
-from ..types import np_dict_type
-from ..types import tensor_dict_type
 from ..protocol import DataProtocol
 from ..protocol import SamplerProtocol
 from ..protocol import DataLoaderProtocol
@@ -30,11 +30,13 @@ class TabularSampler(ImbalancedSampler, SamplerProtocol):
 
 @DataLoaderProtocol.register("tabular")
 class TabularLoader(DataLoader, DataLoaderProtocol):
-    def collate_fn(  # type: ignore
-        self,
-        sample: Tuple[np.ndarray, np.ndarray],
-    ) -> Union[np_dict_type, tensor_dict_type]:
-        x_batch, y_batch = sample
+    def __next__(self) -> Any:
+        sample = DataLoader.__next__(self)
+        if self.return_indices:
+            (x_batch, y_batch), indices = sample
+        else:
+            x_batch, y_batch = sample
+            indices = None
         x_batch = x_batch.astype(np_float_type)
         if self.is_onnx:
             if y_batch is None:
@@ -47,13 +49,19 @@ class TabularLoader(DataLoader, DataLoaderProtocol):
                 if self.data.is_clf:
                     y_batch = y_batch.to(torch.long)
             arrays = [x_batch, y_batch]
-        return dict(zip(["x_batch", "y_batch"], arrays))
+
+        sample = dict(zip(["x_batch", "y_batch"], arrays))
+        if not self.return_indices:
+            return sample
+        assert indices is not None
+        return sample, indices
 
     def copy(self) -> "DataLoader":
-        copied_loader = DataLoader.copy(self)
-        copied_loader.is_onnx = self.is_onnx
-        copied_loader.collate_fn = self.collate_fn
-        return copied_loader
+        copied_tabular_loader = copy.copy(self)
+        copied_loader = super().copy()
+        shallow_copied = shallow_copy_dict(copied_loader.__dict__)
+        update_dict(shallow_copied, copied_tabular_loader.__dict__)
+        return copied_tabular_loader
 
 
 __all__ = [

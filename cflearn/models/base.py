@@ -339,10 +339,10 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
 
     @property
     def input_sample(self) -> tensor_dict_type:
-        batch = next(iter(self.tr_loader.copy()))
-        sample = batch[0] if self.tr_loader.return_indices else batch
-        x_batch, y_batch = map(to_torch, sample)
-        return {"x_batch": x_batch, "y_batch": y_batch}
+        sample = next(iter(self.tr_loader))
+        if self.tr_loader.return_indices:
+            return sample[0]
+        return sample
 
     @property
     def output_probabilities(self) -> bool:
