@@ -22,7 +22,6 @@ try:
 except:
     amp = None
 
-from .data import PrefetchLoader
 from .types import data_type
 from .configs import Elements
 from .configs import Environment
@@ -34,6 +33,7 @@ from .protocol import ModelProtocol
 from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .inference import PreProcessor
+from .data.core import PrefetchLoader
 from .misc.toolkit import to_2d
 from .misc.toolkit import to_relative
 from .misc.time_series import TSLabelCollator

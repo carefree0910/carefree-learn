@@ -13,13 +13,13 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 
-from .data import PrefetchLoader
 from .types import data_type
 from .types import np_dict_type
 from .protocol import DataProtocol
 from .protocol import SamplerProtocol
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
+from .data.core import PrefetchLoader
 from .misc.toolkit import to_prob
 from .misc.toolkit import to_numpy
 from .misc.toolkit import is_float

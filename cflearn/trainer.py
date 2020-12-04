@@ -35,13 +35,13 @@ except:
     amp = None
 
 from .misc.toolkit import *
-from .data import PrefetchLoader
 from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
 from .protocol import ModelProtocol
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
+from .data.core import PrefetchLoader
 from .modules.schedulers import WarmupScheduler
 
 
