@@ -268,6 +268,7 @@ class SamplerProtocol(ABC):
 
 
 class DataLoaderProtocol(ABC):
+    is_onnx: bool = False
     _num_siamese: int = 1
     collate_fn: Optional[Callable] = None
 
@@ -337,7 +338,8 @@ class PrefetchLoader:
     ):
         self.loader = loader
         self.device = device
-        self.is_onnx = loader.is_onnx = is_onnx
+        self.is_onnx = is_onnx
+        loader.is_onnx = is_onnx
         self.data = loader.data
         self.return_indices = loader.return_indices
         self.stream = None if self.is_cpu else torch.cuda.Stream(device)

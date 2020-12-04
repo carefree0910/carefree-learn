@@ -30,9 +30,7 @@ class TabularSampler(ImbalancedSampler, SamplerProtocol):
 
 @DataLoaderProtocol.register("tabular")
 class TabularLoader(DataLoader, DataLoaderProtocol):
-    is_onnx: bool = False
-
-    def collate_fn(
+    def collate_fn(  # type: ignore
         self,
         sample: Tuple[np.ndarray, np.ndarray],
     ) -> Union[np_dict_type, tensor_dict_type]:
