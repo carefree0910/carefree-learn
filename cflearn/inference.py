@@ -230,7 +230,6 @@ class Inference(InferenceProtocol, LoggingMixin):
         self.use_tqdm = use_tqdm
         self.data = preprocessor.data
         self.preprocessor = preprocessor
-        self._use_grad_in_predict = False
         self.use_binary_threshold = use_binary_threshold
 
         # binary case

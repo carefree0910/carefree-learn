@@ -513,13 +513,14 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
 # This protocol is meant to fit with and only with `Trainer`
 class InferenceProtocol(ABC):
     data: DataProtocol
-    model: ModelProtocol
+    model: Optional[ModelProtocol]
     is_binary: bool
     binary_metric: Optional[str]
     binary_threshold: Optional[float]
     use_binary_threshold: bool
     onnx: Any = None
     use_tqdm: bool = True
+    use_grad_in_predict: bool = False
 
     @property
     def binary_config(self) -> Dict[str, Any]:
@@ -532,6 +533,8 @@ class InferenceProtocol(ABC):
     def output_probabilities(self) -> bool:
         if self.onnx is not None:
             return self.onnx.output_probabilities
+        if self.model is None:
+            raise ValueError("either `onnx` or `model` should be provided")
         return self.model.output_probabilities
 
     @property
@@ -564,7 +567,7 @@ class InferenceProtocol(ABC):
         kwargs = shallow_copy_dict(kwargs)
 
         # calculate
-        use_grad = kwargs.pop("use_grad", self._use_grad_in_predict)
+        use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
         try:
             labels, results = self._get_results(
                 use_grad,
@@ -575,7 +578,7 @@ class InferenceProtocol(ABC):
                 **shallow_copy_dict(kwargs),
             )
         except:
-            use_grad = self._use_grad_in_predict = True
+            use_grad = self.use_grad_in_predict = True
             labels, results = self._get_results(
                 use_grad,
                 loader,
