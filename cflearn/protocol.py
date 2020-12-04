@@ -340,10 +340,7 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def info(self, *, return_only: bool = False) -> str:
         msg = "\n".join(["=" * 100, "configurations", "-" * 100, ""])
         msg += (
-            pprint.pformat(self.configurations, compact=True)
-            + "\n"
-            + "-" * 100
-            + "\n"
+            pprint.pformat(self.configurations, compact=True) + "\n" + "-" * 100 + "\n"
         )
         msg += "\n".join(["=" * 100, "parameters", "-" * 100, ""])
         for name, param in self.named_parameters():
@@ -443,8 +440,8 @@ class InferenceProtocol(ABC):
             return probabilities.argmax(1).reshape([-1, 1])
         predictions = (
             (probabilities[..., 1] >= self.binary_threshold)
-                .astype(np_int_type)
-                .reshape([-1, 1])
+            .astype(np_int_type)
+            .reshape([-1, 1])
         )
         return predictions
 
