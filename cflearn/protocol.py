@@ -16,6 +16,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.ml import Metrics
 from cftool.ml import ModelPattern
 from cftool.misc import register_core
 from cftool.misc import LoggingMixin
@@ -25,8 +26,10 @@ from cfdata.tabular import str_data_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
 from cfdata.tabular import TabularData
+from cfdata.tabular.misc import np_int_type
 from cfdata.tabular.recognizer import Recognizer
 
+from .types import np_dict_type
 from .types import tensor_dict_type
 from .modules.blocks import EMA
 
@@ -400,6 +403,83 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         return register_core(name, model_dict, before_register=before)
 
 
+# This protocol is meant to fit with and only with `Trainer`
+class InferenceProtocol(ABC):
+    is_binary: bool
+    binary_metric: str
+    binary_threshold: float
+    use_binary_threshold: bool
+
+    @abstractmethod
+    def predict(
+        self,
+        loader: DataLoaderProtocol,
+        *,
+        return_all: bool = False,
+        requires_recover: bool = True,
+        returns_probabilities: bool = False,
+        loader_name: Optional[str] = None,
+        batch_step: int = -1,
+        use_tqdm: bool = False,
+        **kwargs: Any,
+    ) -> Union[np.ndarray, np_dict_type]:
+        pass
+
+    @property
+    def binary_config(self) -> Dict[str, Any]:
+        return {
+            "binary_metric": self.binary_metric,
+            "binary_threshold": self.binary_threshold,
+        }
+
+    @property
+    def need_binary_threshold(self) -> bool:
+        if not self.use_binary_threshold:
+            return False
+        return self.is_binary and self.binary_metric is not None
+
+    def predict_with(self, probabilities: np.ndarray) -> np.ndarray:
+        if not self.is_binary or self.binary_threshold is None:
+            return probabilities.argmax(1).reshape([-1, 1])
+        predictions = (
+            (probabilities[..., 1] >= self.binary_threshold)
+                .astype(np_int_type)
+                .reshape([-1, 1])
+        )
+        return predictions
+
+    def generate_binary_threshold(
+        self,
+        loader: Optional[DataLoaderProtocol] = None,
+        loader_name: Optional[str] = None,
+    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        if not self.need_binary_threshold:
+            return None
+        if loader is None:
+            raise ValueError("`loader` should be provided")
+        results = self.predict(
+            loader,
+            return_all=True,
+            returns_probabilities=True,
+            loader_name=loader_name,
+        )
+        labels = results["labels"]
+        probabilities = results["predictions"]
+        try:
+            threshold = Metrics.get_binary_threshold(
+                labels,
+                probabilities,
+                self.binary_metric,
+            )
+            self.binary_threshold = threshold.item()
+        except ValueError:
+            self.binary_threshold = None
+
+        if loader_name == "tr":
+            return None
+        return labels, probabilities
+
+
 __all__ = [
     "PipelineProtocol",
     "PatternPipeline",
@@ -408,4 +488,5 @@ __all__ = [
     "SamplerProtocol",
     "DataLoaderProtocol",
     "ModelProtocol",
+    "InferenceProtocol",
 ]

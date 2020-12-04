@@ -8,18 +8,17 @@ from typing import *
 from functools import partial
 from onnxruntime import InferenceSession
 from tqdm.autonotebook import tqdm
-from cftool.ml import Metrics
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
-from cfdata.types import np_int_type
 
 from .data import PrefetchLoader
 from .types import data_type
 from .types import np_dict_type
 from .protocol import DataProtocol
 from .protocol import SamplerProtocol
+from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .misc.toolkit import to_prob
 from .misc.toolkit import to_numpy
@@ -220,7 +219,7 @@ class ONNX:
         return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
 
 
-class Inference(LoggingMixin):
+class Inference(InferenceProtocol, LoggingMixin):
     def __init__(
         self,
         preprocessor: PreProcessor,
@@ -271,19 +270,6 @@ class Inference(LoggingMixin):
 
     __repr__ = __str__
 
-    @property
-    def binary_config(self) -> Dict[str, Any]:
-        return {
-            "binary_metric": self.binary_metric,
-            "binary_threshold": self.binary_threshold,
-        }
-
-    @property
-    def need_binary_threshold(self) -> bool:
-        if not self.use_binary_threshold:
-            return False
-        return self.is_binary and self.binary_metric is not None
-
     def inject_binary_config(self, config: Dict[str, Any]) -> None:
         self.binary_metric = config.get("binary_metric")
         self.binary_threshold = config.get("binary_threshold")
@@ -292,47 +278,6 @@ class Inference(LoggingMixin):
         if not self.use_tqdm:
             return loader
         return tqdm(loader, total=len(loader), leave=False, position=2)
-
-    def generate_binary_threshold(
-        self,
-        loader: Optional[PrefetchLoader] = None,
-        loader_name: Optional[str] = None,
-    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
-        if not self.need_binary_threshold:
-            return None
-        if loader is None:
-            raise ValueError("`loader` should be provided")
-        results = self.predict(
-            loader,
-            return_all=True,
-            returns_probabilities=True,
-            loader_name=loader_name,
-        )
-        labels = results["labels"]
-        probabilities = results["predictions"]
-        try:
-            threshold = Metrics.get_binary_threshold(
-                labels,
-                probabilities,
-                self.binary_metric,
-            )
-            self.binary_threshold = threshold.item()
-        except ValueError:
-            self.binary_threshold = None
-
-        if loader_name == "tr":
-            return None
-        return labels, probabilities
-
-    def predict_with(self, probabilities: np.ndarray) -> np.ndarray:
-        if not self.is_binary or self.binary_threshold is None:
-            return probabilities.argmax(1).reshape([-1, 1])
-        predictions = (
-            (probabilities[..., 1] >= self.binary_threshold)
-            .astype(np_int_type)
-            .reshape([-1, 1])
-        )
-        return predictions
 
     def predict(
         self,

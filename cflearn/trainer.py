@@ -40,9 +40,8 @@ from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
 from .protocol import ModelProtocol
+from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
-from .inference import Inference
-from .models.base import ModelBase
 from .modules.schedulers import WarmupScheduler
 
 
@@ -436,7 +435,7 @@ class Trainer(MonitoredMixin):
     def __init__(
         self,
         model: ModelProtocol,
-        inference: Inference,
+        inference: InferenceProtocol,
         environment: Environment,
         is_loading: bool,
     ):
