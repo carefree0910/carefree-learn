@@ -579,7 +579,7 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         sorted_indices = np.argsort(scores_list)[::-1]
         return [files[i] for i in sorted_indices]
 
-    def restore_checkpoint(self, folder: str = None) -> bool:
+    def restore_checkpoint(self, folder: str) -> bool:
         checkpoints = self.sorted_checkpoints(folder)
         if not checkpoints:
             self.log_msg(  # type: ignore
