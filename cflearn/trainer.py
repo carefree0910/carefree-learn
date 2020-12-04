@@ -940,13 +940,12 @@ class Trainer(MonitoredMixin):
                 terminate = True
             if terminate:
                 if os.path.isdir(self.checkpoint_folder):
-                    has_ckpt = True
                     self.log_msg(  # type: ignore
                         "rolling back to the best checkpoint",
                         self.info_prefix,
                         3,
                     )
-                    self.restore_checkpoint()
+                    has_ckpt = self.restore_checkpoint()
                 break
             if self.use_tqdm:
                 assert self._epoch_tqdm is not None
@@ -1009,7 +1008,7 @@ class Trainer(MonitoredMixin):
         with open(os.path.join(folder, self.scores_file), "w") as f:
             json.dump(self.checkpoint_scores, f)
 
-    def restore_checkpoint(self, folder: str = None) -> "Trainer":
+    def restore_checkpoint(self, folder: str = None) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
         checkpoints = self._sorted_checkpoints(folder, True)
@@ -1019,7 +1018,7 @@ class Trainer(MonitoredMixin):
                 self.warning_prefix,
                 msg_level=logging.WARNING,
             )
-            return self
+            return False
         best_checkpoint = checkpoints[0]
         model_file = os.path.join(folder, best_checkpoint)
         self.log_msg(  # type: ignore
@@ -1029,7 +1028,7 @@ class Trainer(MonitoredMixin):
         )
         states = torch.load(model_file, map_location=self.device)
         self.model.load_state_dict(states)
-        return self
+        return True
 
 
 __all__ = [
