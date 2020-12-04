@@ -407,8 +407,21 @@ class PrefetchLoader:
         return self.device.type == "cpu"
 
 
+# Protocols below are meant to fit with and only with `Trainer`
 
-# This protocol is meant to fit with and only with `Trainer`
+
+class TrainerDataProtocol(ABC):
+    task_type: TaskTypes
+
+    @abstractmethod
+    def __len__(self) -> int:
+        pass
+
+    @property
+    def is_reg(self) -> bool:
+        return self.task_type.is_reg
+
+
 class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
     __identifier__: str
     data: DataProtocol
@@ -495,7 +508,6 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         pass
 
 
-# This protocol is meant to fit with and only with `Trainer`
 class InferenceProtocol(ABC):
     data: DataProtocol
     model: Optional[ModelProtocol]
@@ -709,6 +721,7 @@ __all__ = [
     "SamplerProtocol",
     "DataLoaderProtocol",
     "PrefetchLoader",
+    "TrainerDataProtocol",
     "ModelProtocol",
     "InferenceProtocol",
 ]
