@@ -693,7 +693,7 @@ class Trainer(MonitoredMixin):
                         rs = inference.generate_binary_threshold(loader, loader_name)
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                self.intermediate = self._get_metrics(rs)
+                self.intermediate = self._get_metrics(outputs, rs)
                 self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
@@ -725,6 +725,7 @@ class Trainer(MonitoredMixin):
 
     def _get_metrics(
         self,
+        outputs: StepOutputs,
         binary_threshold_outputs: Optional[Tuple[np.ndarray, np.ndarray]],
     ) -> IntermediateResults:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
@@ -911,6 +912,7 @@ class Trainer(MonitoredMixin):
         self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
+        outputs = None
         has_ckpt = terminate = False
         while self.state.should_train:
             try:
@@ -961,7 +963,9 @@ class Trainer(MonitoredMixin):
             loader_name = self.binary_threshold_loader_name
             rs = self.inference.generate_binary_threshold(loader, loader_name)
         # finalize
-        self.final_results = self._get_metrics(rs)
+        if outputs is None:
+            raise ValueError("not even one batch of outputs has been generated yet")
+        self.final_results = self._get_metrics(outputs, rs)
         self.state.epoch = self.state.step = -1
         self._log_metrics_msg(self.final_results)
         if not has_ckpt:
