@@ -911,6 +911,41 @@ class Trainer(MonitoredMixin):
     def on_save_checkpoint(self, score: float) -> None:
         self.save_checkpoint(score)
 
+    # core step on each epoch
+    def _step(self, batch, batch_indices):
+        with amp_autocast_context(self.use_amp):
+            with timing_context(self, "model.forward", enable=self.timing):
+                forward_results = self.model(
+                    batch,
+                    batch_indices,
+                    "tr",
+                    self.state.step,
+                )
+            with timing_context(self, "loss.forward", enable=self.timing):
+                loss_dict = self.model.loss_function(
+                    batch,
+                    batch_indices,
+                    forward_results,
+                    self.state.step,
+                )
+        loss_items = {f"tr_{k}": v.item() for k, v in loss_dict.items()}
+        self._log_metrics(loss_items)
+        with timing_context(self, "loss.backward", enable=self.timing):
+            loss = loss_dict["loss"]
+            if self.use_amp:
+                loss = self.grad_scaler.scale(loss)  # type: ignore
+            loss.backward()
+        if self.clip_norm > 0.0:
+            with timing_context(self, "clip_norm_step", enable=self.timing):
+                self._clip_norm_step()
+        with timing_context(self, "optimizer_step", enable=self.timing):
+            self._optimizer_step()
+        with timing_context(self, "scheduler_step", enable=self.timing):
+            self._scheduler_step()
+        if self.model.use_ema:
+            with timing_context(self, "EMA", enable=self.timing):
+                self.model.apply_ema()
+
     # api
 
     def fit(
@@ -962,38 +997,7 @@ class Trainer(MonitoredMixin):
                     )
                 for batch, batch_indices in step_iterator:
                     self.state.step += 1
-                    with amp_autocast_context(self.use_amp):
-                        with timing_context(self, "model.forward", enable=self.timing):
-                            forward_results = self.model(
-                                batch,
-                                batch_indices,
-                                "tr",
-                                self.state.step,
-                            )
-                        with timing_context(self, "loss.forward", enable=self.timing):
-                            loss_dict = self.model.loss_function(
-                                batch,
-                                batch_indices,
-                                forward_results,
-                                self.state.step,
-                            )
-                    loss_items = {f"tr_{k}": v.item() for k, v in loss_dict.items()}
-                    self._log_metrics(loss_items)
-                    with timing_context(self, "loss.backward", enable=self.timing):
-                        loss = loss_dict["loss"]
-                        if self.use_amp:
-                            loss = self.grad_scaler.scale(loss)  # type: ignore
-                        loss.backward()
-                    if self.clip_norm > 0.0:
-                        with timing_context(self, "clip_norm_step", enable=self.timing):
-                            self._clip_norm_step()
-                    with timing_context(self, "optimizer_step", enable=self.timing):
-                        self._optimizer_step()
-                    with timing_context(self, "scheduler_step", enable=self.timing):
-                        self._scheduler_step()
-                    if self.model.use_ema:
-                        with timing_context(self, "EMA", enable=self.timing):
-                            self.model.apply_ema()
+                    self._step(batch, batch_indices)
                     terminate = self._monitor_step()
                     if terminate:
                         break
