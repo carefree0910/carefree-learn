@@ -372,6 +372,7 @@ class Trainer(MonitoredMixin):
         # config based
         self.timing = environment.use_timing_context
         self.config = environment.trainer_config
+        self.use_tqdm_in_cv = self.config.setdefault("use_tqdm_in_cv", False)
         self._verbose_level = environment.verbose_level
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
         self.grad_scaler = None if amp is None or not self.use_amp else amp.GradScaler()
@@ -745,6 +746,7 @@ class Trainer(MonitoredMixin):
                 loader_name=loader_name,
                 return_all=True,
                 getting_metrics=True,
+                use_tqdm=self.use_tqdm_in_cv,
             )
             probabilities = None
             logits, labels = map(results.get, ["logits", "labels"])

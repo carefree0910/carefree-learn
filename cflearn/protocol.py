@@ -728,11 +728,12 @@ class InferenceProtocol(ABC):
         use_tqdm: bool,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
+        labels_key = loader.loader.labels_key
         if use_tqdm:
             loader = self.to_tqdm(loader)
         results, labels = [], []
         for batch, batch_indices in loader:
-            local_labels = batch[loader.loader.labels_key]
+            local_labels = batch[labels_key]
             if local_labels is not None:
                 if not isinstance(local_labels, np.ndarray):
                     local_labels = to_numpy(local_labels)
