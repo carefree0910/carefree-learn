@@ -20,6 +20,7 @@ from ..types import tensor_dict_type
 from ..losses import LossBase
 from ..configs import Configs
 from ..configs import Environment
+from ..protocol import TrainerState
 from ..protocol import ModelProtocol
 from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
@@ -369,9 +370,10 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
     def forward(
         self,
         batch: tensor_dict_type,
+        batch_idx: Optional[int] = None,
+        state: Optional[TrainerState] = None,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
-        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         # batch will have `categorical`, `numerical` and `labels` keys
@@ -382,10 +384,11 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
 
     def loss_function(
         self,
+        batch_idx: int,
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
-        batch_step: int,
+        state: TrainerState,
     ) -> tensor_dict_type:
         # requires returning `loss` key
         y_batch = batch["y_batch"]

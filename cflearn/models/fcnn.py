@@ -5,6 +5,7 @@ from typing import Optional
 
 from .base import ModelBase
 from ..types import tensor_dict_type
+from ..protocol import TrainerState
 
 
 @ModelBase.register("fcnn")
@@ -36,16 +37,18 @@ class QuantileFCNN(ModelBase):
     def forward(
         self,
         batch: tensor_dict_type,
+        batch_idx: Optional[int] = None,
+        state: Optional[TrainerState] = None,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
-        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         results = super().forward(
             batch,
+            batch_idx,
+            state,
             batch_indices,
             loader_name,
-            batch_step,
             **kwargs,
         )
         predictions = results["predictions"]

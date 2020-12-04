@@ -1,3 +1,5 @@
+import math
+
 import torch
 import pprint
 
@@ -26,7 +28,6 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 from cfdata.tabular import data_type
-from cfdata.tabular import batch_type
 from cfdata.tabular import str_data_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
@@ -404,6 +405,88 @@ class PrefetchLoader:
         return self.device.type == "cpu"
 
 
+class TrainerState:
+    def __init__(self, trainer_config: Dict[str, Any]):
+        # properties
+        self.step = self.epoch = 0
+        self.batch_size: int
+        self.num_step_per_epoch: int
+        # settings
+        self.config = trainer_config
+        self.min_epoch = self.config["min_epoch"]
+        self.num_epoch = self.config["num_epoch"]
+        self.max_epoch = self.config["max_epoch"]
+        self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
+        self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
+        self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
+        num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
+        num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
+        max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
+        plateau_start = self.config.setdefault("plateau_start_snapshot", self.num_epoch)
+        self._num_step_per_snapshot = int(num_step_per_snapshot)
+        self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
+        self.max_step_per_snapshot = int(max_step_per_snapshot)
+        self.plateau_start = int(plateau_start)
+
+    def inject_loader(self, loader: DataLoaderProtocol) -> None:
+        self.batch_size = loader.batch_size
+        self.num_step_per_epoch = len(loader)
+
+    @property
+    def snapshot_start_step(self) -> int:
+        if self._snapshot_start_step is not None:
+            return self._snapshot_start_step
+        return int(math.ceil(self.min_num_sample / self.batch_size))
+
+    @property
+    def num_step_per_snapshot(self) -> int:
+        if self._num_step_per_snapshot > 0:
+            return self._num_step_per_snapshot
+        return max(
+            1,
+            min(
+                self.max_step_per_snapshot,
+                int(self.num_step_per_epoch / self.num_snapshot_per_epoch),
+            ),
+        )
+
+    @property
+    def should_train(self) -> bool:
+        return self.epoch < self.num_epoch
+
+    @property
+    def should_monitor(self) -> bool:
+        return self.step % self.num_step_per_snapshot == 0
+
+    @property
+    def should_log_lr(self) -> bool:
+        denominator = min(5 * self.num_step_per_epoch, 100)
+        return self.step % denominator == 0
+
+    @property
+    def should_log_metrics_msg(self) -> bool:
+        min_period = self.max_step_per_snapshot / 3
+        min_period = math.ceil(min_period / self.num_step_per_snapshot)
+        period = max(1, int(min_period)) * self.num_step_per_snapshot
+        return self.step % period == 0
+
+    @property
+    def should_start_snapshot(self) -> bool:
+        return self.step >= self.snapshot_start_step and self.epoch > self.min_epoch
+
+    @property
+    def should_start_monitor_plateau(self) -> bool:
+        return self.step >= self.plateau_start * self.num_step_per_snapshot
+
+    @property
+    def should_extend_epoch(self) -> bool:
+        return self.epoch == self.num_epoch and self.epoch < self.max_epoch
+
+    @property
+    def reached_max_epoch(self) -> bool:
+        return self.epoch == self.max_epoch
+
+
 # Protocols below are meant to fit with and only with `Trainer`
 
 
@@ -487,9 +570,10 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
     def forward(
         self,
         batch: tensor_dict_type,
+        batch_idx: Optional[int] = None,
+        state: Optional[TrainerState] = None,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
-        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         pass
@@ -497,10 +581,11 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
     @abstractmethod
     def loss_function(
         self,
+        batch_idx: int,
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
-        batch_step: int,
+        state: TrainerState,
     ) -> tensor_dict_type:
         pass
 
@@ -550,7 +635,6 @@ class InferenceProtocol(ABC):
         requires_recover: bool = True,
         returns_probabilities: bool = False,
         loader_name: Optional[str] = None,
-        batch_step: int = -1,
         use_tqdm: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
@@ -567,7 +651,6 @@ class InferenceProtocol(ABC):
                 use_grad,
                 loader,
                 loader_name,
-                batch_step,
                 use_tqdm,
                 **shallow_copy_dict(kwargs),
             )
@@ -577,7 +660,6 @@ class InferenceProtocol(ABC):
                 use_grad,
                 loader,
                 loader_name,
-                batch_step,
                 use_tqdm,
                 **shallow_copy_dict(kwargs),
             )
@@ -637,7 +719,6 @@ class InferenceProtocol(ABC):
         use_grad: bool,
         loader: PrefetchLoader,
         loader_name: Optional[str],
-        batch_step: int,
         use_tqdm: bool,
         **kwargs: Any,
     ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
@@ -657,9 +738,8 @@ class InferenceProtocol(ABC):
                 with eval_context(self.model, use_grad=use_grad):
                     rs = self.model(
                         batch,
-                        batch_indices,
-                        loader_name,
-                        batch_step,
+                        batch_indices=batch_indices,
+                        loader_name=loader_name,
                         **shallow_copy_dict(kwargs),
                     )
                 for k, v in rs.items():

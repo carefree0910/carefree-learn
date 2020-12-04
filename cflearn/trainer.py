@@ -39,6 +39,7 @@ from .types import tensor_dict_type
 from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
+from .protocol import TrainerState
 from .protocol import ModelProtocol
 from .protocol import PrefetchLoader
 from .protocol import InferenceProtocol
@@ -56,88 +57,6 @@ class IntermediateResults(NamedTuple):
     @property
     def final_score(self) -> float:
         return sum(self.weighted_scores.values()) / len(self.weighted_scores)
-
-
-class TrainerState:
-    def __init__(self, trainer_config: Dict[str, Any]):
-        # properties
-        self.step = self.epoch = 0
-        self.batch_size: int
-        self.num_step_per_epoch: int
-        # settings
-        self.config = trainer_config
-        self.min_epoch = self.config["min_epoch"]
-        self.num_epoch = self.config["num_epoch"]
-        self.max_epoch = self.config["max_epoch"]
-        self.max_snapshot_file = int(self.config.setdefault("max_snapshot_file", 5))
-        self.min_num_sample = self.config.setdefault("min_num_sample", 3000)
-        self._snapshot_start_step = self.config.setdefault("snapshot_start_step", None)
-        num_step_per_snapshot = self.config.setdefault("num_step_per_snapshot", 0)
-        num_snapshot_per_epoch = self.config.setdefault("num_snapshot_per_epoch", 2)
-        max_step_per_snapshot = self.config.setdefault("max_step_per_snapshot", 1000)
-        plateau_start = self.config.setdefault("plateau_start_snapshot", self.num_epoch)
-        self._num_step_per_snapshot = int(num_step_per_snapshot)
-        self.num_snapshot_per_epoch = int(num_snapshot_per_epoch)
-        self.max_step_per_snapshot = int(max_step_per_snapshot)
-        self.plateau_start = int(plateau_start)
-
-    def inject_loader(self, loader: DataLoaderProtocol) -> None:
-        self.batch_size = loader.batch_size
-        self.num_step_per_epoch = len(loader)
-
-    @property
-    def snapshot_start_step(self) -> int:
-        if self._snapshot_start_step is not None:
-            return self._snapshot_start_step
-        return int(math.ceil(self.min_num_sample / self.batch_size))
-
-    @property
-    def num_step_per_snapshot(self) -> int:
-        if self._num_step_per_snapshot > 0:
-            return self._num_step_per_snapshot
-        return max(
-            1,
-            min(
-                self.max_step_per_snapshot,
-                int(self.num_step_per_epoch / self.num_snapshot_per_epoch),
-            ),
-        )
-
-    @property
-    def should_train(self) -> bool:
-        return self.epoch < self.num_epoch
-
-    @property
-    def should_monitor(self) -> bool:
-        return self.step % self.num_step_per_snapshot == 0
-
-    @property
-    def should_log_lr(self) -> bool:
-        denominator = min(5 * self.num_step_per_epoch, 100)
-        return self.step % denominator == 0
-
-    @property
-    def should_log_metrics_msg(self) -> bool:
-        min_period = self.max_step_per_snapshot / 3
-        min_period = math.ceil(min_period / self.num_step_per_snapshot)
-        period = max(1, int(min_period)) * self.num_step_per_snapshot
-        return self.step % period == 0
-
-    @property
-    def should_start_snapshot(self) -> bool:
-        return self.step >= self.snapshot_start_step and self.epoch > self.min_epoch
-
-    @property
-    def should_start_monitor_plateau(self) -> bool:
-        return self.step >= self.plateau_start * self.num_step_per_snapshot
-
-    @property
-    def should_extend_epoch(self) -> bool:
-        return self.epoch == self.num_epoch and self.epoch < self.max_epoch
-
-    @property
-    def reached_max_epoch(self) -> bool:
-        return self.epoch == self.max_epoch
 
 
 # Should define `TrainerState` as `self.state`
@@ -833,19 +752,21 @@ class Trainer(MonitoredMixin):
         loss_values = None
         if self._metrics_need_loss:
             loss_dicts = []
-            for batch, batch_indices in loader:
+            for i, (batch, batch_indices) in enumerate(loader):
                 with eval_context(self.model):
                     loss_dicts.append(
                         self.model.loss_function(
+                            i,
                             batch,
                             batch_indices,
                             self.model(
                                 batch,
+                                i,
+                                self.state,
                                 batch_indices,
                                 loader_name,
-                                self.state.step,
                             ),
-                            self.state.step,
+                            self.state,
                         )
                     )
             losses = collate_tensor_dicts(loss_dicts)
@@ -918,16 +839,18 @@ class Trainer(MonitoredMixin):
             with timing_context(self, "model.forward", enable=self.timing):
                 forward_results = self.model(
                     batch,
+                    batch_idx,
+                    self.state,
                     batch_indices,
                     "tr",
-                    self.state.step,
                 )
             with timing_context(self, "loss.forward", enable=self.timing):
                 loss_dict = self.model.loss_function(
+                    batch_idx,
                     batch,
                     batch_indices,
                     forward_results,
-                    self.state.step,
+                    self.state,
                 )
         loss_items = {f"tr_{k}": v.item() for k, v in loss_dict.items()}
         self._log_metrics(loss_items)
@@ -1104,7 +1027,6 @@ class Trainer(MonitoredMixin):
 
 __all__ = [
     "IntermediateResults",
-    "TrainerState",
     "MonitoredMixin",
     "TrainMonitor",
     "StepOutputs",

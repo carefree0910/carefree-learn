@@ -13,6 +13,7 @@ from cftool.misc import timing_context
 from ...misc.toolkit import *
 from ..base import ModelBase
 from ...types import tensor_dict_type
+from ...protocol import TrainerState
 from ...modules.transform.core import SplitFeatures
 
 
@@ -290,9 +291,10 @@ class DDR(ModelBase):
     def forward(
         self,
         batch: tensor_dict_type,
+        batch_idx: Optional[int] = None,
+        state: Optional[TrainerState] = None,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
-        batch_step: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         # pre-processing
@@ -338,10 +340,11 @@ class DDR(ModelBase):
 
     def loss_function(
         self,
+        batch_idx: int,
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
-        batch_step: int,
+        state: TrainerState,
     ) -> tensor_dict_type:
         y_batch = batch["y_batch"]
         losses, losses_dict = self.loss(forward_results, y_batch)
@@ -349,7 +352,7 @@ class DDR(ModelBase):
         if (
             self.training
             and self._synthetic_step > 0
-            and batch_step % self._synthetic_step == 0
+            and state.step % self._synthetic_step == 0
         ):
             with timing_context(self, "synthetic.forward"):
                 net_min = torch.min(net, dim=0)[0]
