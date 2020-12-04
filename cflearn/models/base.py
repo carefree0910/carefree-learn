@@ -235,6 +235,10 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         return self.tr_data.task_type
 
     @property
+    def labels_key(self) -> str:
+        return self.tr_loader.labels_key
+
+    @property
     def num_history(self) -> int:
         num_history = 1
         if self.tr_data.is_ts:
@@ -391,13 +395,13 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         state: TrainerState,
     ) -> tensor_dict_type:
         # requires returning `loss` key
-        y_batch = batch["y_batch"]
+        labels = batch[self.labels_key]
         if self.tr_data.is_clf:
-            y_batch = y_batch.view(-1)
+            labels = labels.view(-1)
         # `sample_weights` could be accessed through:
         # 1) `self.tr_weights[batch_indices]` (for training)
         # 2) `self.cv_weights[batch_indices]` (for validation)
-        losses = self.loss(forward_results, y_batch)
+        losses = self.loss(forward_results, labels)
         return {"loss": losses.mean()}
 
     # API

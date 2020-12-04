@@ -33,24 +33,24 @@ class TabularLoader(DataLoader, DataLoaderProtocol):
     def __next__(self) -> Any:
         sample = DataLoader.__next__(self)
         if self.return_indices:
-            (x_batch, y_batch), indices = sample
+            (x_batch, labels), indices = sample
         else:
-            x_batch, y_batch = sample
+            x_batch, labels = sample
             indices = None
         x_batch = x_batch.astype(np_float_type)
         if self.is_onnx:
-            if y_batch is None:
-                y_batch = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
-            arrays = [x_batch, y_batch]
+            if labels is None:
+                labels = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
+            arrays = [x_batch, labels]
         else:
             x_batch = to_torch(x_batch)
-            if y_batch is not None:
-                y_batch = to_torch(y_batch)
+            if labels is not None:
+                labels = to_torch(labels)
                 if self.data.is_clf:
-                    y_batch = y_batch.to(torch.long)
-            arrays = [x_batch, y_batch]
+                    labels = labels.to(torch.long)
+            arrays = [x_batch, labels]
 
-        sample = dict(zip(["x_batch", "y_batch"], arrays))
+        sample = dict(zip(["x_batch", self.labels_key], arrays))
         if not self.return_indices:
             return sample
         assert indices is not None

@@ -271,6 +271,7 @@ class SamplerProtocol(ABC):
 class DataLoaderProtocol(ABC):
     is_onnx: bool = False
     _num_siamese: int = 1
+    labels_key: str = "labels"
 
     data: DataProtocol
     sampler: SamplerProtocol
@@ -731,11 +732,11 @@ class InferenceProtocol(ABC):
             loader = self.to_tqdm(loader)
         results, labels = [], []
         for batch, batch_indices in loader:
-            y_batch = batch["y_batch"]
-            if y_batch is not None:
-                if not isinstance(y_batch, np.ndarray):
-                    y_batch = to_numpy(y_batch)
-                labels.append(y_batch)
+            local_labels = batch[loader.loader.labels_key]
+            if local_labels is not None:
+                if not isinstance(local_labels, np.ndarray):
+                    local_labels = to_numpy(local_labels)
+                labels.append(local_labels)
             if self.onnx is not None:
                 rs = self.onnx.inference(batch)
             else:

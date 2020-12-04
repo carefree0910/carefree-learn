@@ -160,8 +160,8 @@ class ONNX:
             self.input_sample = self.model.input_sample
             with eval_context(self.model):
                 outputs = self.model(self.input_sample)
-            self.input_names = sorted(self.input_sample.keys())
-            self.output_names = sorted(outputs.keys())
+            self.input_names = list(self.input_sample.keys())
+            self.output_names = list(outputs.keys())
             self.output_probabilities = model.output_probabilities
             self.model.device = device
             self.model.to(device)

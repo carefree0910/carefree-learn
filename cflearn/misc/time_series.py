@@ -19,8 +19,8 @@ class TSLabelCollator:
             config = {}
         self._init_config(config)
 
-    def __call__(self, y_batch: np.ndarray) -> np.ndarray:
-        return self.fn(y_batch)
+    def __call__(self, labels: np.ndarray) -> np.ndarray:
+        return self.fn(labels)
 
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
@@ -36,12 +36,12 @@ class TSLabelCollator:
         return getattr(self, f"_{self._method}")
 
     @staticmethod
-    def _last(y_batch: np.ndarray) -> np.ndarray:
-        return y_batch[..., -1, :]
+    def _last(labels: np.ndarray) -> np.ndarray:
+        return labels[..., -1, :]
 
-    def _average(self, y_batch: np.ndarray) -> np.ndarray:
+    def _average(self, labels: np.ndarray) -> np.ndarray:
         num_history = self.config["num_history"]
-        extracted = y_batch[..., -num_history:, :]
+        extracted = labels[..., -num_history:, :]
         if self.data.is_reg:
             return extracted.mean(axis=1)
         return EnsemblePattern.vote(extracted.squeeze(2), self.data.num_classes)

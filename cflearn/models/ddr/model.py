@@ -299,7 +299,7 @@ class DDR(ModelBase):
     ) -> tensor_dict_type:
         # pre-processing
         x_batch = batch["x_batch"]
-        y_batch = batch["y_batch"]
+        labels = batch[self.labels_key]
         batch_size = x_batch.shape[0]
         split = self._split_features(x_batch, batch_indices, loader_name)
         forward_dict = {}
@@ -324,17 +324,17 @@ class DDR(ModelBase):
             y = kwargs.get("y")
             if y is None:
                 raise ValueError(f"pdf / cdf cannot be predicted without y")
-            y_batch = self._expand(batch_size, y, numpy=True)
-            y_batch = self.tr_data.transform_labels(y_batch)
-            y_batch = to_torch(y_batch).to(self.device)
-            forward_dict = self._cdf(split, y_batch, False, predict_pdf, False)
+            labels = self._expand(batch_size, y, numpy=True)
+            labels = self.tr_data.transform_labels(labels)
+            labels = to_torch(labels).to(self.device)
+            forward_dict = self._cdf(split, labels, False, predict_pdf, False)
         # check quantile metric
         getting_metrics = kwargs.get("getting_metrics", False)
         if getting_metrics and self.quantile_metric_config is not None:
             q = self.quantile_metric_config["q"]
             forward_dict.update(self._predict_quantile(split, batch_size, kwargs, q))
         if not forward_dict:
-            forward_dict = self._core(batch_size, split, y_batch, False)
+            forward_dict = self._core(batch_size, split, labels, False)
         self.clear_execute_cache()
         return forward_dict
 
@@ -346,8 +346,8 @@ class DDR(ModelBase):
         forward_results: tensor_dict_type,
         state: TrainerState,
     ) -> tensor_dict_type:
-        y_batch = batch["y_batch"]
-        losses, losses_dict = self.loss(forward_results, y_batch)
+        labels = batch[self.labels_key]
+        losses, losses_dict = self.loss(forward_results, labels)
         net = forward_results["net"]
         if (
             self.training
@@ -367,13 +367,13 @@ class DDR(ModelBase):
                 synthetic_outputs = self._core(
                     net.shape[0],
                     synthetic_net,
-                    y_batch,
+                    labels,
                     True,
                 )
             with timing_context(self, "synthetic.loss"):
                 syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
                     synthetic_outputs,
-                    y_batch,
+                    labels,
                     is_synthetic=True,
                 )
             losses_dict.update(syn_losses_dict)
@@ -382,13 +382,13 @@ class DDR(ModelBase):
         losses_dict = {k: v.mean() for k, v in losses_dict.items()}
         if not self.training and self.fetch_q:
             q_losses = []
-            y_batch = to_numpy(y_batch)
+            labels = to_numpy(labels)
             for q in np.linspace(0.05, 0.95, 10):
                 q = q.item()
                 self.q_metric.config["q"] = q
                 pack = self._quantile(net, self._expand(len(net), q), False)
                 yq = pack["y_res"] + pack["median"]
-                q_losses.append(self.q_metric.metric(y_batch, to_numpy(yq)))
+                q_losses.append(self.q_metric.metric(labels, to_numpy(yq)))
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
             ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)
             losses_dict["ddr"] = ddr_loss
