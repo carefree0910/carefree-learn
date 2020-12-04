@@ -478,7 +478,7 @@ class Trainer(MonitoredMixin):
         if mlflow_config is None or self.is_loading:
             return None
         model = self.model.__identifier__
-        task_type = self.model.task_type.value
+        task_type = self.model.data.task_type.value
         task_name = mlflow_config.setdefault("task_name", f"{model}({task_type})")
         tracking_folder = mlflow_config.setdefault("tracking_folder", os.getcwd())
         tracking_dir = os.path.abspath(os.path.join(tracking_folder, "mlruns"))

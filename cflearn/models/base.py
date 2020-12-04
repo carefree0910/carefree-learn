@@ -105,7 +105,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         self.timing = environment.use_timing_context
         self.tr_loader = tr_loader
         self.cv_loader = cv_loader
-        self.tr_data = tr_loader.data
+        self.data = self.tr_data = tr_loader.data
         self.cv_data = None if cv_loader is None else cv_loader.data
         self.num_train = len(self.tr_data)
         self.num_valid = None if self.cv_data is None else len(self.cv_data)

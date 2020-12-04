@@ -10,15 +10,19 @@ from abc import ABCMeta
 from typing import Any
 from typing import Set
 from typing import Dict
+from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from functools import partial
+from tqdm.autonotebook import tqdm
 from cftool.ml import Metrics
 from cftool.ml import ModelPattern
 from cftool.misc import register_core
+from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 from cfdata.types import np_float_type
@@ -33,7 +37,12 @@ from cfdata.tabular.recognizer import Recognizer
 from .types import np_dict_type
 from .types import tensor_dict_type
 from .types import tensor_batch_type
+from .misc.toolkit import to_prob
+from .misc.toolkit import is_float
+from .misc.toolkit import to_numpy
 from .misc.toolkit import to_torch
+from .misc.toolkit import eval_context
+from .misc.toolkit import collate_np_dicts
 from .modules.blocks import EMA
 
 
@@ -417,6 +426,7 @@ class PrefetchLoader:
 # This protocol is meant to fit with and only with `Trainer`
 class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
     __identifier__: str
+    data: DataProtocol
     ema: Optional[EMA] = None
     num_train: Optional[int] = None
     num_valid: Optional[int] = None
@@ -470,11 +480,6 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
     @property
     @abstractmethod
-    def task_type(self) -> TaskTypes:
-        pass
-
-    @property
-    @abstractmethod
     def configurations(self) -> Dict[str, Any]:
         pass
 
@@ -507,12 +512,39 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
 
 # This protocol is meant to fit with and only with `Trainer`
 class InferenceProtocol(ABC):
+    data: DataProtocol
+    model: ModelProtocol
     is_binary: bool
     binary_metric: Optional[str]
     binary_threshold: Optional[float]
     use_binary_threshold: bool
+    onnx: Any = None
+    use_tqdm: bool = True
 
-    @abstractmethod
+    @property
+    def binary_config(self) -> Dict[str, Any]:
+        return {
+            "binary_metric": self.binary_metric,
+            "binary_threshold": self.binary_threshold,
+        }
+
+    @property
+    def output_probabilities(self) -> bool:
+        if self.onnx is not None:
+            return self.onnx.output_probabilities
+        return self.model.output_probabilities
+
+    @property
+    def need_binary_threshold(self) -> bool:
+        if not self.use_binary_threshold:
+            return False
+        return self.is_binary and self.binary_metric is not None
+
+    def to_tqdm(self, loader: PrefetchLoader) -> Union[tqdm, PrefetchLoader]:
+        if not self.use_tqdm:
+            return loader
+        return tqdm(loader, total=len(loader), leave=False, position=2)
+
     def predict(
         self,
         loader: PrefetchLoader,
@@ -525,20 +557,119 @@ class InferenceProtocol(ABC):
         use_tqdm: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
-        pass
 
-    @property
-    def binary_config(self) -> Dict[str, Any]:
-        return {
-            "binary_metric": self.binary_metric,
-            "binary_threshold": self.binary_threshold,
-        }
+        # Notice : when `return_all` is True,
+        #  there might not be `predictions` key in the results
 
-    @property
-    def need_binary_threshold(self) -> bool:
-        if not self.use_binary_threshold:
-            return False
-        return self.is_binary and self.binary_metric is not None
+        kwargs = shallow_copy_dict(kwargs)
+
+        # calculate
+        use_grad = kwargs.pop("use_grad", self._use_grad_in_predict)
+        try:
+            labels, results = self._get_results(
+                use_grad,
+                loader,
+                loader_name,
+                batch_step,
+                use_tqdm,
+                **shallow_copy_dict(kwargs),
+            )
+        except:
+            use_grad = self._use_grad_in_predict = True
+            labels, results = self._get_results(
+                use_grad,
+                loader,
+                loader_name,
+                batch_step,
+                use_tqdm,
+                **shallow_copy_dict(kwargs),
+            )
+
+        # collate
+        collated = collate_np_dicts(results)
+        if labels:
+            labels = np.vstack(labels)
+            collated["labels"] = labels
+
+        # regression
+        if self.data.is_reg:
+            return_key = kwargs.get("return_key", "predictions")
+            fn = partial(self.data.recover_labels, inplace=True)
+            if not return_all:
+                predictions = collated[return_key]
+                if requires_recover:
+                    if predictions.shape[1] == 1:
+                        return fn(predictions)
+                    return np.apply_along_axis(fn, axis=0, arr=predictions).squeeze()
+                return predictions
+            if not requires_recover:
+                return collated
+            recovered = {}
+            for k, v in collated.items():
+                if is_float(v):
+                    if v.shape[1] == 1:
+                        v = fn(v)
+                    else:
+                        v = np.apply_along_axis(fn, axis=0, arr=v).squeeze()
+                recovered[k] = v
+            return recovered
+
+        # classification
+        def _return(new_predictions: np.ndarray) -> Union[np.ndarray, np_dict_type]:
+            if not return_all:
+                return new_predictions
+            collated["predictions"] = new_predictions
+            return collated
+
+        predictions = collated["logits"] = collated["predictions"]
+        if returns_probabilities:
+            if not self.output_probabilities:
+                predictions = to_prob(predictions)
+            return _return(predictions)
+        if not self.is_binary or self.binary_threshold is None:
+            return _return(predictions.argmax(1).reshape([-1, 1]))
+
+        if self.output_probabilities:
+            probabilities = predictions
+        else:
+            probabilities = to_prob(predictions)
+        return _return(self.predict_with(probabilities))
+
+    def _get_results(
+        self,
+        use_grad: bool,
+        loader: PrefetchLoader,
+        loader_name: Optional[str],
+        batch_step: int,
+        use_tqdm: bool,
+        **kwargs: Any,
+    ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
+        if use_tqdm:
+            loader = self.to_tqdm(loader)
+        results, labels = [], []
+        for batch, batch_indices in loader:
+            y_batch = batch["y_batch"]
+            if y_batch is not None:
+                if not isinstance(y_batch, np.ndarray):
+                    y_batch = to_numpy(y_batch)
+                labels.append(y_batch)
+            if self.onnx is not None:
+                rs = self.onnx.inference(batch)
+            else:
+                assert self.model is not None
+                with eval_context(self.model, use_grad=use_grad):
+                    rs = self.model(
+                        batch,
+                        batch_indices,
+                        loader_name,
+                        batch_step,
+                        **shallow_copy_dict(kwargs),
+                    )
+                for k, v in rs.items():
+                    if isinstance(v, torch.Tensor):
+                        rs[k] = to_numpy(v)
+            results.append(rs)
+        return labels, results
 
     def predict_with(self, probabilities: np.ndarray) -> np.ndarray:
         if not self.is_binary or self.binary_threshold is None:
