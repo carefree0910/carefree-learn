@@ -177,7 +177,7 @@ class Elements(NamedTuple):
             kwargs["logging_file"] = logging_file
         # trainer
         trainer_config = kwargs.setdefault("trainer_config", {})
-        trainer_config["use_amp"] = kwargs.pop("use_amp")
+        trainer_config.setdefault("use_amp", kwargs.pop("use_amp"))
         min_epoch = kwargs.pop("min_epoch")
         num_epoch = kwargs.pop("num_epoch")
         max_epoch = kwargs.pop("max_epoch")
@@ -217,11 +217,11 @@ class Elements(NamedTuple):
             if min_epoch > num_epoch:
                 raise ValueError("`min_epoch` should not be greater than `num_epoch`")
             max_epoch = max(default_max, num_epoch)
-        trainer_config["min_epoch"] = min_epoch
-        trainer_config["num_epoch"] = num_epoch
-        trainer_config["max_epoch"] = max_epoch
-        trainer_config["max_snapshot_file"] = kwargs.pop("max_snapshot_file")
-        trainer_config["clip_norm"] = kwargs.pop("clip_norm")
+        trainer_config.setdefault("min_epoch", min_epoch)
+        trainer_config.setdefault("num_epoch", num_epoch)
+        trainer_config.setdefault("max_epoch", max_epoch)
+        trainer_config.setdefault("max_snapshot_file", kwargs.pop("max_snapshot_file"))
+        trainer_config.setdefault("clip_norm", kwargs.pop("clip_norm"))
         # model
         model_config = self.model_config or {}
         model_config["aggregator"] = kwargs.pop("aggregator")
@@ -238,7 +238,7 @@ class Elements(NamedTuple):
         metric_config = kwargs.pop("metric_config") or {}
         if self.metric_config is None and self.metrics is not None:
             metric_config["types"] = kwargs.pop("metrics")
-        trainer_config["metric_config"] = metric_config
+        trainer_config.setdefault("metric_config", metric_config)
         # optimizers
         lr = kwargs.pop("lr")
         optimizer = kwargs.pop("optimizer")
@@ -283,7 +283,7 @@ class Elements(NamedTuple):
                 }
             }
         if optimizers is not None:
-            trainer_config["optimizers"] = optimizers
+            trainer_config.setdefault("optimizers", optimizers)
         # inject user defined configs
         update_dict(self.user_defined_config, kwargs)
         return kwargs
