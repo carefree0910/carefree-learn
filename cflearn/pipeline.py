@@ -195,7 +195,7 @@ class Pipeline(LoggingMixin):
             )
         # to device
         with timing_context(self, "init device", enable=self.timing):
-            self.trainer.model.to(self.device)
+            self.model.to(self.device)
 
     def _before_loop(
         self,
