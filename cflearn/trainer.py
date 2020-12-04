@@ -167,16 +167,13 @@ class TrainMonitor:
     Parameters
     ----------
     monitored : MonitoredMixin, monitored instance
-    num_scores_per_snapshot : int, indicates snapshot frequency
-        * `TrainMonitor` will perform a snapshot every `num_scores_per_snapshot` scores are recorded
+    patience : int, basically indicates the 'patience' of `TrainMonitor`
     history_ratio : float, indicates the ratio of the history's window width
-        * history window width will be `num_scores_per_snapshot` * `history_ratio`
+        * history window width will be `patience` * `history_ratio`
     tolerance_ratio : float, indicates the ratio of tolerance
-        * tolerance base will be `num_scores_per_snapshot` * `tolerance_ratio`
+        * tolerance base will be `patience` * `tolerance_ratio`
         * judgements of 'overfitting' and 'performance sticks on a plateau' will based on 'tolerance base'
     extension : int, indicates how much epoch to extend when underfitting occurs
-    std_floor : float, indicates the floor of history's std used for judgements
-    std_ceiling : float, indicates the ceiling of history's std used for judgements
     aggressive : bool, indicates the strategy of monitoring
         * True  : it will tell the model to save every checkpoint when better metric is reached
         * False : it will be more careful since better metric may lead to
@@ -202,21 +199,19 @@ class TrainMonitor:
     def __init__(
         self,
         monitored: MonitoredMixin,
-        num_scores_per_snapshot: int = 1,
-        history_ratio: int = 3,
-        tolerance_ratio: int = 2,
+        patience: int = 4,
+        history_ratio: float = 3.0,
+        tolerance_ratio: float = 2.0,
         extension: int = 5,
-        std_floor: float = 0.001,
-        std_ceiling: float = 0.01,
         aggressive: bool = False,
     ):
         self.monitored = monitored
-        self.num_scores_per_snapshot = num_scores_per_snapshot
-        self.num_history = int(num_scores_per_snapshot * history_ratio)
-        self.num_tolerance = int(num_scores_per_snapshot * tolerance_ratio)
+        self.tolerance_ratio = tolerance_ratio
+        self.num_history = int(round(patience * history_ratio))
+        self.num_tolerance = int(round(patience * tolerance_ratio))
+        self.plateau_threshold = int(round(patience * history_ratio * tolerance_ratio))
         self.extension = extension
         self.is_aggressive = aggressive
-        self.std_floor, self.std_ceiling = std_floor, std_ceiling
         self._scores: List[float] = []
         self.plateau_flag = False
         self._is_best: Optional[bool] = None
@@ -242,10 +237,6 @@ class TrainMonitor:
     def log_msg(self) -> Callable:
         return self.monitored.log_msg
 
-    @property
-    def plateau_threshold(self) -> int:
-        return 6 * self.num_tolerance * self.num_history
-
     def _update_running_info(self, last_score: float) -> float:
         self._incrementer.update(last_score)
         if self._running_best is None:
@@ -264,17 +255,21 @@ class TrainMonitor:
             self._is_best = True
         return improvement
 
-    def _handle_overfitting(self, last_score: float, res: float, std: float) -> None:
-        if self._descend_counter == 0.0:
-            self.info["save_best"] = True
-            self._over_fit_performance = last_score
-        self._descend_counter += min(self.num_tolerance / 3, -res / std)
+    def _log_descend_counter(self, last_score: float, res: float, std: float) -> None:
         self.log_msg(
-            f"descend counter updated : {self._descend_counter:6.4f}",
+            f"descend counter updated : {self._descend_counter:6.4f}, "
+            f"last_score: {last_score:8.6f}, res: {res:8.6f}, std: {std:8.6f}",
             prefix=self.monitored.info_prefix,
             verbose_level=6,
             msg_level=logging.DEBUG,
         )
+
+    def _handle_overfitting(self, last_score: float, res: float, std: float) -> None:
+        if self._descend_counter == 0.0:
+            self.info["save_best"] = True
+            self._over_fit_performance = last_score
+        self._descend_counter += min(self.tolerance_ratio, max(0.0, -res / std - 1.0))
+        self._log_descend_counter(last_score, res, std)
         self.over_fitting_flag = 1
 
     def _handle_recovering(
@@ -302,12 +297,7 @@ class TrainMonitor:
             self.over_fitting_flag = 0
         if self._descend_counter > 0:
             self._descend_counter = max(new_counter, 0)
-            self.log_msg(
-                f"descend counter updated : {self._descend_counter:6.4f}",
-                prefix=self.monitored.info_prefix,
-                verbose_level=6,
-                msg_level=logging.DEBUG,
-            )
+            self._log_descend_counter(last_score, res, std)
 
     def _handle_is_best(self) -> None:
         if self._is_best:
@@ -328,10 +318,7 @@ class TrainMonitor:
     def _handle_period(self, last_score: float) -> None:
         if self.is_aggressive:
             return
-        if (
-            len(self._scores) % self.num_scores_per_snapshot == 0
-            and last_score > self._best_checkpoint_performance
-        ):
+        if last_score > self._best_checkpoint_performance:
             self._best_checkpoint_performance = last_score
             self._plateau_counter //= 2
             self.info["terminate"] = False
@@ -385,12 +372,14 @@ class TrainMonitor:
             improvement = self._update_running_info(new_score)
             self.info["save_checkpoint"] = False
             mean, std = self._incrementer.mean, self._incrementer.std
-            std = min(std, self.std_ceiling)
+            dist = math.log10(abs(mean))
+            std_floor, std_ceiling = 10.0 ** (dist - 3.0), 10.0 ** (dist - 1.0)
+            std = min(std, std_ceiling)
             plateau_updated = False
-            if std < self.std_floor:
+            if std < std_floor:
                 if self.plateau_flag:
-                    increment = self.std_floor / max(std, self.std_floor / 6)
-                    self._plateau_counter += increment
+                    plateau_increment = std_floor / max(std, std_floor / 6.0)
+                    self._plateau_counter += plateau_increment
                     plateau_updated = True
             else:
                 if self._plateau_counter > 0:
@@ -404,7 +393,8 @@ class TrainMonitor:
             if plateau_updated:
                 self.log_msg(
                     f"plateau counter updated : {self._plateau_counter:>6.4f} "
-                    f"/ {self.plateau_threshold}",
+                    f"/ {self.plateau_threshold}, "
+                    f"std: {std:8.6f}, std_floor: {std_floor:8.6f}",
                     prefix=self.monitored.info_prefix,
                     verbose_level=6,
                     msg_level=logging.DEBUG,
