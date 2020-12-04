@@ -997,7 +997,7 @@ class Trainer(MonitoredMixin):
                         position=1,
                         leave=False,
                     )
-                for i, (batch, batch_indices) in step_iterator:
+                for i, (batch, batch_indices) in enumerate(step_iterator):
                     self.state.step += 1
                     outputs = self._step(i, batch, batch_indices)
                     terminate = self._monitor_step(outputs)
