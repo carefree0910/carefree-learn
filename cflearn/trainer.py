@@ -725,7 +725,7 @@ class Trainer(MonitoredMixin):
 
     def _get_metrics(
         self,
-        outputs: StepOutputs,
+        outputs: Optional[StepOutputs],
         binary_threshold_outputs: Optional[Tuple[np.ndarray, np.ndarray]],
     ) -> IntermediateResults:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
@@ -963,7 +963,12 @@ class Trainer(MonitoredMixin):
             rs = self.inference.generate_binary_threshold(loader, loader_name)
         # finalize
         if outputs is None:
-            raise ValueError("not even one batch of outputs has been generated yet")
+            self.log_msg(
+                "not even one batch of outputs has been generated yet",
+                self.warning_prefix,
+                verbose_level=4,
+                msg_level=logging.WARNING,
+            )
         self.final_results = self._get_metrics(outputs, rs)
         self.state.epoch = self.state.step = -1
         self._log_metrics_msg(self.final_results)
