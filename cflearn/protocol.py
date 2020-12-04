@@ -25,7 +25,6 @@ from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
-from cfdata.types import np_float_type
 from cfdata.tabular import data_type
 from cfdata.tabular import batch_type
 from cfdata.tabular import str_data_type
@@ -270,6 +269,7 @@ class SamplerProtocol(ABC):
 
 class DataLoaderProtocol(ABC):
     _num_siamese: int = 1
+    collate_fn: Optional[Callable] = None
 
     data: DataProtocol
     sampler: SamplerProtocol
@@ -337,7 +337,7 @@ class PrefetchLoader:
     ):
         self.loader = loader
         self.device = device
-        self.is_onnx = is_onnx
+        self.is_onnx = loader.is_onnx = is_onnx
         self.data = loader.data
         self.return_indices = loader.return_indices
         self.stream = None if self.is_cpu else torch.cuda.Stream(device)
@@ -373,12 +373,15 @@ class PrefetchLoader:
             return None
         indices_tensor: Optional[torch.Tensor]
         if not self.return_indices:
-            x_batch, y_batch = sample
             indices_tensor = None
         else:
-            (x_batch, y_batch), batch_indices = sample
+            sample, batch_indices = sample
             indices_tensor = to_torch(batch_indices).to(torch.long)
-        self.next_batch = self._collate_batch(x_batch, y_batch)
+
+        if self.loader.collate_fn is None:
+            self.next_batch = sample
+        else:
+            self.next_batch = self.loader.collate_fn(sample)
 
         if self.is_cpu:
             self.next_batch_indices = indices_tensor
@@ -403,24 +406,6 @@ class PrefetchLoader:
             return self.device == "cpu"
         return self.device.type == "cpu"
 
-    def _collate_batch(
-        self,
-        x_batch: np.ndarray,
-        y_batch: np.ndarray,
-    ) -> Union[np_dict_type, tensor_dict_type]:
-        x_batch = x_batch.astype(np_float_type)
-        if self.is_onnx:
-            if y_batch is None:
-                y_batch = np.zeros([*x_batch.shape[:-1], 1], np_int_type)
-            arrays = [x_batch, y_batch]
-        else:
-            x_batch = to_torch(x_batch)
-            if y_batch is not None:
-                y_batch = to_torch(y_batch)
-                if self.data.is_clf:
-                    y_batch = y_batch.to(torch.long)
-            arrays = [x_batch, y_batch]
-        return dict(zip(["x_batch", "y_batch"], arrays))
 
 
 # This protocol is meant to fit with and only with `Trainer`
