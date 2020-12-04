@@ -419,6 +419,11 @@ class TrainMonitor:
         return cls(monitored, **kwargs)
 
 
+class StepOutputs(NamedTuple):
+    forward_results: tensor_dict_type
+    loss_items: Dict[str, float]
+
+
 class Trainer(MonitoredMixin):
     pt_prefix = "model_"
     scores_file = "scores.json"
@@ -755,7 +760,7 @@ class Trainer(MonitoredMixin):
         self.log_msg(msg, verbose_level=None)  # type: ignore
 
     # return whether we need to terminate
-    def _monitor_step(self) -> bool:
+    def _monitor_step(self, outputs: StepOutputs) -> bool:
         if self.state.should_monitor:
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
@@ -905,9 +910,10 @@ class Trainer(MonitoredMixin):
     # core step on each epoch
     def _step(
         self,
+        batch_idx: int,
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
-    ) -> None:
+    ) -> StepOutputs:
         with amp_autocast_context(self.use_amp):
             with timing_context(self, "model.forward", enable=self.timing):
                 forward_results = self.model(
@@ -940,6 +946,7 @@ class Trainer(MonitoredMixin):
         if self.model.use_ema:
             with timing_context(self, "EMA", enable=self.timing):
                 self.model.apply_ema()
+        return StepOutputs(forward_results, loss_items)
 
     # api
 
@@ -990,10 +997,10 @@ class Trainer(MonitoredMixin):
                         position=1,
                         leave=False,
                     )
-                for batch, batch_indices in step_iterator:
+                for i, (batch, batch_indices) in step_iterator:
                     self.state.step += 1
-                    self._step(batch, batch_indices)
-                    terminate = self._monitor_step()
+                    outputs = self._step(i, batch, batch_indices)
+                    terminate = self._monitor_step(outputs)
                     if terminate:
                         break
             except KeyboardInterrupt:
@@ -1100,5 +1107,6 @@ __all__ = [
     "TrainerState",
     "MonitoredMixin",
     "TrainMonitor",
+    "StepOutputs",
     "Trainer",
 ]
