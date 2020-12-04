@@ -35,13 +35,14 @@ except:
     amp = None
 
 from .misc.toolkit import *
+from .types import tensor_dict_type
 from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
 from .protocol import ModelProtocol
+from .protocol import PrefetchLoader
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
-from .data.core import PrefetchLoader
 from .modules.schedulers import WarmupScheduler
 
 
@@ -477,7 +478,7 @@ class Trainer(MonitoredMixin):
         if mlflow_config is None or self.is_loading:
             return None
         model = self.model.__identifier__
-        task_type = self.model.tr_data.task_type.value
+        task_type = self.model.task_type.value
         task_name = mlflow_config.setdefault("task_name", f"{model}({task_type})")
         tracking_folder = mlflow_config.setdefault("tracking_folder", os.getcwd())
         tracking_dir = os.path.abspath(os.path.join(tracking_folder, "mlruns"))
@@ -912,7 +913,11 @@ class Trainer(MonitoredMixin):
         self.save_checkpoint(score)
 
     # core step on each epoch
-    def _step(self, batch, batch_indices):
+    def _step(
+        self,
+        batch: tensor_dict_type,
+        batch_indices: Optional[torch.Tensor],
+    ) -> None:
         with amp_autocast_context(self.use_amp):
             with timing_context(self, "model.forward", enable=self.timing):
                 forward_results = self.model(

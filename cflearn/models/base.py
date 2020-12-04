@@ -6,6 +6,8 @@ from typing import *
 from abc import ABCMeta
 from torch import Tensor
 from torch.nn import ModuleDict
+from cftool.misc import register_core
+from cfdata.tabular import TaskTypes
 from cfdata.tabular import ColumnTypes
 
 try:
@@ -29,6 +31,8 @@ from ..modules.transform import Dimensions
 from ..modules.transform import SplitFeatures
 from ..modules.extractors import ExtractorBase
 from ..modules.aggregators import AggregatorBase
+
+model_dict: Dict[str, Type["ModelBase"]] = {}
 
 
 class PipeConfig(NamedTuple):
@@ -96,15 +100,15 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
     ):
         super().__init__()
         # common
-        self.ema: Optional[EMA] = None
         self.environment = environment
         self.device = environment.device
         self.timing = environment.use_timing_context
-        self.config = environment.model_config
         self.tr_loader = tr_loader
         self.cv_loader = cv_loader
         self.tr_data = tr_loader.data
         self.cv_data = None if cv_loader is None else cv_loader.data
+        self.num_train = len(self.tr_data)
+        self.num_valid = None if self.cv_data is None else len(self.cv_data)
         self.tr_weights, self.cv_weights = tr_weights, cv_weights
         self._preset_config()
         self._init_config()
@@ -220,6 +224,14 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                 return value
             msg = f"attribute '{item}' is not defined in {type(self).__name__}"
             raise AttributeError(msg)
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        return self.environment.model_config
+
+    @property
+    def task_type(self) -> TaskTypes:
+        return self.tr_data.task_type
 
     @property
     def num_history(self) -> int:
@@ -458,6 +470,15 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             [f"  ({key}): {' -> '.join(pipe[1:])}" for key, pipe in self.pipes.items()]
         )
         return f"(pipes): Pipes(\n{pipe_str}\n)"
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global model_dict
+
+        def before(cls_: Type) -> None:
+            cls_.__identifier__ = name
+
+        return register_core(name, model_dict, before_register=before)
 
     @classmethod
     def register_pipe(

@@ -27,16 +27,16 @@ from .configs import Elements
 from .configs import Environment
 from .trainer import Trainer
 from .trainer import IntermediateResults
-from .protocol import model_dict
 from .protocol import DataProtocol
-from .protocol import ModelProtocol
+from .protocol import PrefetchLoader
 from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .inference import PreProcessor
-from .data.core import PrefetchLoader
 from .misc.toolkit import to_2d
 from .misc.toolkit import to_relative
 from .misc.time_series import TSLabelCollator
+from .models.base import model_dict
+from .models.base import ModelBase
 
 
 key_type = Tuple[Union[str, Optional[str]], ...]
@@ -53,7 +53,7 @@ class Pipeline(LoggingMixin):
         # common
         self.environment = environment
         self.device = environment.device
-        self.model: Optional[ModelProtocol] = None
+        self.model: Optional[ModelBase] = None
         self.inference: Optional[Inference]
         LoggingMixin.reset_logging()
         self.config = environment.pipeline_config
