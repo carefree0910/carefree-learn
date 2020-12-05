@@ -27,6 +27,7 @@ from cftool.ml import Metrics
 from cftool.ml import ModelPattern
 from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
+from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 from cfdata.tabular import data_type
@@ -414,6 +415,7 @@ class TrainerState:
         self.step = self.epoch = 0
         self.batch_size: int
         self.num_step_per_epoch: int
+        self.log_disabled: bool = False
         # settings
         self.config = trainer_config
         self.min_epoch = self.config["min_epoch"]
@@ -463,16 +465,22 @@ class TrainerState:
 
     @property
     def should_log_lr(self) -> bool:
+        if self.log_disabled:
+            return False
         denominator = min(5 * self.num_step_per_epoch, 100)
         return self.step % denominator == 0
 
     @property
     def should_log_scalar(self) -> bool:
+        if self.log_disabled:
+            return False
         denominator = min(self.num_step_per_epoch, 4)
         return self.step % denominator == 0
 
     @property
     def should_log_metrics_msg(self) -> bool:
+        if self.log_disabled:
+            return False
         min_period = self.max_step_per_snapshot / 3
         min_period = math.ceil(min_period / self.num_step_per_snapshot)
         period = max(1, int(min_period)) * self.num_step_per_snapshot
@@ -493,6 +501,21 @@ class TrainerState:
     @property
     def reached_max_epoch(self) -> bool:
         return self.epoch == self.max_epoch
+
+    @property
+    def disable_logging(self) -> context_error_handler:
+        class _(context_error_handler):
+            def __init__(self, state: TrainerState):
+                self.state = state
+                self.disabled = state.log_disabled
+
+            def __enter__(self) -> None:
+                self.state.log_disabled = True
+
+            def _normal_exit(self, exc_type, exc_val, exc_tb):
+                self.state.log_disabled = self.disabled
+
+        return _(self)
 
 
 # Protocols below are meant to fit with and only with `Trainer`
