@@ -512,7 +512,7 @@ class TrainerState:
             def __enter__(self) -> None:
                 self.state.log_disabled = True
 
-            def _normal_exit(self, exc_type, exc_val, exc_tb):
+            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 self.state.log_disabled = self.disabled
 
         return _(self)
