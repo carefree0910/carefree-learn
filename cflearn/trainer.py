@@ -340,6 +340,11 @@ class TrainMonitor:
         return cls(monitored, **kwargs)
 
 
+class MonitorResults(NamedTuple):
+    terminate: bool
+    outputs: Optional[InferenceOutputs]
+
+
 class Trainer(MonitoredMixin):
     def __init__(
         self,
@@ -684,9 +689,10 @@ class Trainer(MonitoredMixin):
         )
 
     # return whether we need to terminate
-    def _monitor_step(self) -> bool:
+    def _monitor_step(self) -> MonitorResults:
+        outputs = None
+        terminate = False
         if self.state.should_monitor:
-            outputs = None
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
                 if self.update_bt_runtime and self.state.should_start_snapshot:
@@ -719,9 +725,9 @@ class Trainer(MonitoredMixin):
                 timing_name = "monitor.check_terminate"
                 with timing_context(self, timing_name, enable=self.timing):
                     if self._monitor.check_terminate(score):
-                        return True
+                        terminate = True
 
-        return False
+        return MonitorResults(terminate, outputs)
 
     def _get_metrics(self, outputs: Optional[InferenceOutputs]) -> IntermediateResults:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
@@ -897,7 +903,7 @@ class Trainer(MonitoredMixin):
                 for i, (batch, batch_indices) in enumerate(step_iterator):
                     self.state.step += 1
                     self._step(i, batch, batch_indices)
-                    terminate = self._monitor_step()
+                    terminate = self._monitor_step().terminate
                     if terminate:
                         break
             except KeyboardInterrupt:
