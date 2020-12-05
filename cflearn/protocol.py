@@ -793,6 +793,8 @@ class InferenceProtocol(ABC):
                                 state,
                             )
                 for k, v in local_results.items():
+                    if v is None:
+                        continue
                     if self.onnx is not None:
                         v_np = v
                     else:
