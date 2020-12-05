@@ -699,7 +699,7 @@ class Trainer(MonitoredMixin):
                     outputs = self._generate_binary_threshold()
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                self.intermediate = self._get_metrics(outputs)
+                outputs, self.intermediate = self._get_metrics(outputs)
                 self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
@@ -729,7 +729,10 @@ class Trainer(MonitoredMixin):
 
         return MonitorResults(terminate, outputs)
 
-    def _get_metrics(self, outputs: Optional[InferenceOutputs]) -> IntermediateResults:
+    def _get_metrics(
+        self,
+        outputs: Optional[InferenceOutputs],
+    ) -> Tuple[InferenceOutputs, IntermediateResults]:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
         if outputs is None:
@@ -801,7 +804,7 @@ class Trainer(MonitoredMixin):
             for k, v in metrics_for_scoring.items()
         }
         weighted_scores = {k: v * signs[k] for k, v in weighted_metrics.items()}
-        return IntermediateResults(
+        return outputs, IntermediateResults(
             metrics,
             weighted_metrics,
             weighted_scores,
