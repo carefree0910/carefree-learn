@@ -45,7 +45,6 @@ from .misc.toolkit import is_float
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_torch
 from .misc.toolkit import eval_context
-from .misc.toolkit import collate_np_dicts
 from .modules.blocks import EMA
 
 
@@ -524,6 +523,13 @@ class StepOutputs(NamedTuple):
     loss_items: Dict[str, float]
 
 
+class InferenceOutputs(NamedTuple):
+    results: np_dict_type
+    loss_items: Optional[Dict[str, float]]
+    labels: Optional[np.ndarray]
+    probabilities: Optional[np.ndarray]
+
+
 # Protocols below are meant to fit with and only with `Trainer`
 
 
@@ -691,7 +697,7 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
-        state: TrainerState,
+        state: Optional[TrainerState],
     ) -> tensor_dict_type:
         pass
 
@@ -733,64 +739,109 @@ class InferenceProtocol(ABC):
             return loader
         return tqdm(loader, total=len(loader), leave=False, position=2)
 
-    def predict(
+    # API
+
+    def get_outputs(
         self,
         loader: PrefetchLoader,
+        loader_name: Optional[str],
         *,
+        use_tqdm: bool = False,
+        return_loss: bool = True,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> InferenceOutputs:
+        labels_key = loader.loader.labels_key
+        if use_tqdm:
+            loader = self.to_tqdm(loader)
+
+        def _core() -> InferenceOutputs:
+            results: Dict[str, List[np.ndarray]] = {}
+            loss_items: Dict[str, List[float]] = {}
+            labels = []
+            for i, (batch, batch_indices) in enumerate(loader):
+                local_labels = batch[labels_key]
+                if local_labels is not None:
+                    if not isinstance(local_labels, np.ndarray):
+                        local_labels = to_numpy(local_labels)
+                    labels.append(local_labels)
+                if self.onnx is not None:
+                    local_results = self.onnx.inference(batch)
+                    local_losses = None
+                else:
+                    assert self.model is not None
+                    with eval_context(self.model, use_grad=use_grad):
+                        local_kwargs = shallow_copy_dict(kwargs)
+                        local_kwargs["return_loss"] = return_loss
+                        local_results = self.model(
+                            batch,
+                            i,
+                            state,
+                            batch_indices,
+                            loader_name,
+                            **local_kwargs,
+                        )
+                    if not return_loss:
+                        local_losses = None
+                    else:
+                        with eval_context(self.model, use_grad=use_grad):
+                            local_losses = self.model.loss_function(
+                                i,
+                                batch,
+                                batch_indices,
+                                local_results,
+                                state,
+                            )
+                for k, v in local_results.items():
+                    if self.onnx is not None:
+                        v_np = v
+                    else:
+                        v_np = to_numpy(v)
+                    results.setdefault(k, []).append(v_np)
+                if local_losses is not None:
+                    for k, v in local_losses.items():
+                        loss_items.setdefault(k, []).append(v.item())
+
+            return InferenceOutputs(
+                {k: np.vstack(v) for k, v in results.items()},
+                None
+                if not loss_items
+                else {k: sum(v) / len(v) for k, v in loss_items.items()},
+                None if not labels else np.vstack(labels),
+                None,
+            )
+
+        use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
+        try:
+            return _core()
+        except:
+            use_grad = self.use_grad_in_predict = True
+            return _core()
+
+    def predict_from_outputs(
+        self,
+        outputs: InferenceOutputs,
         return_all: bool = False,
         requires_recover: bool = True,
         returns_probabilities: bool = False,
-        loader_name: Optional[str] = None,
-        use_tqdm: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, np_dict_type]:
-
-        # Notice : when `return_all` is True,
-        #  there might not be `predictions` key in the results
-
-        kwargs = shallow_copy_dict(kwargs)
-
-        # calculate
-        use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
-        try:
-            labels, results = self._get_results(
-                use_grad,
-                loader,
-                loader_name,
-                use_tqdm,
-                **shallow_copy_dict(kwargs),
-            )
-        except:
-            use_grad = self.use_grad_in_predict = True
-            labels, results = self._get_results(
-                use_grad,
-                loader,
-                loader_name,
-                use_tqdm,
-                **shallow_copy_dict(kwargs),
-            )
-
-        # collate
-        collated = collate_np_dicts(results)
-        if labels:
-            labels = np.vstack(labels)
-            collated["labels"] = labels
-
+        results = outputs.results
         # regression
         if self.data.is_reg:
             return_key = kwargs.get("return_key", "predictions")
             fn = partial(self.data.recover_labels, inplace=True)
             if not return_all:
-                predictions = collated[return_key]
+                predictions = results[return_key]
                 if requires_recover:
                     if predictions.shape[1] == 1:
                         return fn(predictions)
                     return np.apply_along_axis(fn, axis=0, arr=predictions).squeeze()
                 return predictions
             if not requires_recover:
-                return collated
+                return results
             recovered = {}
-            for k, v in collated.items():
+            for k, v in results.items():
                 if is_float(v):
                     if v.shape[1] == 1:
                         v = fn(v)
@@ -803,10 +854,10 @@ class InferenceProtocol(ABC):
         def _return(new_predictions: np.ndarray) -> Union[np.ndarray, np_dict_type]:
             if not return_all:
                 return new_predictions
-            collated["predictions"] = new_predictions
-            return collated
+            results["predictions"] = new_predictions
+            return results
 
-        predictions = collated["logits"] = collated["predictions"]
+        predictions = results["logits"] = results["predictions"]
         if returns_probabilities:
             if not self.output_probabilities:
                 predictions = to_prob(predictions)
@@ -820,40 +871,33 @@ class InferenceProtocol(ABC):
             probabilities = to_prob(predictions)
         return _return(self.predict_with(probabilities))
 
-    def _get_results(
+    def predict(
         self,
-        use_grad: bool,
         loader: PrefetchLoader,
-        loader_name: Optional[str],
-        use_tqdm: bool,
+        *,
+        return_all: bool = False,
+        requires_recover: bool = True,
+        returns_probabilities: bool = False,
+        loader_name: Optional[str] = None,
+        return_loss: bool = False,
+        use_tqdm: bool = False,
         **kwargs: Any,
-    ) -> Tuple[List[np.ndarray], List[np_dict_type]]:
-        labels_key = loader.loader.labels_key
-        if use_tqdm:
-            loader = self.to_tqdm(loader)
-        results, labels = [], []
-        for batch, batch_indices in loader:
-            local_labels = batch[labels_key]
-            if local_labels is not None:
-                if not isinstance(local_labels, np.ndarray):
-                    local_labels = to_numpy(local_labels)
-                labels.append(local_labels)
-            if self.onnx is not None:
-                rs = self.onnx.inference(batch)
-            else:
-                assert self.model is not None
-                with eval_context(self.model, use_grad=use_grad):
-                    rs = self.model(
-                        batch,
-                        batch_indices=batch_indices,
-                        loader_name=loader_name,
-                        **shallow_copy_dict(kwargs),
-                    )
-                for k, v in rs.items():
-                    if isinstance(v, torch.Tensor):
-                        rs[k] = to_numpy(v)
-            results.append(rs)
-        return labels, results
+    ) -> Union[np.ndarray, np_dict_type]:
+        # Notice : when `return_all` is True,
+        #  there might not be `predictions` key in the results
+        outputs = self.get_outputs(
+            loader,
+            loader_name,
+            use_tqdm=use_tqdm,
+            return_loss=return_loss,
+            **shallow_copy_dict(kwargs),
+        )
+        return self.predict_from_outputs(
+            outputs,
+            return_all,
+            requires_recover,
+            returns_probabilities,
+        )
 
     def predict_with(self, probabilities: np.ndarray) -> np.ndarray:
         if not self.is_binary or self.binary_threshold is None:
@@ -867,20 +911,27 @@ class InferenceProtocol(ABC):
 
     def generate_binary_threshold(
         self,
-        loader: Optional[PrefetchLoader] = None,
-        loader_name: Optional[str] = None,
-    ) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+        loader: PrefetchLoader,
+        loader_name: str,
+        *,
+        return_loss: bool = True,
+        use_tqdm: bool = False,
+    ) -> Optional[InferenceOutputs]:
         if not self.need_binary_threshold:
             return None
-        if loader is None:
-            raise ValueError("`loader` should be provided")
-        results = self.predict(
+        outputs = self.get_outputs(
             loader,
+            loader_name,
+            return_loss=return_loss,
+            getting_metrics=True,
+            use_tqdm=use_tqdm,
+        )
+        results = self.predict_from_outputs(
+            outputs,
             return_all=True,
             returns_probabilities=True,
-            loader_name=loader_name,
         )
-        labels = results["labels"]
+        labels = outputs.labels
         probabilities = results["predictions"]
         try:
             threshold = Metrics.get_binary_threshold(
@@ -892,9 +943,8 @@ class InferenceProtocol(ABC):
         except ValueError:
             self.binary_threshold = None
 
-        if loader_name == "tr":
-            return None
-        return labels, probabilities
+        new_outputs = InferenceOutputs(*outputs[:3], probabilities)
+        return None if loader_name == "tr" else new_outputs
 
 
 __all__ = [
@@ -907,6 +957,7 @@ __all__ = [
     "PrefetchLoader",
     "TrainerState",
     "StepOutputs",
+    "InferenceOutputs",
     "TrainerDataProtocol",
     "ModelProtocol",
     "InferenceProtocol",

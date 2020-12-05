@@ -43,6 +43,7 @@ from .protocol import StepOutputs
 from .protocol import TrainerState
 from .protocol import ModelProtocol
 from .protocol import PrefetchLoader
+from .protocol import InferenceOutputs
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .modules.schedulers import WarmupScheduler
@@ -672,21 +673,27 @@ class Trainer(MonitoredMixin):
             f.write(f"{msg}\n")
         self.log_msg(msg, verbose_level=None)  # type: ignore
 
+    def _generate_binary_threshold(self) -> Optional[InferenceOutputs]:
+        if not self.inference.need_binary_threshold:
+            return None
+        return self.inference.generate_binary_threshold(
+            self.binary_threshold_loader,
+            self.binary_threshold_loader_name,
+            return_loss=self._metrics_need_loss,
+            use_tqdm=self.use_tqdm_in_cv,
+        )
+
     # return whether we need to terminate
-    def _monitor_step(self, outputs: StepOutputs) -> bool:
+    def _monitor_step(self) -> bool:
         if self.state.should_monitor:
+            outputs = None
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
-                rs = None
                 if self.update_bt_runtime and self.state.should_start_snapshot:
-                    inference = self.inference
-                    if inference.need_binary_threshold:
-                        loader = self.binary_threshold_loader
-                        loader_name = self.binary_threshold_loader_name
-                        rs = inference.generate_binary_threshold(loader, loader_name)
+                    outputs = self._generate_binary_threshold()
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                self.intermediate = self._get_metrics(outputs, rs)
+                self.intermediate = self._get_metrics(outputs)
                 self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
@@ -716,66 +723,41 @@ class Trainer(MonitoredMixin):
 
         return False
 
-    def _get_metrics(
-        self,
-        outputs: Optional[StepOutputs],
-        binary_threshold_outputs: Optional[Tuple[np.ndarray, np.ndarray]],
-    ) -> IntermediateResults:
+    def _get_metrics(self, outputs: Optional[InferenceOutputs]) -> IntermediateResults:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
-        loader = self.validation_loader
-        loader_name = self.validation_loader_name
-        # predictions
-        if binary_threshold_outputs is not None:
-            labels, probabilities = binary_threshold_outputs
-            if not self.model.output_probabilities:
-                logits = None
-            else:
-                logits = probabilities
-            predictions = self.inference.predict_with(probabilities)
-            results = {"predictions": predictions}
-        else:
-            results = self.inference.predict(
-                loader=loader,
-                loader_name=loader_name,
-                return_all=True,
-                getting_metrics=True,
+        if outputs is None:
+            outputs = self.inference.get_outputs(
+                self.validation_loader,
+                self.validation_loader_name,
                 use_tqdm=self.use_tqdm_in_cv,
+                return_loss=self._metrics_need_loss,
+                getting_metrics=True,
+                state=self.state,
             )
-            probabilities = None
-            logits, labels = map(results.get, ["logits", "labels"])
-        # losses
-        loss_values = None
-        if self._metrics_need_loss:
-            loss_dicts = []
-            for i, (batch, batch_indices) in enumerate(loader):
-                with eval_context(self.model):
-                    loss_dicts.append(
-                        self.model.loss_function(
-                            i,
-                            batch,
-                            batch_indices,
-                            self.model(
-                                batch,
-                                i,
-                                self.state,
-                                batch_indices,
-                                loader_name,
-                            ),
-                            self.state,
-                        )
-                    )
-            losses = collate_tensor_dicts(loss_dicts)
-            loss_values = {k: v.mean().item() for k, v in losses.items()}
+        labels = outputs.labels
+        probabilities = outputs.probabilities
+        if probabilities is None:
+            probabilities = self.inference.predict_from_outputs(
+                outputs,
+                returns_probabilities=True,
+            )
+        if not self.model.output_probabilities:
+            logits = None
+        else:
+            logits = probabilities
+        predictions = self.inference.predict_with(probabilities)
+        results = outputs.results
+        results["predictions"] = predictions
         use_decayed = False
         signs: Dict[str, int] = {}
         metrics: Dict[str, float] = {}
         decayed_metrics: Dict[str, float] = {}
         for metric_type, metric_ins in self.metrics.items():
             if metric_ins is None:
-                assert loss_values is not None
+                assert outputs.loss_items is not None
                 signs[metric_type] = -1
-                sub_metric = metrics[metric_type] = loss_values[metric_type]
+                sub_metric = metrics[metric_type] = outputs.loss_items[metric_type]
             else:
                 signs[metric_type] = metric_ins.sign
                 if self.tr_loader.data.is_reg:
@@ -900,7 +882,6 @@ class Trainer(MonitoredMixin):
         self._epoch_tqdm: Optional[tqdm] = None
         if self.use_tqdm:
             self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
-        outputs = None
         has_ckpt = terminate = False
         while self.state.should_train:
             try:
@@ -915,8 +896,8 @@ class Trainer(MonitoredMixin):
                     )
                 for i, (batch, batch_indices) in enumerate(step_iterator):
                     self.state.step += 1
-                    outputs = self._step(i, batch, batch_indices)
-                    terminate = self._monitor_step(outputs)
+                    self._step(i, batch, batch_indices)
+                    terminate = self._monitor_step()
                     if terminate:
                         break
             except KeyboardInterrupt:
@@ -944,21 +925,10 @@ class Trainer(MonitoredMixin):
                 step_tqdm.close()
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
-        rs = None
-        if self.inference.need_binary_threshold:
-            loader = self.binary_threshold_loader
-            loader_name = self.binary_threshold_loader_name
-            rs = self.inference.generate_binary_threshold(loader, loader_name)
         # finalize
-        if outputs is None:
-            self.log_msg(
-                "not even one batch of outputs has been generated yet",
-                self.warning_prefix,
-                verbose_level=4,
-                msg_level=logging.WARNING,
-            )
         self.state.epoch = self.state.step = -1
-        self.final_results = self._get_metrics(outputs, rs)
+        outputs = self._generate_binary_threshold()
+        self.final_results = self._get_metrics(outputs)
         self._log_metrics_msg(self.final_results)
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)

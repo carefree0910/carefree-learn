@@ -392,7 +392,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
-        state: TrainerState,
+        state: Optional[TrainerState],
     ) -> tensor_dict_type:
         # requires returning `loss` key
         labels = batch[self.labels_key]

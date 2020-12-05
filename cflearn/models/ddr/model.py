@@ -333,8 +333,10 @@ class DDR(ModelBase):
         if getting_metrics and self.quantile_metric_config is not None:
             q = self.quantile_metric_config["q"]
             forward_dict.update(self._predict_quantile(split, batch_size, kwargs, q))
-        if not forward_dict:
-            forward_dict = self._core(batch_size, split, labels, False)
+        # forward
+        return_loss = kwargs.get("return_loss", False)
+        if return_loss or not forward_dict:
+            forward_dict.update(self._core(batch_size, split, labels, False))
         self.clear_execute_cache()
         return forward_dict
 
@@ -344,7 +346,7 @@ class DDR(ModelBase):
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         forward_results: tensor_dict_type,
-        state: TrainerState,
+        state: Optional[TrainerState],
     ) -> tensor_dict_type:
         labels = batch[self.labels_key]
         losses, losses_dict = self.loss(forward_results, labels)
@@ -352,7 +354,7 @@ class DDR(ModelBase):
         if (
             self.training
             and self._synthetic_step > 0
-            and state.step % self._synthetic_step == 0
+            and (state is not None and state.step % self._synthetic_step == 0)
         ):
             with timing_context(self, "synthetic.forward"):
                 net_min = torch.min(net, dim=0)[0]
