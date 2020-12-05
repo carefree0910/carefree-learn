@@ -966,8 +966,8 @@ class Trainer(MonitoredMixin):
                 verbose_level=4,
                 msg_level=logging.WARNING,
             )
-        self.final_results = self._get_metrics(outputs, rs)
         self.state.epoch = self.state.step = -1
+        self.final_results = self._get_metrics(outputs, rs)
         self._log_metrics_msg(self.final_results)
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)
