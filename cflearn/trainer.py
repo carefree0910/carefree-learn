@@ -937,7 +937,7 @@ class Trainer(MonitoredMixin):
         # finalize
         self.state.epoch = self.state.step = -1
         outputs = self._generate_binary_threshold()
-        self.final_results = self._get_metrics(outputs)
+        _, self.final_results = self._get_metrics(outputs)
         self._log_metrics_msg(self.final_results)
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)
