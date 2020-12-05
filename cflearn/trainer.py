@@ -39,6 +39,7 @@ from .types import tensor_dict_type
 from .configs import Environment
 from .modules import optimizer_dict
 from .modules import scheduler_dict
+from .protocol import StepOutputs
 from .protocol import TrainerState
 from .protocol import ModelProtocol
 from .protocol import PrefetchLoader
@@ -336,11 +337,6 @@ class TrainMonitor:
     @classmethod
     def monitor(cls, monitored: MonitoredMixin, **kwargs: Any) -> "TrainMonitor":
         return cls(monitored, **kwargs)
-
-
-class StepOutputs(NamedTuple):
-    forward_results: tensor_dict_type
-    loss_items: Dict[str, float]
 
 
 class Trainer(MonitoredMixin):
@@ -836,27 +832,18 @@ class Trainer(MonitoredMixin):
         batch_indices: Optional[torch.Tensor],
     ) -> StepOutputs:
         with amp_autocast_context(self.use_amp):
-            with timing_context(self, "model.forward", enable=self.timing):
-                forward_results = self.model(
-                    batch,
-                    batch_idx,
-                    self.state,
-                    batch_indices,
-                    "tr",
-                )
-            with timing_context(self, "loss.forward", enable=self.timing):
-                loss_dict = self.model.loss_function(
-                    batch_idx,
-                    batch,
-                    batch_indices,
-                    forward_results,
-                    self.state,
-                )
-        loss_items = {f"tr_{k}": v.item() for k, v in loss_dict.items()}
+            step_outputs = self.model.step(
+                self.state,
+                batch_idx,
+                batch,
+                batch_indices,
+                "tr",
+            )
+        loss_items = {f"tr_{k}": v for k, v in step_outputs.loss_items.items()}
         if self.state.should_log_scalar:
             self._log_metrics(loss_items)
         with timing_context(self, "loss.backward", enable=self.timing):
-            loss = loss_dict["loss"]
+            loss = step_outputs.loss_dict["loss"]
             if self.use_amp:
                 loss = self.grad_scaler.scale(loss)  # type: ignore
             loss.backward()
@@ -870,7 +857,11 @@ class Trainer(MonitoredMixin):
         if self.model.use_ema:
             with timing_context(self, "EMA", enable=self.timing):
                 self.model.apply_ema()
-        return StepOutputs(forward_results, loss_items)
+        return StepOutputs(
+            step_outputs.forward_results,
+            step_outputs.loss_dict,
+            loss_items,
+        )
 
     # api
 
@@ -1000,6 +991,5 @@ __all__ = [
     "IntermediateResults",
     "MonitoredMixin",
     "TrainMonitor",
-    "StepOutputs",
     "Trainer",
 ]

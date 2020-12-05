@@ -25,7 +25,7 @@ from functools import partial
 from tqdm.autonotebook import tqdm
 from cftool.ml import Metrics
 from cftool.ml import ModelPattern
-from cftool.misc import register_core
+from cftool.misc import register_core, timing_context
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
@@ -518,6 +518,12 @@ class TrainerState:
         return _(self)
 
 
+class StepOutputs(NamedTuple):
+    forward_results: tensor_dict_type
+    loss_dict: tensor_dict_type
+    loss_items: Dict[str, float]
+
+
 # Protocols below are meant to fit with and only with `Trainer`
 
 
@@ -534,6 +540,7 @@ class TrainerDataProtocol(ABC):
 
 
 class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
+    timing: bool = True
     pt_prefix: str = "model_"
     scores_file: str = "scores.json"
 
@@ -621,6 +628,34 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         states = torch.load(model_file, map_location=self.device)
         self.load_state_dict(states)
         return True
+
+    def step(
+        self,
+        state: TrainerState,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        batch_indices: Optional[torch.Tensor],
+        loader_name: str,
+    ) -> StepOutputs:
+        with timing_context(self, "model.forward", enable=self.timing):
+            forward_results = self(
+                batch,
+                batch_idx,
+                state,
+                batch_indices,
+                loader_name,
+            )
+        with timing_context(self, "loss.forward", enable=self.timing):
+            loss_dict = self.loss_function(
+                batch_idx,
+                batch,
+                batch_indices,
+                forward_results,
+                state,
+            )
+        with timing_context(self, "loss.to_item", enable=self.timing):
+            loss_items = {k: v.item() for k, v in loss_dict.items()}
+        return StepOutputs(forward_results, loss_dict, loss_items)
 
     @property
     @abstractmethod
@@ -870,6 +905,8 @@ __all__ = [
     "SamplerProtocol",
     "DataLoaderProtocol",
     "PrefetchLoader",
+    "TrainerState",
+    "StepOutputs",
     "TrainerDataProtocol",
     "ModelProtocol",
     "InferenceProtocol",
