@@ -506,7 +506,11 @@ class Trainer(MonitoredMixin):
         if params_name == "all":
             parameters = self.model.parameters()
         else:
-            parameters = getattr(self.model, params_name)
+            attr = getattr(self.model, params_name)
+            if not isinstance(attr, torch.nn.Module):
+                parameters = attr
+            else:
+                parameters = attr.parameters()
         opt = optimizer_base(parameters, **optimizer_config)
         self.optimizers[params_name] = opt
         return opt
