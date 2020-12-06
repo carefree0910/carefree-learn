@@ -474,15 +474,38 @@ class Trainer(MonitoredMixin):
         monitor_config["lazy"] = True
         # engines
         ds_models = self.ds_models
-        if set(ds_models.keys()) != set(self.optimizers.keys()):
-            msg = "To enable deep speed, we need to align `optimizers` with `ds_models`"
-            raise ValueError(msg)
+        self.model_opt_mapping = None
+        opt_model_mapping = self.config.setdefault("opt_model_mapping", None)
+        ds_models_key_set = set(ds_models.keys())
+        if ds_models_key_set != set(self.optimizers.keys()):
+            if opt_model_mapping is None:
+                raise ValueError(
+                    "To enable deep speed, we need to either align `optimizers` with "
+                    "`ds_models`, or specify an `opt_model_mapping`"
+                )
+            assert isinstance(opt_model_mapping, dict)
+            all_mapped = set()
+            self.model_opt_mapping = {}
+            for key in self.optimizers.keys():
+                mapped_models = opt_model_mapping[key]
+                for model in mapped_models:
+                    self.model_opt_mapping[model] = key
+                all_mapped |= set(mapped_models)
+            if ds_models_key_set != all_mapped:
+                raise ValueError(
+                    f"mapped keys ({all_mapped}) is not identical to "
+                    f"model keys ({ds_models_key_set})"
+                )
         self.model_engines = {}
-        self.ds_optimizers = {}
-        self.ds_schedulers = {}
+        self.ds_optimizers: Dict[str, Any] = {}
+        self.ds_schedulers: Dict[str, Any] = {}
         for key, module in ds_models.items():
-            optimizer = self.optimizers[key]
-            scheduler = self.schedulers.get(key)
+            if self.model_opt_mapping is None:
+                opt_key = key
+            else:
+                opt_key = self.model_opt_mapping[key]
+            optimizer = self.optimizers[opt_key]
+            scheduler = self.schedulers.get(opt_key)
             engine, ds_opt, _, ds_scheduler = deepspeed.initialize(
                 self.environment.ds_args,
                 module,
@@ -490,8 +513,9 @@ class Trainer(MonitoredMixin):
                 lr_scheduler=scheduler,
             )
             self.model_engines[key] = engine
-            self.ds_optimizers[key] = ds_opt
-            self.ds_schedulers[key] = ds_scheduler
+            if opt_key not in self.ds_optimizers:
+                self.ds_optimizers[opt_key] = ds_opt
+                self.ds_schedulers[opt_key] = ds_scheduler
             if scheduler is not None:
                 assert scheduler is ds_scheduler
 
