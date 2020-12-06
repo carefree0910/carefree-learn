@@ -157,6 +157,7 @@ class Initializer(LoggingMixin):
 
     """
 
+    is_rank_0 = True
     defined_initialization = {
         "xavier_uniform",
         "xavier_normal",

@@ -14,6 +14,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from argparse import Namespace
 from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import register_core
@@ -84,6 +85,7 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 
 class Elements(NamedTuple):
     model: str = "fcnn"
+    ds_args: Optional[Namespace] = None
     aggregator: str = "sum"
     aggregator_config: Optional[Dict[str, Any]] = None
     production: str = "pack"
@@ -364,11 +366,20 @@ class Environment:
         self,
         config: Dict[str, Any],
         user_defined_config: Optional[Dict[str, Any]] = None,
+        set_device: bool = True,
     ):
         self.config = config
         if user_defined_config is None:
             user_defined_config = {}
         self.user_defined_config = user_defined_config
+        if self.deepspeed:
+            logging_folder = config.pop("logging_folder")
+            current_timestamp = timestamp(ensure_different=True)
+            config["logging_folder"] = os.path.join(logging_folder, current_timestamp)
+            if set_device:
+                if self.local_rank is None:
+                    self.ds_args.local_rank = 0
+                torch.cuda.set_device(self.local_rank)
 
     def __getattr__(self, item: str) -> Any:
         return self.config[item]
@@ -401,7 +412,17 @@ class Environment:
         _core(self.config, new_default_config)
 
     @property
+    def deepspeed(self) -> bool:
+        return self.ds_args is not None
+
+    @property
+    def local_rank(self) -> int:
+        return self.ds_args.local_rank
+
+    @property
     def device(self) -> torch.device:
+        if self.deepspeed:
+            return torch.device("cuda", self.local_rank)
         cuda = self.cuda
         if cuda == "cpu":
             return torch.device("cpu")
@@ -422,8 +443,12 @@ class Environment:
         return self.config["model_config"]
 
     @classmethod
-    def from_elements(cls, elements: Elements) -> "Environment":
-        return cls(elements.to_config(), elements.user_defined_config)
+    def from_elements(
+        cls,
+        elements: Elements,
+        set_device: bool = True,
+    ) -> "Environment":
+        return cls(elements.to_config(), elements.user_defined_config, set_device)
 
 
 __all__ = ["configs_dict", "Configs", "Elements", "Environment"]

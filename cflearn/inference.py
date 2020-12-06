@@ -9,7 +9,6 @@ from onnxruntime import InferenceSession
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
-from cftool.misc import LoggingMixin
 
 from .types import data_type
 from .types import np_dict_type
@@ -20,6 +19,7 @@ from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .misc.toolkit import to_standard
 from .misc.toolkit import eval_context
+from .misc.toolkit import LoggingMixin
 from .models.base import ModelBase
 
 

@@ -6,6 +6,7 @@ import mlflow
 import optuna
 import getpass
 import logging
+import deepspeed
 
 import numpy as np
 
@@ -453,6 +454,42 @@ class Trainer(MonitoredMixin):
         for key, value in metrics.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=self.state.step)
 
+    # deep speed
+
+    @property
+    def ds_models(self) -> Dict[str, torch.nn.Module]:
+        return {"all": self.model}
+
+    def _init_deep_speed(self) -> None:
+        self.model_engines = None
+        if not self.deepspeed:
+            return None
+        # monitor
+        monitor_config = self.config.setdefault("monitor_config", {})
+        monitor_config["lazy"] = True
+        # engines
+        ds_models = self.ds_models
+        if set(ds_models.keys()) != set(self.optimizers.keys()):
+            msg = "To enable deep speed, we need to align `optimizers` with `ds_models`"
+            raise ValueError(msg)
+        self.model_engines = {}
+        self.ds_optimizers = {}
+        self.ds_schedulers = {}
+        for key, module in ds_models.items():
+            optimizer = self.optimizers[key]
+            scheduler = self.schedulers.get(key)
+            engine, ds_opt, _, ds_scheduler = deepspeed.initialize(
+                self.environment.ds_args,
+                module,
+                optimizer,
+                lr_scheduler=scheduler,
+            )
+            self.model_engines[key] = engine
+            self.ds_optimizers[key] = ds_opt
+            self.ds_schedulers[key] = ds_scheduler
+            if scheduler is not None:
+                assert scheduler is ds_scheduler
+
     # init
 
     def _define_optimizer(
@@ -591,6 +628,10 @@ class Trainer(MonitoredMixin):
             self.metrics_weights.setdefault(metric_type, 1.0)
 
     @property
+    def deepspeed(self) -> bool:
+        return self.environment.deepspeed
+
+    @property
     def validation_loader(self) -> PrefetchLoader:
         if self.cv_loader is None:
             if self.tr_loader_copy is None:
@@ -624,6 +665,10 @@ class Trainer(MonitoredMixin):
         )
 
     def _optimizer_step(self) -> None:
+        if self.deepspeed:
+            self.ds_optimizers["all"].step()
+            self.model.zero_grad()
+            return None
         for opt in self.optimizers.values():
             if self.grad_scaler is None:
                 opt.step()
@@ -632,21 +677,36 @@ class Trainer(MonitoredMixin):
                 self.grad_scaler.update()
             opt.zero_grad()
 
+    def _get_scheduler_settings(
+        self,
+        key: str,
+        scheduler: Any,
+    ) -> Tuple[bool, Optional[Dict[str, Any]]]:
+        kwargs = {}
+        should_log_lr = self.state.should_log_lr
+        if key in self.schedulers_requires_metric and not (
+            isinstance(scheduler, WarmupScheduler) and not scheduler.finished_warmup
+        ):
+            if self.intermediate is None or not self.intermediate_updated:
+                return should_log_lr, None
+            kwargs["metrics"] = self.intermediate.final_score
+            self.intermediate_updated = False
+            should_log_lr = True
+        return should_log_lr, kwargs
+
     def _scheduler_step(self) -> None:
+        if self.deepspeed:
+            ds_scheduler = self.ds_schedulers["all"]
+            if ds_scheduler is None:
+                return None
+            _, kwargs = self._get_scheduler_settings("all", ds_scheduler)
+            if kwargs is None:
+                return None
+            ds_scheduler.step(**kwargs)
+            return None
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
-                kwargs = {}
-                should_log_lr = self.state.should_log_lr
-                if key in self.schedulers_requires_metric and not (
-                    isinstance(scheduler, WarmupScheduler)
-                    and not scheduler.finished_warmup
-                ):
-                    if self.intermediate is None or not self.intermediate_updated:
-                        continue
-                    kwargs["metrics"] = self.intermediate.final_score
-                    self.intermediate_updated = False
-                    should_log_lr = True
-                scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
+                should_log_lr, kwargs = self._get_scheduler_settings(key, scheduler)
                 if self.mlflow_client is not None and should_log_lr:
                     self.mlflow_client.log_metric(
                         self.run_id,
@@ -654,6 +714,9 @@ class Trainer(MonitoredMixin):
                         scheduler.get_last_lr()[0],  # type: ignore
                         step=self.state.step,
                     )
+                if kwargs is None:
+                    continue
+                scheduler.step(**shallow_copy_dict(kwargs))  # type: ignore
 
     @staticmethod
     def _metric_verbose(k: str, intermediate: IntermediateResults) -> str:
@@ -816,6 +879,13 @@ class Trainer(MonitoredMixin):
     def on_save_checkpoint(self, score: float) -> None:
         self.save_checkpoint(score)
 
+    def _finalize(self, step_outputs: StepOutputs) -> None:
+        if self.model.use_ema:
+            with timing_context(self, "EMA", enable=self.timing):
+                self.model.apply_ema()
+        if self.state.should_log_scalar:
+            self._log_metrics(step_outputs.loss_items)
+
     # core step on each epoch
     def _step(
         self,
@@ -823,37 +893,55 @@ class Trainer(MonitoredMixin):
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
     ) -> StepOutputs:
-        with amp_autocast_context(self.use_amp):
-            step_outputs = self.model.step(
-                self.state,
-                batch_idx,
-                batch,
-                batch_indices,
-                "tr",
-            )
-        loss_items = {f"tr_{k}": v for k, v in step_outputs.loss_items.items()}
-        if self.state.should_log_scalar:
-            self._log_metrics(loss_items)
-        with timing_context(self, "loss.backward", enable=self.timing):
-            loss = step_outputs.loss_dict["loss"]
-            if self.use_amp:
-                loss = self.grad_scaler.scale(loss)  # type: ignore
-            loss.backward()
-        if self.clip_norm > 0.0:
-            with timing_context(self, "clip_norm_step", enable=self.timing):
-                self._clip_norm_step()
-        with timing_context(self, "optimizer_step", enable=self.timing):
-            self._optimizer_step()
-        with timing_context(self, "scheduler_step", enable=self.timing):
-            self._scheduler_step()
-        if self.model.use_ema:
-            with timing_context(self, "EMA", enable=self.timing):
-                self.model.apply_ema()
-        return StepOutputs(
-            step_outputs.forward_results,
-            step_outputs.loss_dict,
-            loss_items,
+        if self.deepspeed:
+            step_outputs = self._ds_step(batch_idx, batch, batch_indices)
+        else:
+            with amp_autocast_context(self.use_amp):
+                step_outputs = self.model.step(
+                    self.state,
+                    batch_idx,
+                    batch,
+                    batch_indices,
+                    "tr",
+                )
+            with timing_context(self, "loss.backward", enable=self.timing):
+                loss = step_outputs.loss_dict["loss"]
+                if self.use_amp:
+                    loss = self.grad_scaler.scale(loss)  # type: ignore
+                loss.backward()
+            if self.clip_norm > 0.0:
+                with timing_context(self, "clip_norm_step", enable=self.timing):
+                    self._clip_norm_step()
+            with timing_context(self, "optimizer_step", enable=self.timing):
+                self._optimizer_step()
+            with timing_context(self, "scheduler_step", enable=self.timing):
+                self._scheduler_step()
+        self._finalize(step_outputs)
+        return step_outputs
+
+    def _ds_step(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        batch_indices: Optional[torch.Tensor],
+    ) -> StepOutputs:
+        engine = self.model_engines["all"]
+        step_outputs = self.model.step(
+            self.state,
+            batch_idx,
+            batch,
+            batch_indices,
+            "tr",
+            engine,
         )
+        with timing_context(self, "ds.backward", enable=self.timing):
+            loss = step_outputs.loss_dict["loss"]
+            engine.backward(loss)
+        with timing_context(self, "ds.optimizer_step", enable=self.timing):
+            self._optimizer_step()
+        with timing_context(self, "ds.scheduler_step", enable=self.timing):
+            self._scheduler_step()
+        return step_outputs
 
     # api
 
@@ -881,6 +969,8 @@ class Trainer(MonitoredMixin):
         self.tr_weights, self.cv_weights = tr_weights, cv_weights
         # optimizer
         self._init_optimizers()
+        # deep speed
+        self._init_deep_speed()
         # metrics
         self._init_metrics()
         # monitor
@@ -920,11 +1010,12 @@ class Trainer(MonitoredMixin):
                 terminate = True
             if terminate:
                 if os.path.isdir(self.checkpoint_folder):
-                    self.log_msg(  # type: ignore
-                        "rolling back to the best checkpoint",
-                        self.info_prefix,
-                        3,
-                    )
+                    if not self.deepspeed:
+                        self.log_msg(  # type: ignore
+                            "rolling back to the best checkpoint",
+                            self.info_prefix,
+                            3,
+                        )
                     has_ckpt = self.restore_checkpoint()
                 break
             if self.use_tqdm:
@@ -947,16 +1038,30 @@ class Trainer(MonitoredMixin):
     def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
-        # leave top_k snapshots only
-        if self.state.max_snapshot_file > 0:
-            checkpoints = self.model.sorted_checkpoints(folder)
-            if len(checkpoints) >= self.state.max_snapshot_file:
-                for file in checkpoints[self.state.max_snapshot_file - 1 :]:
-                    self.checkpoint_scores.pop(file)
-                    os.remove(os.path.join(folder, file))
-        # pt
-        file = f"{self.model.pt_prefix}{self.state.epoch}.pt"
-        torch.save(self.model.state_dict(), os.path.join(folder, file))
+        if self.deepspeed:
+            file = fix_float_to_length(score, 8)
+            if os.path.isdir(os.path.join(folder, file)):
+                return None
+            self.model_engines["all"].save_checkpoint(
+                folder,
+                file,
+                client_state={
+                    "step": self.state,
+                    "epoch": self.state.epoch,
+                    "score": score,
+                },
+            )
+        else:
+            # leave top_k snapshots only
+            if self.state.max_snapshot_file > 0:
+                checkpoints = self.model.sorted_checkpoints(folder)
+                if len(checkpoints) >= self.state.max_snapshot_file:
+                    for file in checkpoints[self.state.max_snapshot_file - 1 :]:
+                        self.checkpoint_scores.pop(file)
+                        os.remove(os.path.join(folder, file))
+            # pt
+            file = f"{self.model.pt_prefix}{self.state.epoch}.pt"
+            torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
         self.checkpoint_scores[file] = score
         with open(os.path.join(folder, self.model.scores_file), "w") as f:
@@ -965,7 +1070,7 @@ class Trainer(MonitoredMixin):
     def restore_checkpoint(self, folder: str = None) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
-        return self.model.restore_checkpoint(folder)
+        return self.model.restore_checkpoint(folder, self.deepspeed)
 
 
 __all__ = [

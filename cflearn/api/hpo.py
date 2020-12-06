@@ -94,8 +94,8 @@ class _Tuner(LoggingMixin):
                 read_config["delim"] = delim
             else:
                 print(
-                    f"{LoggingMixin.warning_prefix}delimiter of the given file dataset is not provided, "
-                    "this may cause incorrect parsing"
+                    f"{LoggingMixin.warning_prefix}delimiter of the given "
+                    "file dataset is not provided, this may cause incorrect parsing"
                 )
             if y is not None:
                 read_config["y"] = y
@@ -277,7 +277,8 @@ def tune_with(
 
     if os.path.isdir(temp_folder):
         print(
-            f"{LoggingMixin.warning_prefix}'{temp_folder}' already exists, it will be overwritten"
+            f"{LoggingMixin.warning_prefix}'{temp_folder}' already exists, "
+            "it will be overwritten"
         )
         shutil.rmtree(temp_folder)
 
@@ -314,8 +315,8 @@ def tune_with(
             num_jobs = 0
         if num_jobs > 1:
             print(
-                f"{LoggingMixin.warning_prefix}`num_jobs` is set but hpo is sequential, "
-                "please use `num_parallel` instead"
+                f"{LoggingMixin.warning_prefix}`num_jobs` is set but hpo is "
+                "sequential, please use `num_parallel` instead"
             )
         num_jobs = 0
     if search_config is None:
@@ -332,7 +333,8 @@ def tune_with(
     if num_jobs is not None:
         search_config["num_jobs"] = num_jobs
     search_config.setdefault(
-        "parallel_logging_folder", os.path.join(temp_folder, "__hpo_parallel__")
+        "parallel_logging_folder",
+        os.path.join(temp_folder, "__hpo_parallel__"),
     )
     estimators = tuner.make_estimators(metrics, None)
     hpo.search(x, y, estimators, x_cv, y_cv, **search_config)

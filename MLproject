@@ -21,6 +21,29 @@ entry_points:
         --valid_file {valid_file} \
         --saving_folder {saving_folder}
 
+  ds:
+    parameters:
+      cuda: { type: str }
+      ds_config: { type: path }
+      model: { type: str, default: "fcnn" }
+      config: { type: str, default: "" }
+      root_dir: { type: path, default: "./" }
+      train_file: { type: str }
+      valid_file: { type: str, default: "" }
+      saving_folder: { type: str, default: "" }
+
+    command: |
+      deepspeed \
+        --include="localhost:{cuda}" \
+        cli/main.py \
+        --model {model} \
+        --config {config} \
+        --root_dir {root_dir} \
+        --train_file {train_file} \
+        --valid_file {valid_file} \
+        --saving_folder {saving_folder} \
+        --deepspeed_config {ds_config} \
+
   inference:
     parameters:
       host: { type: str, default: "127.0.0.1" }

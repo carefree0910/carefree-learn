@@ -247,7 +247,8 @@ def _rmtree(folder: str, patience: float = 10.0) -> None:
     while True:
         try:
             if time.time() - t >= patience:
-                print(f"\n{LoggingMixin.warning_prefix}failed to rmtree: {folder}")
+                prefix = LoggingMixin.warning_prefix
+                print(f"\n{prefix}failed to rmtree: {folder}")
                 break
             shutil.rmtree(folder)
             break
@@ -335,8 +336,9 @@ def repeat_with(
 
         if not return_patterns:
             print(
-                f"{LoggingMixin.warning_prefix}`return_patterns` should be True "
-                "when `sequential` is True, because patterns will always be generated"
+                f"{LoggingMixin.warning_prefix}`return_patterns` should be "
+                "True when `sequential` is True, because patterns "
+                "will always be generated"
             )
             return_patterns = True
 

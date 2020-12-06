@@ -28,7 +28,6 @@ from cftool.ml import ModelPattern
 from cftool.misc import register_core, timing_context
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
-from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
 from cfdata.tabular import data_type
 from cfdata.tabular import str_data_type
@@ -45,6 +44,7 @@ from .misc.toolkit import is_float
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_torch
 from .misc.toolkit import eval_context
+from .misc.toolkit import LoggingMixin
 from .modules.blocks import EMA
 
 
@@ -606,16 +606,12 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
             return []
         with open(scores_path, "r") as f:
             scores = json.load(f)
-        files = [
-            file
-            for file in os.listdir(folder)
-            if file.startswith(self.pt_prefix) and file.endswith(".pt")
-        ]
-        scores_list = [scores.get(file, -math.inf) for file in files]
+        files = list(scores.keys())
+        scores_list = [scores[file] for file in files]
         sorted_indices = np.argsort(scores_list)[::-1]
         return [files[i] for i in sorted_indices]
 
-    def restore_checkpoint(self, folder: str) -> bool:
+    def restore_checkpoint(self, folder: str, deepspeed: bool = False) -> bool:
         checkpoints = self.sorted_checkpoints(folder)
         if not checkpoints:
             self.log_msg(  # type: ignore
@@ -624,15 +620,16 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
                 msg_level=logging.WARNING,
             )
             return False
-        best_checkpoint = checkpoints[0]
-        model_file = os.path.join(folder, best_checkpoint)
-        self.log_msg(  # type: ignore
-            f"restoring from {model_file}",
-            self.info_prefix,
-            4,
-        )
-        states = torch.load(model_file, map_location=self.device)
-        self.load_state_dict(states)
+        if not deepspeed:
+            best_checkpoint = checkpoints[0]
+            model_file = os.path.join(folder, best_checkpoint)
+            self.log_msg(  # type: ignore
+                f"restoring from {model_file}",
+                self.info_prefix,
+                4,
+            )
+            states = torch.load(model_file, map_location=self.device)
+            self.load_state_dict(states)
         return True
 
     def step(
@@ -642,15 +639,11 @@ class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
         loader_name: str,
+        engine: Optional[Any] = None,
     ) -> StepOutputs:
         with timing_context(self, "model.forward", enable=self.timing):
-            forward_results = self(
-                batch,
-                batch_idx,
-                state,
-                batch_indices,
-                loader_name,
-            )
+            args = batch, batch_idx, state, batch_indices, loader_name
+            forward_results = (engine or self)(*args)
         with timing_context(self, "loss.forward", enable=self.timing):
             loss_dict = self.loss_function(
                 batch_idx,
