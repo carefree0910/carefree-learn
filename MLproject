@@ -28,7 +28,7 @@ entry_points:
       adapter: { type: str, default: "http" }
       config: { type: str, default: "" }
       test_file: { type: path }
-      export_file: { type: str, default: "" }
+      export_file: { type: path }
 
     command: |
       python cli/inference.py \
