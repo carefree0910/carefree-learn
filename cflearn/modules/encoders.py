@@ -8,13 +8,13 @@ import torch.nn as nn
 from typing import *
 from abc import ABCMeta
 from collections import defaultdict
-from cftool.misc import LoggingMixin
 from cfdata.tabular.misc import np_int_type
 
 from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import Lambda
 from ..misc.toolkit import Initializer
+from ..misc.toolkit import LoggingMixinWithRank
 from ..modules.auxiliary import Dropout
 
 
@@ -69,7 +69,7 @@ class Embedding(nn.Module):
         return self.core(tensor)
 
 
-class Encoder(nn.Module, LoggingMixin, metaclass=ABCMeta):
+class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
     def __init__(
         self,
         config: Dict[str, Any],

@@ -34,6 +34,7 @@ from .inference import Inference
 from .inference import PreProcessor
 from .misc.toolkit import to_2d
 from .misc.toolkit import to_relative
+from .misc.toolkit import LoggingMixinWithRank
 from .misc.time_series import TSLabelCollator
 from .models.base import model_dict
 from .models.base import ModelBase
@@ -42,7 +43,7 @@ from .models.base import ModelBase
 key_type = Tuple[Union[str, Optional[str]], ...]
 
 
-class Pipeline(LoggingMixin):
+class Pipeline(LoggingMixinWithRank):
     def __init__(self, environment: Environment):
         # typing
         self.tr_data: DataProtocol
@@ -239,9 +240,14 @@ class Pipeline(LoggingMixin):
                 if sample_weights is not None:
                     self.tr_weights = sample_weights[split.remained_indices]
                     self.cv_weights = sample_weights[split.split_indices]
+        # deep speed
+        self.set_rank_0(self.environment.is_rank_0)
+        # data
         self._init_data()
         # modules
         self._prepare_modules()
+        # deep speed
+        self.set_rank_0(self.is_rank_0)
 
     def _loop(self) -> None:
         # dump information

@@ -23,7 +23,6 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from cftool.misc import timing_context
 from cftool.misc import Incrementer
-from cftool.misc import LoggingMixin
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
@@ -66,7 +65,7 @@ class IntermediateResults(NamedTuple):
 
 
 # Should define `TrainerState` as `self.state`
-class MonitoredMixin(ABC, LoggingMixin):
+class MonitoredMixin(ABC, LoggingMixinWithRank):
     @abstractmethod
     def on_save_checkpoint(self, score: float) -> None:
         pass

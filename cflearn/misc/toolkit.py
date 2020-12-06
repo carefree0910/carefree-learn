@@ -145,7 +145,56 @@ def parse_path(path: Optional[str], root_dir: str) -> Optional[str]:
     return os.path.abspath(os.path.join(root_dir, path))
 
 
-class Initializer(LoggingMixin):
+class LoggingMixinWithRank(LoggingMixin):
+    is_rank_0: bool = True
+
+    def set_rank_0(self, value: bool) -> None:
+        self.is_rank_0 = value
+        for v in self.__dict__.values():
+            if isinstance(v, LoggingMixinWithRank):
+                v.set_rank_0(value)
+
+    def _init_logging(
+        self,
+        verbose_level: Optional[int] = 2,
+        trigger: bool = True,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        super()._init_logging(verbose_level, trigger)
+
+    def log_msg(
+        self,
+        body: str,
+        prefix: str = "",
+        verbose_level: Optional[int] = 1,
+        msg_level: int = logging.INFO,
+        frame: Any = None,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        super().log_msg(body, prefix, verbose_level, msg_level, frame)
+
+    def log_block_msg(
+        self,
+        body: str,
+        prefix: str = "",
+        title: str = "",
+        verbose_level: Optional[int] = 1,
+        msg_level: int = logging.INFO,
+        frame: Any = None,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        super().log_block_msg(body, prefix, title, verbose_level, msg_level, frame)
+
+    def log_timing(self) -> None:
+        if not self.is_rank_0:
+            return None
+        return super().log_timing()
+
+
+class Initializer(LoggingMixinWithRank):
     """
     Initializer for neural network weights
 
@@ -157,7 +206,6 @@ class Initializer(LoggingMixin):
 
     """
 
-    is_rank_0 = True
     defined_initialization = {
         "xavier_uniform",
         "xavier_normal",
@@ -596,6 +644,7 @@ __all__ = [
     "parse_args",
     "parse_path",
     "Lambda",
+    "LoggingMixinWithRank",
     "Initializer",
     "Activations",
     "mode_context",

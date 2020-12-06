@@ -372,7 +372,10 @@ class Environment:
         if user_defined_config is None:
             user_defined_config = {}
         self.user_defined_config = user_defined_config
+        # deep speed
+        self.is_rank_0 = True
         if self.deepspeed:
+            self.is_rank_0 = self.local_rank is None
             logging_folder = config.pop("logging_folder")
             current_timestamp = timestamp(ensure_different=True)
             config["logging_folder"] = os.path.join(logging_folder, current_timestamp)

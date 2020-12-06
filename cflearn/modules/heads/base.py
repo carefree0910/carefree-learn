@@ -12,13 +12,13 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import register_core
-from cftool.misc import LoggingMixin
 
 from ..transform import Dimensions
 from ...types import tensor_dict_type
 from ...configs import configs_dict
 from ...configs import Configs
 from ...protocol import DataProtocol
+from ...misc.toolkit import LoggingMixinWithRank
 
 
 head_dict: Dict[str, Type["HeadBase"]] = {}
@@ -78,7 +78,7 @@ class HeadConfigs(Configs):
         return cfg_type(in_dim, tr_data, tr_weights, dimensions, kwargs)
 
 
-class HeadBase(nn.Module, LoggingMixin, metaclass=ABCMeta):
+class HeadBase(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
     def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
         super().__init__()
         self.in_dim, self.out_dim = in_dim, out_dim

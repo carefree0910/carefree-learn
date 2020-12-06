@@ -44,11 +44,11 @@ from .misc.toolkit import is_float
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_torch
 from .misc.toolkit import eval_context
-from .misc.toolkit import LoggingMixin
+from .misc.toolkit import LoggingMixinWithRank
 from .modules.blocks import EMA
 
 
-class PipelineProtocol(LoggingMixin, metaclass=ABCMeta):
+class PipelineProtocol(LoggingMixinWithRank, metaclass=ABCMeta):
     def __init__(self) -> None:
         self.data = TabularData.simple("reg", simplify=True)
 
@@ -545,7 +545,7 @@ class TrainerDataProtocol(ABC):
         return self.task_type.is_reg
 
 
-class ModelProtocol(nn.Module, LoggingMixin, metaclass=ABCMeta):
+class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
     timing: bool = True
     pt_prefix: str = "model_"
     scores_file: str = "scores.json"

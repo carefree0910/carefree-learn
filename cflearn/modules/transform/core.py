@@ -8,10 +8,10 @@ from typing import Optional
 from typing import NamedTuple
 from torch.nn import Module
 from cftool.misc import timing_context
-from cftool.misc import LoggingMixin
 
 from ..encoders import Encoder
 from ..encoders import EncodingResult
+from ...misc.toolkit import LoggingMixinWithRank
 
 
 class SplitFeatures(NamedTuple):
@@ -66,7 +66,7 @@ class SplitFeatures(NamedTuple):
         return torch.cat([self.numerical, merged], dim=1)
 
 
-class Dimensions(LoggingMixin):
+class Dimensions(LoggingMixinWithRank):
     def __init__(
         self,
         encoder: Optional[Encoder],

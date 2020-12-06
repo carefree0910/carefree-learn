@@ -19,11 +19,11 @@ from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .misc.toolkit import to_standard
 from .misc.toolkit import eval_context
-from .misc.toolkit import LoggingMixin
+from .misc.toolkit import LoggingMixinWithRank
 from .models.base import ModelBase
 
 
-class PreProcessor(LoggingMixin):
+class PreProcessor(LoggingMixinWithRank):
     data_folder = "data"
     protocols_file = "protocols.json"
     sampler_config_name = "sampler_config"
@@ -213,7 +213,7 @@ class ONNX:
         return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
 
 
-class Inference(InferenceProtocol, LoggingMixin):
+class Inference(InferenceProtocol, LoggingMixinWithRank):
     def __init__(
         self,
         preprocessor: PreProcessor,

@@ -1,17 +1,17 @@
 import torch
 
 from typing import *
-from cftool.misc import LoggingMixin
 from torch.nn.functional import l1_loss
 from torch.nn.functional import softplus
 
 from ...losses import LossBase
 from ...types import tensor_dict_type
+from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.auxiliary import MTL
 
 
 @LossBase.register("ddr")
-class DDRLoss(LossBase, LoggingMixin):
+class DDRLoss(LossBase, LoggingMixinWithRank):
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.fetch_q = config["fetch_q"]
         self.fetch_cdf = config["fetch_cdf"]
