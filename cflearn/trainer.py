@@ -80,10 +80,6 @@ class TrainMonitor:
     ----------
     * Performance should represent 'score', i.e. the higher the better
     * Performance MUST be evaluated on the cross validation dataset instead of the training set if possible
-    * `register_trainer` method MUST be called before monitoring
-    * instance passed to`register_trainer` method MUST be a subclass of `LoggingMixin`,
-      and must include `_epoch_count`, `num_epoch`, `max_epoch` attributes and
-      `save_checkpoint` method
 
     Parameters
     ----------
