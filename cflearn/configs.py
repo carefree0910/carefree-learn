@@ -375,7 +375,7 @@ class Environment:
         # deep speed
         self.is_rank_0 = True
         if self.deepspeed:
-            self.is_rank_0 = self.local_rank is None
+            self.is_rank_0 = self.local_rank is None or self.local_rank == 0
             logging_folder = config.pop("logging_folder")
             current_timestamp = timestamp(ensure_different=True)
             config["logging_folder"] = os.path.join(logging_folder, current_timestamp)
