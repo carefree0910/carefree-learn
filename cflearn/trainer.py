@@ -888,7 +888,8 @@ class Trainer(MonitoredMixin):
         # metrics
         self._init_metrics()
         # monitor
-        self._monitor = TrainMonitor.monitor(self)
+        monitor_config = self.config.setdefault("monitor_config", {})
+        self._monitor = TrainMonitor.monitor(self, **monitor_config)
         # train
         self.model.info()
         self._prepare_log()
