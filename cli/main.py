@@ -3,7 +3,6 @@ import json
 import mlflow
 import cflearn
 import argparse
-import deepspeed
 
 from cftool.misc import lock_manager
 from cflearn.configs import _parse_config
@@ -12,6 +11,11 @@ from cflearn.configs import Environment
 from cflearn.misc.toolkit import parse_args
 from cflearn.misc.toolkit import parse_path
 from mlflow.tracking.fluent import _active_experiment_id
+
+try:
+    import deepspeed
+except:
+    deepspeed = None
 
 
 def _impute_deepspeed() -> None:
@@ -72,6 +76,8 @@ if __name__ == "__main__":
     if os.path.abspath(logging_folder) != logging_folder:
         logging_folder = parse_path(logging_folder, root_dir)
     config["logging_folder"] = logging_folder
+    if deepspeed is None:
+        raise ValueError("deepspeed is not supported")
     _impute_deepspeed()
     if args.deepspeed_config is None:
         config.setdefault("log_pipeline_to_artifacts", True)

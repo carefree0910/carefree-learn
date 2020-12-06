@@ -6,7 +6,6 @@ import mlflow
 import optuna
 import getpass
 import logging
-import deepspeed
 
 import numpy as np
 
@@ -34,6 +33,10 @@ try:
     amp: Optional[Any] = torch.cuda.amp
 except:
     amp = None
+try:
+    import deepspeed
+except:
+    deepspeed = None
 
 from .misc.toolkit import *
 from .types import tensor_dict_type
@@ -464,6 +467,8 @@ class Trainer(MonitoredMixin):
         self.model_engines = None
         if not self.deepspeed:
             return None
+        if deepspeed is None:
+            raise ValueError("deepspeed is not supported")
         # monitor
         monitor_config = self.config.setdefault("monitor_config", {})
         monitor_config["lazy"] = True
