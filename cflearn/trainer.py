@@ -394,7 +394,7 @@ class Trainer(MonitoredMixin):
         self.run_id: Optional[str] = None
         self.mlflow_client: Optional[mlflow.tracking.MlflowClient] = None
         mlflow_config = environment.mlflow_config
-        if mlflow_config is None or self.is_loading:
+        if mlflow_config is None or self.is_loading or not self.is_rank_0:
             return None
         model = self.model.__identifier__
         task_type = self.model.data.task_type.value
