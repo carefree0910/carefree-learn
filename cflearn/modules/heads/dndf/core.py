@@ -29,7 +29,7 @@ class DNDFHead(HeadBase):
             self.log_msg(  # type: ignore
                 "`config` is not provided for `DNDFHead`, "
                 "a `Linear` will be used instead of `DNDF`",
-                self.warning_prefix,
+                self.warning_prefix,  # type: ignore
             )
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:

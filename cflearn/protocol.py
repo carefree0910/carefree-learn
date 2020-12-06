@@ -616,7 +616,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
         if not checkpoints:
             self.log_msg(  # type: ignore
                 f"no model file found in {folder}",
-                self.warning_prefix,
+                self.warning_prefix,  # type: ignore
                 msg_level=logging.WARNING,
             )
             return False
@@ -625,7 +625,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             model_file = os.path.join(folder, best_checkpoint)
             self.log_msg(  # type: ignore
                 f"restoring from {model_file}",
-                self.info_prefix,
+                self.info_prefix,  # type: ignore
                 4,
             )
             states = torch.load(model_file, map_location=self.device)

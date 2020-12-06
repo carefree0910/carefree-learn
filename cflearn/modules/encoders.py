@@ -303,7 +303,7 @@ class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             self.log_msg(  # type: ignore
                 "out of bound occurred, "
                 f"ratio : {torch.mean(oob_mask.to(torch.float32)).item():8.6f}",
-                prefix=self.warning_prefix,
+                prefix=self.warning_prefix,  # type: ignore
                 verbose_level=5,
                 msg_level=logging.WARNING,
             )
