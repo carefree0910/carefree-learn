@@ -120,10 +120,12 @@ class TrainMonitor:
     def __init__(
         self,
         monitored: MonitoredMixin,
+        *,
         patience: int = 4,
         history_ratio: float = 3.0,
         tolerance_ratio: float = 2.0,
         extension: int = 5,
+        lazy: bool = False,
         aggressive: bool = False,
     ):
         self.monitored = monitored
@@ -132,6 +134,7 @@ class TrainMonitor:
         self.num_tolerance = int(round(patience * tolerance_ratio))
         self.plateau_threshold = int(round(patience * history_ratio * tolerance_ratio))
         self.extension = extension
+        self.is_lazy = lazy
         self.is_aggressive = aggressive
         self._scores: List[float] = []
         self.plateau_flag = False
@@ -254,7 +257,7 @@ class TrainMonitor:
         self._descend_counter += self._descend_increment
 
     def _handle_trainer_terminate(self, score: float) -> bool:
-        if self.info["terminate"]:
+        if self.info["terminate"] and not self.is_lazy:
             self.log_msg(
                 f"early stopped at n_epoch={self.state.epoch} "
                 f"due to '{self.info['info']}'",
@@ -264,7 +267,9 @@ class TrainMonitor:
         if self.info["save_checkpoint"]:
             self.log_msg(f"{self.info['info']}", self.monitored.info_prefix, 3)
             self.monitored.on_save_checkpoint(score)
-        if self.state.should_extend_epoch and not self.info["terminate"]:
+        if self.state.should_extend_epoch:
+            if self.is_lazy:
+                return True
             self._punish_extension()
             new_epoch = self.state.num_epoch + self.extension
             self.state.num_epoch = min(new_epoch, self.state.max_epoch)
