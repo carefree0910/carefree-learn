@@ -364,6 +364,7 @@ class Trainer(MonitoredMixin):
         self.is_loading = is_loading
         self.trial = environment.trial
         self.device = environment.device
+        self.is_rank_0 = environment.is_rank_0
         self._init_mlflow(environment)
         self.checkpoint_scores: Dict[str, float] = {}
         self.tr_loader_copy: Optional[PrefetchLoader] = None

@@ -253,9 +253,12 @@ class Pipeline(LoggingMixinWithRank):
         # dump information
         logging_folder = self.logging_folder
         os.makedirs(logging_folder, exist_ok=True)
-        Saving.save_dict(self.config, "config", logging_folder)
-        with open(os.path.join(logging_folder, "model.txt"), "w") as f:
-            f.write(str(self.model))
+        if self.is_rank_0:
+            if self.environment.deepspeed:
+                logging_folder = os.path.join(logging_folder, os.pardir)
+            Saving.save_dict(self.config, "config", logging_folder)
+            with open(os.path.join(logging_folder, "model.txt"), "w") as f:
+                f.write(str(self.model))
         # training loop
         self.trainer.fit(
             self.tr_loader,
