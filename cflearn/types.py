@@ -20,7 +20,8 @@ tensor_tuple_type = Tuple[torch.Tensor, torch.Tensor]
 general_config_type = Optional[Union[str, Dict[str, Any]]]
 predictor_type = Optional[Callable[[int, TabularDataset, np.ndarray], np.ndarray]]
 evaluator_type = Optional[Callable[[List[np.ndarray], List[np.ndarray]], np.ndarray]]
-tensor_batch_type = Tuple[Dict[str, torch.Tensor], Optional[torch.Tensor]]
+prefetch_batch_type = Tuple[tensor_dict_type, Optional[torch.Tensor]]
+loader_batch_type = Union[tensor_dict_type, prefetch_batch_type]
 
 
 __all__ = [
@@ -32,5 +33,6 @@ __all__ = [
     "general_config_type",
     "predictor_type",
     "evaluator_type",
-    "tensor_batch_type",
+    "prefetch_batch_type",
+    "loader_batch_type",
 ]

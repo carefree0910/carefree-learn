@@ -3,7 +3,6 @@ import torch
 
 import numpy as np
 
-from typing import Any
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cfdata.types import np_int_type
@@ -12,6 +11,7 @@ from cfdata.tabular import DataLoader
 from cfdata.tabular import ImbalancedSampler
 from cfdata.tabular import TabularData as TD
 
+from ..types import loader_batch_type
 from ..protocol import DataProtocol
 from ..protocol import SamplerProtocol
 from ..protocol import DataLoaderProtocol
@@ -30,7 +30,7 @@ class TabularSampler(ImbalancedSampler, SamplerProtocol):
 
 @DataLoaderProtocol.register("tabular")
 class TabularLoader(DataLoader, DataLoaderProtocol):
-    def __next__(self) -> Any:
+    def __next__(self) -> loader_batch_type:
         sample = DataLoader.__next__(self)
         if self.return_indices:
             (x_batch, labels), indices = sample

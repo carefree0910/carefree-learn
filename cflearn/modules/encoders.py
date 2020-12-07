@@ -348,7 +348,9 @@ class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             return_indices = loader.return_indices
             for sample in loader:
                 if return_indices:
+                    assert isinstance(sample, tuple)
                     sample = sample[0]
+                assert isinstance(sample, dict)
                 x_batch = sample["x_batch"]
                 categorical_features.append(x_batch[..., self.tgt_columns])
             tensor = to_torch(np.vstack(categorical_features))

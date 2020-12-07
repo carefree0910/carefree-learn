@@ -25,7 +25,8 @@ from functools import partial
 from tqdm.autonotebook import tqdm
 from cftool.ml import Metrics
 from cftool.ml import ModelPattern
-from cftool.misc import register_core, timing_context
+from cftool.misc import register_core
+from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cfdata.types import np_int_type
@@ -38,7 +39,8 @@ from cfdata.tabular.recognizer import Recognizer
 
 from .types import np_dict_type
 from .types import tensor_dict_type
-from .types import tensor_batch_type
+from .types import loader_batch_type
+from .types import prefetch_batch_type
 from .misc.toolkit import to_prob
 from .misc.toolkit import is_float
 from .misc.toolkit import to_numpy
@@ -306,7 +308,7 @@ class DataLoaderProtocol(ABC):
         pass
 
     @abstractmethod
-    def __next__(self) -> Any:
+    def __next__(self) -> loader_batch_type:
         pass
 
     @abstractmethod
@@ -361,7 +363,7 @@ class PrefetchLoader:
         self.preload()
         return self
 
-    def __next__(self) -> tensor_batch_type:
+    def __next__(self) -> prefetch_batch_type:
         if self.stop_at_next_batch:
             raise StopIteration
         if not self.is_cpu:
@@ -380,10 +382,10 @@ class PrefetchLoader:
         if not self.return_indices:
             indices_tensor = None
         else:
-            sample, batch_indices = sample
+            sample, batch_indices = sample  # type: ignore
             indices_tensor = to_torch(batch_indices).to(torch.long)
 
-        self.next_batch = sample
+        self.next_batch = sample  # type: ignore
         if self.is_cpu:
             self.next_batch_indices = indices_tensor
             return None

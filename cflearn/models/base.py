@@ -346,7 +346,9 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
     def input_sample(self) -> tensor_dict_type:
         sample = next(iter(self.tr_loader))
         if self.tr_loader.return_indices:
+            assert isinstance(sample, tuple)
             return sample[0]
+        assert isinstance(sample, dict)
         return sample
 
     @property
