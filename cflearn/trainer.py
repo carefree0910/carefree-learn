@@ -463,7 +463,7 @@ class Trainer(MonitoredMixin):
     def ds_models(self) -> Dict[str, torch.nn.Module]:
         return {"all": self.model}
 
-    def _init_deep_speed(self) -> None:
+    def _init_deepspeed(self) -> None:
         self.model_engines = None
         if not self.deepspeed:
             return None
@@ -1003,7 +1003,7 @@ class Trainer(MonitoredMixin):
         # optimizer
         self._init_optimizers()
         # deep speed
-        self._init_deep_speed()
+        self._init_deepspeed()
         # metrics
         self._init_metrics()
         # monitor
