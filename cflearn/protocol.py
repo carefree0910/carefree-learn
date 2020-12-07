@@ -472,7 +472,7 @@ class TrainerState:
         return self.step % denominator == 0
 
     @property
-    def should_log_scalar(self) -> bool:
+    def should_log_losses(self) -> bool:
         if self.log_disabled:
             return False
         denominator = min(self.num_step_per_epoch, 4)
