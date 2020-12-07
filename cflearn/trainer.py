@@ -451,7 +451,7 @@ class Trainer(MonitoredMixin):
             for key, value in self.environment.user_defined_config.items():
                 self.mlflow_client.log_param(self.run_id, key, value)
 
-    def _log_metrics(self, metrics: Dict[str, float]) -> None:
+    def _log_scalars(self, metrics: Dict[str, float]) -> None:
         if self.mlflow_client is None:
             return None
         for key, value in metrics.items():
@@ -887,7 +887,7 @@ class Trainer(MonitoredMixin):
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
         if self._epoch_tqdm is not None:
             self._epoch_tqdm.set_postfix(metrics_for_scoring)
-        self._log_metrics(metrics_for_scoring)
+        self._log_scalars(metrics_for_scoring)
         weighted_metrics = {
             k: float(v * self.metrics_weights[k])
             for k, v in metrics_for_scoring.items()
@@ -909,7 +909,7 @@ class Trainer(MonitoredMixin):
             with timing_context(self, "EMA", enable=self.timing):
                 self.model.apply_ema()
         if self.state.should_log_scalar:
-            self._log_metrics(step_outputs.loss_items)
+            self._log_scalars(step_outputs.loss_items)
 
     # core step on each epoch
     def _step(
