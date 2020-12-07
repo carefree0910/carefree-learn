@@ -497,8 +497,8 @@ class Trainer(MonitoredMixin):
                     f"model keys ({ds_models_key_set})"
                 )
         self.model_engines = {}
-        self.ds_optimizers: Dict[str, Any] = {}
-        self.ds_schedulers: Dict[str, Any] = {}
+        initialized_optimizers: Set[str] = set()
+        self.engine_with_optimizer: Set[str] = set()
         for key, module in ds_models.items():
             if self.model_opt_mapping is None:
                 opt_key = key
@@ -506,18 +506,23 @@ class Trainer(MonitoredMixin):
                 opt_key = self.model_opt_mapping[key]
             optimizer = self.optimizers[opt_key]
             scheduler = self.schedulers.get(opt_key)
-            engine, ds_opt, _, ds_scheduler = deepspeed.initialize(
+            # TODO : this API is quite ugly now and should be updated by deepspeed
+            engine, _, _, ds_scheduler = deepspeed.initialize(
                 self.environment.ds_args,
                 module,
                 optimizer,
                 lr_scheduler=scheduler,
             )
+            if opt_key in initialized_optimizers:
+                # TODO : due to bad API design of deepspeed, we should manually delete
+                #  the unnecessary `optimizer` and `lr_scheduler` to avoid strange bugs
+                del engine.optimizer, engine.lr_scheduler
+            else:
+                initialized_optimizers.add(opt_key)
+                self.engine_with_optimizer.add(key)
+                if scheduler is not None:
+                    assert scheduler is ds_scheduler
             self.model_engines[key] = engine
-            if opt_key not in self.ds_optimizers:
-                self.ds_optimizers[opt_key] = ds_opt
-                self.ds_schedulers[opt_key] = ds_scheduler
-            if scheduler is not None:
-                assert scheduler is ds_scheduler
 
     # init
 
@@ -698,10 +703,6 @@ class Trainer(MonitoredMixin):
         )
 
     def _optimizer_step(self) -> None:
-        if self.deepspeed:
-            self.ds_optimizers["all"].step()
-            self.model.zero_grad()
-            return None
         for opt in self.optimizers.values():
             if self.grad_scaler is None:
                 opt.step()
@@ -728,15 +729,6 @@ class Trainer(MonitoredMixin):
         return should_log_lr, kwargs
 
     def _scheduler_step(self) -> None:
-        if self.deepspeed:
-            ds_scheduler = self.ds_schedulers["all"]
-            if ds_scheduler is None:
-                return None
-            _, kwargs = self._get_scheduler_settings("all", ds_scheduler)
-            if kwargs is None:
-                return None
-            ds_scheduler.step(**kwargs)
-            return None
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
                 should_log_lr, kwargs = self._get_scheduler_settings(key, scheduler)
@@ -970,10 +962,8 @@ class Trainer(MonitoredMixin):
         with timing_context(self, "ds.backward", enable=self.timing):
             loss = step_outputs.loss_dict["loss"]
             engine.backward(loss)
-        with timing_context(self, "ds.optimizer_step", enable=self.timing):
-            self._optimizer_step()
-        with timing_context(self, "ds.scheduler_step", enable=self.timing):
-            self._scheduler_step()
+        with timing_context(self, "ds.step", enable=self.timing):
+            engine.step()
         return step_outputs
 
     # api
