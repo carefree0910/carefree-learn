@@ -585,6 +585,7 @@ class Trainer(MonitoredMixin):
             # scheduler
             step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
             plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
+            plateau_default_cfg.setdefault("min_lr", 1.0e-8)
             plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
             plateau_default_cfg.setdefault(
                 "patience",
