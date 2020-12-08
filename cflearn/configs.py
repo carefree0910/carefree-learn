@@ -240,6 +240,7 @@ class Elements(NamedTuple):
         metric_config = kwargs.pop("metric_config") or {}
         if self.metric_config is None and self.metrics is not None:
             metric_config["types"] = kwargs.pop("metrics")
+        metric_config.setdefault("decay", 0.1)
         trainer_config.setdefault("metric_config", metric_config)
         # optimizers
         lr = kwargs.pop("lr")
@@ -328,9 +329,6 @@ class Elements(NamedTuple):
         trainer_config["use_amp"] = use_amp and amp is not None
         default_checkpoint_folder = os.path.join(log_folder, "checkpoints")
         trainer_config.setdefault("checkpoint_folder", default_checkpoint_folder)
-        # trainer -> metrics
-        metric_config = trainer_config.setdefault("metric_config", {})
-        metric_config.setdefault("decay", 0.1)
         # model general
         model_config = kwargs.setdefault("model_config", {})
         encoding_methods = model_config.get("encoding_methods", {})
@@ -369,9 +367,7 @@ class Environment:
         set_device: bool = True,
     ):
         self.config = config
-        if user_defined_config is None:
-            user_defined_config = {}
-        self.user_defined_config = user_defined_config
+        self.user_defined_config = user_defined_config or {}
         # deep speed
         self.is_rank_0 = True
         if self.deepspeed:
