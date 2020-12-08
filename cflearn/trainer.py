@@ -794,7 +794,8 @@ class Trainer(MonitoredMixin):
                     binary_outputs = self._generate_binary_threshold()
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                outputs, self.intermediate = self._get_metrics(binary_outputs)
+                pack = self.get_metrics(binary_outputs=binary_outputs)
+                outputs, self.intermediate = pack
                 self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
@@ -823,100 +824,6 @@ class Trainer(MonitoredMixin):
                         terminate = True
 
         return MonitorResults(terminate, outputs)
-
-    def _get_metrics(
-        self,
-        binary_outputs: Optional[InferenceOutputs],
-        loader: Optional[PrefetchLoader] = None,
-        loader_name: Optional[str] = None,
-    ) -> Tuple[InferenceOutputs, IntermediateResults]:
-        if self.cv_loader is None and self.tr_loader._num_siamese > 1:
-            raise ValueError("cv set should be provided when num_siamese > 1")
-        is_custom_loader = loader is not None
-        if binary_outputs is not None:
-            outputs = binary_outputs
-            probabilities = outputs.probabilities
-            if not self.model.output_probabilities:
-                logits = None
-            else:
-                logits = probabilities
-            outputs.results["predictions"] = self.inference.predict_with(probabilities)
-        else:
-            if not is_custom_loader:
-                loader = self.validation_loader
-                loader_name = self.validation_loader_name
-            outputs = self.inference.get_outputs(
-                loader,
-                loader_name,
-                use_tqdm=self.use_tqdm_in_cv,
-                return_loss=self._metrics_need_loss,
-                getting_metrics=True,
-                state=self.state,
-            )
-            results = self.inference.predict_from_outputs(
-                outputs,
-                return_all=True,
-                returns_probabilities=False,
-            )
-            probabilities = None
-            outputs.results.update(results)
-            logits = outputs.results.get("logits")
-        labels = outputs.labels
-        results = outputs.results
-        use_decayed = False
-        signs: Dict[str, int] = {}
-        metrics: Dict[str, float] = {}
-        decayed_metrics: Dict[str, float] = {}
-        for metric_type, metric_ins in self.metrics.items():
-            if metric_ins is None:
-                assert outputs.loss_items is not None
-                signs[metric_type] = -1
-                sub_metric = metrics[metric_type] = outputs.loss_items[metric_type]
-            else:
-                signs[metric_type] = metric_ins.sign
-                if self.tr_loader.data.is_reg:
-                    if metric_type == "quantile":
-                        metric_key = "quantiles"
-                    else:
-                        metric_key = "predictions"
-                    metric_predictions = results[metric_key]
-                else:
-                    if not metric_ins.requires_prob:
-                        metric_predictions = results["predictions"]
-                    else:
-                        if logits is None and probabilities is None:
-                            msg = "`logits` should be returned in `inference.predict`"
-                            raise ValueError(msg)
-                        if self.model.output_probabilities:
-                            metric_predictions = logits
-                        else:
-                            if logits is None:
-                                metric_predictions = probabilities
-                            else:
-                                metric_predictions = to_prob(logits)
-                sub_metric = metric_ins.metric(labels, metric_predictions)
-                metrics[metric_type] = float(sub_metric)
-            if self.metrics_decay is not None and self.state.should_start_snapshot:
-                use_decayed = True
-                decayed = self.metrics_decay[metric_type].update("metric", sub_metric)
-                decayed_metrics[metric_type] = decayed
-        metrics_for_scoring = decayed_metrics if use_decayed else metrics
-        if not is_custom_loader:
-            if self._epoch_tqdm is not None:
-                self._epoch_tqdm.set_postfix(metrics_for_scoring)
-            self._log_scalars(metrics_for_scoring)
-        weighted_metrics = {
-            k: float(v * self.metrics_weights[k])
-            for k, v in metrics_for_scoring.items()
-        }
-        weighted_scores = {k: v * signs[k] for k, v in weighted_metrics.items()}
-        return outputs, IntermediateResults(
-            metrics,
-            weighted_metrics,
-            weighted_scores,
-            use_decayed,
-            decayed_metrics,
-        )
 
     def on_save_checkpoint(self, score: float) -> None:
         self.save_checkpoint(score)
@@ -1070,10 +977,105 @@ class Trainer(MonitoredMixin):
         # finalize
         self.state.set_terminate()
         outputs = self._generate_binary_threshold()
-        _, self.final_results = self._get_metrics(outputs)
+        _, self.final_results = self.get_metrics(binary_outputs=outputs)
         self._log_metrics_msg(self.final_results)
         if not has_ckpt:
             self.save_checkpoint(self.final_results.final_score)
+
+    def get_metrics(
+        self,
+        *,
+        binary_outputs: Optional[InferenceOutputs] = None,
+        loader: Optional[PrefetchLoader] = None,
+        loader_name: Optional[str] = None,
+    ) -> Tuple[InferenceOutputs, IntermediateResults]:
+        if self.cv_loader is None and self.tr_loader._num_siamese > 1:
+            raise ValueError("cv set should be provided when num_siamese > 1")
+        is_custom_loader = loader is not None
+        if binary_outputs is not None:
+            outputs = binary_outputs
+            probabilities = outputs.probabilities
+            if not self.model.output_probabilities:
+                logits = None
+            else:
+                logits = probabilities
+            outputs.results["predictions"] = self.inference.predict_with(probabilities)
+        else:
+            if not is_custom_loader:
+                loader = self.validation_loader
+                loader_name = self.validation_loader_name
+            outputs = self.inference.get_outputs(
+                loader,
+                loader_name,
+                use_tqdm=self.use_tqdm_in_cv,
+                return_loss=self._metrics_need_loss,
+                getting_metrics=True,
+                state=self.state,
+            )
+            results = self.inference.predict_from_outputs(
+                outputs,
+                return_all=True,
+                returns_probabilities=False,
+            )
+            probabilities = None
+            outputs.results.update(results)
+            logits = outputs.results.get("logits")
+        labels = outputs.labels
+        results = outputs.results
+        use_decayed = False
+        signs: Dict[str, int] = {}
+        metrics: Dict[str, float] = {}
+        decayed_metrics: Dict[str, float] = {}
+        for metric_type, metric_ins in self.metrics.items():
+            if metric_ins is None:
+                assert outputs.loss_items is not None
+                signs[metric_type] = -1
+                sub_metric = metrics[metric_type] = outputs.loss_items[metric_type]
+            else:
+                signs[metric_type] = metric_ins.sign
+                if self.tr_loader.data.is_reg:
+                    if metric_type == "quantile":
+                        metric_key = "quantiles"
+                    else:
+                        metric_key = "predictions"
+                    metric_predictions = results[metric_key]
+                else:
+                    if not metric_ins.requires_prob:
+                        metric_predictions = results["predictions"]
+                    else:
+                        if logits is None and probabilities is None:
+                            msg = "`logits` should be returned in `inference.predict`"
+                            raise ValueError(msg)
+                        if self.model.output_probabilities:
+                            metric_predictions = logits
+                        else:
+                            if logits is None:
+                                metric_predictions = probabilities
+                            else:
+                                metric_predictions = to_prob(logits)
+                sub_metric = metric_ins.metric(labels, metric_predictions)
+                metrics[metric_type] = float(sub_metric)
+            if self.metrics_decay is not None and self.state.should_start_snapshot:
+                use_decayed = True
+                decayed = self.metrics_decay[metric_type].update("metric", sub_metric)
+                decayed_metrics[metric_type] = decayed
+        metrics_for_scoring = decayed_metrics if use_decayed else metrics
+        if not is_custom_loader:
+            if self._epoch_tqdm is not None:
+                self._epoch_tqdm.set_postfix(metrics_for_scoring)
+            self._log_scalars(metrics_for_scoring)
+        weighted_metrics = {
+            k: float(v * self.metrics_weights[k])
+            for k, v in metrics_for_scoring.items()
+        }
+        weighted_scores = {k: v * signs[k] for k, v in weighted_metrics.items()}
+        return outputs, IntermediateResults(
+            metrics,
+            weighted_metrics,
+            weighted_scores,
+            use_decayed,
+            decayed_metrics,
+        )
 
     def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
