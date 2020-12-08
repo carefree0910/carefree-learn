@@ -376,7 +376,7 @@ class Trainer(MonitoredMixin):
         # config based
         self.timing = environment.use_timing_context
         self.config = environment.trainer_config
-        self.use_tqdm_in_cv = self.config.setdefault("use_tqdm_in_cv", False)
+        self._use_tqdm_in_cv = self.config.setdefault("use_tqdm_in_cv", False)
         self._verbose_level = environment.verbose_level
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
         self.grad_scaler = None if amp is None or not self.use_amp else amp.GradScaler()
@@ -696,6 +696,10 @@ class Trainer(MonitoredMixin):
         return "tr" if loader is self.tr_loader_copy else "cv"
 
     # core
+
+    @property
+    def use_tqdm_in_cv(self) -> bool:
+        return self._use_tqdm_in_cv or self.state.is_terminate
 
     def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
@@ -1056,7 +1060,7 @@ class Trainer(MonitoredMixin):
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
         # finalize
-        self.state.epoch = self.state.step = -1
+        self.state.set_terminate()
         outputs = self._generate_binary_threshold()
         _, self.final_results = self._get_metrics(outputs)
         self._log_metrics_msg(self.final_results)

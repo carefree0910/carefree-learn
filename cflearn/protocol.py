@@ -439,6 +439,13 @@ class TrainerState:
         self.batch_size = loader.batch_size
         self.num_step_per_epoch = len(loader)
 
+    def set_terminate(self) -> None:
+        self.step = self.epoch = -1
+
+    @property
+    def is_terminate(self) -> bool:
+        return self.epoch == -1
+
     @property
     def snapshot_start_step(self) -> int:
         if self._snapshot_start_step is not None:
