@@ -784,11 +784,12 @@ class Trainer(MonitoredMixin):
         if self.state.should_monitor:
 
             with timing_context(self, "monitor.binary_threshold", enable=self.timing):
+                binary_outputs = None
                 if self.update_bt_runtime and self.state.should_start_snapshot:
-                    outputs = self._generate_binary_threshold()
+                    binary_outputs = self._generate_binary_threshold()
 
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
-                outputs, self.intermediate = self._get_metrics(outputs)
+                outputs, self.intermediate = self._get_metrics(binary_outputs)
                 self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
@@ -820,11 +821,19 @@ class Trainer(MonitoredMixin):
 
     def _get_metrics(
         self,
-        outputs: Optional[InferenceOutputs],
+        binary_outputs: Optional[InferenceOutputs],
     ) -> Tuple[InferenceOutputs, IntermediateResults]:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
-        if outputs is None:
+        if binary_outputs is not None:
+            outputs = binary_outputs
+            probabilities = outputs.probabilities
+            if not self.model.output_probabilities:
+                logits = None
+            else:
+                logits = probabilities
+            outputs.results["predictions"] = self.inference.predict_with(probabilities)
+        else:
             outputs = self.inference.get_outputs(
                 self.validation_loader,
                 self.validation_loader_name,
@@ -833,20 +842,16 @@ class Trainer(MonitoredMixin):
                 getting_metrics=True,
                 state=self.state,
             )
-        labels = outputs.labels
-        probabilities = outputs.probabilities
-        if probabilities is None:
-            probabilities = self.inference.predict_from_outputs(
+            results = self.inference.predict_from_outputs(
                 outputs,
-                returns_probabilities=True,
+                return_all=True,
+                returns_probabilities=False,
             )
-        if not self.model.output_probabilities:
-            logits = None
-        else:
-            logits = probabilities
-        predictions = self.inference.predict_with(probabilities)
+            probabilities = None
+            outputs.results.update(results)
+            logits = outputs.results.get("logits")
+        labels = outputs.labels
         results = outputs.results
-        results["predictions"] = predictions
         use_decayed = False
         signs: Dict[str, int] = {}
         metrics: Dict[str, float] = {}
