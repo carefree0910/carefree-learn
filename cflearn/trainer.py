@@ -1004,6 +1004,7 @@ class Trainer(MonitoredMixin):
             if not is_custom_loader:
                 loader = self.validation_loader
                 loader_name = self.validation_loader_name
+            assert loader is not None
             outputs = self.inference.get_outputs(
                 loader,
                 loader_name,
