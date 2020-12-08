@@ -827,9 +827,12 @@ class Trainer(MonitoredMixin):
     def _get_metrics(
         self,
         binary_outputs: Optional[InferenceOutputs],
+        loader: Optional[PrefetchLoader] = None,
+        loader_name: Optional[str] = None,
     ) -> Tuple[InferenceOutputs, IntermediateResults]:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
+        is_custom_loader = loader is not None
         if binary_outputs is not None:
             outputs = binary_outputs
             probabilities = outputs.probabilities
@@ -839,9 +842,12 @@ class Trainer(MonitoredMixin):
                 logits = probabilities
             outputs.results["predictions"] = self.inference.predict_with(probabilities)
         else:
+            if not is_custom_loader:
+                loader = self.validation_loader
+                loader_name = self.validation_loader_name
             outputs = self.inference.get_outputs(
-                self.validation_loader,
-                self.validation_loader_name,
+                loader,
+                loader_name,
                 use_tqdm=self.use_tqdm_in_cv,
                 return_loss=self._metrics_need_loss,
                 getting_metrics=True,
@@ -895,9 +901,10 @@ class Trainer(MonitoredMixin):
                 decayed = self.metrics_decay[metric_type].update("metric", sub_metric)
                 decayed_metrics[metric_type] = decayed
         metrics_for_scoring = decayed_metrics if use_decayed else metrics
-        if self._epoch_tqdm is not None:
-            self._epoch_tqdm.set_postfix(metrics_for_scoring)
-        self._log_scalars(metrics_for_scoring)
+        if not is_custom_loader:
+            if self._epoch_tqdm is not None:
+                self._epoch_tqdm.set_postfix(metrics_for_scoring)
+            self._log_scalars(metrics_for_scoring)
         weighted_metrics = {
             k: float(v * self.metrics_weights[k])
             for k, v in metrics_for_scoring.items()
