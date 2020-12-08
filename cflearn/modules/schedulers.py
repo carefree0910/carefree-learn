@@ -18,7 +18,26 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
     return _register
 
 
-register_scheduler("step")(StepLR)
+@register_scheduler("step")
+class StepLRWithFloor(StepLR):
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        step_size: int,
+        gamma: float = 0.1,
+        last_epoch: int = -1,
+        lr_floor: float = 1.0e-8,
+    ):
+        self.lr_floor = lr_floor
+        super().__init__(optimizer, step_size, gamma, last_epoch)
+
+    def get_lr(self) -> List[float]:  # type: ignore
+        lrs = super().get_lr()
+        return [max(lr, self.lr_floor) for lr in lrs]  # type: ignore
+
+    def _get_closed_form_lr(self) -> List[float]:  # type: ignore
+        lrs = super()._get_closed_form_lr()  # type: ignore
+        return [max(lr, self.lr_floor) for lr in lrs]
 
 
 @register_scheduler("plateau")
