@@ -1,4 +1,4 @@
-# carefree-learn
+![carefree-learn][socialify-image]
 
 `carefree-learn` is a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on [PyTorch](https://pytorch.org/).
 
@@ -98,3 +98,6 @@ If you use `carefree-learn` in your research, we would greatly appreciate if you
 ## License
 
 `carefree-learn` is MIT licensed, as found in the [`LICENSE`](https://carefree0910.me/carefree-learn-doc/docs/about/license) file.
+
+
+[socialify-image]: https://socialify.git.ci/carefree0910/carefree-learn/image?descriptionEditable=&font=Inter&forks=1&issues=1&logo=https%3A%2F%2Fraw.githubusercontent.com%2Fcarefree0910%2Fcarefree-learn-doc%2Fmaster%2Fstatic%2Fimg%2Flogo.min.svg&pattern=Floating%20Cogs&stargazers=1&theme=Light
