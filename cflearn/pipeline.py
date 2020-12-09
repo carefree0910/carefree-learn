@@ -258,10 +258,11 @@ class Pipeline(LoggingMixinWithRank):
         if identifier is None:
             return None
         paths_dict = _fetch_saving_paths(identifier, folder)
-        all_paths = sum(paths_dict.values(), [])
+        all_paths: List[str] = sum(paths_dict.values(), [])
         if len(all_paths) > 1:
             raise ValueError("more than 1 model is detected")
         path = all_paths[0]
+        folder = folder or "./"
         compress = path.endswith(".zip")
         base_folder = os.path.dirname(os.path.abspath(folder))
         with lock_manager(base_folder, [folder]):

@@ -72,7 +72,7 @@ def finetune(
     cuda: Optional[Union[int, str]] = None,
 ) -> Pipeline:
     ms = make_from(identifier, pretrain_folder, kwargs_callback, cuda)
-    all_pipelines = sum(ms.values(), [])
+    all_pipelines: List[Pipeline] = sum(ms.values(), [])
     if len(all_pipelines) > 1:
         raise ValueError("more than 1 model is detected")
     m = all_pipelines[0]
