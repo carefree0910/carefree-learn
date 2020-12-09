@@ -72,4 +72,4 @@ class QuantileFCNN(ModelBase):
         return results
 
 
-__all__ = ["FCNN"]
+__all__ = ["FCNN", "QuantileFCNN"]
