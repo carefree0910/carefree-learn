@@ -45,12 +45,13 @@ def make_from(
     *,
     model_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, List[Pipeline]]:
+    saving_folder = os.path.abspath(saving_folder or "./")
+
     def _core() -> Pipeline:
-        compress = path.endswith(".zip")
-        base_folder = os.path.dirname(os.path.abspath(saving_folder or "./"))
-        with lock_manager(base_folder, [saving_folder]):
-            with Saving.compress_loader(saving_folder, compress):
-                kwargs = Saving.load_dict("config", saving_folder)
+        compress = os.path.isfile(f"{path}.zip")
+        with lock_manager(saving_folder, [path]):
+            with Saving.compress_loader(path, compress):
+                kwargs = Saving.load_dict("config", path)
         if model_mapping is not None:
             kwargs["model"] = model_mapping[model]
         if cuda is not None:
