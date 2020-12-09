@@ -1110,10 +1110,18 @@ class Trainer(MonitoredMixin):
         with open(os.path.join(folder, self.model.scores_file), "w") as f:
             json.dump(self.checkpoint_scores, f)
 
-    def restore_checkpoint(self, folder: str = None) -> bool:
+    def restore_checkpoint(
+        self,
+        folder: str = None,
+        state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
-        return self.model.restore_checkpoint(folder, self.deepspeed)
+        return self.model.restore_checkpoint(
+            folder,
+            self.deepspeed,
+            state_dict_callback,
+        )
 
 
 __all__ = [

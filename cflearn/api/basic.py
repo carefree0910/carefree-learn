@@ -42,6 +42,8 @@ def make_from(
     saving_folder: Optional[str] = None,
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     cuda: Optional[Union[int, str]] = None,
+    *,
+    model_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, List[Pipeline]]:
     def _core() -> Pipeline:
         compress = path.endswith(".zip")
@@ -49,6 +51,8 @@ def make_from(
         with lock_manager(base_folder, [saving_folder]):
             with Saving.compress_loader(saving_folder, compress):
                 kwargs = Saving.load_dict("config", saving_folder)
+        if model_mapping is not None:
+            kwargs["model"] = model_mapping[model]
         if cuda is not None:
             kwargs["cuda"] = cuda
         kwargs.pop("logging_folder", None)
@@ -72,17 +76,31 @@ def finetune(
     x_cv: data_type = None,
     y_cv: data_type = None,
     *,
+    model: Optional[str] = None,
     identifier: str = "cflearn",
     pretrain_folder: Optional[str] = None,
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     sample_weights: Optional[np.ndarray] = None,
     cuda: Optional[Union[int, str]] = None,
 ) -> Pipeline:
-    ms = make_from(identifier, pretrain_folder, kwargs_callback, cuda)
-    all_pipelines: List[Pipeline] = sum(ms.values(), [])
-    if len(all_pipelines) > 1:
+    paths_dict = _fetch_saving_paths(identifier, pretrain_folder)
+    all_paths: List[str] = sum(paths_dict.values(), [])
+    if len(all_paths) > 1:
         raise ValueError("more than 1 model is detected")
-    m = all_pipelines[0]
+    if model is None:
+        model_mapping = None
+    else:
+        pretrain_model = list(paths_dict.keys())[0]
+        model_mapping = {pretrain_model: model}
+    ms = make_from(
+        identifier,
+        pretrain_folder,
+        kwargs_callback,
+        cuda,
+        model_mapping=model_mapping,
+    )
+    m = list(ms.values())[0][0]
     m.fit(
         x,
         y,
@@ -90,6 +108,7 @@ def finetune(
         y_cv,
         pretrain_folder=pretrain_folder,
         pretrain_identifier=identifier,
+        state_dict_callback=state_dict_callback,
         sample_weights=sample_weights,
     )
     return m

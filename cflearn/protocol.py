@@ -626,7 +626,12 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
         sorted_indices = np.argsort(scores_list)[::-1]
         return [files[i] for i in sorted_indices]
 
-    def restore_checkpoint(self, folder: str, deepspeed: bool = False) -> bool:
+    def restore_checkpoint(
+        self,
+        folder: str,
+        deepspeed: bool = False,
+        state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> bool:
         checkpoints = self.sorted_checkpoints(folder)
         if not checkpoints:
             self.log_msg(  # type: ignore
@@ -644,6 +649,8 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
                 4,
             )
             states = torch.load(model_file, map_location=self.device)
+            if state_dict_callback is not None:
+                state_dict_callback(states)
             self.load_state_dict(states)
         return True
 
