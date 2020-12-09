@@ -263,11 +263,10 @@ class Pipeline(LoggingMixinWithRank):
             raise ValueError("more than 1 model is detected")
         path = all_paths[0]
         folder = folder or "./"
-        compress = path.endswith(".zip")
-        base_folder = os.path.dirname(os.path.abspath(folder))
-        with lock_manager(base_folder, [folder]):
-            with Saving.compress_loader(folder, compress):
-                self.trainer.restore_checkpoint(folder)
+        compress = os.path.isfile(f"{path}.zip")
+        with lock_manager(folder, [path]):
+            with Saving.compress_loader(path, compress):
+                self.trainer.restore_checkpoint(path)
 
     def _loop(self) -> None:
         # dump information
