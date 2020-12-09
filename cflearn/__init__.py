@@ -5,6 +5,8 @@ from .protocol import *
 from .inference import *
 from .configs import Configs
 from .protocol import PrefetchLoader
+from .misc._api import _remove
+from .misc._api import _rmtree
 from .modules.heads import HeadBase
 from .modules.heads import HeadConfigs
 from .modules.extractors import ExtractorBase

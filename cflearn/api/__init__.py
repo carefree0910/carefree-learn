@@ -36,9 +36,6 @@ __all__ = [
     "ModelPattern",
     "EnsemblePattern",
     "RepeatResult",
-    "SAVING_DELIM",
-    "_remove",
-    "_rmtree",
     # ensemble
     "Ensemble",
     "EnsembleResults",
