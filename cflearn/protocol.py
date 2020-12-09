@@ -629,6 +629,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
     def restore_checkpoint(
         self,
         folder: str,
+        strict: bool = True,
         deepspeed: bool = False,
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> bool:
@@ -651,7 +652,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             states = torch.load(model_file, map_location=self.device)
             if state_dict_callback is not None:
                 state_dict_callback(states)
-            self.load_state_dict(states)
+            self.load_state_dict(states, strict)
         return True
 
     def step(

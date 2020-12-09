@@ -1113,12 +1113,14 @@ class Trainer(MonitoredMixin):
     def restore_checkpoint(
         self,
         folder: str = None,
+        strict: bool = True,
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
         return self.model.restore_checkpoint(
             folder,
+            strict,
             self.deepspeed,
             state_dict_callback,
         )

@@ -252,9 +252,10 @@ class Pipeline(LoggingMixinWithRank):
 
     def _handle_pretrain(
         self,
-        folder: Optional[str] = None,
-        identifier: Optional[str] = None,
-        state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        strict: bool,
+        folder: Optional[str],
+        identifier: Optional[str],
+        state_dict_callback: Optional[Callable[[Dict[str, Any]], None]],
     ) -> None:
         if identifier is None:
             return None
@@ -267,7 +268,7 @@ class Pipeline(LoggingMixinWithRank):
         compress = os.path.isfile(f"{path}.zip")
         with lock_manager(folder, [path]):
             with Saving.compress_loader(path, compress):
-                self.trainer.restore_checkpoint(path, state_dict_callback)
+                self.trainer.restore_checkpoint(path, strict, state_dict_callback)
 
     def _loop(self) -> None:
         # dump information
@@ -505,13 +506,19 @@ class Pipeline(LoggingMixinWithRank):
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
+        pretrain_strict: bool = False,
         pretrain_folder: Optional[str] = None,
         pretrain_identifier: Optional[str] = None,
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         sample_weights: Optional[np.ndarray] = None,
     ) -> "Pipeline":
         self._before_loop(x, y, x_cv, y_cv, sample_weights)
-        self._handle_pretrain(pretrain_folder, pretrain_identifier, state_dict_callback)
+        self._handle_pretrain(
+            pretrain_strict,
+            pretrain_folder,
+            pretrain_identifier,
+            state_dict_callback,
+        )
         self._loop()
         # finalize mlflow
         run_id = self.trainer.run_id
