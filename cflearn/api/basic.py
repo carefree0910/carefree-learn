@@ -1,5 +1,7 @@
 import os
 
+import numpy as np
+
 from typing import *
 from tqdm.autonotebook import tqdm
 from cftool.misc import update_dict
@@ -55,6 +57,35 @@ def make_from(
         for i, pipeline in enumerate(pipelines):
             pipelines[i] = _core(pipeline)
     return ms
+
+
+def finetune(
+    x: data_type,
+    y: data_type = None,
+    x_cv: data_type = None,
+    y_cv: data_type = None,
+    *,
+    identifier: str = "cflearn",
+    pretrain_folder: Optional[str] = None,
+    kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    sample_weights: Optional[np.ndarray] = None,
+    cuda: Optional[Union[int, str]] = None,
+) -> Pipeline:
+    ms = make_from(identifier, pretrain_folder, kwargs_callback, cuda)
+    all_pipelines = sum(ms.values(), [])
+    if len(all_pipelines) > 1:
+        raise ValueError("more than 1 model is detected")
+    m = all_pipelines[0]
+    m.fit(
+        x,
+        y,
+        x_cv,
+        y_cv,
+        pretrain_folder=pretrain_folder,
+        pretrain_identifier=identifier,
+        sample_weights=sample_weights,
+    )
+    return m
 
 
 pipelines_type = Union[
@@ -422,6 +453,7 @@ def make_toy_model(
 __all__ = [
     "make",
     "make_from",
+    "finetune",
     "save",
     "load",
     "evaluate",

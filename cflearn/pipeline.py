@@ -32,6 +32,7 @@ from .protocol import PrefetchLoader
 from .protocol import DataLoaderProtocol
 from .inference import Inference
 from .inference import PreProcessor
+from .misc._api import _fetch_saving_paths
 from .misc.toolkit import to_2d
 from .misc.toolkit import to_relative
 from .misc.toolkit import LoggingMixinWithRank
@@ -248,6 +249,24 @@ class Pipeline(LoggingMixinWithRank):
         self._prepare_modules()
         # deep speed
         self.set_rank_0(self.is_rank_0)
+
+    def _handle_pretrain(
+        self,
+        folder: Optional[str] = None,
+        identifier: Optional[str] = None,
+    ) -> None:
+        if identifier is None:
+            return None
+        paths_dict = _fetch_saving_paths(identifier, folder)
+        all_paths = sum(paths_dict.values(), [])
+        if len(all_paths) > 1:
+            raise ValueError("more than 1 model is detected")
+        path = all_paths[0]
+        compress = path.endswith(".zip")
+        base_folder = os.path.dirname(os.path.abspath(folder))
+        with lock_manager(base_folder, [folder]):
+            with Saving.compress_loader(folder, compress):
+                self.trainer.restore_checkpoint(folder)
 
     def _loop(self) -> None:
         # dump information
@@ -485,9 +504,12 @@ class Pipeline(LoggingMixinWithRank):
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
+        pretrain_folder: Optional[str] = None,
+        pretrain_identifier: Optional[str] = None,
         sample_weights: Optional[np.ndarray] = None,
     ) -> "Pipeline":
         self._before_loop(x, y, x_cv, y_cv, sample_weights)
+        self._handle_pretrain(pretrain_folder, pretrain_identifier)
         self._loop()
         # finalize mlflow
         run_id = self.trainer.run_id

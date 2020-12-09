@@ -23,6 +23,7 @@ __all__ = [
     # basic
     "make",
     "make_from",
+    "finetune",
     "save",
     "load",
     "evaluate",
