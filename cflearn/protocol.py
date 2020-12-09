@@ -566,6 +566,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
 
     __identifier__: str
     data: DataProtocol
+    device: torch.device
     ema: Optional[EMA] = None
     num_train: Optional[int] = None
     num_valid: Optional[int] = None
