@@ -33,6 +33,30 @@ def make(model: str = "fcnn", **kwargs: Any) -> Pipeline:
     return Pipeline.make(kwargs)
 
 
+def make_from(
+    identifier: str = "cflearn",
+    saving_folder: Optional[str] = None,
+    kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    cuda: Optional[Union[int, str]] = None,
+) -> Dict[str, List[Pipeline]]:
+    def _core(m: Pipeline) -> Pipeline:
+        kwargs = m.config
+        if cuda is not None:
+            kwargs["cuda"] = cuda
+        kwargs.pop("logging_folder", None)
+        if kwargs.get("mlflow_config") is not None:
+            kwargs["mlflow_config"] = {}
+        if kwargs_callback is not None:
+            kwargs_callback(kwargs)
+        return make(**kwargs)
+
+    ms = load(identifier, saving_folder)
+    for pipelines in ms.values():
+        for i, pipeline in enumerate(pipelines):
+            pipelines[i] = _core(pipeline)
+    return ms
+
+
 pipelines_type = Union[
     Pipeline,
     List[Pipeline],
@@ -397,6 +421,7 @@ def make_toy_model(
 
 __all__ = [
     "make",
+    "make_from",
     "save",
     "load",
     "evaluate",

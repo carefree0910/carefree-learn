@@ -22,6 +22,7 @@ __all__ = [
     "Auto",
     # basic
     "make",
+    "make_from",
     "save",
     "load",
     "evaluate",
