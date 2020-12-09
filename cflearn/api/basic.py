@@ -6,6 +6,8 @@ from typing import *
 from tqdm.autonotebook import tqdm
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from cftool.misc import lock_manager
+from cftool.misc import Saving
 from cftool.misc import LoggingMixin
 from cftool.ml.utils import pattern_type
 from cftool.ml.utils import patterns_type
@@ -41,8 +43,12 @@ def make_from(
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     cuda: Optional[Union[int, str]] = None,
 ) -> Dict[str, List[Pipeline]]:
-    def _core(m: Pipeline) -> Pipeline:
-        kwargs = m.config
+    def _core() -> Pipeline:
+        compress = path.endswith(".zip")
+        base_folder = os.path.dirname(os.path.abspath(saving_folder or "./"))
+        with lock_manager(base_folder, [saving_folder]):
+            with Saving.compress_loader(saving_folder, compress):
+                kwargs = Saving.load_dict("config", saving_folder)
         if cuda is not None:
             kwargs["cuda"] = cuda
         kwargs.pop("logging_folder", None)
@@ -52,10 +58,11 @@ def make_from(
             kwargs_callback(kwargs)
         return make(**kwargs)
 
-    ms = load(identifier, saving_folder)
-    for pipelines in ms.values():
-        for i, pipeline in enumerate(pipelines):
-            pipelines[i] = _core(pipeline)
+    ms: Dict[str, List[Pipeline]] = {}
+    paths_dict = _fetch_saving_paths(identifier, saving_folder)
+    for model, paths in paths_dict.items():
+        for path in paths:
+            ms.setdefault(model, []).append(_core())
     return ms
 
 
