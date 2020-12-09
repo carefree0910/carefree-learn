@@ -31,6 +31,7 @@ from .ensemble import Ensemble
 from ..types import data_type
 from ..pipeline import Pipeline
 from ..protocol import DataProtocol
+from ..misc._api import SAVING_DELIM
 
 
 class _TunerResult(NamedTuple):
