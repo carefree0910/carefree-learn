@@ -758,6 +758,7 @@ class Pipeline(LoggingMixinWithRank):
                 pipeline._init_data()
                 pipeline._prepare_modules(is_loading=True)
                 trainer = pipeline.trainer
+                trainer.state.inject_loader(pipeline.tr_loader)
                 trainer.tr_loader = PrefetchLoader(pipeline.tr_loader, pipeline.device)
                 cv_loader = pipeline.cv_loader
                 if cv_loader is None:
