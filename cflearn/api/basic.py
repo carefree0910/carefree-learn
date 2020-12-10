@@ -235,6 +235,8 @@ def save(
     pipelines: pipelines_type,
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
+    *,
+    compress: bool = True,
 ) -> Dict[str, List[Pipeline]]:
     pipeline_dict = _to_pipelines(pipelines)
     saving_path = _to_saving_path(identifier, saving_folder)
@@ -242,7 +244,7 @@ def save(
         for i, pipeline in enumerate(pipeline_list):
             pipeline.save(
                 _make_saving_path(i, name, saving_path, True),
-                compress=True,
+                compress=compress,
             )
     return pipeline_dict
 
@@ -250,10 +252,12 @@ def save(
 def load(
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
+    *,
+    compress: bool = True,
 ) -> Dict[str, List[Pipeline]]:
     paths = _fetch_saving_paths(identifier, saving_folder)
     pipelines = {
-        k: [Pipeline.load(v, compress=True) for v in v_list]
+        k: [Pipeline.load(v, compress=compress) for v in v_list]
         for k, v_list in paths.items()
     }
     if not pipelines:

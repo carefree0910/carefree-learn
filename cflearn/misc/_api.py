@@ -2,6 +2,7 @@ import os
 import time
 import shutil
 
+from typing import Set
 from typing import Dict
 from typing import List
 from typing import Optional
@@ -44,23 +45,27 @@ def _fetch_saving_paths(
     identifier: str = "cflearn",
     saving_folder: Optional[str] = None,
 ) -> Dict[str, List[str]]:
-    paths: Dict[str, List[str]] = {}
+    paths: Dict[str, Set[str]] = {}
     saving_path = _to_saving_path(identifier, saving_folder)
     saving_path = os.path.abspath(saving_path)
     base_folder = os.path.dirname(saving_path)
     for existing_model in os.listdir(base_folder):
-        if not os.path.isfile(os.path.join(base_folder, existing_model)):
+        if not existing_model.startswith(f"{identifier}{SAVING_DELIM}"):
             continue
-        existing_model, existing_extension = os.path.splitext(existing_model)
-        if existing_extension != ".zip":
-            continue
-        if SAVING_DELIM in existing_model:
+        current = os.path.join(base_folder, existing_model)
+        if os.path.isdir(current):
+            new_path = current
             *folder, name, i = existing_model.split(SAVING_DELIM)
+        else:
+            existing_model, existing_extension = os.path.splitext(existing_model)
+            *folder, name, i = existing_model.split(SAVING_DELIM)
+            if existing_extension != ".zip":
+                continue
             if os.path.join(base_folder, SAVING_DELIM.join(folder)) != saving_path:
                 continue
             new_path = _make_saving_path(int(i), name, saving_path, False)
-            paths.setdefault(name, []).append(new_path)
-    return paths
+        paths.setdefault(name, set()).add(new_path)
+    return {k: sorted(v) for k, v in paths.items()}
 
 
 def _remove(identifier: str = "cflearn", saving_folder: str = None) -> None:
