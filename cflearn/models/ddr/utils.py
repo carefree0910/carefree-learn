@@ -63,8 +63,6 @@ class DDRVisualizer:
         dpi: int = 200,
         figsize: Tuple[int, int] = (8, 6),
     ):
-        if ddr._logger_ is not None:
-            ddr._release_handlers(ddr._logger_)
         self.m = ddr
         self.dpi = dpi
         self.figsize = figsize
