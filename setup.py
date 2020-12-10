@@ -19,7 +19,7 @@ setup(
         "plotly",
         "carefree-ml>=0.1.0",
         "carefree-data>=0.2.1",
-        "carefree-toolkit>=0.2.1",
+        "carefree-toolkit>=0.2.3",
         "dill",
         "future",
         "psutil",
