@@ -20,7 +20,8 @@ from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 
 from ..dist import Task
-from ..dist import Experiments
+from ..dist import Experiment
+from ..dist import ExperimentResults
 from ..types import data_type
 from ..trainer import Trainer
 from ..trainer import IntermediateResults
@@ -267,17 +268,22 @@ def load(
     return pipelines
 
 
-def load_task(task: Task) -> Pipeline:
-    return next(iter(load(saving_folder=task.saving_folder).values()))[0]
+def task_loader(saving_folder: str) -> Pipeline:
+    return list(load(saving_folder=saving_folder, compress=False).values())[0][0]
 
 
-def transform_experiments(experiments: Experiments) -> Dict[str, List[Pipeline]]:
-    return {k: list(map(load_task, v)) for k, v in experiments.tasks.items()}
+def load_experiment_results(results: ExperimentResults) -> Dict[str, List[Pipeline]]:
+    pipelines_dict: Dict[str, List[Pipeline]] = {}
+    for workplace, workplace_key in zip(results.workplaces, results.workplace_keys):
+        pipeline = task_loader(workplace)
+        model, str_i = workplace_key
+        pipelines_dict.setdefault(model, {})[int(str_i)] = pipeline
+    return {k: [v[i] for i in sorted(v)] for k, v in pipelines_dict.items()}
 
 
 class RepeatResult(NamedTuple):
     data: Optional[DataProtocol]
-    experiments: Optional[Experiments]
+    experiment: Optional[Experiment]
     pipelines: Optional[Dict[str, List[Pipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
@@ -312,7 +318,6 @@ def repeat_with(
     *,
     models: Union[str, List[str]] = "fcnn",
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
-    identifiers: Optional[Union[str, List[str]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     sequential: Optional[bool] = None,
     num_jobs: int = 1,
@@ -322,13 +327,8 @@ def repeat_with(
     use_tqdm: bool = True,
     **kwargs: Any,
 ) -> RepeatResult:
-
     if isinstance(models, str):
         models = [models]
-    if identifiers is None:
-        identifiers = models.copy()
-    elif isinstance(identifiers, str):
-        identifiers = [identifiers]
 
     kwargs = shallow_copy_dict(kwargs)
     kwargs.setdefault("trigger_logging", False)
@@ -341,7 +341,7 @@ def repeat_with(
 
     pipelines_dict: Optional[Dict[str, List[Pipeline]]] = None
     if sequential:
-        experiments = None
+        experiment = None
         kwargs["use_tqdm"] = False
 
         if not return_patterns:
@@ -363,10 +363,11 @@ def repeat_with(
             return m.fit(x, y, x_cv, y_cv)
 
         pipelines_dict = {}
-        iterator = zip(models, identifiers)
-        if use_tqdm:
-            iterator = tqdm(iterator, total=len(models), position=0)
-        for model, identifier in iterator:
+        if not use_tqdm:
+            iterator = models
+        else:
+            iterator = tqdm(models, total=len(models), position=0)
+        for model in iterator:
             local_pipelines = []
             sub_iterator = range(num_repeat)
             if use_tqdm:
@@ -378,31 +379,29 @@ def repeat_with(
                 )
             for i in sub_iterator:
                 local_pipelines.append(get(i, model))
-            pipelines_dict[identifier] = local_pipelines
+            pipelines_dict[model] = local_pipelines
     else:
         if num_jobs <= 1:
             print(
                 f"{LoggingMixin.warning_prefix}we suggest setting `sequential` "
                 f"to True when `num_jobs` is {num_jobs}"
             )
-
-        experiments = Experiments(temp_folder, overwrite=False)
-        experiments.run(
-            None,
-            x,
-            y,
-            x_cv,
-            y_cv,
-            models=models,
-            model_configs=model_configs,
-            identifiers=identifiers,
-            num_repeat=num_repeat,
-            num_jobs=num_jobs,
-            use_tqdm=use_tqdm,
-            **shallow_copy_dict(kwargs),
-        )
+        # data
+        data_folder = Experiment.dump_data_bundle(temp_folder, x, y, x_cv, y_cv)
+        # experiment
+        experiment = Experiment(num_jobs=num_jobs)
+        for model in models:
+            for _ in range(num_repeat):
+                experiment.add_task(
+                    model=model,
+                    root_workplace=temp_folder,
+                    config=shallow_copy_dict(kwargs),
+                    data_folder=data_folder,
+                )
+        # finalize
+        results = experiment.run_tasks(use_tqdm=use_tqdm)
         if return_patterns:
-            pipelines_dict = transform_experiments(experiments)
+            pipelines_dict = load_experiment_results(results)
 
     patterns = None
     if return_patterns:
@@ -416,18 +415,9 @@ def repeat_with(
 
     data = None
     if patterns is not None:
-        data = patterns[identifiers[0]][0].model.data
+        data = patterns[models[0]][0].model.data
 
-    return RepeatResult(data, experiments, pipelines_dict, patterns)
-
-
-def tasks_to_pipelines(tasks: List[Task]) -> List[Pipeline]:
-    return list(map(load_task, tasks))
-
-
-def tasks_to_patterns(tasks: List[Task], **kwargs: Any) -> List[pattern_type]:
-    pipelines = tasks_to_pipelines(tasks)
-    return [m.to_pattern(**shallow_copy_dict(kwargs)) for m in pipelines]
+    return RepeatResult(data, experiment, pipelines_dict, patterns)
 
 
 def make_toy_model(
@@ -490,14 +480,12 @@ __all__ = [
     "save",
     "load",
     "evaluate",
-    "load_task",
+    "task_loader",
+    "load_experiment_results",
     "repeat_with",
-    "tasks_to_pipelines",
-    "tasks_to_patterns",
-    "transform_experiments",
     "make_toy_model",
     "Task",
-    "Experiments",
+    "Experiment",
     "ModelPattern",
     "EnsemblePattern",
     "RepeatResult",

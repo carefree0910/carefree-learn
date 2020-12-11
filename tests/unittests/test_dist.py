@@ -5,6 +5,7 @@ import unittest
 
 import numpy as np
 
+from cftool.misc import shallow_copy_dict
 from cfdata.tabular import TabularDataset
 
 num_jobs = 0 if platform.system() == "Linux" else 2
@@ -13,20 +14,26 @@ kwargs = {"fixed_epoch": 3}
 
 
 class TestDist(unittest.TestCase):
-    def test_experiments(self) -> None:
+    def test_experiment(self) -> None:
         x, y = TabularDataset.iris().xy
-        exp_folder = os.path.join(logging_folder, "__test_experiments__")
-        experiments = cflearn.Experiments(exp_folder)
-        experiments.add_task(x, y, model="fcnn", **kwargs)  # type: ignore
-        experiments.add_task(x, y, model="fcnn", **kwargs)  # type: ignore
-        experiments.add_task(x, y, model="tree_dnn", **kwargs)  # type: ignore
-        experiments.add_task(x, y, model="tree_dnn", **kwargs)  # type: ignore
-        experiments.run_tasks(num_jobs=num_jobs)
-        ms = cflearn.transform_experiments(experiments)
-        saving_folder = os.path.join(logging_folder, "__test_experiments_save__")
-        experiments.save(saving_folder)
-        loaded = cflearn.Experiments.load(saving_folder)
-        ms_loaded = cflearn.transform_experiments(loaded)
+        exp_folder = os.path.join(logging_folder, "__test_experiment__")
+        experiment = cflearn.Experiment(num_jobs=num_jobs)
+        data_folder = experiment.dump_data_bundle(exp_folder, x, y)
+        common_kwargs = {
+            "root_workplace": exp_folder,
+            "data_folder": data_folder,
+            "config": kwargs,
+        }
+        experiment.add_task(model="fcnn", **shallow_copy_dict(common_kwargs))
+        experiment.add_task(model="fcnn", **shallow_copy_dict(common_kwargs))
+        experiment.add_task(model="tree_dnn", **shallow_copy_dict(common_kwargs))
+        experiment.add_task(model="tree_dnn", **shallow_copy_dict(common_kwargs))
+        results = experiment.run_tasks()
+        ms = cflearn.load_experiment_results(results)
+        saving_folder = os.path.join(logging_folder, "__test_experiment_save__")
+        experiment.save(saving_folder)
+        loaded = cflearn.Experiment.load(saving_folder)
+        ms_loaded = cflearn.load_experiment_results(loaded.results)
         self.assertTrue(
             np.allclose(
                 ms["fcnn"][1].predict(x),

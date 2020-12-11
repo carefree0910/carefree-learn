@@ -1,5 +1,6 @@
 from .task import Task
-from .experiments import Experiments
+from .experiment import Experiment
+from .experiment import ExperimentResults
 
 
-__all__ = ["Task", "Experiments"]
+__all__ = ["Task", "Experiment", "ExperimentResults"]

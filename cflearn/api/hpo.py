@@ -35,7 +35,7 @@ from ..misc._api import SAVING_DELIM
 
 
 class _TunerResult(NamedTuple):
-    identifier: str
+    model: str
     repeat_result: RepeatResult
 
     @property
@@ -43,14 +43,14 @@ class _TunerResult(NamedTuple):
         pipelines = self.repeat_result.pipelines
         if pipelines is None:
             raise ValueError("`pipelines` are not yet generated")
-        return pipelines[self.identifier]
+        return pipelines[self.model]
 
     @property
     def patterns(self) -> List[ModelPattern]:
         patterns = self.repeat_result.patterns
         if patterns is None:
             raise ValueError("`patterns` are not yet generated")
-        return patterns[self.identifier]
+        return patterns[self.model]
 
     @property
     def weighted_metrics(self) -> Dict[str, np.ndarray]:
@@ -58,7 +58,7 @@ class _TunerResult(NamedTuple):
         final_results_dict = self.repeat_result.final_results
         if final_results_dict is None:
             raise ValueError("training process is corrupted")
-        final_results = final_results_dict[self.identifier]
+        final_results = final_results_dict[self.model]
         for key in sorted(final_results[0].weighted_scores.keys()):
             local_metrics = [result.weighted_metrics[key] for result in final_results]
             weighted_metrics[key] = np.array(local_metrics, np_float_type)
@@ -178,7 +178,6 @@ class _Tuner(LoggingMixin):
         cuda: Optional[str] = None,
         sequential: Optional[bool] = None,
     ) -> _TunerResult:
-        identifier = hash_code(str(params))
         params = update_dict(params, shallow_copy_dict(self.base_params))
         params["verbose_level"] = 0
         params["use_tqdm"] = False
@@ -192,13 +191,12 @@ class _Tuner(LoggingMixin):
             num_repeat=num_repeat,
             num_jobs=num_parallel,
             models=model,
-            identifiers=identifier,
             temp_folder=temp_folder,
             predict_config={"contains_labels": True},
             sequential=sequential,
             **params,
         )
-        return _TunerResult(identifier, repeat_result)
+        return _TunerResult(model, repeat_result)
 
     def save(self, export_folder: str) -> "_Tuner":
         Saving.prepare_folder(self, export_folder)
@@ -916,7 +914,7 @@ class OptunaPresetParams:
 class OptunaArgs(NamedTuple):
     cuda: Optional[str]
     num_trial: Union[str, int]
-    config: Union[str, Dict[str, Any]]
+    task_config: Union[str, Dict[str, Any]]
     key_mapping: Union[str, OptunaKeyMapping]
 
 
@@ -933,7 +931,7 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
         key_mapping = key_mapping_arg
     tuner = key_mapping.tuner
 
-    config = args.config
+    config = args.task_config
     if isinstance(config, str):
         config = Saving.load_dict("config", config)
     model = config["model"]
@@ -1017,12 +1015,15 @@ def optuna_tune(
         storage = None
     else:
         assert isinstance(meta_folder, str)
+        os.makedirs(meta_folder, exist_ok=True)
         storage = os.path.join(meta_folder, "shared.db")
         storage = f"sqlite:///{storage}"
     study_config["storage"] = storage
     study_config["direction"] = "maximize"
     study_config["load_if_exists"] = True
     study_config.setdefault("study_name", f"{model}_optuna")
+    if num_jobs > 1:
+        optuna.create_study(**study_config)
 
     task_config = {
         "model": model,
@@ -1050,29 +1051,18 @@ def optuna_tune(
         os.makedirs(task_config_folder, exist_ok=True)
         Saving.save_dict(task_config, "config", task_config_folder)
 
-        def _run(num_trial_: int, cuda: int = None) -> None:
-            python = sys.executable
-            cmd = f"{python} -m {'.'.join(['cflearn', 'dist', 'optuna'])}"
-            cuda_suffix = f"--cuda {cuda}"
-            num_trial_suffix = f"--num_trial {num_trial_}"
-            config_suffix = f"--config {task_config_folder}"
-            key_mapping_suffix = f"--key_mapping {key_mapping_folder}"
-            os.system(
-                f"{cmd} {cuda_suffix} {num_trial_suffix} "
-                f"{config_suffix} {key_mapping_suffix}"
-            )
-
-        parallel = Parallel(
-            num_jobs,
-            use_tqdm=False,
-            use_cuda=torch.cuda.is_available(),
-            logging_folder=meta_folder,
-        )
-
+        experiment = Experiment(num_jobs=num_jobs)
         num_trials = [num_trial // num_jobs] * num_jobs
         num_trials[-1] = num_trial - sum(num_trials[:-1])
-        parallel(_run, num_trials)
-
+        for n in num_trials:
+            experiment.add_task(
+                execute="optuna",
+                root_workplace=temp_folder,
+                num_trial=n,
+                task_config_folder=task_config_folder,
+                key_mapping_folder=key_mapping_folder,
+            )
+        experiment.run_tasks()
         study = optuna.create_study(**study_config)
 
     return OptunaResult(tuner, study, key_mapping)

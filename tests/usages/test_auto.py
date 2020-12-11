@@ -27,7 +27,7 @@ def test_auto() -> None:
     for num_jobs in num_jobs_list:
         local_kwargs = shallow_copy_dict(kwargs)
         local_temp_folder = os.path.join(logging_folder, str(num_jobs))
-        local_kwargs["logging_folder"] = os.path.join(local_temp_folder, "_logs")
+        local_kwargs["logging_folder"] = os.path.join(local_temp_folder, "__single__")
         fcnn = cflearn.make(use_tqdm=False, **local_kwargs).fit(*data)  # type: ignore
         local_kwargs = shallow_copy_dict(kwargs)
 
@@ -55,6 +55,7 @@ def test_auto() -> None:
         auto.plot_intermediate_values(model, export_folder=export_folder)
 
         cflearn._rmtree(export_folder)
+    cflearn._rmtree("_parallel_")
     cflearn._rmtree(logging_folder)
 
 

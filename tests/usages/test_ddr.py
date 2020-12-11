@@ -20,11 +20,11 @@ def test() -> None:
     verbose_level: int = 2
     q_batch = np.array([0.1, 0.3, 0.5, 0.7, 0.9], np.float32)
     y_batch = np.array([0.1, 0.3, 0.5, 0.7, 0.9], np.float32)
-    logging_folder = "__ddr__"
+    root_workplace = "__ddr__"
 
     n = 10 ** power
     n_cv = int(min(10000, n * 0.1))
-    export_folder = f"{logging_folder}/_pngs/power{power}"
+    base_export_folder = f"{root_workplace}/_pngs/power{power}"
     config: Dict[str, Any] = {
         "logging_file": f"power{power}.log",
         "verbose_level": verbose_level,
@@ -35,7 +35,7 @@ def test() -> None:
         config.update({"fixed_epoch": 3})
 
     info_dict = {}
-    experiments = cflearn.Experiments(logging_folder)
+    experiment = cflearn.Experiment(num_jobs=num_jobs)
 
     def _get_file(folder: str, task_name: str) -> Optional[str]:
         return None if folder is None else os.path.join(folder, task_name)
@@ -43,53 +43,49 @@ def test() -> None:
     def add_task(f: Callable, task_name: str) -> None:
         x = 2 * np.random.random([max(n, 2 * n_cv), 1]) - 1
         y = f(x)
-        export_folder_ = os.path.join(export_folder, task_name)
+        local_export_folder = os.path.join(base_export_folder, task_name)
         local_config = shallow_copy_dict(config)
+        task_meta_kwargs = {}
         if CI:
-            local_config["sample_weights"] = np.random.random(len(x))
-        if export_folder_ is not None:
-            os.makedirs(export_folder_, exist_ok=True)
-        data_task = cflearn.Task.data_task(0, task_name, experiments)
-        data_task.dump_data(x[n_cv:], y[n_cv:])
-        data_task.dump_data(x[:n_cv], y[:n_cv], "_cv")
-        if not CI:
-            mlflow_config = None
-        else:
-            mlflow_config = {"task_name": task_name}
-        experiments.add_task(
+            task_meta_kwargs["sample_weights"] = np.random.random(len(x))
+        if local_export_folder is not None:
+            os.makedirs(local_export_folder, exist_ok=True)
+        if CI:
+            local_config["mlflow_config"] = {"task_name": task_name}
+        workplace = experiment.add_task(
+            x[n_cv:],
+            y[n_cv:],
+            x[:n_cv],
+            y[:n_cv],
             model="ddr",
-            identifier=task_name,
-            mlflow_config=mlflow_config,
-            data_task=data_task,
-            **local_config,
+            config=local_config,
+            root_workplace=root_workplace,
+            **task_meta_kwargs,
         )
         info_dict[task_name] = {
             "f": f,
-            "data_task": data_task,
-            "export_folder": export_folder_,
+            "workplace": workplace,
+            "export_folder": local_export_folder,
         }
 
     def run_tasks() -> None:
-        ms = experiments.run_tasks(
-            num_jobs=num_jobs,
-            load_task=cflearn.load_task,
-        )
+        results = experiment.run_tasks(task_loader=cflearn.task_loader)
+        pipeline_dict = results.pipeline_dict
         for task_name, info in info_dict.items():
-            m = ms[task_name][0]
+            workplace = info["workplace"]
+            m = pipeline_dict[workplace]
             assert isinstance(m, Pipeline)
             f = info["f"]
-            data_task = info["data_task"]
-            export_folder_ = info["export_folder"]
+            local_export_folder = info["export_folder"]
             assert callable(f)
-            assert isinstance(export_folder_, str)
-            assert isinstance(data_task, cflearn.Task)
-            x_cv, y_cv = data_task.fetch_data("_cv")
+            assert isinstance(local_export_folder, str)
+            x_cv, y_cv = cflearn.Experiment.fetch_data(workplace, "_cv")
             assert isinstance(x_cv, np.ndarray)
             x_min, x_max = x_cv.min(), x_cv.max()
             x_diff = x_max - x_min
             visualizer = DDRVisualizer(m)
             # median residual
-            export_path = _get_file(export_folder, "mr.png")
+            export_path = _get_file(local_export_folder, "mr.png")
             visualizer.visualize(
                 x_cv,
                 y_cv,
@@ -99,17 +95,17 @@ def test() -> None:
             )
             # quantile
             q_kwargs = {"q_batch": q_batch, "padding": padding}
-            export_path = _get_file(export_folder, "quantile.png")
+            export_path = _get_file(local_export_folder, "quantile.png")
             visualizer.visualize(x_cv, y_cv, export_path, **q_kwargs)
-            export_path = _get_file(export_folder, "med_mul.png")
+            export_path = _get_file(local_export_folder, "med_mul.png")
             visualizer.visualize(x_cv, y_cv, export_path, mul_affine=True, **q_kwargs)
             # cdf
             y_kwargs = {"y_batch": y_batch, "padding": padding}
-            cdf_path = _get_file(export_folder, "cdf.png")
-            pdf_path = _get_file(export_folder, "pdf.png")
+            cdf_path = _get_file(local_export_folder, "cdf.png")
+            pdf_path = _get_file(local_export_folder, "pdf.png")
             visualizer.visualize(x_cv, y_cv, cdf_path, **y_kwargs)
             visualizer.visualize(x_cv, y_cv, pdf_path, to_pdf=True, **y_kwargs)
-            export_path = _get_file(export_folder, "cdf_logit_mul.png")
+            export_path = _get_file(local_export_folder, "cdf_logit_mul.png")
             visualizer.visualize(
                 x_cv,
                 y_cv,
@@ -128,7 +124,7 @@ def test() -> None:
                 y_cv,
                 x_base,
                 y_matrix,
-                export_folder,
+                local_export_folder,
                 q_batch=q_batch,
             )
             visualizer.visualize_multiple(
@@ -136,7 +132,7 @@ def test() -> None:
                 y_cv,
                 x_base,
                 y_matrix,
-                export_folder,
+                local_export_folder,
                 y_batch=y_batch,
             )
 
@@ -169,7 +165,7 @@ def test() -> None:
 
     run_tasks()
     if CI:
-        cflearn._rmtree(logging_folder)
+        cflearn._rmtree(root_workplace)
         cflearn._rmtree("mlruns")
 
 
