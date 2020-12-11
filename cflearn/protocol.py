@@ -172,7 +172,12 @@ class DataProtocol(ABC):
         pass
 
     @abstractmethod
-    def transform(self, x: Union[str, data_type], y: data_type = None) -> DataTuple:
+    def transform(
+        self,
+        x: Union[str, data_type],
+        y: data_type = None,
+        **kwargs: Any,
+    ) -> DataTuple:
         pass
 
     @abstractmethod
