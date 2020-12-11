@@ -3,6 +3,7 @@
 
 import os
 import cflearn
+import platform
 
 from typing import Any
 from typing import Dict
@@ -21,6 +22,7 @@ file_folder = os.path.dirname(__file__)
 CI = True
 logging_folder = "__test_titanic__"
 return_type = Tuple[TabularData, pattern_type]
+IS_LINUX = platform.system() == "Linux"
 
 
 def _hpo_core(train_file: str) -> return_type:
@@ -104,7 +106,8 @@ def _test(name: str, _core: Callable[[str], return_type]) -> None:
 def test_hpo() -> None:
     _test("hpo", _hpo_core)
     _test("optuna1", _optuna_trial(1))
-    _test("optuna2", _optuna_trial(2))
+    if not IS_LINUX:
+        _test("optuna2", _optuna_trial(2))
 
 
 def test_adaboost() -> None:
