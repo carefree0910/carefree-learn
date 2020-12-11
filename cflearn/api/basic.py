@@ -9,7 +9,6 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
-from cftool.ml.utils import pattern_type
 from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
@@ -339,11 +338,16 @@ def repeat_with(
     if model_configs is None:
         model_configs = {}
 
+    def fetch_config(model_key: str) -> Dict[str, Any]:
+        local_kwargs = shallow_copy_dict(kwargs)
+        assert model_configs is not None
+        local_model_config = model_configs.setdefault(model_key, {})
+        return update_dict(shallow_copy_dict(local_model_config), local_kwargs)
+
     pipelines_dict: Optional[Dict[str, List[Pipeline]]] = None
     if sequential:
         experiment = None
         kwargs["use_tqdm"] = False
-
         if not return_patterns:
             print(
                 f"{LoggingMixin.warning_prefix}`return_patterns` should be "
@@ -351,17 +355,6 @@ def repeat_with(
                 "will always be generated"
             )
             return_patterns = True
-
-        def get(i_: int, model_: str) -> Pipeline:
-            kwargs_ = shallow_copy_dict(kwargs)
-            assert model_configs is not None
-            model_config = model_configs.setdefault(model_, {})
-            kwargs_ = update_dict(shallow_copy_dict(model_config), kwargs_)
-            logging_folder = os.path.join(temp_folder, model_, str(i_))
-            kwargs_.setdefault("logging_folder", logging_folder)
-            m = make(model_, **shallow_copy_dict(kwargs_))
-            return m.fit(x, y, x_cv, y_cv)
-
         pipelines_dict = {}
         if not use_tqdm:
             iterator = models
@@ -378,7 +371,11 @@ def repeat_with(
                     leave=False,
                 )
             for i in sub_iterator:
-                local_pipelines.append(get(i, model))
+                local_config = fetch_config(model)
+                logging_folder = os.path.join(temp_folder, model, str(i))
+                local_config.setdefault("logging_folder", logging_folder)
+                m = make(model, **shallow_copy_dict(local_config))
+                local_pipelines.append(m.fit(x, y, x_cv, y_cv))
             pipelines_dict[model] = local_pipelines
     else:
         if num_jobs <= 1:
@@ -392,10 +389,11 @@ def repeat_with(
         experiment = Experiment(num_jobs=num_jobs)
         for model in models:
             for _ in range(num_repeat):
+                local_config = fetch_config(model)
                 experiment.add_task(
                     model=model,
                     root_workplace=temp_folder,
-                    config=shallow_copy_dict(kwargs),
+                    config=shallow_copy_dict(local_config),
                     data_folder=data_folder,
                 )
         # finalize
