@@ -641,19 +641,23 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
                 msg_level=logging.WARNING,
             )
             return False
+        success = False
         if not deepspeed:
-            best_checkpoint = checkpoints[0]
-            model_file = os.path.join(folder, best_checkpoint)
-            self.log_msg(  # type: ignore
-                f"restoring from {model_file}",
-                self.info_prefix,  # type: ignore
-                4,
-            )
-            states = torch.load(model_file, map_location=self.device)
-            if state_dict_callback is not None:
-                state_dict_callback(states)
-            self.load_state_dict(states, strict)
-        return True
+            for checkpoint in checkpoints:
+                model_file = os.path.join(folder, checkpoint)
+                if not os.path.isfile(model_file):
+                    continue
+                self.log_msg(  # type: ignore
+                    f"restoring from {model_file}",
+                    self.info_prefix,  # type: ignore
+                    4,
+                )
+                states = torch.load(model_file, map_location=self.device)
+                if state_dict_callback is not None:
+                    state_dict_callback(states)
+                self.load_state_dict(states, strict)
+                success = True
+        return success
 
     def step(
         self,
