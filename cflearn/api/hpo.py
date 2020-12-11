@@ -175,6 +175,7 @@ class _Tuner(LoggingMixin):
         num_parallel: int,
         temp_folder: str,
         *,
+        compress: bool = True,
         cuda: Optional[str] = None,
         sequential: Optional[bool] = None,
     ) -> _TunerResult:
@@ -191,6 +192,7 @@ class _Tuner(LoggingMixin):
             num_repeat=num_repeat,
             num_jobs=num_parallel,
             models=model,
+            compress=compress,
             temp_folder=temp_folder,
             predict_config={"contains_labels": True},
             sequential=sequential,
@@ -913,15 +915,17 @@ class OptunaPresetParams:
 
 class OptunaArgs(NamedTuple):
     cuda: Optional[str]
+    compress: bool
     num_trial: Union[str, int]
     task_config: Union[str, Dict[str, Any]]
     key_mapping: Union[str, OptunaKeyMapping]
 
 
-def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
+def optuna_core(args: OptunaArgs) -> optuna.study.Study:
     cuda = args.cuda
     if cuda == "None":
         cuda = None
+    compress = args.compress
 
     key_mapping_arg = args.key_mapping
     if isinstance(key_mapping_arg, str):
@@ -951,7 +955,12 @@ def optuna_core(args: Union[OptunaArgs, Any]) -> optuna.study.Study:
             current_params["metrics"] = metrics
         args_ = model, current_params, num_repeat, num_parallel, temp_folder_
         sequential = None if num_jobs <= 1 else True
-        result = tuner.train(*args_, sequential=sequential, cuda=cuda)
+        result = tuner.train(
+            *args_,
+            sequential=sequential,
+            compress=compress,
+            cuda=cuda,
+        )
         final_scores = []
         weighted_metrics = result.weighted_metrics
         estimators = tuner.make_estimators(metrics, result.repeat_result)
@@ -981,6 +990,7 @@ def optuna_tune(
     num_trial: int = 50,
     num_repeat: int = 5,
     num_parallel: int = 1,
+    compress: bool = True,
     temp_folder: str = "__tmp__",
     estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,
     timeout: Optional[float] = None,
@@ -1040,7 +1050,8 @@ def optuna_tune(
     if num_jobs <= 1:
         if isinstance(cuda, int):
             cuda = str(cuda)
-        study = optuna_core(OptunaArgs(cuda, num_trial, task_config, key_mapping))
+        args = OptunaArgs(cuda, compress, num_trial, task_config, key_mapping)
+        study = optuna_core(args)
     else:
         assert isinstance(meta_folder, str)
 
@@ -1059,6 +1070,7 @@ def optuna_tune(
                 execute="optuna",
                 root_workplace=temp_folder,
                 num_trial=n,
+                compress=compress,
                 task_config_folder=task_config_folder,
                 key_mapping_folder=key_mapping_folder,
             )

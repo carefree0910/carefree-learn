@@ -11,4 +11,5 @@ if __name__ == "__main__":
     sample_weights = kwargs.pop("sample_weights", None)
     m = cflearn.make(**kwargs)
     m.fit(*data_list, sample_weights=sample_weights)
-    cflearn.save(m, saving_folder=info.workplace, compress=False)
+    compress = info.meta.get("compress", True)
+    cflearn.save(m, saving_folder=info.workplace, compress=compress)

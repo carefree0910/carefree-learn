@@ -275,8 +275,8 @@ def load(
     return pipelines
 
 
-def task_loader(saving_folder: str) -> Pipeline:
-    return list(load(saving_folder=saving_folder, compress=False).values())[0][0]
+def task_loader(saving_folder: str, compress: bool = True) -> Pipeline:
+    return list(load(saving_folder=saving_folder, compress=compress).values())[0][0]
 
 
 def load_experiment_results(results: ExperimentResults) -> Dict[str, List[Pipeline]]:
@@ -331,6 +331,7 @@ def repeat_with(
     num_repeat: int = 5,
     temp_folder: str = "__tmp__",
     return_patterns: bool = True,
+    compress: bool = True,
     use_tqdm: bool = True,
     **kwargs: Any,
 ) -> RepeatResult:
@@ -400,6 +401,7 @@ def repeat_with(
                 local_config = fetch_config(model)
                 experiment.add_task(
                     model=model,
+                    compress=compress,
                     root_workplace=temp_folder,
                     config=shallow_copy_dict(local_config),
                     data_folder=data_folder,

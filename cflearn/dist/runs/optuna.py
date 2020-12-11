@@ -11,6 +11,7 @@ if __name__ == "__main__":
     cflearn.optuna_core(
         OptunaArgs(
             meta["cuda"],
+            meta["compress"],
             meta["num_trial"],
             meta["task_config_folder"],
             meta["key_mapping_folder"],
