@@ -41,6 +41,7 @@ class ExperimentResults(NamedTuple):
 
 class Experiment(LoggingMixin):
     tasks_folder = "__tasks__"
+    default_root_workplace = "__experiment__"
 
     def __init__(
         self,
@@ -61,14 +62,15 @@ class Experiment(LoggingMixin):
         self.results: Optional[ExperimentResults] = None
 
     @staticmethod
-    def data_folder(workplace: str) -> str:
+    def data_folder(workplace: Optional[str] = None) -> str:
+        workplace = workplace or Experiment.default_root_workplace
         return os.path.join(workplace, "__data__")
 
     @staticmethod
     def _dump_data(
-        workplace: str,
         x: data_type,
         y: data_type = None,
+        workplace: Optional[str] = None,
         postfix: str = "",
     ) -> None:
         data_folder = Experiment.data_folder(workplace)
@@ -79,11 +81,12 @@ class Experiment(LoggingMixin):
 
     @staticmethod
     def dump_data_bundle(
-        workplace: str,
         x: data_type,
         y: data_type = None,
         x_cv: data_type = None,
         y_cv: data_type = None,
+        *,
+        workplace: Optional[str] = None,
     ) -> str:
         data_folder = Experiment.data_folder(workplace)
         os.makedirs(data_folder, exist_ok=True)
@@ -96,12 +99,15 @@ class Experiment(LoggingMixin):
             with open(os.path.join(data_folder, data_config_file), "w") as f:
                 json.dump(data_config, f)
         else:
-            Experiment._dump_data(workplace, x, y)
-            Experiment._dump_data(workplace, x_cv, y_cv, "_cv")
+            Experiment._dump_data(x, y, workplace)
+            Experiment._dump_data(x_cv, y_cv, workplace, "_cv")
         return data_folder
 
     @staticmethod
-    def fetch_data(workplace: str, postfix: str = "") -> Tuple[data_type, data_type]:
+    def fetch_data(
+        workplace: Optional[str] = None,
+        postfix: str = "",
+    ) -> Tuple[data_type, data_type]:
         data = []
         data_folder = Experiment.data_folder(workplace)
         for key in [f"x{postfix}", f"y{postfix}"]:
@@ -127,7 +133,7 @@ class Experiment(LoggingMixin):
         *,
         model: str = "fcnn",
         execute: str = "basic",
-        root_workplace: str = "__experiment__",
+        root_workplace: Optional[str] = None,
         workplace_key: Optional[Tuple[str, str]] = None,
         config: Optional[Dict[str, Any]] = None,
         data_folder: Optional[str] = None,
@@ -142,11 +148,12 @@ class Experiment(LoggingMixin):
                 counter += 1
         if workplace_key in self.tasks:
             raise ValueError(f"task already exists with '{workplace_key}'")
+        root_workplace = root_workplace or self.default_root_workplace
         workplace = self.workplace(workplace_key, root_workplace)
         copied_config = shallow_copy_dict(config or {})
         copied_config["model"] = model
         if data_folder is None and x is not None:
-            data_folder = self.dump_data_bundle(workplace, x, y, x_cv, y_cv)
+            data_folder = self.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
         if data_folder is not None:
             copied_config["data_folder"] = os.path.abspath(data_folder)
         copied_config.setdefault("use_tqdm", False)
