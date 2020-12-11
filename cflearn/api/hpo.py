@@ -936,17 +936,19 @@ def optuna_core(args: OptunaArgs) -> optuna.study.Study:
     tuner = key_mapping.tuner
 
     config = args.task_config
-    if isinstance(config, str):
-        config = Saving.load_dict("config", config)
-    model = config["model"]
-    metrics = config["metrics"]
-    timeout = config["timeout"]
-    num_jobs = config["num_jobs"]
-    num_repeat = config["num_repeat"]
-    num_parallel = config["num_parallel"]
-    estimator_scoring_function = config["estimator_scoring_function"]
-    study_config = config["study_config"]
-    temp_folder = config["temp_folder"]
+    if isinstance(config, dict):
+        config_dict = config
+    else:
+        config_dict = Saving.load_dict("config", config)
+    model = config_dict["model"]
+    metrics = config_dict["metrics"]
+    timeout = config_dict["timeout"]
+    num_jobs = config_dict["num_jobs"]
+    num_repeat = config_dict["num_repeat"]
+    num_parallel = config_dict["num_parallel"]
+    estimator_scoring_function = config_dict["estimator_scoring_function"]
+    study_config = config_dict["study_config"]
+    temp_folder = config_dict["temp_folder"]
 
     def objective(trial: Trial) -> float:
         temp_folder_ = os.path.join(temp_folder, str(trial.number))
