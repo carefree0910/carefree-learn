@@ -22,6 +22,8 @@ from ..dist import Task
 from ..dist import Experiment
 from ..dist import ExperimentResults
 from ..types import data_type
+from ..types import general_config_type
+from ..configs import _parse_config
 from ..trainer import Trainer
 from ..trainer import IntermediateResults
 from ..pipeline import Pipeline
@@ -32,9 +34,15 @@ from ..misc._api import _fetch_saving_paths
 from ..misc.toolkit import to_2d
 
 
-def make(model: str = "fcnn", **kwargs: Any) -> Pipeline:
+def make(
+    model: str = "fcnn",
+    config: general_config_type = None,
+    increment_config: general_config_type = None,
+    **kwargs: Any,
+) -> Pipeline:
     kwargs["model"] = model
-    return Pipeline.make(kwargs)
+    config, increment_config = map(_parse_config, [config, increment_config])
+    return Pipeline.make(update_dict(increment_config, update_dict(config, kwargs)))
 
 
 def make_from(
