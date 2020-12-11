@@ -1,5 +1,6 @@
 import os
 import torch
+import pickle
 import cflearn
 import unittest
 
@@ -167,6 +168,59 @@ class TestDoc(unittest.TestCase):
         )
         m = cflearn.make(**hpo.best_param).fit(x, y)
         cflearn.evaluate(x, y, pipelines=m)
+
+    def test_distributed4(self) -> None:
+        x = np.random.random([100, 10])
+        y = np.random.random([100, 10])
+        experiment = cflearn.Experiment()
+        data_bundle_folder = experiment.dump_data_bundle(x, y)
+        for model in ["linear", "fcnn", "tree_dnn"]:
+            experiment.add_task(model=model, data_folder=data_bundle_folder)
+        experiment.run_tasks(task_loader=cflearn.task_loader)
+
+    def test_distributed5(self) -> None:
+        x1 = np.random.random([100, 10])
+        y1 = np.random.random([100, 10])
+        x2 = np.random.random([100, 10])
+        y2 = np.random.random([100, 10])
+        experiment = cflearn.Experiment()
+        experiment.add_task(x1, y1)
+        experiment.add_task(x2, y2)
+        experiment.run_tasks(task_loader=cflearn.task_loader)
+
+    def test_distributed6(self) -> None:
+        x = np.random.random([100, 10])
+        y = np.random.random([100, 1])
+        experiment = cflearn.Experiment()
+        data_bundle_folder = experiment.dump_data_bundle(x, y)
+        for model in ["linear", "fcnn", "tree_dnn"]:
+            experiment.add_task(model=model, data_folder=data_bundle_folder)
+        run_command = f"python {os.path.join(data_folder, 'run_sklearn.py')}"
+        experiment.add_task(
+            model="svr",
+            run_command=run_command,
+            data_folder=data_bundle_folder,
+        )
+        experiment.add_task(
+            model="linear_svr",
+            run_command=run_command,
+            data_folder=data_bundle_folder,
+        )
+        results = experiment.run_tasks()
+        pipelines = {}
+        scikit_patterns = {}
+        for workplace, workplace_key in zip(results.workplaces, results.workplace_keys):
+            model = workplace_key[0]
+            if model not in ["svr", "linear_svr"]:
+                pipelines[model] = cflearn.task_loader(workplace)
+            else:
+                model_file = os.path.join(workplace, "sk_model.pkl")
+                with open(model_file, "rb") as f:
+                    sk_model = pickle.load(f)
+                    sk_predict = lambda x_: sk_model.predict(x_).reshape([-1, 1])
+                    sk_pattern = cflearn.ModelPattern(predict_method=sk_predict)
+                    scikit_patterns[model] = sk_pattern
+        cflearn.evaluate(x, y, pipelines=pipelines, other_patterns=scikit_patterns)
 
     def test_production(self) -> None:
         x, y = TabularDataset.iris().xy
