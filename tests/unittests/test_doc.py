@@ -141,6 +141,33 @@ class TestDoc(unittest.TestCase):
         self.assertListEqual(list(pipelines.keys()), ["fcnn"])
         self.assertEqual(len(list(pipelines.values())[0]), n)
 
+    def test_distributed1(self) -> None:
+        x, y = TabularDataset.iris().xy
+        results = cflearn.repeat_with(x, y, num_repeat=3, num_jobs=0)
+        patterns = results.patterns["fcnn"]
+        ensemble = cflearn.Ensemble.stacking(patterns)
+        patterns_dict = {"fcnn_3": patterns, "fcnn_3_ensemble": ensemble}
+        cflearn.evaluate(x, y, metrics=["acc", "auc"], other_patterns=patterns_dict)
+
+    def test_distributed2(self) -> None:
+        x = np.random.random([1000, 10])
+        y = np.random.random([1000, 1])
+        result = cflearn.repeat_with(x, y, models=["linear", "fcnn"], num_repeat=3)
+        cflearn.evaluate(x, y, pipelines=result.pipelines)
+
+    def test_distributed3(self) -> None:
+        x, y = TabularDataset.iris().xy
+        hpo = cflearn.tune_with(
+            x,
+            y,
+            task_type="clf",
+            num_repeat=2,
+            num_parallel=0,
+            num_search=10,
+        )
+        m = cflearn.make(**hpo.best_param).fit(x, y)
+        cflearn.evaluate(x, y, pipelines=m)
+
     def test_production(self) -> None:
         x, y = TabularDataset.iris().xy
         m = cflearn.make().fit(x, y)
