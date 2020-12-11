@@ -310,8 +310,8 @@ class TestDoc(unittest.TestCase):
             "prod",
             pipes=[
                 cflearn.PipeInfo("linear"),
-                cflearn.PipeInfo("linear2", extractor="identity", head="linear")
-            ]
+                cflearn.PipeInfo("linear2", extractor="identity", head="linear"),
+            ],
         )
         x = np.random.random([10000, 2]) * 2.0
         y = np.prod(x, axis=1, keepdims=True)
