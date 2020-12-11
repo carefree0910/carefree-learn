@@ -55,13 +55,13 @@ class Experiment(LoggingMixin):
         self.num_jobs = num_jobs
         self.use_cuda = use_cuda
         self.cuda_list = available_cuda_list
-        self.tasks: Dict[str, Task] = {}
-        self.executes: Dict[str, str] = {}
-        self.workplaces: Dict[str, str] = {}
+        self.tasks: Dict[Tuple[str, str], Task] = {}
+        self.executes: Dict[Tuple[str, str], str] = {}
+        self.workplaces: Dict[Tuple[str, str], str] = {}
         self.results: Optional[ExperimentResults] = None
 
     @staticmethod
-    def data_folder(workplace) -> str:
+    def data_folder(workplace: str) -> str:
         return os.path.join(workplace, "__data__")
 
     @staticmethod
@@ -89,7 +89,10 @@ class Experiment(LoggingMixin):
         os.makedirs(data_folder, exist_ok=True)
         if not isinstance(x, np.ndarray):
             data_config = {"x": x, "y": y, "x_cv": x_cv, "y_cv": y_cv}
-            data_config = {k: os.path.abspath(v) for k, v in data_config.items()}
+            for k, v in data_config.items():
+                if v is not None:
+                    assert isinstance(v, str)
+                    data_config[k] = os.path.abspath(v)
             with open(os.path.join(data_folder, data_config_file), "w") as f:
                 json.dump(data_config, f)
         else:
@@ -140,16 +143,16 @@ class Experiment(LoggingMixin):
         if workplace_key in self.tasks:
             raise ValueError(f"task already exists with '{workplace_key}'")
         workplace = self.workplace(workplace_key, root_workplace)
-        config = shallow_copy_dict(config or {})
-        config["model"] = model
+        copied_config = shallow_copy_dict(config or {})
+        copied_config["model"] = model
         if data_folder is None and x is not None:
             data_folder = self.dump_data_bundle(workplace, x, y, x_cv, y_cv)
         if data_folder is not None:
-            config["data_folder"] = os.path.abspath(data_folder)
-        config.setdefault("use_tqdm", False)
-        config.setdefault("verbose_level", 0)
-        config.setdefault("trigger_logging", True)
-        new_task = Task(workplace=workplace, config=config, **task_meta_kwargs)
+            copied_config["data_folder"] = os.path.abspath(data_folder)
+        copied_config.setdefault("use_tqdm", False)
+        copied_config.setdefault("verbose_level", 0)
+        copied_config.setdefault("trigger_logging", True)
+        new_task = Task(workplace=workplace, config=copied_config, **task_meta_kwargs)
         self.tasks[workplace_key] = new_task
         self.executes[workplace_key] = execute
         self.workplaces[workplace_key] = workplace
@@ -188,6 +191,8 @@ class Experiment(LoggingMixin):
             for workplace_key, task in self.tasks.items():
                 task.save(os.path.join(tasks_folder, *workplace_key))
             # meta
+            if self.results is None:
+                raise ValueError("results are not generated yet")
             meta_config = {
                 "executes": self.executes,
                 "num_jobs": self.num_jobs,

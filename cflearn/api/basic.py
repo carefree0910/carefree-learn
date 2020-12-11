@@ -273,7 +273,7 @@ def task_loader(saving_folder: str) -> Pipeline:
 
 
 def load_experiment_results(results: ExperimentResults) -> Dict[str, List[Pipeline]]:
-    pipelines_dict: Dict[str, List[Pipeline]] = {}
+    pipelines_dict: Dict[str, Dict[int, Pipeline]] = {}
     for workplace, workplace_key in zip(results.workplaces, results.workplace_keys):
         pipeline = task_loader(workplace)
         model, str_i = workplace_key
