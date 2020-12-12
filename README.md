@@ -77,8 +77,9 @@ pip install carefree-learn
 
 ## Examples
 
-+ [Titanic](https://carefree0910.me/carefree-learn-doc/docs/user-guides/examples/#titanic) – the best, first challenge for you to dive into ML competitions and familiarize yourself with how the Kaggle platform works.
-+ [Operations](https://carefree0910.me/carefree-learn-doc/docs/user-guides/examples/#operations) - toy datasets for us to illustrate how to build your own models in `carefree-learn`.
++ [Iris](https://carefree0910.me/carefree-learn-doc/docs/examples/iris) – perhaps the best known database to be found in the pattern recognition literature.
++ [Titanic](https://carefree0910.me/carefree-learn-doc/docs/examples/titanic) – the best, first challenge for you to dive into ML competitions and familiarize yourself with how the Kaggle platform works.
++ [Operations](https://carefree0910.me/carefree-learn-doc/docs/examples/operations) - toy datasets for us to illustrate how to build your own models in `carefree-learn`.
 
 
 ## Citation
