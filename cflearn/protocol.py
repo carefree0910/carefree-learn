@@ -662,6 +662,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
                     state_dict_callback(states)
                 self.load_state_dict(states, strict)
                 success = True
+                break
         return success
 
     def step(
