@@ -18,11 +18,10 @@ class Task:
         config_folder: str,
         cuda: Optional[Union[int, str]],
     ) -> "Task":
-        python = sys.executable
         if self.run_command is not None:
             command = self.run_command
         else:
-            command = f"{python} -m {'.'.join(['cflearn', 'dist', 'runs', execute])}"
+            command = f"{sys.executable} -m cflearn.dist.runs.{execute}"
         meta_config = shallow_copy_dict(self.meta_kwargs)
         meta_config["cuda"] = cuda
         os.makedirs(config_folder, exist_ok=True)
