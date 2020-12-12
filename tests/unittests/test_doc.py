@@ -229,6 +229,10 @@ class TestDoc(unittest.TestCase):
         predictor = cflearn.Pack.get_predictor("pack")
         predictor.predict(x)
 
+    def test_iris(self) -> None:
+        folder = os.path.join(examples_folder, "iris")
+        os.system(f"python {os.path.join(folder, 'iris.py')}")
+
     def test_titanic(self) -> None:
         folder = os.path.join(examples_folder, "titanic")
         os.system(f"python {os.path.join(folder, 'titanic.py')}")
