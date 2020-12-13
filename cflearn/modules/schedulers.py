@@ -2,6 +2,7 @@ from typing import *
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import CyclicLR
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -20,6 +21,7 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
     return _register
 
 
+register_scheduler("cyclic")(CyclicLR)
 register_scheduler("cosine")(CosineAnnealingLR)
 
 

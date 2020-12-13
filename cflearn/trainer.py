@@ -526,11 +526,23 @@ class Trainer(MonitoredMixin):
 
     # init
 
-    @property
-    def default_lr_configs(self) -> Dict[str, Dict[str, Any]]:
+    def default_lr_configs(
+        self,
+        optimizer: Optimizer,
+        optimizer_config: Dict[str, Any],
+    ) -> Dict[str, Dict[str, Any]]:
+        opt_lr = optimizer_config["lr"]
         step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
         exp_gamma = (0.1 ** 0.1) ** (1.0 / self.state.num_step_per_epoch)
         exp_default_cfg = {"gamma": exp_gamma}
+        cyclic_default_cfg = {
+            "base_lr": opt_lr,
+            "max_lr": 1.0e-8,
+            "step_size_up": 10 * self.state.num_step_per_epoch,
+            "gamma": exp_gamma,
+        }
+        if "momentum" not in optimizer.defaults:
+            cyclic_default_cfg["cycle_momentum"] = False
         cosine_default_cfg = {
             "eta_min": 1.0e-8,
             "T_max": 10 * self.state.num_step_per_epoch,
@@ -547,6 +559,7 @@ class Trainer(MonitoredMixin):
         return {
             "step": step_default_cfg,
             "exponential": exp_default_cfg,
+            "cyclic": cyclic_default_cfg,
             "cosine": cosine_default_cfg,
             "plateau": plateau_default_cfg,
         }
@@ -608,7 +621,7 @@ class Trainer(MonitoredMixin):
             self.config["optimizer_config"] = optimizer_config
             self._optimizer_type = optimizer
             # scheduler
-            default_lr_configs = self.default_lr_configs
+            default_lr_configs = self.default_lr_configs(opt, optimizer_config)
             default_lr_config = default_lr_configs.get(scheduler)
             error_msg = f"default scheduler config for {scheduler} is not specified"
             if default_lr_config is not None:
