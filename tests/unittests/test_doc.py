@@ -78,7 +78,7 @@ class TestDoc(unittest.TestCase):
         self.assertEqual(len(list(ms.values())[0]), 1)
 
     def test_quick_start2(self) -> None:
-        m = cflearn.make(delim=",", min_epoch=1000, has_column_names=False)
+        m = cflearn.make(delim=",", min_epoch=2000, has_column_names=False)
         xor_file = os.path.join(data_folder, "xor.txt")
         m.fit(xor_file, x_cv=xor_file)
         cflearn.evaluate(xor_file, pipelines=m, contains_labels=True)

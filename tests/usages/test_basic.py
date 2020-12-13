@@ -242,8 +242,8 @@ def test_auto_file() -> None:
     pattern = unpacked.pattern
     pred2 = pattern.predict(te_file)
     prob2 = pattern.predict(te_file, requires_prob=True)
-    assert np.allclose(pred1, pred2)
-    assert np.allclose(prob1, prob2, atol=1e-2, rtol=1e-2)
+    assert np.allclose(pred1, pred2, equal_nan=True)
+    assert np.allclose(prob1, prob2, equal_nan=True, atol=1e-2, rtol=1e-2)
     cflearn._rmtree(logging_folder)
     os.remove(f"{export_name}.zip")
 
