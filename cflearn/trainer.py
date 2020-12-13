@@ -526,6 +526,24 @@ class Trainer(MonitoredMixin):
 
     # init
 
+    @property
+    def default_lr_configs(self) -> Dict[str, Dict[str, Any]]:
+        step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
+        plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
+        plateau_default_cfg.setdefault("min_lr", 1.0e-8)
+        plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
+        plateau_default_cfg.setdefault(
+            "patience",
+            max(
+                10,
+                self.state.snapshot_start_step // self.state.num_step_per_snapshot,
+            ),
+        )
+        return {
+            "step": step_default_cfg,
+            "plateau": plateau_default_cfg,
+        }
+
     def _define_optimizer(
         self,
         params_name: str,
@@ -583,30 +601,24 @@ class Trainer(MonitoredMixin):
             self.config["optimizer_config"] = optimizer_config
             self._optimizer_type = optimizer
             # scheduler
-            step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
-            plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
-            plateau_default_cfg.setdefault("min_lr", 1.0e-8)
-            plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
-            plateau_default_cfg.setdefault(
-                "patience",
-                max(
-                    10,
-                    self.state.snapshot_start_step // self.state.num_step_per_snapshot,
-                ),
-            )
-            if scheduler == "step":
-                scheduler_config = update_dict(scheduler_config, step_default_cfg)
-            elif scheduler == "plateau":
-                scheduler_config = update_dict(scheduler_config, plateau_default_cfg)
-            elif scheduler == "warmup":
+            default_lr_configs = self.default_lr_configs
+            default_lr_config = default_lr_configs.get(scheduler)
+            error_msg = f"default scheduler config for {scheduler} is not specified"
+            if default_lr_config is not None:
+                scheduler_config = update_dict(scheduler_config, default_lr_config)
+            else:
+                if scheduler != "warmup":
+                    raise ValueError(error_msg)
+            if scheduler == "warmup":
                 sab = scheduler_config.get("scheduler_afterwards_base", "plateau")
+                if sab == "warmup":
+                    raise ValueError("warmup should not be used inside a warmup")
                 sac = scheduler_config.get("scheduler_afterwards_config", {})
-                if sab is not None and isinstance(sab, str):
-                    if sab == "step":
-                        sac = update_dict(sac, step_default_cfg)
-                    elif sab == "plateau":
-                        sac = update_dict(sac, plateau_default_cfg)
-                    sab = scheduler_dict[sab]
+                default_lr_config = default_lr_configs.get(scheduler)
+                if default_lr_config is None:
+                    raise ValueError(error_msg)
+                sac = update_dict(sac, default_lr_config)
+                sab = scheduler_dict[sab]
                 scheduler_config["scheduler_afterwards_base"] = sab
                 scheduler_config["scheduler_afterwards_config"] = sac
             if scheduler is None:
