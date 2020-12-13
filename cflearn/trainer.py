@@ -532,9 +532,12 @@ class Trainer(MonitoredMixin):
         optimizer_config: Dict[str, Any],
     ) -> Dict[str, Dict[str, Any]]:
         opt_lr = optimizer_config["lr"]
+        # step
         step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
+        # exponential
         exp_gamma = (0.1 ** 0.1) ** (1.0 / self.state.num_step_per_epoch)
         exp_default_cfg = {"gamma": exp_gamma}
+        # cyclic
         cyclic_default_cfg = {
             "base_lr": opt_lr,
             "max_lr": 1.0e-8,
@@ -543,10 +546,17 @@ class Trainer(MonitoredMixin):
         }
         if "momentum" not in optimizer.defaults:
             cyclic_default_cfg["cycle_momentum"] = False
+        # cosine
         cosine_default_cfg = {
             "eta_min": 1.0e-8,
             "T_max": 10 * self.state.num_step_per_epoch,
         }
+        # cosine restarts
+        cosine_restarts_default_cfg = {
+            "eta_min": 1.0e-8,
+            "T_0": 10 * self.state.num_step_per_epoch,
+        }
+        # plateau
         plateau_default_cfg = {
             "mode": "max",
             "min_lr": 1.0e-8,
@@ -561,6 +571,7 @@ class Trainer(MonitoredMixin):
             "exponential": exp_default_cfg,
             "cyclic": cyclic_default_cfg,
             "cosine": cosine_default_cfg,
+            "cosine_restarts": cosine_restarts_default_cfg,
             "plateau": plateau_default_cfg,
         }
 

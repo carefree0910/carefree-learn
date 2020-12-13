@@ -6,6 +6,7 @@ from torch.optim.lr_scheduler import CyclicLR
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from ..misc.toolkit import scheduler_requires_metric
 
@@ -23,6 +24,7 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
 
 register_scheduler("cyclic")(CyclicLR)
 register_scheduler("cosine")(CosineAnnealingLR)
+register_scheduler("cosine_restarts")(CosineAnnealingWarmRestarts)
 
 
 @register_scheduler("step")
