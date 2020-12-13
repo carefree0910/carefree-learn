@@ -531,16 +531,15 @@ class Trainer(MonitoredMixin):
         step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
         exp_gamma = (0.1 ** 0.1) ** (1.0 / self.state.num_step_per_epoch)
         exp_default_cfg = {"gamma": exp_gamma}
-        plateau_default_cfg: Dict[str, Any] = {"mode": "max"}
-        plateau_default_cfg.setdefault("min_lr", 1.0e-8)
-        plateau_default_cfg.setdefault("verbose", self._verbose_level >= 3)
-        plateau_default_cfg.setdefault(
-            "patience",
-            max(
+        plateau_default_cfg = {
+            "mode": "max",
+            "min_lr": 1.0e-8,
+            "verbose": self._verbose_level >= 3,
+            "patience": max(
                 10,
                 self.state.snapshot_start_step // self.state.num_step_per_snapshot,
             ),
-        )
+        }
         return {
             "step": step_default_cfg,
             "exponential": exp_default_cfg,
