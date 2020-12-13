@@ -3,6 +3,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import StepLR
 from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from ..misc.toolkit import scheduler_requires_metric
@@ -17,6 +18,9 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
         return cls_
 
     return _register
+
+
+register_scheduler("cosine")(CosineAnnealingLR)
 
 
 @register_scheduler("step")

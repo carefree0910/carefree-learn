@@ -531,6 +531,10 @@ class Trainer(MonitoredMixin):
         step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
         exp_gamma = (0.1 ** 0.1) ** (1.0 / self.state.num_step_per_epoch)
         exp_default_cfg = {"gamma": exp_gamma}
+        cosine_default_cfg = {
+            "eta_min": 1.0e-8,
+            "T_max": 10 * self.state.num_step_per_epoch,
+        }
         plateau_default_cfg = {
             "mode": "max",
             "min_lr": 1.0e-8,
@@ -543,6 +547,7 @@ class Trainer(MonitoredMixin):
         return {
             "step": step_default_cfg,
             "exponential": exp_default_cfg,
+            "cosine": cosine_default_cfg,
             "plateau": plateau_default_cfg,
         }
 
