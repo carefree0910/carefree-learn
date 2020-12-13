@@ -481,7 +481,7 @@ class TrainerState:
     def should_log_lr(self) -> bool:
         if self.log_disabled:
             return False
-        denominator = min(5 * self.num_step_per_epoch, 100)
+        denominator = min(self.num_step_per_epoch, 10)
         return self.step % denominator == 0
 
     @property
