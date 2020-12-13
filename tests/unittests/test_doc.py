@@ -2,6 +2,7 @@ import os
 import torch
 import pickle
 import cflearn
+import platform
 import unittest
 
 import numpy as np
@@ -20,6 +21,7 @@ from cflearn.modules.extractors import Identity
 file_folder = os.path.dirname(__file__)
 data_folder = os.path.abspath(os.path.join(file_folder, "data"))
 examples_folder = os.path.join(file_folder, os.pardir, os.pardir, "examples")
+IS_WINDOWS = platform.system() == "Windows"
 
 
 class TestDoc(unittest.TestCase):
@@ -92,7 +94,8 @@ class TestDoc(unittest.TestCase):
         )
 
     def test_quick_start3(self) -> None:
-        cflearn.make("wnd").draw("wnd.png", transparent=False)
+        if not IS_WINDOWS:
+            cflearn.make("wnd").draw("wnd.png", transparent=False)
 
     def test_configurations1(self) -> None:
         config = {"foo": 0, "dummy": 1}
@@ -327,7 +330,8 @@ class TestDoc(unittest.TestCase):
             ],
         )
         m = cflearn.make("brand_new_model")
-        m.draw("brand_new_model.png", transparent=False)
+        if not IS_WINDOWS:
+            m.draw("brand_new_model.png", transparent=False)
         numerical = np.random.random([10000, 5])
         categorical = np.random.randint(0, 10, [10000, 5])
         x = np.hstack([numerical, categorical])
