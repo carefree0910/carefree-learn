@@ -634,7 +634,7 @@ class Trainer(MonitoredMixin):
                 if sab == "warmup":
                     raise ValueError("warmup should not be used inside a warmup")
                 sac = scheduler_config.get("scheduler_afterwards_config", {})
-                default_lr_config = default_lr_configs.get(scheduler)
+                default_lr_config = default_lr_configs.get(sab)
                 if default_lr_config is None:
                     raise ValueError(error_msg)
                 sac = update_dict(sac, default_lr_config)
