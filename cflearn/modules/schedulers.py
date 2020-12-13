@@ -2,6 +2,7 @@ from typing import *
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from ..misc.toolkit import scheduler_requires_metric
@@ -30,6 +31,27 @@ class StepLRWithFloor(StepLR):
     ):
         self.lr_floor = lr_floor
         super().__init__(optimizer, step_size, gamma, last_epoch)
+
+    def get_lr(self) -> List[float]:  # type: ignore
+        lrs = super().get_lr()
+        return [max(lr, self.lr_floor) for lr in lrs]  # type: ignore
+
+    def _get_closed_form_lr(self) -> List[float]:  # type: ignore
+        lrs = super()._get_closed_form_lr()  # type: ignore
+        return [max(lr, self.lr_floor) for lr in lrs]
+
+
+@register_scheduler("exponential")
+class ExponentialLRWithFloor(ExponentialLR):
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        gamma: float,
+        last_epoch: int = -1,
+        lr_floor: float = 1.0e-8,
+    ):
+        self.lr_floor = lr_floor
+        super().__init__(optimizer, gamma, last_epoch)
 
     def get_lr(self) -> List[float]:  # type: ignore
         lrs = super().get_lr()
