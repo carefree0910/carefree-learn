@@ -133,7 +133,8 @@ class Elements(NamedTuple):
     cuda: Optional[Union[int, str]] = None
     mlflow_config: Optional[Dict[str, Any]] = None
     extra_config: Optional[Dict[str, Any]] = None
-    user_defined_config: Optional[Dict[str, Any]] = None
+    user_config: Optional[Dict[str, Any]] = None
+    user_increment_config: Optional[Dict[str, Any]] = None
 
     @staticmethod
     def affected_mappings() -> Dict[str, Set[str]]:
@@ -143,6 +144,12 @@ class Elements(NamedTuple):
             "ts_config": {"time_series_config*"},
             "fixed_epoch": {"min_epoch", "num_epoch", "max_epoch"},
         }
+
+    @property
+    def user_defined_config(self) -> Dict[str, Any]:
+        user_config = shallow_copy_dict(self.user_config) or {}
+        user_increment_config = shallow_copy_dict(self.user_increment_config) or {}
+        return update_dict(user_increment_config, user_config)
 
     def to_config(self) -> Dict[str, Any]:
         if self.extra_config is None:
@@ -298,8 +305,8 @@ class Elements(NamedTuple):
         increment_config: Optional[Dict[str, Any]] = None,
     ) -> "Elements":
         cfg, inc_cfg = map(_parse_config, [config, increment_config])
-        kwargs = update_dict(inc_cfg, cfg)
-        user_defined_config = shallow_copy_dict(kwargs)
+        kwargs = update_dict(shallow_copy_dict(inc_cfg), shallow_copy_dict(cfg))
+        user_cfg, user_inc_cfg = map(shallow_copy_dict, [cfg, inc_cfg])
         # pipeline general
         model = kwargs.setdefault("model", "fcnn")
         kwargs.setdefault("use_binary_threshold", True)
@@ -355,7 +362,8 @@ class Elements(NamedTuple):
             main_configs["extra_config"] = kwargs
         else:
             update_dict(kwargs, existing_extra_config)
-        main_configs["user_defined_config"] = user_defined_config
+        main_configs["user_config"] = user_cfg
+        main_configs["user_increment_config"] = user_inc_cfg
         return cls(**main_configs)
 
 
@@ -363,11 +371,13 @@ class Environment:
     def __init__(
         self,
         config: Dict[str, Any],
-        user_defined_config: Optional[Dict[str, Any]] = None,
+        user_config: Optional[Dict[str, Any]] = None,
+        user_increment_config: Optional[Dict[str, Any]] = None,
         set_device: bool = True,
     ):
         self.config = config
-        self.user_defined_config = user_defined_config or {}
+        self.user_config = user_config or {}
+        self.user_increment_config = user_increment_config or {}
         # deep speed
         self.is_rank_0 = True
         if self.deepspeed:
@@ -382,6 +392,12 @@ class Environment:
 
     def __getattr__(self, item: str) -> Any:
         return self.config[item]
+
+    @property
+    def user_defined_config(self) -> Dict[str, Any]:
+        user_cfg = shallow_copy_dict(self.user_config)
+        user_inc_cfg = shallow_copy_dict(self.user_increment_config)
+        return update_dict(user_inc_cfg, user_cfg)
 
     def update_default_config(self, new_default_config: Dict[str, Any]) -> None:
         user_affected = set()
@@ -447,7 +463,12 @@ class Environment:
         elements: Elements,
         set_device: bool = True,
     ) -> "Environment":
-        return cls(elements.to_config(), elements.user_defined_config, set_device)
+        return cls(
+            elements.to_config(),
+            elements.user_config,
+            elements.user_increment_config,
+            set_device,
+        )
 
 
 __all__ = ["configs_dict", "Configs", "Elements", "Environment"]

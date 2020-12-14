@@ -7,13 +7,12 @@ from ._utils import get_info
 
 if __name__ == "__main__":
     info = get_info(requires_data=False)
-    meta, config = info.meta, info.kwargs
     cflearn.optuna_core(
         OptunaArgs(
-            meta["cuda"],
-            meta["compress"],
-            meta["num_trial"],
-            meta["task_config_folder"],
-            meta["key_mapping_folder"],
+            info.meta["cuda"],
+            info.meta["compress"],
+            info.meta["num_trial"],
+            info.meta["task_config_folder"],
+            info.meta["key_mapping_folder"],
         )
     )

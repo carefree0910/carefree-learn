@@ -45,6 +45,8 @@ key_type = Tuple[Union[str, Optional[str]], ...]
 
 
 class Pipeline(LoggingMixinWithRank):
+    config_bundle_name = "config_bundle"
+
     def __init__(self, environment: Environment):
         # typing
         self.tr_data: DataProtocol
@@ -54,6 +56,8 @@ class Pipeline(LoggingMixinWithRank):
         self.cv_loader: Optional[DataLoaderProtocol]
         # common
         self.environment = environment
+        self.user_config = shallow_copy_dict(environment.user_config)
+        self.user_inc_config = shallow_copy_dict(environment.user_increment_config)
         self.device = environment.device
         self.model: Optional[ModelBase] = None
         self.inference: Optional[Inference]
@@ -277,8 +281,8 @@ class Pipeline(LoggingMixinWithRank):
         if self.is_rank_0:
             if self.environment.deepspeed:
                 logging_folder = os.path.join(logging_folder, os.pardir)
-            Saving.save_dict(self.config, "config", logging_folder)
-            with open(os.path.join(logging_folder, "model.txt"), "w") as f:
+            Saving.save_dict(self.config, "__config__", logging_folder)
+            with open(os.path.join(logging_folder, "__model__.txt"), "w") as f:
                 f.write(str(self.model))
         # training loop
         self.trainer.fit(
@@ -646,8 +650,12 @@ class Pipeline(LoggingMixinWithRank):
     final_results_file = "final_results.json"
 
     @classmethod
-    def make(cls, config: Dict[str, Any]) -> "Pipeline":
-        return cls(Environment.from_elements(Elements.make(config)))
+    def make(
+        cls,
+        config: Dict[str, Any],
+        increment_config: Dict[str, Any],
+    ) -> "Pipeline":
+        return cls(Environment.from_elements(Elements.make(config, increment_config)))
 
     def save(
         self,
@@ -690,8 +698,12 @@ class Pipeline(LoggingMixinWithRank):
             self.trainer.save_checkpoint(score, export_folder)
             if self.inference is None:
                 raise ValueError("`inference` is not yet generated")
-            self.config["binary_config"] = self.inference.binary_config
-            Saving.save_dict(self.config, "config", export_folder)
+            config_bundle = {
+                "config": shallow_copy_dict(self.user_config),
+                "increment_config": shallow_copy_dict(self.user_inc_config),
+                "binary_config": self.inference.binary_config,
+            }
+            Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
@@ -701,9 +713,12 @@ class Pipeline(LoggingMixinWithRank):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                config = Saving.load_dict("config", export_folder)
-                config.update({"verbose_level": 0})
-                pipeline = cls.make(config)
+                config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
+                user_config = config_bundle["config"]
+                user_increment_config = config_bundle["increment_config"]
+                user_increment_config["binary_config"] = config_bundle["binary_config"]
+                user_increment_config["verbose_level"] = 0
+                pipeline = cls.make(user_config, user_increment_config)
                 data_folder = os.path.join(export_folder, cls.data_folder)
                 # sample weights
                 tr_weights = cv_weights = sample_weights = None

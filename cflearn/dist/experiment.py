@@ -152,14 +152,20 @@ class Experiment(LoggingMixin):
         workplace = self.workplace(workplace_key, root_workplace)
         copied_config = shallow_copy_dict(config or {})
         copied_config["model"] = model
+        increment_config = {}
         if data_folder is None and x is not None:
             data_folder = self.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
         if data_folder is not None:
-            copied_config["data_folder"] = os.path.abspath(data_folder)
-        copied_config.setdefault("use_tqdm", False)
-        copied_config.setdefault("verbose_level", 0)
-        copied_config.setdefault("trigger_logging", True)
-        new_task = Task(workplace=workplace, config=copied_config, **task_meta_kwargs)
+            increment_config["data_folder"] = os.path.abspath(data_folder)
+        increment_config["use_tqdm"] = copied_config.get("use_tqdm", False)
+        increment_config["verbose_level"] = copied_config.get("verbose_level", 0)
+        increment_config["trigger_logging"] = copied_config.get("trigger_logging", True)
+        new_task = Task(
+            workplace=workplace,
+            config=copied_config,
+            increment_config=increment_config,
+            **shallow_copy_dict(task_meta_kwargs),
+        )
         self.tasks[workplace_key] = new_task
         self.executes[workplace_key] = execute
         self.workplaces[workplace_key] = workplace

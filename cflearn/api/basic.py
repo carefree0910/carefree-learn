@@ -42,7 +42,8 @@ def make(
 ) -> Pipeline:
     kwargs["model"] = model
     config, increment_config = map(_parse_config, [config, increment_config])
-    return Pipeline.make(update_dict(increment_config, update_dict(config, kwargs)))
+    config = update_dict(config, kwargs)
+    return Pipeline.make(config, increment_config)
 
 
 def make_from(
@@ -51,6 +52,7 @@ def make_from(
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     cuda: Optional[Union[int, str]] = None,
     *,
+    load_increment: bool = True,
     model_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, List[Pipeline]]:
     saving_folder = os.path.abspath(saving_folder or "./")
@@ -59,7 +61,13 @@ def make_from(
         compress = os.path.isfile(f"{path}.zip")
         with lock_manager(saving_folder, [path]):
             with Saving.compress_loader(path, compress):
-                kwargs = Saving.load_dict("config", path)
+                config_bundle = Saving.load_dict(Pipeline.config_bundle_name, path)
+        kwargs = config_bundle["config"]
+        if not load_increment:
+            increment_kwargs = {}
+        else:
+            increment_kwargs = config_bundle["increment_config"]
+        increment_kwargs["binary_config"] = config_bundle["binary_config"]
         if model_mapping is not None:
             kwargs["model"] = model_mapping[model]
         if cuda is not None:
@@ -69,7 +77,7 @@ def make_from(
             kwargs["mlflow_config"] = {}
         if kwargs_callback is not None:
             kwargs_callback(kwargs)
-        return make(**kwargs)
+        return make(config=kwargs, increment_config=increment_kwargs)
 
     ms: Dict[str, List[Pipeline]] = {}
     paths_dict = _fetch_saving_paths(identifier, saving_folder)
@@ -87,6 +95,7 @@ def finetune(
     *,
     model: Optional[str] = None,
     strict: bool = True,
+    load_increment: bool = True,
     identifier: str = "cflearn",
     pretrain_folder: Optional[str] = None,
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
@@ -108,6 +117,7 @@ def finetune(
         pretrain_folder,
         kwargs_callback,
         cuda,
+        load_increment=load_increment,
         model_mapping=model_mapping,
     )
     m = list(ms.values())[0][0]

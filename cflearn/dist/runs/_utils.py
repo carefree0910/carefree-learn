@@ -20,6 +20,7 @@ class Info(NamedTuple):
     workplace: str
     meta: Dict[str, Any]
     kwargs: Dict[str, Any]
+    increment_kwargs: Dict[str, Any]
     data_list: Optional[List[data_type]]
 
 
@@ -32,14 +33,16 @@ def get_info(*, requires_data: bool = True) -> Info:
     cuda = meta_config["cuda"]
     kwargs = meta_config["config"]
     workplace = meta_config["workplace"]
-    kwargs["cuda"] = cuda
-    kwargs["logging_folder"] = os.path.join(workplace, "_logs")
-    kwargs.setdefault("log_pipeline_to_artifacts", True)
+    increment_kwargs = meta_config["increment_config"]
+    increment_kwargs["cuda"] = cuda
+    increment_kwargs["logging_folder"] = os.path.join(workplace, "_logs")
+    log_artifacts_key = "log_pipeline_to_artifacts"
+    increment_kwargs[log_artifacts_key] = kwargs.get(log_artifacts_key, True)
     # data
     if not requires_data:
         data_list = None
     else:
-        data_folder = kwargs.get("data_folder")
+        data_folder = increment_kwargs.get("data_folder")
         if data_folder is None:
             raise ValueError("`data_folder` should be provided")
         data_config_path = os.path.join(data_folder, data_config_file)
@@ -56,7 +59,7 @@ def get_info(*, requires_data: bool = True) -> Info:
                     data_list.append(None)
                 else:
                     data_list.append(np.load(data_file))
-    return Info(workplace, meta_config, kwargs, data_list)
+    return Info(workplace, meta_config, kwargs, increment_kwargs, data_list)
 
 
 __all__ = [
