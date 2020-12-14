@@ -41,9 +41,9 @@ def make(
     **kwargs: Any,
 ) -> Pipeline:
     kwargs["model"] = model
-    config, increment_config = map(_parse_config, [config, increment_config])
-    config = update_dict(config, kwargs)
-    return Pipeline.make(config, increment_config)
+    parsed_config = update_dict(_parse_config(config), kwargs)
+    parsed_increment_config = _parse_config(increment_config)
+    return Pipeline.make(parsed_config, parsed_increment_config)
 
 
 def make_from(
