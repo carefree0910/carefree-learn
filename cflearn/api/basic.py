@@ -85,7 +85,7 @@ def make_from(
         if model_mapping is not None:
             kwargs["model"] = model_mapping[model]
         if cuda is not None:
-            kwargs["cuda"] = cuda
+            increment_kwargs["cuda"] = cuda
         kwargs.pop("logging_folder", None)
         if kwargs.get("mlflow_config") is not None:
             kwargs["mlflow_config"] = {}
