@@ -52,10 +52,20 @@ def make_from(
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     cuda: Optional[Union[int, str]] = None,
     *,
+    new_model: Optional[str] = None,
     load_increment: bool = True,
     model_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, List[Pipeline]]:
     saving_folder = os.path.abspath(saving_folder or "./")
+    if new_model is None:
+        model_mapping = None
+    else:
+        paths_dict = _fetch_saving_paths(identifier, saving_folder)
+        all_paths: List[str] = sum(paths_dict.values(), [])
+        if len(all_paths) > 1:
+            raise ValueError("more than 1 model is detected")
+        pretrain_model = list(paths_dict.keys())[0]
+        model_mapping = {pretrain_model: new_model}
 
     def _core() -> Pipeline:
         compress = os.path.isfile(f"{path}.zip")
@@ -93,7 +103,7 @@ def finetune(
     x_cv: data_type = None,
     y_cv: data_type = None,
     *,
-    model: Optional[str] = None,
+    new_model: Optional[str] = None,
     strict: bool = True,
     load_increment: bool = True,
     identifier: str = "cflearn",
@@ -103,22 +113,13 @@ def finetune(
     sample_weights: Optional[np.ndarray] = None,
     cuda: Optional[Union[int, str]] = None,
 ) -> Pipeline:
-    paths_dict = _fetch_saving_paths(identifier, pretrain_folder)
-    all_paths: List[str] = sum(paths_dict.values(), [])
-    if len(all_paths) > 1:
-        raise ValueError("more than 1 model is detected")
-    if model is None:
-        model_mapping = None
-    else:
-        pretrain_model = list(paths_dict.keys())[0]
-        model_mapping = {pretrain_model: model}
     ms = make_from(
         identifier,
         pretrain_folder,
         kwargs_callback,
         cuda,
+        new_model=new_model,
         load_increment=load_increment,
-        model_mapping=model_mapping,
     )
     m = list(ms.values())[0][0]
     m.fit(
