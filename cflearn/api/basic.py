@@ -54,6 +54,7 @@ def make_from(
     *,
     new_model: Optional[str] = None,
     load_increment: bool = True,
+    increment_config: general_config_type = None,
     model_mapping: Optional[Dict[str, str]] = None,
 ) -> Dict[str, List[Pipeline]]:
     saving_folder = os.path.abspath(saving_folder or "./")
@@ -73,11 +74,14 @@ def make_from(
             with Saving.compress_loader(path, compress):
                 config_bundle = Saving.load_dict(Pipeline.config_bundle_name, path)
         kwargs = config_bundle["config"]
-        if not load_increment:
+        if increment_config is None:
             increment_kwargs = {}
         else:
-            increment_kwargs = config_bundle["increment_config"]
-        increment_kwargs["binary_config"] = config_bundle["binary_config"]
+            increment_kwargs = _parse_config(increment_config)
+        if load_increment:
+            loaded_inc_config = config_bundle["increment_config"]
+            increment_kwargs = update_dict(increment_kwargs, loaded_inc_config)
+        increment_kwargs.setdefault("binary_config", config_bundle["binary_config"])
         if model_mapping is not None:
             kwargs["model"] = model_mapping[model]
         if cuda is not None:
@@ -108,6 +112,7 @@ def finetune(
     load_increment: bool = True,
     identifier: str = "cflearn",
     pretrain_folder: Optional[str] = None,
+    increment_config: general_config_type = None,
     kwargs_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     sample_weights: Optional[np.ndarray] = None,
@@ -120,6 +125,7 @@ def finetune(
         cuda,
         new_model=new_model,
         load_increment=load_increment,
+        increment_config=increment_config,
     )
     m = list(ms.values())[0][0]
     m.fit(
