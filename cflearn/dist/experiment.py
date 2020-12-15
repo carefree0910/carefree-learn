@@ -227,7 +227,16 @@ class Experiment(LoggingMixin):
         return self
 
     @classmethod
-    def load(cls, saving_folder: str, *, compress: bool = True) -> "Experiment":
+    def load(
+        cls,
+        saving_folder: str,
+        *,
+        compress: bool = True,
+        task_loader: Optional[Callable[[str], Pipeline]] = None,
+    ) -> "Experiment":
+        workplace: str
+        workplace_key: Tuple[str, str]
+
         abs_folder = os.path.abspath(saving_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [saving_folder]):
@@ -239,13 +248,18 @@ class Experiment(LoggingMixin):
                     available_cuda_list=meta_config["cuda_list"],
                 )
                 experiment.executes = meta_config["executes"]
-                experiment.results = ExperimentResults(*meta_config["results"])
+                results = list(meta_config["results"])
                 # tasks
+                pipelines = []
                 experiment.tasks = {}
                 tasks_folder = os.path.join(abs_folder, cls.tasks_folder)
-                for workplace_key in experiment.workplaces:
+                for workplace, workplace_key in zip(*results[:2]):
                     task_folder = os.path.join(tasks_folder, *workplace_key)
                     experiment.tasks[workplace_key] = Task.load(task_folder)
+                    if task_loader is not None:
+                        pipelines.append(task_loader(workplace))
+                results[-1] = pipelines or None
+                experiment.results = ExperimentResults(*results)
         return experiment
 
 
