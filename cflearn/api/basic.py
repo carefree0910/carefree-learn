@@ -32,6 +32,7 @@ from ..misc._api import _to_saving_path
 from ..misc._api import _make_saving_path
 from ..misc._api import _fetch_saving_paths
 from ..misc.toolkit import to_2d
+from ..misc.toolkit import inject_mlflow_params
 
 
 def make(
@@ -364,11 +365,13 @@ def repeat_with(
     if model_configs is None:
         model_configs = {}
 
-    def fetch_config(model_key: str) -> Dict[str, Any]:
+    def fetch_config(model_: str) -> Dict[str, Any]:
         local_kwargs = shallow_copy_dict(kwargs)
         assert model_configs is not None
-        local_model_config = model_configs.setdefault(model_key, {})
-        return update_dict(shallow_copy_dict(local_model_config), local_kwargs)
+        local_model_config = model_configs.setdefault(model_, {})
+        fetched = update_dict(shallow_copy_dict(local_model_config), local_kwargs)
+        inject_mlflow_params(model_, fetched)
+        return shallow_copy_dict(fetched)
 
     pipelines_dict: Optional[Dict[str, List[Pipeline]]] = None
     if sequential:
@@ -426,7 +429,7 @@ def repeat_with(
                     model=model,
                     compress=compress,
                     root_workplace=temp_folder,
-                    config=shallow_copy_dict(local_config),
+                    config=local_config,
                     data_folder=data_folder,
                 )
         # finalize
