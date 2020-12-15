@@ -156,10 +156,26 @@ def inject_mlflow_params(model: str, config: Dict[str, Any]) -> None:
     ]
     mlflow_config = config.get("mlflow_config")
     if mlflow_config is not None and "mlflow_params" not in mlflow_config:
-        mlflow_params = shallow_copy_dict(config)
-        mlflow_params["model"] = model
+        mlflow_params = {}
+
+        def flatten(d: Dict[str, Any], previous_keys: Tuple[str, ...]) -> None:
+            for k, v in d.items():
+                if isinstance(v, dict):
+                    flatten(v, previous_keys + (k,))
+                    continue
+                cursor = -1
+                while k in mlflow_params:
+                    if cursor < -len(previous_keys):
+                        raise ValueError("internal error occurred")
+                    k = f"{previous_keys[cursor]}_{k}"
+                    cursor -= 1
+                mlflow_params[k] = v
+
+        for_flatten = shallow_copy_dict(config)
         for key in unwanted_keys:
-            mlflow_params.pop(key, None)
+            for_flatten.pop(key, None)
+        flatten(for_flatten, ())
+        mlflow_params["model"] = model
         mlflow_config["mlflow_params"] = mlflow_params
 
 
