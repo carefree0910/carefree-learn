@@ -13,6 +13,7 @@ from abc import abstractmethod
 from abc import ABCMeta
 from argparse import Namespace
 from functools import partial
+from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
@@ -143,6 +144,23 @@ def parse_path(path: Optional[str], root_dir: str) -> Optional[str]:
     if path is None:
         return None
     return os.path.abspath(os.path.join(root_dir, path))
+
+
+def inject_mlflow_params(model: str, config: Dict[str, Any]) -> None:
+    unwanted_keys = [
+        "cuda",
+        "use_tqdm",
+        "mlflow_config",
+        "verbose_level",
+        "trigger_logging",
+    ]
+    mlflow_config = config.get("mlflow_config")
+    if mlflow_config is not None and "mlflow_params" not in mlflow_config:
+        mlflow_params = shallow_copy_dict(config)
+        mlflow_params["model"] = model
+        for key in unwanted_keys:
+            mlflow_params.pop(key, None)
+        mlflow_config["mlflow_params"] = mlflow_params
 
 
 class LoggingMixinWithRank(LoggingMixin):
