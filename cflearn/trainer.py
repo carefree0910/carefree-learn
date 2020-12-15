@@ -21,6 +21,7 @@ from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
+from cftool.misc import lock_manager
 from cftool.misc import timing_context
 from cftool.misc import Incrementer
 from mlflow.exceptions import MlflowException
@@ -400,15 +401,17 @@ class Trainer(MonitoredMixin):
         task_type = self.model.data.task_type.value
         task_name = mlflow_config.setdefault("task_name", f"{model}({task_type})")
         tracking_folder = mlflow_config.setdefault("tracking_folder", os.getcwd())
-        tracking_dir = os.path.abspath(os.path.join(tracking_folder, "mlruns"))
-        os.makedirs(tracking_dir, exist_ok=True)
-        tracking_uri = parse_uri(tracking_dir)
-        self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
-        experiment = self.mlflow_client.get_experiment_by_name(task_name)
-        if experiment is not None:
-            experiment_id = experiment.experiment_id
-        else:
-            experiment_id = self.mlflow_client.create_experiment(task_name)
+        tracking_folder = os.path.abspath(tracking_folder)
+        tracking_dir = os.path.join(tracking_folder, "mlruns")
+        with lock_manager(tracking_folder, ["mlruns"]):
+            os.makedirs(tracking_dir, exist_ok=True)
+            tracking_uri = parse_uri(tracking_dir)
+            self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
+            experiment = self.mlflow_client.get_experiment_by_name(task_name)
+            if experiment is not None:
+                experiment_id = experiment.experiment_id
+            else:
+                experiment_id = self.mlflow_client.create_experiment(task_name)
 
         run = None
         self.from_external = False
