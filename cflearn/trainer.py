@@ -397,6 +397,7 @@ class Trainer(MonitoredMixin):
         mlflow_config = environment.mlflow_config
         if mlflow_config is None or self.is_loading or not self.is_rank_0:
             return None
+
         model = self.model.__identifier__
         task_type = self.model.data.task_type.value
         task_name = mlflow_config.setdefault("task_name", f"{model}({task_type})")
@@ -434,8 +435,9 @@ class Trainer(MonitoredMixin):
             if run_name is not None:
                 run_tags.setdefault(MLFLOW_RUN_NAME, run_name)
             run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
-
         self.run_id = run.info.run_id
+
+        self.mlflow_params = mlflow_config.get("mlflow_params")
 
     def _prepare_log(self) -> None:
         tuple(
@@ -450,8 +452,9 @@ class Trainer(MonitoredMixin):
             pass
         if self.mlflow_client is None:
             return None
+        mlflow_params = self.mlflow_params or self.environment.user_defined_config
         if not self.from_external:
-            for key, value in self.environment.user_defined_config.items():
+            for key, value in mlflow_params.items():
                 self.mlflow_client.log_param(self.run_id, key, value)
 
     def _log_scalars(self, metrics: Dict[str, float]) -> None:
