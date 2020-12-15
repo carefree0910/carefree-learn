@@ -1,5 +1,4 @@
 import os
-import sys
 import torch
 import optuna
 import shutil
@@ -8,7 +7,6 @@ import numpy as np
 import cftool.ml.param_utils as pu
 
 from typing import *
-from cftool.dist import Parallel
 from cftool.misc import hash_code
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
