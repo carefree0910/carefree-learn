@@ -146,7 +146,13 @@ def parse_path(path: Optional[str], root_dir: str) -> Optional[str]:
     return os.path.abspath(os.path.join(root_dir, path))
 
 
-def inject_mlflow_params(model: str, config: Dict[str, Any]) -> None:
+def inject_mlflow_stuffs(
+    model: str,
+    *,
+    config: Dict[str, Any],
+    run_name: Optional[str] = None,
+    run_name_prefix: Optional[str] = None,
+) -> None:
     unwanted_keys = [
         "cuda",
         "use_tqdm",
@@ -155,28 +161,35 @@ def inject_mlflow_params(model: str, config: Dict[str, Any]) -> None:
         "trigger_logging",
     ]
     mlflow_config = config.get("mlflow_config")
-    if mlflow_config is not None and "mlflow_params" not in mlflow_config:
-        mlflow_params = {}
+    if mlflow_config is not None:
+        # run name
+        if run_name is not None:
+            mlflow_config["run_name"] = run_name
+        if run_name_prefix is not None:
+            mlflow_config["run_name_prefix"] = run_name_prefix
+        # mlflow params
+        if "mlflow_params" not in mlflow_config:
+            mlflow_params = {}
 
-        def flatten(d: Dict[str, Any], previous_keys: Tuple[str, ...]) -> None:
-            for k, v in d.items():
-                if isinstance(v, dict):
-                    flatten(v, previous_keys + (k,))
-                    continue
-                cursor = -1
-                while k in mlflow_params:
-                    if cursor < -len(previous_keys):
-                        raise ValueError("internal error occurred")
-                    k = f"{previous_keys[cursor]}_{k}"
-                    cursor -= 1
-                mlflow_params[k] = v
+            def flatten(d: Dict[str, Any], previous_keys: Tuple[str, ...]) -> None:
+                for k, v in d.items():
+                    if isinstance(v, dict):
+                        flatten(v, previous_keys + (k,))
+                        continue
+                    cursor = -1
+                    while k in mlflow_params:
+                        if cursor < -len(previous_keys):
+                            raise ValueError("internal error occurred")
+                        k = f"{previous_keys[cursor]}_{k}"
+                        cursor -= 1
+                    mlflow_params[k] = v
 
-        for_flatten = shallow_copy_dict(config)
-        for key in unwanted_keys:
-            for_flatten.pop(key, None)
-        flatten(for_flatten, ())
-        mlflow_params["model"] = model
-        mlflow_config["mlflow_params"] = mlflow_params
+            for_flatten = shallow_copy_dict(config)
+            for key in unwanted_keys:
+                for_flatten.pop(key, None)
+            flatten(for_flatten, ())
+            mlflow_params["model"] = model
+            mlflow_config["mlflow_params"] = mlflow_params
 
 
 class LoggingMixinWithRank(LoggingMixin):

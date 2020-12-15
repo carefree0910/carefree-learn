@@ -32,7 +32,7 @@ from ..misc._api import _to_saving_path
 from ..misc._api import _make_saving_path
 from ..misc._api import _fetch_saving_paths
 from ..misc.toolkit import to_2d
-from ..misc.toolkit import inject_mlflow_params
+from ..misc.toolkit import inject_mlflow_stuffs
 
 
 def make(
@@ -365,12 +365,12 @@ def repeat_with(
     if model_configs is None:
         model_configs = {}
 
-    def fetch_config(model_: str) -> Dict[str, Any]:
+    def fetch_config(i_: int, model_: str) -> Dict[str, Any]:
         local_kwargs = shallow_copy_dict(kwargs)
         assert model_configs is not None
         local_model_config = model_configs.setdefault(model_, {})
         fetched = update_dict(shallow_copy_dict(local_model_config), local_kwargs)
-        inject_mlflow_params(model_, fetched)
+        inject_mlflow_stuffs(model_, config=fetched, run_name=f"run_{i_}")
         return shallow_copy_dict(fetched)
 
     pipelines_dict: Optional[Dict[str, List[Pipeline]]] = None
@@ -400,7 +400,7 @@ def repeat_with(
                     leave=False,
                 )
             for i in sub_iterator:
-                local_config = fetch_config(model)
+                local_config = fetch_config(i, model)
                 logging_folder = os.path.join(temp_folder, model, str(i))
                 local_config.setdefault("logging_folder", logging_folder)
                 m = make(model, **shallow_copy_dict(local_config))
@@ -423,8 +423,8 @@ def repeat_with(
         # experiment
         experiment = Experiment(num_jobs=num_jobs)
         for model in models:
-            for _ in range(num_repeat):
-                local_config = fetch_config(model)
+            for i in range(num_repeat):
+                local_config = fetch_config(i, model)
                 experiment.add_task(
                     model=model,
                     compress=compress,

@@ -30,7 +30,7 @@ from ..types import data_type
 from ..pipeline import Pipeline
 from ..protocol import DataProtocol
 from ..misc._api import SAVING_DELIM
-from ..misc.toolkit import inject_mlflow_params
+from ..misc.toolkit import inject_mlflow_stuffs
 
 
 class _TunerResult(NamedTuple):
@@ -954,7 +954,11 @@ def optuna_core(args: OptunaArgs) -> optuna.study.Study:
         current_params = key_mapping.pop(trial)
         if metrics is not None:
             current_params["metrics"] = metrics
-        inject_mlflow_params(model, current_params)
+        inject_mlflow_stuffs(
+            model,
+            config=current_params,
+            run_name_prefix=f"trial_{trial.number}",
+        )
         args_ = model, current_params, num_repeat, num_parallel, temp_folder_
         sequential = None if num_jobs <= 1 else True
         result = tuner.train(

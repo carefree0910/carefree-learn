@@ -432,7 +432,10 @@ class Trainer(MonitoredMixin):
             run_tags: Dict[str, Any] = mlflow_config.setdefault("run_tags", {})
             run_tags.setdefault(MLFLOW_USER, getpass.getuser())
             run_name = mlflow_config.setdefault("run_name", None)
+            run_name_prefix = mlflow_config.setdefault("run_name_prefix", None)
             if run_name is not None:
+                if run_name_prefix is not None:
+                    run_name = f"{run_name_prefix}_{run_name}"
                 run_tags.setdefault(MLFLOW_RUN_NAME, run_name)
             run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
         self.run_id = run.info.run_id
