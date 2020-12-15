@@ -79,7 +79,7 @@ def test() -> None:
             local_export_folder = info["export_folder"]
             assert callable(f)
             assert isinstance(local_export_folder, str)
-            x_cv, y_cv = cflearn.Experiment.fetch_data(workplace, "_cv")
+            x_cv, y_cv = cflearn.Experiment.fetch_data("_cv", workplace=workplace)
             assert isinstance(x_cv, np.ndarray)
             x_min, x_max = x_cv.min(), x_cv.max()
             x_diff = x_max - x_min

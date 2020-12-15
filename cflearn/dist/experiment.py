@@ -67,13 +67,12 @@ class Experiment(LoggingMixin):
         return os.path.join(workplace, "__data__")
 
     @staticmethod
-    def _dump_data(
+    def dump_data(
+        data_folder: str,
         x: data_type,
         y: data_type = None,
-        workplace: Optional[str] = None,
         postfix: str = "",
     ) -> None:
-        data_folder = Experiment.data_folder(workplace)
         for key, value in zip([f"x{postfix}", f"y{postfix}"], [x, y]):
             if value is None:
                 continue
@@ -87,8 +86,10 @@ class Experiment(LoggingMixin):
         y_cv: data_type = None,
         *,
         workplace: Optional[str] = None,
+        data_folder: Optional[str] = None,
     ) -> str:
-        data_folder = Experiment.data_folder(workplace)
+        if data_folder is None:
+            data_folder = Experiment.data_folder(workplace)
         os.makedirs(data_folder, exist_ok=True)
         if not isinstance(x, np.ndarray):
             data_config = {"x": x, "y": y, "x_cv": x_cv, "y_cv": y_cv}
@@ -99,17 +100,20 @@ class Experiment(LoggingMixin):
             with open(os.path.join(data_folder, data_config_file), "w") as f:
                 json.dump(data_config, f)
         else:
-            Experiment._dump_data(x, y, workplace)
-            Experiment._dump_data(x_cv, y_cv, workplace, "_cv")
+            Experiment.dump_data(data_folder, x, y)
+            Experiment.dump_data(data_folder, x_cv, y_cv, "_cv")
         return data_folder
 
     @staticmethod
     def fetch_data(
-        workplace: Optional[str] = None,
         postfix: str = "",
+        *,
+        workplace: Optional[str] = None,
+        data_folder: Optional[str] = None,
     ) -> Tuple[data_type, data_type]:
+        if data_folder is None:
+            data_folder = Experiment.data_folder(workplace)
         data = []
-        data_folder = Experiment.data_folder(workplace)
         for key in [f"x{postfix}", f"y{postfix}"]:
             file = os.path.join(data_folder, f"{key}.npy")
             data.append(None if not os.path.isfile(file) else np.load(file))
