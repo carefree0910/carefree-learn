@@ -496,6 +496,10 @@ class TrainerState:
         return self.step % denominator == 0
 
     @property
+    def should_log_artifacts(self) -> bool:
+        return self.should_log_metrics_msg
+
+    @property
     def should_log_metrics_msg(self) -> bool:
         if self.log_disabled:
             return False

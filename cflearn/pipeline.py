@@ -563,7 +563,7 @@ class Pipeline(LoggingMixinWithRank):
             if self.environment.log_pipeline_to_artifacts:
                 if self.production != "pipeline":
                     self.save(os.path.join(self.logging_folder, "pipeline"))
-            mlflow_client.log_artifacts(run_id, self.logging_folder)
+            self.trainer._log_artifacts()
             # terminate
             mlflow_client.set_terminated(run_id)
         return self

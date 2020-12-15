@@ -463,6 +463,11 @@ class Trainer(MonitoredMixin):
         for key, value in metrics.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=self.state.step)
 
+    def _log_artifacts(self) -> None:
+        if self.mlflow_client is None:
+            return None
+        self.mlflow_client.log_artifacts(self.run_id, self.logging_folder)
+
     # deep speed
 
     @property
@@ -856,6 +861,8 @@ class Trainer(MonitoredMixin):
                     self._monitor.plateau_flag = True
 
             with timing_context(self, "monitor.logging", enable=self.timing):
+                if self.state.should_log_artifacts:
+                    self._log_artifacts()
                 if self.state.should_log_metrics_msg:
                     self._log_metrics_msg(self.intermediate)
 
