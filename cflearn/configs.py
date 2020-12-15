@@ -88,7 +88,7 @@ class Elements(NamedTuple):
     ds_args: Optional[Namespace] = None
     aggregator: str = "sum"
     aggregator_config: Optional[Dict[str, Any]] = None
-    production: str = "pack"
+    production: Optional[str] = None
     data_protocol: str = "tabular"
     loader_protocol: str = "tabular"
     sampler_protocol: str = "tabular"

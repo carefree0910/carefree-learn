@@ -529,36 +529,37 @@ class Pipeline(LoggingMixinWithRank):
         mlflow_client = self.trainer.mlflow_client
         if mlflow_client is not None:
             # log model
-            import mlflow
-            import cflearn
+            if self.production is not None:
+                import mlflow
+                import cflearn
 
-            cwd = os.getcwd()
-            root_folder = os.path.join(os.path.dirname(__file__), os.pardir)
-            conda_env = os.path.join(os.path.abspath(root_folder), "conda.yml")
-            if self.production == "pack":
-                pack_folder = os.path.join(self.logging_folder, "__packed__")
-                pack_folder = to_relative(os.path.abspath(pack_folder), cwd)
-                cflearn.Pack.pack(self, pack_folder, compress=False, verbose=False)
-                mlflow.pyfunc.save_model(
-                    os.path.join(self.logging_folder, "__pyfunc__"),
-                    python_model=cflearn.PackModel(),
-                    artifacts={"pack_folder": pack_folder},
-                    conda_env=conda_env,
-                )
-                cflearn._rmtree(pack_folder)
-            elif self.production == "pipeline":
-                export_folder = os.path.join(self.logging_folder, "pipeline")
-                export_folder = to_relative(os.path.abspath(export_folder), cwd)
-                self.save(export_folder, compress=False)
-                mlflow.pyfunc.save_model(
-                    os.path.join(self.logging_folder, "__pyfunc__"),
-                    python_model=cflearn.PipelineModel(),
-                    artifacts={"export_folder": export_folder},
-                    conda_env=conda_env,
-                )
-            else:
-                msg = f"unrecognized production type '{self.production}' found"
-                raise NotImplementedError(msg)
+                cwd = os.getcwd()
+                root_folder = os.path.join(os.path.dirname(__file__), os.pardir)
+                conda_env = os.path.join(os.path.abspath(root_folder), "conda.yml")
+                if self.production == "pack":
+                    pack_folder = os.path.join(self.logging_folder, "__packed__")
+                    pack_folder = to_relative(os.path.abspath(pack_folder), cwd)
+                    cflearn.Pack.pack(self, pack_folder, compress=False, verbose=False)
+                    mlflow.pyfunc.save_model(
+                        os.path.join(self.logging_folder, "__pyfunc__"),
+                        python_model=cflearn.PackModel(),
+                        artifacts={"pack_folder": pack_folder},
+                        conda_env=conda_env,
+                    )
+                    cflearn._rmtree(pack_folder)
+                elif self.production == "pipeline":
+                    export_folder = os.path.join(self.logging_folder, "pipeline")
+                    export_folder = to_relative(os.path.abspath(export_folder), cwd)
+                    self.save(export_folder, compress=False)
+                    mlflow.pyfunc.save_model(
+                        os.path.join(self.logging_folder, "__pyfunc__"),
+                        python_model=cflearn.PipelineModel(),
+                        artifacts={"export_folder": export_folder},
+                        conda_env=conda_env,
+                    )
+                else:
+                    msg = f"unrecognized production type '{self.production}' found"
+                    raise NotImplementedError(msg)
             # log artifacts
             if self.environment.log_pipeline_to_artifacts:
                 if self.production != "pipeline":
