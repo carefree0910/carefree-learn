@@ -54,7 +54,7 @@ class _PipeConfigManager:
         self.pipe_config = pipes[pipe]
         self.pipes, self.pipe = pipes, pipe
 
-    def replace(self, **kwargs) -> None:
+    def replace(self, **kwargs: Any) -> None:
         pipe_config_dict = self.pipe_config._asdict()
         pipe_config_dict.update(kwargs)
         self.pipe_config = PipeConfig(**pipe_config_dict)
@@ -63,9 +63,12 @@ class _PipeConfigManager:
 
 class ModelConfig:
     def __init__(self, name: str):
+        self.name = name
         self.registered_pipes = model_dict[name].registered_pipes
 
     def switch(self, pipe: Optional[str] = None) -> _PipeConfigManager:
+        if self.registered_pipes is None:
+            raise ValueError(f"no pipes are registered for {self.name}")
         if pipe is None:
             if len(self.registered_pipes) > 1:
                 pipe_str = ", ".join(sorted(self.registered_pipes))
