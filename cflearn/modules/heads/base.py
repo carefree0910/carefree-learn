@@ -24,7 +24,7 @@ from ...misc.toolkit import LoggingMixinWithRank
 head_dict: Dict[str, Type["HeadBase"]] = {}
 
 
-class HeadConfigs(Configs):
+class HeadConfigs(Configs, metaclass=ABCMeta):
     def __init__(
         self,
         in_dim: int,
