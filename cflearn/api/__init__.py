@@ -22,6 +22,7 @@ __all__ = [
     "Auto",
     # basic
     "make",
+    "ModelConfig",
     "make_from",
     "finetune",
     "save",

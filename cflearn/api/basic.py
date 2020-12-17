@@ -33,6 +33,8 @@ from ..misc._api import _make_saving_path
 from ..misc._api import _fetch_saving_paths
 from ..misc.toolkit import to_2d
 from ..misc.toolkit import inject_mlflow_stuffs
+from ..models.base import model_dict
+from ..models.base import PipeConfig
 
 
 def make(
@@ -45,6 +47,34 @@ def make(
     parsed_config = update_dict(_parse_config(config), kwargs)
     parsed_increment_config = _parse_config(increment_config)
     return Pipeline.make(parsed_config, parsed_increment_config)
+
+
+class _PipeConfigManager:
+    def __init__(self, pipes: Dict[str, PipeConfig], pipe: str):
+        self.pipe_config = pipes[pipe]
+        self.pipes, self.pipe = pipes, pipe
+
+    def replace(self, **kwargs) -> None:
+        pipe_config_dict = self.pipe_config._asdict()
+        pipe_config_dict.update(kwargs)
+        self.pipe_config = PipeConfig(**pipe_config_dict)
+        self.pipes[self.pipe] = self.pipe_config
+
+
+class ModelConfig:
+    def __init__(self, name: str):
+        self.registered_pipes = model_dict[name].registered_pipes
+
+    def switch(self, pipe: Optional[str] = None) -> _PipeConfigManager:
+        if pipe is None:
+            if len(self.registered_pipes) > 1:
+                pipe_str = ", ".join(sorted(self.registered_pipes))
+                raise ValueError(
+                    "`pipe` must be specified when more than one pipe is registered "
+                    f"(current registered pipes: {pipe_str})"
+                )
+            pipe = list(self.registered_pipes.keys())[0]
+        return _PipeConfigManager(self.registered_pipes, pipe)
 
 
 def make_from(
@@ -509,6 +539,7 @@ def make_toy_model(
 
 __all__ = [
     "make",
+    "ModelConfig",
     "make_from",
     "finetune",
     "save",
