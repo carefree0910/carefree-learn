@@ -113,11 +113,11 @@ class Pipeline(LoggingMixinWithRank):
         return self.inference.binary_threshold
 
     @property
-    def user_config(self):
+    def user_config(self) -> Dict[str, Any]:
         return shallow_copy_dict(self.environment.user_config)
 
     @property
-    def user_inc_config(self):
+    def user_inc_config(self) -> Dict[str, Any]:
         return shallow_copy_dict(self.environment.user_increment_config)
 
     def _init_data(self) -> None:
@@ -706,6 +706,8 @@ class Pipeline(LoggingMixinWithRank):
                     cv_file = os.path.join(data_folder, self.valid_indices_file)
                     np.save(cv_file, self.cv_split_indices)
             # registered pipes
+            if self.model is None:
+                raise ValueError("`model` is not yet generated")
             pipes = self.model.registered_pipes
             pipes_path = os.path.join(export_folder, self.registered_pipes_file)
             with open(pipes_path, "w") as f:
