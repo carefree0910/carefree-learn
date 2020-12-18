@@ -50,9 +50,27 @@ def make(
 
 
 class _PipeConfigManager:
-    def __init__(self, pipes: Dict[str, PipeConfig], pipe: str):
+    def __init__(
+        self,
+        pipes: Dict[str, PipeConfig],
+        meta_configs: Dict[str, Dict[str, Any]],
+        pipe: str,
+    ):
         self.pipe_config = pipes[pipe]
+        self.meta_config = meta_configs.setdefault(pipe, {})
         self.pipes, self.pipe = pipes, pipe
+
+    @property
+    def transform_config(self) -> Dict[str, Any]:
+        return self.meta_config.setdefault("transform", {})
+
+    @property
+    def extractor_config(self) -> Dict[str, Any]:
+        return self.meta_config.setdefault("extractor", {})
+
+    @property
+    def head_config(self) -> Dict[str, Any]:
+        return self.meta_config.setdefault("head", {})
 
     def replace(self, **kwargs: Any) -> None:
         pipe_config_dict = self.pipe_config._asdict()
@@ -64,7 +82,10 @@ class _PipeConfigManager:
 class ModelConfig:
     def __init__(self, name: str):
         self.name = name
-        self.registered_pipes = model_dict[name].registered_pipes
+        base = model_dict[name]
+        self.registered_pipes = base.registered_pipes
+        self.registered_meta_configs = base.registered_meta_configs or {}
+        base.registered_meta_configs = self.registered_meta_configs
 
     def switch(self, pipe: Optional[str] = None) -> _PipeConfigManager:
         if self.registered_pipes is None:
@@ -77,7 +98,11 @@ class ModelConfig:
                     f"(current registered pipes: {pipe_str})"
                 )
             pipe = list(self.registered_pipes.keys())[0]
-        return _PipeConfigManager(self.registered_pipes, pipe)
+        return _PipeConfigManager(
+            self.registered_pipes,
+            self.registered_meta_configs,
+            pipe,
+        )
 
 
 def make_from(

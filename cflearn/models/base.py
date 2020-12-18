@@ -6,6 +6,8 @@ from typing import *
 from abc import ABCMeta
 from torch import Tensor
 from torch.nn import ModuleDict
+from cftool.misc import update_dict
+from cftool.misc import shallow_copy_dict
 from cftool.misc import register_core
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import ColumnTypes
@@ -90,6 +92,7 @@ class PipeConfig(NamedTuple):
 
 class ModelBase(ModelProtocol, metaclass=ABCMeta):
     registered_pipes: Optional[Dict[str, PipeConfig]] = None
+    registered_meta_configs: Optional[Dict[str, Dict[str, Any]]] = None
 
     def __init__(
         self,
@@ -267,6 +270,9 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         extractor_config: Dict[str, Any],
         head_config: Dict[str, Any],
     ) -> None:
+        # meta config
+        meta_configs = shallow_copy_dict(self.registered_meta_configs or {})
+        meta_config = shallow_copy_dict(meta_configs.get(key, {}))
         # transform
         transform_key = pipe_config.transform
         if transform_key in self.transforms:
@@ -275,7 +281,9 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         else:
             transform_exists = False
             transform_cfg = Configs.get("transform", transform_key, **transform_config)
-            transform = Transform(self.dimensions, **transform_cfg.pop())
+            transform_kwargs = transform_cfg.pop()
+            update_dict(meta_config.get("transform", {}), transform_kwargs)
+            transform = Transform(self.dimensions, **transform_kwargs)
         # extractor
         extractor_cfg_key = pipe_config.extractor_config_key
         extractor_unique_key = pipe_config.extractor_unique_key
@@ -290,27 +298,28 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                     new_extractor_unique_key = f"{extractor_unique_key}_{new_index}"
                 extractor_unique_key = new_extractor_unique_key
             if extractor_cfg_key in self._extractor_configs:
-                extractor_config = self._extractor_configs[extractor_cfg_key]
+                extractor_kwargs = self._extractor_configs[extractor_cfg_key]
             else:
                 extractor_cfg = Configs.get(
                     pipe_config.extractor_scope,
                     pipe_config.extractor_config,
                     **extractor_config,
                 )
-                extractor_config = extractor_cfg.pop()
-                self._extractor_configs[extractor_cfg_key] = extractor_config
+                extractor_kwargs = extractor_cfg.pop()
+                self._extractor_configs[extractor_cfg_key] = extractor_kwargs
             if pipe_config.use_extractor_meta:
-                extractor_config = extractor_config[pipe_config.extractor]
+                extractor_kwargs = extractor_kwargs[pipe_config.extractor]
+            update_dict(meta_config.get("extractor", {}), extractor_kwargs)
             extractor = ExtractorBase.make(
                 pipe_config.extractor,
                 transform.out_dim,
                 transform.dimensions,
-                extractor_config,
+                extractor_kwargs,
             )
         # head
         head_cfg_key = pipe_config.head_config_key
         if head_cfg_key in self._head_configs:
-            head_config = self._head_configs[head_cfg_key]
+            head_kwargs = self._head_configs[head_cfg_key]
             head_cfg = self._head_config_ins_dict[head_cfg_key]
             head_cfg.in_dim = extractor.out_dim
         else:
@@ -323,13 +332,14 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                 dimensions=self.dimensions,
                 **head_config,
             )
-            head_config = head_cfg.pop()
-            self._head_configs[head_cfg_key] = head_config
+            head_kwargs = head_cfg.pop()
+            self._head_configs[head_cfg_key] = head_kwargs
             self._head_config_ins_dict[head_cfg_key] = head_cfg
         if pipe_config.use_head_meta:
-            head_config = head_config[pipe_config.head]
-        head_cfg.inject_dimensions(head_config)
-        head = HeadBase.make(pipe_config.head, head_config)
+            head_kwargs = head_kwargs[pipe_config.head]
+        head_cfg.inject_dimensions(head_kwargs)
+        update_dict(meta_config.get("head", {}), head_kwargs)
+        head = HeadBase.make(pipe_config.head, head_kwargs)
         # gather
         self.pipes[key] = transform_key, extractor_unique_key, head_cfg_key
         if not transform_exists:
