@@ -39,6 +39,7 @@ from .misc.toolkit import LoggingMixinWithRank
 from .misc.time_series import TSLabelCollator
 from .models.base import model_dict
 from .models.base import ModelBase
+from .models.base import PipeConfig
 
 
 key_type = Tuple[Union[str, Optional[str]], ...]
@@ -165,7 +166,12 @@ class Pipeline(LoggingMixinWithRank):
         self.tr_loader_copy.enabled_sampling = False
         self.tr_loader_copy.sampler.shuffle = False
 
-    def _prepare_modules(self, *, is_loading: bool = False) -> None:
+    def _prepare_modules(
+        self,
+        *,
+        is_loading: bool = False,
+        loaded_registered_pipes: Optional[Dict[str, PipeConfig]] = None,
+    ) -> None:
         # logging
         if not is_loading:
             if os.path.isdir(self.logging_folder):
@@ -185,6 +191,7 @@ class Pipeline(LoggingMixinWithRank):
                 self.cv_loader,
                 self.tr_weights,
                 self.cv_weights,
+                loaded_registered_pipes,
             )
             self.model.init_ema()
         # trainer
@@ -655,6 +662,7 @@ class Pipeline(LoggingMixinWithRank):
     valid_indices_file = "valid_indices.npy"
     sample_weights_file = "sample_weights.npy"
     final_results_file = "final_results.json"
+    registered_pipes_file = "registered_pipes.json"
 
     @classmethod
     def make(
@@ -676,6 +684,7 @@ class Pipeline(LoggingMixinWithRank):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
+            # data
             data_folder = os.path.join(export_folder, self.data_folder)
             os.makedirs(data_folder, exist_ok=True)
             if self.sample_weights is not None:
@@ -696,13 +705,21 @@ class Pipeline(LoggingMixinWithRank):
                 if self.cv_split_indices is not None:
                     cv_file = os.path.join(data_folder, self.valid_indices_file)
                     np.save(cv_file, self.cv_split_indices)
+            # registered pipes
+            pipes = self.model.registered_pipes
+            pipes_path = os.path.join(export_folder, self.registered_pipes_file)
+            with open(pipes_path, "w") as f:
+                json.dump(pipes, f)
+            # final results
             final_results = self.trainer.final_results
             if final_results is None:
                 raise ValueError("`final_results` are not generated yet")
             with open(os.path.join(export_folder, self.final_results_file), "w") as f:
                 json.dump(final_results, f)
+            # pytorch checkpoint
             score = final_results.final_score
             self.trainer.save_checkpoint(score, export_folder)
+            # misc config bundle
             if self.inference is None:
                 raise ValueError("`inference` is not yet generated")
             config_bundle = {
@@ -711,6 +728,7 @@ class Pipeline(LoggingMixinWithRank):
                 "binary_config": self.inference.binary_config,
             }
             Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
+            # compress
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
@@ -720,14 +738,15 @@ class Pipeline(LoggingMixinWithRank):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
+                # misc config bundle
                 config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
                 user_config = config_bundle["config"]
                 user_increment_config = config_bundle["increment_config"]
                 user_increment_config["binary_config"] = config_bundle["binary_config"]
                 user_increment_config["verbose_level"] = 0
                 pipeline = cls.make(user_config, user_increment_config)
-                data_folder = os.path.join(export_folder, cls.data_folder)
                 # sample weights
+                data_folder = os.path.join(export_folder, cls.data_folder)
                 tr_weights = cv_weights = sample_weights = None
                 sw_file = os.path.join(data_folder, cls.sample_weights_file)
                 if os.path.isfile(sw_file):
@@ -778,7 +797,18 @@ class Pipeline(LoggingMixinWithRank):
                 pipeline.tr_data = tr_data
                 pipeline.cv_data = cv_data
                 pipeline._init_data()
-                pipeline._prepare_modules(is_loading=True)
+                # registered pipes
+                pipes_path = os.path.join(export_folder, cls.registered_pipes_file)
+                if not os.path.isfile(pipes_path):
+                    pipes = None
+                else:
+                    with open(pipes_path, "r") as f:
+                        pipes = {k: PipeConfig(*v) for k, v in json.load(f).items()}
+                # prepare modules
+                pipeline._prepare_modules(
+                    is_loading=True,
+                    loaded_registered_pipes=pipes,
+                )
                 trainer = pipeline.trainer
                 trainer.state.inject_loader(pipeline.tr_loader)
                 trainer.tr_loader = PrefetchLoader(pipeline.tr_loader, pipeline.device)
@@ -787,7 +817,9 @@ class Pipeline(LoggingMixinWithRank):
                     trainer.cv_loader = None
                 else:
                     trainer.cv_loader = PrefetchLoader(cv_loader, pipeline.device)
+                # pytorch checkpoint
                 trainer.restore_checkpoint(export_folder)
+                # final results
                 trainer._init_metrics()
                 final_results_path = os.path.join(export_folder, cls.final_results_file)
                 with open(final_results_path, "r") as f:

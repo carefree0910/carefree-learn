@@ -101,6 +101,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         cv_loader: Optional[DataLoaderProtocol],
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
+        loaded_registered_pipes: Optional[Dict[str, PipeConfig]] = None,
     ):
         super().__init__()
         # common
@@ -194,6 +195,8 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         self._extractor_configs: Dict[str, Dict[str, Any]] = {}
         self._head_configs: Dict[str, Dict[str, Any]] = {}
         self._head_config_ins_dict: Dict[str, HeadConfigs] = {}
+        if loaded_registered_pipes is not None:
+            self.registered_pipes = loaded_registered_pipes
         if self.registered_pipes is None:
             raise ValueError(f"No `pipe` is registered in {type(self).__name__}")
         with torch.no_grad():
