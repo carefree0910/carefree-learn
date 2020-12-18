@@ -56,8 +56,6 @@ class Pipeline(LoggingMixinWithRank):
         self.cv_loader: Optional[DataLoaderProtocol]
         # common
         self.environment = environment
-        self.user_config = shallow_copy_dict(environment.user_config)
-        self.user_inc_config = shallow_copy_dict(environment.user_increment_config)
         self.device = environment.device
         self.model: Optional[ModelBase] = None
         self.inference: Optional[Inference]
@@ -112,6 +110,14 @@ class Pipeline(LoggingMixinWithRank):
         if self.inference is None:
             raise ValueError("`inference` is not yet generated")
         return self.inference.binary_threshold
+
+    @property
+    def user_config(self):
+        return shallow_copy_dict(self.environment.user_config)
+
+    @property
+    def user_inc_config(self):
+        return shallow_copy_dict(self.environment.user_increment_config)
 
     def _init_data(self) -> None:
         if not self.data.is_ts:

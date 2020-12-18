@@ -273,6 +273,19 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         # meta config
         meta_configs = shallow_copy_dict(self.registered_meta_configs or {})
         meta_config = shallow_copy_dict(meta_configs.get(key, {}))
+        meta_transform_config = shallow_copy_dict(meta_config.get("transform", {}))
+        meta_extractor_config = shallow_copy_dict(meta_config.get("extractor", {}))
+        meta_head_config = shallow_copy_dict(meta_config.get("head", {}))
+        # update user increment config
+        if meta_config:
+            user_increment_config = self.environment.user_increment_config
+            user_model_config = user_increment_config.setdefault("model_config", {})
+            user_pipe_configs = user_model_config.setdefault("pipe_configs", {})
+            user_pipe_config = user_pipe_configs.setdefault(key, {})
+            keys = ["transform", "extractor", "head"]
+            metas = [meta_transform_config, meta_extractor_config, meta_head_config]
+            for k, meta in zip(keys, metas):
+                update_dict(meta, user_pipe_config.setdefault(k, {}))
         # transform
         transform_key = pipe_config.transform
         if transform_key in self.transforms:
@@ -282,7 +295,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             transform_exists = False
             transform_cfg = Configs.get("transform", transform_key, **transform_config)
             transform_kwargs = transform_cfg.pop()
-            update_dict(meta_config.get("transform", {}), transform_kwargs)
+            update_dict(meta_transform_config, transform_kwargs)
             transform = Transform(self.dimensions, **transform_kwargs)
         # extractor
         extractor_cfg_key = pipe_config.extractor_config_key
@@ -309,7 +322,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                 self._extractor_configs[extractor_cfg_key] = extractor_kwargs
             if pipe_config.use_extractor_meta:
                 extractor_kwargs = extractor_kwargs[pipe_config.extractor]
-            update_dict(meta_config.get("extractor", {}), extractor_kwargs)
+            update_dict(meta_extractor_config, extractor_kwargs)
             extractor = ExtractorBase.make(
                 pipe_config.extractor,
                 transform.out_dim,
@@ -338,7 +351,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         if pipe_config.use_head_meta:
             head_kwargs = head_kwargs[pipe_config.head]
         head_cfg.inject_dimensions(head_kwargs)
-        update_dict(meta_config.get("head", {}), head_kwargs)
+        update_dict(meta_head_config, head_kwargs)
         head = HeadBase.make(pipe_config.head, head_kwargs)
         # gather
         self.pipes[key] = transform_key, extractor_unique_key, head_cfg_key
