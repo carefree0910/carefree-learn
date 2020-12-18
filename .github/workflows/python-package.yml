@@ -57,27 +57,3 @@ jobs:
           pip install pytest
           pip install pytest-cov
           pytest -v --cov
-
-  macos:
-
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        python-version: [3.6, 3.7, 3.8]
-        os: [macos-latest]
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: conda-incubator/setup-miniconda@v2
-        with:
-          miniconda-version: "latest"
-          python-version: ${{ matrix.python-version }}
-      - name: Install mlflow
-        shell: bash -l {0}
-        run: |
-          brew install libomp
-          pip install mlflow
-      - name: Test with mlflow
-        shell: bash -l {0}
-        run: |
-          mlflow run https://github.com/carefree0910/carefree-learn -e test -v dev
