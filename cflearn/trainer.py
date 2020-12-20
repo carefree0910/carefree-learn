@@ -143,7 +143,7 @@ class TrainMonitor:
         self._descend_increment = self.num_history * extension / 30.0
         self._incrementer = Incrementer(self.num_history)
 
-        self._over_fit_performance = math.inf
+        self._score_before_overfit = math.inf
         self._best_checkpoint_performance = -math.inf
         self._descend_counter = self._plateau_counter = self.over_fitting_flag = 0.0
         self.info: Dict[str, Any] = {
@@ -161,8 +161,8 @@ class TrainMonitor:
     def log_msg(self) -> Callable:
         return self.monitored.log_msg
 
-    def _update_running_info(self, last_score: float) -> float:
-        self._incrementer.update(last_score)
+    def _update_running_info(self, new_score: float) -> float:
+        self._incrementer.update(new_score)
         if self._running_best is None:
             if self._scores[0] > self._scores[1]:
                 improvement = 0.0
@@ -170,36 +170,36 @@ class TrainMonitor:
             else:
                 improvement = self._scores[1] - self._scores[0]
                 self._running_best, self._is_best = self._scores[1], True
-        elif self._running_best > last_score:
+        elif self._running_best > new_score:
             improvement = 0
             self._is_best = False
         else:
-            improvement = last_score - self._running_best
-            self._running_best = last_score
+            improvement = new_score - self._running_best
+            self._running_best = new_score
             self._is_best = True
         return improvement
 
-    def _log_descend_counter(self, last_score: float, res: float, std: float) -> None:
+    def _log_descend_counter(self, new_score: float, res: float, std: float) -> None:
         self.log_msg(
             f"descend counter updated : {self._descend_counter:6.4f}, "
-            f"last_score: {last_score:8.6f}, res: {res:8.6f}, std: {std:8.6f}",
+            f"last_score: {new_score:8.6f}, res: {res:8.6f}, std: {std:8.6f}",
             prefix=self.monitored.info_prefix,
             verbose_level=6,
             msg_level=logging.DEBUG,
         )
 
-    def _handle_overfitting(self, last_score: float, res: float, std: float) -> None:
+    def _handle_overfitting(self, new_score: float, res: float, std: float) -> None:
         if self._descend_counter == 0.0:
             self.info["save_best"] = True
-            self._over_fit_performance = last_score
+            self._score_before_overfit = new_score
         self._descend_counter += min(self.tolerance_ratio, max(0.0, -res / std - 1.0))
-        self._log_descend_counter(last_score, res, std)
+        self._log_descend_counter(new_score, res, std)
         self.over_fitting_flag = 1
 
     def _handle_recovering(
         self,
         improvement: float,
-        last_score: float,
+        new_score: float,
         res: float,
         std: float,
     ) -> None:
@@ -207,11 +207,11 @@ class TrainMonitor:
             self.info["save_best"] = True
         new_counter = self._descend_counter - res / std
         if self._descend_counter > 0 >= new_counter:
-            self._over_fit_performance = math.inf
-            if last_score > self._best_checkpoint_performance:
-                self._best_checkpoint_performance = last_score
+            self._score_before_overfit = math.inf
+            if new_score > self._best_checkpoint_performance:
+                self._best_checkpoint_performance = new_score
                 assert self._running_best is not None
-                if last_score > self._running_best - std:
+                if new_score > self._running_best - std:
                     self._plateau_counter //= 2
                     self.info["save_checkpoint"] = True
                     self.info["info"] = (
@@ -221,7 +221,7 @@ class TrainMonitor:
             self.over_fitting_flag = 0
         if self._descend_counter > 0:
             self._descend_counter = max(new_counter, 0)
-            self._log_descend_counter(last_score, res, std)
+            self._log_descend_counter(new_score, res, std)
 
     def _handle_is_best(self) -> None:
         if self._is_best:
@@ -239,11 +239,11 @@ class TrainMonitor:
                 else:
                     self.info["info"] += "performance has improved significantly"
 
-    def _handle_period(self, last_score: float) -> None:
+    def _handle_period(self, new_score: float) -> None:
         if self.is_aggressive:
             return
-        if last_score > self._best_checkpoint_performance:
-            self._best_checkpoint_performance = last_score
+        if new_score > self._best_checkpoint_performance:
+            self._best_checkpoint_performance = new_score
             self._plateau_counter //= 2
             self.info["terminate"] = False
             self.info["save_checkpoint"] = True
@@ -256,7 +256,7 @@ class TrainMonitor:
         self.plateau_flag = True
         self._descend_counter += self._descend_increment
 
-    def _handle_trainer_terminate(self, score: float) -> bool:
+    def _handle_trainer_terminate(self, new_score: float) -> bool:
         if self.info["terminate"] and not self.is_lazy:
             self.log_msg(
                 f"early stopped at n_epoch={self.state.epoch} "
@@ -266,7 +266,7 @@ class TrainMonitor:
             return True
         if self.info["save_checkpoint"]:
             self.log_msg(f"{self.info['info']}", self.monitored.info_prefix, 3)
-            self.monitored.on_save_checkpoint(score)
+            self.monitored.on_save_checkpoint(new_score)
         if self.state.should_extend_epoch:
             if self.is_lazy:
                 return True
@@ -312,7 +312,7 @@ class TrainMonitor:
                     self._plateau_counter = max(self._plateau_counter - 1, 0)
                     plateau_updated = True
                 res = new_score - mean
-                if res < -std and new_score < self._over_fit_performance - std:
+                if res < -std and new_score < self._score_before_overfit - std:
                     self._handle_overfitting(new_score, res, std)
                 elif res > std:
                     self._handle_recovering(improvement, new_score, res, std)
