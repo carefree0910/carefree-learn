@@ -188,10 +188,16 @@ class TrainMonitor:
             msg_level=logging.DEBUG,
         )
 
-    def _handle_overfitting(self, new_score: float, res: float, std: float) -> None:
+    def _handle_overfitting(
+        self,
+        new_score: float,
+        res: float,
+        mean: float,
+        std: float,
+    ) -> None:
         if self._descend_counter == 0.0:
             self.info["save_best"] = True
-            self._score_before_overfit = new_score
+            self._score_before_overfit = mean
         self._descend_counter += min(self.tolerance_ratio, max(0.0, -res / std - 1.0))
         self._log_descend_counter(new_score, res, std)
         self.over_fitting_flag = 1
@@ -311,9 +317,12 @@ class TrainMonitor:
                 if self._plateau_counter > 0:
                     self._plateau_counter = max(self._plateau_counter - 1, 0)
                     plateau_updated = True
-                res = new_score - mean
-                if res < -std and new_score < self._score_before_overfit - std:
-                    self._handle_overfitting(new_score, res, std)
+                if math.isinf(self._score_before_overfit):
+                    res = new_score - mean
+                else:
+                    res = new_score - self._score_before_overfit
+                if res < -std:
+                    self._handle_overfitting(new_score, res, mean, std)
                 elif res > std:
                     self._handle_recovering(improvement, new_score, res, std)
             if plateau_updated:
