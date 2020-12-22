@@ -352,8 +352,7 @@ class OptunaParam(NamedTuple):
         if self.dtype == "categorical":
             return method(self.name, self.values)
         low, high = self.values
-        config = {} if self.config is None else self.config
-        return method(self.name, low, high, **config)
+        return method(self.name, low, high, **(self.config or {}))
 
 
 optuna_params_type = Dict[str, Union[OptunaParam, Dict[str, Any], str]]
