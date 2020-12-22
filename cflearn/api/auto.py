@@ -29,6 +29,8 @@ from .hpo import OptunaPresetParams
 from .production import Pack
 from .production import Predictor
 from ..types import data_type
+from ..types import general_config_type
+from ..configs import _parse_config
 from ..protocol import DataProtocol
 
 
@@ -135,11 +137,12 @@ class Auto:
         estimator_scoring_function: Union[str, scoring_fn_type] = default_scoring,
         temp_folder: str = "__tmp__",
         num_final_repeat: int = 20,
-        extra_config: Optional[Dict[str, Any]] = None,
+        extra_config: general_config_type = None,
         cuda: Optional[Union[str, int]] = None,
     ) -> "Auto":
         self.best_params = {}
         self.optuna_results = {}
+        extra_config = _parse_config(extra_config)
 
         tuner = None
         optuna_folder = os.path.join(temp_folder, "__optuna__")
