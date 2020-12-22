@@ -718,7 +718,7 @@ class OptunaKeyMapping(LoggingMixin):
             for k, v in d.items():
                 usage, user_prefix = self.converter.get_usage(k)
                 if usage is not None:
-                    current[k] = self.converter.parse(usage, v)
+                    current[usage] = self.converter.parse(usage, v)
                     continue
                 if isinstance(v, dict):
                     _inject_values(v, current.setdefault(k, {}))
