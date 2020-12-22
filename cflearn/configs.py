@@ -147,8 +147,8 @@ class Elements(NamedTuple):
 
     @property
     def user_defined_config(self) -> Dict[str, Any]:
-        user_config = shallow_copy_dict(self.user_config) or {}
-        user_increment_config = shallow_copy_dict(self.user_increment_config) or {}
+        user_config = shallow_copy_dict(self.user_config or {})
+        user_increment_config = shallow_copy_dict(self.user_increment_config or {})
         return update_dict(user_increment_config, user_config)
 
     def to_config(self) -> Dict[str, Any]:
