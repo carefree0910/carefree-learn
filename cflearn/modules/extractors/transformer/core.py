@@ -93,7 +93,7 @@ class Transformer(ExtractorBase):
 
     @property
     def out_dim(self) -> int:
-        return self.latent_dim * self.dimensions.num_history
+        return self.latent_dim
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         if self.input_linear is not None:
@@ -102,7 +102,7 @@ class Transformer(ExtractorBase):
             net = layer(net, mask=None)
         if self.norm is not None:
             net = self.norm(net)
-        return net.view(net.shape[0], -1)
+        return net[..., -1, :]
 
 
 __all__ = ["Transformer"]
