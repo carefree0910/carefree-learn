@@ -15,13 +15,13 @@ class DNDFHead(HeadBase):
         self,
         in_dim: int,
         out_dim: int,
-        config: Optional[Dict[str, Any]],
+        dndf_config: Optional[Dict[str, Any]],
     ):
         super().__init__(in_dim, out_dim)
         self.dndf: Optional[DNDF]
         self.linear: Optional[torch.nn.Module]
-        if config is not None:
-            self.dndf = DNDF(in_dim, out_dim, **config)
+        if dndf_config is not None:
+            self.dndf = DNDF(in_dim, out_dim, **dndf_config)
             self.linear = None
         else:
             self.dndf = None

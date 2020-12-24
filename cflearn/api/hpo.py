@@ -831,13 +831,18 @@ class OptunaPresetParams:
     def _linear_preset(self) -> optuna_params_type:
         return shallow_copy_dict(self.base_params)
 
+    @staticmethod
+    def _get_head_config(params: Dict[str, Any], pipe: str) -> Dict[str, Any]:
+        model_config = params.setdefault("model_config", {})
+        pipe_configs = model_config.setdefault("pipe_configs", {})
+        return pipe_configs.setdefault(pipe, {}).setdefault("head", {})
+
     def _fcnn_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_hidden_units", True):
             hu_param = OptunaParamConverter.make_hidden_units("", 8, 2048, 3)
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
-            model_config.update(hu_param)
+            head_config = self._get_head_config(params, "fcnn")
+            head_config.update(hu_param)
         mapping_config: optuna_params_type = {}
         if self.kwargs.get("tune_batch_norm", True):
             bn_param = OptunaParam("mlp_batch_norm", [False, True], "categorical")
@@ -847,9 +852,8 @@ class OptunaPresetParams:
         if self.kwargs.get("tune_pruner", True):
             mapping_config.update(OptunaParamConverter.make_pruner_config(""))
         if mapping_config:
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
-            model_config["mapping_configs"] = mapping_config
+            head_config = self._get_head_config(params, "fcnn")
+            head_config["mapping_configs"] = mapping_config
         if self.kwargs.get("tune_embedding_dim", True):
             ed_param = OptunaParam("embedding_dim", [8, "auto"], "categorical")
             model_config = params.setdefault("model_config", {})
@@ -861,36 +865,31 @@ class OptunaPresetParams:
         params = self._fcnn_preset()
         if self.kwargs.get("tune_dndf", True):
             dndf_param = OptunaParamConverter.make_dndf_config("", 64, 6, False)
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
-            model_config.update(dndf_param)
+            head_config = self._get_head_config(params, "dndf")
+            head_config.update(dndf_param)
         return params
 
     def _tree_linear_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_dndf", True):
-            dndf_param = OptunaParamConverter.make_dndf_config("", 64, 6, True)
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
-            model_config.update(dndf_param)
+            dndf_param = OptunaParamConverter.make_dndf_config("out", 64, 6, True)
+            head_config = self._get_head_config(params, "tree_stack")
+            head_config.update(dndf_param)
         return params
 
     def _tree_stack_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_num_blocks", True):
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
-            model_config["num_blocks"] = OptunaParam("num_blocks", [0, 3], "int")
+            head_config = self._get_head_config(params, "tree_stack")
+            head_config["num_blocks"] = OptunaParam("num_blocks", [0, 3], "int")
         if self.kwargs.get("tune_inner_dndf", False):
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
+            head_config = self._get_head_config(params, "tree_stack")
             inner_param = OptunaParamConverter.make_dndf_config("", 64, 6, True)
-            model_config.update(inner_param)
+            head_config.update(inner_param)
         if self.kwargs.get("tune_dndf", False):
-            model_config = params.setdefault("model_config", {})
-            assert isinstance(model_config, dict)
+            head_config = self._get_head_config(params, "tree_stack")
             out_param = OptunaParamConverter.make_dndf_config("out", 64, 6, True)
-            model_config.update(out_param)
+            head_config.update(out_param)
         return params
 
     # TODO : optimize these three preset

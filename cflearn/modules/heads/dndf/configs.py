@@ -8,7 +8,7 @@ from ..base import HeadConfigs
 class DefaultDNDFConfig(HeadConfigs):
     def get_default(self) -> Dict[str, Any]:
         return {
-            "config": {
+            "dndf_config": {
                 "is_regression": self.tr_data.is_reg,
                 "tree_proj_config": None,
             }
