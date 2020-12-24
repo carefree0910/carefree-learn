@@ -134,7 +134,7 @@ Zoo.register(
     "tree_dnn",
     "on_large",
     head_configs={
-        "dndf": {"config": None},
+        "dndf": {"dndf_config": None},
         "fcnn": {"mapping_configs": {"dropout": 0.1}},
     },
 )
@@ -142,7 +142,7 @@ Zoo.register(
     "tree_dnn",
     "light",
     head_configs={
-        "dndf": {"config": None},
+        "dndf": {"dndf_config": None},
         "fcnn": {"mapping_configs": {"batch_norm": False}},
     },
     increment_configs={
@@ -153,7 +153,7 @@ Zoo.register(
     "tree_dnn",
     "on_sparse",
     head_configs={
-        "dndf": {"config": None},
+        "dndf": {"dndf_config": None},
         "fcnn": {
             "mapping_configs": {
                 "dropout": 0.9,
