@@ -864,7 +864,7 @@ class OptunaPresetParams:
     def _tree_dnn_preset(self) -> optuna_params_type:
         params = self._fcnn_preset()
         if self.kwargs.get("tune_dndf", True):
-            dndf_param = OptunaParamConverter.make_dndf_config("", 64, 6, False)
+            dndf_param = OptunaParamConverter.make_dndf_config("", 32, 4, False)
             head_config = self._get_head_config(params, "dndf")
             head_config.update(dndf_param)
         return params
@@ -872,7 +872,7 @@ class OptunaPresetParams:
     def _tree_linear_preset(self) -> optuna_params_type:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_dndf", True):
-            dndf_param = OptunaParamConverter.make_dndf_config("out", 64, 6, True)
+            dndf_param = OptunaParamConverter.make_dndf_config("out", 64, 4, True)
             head_config = self._get_head_config(params, "tree_stack")
             head_config.update(dndf_param)
         return params
@@ -881,14 +881,14 @@ class OptunaPresetParams:
         params = shallow_copy_dict(self.base_params)
         if self.kwargs.get("tune_num_blocks", True):
             head_config = self._get_head_config(params, "tree_stack")
-            head_config["num_blocks"] = OptunaParam("num_blocks", [0, 3], "int")
-        if self.kwargs.get("tune_inner_dndf", False):
+            head_config["num_blocks"] = OptunaParam("num_blocks", [1, 3], "int")
+        if self.kwargs.get("tune_inner_dndf", True):
             head_config = self._get_head_config(params, "tree_stack")
-            inner_param = OptunaParamConverter.make_dndf_config("", 64, 6, True)
+            inner_param = OptunaParamConverter.make_dndf_config("", 64, 4, True)
             head_config.update(inner_param)
-        if self.kwargs.get("tune_dndf", False):
+        if self.kwargs.get("tune_dndf", True):
             head_config = self._get_head_config(params, "tree_stack")
-            out_param = OptunaParamConverter.make_dndf_config("out", 64, 6, True)
+            out_param = OptunaParamConverter.make_dndf_config("out", 32, 4, True)
             head_config.update(out_param)
         return params
 
