@@ -19,8 +19,6 @@ class FCNN(ModelBase):
 class QuantileFCNN(ModelBase):
     def _init_config(self) -> None:
         super()._init_config()
-        self.fetch_q = True
-        self.fetch_cdf = False
         quantiles = self.config.setdefault("quantiles", [10, 30, 50, 70, 90])
         quantiles = list(map(int, map(round, quantiles)))
         try:
