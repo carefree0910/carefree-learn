@@ -28,8 +28,7 @@ class QuantileFCNN(ModelBase):
         self.quantiles = quantiles
         self.config["loss"] = "quantile"
         self.config["loss_config"] = {"q": [q / 100 for q in quantiles]}
-        fcnn = self.pipe_configs.setdefault("fcnn", {})
-        head_config = fcnn.setdefault("head", {})
+        head_config = self.get_pipe_config("fcnn", "head")
         head_config["out_dim"] = len(quantiles)
 
     def forward(
