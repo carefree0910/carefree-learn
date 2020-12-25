@@ -430,6 +430,8 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         # 1) `self.tr_weights[batch_indices]` (for training)
         # 2) `self.cv_weights[batch_indices]` (for validation)
         losses = self.loss(forward_results, labels)
+        if isinstance(losses, dict):
+            return {k: v.mean() for k, v in losses.items()}
         return {"loss": losses.mean()}
 
     # API

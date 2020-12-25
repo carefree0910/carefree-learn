@@ -349,7 +349,7 @@ class DDR(ModelBase):
         state: Optional[TrainerState],
     ) -> tensor_dict_type:
         labels = batch[self.labels_key]
-        losses, losses_dict = self.loss(forward_results, labels)
+        losses_dict = self.loss(forward_results, labels)
         net = forward_results["net"]
         if (
             self.training
@@ -373,15 +373,13 @@ class DDR(ModelBase):
                     True,
                 )
             with timing_context(self, "synthetic.loss"):
-                syn_losses, syn_losses_dict = self.loss._core(  # type: ignore
+                syn_losses_dict = self.loss(  # type: ignore
                     synthetic_outputs,
                     labels,
                     is_synthetic=True,
                 )
             losses_dict.update(syn_losses_dict)
-            losses = losses + syn_losses
-        losses_dict["loss"] = losses
-        losses_dict = {k: v.mean() for k, v in losses_dict.items()}
+            losses_dict["loss"] = losses_dict["loss"] + syn_losses_dict["loss"]
         if not self.training and self.fetch_q:
             q_losses = []
             labels = to_numpy(labels)

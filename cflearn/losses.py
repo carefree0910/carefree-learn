@@ -13,6 +13,7 @@ from typing import Tuple
 from typing import Callable
 from cftool.misc import register_core
 
+from .types import losses_type
 from .types import tensor_dict_type
 from .misc.toolkit import to_torch
 
@@ -45,7 +46,7 @@ class LossBase(nn.Module, metaclass=ABCMeta):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         # return losses without reduction
         pass
 
@@ -53,9 +54,11 @@ class LossBase(nn.Module, metaclass=ABCMeta):
         self,
         predictions: tensor_dict_type,
         target: torch.Tensor,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         losses = self._core(predictions, target)
-        return self._reduce(losses)
+        if isinstance(losses, torch.Tensor):
+            return self._reduce(losses)
+        return {k: self._reduce(v) for k, v in losses.items()}
 
     @classmethod
     def make(
@@ -79,7 +82,7 @@ class MAELoss(LossBase):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         return F.l1_loss(forward_results["predictions"], target, reduction="none")
 
 
@@ -90,7 +93,7 @@ class MSELoss(LossBase):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         return F.mse_loss(forward_results["predictions"], target, reduction="none")
 
 
@@ -111,7 +114,7 @@ class Quantile(LossBase):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         quantile_error = target - forward_results["quantiles"]
         neg_errors = self.q * quantile_error  # type: ignore
         pos_errors = (self.q - 1) * quantile_error  # type: ignore
@@ -136,7 +139,7 @@ class CrossEntropy(LossBase):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         return self._get_stat(forward_results["predictions"], target)[1]
 
 
@@ -150,7 +153,7 @@ class LabelSmoothCrossEntropy(LossBase):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         predictions = forward_results["predictions"]
         log_prob_mat, nll_losses = CrossEntropy._get_stat(predictions, target)
         smooth_losses = -log_prob_mat.sum(dim=1, keepdim=True)
@@ -179,7 +182,7 @@ class FocalLoss(LossBase):
         forward_results: tensor_dict_type,
         target: torch.Tensor,
         **kwargs: Any,
-    ) -> torch.Tensor:
+    ) -> losses_type:
         predictions = forward_results["predictions"]
         if not self._input_logits:
             prob_mat = predictions.view(-1, predictions.shape[-1]) + self._eps

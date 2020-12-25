@@ -5,6 +5,7 @@ from torch.nn.functional import l1_loss
 from torch.nn.functional import softplus
 
 from ...losses import LossBase
+from ...types import losses_type
 from ...types import tensor_dict_type
 from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.auxiliary import MTL
@@ -112,9 +113,8 @@ class DDRLoss(LossBase, LoggingMixinWithRank):
         self,
         forward_results: tensor_dict_type,
         target: torch.Tensor,
-        *,
         is_synthetic: bool = False,
-    ) -> Tuple[torch.Tensor, tensor_dict_type]:
+    ) -> tensor_dict_type:
         losses: tensor_dict_type
         if is_synthetic:
             tmr, losses = None, {}
@@ -131,17 +131,19 @@ class DDRLoss(LossBase, LoggingMixinWithRank):
         # mtl
         if not self.mtl.registered:
             self.mtl.register(list(losses.keys()))
-        return self.mtl(losses), losses
+        losses["loss"] = self.mtl(losses)
+        return losses
 
     def forward(  # type: ignore
         self,
         predictions: tensor_dict_type,
         target: torch.Tensor,
-    ) -> Tuple[torch.Tensor, tensor_dict_type]:
-        losses, losses_dict = self._core(predictions, target)
-        reduced_losses = self._reduce(losses)
-        reduced_losses_dict = {k: self._reduce(v) for k, v in losses_dict.items()}
-        return reduced_losses, reduced_losses_dict
+        *,
+        is_synthetic: bool = False,
+    ) -> tensor_dict_type:
+        losses_dict = self._core(predictions, target, is_synthetic)
+        reduced_losses_dict = {k: self._reduce(v) for k, v in losses_dict.items()}  # type: ignore
+        return reduced_losses_dict
 
     @staticmethod
     def _quantile_losses(
