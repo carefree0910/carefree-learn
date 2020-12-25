@@ -380,6 +380,7 @@ class DDR(ModelBase):
                 )
             losses_dict.update(syn_losses_dict)
             losses_dict["loss"] = losses_dict["loss"] + syn_losses_dict["loss"]
+        losses_dict = {k: v.mean() for k, v in losses_dict.items()}
         if not self.training and self.fetch_q:
             q_losses = []
             labels = to_numpy(labels)
@@ -390,7 +391,7 @@ class DDR(ModelBase):
                 yq = pack["y_res"] + pack["median"]
                 q_losses.append(self.q_metric.metric(labels, to_numpy(yq)))
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign
-            ddr_loss = torch.tensor([quantile_metric], dtype=torch.float32)
+            ddr_loss = torch.tensor(quantile_metric, dtype=torch.float32)
             losses_dict["ddr"] = ddr_loss
         self.clear_execute_cache()
         return losses_dict
