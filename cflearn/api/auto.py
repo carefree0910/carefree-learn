@@ -72,14 +72,12 @@ class Auto:
             if models != "auto":
                 self.models = [models]
             else:
-                self.models = ["linear", "fcnn", "tree_dnn"]
+                self.models = ["linear", "tree_dnn"]
                 parsed_task_type = parse_task_type(task_type)
                 if parsed_task_type.is_ts:
-                    self.models += ["rnn", "transformer"]
+                    self.models += ["rnn"]
                 elif parsed_task_type.is_clf:
                     self.models += ["nnb", "ndt"]
-                else:
-                    self.models.append("ddr")
         if not self.models:
             raise ValueError("`models` should be provided")
 
