@@ -359,7 +359,20 @@ class MonitorResults(NamedTuple):
     outputs: Optional[InferenceOutputs]
 
 
+class TrainerCallback:
+    def __init__(self, trainer: "Trainer"):
+        self.trainer = trainer
+
+    def after_step(self, step_outputs: StepOutputs) -> None:
+        pass
+
+    def after_monitor(self, monitor_results: MonitorResults) -> None:
+        pass
+
+
 class Trainer(MonitoredMixin):
+    callback_base = TrainerCallback
+
     def __init__(
         self,
         model: ModelProtocol,
@@ -369,6 +382,7 @@ class Trainer(MonitoredMixin):
     ):
         # common
         self.model = model
+        self.callback = self.callback_base(self)
         self.inference = inference
         self.environment = environment
         self.is_loading = is_loading
@@ -1012,8 +1026,11 @@ class Trainer(MonitoredMixin):
                     )
                 for i, (batch, batch_indices) in enumerate(step_iterator):
                     self.state.step += 1
-                    self._step(i, batch, batch_indices)
-                    terminate = self._monitor_step().terminate
+                    step_outputs = self._step(i, batch, batch_indices)
+                    self.callback.after_step(step_outputs)
+                    monitor_results = self._monitor_step()
+                    self.callback.after_monitor(monitor_results)
+                    terminate = monitor_results.terminate
                     if terminate:
                         break
             except KeyboardInterrupt:
@@ -1198,5 +1215,7 @@ __all__ = [
     "IntermediateResults",
     "MonitoredMixin",
     "TrainMonitor",
+    "MonitorResults",
+    "TrainerCallback",
     "Trainer",
 ]

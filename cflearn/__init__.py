@@ -1,6 +1,7 @@
 from .api import *
 from .data import *
 from .models import *
+from .trainer import *
 from .protocol import *
 from .inference import *
 from .configs import Configs

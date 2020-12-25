@@ -32,6 +32,7 @@ __all__ = [
     "load_experiment_results",
     "repeat_with",
     "make_toy_model",
+    "switch_trainer_callback",
     "Task",
     "Experiment",
     "ModelPattern",

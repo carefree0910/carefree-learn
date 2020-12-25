@@ -25,6 +25,7 @@ from ..types import data_type
 from ..types import general_config_type
 from ..configs import _parse_config
 from ..trainer import Trainer
+from ..trainer import TrainerCallback
 from ..trainer import IntermediateResults
 from ..pipeline import Pipeline
 from ..protocol import DataProtocol
@@ -565,6 +566,10 @@ def make_toy_model(
     return make(**updated).fit(*data_tuple)
 
 
+def switch_trainer_callback(callback_base: Type[TrainerCallback]) -> None:
+    Trainer.callback_base = callback_base
+
+
 __all__ = [
     "make",
     "ModelConfig",
@@ -577,6 +582,7 @@ __all__ = [
     "load_experiment_results",
     "repeat_with",
     "make_toy_model",
+    "switch_trainer_callback",
     "Task",
     "Experiment",
     "ModelPattern",
