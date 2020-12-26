@@ -65,13 +65,25 @@ class _PipeConfigManager:
     def transform_config(self) -> Dict[str, Any]:
         return self.meta_config.setdefault("transform", {})
 
+    @transform_config.setter
+    def transform_config(self, value: Dict[str, Any]) -> None:
+        self.meta_config["transform"] = value
+
     @property
     def extractor_config(self) -> Dict[str, Any]:
         return self.meta_config.setdefault("extractor", {})
 
+    @extractor_config.setter
+    def extractor_config(self, value: Dict[str, Any]) -> None:
+        self.meta_config["extractor"] = value
+
     @property
     def head_config(self) -> Dict[str, Any]:
         return self.meta_config.setdefault("head", {})
+
+    @head_config.setter
+    def head_config(self, value: Dict[str, Any]) -> None:
+        self.meta_config["head"] = value
 
     def replace(self, **kwargs: Any) -> None:
         pipe_config_dict = self.pipe_config._asdict()
