@@ -801,6 +801,7 @@ class InferenceProtocol(ABC):
                 else:
                     assert self.model is not None
                     with eval_context(self.model, use_grad=use_grad):
+                        assert not self.model.training
                         local_kwargs = shallow_copy_dict(kwargs)
                         local_kwargs["return_loss"] = return_loss
                         local_results = self.model(
@@ -815,6 +816,7 @@ class InferenceProtocol(ABC):
                         local_losses = None
                     else:
                         with eval_context(self.model, use_grad=use_grad):
+                            assert not self.model.training
                             local_losses = self.model.loss_function(
                                 i,
                                 batch,
