@@ -49,6 +49,7 @@ class Experiment(LoggingMixin):
         num_jobs: int = 1,
         use_cuda: bool = True,
         available_cuda_list: Optional[List[int]] = None,
+        resource_config: Optional[Dict[str, Any]] = None,
     ):
         use_cuda = use_cuda and torch.cuda.is_available()
         if available_cuda_list is None and not use_cuda:
@@ -56,6 +57,7 @@ class Experiment(LoggingMixin):
         self.num_jobs = num_jobs
         self.use_cuda = use_cuda
         self.cuda_list = available_cuda_list
+        self.resource_config = resource_config or {}
         self.tasks: Dict[Tuple[str, str], Task] = {}
         self.executes: Dict[Tuple[str, str], str] = {}
         self.workplaces: Dict[Tuple[str, str], str] = {}
@@ -181,7 +183,15 @@ class Experiment(LoggingMixin):
         use_tqdm: bool = True,
         task_loader: Optional[Callable[[str], Pipeline]] = None,
     ) -> ExperimentResults:
-        parallel = Parallel(self.num_jobs, use_cuda=True, use_tqdm=use_tqdm)
+        resource_config = shallow_copy_dict(self.resource_config)
+        gpu_config = resource_config.setdefault("gpu_config", {})
+        gpu_config["available_cuda_list"] = self.cuda_list
+        parallel = Parallel(
+            self.num_jobs,
+            use_cuda=True,
+            use_tqdm=use_tqdm,
+            resource_config=resource_config,
+        )
         sorted_workplace_keys = sorted(self.tasks)
         sorted_tasks = [self.tasks[key] for key in sorted_workplace_keys]
         sorted_executes = [self.executes[key] for key in sorted_workplace_keys]
@@ -215,6 +225,7 @@ class Experiment(LoggingMixin):
                 "num_jobs": self.num_jobs,
                 "use_cuda": self.use_cuda,
                 "cuda_list": self.cuda_list,
+                "resource_config": self.resource_config,
                 "results": ExperimentResults(
                     self.results.workplaces,
                     self.results.workplace_keys,
@@ -246,6 +257,7 @@ class Experiment(LoggingMixin):
                     num_jobs=meta_config["num_jobs"],
                     use_cuda=meta_config["use_cuda"],
                     available_cuda_list=meta_config["cuda_list"],
+                    resource_config=meta_config["resource_config"],
                 )
                 experiment.executes = meta_config["executes"]
                 results = list(meta_config["results"])
