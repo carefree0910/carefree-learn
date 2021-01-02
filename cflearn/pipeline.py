@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatch
 
 from typing import *
+from tqdm import tqdm
 from cfdata.tabular import TabularDataset
 from cftool.ml import ModelPattern
 from cftool.misc import show_or_save
@@ -35,6 +36,7 @@ from .inference import PreProcessor
 from .misc._api import _fetch_saving_paths
 from .misc.toolkit import to_2d
 from .misc.toolkit import to_relative
+from .misc.toolkit import eval_context
 from .misc.toolkit import LoggingMixinWithRank
 from .misc.time_series import TSLabelCollator
 from .models.base import model_dict
@@ -827,6 +829,18 @@ class Pipeline(LoggingMixinWithRank):
                 with open(final_results_path, "r") as f:
                     trainer.final_results = IntermediateResults(*json.load(f))
         return pipeline
+
+    def profile_forward(self, *, num_repeat: int = 100, **kwargs: Any) -> None:
+        if self.model is None:
+            raise ValueError("`model` is not generated yet")
+        input_sample = {k: v.to("cpu") for k, v in self.model.input_sample.items()}
+        self.model.to("cpu")
+        with eval_context(self.model):
+            with torch.autograd.profiler.profile(**kwargs) as prof:
+                for _ in tqdm(range(num_repeat), total=num_repeat):
+                    self.model(input_sample)
+        print(prof.key_averages().table(sort_by="self_cpu_time_total"))
+        self.model.to(self.device)
 
 
 __all__ = ["Pipeline"]
