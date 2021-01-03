@@ -429,23 +429,19 @@ class DNDF(Module):
             self._num_internals * self._num_tree,
             **tree_proj_config,
         )
-        self.leaves = nn.Parameter(
-            torch.empty(self._num_tree, self._num_leaf, self._output_dim)
-        )
-        torch.nn.init.xavier_uniform_(self.leaves.data)
+        leaves_shape = self._num_tree * self._num_leaf, self._output_dim
+        self.leaves = nn.Parameter(torch.empty(*leaves_shape))
+        with torch.no_grad():
+            torch.nn.init.xavier_uniform_(self.leaves.data)
         # masks
         num_repeat, num_local_internals = self._num_leaf // 2, 1
-        increment_masks = [
-            torch.from_numpy(
-                np.repeat([0, self._num_internals], num_repeat).astype(np_int_type)
-            )
-        ]
+        increment_masks_np = np.repeat([0, self._num_internals], num_repeat)
+        increment_masks = [torch.from_numpy(increment_masks_np.astype(np_int_type))]
         for _ in range(1, self._tree_depth + 1):
             num_repeat //= 2
             num_local_internals *= 2
-            increment_mask = np.repeat(
-                np.arange(num_local_internals - 1, 2 * num_local_internals - 1), 2
-            )
+            arange = np.arange(num_local_internals - 1, 2 * num_local_internals - 1)
+            increment_mask = np.repeat(arange, 2)
             increment_mask += np.tile([0, self._num_internals], num_local_internals)
             increment_mask = np.repeat(increment_mask, num_repeat)
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
@@ -482,12 +478,7 @@ class DNDF(Module):
             leaves: Union[Tensor, nn.Parameter] = self.leaves
         else:
             leaves = F.softmax(self.leaves, dim=-1)
-        leaves = leaves.view(self._num_tree * self._num_leaf, self._output_dim)
         return features.matmul(leaves) / self._num_tree
-
-    def reset_parameters(self) -> None:
-        self.tree_proj.reset_parameters()
-        nn.init.xavier_uniform_(self.leaves.data)
 
 
 class CrossBase(Module, metaclass=ABCMeta):
