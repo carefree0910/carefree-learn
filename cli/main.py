@@ -54,6 +54,8 @@ def _impute_deepspeed() -> None:
 
 
 if __name__ == "__main__":
+    if deepspeed is None:
+        raise ValueError("deepspeed is not installed")
     parser = argparse.ArgumentParser()
     parser.add_argument("--local_rank", type=int, default=-1)
     deepspeed.add_config_arguments(parser)

@@ -1,6 +1,7 @@
 from .hpo import *
 from .zoo import *
 from .auto import *
+from .dist import *
 from .basic import *
 from .ensemble import *
 from .register import *
@@ -38,6 +39,8 @@ __all__ = [
     "ModelPattern",
     "EnsemblePattern",
     "RepeatResult",
+    # dist
+    "deepspeed",
     # ensemble
     "Ensemble",
     "EnsembleResults",
