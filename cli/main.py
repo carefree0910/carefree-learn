@@ -62,15 +62,13 @@ if __name__ == "__main__":
     parser.add_argument("--root_dir", required=True)
     parser.add_argument("--train_file", required=True)
     parser.add_argument("--valid_file", default=None)
-    parser.add_argument("--saving_folder", default=None)
     args = parse_args(parser.parse_args())
     root_dir = args.root_dir
-    saving_folder = args.saving_folder
     train, valid = args.train_file, args.valid_file
     train, valid, config_path = map(
         parse_path,
-        [train, valid, args.config, saving_folder],
-        4 * [root_dir],
+        [train, valid, args.config],
+        3 * [root_dir],
     )
     if not train.endswith(".npy"):
         x, x_cv = train, valid

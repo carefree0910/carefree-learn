@@ -10,7 +10,6 @@ entry_points:
       root_dir: {type: path, default: "./"}
       train_file: {type: str}
       valid_file: {type: str, default: ""}
-      saving_folder: {type: str, default: ""}
 
     command: |
       python cli/main.py \
@@ -18,8 +17,7 @@ entry_points:
         --config {config} \
         --root_dir {root_dir} \
         --train_file {train_file} \
-        --valid_file {valid_file} \
-        --saving_folder {saving_folder}
+        --valid_file {valid_file}
 
   ds:
     parameters:
@@ -30,7 +28,6 @@ entry_points:
       root_dir: { type: path, default: "./" }
       train_file: { type: str }
       valid_file: { type: str, default: "" }
-      saving_folder: { type: str, default: "" }
 
     command: |
       deepspeed \
@@ -41,7 +38,6 @@ entry_points:
         --root_dir {root_dir} \
         --train_file {train_file} \
         --valid_file {valid_file} \
-        --saving_folder {saving_folder} \
         --deepspeed_config {ds_config} \
 
   inference:
