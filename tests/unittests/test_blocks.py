@@ -1,3 +1,4 @@
+import time
 import torch
 import unittest
 
@@ -40,6 +41,46 @@ class TestBlocks(unittest.TestCase):
         probabilities = dndf(net)
 
         self.assertTrue(torch.allclose(probabilities.sum(1), torch.ones(batch_size)))
+
+    def test_fast_dndf(self) -> None:
+        def loss_function(outputs):
+            return -outputs[range(batch_size), labels].mean()
+
+        d = 128
+        batch_size = 1024
+
+        for k in [1, 1, 10]:
+            inp = torch.randn(batch_size, d, requires_grad=True)
+            labels = torch.randint(k, [batch_size])
+
+            dndf = DNDF(d, k, use_fast_dndf=False)
+            net = torch.empty_like(inp).requires_grad_(True)
+            net.data = inp.data
+
+            t1 = time.time()
+            loss = loss_function(dndf(net))
+            loss.backward()
+            g1 = net.grad
+            t2 = time.time()
+
+            dndf_fast = DNDF(d, k, use_fast_dndf=True)
+            with torch.no_grad():
+                dndf_fast.tree_proj.weight.data = dndf.tree_proj.weight.data
+                dndf_fast.tree_proj.bias.data = dndf.tree_proj.bias.data
+                dndf_fast.leaves.data = dndf.leaves.data
+            net = torch.empty_like(inp).requires_grad_(True)
+            net.data = inp.data
+
+            t3 = time.time()
+            loss = loss_function(dndf_fast(net))
+            loss.backward()
+            g2 = net.grad
+            t4 = time.time()
+
+            self.assertTrue(torch.allclose(g1, g2))
+            slow_t, fast_t = t2 - t1, t4 - t3
+            print(f"slow : {slow_t} ; fast : {fast_t}")
+            self.assertTrue(fast_t < slow_t)
 
     def test_invertible(self) -> None:
         dim = 512
