@@ -599,8 +599,8 @@ class Trainer(MonitoredMixin):
             "min_lr": 1.0e-8,
             "verbose": self._verbose_level >= 3,
             "patience": max(
-                10,
-                self.state.snapshot_start_step // self.state.num_step_per_snapshot,
+                10 * self.state.num_step_per_snapshot,
+                self.state.snapshot_start_step,
             ),
         }
         return {
