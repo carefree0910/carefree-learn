@@ -151,8 +151,9 @@ class Pack(LoggingMixin):
             model = pipeline.model
             if model is None:
                 raise ValueError("`model` is not generated yet")
-            onnx = ONNX(model=model)
-            onnx.to_onnx(instance.onnx_path, **shallow_copy_dict(kwargs))
+            with model.export_context():
+                onnx = ONNX(model=model)
+                onnx.to_onnx(instance.onnx_path, **shallow_copy_dict(kwargs))
             with open(instance.onnx_output_names_path, "w") as f:
                 json.dump(onnx.output_names, f)
             with open(instance.output_probabilities_path, "w") as f:

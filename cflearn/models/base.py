@@ -5,10 +5,12 @@ import numpy as np
 from typing import *
 from abc import ABCMeta
 from torch import Tensor
+from torch.nn import Module
 from torch.nn import ModuleDict
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import register_core
+from cftool.misc import context_error_handler
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import ColumnTypes
 
@@ -28,6 +30,7 @@ from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
+from ..modules.blocks import DNDF
 from ..modules.transform import transform_config_mapping
 from ..modules.transform import Transform
 from ..modules.transform import Dimensions
@@ -501,6 +504,30 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
     def get_split(self, processed: np.ndarray, device: torch.device) -> SplitFeatures:
         with torch.no_grad():
             return self._split_features(to_torch(processed).to(device), None, None)
+
+    def export_context(self) -> context_error_handler:
+        class _(context_error_handler):
+            def __init__(self, model: ModelBase):
+                self.fast_dndf_settings: Dict[DNDF, bool] = {}
+
+                def _inject(node: Module) -> None:
+                    for child in node.children():
+                        if isinstance(child, DNDF):
+                            self.fast_dndf_settings[child] = child._fast
+                        elif isinstance(child, Module):
+                            _inject(child)
+
+                _inject(model)
+
+            def __enter__(self) -> None:
+                for dndf in self.fast_dndf_settings:
+                    dndf._fast = False
+
+            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+                for dndf, fast in self.fast_dndf_settings.items():
+                    dndf._fast = fast
+
+        return _(self)
 
     def extra_repr(self) -> str:
         pipe_str = "\n".join(
