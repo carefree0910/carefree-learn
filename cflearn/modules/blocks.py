@@ -413,9 +413,11 @@ class LeafAggregation(torch.autograd.Function):
         return net.mm(softmax_leaves)
 
     @staticmethod
-    def backward(ctx: Any, *grad_outputs: Any) -> Tuple[Tensor, Tensor]:
-        net, softmax_leaves = ctx.saved_tensors
+    def backward(ctx: Any, *grad_outputs: Any) -> Tuple[Optional[Tensor], ...]:
         grad_output = grad_outputs[0]
+        if grad_output is None:
+            return None, None
+        net, softmax_leaves = ctx.saved_tensors
         net_grad = grad_output.mm(softmax_leaves)
         sub_grad = grad_output.t().mm(net)
         sub_grad2 = (softmax_leaves * sub_grad).sum(0, keepdim=True)
@@ -460,8 +462,11 @@ class Route(torch.autograd.Function):
         return routes
 
     @staticmethod
-    def backward(ctx: Any, *grad_outputs: Any) -> Tuple[Tensor, ...]:
+    def backward(ctx: Any, *grad_outputs: Any) -> Tuple[Optional[Tensor], ...]:
         grad_output = grad_outputs[0]
+        dummy_grads = tuple(None for _ in range(8))
+        if grad_output is None:
+            return (None,) + dummy_grads
         num_tree = ctx.num_tree
         tree_depth = ctx.tree_depth
         ones_list, sigmoid_net, *all_routes = ctx.saved_tensors
@@ -487,7 +492,6 @@ class Route(torch.autograd.Function):
 
         sub_grads = sub_grads.transpose(0, 1).contiguous()
         sub_grads = sub_grads.view(-1, num_tree * (num_leaves - 1))
-        dummy_grads = tuple(None for _ in range(8))
         return (sigmoid_net * (1.0 - sigmoid_net) * sub_grads,) + dummy_grads
 
 
