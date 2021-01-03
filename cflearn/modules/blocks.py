@@ -406,14 +406,14 @@ class MLP(Module):
 
 class LeafAggregation(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, *args, **kwargs):
+    def forward(ctx: Any, *args: Any, **kwargs: Any) -> Tensor:
         net, leaves = args
         softmax_leaves = F.softmax(leaves, dim=1)
         ctx.save_for_backward(net, softmax_leaves.t())
         return net.mm(softmax_leaves)
 
     @staticmethod
-    def backward(ctx, *grad_outputs):
+    def backward(ctx: Any, *grad_outputs: Any) -> Tuple[Tensor, Tensor]:
         net, softmax_leaves = ctx.saved_tensors
         grad_output = grad_outputs[0]
         net_grad = grad_output.mm(softmax_leaves)
@@ -425,7 +425,7 @@ class LeafAggregation(torch.autograd.Function):
 
 class Route(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, *args, **kwargs):
+    def forward(ctx: Any, *args: Any, **kwargs: Any) -> Tensor:
         (
             net,
             tree_arange,
@@ -460,7 +460,7 @@ class Route(torch.autograd.Function):
         return routes
 
     @staticmethod
-    def backward(ctx, *grad_outputs):
+    def backward(ctx: Any, *grad_outputs: Any) -> Tuple[Tensor, ...]:
         grad_output = grad_outputs[0]
         num_tree = ctx.num_tree
         tree_depth = ctx.tree_depth
@@ -550,10 +550,9 @@ class DNDF(Module):
         num_batch = net.shape[0]
         tree_net = self.tree_proj(net)
 
-        device = self.increment_indices.device
         num_flat_prob = 2 * self._num_internals
-        batch_arange = torch.arange(0, num_flat_prob * num_batch, num_flat_prob)
-        batch_indices = batch_arange.view(-1, 1).to(device)
+        arange_args = 0, num_flat_prob * num_batch, num_flat_prob
+        batch_indices = torch.arange(*arange_args, device=tree_net.device).view(-1, 1)
 
         if self._fast:
             routes = Route.apply(
@@ -573,12 +572,12 @@ class DNDF(Module):
             p_right = 1.0 - p_left
             flat_probabilities = torch.cat([p_left, p_right], dim=-1).contiguous()
             flat_probabilities = flat_probabilities.view(self._num_tree, -1)
-            current_indices = batch_indices + self.increment_indices[0]
+            current_indices = batch_indices + self.increment_indices[0]  # type: ignore
             flat_dim = flat_probabilities.shape[-1]
             tree_arange = self.tree_arange * flat_dim  # type: ignore
             routes = flat_probabilities.take(tree_arange + current_indices[None, ...])
             for i in range(1, self._tree_depth + 1):
-                current_indices = batch_indices + self.increment_indices[i]
+                current_indices = batch_indices + self.increment_indices[i]  # type: ignore
                 current_indices = tree_arange + current_indices[None, ...]
                 routes *= flat_probabilities.take(current_indices)
 
