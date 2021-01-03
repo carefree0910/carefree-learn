@@ -140,9 +140,11 @@ def parse_args(args: Any) -> Namespace:
     return Namespace(**{k: None if not v else v for k, v in args.__dict__.items()})
 
 
-def parse_path(path: Optional[str], root_dir: str) -> Optional[str]:
+def parse_path(path: Optional[str], root_dir: Optional[str]) -> Optional[str]:
     if path is None:
         return None
+    if root_dir is None:
+        return path
     return os.path.abspath(os.path.join(root_dir, path))
 
 

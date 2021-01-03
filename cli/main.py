@@ -59,7 +59,7 @@ if __name__ == "__main__":
     deepspeed.add_config_arguments(parser)
     parser.add_argument("--model")
     parser.add_argument("--config", default=None)
-    parser.add_argument("--root_dir", required=True)
+    parser.add_argument("--root_dir", default=None)
     parser.add_argument("--train_file", required=True)
     parser.add_argument("--valid_file", default=None)
     args = parse_args(parser.parse_args())
@@ -96,6 +96,7 @@ if __name__ == "__main__":
     if args.deepspeed_config is None:
         config.setdefault("log_pipeline_to_artifacts", True)
         mlflow_config = config.setdefault("mlflow_config", {})
-        mlflow_config["tracking_folder"] = root_dir
+        if root_dir is not None:
+            mlflow_config["tracking_folder"] = root_dir
         mlflow_config["task_name"] = mlflow.get_experiment(_active_experiment_id).name
     m = cflearn.make(args.model, **config).fit(x, x_cv=x_cv)
