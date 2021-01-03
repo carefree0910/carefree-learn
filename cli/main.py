@@ -4,6 +4,8 @@ import mlflow
 import cflearn
 import argparse
 
+import numpy as np
+
 from cftool.misc import lock_manager
 from cflearn.configs import _parse_config
 from cflearn.configs import Elements
@@ -64,12 +66,24 @@ if __name__ == "__main__":
     args = parse_args(parser.parse_args())
     root_dir = args.root_dir
     saving_folder = args.saving_folder
-    x, x_cv = args.train_file, args.valid_file
-    x, x_cv, config_path, saving_folder = map(
+    train, valid = args.train_file, args.valid_file
+    train, valid, config_path = map(
         parse_path,
-        [x, x_cv, args.config, saving_folder],
+        [train, valid, args.config, saving_folder],
         4 * [root_dir],
     )
+    if not train.endswith(".npy"):
+        x, x_cv = train, valid
+        y = y_cv = None
+    else:
+        train = np.load(train)
+        x, y = np.split(train, [-1], axis=1)
+        if valid is not None:
+            if not valid.endswith(".npy"):
+                msg = f"train_file is a numpy array but valid_file ({valid}) is not"
+                raise ValueError(msg)
+            valid = np.load(valid)
+            x_cv, y_cv = np.split(valid, [-1], axis=1)
     config = _parse_config(config_path)
     environment = Environment.from_elements(Elements.make(config), False)
     logging_folder = environment.logging_folder
