@@ -1165,30 +1165,16 @@ class Trainer(MonitoredMixin):
     def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
-        if self.deepspeed:
-            file = fix_float_to_length(score, 8)
-            if os.path.isdir(os.path.join(folder, file)):
-                return None
-            self.model_engines["all"].save_checkpoint(
-                folder,
-                file,
-                client_state={
-                    "step": self.state,
-                    "epoch": self.state.epoch,
-                    "score": score,
-                },
-            )
-        else:
-            # leave top_k snapshots only
-            if self.state.max_snapshot_file > 0:
-                checkpoints = self.model.sorted_checkpoints(folder)
-                if len(checkpoints) >= self.state.max_snapshot_file:
-                    for file in checkpoints[self.state.max_snapshot_file - 1 :]:
-                        self.checkpoint_scores.pop(file)
-                        os.remove(os.path.join(folder, file))
-            # pt
-            file = f"{self.model.pt_prefix}{self.state.epoch}.pt"
-            torch.save(self.model.state_dict(), os.path.join(folder, file))
+        # leave top_k snapshots only
+        if self.state.max_snapshot_file > 0:
+            checkpoints = self.model.sorted_checkpoints(folder)
+            if len(checkpoints) >= self.state.max_snapshot_file:
+                for file in checkpoints[self.state.max_snapshot_file - 1 :]:
+                    self.checkpoint_scores.pop(file)
+                    os.remove(os.path.join(folder, file))
+        # pt
+        file = f"{self.model.pt_prefix}{self.state.epoch}.pt"
+        torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
         self.checkpoint_scores[file] = score
         with open(os.path.join(folder, self.model.scores_file), "w") as f:
@@ -1202,12 +1188,7 @@ class Trainer(MonitoredMixin):
     ) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
-        return self.model.restore_checkpoint(
-            folder,
-            strict,
-            self.deepspeed,
-            state_dict_callback,
-        )
+        return self.model.restore_checkpoint(folder, strict, state_dict_callback)
 
 
 __all__ = [
