@@ -21,6 +21,7 @@ from torch.nn import ModuleList
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
+from cfdata.types import np_float_type
 
 from .auxiliary import *
 from ..misc.toolkit import *
@@ -403,6 +404,93 @@ class MLP(Module):
         return nn.Sequential(*blocks)
 
 
+class LeafAggregation(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, *args, **kwargs):
+        net, leaves = args
+        softmax_leaves = F.softmax(leaves, dim=1)
+        ctx.save_for_backward(net, softmax_leaves.t())
+        return net.mm(softmax_leaves)
+
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        net, softmax_leaves = ctx.saved_tensors
+        grad_output = grad_outputs[0]
+        net_grad = grad_output.mm(softmax_leaves)
+        sub_grad = grad_output.t().mm(net)
+        sub_grad2 = (softmax_leaves * sub_grad).sum(0, keepdim=True)
+        leaves_grad = softmax_leaves * (sub_grad - sub_grad2)
+        return net_grad, leaves_grad.t()
+
+
+class Route(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, *args, **kwargs):
+        (
+            net,
+            tree_arange,
+            batch_indices,
+            ones,
+            increment_masks,
+            num_tree,
+            num_batch,
+            tree_depth,
+            num_internals,
+        ) = args
+        shape = num_batch, -1, num_internals
+        sigmoid_net = torch.sigmoid(net)
+        p_left = sigmoid_net.view(*shape).transpose(0, 1)
+        p_right = 1.0 - p_left
+        flat_probabilities = torch.cat([p_left, p_right], dim=-1)
+        flat_probabilities = flat_probabilities.contiguous().view(num_tree, -1)
+        current_indices = batch_indices + increment_masks[0]
+        flat_dim = flat_probabilities.shape[-1]
+        tree_arange = tree_arange * flat_dim
+        routes = flat_probabilities.take(tree_arange + current_indices[None, ...])
+        all_routes = [routes.clone()]
+        for i in range(1, tree_depth + 1):
+            current_indices = batch_indices + increment_masks[i]
+            current_indices = tree_arange + current_indices[None, ...]
+            current_routes = flat_probabilities.take(current_indices)
+            all_routes.append(current_routes)
+            routes *= current_routes
+        ctx.save_for_backward(ones, sigmoid_net, *all_routes)
+        ctx.tree_depth = tree_depth
+        ctx.num_tree = num_tree
+        return routes
+
+    @staticmethod
+    def backward(ctx, *grad_outputs):
+        grad_output = grad_outputs[0]
+        num_tree = ctx.num_tree
+        tree_depth = ctx.tree_depth
+        ones_list, sigmoid_net, *all_routes = ctx.saved_tensors
+        cursor = 0
+        divide = 1
+        num_leaves = 2 ** (tree_depth + 1)
+        sub_grads_shape = num_tree, sigmoid_net.shape[0], num_leaves - 1
+        sub_grads = torch.zeros(*sub_grads_shape, device=grad_output.device)
+        for i in range(tree_depth + 1):
+            ones = ones_list[i]
+            nodes = ones[None, None, ...]
+            for j in range(tree_depth + 1):
+                if j == i:
+                    continue
+                nodes = nodes * all_routes[j]
+            sub_grad = grad_output * nodes
+            section = int(round(num_leaves / divide))
+            sub_grad = sub_grad.view(num_tree, -1, divide, section)
+            sub_grad = sub_grad.sum(-1)
+            sub_grads[..., cursor : cursor + divide] = sub_grad
+            cursor += divide
+            divide *= 2
+
+        sub_grads = sub_grads.transpose(0, 1).contiguous()
+        sub_grads = sub_grads.view(-1, num_tree * (num_leaves - 1))
+        dummy_grads = tuple(None for _ in range(8))
+        return (sigmoid_net * (1.0 - sigmoid_net) * sub_grads,) + dummy_grads
+
+
 class DNDF(Module):
     def __init__(
         self,
@@ -413,6 +501,7 @@ class DNDF(Module):
         tree_depth: int = 4,
         is_regression: Optional[bool] = None,
         tree_proj_config: Optional[Dict[str, Any]] = None,
+        use_fast_dndf: bool = True,
     ):
         super().__init__()
         self._num_tree = num_tree
@@ -421,6 +510,7 @@ class DNDF(Module):
         self._num_leaf = 2 ** (self._tree_depth + 1)
         self._num_internals = self._num_leaf - 1
         self._output_dim = out_dim
+        self._fast = use_fast_dndf
         if tree_proj_config is None:
             tree_proj_config = {}
         tree_proj_config.setdefault("pruner_config", {})
@@ -433,52 +523,75 @@ class DNDF(Module):
         self.leaves = nn.Parameter(torch.empty(*leaves_shape))
         with torch.no_grad():
             torch.nn.init.xavier_uniform_(self.leaves.data)
-        # masks
+        # buffers
         num_repeat, num_local_internals = self._num_leaf // 2, 1
-        increment_masks_np = np.repeat([0, self._num_internals], num_repeat)
-        increment_masks = [torch.from_numpy(increment_masks_np.astype(np_int_type))]
-        for _ in range(1, self._tree_depth + 1):
+        ones_np = np.repeat([1, -1], num_repeat)
+        ones_list = [torch.from_numpy(ones_np.astype(np_float_type))]
+        increment_indices_np = np.repeat([0, self._num_internals], num_repeat)
+        increment_indices = [torch.from_numpy(increment_indices_np.astype(np_int_type))]
+        for i in range(1, self._tree_depth + 1):
             num_repeat //= 2
             num_local_internals *= 2
             arange = np.arange(num_local_internals - 1, 2 * num_local_internals - 1)
+            ones_np = np.repeat([1, -1], num_repeat)
+            ones_np = np.tile(ones_np, 2 ** i)
+            ones_list.append(torch.from_numpy(ones_np.astype(np_float_type)))
             increment_mask = np.repeat(arange, 2)
             increment_mask += np.tile([0, self._num_internals], num_local_internals)
             increment_mask = np.repeat(increment_mask, num_repeat)
             increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
-            increment_masks.append(increment_mask)
+            increment_indices.append(increment_mask)
         self.increment_masks: Tensor
         self.register_buffer("tree_arange", torch.arange(num_tree)[..., None, None])
-        self.register_buffer("increment_masks", torch.stack(increment_masks))
+        self.register_buffer("ones", torch.stack(ones_list))
+        self.register_buffer("increment_indices", torch.stack(increment_indices))
 
     def forward(self, net: Tensor) -> Tensor:
         num_batch = net.shape[0]
         tree_net = self.tree_proj(net)
 
-        shape = num_batch, -1, self._num_internals
-        p_left = torch.sigmoid(tree_net).view(*shape).transpose(0, 1)
-        p_right = 1.0 - p_left
-        flat_probabilities = torch.cat([p_left, p_right], dim=-1)
-        flat_probabilities = flat_probabilities.contiguous().view(self._num_tree, -1)
+        device = self.increment_indices.device
         num_flat_prob = 2 * self._num_internals
-        device = self.increment_masks.device
         batch_arange = torch.arange(0, num_flat_prob * num_batch, num_flat_prob)
         batch_indices = batch_arange.view(-1, 1).to(device)
-        current_indices = batch_indices + self.increment_masks[0]
-        flat_dim = flat_probabilities.shape[-1]
-        tree_arange = self.tree_arange * flat_dim  # type: ignore
-        routes = flat_probabilities.take(tree_arange + current_indices[None, ...])
 
-        for i in range(1, self._tree_depth + 1):
-            current_indices = batch_indices + self.increment_masks[i]
-            current_indices = tree_arange + current_indices[None, ...]
-            routes *= flat_probabilities.take(current_indices)
-        features = routes.transpose(0, 1).contiguous().view(num_batch, -1)
-
-        if self._is_regression or self._output_dim <= 1:
-            leaves: Union[Tensor, nn.Parameter] = self.leaves
+        if self._fast:
+            routes = Route.apply(
+                tree_net,
+                self.tree_arange,
+                batch_indices,
+                self.ones,
+                self.increment_indices,
+                self._num_tree,
+                num_batch,
+                self._tree_depth,
+                self._num_internals,
+            )
         else:
-            leaves = F.softmax(self.leaves, dim=-1)
-        return features.matmul(leaves) / self._num_tree
+            shape = num_batch, -1, self._num_internals
+            p_left = torch.sigmoid(tree_net).view(*shape).transpose(0, 1)
+            p_right = 1.0 - p_left
+            flat_probabilities = torch.cat([p_left, p_right], dim=-1).contiguous()
+            flat_probabilities = flat_probabilities.view(self._num_tree, -1)
+            current_indices = batch_indices + self.increment_indices[0]
+            flat_dim = flat_probabilities.shape[-1]
+            tree_arange = self.tree_arange * flat_dim  # type: ignore
+            routes = flat_probabilities.take(tree_arange + current_indices[None, ...])
+            for i in range(1, self._tree_depth + 1):
+                current_indices = batch_indices + self.increment_indices[i]
+                current_indices = tree_arange + current_indices[None, ...]
+                routes *= flat_probabilities.take(current_indices)
+
+        features = routes.transpose(0, 1).contiguous().view(num_batch, -1)
+        if self._is_regression or self._output_dim <= 1:
+            outputs = features.mm(self.leaves)
+        else:
+            if self._fast:
+                outputs = LeafAggregation.apply(features, self.leaves)
+            else:
+                leaves = F.softmax(self.leaves, dim=1)
+                outputs = features.mm(leaves)
+        return outputs / self._num_tree
 
 
 class CrossBase(Module, metaclass=ABCMeta):
