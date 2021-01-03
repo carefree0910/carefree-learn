@@ -70,6 +70,7 @@ def deepspeed(
     parsed_ds_config.setdefault("train_batch_size", 256)
     batch_size = final_config.get("batch_size", Elements().batch_size)
     parsed_ds_config["train_micro_batch_size_per_gpu"] = batch_size
+    parsed_ds_config.setdefault("steps_per_print", 30000 // batch_size)
     ds_config_file = Saving.save_dict(parsed_ds_config, "ds_config", workplace)
 
     os.system(
