@@ -10,6 +10,7 @@ from cflearn.types import data_type
 from cflearn.types import general_config_type
 
 from ..configs import _parse_config
+from ..configs import Elements
 from ..pipeline import Pipeline
 
 cli_root = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "cli")
@@ -67,6 +68,8 @@ def deepspeed(
     # deepspeed
     parsed_ds_config = _parse_config(ds_config)
     parsed_ds_config.setdefault("train_batch_size", 256)
+    batch_size = final_config.get("batch_size", Elements().batch_size)
+    parsed_ds_config["train_micro_batch_size_per_gpu"] = batch_size
     ds_config_file = Saving.save_dict(parsed_ds_config, "ds_config", workplace)
 
     os.system(
