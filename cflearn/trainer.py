@@ -966,7 +966,9 @@ class Trainer(MonitoredMixin):
             loss = step_outputs.loss_dict["loss"]
             engine.backward(loss)
         with timing_context(self, "ds.step", enable=self.timing):
-            engine.step()
+            scheduler = list(self.schedulers.values())[0]
+            _, kwargs = self._get_scheduler_settings("all", scheduler)
+            engine.step(lr_kwargs=kwargs)
         return step_outputs
 
     # api
