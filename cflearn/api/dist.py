@@ -3,14 +3,24 @@ import os
 import numpy as np
 
 from typing import Any
+from typing import NamedTuple
 from cftool.misc import update_dict
 from cftool.misc import Saving
 from cflearn.types import data_type
 from cflearn.types import general_config_type
 
 from ..configs import _parse_config
+from ..pipeline import Pipeline
 
 cli_root = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "cli")
+cli_root = os.path.abspath(cli_root)
+
+
+class DeepspeedResults(NamedTuple):
+    m: Pipeline
+    workplace: str
+    config_path: str
+    ds_config_path: str
 
 
 def deepspeed(
@@ -26,7 +36,7 @@ def deepspeed(
     increment_config: general_config_type = None,
     cuda: str = "0",
     **kwargs: Any,
-) -> None:
+) -> DeepspeedResults:
     os.makedirs(workplace, exist_ok=True)
     # logging
     default_logging_folder = os.path.join(workplace, "_logs")
@@ -52,6 +62,7 @@ def deepspeed(
     parsed_config = update_dict(_parse_config(config), kwargs)
     parsed_increment_config = _parse_config(increment_config)
     final_config = update_dict(parsed_increment_config, parsed_config)
+    final_config["model_saving_folder"] = workplace
     config_file = Saving.save_dict(final_config, "config", workplace)
     # deepspeed
     parsed_ds_config = _parse_config(ds_config)
@@ -67,6 +78,12 @@ def deepspeed(
         f"--train_file {train_file} "
         f"{'' if valid_file is None else f'--valid_file {valid_file} '}"
         f"--deepspeed_config {ds_config_file}"
+    )
+    return DeepspeedResults(
+        Pipeline.load(os.path.join(workplace, "pipeline")),
+        workplace,
+        config_file,
+        ds_config_file,
     )
 
 

@@ -101,4 +101,8 @@ if __name__ == "__main__":
         if root_dir is not None:
             mlflow_config["tracking_folder"] = root_dir
         mlflow_config["task_name"] = mlflow.get_experiment(_active_experiment_id).name
+
+    model_saving_folder = config.pop("model_saving_folder", None)
     m = cflearn.make(args.model, **config).fit(x, x_cv=x_cv)
+    if model_saving_folder is not None and m.is_rank_0:
+        m.save(os.path.join(model_saving_folder, "pipeline"))
