@@ -271,8 +271,9 @@ class TrainMonitor:
             )
             return True
         if self.info["save_checkpoint"]:
-            self.log_msg(f"{self.info['info']}", self.monitored.info_prefix, 3)
-            self.monitored.on_save_checkpoint(new_score)
+            if self.monitored.is_rank_0:
+                self.log_msg(f"{self.info['info']}", self.monitored.info_prefix, 3)
+                self.monitored.on_save_checkpoint(new_score)
         if self.state.should_extend_epoch:
             if self.is_lazy:
                 return True
