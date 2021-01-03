@@ -393,7 +393,6 @@ class Trainer(MonitoredMixin):
         self.checkpoint_scores: Dict[str, float] = {}
         self.tr_loader_copy: Optional[PrefetchLoader] = None
         self.intermediate: Optional[IntermediateResults] = None
-        self.intermediate_updated = False
         self.final_results: Optional[IntermediateResults] = None
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
@@ -806,10 +805,9 @@ class Trainer(MonitoredMixin):
         if key in self.schedulers_requires_metric and not (
             isinstance(scheduler, WarmupScheduler) and not scheduler.finished_warmup
         ):
-            if self.intermediate is None or not self.intermediate_updated:
+            if self.intermediate is None:
                 return should_log_lr, None
             kwargs["metrics"] = self.intermediate.final_score
-            self.intermediate_updated = False
             should_log_lr = True
         return should_log_lr, kwargs
 
@@ -876,7 +874,6 @@ class Trainer(MonitoredMixin):
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
                 pack = self.get_metrics(binary_outputs=binary_outputs)
                 outputs, self.intermediate = pack
-                self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
                         self.log_msg(  # type: ignore
