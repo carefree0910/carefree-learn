@@ -76,7 +76,9 @@ if __name__ == "__main__":
     else:
         train = np.load(train)
         x, y = np.split(train, [-1], axis=1)
-        if valid is not None:
+        if valid is None:
+            x_cv = y_cv = None
+        else:
             if not valid.endswith(".npy"):
                 msg = f"train_file is a numpy array but valid_file ({valid}) is not"
                 raise ValueError(msg)
