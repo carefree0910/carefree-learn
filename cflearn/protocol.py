@@ -929,6 +929,7 @@ class InferenceProtocol(ABC):
             return_all,
             requires_recover,
             returns_probabilities,
+            **shallow_copy_dict(kwargs),
         )
 
     def predict_with(self, probabilities: np.ndarray) -> np.ndarray:
