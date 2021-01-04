@@ -394,6 +394,7 @@ class Trainer(MonitoredMixin):
         self.checkpoint_scores: Dict[str, float] = {}
         self.tr_loader_copy: Optional[PrefetchLoader] = None
         self.intermediate: Optional[IntermediateResults] = None
+        self.intermediate_updated = False
         self.final_results: Optional[IntermediateResults] = None
         self._use_grad_in_predict = False
         self.onnx: Optional[Any] = None
@@ -803,13 +804,14 @@ class Trainer(MonitoredMixin):
     ) -> Tuple[bool, Optional[Dict[str, Any]]]:
         kwargs = {}
         should_log_lr = self.state.should_log_lr
-        if key in self.schedulers_requires_metric and not (
-            isinstance(scheduler, WarmupScheduler) and not scheduler.finished_warmup
-        ):
+        is_warmup = isinstance(scheduler, WarmupScheduler)
+        requires_metric = key in self.schedulers_requires_metric
+        if requires_metric and not (is_warmup and not scheduler.finished_warmup):
             if self.intermediate is None:
                 return should_log_lr, None
             kwargs["metrics"] = self.intermediate.final_score
-            should_log_lr = True
+            should_log_lr = self.intermediate_updated
+            self.intermediate_updated = False
         return should_log_lr, kwargs
 
     def _scheduler_step(self) -> None:
@@ -875,6 +877,7 @@ class Trainer(MonitoredMixin):
             with timing_context(self, "monitor.get_metrics", enable=self.timing):
                 pack = self.get_metrics(binary_outputs=binary_outputs)
                 outputs, self.intermediate = pack
+                self.intermediate_updated = True
                 if self.state.should_start_monitor_plateau:
                     if not self._monitor.plateau_flag:
                         self.log_msg(  # type: ignore
