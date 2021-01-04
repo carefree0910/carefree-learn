@@ -1104,6 +1104,7 @@ class Trainer(MonitoredMixin):
             results = self.inference.predict_from_outputs(
                 outputs,
                 return_all=True,
+                requires_recover=False,
                 returns_probabilities=False,
             )
             probabilities = None
