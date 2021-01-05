@@ -917,7 +917,8 @@ class Trainer(MonitoredMixin):
             with timing_context(self, "EMA", enable=self.timing):
                 self.model.apply_ema()
         if self.state.should_log_losses:
-            self._log_scalars(step_outputs.loss_items)
+            tr_losses = {f"tr_{k}": v for k, v in step_outputs.loss_items.items()}
+            self._log_scalars(tr_losses)
 
     # core step on each epoch
     def _step(
