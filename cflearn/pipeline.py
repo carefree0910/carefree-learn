@@ -256,7 +256,6 @@ class Pipeline(LoggingMixinWithRank):
                 self.tr_data, self.cv_data = split.remained, split.split
                 self.tr_split_indices = split.remained_indices
                 self.cv_split_indices = split.split_indices
-                # TODO : utilize cv_weights with sample_weights[split.split_indices]
                 if sample_weights is not None:
                     self.tr_weights = sample_weights[split.remained_indices]
                     self.cv_weights = sample_weights[split.split_indices]
