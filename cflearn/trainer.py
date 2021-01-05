@@ -645,10 +645,11 @@ class Trainer(MonitoredMixin):
                 optimizer_config.setdefault("lr", 1e-3)
             else:
                 multiplier = scheduler_config.setdefault("multiplier", 3)
-                optimizer_config.setdefault("lr", multiplier * 1.0e-3)
+                optimizer_config.setdefault("lr", 1.0e-3 / multiplier)
+                default_max_warmup_step = int(round(3.0e5 / self.tr_loader.batch_size))
                 warmup_step = scheduler_config.setdefault(
                     "warmup_step",
-                    10 * self.state.num_step_per_epoch,
+                    min(default_max_warmup_step, 10 * self.state.num_step_per_epoch),
                 )
                 self.state.plateau_start += int(
                     warmup_step / self.state.num_step_per_snapshot
