@@ -642,7 +642,7 @@ class Trainer(MonitoredMixin):
             scheduler_config = opt_setting["scheduler_config"]
             # we need to consider warmup here because it will modify the `lr`
             if scheduler != "warmup":
-                optimizer_config.setdefault("lr", 1e-3)
+                optimizer_config.setdefault("lr", 1.0e-3)
             else:
                 multiplier = scheduler_config.setdefault("multiplier", 3)
                 optimizer_config.setdefault("lr", 1.0e-3 / multiplier)
@@ -658,7 +658,6 @@ class Trainer(MonitoredMixin):
                     self.state._snapshot_start_step += warmup_step
                 else:
                     self.state.min_num_sample += self.tr_loader.batch_size * warmup_step
-                optimizer_config["lr"] /= multiplier
             # the default settings of optimizers
             if optimizer == "nag":
                 optimizer_config.setdefault("momentum", 0.999)
