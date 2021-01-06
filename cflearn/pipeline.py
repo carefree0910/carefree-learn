@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import torch
 import shutil
 
@@ -142,6 +143,12 @@ class Pipeline(LoggingMixinWithRank):
             self.shuffle_tr,
             self.tr_weights,
         )
+
+        if self.batch_size is None:  # type: ignore
+            self.batch_size = max(128, min(1024, int(round(0.01 * len(self.tr_data)))))
+            self.batch_size = 2 ** int(round(math.log2(self.batch_size)))
+            self.config["lr_ratio"] = math.log2(self.batch_size / 128)
+
         self.tr_loader = DataLoaderProtocol.make(
             self.loader_protocol,
             self.batch_size,

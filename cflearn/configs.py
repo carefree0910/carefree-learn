@@ -104,7 +104,7 @@ class Elements(NamedTuple):
     read_config: Optional[Dict[str, Any]] = None
     logging_folder: Optional[str] = None
     logging_file: Optional[str] = None
-    batch_size: int = 128
+    batch_size: Optional[int] = None
     cv_split: Optional[Union[float, int]] = None
     use_amp: bool = False
     min_epoch: Optional[int] = None
@@ -319,8 +319,7 @@ class Elements(NamedTuple):
         kwargs.setdefault("cv_split_order", "auto")
         kwargs.setdefault("binary_config", {})
         kwargs.setdefault("shuffle_tr", True)
-        batch_size = kwargs.setdefault("batch_size", 128)
-        kwargs.setdefault("cv_batch_size", 5 * batch_size)
+        kwargs.setdefault("cv_batch_size", 512)
         kwargs.setdefault("ts_label_collator_config", {})
         log_folder = kwargs.setdefault("logging_folder", os.path.join("_logs", model))
         log_file = kwargs.get("logging_file")

@@ -635,6 +635,8 @@ class Trainer(MonitoredMixin):
         optimizers_settings = self.config.setdefault("optimizers", {"all": {}})
         self.optimizers: Dict[str, Optimizer] = {}
         self.schedulers: Dict[str, Optional[_LRScheduler]] = {}
+        lr_ratio = max(1.0, self.environment.pipeline_config.get("lr_ratio", 1.0))
+        default_lr = 1.0e-3 * lr_ratio
         for params_name, opt_setting in optimizers_settings.items():
             optimizer = opt_setting["optimizer"]
             optimizer_config = opt_setting["optimizer_config"]
@@ -642,10 +644,10 @@ class Trainer(MonitoredMixin):
             scheduler_config = opt_setting["scheduler_config"]
             # we need to consider warmup here because it will modify the `lr`
             if scheduler != "warmup":
-                optimizer_config.setdefault("lr", 1.0e-3)
+                optimizer_config.setdefault("lr", default_lr)
             else:
                 multiplier = scheduler_config.setdefault("multiplier", 3)
-                optimizer_config.setdefault("lr", 1.0e-3 / multiplier)
+                optimizer_config.setdefault("lr", default_lr / multiplier)
                 default_max_warmup_step = int(round(3.0e5 / self.tr_loader.batch_size))
                 warmup_step = scheduler_config.setdefault(
                     "warmup_step",
