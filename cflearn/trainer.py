@@ -674,21 +674,15 @@ class Trainer(MonitoredMixin):
             # scheduler
             default_lr_configs = self.default_lr_configs(opt, optimizer_config)
             default_lr_config = default_lr_configs.get(scheduler)
-            error_msg = f"default scheduler config for {scheduler} is not specified"
             if default_lr_config is not None:
                 scheduler_config = update_dict(scheduler_config, default_lr_config)
-            else:
-                if scheduler != "warmup":
-                    raise ValueError(error_msg)
             if scheduler == "warmup":
                 sab = scheduler_config.get("scheduler_afterwards_base", "plateau")
                 if sab == "warmup":
                     raise ValueError("warmup should not be used inside a warmup")
                 sac = scheduler_config.get("scheduler_afterwards_config", {})
                 default_lr_config = default_lr_configs.get(sab)
-                if default_lr_config is None:
-                    raise ValueError(error_msg)
-                sac = update_dict(sac, default_lr_config)
+                sac = update_dict(sac, default_lr_config or {})
                 sab = scheduler_dict[sab]
                 scheduler_config["scheduler_afterwards_base"] = sab
                 scheduler_config["scheduler_afterwards_config"] = sac
