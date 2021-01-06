@@ -776,7 +776,9 @@ class InferenceProtocol(ABC):
         *,
         use_tqdm: bool = False,
         return_loss: bool = True,
+        return_outputs: bool = True,
         state: Optional[TrainerState] = None,
+        portion: float = 1.0,
         **kwargs: Any,
     ) -> InferenceOutputs:
         labels_key = loader.loader.labels_key
@@ -784,10 +786,12 @@ class InferenceProtocol(ABC):
             loader = self.to_tqdm(loader)
 
         def _core() -> InferenceOutputs:
-            results: Dict[str, List[np.ndarray]] = {}
+            results: Dict[str, Optional[List[np.ndarray]]] = {}
             loss_items: Dict[str, List[float]] = {}
             labels = []
             for i, (batch, batch_indices) in enumerate(loader):
+                if i / len(loader) >= portion:
+                    break
                 local_labels = batch[labels_key]
                 if local_labels is not None:
                     if not isinstance(local_labels, np.ndarray):
@@ -829,13 +833,19 @@ class InferenceProtocol(ABC):
                         v_np = v
                     else:
                         v_np = to_numpy(v)
-                    results.setdefault(k, []).append(v_np)
+                    if not return_outputs:
+                        results[k] = None
+                    else:
+                        results.setdefault(k, []).append(v_np)  # type: ignore
                 if local_losses is not None:
                     for k, v in local_losses.items():
                         loss_items.setdefault(k, []).append(v.item())
 
+            if return_outputs:
+                results = {k: np.vstack(v) for k, v in results.items()}
+
             return InferenceOutputs(
-                {k: np.vstack(v) for k, v in results.items()},
+                results,
                 None
                 if not loss_items
                 else {k: sum(v) / len(v) for k, v in loss_items.items()},
