@@ -733,7 +733,9 @@ class Trainer(MonitoredMixin):
             else:
                 metric_key = f"{metric_type}_config"
                 sub_metric_config = metric_config.setdefault(metric_key, {})
-                self.metrics[metric_type] = Metrics(metric_type, sub_metric_config)
+                metric = Metrics(metric_type, sub_metric_config)
+                self.metrics[metric_type] = metric
+                metric.trainer = self
             if not 0.0 < metric_decay < 1.0:
                 self.metrics_decay = None
             else:
@@ -1073,6 +1075,7 @@ class Trainer(MonitoredMixin):
         binary_outputs: Optional[InferenceOutputs] = None,
         loader: Optional[PrefetchLoader] = None,
         loader_name: Optional[str] = None,
+        metrics_kwargs: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Tuple[InferenceOutputs, IntermediateResults]:
         if self.cv_loader is None and self.tr_loader._num_siamese > 1:
             raise ValueError("cv set should be provided when num_siamese > 1")
@@ -1140,7 +1143,12 @@ class Trainer(MonitoredMixin):
                                 metric_predictions = probabilities
                             else:
                                 metric_predictions = to_prob(logits)
-                sub_metric = metric_ins.metric(labels, metric_predictions)
+                metric_kwargs = (metrics_kwargs or {}).get(metric_type)
+                sub_metric = metric_ins.metric(
+                    labels,
+                    metric_predictions,
+                    **shallow_copy_dict(metric_kwargs or {}),
+                )
                 metrics[metric_type] = float(sub_metric)
             if self.metrics_decay is not None and self.state.should_start_snapshot:
                 use_decayed = True
