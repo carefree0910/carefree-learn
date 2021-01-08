@@ -7,6 +7,7 @@ from typing import Union
 from typing import Optional
 
 from ..base import HeadBase
+from ...blocks import BN
 from ...blocks import MLP
 
 
@@ -19,6 +20,8 @@ class FCNNHead(HeadBase):
         hidden_units: List[int],
         mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         final_mapping_config: Optional[Dict[str, Any]] = None,
+        *,
+        use_final_bn: bool = False,
     ):
         super().__init__(in_dim, out_dim)
         if mapping_configs is None:
@@ -30,9 +33,16 @@ class FCNNHead(HeadBase):
             mapping_configs,
             final_mapping_config=final_mapping_config,
         )
+        if not use_final_bn:
+            self.final_bn = None
+        else:
+            self.final_bn = BN(out_dim)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        return self.mlp(net)
+        net = self.mlp(net)
+        if self.final_bn is not None:
+            net = self.final_bn(net)
+        return net
 
 
 __all__ = ["FCNNHead"]
