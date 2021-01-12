@@ -95,7 +95,8 @@ class WarmupScheduler(_LRScheduler):
         if scheduler_afterwards_config is None:
             scheduler_afterwards_config = {}
         self.scheduler_afterwards = scheduler_afterwards_base(
-            optimizer, **scheduler_afterwards_config
+            optimizer,
+            **scheduler_afterwards_config,
         )
         self.requires_metric = scheduler_requires_metric(self.scheduler_afterwards)
         super().__init__(optimizer)
