@@ -1,5 +1,6 @@
 import os
 import json
+import math
 
 import numpy as np
 
@@ -10,11 +11,11 @@ from argparse import Namespace
 from cftool.misc import update_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
+from cftool.misc import LoggingMixin
 from cflearn.types import data_type
 from cflearn.types import general_config_type
 
 from ..configs import _parse_config
-from ..configs import Elements
 from ..pipeline import Pipeline
 
 cli_root = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, "cli")
@@ -65,6 +66,30 @@ def impute_deepspeed_args(
             args.deepspeed_config = new_path
 
 
+def impute_deepspeed_config(
+    cuda: str,
+    default_batch_size: int,
+    ds_config: general_config_type,
+    final_config: Dict[str, Any],
+) -> Dict[str, Any]:
+    parsed_ds_config = _parse_config(ds_config)
+    num_cuda = len(cuda.split(","))
+    batch_size = parsed_ds_config.setdefault("train_batch_size", default_batch_size)
+    micro_batch_size = 2 ** (math.floor(math.log2(batch_size / num_cuda)))
+    parsed_ds_config["train_micro_batch_size_per_gpu"] = micro_batch_size
+    new_batch_size = micro_batch_size * num_cuda
+    if batch_size != new_batch_size:
+        print(
+            f"{LoggingMixin.warning_prefix}`batch_size` "
+            f"will be switched from {batch_size} to {new_batch_size}"
+        )
+        parsed_ds_config["train_batch_size"] = new_batch_size
+        batch_size = new_batch_size
+    parsed_ds_config.setdefault("steps_per_print", 30000 // batch_size)
+    final_config["batch_size"] = batch_size
+    return parsed_ds_config
+
+
 def deepspeed(
     x: data_type,
     y: data_type = None,
@@ -105,13 +130,10 @@ def deepspeed(
     parsed_increment_config = _parse_config(increment_config)
     final_config = update_dict(parsed_increment_config, parsed_config)
     final_config["model_saving_folder"] = workplace
-    config_file = Saving.save_dict(final_config, "config", workplace)
     # deepspeed
-    parsed_ds_config = _parse_config(ds_config)
-    parsed_ds_config.setdefault("train_batch_size", 256)
-    batch_size = final_config.get("batch_size", Elements().batch_size)
-    parsed_ds_config["train_micro_batch_size_per_gpu"] = batch_size
-    parsed_ds_config.setdefault("steps_per_print", 30000 // batch_size)
+    parsed_ds_config = impute_deepspeed_config(cuda, 256, ds_config, final_config)
+    # save configs
+    config_file = Saving.save_dict(final_config, "config", workplace)
     ds_config_file = Saving.save_dict(parsed_ds_config, "ds_config", workplace)
 
     os.system(
