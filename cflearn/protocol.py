@@ -510,7 +510,7 @@ class TrainerState:
 
     @property
     def should_start_snapshot(self) -> bool:
-        return self.step >= self.snapshot_start_step and self.epoch > self.min_epoch
+        return self.step >= self.snapshot_start_step
 
     @property
     def should_start_monitor_plateau(self) -> bool:
