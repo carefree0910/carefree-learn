@@ -40,6 +40,7 @@ __all__ = [
     "EnsemblePattern",
     "RepeatResult",
     # dist
+    "impute_deepspeed_args",
     "deepspeed",
     # ensemble
     "Ensemble",

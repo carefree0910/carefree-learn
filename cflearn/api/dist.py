@@ -1,10 +1,14 @@
 import os
+import json
 
 import numpy as np
 
 from typing import Any
+from typing import Dict
 from typing import NamedTuple
+from argparse import Namespace
 from cftool.misc import update_dict
+from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cflearn.types import data_type
 from cflearn.types import general_config_type
@@ -22,6 +26,43 @@ class DeepspeedResults(NamedTuple):
     workplace: str
     config_path: str
     ds_config_path: str
+
+
+def impute_deepspeed_args(
+    args: Namespace,
+    config: Dict[str, Any],
+    trainer_config: Dict[str, Any],
+) -> None:
+    if args.deepspeed_config is not None:
+        config["use_tqdm"] = False
+        config["trigger_logging"] = True
+        config["ds_args"] = args
+        with open(args.deepspeed_config, "r") as f:
+            ds_config = json.load(f)
+        ds_config_changed = False
+        if trainer_config["use_amp"]:
+            ds_config_changed = True
+            ds_config["fp16"] = {
+                "enabled": True,
+                "loss_scale": 0,
+                "initial_scale_power": 32,
+                "loss_scale_window": 1000,
+                "hysteresis": 2,
+                "min_loss_scale": 1,
+            }
+        clip_norm = trainer_config["clip_norm"]
+        if clip_norm > 0.0:
+            ds_config_changed = True
+            ds_config["gradient_clipping"] = clip_norm
+        if ds_config_changed:
+            folder, file = os.path.split(args.deepspeed_config)
+            name, ext = os.path.splitext(file)
+            new_file = f"_cf_{name}{ext}"
+            new_path = new_file if not folder else os.path.join(folder, new_file)
+            with lock_manager(folder or "./", new_file):
+                with open(new_path, "w") as f:
+                    json.dump(ds_config, f)
+            args.deepspeed_config = new_path
 
 
 def deepspeed(
@@ -92,5 +133,6 @@ def deepspeed(
 
 
 __all__ = [
+    "impute_deepspeed_args",
     "deepspeed",
 ]
