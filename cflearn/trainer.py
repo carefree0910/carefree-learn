@@ -806,8 +806,9 @@ class Trainer(MonitoredMixin):
         requires_metric = key in self.schedulers_requires_metric
         if requires_metric and not (is_warmup and not scheduler.finished_warmup):
             if self.intermediate is None:
-                return should_log_lr, None
-            kwargs["metrics"] = self.intermediate.final_score
+                kwargs["metrics"] = -math.inf
+            else:
+                kwargs["metrics"] = self.intermediate.final_score
             should_log_lr = self.intermediate_updated
             self.intermediate_updated = False
         return should_log_lr, kwargs
