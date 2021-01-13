@@ -649,17 +649,15 @@ class Trainer(MonitoredMixin):
                 multiplier = scheduler_config.setdefault("multiplier", 3)
                 optimizer_config.setdefault("lr", default_lr / multiplier)
                 default_max_warmup_step = int(round(3.0e5 / self.tr_loader.batch_size))
+                num_step_per_epoch = self.state.num_step_per_epoch
                 warmup_step = scheduler_config.setdefault(
                     "warmup_step",
-                    min(default_max_warmup_step, 10 * self.state.num_step_per_epoch),
+                    min(default_max_warmup_step, 10 * num_step_per_epoch),
                 )
-                self.state.plateau_start += int(
-                    warmup_step / self.state.num_step_per_snapshot
-                )
-                if self.state._snapshot_start_step is not None:
-                    self.state._snapshot_start_step += warmup_step
-                else:
-                    self.state.min_num_sample += self.tr_loader.batch_size * warmup_step
+                warmup_snapshot = int(warmup_step / self.state.num_step_per_snapshot)
+                warmup_epoch = math.floor(warmup_step / num_step_per_epoch)
+                self.state.plateau_start += warmup_snapshot
+                self.state.min_epoch += warmup_epoch
             # the default settings of optimizers
             if optimizer == "nag":
                 optimizer_config.setdefault("momentum", 0.999)
