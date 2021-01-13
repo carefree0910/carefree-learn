@@ -1005,6 +1005,8 @@ class Trainer(MonitoredMixin):
         self._init_metrics()
         # monitor
         monitor_config = self.config.setdefault("monitor_config", {})
+        default_patience = max(4, math.ceil(math.log10(tr_loader.num_samples)))
+        monitor_config.setdefault("patience", default_patience)
         self._monitor = TrainMonitor.monitor(self, **monitor_config)
         # train
         self.model.info()

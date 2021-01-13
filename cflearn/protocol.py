@@ -320,6 +320,10 @@ class DataLoaderProtocol(ABC):
     def copy(self) -> "DataLoaderProtocol":
         pass
 
+    @property
+    def num_samples(self) -> int:
+        return len(self.data)
+
     @classmethod
     def get(cls, name: str) -> Type["DataLoaderProtocol"]:
         return loader_dict[name]
