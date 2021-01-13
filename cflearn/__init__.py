@@ -12,3 +12,8 @@ from .modules.heads import HeadBase
 from .modules.heads import HeadConfigs
 from .modules.extractors import ExtractorBase
 from .modules.aggregators import AggregatorBase
+
+from pkg_resources import get_distribution
+
+pkg = get_distribution("carefree-learn")
+__version__ = pkg.version
