@@ -19,7 +19,7 @@ setup(
         "optuna>=2.3.0",
         "carefree-ml>=0.1.1",
         "carefree-data>=0.2.2",
-        "carefree-toolkit>=0.2.4",
+        "carefree-toolkit>=0.2.5",
         "dill",
         "future",
         "psutil",
