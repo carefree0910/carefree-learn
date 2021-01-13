@@ -110,6 +110,7 @@ def deepspeed(
     kwargs.setdefault("logging_folder", default_logging_folder)
     # data
     data_folder = os.path.join(workplace, "__data__")
+    os.makedirs(data_folder, exist_ok=True)
     if not isinstance(x, np.ndarray):
         train_file = x
         valid_file = x_cv

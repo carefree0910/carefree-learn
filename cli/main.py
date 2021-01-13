@@ -66,6 +66,6 @@ if __name__ == "__main__":
         mlflow_config["task_name"] = mlflow.get_experiment(_active_experiment_id).name
 
     model_saving_folder = config.pop("model_saving_folder", None)
-    m = cflearn.make(args.model, **config).fit(x, x_cv=x_cv)
+    m = cflearn.make(args.model, **config).fit(x, y, x_cv, y_cv)
     if model_saving_folder is not None and m.is_rank_0:
         m.save(os.path.join(model_saving_folder, "pipeline"))
