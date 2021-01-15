@@ -24,7 +24,6 @@ from typing import NamedTuple
 from functools import partial
 from tqdm.autonotebook import tqdm
 from cftool.ml import Metrics
-from cftool.ml import ModelPattern
 from cftool.misc import register_core
 from cftool.misc import timing_context
 from cftool.misc import shallow_copy_dict
@@ -34,7 +33,6 @@ from cfdata.tabular import data_type
 from cfdata.tabular import str_data_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
-from cfdata.tabular import TabularData
 from cfdata.tabular.recognizer import Recognizer
 
 from .types import np_dict_type
@@ -48,60 +46,6 @@ from .misc.toolkit import to_torch
 from .misc.toolkit import eval_context
 from .misc.toolkit import LoggingMixinWithRank
 from .modules.blocks import EMA
-
-
-class PipelineProtocol(LoggingMixinWithRank, metaclass=ABCMeta):
-    def __init__(self) -> None:
-        self.data = TabularData.simple("reg", simplify=True)
-
-    def fit(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        x_cv: np.ndarray,
-        y_cv: np.ndarray,
-    ) -> "PipelineProtocol":
-        self.data.read(x, y)
-        return self._core(x, y, x_cv, y_cv)
-
-    @abstractmethod
-    def _core(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        x_cv: np.ndarray,
-        y_cv: np.ndarray,
-    ) -> "PipelineProtocol":
-        pass
-
-    @abstractmethod
-    def predict(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
-        pass
-
-    def to_pattern(self, **predict_config: Any) -> ModelPattern:
-        return ModelPattern(predict_method=lambda x: self.predict(x, **predict_config))
-
-
-class PatternPipeline(PipelineProtocol):
-    def __init__(self, pattern: ModelPattern):
-        super().__init__()
-        self.pattern = pattern
-
-    def _core(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        x_cv: np.ndarray,
-        y_cv: np.ndarray,
-    ) -> "PipelineProtocol":
-        pass
-
-    def predict(self, x: np.ndarray, **kwargs: Any) -> np.ndarray:
-        return self.pattern.predict(x, **kwargs)
-
-    def to_pattern(self, **predict_config: Any) -> ModelPattern:
-        return self.pattern
-
 
 data_dict: Dict[str, Type["DataProtocol"]] = {}
 sampler_dict: Dict[str, Type["SamplerProtocol"]] = {}
@@ -995,8 +939,6 @@ class InferenceProtocol(ABC):
 
 
 __all__ = [
-    "PipelineProtocol",
-    "PatternPipeline",
     "DataSplit",
     "DataProtocol",
     "SamplerProtocol",

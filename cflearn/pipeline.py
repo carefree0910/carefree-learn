@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatch
 
 from typing import *
+from abc import abstractmethod
+from abc import ABC
 from tqdm import tqdm
 from cfdata.tabular import TabularDataset
 from cftool.ml import ModelPattern
@@ -46,9 +48,20 @@ from .models.base import PipeConfig
 
 
 key_type = Tuple[Union[str, Optional[str]], ...]
+inp_type = Optional[np.ndarray]
+fit_type = Callable[
+    ["Pipeline", np.ndarray, np.ndarray, inp_type, inp_type, inp_type],
+    None,
+]
+predict_type = Callable[
+    ["Pipeline", np.ndarray, Any],
+    Union[np.ndarray, Dict[str, np.ndarray]],
+]
 
 
 class Pipeline(LoggingMixinWithRank):
+    custom_fit: Optional[fit_type] = None
+    custom_predict: Optional[predict_type] = None
     config_bundle_name = "config_bundle"
 
     def __init__(self, environment: Environment):
@@ -538,6 +551,9 @@ class Pipeline(LoggingMixinWithRank):
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         sample_weights: Optional[np.ndarray] = None,
     ) -> "Pipeline":
+        if self.custom_fit is not None:
+            self.custom_fit(self, x, y, x_cv, y_cv, sample_weights)
+            return self
         self._before_loop(x, y, x_cv, y_cv, sample_weights)
         self._handle_pretrain(
             pretrain_strict,
@@ -601,6 +617,8 @@ class Pipeline(LoggingMixinWithRank):
         returns_probabilities: bool = False,
         **kwargs: Any,
     ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+        if self.custom_predict is not None:
+            return self.custom_predict(self, x, **kwargs)  # type: ignore
         if self.inference is None:
             raise ValueError("`inference` is not yet generated")
         loader = self.preprocessor.make_inference_loader(
@@ -850,4 +868,30 @@ class Pipeline(LoggingMixinWithRank):
         self.model.to(self.device)
 
 
-__all__ = ["Pipeline"]
+class ExternalPipelineProtocol(ABC):
+    @abstractmethod
+    def fit(
+        self,
+        pipeline: Pipeline,
+        x: np.ndarray,
+        y: np.ndarray,
+        x_cv: Optional[np.ndarray] = None,
+        y_cv: Optional[np.ndarray] = None,
+        sample_weights: Optional[np.ndarray] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def predict(
+        self,
+        pipeline: Pipeline,
+        x: np.ndarray,
+        **kwargs: Any,
+    ) -> Union[np.ndarray, Dict[str, np.ndarray]]:
+        pass
+
+
+__all__ = [
+    "Pipeline",
+    "ExternalPipelineProtocol",
+]

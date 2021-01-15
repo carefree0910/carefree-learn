@@ -28,6 +28,7 @@ from ..trainer import Trainer
 from ..trainer import TrainerCallback
 from ..trainer import IntermediateResults
 from ..pipeline import Pipeline
+from ..pipeline import ExternalPipelineProtocol
 from ..protocol import DataProtocol
 from ..misc._api import _to_saving_path
 from ..misc._api import _make_saving_path
@@ -48,6 +49,18 @@ def make(
     parsed_config = update_dict(_parse_config(config), kwargs)
     parsed_increment_config = _parse_config(increment_config)
     return Pipeline.make(parsed_config, parsed_increment_config)
+
+
+def make_external(
+    protocol: ExternalPipelineProtocol,
+    config: general_config_type = None,
+    increment_config: general_config_type = None,
+    **kwargs: Any,
+) -> Pipeline:
+    m = make("", config, increment_config, **kwargs)
+    m.custom_fit = protocol.fit
+    m.custom_predict = protocol.predict  # type: ignore
+    return m
 
 
 class _PipeConfigManager:
@@ -584,6 +597,7 @@ def switch_trainer_callback(callback_base: Type[TrainerCallback]) -> None:
 
 __all__ = [
     "make",
+    "make_external",
     "ModelConfig",
     "make_from",
     "finetune",
