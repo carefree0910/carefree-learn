@@ -2,11 +2,14 @@ import os
 import shutil
 
 from typing import *
-from cftool.misc import shallow_copy_dict, LoggingMixin
+from torch import Tensor
+from cftool.misc import shallow_copy_dict
+from cftool.misc import LoggingMixin
 from cftool.ml.utils import register_metric
 from cfdata.tabular.processors.base import Processor
 
 from ..modules import *
+from ..types import tensor_dict_type
 from ..losses import LossBase
 from ..configs import Configs
 from ..misc.toolkit import Initializer
@@ -183,6 +186,20 @@ def remove_external(file_path: str) -> None:
     _refresh_external_init()
 
 
+def register_module(name: str, module_base: Any) -> None:
+    @register_head(name)
+    class _(HeadBase):
+        def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
+            super().__init__(in_dim, out_dim, **kwargs)
+            self.model = module_base(in_dim, out_dim, **kwargs)
+
+        def forward(self, net: Tensor) -> Union[Tensor, tensor_dict_type]:
+            return self.model(net)
+
+    register_head_config(name, "default", head_config={})
+    register_model(name, pipes=[PipeInfo(name)])
+
+
 __all__ = [
     "register_extractor",
     "register_head",
@@ -199,6 +216,7 @@ __all__ = [
     "register_loss",
     "register_external",
     "remove_external",
+    "register_module",
     "Initializer",
     "Processor",
     "LossBase",
