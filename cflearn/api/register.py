@@ -1,5 +1,8 @@
+import os
+import shutil
+
 from typing import *
-from cftool.misc import shallow_copy_dict
+from cftool.misc import shallow_copy_dict, LoggingMixin
 from cftool.ml.utils import register_metric
 from cfdata.tabular.processors.base import Processor
 
@@ -140,6 +143,46 @@ def register_head_config(
     return _register_config(HeadConfigs, scope, name, head_config)  # type: ignore
 
 
+api_root = os.path.abspath(os.path.dirname(__file__))
+external_root = os.path.join(api_root, os.pardir, "external_")
+external_root = os.path.abspath(external_root)
+external_init_file = os.path.join(external_root, "__init__.py")
+
+
+def _refresh_external_init() -> None:
+    with open(external_init_file, "w") as f:
+        for file in sorted(os.listdir(external_root)):
+            if not os.path.isfile(os.path.join(external_root, file)):
+                continue
+            if file == "__init__.py":
+                continue
+            name, ext = os.path.splitext(file)
+            if ext != ".py":
+                continue
+            f.write(f"from .{name} import *\n")
+
+
+def register_external(file_path: str) -> None:
+    file = os.path.basename(file_path)
+    tgt_path = os.path.join(external_root, file)
+    if os.path.isfile(tgt_path):
+        print(
+            f"{LoggingMixin.warning_prefix}'{file}' already registered, "
+            "it will be overwritten."
+        )
+    shutil.copy(file_path, tgt_path)
+    _refresh_external_init()
+
+
+def remove_external(file_path: str) -> None:
+    file = os.path.basename(file_path)
+    tgt_path = os.path.join(external_root, file)
+    if not os.path.isfile(tgt_path):
+        raise ValueError(f"'{file}' is not registered")
+    os.remove(tgt_path)
+    _refresh_external_init()
+
+
 __all__ = [
     "register_extractor",
     "register_head",
@@ -154,6 +197,8 @@ __all__ = [
     "register_initializer",
     "register_processor",
     "register_loss",
+    "register_external",
+    "remove_external",
     "Initializer",
     "Processor",
     "LossBase",

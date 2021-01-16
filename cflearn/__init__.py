@@ -13,6 +13,7 @@ from .modules.heads import HeadBase
 from .modules.heads import HeadConfigs
 from .modules.extractors import ExtractorBase
 from .modules.aggregators import AggregatorBase
+from .external_ import *
 
 from pkg_resources import get_distribution
 
