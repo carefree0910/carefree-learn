@@ -188,8 +188,8 @@ class Experiment(LoggingMixin):
         gpu_config["available_cuda_list"] = self.cuda_list
         parallel = Parallel(
             self.num_jobs,
-            use_cuda=True,
             use_tqdm=use_tqdm,
+            use_cuda=self.use_cuda,
             resource_config=resource_config,
         )
         sorted_workplace_keys = sorted(self.tasks)
