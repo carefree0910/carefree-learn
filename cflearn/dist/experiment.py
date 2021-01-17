@@ -165,7 +165,8 @@ class Experiment(LoggingMixin):
         workplace = self.workplace(workplace_key, root_workplace)
         copied_config = shallow_copy_dict(config or {})
         copied_config["model"] = model
-        inject_distributed_tqdm_kwargs(len(self.tasks) % self.num_jobs, copied_config)
+        idx = len(self.tasks) % (self.num_jobs or 1)
+        inject_distributed_tqdm_kwargs(idx, copied_config)
         increment_config = {}
         if data_folder is None and x is not None:
             data_folder = self.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
