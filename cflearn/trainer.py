@@ -268,6 +268,7 @@ class TrainMonitor:
                 f"early stopped at n_epoch={self.state.epoch} "
                 f"due to '{self.info['info']}'",
                 prefix=self.monitored.info_prefix,
+                verbose_level=3,
             )
             return True
         if self.info["save_checkpoint"]:
@@ -371,6 +372,14 @@ class TrainerCallback:
         pass
 
 
+class TqdmSettings(NamedTuple):
+    use_tqdm: bool
+    use_step_tqdm: bool
+    use_tqdm_in_cv: bool
+    in_distributed: bool
+    position: int
+
+
 class Trainer(MonitoredMixin):
     callback_base = TrainerCallback
 
@@ -401,7 +410,13 @@ class Trainer(MonitoredMixin):
         # config based
         self.timing = environment.use_timing_context
         self.config = environment.trainer_config
-        self._use_tqdm_in_cv = self.config.setdefault("use_tqdm_in_cv", False)
+        self.tqdm_settings = TqdmSettings(
+            self.use_tqdm,
+            environment.pipeline_config.setdefault("use_step_tqdm", True),
+            environment.pipeline_config.setdefault("use_tqdm_in_cv", False),
+            environment.pipeline_config.setdefault("in_distributed", False),
+            environment.pipeline_config.setdefault("tqdm_position", 0),
+        )
         self._verbose_level = environment.verbose_level
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
         self.grad_scaler = None if amp is None or not self.use_amp else amp.GradScaler()
@@ -777,7 +792,9 @@ class Trainer(MonitoredMixin):
 
     @property
     def use_tqdm_in_cv(self) -> bool:
-        return self._use_tqdm_in_cv or self.state.is_terminate
+        if self.tqdm_settings.in_distributed:
+            return False
+        return self.tqdm_settings.use_tqdm_in_cv or self.state.is_terminate
 
     def _clip_norm_step(self) -> None:
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
@@ -1013,18 +1030,25 @@ class Trainer(MonitoredMixin):
         self._prepare_log()
         step_tqdm = None
         self._epoch_tqdm: Optional[tqdm] = None
-        if self.use_tqdm:
-            self._epoch_tqdm = tqdm(list(range(self.state.num_epoch)), position=0)
+        tqdm_position = self.tqdm_settings.position
+        in_distributed = self.tqdm_settings.in_distributed
+        if self.tqdm_settings.use_tqdm:
+            self._epoch_tqdm = tqdm(
+                list(range(self.state.num_epoch)),
+                position=tqdm_position,
+                desc=f"epoch{f' (task {tqdm_position})' if in_distributed else ''}",
+                leave=False,
+            )
         has_ckpt = terminate = False
         while self.state.should_train:
             try:
                 self.state.epoch += 1
                 step_iterator = self.tr_loader
-                if self.use_tqdm:
+                if self.tqdm_settings.use_step_tqdm:
                     step_tqdm = step_iterator = tqdm(
                         step_iterator,
                         total=len(self.tr_loader),
-                        position=1,
+                        position=tqdm_position + 1,
                         leave=False,
                     )
                 for i, (batch, batch_indices) in enumerate(step_iterator):
