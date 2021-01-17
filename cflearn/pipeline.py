@@ -162,6 +162,7 @@ class Pipeline(LoggingMixinWithRank):
             self.batch_size = 2 ** int(round(math.log2(self.batch_size)))
             self.config["lr_ratio"] = math.log2(self.batch_size / 128)
 
+        tr_loader_kwargs = self.config.get("tr_loader_kwargs", {})
         self.tr_loader = DataLoaderProtocol.make(
             self.loader_protocol,
             self.batch_size,
@@ -169,10 +170,12 @@ class Pipeline(LoggingMixinWithRank):
             return_indices=True,
             verbose_level=self._verbose_level,
             label_collator=self.ts_label_collator,
+            **tr_loader_kwargs,
         )
         if self.cv_data is None:
             self.cv_loader = None
         else:
+            cv_loader_kwargs = self.config.get("cv_loader_kwargs", {})
             cv_sampler = self.preprocessor.make_sampler(self.cv_data, False)
             self.cv_loader = DataLoaderProtocol.make(
                 self.loader_protocol,
@@ -181,6 +184,7 @@ class Pipeline(LoggingMixinWithRank):
                 return_indices=True,
                 verbose_level=self._verbose_level,
                 label_collator=self.ts_label_collator,
+                **cv_loader_kwargs,
             )
             self.cv_loader.enabled_sampling = False
         # tr loader copy
