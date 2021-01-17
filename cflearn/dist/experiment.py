@@ -27,11 +27,16 @@ def _task(
     task.run(execute, config_folder, cuda)
 
 
-def inject_distributed_tqdm_kwargs(i: int, kwargs: Dict[str, Any]) -> None:
+def inject_distributed_tqdm_kwargs(
+    i: int,
+    num_jobs: int,
+    kwargs: Dict[str, Any],
+) -> None:
     kwargs.setdefault("use_tqdm", True)
     kwargs.setdefault("use_step_tqdm", False)
     kwargs.setdefault("in_distributed", True)
-    kwargs.setdefault("tqdm_position", i)
+    kwargs.setdefault("tqdm_position", i % (num_jobs or 1))
+    kwargs.setdefault("tqdm_desc", f"epoch (task {i})")
 
 
 class ExperimentResults(NamedTuple):
@@ -165,8 +170,7 @@ class Experiment(LoggingMixin):
         workplace = self.workplace(workplace_key, root_workplace)
         copied_config = shallow_copy_dict(config or {})
         copied_config["model"] = model
-        idx = len(self.tasks) % (self.num_jobs or 1)
-        inject_distributed_tqdm_kwargs(idx, copied_config)
+        inject_distributed_tqdm_kwargs(len(self.tasks), self.num_jobs, copied_config)
         increment_config = {}
         if data_folder is None and x is not None:
             data_folder = self.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)

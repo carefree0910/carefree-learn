@@ -378,6 +378,7 @@ class TqdmSettings(NamedTuple):
     use_tqdm_in_cv: bool
     in_distributed: bool
     position: int
+    desc: str
 
 
 class Trainer(MonitoredMixin):
@@ -416,6 +417,7 @@ class Trainer(MonitoredMixin):
             environment.pipeline_config.setdefault("use_tqdm_in_cv", False),
             environment.pipeline_config.setdefault("in_distributed", False),
             environment.pipeline_config.setdefault("tqdm_position", 0),
+            environment.pipeline_config.setdefault("tqdm_desc", "epoch"),
         )
         self._verbose_level = environment.verbose_level
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
@@ -1030,13 +1032,11 @@ class Trainer(MonitoredMixin):
         self._prepare_log()
         step_tqdm = None
         self._epoch_tqdm: Optional[tqdm] = None
-        tqdm_position = self.tqdm_settings.position
-        in_distributed = self.tqdm_settings.in_distributed
         if self.tqdm_settings.use_tqdm:
             self._epoch_tqdm = tqdm(
                 list(range(self.state.num_epoch)),
-                position=tqdm_position,
-                desc=f"epoch{f' (task {tqdm_position})' if in_distributed else ''}",
+                position=self.tqdm_settings.position,
+                desc=self.tqdm_settings.desc,
                 leave=False,
             )
         has_ckpt = terminate = False
@@ -1048,7 +1048,7 @@ class Trainer(MonitoredMixin):
                     step_tqdm = step_iterator = tqdm(
                         step_iterator,
                         total=len(self.tr_loader),
-                        position=tqdm_position + 1,
+                        position=self.tqdm_settings.position + 1,
                         leave=False,
                     )
                 for i, (batch, batch_indices) in enumerate(step_iterator):

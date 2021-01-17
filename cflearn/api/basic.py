@@ -510,7 +510,7 @@ def repeat_with(
         for model in models:
             for i in range(num_repeat):
                 local_config = fetch_config(i, model)
-                inject_distributed_tqdm_kwargs(i, local_config)
+                inject_distributed_tqdm_kwargs(i, num_jobs, local_config)
                 experiment.add_task(
                     model=model,
                     compress=compress,
