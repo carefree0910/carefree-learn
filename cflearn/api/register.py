@@ -182,8 +182,11 @@ def register_external(file_path: str) -> None:
             "it will be overwritten."
         )
     shutil.copy(file_path, tgt_path)
-    exec(f"from cflearn.external_.{os.path.splitext(file)[0]} import *")
     _refresh_external_init()
+    import cflearn
+    import importlib
+    importlib.reload(cflearn)
+    exec(f"importlib.reload(cflearn.external_.{os.path.splitext(file)[0]})")
 
 
 def remove_external(file_path: str) -> None:
