@@ -21,10 +21,9 @@ class RNN(ExtractorBase):
         num_layers: int = 1,
     ):
         super().__init__(in_flat_dim, dimensions)
-        in_dim = in_flat_dim // dimensions.num_history
         # rnn
         rnn_base = rnn_dict[cell]
-        input_dimensions = [in_dim]
+        input_dimensions = [self.in_dim]
         self.hidden_size = cell_config["hidden_size"]
         input_dimensions += [self.hidden_size] * (num_layers - 1)
         self.rnn_list = torch.nn.ModuleList(

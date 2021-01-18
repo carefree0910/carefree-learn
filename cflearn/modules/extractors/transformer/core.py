@@ -71,8 +71,7 @@ class Transformer(ExtractorBase):
     ):
         super().__init__(in_flat_dim, dimensions)
         # latent projection
-        in_dim = in_flat_dim // dimensions.num_history
-        self.input_linear = Linear(in_dim, latent_dim, **input_linear_config)
+        self.input_linear = Linear(self.in_dim, latent_dim, **input_linear_config)
         self.latent_dim = latent_dim
         # transformer blocks
         self.norm = norm

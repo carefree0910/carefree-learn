@@ -23,6 +23,10 @@ class ExtractorBase(nn.Module, metaclass=ABCMeta):
         self.dimensions = dimensions
 
     @property
+    def in_dim(self) -> int:
+        return self.in_flat_dim // self.dimensions.num_history
+
+    @property
     def flatten_ts(self) -> bool:
         return True
 
