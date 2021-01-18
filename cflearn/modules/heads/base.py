@@ -53,6 +53,7 @@ class HeadConfigs(Configs, metaclass=ABCMeta):
     def inject_dimensions(self, config: Dict[str, Any]) -> None:
         config["in_dim"] = self.in_dim
         config["out_dim"] = self.out_dim
+        config["dimensions"] = self.dimensions
 
     @classmethod
     def get(
@@ -82,6 +83,7 @@ class HeadBase(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
     def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
         super().__init__()
         self.in_dim, self.out_dim = in_dim, out_dim
+        self.dimensions: Dimensions = kwargs["dimensions"]
 
     @abstractmethod
     def forward(self, net: torch.Tensor) -> Union[torch.Tensor, tensor_dict_type]:
