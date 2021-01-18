@@ -13,7 +13,9 @@ from ..types import tensor_dict_type
 from ..losses import LossBase
 from ..configs import Configs
 from ..misc.toolkit import Initializer
+from ..models.base import model_dict
 from ..models.base import ModelBase
+from ..modules.heads import head_dict
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
 from ..modules.extractors import ExtractorBase
@@ -187,6 +189,11 @@ def remove_external(file_path: str) -> None:
 
 
 def register_module(name: str, module_base: Any) -> None:
+    if name in head_dict:
+        raise ValueError(f"'{name}' already exists in `head_dict`")
+    if name in model_dict:
+        raise ValueError(f"'{name}' already exists in `model_dict`")
+
     @register_head(name)
     class _(HeadBase):
         def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):

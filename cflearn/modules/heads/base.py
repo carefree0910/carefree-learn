@@ -97,4 +97,8 @@ class HeadBase(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
         return head_dict[name](**config)
 
 
-__all__ = ["HeadConfigs", "HeadBase"]
+__all__ = [
+    "head_dict",
+    "HeadConfigs",
+    "HeadBase",
+]

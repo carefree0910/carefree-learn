@@ -1,3 +1,4 @@
+from .base import head_dict
 from .base import HeadBase
 from .base import HeadConfigs
 from .ddr import DDRHead
@@ -9,4 +10,8 @@ from .traditional import NNBMNBHead
 from .traditional import NNBNormalHead
 
 
-__all__ = ["HeadBase", "HeadConfigs"]
+__all__ = [
+    "head_dict",
+    "HeadBase",
+    "HeadConfigs",
+]
