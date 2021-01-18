@@ -154,17 +154,23 @@ external_root = os.path.abspath(external_root)
 external_init_file = os.path.join(external_root, "__init__.py")
 
 
+def _get_external_files() -> List[str]:
+    files = []
+    for file in sorted(os.listdir(external_root)):
+        if not os.path.isfile(os.path.join(external_root, file)):
+            continue
+        if file == "__init__.py":
+            continue
+        if os.path.splitext(file)[1] != ".py":
+            continue
+        files.append(file)
+    return files
+
+
 def _refresh_external_init() -> None:
     with open(external_init_file, "w") as f:
-        for file in sorted(os.listdir(external_root)):
-            if not os.path.isfile(os.path.join(external_root, file)):
-                continue
-            if file == "__init__.py":
-                continue
-            name, ext = os.path.splitext(file)
-            if ext != ".py":
-                continue
-            f.write(f"from .{name} import *\n")
+        for file in _get_external_files():
+            f.write(f"from .{os.path.splitext(file)[0]} import *\n")
 
 
 def register_external(file_path: str) -> None:
@@ -187,6 +193,11 @@ def remove_external(file_path: str) -> None:
         raise ValueError(f"'{file}' is not registered")
     os.remove(tgt_path)
     _refresh_external_init()
+
+
+def remove_all_external() -> None:
+    for file in _get_external_files():
+        remove_external(os.path.join(external_root, file))
 
 
 def register_module(name: str, module_base: Any) -> None:
@@ -224,6 +235,7 @@ __all__ = [
     "register_loss",
     "register_external",
     "remove_external",
+    "remove_all_external",
     "register_module",
     "Initializer",
     "Processor",
