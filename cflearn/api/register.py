@@ -185,6 +185,7 @@ def register_external(file_path: str) -> None:
     _refresh_external_init()
     import cflearn
     import importlib
+
     importlib.reload(cflearn)
     importlib.reload(cflearn.external_)
     exec(f"importlib.reload(cflearn.external_.{os.path.splitext(file)[0]})")
