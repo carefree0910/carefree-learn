@@ -1,11 +1,18 @@
+import os
 import torch
 import cflearn
+import platform
 import unittest
 
 import numpy as np
 
 from typing import Any
 from torch.nn import Parameter
+from cfdata.tabular import TabularDataset
+
+
+IS_LINUX = platform.system() == "Linux"
+file_folder = os.path.dirname(__file__)
 
 
 class TestRegister(unittest.TestCase):
@@ -53,6 +60,18 @@ class TestRegister(unittest.TestCase):
         processed_y = toy.data.processed.y
         self.assertTrue(np.allclose(y + 1, processed_y))
         cflearn._rmtree(logging_folder)
+
+    def test_register_external(self) -> None:
+        cflearn.remove_all_external()
+        external_model = "external_linear"
+        external_file = os.path.join(file_folder, "external_.py")
+        cflearn.register_external(external_file)
+        x, y = TabularDataset.iris().xy
+        cflearn.make(external_model).fit(x, y)
+        cflearn.repeat_with(x, y, models=external_model, num_repeat=3, num_jobs=1)
+        if not IS_LINUX:
+            cflearn.repeat_with(x, y, models=external_model, num_repeat=3, num_jobs=3)
+        cflearn.remove_external(external_file)
 
 
 if __name__ == "__main__":
