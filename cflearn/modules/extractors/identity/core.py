@@ -13,4 +13,18 @@ class Identity(ExtractorBase):
         return net
 
 
-__all__ = ["Identity"]
+@ExtractorBase.register("identity_ts")
+class IdentityTS(ExtractorBase):
+    @property
+    def out_dim(self) -> int:
+        return self.in_dim
+
+    @property
+    def flatten_ts(self) -> bool:
+        return False
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        return net
+
+
+__all__ = ["Identity", "IdentityTS"]

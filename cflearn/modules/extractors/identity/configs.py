@@ -10,4 +10,10 @@ class DefaultIdentityConfig(Configs):
         return {}
 
 
-__all__ = ["DefaultIdentityConfig"]
+@Configs.register("identity_ts", "default")
+class DefaultIdentityTSConfig(Configs):
+    def get_default(self) -> Dict[str, Any]:
+        return {}
+
+
+__all__ = ["DefaultIdentityConfig", "DefaultIdentityTSConfig"]

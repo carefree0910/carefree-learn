@@ -216,7 +216,7 @@ def register_module(name: str, module_base: Any) -> None:
             return self.model(net)
 
     register_head_config(name, "default", head_config={})
-    register_model(name, pipes=[PipeInfo(name)])
+    register_model(name, pipes=[PipeInfo(name, extractor="identity_ts")])
 
 
 __all__ = [
