@@ -204,10 +204,18 @@ def remove_all_external() -> None:
 
 
 def register_module(name: str, module_base: Any) -> None:
-    if name in head_dict:
-        raise ValueError(f"'{name}' already exists in `head_dict`")
-    if name in model_dict:
-        raise ValueError(f"'{name}' already exists in `model_dict`")
+    current_head = head_dict.pop(name, None)
+    current_model = model_dict.pop(name, None)
+    if current_head is not None:
+        print(
+            f"{LoggingMixin.warning_prefix}'{name}' already exists in `head_dict`, "
+            "it will be overwritten"
+        )
+    if current_model is not None:
+        print(
+            f"{LoggingMixin.warning_prefix}'{name}' already exists in `model_dict`, "
+            "it will be overwritten"
+        )
 
     @register_head(name)
     class _(HeadBase):
