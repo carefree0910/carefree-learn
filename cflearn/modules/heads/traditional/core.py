@@ -118,8 +118,9 @@ class NNBMNBHead(HeadBase):
         y_ravel: np.ndarray,
         categorical: Optional[torch.Tensor],
         categorical_dims: Dict[int, int],
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         self.categorical_dims = categorical_dims
         if categorical is None:
             self.mnb = None
@@ -195,8 +196,9 @@ class NNBNormalHead(HeadBase):
         y_ravel: np.ndarray,
         pretrain: bool,
         numerical: Optional[torch.Tensor],
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         if numerical is None:
             self.mu = self.std = self.normal = None
         else:
