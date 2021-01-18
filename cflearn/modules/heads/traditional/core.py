@@ -49,8 +49,9 @@ class NDTHead(HeadBase):
         dt: DecisionTreeClassifier,
         activations: Dict[str, str],
         activation_configs: Dict[str, Any],
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         tree_structure = export_structure(dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])

@@ -4,6 +4,8 @@ import unittest
 
 import numpy as np
 
+from typing import Any
+
 
 class TestCustomization(unittest.TestCase):
     def test_customize_model(self):
@@ -20,7 +22,7 @@ class TestCustomization(unittest.TestCase):
 
         @cflearn.register_head("foo")
         class _(cflearn.HeadBase):
-            def __init__(self, in_dim: int, out_dim: int, **kwargs):
+            def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
                 super().__init__(in_dim, out_dim, **kwargs)
                 self.dummy = torch.nn.Parameter(torch.tensor([1.0]))
 

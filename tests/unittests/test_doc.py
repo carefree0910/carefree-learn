@@ -9,6 +9,7 @@ import numpy as np
 import torch.nn as nn
 
 from cfdata.tabular import *
+from typing import Any
 from typing import Optional
 from cftool.ml import ModelPattern
 from sklearn.svm import SVR
@@ -365,8 +366,14 @@ class TestDoc(unittest.TestCase):
 
         @cflearn.register_head("cross")
         class CrossHead(cflearn.HeadBase):
-            def __init__(self, in_dim: int, out_dim: int, activation: Optional[str]):
-                super().__init__(in_dim, out_dim)
+            def __init__(
+                self,
+                in_dim: int,
+                out_dim: int,
+                activation: Optional[str],
+                **kwargs: Any,
+            ):
+                super().__init__(in_dim, out_dim, **kwargs)
                 self.cross = CrossBlock(in_dim, residual=False, bias=False)
                 if activation is None:
                     self.activation = None

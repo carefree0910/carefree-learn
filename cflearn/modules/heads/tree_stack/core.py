@@ -18,8 +18,9 @@ class TreeStackHead(HeadBase):
         num_blocks: int,
         dndf_config: Dict[str, Any],
         out_dndf_config: Dict[str, Any],
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         self.res_blocks = nn.ModuleList()
         for _ in range(num_blocks):
             self.res_blocks.append(TreeResBlock(in_dim, dndf_config))

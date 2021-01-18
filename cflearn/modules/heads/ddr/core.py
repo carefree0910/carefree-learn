@@ -31,8 +31,9 @@ class DDRHead(HeadBase):
         num_layers: int,
         num_blocks: int,
         latent_dim: int,
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         assert out_dim == 1
         # common
         self.register_buffer("cdf_logit_anchor", torch.tensor([math.log(3.0)]))

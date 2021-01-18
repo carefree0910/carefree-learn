@@ -22,8 +22,9 @@ class FCNNHead(HeadBase):
         final_mapping_config: Optional[Dict[str, Any]] = None,
         *,
         use_final_bn: bool = False,
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         if mapping_configs is None:
             mapping_configs = {}
         self.mlp = MLP(

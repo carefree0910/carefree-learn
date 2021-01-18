@@ -16,8 +16,9 @@ class DNDFHead(HeadBase):
         in_dim: int,
         out_dim: int,
         dndf_config: Optional[Dict[str, Any]],
+        **kwargs: Any,
     ):
-        super().__init__(in_dim, out_dim)
+        super().__init__(in_dim, out_dim, **kwargs)
         self.dndf: Optional[DNDF]
         self.linear: Optional[torch.nn.Module]
         if dndf_config is not None:
