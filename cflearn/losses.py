@@ -189,11 +189,10 @@ class FocalLoss(LossBase):
         else:
             logits_mat = predictions.view(-1, predictions.shape[-1])
             prob_mat = F.softmax(logits_mat, dim=1) + self._eps
-        target_column = target.view(-1, 1)
-        gathered_prob_flat = prob_mat.gather(dim=1, index=target_column).view(-1)
+        gathered_prob_flat = prob_mat.gather(dim=1, index=target).view(-1)
         gathered_log_prob_flat = gathered_prob_flat.log()
         if self.alpha is not None:
-            alpha_target = self.alpha.gather(dim=0, index=target_column.view(-1))
+            alpha_target = self.alpha.gather(dim=0, index=target.view(-1))
             gathered_log_prob_flat = gathered_log_prob_flat * alpha_target
         return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 

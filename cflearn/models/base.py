@@ -427,8 +427,6 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         # requires returning `loss` key
         labels = batch[self.labels_key]
-        if self.tr_data.is_clf:
-            labels = labels.view(-1)
         # `sample_weights` could be accessed through:
         # 1) `self.tr_weights[batch_indices]` (for training)
         # 2) `self.cv_weights[batch_indices]` (for validation)
