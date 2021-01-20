@@ -413,7 +413,7 @@ class Trainer(MonitoredMixin):
         self.config = environment.trainer_config
         self.tqdm_settings = TqdmSettings(
             self.use_tqdm,
-            environment.pipeline_config.setdefault("use_step_tqdm", True),
+            environment.pipeline_config.setdefault("use_step_tqdm", self.use_tqdm),
             environment.pipeline_config.setdefault("use_tqdm_in_cv", False),
             environment.pipeline_config.setdefault("in_distributed", False),
             environment.pipeline_config.setdefault("tqdm_position", 0),
