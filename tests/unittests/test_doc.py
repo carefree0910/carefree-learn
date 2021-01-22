@@ -199,7 +199,7 @@ class TestDoc(unittest.TestCase):
         data_bundle_folder = experiment.dump_data_bundle(x, y)
         for model in ["linear", "fcnn", "tree_dnn"]:
             experiment.add_task(model=model, data_folder=data_bundle_folder)
-        run_command = f"python {os.path.join(data_folder, 'run_sklearn.py')}"
+        run_command = f"python {os.path.join(data_folder, 'test_run_sklearn.py')}"
         experiment.add_task(
             model="svr",
             run_command=run_command,
