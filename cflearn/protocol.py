@@ -302,7 +302,7 @@ class PrefetchLoader:
         self.enable_prefetch = enable_prefetch
         self.data = loader.data
         self.return_indices = loader.return_indices
-        self.stream = None if self.use_stream else torch.cuda.Stream(device)
+        self.stream = None if not self.use_stream else torch.cuda.Stream(device)
         self.next_batch: Union[np_dict_type, tensor_dict_type]
         self.next_batch_indices: Optional[torch.Tensor]
         self.stop_at_next_batch = False
