@@ -11,7 +11,7 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "mlflow",
-        "mypy",
+        "mypy==0.790",
         "black",
         "onnx",
         "onnxruntime",
