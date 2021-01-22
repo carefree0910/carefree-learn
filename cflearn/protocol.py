@@ -333,13 +333,13 @@ class PrefetchLoader:
         else:
             kwargs = {"non_blocking": self.enable_prefetch}
         self.next_batch = {
-            k: None if v is None else v.to(self.device, **kwargs)
+            k: None if v is None else v.to(self.device, **kwargs)  # type: ignore
             for k, v in self.next_batch.items()
         }
         if indices_tensor is None:
             self.next_batch_indices = None
         else:
-            indices_tensor = indices_tensor.to(self.device, **kwargs)
+            indices_tensor = indices_tensor.to(self.device, **kwargs)  # type: ignore
             self.next_batch_indices = indices_tensor
 
     def preload(self) -> None:
@@ -375,7 +375,7 @@ class PrefetchLoader:
         return self.device.type == "cpu"
 
     @property
-    def use_stream(self):
+    def use_stream(self) -> bool:
         return self.enable_prefetch and not self.is_cpu
 
 
