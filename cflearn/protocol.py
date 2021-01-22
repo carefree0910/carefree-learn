@@ -293,14 +293,16 @@ class PrefetchLoader:
         device: Union[str, torch.device],
         *,
         is_onnx: bool = False,
+        enable_prefetch: bool = False,
     ):
         self.loader = loader
         self.device = device
         self.is_onnx = is_onnx
         loader.is_onnx = is_onnx
+        self.enable_prefetch = enable_prefetch
         self.data = loader.data
         self.return_indices = loader.return_indices
-        self.stream = None if self.is_cpu else torch.cuda.Stream(device)
+        self.stream = None if self.use_stream else torch.cuda.Stream(device)
         self.next_batch: Union[np_dict_type, tensor_dict_type]
         self.next_batch_indices: Optional[torch.Tensor]
         self.stop_at_next_batch = False
@@ -319,11 +321,26 @@ class PrefetchLoader:
     def __next__(self) -> prefetch_batch_type:
         if self.stop_at_next_batch:
             raise StopIteration
-        if not self.is_cpu:
+        if self.use_stream:
             torch.cuda.current_stream(self.device).wait_stream(self.stream)
         batch, batch_indices = self.next_batch, self.next_batch_indices
         self.preload()
         return batch, batch_indices
+
+    def _to_device(self, indices_tensor: Optional[torch.Tensor]) -> None:
+        if not self.enable_prefetch:
+            kwargs = {}
+        else:
+            kwargs = {"non_blocking": self.enable_prefetch}
+        self.next_batch = {
+            k: None if v is None else v.to(self.device, **kwargs)
+            for k, v in self.next_batch.items()
+        }
+        if indices_tensor is None:
+            self.next_batch_indices = None
+        else:
+            indices_tensor = indices_tensor.to(self.device, **kwargs)
+            self.next_batch_indices = indices_tensor
 
     def preload(self) -> None:
         try:
@@ -343,16 +360,11 @@ class PrefetchLoader:
             self.next_batch_indices = indices_tensor
             return None
 
-        with torch.cuda.stream(self.stream):
-            self.next_batch = {
-                k: None if v is None else v.to(self.device, non_blocking=True)
-                for k, v in self.next_batch.items()
-            }
-            if indices_tensor is None:
-                self.next_batch_indices = None
-            else:
-                indices_tensor = indices_tensor.to(self.device, non_blocking=True)
-                self.next_batch_indices = indices_tensor
+        if not self.enable_prefetch:
+            self._to_device(indices_tensor)
+        else:
+            with torch.cuda.stream(self.stream):
+                self._to_device(indices_tensor)
 
     @property
     def is_cpu(self) -> bool:
@@ -361,6 +373,10 @@ class PrefetchLoader:
         if isinstance(self.device, str):
             return self.device == "cpu"
         return self.device.type == "cpu"
+
+    @property
+    def use_stream(self):
+        return self.enable_prefetch and not self.is_cpu
 
 
 class TrainerState:

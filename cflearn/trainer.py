@@ -1001,14 +1001,28 @@ class Trainer(MonitoredMixin):
         cv_loader: Optional[DataLoaderProtocol],
         tr_weights: Optional[np.ndarray],
         cv_weights: Optional[np.ndarray],
+        *,
+        enable_prefetch: bool = True,
     ) -> None:
-        self.tr_loader = PrefetchLoader(tr_loader, self.device)
-        self.tr_loader_copy = PrefetchLoader(tr_loader_copy, self.device)
+        self.tr_loader = PrefetchLoader(
+            tr_loader,
+            self.device,
+            enable_prefetch=enable_prefetch,
+        )
+        self.tr_loader_copy = PrefetchLoader(
+            tr_loader_copy,
+            self.device,
+            enable_prefetch=enable_prefetch,
+        )
         self.cv_loader: Optional[PrefetchLoader]
         if cv_loader is None:
             self.cv_loader = None
         else:
-            self.cv_loader = PrefetchLoader(cv_loader, self.device)
+            self.cv_loader = PrefetchLoader(
+                cv_loader,
+                self.device,
+                enable_prefetch=enable_prefetch,
+            )
         self.state.inject_loader(tr_loader)
         # sample weights
         if tr_weights is not None:
