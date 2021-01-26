@@ -485,6 +485,10 @@ class TrainerState:
         return self.epoch == self.num_epoch and self.epoch < self.max_epoch
 
     @property
+    def reached_min_epoch(self) -> bool:
+        return self.epoch > self.min_epoch
+
+    @property
     def reached_max_epoch(self) -> bool:
         return self.epoch == self.max_epoch
 

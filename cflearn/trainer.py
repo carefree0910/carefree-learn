@@ -264,6 +264,12 @@ class TrainMonitor:
 
     def _handle_trainer_terminate(self, new_score: float) -> bool:
         if self.info["terminate"] and not self.is_lazy:
+            if not self.state.reached_min_epoch:
+                self.log_msg(
+                    f"'{self.info['info']}' was detected but min_epoch was not reached,"
+                    " the training process will be continued"
+                )
+                return False
             self.log_msg(
                 f"early stopped at n_epoch={self.state.epoch} "
                 f"due to '{self.info['info']}'",
@@ -276,7 +282,7 @@ class TrainMonitor:
                 self.log_msg(f"{self.info['info']}", self.monitored.info_prefix, 3)
                 self.monitored.on_save_checkpoint(new_score)
         if self.state.should_extend_epoch:
-            if self.is_lazy:
+            if self.is_lazy and self.state.reached_min_epoch:
                 return True
             self._punish_extension()
             new_epoch = self.state.num_epoch + self.extension
