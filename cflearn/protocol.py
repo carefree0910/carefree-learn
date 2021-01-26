@@ -490,7 +490,7 @@ class TrainerState:
 
     @property
     def reached_max_epoch(self) -> bool:
-        return self.epoch == self.max_epoch
+        return self.epoch > self.max_epoch
 
     @property
     def disable_logging(self) -> context_error_handler:
