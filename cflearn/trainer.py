@@ -267,7 +267,9 @@ class TrainMonitor:
             if not self.state.reached_min_epoch:
                 self.log_msg(
                     f"'{self.info['info']}' was detected but min_epoch was not reached,"
-                    " the training process will be continued"
+                    " the training process will be continued",
+                    prefix=self.monitored.warning_prefix,
+                    verbose_level=3,
                 )
                 return False
             self.log_msg(
