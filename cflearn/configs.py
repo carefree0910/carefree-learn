@@ -331,7 +331,7 @@ class Elements(NamedTuple):
         # trainer general
         trainer_config = kwargs.setdefault("trainer_config", {})
         trainer_config.setdefault("update_binary_threshold_at_runtime", False)
-        use_amp = trainer_config.get("use_amp", False)
+        use_amp = kwargs.get("use_amp", False)
         trainer_config["use_amp"] = use_amp and amp is not None
         default_checkpoint_folder = os.path.join(log_folder, "checkpoints")
         trainer_config.setdefault("checkpoint_folder", default_checkpoint_folder)
