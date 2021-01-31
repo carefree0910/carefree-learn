@@ -156,6 +156,7 @@ class Elements(NamedTuple):
             kwargs = {}
         else:
             kwargs = shallow_copy_dict(self.extra_config)
+        update_dict(self.user_defined_config, kwargs)
         # inject fields
         spec = inspect.getfullargspec(type(self)).args[1:-2]
         for key in spec:
@@ -294,8 +295,6 @@ class Elements(NamedTuple):
             }
         if optimizers is not None:
             trainer_config.setdefault("optimizers", optimizers)
-        # inject user defined configs
-        update_dict(self.user_defined_config, kwargs)
         return kwargs
 
     @classmethod
