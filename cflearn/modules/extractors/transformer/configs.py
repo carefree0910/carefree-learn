@@ -11,7 +11,6 @@ class DefaultTransformerConfig(Configs):
             "num_heads": 8,
             "num_layers": 6,
             "latent_dim": 256,
-            "norm": None,
             "input_linear_config": {"bias": False},
             "transformer_layer_config": {},
         }

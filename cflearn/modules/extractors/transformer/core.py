@@ -1,8 +1,8 @@
 import torch
 
-import torch.nn as nn
-
 from typing import *
+from torch import nn
+from torch import Tensor
 
 from ..base import ExtractorBase
 from ...transform.core import Dimensions
@@ -46,7 +46,7 @@ class TransformerLayer(nn.Module):
         self.dropout2 = Dropout(dropout)
         self.activation = Activations.make(activation, activation_config)
 
-    def forward(self, net: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
+    def forward(self, net: Tensor, mask: Optional[Tensor] = None) -> Tensor:
         new = self.self_attn(net, net, net, mask=mask).output
         net = net + self.dropout1(new)
         net = self.norm1(net)
@@ -65,7 +65,6 @@ class Transformer(ExtractorBase):
         num_heads: int,
         num_layers: int,
         latent_dim: int,
-        norm: Optional[Callable],
         input_linear_config: Dict[str, Any],
         transformer_layer_config: Dict[str, Any],
     ):
@@ -73,8 +72,12 @@ class Transformer(ExtractorBase):
         # latent projection
         self.input_linear = Linear(self.in_dim, latent_dim, **input_linear_config)
         self.latent_dim = latent_dim
+        # head token
+        self.head_token = nn.Parameter(torch.randn(1, 1, latent_dim))
+        # position encoding
+        pos_shape = 1, dimensions.num_history + 1, latent_dim
+        self.position_encoding = nn.Parameter(torch.randn(*pos_shape))
         # transformer blocks
-        self.norm = norm
         self.layers = nn.ModuleList(
             [
                 TransformerLayer(
@@ -85,6 +88,7 @@ class Transformer(ExtractorBase):
                 for _ in range(num_layers)
             ]
         )
+        self.final_norm = nn.LayerNorm(latent_dim)
 
     @property
     def flatten_ts(self) -> bool:
@@ -94,14 +98,14 @@ class Transformer(ExtractorBase):
     def out_dim(self) -> int:
         return self.latent_dim
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        if self.input_linear is not None:
-            net = self.input_linear(net)
+    def forward(self, net: Tensor) -> Tensor:
+        net = self.input_linear(net)
+        expanded_token = self.head_token.expand(net.shape[0], 1, self.latent_dim)
+        net = torch.cat([expanded_token, net], dim=1)
+        net = net + self.position_encoding
         for layer in self.layers:
             net = layer(net, mask=None)
-        if self.norm is not None:
-            net = self.norm(net)
-        return net[..., -1, :]
+        return self.final_norm(net[..., 0, :])
 
 
 __all__ = ["Transformer"]
