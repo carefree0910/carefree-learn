@@ -63,7 +63,6 @@ class DataProtocol(ABC):
     is_ts: bool
     is_clf: bool
     is_simplify: bool
-    raw_dim: int
     num_classes: int
 
     raw: DataTuple

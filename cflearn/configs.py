@@ -389,7 +389,7 @@ class Environment:
                 torch.cuda.set_device(self.local_rank)
 
     def __getattr__(self, item: str) -> Any:
-        return self.config[item]
+        return self.user_defined_config.get(item, self.config[item])
 
     @property
     def user_defined_config(self) -> Dict[str, Any]:

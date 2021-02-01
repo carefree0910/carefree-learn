@@ -138,7 +138,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         encoding_configs = []
         true_categorical_columns = []
         if self.tr_data.is_simplify:
-            for idx in range(self.tr_data.raw_dim):
+            for idx in range(self.tr_data.processed.x.shape[1]):
                 numerical_columns_mapping[idx] = idx
         else:
             ts_indices = self.tr_data.ts_indices
