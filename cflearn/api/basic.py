@@ -285,19 +285,35 @@ def evaluate(
             )
     else:
         pipelines = _to_pipelines(pipelines)
+        # get data
+        # TODO : different pipelines may have different labels
+        if y is not None:
+            y = to_2d(y)
+        else:
+            if not isinstance(x, str):
+                raise ValueError("`x` should be str when `y` is not provided")
+            data_pipeline = list(pipelines.values())[0][0]
+            data = data_pipeline.data
+            x, y = data.read_file(x, contains_labels=contains_labels)
+            if not data.is_ts:
+                y = data.transform(x, y).y
+            else:
+                inference_loader = data_pipeline.preprocessor.make_inference_loader(
+                    x,
+                    data_pipeline.cuda,
+                    contains_labels=True,
+                    is_onnx=True,
+                )
+                ys = []
+                for batch, _ in inference_loader:
+                    ys.append(data_pipeline.ts_label_collator.fn(batch["labels"]))
+                y = np.vstack(ys)
+        # get metrics
         if predict_config is None:
             predict_config = {}
         predict_config.setdefault("contains_labels", contains_labels)
         for name, pipeline_list in pipelines.items():
             first_pipeline = pipeline_list[0]
-            data = first_pipeline.data
-            if y is not None:
-                y = to_2d(y)
-            else:
-                if not isinstance(x, str):
-                    raise ValueError("`x` should be str when `y` is not provided")
-                x, y = data.read_file(x, contains_labels=contains_labels)
-                y = data.transform(x, y).y
             if metrics is None:
                 metrics = [
                     k
