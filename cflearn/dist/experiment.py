@@ -35,7 +35,7 @@ def inject_distributed_tqdm_kwargs(
     kwargs.setdefault("use_tqdm", True)
     kwargs.setdefault("use_step_tqdm", False)
     kwargs.setdefault("in_distributed", True)
-    kwargs.setdefault("tqdm_position", i % (num_jobs or 1))
+    kwargs.setdefault("tqdm_position", i % (num_jobs or 1) + 1)
     kwargs.setdefault("tqdm_desc", f"epoch (task {i})")
 
 
