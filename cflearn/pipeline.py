@@ -198,17 +198,6 @@ class Pipeline(LoggingMixinWithRank):
         is_loading: bool = False,
         loaded_registered_pipes: Optional[Dict[str, PipeConfig]] = None,
     ) -> None:
-        # logging
-        if not is_loading:
-            if os.path.isdir(self.logging_folder):
-                if os.listdir(self.logging_folder):
-                    print(
-                        f"{self.warning_prefix}'{self.logging_folder}' already exists, "
-                        "it will be cleared up to store our logging"
-                    )
-                shutil.rmtree(self.logging_folder)
-            os.makedirs(self.logging_folder)
-        self._init_logging(self.verbose_level, self.trigger_logging)
         # model
         with timing_context(self, "init model", enable=self.timing):
             self.model = model_dict[self.model_type](
@@ -250,6 +239,17 @@ class Pipeline(LoggingMixinWithRank):
         y_cv: data_type,
         sample_weights: np.ndarray,
     ) -> None:
+        # logging
+        if os.path.isdir(self.logging_folder):
+            if os.listdir(self.logging_folder):
+                print(
+                    f"{self.warning_prefix}'{self.logging_folder}' already exists, "
+                    "it will be cleared up to store our logging"
+                )
+            shutil.rmtree(self.logging_folder)
+        os.makedirs(self.logging_folder)
+        self._init_logging(self.verbose_level, self.trigger_logging)
+        self.data_config["trigger_logging"] = self.trigger_logging
         # data
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
