@@ -30,10 +30,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 try:
-    amp: Optional[Any] = torch.cuda.amp
-except:
-    amp = None
-try:
     import deepspeed
 except:
     deepspeed = None
@@ -429,7 +425,7 @@ class Trainer(MonitoredMixin):
         )
         self._verbose_level = environment.verbose_level
         self.update_bt_runtime = self.update_binary_threshold_at_runtime
-        self.grad_scaler = None if amp is None or not self.use_amp else amp.GradScaler()
+        self.grad_scaler = torch.cuda.amp.GradScaler(enabled=self.use_amp)
         self.state = TrainerState(self.config)
 
     def __getattr__(self, item: str) -> Any:
@@ -807,18 +803,19 @@ class Trainer(MonitoredMixin):
         return self.tqdm_settings.use_tqdm_in_cv or self.state.is_terminate
 
     def _clip_norm_step(self) -> None:
+        for opt in self.optimizers.values():
+            self.grad_scaler.unscale_(opt)
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(), self.clip_norm
+            self.model.parameters(),
+            max_norm=self.clip_norm,
         )
 
     def _optimizer_step(self) -> None:
         for opt in self.optimizers.values():
-            if self.grad_scaler is None:
-                opt.step()
-            else:
-                self.grad_scaler.step(opt)
-                self.grad_scaler.update()
-            opt.zero_grad()
+            self.grad_scaler.step(opt)
+            self.grad_scaler.update()
+        for param in self.model.parameters():
+            param.grad = None
 
     def _get_scheduler_settings(
         self,
@@ -953,7 +950,7 @@ class Trainer(MonitoredMixin):
         if self.deepspeed:
             step_outputs = self._ds_step(batch_idx, batch, batch_indices)
         else:
-            with amp_autocast_context(self.use_amp):
+            with torch.cuda.amp.autocast(enabled=self.use_amp):
                 step_outputs = self.model.step(
                     self.state,
                     batch_idx,
@@ -963,9 +960,7 @@ class Trainer(MonitoredMixin):
                 )
             with timing_context(self, "loss.backward", enable=self.timing):
                 loss = step_outputs.loss_dict["loss"]
-                if self.use_amp:
-                    loss = self.grad_scaler.scale(loss)  # type: ignore
-                loss.backward()
+                self.grad_scaler.scale(loss).backward()
             if self.clip_norm > 0.0:
                 with timing_context(self, "clip_norm_step", enable=self.timing):
                     self._clip_norm_step()
