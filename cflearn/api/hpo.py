@@ -82,7 +82,6 @@ class _Tuner(LoggingMixin):
             return
 
         kwargs = shallow_copy_dict(kwargs)
-        self.has_column_names = None
         if y is not None:
             y, y_cv = map(to_2d, [y, y_cv])
         elif isinstance(x, str):
@@ -102,7 +101,6 @@ class _Tuner(LoggingMixin):
             data_protocol = kwargs.get("data_protocol", "tabular")
             tr_data = DataProtocol.make(data_protocol, **data_config)
             tr_data.read(x, **read_config)
-            self.has_column_names = tr_data._has_column_names
             y = tr_data.processed.y
             if x_cv is not None:
                 if y_cv is None:

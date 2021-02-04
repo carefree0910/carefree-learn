@@ -6,6 +6,7 @@ import pprint
 import logging
 
 import numpy as np
+import datatable as dt
 import torch.nn as nn
 
 from abc import abstractmethod
@@ -74,6 +75,8 @@ class DataProtocol(ABC):
     _verbose_level: int
     _has_column_names: bool
 
+    __identifier__: str
+
     @abstractmethod
     def __init__(self, **kwargs: Any):
         self._verbose_level = kwargs.get("verbose_level", 2)
@@ -88,7 +91,7 @@ class DataProtocol(ABC):
         file_path: str,
         *,
         contains_labels: bool = True,
-    ) -> Tuple[str_data_type, Optional[str_data_type]]:
+    ) -> Tuple[dt.Frame, Optional[dt.Frame]]:
         pass
 
     @abstractmethod

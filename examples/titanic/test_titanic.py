@@ -94,8 +94,8 @@ def _test(name: str, _core: Callable[[str], return_type]) -> None:
     test_file = os.path.join(file_folder, "test.csv")
     data, pattern = _core(train_file)
     predictions = pattern.predict(test_file).ravel()
-    x_te, _ = data.read_file(test_file, contains_labels=False)
-    id_list = DataTuple.with_transpose(x_te, None).xT[0]
+    x_te_df, _ = data.read_file(test_file, contains_labels=False)
+    id_list = x_te_df[:, 0].to_numpy().ravel()
     # Score : achieved ~0.79
     with open(f"submissions_{name}.csv", "w") as f:
         f.write("PassengerId,Survived\n")

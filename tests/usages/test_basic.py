@@ -49,7 +49,6 @@ def test_array_dataset() -> None:
         model,
         cv_split=0.0,
         use_amp=True,
-        data_config={"numerical_columns": list(range(dataset.x.shape[1]))},
         optimizer="adam",
         optimizer_config={"lr": 3e-4},
         metrics=["acc", "auc"],
@@ -124,10 +123,16 @@ def test_file_dataset() -> None:
     patterns = results.patterns
     assert isinstance(data, TabularData)
     assert patterns is not None
-    (tr_x, tr_y), (cv_x, cv_y), (te_x, te_y) = map(
+    (tr_x_df, tr_y_df), (cv_x_df, cv_y_df), (te_x_df, te_y_df) = map(
         data.read_file,
         [tr_file, cv_file, te_file],
     )
+    tr_x = tr_x_df.to_numpy()
+    tr_y = tr_y_df.to_numpy()
+    cv_x = cv_x_df.to_numpy()
+    cv_y = cv_y_df.to_numpy()
+    te_x = te_x_df.to_numpy()
+    te_y = te_y_df.to_numpy()
     tr_y, cv_y, te_y = map(data.transform_labels, [tr_y, cv_y, te_y])
     ensembles = {
         model: cflearn.Ensemble.stacking(model_list)

@@ -1,4 +1,5 @@
 import os
+import sys
 import torch
 import pickle
 import cflearn
@@ -175,7 +176,7 @@ class TestDoc(unittest.TestCase):
 
     def test_distributed4(self) -> None:
         x = np.random.random([100, 10])
-        y = np.random.random([100, 10])
+        y = np.random.random([100, 1])
         experiment = cflearn.Experiment()
         data_bundle_folder = experiment.dump_data_bundle(x, y)
         for model in ["linear", "fcnn", "tree_dnn"]:
@@ -184,9 +185,9 @@ class TestDoc(unittest.TestCase):
 
     def test_distributed5(self) -> None:
         x1 = np.random.random([100, 10])
-        y1 = np.random.random([100, 10])
+        y1 = np.random.random([100, 1])
         x2 = np.random.random([100, 10])
-        y2 = np.random.random([100, 10])
+        y2 = np.random.random([100, 1])
         experiment = cflearn.Experiment()
         experiment.add_task(x1, y1)
         experiment.add_task(x2, y2)
@@ -199,7 +200,8 @@ class TestDoc(unittest.TestCase):
         data_bundle_folder = experiment.dump_data_bundle(x, y)
         for model in ["linear", "fcnn", "tree_dnn"]:
             experiment.add_task(model=model, data_folder=data_bundle_folder)
-        run_command = f"python {os.path.join(data_folder, 'test_run_sklearn.py')}"
+        external_path = os.path.join(data_folder, "test_run_sklearn.py")
+        run_command = f"{sys.executable} {external_path}"
         experiment.add_task(
             model="svr",
             run_command=run_command,
