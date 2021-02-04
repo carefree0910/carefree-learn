@@ -71,6 +71,7 @@ class Experiment(LoggingMixin):
         self.cuda_list = available_cuda_list
         self.resource_config = resource_config or {}
         self.tasks: Dict[Tuple[str, str], Task] = {}
+        self.key_indices: Dict[Tuple[str, str], int] = {}
         self.executes: Dict[Tuple[str, str], str] = {}
         self.workplaces: Dict[Tuple[str, str], str] = {}
         self.results: Optional[ExperimentResults] = None
@@ -170,7 +171,8 @@ class Experiment(LoggingMixin):
         workplace = self.workplace(workplace_key, root_workplace)
         copied_config = shallow_copy_dict(config or {})
         copied_config["model"] = model
-        inject_distributed_tqdm_kwargs(len(self.tasks), self.num_jobs, copied_config)
+        new_idx = len(self.tasks)
+        inject_distributed_tqdm_kwargs(new_idx, self.num_jobs, copied_config)
         increment_config = {}
         if data_folder is None and x is not None:
             data_folder = self.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
@@ -185,6 +187,7 @@ class Experiment(LoggingMixin):
             **shallow_copy_dict(task_meta_kwargs),
         )
         self.tasks[workplace_key] = new_task
+        self.key_indices[workplace_key] = new_idx
         self.executes[workplace_key] = execute
         self.workplaces[workplace_key] = workplace
         return workplace
@@ -204,7 +207,7 @@ class Experiment(LoggingMixin):
             use_cuda=self.use_cuda,
             resource_config=resource_config,
         )
-        sorted_workplace_keys = sorted(self.tasks)
+        sorted_workplace_keys = sorted(self.tasks, key=self.key_indices.get)  # type: ignore
         sorted_tasks = [self.tasks[key] for key in sorted_workplace_keys]
         sorted_executes = [self.executes[key] for key in sorted_workplace_keys]
         sorted_workplaces = [self.workplaces[key] for key in sorted_workplace_keys]
