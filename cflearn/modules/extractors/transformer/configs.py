@@ -8,11 +8,11 @@ from ....configs import Configs
 class DefaultTransformerConfig(Configs):
     def get_default(self) -> Dict[str, Any]:
         return {
-            "num_heads": 8,
-            "num_layers": 6,
+            "num_heads": 4,
+            "num_layers": 2,
             "latent_dim": 256,
             "input_linear_config": {"bias": False},
-            "transformer_layer_config": {},
+            "transformer_layer_config": {"latent_dim": 1024},
         }
 
 

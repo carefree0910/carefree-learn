@@ -3,6 +3,7 @@ import torch
 from typing import *
 from torch import nn
 from torch import Tensor
+from cflearn.modules.blocks import BN
 
 from ..base import ExtractorBase
 from ...transform.core import Dimensions
@@ -40,8 +41,8 @@ class TransformerLayer(nn.Module):
             from_latent_config = {}
         self.from_latent = Linear(latent_dim, input_dim, **from_latent_config)
 
-        self.norm1 = nn.LayerNorm(input_dim)
-        self.norm2 = nn.LayerNorm(input_dim)
+        self.norm1 = BN(input_dim)
+        self.norm2 = BN(input_dim)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.activation = Activations.make(activation, activation_config)
@@ -88,7 +89,6 @@ class Transformer(ExtractorBase):
                 for _ in range(num_layers)
             ]
         )
-        self.final_norm = nn.LayerNorm(latent_dim)
 
     @property
     def flatten_ts(self) -> bool:
@@ -105,7 +105,7 @@ class Transformer(ExtractorBase):
         net = net + self.position_encoding
         for layer in self.layers:
             net = layer(net, mask=None)
-        return self.final_norm(net[..., 0, :])
+        return net[..., 0, :]
 
 
 __all__ = ["Transformer"]
