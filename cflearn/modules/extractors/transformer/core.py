@@ -3,14 +3,14 @@ import torch
 from typing import *
 from torch import nn
 from torch import Tensor
-from cflearn.modules.blocks import BN
 
 from ..base import ExtractorBase
+from ...blocks import BN
+from ...blocks import Linear
+from ...blocks import Dropout
+from ...blocks import Attention
 from ...transform.core import Dimensions
 from ....misc.toolkit import Activations
-from ....modules.blocks import Linear
-from ....modules.blocks import Dropout
-from ....modules.blocks import Attention
 
 
 class TransformerLayer(nn.Module):
