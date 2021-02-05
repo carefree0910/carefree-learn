@@ -1164,6 +1164,7 @@ class Attention(Module):
         q: Tensor,
         k: Tensor,
         v: Tensor,
+        *,
         mask: Optional[Tensor] = None,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
