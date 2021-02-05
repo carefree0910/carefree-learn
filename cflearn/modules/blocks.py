@@ -1152,6 +1152,13 @@ class Attention(Module):
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
         return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)
 
+    def _get_weights(self, raw_weights: Tensor) -> Tensor:
+        # in most cases the softmax version is good enough
+        return F.softmax(raw_weights, dim=-1)
+
+    def _weights_callback(self, weights: Tensor) -> Tensor:
+        return weights
+
     def forward(
         self,
         q: Tensor,
@@ -1183,9 +1190,10 @@ class Attention(Module):
         if mask is not None:
             raw_weights.masked_fill_(mask, float("-inf"))
         # B * N_head, Sq, Sk -> # B * N_head, Sq, Sk
-        weights = F.softmax(raw_weights, dim=-1)
+        weights = self._get_weights(raw_weights)
         if 0.0 < self.dropout < 1.0:
             weights = F.dropout(weights, self.dropout, self.training)
+        weights = self._weights_callback(weights)
         # B * N_head, Sq, D_head
         output = torch.bmm(weights, v)
         # B * N_head, Sq, D_head -> B, N_head, Sq, D_head
