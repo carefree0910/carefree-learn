@@ -89,6 +89,7 @@ class Transformer(ExtractorBase):
                 for _ in range(num_layers)
             ]
         )
+        self.final_bn = BN(latent_dim)
 
     @property
     def flatten_ts(self) -> bool:
@@ -105,7 +106,7 @@ class Transformer(ExtractorBase):
         net = net + self.position_encoding
         for layer in self.layers:
             net = layer(net, mask=None)
-        return net[..., 0, :]
+        return self.final_bn(net[..., 0, :])
 
 
 __all__ = ["Transformer"]
