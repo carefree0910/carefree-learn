@@ -1,3 +1,4 @@
+import copy
 import torch
 
 from typing import *
@@ -13,6 +14,21 @@ from ...transform.core import Dimensions
 from ....misc.toolkit import Activations
 
 
+def _get_clones(module: nn.Module, n: int) -> nn.ModuleList:
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(n)])
+
+
+def _get_norm(norm_type: str, dim: int) -> nn.Module:
+    base: Type
+    if norm_type == "batch_norm":
+        base = BN
+    elif norm_type == "layer_norm":
+        base = nn.LayerNorm
+    else:
+        raise NotImplementedError(f"norm '{norm_type}' is not implemented")
+    return base(dim)
+
+
 class TransformerLayer(nn.Module):
     def __init__(
         self,
@@ -22,6 +38,8 @@ class TransformerLayer(nn.Module):
         dropout: float = 0.1,
         latent_dim: int = 2048,
         activation: str = "ReLU",
+        norm_type: str = "batch_norm",
+        attention: Type[Attention] = Attention,
         attention_config: Optional[Dict[str, Any]] = None,
         activation_config: Optional[Dict[str, Any]] = None,
         to_latent_config: Optional[Dict[str, Any]] = None,
@@ -32,7 +50,7 @@ class TransformerLayer(nn.Module):
             attention_config = {}
         attention_config["is_self_attention"] = True
         attention_config.setdefault("dropout", dropout)
-        self.self_attn = Attention(input_dim, num_heads, **attention_config)
+        self.self_attn = attention(input_dim, num_heads, **attention_config)
         if to_latent_config is None:
             to_latent_config = {}
         self.to_latent = Linear(input_dim, latent_dim, **to_latent_config)
@@ -41,8 +59,8 @@ class TransformerLayer(nn.Module):
             from_latent_config = {}
         self.from_latent = Linear(latent_dim, input_dim, **from_latent_config)
 
-        self.norm1 = BN(input_dim)
-        self.norm2 = BN(input_dim)
+        self.norm1 = _get_norm(norm_type, input_dim)
+        self.norm2 = _get_norm(norm_type, input_dim)
         self.dropout1 = Dropout(dropout)
         self.dropout2 = Dropout(dropout)
         self.activation = Activations.make(activation, activation_config)
@@ -57,6 +75,33 @@ class TransformerLayer(nn.Module):
         return net
 
 
+class TransformerEncoder(nn.Module):
+    def __init__(
+        self,
+        encoder_layer: nn.Module,
+        num_layers: int,
+        norm: Optional[nn.Module] = None,
+    ):
+        super().__init__()
+        self.norm = norm
+        self.layers = _get_clones(encoder_layer, num_layers)
+
+    def _get_mask(
+        self,
+        i: int,
+        net: Tensor,
+        mask: Optional[Tensor],
+    ) -> Optional[Tensor]:
+        return mask
+
+    def forward(self, net: Tensor, mask: Optional[Tensor]) -> Tensor:
+        for i, layer in enumerate(self.layers):
+            net = layer(net, mask=self._get_mask(i, net, mask))
+        if self.norm:
+            net = self.norm(net)
+        return net
+
+
 @ExtractorBase.register("transformer")
 class Transformer(ExtractorBase):
     def __init__(
@@ -66,30 +111,29 @@ class Transformer(ExtractorBase):
         num_heads: int,
         num_layers: int,
         latent_dim: int,
+        dropout: float,
+        norm_type: str,
         input_linear_config: Dict[str, Any],
-        transformer_layer_config: Dict[str, Any],
+        layer_config: Dict[str, Any],
+        encoder_config: Dict[str, Any],
     ):
         super().__init__(in_flat_dim, dimensions)
         # latent projection
-        self.input_linear = Linear(self.in_dim, latent_dim, **input_linear_config)
+        self.scaling = float(latent_dim) ** 0.5
         self.latent_dim = latent_dim
+        self.input_linear = Linear(self.in_dim, latent_dim, **input_linear_config)
+        self.input_dropout = Dropout(dropout)
         # head token
         self.head_token = nn.Parameter(torch.randn(1, 1, latent_dim))
         # position encoding
-        pos_shape = 1, dimensions.num_history + 1, latent_dim
+        pos_shape = 1, dimensions.num_history, latent_dim
         self.position_encoding = nn.Parameter(torch.randn(*pos_shape))
         # transformer blocks
-        self.layers = nn.ModuleList(
-            [
-                TransformerLayer(
-                    latent_dim,
-                    num_heads,
-                    **transformer_layer_config,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-        self.final_bn = BN(latent_dim)
+        layer_config["dropout"] = dropout
+        layer_config["norm_type"] = norm_type
+        layer = TransformerLayer(latent_dim, num_heads, **layer_config)
+        self.encoder = TransformerEncoder(layer, num_layers, **encoder_config)
+        self.final_norm = _get_norm(norm_type, latent_dim)
 
     @property
     def flatten_ts(self) -> bool:
@@ -100,13 +144,18 @@ class Transformer(ExtractorBase):
         return self.latent_dim
 
     def forward(self, net: Tensor) -> Tensor:
+        # input -> latent
         net = self.input_linear(net)
+        net = net * self.scaling
+        net = net + self.position_encoding
+        net = self.input_dropout(net)
+        # concat head token
         expanded_token = self.head_token.expand(net.shape[0], 1, self.latent_dim)
         net = torch.cat([expanded_token, net], dim=1)
-        net = net + self.position_encoding
-        for layer in self.layers:
-            net = layer(net, mask=None)
-        return self.final_bn(net[..., 0, :])
+        # encode latent vector with transformer
+        net = self.encoder(net, None)
+        # final norm & output
+        return self.final_norm(net[..., 0, :])
 
 
 __all__ = ["Transformer"]
