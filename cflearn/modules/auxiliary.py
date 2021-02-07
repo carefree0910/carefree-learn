@@ -20,15 +20,15 @@ class BN(nn.BatchNorm1d):
 
 class Dropout(nn.Module):
     def __init__(self, dropout: float):
-        if dropout < 0.0 or dropout > 1.0:
-            msg = f"dropout probability has to be between 0 and 1, but got {dropout}"
+        if dropout < 0.0 or dropout >= 1.0:
+            msg = f"dropout probability has to be between [0, 1), but got {dropout}"
             raise ValueError(msg)
         super().__init__()
         self._keep_prob = 1.0 - dropout
         self._mask_cache: Optional[torch.Tensor] = None
 
     def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
-        if not self.training:
+        if not self.training or self._keep_prob >= 1.0 - 1.0e-8:
             return net
         if reuse:
             mask = self._mask_cache
