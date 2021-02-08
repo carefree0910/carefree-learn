@@ -159,6 +159,27 @@ class TransformerEncoder(nn.Module):
         return net
 
 
+class PositionalEncoding(nn.Module):
+    def __init__(self, latent_dim: int, seq_len: int, dropout: float = 0.1):
+        super().__init__()
+        self.seq_len = seq_len
+        self.dropout = Dropout(dropout)
+        pe = torch.empty(seq_len, latent_dim)
+        position = torch.arange(0, seq_len, dtype=torch.float32)[..., None]
+        div_term = torch.exp(
+            torch.arange(0, latent_dim, 2).float() * (-math.log(10000.0) / latent_dim)
+        )
+        pe[:, ::2] = torch.sin(position * div_term)
+        pe[:, 1::2] = torch.cos(position * div_term)
+        self.register_buffer("pe", pe.unsqueeze(0))
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.dropout(x + self.pe)
+
+    def extra_repr(self) -> str:
+        return f"(seq_len): {self.seq_len}"
+
+
 @ExtractorBase.register("transformer")
 class Transformer(ExtractorBase):
     def __init__(
@@ -175,16 +196,15 @@ class Transformer(ExtractorBase):
         encoder_config: Dict[str, Any],
     ):
         super().__init__(in_flat_dim, dimensions)
+        seq_len = dimensions.num_history
         # latent projection
         self.scaling = float(latent_dim) ** 0.5
         self.latent_dim = latent_dim
         self.input_linear = Linear(self.in_dim, latent_dim, **input_linear_config)
-        self.input_dropout = Dropout(dropout)
         # head token
         self.head_token = nn.Parameter(torch.randn(1, 1, latent_dim))
         # position encoding
-        pos_shape = 1, dimensions.num_history, latent_dim
-        self.position_encoding = nn.Parameter(torch.randn(*pos_shape))
+        self.position_encoding = PositionalEncoding(latent_dim, seq_len, dropout)
         # transformer blocks
         layer_config["dropout"] = dropout
         layer_config["norm_type"] = norm_type
@@ -203,9 +223,9 @@ class Transformer(ExtractorBase):
     def forward(self, net: Tensor) -> Tensor:
         # input -> latent
         net = self.input_linear(net)
+        net = torch.tanh(net)
         net = net * self.scaling
-        net = net + self.position_encoding
-        net = self.input_dropout(net)
+        net = self.position_encoding(net)
         # concat head token
         expanded_token = self.head_token.expand(net.shape[0], 1, self.latent_dim)
         net = torch.cat([expanded_token, net], dim=1)
