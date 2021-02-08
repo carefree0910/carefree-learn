@@ -80,20 +80,6 @@ def test_ops() -> None:
             ts_config=ts_config,
             aggregation_config=aggregation_config,
             data_config=data_config,
-            model_config={
-                "pipe_configs": {
-                    "transformer": {
-                        "extractor": {
-                            "num_layers": 1,
-                            "latent_dim": 32,
-                            "transformer_layer_config": {
-                                "dropout": 0.0,
-                                "latent_dim": 64,
-                            },
-                        }
-                    }
-                }
-            },
             **kwargs,  # type: ignore
         )
 
