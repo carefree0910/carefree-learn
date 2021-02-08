@@ -11,6 +11,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Callable
@@ -18,6 +19,7 @@ from typing import Optional
 from typing import NamedTuple
 from torch.nn import Module
 from torch.nn import ModuleList
+from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import LoggingMixin
 from cfdata.types import np_int_type
@@ -1070,6 +1072,9 @@ class AttentionOutput(NamedTuple):
     weights: Tensor
 
 
+attentions: Dict[str, Type["Attention"]] = {}
+
+
 class Attention(Module):
     def __init__(
         self,
@@ -1206,6 +1211,18 @@ class Attention(Module):
         # B, Sq, D -> B, Sq, Din
         output = self.activation(self.out_linear(output))
         return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
+
+    @classmethod
+    def get(cls, name: str) -> Type["Attention"]:
+        return attentions[name]
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global attentions
+        return register_core(name, attentions)
+
+
+Attention.register("basic")(Attention)
 
 
 __all__ = [
