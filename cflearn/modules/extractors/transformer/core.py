@@ -8,6 +8,7 @@ import torch.nn.functional as F
 
 from typing import *
 from torch import Tensor
+from cftool.misc import register_core
 
 from ..base import ExtractorBase
 from ...blocks import BN
@@ -98,7 +99,8 @@ class TransformerLayer(nn.Module):
         latent_dim: int = 2048,
         activation: str = "ReLU",
         norm_type: str = "batch_norm",
-        attention: Type[Attention] = Attention,
+        attention_type: str = "decayed",
+        seq_len: Optional[int] = None,
         attention_config: Optional[Dict[str, Any]] = None,
         activation_config: Optional[Dict[str, Any]] = None,
         to_latent_config: Optional[Dict[str, Any]] = None,
@@ -109,7 +111,13 @@ class TransformerLayer(nn.Module):
             attention_config = {}
         attention_config["is_self_attention"] = True
         attention_config.setdefault("dropout", dropout)
-        self.self_attn = attention(input_dim, num_heads, **attention_config)
+        attn_base = Attention.get(attention_type)
+        if attention_type == "decayed":
+            if seq_len is None:
+                msg = "`seq_len` should be provided when `decayed` attention is used"
+                raise ValueError(msg)
+            attention_config["seq_len"] = seq_len
+        self.self_attn = attn_base(input_dim, num_heads, **attention_config)
         if to_latent_config is None:
             to_latent_config = {}
         self.to_latent = Linear(input_dim, latent_dim, **to_latent_config)
@@ -134,15 +142,20 @@ class TransformerLayer(nn.Module):
         return net
 
 
+transformer_encoders: Dict[str, Type["TransformerEncoder"]] = {}
+
+
 class TransformerEncoder(nn.Module):
     def __init__(
         self,
         encoder_layer: nn.Module,
         num_layers: int,
+        dimensions: Dimensions,
         norm: Optional[nn.Module] = None,
     ):
         super().__init__()
         self.norm = norm
+        self.dimensions = dimensions
         self.layers = _get_clones(encoder_layer, num_layers)
 
     def _get_mask(
@@ -159,6 +172,18 @@ class TransformerEncoder(nn.Module):
         if self.norm:
             net = self.norm(net)
         return net
+
+    @classmethod
+    def get(cls, name: str) -> Type["TransformerEncoder"]:
+        return transformer_encoders[name]
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global transformer_encoders
+        return register_core(name, transformer_encoders)
+
+
+TransformerEncoder.register("basic")(TransformerEncoder)
 
 
 class PositionalEncoding(nn.Module):
@@ -193,6 +218,8 @@ class Transformer(ExtractorBase):
         latent_dim: int,
         dropout: float,
         norm_type: str,
+        attention_type: str,
+        encoder_type: str,
         input_linear_config: Dict[str, Any],
         layer_config: Dict[str, Any],
         encoder_config: Dict[str, Any],
@@ -210,8 +237,12 @@ class Transformer(ExtractorBase):
         # transformer blocks
         layer_config["dropout"] = dropout
         layer_config["norm_type"] = norm_type
+        layer_config["attention_type"] = attention_type
+        if attention_type == "decayed":
+            layer_config["seq_len"] = seq_len + 1
         layer = TransformerLayer(latent_dim, num_heads, **layer_config)
-        self.encoder = TransformerEncoder(layer, num_layers, **encoder_config)
+        encoder_base = TransformerEncoder.get(encoder_type)
+        self.encoder = encoder_base(layer, num_layers, dimensions, **encoder_config)
         self.final_attn_linear = nn.Linear(latent_dim, 1)
 
     @property
