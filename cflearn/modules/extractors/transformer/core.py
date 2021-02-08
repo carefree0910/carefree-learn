@@ -1,8 +1,10 @@
 import copy
+import math
 import torch
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from typing import *
 from torch import Tensor
@@ -210,7 +212,7 @@ class Transformer(ExtractorBase):
         layer_config["norm_type"] = norm_type
         layer = TransformerLayer(latent_dim, num_heads, **layer_config)
         self.encoder = TransformerEncoder(layer, num_layers, **encoder_config)
-        self.final_norm = _get_norm(norm_type, latent_dim)
+        self.final_attn_linear = nn.Linear(latent_dim, 1)
 
     @property
     def flatten_ts(self) -> bool:
@@ -218,7 +220,14 @@ class Transformer(ExtractorBase):
 
     @property
     def out_dim(self) -> int:
-        return self.latent_dim
+        return 2 * self.latent_dim
+
+    def _aggregate(self, net: Tensor) -> Tensor:
+        no_head_token = net[..., :-1, :]
+        a_hat = self.final_attn_linear(no_head_token)
+        a_prob = F.softmax(a_hat, dim=1)
+        a = torch.sum(a_prob * no_head_token, dim=1)
+        return torch.cat([a, net[..., -1, :]], 1)
 
     def forward(self, net: Tensor) -> Tensor:
         # input -> latent
@@ -228,11 +237,11 @@ class Transformer(ExtractorBase):
         net = self.position_encoding(net)
         # concat head token
         expanded_token = self.head_token.expand(net.shape[0], 1, self.latent_dim)
-        net = torch.cat([expanded_token, net], dim=1)
+        net = torch.cat([net, expanded_token], dim=1)
         # encode latent vector with transformer
         net = self.encoder(net, None)
-        # final norm & output
-        return self.final_norm(net[..., 0, :])
+        # aggregate
+        return self._aggregate(net)
 
 
 __all__ = ["Transformer"]
