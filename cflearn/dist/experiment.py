@@ -197,6 +197,7 @@ class Experiment(LoggingMixin):
         *,
         use_tqdm: bool = True,
         task_loader: Optional[Callable[[str], Pipeline]] = None,
+        **parallel_kwargs: Any,
     ) -> ExperimentResults:
         resource_config = shallow_copy_dict(self.resource_config)
         gpu_config = resource_config.setdefault("gpu_config", {})
@@ -206,6 +207,7 @@ class Experiment(LoggingMixin):
             use_tqdm=use_tqdm,
             use_cuda=self.use_cuda,
             resource_config=resource_config,
+            **parallel_kwargs,
         )
         sorted_workplace_keys = sorted(self.tasks, key=self.key_indices.get)  # type: ignore
         sorted_tasks = [self.tasks[key] for key in sorted_workplace_keys]
