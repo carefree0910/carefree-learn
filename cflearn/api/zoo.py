@@ -13,8 +13,6 @@ registered_benchmarks: Dict[str, Dict[str, Dict[str, Any]]] = {}
 
 
 class Zoo(LoggingMixin, metaclass=ABCMeta):
-    token = "_zoo_"
-
     def __init__(
         self,
         model: str,
@@ -63,10 +61,6 @@ class Zoo(LoggingMixin, metaclass=ABCMeta):
     def m(self) -> Pipeline:
         """ return corresponding model of self.config """
         return make(self.model, **self.config)
-
-    @classmethod
-    def parse_type(cls, model_type: str) -> str:
-        return f"{cls.token}{model_type}"
 
     @classmethod
     def register(
