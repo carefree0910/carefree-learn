@@ -18,7 +18,6 @@ from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TaskTypes
 
-from ..dist import inject_distributed_tqdm_kwargs
 from ..dist import Task
 from ..dist import Experiment
 from ..dist import ExperimentResults
@@ -526,7 +525,6 @@ def repeat_with(
         for model in models:
             for i in range(num_repeat):
                 local_config = fetch_config(i, model)
-                inject_distributed_tqdm_kwargs(i, num_jobs, local_config)
                 experiment.add_task(
                     model=model,
                     compress=compress,
@@ -624,7 +622,6 @@ __all__ = [
     "evaluate",
     "task_loader",
     "load_experiment_results",
-    "inject_distributed_tqdm_kwargs",
     "repeat_with",
     "make_toy_model",
     "switch_trainer_callback",
