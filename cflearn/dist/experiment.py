@@ -50,6 +50,15 @@ class ExperimentResults(NamedTuple):
             raise ValueError("pipelines are not provided")
         return dict(zip(self.workplaces, self.pipelines))
 
+    @property
+    def checkpoint_folders(self) -> Dict[str, List[str]]:
+        folders: Dict[str, Dict[int, str]] = {}
+        for workplace, workplace_key in zip(self.workplaces, self.workplace_keys):
+            model, index = workplace_key
+            checkpoint_folder = os.path.join(workplace, "_logs", "checkpoints")
+            folders.setdefault(model, {})[int(index)] = checkpoint_folder
+        return {k: [v[i] for i in range(len(v))] for k, v in folders.items()}
+
 
 class Experiment(LoggingMixin):
     tasks_folder = "__tasks__"
