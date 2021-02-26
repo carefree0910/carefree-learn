@@ -10,6 +10,7 @@ if __name__ == "__main__":
     kwargs = info.kwargs
     # data
     data_list = info.data_list
+    assert data_list is not None
     x, y = data_list[:2]
     # model
     model = kwargs["model"]

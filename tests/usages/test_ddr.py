@@ -73,12 +73,13 @@ def test() -> None:
         pipeline_dict = results.pipeline_dict
         for task_name, info in info_dict.items():
             workplace = info["workplace"]
-            m = pipeline_dict[workplace]
-            assert isinstance(m, Pipeline)
-            f = info["f"]
             local_export_folder = info["export_folder"]
-            assert callable(f)
+            assert isinstance(workplace, str)
             assert isinstance(local_export_folder, str)
+            f = info["f"]
+            m = pipeline_dict[workplace]
+            assert callable(f)
+            assert isinstance(m, Pipeline)
             x_cv, y_cv = cflearn.Experiment.fetch_data("_cv", workplace=workplace)
             assert isinstance(x_cv, np.ndarray)
             x_min, x_max = x_cv.min(), x_cv.max()

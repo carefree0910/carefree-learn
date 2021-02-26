@@ -15,7 +15,7 @@ if __name__ == "__main__":
     print(m.tr_data.processed.y[0])
 
     tr_x = m.tr_data.processed.x
-    cv_x = m.cv_data.processed.x
+    cv_x = m.cv_data.processed.x  # type: ignore
     stacked = np.vstack([tr_x, cv_x])
     print(stacked.mean(0))
     print(stacked.std(0))
@@ -36,15 +36,15 @@ if __name__ == "__main__":
 
     experiment = cflearn.Experiment()
     tr_x, tr_y = m.tr_data.processed.xy
-    cv_x, cv_y = m.cv_data.processed.xy
+    cv_x, cv_y = m.cv_data.processed.xy  # type: ignore
     data_folder = experiment.dump_data_bundle(tr_x, tr_y, cv_x, cv_y)
 
     for model in ["linear", "fcnn"]:
         experiment.add_task(model=model, data_folder=data_folder)
     run_command = f"python {sklearn_runner_file}"
     common_kwargs = {"run_command": run_command, "data_folder": data_folder}
-    experiment.add_task(model="decision_tree", **common_kwargs)
-    experiment.add_task(model="random_forest", **common_kwargs)
+    experiment.add_task(model="decision_tree", **common_kwargs)  # type: ignore
+    experiment.add_task(model="random_forest", **common_kwargs)  # type: ignore
 
     results = experiment.run_tasks()
 

@@ -43,7 +43,7 @@ class TestBlocks(unittest.TestCase):
         self.assertTrue(torch.allclose(probabilities.sum(1), torch.ones(batch_size)))
 
     def test_fast_dndf(self) -> None:
-        def loss_function(outputs):
+        def loss_function(outputs: torch.Tensor) -> torch.Tensor:
             return -outputs[range(batch_size), labels].mean()
 
         d = 128
@@ -66,7 +66,7 @@ class TestBlocks(unittest.TestCase):
             dndf_fast = DNDF(d, k, use_fast_dndf=True)
             with torch.no_grad():
                 dndf_fast.tree_proj.weight.data = dndf.tree_proj.weight.data
-                dndf_fast.tree_proj.bias.data = dndf.tree_proj.bias.data
+                dndf_fast.tree_proj.bias.data = dndf.tree_proj.bias.data  # type: ignore
                 dndf_fast.leaves.data = dndf.leaves.data
             net = torch.empty_like(inp).requires_grad_(True)
             net.data = inp.data
@@ -109,13 +109,17 @@ class TestBlocks(unittest.TestCase):
 
         net = torch.randn(batch_size, 1)
         kwargs = {"ascent": True, "num_units": [dim] * 3, "dropout": 0.5}
-        m1 = MonotonousMapping.stack(1, dim, **kwargs)
-        m2 = MonotonousMapping.stack(dim, 1, **kwargs)
+        m1 = MonotonousMapping.stack(1, dim, **kwargs)  # type: ignore
+        m2 = MonotonousMapping.stack(dim, 1, **kwargs)  # type: ignore
+        assert isinstance(m1, nn.Module)
+        assert isinstance(m2, nn.Module)
         outputs = m2(m1(net))
         self.assertTrue(torch.allclose(net.argsort(), outputs.argsort()))
         kwargs["ascent"] = False
-        m1 = MonotonousMapping.stack(1, dim, **kwargs)
-        m2 = MonotonousMapping.stack(dim, 1, **kwargs)
+        m1 = MonotonousMapping.stack(1, dim, **kwargs)  # type: ignore
+        m2 = MonotonousMapping.stack(dim, 1, **kwargs)  # type: ignore
+        assert isinstance(m1, nn.Module)
+        assert isinstance(m2, nn.Module)
         outputs = m2(m1(net))
         net_indices = net.argsort().numpy().ravel()
         outputs_indices = outputs.argsort().numpy().ravel()[::-1]

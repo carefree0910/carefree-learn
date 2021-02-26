@@ -10,7 +10,7 @@ from cflearn.pipeline import Pipeline
 class TestConfigs(unittest.TestCase):
     @staticmethod
     def _check_pruner(m: Pipeline) -> bool:
-        return m.model.heads["fcnn"].mlp.mappings[0].linear.pruner is not None
+        return m.model.heads["fcnn"].mlp.mappings[0].linear.pruner is not None  # type: ignore
 
     def _first_check(self, identifier: str) -> Tuple[np.ndarray, np.ndarray]:
         x = np.random.random([1000, 10])

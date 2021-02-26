@@ -8,7 +8,7 @@ from typing import Any
 
 
 class TestCustomization(unittest.TestCase):
-    def test_customize_model(self):
+    def test_customize_model(self) -> None:
         @cflearn.register_extractor("foo_extractor")
         class _(cflearn.ExtractorBase):
             @property
@@ -21,12 +21,12 @@ class TestCustomization(unittest.TestCase):
         cflearn.register_config("foo_extractor", "default", config={})
 
         @cflearn.register_head("foo")
-        class _(cflearn.HeadBase):
+        class _(cflearn.HeadBase):  # type: ignore
             def __init__(self, in_dim: int, out_dim: int, **kwargs: Any):
                 super().__init__(in_dim, out_dim, **kwargs)
                 self.dummy = torch.nn.Parameter(torch.tensor([1.0]))
 
-            def forward(self, net: torch.Tensor):
+            def forward(self, net: torch.Tensor) -> torch.Tensor:
                 return net
 
         cflearn.register_head_config("foo", "default", head_config={})
@@ -36,8 +36,8 @@ class TestCustomization(unittest.TestCase):
         pipe = cflearn.PipeInfo("foo", extractor="foo_extractor")
         cflearn.register_model("tce", pipes=[pipe])
         kwargs = {"task_type": "reg", "use_simplify_data": True, "fixed_epoch": 0}
-        m = cflearn.make("tce", **kwargs).fit(x, y)
-        self.assertTrue(list(m.model.parameters())[0] is m.model.heads["foo"].dummy)
+        m = cflearn.make("tce", **kwargs).fit(x, y)  # type: ignore
+        self.assertTrue(list(m.model.parameters())[0] is m.model.heads["foo"].dummy)  # type: ignore
         self.assertTrue(np.allclose(m.predict(x), np.ones_like(y)))
         cflearn._rmtree("_logs")
 

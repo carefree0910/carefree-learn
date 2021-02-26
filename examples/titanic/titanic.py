@@ -11,7 +11,7 @@ torch.manual_seed(142857)
 data_config = {"label_name": "Survived"}
 
 
-def write_submissions(name, predictions_):
+def write_submissions(name: str, predictions_: np.ndarray) -> None:
     with open("test.csv", "r") as f:
         f.readline()
         id_list = [line.strip().split(",")[0] for line in f]

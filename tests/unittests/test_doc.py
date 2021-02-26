@@ -9,15 +9,21 @@ import unittest
 import numpy as np
 import torch.nn as nn
 
-from cfdata.tabular import *
 from typing import Any
+from typing import Dict
 from typing import Optional
 from cftool.ml import ModelPattern
+from cfdata.tabular import TabularDataset
 from sklearn.svm import SVR
 from sklearn.svm import LinearSVR
+from cflearn.types import param_type
+from cflearn.types import losses_type
+from cflearn.types import tensor_dict_type
 from cflearn.misc.toolkit import Activations
+from cflearn.misc.toolkit import Initializer
 from cflearn.modules.blocks import Linear
 from cflearn.modules.blocks import CrossBlock
+from cflearn.modules.transform import Dimensions
 from cflearn.modules.extractors import Identity
 
 file_folder = os.path.dirname(__file__)
@@ -62,12 +68,12 @@ class TestDoc(unittest.TestCase):
 
     def test_design_principle(self) -> None:
         @cflearn.register_initializer("all_one")
-        def all_one(_, parameter):
+        def all_one(_: Initializer, parameter: param_type) -> None:
             parameter.fill_(1.0)
 
         param = nn.Parameter(torch.zeros(3))
         with torch.no_grad():
-            cflearn.Initializer().initialize(param, "all_one")
+            Initializer().initialize(param, "all_one")
         self.assertTrue(torch.allclose(param.data, torch.ones_like(param.data)))
 
     def test_quick_start1(self) -> None:
@@ -86,8 +92,8 @@ class TestDoc(unittest.TestCase):
         xor_file = os.path.join(data_folder, "xor.txt")
         m.fit(xor_file, x_cv=xor_file)
         cflearn.evaluate(xor_file, pipelines=m, contains_labels=True)
-        self.assertEqual(m.predict([[0, 0]]).item(), 0)
-        self.assertEqual(m.predict([[0, 1]]).item(), 1)
+        self.assertEqual(m.predict([[0, 0]]).item(), 0)  # type: ignore
+        self.assertEqual(m.predict([[0, 1]]).item(), 1)  # type: ignore
         self.assertTrue(
             np.allclose(
                 m.predict(xor_file, contains_labels=True),
@@ -101,7 +107,7 @@ class TestDoc(unittest.TestCase):
 
     def test_configurations1(self) -> None:
         config = {"foo": 0, "dummy": 1}
-        fcnn = cflearn.make(**config)
+        fcnn = cflearn.make(**config)  # type: ignore
         self.assertEqual(fcnn.foo, 0)
         self.assertEqual(fcnn.dummy, 1)
 
@@ -144,13 +150,13 @@ class TestDoc(unittest.TestCase):
         y = np.random.random([1000, 1])
         result = cflearn.repeat_with(x, y, num_repeat=n)
         pipelines = result.pipelines
-        self.assertListEqual(list(pipelines.keys()), ["fcnn"])
-        self.assertEqual(len(list(pipelines.values())[0]), n)
+        self.assertListEqual(list(pipelines.keys()), ["fcnn"])  # type: ignore
+        self.assertEqual(len(list(pipelines.values())[0]), n)  # type: ignore
 
     def test_distributed1(self) -> None:
         x, y = TabularDataset.iris().xy
         results = cflearn.repeat_with(x, y, num_repeat=3, num_jobs=0)
-        patterns = results.patterns["fcnn"]
+        patterns = results.patterns["fcnn"]  # type: ignore
         ensemble = cflearn.Ensemble.stacking(patterns)
         patterns_dict = {"fcnn_3": patterns, "fcnn_3_ensemble": ensemble}
         cflearn.evaluate(x, y, metrics=["acc", "auc"], other_patterns=patterns_dict)
@@ -264,8 +270,8 @@ class TestDoc(unittest.TestCase):
         y = np.random.random([10 ** 4, 1])
 
         @cflearn.register_config("svr_meta", "default")
-        class SVRMetaConfig(cflearn.Configs):
-            def get_default(self):
+        class SVRMetaConfig(cflearn.Configs):  # type: ignore
+            def get_default(self) -> Dict[str, Any]:
                 svr = SVR().fit(x, y.ravel())
                 return {
                     "support": {"data": ("support", svr.support_)},
@@ -274,7 +280,7 @@ class TestDoc(unittest.TestCase):
 
         @cflearn.register_extractor("support")
         class Support(Identity):
-            def __init__(self, in_flat_dim, dimensions, **kwargs):
+            def __init__(self, in_flat_dim: int, dimensions: Dimensions, **kwargs: Any):
                 # kwargs == svr_meta["support"]
                 super().__init__(in_flat_dim, dimensions, **kwargs)
                 # so kwargs["data"] == ("support", svr.support_)
@@ -282,7 +288,7 @@ class TestDoc(unittest.TestCase):
 
         @cflearn.register_extractor("intercept")
         class Intercept(Identity):
-            def __init__(self, in_flat_dim, dimensions, **kwargs):
+            def __init__(self, in_flat_dim: int, dimensions: Dimensions, **kwargs: Any):
                 # kwargs == svr_meta["intercept"]
                 super().__init__(in_flat_dim, dimensions, **kwargs)
                 # so kwargs["data"] == ("intercept", svr.intercept_)
@@ -308,7 +314,7 @@ class TestDoc(unittest.TestCase):
     def test_customization3(self) -> None:
         @cflearn.register_model("my_own_linear")
         @cflearn.register_pipe("linear")
-        class MyOwnLinear(cflearn.ModelBase):
+        class MyOwnLinear(cflearn.ModelBase):  # type: ignore
             pass
 
         cflearn.register_model("my_own_linear2", pipes=[cflearn.PipeInfo("linear")])
@@ -345,7 +351,7 @@ class TestDoc(unittest.TestCase):
         x = np.random.random([10000, 2]) * 2.0
         y = np.prod(x, axis=1, keepdims=True)
         kwargs = {"task_type": "reg", "use_simplify_data": True}
-        fcnn = cflearn.make(**kwargs).fit(x, y)
+        fcnn = cflearn.make(**kwargs).fit(x, y)  # type: ignore
         cflearn.evaluate(x, y, pipelines=fcnn)
 
         @cflearn.register_extractor("cross_multiplication")
@@ -363,7 +369,7 @@ class TestDoc(unittest.TestCase):
             "multiplication",
             pipes=[cflearn.PipeInfo("linear", extractor="cross_multiplication")],
         )
-        mul = cflearn.make("multiplication", **kwargs).fit(x, y)
+        mul = cflearn.make("multiplication", **kwargs).fit(x, y)  # type: ignore
         cflearn.evaluate(x, y, pipelines=[fcnn, mul])
 
         @cflearn.register_head("cross")
@@ -395,13 +401,17 @@ class TestDoc(unittest.TestCase):
             head_config={"activation": None},
         )
         cflearn.register_model("cross", pipes=[cflearn.PipeInfo("cross")])
-        cross = cflearn.make("cross", **kwargs).fit(x, y)
+        cross = cflearn.make("cross", **kwargs).fit(x, y)  # type: ignore
         cflearn.evaluate(x, y, pipelines=[fcnn, mul, cross])
 
     def test_customization5(self) -> None:
         @cflearn.register_aggregator("prod")
         class Prod(cflearn.AggregatorBase):
-            def reduce(self, outputs, **kwargs):
+            def reduce(
+                self,
+                outputs: tensor_dict_type,
+                **kwargs: Any,
+            ) -> tensor_dict_type:
                 return {"predictions": outputs["linear"] * outputs["linear2"]}
 
         cflearn.register_model(
@@ -414,13 +424,18 @@ class TestDoc(unittest.TestCase):
         x = np.random.random([10000, 2]) * 2.0
         y = np.prod(x, axis=1, keepdims=True)
         kwargs = {"task_type": "reg", "use_simplify_data": True}
-        prod = cflearn.make("prod", aggregator="prod", **kwargs).fit(x, y)
+        prod = cflearn.make("prod", aggregator="prod", **kwargs).fit(x, y)  # type: ignore
         cflearn.evaluate(x, y, pipelines=prod)
 
     def test_customization6(self) -> None:
         @cflearn.register_loss("to_one")
         class ToOneLoss(cflearn.LossBase):
-            def _core(self, forward_results, target, **kwargs):
+            def _core(
+                self,
+                forward_results: tensor_dict_type,
+                target: torch.Tensor,
+                **kwargs: Any,
+            ) -> losses_type:
                 return (forward_results["predictions"] - 1.0).abs()
 
         x = np.random.random([1000, 4])

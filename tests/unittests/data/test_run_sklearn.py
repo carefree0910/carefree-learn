@@ -9,6 +9,7 @@ if __name__ == "__main__":
     info = get_info()
     kwargs = info.kwargs
     data_list = info.data_list
+    assert data_list is not None
     x, y = data_list[:2]
     model = kwargs["model"]
     sk_model = (SVR if model == "svr" else LinearSVR)()

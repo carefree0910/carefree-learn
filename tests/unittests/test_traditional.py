@@ -30,8 +30,8 @@ class TestTraditional(unittest.TestCase):
         m0.fit(*dataset.xy)
         cflearn.evaluate(*dataset.xy, pipelines={"fit": m, "init": m0})
         x, y = m0.data.processed.xy
-        split = m0.model.get_split(x, m0.device)
-        x, sk_y = split.merge().cpu().numpy(), y.ravel()
+        split = m0.model.get_split(x, m0.device)  # type: ignore
+        x, sk_y = split.merge().cpu().numpy(), y.ravel()  # type: ignore
         sklearn_model.fit(x, sk_y)
         pattern = ModelPattern(
             init_method=lambda: sklearn_model,

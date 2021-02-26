@@ -33,7 +33,7 @@ class TestDist(unittest.TestCase):
         saving_folder = os.path.join(logging_folder, "__test_experiment_save__")
         experiment.save(saving_folder)
         loaded = cflearn.Experiment.load(saving_folder)
-        ms_loaded = cflearn.load_experiment_results(loaded.results)
+        ms_loaded = cflearn.load_experiment_results(loaded.results)  # type: ignore
         self.assertTrue(
             np.allclose(
                 ms["fcnn"][1].predict(x),

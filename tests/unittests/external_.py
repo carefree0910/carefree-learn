@@ -10,7 +10,7 @@ class ExternalLinear(torch.nn.Module):
         super().__init__()
         self.linear = Linear(in_dim, out_dim)
 
-    def forward(self, net):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         return self.linear(net)
 
 

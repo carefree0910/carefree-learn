@@ -22,11 +22,11 @@ y_mix = np.hstack([y_add, y_prod])
 kwargs = {"task_type": "reg", "use_simplify_data": True}
 
 # add
-linear = cflearn.make("linear", **kwargs).fit(x, y_add)
-fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_add)
+linear = cflearn.make("linear", **kwargs).fit(x, y_add)  # type: ignore
+fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_add)  # type: ignore
 cflearn.evaluate(x, y_add, pipelines=[linear, fcnn])
 
-linear_core = linear.model.heads["linear"].linear
+linear_core = linear.model.heads["linear"].linear  # type: ignore
 print(f"w: {linear_core.weight.data}, b: {linear_core.bias.data}")
 
 # prod
@@ -48,12 +48,12 @@ cflearn.register_model(
     pipes=[cflearn.PipeInfo("linear", extractor="prod_extractor")],
 )
 
-linear = cflearn.make("linear", **kwargs).fit(x, y_prod)
-fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_prod)
-prod = cflearn.make("prod", **kwargs).fit(x, y_prod)
+linear = cflearn.make("linear", **kwargs).fit(x, y_prod)  # type: ignore
+fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_prod)  # type: ignore
+prod = cflearn.make("prod", **kwargs).fit(x, y_prod)  # type: ignore
 cflearn.evaluate(x, y_prod, pipelines=[linear, fcnn, prod])
 
-prod_linear = prod.model.heads["linear"].linear
+prod_linear = prod.model.heads["linear"].linear  # type: ignore
 print(f"w: {prod_linear.weight.item():8.6f}, b: {prod_linear.bias.item():8.6f}")
 
 # mixture
@@ -93,14 +93,14 @@ cflearn.register_model(
     ],
 )
 
-linear = cflearn.make("linear", **kwargs).fit(x, y_mix)
-fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_mix)
-prod = cflearn.make("prod", **kwargs).fit(x, y_mix)
-mixture = cflearn.make("mixture", **kwargs).fit(x, y_mix)
+linear = cflearn.make("linear", **kwargs).fit(x, y_mix)  # type: ignore
+fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_mix)  # type: ignore
+prod = cflearn.make("prod", **kwargs).fit(x, y_mix)  # type: ignore
+mixture = cflearn.make("mixture", **kwargs).fit(x, y_mix)  # type: ignore
 cflearn.evaluate(x, y_mix, pipelines=[linear, fcnn, prod, mixture])
 
-add_linear = mixture.model.heads["add"].linear
-prod_linear = mixture.model.heads["prod"].linear
+add_linear = mixture.model.heads["add"].linear  # type: ignore
+prod_linear = mixture.model.heads["prod"].linear  # type: ignore
 print(f"add  w: {add_linear.weight.data}")
 print(f"add  b: {add_linear.bias.data}")
 print(f"prod w: {prod_linear.weight.data}")

@@ -39,7 +39,7 @@ def test_array_dataset() -> None:
             model,
             task_type=task_type,
             use_simplify_data=use_simplify_data,
-            **kwargs,
+            **kwargs,  # type: ignore
         )
         m.fit(x, y)
         cflearn._rmtree(logging_folder)
@@ -73,7 +73,7 @@ def test_array_dataset() -> None:
     x_tr, y_tr = split.remained.processed.xy
     x_cv, y_cv = split.split.processed.xy
     sample_weights = np.random.random(len(dataset))
-    m = cflearn.make(model, use_tqdm=False, **kwargs)
+    m = cflearn.make(model, use_tqdm=False, **kwargs)  # type: ignore
     m.fit(x_tr, y_tr, x_cv, y_cv, sample_weights=sample_weights)
     cflearn.save(m)
     m2 = cflearn.load()[model][0]
@@ -119,6 +119,7 @@ def test_file_dataset() -> None:
         )
         cflearn._rmtree(logging_folder)
 
+    assert results is not None
     data = results.data
     patterns = results.patterns
     assert isinstance(data, TabularData)
@@ -186,9 +187,9 @@ def test_file_dataset2() -> None:
             },
         },
     }
-    config.update(kwargs)
+    config.update(kwargs)  # type: ignore
 
-    m = cflearn.make(**config).fit(tr_file, x_cv=cv_file)
+    m = cflearn.make(**config).fit(tr_file, x_cv=cv_file)  # type: ignore
     save_name = "__file_trained__"
     cflearn.save(m, save_name)
     m2 = cflearn.load(save_name)["fcnn"][0]
