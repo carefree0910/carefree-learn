@@ -96,7 +96,11 @@ class Zoo(LoggingMixin, metaclass=ABCMeta):
 # fcnn
 
 Zoo.register("fcnn", "default")
-Zoo.register("fcnn", "light_bn", head_configs={"fcnn": {"hidden_units": [128]}})
+Zoo.register(
+    "fcnn",
+    "min_max",
+    increment_configs={"data_config": {"default_numerical_process": "min_max"}},
+)
 Zoo.register(
     "fcnn",
     "on_large",
@@ -104,21 +108,18 @@ Zoo.register(
 )
 Zoo.register(
     "fcnn",
-    "light",
-    head_configs={
-        "fcnn": {"hidden_units": [128], "mapping_configs": {"batch_norm": False}}
-    },
+    "on_log_large",
+    head_configs={"fcnn": {"mapping_configs": {"dropout": 0.1, "batch_norm": False}}},
+    increment_configs={"data_config": {"default_numerical_process": "logarithm"}},
 )
 Zoo.register(
     "fcnn",
-    "on_sparse",
-    head_configs={
-        "fcnn": {
-            "hidden_units": [128],
-            "mapping_configs": {"dropout": 0.9, "batch_norm": False},
-        }
+    "light",
+    head_configs={"fcnn": {"mapping_configs": {"batch_norm": False}}},
+    increment_configs={
+        "data_config": {"binning_method": "opt"},
+        "model_config": {"default_encoding_configs": {"embedding_dim": 8}},
     },
-    increment_configs={"optimizer_config": {"lr": 1e-4}},
 )
 
 # tree dnn
@@ -126,11 +127,19 @@ Zoo.register(
 Zoo.register("tree_dnn", "default")
 Zoo.register(
     "tree_dnn",
+    "min_max",
+    increment_configs={"data_config": {"default_numerical_process": "min_max"}},
+)
+Zoo.register(
+    "tree_dnn",
     "on_large",
-    head_configs={
-        "dndf": {"dndf_config": None},
-        "fcnn": {"mapping_configs": {"dropout": 0.1}},
-    },
+    head_configs={"fcnn": {"mapping_configs": {"dropout": 0.1, "batch_norm": False}}},
+)
+Zoo.register(
+    "tree_dnn",
+    "on_log_large",
+    head_configs={"fcnn": {"mapping_configs": {"dropout": 0.1, "batch_norm": False}}},
+    increment_configs={"data_config": {"default_numerical_process": "logarithm"}},
 )
 Zoo.register(
     "tree_dnn",
@@ -140,24 +149,7 @@ Zoo.register(
         "fcnn": {"mapping_configs": {"batch_norm": False}},
     },
     increment_configs={
-        "model_config": {"default_encoding_configs": {"embedding_dim": 8}}
-    },
-)
-Zoo.register(
-    "tree_dnn",
-    "on_sparse",
-    head_configs={
-        "dndf": {"dndf_config": None},
-        "fcnn": {
-            "mapping_configs": {
-                "dropout": 0.9,
-                "batch_norm": False,
-                "pruner_config": None,
-            }
-        },
-    },
-    increment_configs={
-        "optimizer_config": {"lr": 1e-4},
+        "data_config": {"binning_method": "opt"},
         "model_config": {"default_encoding_configs": {"embedding_dim": 8}},
     },
 )
