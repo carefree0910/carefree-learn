@@ -3,7 +3,7 @@ channels:
 - conda-forge
 - pytorch
 dependencies:
-- python=3.6.12
+- python=3.7.9
 - pytorch=1.6.0
 - torchvision=0.7.0
 - pip
@@ -23,7 +23,7 @@ dependencies:
   - psutil
   - tb-nightly
   - cython>=0.29.12
-  - numpy>=1.16.2
+  - numpy>=1.20.0
   - scipy>=1.2.1
   - scikit-learn>=0.23.1
   - matplotlib>=3.0.3

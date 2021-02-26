@@ -58,7 +58,7 @@ From the above, it comes out that `carefree-learn` could be treated as a minimal
 
 ## Installation
 
-`carefree-learn` requires Python 3.6 or higher.
+`carefree-learn` requires Python 3.7 or higher.
 
 ### Pre-Installing PyTorch
 

@@ -7,13 +7,13 @@ on:
     branches: [ dev ]
 
 jobs:
-  ubuntu:
+  ubuntu-windows:
 
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        python-version: [3.6, 3.7, 3.8]
-        os: [ubuntu-latest]
+        python-version: [3.7, 3.8]
+        os: [ubuntu-latest, windows-latest]
 
     steps:
       - uses: actions/checkout@v2
