@@ -75,10 +75,10 @@ class DecayedAttention(Attention):
         for i in range(1, seq_len):
             np.fill_diagonal(mask[i:], i ** 2)
             np.fill_diagonal(mask[..., i:], i ** 2)
-        mask = torch.from_numpy(mask)
+        mask_ = torch.from_numpy(mask)
         decayed_mask = torch.empty(num_heads, seq_len, seq_len)
         for i in range(num_heads):
-            decayed_mask[i] = torch.exp(-(0.1 ** (i + 3)) * mask)
+            decayed_mask[i] = torch.exp(-(0.1 ** (i + 3)) * mask_)
         self.register_buffer("decayed_mask", decayed_mask)
 
     def _weights_callback(self, weights: Tensor) -> Tensor:

@@ -28,9 +28,9 @@ m.fit("train.csv")
 cflearn.evaluate("train.csv", pipelines=m, contains_labels=True)
 
 predictions = m.predict("test.csv", contains_labels=False)
-write_submissions("submissions.csv", predictions)
+write_submissions("submissions.csv", predictions)  # type: ignore
 
 # tree linear
 m = cflearn.make("tree_linear", data_config=data_config).fit("train.csv")
 predictions = m.predict("test.csv", contains_labels=False)
-write_submissions("submissions_tree_linear.csv", predictions)
+write_submissions("submissions_tree_linear.csv", predictions)  # type: ignore

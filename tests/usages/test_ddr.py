@@ -82,6 +82,7 @@ def test() -> None:
             assert isinstance(m, Pipeline)
             x_cv, y_cv = cflearn.Experiment.fetch_data("_cv", workplace=workplace)
             assert isinstance(x_cv, np.ndarray)
+            assert isinstance(y_cv, np.ndarray)
             x_min, x_max = x_cv.min(), x_cv.max()
             x_diff = x_max - x_min
             visualizer = DDRVisualizer(m)
@@ -97,22 +98,22 @@ def test() -> None:
             # quantile
             q_kwargs = {"q_batch": q_batch, "padding": padding}
             export_path = _get_file(local_export_folder, "quantile.png")
-            visualizer.visualize(x_cv, y_cv, export_path, **q_kwargs)
+            visualizer.visualize(x_cv, y_cv, export_path, **q_kwargs)  # type: ignore
             export_path = _get_file(local_export_folder, "med_mul.png")
-            visualizer.visualize(x_cv, y_cv, export_path, mul_affine=True, **q_kwargs)
+            visualizer.visualize(x_cv, y_cv, export_path, mul_affine=True, **q_kwargs)  # type: ignore
             # cdf
             y_kwargs = {"y_batch": y_batch, "padding": padding}
             cdf_path = _get_file(local_export_folder, "cdf.png")
             pdf_path = _get_file(local_export_folder, "pdf.png")
-            visualizer.visualize(x_cv, y_cv, cdf_path, **y_kwargs)
-            visualizer.visualize(x_cv, y_cv, pdf_path, to_pdf=True, **y_kwargs)
+            visualizer.visualize(x_cv, y_cv, cdf_path, **y_kwargs)  # type: ignore
+            visualizer.visualize(x_cv, y_cv, pdf_path, to_pdf=True, **y_kwargs)  # type: ignore
             export_path = _get_file(local_export_folder, "cdf_logit_mul.png")
             visualizer.visualize(
                 x_cv,
                 y_cv,
                 export_path,
                 cdf_logit_mul=True,
-                **y_kwargs,
+                **y_kwargs,  # type: ignore
             )
             # multiple
             n_base, n_repeat = 1000, 10000

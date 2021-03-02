@@ -71,7 +71,7 @@ class Ensemble:
                     shape = [len(arrays), len(arrays[0]), -1]
                     predictions = np.array(arrays).reshape(shape)
                     if requires_prob or not is_int(predictions):
-                        return (predictions * pattern_weights).sum(axis=0)
+                        return (predictions * pattern_weights).sum(axis=0)  # type: ignore
                     encodings = one_hot(to_torch(predictions).to(torch.long).squeeze())
                     encodings = encodings.to(torch.float32)
                     weighted = (encodings * pattern_weights).sum(dim=0)
@@ -167,7 +167,7 @@ class Ensemble:
             m = make(model=model, **cfg)
             m.fit(x, y, sample_weights=sample_weights)
             metrics_placeholder = MetricsPlaceholder(metric_config)
-            predictions: np.ndarray = m.predict(x, contains_labels=True)
+            predictions: np.ndarray = m.predict(x, contains_labels=True)  # type: ignore
             predictions = predictions.astype(np.float32)
             target = m.data.processed.y.astype(np.float32)
             e = adaboost_error(metrics_placeholder, target, predictions)

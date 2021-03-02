@@ -79,7 +79,7 @@ def test_array_dataset() -> None:
     m2 = cflearn.load()[model][0]
     assert m.tr_data == m2.tr_data
     assert m.cv_data == m2.cv_data
-    assert np.allclose(sample_weights, m2.sample_weights)
+    assert np.allclose(sample_weights, m2.sample_weights)  # type: ignore
     cflearn._rmtree(logging_folder)
     cflearn._remove()
 
@@ -207,17 +207,17 @@ def test_file_dataset2() -> None:
     pred2 = m2.predict(te_file, contains_labels=True)
     pred3 = m3.predict(te_file, contains_labels=True)
     pred4 = m3.to_pattern(contains_labels=True).predict(te_file)
-    assert np.allclose(pred1, pred2)
-    assert np.allclose(pred2, pred3)
-    assert np.allclose(pred3, pred4)
+    assert np.allclose(pred1, pred2)  # type: ignore
+    assert np.allclose(pred2, pred3)  # type: ignore
+    assert np.allclose(pred3, pred4)  # type: ignore
 
     prob1 = m.predict_prob(te_file, contains_labels=True)
     prob2 = m2.predict_prob(te_file, contains_labels=True)
     prob3 = m3.predict_prob(te_file, contains_labels=True)
     prob4 = m3.to_pattern(contains_labels=True).predict(te_file, requires_prob=True)
-    assert np.allclose(prob1, prob2, atol=1e-4, rtol=1e-4)
-    assert np.allclose(prob2, prob3, atol=1e-4, rtol=1e-4)
-    assert np.allclose(prob3, prob4, atol=1e-4, rtol=1e-4)
+    assert np.allclose(prob1, prob2, atol=1e-4, rtol=1e-4)  # type: ignore
+    assert np.allclose(prob2, prob3, atol=1e-4, rtol=1e-4)  # type: ignore
+    assert np.allclose(prob3, prob4, atol=1e-4, rtol=1e-4)  # type: ignore
 
     cflearn._remove(save_name)
     cflearn._rmtree(logging_folder)
@@ -244,7 +244,7 @@ def test_auto_file() -> None:
     prob1 = auto.predict_prob(te_file)
     export_name = "packed"
     auto.pack(export_name)
-    unpacked = cflearn.Auto.unpack(export_name, **predict_config)
+    unpacked = cflearn.Auto.unpack(export_name, **predict_config)  # type: ignore
     pattern = unpacked.pattern
     pred2 = pattern.predict(te_file)
     prob2 = pattern.predict(te_file, requires_prob=True)

@@ -96,7 +96,7 @@ class TestDoc(unittest.TestCase):
         self.assertEqual(m.predict([[0, 1]]).item(), 1)  # type: ignore
         self.assertTrue(
             np.allclose(
-                m.predict(xor_file, contains_labels=True),
+                m.predict(xor_file, contains_labels=True),  # type: ignore
                 np.array([[0], [1], [1], [0]]),
             )
         )
@@ -142,7 +142,7 @@ class TestDoc(unittest.TestCase):
         m = cflearn.make().fit(x, y)
         cflearn.save(m)
         ms = cflearn.load()
-        self.assertTrue(np.allclose(m.predict(x), ms["fcnn"][0].predict(x)))
+        self.assertTrue(np.allclose(m.predict(x), ms["fcnn"][0].predict(x)))  # type: ignore
 
     def test_apis4(self) -> None:
         n = 5

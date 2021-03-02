@@ -1028,11 +1028,9 @@ class Trainer(MonitoredMixin):
             )
         self.state.inject_loader(tr_loader)
         # sample weights
-        if tr_weights is not None:
-            tr_weights = to_torch(tr_weights)
-        if cv_weights is not None:
-            cv_weights = to_torch(cv_weights)
-        self.tr_weights, self.cv_weights = tr_weights, cv_weights
+        tr_weights_ = None if tr_weights is None else to_torch(tr_weights)
+        cv_weights_ = None if cv_weights is None else to_torch(cv_weights)
+        self.tr_weights, self.cv_weights = tr_weights_, cv_weights_
         # optimizer
         self._init_optimizers()
         # deep speed
@@ -1050,9 +1048,13 @@ class Trainer(MonitoredMixin):
         if show_summary is None:
             show_summary = not self.tqdm_settings.in_distributed
         if show_summary:
-            sample_batch = next(iter(self.tr_loader_copy))
+            next_item = next(iter(self.tr_loader_copy))
             if self.tr_loader_copy.return_indices:
-                sample_batch = sample_batch[0]
+                assert isinstance(next_item, tuple)
+                sample_batch = next_item[0]
+            else:
+                assert isinstance(next_item, dict)
+                sample_batch = next_item
             summary(self.model, sample_batch)
         self._prepare_log()
         step_tqdm = None
@@ -1137,6 +1139,7 @@ class Trainer(MonitoredMixin):
                 logits = None
             else:
                 logits = probabilities
+            assert probabilities is not None
             outputs.results["predictions"] = self.inference.predict_with(probabilities)
         else:
             if not is_custom_loader:

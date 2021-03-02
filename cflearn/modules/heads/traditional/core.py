@@ -82,16 +82,16 @@ class NDTHead(HeadBase):
                     w2[node_id, leaf_id_cursor] = node_sign / len(node_list)
                 w3[leaf_id_cursor] = rs / np.sum(rs)
                 leaf_id_cursor += 1
-        w1, w2, w3, b = map(torch.from_numpy, [w1, w2, w3, b])
+        w1_, w2_, w3_, b_ = map(torch.from_numpy, [w1, w2, w3, b])
         # construct planes & routes
         self.to_planes = Linear(in_dim, num_internals, init_method=None)
         self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
         self.to_leaves = Linear(num_leaves, out_dim, init_method=None)
         with torch.no_grad():
-            self.to_planes.linear.bias.data = b
-            self.to_planes.linear.weight.data = w1.t()
-            self.to_routes.linear.weight.data = w2.t()
-            self.to_leaves.linear.weight.data = w3.t()
+            self.to_planes.linear.bias.data = b_
+            self.to_planes.linear.weight.data = w1_.t()
+            self.to_routes.linear.weight.data = w2_.t()
+            self.to_leaves.linear.weight.data = w3_.t()
             uniform = log_softmax(torch.zeros(out_dim, dtype=torch.float32), dim=0)
             self.to_leaves.linear.bias.data = uniform
         # activations
@@ -146,7 +146,7 @@ class NNBMNBHead(HeadBase):
                 )
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        return linear(net, self.log_posterior(), self.class_log_prior())
+        return linear(net, self.log_posterior(), self.class_log_prior())  # type: ignore
 
     def class_log_prior(
         self,

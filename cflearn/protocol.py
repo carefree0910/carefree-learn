@@ -354,7 +354,7 @@ class PrefetchLoader:
             indices_tensor = None
         else:
             sample, batch_indices = sample  # type: ignore
-            indices_tensor = to_torch(batch_indices).to(torch.long)
+            indices_tensor = to_torch(batch_indices).to(torch.long)  # type: ignore
 
         self.next_batch = sample  # type: ignore
         if self.is_cpu:
@@ -810,11 +810,16 @@ class InferenceProtocol(ABC):
                     for k, v in local_losses.items():
                         loss_items.setdefault(k, []).append(v.item())
 
-            if return_outputs:
-                results = {k: np.vstack(v) for k, v in results.items()}
+            final_results: Dict[str, Union[np.ndarray, Any]]
+            if not return_outputs:
+                final_results = {k: None for k in results}
+            else:
+                final_results = {
+                    k: np.vstack(v) for k, v in results.items() if v is not None
+                }
 
             return InferenceOutputs(
-                results,
+                final_results,
                 None
                 if not loss_items
                 else {k: sum(v) / len(v) for k, v in loss_items.items()},

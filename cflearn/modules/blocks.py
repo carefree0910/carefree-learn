@@ -545,8 +545,8 @@ class DNDF(Module):
             increment_mask = np.repeat(arange, 2)
             increment_mask += np.tile([0, self._num_internals], num_local_internals)
             increment_mask = np.repeat(increment_mask, num_repeat)
-            increment_mask = torch.from_numpy(increment_mask.astype(np_int_type))
-            increment_indices.append(increment_mask)
+            increment_mask_ = torch.from_numpy(increment_mask.astype(np_int_type))
+            increment_indices.append(increment_mask_)
         self.increment_masks: Tensor
         self.register_buffer("tree_arange", torch.arange(num_tree)[..., None, None])
         self.register_buffer("ones", torch.stack(ones_list))

@@ -20,7 +20,7 @@ class DDRPredictor:
         self.m = ddr
 
     def mr(self, x: data_type) -> Dict[str, np.ndarray]:
-        return self.m.predict(x, predict_median_residual=True, return_all=True)
+        return self.m.predict(x, predict_median_residual=True, return_all=True)  # type: ignore
 
     def cdf(
         self,
@@ -29,7 +29,7 @@ class DDRPredictor:
         *,
         get_pdf: bool = False,
     ) -> Dict[str, np.ndarray]:
-        predictions = self.m.predict(
+        return self.m.predict(  # type: ignore
             x,
             y=y,
             use_grad=get_pdf,
@@ -38,7 +38,6 @@ class DDRPredictor:
             predict_cdf=True,
             return_all=True,
         )
-        return predictions
 
     def quantile(
         self,
@@ -47,7 +46,7 @@ class DDRPredictor:
         *,
         recover: bool = True,
     ) -> Dict[str, np.ndarray]:
-        return self.m.predict(
+        return self.m.predict(  # type: ignore
             x,
             q=q,
             requires_recover=recover,
@@ -126,6 +125,7 @@ class DDRVisualizer:
         assert model is not None
         mean = None
         median = self.m.predict(x_base)
+        assert isinstance(median, np.ndarray)
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # median residual
@@ -175,9 +175,9 @@ class DDRVisualizer:
             else:
                 for ratio, anchor in zip(ratios, anchors):
                     cdf_predictions = self.predictor.cdf(x_base, anchor)
-                    cdf_logit_mul = cdf_predictions["cdf_logit_mul"]
+                    cdf_logit_mul_ = cdf_predictions["cdf_logit_mul"]
                     label = f"cdf_logit_mul {ratio:4.2f}"
-                    plt.plot(x_base.ravel(), cdf_logit_mul, label=label)
+                    plt.plot(x_base.ravel(), cdf_logit_mul_, label=label)
                 DDRVisualizer._render_figure(*render_args)
         show_or_save(export_path, fig)
 
@@ -226,7 +226,7 @@ class DDRVisualizer:
                 yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
                 yd_pred = self.predictor.cdf(x_base, anchor)["cdf"]
                 yd_pred = yd_pred * y_diff + y_min
-                _plot("cdf", anchor, yd, yd_pred, anchor_line)
+                _plot("cdf", anchor, yd, yd_pred, anchor_line)  # type: ignore
 
 
 __all__ = ["DDRPredictor", "DDRVisualizer"]

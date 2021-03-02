@@ -89,7 +89,7 @@ def test_ops() -> None:
         predictions = m.predict(te_file, contains_labels=True)
         labels = m.data.read_file(te_file)[1].to_numpy().astype(np.float32)  # type: ignore
         labels = labels.reshape([-1, num_history + 1])[..., -2:].reshape([-1, 1])
-        print(np.hstack([predictions, labels]))
+        print(np.hstack([predictions, labels]))  # type: ignore
 
 
 if __name__ == "__main__":

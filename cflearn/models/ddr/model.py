@@ -275,8 +275,8 @@ class DDR(ModelBase):
         quantiles_list, med_mul_list = [], []
         q_list = [q] if isinstance(q, float) else q
         for q in q_list:
-            q_batch = self._expand(batch_size, q)
-            pack = self._quantile(split, q_batch, False)
+            q_batch = self._expand(batch_size, q)  # type: ignore
+            pack = self._quantile(split, q_batch, False)  # type: ignore
             quantiles_list.append(pack["median"] + pack["y_res"])
             med_mul_list.append(pack["med_mul"])
         if len(q_list) == 1:
@@ -387,7 +387,7 @@ class DDR(ModelBase):
             for q in np.linspace(0.05, 0.95, 10):
                 q = q.item()
                 self.q_metric.config["q"] = q
-                pack = self._quantile(net, self._expand(len(net), q), False)
+                pack = self._quantile(net, self._expand(len(net), q), False)  # type: ignore
                 yq = pack["y_res"] + pack["median"]
                 q_losses.append(self.q_metric.metric(labels, to_numpy(yq)))
             quantile_metric = -sum(q_losses) / len(q_losses) * self.q_metric.sign

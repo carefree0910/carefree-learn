@@ -26,7 +26,7 @@ def test_onnx() -> None:
         cflearn.Pack.pack(m, predictor_folder)
         predictor = cflearn.Pack.get_predictor(predictor_folder)
         atol = rtol = 1e-2 if model == "tree_dnn" else 1e-4
-        assert np.allclose(predictions, predictor.predict(x), atol=atol, rtol=rtol)
+        assert np.allclose(predictions, predictor.predict(x), atol=atol, rtol=rtol)  # type: ignore
         cflearn._rmtree(logging_folder)
 
     reg_models = ["linear", "fcnn", "tree_dnn"]

@@ -237,7 +237,7 @@ class Pipeline(LoggingMixinWithRank):
         y: data_type,
         x_cv: data_type,
         y_cv: data_type,
-        sample_weights: np.ndarray,
+        sample_weights: Optional[np.ndarray],
     ) -> None:
         # logging
         if os.path.isdir(self.logging_folder):
@@ -254,9 +254,8 @@ class Pipeline(LoggingMixinWithRank):
         y, y_cv = map(to_2d, [y, y_cv])
         args = (x, y) if y is not None else (x,)
         self.data_config["verbose_level"] = self._verbose_level
-        if sample_weights is None:
-            self.sample_weights = None
-        else:
+        self.sample_weights: Optional[np.ndarray] = None
+        if sample_weights is not None:
             self.sample_weights = sample_weights.copy()
         self._original_data = DataProtocol.make(self.data_protocol, **self.data_config)
         self._original_data.read(*args, **self.read_config)
@@ -556,7 +555,7 @@ class Pipeline(LoggingMixinWithRank):
         sample_weights: Optional[np.ndarray] = None,
     ) -> "Pipeline":
         if self.custom_fit is not None:
-            self.custom_fit(self, x, y, x_cv, y_cv, sample_weights)
+            self.custom_fit(self, x, y, x_cv, y_cv, sample_weights)  # type: ignore
             return self
         self._before_loop(x, y, x_cv, y_cv, sample_weights)
         self._handle_pretrain(
@@ -672,12 +671,12 @@ class Pipeline(LoggingMixinWithRank):
         def _predict(x: np.ndarray) -> np.ndarray:
             if pre_process is not None:
                 x = pre_process(x)
-            return self.predict(x, **predict_kwargs)
+            return self.predict(x, **predict_kwargs)  # type: ignore
 
         def _predict_prob(x: np.ndarray) -> np.ndarray:
             if pre_process is not None:
                 x = pre_process(x)
-            return self.predict_prob(x, **predict_kwargs)
+            return self.predict_prob(x, **predict_kwargs)  # type: ignore
 
         return ModelPattern(
             init_method=lambda: self,

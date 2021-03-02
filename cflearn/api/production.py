@@ -76,7 +76,7 @@ class Predictor:
         )
         kwargs = shallow_copy_dict(kwargs)
         kwargs["contains_labels"] = contains_labels
-        return self.inference.predict(loader, **shallow_copy_dict(kwargs))
+        return self.inference.predict(loader, **shallow_copy_dict(kwargs))  # type: ignore
 
     def predict_prob(
         self,
