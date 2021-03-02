@@ -1046,6 +1046,14 @@ class Trainer(MonitoredMixin):
         self._monitor = TrainMonitor.monitor(self, **monitor_config)
         # train
         self.model.info()
+        show_summary = self.show_summary
+        if show_summary is None:
+            show_summary = not self.tqdm_settings.in_distributed
+        if show_summary:
+            sample_batch = next(iter(self.tr_loader_copy))
+            if self.tr_loader_copy.return_indices:
+                sample_batch = sample_batch[0]
+            summary(self.model, sample_batch)
         self._prepare_log()
         step_tqdm = None
         self._epoch_tqdm: Optional[tqdm] = None

@@ -129,6 +129,7 @@ class Elements(NamedTuple):
     verbose_level: int = 2
     use_tqdm: bool = True
     trigger_logging: bool = False
+    show_summary: Optional[bool] = None
     log_pipeline_to_artifacts: bool = False
     cuda: Optional[Union[int, str]] = None
     mlflow_config: Optional[Dict[str, Any]] = None

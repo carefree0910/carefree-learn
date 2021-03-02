@@ -61,9 +61,9 @@ class Linear(Module):
         return self.linear.bias
 
     def forward(self, net: Tensor) -> Tensor:
-        if self.pruner is None:
-            return self.linear(net)
-        weight = self.pruner(self.linear.weight)
+        weight = self.linear.weight
+        if self.pruner is not None:
+            weight = self.pruner(weight)
         return F.linear(net, weight, self.linear.bias)
 
     def reset_parameters(self) -> None:

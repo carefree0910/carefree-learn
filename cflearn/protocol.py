@@ -31,7 +31,6 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cfdata.types import np_int_type
 from cfdata.tabular import data_type
-from cfdata.tabular import str_data_type
 from cfdata.tabular import TaskTypes
 from cfdata.tabular import DataTuple
 from cfdata.tabular.recognizer import Recognizer
