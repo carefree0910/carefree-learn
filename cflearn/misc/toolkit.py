@@ -57,7 +57,7 @@ def to_2d(arr: data_type) -> data_type:
         return arr.reshape([len(arr), -1])
     if isinstance(arr[0], list):
         return arr
-    return [[elem] for elem in arr]
+    return [[elem] for elem in arr]  # type: ignore
 
 
 def to_prob(raw: np.ndarray) -> np.ndarray:
@@ -192,42 +192,40 @@ def inject_mlflow_stuffs(
 
 # This is a slightly modified version of https://github.com/sksq96/pytorch-summary
 #  So it can summary `carefree-learn` model structures better
-def summary(model, sample_batch):
-
-    def register_hook(module):
-
-        def hook(module, input, output):
+def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
+    def register_hook(module: nn.Module) -> None:
+        def hook(module_: nn.Module, inp: Any, output: Any) -> None:
             for key in ("OneHot", "Embedding", "Lambda", "Identity"):
-                if key in str(module):
+                if key in str(module_):
                     return
-            input = input[0]
-            if not isinstance(input, torch.Tensor):
+            inp = inp[0]
+            if not isinstance(inp, torch.Tensor):
                 return
             if not isinstance(output, torch.Tensor):
                 return
 
-            class_name = str(module.__class__).split(".")[-1].split("'")[0]
-            module_idx = len(summary)
+            class_name = str(module_.__class__).split(".")[-1].split("'")[0]
+            module_idx = len(summary_dict)
 
             m_key = "%s-%i" % (class_name, module_idx + 1)
-            summary[m_key] = OrderedDict()
-            summary[m_key]["input_shape"] = list(input.size())
-            summary[m_key]["input_shape"][0] = -1
+            summary_dict[m_key] = OrderedDict()
+            summary_dict[m_key]["input_shape"] = list(inp.size())
+            summary_dict[m_key]["input_shape"][0] = -1
             if isinstance(output, (list, tuple)):
-                summary[m_key]["output_shape"] = [
+                summary_dict[m_key]["output_shape"] = [
                     [-1] + list(o.size())[1:] for o in output
                 ]
             else:
-                summary[m_key]["output_shape"] = list(output.size())
-                summary[m_key]["output_shape"][0] = -1
+                summary_dict[m_key]["output_shape"] = list(output.size())
+                summary_dict[m_key]["output_shape"][0] = -1
 
-            params = 0
-            if hasattr(module, "weight") and hasattr(module.weight, "size"):
-                params += torch.prod(torch.LongTensor(list(module.weight.size())))
-                summary[m_key]["trainable"] = module.weight.requires_grad
-            if hasattr(module, "bias") and hasattr(module.bias, "size"):
-                params += torch.prod(torch.LongTensor(list(module.bias.size())))
-            summary[m_key]["nb_params"] = params
+            params = 0.0
+            if hasattr(module_, "weight") and hasattr(module_.weight, "size"):
+                params += torch.prod(torch.LongTensor(list(module_.weight.size())))  # type: ignore
+                summary_dict[m_key]["trainable"] = module_.weight.requires_grad
+            if hasattr(module_, "bias") and hasattr(module_.bias, "size"):
+                params += torch.prod(torch.LongTensor(list(module_.bias.size())))  # type: ignore
+            summary_dict[m_key]["nb_params"] = int(params)
 
         if (
             not isinstance(module, nn.Sequential)
@@ -237,8 +235,8 @@ def summary(model, sample_batch):
             hooks.append(module.register_forward_hook(hook))
 
     # create properties
-    summary = OrderedDict()
-    hooks = []
+    summary_dict: OrderedDict[str, Any] = OrderedDict()
+    hooks: List[Any] = []
 
     # register hook
     model.apply(register_hook)
@@ -257,25 +255,26 @@ def summary(model, sample_batch):
     total_params = 0
     total_output = 0
     trainable_params = 0
-    for layer in summary:
+    for layer in summary_dict:
         # input_shape, output_shape, trainable, nb_params
         line_new = "{:>20}  {:>25} {:>15}".format(
             layer,
-            str(summary[layer]["output_shape"]),
-            "{0:,}".format(summary[layer]["nb_params"]),
+            str(summary_dict[layer]["output_shape"]),
+            "{0:,}".format(summary_dict[layer]["nb_params"]),
         )
-        total_params += summary[layer]["nb_params"]
-        total_output += np.prod(summary[layer]["output_shape"])
-        if "trainable" in summary[layer]:
-            if summary[layer]["trainable"] == True:
-                trainable_params += summary[layer]["nb_params"]
+        total_params += summary_dict[layer]["nb_params"]
+        total_output += np.prod(summary_dict[layer]["output_shape"])
+        if "trainable" in summary_dict[layer]:
+            if summary_dict[layer]["trainable"] == True:
+                trainable_params += summary_dict[layer]["nb_params"]
         print(line_new)
 
     # assume 4 bytes/number (float on cuda).
     x_batch = sample_batch["x_batch"]
-    total_input_size = abs(np.prod(x_batch.shape[1:]) * 4. / (1024 ** 2.))
-    total_output_size = abs(2. * total_output * 4. / (1024 ** 2.))  # x2 for gradients
-    total_params_size = abs(total_params * 4. / (1024 ** 2.))
+    total_input_size = abs(np.prod(x_batch.shape[1:]) * 4.0 / (1024 ** 2.0))
+    # x2 for gradients
+    total_output_size = abs(2.0 * total_output * 4.0 / (1024 ** 2.0))
+    total_params_size = abs(total_params * 4.0 / (1024 ** 2.0))
     total_size = total_params_size + total_output_size + total_input_size
 
     print("================================================================")
@@ -288,7 +287,6 @@ def summary(model, sample_batch):
     print("Params size (MB): %0.2f" % total_params_size)
     print("Estimated Total Size (MB): %0.2f" % total_size)
     print("----------------------------------------------------------------")
-    # return summary
 
 
 class LoggingMixinWithRank(LoggingMixin):
