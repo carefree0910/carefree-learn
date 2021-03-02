@@ -22,7 +22,7 @@ setup(
         "future",
         "psutil",
         "cython>=0.29.12",
-        "numpy>=1.20.0",
+        "numpy>=1.19.2",
         "scipy>=1.2.1",
         "scikit-learn>=0.23.1",
         "matplotlib>=3.0.3",
