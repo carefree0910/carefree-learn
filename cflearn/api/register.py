@@ -11,6 +11,7 @@ from cfdata.tabular.processors.base import Processor
 from ..modules import *
 from ..types import tensor_dict_type
 from ..losses import LossBase
+from ..configs import configs_dict
 from ..configs import Configs
 from ..misc.toolkit import Initializer
 from ..models.base import model_dict
@@ -20,6 +21,7 @@ from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
 from ..modules.extractors import ExtractorBase
 from ..modules.aggregators import AggregatorBase
+from ..modules.extractors.base import extractor_dict
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -206,8 +208,14 @@ def remove_all_external() -> None:
 
 
 def register_module(name: str, module_base: Any) -> None:
+    current_extractor = extractor_dict.pop(name, None)
     current_head = head_dict.pop(name, None)
     current_model = model_dict.pop(name, None)
+    if current_extractor is not None:
+        print(
+            f"{LoggingMixin.warning_prefix}'{name}' already exists in "
+            f"`extractor_dict`, it will be overwritten"
+        )
     if current_head is not None:
         print(
             f"{LoggingMixin.warning_prefix}'{name}' already exists in `head_dict`, "
@@ -228,6 +236,12 @@ def register_module(name: str, module_base: Any) -> None:
         def forward(self, net: Tensor) -> Union[Tensor, tensor_dict_type]:
             return self.model(net)
 
+    current_config = configs_dict.get(name, {}).pop("default", None)
+    if current_config is not None:
+        print(
+            f"{LoggingMixin.warning_prefix}'{name}' already exists in "
+            f"`configs_dict`, it will be overwritten"
+        )
     register_head_config(name, "default", head_config={})
     register_model(name, pipes=[PipeInfo(name, extractor="identity_ts")])
 
