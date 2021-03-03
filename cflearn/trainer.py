@@ -1095,14 +1095,6 @@ class Trainer(MonitoredMixin):
                 )
                 terminate = True
             if terminate:
-                if os.path.isdir(self.checkpoint_folder):
-                    if not self.deepspeed:
-                        self.log_msg(  # type: ignore
-                            "rolling back to the best checkpoint",
-                            self.info_prefix,
-                            3,
-                        )
-                    has_ckpt = self.restore_checkpoint()
                 break
             if self.use_tqdm:
                 assert self._epoch_tqdm is not None
@@ -1113,6 +1105,15 @@ class Trainer(MonitoredMixin):
                 step_tqdm.close()
             assert self._epoch_tqdm is not None
             self._epoch_tqdm.close()
+        # restore
+        if os.path.isdir(self.checkpoint_folder):
+            if not self.deepspeed:
+                self.log_msg(  # type: ignore
+                    "rolling back to the best checkpoint",
+                    self.info_prefix,
+                    3,
+                )
+            has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
         outputs = self._generate_binary_threshold()
