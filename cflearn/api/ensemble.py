@@ -8,7 +8,6 @@ from typing import *
 from tqdm.autonotebook import tqdm
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
-from cfdata.tabular import task_type_type
 from cftool.ml.utils import collate_fn_type
 from cftool.ml.utils import Metrics
 from torch.nn.functional import one_hot
@@ -39,15 +38,8 @@ class MetricsPlaceholder(NamedTuple):
 
 
 class Ensemble:
-    def __init__(
-        self,
-        task_type: task_type_type,
-        config: Optional[Dict[str, Any]] = None,
-    ):
-        self.task_type = task_type
-        if config is None:
-            config = {}
-        self.config = shallow_copy_dict(config)
+    def __init__(self, config: Optional[Dict[str, Any]] = None):
+        self.config = shallow_copy_dict(config or {})
 
     @staticmethod
     def stacking(

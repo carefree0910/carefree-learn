@@ -83,7 +83,7 @@ def _adaboost_core(train_file: str) -> return_type:
     config: Dict[str, Any] = {"data_config": {"label_name": "Survived"}}
     if CI:
         config.update({"fixed_epoch": 3})
-    ensemble = cflearn.Ensemble("clf", config)
+    ensemble = cflearn.Ensemble(config)
     results = ensemble.adaboost(train_file, model=model)
     cflearn._rmtree("_logging")
     return results.data, results.pattern

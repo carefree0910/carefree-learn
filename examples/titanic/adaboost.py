@@ -16,7 +16,7 @@ def write_submissions(name: str, predictions_: np.ndarray) -> None:
 
 
 # Score : achieved ~0.77
-ensemble = cflearn.Ensemble("clf", config={"data_config": {"label_name": "Survived"}})
+ensemble = cflearn.Ensemble(config={"data_config": {"label_name": "Survived"}})
 result = ensemble.adaboost(tr_file, model="ndt")  # this acts like boosting tree
 predictions = result.pattern.predict(te_file)
 write_submissions("adaboost.csv", predictions)
