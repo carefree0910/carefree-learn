@@ -13,7 +13,9 @@ from abc import abstractmethod
 from abc import ABCMeta
 from argparse import Namespace
 from functools import partial
+from collections import defaultdict
 from collections import OrderedDict
+from cftool.misc import prod
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
@@ -190,52 +192,83 @@ def inject_mlflow_stuffs(
             mlflow_config["mlflow_params"] = mlflow_params
 
 
-# This is a slightly modified version of https://github.com/sksq96/pytorch-summary
+# This is a modified version of https://github.com/sksq96/pytorch-summary
 #  So it can summary `carefree-learn` model structures better
 def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
     def register_hook(module: nn.Module) -> None:
         def hook(module_: nn.Module, inp: Any, output: Any) -> None:
-            for key in ("OneHot", "Embedding", "Lambda", "Identity"):
-                if key in str(module_):
-                    return
+            m_name = module_names.get(module_)
+            if m_name is None:
+                return
+
             inp = inp[0]
             if not isinstance(inp, torch.Tensor):
                 return
-            if not isinstance(output, torch.Tensor):
+            if isinstance(output, (list, tuple)):
+                for element in output:
+                    if not isinstance(element, torch.Tensor):
+                        return
+            elif not isinstance(output, torch.Tensor):
                 return
 
-            class_name = str(module_.__class__).split(".")[-1].split("'")[0]
-            module_idx = len(summary_dict)
-
-            m_key = "%s-%i" % (class_name, module_idx + 1)
-            summary_dict[m_key] = OrderedDict()
-            summary_dict[m_key]["input_shape"] = list(inp.size())
-            summary_dict[m_key]["input_shape"][0] = -1
+            m_dict: OrderedDict[str, Any] = OrderedDict()
+            m_dict["input_shape"] = list(inp.size())
+            m_dict["input_shape"][0] = -1
             if isinstance(output, (list, tuple)):
-                summary_dict[m_key]["output_shape"] = [
-                    [-1] + list(o.size())[1:] for o in output
-                ]
+                m_dict["output_shape"] = [[-1] + list(o.size())[1:] for o in output]
+                m_dict["is_multiple_output"] = True
             else:
-                summary_dict[m_key]["output_shape"] = list(output.size())
-                summary_dict[m_key]["output_shape"][0] = -1
+                m_dict["output_shape"] = list(output.size())
+                m_dict["output_shape"][0] = -1
+                m_dict["is_multiple_output"] = False
 
-            params = 0.0
-            if hasattr(module_, "weight") and hasattr(module_.weight, "size"):
-                params += torch.prod(torch.LongTensor(list(module_.weight.size())))  # type: ignore
-                summary_dict[m_key]["trainable"] = module_.weight.requires_grad
-            if hasattr(module_, "bias") and hasattr(module_.bias, "size"):
-                params += torch.prod(torch.LongTensor(list(module_.bias.size())))  # type: ignore
-            summary_dict[m_key]["nb_params"] = int(params)
+            num_params_ = 0
+            num_trainable_params_ = 0
+            for param in module_.parameters():
+                local_num_params = int(round(prod(param.data.shape)))
+                num_params_ += local_num_params
+                if param.requires_grad:
+                    num_trainable_params_ += local_num_params
+            m_dict["num_params"] = num_params_
+            m_dict["num_trainable_params"] = num_trainable_params_
+            raw_summary_dict[m_name] = m_dict
 
-        if (
-            not isinstance(module, nn.Sequential)
-            and not isinstance(module, nn.ModuleList)
-            and not (module == model)
-        ):
-            hooks.append(module.register_forward_hook(hook))
+        hooks.append(module.register_forward_hook(hook))
+
+    # get names
+    def _inject_names(m: nn.Module, previous_names: List[str]) -> None:
+        info_list = []
+        for child in m.children():
+            current_names = previous_names + [type(child).__name__]
+            current_name = ".".join(current_names)
+            module_names[child] = current_name
+            info_list.append((child, current_name, current_names))
+        counts: Dict[str, int] = defaultdict(int)
+        idx_mapping: Dict[nn.Module, int] = {}
+        for child, current_name, _ in info_list:
+            idx_mapping[child] = counts[current_name]
+            counts[current_name] += 1
+        for child, current_name, current_names in info_list:
+            if counts[current_name] == 1:
+                continue
+            current_name = f"{current_name}-{idx_mapping[child]}"
+            module_names[child] = current_name
+            current_names[-1] = current_name.split(".")[-1]
+        for child, _, current_names in info_list:
+            _inject_names(child, current_names)
+
+    module_names: OrderedDict[nn.Module, str] = OrderedDict()
+    for extractor in model.extractors.values():  # type: ignore
+        extractor_name = type(extractor).__name__
+        module_names[extractor] = extractor_name
+        _inject_names(extractor, [extractor_name])
+    for head in model.heads.values():  # type: ignore
+        head_name = type(head).__name__
+        module_names[head] = head_name
+        _inject_names(head, [head_name])
 
     # create properties
-    summary_dict: OrderedDict[str, Any] = OrderedDict()
+    raw_summary_dict: OrderedDict[str, Any] = OrderedDict()
     hooks: List[Any] = []
 
     # register hook
@@ -248,45 +281,85 @@ def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
     for h in hooks:
         h.remove()
 
-    print("----------------------------------------------------------------")
-    line_new = "{:>20}  {:>25} {:>15}".format("Layer (type)", "Output Shape", "Param #")
-    print(line_new)
-    print("================================================================")
+    # get hierarchy
+    hierarchy: OrderedDict[str, Any] = OrderedDict()
+    for key in raw_summary_dict:
+        split = key.split(".")
+        d = hierarchy
+        for elem in split[:-1]:
+            d = d.setdefault(elem, OrderedDict())
+        d.setdefault(split[-1], None)
+
+    # reconstruct summary_dict
+    def _inject_summary(current_hierarchy: Any, previous_keys: List[str]) -> None:
+        if previous_keys and not previous_keys[-1]:
+            previous_keys.pop()
+        current_layer = len(previous_keys)
+        current_count = hierarchy_counts.get(current_layer, 0)
+        prefix = "  " * current_layer
+        nonlocal total_params  # type: ignore
+        nonlocal trainable_params  # type: ignore
+        for k, v in current_hierarchy.items():
+            current_keys = previous_keys + [k]
+            concat_k = ".".join(current_keys)
+            current_summary = raw_summary_dict.get(concat_k)
+            if current_summary is not None:
+                summary_dict[f"{prefix}{k}-{current_count}"] = current_summary
+                hierarchy_counts[current_layer] = current_count + 1
+                if current_layer == 0:
+                    total_params += current_summary["num_params"]
+                    trainable_params += current_summary["num_trainable_params"]
+            if v is not None:
+                _inject_summary(v, current_keys)
+
     total_params = 0
-    total_output = 0
     trainable_params = 0
+    hierarchy_counts: Dict[int, int] = {}
+    summary_dict: OrderedDict[str, Any] = OrderedDict()
+    _inject_summary(hierarchy, [])
+
+    line_length = 120
+    print("=" * line_length)
+    line_format = "{:30}  {:>20} {:>40} {:>20}"
+    headers = "Layer (type)", "Input Shape", "Output Shape", "Trainable Param #"
+    line_new = line_format.format(*headers)
+    print(line_new)
+    print("-" * line_length)
+    total_output = 0
     for layer in summary_dict:
-        # input_shape, output_shape, trainable, nb_params
-        line_new = "{:>20}  {:>25} {:>15}".format(
-            layer,
+        # name, input_shape, output_shape, num_trainable_params
+        line_new = line_format.format(
+            "-".join(layer.split("-")[:-1]),
+            str(summary_dict[layer]["input_shape"]),
             str(summary_dict[layer]["output_shape"]),
-            "{0:,}".format(summary_dict[layer]["nb_params"]),
+            "{0:,}".format(summary_dict[layer]["num_trainable_params"]),
         )
-        total_params += summary_dict[layer]["nb_params"]
-        total_output += np.prod(summary_dict[layer]["output_shape"])
-        if "trainable" in summary_dict[layer]:
-            if summary_dict[layer]["trainable"] == True:
-                trainable_params += summary_dict[layer]["nb_params"]
+        output_shape = summary_dict[layer]["output_shape"]
+        is_multiple_output = summary_dict[layer]["is_multiple_output"]
+        if not is_multiple_output:
+            output_shape = [output_shape]
+        for shape in output_shape:
+            total_output += prod(shape)
         print(line_new)
 
     # assume 4 bytes/number (float on cuda).
     x_batch = sample_batch["x_batch"]
-    total_input_size = abs(np.prod(x_batch.shape[1:]) * 4.0 / (1024 ** 2.0))
+    total_input_size = abs(prod(x_batch.shape[1:]) * 4.0 / (1024 ** 2.0))
     # x2 for gradients
     total_output_size = abs(2.0 * total_output * 4.0 / (1024 ** 2.0))
     total_params_size = abs(total_params * 4.0 / (1024 ** 2.0))
     total_size = total_params_size + total_output_size + total_input_size
 
-    print("================================================================")
+    print("=" * line_length)
     print("Total params: {0:,}".format(total_params))
     print("Trainable params: {0:,}".format(trainable_params))
     print("Non-trainable params: {0:,}".format(total_params - trainable_params))
-    print("----------------------------------------------------------------")
+    print("-" * line_length)
     print("Input size (MB): %0.2f" % total_input_size)
     print("Forward/backward pass size (MB): %0.2f" % total_output_size)
     print("Params size (MB): %0.2f" % total_params_size)
     print("Estimated Total Size (MB): %0.2f" % total_size)
-    print("----------------------------------------------------------------")
+    print("-" * line_length)
 
 
 class LoggingMixinWithRank(LoggingMixin):
