@@ -7,8 +7,9 @@ import numpy as np
 from abc import *
 from typing import *
 
+from cfdata.tabular import task_type_type
+from cfdata.tabular import parse_task_type
 from cfdata.tabular import KRandom
-from cfdata.tabular import TaskTypes
 from cfdata.tabular import TabularDataset
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
@@ -91,7 +92,7 @@ class Zoo(LoggingMixin, metaclass=ABCMeta):
     @classmethod
     def search(
         cls,
-        task_type: TaskTypes,
+        task_type: task_type_type,
         x: data_type,
         y: data_type = None,
         x_cv: data_type = None,
@@ -119,7 +120,7 @@ class Zoo(LoggingMixin, metaclass=ABCMeta):
             data_folder = Experiment.dump_data_bundle(*args, workplace=workplace)
         else:
             data_folders = []
-            dataset = TabularDataset(x, y, task_type)
+            dataset = TabularDataset(x, y, parse_task_type(task_type))
             k_random = KRandom(num_repeat, cv_split, dataset)
             for i, (train_split, test_split) in enumerate(k_random):
                 train_dataset = train_split.dataset
