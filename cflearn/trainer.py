@@ -986,7 +986,7 @@ class Trainer(MonitoredMixin):
         show_summary = self.show_summary
         if show_summary is None:
             show_summary = not self.tqdm_settings.in_distributed
-        if show_summary:
+        if show_summary and not self.is_loading:
             next_item = next(iter(self.tr_loader_copy))
             if self.tr_loader_copy.return_indices:
                 assert isinstance(next_item, tuple)
