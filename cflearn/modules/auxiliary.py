@@ -223,8 +223,8 @@ class Pruner(nn.Module):
             mu, std = torch.mean(w_abs), torch.std(w_abs)
             zeros_mask = self.mask == 0.0
             ones_mask = self.mask == 1.0
-            to_zeros_mask = ones_mask & (w_abs <= 0.9 * (mu - self.beta * std))
-            to_ones_mask = zeros_mask & (w_abs >= 1.1 * (mu + self.beta * std))
+            to_zeros_mask = ones_mask & (w_abs <= 0.9 * (mu - self.beta * std))  # type: ignore
+            to_ones_mask = zeros_mask & (w_abs >= 1.1 * (mu + self.beta * std))  # type: ignore
             self.mask.masked_fill(to_zeros_mask, 0.0)  # type: ignore
             self.mask.masked_fill(to_ones_mask, 1.0)  # type: ignore
             mask = self.mask

@@ -74,6 +74,9 @@ def ddp(
     data_folder = os.path.join(workplace, "__data__")
     os.makedirs(data_folder, exist_ok=True)
     if not isinstance(x, np.ndarray):
+        assert isinstance(x, str)
+        if x_cv is not None:
+            assert isinstance(x_cv, str)
         train_file = x
         valid_file = x_cv
     else:

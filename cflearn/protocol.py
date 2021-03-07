@@ -576,7 +576,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             if param.requires_grad:
                 msg += name + "\n"
         msg += "\n".join(["-" * 100, "=" * 100, "buffers", "-" * 100, ""])
-        for name, param in self.named_buffers():
+        for name, _ in self.named_buffers():
             msg += name + "\n"
         msg += "\n".join(
             ["-" * 100, "=" * 100, "structure", "-" * 100, str(self), "-" * 100, ""]
