@@ -243,15 +243,24 @@ class TestDoc(unittest.TestCase):
 
     def test_iris(self) -> None:
         folder = os.path.join(examples_folder, "iris")
-        os.system(f"python {os.path.join(folder, 'iris.py')}")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'iris.py')}"),
+            0,
+        )
 
     def test_titanic(self) -> None:
         folder = os.path.join(examples_folder, "titanic")
-        os.system(f"python {os.path.join(folder, 'titanic.py')}")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'titanic.py')}"),
+            0,
+        )
 
     def test_op(self) -> None:
         folder = os.path.join(examples_folder, "operations")
-        os.system(f"python {os.path.join(folder, 'op.py')}")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'op.py')}"),
+            0,
+        )
 
     def test_customization1(self) -> None:
         class Foo:
