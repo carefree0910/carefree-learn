@@ -34,3 +34,9 @@ write_submissions("submissions.csv", predictions)  # type: ignore
 m = cflearn.make("tree_linear", data_config=data_config).fit("train.csv")
 predictions = m.predict("test.csv", contains_labels=False)
 write_submissions("submissions_tree_linear.csv", predictions)  # type: ignore
+
+# save & load
+cflearn.save(m)
+loaded = cflearn.load()["tree_linear"][0]
+predictions = m.predict("test.csv", contains_labels=False)
+write_submissions("submissions_loaded_tree_linear.csv", predictions)  # type: ignore
