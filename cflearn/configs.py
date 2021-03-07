@@ -14,7 +14,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from argparse import Namespace
 from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import register_core
@@ -85,7 +84,8 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 
 class Elements(NamedTuple):
     model: str = "fcnn"
-    ds_args: Optional[Namespace] = None
+    rank: Optional[int] = None
+    world_size: Optional[int] = None
     aggregator: str = "sum"
     aggregator_config: Optional[Dict[str, Any]] = None
     production: Optional[str] = None
@@ -379,15 +379,13 @@ class Environment:
         self.user_increment_config = user_increment_config or {}
         # deep speed
         self.is_rank_0 = True
-        if self.deepspeed:
-            self.is_rank_0 = self.local_rank is None or self.local_rank == 0
+        if self.ddp:
+            self.is_rank_0 = self.rank == 0
             logging_folder = config.pop("logging_folder")
             current_timestamp = timestamp(ensure_different=True)
             config["logging_folder"] = os.path.join(logging_folder, current_timestamp)
             if set_device:
-                if self.local_rank is None:
-                    self.ds_args.local_rank = 0
-                torch.cuda.set_device(self.local_rank)
+                torch.cuda.set_device(self.rank)
 
     def __getattr__(self, item: str) -> Any:
         return self.user_defined_config.get(item, self.config[item])
@@ -426,17 +424,13 @@ class Environment:
         _core(self.config, new_default_config)
 
     @property
-    def deepspeed(self) -> bool:
-        return self.ds_args is not None
-
-    @property
-    def local_rank(self) -> int:
-        return self.ds_args.local_rank
+    def ddp(self) -> bool:
+        return self.rank is not None
 
     @property
     def device(self) -> torch.device:
-        if self.deepspeed:
-            return torch.device("cuda", self.local_rank)
+        if self.ddp:
+            return torch.device("cuda", self.rank)
         cuda = self.cuda
         if cuda == "cpu":
             return torch.device("cpu")

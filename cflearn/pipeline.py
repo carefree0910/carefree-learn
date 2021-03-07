@@ -317,7 +317,7 @@ class Pipeline(LoggingMixinWithRank):
         logging_folder = self.logging_folder
         os.makedirs(logging_folder, exist_ok=True)
         if self.is_rank_0:
-            if self.environment.deepspeed:
+            if self.environment.ddp:
                 logging_folder = os.path.join(logging_folder, os.pardir)
             Saving.save_dict(self.config, "__config__", logging_folder)
             with open(os.path.join(logging_folder, "__model__.txt"), "w") as f:

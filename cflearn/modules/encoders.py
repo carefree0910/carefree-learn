@@ -215,8 +215,7 @@ class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
                 indices = indices[..., self._embed_indices]
             if not use_cache and self._use_fast_embed:
                 indices[..., 1:] += self.embed_dims_cumsum
-                indices = indices.to(torch.long)
-            embedding = self._embedding(indices)
+            embedding = self._embedding(indices.to(torch.long))
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
         return EncodingResult(one_hot, embedding)
@@ -298,7 +297,7 @@ class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             oob_mask = categorical_columns >= self.input_dims
         else:
             keys = self._get_cache_keys(loader_name)
-            oob_mask = getattr(self, keys["oob"])[batch_indices]
+            oob_mask = getattr(self, keys["oob"])[batch_indices].to(torch.bool)
         if torch.any(oob_mask):
             self.log_msg(  # type: ignore
                 "out of bound occurred, "
@@ -356,7 +355,8 @@ class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             tensor = to_torch(np.vstack(categorical_features))
             keys = self._get_cache_keys(name)
             # compile oob
-            self.register_buffer(keys["oob"], tensor >= self.input_dims)
+            oob = (tensor >= self.input_dims).to(torch.float32)
+            self.register_buffer(keys["oob"], oob)
             self._oob_imputation(
                 tensor,
                 batch_indices=np.arange(len(tensor)),
@@ -370,7 +370,7 @@ class Encoder(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             if self.use_embedding and self._use_fast_embed:
                 tensor[..., 1:] += self.embed_dims_cumsum
                 indices = tensor.to(torch.long)
-                self.register_buffer(keys["indices"], indices)
+                self.register_buffer(keys["indices"], indices.to(torch.float32))
 
 
 __all__ = ["Encoder", "EncodingResult"]

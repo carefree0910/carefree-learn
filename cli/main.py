@@ -1,5 +1,4 @@
 import os
-import mlflow
 import cflearn
 import argparse
 
@@ -10,20 +9,10 @@ from cflearn.configs import Elements
 from cflearn.configs import Environment
 from cflearn.misc.toolkit import parse_args
 from cflearn.misc.toolkit import parse_path
-from mlflow.tracking.fluent import _active_experiment_id
-
-try:
-    import deepspeed
-except:
-    deepspeed = None
 
 
 if __name__ == "__main__":
-    if deepspeed is None:
-        raise ValueError("deepspeed is not installed")
     parser = argparse.ArgumentParser()
-    parser.add_argument("--local_rank", type=int, default=-1)
-    deepspeed.add_config_arguments(parser)
     parser.add_argument("--model")
     parser.add_argument("--config", default=None)
     parser.add_argument("--root_dir", default=None)
@@ -57,14 +46,6 @@ if __name__ == "__main__":
     if os.path.abspath(logging_folder) != logging_folder:
         logging_folder = parse_path(logging_folder, root_dir)
     config["logging_folder"] = logging_folder
-    cflearn.impute_deepspeed_args(args, config, environment.trainer_config)
-    if args.deepspeed_config is None:
-        config.setdefault("log_pipeline_to_artifacts", True)
-        mlflow_config = config.setdefault("mlflow_config", {})
-        if root_dir is not None:
-            mlflow_config["tracking_folder"] = root_dir
-        mlflow_config["task_name"] = mlflow.get_experiment(_active_experiment_id).name
-
     model_saving_folder = config.pop("model_saving_folder", None)
     m = cflearn.make(args.model, **config).fit(x, y, x_cv, y_cv)
     if model_saving_folder is not None and m.is_rank_0:

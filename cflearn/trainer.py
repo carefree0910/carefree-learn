@@ -8,6 +8,7 @@ import getpass
 import logging
 
 import numpy as np
+import torch.distributed as dist
 
 from typing import *
 from abc import abstractmethod
@@ -15,6 +16,7 @@ from abc import ABC
 from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.nn.parallel import DistributedDataParallel as DDP
 from cftool.ml import Metrics
 from cftool.ml import ScalarEMA
 from cftool.misc import timestamp
@@ -28,11 +30,6 @@ from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
-
-try:
-    import deepspeed
-except:
-    deepspeed = None
 
 from .misc.toolkit import *
 from .types import tensor_dict_type
@@ -310,8 +307,9 @@ class TrainMonitor:
             improvement = self._update_running_info(new_score)
             self.info["save_checkpoint"] = False
             mean, std = self._incrementer.mean, self._incrementer.std
-            dist = math.log10(abs(mean))
-            std_floor, std_ceiling = 10.0 ** (dist - 3.0), 10.0 ** (dist - 1.0)
+            log10 = math.log10(abs(mean))
+            std_floor = 10.0 ** (log10 - 3.0)
+            std_ceiling = 10.0 ** (log10 - 1.0)
             std = min(std, std_ceiling)
             plateau_updated = False
             if std < std_floor:
@@ -383,6 +381,18 @@ class TqdmSettings(NamedTuple):
     in_distributed: bool
     position: int
     desc: str
+
+
+def _setup_ddp(
+    rank: int,
+    world_size: int,
+    *,
+    backend: str = "gloo",
+    port: str = "12355",
+) -> None:
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = port
+    dist.init_process_group(backend, rank=rank, world_size=world_size)
 
 
 class Trainer(MonitoredMixin):
@@ -516,72 +526,24 @@ class Trainer(MonitoredMixin):
             return None
         self.mlflow_client.log_artifacts(self.run_id, self.logging_folder)
 
-    # deep speed
+    # ddp
 
-    @property
-    def ds_models(self) -> Dict[str, torch.nn.Module]:
-        return {"all": self.model}
-
-    def _init_deepspeed(self) -> None:
-        self.model_engines = None
-        if not self.deepspeed:
+    def _init_ddp(self) -> None:
+        self.ddp_model = None
+        if not self.ddp:
             return None
-        if deepspeed is None:
-            raise ValueError("deepspeed is not supported")
         # monitor
         monitor_config = self.config.setdefault("monitor_config", {})
         monitor_config["lazy"] = True
-        # engines
-        ds_models = self.ds_models
-        self.model_opt_mapping = None
-        opt_model_mapping = self.config.setdefault("opt_model_mapping", None)
-        ds_models_key_set = set(ds_models.keys())
-        if ds_models_key_set != set(self.optimizers.keys()):
-            if opt_model_mapping is None:
-                raise ValueError(
-                    "To enable deep speed, we need to either align `optimizers` with "
-                    "`ds_models`, or specify an `opt_model_mapping`"
-                )
-            assert isinstance(opt_model_mapping, dict)
-            all_mapped = set()
-            self.model_opt_mapping = {}
-            for key in self.optimizers.keys():
-                mapped_models = opt_model_mapping[key]
-                for model in mapped_models:
-                    self.model_opt_mapping[model] = key
-                all_mapped |= set(mapped_models)
-            if ds_models_key_set != all_mapped:
-                raise ValueError(
-                    f"mapped keys ({all_mapped}) is not identical to "
-                    f"model keys ({ds_models_key_set})"
-                )
-        self.model_engines = {}
-        initialized_optimizers: Set[str] = set()
-        self.engine_with_optimizer: Set[str] = set()
-        for key, module in ds_models.items():
-            if self.model_opt_mapping is None:
-                opt_key = key
-            else:
-                opt_key = self.model_opt_mapping[key]
-            optimizer = self.optimizers[opt_key]
-            scheduler = self.schedulers.get(opt_key)
-            # TODO : this API is quite ugly now and should be updated by deepspeed
-            engine, _, _, ds_scheduler = deepspeed.initialize(
-                self.environment.ds_args,
-                module,
-                optimizer,
-                lr_scheduler=scheduler,
-            )
-            if opt_key in initialized_optimizers:
-                # TODO : due to bad API design of deepspeed, we should manually delete
-                #  the unnecessary `optimizer` and `lr_scheduler` to avoid strange bugs
-                del engine.optimizer, engine.lr_scheduler
-            else:
-                initialized_optimizers.add(opt_key)
-                self.engine_with_optimizer.add(key)
-                if scheduler is not None:
-                    assert scheduler is ds_scheduler
-            self.model_engines[key] = engine
+        # ddp setup
+        rank = self.environment.rank
+        world_size = self.environment.world_size
+        assert isinstance(rank, int)
+        if world_size is None:
+            raise ValueError("`world_size` should be provided when `ddp` is used")
+        ddp_config = self.config.setdefault("ddp_config", {})
+        _setup_ddp(rank, world_size, **ddp_config)
+        self.ddp_model = DDP(self.model.to(rank), device_ids=[rank])
 
     # init
 
@@ -641,9 +603,9 @@ class Trainer(MonitoredMixin):
         optimizer_config: Dict[str, Any],
     ) -> Optimizer:
         if params_name == "all":
-            parameters = self.model.parameters()
+            parameters = self.model_for_training.parameters()
         else:
-            attr = getattr(self.model, params_name)
+            attr = getattr(self.model_for_training, params_name)
             if not isinstance(attr, torch.nn.Module):
                 parameters = attr
             else:
@@ -765,8 +727,12 @@ class Trainer(MonitoredMixin):
             self.metrics_weights.setdefault(metric_type, 1.0)
 
     @property
-    def deepspeed(self) -> bool:
-        return self.environment.deepspeed
+    def ddp(self) -> bool:
+        return self.environment.ddp
+
+    @property
+    def model_for_training(self) -> torch.nn.Module:
+        return self.ddp_model or self.model
 
     @property
     def validation_loader(self) -> PrefetchLoader:
@@ -806,7 +772,7 @@ class Trainer(MonitoredMixin):
         for opt in self.optimizers.values():
             self.grad_scaler.unscale_(opt)
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(),
+            self.model_for_training.parameters(),
             max_norm=self.clip_norm,
         )
 
@@ -814,7 +780,7 @@ class Trainer(MonitoredMixin):
         for opt in self.optimizers.values():
             self.grad_scaler.step(opt)
             self.grad_scaler.update()
-        for param in self.model.parameters():
+        for param in self.model_for_training.parameters():
             param.grad = None
 
     def _get_scheduler_settings(
@@ -947,52 +913,25 @@ class Trainer(MonitoredMixin):
         batch: tensor_dict_type,
         batch_indices: Optional[torch.Tensor],
     ) -> StepOutputs:
-        if self.deepspeed:
-            step_outputs = self._ds_step(batch_idx, batch, batch_indices)
-        else:
-            with torch.cuda.amp.autocast(enabled=self.use_amp):
-                step_outputs = self.model.step(
-                    self.state,
-                    batch_idx,
-                    batch,
-                    batch_indices,
-                    "tr",
-                )
-            with timing_context(self, "loss.backward", enable=self.timing):
-                loss = step_outputs.loss_dict["loss"]
-                self.grad_scaler.scale(loss).backward()
-            if self.clip_norm > 0.0:
-                with timing_context(self, "clip_norm_step", enable=self.timing):
-                    self._clip_norm_step()
-            with timing_context(self, "optimizer_step", enable=self.timing):
-                self._optimizer_step()
-            with timing_context(self, "scheduler_step", enable=self.timing):
-                self._scheduler_step()
-        self._finalize(step_outputs)
-        return step_outputs
-
-    def _ds_step(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        batch_indices: Optional[torch.Tensor],
-    ) -> StepOutputs:
-        engine = self.model_engines["all"]
-        step_outputs = self.model.step(
-            self.state,
-            batch_idx,
-            batch,
-            batch_indices,
-            "tr",
-            engine,
-        )
-        with timing_context(self, "ds.backward", enable=self.timing):
+        with torch.cuda.amp.autocast(enabled=self.use_amp):
+            step_outputs = self.model.step(
+                self.state,
+                batch_idx,
+                batch,
+                batch_indices,
+                "tr",
+            )
+        with timing_context(self, "loss.backward", enable=self.timing):
             loss = step_outputs.loss_dict["loss"]
-            engine.backward(loss)
-        with timing_context(self, "ds.step", enable=self.timing):
-            scheduler = list(self.schedulers.values())[0]
-            _, kwargs = self._get_scheduler_settings("all", scheduler)
-            engine.step(lr_kwargs=kwargs)
+            self.grad_scaler.scale(loss).backward()
+        if self.clip_norm > 0.0:
+            with timing_context(self, "clip_norm_step", enable=self.timing):
+                self._clip_norm_step()
+        with timing_context(self, "optimizer_step", enable=self.timing):
+            self._optimizer_step()
+        with timing_context(self, "scheduler_step", enable=self.timing):
+            self._scheduler_step()
+        self._finalize(step_outputs)
         return step_outputs
 
     # api
@@ -1031,10 +970,10 @@ class Trainer(MonitoredMixin):
         tr_weights_ = None if tr_weights is None else to_torch(tr_weights)
         cv_weights_ = None if cv_weights is None else to_torch(cv_weights)
         self.tr_weights, self.cv_weights = tr_weights_, cv_weights_
+        # ddp
+        self._init_ddp()
         # optimizer
         self._init_optimizers()
-        # deep speed
-        self._init_deepspeed()
         # metrics
         self._init_metrics()
         # monitor
@@ -1078,6 +1017,8 @@ class Trainer(MonitoredMixin):
                         position=self.tqdm_settings.position + 1,
                         leave=False,
                     )
+                if self.ddp:
+                    dist.barrier()
                 for i, (batch, batch_indices) in enumerate(step_iterator):
                     self.state.step += 1
                     step_outputs = self._step(i, batch, batch_indices)
@@ -1107,7 +1048,7 @@ class Trainer(MonitoredMixin):
             self._epoch_tqdm.close()
         # restore
         if os.path.isdir(self.checkpoint_folder):
-            if not self.deepspeed:
+            if not self.ddp:
                 self.log_msg(  # type: ignore
                     "rolling back to the best checkpoint",
                     self.info_prefix,
