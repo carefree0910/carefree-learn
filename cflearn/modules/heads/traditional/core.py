@@ -211,7 +211,7 @@ class NNBNormalHead(HeadBase):
                 for k in range(out_dim):
                     local_samples = x_numerical[y_ravel == k]
                     mu_list.append(local_samples.mean(0))
-                    std_list.append(local_samples.std(0))
+                    std_list.append(np.maximum(local_samples.std(0), 1.0e-8))
                 self.mu, self.std = map(
                     lambda lst: nn.Parameter(torch.from_numpy(np.vstack(lst))),
                     [mu_list, std_list],
