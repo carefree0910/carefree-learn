@@ -193,10 +193,20 @@ class ONNX:
         kwargs["dynamic_axes"] = dynamic_axes_settings
         kwargs["verbose"] = verbose
         model = self.model.cpu()
-        with eval_context(model):
+
+        class ONNXWrapper(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.model = model
+
+            def forward(self, batch: Dict[str, Any]) -> Any:
+                return self.model(batch)
+
+        onnx = ONNXWrapper()
+        with eval_context(onnx):
             torch.onnx.export(
-                model,
-                self.input_sample,
+                onnx,
+                (self.input_sample, {}),
                 onnx_path,
                 **shallow_copy_dict(kwargs),
             )
