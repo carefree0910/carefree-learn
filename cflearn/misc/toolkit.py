@@ -494,6 +494,10 @@ class Initializer(LoggingMixinWithRank):
             param.data.copy_(weight_base.reshape(param.shape))
             param.data.mul_(std).add_(mean)
 
+    def orthogonal(self, param: param_type) -> None:
+        gain = self.config.setdefault("gain", 1.0)
+        nn.init.orthogonal_(param.data, gain)
+
 
 class _multiplied_activation(nn.Module, metaclass=ABCMeta):
     def __init__(
