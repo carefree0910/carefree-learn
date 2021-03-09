@@ -233,7 +233,8 @@ def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
             m_dict["num_trainable_params"] = num_trainable_params_
             raw_summary_dict[m_name] = m_dict
 
-        hooks.append(module.register_forward_hook(hook))
+        if not isinstance(module, torch.jit.ScriptModule):
+            hooks.append(module.register_forward_hook(hook))
 
     # get names
     def _inject_names(m: nn.Module, previous_names: List[str]) -> None:
