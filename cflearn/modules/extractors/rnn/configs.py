@@ -13,7 +13,6 @@ class DefaultRNNConfig(Configs):
             "cell_config": {
                 "batch_first": True,
                 "hidden_size": 256,
-                "bidirectional": False,
             },
         }
 
