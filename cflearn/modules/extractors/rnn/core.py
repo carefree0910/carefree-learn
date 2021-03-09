@@ -4,11 +4,17 @@ from typing import Any
 from typing import Dict
 from torch.nn import init
 
+from .custom import *
 from ..base import ExtractorBase
 from ...transform.core import Dimensions
 
 
-rnn_dict = {"LSTM": torch.nn.LSTM, "GRU": torch.nn.GRU, "RNN": torch.nn.RNN}
+rnn_dict = {
+    "LSTM": torch.nn.LSTM,
+    "GRU": torch.nn.GRU,
+    "RNN": torch.nn.RNN,
+    "JitLSTM": LSTM,
+}
 
 
 @ExtractorBase.register("rnn")
