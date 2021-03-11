@@ -259,12 +259,23 @@ def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
             _inject_names(child, current_names)
 
     module_names: OrderedDict[nn.Module, str] = OrderedDict()
+    existing_names: Set[str] = set()
+
+    def _get_name(original: str) -> str:
+        count = 0
+        final_name = original
+        while final_name in existing_names:
+            count += 1
+            final_name = f"{original}_{count}"
+        existing_names.add(final_name)
+        return final_name
+
     for extractor in model.extractors.values():  # type: ignore
-        extractor_name = type(extractor).__name__
+        extractor_name = _get_name(type(extractor).__name__)
         module_names[extractor] = extractor_name
         _inject_names(extractor, [extractor_name])
     for head in model.heads.values():  # type: ignore
-        head_name = type(head).__name__
+        head_name = _get_name(type(head).__name__)
         module_names[head] = head_name
         _inject_names(head, [head_name])
 
