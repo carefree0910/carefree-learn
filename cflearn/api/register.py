@@ -56,6 +56,7 @@ class PipeInfo(NamedTuple):
     key: str
     transform: str = "default"
     extractor: Optional[str] = None
+    reuse_extractor: bool = True
     head: Optional[str] = None
     extractor_config: str = "default"
     head_config: str = "default"
@@ -68,6 +69,7 @@ def register_pipe(
     *,
     transform: str = "default",
     extractor: Optional[str] = None,
+    reuse_extractor: bool = True,
     head: Optional[str] = None,
     extractor_config: str = "default",
     head_config: str = "default",
@@ -80,6 +82,7 @@ def register_pipe(
         extractor=extractor,
         head=head,
         extractor_config=extractor_config,
+        reuse_extractor=reuse_extractor,
         head_config=head_config,
         extractor_meta_scope=extractor_meta_scope,
         head_meta_scope=head_meta_scope,
@@ -99,16 +102,7 @@ def register_model(
         pass
 
     for pipe in pipes:
-        _ = register_pipe(  # type: ignore
-            pipe.key,
-            transform=pipe.transform,
-            extractor=pipe.extractor,
-            head=pipe.head,
-            extractor_config=pipe.extractor_config,
-            head_config=pipe.head_config,
-            extractor_meta_scope=pipe.extractor_meta_scope,
-            head_meta_scope=pipe.head_meta_scope,
-        )(_)
+        _ = register_pipe(**pipe._asdict())(_)  # type: ignore
 
     return None
 
