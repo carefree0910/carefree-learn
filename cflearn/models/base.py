@@ -311,9 +311,10 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             extractor = self.extractors[extractor_unique_key]
         else:
             if extractor_exists:
-                new_index = 1
+                new_index = 0
                 new_extractor_unique_key = extractor_unique_key
                 while new_extractor_unique_key in self.extractors:
+                    new_index += 1
                     new_extractor_unique_key = f"{extractor_unique_key}_{new_index}"
                 extractor_unique_key = new_extractor_unique_key
             if extractor_cfg_key in self._extractor_configs:
