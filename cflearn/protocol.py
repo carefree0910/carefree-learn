@@ -224,7 +224,6 @@ class SamplerProtocol(ABC):
 
 class DataLoaderProtocol(ABC):
     is_onnx: bool = False
-    _num_siamese: int = 1
     labels_key: str = "labels"
 
     data: DataProtocol
@@ -308,7 +307,6 @@ class PrefetchLoader:
         self.next_batch_indices: Optional[torch.Tensor]
         self.stop_at_next_batch = False
         self.batch_size = loader.batch_size
-        self._num_siamese = loader._num_siamese
 
     def __len__(self) -> int:
         return len(self.loader)

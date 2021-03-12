@@ -1071,8 +1071,6 @@ class Trainer(MonitoredMixin):
         loader_name: Optional[str] = None,
         metrics_kwargs: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> Tuple[InferenceOutputs, IntermediateResults]:
-        if self.cv_loader is None and self.tr_loader._num_siamese > 1:
-            raise ValueError("cv set should be provided when num_siamese > 1")
         is_custom_loader = loader is not None
         if binary_outputs is not None:
             outputs = binary_outputs
