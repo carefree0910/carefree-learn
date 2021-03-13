@@ -454,7 +454,11 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             enable_timing=self.timing,
         )
 
-    def _transform(self, transform: Transform, net: Tensor) -> Tensor:
+    def _transform(
+        self,
+        transform: Transform,
+        net: Union[Tensor, SplitFeatures],
+    ) -> Tensor:
         return net if isinstance(net, Tensor) else transform(net)
 
     def _extract(
@@ -615,7 +619,7 @@ class SiameseModelBase(ModelBase):
         if not self.training:
             return super()._extract(extractor, transformed, extract_kwargs)
         num_slice = transformed.shape[0] // 2
-        t1, t2 = transformed[:num_slice], transformed[num_slice: 2 * num_slice]
+        t1, t2 = transformed[:num_slice], transformed[num_slice : 2 * num_slice]
         e1 = super()._extract(extractor, t1, shallow_copy_dict(extract_kwargs))
         e2 = super()._extract(extractor, t2, shallow_copy_dict(extract_kwargs))
         return e2 - e1
@@ -641,7 +645,7 @@ class SiameseModelBase(ModelBase):
             return results
         labels = batch["labels"]
         num_slice = labels.shape[0] // 2
-        l1, l2 = labels[:num_slice], labels[num_slice: 2 * num_slice]
+        l1, l2 = labels[:num_slice], labels[num_slice : 2 * num_slice]
         batch["labels"] = l2 - l1
         return results
 
