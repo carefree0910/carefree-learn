@@ -454,6 +454,30 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             enable_timing=self.timing,
         )
 
+    def _transform(self, transform: Transform, net: Tensor) -> Tensor:
+        return net if isinstance(net, Tensor) else transform(net)
+
+    def _extract(
+        self,
+        extractor: ExtractorBase,
+        transformed: Tensor,
+        extract_kwargs: Dict[str, Any],
+    ) -> Tensor:
+        extracted = extractor(transformed, **extract_kwargs)
+        extracted_shape = extracted.shape
+        if extractor.flatten_ts:
+            if len(extracted_shape) == 3:
+                extracted = extracted.view(extracted_shape[0], -1)
+        return extracted
+
+    def _head(
+        self,
+        head: HeadBase,
+        extracted: Tensor,
+        head_kwargs: Dict[str, Any],
+    ) -> Tensor:
+        return head(extracted, **head_kwargs)
+
     def execute(
         self,
         net: Union[Tensor, SplitFeatures],
@@ -469,28 +493,24 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             # transform
             transformed = self._transform_cache.get(transform_key)
             if transformed is None:
-                transform = self.transforms[transform_key]
-                transformed = net if isinstance(net, Tensor) else transform(net)
+                transformed = self._transform(self.transforms[transform_key], net)
                 self._transform_cache[transform_key] = transformed
             # extract
             if extract_kwargs_dict is None:
                 extract_kwargs_dict = {}
             extracted = self._extractor_cache.get(extractor_key)
             if extracted is None:
-                extractor = self.extractors[extractor_key]
                 extract_kwargs = extract_kwargs_dict.get(extractor_key, {})
-                extracted = extractor(transformed, **extract_kwargs)
-                extracted_shape = extracted.shape
-                if extractor.flatten_ts:
-                    if len(extracted_shape) == 3:
-                        extracted = extracted.view(extracted_shape[0], -1)
+                extracted = self._extract(
+                    self.extractors[extractor_key],
+                    transformed,
+                    extract_kwargs,
+                )
                 self._extractor_cache[extractor_key] = extracted
-            # execute
             if head_kwargs_dict is None:
                 head_kwargs_dict = {}
             head_kwargs = head_kwargs_dict.get(key, {})
-            results[key] = self.heads[key](extracted, **head_kwargs)
-        # finalize
+            results[key] = self._head(self.heads[key], extracted, head_kwargs)
         if clear_cache:
             self.clear_execute_cache()
         return results
