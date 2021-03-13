@@ -412,7 +412,6 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         loader_name: Optional[str] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        # batch will have `categorical`, `numerical` and `labels` keys
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
         outputs = self.execute(split)
