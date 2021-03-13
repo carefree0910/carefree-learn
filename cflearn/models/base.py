@@ -605,4 +605,48 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         return _core
 
 
-__all__ = ["ModelBase"]
+class SiameseModelBase(ModelBase):
+    def _extract(
+        self,
+        extractor: ExtractorBase,
+        transformed: Tensor,
+        extract_kwargs: Dict[str, Any],
+    ) -> Tensor:
+        if not self.training:
+            return super()._extract(extractor, transformed, extract_kwargs)
+        num_slice = transformed.shape[0] // 2
+        t1, t2 = transformed[:num_slice], transformed[num_slice: 2 * num_slice]
+        e1 = super()._extract(extractor, t1, shallow_copy_dict(extract_kwargs))
+        e2 = super()._extract(extractor, t2, shallow_copy_dict(extract_kwargs))
+        return e2 - e1
+
+    def forward(
+        self,
+        batch: tensor_dict_type,
+        batch_idx: Optional[int] = None,
+        state: Optional[TrainerState] = None,
+        batch_indices: Optional[np.ndarray] = None,
+        loader_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        results = super().forward(
+            batch,
+            batch_idx,
+            state,
+            batch_indices,
+            loader_name,
+            **kwargs,
+        )
+        if not self.training:
+            return results
+        labels = batch["labels"]
+        num_slice = labels.shape[0] // 2
+        l1, l2 = labels[:num_slice], labels[num_slice: 2 * num_slice]
+        batch["labels"] = l2 - l1
+        return results
+
+
+__all__ = [
+    "ModelBase",
+    "SiameseModelBase",
+]

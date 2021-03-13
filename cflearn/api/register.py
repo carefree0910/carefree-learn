@@ -16,6 +16,7 @@ from ..configs import Configs
 from ..misc.toolkit import Initializer
 from ..models.base import model_dict
 from ..models.base import ModelBase
+from ..models.base import SiameseModelBase
 from ..modules.heads import head_dict
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
@@ -99,6 +100,24 @@ def register_model(
 
     @ModelBase.register(name)
     class _(ModelBase):
+        pass
+
+    for pipe in pipes:
+        _ = register_pipe(**pipe._asdict())(_)  # type: ignore
+
+    return None
+
+
+def register_siamese_model(
+    name: str,
+    *,
+    pipes: Optional[List[PipeInfo]] = None,
+) -> Optional[Callable[[Type], Type]]:
+    if pipes is None:
+        return SiameseModelBase.register(name)
+
+    @SiameseModelBase.register(name)
+    class _(SiameseModelBase):
         pass
 
     for pipe in pipes:
@@ -246,6 +265,7 @@ __all__ = [
     "register_aggregator",
     "register_pipe",
     "register_model",
+    "register_siamese_model",
     "register_config",
     "register_head_config",
     "register_metric",
