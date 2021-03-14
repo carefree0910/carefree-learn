@@ -37,10 +37,14 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, input_dim)
+
         dndf = DNDF(input_dim, output_dim)
         probabilities = dndf(net)
-
         self.assertTrue(torch.allclose(probabilities.sum(1), torch.ones(batch_size)))
+
+        dndf = DNDF(input_dim, None)
+        features = dndf(net)
+        self.assertTrue(torch.allclose(features.sum(2), torch.ones(features.shape[:2])))
 
     def test_fast_dndf(self) -> None:
         def loss_function(outputs: torch.Tensor) -> torch.Tensor:
@@ -67,7 +71,7 @@ class TestBlocks(unittest.TestCase):
             with torch.no_grad():
                 dndf_fast.tree_proj.weight.data = dndf.tree_proj.weight.data
                 dndf_fast.tree_proj.bias.data = dndf.tree_proj.bias.data  # type: ignore
-                dndf_fast.leaves.data = dndf.leaves.data
+                dndf_fast.leaves.data = dndf.leaves.data  # type: ignore
             net = torch.empty_like(inp).requires_grad_(True)
             net.data = inp.data
 

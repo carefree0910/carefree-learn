@@ -501,7 +501,7 @@ class DNDF(Module):
     def __init__(
         self,
         in_dim: int,
-        out_dim: int,
+        out_dim: Optional[int],
         *,
         num_tree: int = 10,
         tree_depth: int = 4,
@@ -512,7 +512,9 @@ class DNDF(Module):
         super().__init__()
         self._num_tree = num_tree
         self._tree_depth = tree_depth
-        self._is_regression = out_dim == 1 if is_regression is None else is_regression
+        self._is_regression = is_regression
+        if out_dim is not None and is_regression is None:
+            self._is_regression = out_dim == 1
         self._num_leaf = 2 ** (self._tree_depth + 1)
         self._num_internals = self._num_leaf - 1
         self._output_dim = out_dim
@@ -525,10 +527,13 @@ class DNDF(Module):
             self._num_internals * self._num_tree,
             **tree_proj_config,
         )
-        leaves_shape = self._num_tree * self._num_leaf, self._output_dim
-        self.leaves = nn.Parameter(torch.empty(*leaves_shape))
-        with torch.no_grad():
-            torch.nn.init.xavier_uniform_(self.leaves.data)
+        if out_dim is None:
+            self.leaves = None
+        else:
+            leaves_shape = self._num_tree * self._num_leaf, out_dim
+            self.leaves = nn.Parameter(torch.empty(*leaves_shape))
+            with torch.no_grad():
+                torch.nn.init.xavier_uniform_(self.leaves.data)
         # buffers
         num_repeat, num_local_internals = self._num_leaf // 2, 1
         ones_np = np.repeat([1, -1], num_repeat)
@@ -588,6 +593,8 @@ class DNDF(Module):
                 routes *= flat_probabilities.take(current_indices)
 
         features = routes.transpose(0, 1).contiguous().view(num_batch, -1)
+        if self.leaves is None or self._output_dim is None:
+            return features.view(num_batch, self._num_tree, -1)
         if self._is_regression or self._output_dim <= 1:
             outputs = features.mm(self.leaves)
         else:
