@@ -324,7 +324,7 @@ class MLP(Module):
         final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        mappings: List[Union[Linear, Mapping]] = []
+        mappings: List[Module] = []
         if isinstance(mapping_configs, dict):
             mapping_configs = [mapping_configs] * len(num_units)
         mapping_base = mapping_dict[mapping_type]
