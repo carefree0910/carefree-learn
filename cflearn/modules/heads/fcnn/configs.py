@@ -27,6 +27,7 @@ class DefaultFCNNConfig(HeadConfigs):
         return {
             "hidden_units": hidden_units,
             "mapping_configs": {},
+            "mapping_type": "basic",
             "final_mapping_config": {},
         }
 

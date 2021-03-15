@@ -18,6 +18,7 @@ class FCNNHead(HeadBase):
         in_dim: int,
         out_dim: int,
         hidden_units: List[int],
+        mapping_type: str,
         mapping_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
         final_mapping_config: Optional[Dict[str, Any]] = None,
         *,
@@ -32,6 +33,7 @@ class FCNNHead(HeadBase):
             out_dim,
             hidden_units,
             mapping_configs,
+            mapping_type=mapping_type,
             final_mapping_config=final_mapping_config,
         )
         if not use_final_bn:

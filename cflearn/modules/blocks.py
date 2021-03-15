@@ -30,6 +30,9 @@ from ..misc.toolkit import *
 from ..types import tensor_tuple_type
 
 
+mapping_dict: Dict[str, Type["MappingBase"]] = {}
+
+
 class Linear(Module):
     def __init__(
         self,
@@ -79,7 +82,18 @@ class Linear(Module):
             self.linear.bias.data.fill_(bias_fill)
 
 
-class Mapping(Module):
+class MappingBase(Module):
+    def __init__(self, *args: Any, **kwargs: Any):
+        pass
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global mapping_dict
+        register_core(name, mapping_dict)
+
+
+@MappingBase.register("basic")
+class Mapping(MappingBase):
     def __init__(
         self,
         in_dim: int,
@@ -160,7 +174,7 @@ class Mapping(Module):
         )
 
 
-class _SkipConnectBlock(Module, metaclass=ABCMeta):
+class _SkipConnectBlock(MappingBase, metaclass=ABCMeta):
     def __init__(
         self,
         in_dim: int,
@@ -205,6 +219,7 @@ class _SkipConnectBlock(Module, metaclass=ABCMeta):
         pass
 
 
+@MappingBase.register("res")
 class ResBlock(_SkipConnectBlock):
     def __init__(
         self,
@@ -256,6 +271,7 @@ class ResBlock(_SkipConnectBlock):
         return self.res_activation(net)
 
 
+@MappingBase.register("highway")
 class HighwayBlock(_SkipConnectBlock):
     def __init__(
         self,
@@ -304,14 +320,16 @@ class MLP(Module):
         num_units: List[int],
         mapping_configs: Union[Dict[str, Any], List[Dict[str, Any]]],
         *,
+        mapping_type: str = "basic",
         final_mapping_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         mappings: List[Union[Linear, Mapping]] = []
         if isinstance(mapping_configs, dict):
             mapping_configs = [mapping_configs] * len(num_units)
+        mapping_base = mapping_dict[mapping_type]
         for num_unit, mapping_config in zip(num_units, mapping_configs):
-            mappings.append(Mapping(in_dim, num_unit, **mapping_config))
+            mappings.append(mapping_base(in_dim, num_unit, **mapping_config))
             in_dim = num_unit
         if out_dim is not None:
             if final_mapping_config is None:
