@@ -40,6 +40,22 @@ class PrunedFCNNConfig(DefaultFCNNConfig):
         return config
 
 
+@HeadConfigs.register("fcnn", "res")
+class ResFCNNConfig(DefaultFCNNConfig):
+    def get_default(self) -> Dict[str, Any]:
+        config = super().get_default()
+        config["mapping_type"] = "res"
+        return config
+
+
+@HeadConfigs.register("fcnn", "highway")
+class HighwayFCNNConfig(DefaultFCNNConfig):
+    def get_default(self) -> Dict[str, Any]:
+        config = super().get_default()
+        config["mapping_type"] = "highway"
+        return config
+
+
 __all__ = [
     "DefaultFCNNConfig",
 ]
