@@ -160,7 +160,7 @@ class Mapping(Module):
         )
 
 
-class ResBlock(Module):
+class _SkipConnectBlock(Module, metaclass=ABCMeta):
     def __init__(
         self,
         in_dim: int,
@@ -175,13 +175,15 @@ class ResBlock(Module):
         **kwargs: Any,
     ):
         super().__init__()
-        self.in_bn = None if not batch_norm else BN(in_dim)
-        if activation is None:
-            self.in_activation: Optional[Module] = None
-        else:
-            activation_config = kwargs.setdefault("activation_config", None)
-            self.in_activation = Activations.make(activation, activation_config)
-        self.mapping = Mapping(
+        self.linear_mapping = Linear(
+            in_dim,
+            latent_dim,
+            bias=True if bias is None else bias,
+            pruner_config=pruner_config,
+            init_method=init_method,
+            **kwargs,
+        )
+        self.nonlinear_mapping = Mapping(
             in_dim,
             latent_dim,
             bias=bias,
@@ -192,34 +194,63 @@ class ResBlock(Module):
             init_method=init_method,
             **kwargs,
         )
-        if bias is None:
-            bias = True
-        self.linear = Linear(
-            latent_dim,
-            latent_dim,
-            bias=bias,
-            pruner_config=pruner_config,
-            init_method=init_method,
-            **kwargs,
-        )
-        self.res_linear = Linear(
+
+    def forward(self, net: Tensor) -> Tensor:
+        linear = self.linear_mapping(net)
+        nonlinear = self.nonlinear_mapping(net)
+        return self._skip_connect(net, linear, nonlinear)
+
+    @abstractmethod
+    def _skip_connect(self, net: Tensor, linear: Tensor, nonlinear: Tensor) -> Tensor:
+        pass
+
+
+class ResBlock(_SkipConnectBlock):
+    def __init__(
+        self,
+        in_dim: int,
+        latent_dim: int,
+        *,
+        bias: Optional[bool] = None,
+        pruner_config: Optional[dict] = None,
+        dropout: float = 0.0,
+        batch_norm: bool = True,
+        activation: Optional[str] = "ReLU",
+        init_method: str = "xavier_uniform",
+        **kwargs: Any,
+    ):
+        super().__init__(
             in_dim,
             latent_dim,
             bias=bias,
             pruner_config=pruner_config,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation=activation,
             init_method=init_method,
             **kwargs,
         )
+        self.res_linear = Linear(
+            latent_dim,
+            latent_dim,
+            bias=True if bias is None else bias,
+            pruner_config=pruner_config,
+            init_method=init_method,
+            **kwargs,
+        )
+        self.res_bn = None if not batch_norm else BN(latent_dim)
+        self.res_dropout = Dropout(dropout)
+        if activation is None:
+            self.res_activation: Optional[Module] = None
+        else:
+            activation_config = kwargs.setdefault("activation_config", None)
+            self.res_activation = Activations.make(activation, activation_config)
 
-    def forward(self, net: Tensor) -> Tensor:
-        latent = net
-        if self.in_bn is not None:
-            latent = self.in_bn(latent)
-        if self.in_activation is not None:
-            latent = self.in_activation(latent)
-        latent = self.mapping(latent)
-        latent = self.linear(latent)
-        return self.res_linear(net) + latent
+    def _skip_connect(self, net: Tensor, linear: Tensor, nonlinear: Tensor) -> Tensor:
+        net = linear + self.res_linear(nonlinear)
+        if self.res_bn is not None:
+            net = self.res_bn(net)
+        return self.res_activation(self.res_dropout(net))
 
 
 class MLP(Module):
@@ -361,49 +392,6 @@ class MLP(Module):
             mapping_configs,
             final_mapping_config=final_mapping_config,
         )
-
-    @classmethod
-    def res_funnel(
-        cls,
-        in_dim: int,
-        out_dim: int,
-        max_dim: int,
-        num_layers: int,
-        *,
-        bias: bool = True,
-        max_dropout: float = 0.1,
-        batch_norm: bool = True,
-        activation: Optional[str] = "relu",
-        pruner_config: Optional[Dict[str, Any]] = None,
-    ) -> nn.Sequential:
-        dropouts, num_units = cls.get_funnel_settings(
-            max_dropout,
-            max_dim,
-            out_dim,
-            num_layers,
-        )
-        in_linear = Linear(in_dim, max_dim, bias=bias, pruner_config=pruner_config)
-        blocks: List[Module] = [in_linear]
-        dim = max_dim
-        for dropout, num_unit in zip(dropouts[1:], num_units[1:]):
-            blocks.append(
-                ResBlock(
-                    dim,
-                    num_unit,
-                    bias=bias,
-                    pruner_config=pruner_config,
-                    dropout=dropout,
-                    batch_norm=batch_norm,
-                    activation=activation,
-                )
-            )
-            dim = num_unit
-
-        blocks.append(BN(dim))
-        if activation is not None:
-            blocks.append(Activations.make(activation))
-        blocks.append(Linear(dim, out_dim, bias=bias, pruner_config=pruner_config))
-        return nn.Sequential(*blocks)
 
 
 class LeafAggregation(torch.autograd.Function):
