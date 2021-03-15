@@ -250,7 +250,10 @@ class ResBlock(_SkipConnectBlock):
         net = linear + self.res_linear(nonlinear)
         if self.res_bn is not None:
             net = self.res_bn(net)
-        return self.res_activation(self.res_dropout(net))
+        net = self.res_dropout(net)
+        if self.res_activation is None:
+            return net
+        return self.res_activation(net)
 
 
 class HighwayBlock(_SkipConnectBlock):
