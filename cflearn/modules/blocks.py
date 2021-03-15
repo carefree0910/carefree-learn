@@ -84,12 +84,12 @@ class Linear(Module):
 
 class MappingBase(Module):
     def __init__(self, *args: Any, **kwargs: Any):
-        pass
+        super().__init__()
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:
         global mapping_dict
-        register_core(name, mapping_dict)
+        return register_core(name, mapping_dict)
 
 
 @MappingBase.register("basic")
