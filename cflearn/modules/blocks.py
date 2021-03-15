@@ -253,6 +253,46 @@ class ResBlock(_SkipConnectBlock):
         return self.res_activation(self.res_dropout(net))
 
 
+class HighwayBlock(_SkipConnectBlock):
+    def __init__(
+        self,
+        in_dim: int,
+        latent_dim: int,
+        *,
+        bias: Optional[bool] = None,
+        pruner_config: Optional[dict] = None,
+        dropout: float = 0.0,
+        batch_norm: bool = True,
+        activation: Optional[str] = "ReLU",
+        init_method: str = "xavier_uniform",
+        **kwargs: Any,
+    ):
+        super().__init__(
+            in_dim,
+            latent_dim,
+            bias=bias,
+            pruner_config=pruner_config,
+            dropout=dropout,
+            batch_norm=batch_norm,
+            activation=activation,
+            init_method=init_method,
+            **kwargs,
+        )
+        self.gate_linear = Linear(
+            in_dim,
+            latent_dim,
+            bias=True if bias is None else bias,
+            pruner_config=pruner_config,
+            init_method=init_method,
+            **kwargs,
+        )
+        self.sigmoid = nn.Sigmoid()
+
+    def _skip_connect(self, net: Tensor, linear: Tensor, nonlinear: Tensor) -> Tensor:
+        gate = self.sigmoid(self.gate_linear(net))
+        return gate * nonlinear + (1.0 - gate) * linear
+
+
 class MLP(Module):
     def __init__(
         self,
