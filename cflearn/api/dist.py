@@ -39,7 +39,16 @@ def _fit(
         config["show_summary"] = False
         config["verbose_level"] = 0
         config.setdefault("trigger_logging", False)
-    m = make(model, config).fit(train_file, x_cv=valid_file)
+    if not train_file.endswith(".npy"):
+        x, x_cv = train_file, valid_file
+        y = y_cv = None
+    else:
+        x, y = np.split(np.load(train_file), [-1], axis=1)
+        if valid_file is None:
+            x_cv = y_cv = None
+        else:
+            x_cv, y_cv = np.split(np.load(valid_file), [-1], axis=1)
+    m = make(model, config).fit(x, y, x_cv, y_cv)
     dist.barrier()
     if rank == 0:
         save(m, saving_folder=workplace)
