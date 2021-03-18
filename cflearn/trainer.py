@@ -986,7 +986,7 @@ class Trainer(MonitoredMixin):
         show_summary = self.show_summary
         if show_summary is None:
             show_summary = not self.tqdm_settings.in_distributed
-        if show_summary and not self.is_loading:
+        if self.is_rank_0 and not self.is_loading:
             next_item = next(iter(self.tr_loader_copy))
             if self.tr_loader_copy.return_indices:
                 assert isinstance(next_item, tuple)
@@ -994,7 +994,14 @@ class Trainer(MonitoredMixin):
             else:
                 assert isinstance(next_item, dict)
                 sample_batch = next_item
-            summary(self.model, sample_batch)
+            summary_msg = summary(
+                self.model,
+                sample_batch,
+                return_only=not show_summary,
+            )
+            logging_folder = self.environment.logging_folder
+            with open(os.path.join(logging_folder, "__summary__.txt"), "w") as f:
+                f.write(summary_msg)
         self._prepare_log()
         step_tqdm = None
         self._epoch_tqdm: Optional[tqdm] = None

@@ -194,7 +194,12 @@ def inject_mlflow_stuffs(
 
 # This is a modified version of https://github.com/sksq96/pytorch-summary
 #  So it can summary `carefree-learn` model structures better
-def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
+def summary(
+    model: nn.Module,
+    sample_batch: tensor_dict_type,
+    *,
+    return_only: bool = False,
+) -> str:
     def register_hook(module: nn.Module) -> None:
         def hook(module_: nn.Module, inp: Any, output: Any) -> None:
             m_name = module_names.get(module_)
@@ -331,12 +336,12 @@ def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
     _inject_summary(hierarchy, [])
 
     line_length = 120
-    print("=" * line_length)
+    messages = ["=" * line_length]
     line_format = "{:30}  {:>20} {:>40} {:>20}"
     headers = "Layer (type)", "Input Shape", "Output Shape", "Trainable Param #"
     line_new = line_format.format(*headers)
-    print(line_new)
-    print("-" * line_length)
+    messages.append(line_new)
+    messages.append("-" * line_length)
     total_output = 0
     for layer in summary_dict:
         # name, input_shape, output_shape, num_trainable_params
@@ -352,7 +357,7 @@ def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
             output_shape = [output_shape]
         for shape in output_shape:
             total_output += prod(shape)
-        print(line_new)
+        messages.append(line_new)
 
     # assume 4 bytes/number (float on cuda).
     x_batch = sample_batch["x_batch"]
@@ -362,16 +367,21 @@ def summary(model: nn.Module, sample_batch: tensor_dict_type) -> None:
     total_params_size = abs(total_params * 4.0 / (1024 ** 2.0))
     total_size = total_params_size + total_output_size + total_input_size
 
-    print("=" * line_length)
-    print("Total params: {0:,}".format(total_params))
-    print("Trainable params: {0:,}".format(trainable_params))
-    print("Non-trainable params: {0:,}".format(total_params - trainable_params))
-    print("-" * line_length)
-    print("Input size (MB): %0.2f" % total_input_size)
-    print("Forward/backward pass size (MB): %0.2f" % total_output_size)
-    print("Params size (MB): %0.2f" % total_params_size)
-    print("Estimated Total Size (MB): %0.2f" % total_size)
-    print("-" * line_length)
+    non_trainable_params = total_params - trainable_params
+    messages.append("=" * line_length)
+    messages.append("Total params: {0:,}".format(total_params))
+    messages.append("Trainable params: {0:,}".format(trainable_params))
+    messages.append("Non-trainable params: {0:,}".format(non_trainable_params))
+    messages.append("-" * line_length)
+    messages.append("Input size (MB): %0.2f" % total_input_size)
+    messages.append("Forward/backward pass size (MB): %0.2f" % total_output_size)
+    messages.append("Params size (MB): %0.2f" % total_params_size)
+    messages.append("Estimated Total Size (MB): %0.2f" % total_size)
+    messages.append("-" * line_length)
+    msg = "\n".join(messages)
+    if not return_only:
+        print(msg)
+    return msg
 
 
 class LoggingMixinWithRank(LoggingMixin):
