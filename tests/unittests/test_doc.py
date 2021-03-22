@@ -420,8 +420,8 @@ class TestDoc(unittest.TestCase):
                 self,
                 outputs: tensor_dict_type,
                 **kwargs: Any,
-            ) -> tensor_dict_type:
-                return {"predictions": outputs["linear"] * outputs["linear2"]}
+            ) -> torch.Tensor:
+                return outputs["linear"] * outputs["linear2"]
 
         cflearn.register_model(
             "prod",

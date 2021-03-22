@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from abc import ABCMeta
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Type
@@ -17,8 +18,8 @@ class AggregatorBase(metaclass=ABCMeta):
         self.config = kwargs
 
     @abstractmethod
-    def reduce(self, outputs: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
-        """ requires returning the `predictions` key """
+    def reduce(self, outputs: tensor_dict_type, **kwargs: Any) -> Tensor:
+        pass
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:

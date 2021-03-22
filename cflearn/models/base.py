@@ -415,7 +415,42 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         x_batch = batch["x_batch"]
         split = self._split_features(x_batch, batch_indices, loader_name)
         outputs = self.execute(split)
-        return self.aggregator.reduce(outputs, **kwargs)
+        # check whether outputs from each pipe are of identical type
+        return_type = None
+        for pipe_outputs in outputs.values():
+            pipe_outputs_type = type(pipe_outputs)
+            if return_type is None:
+                return_type = pipe_outputs_type
+            elif return_type is not pipe_outputs_type:
+                raise ValueError(
+                    f"some pipe(s) return `{return_type}` but "
+                    f"other(s) return `{pipe_outputs_type}`"
+                )
+        # if return_type is Tensor, simply reduce them
+        if return_type is torch.Tensor:
+            return {"predictions": self.aggregator.reduce(outputs, **kwargs)}
+        # otherwise, return_type should be dict, and all pipes should hold the same keys
+        assert return_type is dict
+        key_set = None
+        for pipe_outputs in outputs.values():
+            pipe_outputs_key_set = set(pipe_outputs)
+            if key_set is None:
+                key_set = pipe_outputs_key_set
+            elif key_set != pipe_outputs_key_set:
+                raise ValueError(
+                    f"some pipe(s) return `{key_set}` but "
+                    f"other(s) return `{pipe_outputs_key_set}`"
+                )
+        return {
+            k: self.aggregator.reduce(
+                {
+                    pipe_key: pipe_outputs[k]
+                    for pipe_key, pipe_outputs in outputs.items()
+                },
+                **kwargs,
+            )
+            for k in key_set
+        }
 
     def loss_function(
         self,
