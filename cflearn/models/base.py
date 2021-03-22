@@ -449,7 +449,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                 },
                 **kwargs,
             )
-            for k in key_set
+            for k in key_set  # type: ignore
         }
 
     def loss_function(
