@@ -267,7 +267,7 @@ class Inference(InferenceProtocol, LoggingMixinWithRank):
                 raise ValueError("either `onnx_config` or `model` should be provided")
 
     def __str__(self) -> str:
-        return f"Inference({self.model if self.model is not None else 'ONNX'})"
+        return f"Inference({self.model or 'ONNX'})"
 
     __repr__ = __str__
 
