@@ -151,10 +151,9 @@ class TransformerEncoder(nn.Module):
         encoder_layer: nn.Module,
         num_layers: int,
         dimensions: Dimensions,
-        norm: Optional[nn.Module] = None,
+        **kwargs: Any,
     ):
         super().__init__()
-        self.norm = norm
         self.dimensions = dimensions
         self.layers = _get_clones(encoder_layer, num_layers)
 
@@ -169,8 +168,6 @@ class TransformerEncoder(nn.Module):
     def forward(self, net: Tensor, mask: Optional[Tensor]) -> Tensor:
         for i, layer in enumerate(self.layers):
             net = layer(net, mask=self._get_mask(i, net, mask))
-        if self.norm:
-            net = self.norm(net)
         return net
 
     @classmethod
