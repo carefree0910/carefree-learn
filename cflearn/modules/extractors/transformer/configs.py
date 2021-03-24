@@ -12,14 +12,14 @@ class DefaultTransformerConfig(Configs):
             "num_layers": 3,
             "latent_dim": 32,
             "dropout": 0.1,
-            "norm_type": "batch_norm",
+            "norm_type": "layer_norm",
             "attention_type": "decayed",
             "encoder_type": "basic",
             "input_linear_config": {"bias": False},
             "layer_config": {"latent_dim": 128},
             "encoder_config": {},
             "use_head_token": True,
-            "use_final_attention": False,
+            "final_norm_type": "layer_norm",
         }
 
 

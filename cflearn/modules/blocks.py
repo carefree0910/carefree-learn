@@ -1251,7 +1251,7 @@ class Attention(Module):
         raw_weights = torch.bmm(q, k.transpose(-2, -1))
         if mask is not None:
             raw_weights.masked_fill_(mask, float("-inf"))
-        # B * N_head, Sq, Sk -> # B * N_head, Sq, Sk
+        # B * N_head, Sq, Sk -> B * N_head, Sq, Sk
         weights = self._get_weights(raw_weights)
         if 0.0 < self.dropout < 1.0:
             weights = F.dropout(weights, self.dropout, self.training)

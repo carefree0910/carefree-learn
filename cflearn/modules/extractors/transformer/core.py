@@ -4,7 +4,6 @@ import torch
 
 import numpy as np
 import torch.nn as nn
-import torch.nn.functional as F
 
 from typing import *
 from torch import Tensor
@@ -129,7 +128,6 @@ class DecayedAttention(Attention):
         mask = np.zeros([seq_len, seq_len], dtype=np.float32)
         for i in range(1, seq_len):
             np.fill_diagonal(mask[i:], i ** 2)
-            np.fill_diagonal(mask[..., i:], i ** 2)
         mask_ = torch.from_numpy(mask)
         decayed_mask = torch.empty(num_heads, seq_len, seq_len)
         for i in range(num_heads):
@@ -282,7 +280,7 @@ class Transformer(ExtractorBase):
         layer_config: Dict[str, Any],
         encoder_config: Dict[str, Any],
         use_head_token: bool,
-        use_final_attention: bool,
+        final_norm_type: Optional[str],
     ):
         super().__init__(in_flat_dim, dimensions)
         seq_len = dimensions.num_history
@@ -306,11 +304,10 @@ class Transformer(ExtractorBase):
         layer = TransformerLayer(latent_dim, num_heads, **layer_config)
         encoder_base = TransformerEncoder.get(encoder_type)
         self.encoder = encoder_base(layer, num_layers, dimensions, **encoder_config)
-        self.encoder_norm = nn.LayerNorm(latent_dim)
-        if not use_final_attention:
-            self.final_attn_linear = None
+        if final_norm_type is None:
+            self.final_norm = None
         else:
-            self.final_attn_linear = nn.Linear(latent_dim, 1)
+            self.final_norm = _get_norm(final_norm_type, latent_dim)
 
     @property
     def flatten_ts(self) -> bool:
@@ -318,24 +315,12 @@ class Transformer(ExtractorBase):
 
     @property
     def out_dim(self) -> int:
-        if self.head_token is None:
-            return self.latent_dim
-        if self.final_attn_linear is None:
-            return self.latent_dim
-        return 2 * self.latent_dim
+        return self.latent_dim
 
     def _aggregate(self, net: Tensor) -> Tensor:
-        last_token = net[..., -1, :]
-        if self.final_attn_linear is None:
-            return last_token
-        if self.head_token is None:
-            no_head_token = net
-        else:
-            no_head_token = net[..., :-1, :]
-        a_hat = self.final_attn_linear(no_head_token)
-        a_prob = F.softmax(a_hat, dim=1)
-        a = torch.sum(a_prob * no_head_token, dim=1)
-        return torch.cat([a, last_token], 1)
+        if self.head_token is not None:
+            return net[:, -1]
+        return net.mean(1)
 
     def forward(self, net: Tensor) -> Tensor:
         # input -> latent
@@ -347,9 +332,11 @@ class Transformer(ExtractorBase):
         # encode latent vector with transformer
         net = self.position_encoding(net)
         net = self.encoder(net, None)
-        net = self.encoder_norm(net)
-        # aggregate
-        return self._aggregate(net)
+        # aggregate & norm
+        net = self._aggregate(net)
+        if self.final_norm is not None:
+            net = self.final_norm(net)
+        return net
 
 
 __all__ = ["Transformer"]
