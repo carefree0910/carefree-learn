@@ -52,16 +52,16 @@ class PreNorm(nn.Module):
         self.module = module
 
     def forward(self, *xs: Tensor, **kwargs: Any) -> Tensor:
-        xs = [norm(x) for x, norm in zip(xs, self.norms)]
+        x_list = [norm(x) for x, norm in zip(xs, self.norms)]
         if not issubclass(self.module.__class__, Attention):
-            return self.module(*xs, **kwargs)
-        if len(xs) == 1:
-            xs = [xs[0]] * 3
-        elif len(xs) == 2:
-            xs.append(xs[1])
-        if len(xs) != 3:
+            return self.module(*x_list, **kwargs)
+        if len(x_list) == 1:
+            x_list = [x_list[0]] * 3
+        elif len(x_list) == 2:
+            x_list.append(x_list[1])
+        if len(x_list) != 3:
             raise ValueError("there should be three inputs for `Attention`")
-        return self.module(*xs, **kwargs).output
+        return self.module(*x_list, **kwargs).output
 
 
 class FeedForward(nn.Module):
@@ -70,7 +70,7 @@ class FeedForward(nn.Module):
         in_dim: int,
         latent_dim: int,
         *,
-        dropout: float = 0.,
+        dropout: float = 0.0,
         activation: str = "GELU",
         activation_config: Optional[Dict[str, Any]] = None,
         to_latent_config: Optional[Dict[str, Any]] = None,
@@ -82,7 +82,7 @@ class FeedForward(nn.Module):
             Activations.make(activation, activation_config),
             Dropout(dropout),
             Linear(latent_dim, in_dim, **(from_latent_config or {})),
-            Dropout(dropout)
+            Dropout(dropout),
         )
 
     def forward(self, x: Tensor) -> Tensor:
