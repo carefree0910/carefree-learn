@@ -34,6 +34,61 @@ def _get_norm(norm_type: str, dim: int) -> nn.Module:
     return base(dim)
 
 
+class Residual(nn.Module):
+    def __init__(self, module: nn.Module):
+        super().__init__()
+        self.module = module
+
+    def forward(self, x: Tensor, **kwargs: Any) -> Tensor:
+        return self.module(x, **kwargs)
+
+
+class PreNorm(nn.Module):
+    def __init__(self, *dims: int, module: nn.Module, norm_type: str = "layer_norm"):
+        super().__init__()
+        self.norms = nn.ModuleList([])
+        for dim in dims:
+            self.norms.append(_get_norm(norm_type, dim))
+        self.module = module
+
+    def forward(self, *xs: Tensor, **kwargs: Any) -> Tensor:
+        xs = [norm(x) for x, norm in zip(xs, self.norms)]
+        if not issubclass(self.module.__class__, Attention):
+            return self.module(*xs, **kwargs)
+        if len(xs) == 1:
+            xs = [xs[0]] * 3
+        elif len(xs) == 2:
+            xs.append(xs[1])
+        if len(xs) != 3:
+            raise ValueError("there should be three inputs for `Attention`")
+        return self.module(*xs, **kwargs).output
+
+
+class FeedForward(nn.Module):
+    def __init__(
+        self,
+        in_dim: int,
+        latent_dim: int,
+        *,
+        dropout: float = 0.,
+        activation: str = "GELU",
+        activation_config: Optional[Dict[str, Any]] = None,
+        to_latent_config: Optional[Dict[str, Any]] = None,
+        from_latent_config: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__()
+        self.net = nn.Sequential(
+            Linear(in_dim, latent_dim, **(to_latent_config or {})),
+            Activations.make(activation, activation_config),
+            Dropout(dropout),
+            Linear(latent_dim, in_dim, **(from_latent_config or {})),
+            Dropout(dropout)
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.net(x)
+
+
 @Attention.register("decayed")
 class DecayedAttention(Attention):
     def __init__(
@@ -97,8 +152,8 @@ class TransformerLayer(nn.Module):
         *,
         dropout: float = 0.1,
         latent_dim: int = 2048,
-        activation: str = "ReLU",
-        norm_type: str = "batch_norm",
+        activation: str = "GELU",
+        norm_type: str = "layer_norm",
         attention_type: str = "decayed",
         seq_len: Optional[int] = None,
         attention_config: Optional[Dict[str, Any]] = None,
@@ -107,6 +162,7 @@ class TransformerLayer(nn.Module):
         from_latent_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
+        # attention
         if attention_config is None:
             attention_config = {}
         attention_config["is_self_attention"] = True
@@ -117,28 +173,33 @@ class TransformerLayer(nn.Module):
                 msg = "`seq_len` should be provided when `decayed` attention is used"
                 raise ValueError(msg)
             attention_config["seq_len"] = seq_len
-        self.self_attn = attn_base(input_dim, num_heads, **attention_config)
-        if to_latent_config is None:
-            to_latent_config = {}
-        self.to_latent = Linear(input_dim, latent_dim, **to_latent_config)
-        self.dropout = Dropout(dropout)
-        if from_latent_config is None:
-            from_latent_config = {}
-        self.from_latent = Linear(latent_dim, input_dim, **from_latent_config)
-
-        self.norm1 = _get_norm(norm_type, input_dim)
-        self.norm2 = _get_norm(norm_type, input_dim)
-        self.dropout1 = Dropout(dropout)
-        self.dropout2 = Dropout(dropout)
-        self.activation = Activations.make(activation, activation_config)
+        self.attention_block = Residual(
+            PreNorm(
+                input_dim,
+                module=attn_base(input_dim, num_heads, **attention_config),
+                norm_type=norm_type,
+            )
+        )
+        # feed forward
+        self.feed_forward_block = Residual(
+            PreNorm(
+                input_dim,
+                module=FeedForward(
+                    input_dim,
+                    latent_dim,
+                    dropout=dropout,
+                    activation=activation,
+                    activation_config=activation_config,
+                    to_latent_config=to_latent_config,
+                    from_latent_config=from_latent_config,
+                ),
+                norm_type=norm_type,
+            )
+        )
 
     def forward(self, net: Tensor, mask: Optional[Tensor] = None) -> Tensor:
-        new = self.self_attn(net, net, net, mask=mask).output
-        net = net + self.dropout1(new)
-        net = self.norm1(net)
-        new = self.from_latent(self.dropout(self.activation(self.to_latent(net))))
-        net = net + self.dropout2(new)
-        net = self.norm2(net)
+        net = self.attention_block(net, mask=mask)
+        net = self.feed_forward_block(net)
         return net
 
 
@@ -245,6 +306,7 @@ class Transformer(ExtractorBase):
         layer = TransformerLayer(latent_dim, num_heads, **layer_config)
         encoder_base = TransformerEncoder.get(encoder_type)
         self.encoder = encoder_base(layer, num_layers, dimensions, **encoder_config)
+        self.encoder_norm = nn.LayerNorm(latent_dim)
         if not use_final_attention:
             self.final_attn_linear = None
         else:
@@ -285,6 +347,7 @@ class Transformer(ExtractorBase):
         # encode latent vector with transformer
         net = self.position_encoding(net)
         net = self.encoder(net, None)
+        net = self.encoder_norm(net)
         # aggregate
         return self._aggregate(net)
 
