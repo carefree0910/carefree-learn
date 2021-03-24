@@ -1162,9 +1162,7 @@ class Attention(Module):
             if v_dim is not None and v_dim != input_dim:
                 raise ValueError("self attention is used but `v_dim` != `input_dim`")
             self.k_dim = self.v_dim = input_dim
-        if embed_dim is None:
-            embed_dim = min(32, input_dim) * num_heads
-        self.embed_dim = embed_dim
+        self.embed_dim = embed_dim or input_dim
 
         self.num_heads = num_heads
         self.head_dim = self.embed_dim // num_heads
