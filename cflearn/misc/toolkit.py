@@ -7,6 +7,7 @@ import platform
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from typing import *
 from abc import abstractmethod
@@ -63,7 +64,7 @@ def to_2d(arr: data_type) -> data_type:
 
 
 def to_prob(raw: np.ndarray) -> np.ndarray:
-    return nn.functional.softmax(torch.from_numpy(raw), dim=1).numpy()
+    return F.softmax(torch.from_numpy(raw), dim=1).numpy()
 
 
 def collate_np_dicts(ds: List[np_dict_type], axis: int = 0) -> np_dict_type:
@@ -586,7 +587,7 @@ class Activations:
         try:
             return getattr(nn, item)(**kwargs)
         except AttributeError:
-            func = getattr(torch, item, getattr(nn.functional, item, None))
+            func = getattr(torch, item, getattr(F, item, None))
             if func is None:
                 raise NotImplementedError(
                     "neither pytorch nor custom Activations "
@@ -624,7 +625,7 @@ class Activations:
     def mish(self) -> nn.Module:
         class Mish(nn.Module):
             def forward(self, x: torch.Tensor) -> torch.Tensor:
-                return x * (torch.tanh(nn.functional.softplus(x)))
+                return x * (torch.tanh(F.softplus(x)))
 
         return Mish()
 
@@ -719,7 +720,7 @@ class Activations:
                 self.dim = dim
 
             def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
-                return nn.functional.softmax(multiplied, dim=self.dim)
+                return F.softmax(multiplied, dim=self.dim)
 
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
 
@@ -744,7 +745,7 @@ class Activations:
 
             def forward(self, net: torch.Tensor) -> torch.Tensor:
                 net_abs = net.abs()
-                bias = nn.functional.softplus(self.bias)
+                bias = F.softplus(self.bias)
                 cup_mask = self.sigmoid(net_abs - bias)
                 masked = net_abs * cup_mask
                 if not self.retain_sign:
