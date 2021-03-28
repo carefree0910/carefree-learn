@@ -33,7 +33,8 @@ class RNN(ExtractorBase):
         input_dimensions = [self.in_dim]
         self.hidden_size = cell_config["hidden_size"]
         self.bidirectional = cell_config.setdefault("bidirectional", False)
-        input_dimensions += [self.hidden_size] * (num_layers - 1)
+        scale = 1 + int(self.bidirectional)
+        input_dimensions += [self.hidden_size * scale] * (num_layers - 1)
         rnn_list = []
         for dim in input_dimensions:
             rnn = rnn_base(dim, **cell_config)
