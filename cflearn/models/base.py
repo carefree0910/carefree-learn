@@ -465,6 +465,8 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         # `sample_weights` could be accessed through:
         # 1) `self.tr_weights[batch_indices]` (for training)
         # 2) `self.cv_weights[batch_indices]` (for validation)
+        forward_results = shallow_copy_dict(forward_results)
+        forward_results["batch_indices"] = batch_indices
         losses = self.loss(forward_results, labels)
         if isinstance(losses, dict):
             return {k: v.mean() for k, v in losses.items()}
