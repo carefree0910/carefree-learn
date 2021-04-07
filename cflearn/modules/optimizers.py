@@ -163,7 +163,7 @@ class Ranger(Optimizer):
         self.n_sma_threshold = n_sma_threshold
         self.alpha = alpha
 
-        self.radam_buffer = [[None, None, None] for _ in range(10)]
+        self.radam_buffer: List[List[Any]] = [[None, None, None] for _ in range(10)]
         self.use_gc = use_gc
         self.gc_gradient_threshold = 3 if gc_conv_only else 1
 
@@ -204,7 +204,7 @@ class Ranger(Optimizer):
                 exp_avg_sq.mul_(beta2).addcmul_(grad, grad, value=1.0 - beta2)
                 exp_avg.mul_(beta1).add_(grad, alpha=1.0 - beta1)
 
-                buffered = self.radam_buffer[int(state['step'] % 10)]
+                buffered = self.radam_buffer[int(state["step"] % 10)]
 
                 if state["step"] == buffered[0]:
                     n_sma, step_size = buffered[1], buffered[2]
@@ -218,9 +218,12 @@ class Ranger(Optimizer):
                         step_size = 1.0 / (1.0 - beta1 ** state["step"])
                     else:
                         step_size = math.sqrt(
-                            (1.0 - beta2_t) * (n_sma - 4.0)
-                            / (n_sma_max - 4.0) * (n_sma - 2.0)
-                            / n_sma * n_sma_max
+                            (1.0 - beta2_t)
+                            * (n_sma - 4.0)
+                            / (n_sma_max - 4.0)
+                            * (n_sma - 2.0)
+                            / n_sma
+                            * n_sma_max
                             / (n_sma_max - 2.0)
                         ) / (1.0 - beta1 ** state["step"])
                     buffered[2] = step_size
