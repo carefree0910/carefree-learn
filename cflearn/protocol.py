@@ -543,7 +543,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
     __identifier__: str
     data: DataProtocol
     device: torch.device
-    ema: Optional[EMA] = None
+    ema: Optional[EMA]
     num_train: Optional[int] = None
     num_valid: Optional[int] = None
 
@@ -552,6 +552,7 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
         return self.ema is not None
 
     def init_ema(self) -> None:
+        self.ema = None
         if self.config is None:
             return None
         ema_decay = self.config.setdefault("ema_decay", 0.0)
