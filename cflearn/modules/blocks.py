@@ -1297,7 +1297,7 @@ class Residual(nn.Module):
         self.module = module
 
     def forward(self, x: Tensor, **kwargs: Any) -> Tensor:
-        return self.module(x, **kwargs)
+        return x + self.module(x, **kwargs)
 
 
 class PreNorm(nn.Module):
