@@ -26,6 +26,7 @@ from cfdata.types import np_int_type
 from cfdata.types import np_float_type
 
 from .auxiliary import *
+from .auxiliary import BN
 from ..misc.toolkit import *
 from ..types import tensor_tuple_type
 
@@ -1279,6 +1280,47 @@ class Attention(Module):
 Attention.register("basic")(Attention)
 
 
+def _get_norm(norm_type: str, dim: int) -> nn.Module:
+    base: Type
+    if norm_type == "batch_norm":
+        base = BN
+    elif norm_type == "layer_norm":
+        base = nn.LayerNorm
+    else:
+        raise NotImplementedError(f"norm '{norm_type}' is not implemented")
+    return base(dim)
+
+
+class Residual(nn.Module):
+    def __init__(self, module: nn.Module):
+        super().__init__()
+        self.module = module
+
+    def forward(self, x: Tensor, **kwargs: Any) -> Tensor:
+        return self.module(x, **kwargs)
+
+
+class PreNorm(nn.Module):
+    def __init__(self, *dims: int, module: nn.Module, norm_type: str = "layer_norm"):
+        super().__init__()
+        self.norms = nn.ModuleList([])
+        for dim in dims:
+            self.norms.append(_get_norm(norm_type, dim))
+        self.module = module
+
+    def forward(self, *xs: Tensor, **kwargs: Any) -> Tensor:
+        x_list = [norm(x) for x, norm in zip(xs, self.norms)]
+        if not issubclass(self.module.__class__, Attention):
+            return self.module(*x_list, **kwargs)
+        if len(x_list) == 1:
+            x_list = [x_list[0]] * 3
+        elif len(x_list) == 2:
+            x_list.append(x_list[1])
+        if len(x_list) != 3:
+            raise ValueError("there should be three inputs for `Attention`")
+        return self.module(*x_list, **kwargs).output
+
+
 __all__ = [
     "Linear",
     "Mapping",
@@ -1292,4 +1334,6 @@ __all__ = [
     "ConditionalBlocks",
     "ConditionalOutput",
     "Attention",
+    "Residual",
+    "PreNorm",
 ]
