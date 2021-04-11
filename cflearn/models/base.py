@@ -516,7 +516,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         head: HeadBase,
         extracted: Tensor,
         head_kwargs: Dict[str, Any],
-    ) -> Tensor:
+    ) -> Union[Tensor, tensor_dict_type]:
         return head(extracted, **head_kwargs)
 
     def execute(
@@ -527,7 +527,7 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         extract_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
         head_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> tensor_dict_type:
-        results: Dict[str, Tensor] = {}
+        results: Dict[str, Union[Tensor, tensor_dict_type]] = {}
         for key, (transform_key, extractor_key, _) in self.pipes.items():
             if key in self.bypassed_pipes:
                 continue
