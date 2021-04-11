@@ -1,4 +1,3 @@
-import copy
 import math
 import torch
 
@@ -11,6 +10,7 @@ from cftool.misc import register_core
 
 from ..base import ExtractorBase
 from ...blocks import _get_norm
+from ...blocks import _get_clones
 from ...blocks import Linear
 from ...blocks import Dropout
 from ...blocks import PreNorm
@@ -18,10 +18,6 @@ from ...blocks import Residual
 from ...blocks import Attention
 from ...transform.core import Dimensions
 from ....misc.toolkit import Activations
-
-
-def _get_clones(module: nn.Module, n: int) -> nn.ModuleList:
-    return nn.ModuleList([copy.deepcopy(module) for _ in range(n)])
 
 
 class FeedForward(nn.Module):

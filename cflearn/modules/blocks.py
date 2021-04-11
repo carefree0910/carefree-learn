@@ -1,3 +1,4 @@
+import copy
 import math
 import torch
 
@@ -29,6 +30,10 @@ from .auxiliary import *
 from .auxiliary import BN
 from ..misc.toolkit import *
 from ..types import tensor_tuple_type
+
+
+def _get_clones(module: nn.Module, n: int) -> nn.ModuleList:
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(n)])
 
 
 mapping_dict: Dict[str, Type["MappingBase"]] = {}
