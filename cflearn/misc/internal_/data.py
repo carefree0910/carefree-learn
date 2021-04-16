@@ -36,11 +36,13 @@ class MLLoader(DataLoaderProtocol):
         data: MLData,
         shuffle: bool,
         *,
+        name: Optional[str] = None,
         batch_size: int = 128,
     ):
         super().__init__()
         self.data = data
         self.shuffle = shuffle
+        self.name = name
         self.batch_size = batch_size
 
     def __iter__(self) -> "MLLoader":
@@ -59,6 +61,7 @@ class MLLoader(DataLoaderProtocol):
         return {
             INPUT_KEY: to_torch(self.data.x[indices]),
             LABEL_KEY: None if self.data.y is None else to_torch(self.data.y[indices]),
+            "batch_indices": indices,
         }
 
 

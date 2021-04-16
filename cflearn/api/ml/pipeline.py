@@ -1,3 +1,4 @@
+import copy
 import torch
 
 from typing import Any
@@ -5,34 +6,35 @@ from typing import Dict
 from typing import List
 from typing import Union
 from typing import Optional
+from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 
 from ...types import data_type
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import loss_dict
-from ...protocol import model_dict
 from ...protocol import LossProtocol
 from ...protocol import InferenceOutputs
 from ..internal_.trainer import make_trainer
 from ...misc.internal_ import MLData
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLInference
-from ...models.ml.protocol import MLModelProtocol
+from ...models.ml.encoders import Encoder
+from ...models.ml.protocol import MLModel
 
 
 class MLPipeline:
     data: TabularData
     loss: LossProtocol
-    model: MLModelProtocol
+    model: MLModel
     trainer: Trainer
     inference: MLInference
     device_info: DeviceInfo
 
     def __init__(
         self,
-        model_name: str = "fcnn",
-        model_config: Optional[Dict[str, Any]] = None,
+        core_name: str = "fcnn",
+        core_config: Optional[Dict[str, Any]] = None,
         *,
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
@@ -46,19 +48,26 @@ class MLPipeline:
         max_valid_split_ratio: float = 0.5,
         valid_split_order: str = "auto",
         # data loader
+        num_history: int = 1,
         shuffle_train: bool = True,
         shuffle_valid: bool = False,
         batch_size: int = 128,
         valid_batch_size: int = 512,
+        # encoder
+        only_categorical: bool = False,
+        encoder_config: Optional[Dict[str, Any]] = None,
+        encoding_methods: Optional[Dict[str, List[str]]] = None,
+        encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+        default_encoding_methods: Optional[List[str]] = None,
+        default_encoding_configs: Optional[Dict[str, Any]] = None,
     ):
-        self.model_name = model_name
-        self.model_config = model_config or {}
+        self.core_name = core_name
+        self.core_config = core_config or {}
         self.loss_name = loss_name
         self.loss_config = loss_config or {}
         if data_config is None:
             data_config = {}
         data_config["default_categorical_process"] = "identical"
-        data_config.setdefault("use_timing_context", True)
         self.data = TabularData(**(data_config or {}))
         self.read_config = read_config or {}
         self.valid_split = valid_split
@@ -66,10 +75,19 @@ class MLPipeline:
         self.max_valid_split = max_valid_split
         self.max_valid_split_ratio = max_valid_split_ratio
         self.valid_split_order = valid_split_order
+        self.num_history = num_history
         self.shuffle_train = shuffle_train
         self.shuffle_valid = shuffle_valid
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
+        self.only_categorical = only_categorical
+        self.encoder_config = encoder_config or {}
+        self.encoding_methods = encoding_methods or {}
+        self.encoding_configs = encoding_configs or {}
+        if default_encoding_methods is None:
+            default_encoding_methods = ["embedding"]
+        self.default_encoding_methods = default_encoding_methods
+        self.default_encoding_configs = default_encoding_configs or {}
 
     @property
     def device(self) -> torch.device:
@@ -129,33 +147,109 @@ class MLPipeline:
                 valid_data = split_result.split
         train_loader = MLLoader(
             MLData(*train_data.processed.xy),
+            name="train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
         )
+        train_loader_copy = copy.deepcopy(train_loader)
+        train_loader_copy.shuffle = False
         if valid_data is None:
-            valid_loader = None
+            valid_loader = train_loader_copy
         else:
             valid_loader = MLLoader(
                 MLData(*valid_data.processed.xy),
+                name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
+            )
+        # encoder
+        excluded = 0
+        numerical_columns_mapping = {}
+        categorical_columns_mapping = {}
+        categorical_dims = []
+        encoding_methods = []
+        encoding_configs = []
+        true_categorical_columns = []
+        use_one_hot = False
+        use_embedding = False
+        if self.data.is_simplify:
+            for idx in range(self.data.processed.x.shape[1]):
+                numerical_columns_mapping[idx] = idx
+        else:
+            ts_indices = self.data.ts_indices
+            recognizers = self.data.recognizers
+            sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
+            for idx in sorted_indices:
+                recognizer = recognizers[idx]
+                assert recognizer is not None
+                if not recognizer.info.is_valid or idx in ts_indices:
+                    excluded += 1
+                elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
+                    numerical_columns_mapping[idx] = idx - excluded
+                else:
+                    str_idx = str(idx)
+                    categorical_dims.append(recognizer.num_unique_values)
+                    idx_encoding_methods = self.encoding_methods.setdefault(
+                        str_idx,
+                        self.default_encoding_methods,
+                    )
+                    if isinstance(idx_encoding_methods, str):
+                        idx_encoding_methods = [idx_encoding_methods]
+                    use_one_hot = use_one_hot or "one_hot" in idx_encoding_methods
+                    use_embedding = use_embedding or "embedding" in idx_encoding_methods
+                    encoding_methods.append(idx_encoding_methods)
+                    encoding_configs.append(
+                        self.encoding_configs.setdefault(
+                            str_idx,
+                            self.default_encoding_configs,
+                        )
+                    )
+                    true_idx = idx - excluded
+                    true_categorical_columns.append(true_idx)
+                    categorical_columns_mapping[idx] = true_idx
+        if not true_categorical_columns:
+            encoder = None
+        else:
+            loaders = [train_loader_copy]
+            if valid_loader is not None:
+                loaders.append(valid_loader)
+            encoder = Encoder(
+                self.encoder_config,
+                categorical_dims,
+                encoding_methods,
+                encoding_configs,
+                true_categorical_columns,
+                loaders,
             )
         # prepare
         if self.loss_name == "auto":
             self.loss_name = "focal" if self.data.is_clf else "mae"
         loss = loss_dict[self.loss_name](**(self.loss_config or {}))
-        self.model_config["in_dim"] = self.data.processed_dim
-        self.model_config["out_dim"] = 1 if self.data.is_reg else self.data.num_classes
-        model = model_dict[self.model_name](**self.model_config)
-        if not isinstance(model, MLModelProtocol):
-            raise ValueError(f"'{self.model_name}' is not an ML model")
-        self.model = model
+        model = self.model = MLModel(
+            self.data.processed_dim,
+            1 if self.data.is_reg else self.data.num_classes,
+            self.num_history,
+            encoder=encoder,
+            numerical_columns_mapping=numerical_columns_mapping,
+            categorical_columns_mapping=categorical_columns_mapping,
+            use_one_hot=use_one_hot,
+            use_embedding=use_embedding,
+            only_categorical=self.only_categorical,
+            core_name=self.core_name,
+            core_config=self.core_config,
+        )
         inference = self.inference = MLInference(model)
         # set some defaults to ml tasks which work well in practice
         if metric_names is None and self.data.is_clf:
             metric_names = ["acc", "auc"]
         if monitor_names is None:
             monitor_names = ["mean_std", "plateau"]
+        if callback_names is None:
+            callback_names = []
+        if "basic" not in callback_names:
+            callback_names.append("basic")
+        if "_inject_loader_name" not in callback_names:
+            callback_names.append("_inject_loader_name")
         if optimizer_settings is None:
             optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
         # fit these stuffs!

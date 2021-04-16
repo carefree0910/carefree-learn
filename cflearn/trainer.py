@@ -70,6 +70,13 @@ class TrainerCallback(WithRegister):
     def __init__(self, *args: Any, **kwargs: Any):
         pass
 
+    def mutate_train_forward_kwargs(
+        self,
+        kwargs: Dict[str, Any],
+        trainer: "Trainer",
+    ) -> None:
+        pass
+
     def mutate_optimizer_pack(
         self,
         pack: OptimizerPack,
@@ -447,7 +454,10 @@ class Trainer:
         batch = to_device(batch, self.device)
         # forward & loss
         with torch.cuda.amp.autocast(enabled=self.use_amp):
-            forward_results = self.model(batch_idx, batch, self.state)
+            forward_kwargs = {}
+            for callback in self.callbacks:
+                callback.mutate_train_forward_kwargs(forward_kwargs, self)
+            forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
             loss_dict = self.loss(forward_results, batch)
         # backward
         loss = loss_dict[LOSS_KEY]

@@ -14,6 +14,7 @@ from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 from ...trainer import Trainer
 from ...trainer import BasicCallback
+from ...trainer import TrainerCallback
 from ...protocol import TrainerState
 from ...protocol import MetricsOutputs
 from ...constants import WARNING_PREFIX
@@ -22,6 +23,16 @@ from ...constants import WARNING_PREFIX
 def parse_mlflow_uri(path: str) -> str:
     delim = "/" if platform.system() == "Windows" else ""
     return f"file://{delim}{path}"
+
+
+@BasicCallback.register("_inject_loader_name")
+class _InjectLoaderName(TrainerCallback):
+    def mutate_train_forward_kwargs(
+        self,
+        kwargs: Dict[str, Any],
+        trainer: "Trainer",
+    ) -> None:
+        kwargs["loader_name"] = trainer.train_loader.name
 
 
 @BasicCallback.register("mlflow")

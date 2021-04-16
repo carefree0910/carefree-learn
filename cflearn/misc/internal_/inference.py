@@ -1,8 +1,37 @@
+import torch
+
+from typing import Any
+from typing import Optional
+
+from .data import MLLoader
+from ...protocol import LossProtocol
+from ...protocol import TrainerState
+from ...protocol import InferenceOutputs
 from ...protocol import InferenceProtocol
 
 
 class MLInference(InferenceProtocol):
-    pass
+    def get_outputs(
+        self,
+        device: torch.device,
+        loader: MLLoader,
+        *,
+        portion: float = 1.0,
+        state: Optional[TrainerState] = None,
+        loss: Optional[LossProtocol] = None,
+        return_outputs: bool = True,
+        **kwargs: Any,
+    ) -> InferenceOutputs:
+        kwargs["loader_name"] = loader.name
+        return super().get_outputs(
+            device,
+            loader,
+            portion=portion,
+            state=state,
+            loss=loss,
+            return_outputs=return_outputs,
+            **kwargs,
+        )
 
 
 class DLInference(InferenceProtocol):
