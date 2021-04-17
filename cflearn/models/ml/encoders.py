@@ -349,6 +349,8 @@ class Encoder(nn.Module, LoggingMixinWithRank):
     def _compile(self, loaders: List[MLLoader]) -> None:
         for loader in loaders:
             name = loader.name
+            if name is None:
+                continue
             categorical_features = []
             for sample in loader:
                 x_batch = sample[INPUT_KEY]

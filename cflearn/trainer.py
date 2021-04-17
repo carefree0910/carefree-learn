@@ -454,7 +454,7 @@ class Trainer:
         batch = to_device(batch, self.device)
         # forward & loss
         with torch.cuda.amp.autocast(enabled=self.use_amp):
-            forward_kwargs = {}
+            forward_kwargs: Dict[str, Any] = {}
             for callback in self.callbacks:
                 callback.mutate_train_forward_kwargs(forward_kwargs, self)
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)

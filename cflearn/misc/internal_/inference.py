@@ -11,7 +11,7 @@ from ...protocol import InferenceProtocol
 
 
 class MLInference(InferenceProtocol):
-    def get_outputs(
+    def get_outputs(  # type: ignore
         self,
         device: torch.device,
         loader: MLLoader,

@@ -32,7 +32,7 @@ class _InjectLoaderName(TrainerCallback):
         kwargs: Dict[str, Any],
         trainer: "Trainer",
     ) -> None:
-        kwargs["loader_name"] = trainer.train_loader.name
+        kwargs["loader_name"] = trainer.train_loader.name  # type: ignore
 
 
 @BasicCallback.register("mlflow")
