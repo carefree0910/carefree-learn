@@ -1,4 +1,5 @@
 import os
+import shutil
 
 from typing import Any
 from typing import Dict
@@ -152,6 +153,9 @@ def repeat_with(
     use_tqdm: bool = True,
     **kwargs: Any,
 ) -> RepeatResult:
+    if os.path.isdir(workplace):
+        print(f"{WARNING_PREFIX}'{workplace}' already exists, it will be erased")
+        shutil.rmtree(workplace)
     kwargs = shallow_copy_dict(kwargs)
     if isinstance(core_names, str):
         core_names = [core_names]
