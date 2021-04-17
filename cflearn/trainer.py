@@ -445,12 +445,12 @@ class Trainer:
             for callback in self.callbacks:
                 callback.log_artifacts(self)
         if self.state.should_log_metrics_msg:
-                for callback in self.callbacks:
-                    callback.log_metrics_msg(
-                        metrics_outputs,
-                        self.metric_log_path,
-                        self.state,
-                    )
+            for callback in self.callbacks:
+                callback.log_metrics_msg(
+                    metrics_outputs,
+                    self.metric_log_path,
+                    self.state,
+                )
 
     def _monitor_step(self) -> MonitorResults:
         outputs = None
