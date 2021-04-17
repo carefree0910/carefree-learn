@@ -433,6 +433,22 @@ class Trainer:
                         )
                 scheduler.step(**shallow_copy_dict(kwargs))
 
+    def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
+        if not self.is_rank_0:
+            return None
+        for callback in self.callbacks:
+            callback.log_metrics(metrics_outputs, self.state)
+        if self.state.should_log_artifacts:
+            for callback in self.callbacks:
+                callback.log_artifacts(self)
+        if self.state.should_log_metrics_msg:
+                for callback in self.callbacks:
+                    callback.log_metrics_msg(
+                        metrics_outputs,
+                        self.metric_log_path,
+                        self.state,
+                    )
+
     def _monitor_step(self) -> MonitorResults:
         outputs = None
         terminate = False
@@ -442,19 +458,7 @@ class Trainer:
             outputs, self.intermediate = self.get_metrics(portion=self.valid_portion)
             self.intermediate_updated = True
             # logging
-            if self.is_rank_0:
-                for callback in self.callbacks:
-                    callback.log_metrics(self.intermediate, self.state)
-                if self.state.should_log_artifacts:
-                    for callback in self.callbacks:
-                        callback.log_artifacts(self)
-                if self.state.should_log_metrics_msg:
-                    for callback in self.callbacks:
-                        callback.log_metrics_msg(
-                            self.intermediate,
-                            self.metric_log_path,
-                            self.state,
-                        )
+            self._logging_step(self.intermediate)
             # check terminate
             if self.state.should_start_snapshot:
                 score = self.intermediate.final_score
@@ -563,12 +567,7 @@ class Trainer:
         self.state.set_terminate()
         if self.is_rank_0:
             _, self.final_results = self.get_metrics()
-            for callback in self.callbacks:
-                callback.log_metrics_msg(
-                    self.final_results,
-                    self.metric_log_path,
-                    self.state,
-                )
+            self._logging_step(self.final_results)
             if not has_ckpt:
                 self.save_checkpoint(self.final_results.final_score)
         for callback in self.callbacks:
