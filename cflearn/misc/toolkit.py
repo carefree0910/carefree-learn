@@ -20,12 +20,7 @@ from ..types import param_type
 from ..types import tensor_dict_type
 
 
-def is_int(arr: np.ndarray) -> bool:
-    return np.issubdtype(arr.dtype, np.integer)
-
-
-def is_float(arr: np.ndarray) -> bool:
-    return np.issubdtype(arr.dtype, np.floating)
+# general
 
 
 def to_standard(arr: np.ndarray) -> np.ndarray:
@@ -58,18 +53,6 @@ def scheduler_requires_metric(scheduler: Any) -> bool:
             if name == "metrics":
                 return True
     return False
-
-
-def save_images(
-    arr: Union[np.ndarray, torch.Tensor],
-    path: str,
-    n_row: Optional[int] = None,
-) -> None:
-    if isinstance(arr, np.ndarray):
-        arr = to_torch(arr)
-    if n_row is None:
-        n_row = math.ceil(math.sqrt(len(arr)))
-    torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
 class mode_context(context_error_handler):
@@ -277,3 +260,29 @@ class Initializer(LoggingMixinWithRank):
     def orthogonal(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.orthogonal_(param.data, gain)
+
+
+# ml
+
+
+def is_int(arr: np.ndarray) -> bool:
+    return np.issubdtype(arr.dtype, np.integer)
+
+
+def is_float(arr: np.ndarray) -> bool:
+    return np.issubdtype(arr.dtype, np.floating)
+
+
+# cv
+
+
+def save_images(
+    arr: Union[np.ndarray, torch.Tensor],
+    path: str,
+    n_row: Optional[int] = None,
+) -> None:
+    if isinstance(arr, np.ndarray):
+        arr = to_torch(arr)
+    if n_row is None:
+        n_row = math.ceil(math.sqrt(len(arr)))
+    torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
