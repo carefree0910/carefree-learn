@@ -127,7 +127,7 @@ class MLPipeline:
             default_encoding_methods = ["embedding"]
         self.default_encoding_methods = default_encoding_methods
         self.default_encoding_configs = default_encoding_configs or {}
-        self.trainer_config = {
+        self.trainer_config: Dict[str, Any] = {
             "state_config": state_config,
             "num_epoch": num_epoch,
             "valid_portion": valid_portion,

@@ -250,7 +250,7 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         split = self.dimensions.split_features(
             batch[INPUT_KEY],
-            batch["batch_indices"],
+            batch["batch_indices"],  # type: ignore
             kwargs.get("loader_name"),
         )
         batch[INPUT_KEY] = self.transform(split)

@@ -103,7 +103,9 @@ def scheduler_requires_metric(scheduler: Any) -> bool:
 
 
 def get_arguments() -> Dict[str, Any]:
-    frame = inspect.currentframe().f_back
+    frame = inspect.currentframe().f_back  # type: ignore
+    if frame is None:
+        raise ValueError("`get_arguments` should be called inside a frame")
     return inspect.getargvalues(frame)[-1]
 
 

@@ -610,8 +610,7 @@ class Trainer:
         portion: float = 1.0,
         loader: Optional[DataLoaderProtocol] = None,
     ) -> Tuple[InferenceOutputs, MetricsOutputs]:
-        is_custom_loader = loader is not None
-        if not is_custom_loader:
+        if loader is None:
             loader = self.validation_loader
         loss = self.loss if self.metrics is None else None
         outputs = self.inference.get_outputs(
