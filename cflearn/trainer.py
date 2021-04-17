@@ -7,6 +7,7 @@ import torch
 import numpy as np
 
 from typing import *
+from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
@@ -436,6 +437,8 @@ class Trainer:
     def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
         if not self.is_rank_0:
             return None
+        if self.epoch_tqdm is not None:
+            self.epoch_tqdm.set_postfix(metrics_outputs.metric_values)
         for callback in self.callbacks:
             callback.log_metrics(metrics_outputs, self.state)
         if self.state.should_log_artifacts:
@@ -533,13 +536,32 @@ class Trainer:
             )
             with open(os.path.join(self.workplace, "summary.txt"), "w") as f:
                 f.write(summary_msg)
+        # tqdm
+        step_tqdm = None
+        self.epoch_tqdm: Optional[tqdm] = None
+        if self.tqdm_settings.use_tqdm:
+            self.epoch_tqdm = tqdm(
+                list(range(self.state.num_epoch)),
+                position=self.tqdm_settings.position,
+                desc=self.tqdm_settings.desc,
+                leave=False,
+            )
         # train
         has_ckpt = terminate = False
-        print(f"{INFO_PREFIX}entered training loop")
+        if self.epoch_tqdm is None:
+            print(f"{INFO_PREFIX}entered training loop")
         while self.state.should_train:
             try:
                 self.state.epoch += 1
-                for i, batch in enumerate(self.train_loader):
+                step_iterator = self.train_loader
+                if self.tqdm_settings.use_step_tqdm:
+                    step_tqdm = step_iterator = tqdm(
+                        step_iterator,
+                        total=len(self.train_loader),
+                        position=self.tqdm_settings.position + 1,
+                        leave=False,
+                    )
+                for i, batch in enumerate(step_iterator):
                     self.state.step += 1
                     step_outputs = self._step(i, batch)
                     for callback in self.callbacks:
@@ -559,6 +581,13 @@ class Trainer:
                 terminate = True
             if terminate:
                 break
+            if self.epoch_tqdm is not None:
+                self.epoch_tqdm.total = self.state.num_epoch
+                self.epoch_tqdm.update()
+        if self.epoch_tqdm is not None:
+            if step_tqdm is not None:
+                step_tqdm.close()
+            self.epoch_tqdm.close()
         # restore
         if not self.ddp and os.path.isdir(self.checkpoint_folder):
             print(f"{INFO_PREFIX}rolling back to the best checkpoint")
@@ -580,7 +609,8 @@ class Trainer:
         portion: float = 1.0,
         loader: Optional[DataLoaderProtocol] = None,
     ) -> Tuple[InferenceOutputs, MetricsOutputs]:
-        if loader is None:
+        is_custom_loader = loader is not None
+        if not is_custom_loader:
             loader = self.validation_loader
         loss = self.loss if self.metrics is None else None
         outputs = self.inference.get_outputs(
