@@ -1,4 +1,6 @@
+import os
 import copy
+import json
 import torch
 
 import numpy as np
@@ -23,6 +25,7 @@ from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
+from ...misc.toolkit import get_arguments
 from ...misc.internal_ import MLData
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLInference
@@ -75,6 +78,8 @@ class MLPipeline:
         default_encoding_methods: Optional[List[str]] = None,
         default_encoding_configs: Optional[Dict[str, Any]] = None,
     ):
+        self.config = get_arguments()
+        self.config.pop("self")
         self.core_name = core_name
         self.core_config = core_config or {}
         self.loss_name = loss_name
@@ -130,11 +135,14 @@ class MLPipeline:
         callback_configs: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
+        configs_file: str = "configs.json",
         metric_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
     ) -> "MLPipeline":
         workplace = os.path.join(workplace, timestamp(ensure_different=True))
         os.makedirs(workplace, exist_ok=True)
+        with open(os.path.join(workplace, configs_file), "w") as f:
+            json.dump(self.config, f)
         self.data.read(x, y, **self.read_config)
         # split data
         if x_valid is not None:

@@ -56,6 +56,11 @@ def scheduler_requires_metric(scheduler: Any) -> bool:
     return False
 
 
+def get_arguments() -> Dict[str, Any]:
+    frame = inspect.currentframe().f_back
+    return inspect.getargvalues(frame)[-1]
+
+
 class mode_context(context_error_handler):
     """
     Help entering specific mode and recovering previous mode
