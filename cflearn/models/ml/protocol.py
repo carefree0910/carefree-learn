@@ -251,7 +251,7 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         split = self.dimensions.split_features(
             batch[INPUT_KEY],
             batch["batch_indices"],
-            kwargs["loader_name"],
+            kwargs.get("loader_name"),
         )
         batch[INPUT_KEY] = self.transform(split)
         return self.core(batch_idx, batch, state, **kwargs)
