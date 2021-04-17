@@ -6,6 +6,7 @@ from typing import Optional
 
 from ...trainer import callback_dict
 from ...trainer import Trainer
+from ...trainer import TqdmSettings
 from ...trainer import OptimizerPack
 from ...trainer import TrainerMonitor
 from ...trainer import TrainerCallback
@@ -31,6 +32,7 @@ def make_trainer(
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
     metric_log_file: str = "metrics.txt",
     rank: Optional[int] = None,
+    tqdm_settings: Optional[Dict[str, Any]] = None,
 ) -> Trainer:
     # metrics
     if metric_names is None:
@@ -93,6 +95,10 @@ def make_trainer(
                     settings.get("scheduler_config"),
                 )
             )
+    # tqdm
+    if tqdm_settings is None:
+        tqdm_settings = {}
+    use_tqdm = tqdm_settings.setdefault("use_tqdm", False)
     return Trainer(
         state_config,
         num_epoch=num_epoch,
@@ -106,4 +112,12 @@ def make_trainer(
         workplace=workplace,
         metric_log_file=metric_log_file,
         rank=rank,
+        tqdm_settings=TqdmSettings(
+            use_tqdm,
+            tqdm_settings.setdefault("use_step_tqdm", use_tqdm),
+            tqdm_settings.setdefault("use_tqdm_in_cv", False),
+            tqdm_settings.setdefault("in_distributed", False),
+            tqdm_settings.setdefault("tqdm_position", 0),
+            tqdm_settings.setdefault("tqdm_desc", "epoch"),
+        ),
     )

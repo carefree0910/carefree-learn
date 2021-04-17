@@ -138,6 +138,7 @@ class MLPipeline:
         configs_file: str = "configs.json",
         metric_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
+        tqdm_settings: Optional[Dict[str, Any]] = None,
     ) -> "MLPipeline":
         workplace = os.path.join(workplace, timestamp(ensure_different=True))
         os.makedirs(workplace, exist_ok=True)
@@ -282,7 +283,8 @@ class MLPipeline:
         if isinstance(callback_names, str):
             callback_names = [callback_names]
         if "log_metrics_msg" not in callback_names and auto_callback_setup:
-            callback_names.append("log_metrics_msg")
+            if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
+                callback_names.append("log_metrics_msg")
         if "_default_opt_settings" not in callback_names:
             callback_names.append("_default_opt_settings")
         if "_inject_loader_name" not in callback_names:
@@ -306,6 +308,7 @@ class MLPipeline:
             optimizer_settings=optimizer_settings,
             metric_log_file=metric_log_file,
             rank=rank,
+            tqdm_settings=tqdm_settings,
         )
         self.trainer.fit(loss, model, inference, train_loader, valid_loader, cuda=cuda)
         self.device_info = self.trainer.device_info

@@ -26,6 +26,7 @@ from .protocol import MetricProtocol
 from .protocol import InferenceOutputs
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
+from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import scheduler_requires_metric
 from .misc.internal_ import BasicMonitor
@@ -175,6 +176,15 @@ class LogMetricsMsgCallback(TrainerCallback):
             f.write(f"{msg}\n")
 
 
+class TqdmSettings(NamedTuple):
+    use_tqdm: bool = False
+    use_step_tqdm: bool = False
+    use_tqdm_in_cv: bool = False
+    in_distributed: bool = False
+    position: int = 0
+    desc: str = "epoch"
+
+
 class Trainer:
     loss: LossProtocol
     model: ModelProtocol
@@ -203,7 +213,9 @@ class Trainer:
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         metric_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
+        tqdm_settings: Optional[TqdmSettings] = None,
     ):
+        self.tqdm_settings = tqdm_settings or TqdmSettings()
         self.state_config = state_config or {}
         self.num_epoch = num_epoch
         self.valid_portion = valid_portion
@@ -217,7 +229,9 @@ class Trainer:
                 monitors = [monitors]
             self.monitors = monitors
         if callbacks is None:
-            self.callbacks = [_DefaultOptimizerSettings(), LogMetricsMsgCallback()]
+            self.callbacks = [_DefaultOptimizerSettings()]
+            if not self.tqdm_settings.use_tqdm:
+                self.callbacks.append(LogMetricsMsgCallback())
         else:
             if not isinstance(callbacks, list):
                 callbacks = [callbacks]
@@ -252,6 +266,12 @@ class Trainer:
     @property
     def device(self) -> torch.device:
         return self.device_info.device
+
+    @property
+    def use_tqdm_in_cv(self) -> bool:
+        if self.tqdm_settings.in_distributed:
+            return False
+        return self.tqdm_settings.use_tqdm_in_cv or self.state.is_terminate
 
     @property
     def validation_loader(self) -> DataLoaderProtocol:
@@ -478,6 +498,7 @@ class Trainer:
         train_loader: DataLoaderProtocol,
         valid_loader: Optional[DataLoaderProtocol] = None,
         *,
+        show_summary: Optional[bool] = None,
         cuda: Optional[str] = None,
     ) -> "Trainer":
         self.device_info = DeviceInfo(cuda, self.rank)
@@ -497,6 +518,17 @@ class Trainer:
         )
         # optimizer
         self._init_optimizers()
+        # verbose
+        if show_summary is None:
+            show_summary = not self.tqdm_settings.in_distributed
+        if self.is_rank_0:
+            summary_msg = summary(
+                self.model,
+                to_device(next(iter(self.train_loader_copy)), self.device),
+                return_only=not show_summary,
+            )
+            with open(os.path.join(self.workplace, "summary.txt"), "w") as f:
+                f.write(summary_msg)
         # train
         has_ckpt = terminate = False
         print(f"{INFO_PREFIX}entered training loop")
