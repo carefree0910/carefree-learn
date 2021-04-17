@@ -275,12 +275,16 @@ class MLPipeline:
             metric_names = ["acc", "auc"]
         if monitor_names is None:
             monitor_names = ["mean_std", "plateau"]
+        auto_callback_setup = False
         if callback_names is None:
             callback_names = []
+            auto_callback_setup = True
         if isinstance(callback_names, str):
             callback_names = [callback_names]
-        if "basic" not in callback_names:
-            callback_names.append("basic")
+        if "log_metrics_msg" not in callback_names and auto_callback_setup:
+            callback_names.append("log_metrics_msg")
+        if "_default_opt_settings" not in callback_names:
+            callback_names.append("_default_opt_settings")
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
         if optimizer_settings is None:

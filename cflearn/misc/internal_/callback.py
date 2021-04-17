@@ -13,7 +13,6 @@ from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 from ...trainer import Trainer
-from ...trainer import BasicCallback
 from ...trainer import TrainerCallback
 from ...protocol import TrainerState
 from ...protocol import MetricsOutputs
@@ -25,7 +24,7 @@ def parse_mlflow_uri(path: str) -> str:
     return f"file://{delim}{path}"
 
 
-@BasicCallback.register("_inject_loader_name")
+@TrainerCallback.register("_inject_loader_name")
 class _InjectLoaderName(TrainerCallback):
     def mutate_train_forward_kwargs(
         self,
@@ -35,8 +34,8 @@ class _InjectLoaderName(TrainerCallback):
         kwargs["loader_name"] = trainer.train_loader.name  # type: ignore
 
 
-@BasicCallback.register("mlflow")
-class MLFlowCallback(BasicCallback):
+@TrainerCallback.register("mlflow")
+class MLFlowCallback(TrainerCallback):
     def __init__(
         self,
         experiment_name: str,
@@ -106,6 +105,5 @@ class MLFlowCallback(BasicCallback):
 
 
 __all__ = [
-    "BasicCallback",
     "MLFlowCallback",
 ]

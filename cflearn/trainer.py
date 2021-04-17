@@ -113,8 +113,8 @@ class TrainerCallback(WithRegister):
         pass
 
 
-@TrainerCallback.register("basic")
-class BasicCallback(TrainerCallback):
+@TrainerCallback.register("_default_opt_settings")
+class _DefaultOptimizerSettings(TrainerCallback):
     def mutate_optimizer_pack(
         self,
         pack: OptimizerPack,
@@ -146,6 +146,9 @@ class BasicCallback(TrainerCallback):
             scheduler_config,
         )
 
+
+@TrainerCallback.register("log_metrics_msg")
+class LogMetricsMsgCallback(TrainerCallback):
     def log_metrics_msg(
         self,
         metric_outputs: MetricsOutputs,
@@ -214,7 +217,7 @@ class Trainer:
                 monitors = [monitors]
             self.monitors = monitors
         if callbacks is None:
-            self.callbacks = [BasicCallback()]
+            self.callbacks = [_DefaultOptimizerSettings(), LogMetricsMsgCallback()]
         else:
             if not isinstance(callbacks, list):
                 callbacks = [callbacks]
