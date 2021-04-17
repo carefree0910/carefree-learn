@@ -1,5 +1,7 @@
+import os
 import math
 import torch
+import shutil
 import inspect
 import logging
 import torchvision
@@ -16,6 +18,8 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import ContextManager
+from datetime import datetime
+from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
 from cftool.misc import prod
@@ -26,9 +30,44 @@ from ..types import data_type
 from ..types import param_type
 from ..types import tensor_dict_type
 from ..constants import INPUT_KEY
+from ..constants import TIME_FORMAT
+from ..constants import WARNING_PREFIX
 
 
 # general
+
+
+def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) -> str:
+    current_time = datetime.now()
+    if os.path.isdir(workplace):
+        for stuff in os.listdir(workplace):
+            if not os.path.isdir(os.path.join(workplace, stuff)):
+                continue
+            try:
+                stuff_time = datetime.strptime(stuff, TIME_FORMAT)
+                stuff_delta = current_time - stuff_time
+                if stuff_delta > timeout:
+                    print(
+                        f"{WARNING_PREFIX}{stuff} will be removed "
+                        f"(already {stuff_delta} ago)"
+                    )
+                    shutil.rmtree(os.path.join(workplace, stuff))
+            except:
+                print(f"{WARNING_PREFIX}{stuff} in {workplace} is not of time format")
+    return os.path.join(workplace, current_time.strftime(TIME_FORMAT))
+
+
+def get_latest_workplace(root: str) -> str:
+    all_workplaces = []
+    for stuff in os.listdir(root):
+        if not os.path.isdir(os.path.join(root, stuff)):
+            continue
+        try:
+            datetime.strptime(stuff, TIME_FORMAT)
+            all_workplaces.append(stuff)
+        except:
+            print(f"{WARNING_PREFIX}{stuff} in {root} is not of time format")
+    return os.path.join(root, sorted(all_workplaces)[-1])
 
 
 def to_standard(arr: np.ndarray) -> np.ndarray:

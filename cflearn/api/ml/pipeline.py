@@ -14,7 +14,6 @@ from typing import Optional
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
-from cftool.misc import timestamp
 from cftool.misc import shallow_copy_dict
 
 from ...types import data_type
@@ -27,6 +26,7 @@ from ...protocol import InferenceOutputs
 from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
 from ...misc.toolkit import get_arguments
+from ...misc.toolkit import prepare_workplace_from
 from ...misc.internal_ import MLData
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLInference
@@ -159,10 +159,8 @@ class MLPipeline:
         *,
         cuda: Optional[str] = None,
     ) -> "MLPipeline":
-        workplace = self.trainer_config["workplace"] = os.path.join(
-            self.trainer_config["workplace"],
-            timestamp(ensure_different=True),
-        )
+        workplace = prepare_workplace_from(self.trainer_config["workplace"])
+        self.trainer_config["workplace"] = workplace
         self.trainer_config["metrics_log_file"] = self.metrics_log_file
         os.makedirs(workplace, exist_ok=True)
         with open(os.path.join(workplace, self.configs_file), "w") as f:
