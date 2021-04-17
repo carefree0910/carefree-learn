@@ -49,6 +49,7 @@ class MLPipeline:
     valid_loader: MLLoader
     encoder: Optional[Encoder]
 
+    configs_file: str = "configs.json"
     metrics_log_file: str = "metrics.txt"
 
     def __init__(
@@ -94,7 +95,6 @@ class MLPipeline:
         callback_configs: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
-        configs_file: str = "configs.json",
         rank: Optional[int] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
     ):
@@ -127,7 +127,6 @@ class MLPipeline:
             default_encoding_methods = ["embedding"]
         self.default_encoding_methods = default_encoding_methods
         self.default_encoding_configs = default_encoding_configs or {}
-        self.configs_file = configs_file
         self.trainer_config = {
             "state_config": state_config,
             "num_epoch": num_epoch,
