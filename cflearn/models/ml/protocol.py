@@ -239,6 +239,7 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         core_config["out_dim"] = out_dim
         core_config["num_history"] = num_history
         self.core = ml_core_dict[core_name](**core_config)
+        self.__identifier__ = core_name
 
     def forward(
         self,
