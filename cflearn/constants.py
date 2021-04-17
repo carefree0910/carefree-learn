@@ -11,3 +11,6 @@ LABEL_KEY = "labels"
 
 PT_PREFIX = "model_"
 SCORES_FILE = "scores.json"
+
+META_CONFIG_NAME = "__meta__"
+DATA_CONFIG_FILE = "__data__.json"
