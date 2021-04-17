@@ -1,20 +1,26 @@
 import copy
 import torch
 
+import numpy as np
+
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Union
+from typing import Callable
 from typing import Optional
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
+from cftool.ml import ModelPattern
 
 from ...types import data_type
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import loss_dict
 from ...protocol import LossProtocol
+from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
+from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
 from ...misc.internal_ import MLData
 from ...misc.internal_ import MLLoader
@@ -30,6 +36,13 @@ class MLPipeline:
     trainer: Trainer
     inference: MLInference
     device_info: DeviceInfo
+
+    train_data: TabularData
+    valid_data: Optional[TabularData]
+    train_loader: MLLoader
+    train_loader_copy: MLLoader
+    valid_loader: MLLoader
+    encoder: Optional[Encoder]
 
     def __init__(
         self,
@@ -162,6 +175,12 @@ class MLPipeline:
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
             )
+        # set properties
+        self.train_data = train_data
+        self.valid_data = valid_data
+        self.train_loader = train_loader
+        self.train_loader_copy = train_loader_copy
+        self.valid_loader = valid_loader
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -216,11 +235,12 @@ class MLPipeline:
             encoder = Encoder(
                 self.encoder_config,
                 categorical_dims,
-                encoding_methods,
+                encoding_methods,  # type: ignore
                 encoding_configs,
                 true_categorical_columns,
                 loaders,
             )
+        self.encoder = encoder
         # prepare
         if self.loss_name == "auto":
             self.loss_name = "focal" if self.data.is_clf else "mae"
@@ -246,6 +266,8 @@ class MLPipeline:
             monitor_names = ["mean_std", "plateau"]
         if callback_names is None:
             callback_names = []
+        if isinstance(callback_names, str):
+            callback_names = [callback_names]
         if "basic" not in callback_names:
             callback_names.append("basic")
         if "_inject_loader_name" not in callback_names:
@@ -289,6 +311,32 @@ class MLPipeline:
             batch_size=batch_size,
         )
         return self.inference.get_outputs(self.device, loader, **predict_kwargs)
+
+    def to_pattern(
+        self,
+        *,
+        pre_process: Optional[Callable] = None,
+        **predict_kwargs: Any,
+    ) -> ModelPattern:
+        def _predict(x: np.ndarray) -> np.ndarray:
+            if pre_process is not None:
+                x = pre_process(x)
+            outputs = self.predict(x, **predict_kwargs)
+            predictions = outputs.forward_results[PREDICTIONS_KEY]
+            return np.argmax(predictions, axis=1)[..., None]
+
+        def _predict_prob(x: np.ndarray) -> np.ndarray:
+            if pre_process is not None:
+                x = pre_process(x)
+            outputs = self.predict(x, **predict_kwargs)
+            logits = outputs.forward_results[PREDICTIONS_KEY]
+            return MetricProtocol.softmax(logits)
+
+        return ModelPattern(
+            init_method=lambda: self,
+            predict_method=_predict,
+            predict_prob_method=_predict_prob,
+        )
 
 
 __all__ = [

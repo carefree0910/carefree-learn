@@ -16,6 +16,7 @@ from typing import ContextManager
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
 
+from ..types import data_type
 from ..types import param_type
 from ..types import tensor_dict_type
 
@@ -271,6 +272,16 @@ def is_int(arr: np.ndarray) -> bool:
 
 def is_float(arr: np.ndarray) -> bool:
     return np.issubdtype(arr.dtype, np.floating)
+
+
+def to_2d(arr: data_type) -> data_type:
+    if arr is None or isinstance(arr, str):
+        return None
+    if isinstance(arr, np.ndarray):
+        return arr.reshape([len(arr), -1])
+    if isinstance(arr[0], list):
+        return arr
+    return [[elem] for elem in arr]  # type: ignore
 
 
 # cv
