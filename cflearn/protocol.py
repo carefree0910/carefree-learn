@@ -130,7 +130,7 @@ class TrainerState:
         self.max_snapshot_file = max_snapshot_file
         self.num_step_per_log = num_step_per_log
         if num_step_per_snapshot is None:
-            num_step_per_snapshot = int(len(loader) / num_snapshot_per_epoch)
+            num_step_per_snapshot = max(1, int(len(loader) / num_snapshot_per_epoch))
         self.num_step_per_snapshot = num_step_per_snapshot
 
     def set_terminate(self) -> None:
