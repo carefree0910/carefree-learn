@@ -149,71 +149,35 @@ class MLPipeline:
     def device(self) -> torch.device:
         return self.device_info.device
 
-    # TODO : support sample weights
-    def fit(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
-        *,
-        cuda: Optional[str] = None,
-    ) -> "MLPipeline":
-        workplace = prepare_workplace_from(self.trainer_config["workplace"])
-        self.trainer_config["workplace"] = workplace
-        self.trainer_config["metrics_log_file"] = self.metrics_log_file
-        os.makedirs(workplace, exist_ok=True)
-        with open(os.path.join(workplace, self.configs_file), "w") as f:
-            json.dump(self.config, f)
-        self.data.read(x, y, **self.read_config)
-        # split data
-        if x_valid is not None:
-            train_data = self.data
-            valid_data = self.data.copy_to(x_valid, y_valid)
-        else:
-            if isinstance(self.valid_split, int):
-                split = self.valid_split
-            else:
-                num_data = len(self.data)
-                if isinstance(self.valid_split, float):
-                    split = int(round(self.valid_split * num_data))
-                else:
-                    default_split = 0.1
-                    num_split = int(round(default_split * num_data))
-                    num_split = max(self.min_valid_split, num_split)
-                    max_split = int(round(num_data * self.max_valid_split_ratio))
-                    max_split = min(max_split, self.max_valid_split)
-                    split = min(num_split, max_split)
-            if split <= 0:
-                train_data = MLData(*self.data.processed.xy)
-                valid_data = None
-            else:
-                split_result = self.data.split(split, order=self.valid_split_order)
-                train_data = split_result.remained
-                valid_data = split_result.split
+    def _prepare_data(self) -> None:
         train_loader = MLLoader(
-            MLData(*train_data.processed.xy),
+            MLData(*self.train_data.processed.xy),
             name="train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
         )
         train_loader_copy = copy.deepcopy(train_loader)
         train_loader_copy.shuffle = False
-        if valid_data is None:
+        if self.valid_data is None:
             valid_loader = train_loader_copy
         else:
             valid_loader = MLLoader(
-                MLData(*valid_data.processed.xy),
+                MLData(*self.valid_data.processed.xy),
                 name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
             )
-        # set properties
-        self.train_data = train_data
-        self.valid_data = valid_data
         self.train_loader = train_loader
         self.train_loader_copy = train_loader_copy
         self.valid_loader = valid_loader
+
+    def _prepare_modules(self) -> None:
+        workplace = prepare_workplace_from(self.trainer_config["workplace"])
+        self.trainer_config["workplace"] = workplace
+        self.trainer_config["metrics_log_file"] = self.metrics_log_file
+        os.makedirs(workplace, exist_ok=True)
+        with open(os.path.join(workplace, self.configs_file), "w") as f:
+            json.dump(self.config, f)
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -262,9 +226,9 @@ class MLPipeline:
         if not true_categorical_columns:
             encoder = None
         else:
-            loaders = [train_loader_copy]
-            if valid_loader is not None:
-                loaders.append(valid_loader)
+            loaders = [self.train_loader_copy]
+            if self.valid_loader is not None:
+                loaders.append(self.valid_loader)
             encoder = Encoder(
                 self.encoder_config,
                 categorical_dims,
@@ -277,8 +241,8 @@ class MLPipeline:
         # prepare
         if self.loss_name == "auto":
             self.loss_name = "focal" if self.data.is_clf else "mae"
-        loss = loss_dict[self.loss_name](**(self.loss_config or {}))
-        model = self.model = MLModel(
+        self.loss = loss_dict[self.loss_name](**(self.loss_config or {}))
+        self.model = MLModel(
             self.data.processed_dim,
             1 if self.data.is_reg else self.data.num_classes,
             self.num_history,
@@ -291,8 +255,10 @@ class MLPipeline:
             core_name=self.core_name,
             core_config=self.core_config,
         )
-        inference = self.inference = MLInference(model)
-        # set some defaults to ml tasks which work well in practice
+        self.inference = MLInference(self.model)
+
+    def _prepare_trainer_defaults(self) -> None:
+        # set some trainer defaults to ml tasks which work well in practice
         if self.trainer_config["metric_names"] is None and self.data.is_clf:
             self.trainer_config["metric_names"] = ["acc", "auc"]
         if self.trainer_config["monitor_names"] is None:
@@ -318,9 +284,57 @@ class MLPipeline:
         self.trainer_config["tqdm_settings"] = tqdm_settings
         self.trainer_config["callback_names"] = callback_names
         self.trainer_config["optimizer_settings"] = optimizer_settings
+
+    # TODO : support sample weights
+    def fit(
+        self,
+        x: data_type,
+        y: data_type = None,
+        x_valid: data_type = None,
+        y_valid: data_type = None,
+        *,
+        cuda: Optional[str] = None,
+    ) -> "MLPipeline":
+        # prepare data
+        self.data.read(x, y, **self.read_config)
+        if x_valid is not None:
+            self.train_data = self.data
+            self.valid_data = self.data.copy_to(x_valid, y_valid)
+        else:
+            if isinstance(self.valid_split, int):
+                split = self.valid_split
+            else:
+                num_data = len(self.data)
+                if isinstance(self.valid_split, float):
+                    split = int(round(self.valid_split * num_data))
+                else:
+                    default_split = 0.1
+                    num_split = int(round(default_split * num_data))
+                    num_split = max(self.min_valid_split, num_split)
+                    max_split = int(round(num_data * self.max_valid_split_ratio))
+                    max_split = min(max_split, self.max_valid_split)
+                    split = min(num_split, max_split)
+            if split <= 0:
+                self.train_data = self.data
+                self.valid_data = None
+            else:
+                split_result = self.data.split(split, order=self.valid_split_order)
+                self.train_data = split_result.remained
+                self.valid_data = split_result.split
+        # internal preparation
+        self._prepare_data()
+        self._prepare_modules()
+        self._prepare_trainer_defaults()
         # fit these stuffs!
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
-        self.trainer.fit(loss, model, inference, train_loader, valid_loader, cuda=cuda)
+        self.trainer.fit(
+            self.loss,
+            self.model,
+            self.inference,
+            self.train_loader,
+            self.valid_loader,
+            cuda=cuda,
+        )
         self.device_info = self.trainer.device_info
         return self
 
