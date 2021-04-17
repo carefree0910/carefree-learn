@@ -93,7 +93,7 @@ class TrainerCallback(WithRegister):
     def log_metrics_msg(
         self,
         metric_outputs: MetricsOutputs,
-        metric_log_path: str,
+        metrics_log_path: str,
         state: TrainerState,
     ) -> None:
         pass
@@ -153,14 +153,14 @@ class _DefaultOptimizerSettings(TrainerCallback):
 class LogMetricsMsgCallback(TrainerCallback):
     def log_metrics_msg(
         self,
-        metric_outputs: MetricsOutputs,
-        metric_log_path: str,
+        metrics_outputs: MetricsOutputs,
+        metrics_log_path: str,
         state: TrainerState,
     ) -> None:
         if not self.is_rank_0:
             return None
-        final_score = metric_outputs.final_score
-        metric_values = metric_outputs.metric_values
+        final_score = metrics_outputs.final_score
+        metric_values = metrics_outputs.metric_values
         core = " | ".join(
             [
                 f"{k} : {fix_float_to_length(metric_values[k], 8)}"
@@ -173,7 +173,7 @@ class LogMetricsMsgCallback(TrainerCallback):
             f"score : {fix_float_to_length(final_score, 8)} |"
         )
         print(msg)
-        with open(metric_log_path, "a") as f:
+        with open(metrics_log_path, "a") as f:
             f.write(f"{msg}\n")
 
 
@@ -212,7 +212,7 @@ class Trainer:
         monitors: Optional[Union[TrainerMonitor, List[TrainerMonitor]]] = None,
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
-        metric_log_file: str = "metrics.txt",
+        metrics_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
         tqdm_settings: Optional[TqdmSettings] = None,
     ):
@@ -253,8 +253,8 @@ class Trainer:
         if self.is_rank_0:
             self.workplace = workplace
             os.makedirs(self.workplace, exist_ok=True)
-            self.metric_log_path = os.path.join(self.workplace, metric_log_file)
-            with open(self.metric_log_path, "w"):
+            self.metrics_log_path = os.path.join(self.workplace, metrics_log_file)
+            with open(self.metrics_log_path, "w"):
                 pass
             self.checkpoint_folder = os.path.join(self.workplace, "checkpoints")
             os.makedirs(self.checkpoint_folder)
@@ -448,7 +448,7 @@ class Trainer:
             for callback in self.callbacks:
                 callback.log_metrics_msg(
                     metrics_outputs,
-                    self.metric_log_path,
+                    self.metrics_log_path,
                     self.state,
                 )
 

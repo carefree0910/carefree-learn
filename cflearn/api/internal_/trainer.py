@@ -30,7 +30,7 @@ def make_trainer(
     callback_names: Optional[Union[str, List[str]]] = None,
     callback_configs: Optional[Dict[str, Any]] = None,
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-    metric_log_file: str = "metrics.txt",
+    metrics_log_file: str = "metrics.txt",
     rank: Optional[int] = None,
     tqdm_settings: Optional[Dict[str, Any]] = None,
 ) -> Trainer:
@@ -110,7 +110,7 @@ def make_trainer(
         callbacks=callbacks,
         optimizer_packs=optimizer_packs,
         workplace=workplace,
-        metric_log_file=metric_log_file,
+        metrics_log_file=metrics_log_file,
         rank=rank,
         tqdm_settings=TqdmSettings(
             use_tqdm,

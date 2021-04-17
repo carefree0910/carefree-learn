@@ -49,6 +49,8 @@ class MLPipeline:
     valid_loader: MLLoader
     encoder: Optional[Encoder]
 
+    metrics_log_file: str = "metrics.txt"
+
     def __init__(
         self,
         core_name: str = "fcnn",
@@ -93,7 +95,6 @@ class MLPipeline:
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
         configs_file: str = "configs.json",
-        metric_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
     ):
@@ -141,7 +142,6 @@ class MLPipeline:
             "callback_configs": callback_configs,
             "optimizer_settings": optimizer_settings,
             "workplace": workplace,
-            "metric_log_file": metric_log_file,
             "rank": rank,
             "tqdm_settings": tqdm_settings,
         }
@@ -164,6 +164,7 @@ class MLPipeline:
             self.trainer_config["workplace"],
             timestamp(ensure_different=True),
         )
+        self.trainer_config["metrics_log_file"] = self.metrics_log_file
         os.makedirs(workplace, exist_ok=True)
         with open(os.path.join(workplace, self.configs_file), "w") as f:
             json.dump(self.config, f)
