@@ -3,13 +3,11 @@ import copy
 import json
 import math
 import torch
-import shutil
 
 import numpy as np
 
 from typing import *
 from torch.optim import Optimizer
-from cftool.misc import timestamp
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
@@ -191,6 +189,7 @@ class Trainer:
         self,
         state_config: Optional[Dict[str, Any]] = None,
         *,
+        workplace: str,
         num_epoch: int = 40,
         valid_portion: float = 1.0,
         amp: bool = False,
@@ -199,7 +198,6 @@ class Trainer:
         monitors: Optional[Union[TrainerMonitor, List[TrainerMonitor]]] = None,
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
-        workplace: str = "_logs",
         metric_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
     ):
@@ -235,11 +233,8 @@ class Trainer:
             callback.is_rank_0 = self.is_rank_0
         # initialize artifact structure
         if self.is_rank_0:
-            self.workplace = os.path.join(workplace, timestamp())
-            if os.path.isdir(self.workplace):
-                print(f"{WARNING_PREFIX}workplace already exists, it will be erased")
-                shutil.rmtree(self.workplace)
-            os.makedirs(self.workplace)
+            self.workplace = workplace
+            os.makedirs(self.workplace, exist_ok=True)
             self.metric_log_path = os.path.join(self.workplace, metric_log_file)
             with open(self.metric_log_path, "w"):
                 pass

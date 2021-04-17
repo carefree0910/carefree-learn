@@ -17,6 +17,7 @@ from ...misc.internal_.metrics import MultipleMetrics
 def make_trainer(
     state_config: Optional[Dict[str, Any]] = None,
     *,
+    workplace: str,
     num_epoch: int = 40,
     valid_portion: float = 1.0,
     amp: bool = False,
@@ -28,7 +29,6 @@ def make_trainer(
     callback_names: Optional[Union[str, List[str]]] = None,
     callback_configs: Optional[Dict[str, Any]] = None,
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-    workplace: str = "_logs",
     metric_log_file: str = "metrics.txt",
     rank: Optional[int] = None,
 ) -> Trainer:

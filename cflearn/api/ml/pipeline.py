@@ -12,6 +12,7 @@ from typing import Optional
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
+from cftool.misc import timestamp
 
 from ...types import data_type
 from ...trainer import Trainer
@@ -132,6 +133,8 @@ class MLPipeline:
         metric_log_file: str = "metrics.txt",
         rank: Optional[int] = None,
     ) -> "MLPipeline":
+        workplace = os.path.join(workplace, timestamp(ensure_different=True))
+        os.makedirs(workplace, exist_ok=True)
         self.data.read(x, y, **self.read_config)
         # split data
         if x_valid is not None:
@@ -277,6 +280,7 @@ class MLPipeline:
         # fit these stuffs!
         self.trainer = make_trainer(
             state_config,
+            workplace=workplace,
             num_epoch=num_epoch,
             valid_portion=valid_portion,
             amp=amp,
@@ -288,7 +292,6 @@ class MLPipeline:
             callback_names=callback_names,
             callback_configs=callback_configs,
             optimizer_settings=optimizer_settings,
-            workplace=workplace,
             metric_log_file=metric_log_file,
             rank=rank,
         )
