@@ -197,7 +197,7 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: TrainerState,
+        state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         pass
@@ -245,7 +245,7 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: TrainerState,
+        state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         split = self.dimensions.split_features(

@@ -50,7 +50,7 @@ class FCNN(MLCoreProtocol):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: TrainerState,
+        state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
