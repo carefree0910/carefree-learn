@@ -405,7 +405,7 @@ class Initializer(LoggingMixinWithRank):
     @classmethod
     def add_initializer(cls, f: Callable, name: str) -> None:
         if name in cls.defined_initialization:
-            print(f"{cls.warning_prefix}'{name}' initializer is already defined")
+            print(f"{WARNING_PREFIX}'{name}' initializer is already defined")
             return
         cls.defined_initialization.add(name)
         cls.custom_initializer[name] = f

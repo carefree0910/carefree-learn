@@ -10,13 +10,13 @@ from tqdm.autonotebook import tqdm
 from cftool.ml import ModelPattern
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
-from cftool.misc import LoggingMixin
 from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 
 from .pipeline import MLPipeline
 from ...types import data_type
+from ...constants import WARNING_PREFIX
 from ...dist.ml import Experiment
 from ...misc.toolkit import to_2d
 from ...misc.internal_ import MLData
@@ -102,7 +102,7 @@ def evaluate(
         for other_name in other_patterns.keys():
             if other_name in patterns:
                 print(
-                    f"{LoggingMixin.warning_prefix}'{other_name}' is found in "
+                    f"{WARNING_PREFIX}'{other_name}' is found in "
                     "`other_patterns`, it will be overwritten"
                 )
         update_dict(other_patterns, patterns)
@@ -175,7 +175,7 @@ def repeat_with(
         tqdm_settings["tqdm_position"] = 2
         if not return_patterns:
             print(
-                f"{LoggingMixin.warning_prefix}`return_patterns` should be "
+                f"{WARNING_PREFIX}`return_patterns` should be "
                 "True when `sequential` is True, because patterns "
                 "will always be generated"
             )
@@ -204,7 +204,7 @@ def repeat_with(
     else:
         if num_jobs <= 1:
             print(
-                f"{LoggingMixin.warning_prefix}we suggest setting `sequential` "
+                f"{WARNING_PREFIX}we suggest setting `sequential` "
                 f"to True when `num_jobs` is {num_jobs}"
             )
         # data
