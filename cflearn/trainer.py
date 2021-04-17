@@ -590,7 +590,8 @@ class Trainer:
             self.epoch_tqdm.close()
         # restore
         if not self.ddp and os.path.isdir(self.checkpoint_folder):
-            print(f"{INFO_PREFIX}rolling back to the best checkpoint")
+            if not self.tqdm_settings.in_distributed:
+                print(f"{INFO_PREFIX}rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
@@ -670,14 +671,16 @@ class Trainer:
             folder = self.checkpoint_folder
         checkpoints = self._get_sorted_checkpoints(os.path.join(folder, SCORES_FILE))
         if not checkpoints:
-            print(f"{WARNING_PREFIX}no model file found in {folder}")
+            if not self.tqdm_settings.in_distributed:
+                print(f"{WARNING_PREFIX}no model file found in {folder}")
             return False
         success = False
         for checkpoint in checkpoints:
             model_file = os.path.join(folder, checkpoint)
             if not os.path.isfile(model_file):
                 continue
-            print(f"{INFO_PREFIX}restoring from {model_file}")
+            if not self.tqdm_settings.in_distributed:
+                print(f"{INFO_PREFIX}restoring from {model_file}")
             states = torch.load(model_file, map_location=self.device)
             if state_dict_callback is not None:
                 state_dict_callback(states)
