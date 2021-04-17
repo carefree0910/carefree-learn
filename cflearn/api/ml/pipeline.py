@@ -15,6 +15,7 @@ from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
 from cftool.misc import timestamp
+from cftool.misc import shallow_copy_dict
 
 from ...types import data_type
 from ...trainer import Trainer
@@ -77,6 +78,24 @@ class MLPipeline:
         encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
         default_encoding_methods: Optional[List[str]] = None,
         default_encoding_configs: Optional[Dict[str, Any]] = None,
+        # trainer
+        state_config: Optional[Dict[str, Any]] = None,
+        num_epoch: int = 40,
+        valid_portion: float = 1.0,
+        amp: bool = False,
+        clip_norm: float = 0.0,
+        metric_names: Optional[Union[str, List[str]]] = None,
+        metric_configs: Optional[Dict[str, Any]] = None,
+        monitor_names: Optional[Union[str, List[str]]] = None,
+        monitor_configs: Optional[Dict[str, Any]] = None,
+        callback_names: Optional[Union[str, List[str]]] = None,
+        callback_configs: Optional[Dict[str, Any]] = None,
+        optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
+        workplace: str = "_logs",
+        configs_file: str = "configs.json",
+        metric_log_file: str = "metrics.txt",
+        rank: Optional[int] = None,
+        tqdm_settings: Optional[Dict[str, Any]] = None,
     ):
         self.config = get_arguments()
         self.config.pop("self")
@@ -107,6 +126,25 @@ class MLPipeline:
             default_encoding_methods = ["embedding"]
         self.default_encoding_methods = default_encoding_methods
         self.default_encoding_configs = default_encoding_configs or {}
+        self.configs_file = configs_file
+        self.trainer_config = {
+            "state_config": state_config,
+            "num_epoch": num_epoch,
+            "valid_portion": valid_portion,
+            "amp": amp,
+            "clip_norm": clip_norm,
+            "metric_names": metric_names,
+            "metric_configs": metric_configs,
+            "monitor_names": monitor_names,
+            "monitor_configs": monitor_configs,
+            "callback_names": callback_names,
+            "callback_configs": callback_configs,
+            "optimizer_settings": optimizer_settings,
+            "workplace": workplace,
+            "metric_log_file": metric_log_file,
+            "rank": rank,
+            "tqdm_settings": tqdm_settings,
+        }
 
     @property
     def device(self) -> torch.device:
@@ -121,28 +159,13 @@ class MLPipeline:
         y_valid: data_type = None,
         *,
         cuda: Optional[str] = None,
-        # trainer
-        state_config: Optional[Dict[str, Any]] = None,
-        num_epoch: int = 40,
-        valid_portion: float = 1.0,
-        amp: bool = False,
-        clip_norm: float = 0.0,
-        metric_names: Optional[Union[str, List[str]]] = None,
-        metric_configs: Optional[Dict[str, Any]] = None,
-        monitor_names: Optional[Union[str, List[str]]] = None,
-        monitor_configs: Optional[Dict[str, Any]] = None,
-        callback_names: Optional[Union[str, List[str]]] = None,
-        callback_configs: Optional[Dict[str, Any]] = None,
-        optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-        workplace: str = "_logs",
-        configs_file: str = "configs.json",
-        metric_log_file: str = "metrics.txt",
-        rank: Optional[int] = None,
-        tqdm_settings: Optional[Dict[str, Any]] = None,
     ) -> "MLPipeline":
-        workplace = os.path.join(workplace, timestamp(ensure_different=True))
+        workplace = self.trainer_config["workplace"] = os.path.join(
+            self.trainer_config["workplace"],
+            timestamp(ensure_different=True),
+        )
         os.makedirs(workplace, exist_ok=True)
-        with open(os.path.join(workplace, configs_file), "w") as f:
+        with open(os.path.join(workplace, self.configs_file), "w") as f:
             json.dump(self.config, f)
         self.data.read(x, y, **self.read_config)
         # split data
@@ -272,11 +295,14 @@ class MLPipeline:
         )
         inference = self.inference = MLInference(model)
         # set some defaults to ml tasks which work well in practice
-        if metric_names is None and self.data.is_clf:
-            metric_names = ["acc", "auc"]
-        if monitor_names is None:
-            monitor_names = ["mean_std", "plateau"]
+        if self.trainer_config["metric_names"] is None and self.data.is_clf:
+            self.trainer_config["metric_names"] = ["acc", "auc"]
+        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
         auto_callback_setup = False
+        tqdm_settings = self.trainer_config["tqdm_settings"]
+        callback_names = self.trainer_config["callback_names"]
+        optimizer_settings = self.trainer_config["optimizer_settings"]
         if callback_names is None:
             callback_names = []
             auto_callback_setup = True
@@ -291,25 +317,11 @@ class MLPipeline:
             callback_names.append("_inject_loader_name")
         if optimizer_settings is None:
             optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
+        self.trainer_config["tqdm_settings"] = tqdm_settings
+        self.trainer_config["callback_names"] = callback_names
+        self.trainer_config["optimizer_settings"] = optimizer_settings
         # fit these stuffs!
-        self.trainer = make_trainer(
-            state_config,
-            workplace=workplace,
-            num_epoch=num_epoch,
-            valid_portion=valid_portion,
-            amp=amp,
-            clip_norm=clip_norm,
-            metric_names=metric_names,
-            metric_configs=metric_configs,
-            monitor_names=monitor_names,
-            monitor_configs=monitor_configs,
-            callback_names=callback_names,
-            callback_configs=callback_configs,
-            optimizer_settings=optimizer_settings,
-            metric_log_file=metric_log_file,
-            rank=rank,
-            tqdm_settings=tqdm_settings,
-        )
+        self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(loss, model, inference, train_loader, valid_loader, cuda=cuda)
         self.device_info = self.trainer.device_info
         return self
