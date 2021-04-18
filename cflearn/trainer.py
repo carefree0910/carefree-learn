@@ -293,6 +293,10 @@ class Trainer:
     def validation_loader(self) -> DataLoaderProtocol:
         return self.valid_loader or self.train_loader_copy
 
+    @property
+    def input_sample(self) -> tensor_dict_type:
+        return next(iter(self.train_loader_copy))
+
     # init
 
     def default_lr_configs(
@@ -549,7 +553,7 @@ class Trainer:
         if self.is_rank_0:
             summary_msg = summary(
                 self.model,
-                to_device(next(iter(self.train_loader_copy)), self.device),
+                to_device(self.input_sample, self.device),
                 return_only=not show_summary,
             )
             with open(os.path.join(self.workplace, "summary.txt"), "w") as f:
