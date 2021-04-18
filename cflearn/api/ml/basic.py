@@ -130,7 +130,8 @@ def evaluate(
     return comparer
 
 
-def task_loader(export_folder: str, compress: bool = True) -> MLPipeline:
+def task_loader(workplace: str, compress: bool = True) -> MLPipeline:
+    export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
     return MLPipeline.load(export_folder=export_folder, compress=compress)
 
 
@@ -138,7 +139,7 @@ def load_experiment_results(results: ExperimentResults) -> Dict[str, List[MLPipe
     pipelines_dict: Dict[str, Dict[int, MLPipeline]] = {}
     iterator = list(zip(results.workplaces, results.workplace_keys))
     for workplace, workplace_key in tqdm(iterator, desc="load"):
-        pipeline = task_loader(os.path.join(workplace, ML_PIPELINE_SAVE_NAME))
+        pipeline = task_loader(workplace)
         model, str_i = workplace_key
         pipelines_dict.setdefault(model, {})[int(str_i)] = pipeline
     return {k: [v[i] for i in sorted(v)] for k, v in pipelines_dict.items()}
