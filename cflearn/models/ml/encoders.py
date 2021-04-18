@@ -1,6 +1,5 @@
 import math
 import torch
-import logging
 
 import numpy as np
 import torch.nn as nn
@@ -303,17 +302,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         else:
             keys = self._get_cache_keys(loader_name)
             oob_mask = getattr(self, keys["oob"])[batch_indices].to(torch.bool)
-        if torch.any(oob_mask):
-            self.log_msg(  # type: ignore
-                "out of bound occurred, "
-                f"ratio : {torch.mean(oob_mask.to(torch.float32)).item():8.6f}",
-                prefix=self.warning_prefix,  # type: ignore
-                verbose_level=5,
-                msg_level=logging.WARNING,
-            )
-            # TODO : currently pytorch does not support onnx with bool masks
-            #        in the future this line should be un-indented
-            categorical_columns[oob_mask] = 0.0
+        categorical_columns[oob_mask] = 0.0
 
     @staticmethod
     def _to_split(columns: torch.Tensor) -> List[torch.Tensor]:
