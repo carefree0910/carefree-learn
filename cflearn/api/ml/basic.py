@@ -9,6 +9,7 @@ from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
 from cftool.ml import ModelPattern
+from cftool.ml import EnsemblePattern
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.ml.utils import patterns_type
@@ -267,5 +268,9 @@ def repeat_with(
 
 __all__ = [
     "evaluate",
+    "task_loader",
+    "load_experiment_results",
     "repeat_with",
+    "ModelPattern",
+    "EnsemblePattern",
 ]

@@ -1,5 +1,6 @@
 import os
 import math
+import time
 import torch
 import shutil
 import inspect
@@ -292,6 +293,23 @@ def summary(
     if not return_only:
         print(msg)
     return msg
+
+
+def _rmtree(folder: str, patience: float = 10.0) -> None:
+    if not os.path.isdir(folder):
+        return None
+    t = time.time()
+    while True:
+        try:
+            if time.time() - t >= patience:
+                prefix = LoggingMixin.warning_prefix
+                print(f"\n{prefix}failed to rmtree: {folder}")
+                break
+            shutil.rmtree(folder)
+            break
+        except:
+            print("", end=".", flush=True)
+            time.sleep(1)
 
 
 class mode_context(context_error_handler):
