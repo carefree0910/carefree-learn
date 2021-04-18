@@ -400,6 +400,18 @@ class MLPipeline:
             predict_prob_method=_predict_prob,
         )
 
+    def _save_misc(self, export_folder: str, retain_data: bool) -> float:
+        # data
+        data_folder = os.path.join(export_folder, self.data_folder)
+        self.data.save(data_folder, retain_data=retain_data, compress=False)
+        # final results
+        final_results = self.trainer.final_results
+        if final_results is None:
+            raise ValueError("`final_results` are not generated yet")
+        with open(os.path.join(export_folder, self.final_results_file), "w") as f:
+            json.dump(final_results, f)
+        return final_results.final_score
+
     def save(
         self,
         export_folder: str,
@@ -411,19 +423,8 @@ class MLPipeline:
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            # data
-            data_folder = os.path.join(export_folder, self.data_folder)
-            self.data.save(data_folder, retain_data=retain_data, compress=False)
-            # final results
-            final_results = self.trainer.final_results
-            if final_results is None:
-                raise ValueError("`final_results` are not generated yet")
-            with open(os.path.join(export_folder, self.final_results_file), "w") as f:
-                json.dump(final_results, f)
-            # pytorch checkpoint
-            score = final_results.final_score
+            score = self._save_misc(export_folder, retain_data)
             self.trainer.save_checkpoint(score, export_folder)
-            # config bundle
             if self.inference is None:
                 raise ValueError("`inference` is not yet generated")
             config_bundle = {
@@ -432,7 +433,6 @@ class MLPipeline:
                 "processed_dim": self.processed_dim,
             }
             Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
-            # compress
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
