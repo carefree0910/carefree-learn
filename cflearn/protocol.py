@@ -111,6 +111,8 @@ class TrainerState:
         loader: DataLoaderProtocol,
         *,
         num_epoch: int,
+        max_epoch: int,
+        extension: int = 5,
         enable_logging: bool = True,
         min_num_sample: int = 3000,
         snapshot_start_step: Optional[int] = None,
@@ -123,6 +125,8 @@ class TrainerState:
         self.batch_size = loader.batch_size
         self.num_step_per_epoch = len(loader)
         self.num_epoch = num_epoch
+        self.max_epoch = max_epoch
+        self.extension = extension
         self.enable_logging = enable_logging
         if snapshot_start_step is None:
             snapshot_start_step = math.ceil(min_num_sample / self.batch_size)
@@ -180,6 +184,14 @@ class TrainerState:
         return self.step >= self.snapshot_start_step
 
     @property
+    def should_extend_epoch(self) -> bool:
+        return self.epoch == self.num_epoch and self.epoch < self.max_epoch
+
+    @property
+    def reached_max_epoch(self) -> bool:
+        return self.epoch > self.max_epoch
+
+    @property
     def disable_logging(self) -> context_error_handler:
         class _(context_error_handler):
             def __init__(self, state: TrainerState):
@@ -208,6 +220,16 @@ class TrainerMonitor(ABC, WithRegister):
     @abstractmethod
     def check_terminate(self, new_score: float) -> bool:
         pass
+
+    @abstractmethod
+    def punish_extension(self) -> None:
+        pass
+
+    def handle_extension(self, state: TrainerState) -> None:
+        if state.should_extend_epoch:
+            self.punish_extension()
+            new_epoch = state.num_epoch + state.extension
+            state.num_epoch = min(new_epoch, state.max_epoch)
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:

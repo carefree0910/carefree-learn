@@ -218,6 +218,7 @@ class Trainer:
         *,
         workplace: str,
         num_epoch: int = 40,
+        max_epoch: int = 1000,
         valid_portion: float = 1.0,
         amp: bool = False,
         clip_norm: float = 0.0,
@@ -232,6 +233,7 @@ class Trainer:
         self.tqdm_settings = tqdm_settings or TqdmSettings()
         self.state_config = state_config or {}
         self.num_epoch = num_epoch
+        self.max_epoch = max_epoch
         self.valid_portion = valid_portion
         self.use_amp = amp
         self.grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
@@ -482,6 +484,8 @@ class Trainer:
                     save_checkpoint = True
                 if any(monitor.check_terminate(score) for monitor in self.monitors):
                     terminate = True
+                for monitor in self.monitors:
+                    monitor.handle_extension(self.state)
         return MonitorResults(terminate, save_checkpoint, outputs, self.intermediate)
 
     def _step(
@@ -534,6 +538,7 @@ class Trainer:
         self.state = TrainerState(
             train_loader,
             num_epoch=self.num_epoch,
+            max_epoch=self.max_epoch,
             **self.state_config,
         )
         # optimizer
