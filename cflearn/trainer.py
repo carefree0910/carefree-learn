@@ -636,8 +636,8 @@ class Trainer:
             loader = self.validation_loader
         loss = self.loss if self.metrics is None else None
         outputs = self.inference.get_outputs(
-            self.device,
             loader,
+            self.device,
             portion=portion,
             state=self.state,
             loss=loss,

@@ -13,8 +13,8 @@ from ...protocol import InferenceProtocol
 class MLInference(InferenceProtocol):
     def get_outputs(  # type: ignore
         self,
-        device: torch.device,
         loader: MLLoader,
+        device: Optional[torch.device] = None,
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
@@ -24,8 +24,8 @@ class MLInference(InferenceProtocol):
     ) -> InferenceOutputs:
         kwargs["loader_name"] = loader.name
         return super().get_outputs(
-            device,
             loader,
+            device,
             portion=portion,
             state=state,
             loss=loss,

@@ -15,6 +15,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from onnxruntime import InferenceSession
 from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
@@ -25,6 +26,7 @@ from .types import np_dict_type
 from .types import tensor_dict_type
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
+from .misc.toolkit import to_standard
 from .misc.toolkit import eval_context
 
 
@@ -316,20 +318,46 @@ class InferenceOutputs(NamedTuple):
     loss_items: Optional[Dict[str, float]]
 
 
+class ONNX:
+    def __init__(
+        self,
+        *,
+        onnx_path: str,
+        output_names: List[str],
+    ):
+        self.ort_session = InferenceSession(onnx_path)
+        self.output_names = output_names
+
+    def inference(self, new_inputs: np_dict_type) -> np_dict_type:
+        if self.ort_session is None:
+            raise ValueError("`onnx_path` is not provided")
+        ort_inputs = {
+            node.name: to_standard(new_inputs[node.name])
+            for node in self.ort_session.get_inputs()
+        }
+        return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
+
+
 class InferenceProtocol:
     def __init__(
         self,
-        model: ModelProtocol,
         *,
+        onnx: Optional[ONNX] = None,
+        model: Optional[ModelProtocol] = None,
         use_grad_in_predict: bool = False,
     ):
+        self.onnx = onnx
         self.model = model
+        if onnx is None and model is None:
+            raise ValueError("either `onnx` or `model` should be provided")
+        if onnx is not None and model is not None:
+            raise ValueError("only one of `onnx` & `model` should be provided")
         self.use_grad_in_predict = use_grad_in_predict
 
     def get_outputs(
         self,
-        device: torch.device,
         loader: DataLoaderProtocol,
+        device: Optional[torch.device] = None,
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
@@ -344,29 +372,42 @@ class InferenceProtocol:
             for i, batch in enumerate(loader):
                 if i / len(loader) >= portion:
                     break
-                batch = to_device(batch, device)
+                if device is not None:
+                    batch = to_device(batch, device)
                 local_labels = batch[LABEL_KEY]
                 if local_labels is not None:
                     if not isinstance(local_labels, np.ndarray):
                         local_labels = to_numpy(local_labels)
                     labels.append(local_labels)
-                assert self.model is not None
-                with eval_context(self.model, use_grad=use_grad):
-                    assert not self.model.training
-                    local_results = self.model(
-                        i,
-                        batch,
-                        state,
-                        **shallow_copy_dict(kwargs),
+                if self.onnx is not None:
+                    local_results = self.onnx.inference(
+                        {
+                            k: None if v is None else to_numpy(v)
+                            for k, v in batch.items()
+                        }
                     )
-                if loss is None:
                     local_losses = None
                 else:
-                    local_losses = loss(local_results, batch)
+                    assert self.model is not None
+                    with eval_context(self.model, use_grad=use_grad):
+                        assert not self.model.training
+                        local_results = self.model(
+                            i,
+                            batch,
+                            state,
+                            **shallow_copy_dict(kwargs),
+                        )
+                    if loss is None:
+                        local_losses = None
+                    else:
+                        local_losses = loss(local_results, batch)
                 for k, v in local_results.items():
                     if v is None:
                         continue
-                    v_np = to_numpy(v)
+                    if isinstance(v, np.ndarray):
+                        v_np = v
+                    else:
+                        v_np = to_numpy(v)
                     if not return_outputs:
                         results[k] = None
                     else:
@@ -391,6 +432,8 @@ class InferenceProtocol:
                 else {k: sum(v) / len(v) for k, v in loss_items.items()},
             )
 
+        if device is None and self.onnx is None:
+            raise ValueError("`device` should be provided when `onnx` is not provided")
         use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
         try:
             return _core()

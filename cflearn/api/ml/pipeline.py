@@ -23,6 +23,7 @@ from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import loss_dict
+from ...protocol import ONNX
 from ...protocol import LossProtocol
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
@@ -32,6 +33,7 @@ from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
 from ...misc.toolkit import get_arguments
 from ...misc.toolkit import prepare_workplace_from
+from ...misc.toolkit import eval_context
 from ...misc.internal_ import MLData
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLInference
@@ -60,6 +62,8 @@ class MLPipeline:
     data_folder: str = "data"
     final_results_file = "final_results.json"
     config_bundle_name = "config_bundle"
+    onnx_file: str = "model.onnx"
+    onnx_kwargs_file: str = "onnx.json"
 
     def __init__(
         self,
@@ -274,7 +278,7 @@ class MLPipeline:
             core_name=self.core_name,
             core_config=self.core_config,
         )
-        self.inference = MLInference(self.model)
+        self.inference = MLInference(model=self.model)
 
     def _prepare_trainer_defaults(self) -> None:
         # set some trainer defaults to ml tasks which work well in practice
@@ -371,7 +375,10 @@ class MLPipeline:
             shuffle=False,
             batch_size=batch_size,
         )
-        return self.inference.get_outputs(self.device, loader, **predict_kwargs)
+        predict_kwargs = shallow_copy_dict(predict_kwargs)
+        if self.inference.onnx is None:
+            predict_kwargs["device"] = self.device
+        return self.inference.get_outputs(loader, **predict_kwargs)
 
     def to_pattern(
         self,
@@ -438,18 +445,23 @@ class MLPipeline:
         return self
 
     @classmethod
+    def _load_infrastructure(cls, export_folder: str) -> "MLPipeline":
+        config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
+        config = config_bundle["config"]
+        config["in_loading"] = True
+        m = cls(**config)
+        m.device_info = DeviceInfo(*config_bundle["device_info"])
+        m.processed_dim = config_bundle["processed_dim"]
+        data_folder = os.path.join(export_folder, cls.data_folder)
+        m.data = TabularData.load(data_folder, compress=False)
+        return m
+
+    @classmethod
     def load(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
-                config = config_bundle["config"]
-                config["in_loading"] = True
-                m = cls(**config)
-                m.device_info = DeviceInfo(*config_bundle["device_info"])
-                m.processed_dim = config_bundle["processed_dim"]
-                data_folder = os.path.join(export_folder, cls.data_folder)
-                m.data = TabularData.load(data_folder, compress=False)
+                m = cls._load_infrastructure(export_folder)
                 m._prepare_modules()
                 # restore checkpoint
                 score_path = os.path.join(export_folder, SCORES_FILE)
@@ -467,6 +479,86 @@ class MLPipeline:
                     for key in encoder_cache_keys:
                         states.pop(key)
                 m.model.load_state_dict(states)
+        return m
+
+    def to_onnx(
+        self,
+        export_folder: str,
+        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
+        *,
+        compress: bool = True,
+        remove_original: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> "MLPipeline":
+        # prepare
+        model = self.model.cpu()
+        input_sample = self.trainer.input_sample
+        input_sample.pop("batch_indices")
+        with eval_context(model):
+            forward_results = model(0, shallow_copy_dict(input_sample))
+        input_names = sorted(input_sample.keys())
+        output_names = sorted(forward_results.keys())
+        # setup
+        kwargs = shallow_copy_dict(kwargs)
+        kwargs["input_names"] = input_names
+        kwargs["output_names"] = output_names
+        kwargs["opset_version"] = 11
+        kwargs["export_params"] = True
+        kwargs["do_constant_folding"] = True
+        if dynamic_axes is None:
+            dynamic_axes = {}
+        elif isinstance(dynamic_axes, list):
+            dynamic_axes = {axis: f"axis.{axis}" for axis in dynamic_axes}
+        dynamic_axes[0] = "batch_size"
+        dynamic_axes_settings = {}
+        for name in input_names + output_names:
+            dynamic_axes_settings[name] = dynamic_axes
+        kwargs["dynamic_axes"] = dynamic_axes_settings
+        kwargs["verbose"] = verbose
+        # export
+        abs_folder = os.path.abspath(export_folder)
+        base_folder = os.path.dirname(abs_folder)
+
+        class ONNXWrapper(torch.nn.Module):
+            def __init__(self) -> None:
+                super().__init__()
+                self.model = model
+
+            def forward(self, batch: Dict[str, Any]) -> Any:
+                return self.model(0, batch)
+
+        with lock_manager(base_folder, [export_folder]):
+            self._save_misc(export_folder, False)
+            with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
+                json.dump(kwargs, f)
+            onnx = ONNXWrapper()
+            onnx_path = os.path.join(export_folder, self.onnx_file)
+            with eval_context(onnx):
+                torch.onnx.export(
+                    onnx,
+                    (input_sample,),
+                    onnx_path,
+                    **shallow_copy_dict(kwargs),
+                )
+            if compress:
+                Saving.compress(abs_folder, remove_original=remove_original)
+        self.model.to(self.device)
+        return self
+
+    @classmethod
+    def from_onnx(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
+        base_folder = os.path.dirname(os.path.abspath(export_folder))
+        with lock_manager(base_folder, [export_folder]):
+            with Saving.compress_loader(export_folder, compress):
+                m = cls._load_infrastructure(export_folder)
+                with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
+                    onnx_kwargs = json.load(f)
+                onnx = ONNX(
+                    onnx_path=os.path.join(export_folder, cls.onnx_file),
+                    output_names=onnx_kwargs["output_names"],
+                )
+                m.inference = MLInference(onnx=onnx)
         return m
 
 
