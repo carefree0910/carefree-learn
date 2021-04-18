@@ -409,6 +409,13 @@ class MLPipeline:
             raise ValueError("`final_results` are not generated yet")
         with open(os.path.join(export_folder, self.final_results_file), "w") as f:
             json.dump(final_results, f)
+        # config bundle
+        config_bundle = {
+            "config": shallow_copy_dict(self.config),
+            "device_info": self.device_info,
+            "processed_dim": self.processed_dim,
+        }
+        Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
         return final_results.final_score
 
     def save(
@@ -426,12 +433,6 @@ class MLPipeline:
             self.trainer.save_checkpoint(score, export_folder)
             if self.inference is None:
                 raise ValueError("`inference` is not yet generated")
-            config_bundle = {
-                "config": shallow_copy_dict(self.config),
-                "device_info": self.device_info,
-                "processed_dim": self.processed_dim,
-            }
-            Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
