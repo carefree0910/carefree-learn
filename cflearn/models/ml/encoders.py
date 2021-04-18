@@ -192,7 +192,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             keys = self._get_cache_keys(loader_name)
         categorical_columns = x_batch[..., self.tgt_columns]
         if batch_indices is None or loader_name is None:
-            self._oob_imputation(categorical_columns)
+            categorical_columns = self._oob_imputation(categorical_columns)
         use_cache = keys is not None and batch_indices is not None
         # one hot
         if not self.use_one_hot:
@@ -296,13 +296,17 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         categorical_columns: torch.Tensor,
         batch_indices: Optional[np.ndarray] = None,
         loader_name: Optional[str] = None,
-    ) -> None:
+    ) -> torch.Tensor:
         if loader_name is None or batch_indices is None:
             oob_mask = categorical_columns >= self.input_dims
         else:
             keys = self._get_cache_keys(loader_name)
             oob_mask = getattr(self, keys["oob"])[batch_indices].to(torch.bool)
-        categorical_columns[oob_mask] = 0.0
+        return torch.where(
+            oob_mask,
+            torch.zeros_like(categorical_columns),
+            categorical_columns,
+        )
 
     @staticmethod
     def _to_split(columns: torch.Tensor) -> List[torch.Tensor]:
@@ -349,7 +353,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             # compile oob
             oob = (tensor >= self.input_dims).to(torch.float32)
             self.register_buffer(keys["oob"], oob)
-            self._oob_imputation(
+            tensor = self._oob_imputation(
                 tensor,
                 batch_indices=np.arange(len(tensor)),
                 loader_name=name,
