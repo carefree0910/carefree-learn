@@ -18,7 +18,9 @@ from cftool.ml.utils import Estimator
 from .pipeline import MLPipeline
 from ...types import data_type
 from ...constants import WARNING_PREFIX
+from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
+from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
 from ...misc.internal_ import MLData
 
@@ -128,6 +130,20 @@ def evaluate(
     return comparer
 
 
+def task_loader(export_folder: str, compress: bool = True) -> MLPipeline:
+    return MLPipeline.load(export_folder=export_folder, compress=compress)
+
+
+def load_experiment_results(results: ExperimentResults) -> Dict[str, List[MLPipeline]]:
+    pipelines_dict: Dict[str, Dict[int, MLPipeline]] = {}
+    iterator = list(zip(results.workplaces, results.workplace_keys))
+    for workplace, workplace_key in tqdm(iterator, desc="load"):
+        pipeline = task_loader(os.path.join(workplace, ML_PIPELINE_SAVE_NAME))
+        model, str_i = workplace_key
+        pipelines_dict.setdefault(model, {})[int(str_i)] = pipeline
+    return {k: [v[i] for i in sorted(v)] for k, v in pipelines_dict.items()}
+
+
 class RepeatResult(NamedTuple):
     data: Optional[MLData]
     experiment: Optional[Experiment]
@@ -229,7 +245,7 @@ def repeat_with(
         results = experiment.run_tasks(use_tqdm=use_tqdm)
         # TODO : fix here
         if return_patterns:
-            pass
+            pipelines_dict = load_experiment_results(results)
 
     patterns = None
     if return_patterns:
