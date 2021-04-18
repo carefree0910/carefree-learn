@@ -27,7 +27,6 @@ from ...protocol import LossProtocol
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...constants import SCORES_FILE
-from ...constants import INFO_PREFIX
 from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
