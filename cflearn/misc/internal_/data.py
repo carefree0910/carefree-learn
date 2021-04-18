@@ -61,7 +61,7 @@ class MLLoader(DataLoaderProtocol):
         return {
             INPUT_KEY: to_torch(self.data.x[indices]),
             LABEL_KEY: None if self.data.y is None else to_torch(self.data.y[indices]),
-            "batch_indices": indices,
+            "batch_indices": to_torch(indices),
         }
 
 

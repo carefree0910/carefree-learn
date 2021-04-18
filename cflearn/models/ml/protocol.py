@@ -19,6 +19,7 @@ from ...protocol import TrainerState
 from ...protocol import WithRegister
 from ...protocol import ModelProtocol
 from ...constants import INPUT_KEY
+from ...misc.toolkit import to_numpy
 from ...misc.toolkit import LoggingMixinWithRank
 
 
@@ -248,9 +249,12 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
+        batch_indices = batch.get("batch_indices")
+        if batch_indices is not None:
+            batch_indices = to_numpy(batch_indices)
         split = self.dimensions.split_features(
             batch[INPUT_KEY],
-            batch["batch_indices"],  # type: ignore
+            batch_indices,
             kwargs.get("loader_name"),
         )
         batch[INPUT_KEY] = self.transform(split)
