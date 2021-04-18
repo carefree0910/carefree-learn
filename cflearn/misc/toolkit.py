@@ -53,7 +53,7 @@ def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) ->
                     )
                     shutil.rmtree(os.path.join(workplace, stuff))
             except:
-                print(f"{WARNING_PREFIX}{stuff} in {workplace} is not of time format")
+                pass
     return os.path.join(workplace, current_time.strftime(TIME_FORMAT))
 
 
@@ -66,7 +66,7 @@ def get_latest_workplace(root: str) -> str:
             datetime.strptime(stuff, TIME_FORMAT)
             all_workplaces.append(stuff)
         except:
-            print(f"{WARNING_PREFIX}{stuff} in {root} is not of time format")
+            pass
     return os.path.join(root, sorted(all_workplaces)[-1])
 
 
