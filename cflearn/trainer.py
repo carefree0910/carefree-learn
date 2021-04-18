@@ -186,6 +186,19 @@ class TqdmSettings(NamedTuple):
     desc: str = "epoch"
 
 
+def get_sorted_checkpoints(scores_path: str) -> List[str]:
+    # better checkpoints will be placed earlier,
+    #  which means `checkpoints[0]` is the best checkpoint
+    if not os.path.isfile(scores_path):
+        return []
+    with open(scores_path, "r") as f:
+        scores = json.load(f)
+    files = list(scores.keys())
+    scores_list = [scores[file] for file in files]
+    sorted_indices = np.argsort(scores_list)[::-1]
+    return [files[i] for i in sorted_indices]
+
+
 class Trainer:
     loss: LossProtocol
     model: ModelProtocol
@@ -628,26 +641,13 @@ class Trainer:
 
     # checkpointing
 
-    @staticmethod
-    def _get_sorted_checkpoints(scores_path: str) -> List[str]:
-        if not os.path.isfile(scores_path):
-            return []
-        with open(scores_path, "r") as f:
-            scores = json.load(f)
-        files = list(scores.keys())
-        scores_list = [scores[file] for file in files]
-        sorted_indices = np.argsort(scores_list)[::-1]
-        return [files[i] for i in sorted_indices]
-
     def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
             folder = self.checkpoint_folder
         scores_path = os.path.join(folder, SCORES_FILE)
         # leave top_k snapshots only
         if self.state.max_snapshot_file > 0:
-            # better checkpoints will be placed earlier,
-            #  which means `checkpoints[0]` is the best checkpoint
-            checkpoints = self._get_sorted_checkpoints(scores_path)
+            checkpoints = get_sorted_checkpoints(scores_path)
             if len(checkpoints) >= self.state.max_snapshot_file:
                 for file in checkpoints[self.state.max_snapshot_file - 1 :]:
                     self.checkpoint_scores.pop(file)
@@ -668,7 +668,7 @@ class Trainer:
     ) -> bool:
         if folder is None:
             folder = self.checkpoint_folder
-        checkpoints = self._get_sorted_checkpoints(os.path.join(folder, SCORES_FILE))
+        checkpoints = get_sorted_checkpoints(os.path.join(folder, SCORES_FILE))
         if not checkpoints:
             if not self.tqdm_settings.in_distributed:
                 print(f"{WARNING_PREFIX}no model file found in {folder}")
@@ -690,6 +690,7 @@ class Trainer:
 
 
 __all__ = [
+    "get_sorted_checkpoints",
     "Trainer",
     "TrainerCallback",
     "StepOutputs",
