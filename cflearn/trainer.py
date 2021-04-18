@@ -691,7 +691,7 @@ class Trainer:
 
 __all__ = [
     "Trainer",
-    "Trainer",
+    "TrainerCallback",
     "StepOutputs",
     "OptimizerPack",
 ]
