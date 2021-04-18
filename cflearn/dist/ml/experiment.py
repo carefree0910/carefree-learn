@@ -172,7 +172,7 @@ class Experiment(LoggingMixin):
         x_cv: data_type = None,
         y_cv: data_type = None,
         *,
-        core: str = "fcnn",
+        model: str = "fcnn",
         execute: str = "basic",
         root_workplace: Optional[str] = None,
         workplace_key: Optional[Tuple[str, str]] = None,
@@ -183,7 +183,7 @@ class Experiment(LoggingMixin):
         if workplace_key is None:
             counter = 0
             while True:
-                workplace_key = core, str(counter)
+                workplace_key = model, str(counter)
                 if workplace_key not in self.tasks:
                     break
                 counter += 1
@@ -192,7 +192,7 @@ class Experiment(LoggingMixin):
         root_workplace = root_workplace or self.default_root_workplace
         workplace = self.workplace(workplace_key, root_workplace)
         copied_config = shallow_copy_dict(config or {})
-        copied_config["core_name"] = core
+        copied_config["core_name"] = model
         new_idx = len(self.tasks)
         inject_distributed_tqdm_kwargs(new_idx, self.num_jobs, copied_config)
         if data_folder is None and x is not None:

@@ -158,8 +158,8 @@ def repeat_with(
     y_cv: data_type = None,
     *,
     workplace: str = "_repeat",
-    core_names: Union[str, List[str]] = "fcnn",
-    core_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+    models: Union[str, List[str]] = "fcnn",
+    model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     sequential: Optional[bool] = None,
     num_jobs: int = 1,
@@ -173,17 +173,17 @@ def repeat_with(
         print(f"{WARNING_PREFIX}'{workplace}' already exists, it will be erased")
         shutil.rmtree(workplace)
     kwargs = shallow_copy_dict(kwargs)
-    if isinstance(core_names, str):
-        core_names = [core_names]
+    if isinstance(models, str):
+        models = [models]
     if sequential is None:
         sequential = num_jobs <= 1
-    if core_configs is None:
-        core_configs = {}
+    if model_configs is None:
+        model_configs = {}
 
     def fetch_config(core_name: str) -> Dict[str, Any]:
         local_kwargs = shallow_copy_dict(kwargs)
-        assert core_configs is not None
-        local_core_config = core_configs.setdefault(core_name, {})
+        assert model_configs is not None
+        local_core_config = model_configs.setdefault(core_name, {})
         local_kwargs["core_name"] = core_name
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
@@ -202,10 +202,10 @@ def repeat_with(
             return_patterns = True
         pipelines_dict = {}
         if not use_tqdm:
-            iterator = core_names
+            iterator = models
         else:
-            iterator = tqdm(core_names, total=len(core_names), position=0)
-        for core in iterator:
+            iterator = tqdm(models, total=len(models), position=0)
+        for model in iterator:
             local_pipelines = []
             sub_iterator = range(num_repeat)
             if use_tqdm:
@@ -216,11 +216,11 @@ def repeat_with(
                     leave=False,
                 )
             for i in sub_iterator:
-                local_config = fetch_config(core)
-                local_workplace = os.path.join(workplace, core, str(i))
+                local_config = fetch_config(model)
+                local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
                 local_pipelines.append(MLPipeline(**local_config).fit(x, y, x_cv, y_cv))
-            pipelines_dict[core] = local_pipelines
+            pipelines_dict[model] = local_pipelines
     else:
         if num_jobs <= 1:
             print(
@@ -231,11 +231,11 @@ def repeat_with(
         data_folder = Experiment.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
         # experiment
         experiment = Experiment(num_jobs=num_jobs)
-        for core in core_names:
+        for model in models:
             for i in range(num_repeat):
-                local_config = fetch_config(core)
+                local_config = fetch_config(model)
                 experiment.add_task(
-                    core=core,
+                    model=model,
                     compress=compress,
                     root_workplace=workplace,
                     config=local_config,
@@ -259,7 +259,7 @@ def repeat_with(
 
     data = None
     if patterns is not None:
-        data = patterns[core_names[0]][0].model.data
+        data = patterns[models[0]][0].model.data
 
     return RepeatResult(data, experiment, pipelines_dict, patterns)
 
