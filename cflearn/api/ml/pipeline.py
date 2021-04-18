@@ -15,14 +15,20 @@ from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
 from cftool.misc import shallow_copy_dict
+from cftool.misc import lock_manager
+from cftool.misc import Saving
 
 from ...types import data_type
+from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import loss_dict
 from ...protocol import LossProtocol
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
+from ...constants import SCORES_FILE
+from ...constants import INFO_PREFIX
+from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
 from ...misc.toolkit import get_arguments
@@ -51,6 +57,10 @@ class MLPipeline:
 
     configs_file: str = "configs.json"
     metrics_log_file: str = "metrics.txt"
+
+    data_folder: str = "data"
+    final_results_file = "final_results.json"
+    config_bundle_name = "config_bundle"
 
     def __init__(
         self,
@@ -97,6 +107,8 @@ class MLPipeline:
         workplace: str = "_logs",
         rank: Optional[int] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
+        # misc
+        in_loading: bool = False,
     ):
         self.config = get_arguments()
         self.config.pop("self")
@@ -108,6 +120,7 @@ class MLPipeline:
             data_config = {}
         data_config["default_categorical_process"] = "identical"
         self.data = TabularData(**(data_config or {}))
+        self.processed_dim: Optional[int] = None
         self.read_config = read_config or {}
         self.valid_split = valid_split
         self.min_valid_split = min_valid_split
@@ -144,6 +157,7 @@ class MLPipeline:
             "rank": rank,
             "tqdm_settings": tqdm_settings,
         }
+        self.in_loading = in_loading
 
     @property
     def device(self) -> torch.device:
@@ -172,12 +186,13 @@ class MLPipeline:
         self.valid_loader = valid_loader
 
     def _prepare_modules(self) -> None:
-        workplace = prepare_workplace_from(self.trainer_config["workplace"])
-        self.trainer_config["workplace"] = workplace
-        self.trainer_config["metrics_log_file"] = self.metrics_log_file
-        os.makedirs(workplace, exist_ok=True)
-        with open(os.path.join(workplace, self.configs_file), "w") as f:
-            json.dump(self.config, f)
+        if not self.in_loading:
+            workplace = prepare_workplace_from(self.trainer_config["workplace"])
+            self.trainer_config["workplace"] = workplace
+            self.trainer_config["metrics_log_file"] = self.metrics_log_file
+            os.makedirs(workplace, exist_ok=True)
+            with open(os.path.join(workplace, self.configs_file), "w") as f:
+                json.dump(self.config, f)
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -242,8 +257,10 @@ class MLPipeline:
         if self.loss_name == "auto":
             self.loss_name = "focal" if self.data.is_clf else "mae"
         self.loss = loss_dict[self.loss_name](**(self.loss_config or {}))
+        if self.processed_dim is None:
+            self.processed_dim = self.data.processed_dim
         self.model = MLModel(
-            self.data.processed_dim,
+            self.processed_dim,
             1 if self.data.is_reg else self.data.num_classes,
             self.num_history,
             encoder=encoder,
@@ -379,6 +396,68 @@ class MLPipeline:
             predict_method=_predict,
             predict_prob_method=_predict_prob,
         )
+
+    def save(
+        self,
+        export_folder: str,
+        *,
+        compress: bool = True,
+        retain_data: bool = False,
+        remove_original: bool = True,
+    ) -> "MLPipeline":
+        abs_folder = os.path.abspath(export_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [export_folder]):
+            # data
+            data_folder = os.path.join(export_folder, self.data_folder)
+            self.data.save(data_folder, retain_data=retain_data, compress=False)
+            # final results
+            final_results = self.trainer.final_results
+            if final_results is None:
+                raise ValueError("`final_results` are not generated yet")
+            with open(os.path.join(export_folder, self.final_results_file), "w") as f:
+                json.dump(final_results, f)
+            # pytorch checkpoint
+            score = final_results.final_score
+            self.trainer.save_checkpoint(score, export_folder)
+            # config bundle
+            if self.inference is None:
+                raise ValueError("`inference` is not yet generated")
+            config_bundle = {
+                "config": shallow_copy_dict(self.config),
+                "device_info": self.device_info,
+                "processed_dim": self.processed_dim,
+            }
+            Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
+            # compress
+            if compress:
+                Saving.compress(abs_folder, remove_original=remove_original)
+        return self
+
+    @classmethod
+    def load(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
+        base_folder = os.path.dirname(os.path.abspath(export_folder))
+        with lock_manager(base_folder, [export_folder]):
+            with Saving.compress_loader(export_folder, compress):
+                config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
+                config = config_bundle["config"]
+                config["in_loading"] = True
+                m = cls(**config)
+                m.device_info = DeviceInfo(*config_bundle["device_info"])
+                m.processed_dim = config_bundle["processed_dim"]
+                data_folder = os.path.join(export_folder, cls.data_folder)
+                m.data = TabularData.load(data_folder, compress=False)
+                m._prepare_modules()
+                # restore checkpoint
+                score_path = os.path.join(export_folder, SCORES_FILE)
+                checkpoints = get_sorted_checkpoints(score_path)
+                if not checkpoints:
+                    msg = f"{WARNING_PREFIX}no model file found in {export_folder}"
+                    raise ValueError(msg)
+                checkpoint_path = os.path.join(export_folder, checkpoints[0])
+                states = torch.load(checkpoint_path, map_location=m.device)
+                m.model.load_state_dict(states)
+        return m
 
 
 __all__ = [

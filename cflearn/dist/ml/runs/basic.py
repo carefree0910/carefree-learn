@@ -1,3 +1,4 @@
+import os
 import cflearn
 
 from ._utils import get_info
@@ -8,4 +9,5 @@ if __name__ == "__main__":
     kwargs = info.kwargs
     data_list = info.data_list
     assert data_list is not None
-    cflearn.ml.MLPipeline(**kwargs).fit(*data_list, cuda=info.meta["cuda"])
+    m = cflearn.ml.MLPipeline(**kwargs).fit(*data_list, cuda=info.meta["cuda"])
+    m.save(os.path.join(info.workplace, cflearn.ML_PIPELINE_SAVE_NAME))
