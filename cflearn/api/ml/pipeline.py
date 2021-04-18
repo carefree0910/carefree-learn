@@ -241,9 +241,12 @@ class MLPipeline:
         if not true_categorical_columns:
             encoder = None
         else:
-            loaders = [self.train_loader_copy]
-            if self.valid_loader is not None:
-                loaders.append(self.valid_loader)
+            if self.in_loading:
+                loaders = []
+            else:
+                loaders = [self.train_loader_copy]
+                if self.valid_loader is not None:
+                    loaders.append(self.valid_loader)
             encoder = Encoder(
                 self.encoder_config,
                 categorical_dims,
@@ -456,6 +459,13 @@ class MLPipeline:
                     raise ValueError(msg)
                 checkpoint_path = os.path.join(export_folder, checkpoints[0])
                 states = torch.load(checkpoint_path, map_location=m.device)
+                if m.encoder is not None:
+                    encoder_cache_keys = []
+                    for key in states:
+                        if key.startswith("encoder") and key.endswith("cache"):
+                            encoder_cache_keys.append(key)
+                    for key in encoder_cache_keys:
+                        states.pop(key)
                 m.model.load_state_dict(states)
         return m
 
