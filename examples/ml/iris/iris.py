@@ -30,19 +30,29 @@ if __name__ == "__main__":
     predictions = m.predict(iris_data_file, contains_labels=True)
     cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=m)
 
-    result = cflearn.ml.repeat_with(iris_data_file, num_repeat=2)
+    result = cflearn.ml.repeat_with(
+        iris_data_file,
+        pipeline_base=cflearn.ml.CarefreePipeline,
+        num_repeat=2,
+    )
     cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=result.pipelines)
 
     models = ["linear", "fcnn"]
     result = cflearn.ml.repeat_with(
         iris_data_file,
+        pipeline_base=cflearn.ml.CarefreePipeline,
         models=models,
         num_repeat=2,
         num_jobs=2,
     )
     cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=result.pipelines)
 
-    result = cflearn.ml.repeat_with(iris_data_file, num_repeat=10, num_jobs=2)
+    result = cflearn.ml.repeat_with(
+        iris_data_file,
+        pipeline_base=cflearn.ml.CarefreePipeline,
+        num_repeat=10,
+        num_jobs=2,
+    )
 
     experiment = cflearn.dist.ml.Experiment()
     data_folder = experiment.dump_data_bundle(train_x, train_y, valid_x, valid_y)
@@ -61,7 +71,10 @@ if __name__ == "__main__":
     for workplace, workplace_key in zip(results.workplaces, results.workplace_keys):
         model = workplace_key[0]
         if model not in ["decision_tree", "random_forest"]:
-            pipelines[model] = cflearn.ml.task_loader(workplace)
+            pipelines[model] = cflearn.ml.task_loader(
+                workplace,
+                cflearn.ml.CarefreePipeline,
+            )
         else:
             model_file = os.path.join(workplace, "sk_model.pkl")
             with open(model_file, "rb") as f:

@@ -21,6 +21,7 @@ from cftool.misc import Saving
 
 from ...types import data_type
 from ...types import np_dict_type
+from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import DeviceInfo
 from ...protocol import loss_dict
@@ -50,6 +51,12 @@ class SimplePipeline(PipelineProtocol):
     train_loader_copy: MLLoader
     valid_loader: MLLoader
 
+    encoder: Optional[Encoder]
+    numerical_columns_mapping: Dict[int, int]
+    categorical_columns_mapping: Dict[int, int]
+    use_one_hot: bool
+    use_embedding: bool
+
     def __init__(
         self,
         core_name: str = "fcnn",
@@ -71,6 +78,13 @@ class SimplePipeline(PipelineProtocol):
         shuffle_valid: bool = False,
         batch_size: int = 128,
         valid_batch_size: int = 512,
+        # encoder
+        only_categorical: bool = False,
+        encoder_config: Optional[Dict[str, Any]] = None,
+        encoding_methods: Optional[Dict[str, List[str]]] = None,
+        encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+        default_encoding_methods: Optional[List[str]] = None,
+        default_encoding_configs: Optional[Dict[str, Any]] = None,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -127,8 +141,17 @@ class SimplePipeline(PipelineProtocol):
         )
         self.core_name = core_name
         self.core_config = core_config or {}
+        self.input_dim: Optional[int] = None
         self.output_dim = output_dim
         self.is_classification = is_classification
+        self.only_categorical = only_categorical
+        self.encoder_config = encoder_config or {}
+        self.encoding_methods = encoding_methods or {}
+        self.encoding_configs = encoding_configs or {}
+        if default_encoding_methods is None:
+            default_encoding_methods = ["embedding"]
+        self.default_encoding_methods = default_encoding_methods
+        self.default_encoding_configs = default_encoding_configs or {}
 
     def _prepare_data(
         self,
@@ -137,6 +160,7 @@ class SimplePipeline(PipelineProtocol):
         x_valid: data_type = None,
         y_valid: data_type = None,
     ) -> None:
+        # prepare
         self.input_dim = x.shape[1]
         train_loader = MLLoader(
             MLData(x, y),
@@ -159,7 +183,15 @@ class SimplePipeline(PipelineProtocol):
         self.train_loader_copy = train_loader_copy
         self.valid_loader = valid_loader
 
+    def _prepare_data_attributes(self) -> None:
+        self.encoder = None
+        self.numerical_columns_mapping = {i: i for i in range(self.input_dim)}
+        self.categorical_columns_mapping = {}
+        self.use_one_hot = False
+        self.use_embedding = False
+
     def _prepare_modules(self) -> None:
+        self._prepare_data_attributes()
         if not self.in_loading:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self.trainer_config["workplace"] = workplace
@@ -173,12 +205,12 @@ class SimplePipeline(PipelineProtocol):
             self.input_dim,
             self.output_dim,
             self.num_history,
-            encoder=None,
-            numerical_columns_mapping={i: i for i in range(self.input_dim)},
-            categorical_columns_mapping={},
-            use_one_hot=False,
-            use_embedding=False,
-            only_categorical=False,
+            encoder=self.encoder,
+            numerical_columns_mapping=self.numerical_columns_mapping,
+            categorical_columns_mapping=self.categorical_columns_mapping,
+            use_one_hot=self.use_one_hot,
+            use_embedding=self.use_embedding,
+            only_categorical=self.only_categorical,
             core_name=self.core_name,
             core_config=self.core_config,
         )
@@ -219,29 +251,17 @@ class SimplePipeline(PipelineProtocol):
         y_valid: data_type = None,
         cuda: Optional[str] = None,
     ) -> None:
-        # internal preparation
         self._prepare_data(x, y, x_valid, y_valid)
         self._prepare_modules()
         self._prepare_trainer_defaults()
 
-    def predict(
+    def _make_new_loader(
         self,
-        x: np.ndarray,
-        *,
-        batch_size: int = 128,
-        transform_kwargs: Optional[Dict[str, Any]] = None,
-        **predict_kwargs: Any,
-    ) -> np_dict_type:
-        loader = MLLoader(
-            MLData(x, None),
-            shuffle=False,
-            batch_size=batch_size,
-        )
-        predict_kwargs = shallow_copy_dict(predict_kwargs)
-        if self.inference.onnx is None:
-            predict_kwargs["device"] = self.device
-        outputs = self.inference.get_outputs(loader, **predict_kwargs)
-        return outputs.forward_results
+        x: data_type,
+        batch_size: int,
+        **kwargs: Any,
+    ) -> MLLoader:
+        return MLLoader(MLData(x, None), shuffle=False, batch_size=batch_size)
 
     def to_pattern(
         self,
@@ -339,6 +359,8 @@ class SimplePipeline(PipelineProtocol):
                     raise ValueError(msg)
                 checkpoint_path = os.path.join(export_folder, checkpoints[0])
                 states = torch.load(checkpoint_path, map_location=m.device)
+                if states_callback is not None:
+                    states = states_callback(m, states)
                 m.model.load_state_dict(states)
         return m
 
@@ -428,23 +450,18 @@ class SimplePipeline(PipelineProtocol):
         return m
 
 
-class CarefreePipeline(PipelineProtocol):
+class CarefreePipeline(SimplePipeline):
     data: TabularData
-    model: MLModel
-    inference: MLInference
-
     train_data: TabularData
     valid_data: Optional[TabularData]
-    train_loader: MLLoader
-    train_loader_copy: MLLoader
-    valid_loader: MLLoader
-    encoder: Optional[Encoder]
 
     def __init__(
         self,
         core_name: str = "fcnn",
         core_config: Optional[Dict[str, Any]] = None,
         *,
+        output_dim: Optional[int] = None,
+        is_classification: Optional[bool] = None,
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
         # data
@@ -493,6 +510,10 @@ class CarefreePipeline(PipelineProtocol):
         self.config.pop("self")
         self.config.pop("__class__")
         super().__init__(
+            core_name,
+            core_config,
+            output_dim=output_dim,
+            is_classification=is_classification,
             loss_name=loss_name,
             loss_config=loss_config,
             valid_split=valid_split,
@@ -505,6 +526,12 @@ class CarefreePipeline(PipelineProtocol):
             shuffle_valid=shuffle_valid,
             batch_size=batch_size,
             valid_batch_size=valid_batch_size,
+            only_categorical=only_categorical,
+            encoder_config=encoder_config,
+            encoding_methods=encoding_methods,
+            encoding_configs=encoding_configs,
+            default_encoding_methods=default_encoding_methods,
+            default_encoding_configs=default_encoding_configs,
             state_config=state_config,
             num_epoch=num_epoch,
             max_epoch=max_epoch,
@@ -528,19 +555,44 @@ class CarefreePipeline(PipelineProtocol):
         if data_config is None:
             data_config = {}
         data_config["default_categorical_process"] = "identical"
+        if is_classification is not None:
+            data_config["task_type"] = "clf" if is_classification else "reg"
         self.data = TabularData(**(data_config or {}))
-        self.processed_dim: Optional[int] = None
         self.read_config = read_config or {}
-        self.only_categorical = only_categorical
-        self.encoder_config = encoder_config or {}
-        self.encoding_methods = encoding_methods or {}
-        self.encoding_configs = encoding_configs or {}
-        if default_encoding_methods is None:
-            default_encoding_methods = ["embedding"]
-        self.default_encoding_methods = default_encoding_methods
-        self.default_encoding_configs = default_encoding_configs or {}
 
-    def _prepare_data(self) -> None:
+    # TODO : support sample weights
+    def _prepare_data(
+        self,
+        x: data_type,
+        y: data_type,
+        x_valid: data_type = None,
+        y_valid: data_type = None,
+    ) -> None:
+        self.data.read(x, y, **self.read_config)
+        if x_valid is not None:
+            self.train_data = self.data
+            self.valid_data = self.data.copy_to(x_valid, y_valid)
+        else:
+            if isinstance(self.valid_split, int):
+                split = self.valid_split
+            else:
+                num_data = len(self.data)
+                if isinstance(self.valid_split, float):
+                    split = int(round(self.valid_split * num_data))
+                else:
+                    default_split = 0.1
+                    num_split = int(round(default_split * num_data))
+                    num_split = max(self.min_valid_split, num_split)
+                    max_split = int(round(num_data * self.max_valid_split_ratio))
+                    max_split = min(max_split, self.max_valid_split)
+                    split = min(num_split, max_split)
+            if split <= 0:
+                self.train_data = self.data
+                self.valid_data = None
+            else:
+                split_result = self.data.split(split, order=self.valid_split_order)
+                self.train_data = split_result.remained
+                self.valid_data = split_result.split
         train_loader = MLLoader(
             MLData(*self.train_data.processed.xy),
             name="train",
@@ -562,14 +614,16 @@ class CarefreePipeline(PipelineProtocol):
         self.train_loader_copy = train_loader_copy
         self.valid_loader = valid_loader
 
+    def _prepare_data_attributes(self) -> None:
+        self.is_classification = self.data.is_clf
+        if self.input_dim is None:
+            self.input_dim = self.data.processed_dim
+        if self.output_dim is None:
+            self.output_dim = 1 if self.data.is_reg else self.data.num_classes
+        if self.loss_name == "auto":
+            self.loss_name = "focal" if self.data.is_clf else "mae"
+
     def _prepare_modules(self) -> None:
-        if not self.in_loading:
-            workplace = prepare_workplace_from(self.trainer_config["workplace"])
-            self.trainer_config["workplace"] = workplace
-            self.trainer_config["metrics_log_file"] = self.metrics_log_file
-            os.makedirs(workplace, exist_ok=True)
-            with open(os.path.join(workplace, self.configs_file), "w") as f:
-                json.dump(self.config, f)
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -633,94 +687,19 @@ class CarefreePipeline(PipelineProtocol):
                 loaders,
             )
         self.encoder = encoder
-        # prepare
-        if self.loss_name == "auto":
-            self.loss_name = "focal" if self.data.is_clf else "mae"
-        self.loss = loss_dict[self.loss_name](**(self.loss_config or {}))
-        if self.processed_dim is None:
-            self.processed_dim = self.data.processed_dim
-        self.model = MLModel(
-            self.processed_dim,
-            1 if self.data.is_reg else self.data.num_classes,
-            self.num_history,
-            encoder=encoder,
-            numerical_columns_mapping=numerical_columns_mapping,
-            categorical_columns_mapping=categorical_columns_mapping,
-            use_one_hot=use_one_hot,
-            use_embedding=use_embedding,
-            only_categorical=self.only_categorical,
-            core_name=self.core_name,
-            core_config=self.core_config,
-        )
-        self.inference = MLInference(model=self.model)
+        self.use_one_hot = use_one_hot
+        self.use_embedding = use_embedding
+        self.numerical_columns_mapping = numerical_columns_mapping
+        self.categorical_columns_mapping = categorical_columns_mapping
+        super()._prepare_modules()
 
     def _prepare_trainer_defaults(self) -> None:
-        # set some trainer defaults to ml tasks which work well in practice
-        if self.trainer_config["metric_names"] is None and self.data.is_clf:
-            self.trainer_config["metric_names"] = ["acc", "auc"]
-        if self.trainer_config["monitor_names"] is None:
-            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
-        auto_callback_setup = False
-        tqdm_settings = self.trainer_config["tqdm_settings"]
-        callback_names = self.trainer_config["callback_names"]
-        optimizer_settings = self.trainer_config["optimizer_settings"]
-        if callback_names is None:
-            callback_names = []
-            auto_callback_setup = True
-        if isinstance(callback_names, str):
-            callback_names = [callback_names]
-        if "log_metrics_msg" not in callback_names and auto_callback_setup:
-            if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
-                callback_names.append("log_metrics_msg")
-        if "_default_opt_settings" not in callback_names:
-            callback_names.append("_default_opt_settings")
-        if "_inject_loader_name" not in callback_names:
-            callback_names.append("_inject_loader_name")
-        if optimizer_settings is None:
-            optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
-        self.trainer_config["tqdm_settings"] = tqdm_settings
-        self.trainer_config["callback_names"] = callback_names
-        self.trainer_config["optimizer_settings"] = optimizer_settings
-
-    # TODO : support sample weights
-    def _before_loop(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
-        # prepare data
-        self.data.read(x, y, **self.read_config)
-        if x_valid is not None:
-            self.train_data = self.data
-            self.valid_data = self.data.copy_to(x_valid, y_valid)
-        else:
-            if isinstance(self.valid_split, int):
-                split = self.valid_split
+        if self.trainer_config["metric_names"] is None:
+            if self.data.is_clf:
+                self.trainer_config["metric_names"] = ["acc", "auc"]
             else:
-                num_data = len(self.data)
-                if isinstance(self.valid_split, float):
-                    split = int(round(self.valid_split * num_data))
-                else:
-                    default_split = 0.1
-                    num_split = int(round(default_split * num_data))
-                    num_split = max(self.min_valid_split, num_split)
-                    max_split = int(round(num_data * self.max_valid_split_ratio))
-                    max_split = min(max_split, self.max_valid_split)
-                    split = min(num_split, max_split)
-            if split <= 0:
-                self.train_data = self.data
-                self.valid_data = None
-            else:
-                split_result = self.data.split(split, order=self.valid_split_order)
-                self.train_data = split_result.remained
-                self.valid_data = split_result.split
-        # internal preparation
-        self._prepare_data()
-        self._prepare_modules()
-        self._prepare_trainer_defaults()
+                self.trainer_config["metric_names"] = ["mae", "mse"]
+        super()._prepare_trainer_defaults()
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
         results = outputs.forward_results
@@ -737,209 +716,51 @@ class CarefreePipeline(PipelineProtocol):
             recovered[k] = v
         return recovered
 
-    def predict(
+    def _make_new_loader(
         self,
         x: data_type,
-        y: data_type = None,
-        *,
-        batch_size: int = 128,
-        transform_kwargs: Optional[Dict[str, Any]] = None,
-        **predict_kwargs: Any,
-    ) -> np_dict_type:
-        loader = MLLoader(
-            MLData(*self.data.transform(x, y, **(transform_kwargs or {})).xy),
+        batch_size: int,
+        **kwargs: Any,
+    ) -> MLLoader:
+        return MLLoader(
+            MLData(*self.data.transform(x, None, **kwargs).xy),
             shuffle=False,
             batch_size=batch_size,
         )
-        predict_kwargs = shallow_copy_dict(predict_kwargs)
-        if self.inference.onnx is None:
-            predict_kwargs["device"] = self.device
-        outputs = self.inference.get_outputs(loader, **predict_kwargs)
-        return self._predict_from_outputs(outputs)
-
-    def to_pattern(
-        self,
-        *,
-        pre_process: Optional[Callable] = None,
-        **predict_kwargs: Any,
-    ) -> ModelPattern:
-        def _predict(x: np.ndarray) -> np.ndarray:
-            if pre_process is not None:
-                x = pre_process(x)
-            predictions = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
-            if self.data.is_reg:
-                return predictions
-            return np.argmax(predictions, axis=1)[..., None]
-
-        def _predict_prob(x: np.ndarray) -> np.ndarray:
-            if self.data.is_reg:
-                msg = "`predict_prob` should not be called in regression tasks"
-                raise ValueError(msg)
-            if pre_process is not None:
-                x = pre_process(x)
-            logits = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
-            return MetricProtocol.softmax(logits)
-
-        return ModelPattern(
-            init_method=lambda: self,
-            predict_method=_predict,
-            predict_prob_method=_predict_prob,
-        )
 
     def _save_misc(self, export_folder: str, retain_data: bool) -> float:
-        # data
         data_folder = os.path.join(export_folder, self.data_folder)
         self.data.save(data_folder, retain_data=retain_data, compress=False)
-        # final results
-        final_results = self.trainer.final_results
-        if final_results is None:
-            raise ValueError("`final_results` are not generated yet")
-        with open(os.path.join(export_folder, self.final_results_file), "w") as f:
-            json.dump(final_results, f)
-        # config bundle
-        config_bundle = {
-            "config": shallow_copy_dict(self.config),
-            "device_info": self.device_info,
-            "processed_dim": self.processed_dim,
-        }
-        Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
-        return final_results.final_score
-
-    def save(
-        self,
-        export_folder: str,
-        *,
-        compress: bool = True,
-        retain_data: bool = False,
-        remove_original: bool = True,
-    ) -> "CarefreePipeline":
-        abs_folder = os.path.abspath(export_folder)
-        base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [export_folder]):
-            score = self._save_misc(export_folder, retain_data)
-            self.trainer.save_checkpoint(score, export_folder)
-            if self.inference is None:
-                raise ValueError("`inference` is not yet generated")
-            if compress:
-                Saving.compress(abs_folder, remove_original=remove_original)
-        return self
+        return super()._save_misc(export_folder, retain_data)
 
     @classmethod
     def _load_infrastructure(cls, export_folder: str) -> "CarefreePipeline":
-        config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
-        config = config_bundle["config"]
-        config["in_loading"] = True
-        m = cls(**config)
-        m.device_info = DeviceInfo(*config_bundle["device_info"])
-        m.processed_dim = config_bundle["processed_dim"]
+        m = super()._load_infrastructure(export_folder)
         data_folder = os.path.join(export_folder, cls.data_folder)
         m.data = TabularData.load(data_folder, compress=False)
         return m
 
     @classmethod
-    def load(cls, export_folder: str, *, compress: bool = True) -> "CarefreePipeline":
-        base_folder = os.path.dirname(os.path.abspath(export_folder))
-        with lock_manager(base_folder, [export_folder]):
-            with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder)
-                m._prepare_modules()
-                # restore checkpoint
-                score_path = os.path.join(export_folder, SCORES_FILE)
-                checkpoints = get_sorted_checkpoints(score_path)
-                if not checkpoints:
-                    msg = f"{WARNING_PREFIX}no model file found in {export_folder}"
-                    raise ValueError(msg)
-                checkpoint_path = os.path.join(export_folder, checkpoints[0])
-                states = torch.load(checkpoint_path, map_location=m.device)
-                if m.encoder is not None:
-                    encoder_cache_keys = []
-                    for key in states:
-                        if key.startswith("encoder") and key.endswith("cache"):
-                            encoder_cache_keys.append(key)
-                    for key in encoder_cache_keys:
-                        states.pop(key)
-                m.model.load_state_dict(states)
-        return m
-
-    def to_onnx(
-        self,
+    def load(
+        cls,
         export_folder: str,
-        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
         compress: bool = True,
-        remove_original: bool = True,
-        verbose: bool = True,
-        **kwargs: Any,
+        states_callback: states_callback_type = None,
     ) -> "CarefreePipeline":
-        # prepare
-        model = self.model.cpu()
-        input_sample = self.trainer.input_sample
-        input_sample.pop("batch_indices")
-        with eval_context(model):
-            forward_results = model(0, shallow_copy_dict(input_sample))
-        input_names = sorted(input_sample.keys())
-        output_names = sorted(forward_results.keys())
-        # setup
-        kwargs = shallow_copy_dict(kwargs)
-        kwargs["input_names"] = input_names
-        kwargs["output_names"] = output_names
-        kwargs["opset_version"] = 11
-        kwargs["export_params"] = True
-        kwargs["do_constant_folding"] = True
-        if dynamic_axes is None:
-            dynamic_axes = {}
-        elif isinstance(dynamic_axes, list):
-            dynamic_axes = {axis: f"axis.{axis}" for axis in dynamic_axes}
-        dynamic_axes[0] = "batch_size"
-        dynamic_axes_settings = {}
-        for name in input_names + output_names:
-            dynamic_axes_settings[name] = dynamic_axes
-        kwargs["dynamic_axes"] = dynamic_axes_settings
-        kwargs["verbose"] = verbose
-        # export
-        abs_folder = os.path.abspath(export_folder)
-        base_folder = os.path.dirname(abs_folder)
+        def _callback(m_: Any, states_: Dict[str, Any]) -> Dict[str, Any]:
+            if states_callback is not None:
+                states_ = states_callback(m_, states_)
+            if m_.encoder is not None:
+                encoder_cache_keys = []
+                for key in states_:
+                    if key.startswith("encoder") and key.endswith("cache"):
+                        encoder_cache_keys.append(key)
+                for key in encoder_cache_keys:
+                    states_.pop(key)
+            return states_
 
-        class ONNXWrapper(torch.nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.model = model
-
-            def forward(self, batch: Dict[str, Any]) -> Any:
-                return self.model(0, batch)
-
-        with lock_manager(base_folder, [export_folder]):
-            self._save_misc(export_folder, False)
-            with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
-                json.dump(kwargs, f)
-            onnx = ONNXWrapper()
-            onnx_path = os.path.join(export_folder, self.onnx_file)
-            with eval_context(onnx):
-                torch.onnx.export(
-                    onnx,
-                    (input_sample, {}),
-                    onnx_path,
-                    **shallow_copy_dict(kwargs),
-                )
-            if compress:
-                Saving.compress(abs_folder, remove_original=remove_original)
-        self.model.to(self.device)
-        return self
-
-    @classmethod
-    def from_onnx(cls, export_folder: str, *, compress: bool = True) -> "CarefreePipeline":
-        base_folder = os.path.dirname(os.path.abspath(export_folder))
-        with lock_manager(base_folder, [export_folder]):
-            with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder)
-                with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
-                    onnx_kwargs = json.load(f)
-                onnx = ONNX(
-                    onnx_path=os.path.join(export_folder, cls.onnx_file),
-                    output_names=onnx_kwargs["output_names"],
-                )
-                m.inference = MLInference(onnx=onnx)
-        return m
+        return super().load(export_folder, compress=compress, states_callback=_callback)
 
 
 __all__ = [

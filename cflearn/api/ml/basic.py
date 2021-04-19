@@ -4,6 +4,7 @@ import shutil
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
@@ -16,6 +17,7 @@ from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 
+from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
 from ...types import data_type
 from ...constants import WARNING_PREFIX
@@ -26,15 +28,16 @@ from ...misc.toolkit import to_2d
 from ...misc.internal_ import MLData
 
 
-pipelines_type = Union[
-    CarefreePipeline,
-    List[CarefreePipeline],
-    Dict[str, CarefreePipeline],
-    Dict[str, List[CarefreePipeline]],
+pipelines_type = Dict[str, List[SimplePipeline]]
+various_pipelines_type = Union[
+    SimplePipeline,
+    List[SimplePipeline],
+    Dict[str, SimplePipeline],
+    pipelines_type,
 ]
 
 
-def _to_pipelines(pipelines: pipelines_type) -> Dict[str, List[CarefreePipeline]]:
+def _to_pipelines(pipelines: various_pipelines_type) -> pipelines_type:
     if isinstance(pipelines, dict):
         pipeline_dict = {}
         for key, value in pipelines.items():
@@ -60,7 +63,7 @@ def evaluate(
     metrics: Union[str, List[str]],
     metric_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
     contains_labels: bool = True,
-    pipelines: Optional[pipelines_type] = None,
+    pipelines: Optional[various_pipelines_type] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     other_patterns: Optional[Dict[str, patterns_type]] = None,
     comparer_verbose_level: Optional[int] = 1,
@@ -91,6 +94,8 @@ def evaluate(
             if not isinstance(x, str):
                 raise ValueError("`x` should be str when `y` is not provided")
             data_pipeline = list(pipelines.values())[0][0]
+            if not isinstance(data_pipeline, CarefreePipeline):
+                raise ValueError("only `CarefreePipeline` can handle file inputs")
             data = data_pipeline.data
             x, y = data.read_file(x, contains_labels=contains_labels)
             y = data.transform(x, y).y
@@ -131,16 +136,23 @@ def evaluate(
     return comparer
 
 
-def task_loader(workplace: str, compress: bool = True) -> CarefreePipeline:
+def task_loader(
+    workplace: str,
+    pipeline_base: Type[SimplePipeline],
+    compress: bool = True,
+) -> SimplePipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
-    return CarefreePipeline.load(export_folder=export_folder, compress=compress)
+    return pipeline_base.load(export_folder=export_folder, compress=compress)
 
 
-def load_experiment_results(results: ExperimentResults) -> Dict[str, List[CarefreePipeline]]:
-    pipelines_dict: Dict[str, Dict[int, CarefreePipeline]] = {}
+def load_experiment_results(
+    results: ExperimentResults,
+    pipeline_base: Type[SimplePipeline],
+) -> pipelines_type:
+    pipelines_dict: Dict[str, Dict[int, SimplePipeline]] = {}
     iterator = list(zip(results.workplaces, results.workplace_keys))
     for workplace, workplace_key in tqdm(iterator, desc="load"):
-        pipeline = task_loader(workplace)
+        pipeline = task_loader(workplace, pipeline_base)
         model, str_i = workplace_key
         pipelines_dict.setdefault(model, {})[int(str_i)] = pipeline
     return {k: [v[i] for i in sorted(v)] for k, v in pipelines_dict.items()}
@@ -149,7 +161,7 @@ def load_experiment_results(results: ExperimentResults) -> Dict[str, List[Carefr
 class RepeatResult(NamedTuple):
     data: Optional[MLData]
     experiment: Optional[Experiment]
-    pipelines: Optional[Dict[str, List[CarefreePipeline]]]
+    pipelines: Optional[Dict[str, List[SimplePipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
 
@@ -159,6 +171,7 @@ def repeat_with(
     x_cv: data_type = None,
     y_cv: data_type = None,
     *,
+    pipeline_base: Type[SimplePipeline],
     workplace: str = "_repeat",
     models: Union[str, List[str]] = "fcnn",
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -190,7 +203,7 @@ def repeat_with(
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
 
-    pipelines_dict: Optional[Dict[str, List[CarefreePipeline]]] = None
+    pipelines_dict: Optional[Dict[str, List[SimplePipeline]]] = None
     if sequential:
         experiment = None
         tqdm_settings = kwargs.setdefault("tqdm_settings", {})
@@ -221,7 +234,7 @@ def repeat_with(
                 local_config = fetch_config(model)
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
-                m = CarefreePipeline(**local_config)
+                m = pipeline_base(**local_config)
                 m.fit(x, y, x_cv, y_cv)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
@@ -247,9 +260,8 @@ def repeat_with(
                 )
         # finalize
         results = experiment.run_tasks(use_tqdm=use_tqdm)
-        # TODO : fix here
         if return_patterns:
-            pipelines_dict = load_experiment_results(results)
+            pipelines_dict = load_experiment_results(results, pipeline_base)
 
     patterns = None
     if return_patterns:
