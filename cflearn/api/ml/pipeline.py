@@ -296,7 +296,7 @@ class SimplePipeline(PipelineProtocol):
         compress: bool = True,
         retain_data: bool = False,
         remove_original: bool = True,
-    ) -> "MLPipeline":
+    ) -> "CarefreePipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
@@ -309,7 +309,7 @@ class SimplePipeline(PipelineProtocol):
         return self
 
     @classmethod
-    def _load_infrastructure(cls, export_folder: str) -> "MLPipeline":
+    def _load_infrastructure(cls, export_folder: str) -> "CarefreePipeline":
         config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
         config = config_bundle["config"]
         config["in_loading"] = True
@@ -319,7 +319,7 @@ class SimplePipeline(PipelineProtocol):
         return m
 
     @classmethod
-    def load(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
+    def load(cls, export_folder: str, *, compress: bool = True) -> "CarefreePipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
@@ -345,7 +345,7 @@ class SimplePipeline(PipelineProtocol):
         remove_original: bool = True,
         verbose: bool = True,
         **kwargs: Any,
-    ) -> "MLPipeline":
+    ) -> "CarefreePipeline":
         # prepare
         model = self.model.cpu()
         input_sample = self.trainer.input_sample
@@ -402,7 +402,7 @@ class SimplePipeline(PipelineProtocol):
         return self
 
     @classmethod
-    def from_onnx(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
+    def from_onnx(cls, export_folder: str, *, compress: bool = True) -> "CarefreePipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
@@ -417,7 +417,7 @@ class SimplePipeline(PipelineProtocol):
         return m
 
 
-class MLPipeline(PipelineProtocol):
+class CarefreePipeline(PipelineProtocol):
     data: TabularData
     model: MLModel
     inference: MLInference
@@ -801,7 +801,7 @@ class MLPipeline(PipelineProtocol):
         compress: bool = True,
         retain_data: bool = False,
         remove_original: bool = True,
-    ) -> "MLPipeline":
+    ) -> "CarefreePipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
@@ -814,7 +814,7 @@ class MLPipeline(PipelineProtocol):
         return self
 
     @classmethod
-    def _load_infrastructure(cls, export_folder: str) -> "MLPipeline":
+    def _load_infrastructure(cls, export_folder: str) -> "CarefreePipeline":
         config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
         config = config_bundle["config"]
         config["in_loading"] = True
@@ -826,7 +826,7 @@ class MLPipeline(PipelineProtocol):
         return m
 
     @classmethod
-    def load(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
+    def load(cls, export_folder: str, *, compress: bool = True) -> "CarefreePipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
@@ -859,7 +859,7 @@ class MLPipeline(PipelineProtocol):
         remove_original: bool = True,
         verbose: bool = True,
         **kwargs: Any,
-    ) -> "MLPipeline":
+    ) -> "CarefreePipeline":
         # prepare
         model = self.model.cpu()
         input_sample = self.trainer.input_sample
@@ -916,7 +916,7 @@ class MLPipeline(PipelineProtocol):
         return self
 
     @classmethod
-    def from_onnx(cls, export_folder: str, *, compress: bool = True) -> "MLPipeline":
+    def from_onnx(cls, export_folder: str, *, compress: bool = True) -> "CarefreePipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
@@ -932,6 +932,6 @@ class MLPipeline(PipelineProtocol):
 
 
 __all__ = [
-    "MLPipeline",
     "SimplePipeline",
+    "CarefreePipeline",
 ]

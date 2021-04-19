@@ -16,7 +16,7 @@ from ...types import data_type
 from ...constants import DATA_CONFIG_FILE
 from ...constants import META_CONFIG_NAME
 from ...misc.toolkit import get_latest_workplace
-from ...api.ml.pipeline import MLPipeline
+from ...api.ml.pipeline import CarefreePipeline
 
 
 def _task(
@@ -44,10 +44,10 @@ def inject_distributed_tqdm_kwargs(
 class ExperimentResults(NamedTuple):
     workplaces: List[str]
     workplace_keys: List[Tuple[str, str]]
-    pipelines: Optional[List[MLPipeline]]
+    pipelines: Optional[List[CarefreePipeline]]
 
     @property
-    def pipeline_dict(self) -> Dict[str, MLPipeline]:
+    def pipeline_dict(self) -> Dict[str, CarefreePipeline]:
         if self.pipelines is None:
             raise ValueError("pipelines are not provided")
         return dict(zip(self.workplaces, self.pipelines))
@@ -68,7 +68,7 @@ class ExperimentResults(NamedTuple):
         for workplace, workplace_key in zip(self.workplaces, self.workplace_keys):
             model, index = workplace_key
             workplace = get_latest_workplace(workplace)
-            configs_path = os.path.join(workplace, MLPipeline.configs_file)
+            configs_path = os.path.join(workplace, CarefreePipeline.configs_file)
             paths.setdefault(model, {})[int(index)] = configs_path
         return {k: [v[i] for i in range(len(v))] for k, v in paths.items()}
 
@@ -214,7 +214,7 @@ class Experiment(LoggingMixin):
         self,
         *,
         use_tqdm: bool = True,
-        task_loader: Optional[Callable[[str], MLPipeline]] = None,
+        task_loader: Optional[Callable[[str], CarefreePipeline]] = None,
         **parallel_kwargs: Any,
     ) -> ExperimentResults:
         resource_config = shallow_copy_dict(self.resource_config)
@@ -278,7 +278,7 @@ class Experiment(LoggingMixin):
         saving_folder: str,
         *,
         compress: bool = True,
-        task_loader: Optional[Callable[[str], MLPipeline]] = None,
+        task_loader: Optional[Callable[[str], CarefreePipeline]] = None,
     ) -> "Experiment":
         workplace: str
         workplace_key: Tuple[str, str]

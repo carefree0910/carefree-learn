@@ -16,7 +16,7 @@ from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 
-from .pipeline import MLPipeline
+from .pipeline import CarefreePipeline
 from ...types import data_type
 from ...constants import WARNING_PREFIX
 from ...constants import ML_PIPELINE_SAVE_NAME
@@ -27,14 +27,14 @@ from ...misc.internal_ import MLData
 
 
 pipelines_type = Union[
-    MLPipeline,
-    List[MLPipeline],
-    Dict[str, MLPipeline],
-    Dict[str, List[MLPipeline]],
+    CarefreePipeline,
+    List[CarefreePipeline],
+    Dict[str, CarefreePipeline],
+    Dict[str, List[CarefreePipeline]],
 ]
 
 
-def _to_pipelines(pipelines: pipelines_type) -> Dict[str, List[MLPipeline]]:
+def _to_pipelines(pipelines: pipelines_type) -> Dict[str, List[CarefreePipeline]]:
     if isinstance(pipelines, dict):
         pipeline_dict = {}
         for key, value in pipelines.items():
@@ -131,13 +131,13 @@ def evaluate(
     return comparer
 
 
-def task_loader(workplace: str, compress: bool = True) -> MLPipeline:
+def task_loader(workplace: str, compress: bool = True) -> CarefreePipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
-    return MLPipeline.load(export_folder=export_folder, compress=compress)
+    return CarefreePipeline.load(export_folder=export_folder, compress=compress)
 
 
-def load_experiment_results(results: ExperimentResults) -> Dict[str, List[MLPipeline]]:
-    pipelines_dict: Dict[str, Dict[int, MLPipeline]] = {}
+def load_experiment_results(results: ExperimentResults) -> Dict[str, List[CarefreePipeline]]:
+    pipelines_dict: Dict[str, Dict[int, CarefreePipeline]] = {}
     iterator = list(zip(results.workplaces, results.workplace_keys))
     for workplace, workplace_key in tqdm(iterator, desc="load"):
         pipeline = task_loader(workplace)
@@ -149,7 +149,7 @@ def load_experiment_results(results: ExperimentResults) -> Dict[str, List[MLPipe
 class RepeatResult(NamedTuple):
     data: Optional[MLData]
     experiment: Optional[Experiment]
-    pipelines: Optional[Dict[str, List[MLPipeline]]]
+    pipelines: Optional[Dict[str, List[CarefreePipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
 
@@ -190,7 +190,7 @@ def repeat_with(
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
 
-    pipelines_dict: Optional[Dict[str, List[MLPipeline]]] = None
+    pipelines_dict: Optional[Dict[str, List[CarefreePipeline]]] = None
     if sequential:
         experiment = None
         tqdm_settings = kwargs.setdefault("tqdm_settings", {})
@@ -221,7 +221,7 @@ def repeat_with(
                 local_config = fetch_config(model)
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
-                m = MLPipeline(**local_config)
+                m = CarefreePipeline(**local_config)
                 m.fit(x, y, x_cv, y_cv)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
