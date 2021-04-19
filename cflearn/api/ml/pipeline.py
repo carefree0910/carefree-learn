@@ -100,7 +100,7 @@ class MLPipeline:
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
-        max_epoch: int = 40,
+        max_epoch: int = 1000,
         valid_portion: float = 1.0,
         amp: bool = False,
         clip_norm: float = 0.0,
