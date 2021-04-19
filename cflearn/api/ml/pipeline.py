@@ -11,6 +11,7 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
+from functools import partial
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
@@ -19,6 +20,7 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 
 from ...types import data_type
+from ...types import np_dict_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
@@ -31,6 +33,7 @@ from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
 from ..internal_.trainer import make_trainer
+from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
@@ -363,6 +366,21 @@ class MLPipeline:
         self.device_info = self.trainer.device_info
         return self
 
+    def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
+        results = outputs.forward_results
+        if self.data.is_clf:
+            return results
+        fn = partial(self.data.recover_labels, inplace=True)
+        recovered = {}
+        for k, v in results.items():
+            if is_float(v):
+                if v.shape[1] == 1:
+                    v = fn(v)
+                else:
+                    v = np.apply_along_axis(fn, axis=0, arr=v).squeeze()
+            recovered[k] = v
+        return recovered
+
     def predict(
         self,
         x: data_type,
@@ -371,7 +389,7 @@ class MLPipeline:
         batch_size: int = 128,
         transform_kwargs: Optional[Dict[str, Any]] = None,
         **predict_kwargs: Any,
-    ) -> InferenceOutputs:
+    ) -> np_dict_type:
         loader = MLLoader(
             MLData(*self.data.transform(x, y, **(transform_kwargs or {})).xy),
             shuffle=False,
@@ -380,7 +398,8 @@ class MLPipeline:
         predict_kwargs = shallow_copy_dict(predict_kwargs)
         if self.inference.onnx is None:
             predict_kwargs["device"] = self.device
-        return self.inference.get_outputs(loader, **predict_kwargs)
+        outputs = self.inference.get_outputs(loader, **predict_kwargs)
+        return self._predict_from_outputs(outputs)
 
     def to_pattern(
         self,
@@ -391,15 +410,18 @@ class MLPipeline:
         def _predict(x: np.ndarray) -> np.ndarray:
             if pre_process is not None:
                 x = pre_process(x)
-            outputs = self.predict(x, **predict_kwargs)
-            predictions = outputs.forward_results[PREDICTIONS_KEY]
+            predictions = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
+            if self.data.is_reg:
+                return predictions
             return np.argmax(predictions, axis=1)[..., None]
 
         def _predict_prob(x: np.ndarray) -> np.ndarray:
+            if self.data.is_reg:
+                msg = "`predict_prob` should not be called in regression tasks"
+                raise ValueError(msg)
             if pre_process is not None:
                 x = pre_process(x)
-            outputs = self.predict(x, **predict_kwargs)
-            logits = outputs.forward_results[PREDICTIONS_KEY]
+            logits = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
             return MetricProtocol.softmax(logits)
 
         return ModelPattern(
