@@ -20,6 +20,7 @@ def make_trainer(
     *,
     workplace: str,
     num_epoch: int = 40,
+    max_epoch: int = 1000,
     valid_portion: float = 1.0,
     amp: bool = False,
     clip_norm: float = 0.0,
@@ -102,6 +103,7 @@ def make_trainer(
     return Trainer(
         state_config,
         num_epoch=num_epoch,
+        max_epoch=max_epoch,
         valid_portion=valid_portion,
         amp=amp,
         clip_norm=clip_norm,
