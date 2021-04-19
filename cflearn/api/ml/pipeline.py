@@ -152,7 +152,7 @@ class SimplePipeline(DLPipeline):
         y_valid: Optional[np.ndarray],
     ) -> None:
         # prepare
-        self.input_dim = x.shape[1]
+        self.input_dim = x.shape[-1]
         train_loader = MLLoader(
             MLData(x, y),
             name="train",
