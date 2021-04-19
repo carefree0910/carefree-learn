@@ -221,7 +221,9 @@ def repeat_with(
                 local_config = fetch_config(model)
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
-                local_pipelines.append(MLPipeline(**local_config).fit(x, y, x_cv, y_cv))
+                m = MLPipeline(**local_config)
+                m.fit(x, y, x_cv, y_cv)
+                local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
     else:
         if num_jobs <= 1:

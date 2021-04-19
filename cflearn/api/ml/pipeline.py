@@ -22,17 +22,15 @@ from cftool.misc import Saving
 from ...types import data_type
 from ...types import np_dict_type
 from ...trainer import get_sorted_checkpoints
-from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import loss_dict
 from ...protocol import ONNX
-from ...protocol import LossProtocol
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
-from ..internal_.trainer import make_trainer
+from ..internal_.pipeline import PipelineProtocol
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
 from ...misc.toolkit import prepare_workplace_from
@@ -44,13 +42,10 @@ from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
 
 
-class MLPipeline:
+class MLPipeline(PipelineProtocol):
     data: TabularData
-    loss: LossProtocol
     model: MLModel
-    trainer: Trainer
     inference: MLInference
-    device_info: DeviceInfo
 
     train_data: TabularData
     valid_data: Optional[TabularData]
@@ -58,15 +53,6 @@ class MLPipeline:
     train_loader_copy: MLLoader
     valid_loader: MLLoader
     encoder: Optional[Encoder]
-
-    configs_file: str = "configs.json"
-    metrics_log_file: str = "metrics.txt"
-
-    data_folder: str = "data"
-    final_results_file = "final_results.json"
-    config_bundle_name = "config_bundle"
-    onnx_file: str = "model.onnx"
-    onnx_kwargs_file: str = "onnx.json"
 
     def __init__(
         self,
@@ -119,26 +105,46 @@ class MLPipeline:
     ):
         self.config = get_arguments()
         self.config.pop("self")
+        self.config.pop("__class__")
+        super().__init__(
+            loss_name=loss_name,
+            loss_config=loss_config,
+            valid_split=valid_split,
+            min_valid_split=min_valid_split,
+            max_valid_split=max_valid_split,
+            max_valid_split_ratio=max_valid_split_ratio,
+            valid_split_order=valid_split_order,
+            num_history=num_history,
+            shuffle_train=shuffle_train,
+            shuffle_valid=shuffle_valid,
+            batch_size=batch_size,
+            valid_batch_size=valid_batch_size,
+            state_config=state_config,
+            num_epoch=num_epoch,
+            max_epoch=max_epoch,
+            valid_portion=valid_portion,
+            amp=amp,
+            clip_norm=clip_norm,
+            metric_names=metric_names,
+            metric_configs=metric_configs,
+            monitor_names=monitor_names,
+            monitor_configs=monitor_configs,
+            callback_names=callback_names,
+            callback_configs=callback_configs,
+            optimizer_settings=optimizer_settings,
+            workplace=workplace,
+            rank=rank,
+            tqdm_settings=tqdm_settings,
+            in_loading=in_loading,
+        )
         self.core_name = core_name
         self.core_config = core_config or {}
-        self.loss_name = loss_name
-        self.loss_config = loss_config or {}
         if data_config is None:
             data_config = {}
         data_config["default_categorical_process"] = "identical"
         self.data = TabularData(**(data_config or {}))
         self.processed_dim: Optional[int] = None
         self.read_config = read_config or {}
-        self.valid_split = valid_split
-        self.min_valid_split = min_valid_split
-        self.max_valid_split = max_valid_split
-        self.max_valid_split_ratio = max_valid_split_ratio
-        self.valid_split_order = valid_split_order
-        self.num_history = num_history
-        self.shuffle_train = shuffle_train
-        self.shuffle_valid = shuffle_valid
-        self.batch_size = batch_size
-        self.valid_batch_size = valid_batch_size
         self.only_categorical = only_categorical
         self.encoder_config = encoder_config or {}
         self.encoding_methods = encoding_methods or {}
@@ -147,29 +153,6 @@ class MLPipeline:
             default_encoding_methods = ["embedding"]
         self.default_encoding_methods = default_encoding_methods
         self.default_encoding_configs = default_encoding_configs or {}
-        self.trainer_config: Dict[str, Any] = {
-            "state_config": state_config,
-            "num_epoch": num_epoch,
-            "max_epoch": max_epoch,
-            "valid_portion": valid_portion,
-            "amp": amp,
-            "clip_norm": clip_norm,
-            "metric_names": metric_names,
-            "metric_configs": metric_configs,
-            "monitor_names": monitor_names,
-            "monitor_configs": monitor_configs,
-            "callback_names": callback_names,
-            "callback_configs": callback_configs,
-            "optimizer_settings": optimizer_settings,
-            "workplace": workplace,
-            "rank": rank,
-            "tqdm_settings": tqdm_settings,
-        }
-        self.in_loading = in_loading
-
-    @property
-    def device(self) -> torch.device:
-        return self.device_info.device
 
     def _prepare_data(self) -> None:
         train_loader = MLLoader(
@@ -314,15 +297,14 @@ class MLPipeline:
         self.trainer_config["optimizer_settings"] = optimizer_settings
 
     # TODO : support sample weights
-    def fit(
+    def _before_loop(
         self,
         x: data_type,
         y: data_type = None,
         x_valid: data_type = None,
         y_valid: data_type = None,
-        *,
         cuda: Optional[str] = None,
-    ) -> "MLPipeline":
+    ) -> None:
         # prepare data
         self.data.read(x, y, **self.read_config)
         if x_valid is not None:
@@ -353,18 +335,6 @@ class MLPipeline:
         self._prepare_data()
         self._prepare_modules()
         self._prepare_trainer_defaults()
-        # fit these stuffs!
-        self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
-        self.trainer.fit(
-            self.loss,
-            self.model,
-            self.inference,
-            self.train_loader,
-            self.valid_loader,
-            cuda=cuda,
-        )
-        self.device_info = self.trainer.device_info
-        return self
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
         results = outputs.forward_results

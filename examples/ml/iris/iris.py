@@ -14,7 +14,8 @@ sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
 
 if __name__ == "__main__":
     metrics = ["acc", "auc"]
-    m = cflearn.ml.MLPipeline().fit(iris_data_file)
+    m = cflearn.ml.MLPipeline()
+    m.fit(iris_data_file)
     print(m.data.raw.x[0])
     print(m.data.raw.y[0])
     print(m.data.processed.x[0])
