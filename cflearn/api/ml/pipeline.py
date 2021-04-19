@@ -155,10 +155,10 @@ class SimplePipeline(PipelineProtocol):
 
     def _prepare_data(
         self,
-        x: data_type,
-        y: data_type,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
+        x: np.ndarray,
+        y: np.ndarray,
+        x_valid: Optional[np.ndarray] = None,
+        y_valid: Optional[np.ndarray] = None,
     ) -> None:
         # prepare
         self.input_dim = x.shape[1]
@@ -185,6 +185,7 @@ class SimplePipeline(PipelineProtocol):
 
     def _prepare_data_attributes(self) -> None:
         self.encoder = None
+        assert self.input_dim is not None
         self.numerical_columns_mapping = {i: i for i in range(self.input_dim)}
         self.categorical_columns_mapping = {}
         self.use_one_hot = False
@@ -201,6 +202,7 @@ class SimplePipeline(PipelineProtocol):
                 json.dump(self.config, f)
         # prepare
         self.loss = loss_dict[self.loss_name](**(self.loss_config or {}))
+        assert self.input_dim is not None
         self.model = MLModel(
             self.input_dim,
             self.output_dim,
@@ -512,8 +514,8 @@ class CarefreePipeline(SimplePipeline):
         super().__init__(
             core_name,
             core_config,
-            output_dim=output_dim,
-            is_classification=is_classification,
+            output_dim=output_dim,  # type: ignore
+            is_classification=is_classification,  # type: ignore
             loss_name=loss_name,
             loss_config=loss_config,
             valid_split=valid_split,
@@ -736,6 +738,7 @@ class CarefreePipeline(SimplePipeline):
     @classmethod
     def _load_infrastructure(cls, export_folder: str) -> "CarefreePipeline":
         m = super()._load_infrastructure(export_folder)
+        assert isinstance(m, CarefreePipeline)
         data_folder = os.path.join(export_folder, cls.data_folder)
         m.data = TabularData.load(data_folder, compress=False)
         return m
@@ -760,7 +763,9 @@ class CarefreePipeline(SimplePipeline):
                     states_.pop(key)
             return states_
 
-        return super().load(export_folder, compress=compress, states_callback=_callback)
+        m = super().load(export_folder, compress=compress, states_callback=_callback)
+        assert isinstance(m, CarefreePipeline)
+        return m
 
 
 __all__ = [
