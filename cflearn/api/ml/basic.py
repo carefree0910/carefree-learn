@@ -142,7 +142,9 @@ def task_loader(
     compress: bool = True,
 ) -> SimplePipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
-    return pipeline_base.load(export_folder=export_folder, compress=compress)
+    m = pipeline_base.load(export_folder=export_folder, compress=compress)
+    assert isinstance(m, SimplePipeline)
+    return m
 
 
 def load_experiment_results(

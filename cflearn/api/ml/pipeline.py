@@ -148,8 +148,8 @@ class SimplePipeline(DLPipeline):
         self,
         x: np.ndarray,
         y: np.ndarray,
-        x_valid: Optional[np.ndarray] = None,
-        y_valid: Optional[np.ndarray] = None,
+        x_valid: Optional[np.ndarray],
+        y_valid: Optional[np.ndarray],
     ) -> None:
         # prepare
         self.input_dim = x.shape[1]
@@ -244,13 +244,13 @@ class SimplePipeline(DLPipeline):
         y_valid: data_type = None,
         cuda: Optional[str] = None,
     ) -> None:
-        self._prepare_data(x, y, x_valid, y_valid)
+        self._prepare_data(x, y, x_valid, y_valid)  # type: ignore
         self._prepare_modules()
         self._prepare_trainer_defaults()
 
-    def _make_new_loader(
+    def _make_new_loader(  # type: ignore
         self,
-        x: data_type,
+        x: np.ndarray,
         batch_size: int,
         **kwargs: Any,
     ) -> MLLoader:
@@ -401,8 +401,8 @@ class CarefreePipeline(SimplePipeline):
         self,
         x: data_type,
         y: data_type,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
+        x_valid: data_type,
+        y_valid: data_type,
     ) -> None:
         self.data.read(x, y, **self.read_config)
         if x_valid is not None:
