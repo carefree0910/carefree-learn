@@ -561,7 +561,7 @@ class MLPipeline:
             with eval_context(onnx):
                 torch.onnx.export(
                     onnx,
-                    (input_sample,),
+                    (input_sample, {}),
                     onnx_path,
                     **shallow_copy_dict(kwargs),
                 )
