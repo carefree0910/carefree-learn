@@ -29,7 +29,7 @@ class FCNN(MLCoreProtocol):
         super().__init__(in_dim, out_dim, num_history)
         in_dim *= num_history
         if hidden_units is None:
-            dim = min(1024, 2 * in_dim)
+            dim = max(32, min(1024, 2 * in_dim))
             hidden_units = 2 * [dim]
         blocks: List[nn.Module] = []
         for hidden_unit in hidden_units:
