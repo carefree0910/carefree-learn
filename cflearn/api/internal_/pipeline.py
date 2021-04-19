@@ -12,6 +12,7 @@ from cftool.misc import shallow_copy_dict
 from .trainer import make_trainer
 from ...types import data_type
 from ...types import np_dict_type
+from ...types import states_callback_type
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import LossProtocol
@@ -171,7 +172,13 @@ class PipelineProtocol(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, export_folder: str, *, compress: bool = True) -> "PipelineProtocol":
+    def load(
+        cls,
+        export_folder: str,
+        *,
+        compress: bool = True,
+        states_callback: states_callback_type = None,
+    ) -> "PipelineProtocol":
         pass
 
 
