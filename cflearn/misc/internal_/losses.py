@@ -64,6 +64,28 @@ class QuantileLoss(LossProtocol):
         return quantile_losses.mean(1, keepdim=True)
 
 
+def corr(predictions: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+    vp = predictions - predictions.mean(0, keepdim=True)
+    vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
+    if predictions is target:
+        return vp.t().matmul(vp) / (vp_norm * vp_norm.t())
+    target_t = target.t()
+    vt = target_t - target_t.mean(1, keepdim=True)
+    vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
+    return vt.matmul(vp) / (vp_norm * vt_norm)
+
+
+@LossProtocol.register("corr")
+class CorrelationLoss(LossProtocol):
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        **kwargs: Any,
+    ) -> losses_type:
+        return -corr(forward_results[PREDICTIONS_KEY], batch[LABEL_KEY])
+
+
 @LossProtocol.register("cross_entropy")
 class CrossEntropyLoss(LossProtocol):
     @staticmethod
@@ -147,6 +169,7 @@ __all__ = [
     "MAELoss",
     "MSELoss",
     "QuantileLoss",
+    "CorrelationLoss",
     "CrossEntropyLoss",
     "LabelSmoothCrossEntropyLoss",
     "FocalLoss",
