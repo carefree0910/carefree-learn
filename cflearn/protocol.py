@@ -7,6 +7,7 @@ import torch.nn as nn
 from abc import abstractmethod
 from abc import ABC
 from abc import ABCMeta
+from copy import deepcopy
 from typing import Any
 from typing import Dict
 from typing import List
@@ -82,6 +83,9 @@ class DataLoaderProtocol(ABC, WithRegister):
 
     def __len__(self) -> int:
         return math.ceil(len(self.data) / self.batch_size)
+
+    def copy(self) -> "DataLoaderProtocol":
+        return deepcopy(self)
 
 
 # model

@@ -41,7 +41,6 @@ class PipelineProtocol(ABC):
     device_info: DeviceInfo
 
     train_loader: DataLoaderProtocol
-    train_loader_copy: DataLoaderProtocol
     valid_loader: DataLoaderProtocol
 
     configs_file: str = "configs.json"

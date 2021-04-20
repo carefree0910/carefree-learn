@@ -64,6 +64,9 @@ class MLLoader(DataLoaderProtocol):
             "batch_indices": to_torch(indices),
         }
 
+    def copy(self) -> "MLLoader":
+        return MLLoader(self.data, False, name=self.name, batch_size=self.batch_size)
+
 
 @DataProtocol.register("dl")
 class DLData(DataProtocol):

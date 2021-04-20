@@ -39,7 +39,6 @@ class SimplePipeline(DLPipeline):
     inference_base = MLInference
 
     train_loader: MLLoader
-    train_loader_copy: MLLoader
     valid_loader: MLLoader
 
     encoder: Optional[Encoder]
@@ -159,10 +158,8 @@ class SimplePipeline(DLPipeline):
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
         )
-        train_loader_copy = copy.deepcopy(train_loader)
-        train_loader_copy.shuffle = False
         if x_valid is None or y_valid is None:
-            valid_loader = train_loader_copy
+            valid_loader = None
         else:
             valid_loader = MLLoader(
                 MLData(x_valid, y_valid),
@@ -171,7 +168,6 @@ class SimplePipeline(DLPipeline):
                 batch_size=self.valid_batch_size,
             )
         self.train_loader = train_loader
-        self.train_loader_copy = train_loader_copy
         self.valid_loader = valid_loader
 
     def _prepare_data_attributes(self) -> None:
@@ -435,10 +431,8 @@ class CarefreePipeline(SimplePipeline):
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
         )
-        train_loader_copy = copy.deepcopy(train_loader)
-        train_loader_copy.shuffle = False
         if self.valid_data is None:
-            valid_loader = train_loader_copy
+            valid_loader = None
         else:
             valid_loader = MLLoader(
                 MLData(*self.valid_data.processed.xy),
@@ -447,7 +441,6 @@ class CarefreePipeline(SimplePipeline):
                 batch_size=self.valid_batch_size,
             )
         self.train_loader = train_loader
-        self.train_loader_copy = train_loader_copy
         self.valid_loader = valid_loader
 
     def _prepare_data_attributes(self) -> None:
@@ -511,7 +504,7 @@ class CarefreePipeline(SimplePipeline):
             if self.in_loading:
                 loaders = []
             else:
-                loaders = [self.train_loader_copy]
+                loaders = [self.train_loader]
                 if self.valid_loader is not None:
                     loaders.append(self.valid_loader)
             encoder = Encoder(

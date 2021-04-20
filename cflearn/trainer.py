@@ -537,7 +537,7 @@ class Trainer:
         self.model = model.to(self.device)
         self.inference = inference
         self.train_loader = train_loader
-        self.train_loader_copy = copy.deepcopy(train_loader)
+        self.train_loader_copy = train_loader.copy()
         self.valid_loader = valid_loader
         self.state = TrainerState(
             train_loader,
