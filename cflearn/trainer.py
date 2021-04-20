@@ -2,6 +2,7 @@ import os
 import copy
 import json
 import math
+import time
 import torch
 
 import numpy as np
@@ -151,6 +152,10 @@ class _DefaultOptimizerSettings(TrainerCallback):
 
 @TrainerCallback.register("log_metrics_msg")
 class LogMetricsMsgCallback(TrainerCallback):
+    def __init__(self):
+        super().__init__()
+        self.timer: Optional[float] = None
+
     def log_metrics_msg(
         self,
         metrics_outputs: MetricsOutputs,
@@ -167,14 +172,21 @@ class LogMetricsMsgCallback(TrainerCallback):
                 for k in sorted(metric_values)
             ]
         )
+        total_step = state.num_step_per_epoch
+        current_step = state.step % total_step
+        step_ratio = f"[{current_step} / {total_step}]"
+        if self.timer is None:
+            timer_str = "[??s]"
+        else:
+            timer_str = f"[{time.time() - self.timer:.3f}s]"
         msg = (
-            f"| epoch {state.epoch:^4d} - "
-            f"step {state.step:^6d} | {core} | "
+            f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
             f"score : {fix_float_to_length(final_score, 8)} |"
         )
         print(msg)
         with open(metrics_log_path, "a") as f:
             f.write(f"{msg}\n")
+        self.timer = time.time()
 
 
 class TqdmSettings(NamedTuple):
