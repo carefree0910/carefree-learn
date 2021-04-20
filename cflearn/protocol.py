@@ -183,6 +183,8 @@ class TrainerState:
     def should_log_metrics_msg(self) -> bool:
         if not self.enable_logging:
             return False
+        if self.is_terminate:
+            return True
         min_period = math.ceil(self.num_step_per_log / self.num_step_per_snapshot)
         period = max(1, int(min_period)) * self.num_step_per_snapshot
         return self.step % period == 0
