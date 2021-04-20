@@ -126,6 +126,7 @@ class TrainerState:
         num_snapshot_per_epoch: int = 2,
         num_step_per_log: int = 350,
         num_step_per_snapshot: Optional[int] = None,
+        max_step_per_snapshot: int = 2000,
     ):
         self.step = self.epoch = 0
         self.batch_size = loader.batch_size
@@ -141,6 +142,7 @@ class TrainerState:
         self.num_step_per_log = num_step_per_log
         if num_step_per_snapshot is None:
             num_step_per_snapshot = max(1, int(len(loader) / num_snapshot_per_epoch))
+            num_step_per_snapshot = min(max_step_per_snapshot, num_step_per_snapshot)
         self.num_step_per_snapshot = num_step_per_snapshot
 
     def set_terminate(self) -> None:
