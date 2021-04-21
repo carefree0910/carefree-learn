@@ -3,6 +3,7 @@ import torch
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from typing import Any
 from typing import Dict
@@ -42,7 +43,7 @@ class EncodingResult(NamedTuple):
 class OneHot(nn.Module):
     def __init__(self, dim: int):
         super().__init__()
-        one_hot_fn = lambda column: nn.functional.one_hot(column, dim)
+        one_hot_fn = lambda column: F.one_hot(column, dim)
         self.core = Lambda(one_hot_fn, f"one_hot_{dim}")
         self.dim = dim
 
@@ -65,7 +66,7 @@ class Embedding(nn.Module):
         else:
             Initializer(init_config).initialize(weights, init_method)
         self.weights = nn.Parameter(weights)
-        embedding_fn = lambda column: nn.functional.embedding(column, self.weights)
+        embedding_fn = lambda column: F.embedding(column, self.weights)
         self.core = Lambda(embedding_fn, f"embedding: {in_dim} -> {out_dim}")
         self.in_dim, self.out_dim = in_dim, out_dim
 
