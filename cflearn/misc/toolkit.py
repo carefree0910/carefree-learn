@@ -1,4 +1,5 @@
 import os
+import json
 import math
 import time
 import torch
@@ -19,23 +20,35 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import ContextManager
+from argparse import Namespace
 from datetime import datetime
 from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
 from cftool.misc import prod
+from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
 
 from ..types import data_type
 from ..types import param_type
 from ..types import tensor_dict_type
+from ..types import general_config_type
 from ..constants import INPUT_KEY
 from ..constants import TIME_FORMAT
 from ..constants import WARNING_PREFIX
 
 
 # general
+
+
+def _parse_config(config: general_config_type) -> Dict[str, Any]:
+    if config is None:
+        return {}
+    if isinstance(config, str):
+        with open(config, "r") as f:
+            return json.load(f)
+    return shallow_copy_dict(config)
 
 
 def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) -> str:
@@ -92,6 +105,18 @@ def to_device(batch: tensor_dict_type, device: torch.device) -> tensor_dict_type
         k: v if not isinstance(v, torch.Tensor) else v.to(device)
         for k, v in batch.items()
     }
+
+
+def parse_args(args: Any) -> Namespace:
+    return Namespace(**{k: None if not v else v for k, v in args.__dict__.items()})
+
+
+def parse_path(path: Optional[str], root_dir: Optional[str]) -> Optional[str]:
+    if path is None:
+        return None
+    if root_dir is None:
+        return path
+    return os.path.abspath(os.path.join(root_dir, path))
 
 
 def scheduler_requires_metric(scheduler: Any) -> bool:

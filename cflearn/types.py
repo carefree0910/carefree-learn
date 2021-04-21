@@ -11,6 +11,7 @@ from typing import Optional
 
 data_type = Optional[Union[np.ndarray, str]]
 param_type = Union[torch.Tensor, torch.nn.Parameter]
+general_config_type = Optional[Union[str, Dict[str, Any]]]
 np_dict_type = Dict[str, Union[np.ndarray, Any]]
 tensor_dict_type = Dict[str, Union[torch.Tensor, Any]]
 losses_type = Union[torch.Tensor, tensor_dict_type]
@@ -20,6 +21,7 @@ states_callback_type = Optional[Callable[[Any, Dict[str, Any]], Dict[str, Any]]]
 __all__ = [
     "data_type",
     "param_type",
+    "general_config_type",
     "np_dict_type",
     "tensor_dict_type",
     "losses_type",
