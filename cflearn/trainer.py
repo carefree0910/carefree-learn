@@ -243,8 +243,8 @@ class Trainer:
     ):
         self.tqdm_settings = tqdm_settings or TqdmSettings()
         self.state_config = state_config or {}
-        self.num_epoch = num_epoch
         self.max_epoch = max_epoch
+        self.num_epoch = min(num_epoch, max_epoch)
         self.valid_portion = valid_portion
         self.use_amp = amp
         self.grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
