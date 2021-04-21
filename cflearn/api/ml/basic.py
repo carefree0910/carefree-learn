@@ -296,7 +296,7 @@ def make_toy_model(
     model: str = "fcnn",
     config: Optional[Dict[str, Any]] = None,
     *,
-    pipeline_type: str = "ml.simple",
+    pipeline_type: str = "ml.carefree",
     is_classification: bool = False,
     data_tuple: Optional[Tuple[data_type, data_type]] = None,
     cuda: Optional[Union[int, str]] = None,
@@ -305,13 +305,14 @@ def make_toy_model(
         config = {}
     if data_tuple is not None:
         x, y = data_tuple
-        assert isinstance(x, list)
+        assert isinstance(x, np.ndarray)
+        assert isinstance(y, np.ndarray)
     else:
         if not is_classification:
             x, y = [[0]], [[1]]
         else:
             x, y = [[0], [1]], [[1], [0]]
-    data_tuple = tuple(map(np.array, [x, y]))
+        data_tuple = tuple(map(np.array, [x, y]))
     model_config = {}
     if model in ("fcnn", "tree_dnn"):
         model_config = {
