@@ -35,6 +35,7 @@ class TestDist(unittest.TestCase):
         saving_folder = os.path.join(logging_folder, "__test_experiment_save__")
         experiment.save(saving_folder)
         loaded = cflearn.dist.ml.Experiment.load(saving_folder)
+        assert loaded.results is not None
         ms_loaded = load_results(loaded.results, cflearn.ml.CarefreePipeline)
         self.assertTrue(
             np.allclose(

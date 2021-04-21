@@ -298,21 +298,19 @@ def make_toy_model(
     *,
     pipeline_type: str = "ml.carefree",
     is_classification: bool = False,
-    data_tuple: Optional[Tuple[data_type, data_type]] = None,
-    cuda: Optional[Union[int, str]] = None,
+    data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    cuda: Optional[str] = None,
 ) -> SimplePipeline:
     if config is None:
         config = {}
     if data_tuple is not None:
-        x, y = data_tuple
-        assert isinstance(x, np.ndarray)
-        assert isinstance(y, np.ndarray)
+        x_np, y_np = data_tuple
     else:
         if not is_classification:
             x, y = [[0]], [[1]]
         else:
             x, y = [[0], [1]], [[1], [0]]
-        data_tuple = tuple(map(np.array, [x, y]))
+        x_np, y_np = map(np.array, [x, y])
     model_config = {}
     if model in ("fcnn", "tree_dnn"):
         model_config = {
@@ -329,14 +327,14 @@ def make_toy_model(
         "num_epoch": 2,
         "max_epoch": 4,
         "data_config": {
-            "valid_columns": list(range(len(x[0]))),
+            "valid_columns": list(range(x_np.shape[1])),
             "label_process_method": "identical",
         },
     }
     updated = update_dict(config, base_config)
     m = make(pipeline_type, config=updated)
     assert isinstance(m, SimplePipeline)
-    m.fit(*data_tuple, cuda=cuda)
+    m.fit(x_np, y_np, cuda=cuda)
     return m
 
 
