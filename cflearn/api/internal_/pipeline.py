@@ -10,7 +10,9 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from typing import Callable
 from typing import Optional
+from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -30,6 +32,9 @@ from ...protocol import DataLoaderProtocol
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
 from ...misc.toolkit import eval_context
+
+
+pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
 
 
 class PipelineProtocol(ABC):
@@ -203,6 +208,11 @@ class PipelineProtocol(ABC):
         states_callback: states_callback_type = None,
     ) -> "PipelineProtocol":
         pass
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global pipeline_dict
+        return register_core(name, pipeline_dict)
 
 
 class DLPipeline(PipelineProtocol, metaclass=ABCMeta):

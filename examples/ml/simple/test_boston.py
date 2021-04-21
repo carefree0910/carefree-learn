@@ -8,13 +8,17 @@ from cfdata.tabular import TabularDataset
 metrics = ["mae", "mse"]
 x, y = TabularDataset.boston().xy
 y = (y - y.mean()) / y.std()
-m = cflearn.ml.SimplePipeline(
-    output_dim=1,
-    is_classification=False,
-    loss_name="mae",
-    metric_names=metrics,
+m = cflearn.make(
+    "ml.simple",
+    config={
+        "output_dim": 1,
+        "is_classification": False,
+        "loss_name": "mae",
+        "metric_names": metrics,
+    },
 )
 m.fit(x, y)
+assert isinstance(m, cflearn.ml.SimplePipeline)
 cflearn.ml.evaluate(x, y, metrics=metrics, pipelines=m)
 
 predictions = m.predict(x)[cflearn.PREDICTIONS_KEY]

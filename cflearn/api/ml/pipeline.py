@@ -32,6 +32,7 @@ from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
 
 
+@DLPipeline.register("ml.simple")
 class SimplePipeline(DLPipeline):
     model: MLModel
     inference: MLInference
@@ -281,6 +282,7 @@ class SimplePipeline(DLPipeline):
         )
 
 
+@DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):
     data: TabularData
     train_data: TabularData
