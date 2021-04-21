@@ -6,6 +6,7 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
@@ -26,6 +27,11 @@ from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
 from ...misc.internal_ import MLData
+from ...models.ml.protocol import MLCoreProtocol
+
+
+def register_core(name: str) -> Callable[[Type], Type]:
+    return MLCoreProtocol.register(name)
 
 
 pipelines_type = Dict[str, List[SimplePipeline]]
@@ -283,6 +289,7 @@ def repeat_with(
 
 
 __all__ = [
+    "register_core",
     "evaluate",
     "task_loader",
     "load_experiment_results",
