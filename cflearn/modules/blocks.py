@@ -988,6 +988,15 @@ class NormFactory:
         current_blocks.extend(subsequent_blocks)
 
 
+class Residual(nn.Module):
+    def __init__(self, module: nn.Module):
+        super().__init__()
+        self.module = module
+
+    def forward(self, x: Tensor, **kwargs: Any) -> Tensor:
+        return x + self.module(x, **kwargs)
+
+
 class PreNorm(nn.Module):
     def __init__(self, *dims: int, module: nn.Module, norm_type: str = "layer_norm"):
         super().__init__()
