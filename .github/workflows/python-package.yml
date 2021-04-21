@@ -2,9 +2,9 @@ name: Python package
 
 on:
   push:
-    branches: [ dev ]
+    branches: [ _refactor ]
   pull_request:
-    branches: [ dev ]
+    branches: [ _refactor ]
 
 jobs:
   ubuntu:
@@ -28,4 +28,4 @@ jobs:
       - name: Test with mlflow
         shell: bash -l {0}
         run: |
-          mlflow run https://github.com/carefree0910/carefree-learn -e test -v dev
+          mlflow run https://github.com/carefree0910/carefree-learn -e test -v _refactor
