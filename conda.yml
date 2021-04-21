@@ -3,9 +3,10 @@ channels:
 - conda-forge
 - pytorch
 dependencies:
-- python=3.6.12
-- pytorch=1.8.0
-- torchvision=0.9.0
+- python=3.6.13
+- pytorch=1.8.1
+- torchaudio=0.8.1
+- torchvision=0.9.1
 - pip
 - pip:
   - mlflow
@@ -29,4 +30,4 @@ dependencies:
   - matplotlib>=3.0.3
   - pytest
   - pytest-cov
-  - git+https://github.com/carefree0910/carefree-learn.git@dev
+  - git+https://github.com/carefree0910/carefree-learn.git@_refactor
