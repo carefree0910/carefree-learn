@@ -9,7 +9,7 @@ from ...types import tensor_dict_type
 from ...protocol import TrainerState
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
-from ...modules.blocks import Mapping
+from ...modules.blocks import mapping_dict
 
 
 @MLCoreProtocol.register("fcnn")
@@ -21,6 +21,7 @@ class FCNN(MLCoreProtocol):
         num_history: int,
         hidden_units: Optional[List[int]] = None,
         *,
+        mapping_type: str = "basic",
         bias: bool = True,
         activation: str = "ReLU",
         batch_norm: bool = False,
@@ -31,9 +32,10 @@ class FCNN(MLCoreProtocol):
         if hidden_units is None:
             dim = max(32, min(1024, 2 * in_dim))
             hidden_units = 2 * [dim]
+        mapping_base = mapping_dict[mapping_type]
         blocks: List[nn.Module] = []
         for hidden_unit in hidden_units:
-            mapping = Mapping(
+            mapping = mapping_base(
                 in_dim,
                 hidden_unit,
                 bias=bias,
