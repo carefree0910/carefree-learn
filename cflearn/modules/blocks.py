@@ -916,6 +916,99 @@ class Attention(Module):
 Attention.register("basic")(Attention)
 
 
+class PixelNorm(Module):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        return F.normalize(net, dim=1)
+
+
+class NormFactory:
+    def __init__(self, norm_type: Optional[str]):
+        self.norm_type = norm_type
+
+    @property
+    def use_bias(self) -> bool:
+        return self.norm_type is None or not self.norm_type.startswith("batch")
+
+    @property
+    def norm_base(self) -> Callable:
+        norm_type = self.norm_type
+        norm_layer: Union[Type[Module], Any]
+        if norm_type == "batch_norm":
+            norm_layer = BN
+        elif norm_type == "layer_norm":
+            norm_layer = nn.LayerNorm
+        elif norm_type == "batch":
+            norm_layer = nn.BatchNorm2d
+        elif norm_type == "batch1d":
+            norm_layer = nn.BatchNorm1d
+        elif norm_type == "instance":
+            norm_layer = nn.InstanceNorm2d
+        elif norm_type == "spectral":
+            norm_layer = torch.nn.utils.spectral_norm
+        elif norm_type == "pixel":
+            norm_layer = PixelNorm
+        elif norm_type is None:
+
+            def norm_layer(_: Any, *__: Any, **___: Any) -> nn.Identity:
+                return nn.Identity()
+
+        else:
+            msg = f"normalization layer '{norm_type}' is not found"
+            raise NotImplementedError(msg)
+        return norm_layer
+
+    @property
+    def default_config(self) -> Dict[str, Any]:
+        norm_type = self.norm_type
+        config = {}
+        if norm_type == "batch":
+            config = {"affine": True, "track_running_stats": True}
+        elif norm_type == "instance":
+            config = {"affine": False, "track_running_stats": False}
+        return config
+
+    def make(self, *args: Any, **kwargs: Any) -> Module:
+        kwargs = update_dict(kwargs, self.default_config)
+        return self.norm_base(*args, **kwargs)
+
+    def inject_to(
+        self,
+        dim: int,
+        norm_kwargs: Dict[str, Any],
+        current_blocks: List[Module],
+        *subsequent_blocks: Module,
+    ) -> None:
+        if self.norm_type != "spectral":
+            new_block = self.make(dim, **norm_kwargs)
+            current_blocks.append(new_block)
+        else:
+            last_block = current_blocks[-1]
+            last_block = self.make(last_block, **norm_kwargs)
+            current_blocks[-1] = last_block
+        current_blocks.extend(subsequent_blocks)
+
+
+class PreNorm(nn.Module):
+    def __init__(self, *dims: int, module: nn.Module, norm_type: str = "layer_norm"):
+        super().__init__()
+        self.norms = nn.ModuleList([])
+        for dim in dims:
+            self.norms.append(NormFactory(norm_type).make(dim))
+        self.module = module
+
+    def forward(self, *xs: Tensor, **kwargs: Any) -> Tensor:
+        x_list = [norm(x) for x, norm in zip(xs, self.norms)]
+        if not issubclass(self.module.__class__, Attention):
+            return self.module(*x_list, **kwargs)
+        if len(x_list) == 1:
+            x_list = [x_list[0]] * 3
+        elif len(x_list) == 2:
+            x_list.append(x_list[1])
+        if len(x_list) != 3:
+            raise ValueError("there should be three inputs for `Attention`")
+        return self.module(*x_list, **kwargs).output
+
+
 # mappings
 
 
@@ -1362,74 +1455,6 @@ class UpsampleConv2d(Conv2d):
         if self.factor is not None:
             x = upscale(x, factor=self.factor)
         return super().forward(x, y)
-
-
-class PixelNorm(Module):
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        return F.normalize(net, dim=1)
-
-
-class NormFactory:
-    def __init__(self, norm_type: Optional[str]):
-        self.norm_type = norm_type
-
-    @property
-    def use_bias(self) -> bool:
-        return self.norm_type is None or not self.norm_type.startswith("batch")
-
-    @property
-    def norm_base(self) -> Callable:
-        norm_type = self.norm_type
-        norm_layer: Union[Type[Module], Any]
-        if norm_type == "batch":
-            norm_layer = nn.BatchNorm2d
-        elif norm_type == "batch1d":
-            norm_layer = nn.BatchNorm1d
-        elif norm_type == "instance":
-            norm_layer = nn.InstanceNorm2d
-        elif norm_type == "spectral":
-            norm_layer = torch.nn.utils.spectral_norm
-        elif norm_type == "pixel":
-            norm_layer = PixelNorm
-        elif norm_type is None:
-
-            def norm_layer(_: Any, *__: Any, **___: Any) -> nn.Identity:
-                return nn.Identity()
-
-        else:
-            msg = f"normalization layer '{norm_type}' is not found"
-            raise NotImplementedError(msg)
-        return norm_layer
-
-    @property
-    def default_config(self) -> Dict[str, Any]:
-        norm_type = self.norm_type
-        config = {}
-        if norm_type == "batch":
-            config = {"affine": True, "track_running_stats": True}
-        elif norm_type == "instance":
-            config = {"affine": False, "track_running_stats": False}
-        return config
-
-    def make(self, *args: Any, **kwargs: Any) -> Module:
-        kwargs = update_dict(kwargs, self.default_config)
-        return self.norm_base(*args, **kwargs)
-
-    def inject_to(
-        self,
-        dim: int,
-        norm_kwargs: Dict[str, Any],
-        current_blocks: List[Module],
-        *subsequent_blocks: Module,
-    ) -> None:
-        if self.norm_type != "spectral":
-            new_block = self.make(dim, **norm_kwargs)
-            current_blocks.append(new_block)
-        else:
-            last_block = current_blocks[-1]
-            last_block = self.make(last_block, **norm_kwargs)
-            current_blocks[-1] = last_block
-        current_blocks.extend(subsequent_blocks)
 
 
 def get_conv_blocks(
