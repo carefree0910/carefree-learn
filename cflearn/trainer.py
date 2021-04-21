@@ -3,6 +3,7 @@ import json
 import math
 import time
 import torch
+import shutil
 
 import numpy as np
 
@@ -278,7 +279,10 @@ class Trainer:
         # initialize artifact structure
         if self.is_rank_0:
             self.workplace = workplace
-            os.makedirs(self.workplace, exist_ok=True)
+            if os.path.isdir(workplace):
+                print(f"{WARNING_PREFIX}{workplace} already exists, it will be erased")
+                shutil.rmtree(workplace)
+            os.makedirs(self.workplace)
             self.metrics_log_path = os.path.join(self.workplace, metrics_log_file)
             with open(self.metrics_log_path, "w"):
                 pass
