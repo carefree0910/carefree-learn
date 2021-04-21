@@ -574,6 +574,8 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                     key_results = results.setdefault(key, {})
                     for k, v in head_result.items():
                         key_results.setdefault(k, []).append(v)
+            if clear_cache:
+                self.clear_execute_cache()
         # aggregate num_repeat results
         for k in sorted(results):
             v = results[k]
@@ -582,8 +584,6 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             else:
                 for vk in sorted(v):
                     v[vk] = torch.stack(v[vk]).mean(0)
-        if clear_cache:
-            self.clear_execute_cache()
         return results
 
     def clear_execute_cache(self) -> None:
