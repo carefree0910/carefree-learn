@@ -17,7 +17,7 @@ class TestExample(unittest.TestCase):
     def test_operations(self) -> None:
         folder = os.path.join(examples_folder, "operations")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_op.py')}"),
+            os.system(f"python {os.path.join(folder, 'run_op.py')} --ci 1"),
             0,
         )
 

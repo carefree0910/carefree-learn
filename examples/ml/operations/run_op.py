@@ -1,8 +1,15 @@
 import torch
 import cflearn
+import argparse
 
 import numpy as np
 
+
+# CI
+parser = argparse.ArgumentParser()
+parser.add_argument("--ci", type=int, default=0)
+args = parser.parse_args()
+is_ci = bool(args.ci)
 
 # for reproduction
 np.random.seed(142857)
@@ -26,6 +33,11 @@ kwargs = {
     "metric_names": metrics,
     "tqdm_settings": {"use_tqdm": True},
 }
+if is_ci:
+    kwargs["num_epoch"] = 3
+    kwargs["max_epoch"] = 3
+
+print(kwargs)
 
 # add
 linear = cflearn.ml.SimplePipeline("linear", **kwargs)  # type: ignore

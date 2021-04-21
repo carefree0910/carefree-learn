@@ -47,13 +47,6 @@ if __name__ == "__main__":
     )
     cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=result.pipelines)
 
-    result = cflearn.ml.repeat_with(
-        iris_data_file,
-        pipeline_base=cflearn.ml.CarefreePipeline,
-        num_repeat=10,
-        num_jobs=2,
-    )
-
     experiment = cflearn.dist.ml.Experiment()
     data_folder = experiment.dump_data_bundle(train_x, train_y, valid_x, valid_y)
 
