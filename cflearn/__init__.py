@@ -7,4 +7,5 @@ from .constants import *
 
 from .api import ml
 from .api.basic import *
+from .api.register import *
 from . import dist
