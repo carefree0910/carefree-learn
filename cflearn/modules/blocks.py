@@ -18,6 +18,7 @@ from typing import Union
 from typing import Callable
 from typing import Iterator
 from typing import Optional
+from typing import NamedTuple
 from functools import partial
 from torch.nn import Module
 from torch.nn import ModuleList
@@ -26,6 +27,7 @@ from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
+from ..constants import WARNING_PREFIX
 from ..misc.toolkit import Initializer
 
 
@@ -757,6 +759,161 @@ class Pruner(Module):
             ]
             + [")"]
         )
+
+
+class AttentionOutput(NamedTuple):
+    output: Tensor
+    weights: Tensor
+
+
+attentions: Dict[str, Type["Attention"]] = {}
+
+
+class Attention(Module):
+    def __init__(
+        self,
+        input_dim: int,
+        num_heads: int = 1,
+        *,
+        dropout: float = 0.0,
+        is_self_attention: bool = False,
+        k_dim: Optional[int] = None,
+        v_dim: Optional[int] = None,
+        embed_dim: Optional[int] = None,
+        activation: Optional[str] = None,
+        activation_config: Optional[Dict[str, Any]] = None,
+        q_linear_config: Optional[Dict[str, Any]] = None,
+        k_linear_config: Optional[Dict[str, Any]] = None,
+        v_linear_config: Optional[Dict[str, Any]] = None,
+        in_linear_config: Optional[Dict[str, Any]] = None,
+        out_linear_config: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__()
+        self.input_dim = input_dim
+        self.is_self_attn = is_self_attention
+        if not is_self_attention:
+            self.k_dim = k_dim or input_dim
+            self.v_dim = v_dim or input_dim
+        else:
+            if k_dim is not None and k_dim != input_dim:
+                raise ValueError("self attention is used but `k_dim` != `input_dim`")
+            if v_dim is not None and v_dim != input_dim:
+                raise ValueError("self attention is used but `v_dim` != `input_dim`")
+            self.k_dim = self.v_dim = input_dim
+        self.embed_dim = embed_dim or input_dim
+
+        self.num_heads = num_heads
+        self.head_dim = self.embed_dim // num_heads
+        self.scaling = float(self.head_dim) ** -0.5
+        if self.head_dim * num_heads != self.embed_dim:
+            raise ValueError("`embed_dim` must be divisible by `num_heads`")
+
+        def _warn(prefix: str) -> None:
+            print(
+                f"{WARNING_PREFIX}self attention is used so `{prefix}_linear_config` "
+                "will be ignored, please use `in_linear_config` instead"
+            )
+
+        if q_linear_config is None:
+            q_linear_config = {}
+        elif is_self_attention:
+            _warn("q")
+        if k_linear_config is None:
+            k_linear_config = {}
+        elif is_self_attention:
+            _warn("k")
+        if v_linear_config is None:
+            v_linear_config = {}
+        elif is_self_attention:
+            _warn("v")
+
+        if is_self_attention:
+            if in_linear_config is None:
+                in_linear_config = {}
+            self.in_linear = Linear(input_dim, 3 * self.embed_dim, **in_linear_config)
+        else:
+            self.q_linear = Linear(input_dim, self.embed_dim, **q_linear_config)
+            self.k_linear = Linear(self.k_dim, self.embed_dim, **k_linear_config)
+            self.v_linear = Linear(self.v_dim, self.embed_dim, **v_linear_config)
+
+        if out_linear_config is None:
+            out_linear_config = {}
+        self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
+
+        self.dropout = dropout
+        self.activation = Activations.make(activation, activation_config)
+
+    def _to_heads(self, tensor: Tensor) -> Tensor:
+        batch_size, seq_len, in_feature = tensor.shape
+        tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
+        return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)
+
+    def _get_weights(self, raw_weights: Tensor) -> Tensor:
+        # in most cases the softmax version is good enough
+        return F.softmax(raw_weights, dim=-1)
+
+    def _weights_callback(self, weights: Tensor) -> Tensor:
+        return weights
+
+    def forward(
+        self,
+        q: Tensor,
+        k: Tensor,
+        v: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+    ) -> AttentionOutput:
+        # `mask` represents slots which will be zeroed
+        k_len = k.shape[1]
+        if self.is_self_attn:
+            q, k, v = self.in_linear(q).chunk(3, dim=-1)
+        else:
+            # B, Sq, Din -> B, Sq, D
+            q = self.q_linear(q)
+            # B, Sk, Dk -> B, Sk, D
+            k = self.k_linear(k)
+            # B, Sv, Dv -> B, Sk, D
+            v = self.v_linear(v)
+        q, k, v = map(self.activation, [q, k, v])
+        # scale
+        q = q * self.scaling
+        # B, S*, D -> B * N_head, S*, D_head
+        q, k, v = map(self._to_heads, [q, k, v])
+        if mask is not None:
+            # B, Sq, Sk -> B * N_head, Sq, Sk
+            mask = mask.repeat(self.num_heads, 1, 1)
+        # B * N_head, Sq, Sk
+        raw_weights = torch.bmm(q, k.transpose(-2, -1))
+        if mask is not None:
+            raw_weights.masked_fill_(mask, float("-inf"))
+        # B * N_head, Sq, Sk -> B * N_head, Sq, Sk
+        weights = self._get_weights(raw_weights)
+        if 0.0 < self.dropout < 1.0:
+            weights = F.dropout(weights, self.dropout, self.training)
+        weights = self._weights_callback(weights)
+        # B * N_head, Sq, D_head
+        output = torch.bmm(weights, v)
+        # B * N_head, Sq, D_head -> B, N_head, Sq, D_head
+        nb, q_len, d_head = output.shape
+        output = output.view(nb // self.num_heads, self.num_heads, q_len, d_head)
+        # B, N_head, Sq, D_head -> B, Sq, D
+        output = output.permute(0, 2, 1, 3).contiguous()
+        output = output.view(-1, q_len, self.embed_dim)
+        # B, Sq, D -> B, Sq, Din
+        output = self.activation(self.out_linear(output))
+        return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
+
+    @classmethod
+    def get(cls, name: str) -> Type["Attention"]:
+        return attentions[name]
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        global attentions
+        return register_core(name, attentions)
+
+
+Attention.register("basic")(Attention)
 
 
 # mappings
