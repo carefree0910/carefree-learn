@@ -4,7 +4,7 @@ from .internal_.pipeline import PipelineProtocol
 from ..misc.toolkit import _parse_config
 
 
-def make(name: str, *, config: general_config_type) -> PipelineProtocol:
+def make(name: str, *, config: general_config_type = None) -> PipelineProtocol:
     config = _parse_config(config)
     return pipeline_dict[name](**config)
 
