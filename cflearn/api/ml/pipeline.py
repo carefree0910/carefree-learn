@@ -39,7 +39,7 @@ class SimplePipeline(DLPipeline):
     inference_base = MLInference
 
     train_loader: MLLoader
-    valid_loader: MLLoader
+    valid_loader: Optional[MLLoader]
 
     encoder: Optional[Encoder]
     numerical_columns_mapping: Dict[int, int]

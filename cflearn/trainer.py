@@ -151,7 +151,7 @@ class _DefaultOptimizerSettings(TrainerCallback):
 
 @TrainerCallback.register("log_metrics_msg")
 class LogMetricsMsgCallback(TrainerCallback):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.timer: Optional[float] = None
 
