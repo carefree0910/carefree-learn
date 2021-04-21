@@ -590,10 +590,11 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             self.log_block_msg(msg, verbose_level=3)  # type: ignore
         return "\n".join([all_msg, msg])
 
-    def sorted_checkpoints(self, folder: str) -> List[str]:
+    @classmethod
+    def sorted_checkpoints(cls, folder: str) -> List[str]:
         # better checkpoints will be placed earlier,
         #  which means `checkpoints[0]` is the best checkpoint
-        scores_path = os.path.join(folder, self.scores_file)
+        scores_path = os.path.join(folder, cls.scores_file)
         if not os.path.isfile(scores_path):
             return []
         with open(scores_path, "r") as f:
