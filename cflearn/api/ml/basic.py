@@ -1,10 +1,13 @@
 import os
 import shutil
 
+import numpy as np
+
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -20,6 +23,7 @@ from cftool.ml.utils import Estimator
 
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
+from ..basic import make
 from ...types import data_type
 from ...constants import WARNING_PREFIX
 from ...constants import ML_PIPELINE_SAVE_NAME
@@ -288,12 +292,60 @@ def repeat_with(
     return RepeatResult(data, experiment, pipelines_dict, patterns)
 
 
+def make_toy_model(
+    model: str = "fcnn",
+    config: Optional[Dict[str, Any]] = None,
+    *,
+    pipeline_type: str = "ml.simple",
+    is_classification: bool = False,
+    data_tuple: Optional[Tuple[data_type, data_type]] = None,
+    cuda: Optional[Union[int, str]] = None,
+) -> SimplePipeline:
+    if config is None:
+        config = {}
+    if data_tuple is not None:
+        x, y = data_tuple
+        assert isinstance(x, list)
+    else:
+        if not is_classification:
+            x, y = [[0]], [[1]]
+        else:
+            x, y = [[0], [1]], [[1], [0]]
+    data_tuple = tuple(map(np.array, [x, y]))
+    model_config = {}
+    if model in ("fcnn", "tree_dnn"):
+        model_config = {
+            "hidden_units": [100],
+            "batch_norm": False,
+            "dropout": 0.0,
+        }
+    base_config = {
+        "core_name": model,
+        "core_config": model_config,
+        "is_classification": is_classification,
+        "output_dim": 1 + int(is_classification),
+        "valid_split": 0.0,
+        "num_epoch": 2,
+        "max_epoch": 4,
+        "data_config": {
+            "valid_columns": list(range(len(x[0]))),
+            "label_process_method": "identical",
+        },
+    }
+    updated = update_dict(config, base_config)
+    m = make(pipeline_type, config=updated)
+    assert isinstance(m, SimplePipeline)
+    m.fit(*data_tuple, cuda=cuda)
+    return m
+
+
 __all__ = [
     "register_core",
     "evaluate",
     "task_loader",
     "load_experiment_results",
     "repeat_with",
+    "make_toy_model",
     "ModelPattern",
     "EnsemblePattern",
 ]
