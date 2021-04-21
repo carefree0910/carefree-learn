@@ -130,6 +130,10 @@ class PipelineProtocol(ABC):
     def device(self) -> torch.device:
         return self.device_info.device
 
+    @property
+    def is_rank_0(self) -> bool:
+        return self.trainer.is_rank_0
+
     def fit(
         self,
         x: data_type,
