@@ -257,8 +257,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         with lock_manager(base_folder, [export_folder]):
             score = self._save_misc(export_folder, retain_data)
             self.trainer.save_checkpoint(score, export_folder)
-            if self.inference is None:
-                raise ValueError("`inference` is not yet generated")
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
