@@ -613,8 +613,12 @@ class CarefreePipeline(SimplePipeline):
         return super()._save_misc(export_folder, retain_data)
 
     @classmethod
-    def _load_infrastructure(cls, export_folder: str) -> "CarefreePipeline":
-        m = super()._load_infrastructure(export_folder)
+    def _load_infrastructure(
+        cls,
+        export_folder: str,
+        cuda: Optional[str],
+    ) -> "CarefreePipeline":
+        m = super()._load_infrastructure(export_folder, cuda)
         assert isinstance(m, CarefreePipeline)
         data_folder = os.path.join(export_folder, cls.data_folder)
         m.data = TabularData.load(data_folder, compress=False)

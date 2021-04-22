@@ -264,12 +264,18 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         return self
 
     @classmethod
-    def _load_infrastructure(cls, export_folder: str) -> "DLPipeline":
+    def _load_infrastructure(
+        cls,
+        export_folder: str,
+        cuda: Optional[str],
+    ) -> "DLPipeline":
         config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
         config = config_bundle["config"]
         config["in_loading"] = True
         m = cls(**config)
-        m.device_info = DeviceInfo(*config_bundle["device_info"])
+        device_info = DeviceInfo(*config_bundle["device_info"])
+        device_info = device_info._replace(cuda=cuda)
+        m.device_info = device_info
         m.input_dim = config_bundle["input_dim"]
         return m
 
@@ -278,13 +284,14 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cls,
         export_folder: str,
         *,
+        cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
     ) -> "DLPipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder)
+                m = cls._load_infrastructure(export_folder, cuda)
                 m._prepare_modules()
                 m.model.to(m.device)
                 # restore checkpoint
