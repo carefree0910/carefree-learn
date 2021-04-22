@@ -279,15 +279,12 @@ class Trainer:
         # initialize artifact structure
         if self.is_rank_0:
             self.workplace = workplace
-            if os.path.isdir(workplace):
-                print(f"{WARNING_PREFIX}{workplace} already exists, it will be erased")
-                shutil.rmtree(workplace)
-            os.makedirs(self.workplace)
+            os.makedirs(self.workplace, exist_ok=True)
             self.metrics_log_path = os.path.join(self.workplace, metrics_log_file)
             with open(self.metrics_log_path, "w"):
                 pass
             self.checkpoint_folder = os.path.join(self.workplace, "checkpoints")
-            os.makedirs(self.checkpoint_folder)
+            os.makedirs(self.checkpoint_folder, exist_ok=True)
         # properties
         self.intermediate: Optional[MetricsOutputs] = None
         self.intermediate_updated = False

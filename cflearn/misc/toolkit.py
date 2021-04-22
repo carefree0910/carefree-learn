@@ -68,7 +68,9 @@ def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) ->
                     shutil.rmtree(os.path.join(workplace, stuff))
             except:
                 pass
-    return os.path.join(workplace, current_time.strftime(TIME_FORMAT))
+    workplace = os.path.join(workplace, current_time.strftime(TIME_FORMAT))
+    os.makedirs(workplace)
+    return workplace
 
 
 def get_latest_workplace(root: str) -> str:
