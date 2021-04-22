@@ -13,6 +13,7 @@ LABEL_KEY = "labels"
 
 PT_PREFIX = "model_"
 SCORES_FILE = "scores.json"
+CHECKPOINTS_FOLDER = "checkpoints"
 
 META_CONFIG_NAME = "__meta__"
 DATA_CONFIG_FILE = "__data__.json"

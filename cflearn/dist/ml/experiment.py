@@ -15,6 +15,7 @@ from .task import Task
 from ...types import data_type
 from ...constants import DATA_CONFIG_FILE
 from ...constants import META_CONFIG_NAME
+from ...constants import CHECKPOINTS_FOLDER
 from ...misc.toolkit import get_latest_workplace
 from ...api.ml.pipeline import CarefreePipeline
 
@@ -58,7 +59,7 @@ class ExperimentResults(NamedTuple):
         for workplace, workplace_key in zip(self.workplaces, self.workplace_keys):
             model, index = workplace_key
             workplace = get_latest_workplace(workplace)
-            checkpoint_folder = os.path.join(workplace, "checkpoints")
+            checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
             folders.setdefault(model, {})[int(index)] = checkpoint_folder
         return {k: [v[i] for i in range(len(v))] for k, v in folders.items()}
 

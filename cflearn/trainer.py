@@ -283,7 +283,7 @@ class Trainer:
             self.metrics_log_path = os.path.join(self.workplace, metrics_log_file)
             with open(self.metrics_log_path, "w"):
                 pass
-            self.checkpoint_folder = os.path.join(self.workplace, "checkpoints")
+            self.checkpoint_folder = os.path.join(self.workplace, CHECKPOINTS_FOLDER)
             os.makedirs(self.checkpoint_folder, exist_ok=True)
         # properties
         self.intermediate: Optional[MetricsOutputs] = None
