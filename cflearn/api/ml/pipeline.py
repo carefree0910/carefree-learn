@@ -381,6 +381,8 @@ class SimplePipeline(DLPipeline):
             self._save_misc(export_folder, False)
             file = f"{PT_PREFIX}-1.pt"
             torch.save(self.model.state_dict(), os.path.join(export_folder, file))
+            with open(os.path.join(export_folder, SCORES_FILE), "w") as f:
+                json.dump({file: 0.0}, f)
             Saving.compress(abs_folder, remove_original=True)
         return self
 
