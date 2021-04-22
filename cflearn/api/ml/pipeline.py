@@ -21,7 +21,6 @@ from cftool.misc import Saving
 
 from ...types import data_type
 from ...types import np_dict_type
-from ...types import tensor_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import DeviceInfo
