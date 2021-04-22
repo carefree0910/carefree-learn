@@ -103,6 +103,7 @@ class SimplePipeline(DLPipeline):
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
+        num_repeat: Optional[int] = None,
     ):
         self.config = get_arguments()
         self.config.pop("self")
@@ -151,6 +152,7 @@ class SimplePipeline(DLPipeline):
             default_encoding_methods = ["embedding"]
         self.default_encoding_methods = default_encoding_methods
         self.default_encoding_configs = default_encoding_configs or {}
+        self._num_repeat: Optional[int] = num_repeat
 
     def _prepare_data(
         self,
@@ -211,6 +213,7 @@ class SimplePipeline(DLPipeline):
             only_categorical=self.only_categorical,
             core_name=self.core_name,
             core_config=self.core_config,
+            num_repeat=self._num_repeat,
         )
         self.inference = MLInference(model=self.model)
 

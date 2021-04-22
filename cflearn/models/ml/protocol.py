@@ -11,6 +11,7 @@ from typing import Dict
 from typing import Type
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import shallow_copy_dict
 
 from .encoders import Encoder
 from .encoders import EncodingResult
@@ -21,6 +22,7 @@ from ...protocol import ModelProtocol
 from ...constants import INPUT_KEY
 from ...misc.toolkit import to_numpy
 from ...misc.toolkit import LoggingMixinWithRank
+from ...modules.blocks import _get_clones
 
 
 ml_core_dict: Dict[str, Type["MLCoreProtocol"]] = {}
@@ -219,6 +221,7 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         only_categorical: bool,
         core_name: str,
         core_config: Dict[str, Any],
+        num_repeat: Optional[int] = None,
     ):
         super().__init__()
         self.in_dim = in_dim
@@ -239,8 +242,13 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         core_config["in_dim"] = self.transform.out_dim
         core_config["out_dim"] = out_dim
         core_config["num_history"] = num_history
-        self.core = ml_core_dict[core_name](**core_config)
+        core = ml_core_dict[core_name](**core_config)
+        if num_repeat is None:
+            self.core = core
+        else:
+            self.core = _get_clones(core, num_repeat)
         self.__identifier__ = core_name
+        self._num_repeat = num_repeat
 
     def forward(
         self,
@@ -258,7 +266,21 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
             kwargs.get("loader_name"),
         )
         batch[INPUT_KEY] = self.transform(split)
-        return self.core(batch_idx, batch, state, **kwargs)
+        if self._num_repeat is None:
+            return self.core(batch_idx, batch, state, **kwargs)
+        final_results: tensor_dict_type = {}
+        for sub_core in self.core:
+            sub_results = sub_core(
+                batch_idx,
+                shallow_copy_dict(batch),
+                state,
+                **shallow_copy_dict(kwargs),
+            )
+            for k, v in sub_results.items():
+                final_results.setdefault(k, []).append(v)
+        for k in sorted(final_results):
+            final_results[k] = torch.stack(final_results[k]).mean(0)
+        return final_results
 
 
 __all__ = [
