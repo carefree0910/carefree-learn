@@ -217,6 +217,7 @@ def repeat_with(
 
     pipelines_dict: Optional[Dict[str, List[SimplePipeline]]] = None
     if sequential:
+        cuda = kwargs.pop("cuda", None)
         experiment = None
         tqdm_settings = kwargs.setdefault("tqdm_settings", {})
         tqdm_settings["tqdm_position"] = 2
@@ -247,7 +248,7 @@ def repeat_with(
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
                 m = pipeline_base(**local_config)
-                m.fit(x, y, x_cv, y_cv)
+                m.fit(x, y, x_cv, y_cv, cuda=cuda)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
     else:
@@ -287,7 +288,9 @@ def repeat_with(
 
     data = None
     if patterns is not None:
-        data = patterns[models[0]][0].model.data
+        m = patterns[models[0]][0].model
+        if isinstance(m, CarefreePipeline):
+            data = m.data
 
     return RepeatResult(data, experiment, pipelines_dict, patterns)
 
