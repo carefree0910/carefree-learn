@@ -330,6 +330,16 @@ class SimplePipeline(DLPipeline):
             Saving.compress(abs_folder, remove_original=True)
         return pack_folder
 
+    def re_save(self, export_folder: str) -> "SimplePipeline":
+        abs_folder = os.path.abspath(export_folder)
+        base_folder = os.path.dirname(abs_folder)
+        with lock_manager(base_folder, [export_folder]):
+            self._save_misc(export_folder, False)
+            file = f"{PT_PREFIX}-1.pt"
+            torch.save(self.model.state_dict(), os.path.join(export_folder, file))
+            Saving.compress(abs_folder, remove_original=True)
+        return self
+
 
 @DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):

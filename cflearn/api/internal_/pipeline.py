@@ -27,6 +27,7 @@ from ...trainer import DeviceInfo
 from ...protocol import ONNX
 from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
+from ...protocol import MetricsOutputs
 from ...protocol import InferenceProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import SCORES_FILE
@@ -230,9 +231,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _save_misc(self, export_folder: str, retain_data: bool) -> float:
         os.makedirs(export_folder, exist_ok=True)
         # final results
-        final_results = self.trainer.final_results
-        if final_results is None:
-            raise ValueError("`final_results` are not generated yet")
+        try:
+            final_results = self.trainer.final_results
+            if final_results is None:
+                raise ValueError("`final_results` are not generated yet")
+        except AttributeError as e:
+            print(f"{WARNING_PREFIX}{e}, so `final_results` cannot be accessed")
+            final_results = MetricsOutputs(0.0, {"unknown": 0.0})
         with open(os.path.join(export_folder, self.final_results_file), "w") as f:
             json.dump(final_results, f)
         # config bundle
