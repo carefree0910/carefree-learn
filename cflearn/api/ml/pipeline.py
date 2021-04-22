@@ -1,5 +1,6 @@
 import os
 import json
+import torch
 import shutil
 
 import numpy as np
@@ -19,6 +20,7 @@ from cftool.misc import Saving
 
 from ...types import data_type
 from ...types import np_dict_type
+from ...types import tensor_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import DeviceInfo
@@ -332,6 +334,45 @@ class SimplePipeline(DLPipeline):
             Saving.save_dict(config_bundle, cls.config_bundle_name, pack_folder)
             Saving.compress(abs_folder, remove_original=True)
         return pack_folder
+
+    @classmethod
+    def fuse_multiple(
+        cls,
+        export_folders: List[str],
+        *,
+        cuda: Optional[str] = None,
+        compress: bool = True,
+        states_callback: states_callback_type = None,
+    ) -> "SimplePipeline":
+        export_folder = export_folders[0]
+        base_folder = os.path.dirname(os.path.abspath(export_folder))
+        with lock_manager(base_folder, [export_folder]):
+            with Saving.compress_loader(export_folder, compress):
+                m = cls._load_infrastructure(export_folder, cuda)
+        m._num_repeat = m.config["num_repeat"] = len(export_folders)
+        m._prepare_modules()
+        m.model.to(m.device)
+        merged_states: tensor_dict_type = {}
+        for i, export_folder in enumerate(export_folders):
+            base_folder = os.path.dirname(os.path.abspath(export_folder))
+            with lock_manager(base_folder, [export_folder]):
+                with Saving.compress_loader(export_folder, compress):
+                    score_path = os.path.join(export_folder, SCORES_FILE)
+                    checkpoints = get_sorted_checkpoints(score_path)
+                    checkpoint_path = os.path.join(export_folder, checkpoints[0])
+                    states = torch.load(checkpoint_path, map_location=m.device)
+                    current_keys = list(states.keys())
+                    for k, v in list(states.items()):
+                        split = k.split(".")
+                        split.insert(1, str(i))
+                        states[".".join(split)] = v
+                    for k in current_keys:
+                        states.pop(k)
+                    if states_callback is not None:
+                        states = states_callback(m, states)
+                    merged_states.update(states)
+        m.model.load_state_dict(merged_states)
+        return m
 
     def re_save(self, export_folder: str) -> "SimplePipeline":
         abs_folder = os.path.abspath(export_folder)
