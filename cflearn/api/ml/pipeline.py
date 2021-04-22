@@ -444,6 +444,7 @@ class CarefreePipeline(SimplePipeline):
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
+        num_repeat: Optional[int] = None,
     ):
         self.config = get_arguments()
         self.config.pop("self")
@@ -488,6 +489,7 @@ class CarefreePipeline(SimplePipeline):
             rank=rank,
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
+            num_repeat=num_repeat,
         )
         self.core_name = core_name
         self.core_config = core_config or {}
