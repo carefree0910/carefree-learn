@@ -12,6 +12,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from functools import partial
+from collections import OrderedDict
 from cfdata.tabular import ColumnTypes
 from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
@@ -349,10 +350,11 @@ class SimplePipeline(DLPipeline):
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 m = cls._load_infrastructure(export_folder, cuda)
+                assert isinstance(m, SimplePipeline)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
         m._prepare_modules()
         m.model.to(m.device)
-        merged_states: tensor_dict_type = {}
+        merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
         for i, export_folder in enumerate(export_folders):
             base_folder = os.path.dirname(os.path.abspath(export_folder))
             with lock_manager(base_folder, [export_folder]):
@@ -685,6 +687,7 @@ class CarefreePipeline(SimplePipeline):
         cls,
         export_folder: str,
         *,
+        cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
     ) -> "CarefreePipeline":
@@ -700,7 +703,12 @@ class CarefreePipeline(SimplePipeline):
                     states_.pop(key)
             return states_
 
-        m = super().load(export_folder, compress=compress, states_callback=_callback)
+        m = super().load(
+            export_folder,
+            cuda=cuda,
+            compress=compress,
+            states_callback=_callback,
+        )
         assert isinstance(m, CarefreePipeline)
         return m
 

@@ -385,7 +385,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder)
+                m = cls._load_infrastructure(export_folder, None)
                 with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
                     onnx_kwargs = json.load(f)
                 onnx = ONNX(

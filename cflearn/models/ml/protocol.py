@@ -8,7 +8,9 @@ from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Type
+from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import shallow_copy_dict
@@ -207,6 +209,8 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
 
 
 class MLModel(ModelProtocol, metaclass=ABCMeta):
+    core: Union[MLCoreProtocol, nn.ModuleList]
+
     def __init__(
         self,
         in_dim: int,
@@ -268,8 +272,8 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         batch[INPUT_KEY] = self.transform(split)
         if self._num_repeat is None:
             return self.core(batch_idx, batch, state, **kwargs)
-        final_results: tensor_dict_type = {}
-        for sub_core in self.core:
+        all_results: Dict[str, List[torch.Tensor]] = {}
+        for sub_core in self.core:  # type: ignore
             sub_results = sub_core(
                 batch_idx,
                 shallow_copy_dict(batch),
@@ -277,9 +281,10 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
                 **shallow_copy_dict(kwargs),
             )
             for k, v in sub_results.items():
-                final_results.setdefault(k, []).append(v)
-        for k in sorted(final_results):
-            final_results[k] = torch.stack(final_results[k]).mean(0)
+                all_results.setdefault(k, []).append(v)
+        final_results: tensor_dict_type = {}
+        for k in sorted(all_results):
+            final_results[k] = torch.stack(all_results[k]).mean(0)
         return final_results
 
 
