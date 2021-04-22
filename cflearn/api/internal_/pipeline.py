@@ -286,6 +286,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             with Saving.compress_loader(export_folder, compress):
                 m = cls._load_infrastructure(export_folder)
                 m._prepare_modules()
+                m.model.to(m.device)
                 # restore checkpoint
                 score_path = os.path.join(export_folder, SCORES_FILE)
                 checkpoints = get_sorted_checkpoints(score_path)
