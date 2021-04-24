@@ -148,7 +148,7 @@ def evaluate(
 
 def task_loader(
     workplace: str,
-    pipeline_base: Type[SimplePipeline],
+    pipeline_base: Type[SimplePipeline] = CarefreePipeline,
     compress: bool = True,
 ) -> SimplePipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
