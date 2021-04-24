@@ -84,7 +84,7 @@ class RNN(MLCoreProtocol):
         net = batch[MERGED_KEY]
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
-        batch[INPUT_KEY] = net[:, -1]
+        batch[MERGED_KEY] = net[:, -1]
         return self.head(batch_idx, batch, state, **kwargs)
 
 
