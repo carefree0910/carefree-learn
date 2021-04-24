@@ -183,7 +183,7 @@ def repeat_with(
     x_cv: data_type = None,
     y_cv: data_type = None,
     *,
-    pipeline_base: Type[SimplePipeline],
+    pipeline_base: Type[SimplePipeline] = CarefreePipeline,
     workplace: str = "_repeat",
     models: Union[str, List[str]] = "fcnn",
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
