@@ -7,10 +7,10 @@ from typing import List
 from typing import Optional
 
 from .fcnn import FCNN
+from .protocol import MERGED_KEY
 from .protocol import MLCoreProtocol
 from ...types import tensor_dict_type
 from ...protocol import TrainerState
-from ...constants import INPUT_KEY
 
 
 rnn_dict = {
@@ -81,7 +81,7 @@ class RNN(MLCoreProtocol):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
+        net = batch[MERGED_KEY]
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
         batch[INPUT_KEY] = net[:, -1]

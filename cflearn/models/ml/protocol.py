@@ -27,6 +27,10 @@ from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import _get_clones
 
 
+NUMERICAL_KEY = "_numerical"
+ONE_HOT_KEY = "_one_hot"
+EMBEDDING_KEY = "_embedding"
+MERGED_KEY = "_merged"
 ml_core_dict: Dict[str, Type["MLCoreProtocol"]] = {}
 
 
@@ -269,7 +273,14 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
             batch_indices,
             kwargs.get("loader_name"),
         )
-        batch[INPUT_KEY] = self.transform(split)
+        batch[NUMERICAL_KEY] = split.numerical
+        if split.categorical is None:
+            batch[ONE_HOT_KEY] = None
+            batch[EMBEDDING_KEY] = None
+        else:
+            batch[ONE_HOT_KEY] = split.categorical.one_hot
+            batch[EMBEDDING_KEY] = split.categorical.embedding
+        batch[MERGED_KEY] = self.transform(split)
         if self._num_repeat is None:
             return self.core(batch_idx, batch, state, **kwargs)
         all_results: Dict[str, List[torch.Tensor]] = {}

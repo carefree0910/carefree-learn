@@ -3,10 +3,10 @@ import torch.nn as nn
 from typing import Any
 from typing import Optional
 
+from .protocol import MERGED_KEY
 from .protocol import MLCoreProtocol
 from ...types import tensor_dict_type
 from ...protocol import TrainerState
-from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 
 
@@ -31,7 +31,7 @@ class Linear(MLCoreProtocol):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
+        net = batch[MERGED_KEY]
         if len(net.shape) > 2:
             net = net.view(len(net), -1)
         return {PREDICTIONS_KEY: self.net(net)}
