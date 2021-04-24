@@ -153,7 +153,7 @@ class _DefaultOptimizerSettings(TrainerCallback):
 class LogMetricsMsgCallback(TrainerCallback):
     def __init__(self) -> None:
         super().__init__()
-        self.timer: Optional[float] = None
+        self.timer = time.time()
 
     def log_metrics_msg(
         self,
@@ -174,10 +174,7 @@ class LogMetricsMsgCallback(TrainerCallback):
         total_step = state.num_step_per_epoch
         current_step = state.step % total_step
         step_ratio = f"[{current_step} / {total_step}]"
-        if self.timer is None:
-            timer_str = "[??s]"
-        else:
-            timer_str = f"[{time.time() - self.timer:.3f}s]"
+        timer_str = f"[{time.time() - self.timer:.3f}s]"
         msg = (
             f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
             f"score : {fix_float_to_length(final_score, 8)} |"
