@@ -22,4 +22,4 @@ onnx_folder = "titanic_onnx"
 m.to_onnx(onnx_folder)
 m3 = cflearn.ml.CarefreePipeline.from_onnx(onnx_folder)
 results = m.predict(test_file, make_loader_kwargs={"contains_labels": False})
-assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY])
+assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY], atol=1.0e-5)
