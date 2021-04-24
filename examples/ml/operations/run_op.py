@@ -37,8 +37,6 @@ if is_ci:
     kwargs["num_epoch"] = 3
     kwargs["max_epoch"] = 3
 
-print(kwargs)
-
 # add
 linear = cflearn.ml.SimplePipeline("linear", **kwargs)  # type: ignore
 fcnn = cflearn.ml.SimplePipeline("fcnn", **kwargs)  # type: ignore
