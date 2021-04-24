@@ -117,7 +117,7 @@ def make_trainer(
         tqdm_settings=TqdmSettings(
             use_tqdm,
             tqdm_settings.setdefault("use_step_tqdm", use_tqdm),
-            tqdm_settings.setdefault("use_tqdm_in_cv", False),
+            tqdm_settings.setdefault("use_tqdm_in_validation", False),
             tqdm_settings.setdefault("in_distributed", False),
             tqdm_settings.setdefault("tqdm_position", 0),
             tqdm_settings.setdefault("tqdm_desc", "epoch"),

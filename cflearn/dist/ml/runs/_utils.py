@@ -40,7 +40,7 @@ def get_info(*, requires_data: bool = True) -> Info:
         if data_folder is None:
             raise ValueError("`data_folder` should be provided")
         data_config_path = os.path.join(data_folder, DATA_CONFIG_FILE)
-        keys = ["x", "y", "x_cv", "y_cv"]
+        keys = ["x", "y", "x_valid", "y_valid"]
         if os.path.isfile(data_config_path):
             with open(data_config_path, "r") as f:
                 data_config = json.load(f)

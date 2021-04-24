@@ -180,8 +180,8 @@ class RepeatResult(NamedTuple):
 def repeat_with(
     x: data_type,
     y: data_type = None,
-    x_cv: data_type = None,
-    y_cv: data_type = None,
+    x_valid: data_type = None,
+    y_valid: data_type = None,
     *,
     pipeline_base: Type[SimplePipeline] = CarefreePipeline,
     workplace: str = "_repeat",
@@ -248,7 +248,7 @@ def repeat_with(
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
                 m = pipeline_base(**local_config)
-                m.fit(x, y, x_cv, y_cv, cuda=cuda)
+                m.fit(x, y, x_valid, y_valid, cuda=cuda)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
     else:
@@ -258,7 +258,7 @@ def repeat_with(
                 f"to True when `num_jobs` is {num_jobs}"
             )
         # data
-        data_folder = Experiment.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
+        data_folder = Experiment.dump_data_bundle(x, y, x_valid, y_valid, workplace=workplace)
         # experiment
         experiment = Experiment(num_jobs=num_jobs)
         for model in models:

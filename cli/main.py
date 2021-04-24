@@ -25,19 +25,19 @@ if __name__ == "__main__":
         3 * [root_dir],
     )
     if not train.endswith(".npy"):
-        x, x_cv = train, valid
-        y = y_cv = None
+        x, x_valid = train, valid
+        y = y_valid = None
     else:
         train = np.load(train)
         x, y = np.split(train, [-1], axis=1)
         if valid is None:
-            x_cv = y_cv = None
+            x_valid = y_valid = None
         else:
             if not valid.endswith(".npy"):
                 msg = f"train_file is a numpy array but valid_file ({valid}) is not"
                 raise ValueError(msg)
             valid = np.load(valid)
-            x_cv, y_cv = np.split(valid, [-1], axis=1)
+            x_valid, y_valid = np.split(valid, [-1], axis=1)
     config = _parse_config(config_path)
     workplace = config.get("workplace")
     if workplace is None:
@@ -46,6 +46,6 @@ if __name__ == "__main__":
         workplace = parse_path(workplace, root_dir)
     config["workplace"] = workplace
     model_saving_folder = config.pop("model_saving_folder", None)
-    m = cflearn.make(args.pipeline, config=config).fit(x, y, x_cv, y_cv)
+    m = cflearn.make(args.pipeline, config=config).fit(x, y, x_valid, y_valid)
     if model_saving_folder is not None and m.is_rank_0:
         m.save(os.path.join(model_saving_folder, "pipeline"))

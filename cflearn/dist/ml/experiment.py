@@ -120,8 +120,8 @@ class Experiment(LoggingMixin):
     def dump_data_bundle(
         x: data_type,
         y: data_type = None,
-        x_cv: data_type = None,
-        y_cv: data_type = None,
+        x_valid: data_type = None,
+        y_valid: data_type = None,
         *,
         workplace: Optional[str] = None,
         data_folder: Optional[str] = None,
@@ -130,7 +130,7 @@ class Experiment(LoggingMixin):
             data_folder = Experiment.data_folder(workplace)
         os.makedirs(data_folder, exist_ok=True)
         if not isinstance(x, np.ndarray):
-            data_config = {"x": x, "y": y, "x_cv": x_cv, "y_cv": y_cv}
+            data_config = {"x": x, "y": y, "x_valid": x_valid, "y_valid": y_valid}
             for k, v in data_config.items():
                 if v is not None:
                     assert isinstance(v, str)
@@ -139,7 +139,7 @@ class Experiment(LoggingMixin):
                 json.dump(data_config, f)
         else:
             Experiment.dump_data(data_folder, x, y)
-            Experiment.dump_data(data_folder, x_cv, y_cv, "_cv")
+            Experiment.dump_data(data_folder, x_valid, y_valid, "_valid")
         return data_folder
 
     @staticmethod
@@ -170,8 +170,8 @@ class Experiment(LoggingMixin):
         self,
         x: data_type = None,
         y: data_type = None,
-        x_cv: data_type = None,
-        y_cv: data_type = None,
+        x_valid: data_type = None,
+        y_valid: data_type = None,
         *,
         model: str = "fcnn",
         execute: str = "basic",
@@ -197,7 +197,7 @@ class Experiment(LoggingMixin):
         new_idx = len(self.tasks)
         inject_distributed_tqdm_kwargs(new_idx, self.num_jobs, copied_config)
         if data_folder is None and x is not None:
-            data_folder = self.dump_data_bundle(x, y, x_cv, y_cv, workplace=workplace)
+            data_folder = self.dump_data_bundle(x, y, x_valid, y_valid, workplace=workplace)
         if data_folder is not None:
             copied_config["data_folder"] = os.path.abspath(data_folder)
         new_task = Task(

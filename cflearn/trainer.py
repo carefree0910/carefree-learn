@@ -188,7 +188,7 @@ class LogMetricsMsgCallback(TrainerCallback):
 class TqdmSettings(NamedTuple):
     use_tqdm: bool = False
     use_step_tqdm: bool = False
-    use_tqdm_in_cv: bool = False
+    use_tqdm_in_validation: bool = False
     in_distributed: bool = False
     position: int = 0
     desc: str = "epoch"
@@ -292,10 +292,10 @@ class Trainer:
         return self.device_info.device
 
     @property
-    def use_tqdm_in_cv(self) -> bool:
+    def use_tqdm_in_validation(self) -> bool:
         if self.tqdm_settings.in_distributed:
             return False
-        return self.tqdm_settings.use_tqdm_in_cv or self.state.is_terminate
+        return self.tqdm_settings.use_tqdm_in_validation or self.state.is_terminate
 
     @property
     def validation_loader(self) -> DataLoaderProtocol:
