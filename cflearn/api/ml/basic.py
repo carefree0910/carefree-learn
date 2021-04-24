@@ -258,7 +258,13 @@ def repeat_with(
                 f"to True when `num_jobs` is {num_jobs}"
             )
         # data
-        data_folder = Experiment.dump_data_bundle(x, y, x_valid, y_valid, workplace=workplace)
+        data_folder = Experiment.dump_data_bundle(
+            x,
+            y,
+            x_valid,
+            y_valid,
+            workplace=workplace,
+        )
         # experiment
         experiment = Experiment(num_jobs=num_jobs)
         for model in models:
