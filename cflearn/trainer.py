@@ -651,7 +651,7 @@ class Trainer:
             loss=loss,
         )
         if self.metrics is not None:
-            return outputs, self.metrics.evaluate(outputs)
+            return outputs, self.metrics.evaluate(outputs, loader)
         loss_items = outputs.loss_items
         assert loss_items is not None
         return outputs, MetricsOutputs(-loss_items[LOSS_KEY], loss_items)

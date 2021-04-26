@@ -3,12 +3,14 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Optional
 from sklearn import metrics
 from scipy import stats as ss
 
 from ...protocol import MetricsOutputs
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
+from ...protocol import DataLoaderProtocol
 from ...constants import PREDICTIONS_KEY
 
 
@@ -18,7 +20,11 @@ class Accuracy(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         logits = outputs.forward_results[PREDICTIONS_KEY]
         predictions = logits.argmax(1)
         return (predictions == outputs.labels.ravel()).mean().item()  # type: ignore
@@ -36,7 +42,11 @@ class Quantile(MetricProtocol):
     def is_positive(self) -> bool:
         return False
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         diff = outputs.labels - outputs.forward_results[PREDICTIONS_KEY]  # type: ignore
         return np.maximum(self.q * diff, (self.q - 1.0) * diff).mean(0).sum().item()
 
@@ -47,7 +57,11 @@ class F1Score(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         labels = outputs.labels.ravel()  # type: ignore
         predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
         return metrics.f1_score(labels, predictions)
@@ -59,7 +73,11 @@ class R2Score(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         labels = outputs.labels.ravel()  # type: ignore
         predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
         return metrics.r2_score(labels, predictions)
@@ -71,7 +89,11 @@ class AUC(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         logits = outputs.forward_results[PREDICTIONS_KEY]
         num_classes = logits.shape[1]
         probabilities = self.softmax(logits)
@@ -87,7 +109,11 @@ class MAE(MetricProtocol):
     def is_positive(self) -> bool:
         return False
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         predictions = outputs.forward_results[PREDICTIONS_KEY]
         return np.mean(np.abs(outputs.labels - predictions)).item()  # type: ignore
 
@@ -98,7 +124,11 @@ class MSE(MetricProtocol):
     def is_positive(self) -> bool:
         return False
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         predictions = outputs.forward_results[PREDICTIONS_KEY]
         return np.mean(np.square(outputs.labels - predictions)).item()  # type: ignore
 
@@ -109,7 +139,11 @@ class BER(MetricProtocol):
     def is_positive(self) -> bool:
         return False
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         labels = outputs.labels.ravel()  # type: ignore
         predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
         mat = metrics.confusion_matrix(labels, predictions)
@@ -126,7 +160,11 @@ class Correlation(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         labels = outputs.labels.ravel()  # type: ignore
         predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
         return float(ss.pearsonr(labels, predictions)[0])
@@ -137,18 +175,26 @@ class MultipleMetrics(MetricProtocol):
     def is_positive(self) -> bool:
         raise NotImplementedError
 
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         raise NotImplementedError
 
     def __init__(self, metric_list: List[MetricProtocol]):
         super().__init__()
         self.metrics = metric_list
 
-    def evaluate(self, outputs: InferenceOutputs) -> MetricsOutputs:
+    def evaluate(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol] = None,
+    ) -> MetricsOutputs:
         scores: List[float] = []
         metrics_values: Dict[str, float] = {}
         for metric in self.metrics:
-            metric_outputs = metric.evaluate(outputs)
+            metric_outputs = metric.evaluate(outputs, loader)
             scores.append(metric_outputs.final_score)
             metrics_values.update(metric_outputs.metric_values)
         return MetricsOutputs(sum(scores) / len(scores), metrics_values)

@@ -467,11 +467,19 @@ class MetricProtocol(ABC, WithRegister):
         pass
 
     @abstractmethod
-    def _core(self, outputs: InferenceOutputs) -> float:
+    def _core(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
         pass
 
-    def evaluate(self, outputs: InferenceOutputs) -> MetricsOutputs:
-        metric = self._core(outputs)
+    def evaluate(
+        self,
+        outputs: InferenceOutputs,
+        loader: Optional[DataLoaderProtocol] = None,
+    ) -> MetricsOutputs:
+        metric = self._core(outputs, loader)
         score = metric * (1.0 if self.is_positive else -1.0)
         return MetricsOutputs(score, {self.__identifier__: metric})
 
