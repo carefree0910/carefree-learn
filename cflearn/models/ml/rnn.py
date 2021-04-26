@@ -40,7 +40,7 @@ class RNN(MLCoreProtocol):
         dropout: float = 0.0,
     ):
         super().__init__(in_dim, out_dim, num_history)
-        rnn_dim = self._init_rnn(cell, num_layers,  hidden_size, bidirectional)
+        rnn_dim = self._init_rnn(cell, num_layers, hidden_size, bidirectional)
         self.head = FCNN(
             rnn_dim,
             out_dim,
