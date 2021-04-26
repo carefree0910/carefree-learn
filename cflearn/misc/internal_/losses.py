@@ -5,6 +5,7 @@ import torch.nn.functional as F
 
 from typing import Any
 from typing import Tuple
+from typing import Optional
 
 from ...constants import *
 from ...types import losses_type
@@ -64,14 +65,32 @@ class QuantileLoss(LossProtocol):
         return quantile_losses.mean(1, keepdim=True)
 
 
-def corr(predictions: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    vp = predictions - predictions.mean(0, keepdim=True)
-    vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
+def corr(
+    predictions: torch.Tensor,
+    target: torch.Tensor,
+    weights: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    w_sum = 0.0 if weights is None else weights.sum().item()
+    if weights is None:
+        mean = predictions.mean(0, keepdim=True)
+    else:
+        mean = (predictions * weights).sum(0, keepdim=True) / w_sum
+    vp = predictions - mean
+    if weights is None:
+        vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
+    else:
+        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True) / w_sum
     if predictions is target:
         return vp.t().matmul(vp) / (vp_norm * vp_norm.t())
-    target_t = target.t()
-    vt = target_t - target_t.mean(1, keepdim=True)
-    vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
+    if weights is None:
+        target_mean = target.mean(0, keepdim=True)
+    else:
+        target_mean = (target * weights).sum(0, keepdim=True) / w_sum
+    vt = (target - target_mean).t()
+    if weights is None:
+        vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
+    else:
+        vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True) / w_sum
     return vt.matmul(vp) / (vp_norm * vt_norm)
 
 
