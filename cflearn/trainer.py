@@ -115,6 +115,44 @@ class TrainerCallback(WithRegister):
         pass
 
 
+@TrainerCallback.register("_log_metrics_msg")
+class _LogMetricsMsgCallback(TrainerCallback):
+    def __init__(self, verbose: bool = True) -> None:
+        super().__init__()
+        self.verbose = verbose
+        self.timer = time.time()
+
+    def log_metrics_msg(
+        self,
+        metrics_outputs: MetricsOutputs,
+        metrics_log_path: str,
+        state: TrainerState,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        final_score = metrics_outputs.final_score
+        metric_values = metrics_outputs.metric_values
+        core = " | ".join(
+            [
+                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
+                for k in sorted(metric_values)
+            ]
+        )
+        total_step = state.num_step_per_epoch
+        current_step = state.step % total_step
+        step_ratio = f"[{current_step} / {total_step}]"
+        timer_str = f"[{time.time() - self.timer:.3f}s]"
+        msg = (
+            f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
+            f"score : {fix_float_to_length(final_score, 8)} |"
+        )
+        if self.verbose:
+            print(msg)
+        with open(metrics_log_path, "a") as f:
+            f.write(f"{msg}\n")
+        self.timer = time.time()
+
+
 @TrainerCallback.register("_default_opt_settings")
 class _DefaultOptimizerSettings(TrainerCallback):
     def mutate_optimizer_pack(
@@ -147,42 +185,6 @@ class _DefaultOptimizerSettings(TrainerCallback):
             optimizer_config,
             scheduler_config,
         )
-
-
-@TrainerCallback.register("log_metrics_msg")
-class LogMetricsMsgCallback(TrainerCallback):
-    def __init__(self) -> None:
-        super().__init__()
-        self.timer = time.time()
-
-    def log_metrics_msg(
-        self,
-        metrics_outputs: MetricsOutputs,
-        metrics_log_path: str,
-        state: TrainerState,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        final_score = metrics_outputs.final_score
-        metric_values = metrics_outputs.metric_values
-        core = " | ".join(
-            [
-                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
-                for k in sorted(metric_values)
-            ]
-        )
-        total_step = state.num_step_per_epoch
-        current_step = state.step % total_step
-        step_ratio = f"[{current_step} / {total_step}]"
-        timer_str = f"[{time.time() - self.timer:.3f}s]"
-        msg = (
-            f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
-            f"score : {fix_float_to_length(final_score, 8)} |"
-        )
-        print(msg)
-        with open(metrics_log_path, "a") as f:
-            f.write(f"{msg}\n")
-        self.timer = time.time()
 
 
 class TqdmSettings(NamedTuple):
@@ -255,7 +257,7 @@ class Trainer:
         if callbacks is None:
             self.callbacks = [_DefaultOptimizerSettings()]
             if not self.tqdm_settings.use_tqdm:
-                self.callbacks.append(LogMetricsMsgCallback())
+                self.callbacks.append(_LogMetricsMsgCallback())
         else:
             if not isinstance(callbacks, list):
                 callbacks = [callbacks]

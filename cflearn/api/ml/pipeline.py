@@ -226,15 +226,22 @@ class SimplePipeline(DLPipeline):
         auto_callback_setup = False
         tqdm_settings = self.trainer_config["tqdm_settings"]
         callback_names = self.trainer_config["callback_names"]
+        callback_configs = self.trainer_config["callback_configs"]
         optimizer_settings = self.trainer_config["optimizer_settings"]
         if callback_names is None:
             callback_names = []
             auto_callback_setup = True
+        if callback_configs is None:
+            callback_configs = {}
         if isinstance(callback_names, str):
             callback_names = [callback_names]
-        if "log_metrics_msg" not in callback_names and auto_callback_setup:
+        if "_log_metrics_msg" not in callback_names and auto_callback_setup:
+            callback_names.append("_log_metrics_msg")
+            verbose = False
             if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
-                callback_names.append("log_metrics_msg")
+                verbose = True
+            log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
+            log_metrics_msg_config.setdefault("verbose", verbose)
         if "_default_opt_settings" not in callback_names:
             callback_names.append("_default_opt_settings")
         if "_inject_loader_name" not in callback_names:
@@ -243,6 +250,7 @@ class SimplePipeline(DLPipeline):
             optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
         self.trainer_config["tqdm_settings"] = tqdm_settings
         self.trainer_config["callback_names"] = callback_names
+        self.trainer_config["callback_configs"] = callback_configs
         self.trainer_config["optimizer_settings"] = optimizer_settings
 
     # TODO : support sample weights
