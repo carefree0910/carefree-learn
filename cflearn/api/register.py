@@ -5,6 +5,7 @@ from ..modules import *
 from ..protocol import LossProtocol
 from ..protocol import MetricProtocol
 from ..misc.toolkit import Initializer
+from .internal_.pipeline import PipelineProtocol
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -27,6 +28,10 @@ def register_metric(name: str) -> Callable[[Type], Type]:
     return MetricProtocol.register(name)
 
 
+def register_pipeline(name: str) -> Callable[[Type], Type]:
+    return PipelineProtocol.register(name)
+
+
 __all__ = [
     "register_optimizer",
     "register_scheduler",
@@ -34,6 +39,7 @@ __all__ = [
     "register_processor",
     "register_loss",
     "register_metric",
+    "register_pipeline",
     "Initializer",
     "Processor",
 ]
