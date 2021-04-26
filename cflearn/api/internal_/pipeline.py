@@ -30,6 +30,7 @@ from ...protocol import InferenceProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
+from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import eval_context
 
 
@@ -318,7 +319,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         # prepare
         model = self.model.cpu()
         input_sample = self.trainer.input_sample
-        input_sample.pop("batch_indices")
+        input_sample.pop(BATCH_INDICES_KEY)
         with eval_context(model):
             forward_results = model(0, shallow_copy_dict(input_sample))
         input_names = sorted(input_sample.keys())

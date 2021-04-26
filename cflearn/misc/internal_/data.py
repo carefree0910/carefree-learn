@@ -11,6 +11,7 @@ from ...protocol import DataProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
+from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
 
 
@@ -61,7 +62,7 @@ class MLLoader(DataLoaderProtocol):
         return {
             INPUT_KEY: to_torch(self.data.x[indices]),
             LABEL_KEY: None if self.data.y is None else to_torch(self.data.y[indices]),
-            "batch_indices": to_torch(indices),
+            BATCH_INDICES_KEY: to_torch(indices),
         }
 
     def copy(self) -> "MLLoader":
