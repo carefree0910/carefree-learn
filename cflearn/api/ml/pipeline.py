@@ -491,8 +491,6 @@ class CarefreePipeline(SimplePipeline):
             in_loading=in_loading,
             num_repeat=num_repeat,
         )
-        self.core_name = core_name
-        self.core_config = core_config or {}
         if data_config is None:
             data_config = {}
         data_config["default_categorical_process"] = "identical"
