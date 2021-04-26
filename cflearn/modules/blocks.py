@@ -913,6 +913,60 @@ class Attention(Module, WithRegister):
 Attention.register("basic")(Attention)
 
 
+@Attention.register("decayed")
+class DecayedAttention(Attention):
+    def __init__(
+        self,
+        input_dim: int,
+        num_heads: int = 1,
+        *,
+        seq_len: int,
+        dropout: float = 0.0,
+        is_self_attention: bool = False,
+        k_dim: Optional[int] = None,
+        v_dim: Optional[int] = None,
+        embed_dim: Optional[int] = None,
+        activation: Optional[str] = None,
+        activation_config: Optional[Dict[str, Any]] = None,
+        q_linear_config: Optional[Dict[str, Any]] = None,
+        k_linear_config: Optional[Dict[str, Any]] = None,
+        v_linear_config: Optional[Dict[str, Any]] = None,
+        in_linear_config: Optional[Dict[str, Any]] = None,
+        out_linear_config: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            input_dim,
+            num_heads,
+            dropout=dropout,
+            is_self_attention=is_self_attention,
+            k_dim=k_dim,
+            v_dim=v_dim,
+            embed_dim=embed_dim,
+            activation=activation,
+            activation_config=activation_config,
+            q_linear_config=q_linear_config,
+            k_linear_config=k_linear_config,
+            v_linear_config=v_linear_config,
+            in_linear_config=in_linear_config,
+            out_linear_config=out_linear_config,
+        )
+        mask = np.zeros([seq_len, seq_len], dtype=np.float32)
+        for i in range(1, seq_len):
+            np.fill_diagonal(mask[i:], i ** 2)
+        mask_ = torch.from_numpy(mask)
+        decayed_mask = torch.empty(num_heads, seq_len, seq_len)
+        for i in range(num_heads):
+            decayed_mask[i] = torch.exp(-(0.1 ** (i + 3)) * mask_)
+        self.register_buffer("decayed_mask", decayed_mask)
+
+    def _weights_callback(self, weights: Tensor) -> Tensor:
+        last_shapes = weights.shape[1:]
+        weights = weights.view(-1, self.num_heads, *last_shapes)
+        weights = weights * self.decayed_mask
+        weights = weights / (torch.sum(weights, dim=3).unsqueeze(3) + 1.0e-8)
+        return weights.view(-1, *last_shapes)
+
+
 class PixelNorm(Module):
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         return F.normalize(net, dim=1)
