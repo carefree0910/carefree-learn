@@ -1,5 +1,4 @@
 from typing import *
-from cftool.ml.utils import register_metric
 from cfdata.tabular.processors.base import Processor
 
 from ..modules import *
@@ -24,7 +23,6 @@ def register_loss(name: str) -> Callable[[Type], Type]:
 
 
 __all__ = [
-    "register_metric",
     "register_optimizer",
     "register_scheduler",
     "register_initializer",
