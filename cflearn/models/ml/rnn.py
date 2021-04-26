@@ -40,7 +40,26 @@ class RNN(MLCoreProtocol):
         dropout: float = 0.0,
     ):
         super().__init__(in_dim, out_dim, num_history)
-        # rnn
+        rnn_dim = self._init_rnn(cell, num_layers,  hidden_size, bidirectional)
+        self.head = FCNN(
+            rnn_dim,
+            out_dim,
+            1,
+            hidden_units,
+            mapping_type=mapping_type,
+            bias=bias,
+            activation=activation,
+            batch_norm=batch_norm,
+            dropout=dropout,
+        )
+
+    def _init_rnn(
+        self,
+        cell: str,
+        num_layers: int,
+        hidden_size: int,
+        bidirectional: bool,
+    ) -> int:
         rnn_base = rnn_dict[cell]
         input_dimensions = [self.in_dim]
         cell_config = {
@@ -61,18 +80,7 @@ class RNN(MLCoreProtocol):
                         init.zeros_(param)
             rnn_list.append(rnn)
         self.rnn_list = nn.ModuleList(rnn_list)
-        # head
-        self.head = FCNN(
-            rnn_dim,
-            out_dim,
-            1,
-            hidden_units,
-            mapping_type=mapping_type,
-            bias=bias,
-            activation=activation,
-            batch_norm=batch_norm,
-            dropout=dropout,
-        )
+        return rnn_dim
 
     def forward(
         self,
