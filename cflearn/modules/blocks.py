@@ -23,10 +23,10 @@ from functools import partial
 from torch.nn import Module
 from torch.nn import ModuleList
 from cftool.misc import update_dict
-from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
+from ..protocol import WithRegister
 from ..constants import WARNING_PREFIX
 from ..misc.toolkit import Initializer
 
@@ -769,7 +769,9 @@ class AttentionOutput(NamedTuple):
 attentions: Dict[str, Type["Attention"]] = {}
 
 
-class Attention(Module):
+class Attention(Module, WithRegister):
+    d: Dict[str, Type] = attentions
+
     def __init__(
         self,
         input_dim: int,
@@ -906,11 +908,6 @@ class Attention(Module):
     @classmethod
     def get(cls, name: str) -> Type["Attention"]:
         return attentions[name]
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        global attentions
-        return register_core(name, attentions)
 
 
 Attention.register("basic")(Attention)
@@ -1073,14 +1070,11 @@ class Linear(Module):
             self.linear.bias.data.fill_(bias_fill)
 
 
-class MappingBase(Module):
+class MappingBase(Module, WithRegister):
+    d: Dict[str, Type] = mapping_dict
+
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        global mapping_dict
-        return register_core(name, mapping_dict)
 
 
 @MappingBase.register("basic")

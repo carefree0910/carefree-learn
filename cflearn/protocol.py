@@ -241,15 +241,6 @@ class TrainerMonitor(ABC, WithRegister):
             new_epoch = state.num_epoch + state.extension
             state.num_epoch = min(new_epoch, state.max_epoch)
 
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        global monitor_dict
-
-        def before(cls_: Type) -> None:
-            cls_.__identifier__ = name
-
-        return register_core(name, monitor_dict, before_register=before)
-
 
 class MonitorResults(NamedTuple):
     terminate: bool

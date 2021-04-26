@@ -3,16 +3,13 @@ import json
 import torch
 
 from abc import abstractmethod
-from abc import ABC
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
-from typing import Callable
 from typing import Optional
-from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -25,6 +22,7 @@ from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import ONNX
+from ...protocol import WithRegister
 from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
 from ...protocol import MetricsOutputs
@@ -38,7 +36,9 @@ from ...misc.toolkit import eval_context
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
 
 
-class PipelineProtocol(ABC):
+class PipelineProtocol(WithRegister, metaclass=ABCMeta):
+    d: Dict[str, Type] = pipeline_dict
+
     loss: LossProtocol
     model: ModelProtocol
     trainer: Trainer
@@ -213,11 +213,6 @@ class PipelineProtocol(ABC):
         states_callback: states_callback_type = None,
     ) -> "PipelineProtocol":
         pass
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        global pipeline_dict
-        return register_core(name, pipeline_dict)
 
 
 class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
