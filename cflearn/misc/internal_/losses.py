@@ -79,7 +79,7 @@ def corr(
     if weights is None:
         vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
     else:
-        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True) / w_sum
+        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True).sqrt()
     if predictions is target:
         return vp.t().matmul(vp) / (vp_norm * vp_norm.t())
     if weights is None:
@@ -90,7 +90,7 @@ def corr(
     if weights is None:
         vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
     else:
-        vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True) / w_sum
+        vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True).sqrt()
     return vt.matmul(vp) / (vp_norm * vt_norm)
 
 
