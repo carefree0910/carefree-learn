@@ -197,7 +197,6 @@ class SimplePipeline(DLPipeline):
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self.trainer_config["workplace"] = workplace
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
-            os.makedirs(workplace, exist_ok=True)
             with open(os.path.join(workplace, self.configs_file), "w") as f:
                 json.dump(self.config, f)
         # prepare
