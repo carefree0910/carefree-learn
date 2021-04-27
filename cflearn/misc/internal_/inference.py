@@ -20,6 +20,7 @@ class MLInference(InferenceProtocol):
         state: Optional[TrainerState] = None,
         loss: Optional[LossProtocol] = None,
         return_outputs: bool = True,
+        use_tqdm: bool = False,
         **kwargs: Any,
     ) -> InferenceOutputs:
         kwargs["loader_name"] = loader.name
@@ -30,6 +31,7 @@ class MLInference(InferenceProtocol):
             state=state,
             loss=loss,
             return_outputs=return_outputs,
+            use_tqdm=use_tqdm,
             **kwargs,
         )
 

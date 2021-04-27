@@ -8,6 +8,7 @@ from abc import abstractmethod
 from abc import ABC
 from abc import ABCMeta
 from copy import deepcopy
+from tqdm import tqdm
 from typing import Any
 from typing import Dict
 from typing import List
@@ -362,13 +363,17 @@ class InferenceProtocol:
         state: Optional[TrainerState] = None,
         loss: Optional[LossProtocol] = None,
         return_outputs: bool = True,
+        use_tqdm: bool = False,
         **kwargs: Any,
     ) -> InferenceOutputs:
         def _core() -> InferenceOutputs:
             results: Dict[str, Optional[List[np.ndarray]]] = {}
             loss_items: Dict[str, List[float]] = {}
             labels = []
-            for i, batch in enumerate(loader):
+            iterator = enumerate(loader)
+            if use_tqdm:
+                iterator = tqdm(list(iterator), desc="inference")
+            for i, batch in iterator:
                 if i / len(loader) >= portion:
                     break
                 if device is not None:
