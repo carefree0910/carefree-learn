@@ -308,10 +308,11 @@ class SimplePipeline(DLPipeline):
         workplace: str,
         *,
         input_dim: int,
-        pack_name: str = "packed",
+        pack_folder: Optional[str] = None,
         cuda: Optional[str] = None,
     ) -> str:
-        pack_folder = os.path.join(workplace, pack_name)
+        if pack_folder is None:
+            pack_folder = os.path.join(workplace, "packed")
         if os.path.isdir(pack_folder):
             print(f"{WARNING_PREFIX}'{pack_folder}' already exists, it will be erased")
             shutil.rmtree(pack_folder)
@@ -726,7 +727,7 @@ class CarefreePipeline(SimplePipeline):
         workplace: str,
         *,
         input_dim: int,
-        pack_name: str = "packed",
+        pack_folder: Optional[str] = None,
         cuda: Optional[str] = None,
     ) -> str:
         raise ValueError(
