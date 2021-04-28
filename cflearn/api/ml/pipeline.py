@@ -382,7 +382,7 @@ class SimplePipeline(DLPipeline):
         m.model.load_state_dict(merged_states)
         return m
 
-    def re_save(self, export_folder: str) -> "SimplePipeline":
+    def re_save(self, export_folder: str, *, compress: bool = True) -> "SimplePipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
@@ -391,7 +391,8 @@ class SimplePipeline(DLPipeline):
             torch.save(self.model.state_dict(), os.path.join(export_folder, file))
             with open(os.path.join(export_folder, SCORES_FILE), "w") as f:
                 json.dump({file: 0.0}, f)
-            Saving.compress(abs_folder, remove_original=True)
+            if compress:
+                Saving.compress(abs_folder, remove_original=True)
         return self
 
 
