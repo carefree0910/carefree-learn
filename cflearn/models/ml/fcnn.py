@@ -57,7 +57,7 @@ class FCNN(MLCoreProtocol):
     ) -> tensor_dict_type:
         net = batch[MERGED_KEY]
         if len(net.shape) > 2:
-            net = net.view(len(net), -1)
+            net = net.contiguous().view(len(net), -1)
         return {PREDICTIONS_KEY: self.net(net)}
 
 
