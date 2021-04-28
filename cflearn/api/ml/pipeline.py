@@ -453,9 +453,9 @@ class CarefreePipeline(SimplePipeline):
         in_loading: bool = False,
         num_repeat: Optional[int] = None,
     ):
-        self.config = get_arguments()
-        self.config.pop("self")
-        self.config.pop("__class__")
+        config = get_arguments()
+        config.pop("self")
+        config.pop("__class__")
         super().__init__(
             core_name,
             core_config,
@@ -498,6 +498,7 @@ class CarefreePipeline(SimplePipeline):
             in_loading=in_loading,
             num_repeat=num_repeat,
         )
+        self.config = config
         if data_config is None:
             data_config = {}
         data_config["default_categorical_process"] = "identical"
