@@ -3,40 +3,6 @@ name: carefree-learn
 conda_env: conda.yml
 
 entry_points:
-  ml:
-    parameters:
-      pipeline: {type: str, default: "ml.carefree"}
-      config: {type: str, default: ""}
-      root_dir: {type: path, default: "./"}
-      train_file: {type: str}
-      valid_file: {type: str, default: ""}
-
-    command: |
-      python cli/main.py \
-        --model {model} \
-        --config {config} \
-        --root_dir {root_dir} \
-        --train_file {train_file} \
-        --valid_file {valid_file}
-
-  inference:
-    parameters:
-      host: { type: str, default: "127.0.0.1" }
-      port: { type: str, default: "5000" }
-      adapter: { type: str, default: "http" }
-      config: { type: str, default: "" }
-      test_file: { type: path }
-      export_file: { type: path }
-
-    command: |
-      python cli/inference.py \
-        --host {host} \
-        --port {port} \
-        --adapter {adapter} \
-        --config {config} \
-        --test_file {test_file} \
-        --export_file {export_file}
-
   test:
     command: |
       pytest -v --cov
