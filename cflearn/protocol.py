@@ -14,6 +14,8 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from typing import Generic
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -40,9 +42,35 @@ loss_dict: Dict[str, Type["LossProtocol"]] = {}
 metric_dict: Dict[str, Type["MetricProtocol"]] = {}
 
 
-class WithRegister:
-    d: Dict[str, Type]
+T = TypeVar("T")
+
+
+class WithRegister(Generic[T]):
+    d: Dict[str, Type[T]]
     __identifier__: str
+
+    @classmethod
+    def get(cls, name: str) -> Type[T]:
+        return cls.d[name]
+
+    @classmethod
+    def make(cls, name: str, *args: Any, **kwargs: Any) -> T:
+        return cls.get(name)(*args, **kwargs)  # type: ignore
+
+    @classmethod
+    def make_multiple(
+        cls,
+        names: Union[str, List[str]],
+        configs: Optional[Dict[str, Any]] = None,
+    ) -> Union[T, List[T]]:
+        if configs is None:
+            configs = {}
+        if isinstance(names, str):
+            return cls.get(names)(**configs)  # type: ignore
+        return [
+            cls.get(name)(**shallow_copy_dict(configs.get(name, {})))  # type: ignore
+            for name in names
+        ]
 
     @classmethod
     def register(cls, name: str) -> Callable[[Type], Type]:
@@ -56,7 +84,7 @@ class WithRegister:
 
 
 class DataProtocol(ABC, WithRegister):
-    d: Dict[str, Type] = data_dict
+    d: Dict[str, Type["DataProtocol"]] = data_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -67,7 +95,7 @@ class DataProtocol(ABC, WithRegister):
 
 
 class DataLoaderProtocol(ABC, WithRegister):
-    d: Dict[str, Type] = loader_dict
+    d: Dict[str, Type["DataLoaderProtocol"]] = loader_dict
     data: DataProtocol
     batch_size: int
 
@@ -93,7 +121,7 @@ class DataLoaderProtocol(ABC, WithRegister):
 
 
 class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type] = model_dict
+    d: Dict[str, Type["ModelProtocol"]] = model_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
@@ -219,7 +247,7 @@ class TrainerState:
 
 
 class TrainerMonitor(ABC, WithRegister):
-    d: Dict[str, Type] = monitor_dict
+    d: Dict[str, Type["TrainerMonitor"]] = monitor_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -254,7 +282,7 @@ class MonitorResults(NamedTuple):
 
 
 class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type] = loss_dict
+    d: Dict[str, Type["LossProtocol"]] = loss_dict
 
     def __init__(
         self,
@@ -298,15 +326,6 @@ class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
             return {LOSS_KEY: self._reduce(losses)}
         # requires returns a value with LOSS_KEY as its key
         return {k: self._reduce(v) for k, v in losses.items()}
-
-    @classmethod
-    def make(
-        cls,
-        name: str,
-        config: Dict[str, Any],
-        reduction: str = "mean",
-    ) -> "LossProtocol":
-        return loss_dict[name](config, reduction)
 
 
 # inference
@@ -455,7 +474,7 @@ class MetricsOutputs(NamedTuple):
 
 
 class MetricProtocol(ABC, WithRegister):
-    d: Dict[str, Type] = metric_dict
+    d: Dict[str, Type["MetricProtocol"]] = metric_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass

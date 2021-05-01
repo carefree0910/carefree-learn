@@ -38,7 +38,7 @@ pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
 
 
 class PipelineProtocol(WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type] = pipeline_dict
+    d: Dict[str, Type["PipelineProtocol"]] = pipeline_dict
 
     loss: LossProtocol
     model: ModelProtocol

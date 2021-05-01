@@ -4,14 +4,12 @@ from typing import List
 from typing import Union
 from typing import Optional
 
-from ...trainer import callback_dict
 from ...trainer import Trainer
 from ...trainer import TqdmSettings
 from ...trainer import OptimizerPack
 from ...trainer import TrainerMonitor
 from ...trainer import TrainerCallback
-from ...protocol import metric_dict
-from ...protocol import monitor_dict
+from ...protocol import MetricProtocol
 from ...misc.internal_.metrics import MultipleMetrics
 
 
@@ -36,48 +34,27 @@ def make_trainer(
     tqdm_settings: Optional[Dict[str, Any]] = None,
 ) -> Trainer:
     # metrics
+    metrics: Optional[Union[MetricProtocol, MultipleMetrics]]
     if metric_names is None:
         metrics = None
     else:
-        if metric_configs is None:
-            metric_configs = {}
-        if isinstance(metric_names, str):
-            metrics = metric_dict[metric_names](**metric_configs)
+        _metrics = MetricProtocol.make_multiple(metric_names, metric_configs)
+        if isinstance(_metrics, MetricProtocol):
+            metrics = _metrics
         else:
-            metrics = MultipleMetrics(
-                [
-                    metric_dict[name](**(metric_configs.get(name, {})))
-                    for name in metric_names
-                ]
-            )
+            metrics = MultipleMetrics(_metrics)
     # monitor
     monitors: Optional[List[TrainerMonitor]]
     if monitor_names is None:
         monitors = None
     else:
-        if monitor_configs is None:
-            monitor_configs = {}
-        if isinstance(monitor_names, str):
-            monitors = [monitor_dict[monitor_names](**monitor_configs)]
-        else:
-            monitors = [
-                monitor_dict[name](**(monitor_configs.get(name, {})))
-                for name in monitor_names
-            ]
+        monitors = TrainerMonitor.make_multiple(monitor_names, monitor_configs)
     # callback
     callbacks: Optional[List[TrainerCallback]]
     if callback_names is None:
         callbacks = None
     else:
-        if callback_configs is None:
-            callback_configs = {}
-        if isinstance(callback_names, str):
-            callbacks = [callback_dict[callback_names](**callback_configs)]
-        else:
-            callbacks = [
-                callback_dict[name](**(callback_configs.get(name, {})))
-                for name in callback_names
-            ]
+        callbacks = TrainerCallback.make_multiple(callback_names, callback_configs)
     # optimizer
     if optimizer_settings is None:
         optimizer_packs = None

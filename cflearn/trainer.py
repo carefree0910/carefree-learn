@@ -64,7 +64,7 @@ class DeviceInfo(NamedTuple):
 
 
 class TrainerCallback(WithRegister):
-    d: Dict[str, Type] = callback_dict
+    d: Dict[str, Type["TrainerCallback"]] = callback_dict
     is_rank_0: bool = True
 
     def __init__(self, *args: Any, **kwargs: Any):

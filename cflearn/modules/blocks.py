@@ -770,7 +770,7 @@ attentions: Dict[str, Type["Attention"]] = {}
 
 
 class Attention(Module, WithRegister):
-    d: Dict[str, Type] = attentions
+    d: Dict[str, Type["Attention"]] = attentions
 
     def __init__(
         self,
@@ -904,10 +904,6 @@ class Attention(Module, WithRegister):
         # B, Sq, D -> B, Sq, Din
         output = self.activation(self.out_linear(output))
         return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
-
-    @classmethod
-    def get(cls, name: str) -> Type["Attention"]:
-        return attentions[name]
 
 
 Attention.register("basic")(Attention)
@@ -1125,7 +1121,7 @@ class Linear(Module):
 
 
 class MappingBase(Module, WithRegister):
-    d: Dict[str, Type] = mapping_dict
+    d: Dict[str, Type["MappingBase"]] = mapping_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()

@@ -187,7 +187,7 @@ class Transform(nn.Module):
 
 
 class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type] = ml_core_dict
+    d: Dict[str, Type["MLCoreProtocol"]] = ml_core_dict
 
     def __init__(
         self,
