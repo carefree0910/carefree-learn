@@ -22,6 +22,7 @@ class VanillaEncoder(EncoderBase):
         num_downsample: int,
         latent_channels: int = 128,
         first_kernel_size: int = 7,
+        norm_type: str = "instance",
     ):
         super().__init__(img_size, in_channels, num_downsample, latent_channels)
         self.first_kernel_size = first_kernel_size
@@ -36,6 +37,7 @@ class VanillaEncoder(EncoderBase):
             start_channels,
             first_kernel_size,
             1,
+            norm_type=norm_type,
             activation=nn.LeakyReLU(0.2),
         )
         in_nc = start_channels
@@ -54,6 +56,7 @@ class VanillaEncoder(EncoderBase):
                     out_nc,
                     3,
                     2,
+                    norm_type=norm_type,
                     activation=nn.LeakyReLU(0.2),
                 )
             blocks.extend(new_blocks)

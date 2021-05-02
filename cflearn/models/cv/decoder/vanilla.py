@@ -9,6 +9,7 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import UpsampleConv2d
 
@@ -22,6 +23,7 @@ class VanillaDecoder(DecoderBase):
         num_upsample: int,
         out_channels: int,
         last_kernel_size: int = 7,
+        norm_type: str = "instance",
     ):
         super().__init__(img_size, latent_channels, num_upsample, out_channels)
         self.last_kernel_size = last_kernel_size
@@ -29,7 +31,18 @@ class VanillaDecoder(DecoderBase):
         in_nc = latent_channels
         for i in range(self.num_upsample):
             out_nc = in_nc // 2
-            blocks.append(UpsampleConv2d(in_nc, out_nc, factor=2, kernel_size=3))
+            blocks.extend(
+                get_conv_blocks(
+                    in_nc,
+                    out_nc,
+                    3,
+                    1,
+                    factor=2,
+                    norm_type=norm_type,
+                    activation=nn.LeakyReLU(0.2),
+                    conv_base=UpsampleConv2d,
+                )
+            )
             in_nc = out_nc
         blocks.append(
             Conv2d(
