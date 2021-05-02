@@ -137,6 +137,18 @@ def get_arguments() -> Dict[str, Any]:
     return inspect.getargvalues(frame)[-1]
 
 
+def get_gradient(
+    y: torch.Tensor,
+    x: torch.Tensor,
+    retain_graph: bool = False,
+    create_graph: bool = False,
+) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+    grads = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph, create_graph)
+    if len(grads) == 1:
+        return grads[0]
+    return grads
+
+
 # This is a modified version of https://github.com/sksq96/pytorch-summary
 #  So it can summary `carefree-learn` model structures better
 def summary(
