@@ -79,7 +79,7 @@ class VQCodebook(nn.Module):
         return z_q, z_q_g, indices
 
 
-@ModelProtocol.register("vq_Vae")
+@ModelProtocol.register("vq_vae")
 class VQVAE(ModelProtocol):
     def __init__(
         self,
