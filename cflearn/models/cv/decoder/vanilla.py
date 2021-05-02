@@ -21,11 +21,13 @@ class VanillaDecoder(DecoderBase):
         img_size: int,
         latent_channels: int,
         out_channels: int,
+        min_size: int = 4,
+        target_downsample: int = 4,
         last_kernel_size: int = 7,
     ):
         super().__init__(img_size, latent_channels, out_channels)
         self.last_kernel_size = last_kernel_size
-        self.num_upsample = auto_num_downsample(img_size)
+        self.num_upsample = auto_num_downsample(img_size, min_size, target_downsample)
         blocks: List[nn.Module] = []
         in_nc = latent_channels
         for i in range(self.num_upsample):
