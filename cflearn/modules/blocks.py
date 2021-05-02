@@ -1488,7 +1488,7 @@ class UpsampleConv2d(Conv2d):
         transform_kernel: bool = False,
         bias: bool = True,
         demodulate: bool = False,
-        factor: float = None,
+        factor: Optional[float] = None,
     ):
         super().__init__(
             in_channels,
@@ -1521,10 +1521,11 @@ def get_conv_blocks(
     norm_type: Optional[str] = None,
     norm_kwargs: Optional[Dict[str, Any]] = None,
     activation: Optional[Module] = None,
+    conv_base: Type["Conv2d"] = Conv2d,
     **conv2d_kwargs: Any,
 ) -> List[Module]:
     blocks: List[Module] = [
-        Conv2d(
+        conv_base(
             in_channels,
             out_channels,
             kernel_size=kernel_size,
