@@ -50,7 +50,7 @@ class VanillaVAE(ModelProtocol):
         latent_channels = self.encoder.latent_channels
         map_dim = f_map_dim(img_size, num_downsample)
         map_area = map_dim ** 2
-        if (latent_dim * 2) % map_area != 0:
+        if latent_dim % map_area != 0:
             msg = f"`latent_dim` should be divided by `map_area` ({map_area})"
             raise ValueError(msg)
         compressed_channels = latent_dim // map_area
