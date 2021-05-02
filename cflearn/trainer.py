@@ -657,7 +657,6 @@ class Trainer:
         loss = self.loss if self.metrics is None else None
         outputs = self.inference.get_outputs(
             loader,
-            self.device,
             portion=portion,
             state=self.state,
             loss=loss,

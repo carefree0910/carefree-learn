@@ -126,6 +126,10 @@ class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
 
+    @property
+    def device(self) -> torch.device:
+        return list(self.parameters())[0].device
+
     @abstractmethod
     def forward(
         self,
@@ -378,7 +382,6 @@ class InferenceProtocol:
     def get_outputs(
         self,
         loader: DataLoaderProtocol,
-        device: Optional[torch.device] = None,
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
@@ -397,8 +400,8 @@ class InferenceProtocol:
             for i, batch in iterator:
                 if i / len(loader) >= portion:
                     break
-                if device is not None:
-                    batch = to_device(batch, device)
+                if self.model is not None:
+                    batch = to_device(batch, self.model.device)
                 local_labels = batch[LABEL_KEY]
                 if local_labels is not None:
                     if not isinstance(local_labels, np.ndarray):
@@ -457,8 +460,6 @@ class InferenceProtocol:
                 else {k: sum(v) / len(v) for k, v in loss_items.items()},
             )
 
-        if device is None and self.onnx is None:
-            raise ValueError("`device` should be provided when `onnx` is not provided")
         use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
         try:
             return _core()

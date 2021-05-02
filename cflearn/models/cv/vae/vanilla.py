@@ -102,7 +102,7 @@ class VanillaVAE(ModelProtocol):
         return self.forward(0, {INPUT_KEY: tensor}, **kwargs)[PREDICTIONS_KEY]
 
     def sample(self, num_sample: int, **kwargs: Any) -> torch.Tensor:
-        z = torch.randn(num_sample, self.latent_dim)
+        z = torch.randn(num_sample, self.latent_dim).to(self.device)
         return self._decode(z, **kwargs)
 
 
