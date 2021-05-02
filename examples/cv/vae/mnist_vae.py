@@ -25,9 +25,9 @@ class VAECallback(cflearn.TrainerCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):
-            outputs = trainer.model(0, batch, trainer.state)
-        original = batch[cflearn.INPUT_KEY]
-        reconstructed = outputs[cflearn.PREDICTIONS_KEY]
+            original = batch[cflearn.INPUT_KEY]
+            reconstructed = trainer.model.reconstruct(original)
+            sampled = trainer.model.sample(len(original))
         image_folder = os.path.join(trainer.workplace, "images")
         os.makedirs(image_folder, exist_ok=True)
         save_images(
@@ -37,6 +37,10 @@ class VAECallback(cflearn.TrainerCallback):
         save_images(
             reconstructed,
             os.path.join(image_folder, f"step={trainer.state.step}_recon.png"),
+        )
+        save_images(
+            sampled,
+            os.path.join(image_folder, f"step={trainer.state.step}_sample.png"),
         )
 
 

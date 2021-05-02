@@ -47,6 +47,7 @@ class VanillaVAE(ModelProtocol):
         encoder_configs["num_downsample"] = num_downsample
         self.encoder = EncoderBase.make(encoder, **encoder_configs)
         # latent
+        self.latend_dim = latent_dim
         latent_channels = self.encoder.latent_channels
         map_dim = f_map_dim(img_size, num_downsample)
         map_area = map_dim ** 2
@@ -78,6 +79,12 @@ class VanillaVAE(ModelProtocol):
         eps = torch.randn_like(std)
         return eps * std + mu
 
+    def _decode(self, z: torch.Tensor, **kwargs) -> torch.Tensor:
+        batch = {INPUT_KEY: self.from_latent(z)}
+        decoded = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
+        net = F.interpolate(decoded, size=self.img_size)
+        return torch.tanh(net)
+
     def forward(
         self,
         batch_idx: int,
@@ -85,16 +92,19 @@ class VanillaVAE(ModelProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        batch = shallow_copy_dict(batch)
         encoding = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
         net = self.to_latent(encoding)
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)
-        batch[INPUT_KEY] = self.from_latent(net)
-        decoded = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
-        net = F.interpolate(decoded, size=self.img_size)
-        net = torch.tanh(net)
+        net = self._decode(net, **kwargs)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
+
+    def reconstruct(self, tensor: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        return self.forward(0, {INPUT_KEY: tensor}, **kwargs)[PREDICTIONS_KEY]
+
+    def sample(self, num_sample: int, **kwargs: Any) -> torch.Tensor:
+        z = torch.randn(num_sample, self.latend_dim)
+        return self._decode(z, **kwargs)
 
 
 __all__ = ["VanillaVAE"]
