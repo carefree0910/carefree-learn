@@ -56,6 +56,8 @@ class VanillaVAE(ModelProtocol):
         img_size: int,
         in_channels: int,
         out_channels: Optional[int] = None,
+        min_size: int = 4,
+        target_downsample: int = 4,
         latent_dim: int = 128,
         encoder_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
@@ -65,15 +67,17 @@ class VanillaVAE(ModelProtocol):
     ):
         super().__init__()
         self.img_size = img_size
+        num_downsample = auto_num_downsample(img_size, min_size, target_downsample)
         # encoder
         if encoder_configs is None:
             encoder_configs = {}
         encoder_configs["img_size"] = img_size
         encoder_configs["in_channels"] = in_channels
+        encoder_configs["num_downsample"] = num_downsample
         self.encoder = EncoderBase.make(encoder, **encoder_configs)
         # latent
         latent_channels = self.encoder.latent_channels
-        map_dim = f_map_dim(img_size, auto_num_downsample(img_size))
+        map_dim = f_map_dim(img_size, num_downsample)
         map_area = map_dim ** 2
         if (latent_dim * 2) % map_area != 0:
             msg = f"`latent_dim` should be divided by `map_area` ({map_area})"
@@ -93,6 +97,7 @@ class VanillaVAE(ModelProtocol):
             decoder_configs = {}
         decoder_configs["img_size"] = img_size
         decoder_configs["latent_channels"] = latent_channels
+        decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 

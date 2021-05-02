@@ -22,6 +22,7 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         img_size: int,
         in_channels: int,
+        num_downsample: int,
         latent_channels: int = 128,
         *args: Any,
         **kwargs: Any,
@@ -29,6 +30,7 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         super().__init__()
         self.img_size = img_size
         self.in_channels = in_channels
+        self.num_downsample = num_downsample
         self.latent_channels = latent_channels
 
     @abstractmethod

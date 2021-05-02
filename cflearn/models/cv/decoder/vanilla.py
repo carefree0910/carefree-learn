@@ -5,7 +5,6 @@ from typing import List
 from typing import Optional
 
 from .protocol import DecoderBase
-from ..toolkit import auto_num_downsample
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....constants import INPUT_KEY
@@ -20,14 +19,12 @@ class VanillaDecoder(DecoderBase):
         self,
         img_size: int,
         latent_channels: int,
+        num_upsample: int,
         out_channels: int,
-        min_size: int = 4,
-        target_downsample: int = 4,
         last_kernel_size: int = 7,
     ):
-        super().__init__(img_size, latent_channels, out_channels)
+        super().__init__(img_size, latent_channels, num_upsample, out_channels)
         self.last_kernel_size = last_kernel_size
-        self.num_upsample = auto_num_downsample(img_size, min_size, target_downsample)
         blocks: List[nn.Module] = []
         in_nc = latent_channels
         for i in range(self.num_upsample):

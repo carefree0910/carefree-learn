@@ -22,6 +22,7 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         img_size: int,
         latent_channels: int,
+        num_upsample: int,
         out_channels: int,
         *args: Any,
         **kwargs: Any,
@@ -29,6 +30,7 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         super().__init__()
         self.img_size = img_size
         self.latent_channels = latent_channels
+        self.num_upsample = num_upsample
         self.out_channels = out_channels
 
     @abstractmethod
