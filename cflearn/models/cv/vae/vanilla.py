@@ -20,6 +20,7 @@ from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 
 
@@ -73,15 +74,19 @@ class VanillaVAE(ModelProtocol):
         # latent
         latent_channels = self.encoder.latent_channels
         map_dim = f_map_dim(img_size, auto_num_downsample(img_size))
-        out_flat_dim = latent_channels * map_dim ** 2
+        map_area = map_dim ** 2
+        if (latent_dim * 2) % map_area != 0:
+            msg = f"`latent_dim` should be divided by `map_area` ({map_area})"
+            raise ValueError(msg)
+        compressed_channels = latent_dim // map_area
         self.to_latent = nn.Sequential(
-            Lambda(lambda tensor: tensor.view(tensor.shape[0], -1), "flatten"),
-            nn.Linear(out_flat_dim, 2 * latent_dim),
+            Conv2d(latent_channels, 2 * compressed_channels, kernel_size=1),
+            Lambda(lambda tensor: tensor.view(-1, 2 * latent_dim), "flatten"),
         )
-        shape = -1, latent_channels, map_dim, map_dim
+        shape = -1, compressed_channels, map_dim, map_dim
         self.from_latent = nn.Sequential(
-            nn.Linear(latent_dim, out_flat_dim),
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
+            Conv2d(compressed_channels, latent_channels, kernel_size=1),
         )
         # decoder
         if decoder_configs is None:
