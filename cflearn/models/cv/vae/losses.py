@@ -51,6 +51,34 @@ class VAELoss(LossProtocol):
         return {"mse": mse, "kld": kld_loss, LOSS_KEY: loss}
 
 
+@LossProtocol.register("vq_vae")
+class VQVAELoss(LossProtocol):
+    def _init_config(self) -> None:
+        self.lb_vq = self.config.setdefault("lb_vq", 1.0)
+        self.lb_recon = self.config.setdefault("lb_recon", 1.0)
+        self.lb_commit = self.config.setdefault("lb_commit", 1.0)
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        # reconstruction loss
+        original = batch[INPUT_KEY]
+        reconstruction = forward_results[PREDICTIONS_KEY]
+        mse = F.mse_loss(reconstruction, original)
+        # vq & commit loss
+        z_e, z_q_g = map(forward_results.get, ["z_e", "z_q_g"])
+        vq_loss = F.mse_loss(z_q_g, z_e.detach())
+        commit_loss = F.mse_loss(z_e, z_q_g.detach())
+        # gather
+        loss = self.lb_recon * mse + self.lb_vq * vq_loss + self.lb_commit * commit_loss
+        return {"mse": mse, "commit": commit_loss, LOSS_KEY: loss}
+
+
 __all__ = [
     "VAELoss",
+    "VQVAELoss",
 ]
