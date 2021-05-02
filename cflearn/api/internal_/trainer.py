@@ -24,6 +24,7 @@ def make_trainer(
     clip_norm: float = 0.0,
     metric_names: Optional[Union[str, List[str]]] = None,
     metric_configs: Optional[Dict[str, Any]] = None,
+    metric_weights: Optional[Dict[str, float]] = None,
     monitor_names: Optional[Union[str, List[str]]] = None,
     monitor_configs: Optional[Dict[str, Any]] = None,
     callback_names: Optional[Union[str, List[str]]] = None,
@@ -42,7 +43,7 @@ def make_trainer(
         if isinstance(_metrics, MetricProtocol):
             metrics = _metrics
         else:
-            metrics = MultipleMetrics(_metrics)
+            metrics = MultipleMetrics(_metrics, weights=metric_weights)
     # monitor
     monitors: Optional[List[TrainerMonitor]]
     if monitor_names is None:

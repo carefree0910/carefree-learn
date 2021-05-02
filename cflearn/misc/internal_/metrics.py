@@ -182,9 +182,15 @@ class MultipleMetrics(MetricProtocol):
     ) -> float:
         raise NotImplementedError
 
-    def __init__(self, metric_list: List[MetricProtocol]):
+    def __init__(
+        self,
+        metric_list: List[MetricProtocol],
+        *,
+        weights: Optional[Dict[str,  float]] = None,
+    ):
         super().__init__()
         self.metrics = metric_list
+        self.weights = weights or {}
 
     def evaluate(
         self,
@@ -192,12 +198,15 @@ class MultipleMetrics(MetricProtocol):
         loader: Optional[DataLoaderProtocol] = None,
     ) -> MetricsOutputs:
         scores: List[float] = []
+        weights: List[float] = []
         metrics_values: Dict[str, float] = {}
         for metric in self.metrics:
             metric_outputs = metric.evaluate(outputs, loader)
-            scores.append(metric_outputs.final_score)
+            w = self.weights.get(metric.__identifier__, 1.0)
+            weights.append(w)
+            scores.append(metric_outputs.final_score * w)
             metrics_values.update(metric_outputs.metric_values)
-        return MetricsOutputs(sum(scores) / len(scores), metrics_values)
+        return MetricsOutputs(sum(scores) / sum(weights), metrics_values)
 
 
 __all__ = [
