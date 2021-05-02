@@ -33,7 +33,7 @@ class VQSTE(Function):
         with torch.no_grad():
             net_shape = net.shape
             code_dimension = codebook.shape[1]
-            diff = (net.view(-1, 1, code_dimension) - codebook[None, ...])
+            diff = net.view(-1, 1, code_dimension) - codebook[None, ...]
             distances = (diff ** 2).sum(2)
             _, indices_flatten = torch.min(distances, dim=1)
             indices = indices_flatten.view(*net_shape[:-1])
@@ -63,7 +63,7 @@ class VQSTE(Function):
 
 
 class VQCodebook(nn.Module):
-    def __init__(self, num_code: int, code_dimension):
+    def __init__(self, num_code: int, code_dimension: int):
         super().__init__()
         self.embedding = nn.Embedding(num_code, code_dimension)
         span = 1.0 / num_code
@@ -119,7 +119,7 @@ class VQVAE(ModelProtocol):
         decoder_configs["out_channels"] = out_channels or in_channels
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 
-    def _decode(self, z: Tensor, **kwargs) -> Tensor:
+    def _decode(self, z: Tensor, **kwargs: Any) -> Tensor:
         decoded = self.decoder.decode({INPUT_KEY: z}, **kwargs)[PREDICTIONS_KEY]
         net = F.interpolate(decoded, size=self.img_size)
         return torch.tanh(net)

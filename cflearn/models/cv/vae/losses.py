@@ -16,6 +16,8 @@ from ....constants import PREDICTIONS_KEY
 
 @LossProtocol.register("vae")
 class VAELoss(LossProtocol):
+    kld_ratio: torch.Tensor
+
     def _init_config(self) -> None:
         self.kld_ema = self.config.setdefault("kld_ema", 0.999)
         self.kld_weight = self.config.setdefault("kld_weight", 1.0e-3)
@@ -70,7 +72,8 @@ class VQVAELoss(LossProtocol):
         reconstruction = forward_results[PREDICTIONS_KEY]
         mse = F.mse_loss(reconstruction, original)
         # vq & commit loss
-        z_e, z_q_g = map(forward_results.get, ["z_e", "z_q_g"])
+        z_e = forward_results["z_e"]
+        z_q_g = forward_results["z_q_g"]
         vq_loss = F.mse_loss(z_q_g, z_e.detach())
         commit_loss = F.mse_loss(z_e, z_q_g.detach())
         # gather

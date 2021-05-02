@@ -78,7 +78,7 @@ class VanillaVAE(ModelProtocol):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def _decode(self, z: torch.Tensor, **kwargs) -> torch.Tensor:
+    def _decode(self, z: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         batch = {INPUT_KEY: self.from_latent(z)}
         decoded = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         net = F.interpolate(decoded, size=self.img_size)

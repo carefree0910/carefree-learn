@@ -186,7 +186,7 @@ class MultipleMetrics(MetricProtocol):
         self,
         metric_list: List[MetricProtocol],
         *,
-        weights: Optional[Dict[str,  float]] = None,
+        weights: Optional[Dict[str, float]] = None,
     ):
         super().__init__()
         self.metrics = metric_list
