@@ -49,7 +49,7 @@ class VQVAECallback(cflearn.TrainerCallback):
         image_folder = os.path.join(image_folder, str(state.step))
         os.makedirs(image_folder, exist_ok=True)
         save_images(original, os.path.join(image_folder, "original.png"))
-        save_images(reconstructed, os.path.join(image_folder, f"reconstructed.png"))
+        save_images(reconstructed, os.path.join(image_folder, "reconstructed.png"))
         save_images(codes, os.path.join(image_folder, "codes.png"))
         indices_map = trainer.model.make_map_from(indices)
         save_images(indices_map, os.path.join(image_folder, "code_indices.png"))
