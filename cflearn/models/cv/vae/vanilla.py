@@ -6,7 +6,6 @@ import torch.nn.functional as F
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cftool.misc import shallow_copy_dict
 
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
@@ -47,7 +46,7 @@ class VanillaVAE(ModelProtocol):
         encoder_configs["num_downsample"] = num_downsample
         self.encoder = EncoderBase.make(encoder, **encoder_configs)
         # latent
-        self.latend_dim = latent_dim
+        self.latent_dim = latent_dim
         latent_channels = self.encoder.latent_channels
         map_dim = f_map_dim(img_size, num_downsample)
         map_area = map_dim ** 2
@@ -103,7 +102,7 @@ class VanillaVAE(ModelProtocol):
         return self.forward(0, {INPUT_KEY: tensor}, **kwargs)[PREDICTIONS_KEY]
 
     def sample(self, num_sample: int, **kwargs: Any) -> torch.Tensor:
-        z = torch.randn(num_sample, self.latend_dim)
+        z = torch.randn(num_sample, self.latent_dim)
         return self._decode(z, **kwargs)
 
 
