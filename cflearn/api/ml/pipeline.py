@@ -1,7 +1,6 @@
 import os
 import json
 import torch
-import shutil
 
 import numpy as np
 
@@ -23,15 +22,12 @@ from ...types import data_type
 from ...types import np_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
-from ...trainer import DeviceInfo
 from ...protocol import loss_dict
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
-from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
-from ...constants import CHECKPOINTS_FOLDER
 from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
@@ -301,47 +297,6 @@ class SimplePipeline(DLPipeline):
             predict_method=_predict,
             predict_prob_method=_predict_prob,
         )
-
-    @classmethod
-    def pack(
-        cls,
-        workplace: str,
-        *,
-        input_dim: int,
-        pack_folder: Optional[str] = None,
-        cuda: Optional[str] = None,
-    ) -> str:
-        if pack_folder is None:
-            pack_folder = os.path.join(workplace, "packed")
-        if os.path.isdir(pack_folder):
-            print(f"{WARNING_PREFIX}'{pack_folder}' already exists, it will be erased")
-            shutil.rmtree(pack_folder)
-        os.makedirs(pack_folder)
-        abs_folder = os.path.abspath(pack_folder)
-        base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [pack_folder]):
-            checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
-            scores_path = os.path.join(checkpoint_folder, SCORES_FILE)
-            best_file = get_sorted_checkpoints(scores_path)[0]
-            new_file = f"{PT_PREFIX}-1.pt"
-            shutil.copy(
-                os.path.join(checkpoint_folder, best_file),
-                os.path.join(pack_folder, new_file),
-            )
-            with open(scores_path, "r") as rf:
-                scores = json.load(rf)
-            with open(os.path.join(pack_folder, SCORES_FILE), "w") as wf:
-                json.dump({new_file: scores[best_file]}, wf)
-            with open(os.path.join(workplace, cls.configs_file), "r") as rf:
-                config = json.load(rf)
-            config_bundle = {
-                "config": config,
-                "device_info": DeviceInfo(cuda, None),
-                "input_dim": input_dim,
-            }
-            Saving.save_dict(config_bundle, cls.config_bundle_name, pack_folder)
-            Saving.compress(abs_folder, remove_original=True)
-        return pack_folder
 
     @classmethod
     def fuse_multiple(
