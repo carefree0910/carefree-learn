@@ -3,10 +3,12 @@ import torch
 import torch.nn.functional as F
 
 from typing import Any
+from typing import Optional
 
 from ....types import losses_type
 from ....types import tensor_dict_type
 from ....protocol import LossProtocol
+from ....protocol import TrainerState
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
@@ -21,6 +23,7 @@ class VAELoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         # reconstruction loss

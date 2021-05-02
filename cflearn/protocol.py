@@ -311,6 +311,7 @@ class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         # return losses without reduction
@@ -320,8 +321,9 @@ class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
     ) -> tensor_dict_type:
-        losses = self._core(forward_results, batch)
+        losses = self._core(forward_results, batch, state)
         if isinstance(losses, torch.Tensor):
             return {LOSS_KEY: self._reduce(losses)}
         # requires returns a value with LOSS_KEY as its key

@@ -11,6 +11,7 @@ from ...constants import *
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import LossProtocol
+from ...protocol import TrainerState
 from ...misc.toolkit import to_torch
 
 
@@ -20,6 +21,7 @@ class MAELoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]
@@ -33,6 +35,7 @@ class MSELoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]
@@ -56,6 +59,7 @@ class QuantileLoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         quantile_error = batch[LABEL_KEY] - forward_results["quantiles"]
@@ -100,6 +104,7 @@ class CorrelationLoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         return -corr(forward_results[PREDICTIONS_KEY], batch[LABEL_KEY])
@@ -121,6 +126,7 @@ class CrossEntropyLoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]
@@ -137,6 +143,7 @@ class LabelSmoothCrossEntropyLoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]
@@ -167,6 +174,7 @@ class FocalLoss(LossProtocol):
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]

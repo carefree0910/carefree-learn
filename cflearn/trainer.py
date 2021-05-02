@@ -514,7 +514,7 @@ class Trainer:
             for callback in self.callbacks:
                 callback.mutate_train_forward_kwargs(forward_kwargs, self)
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
-            loss_dict = self.loss(forward_results, batch)
+            loss_dict = self.loss(forward_results, batch, self.state)
         # backward
         loss = loss_dict[LOSS_KEY]
         self.grad_scaler.scale(loss).backward()
