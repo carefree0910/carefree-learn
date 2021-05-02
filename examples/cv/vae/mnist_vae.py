@@ -59,7 +59,7 @@ valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: i
 train_loader = loader_base(train_pt_loader, batch_callback)
 valid_loader = loader_base(valid_pt_loader, batch_callback)
 
-loss = cflearn.loss_dict["vae"]({"kld_ratio": 0.001})
+loss = cflearn.loss_dict["vae"]()
 vae = cflearn.VanillaVAE(28, 1)
 inference = cflearn.DLInference(model=vae)
 cf_trainer = cflearn.Trainer(
