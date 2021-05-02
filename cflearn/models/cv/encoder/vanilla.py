@@ -5,7 +5,7 @@ from typing import List
 from typing import Optional
 
 from .protocol import EncoderBase
-from ..toolkit import num_downsample
+from ..toolkit import auto_num_downsample
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....constants import INPUT_KEY
@@ -25,7 +25,7 @@ class VanillaEncoder(EncoderBase):
     ):
         super().__init__(img_size, in_channels, latent_channels)
         self.first_kernel_size = first_kernel_size
-        self.num_downsample = num_downsample(img_size)
+        self.num_downsample = auto_num_downsample(img_size)
         start_channels = int(round(latent_channels / (2 ** self.num_downsample)))
         if start_channels <= 0:
             raise ValueError(

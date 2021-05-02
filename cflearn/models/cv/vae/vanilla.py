@@ -11,7 +11,7 @@ from cftool.misc import shallow_copy_dict
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
 from ..toolkit import f_map_dim
-from ..toolkit import num_downsample
+from ..toolkit import auto_num_downsample
 from ....types import losses_type
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
@@ -72,7 +72,7 @@ class VanillaVAE(ModelProtocol):
         self.encoder = EncoderBase.make(encoder, **encoder_configs)
         # latent
         latent_channels = self.encoder.latent_channels
-        map_dim = f_map_dim(img_size, num_downsample(img_size))
+        map_dim = f_map_dim(img_size, auto_num_downsample(img_size))
         out_flat_dim = latent_channels * map_dim ** 2
         self.to_latent = nn.Sequential(
             Lambda(lambda tensor: tensor.view(tensor.shape[0], -1), "flatten"),
