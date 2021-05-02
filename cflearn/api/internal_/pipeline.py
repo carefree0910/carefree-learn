@@ -67,14 +67,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         *,
         loss_name: str,
         loss_config: Optional[Dict[str, Any]] = None,
-        # valid split
-        valid_split: Optional[Union[int, float]] = None,
-        min_valid_split: int = 100,
-        max_valid_split: int = 10000,
-        max_valid_split_ratio: float = 0.5,
-        valid_split_order: str = "auto",
         # data loader
-        num_history: int = 1,
         shuffle_train: bool = True,
         shuffle_valid: bool = False,
         batch_size: int = 128,
@@ -101,12 +94,6 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     ):
         self.loss_name = loss_name
         self.loss_config = loss_config or {}
-        self.valid_split = valid_split
-        self.min_valid_split = min_valid_split
-        self.max_valid_split = max_valid_split
-        self.max_valid_split_ratio = max_valid_split_ratio
-        self.valid_split_order = valid_split_order
-        self.num_history = num_history
         self.shuffle_train = shuffle_train
         self.shuffle_valid = shuffle_valid
         self.batch_size = batch_size

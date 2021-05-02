@@ -109,12 +109,6 @@ class SimplePipeline(DLPipeline):
         super().__init__(
             loss_name=loss_name,
             loss_config=loss_config,
-            valid_split=valid_split,
-            min_valid_split=min_valid_split,
-            max_valid_split=max_valid_split,
-            max_valid_split_ratio=max_valid_split_ratio,
-            valid_split_order=valid_split_order,
-            num_history=num_history,
             shuffle_train=shuffle_train,
             shuffle_valid=shuffle_valid,
             batch_size=batch_size,
@@ -139,6 +133,12 @@ class SimplePipeline(DLPipeline):
         )
         self.core_name = core_name
         self.core_config = core_config or {}
+        self.valid_split = valid_split
+        self.min_valid_split = min_valid_split
+        self.max_valid_split = max_valid_split
+        self.max_valid_split_ratio = max_valid_split_ratio
+        self.valid_split_order = valid_split_order
+        self.num_history = num_history
         self.input_dim = None
         self.output_dim = output_dim
         self.is_classification = is_classification
