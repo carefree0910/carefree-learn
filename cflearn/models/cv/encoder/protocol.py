@@ -8,7 +8,7 @@ from typing import Type
 from typing import Optional
 
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....protocol import WithRegister
 
 

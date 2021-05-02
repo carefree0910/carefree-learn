@@ -6,7 +6,7 @@ from typing import Optional
 
 from .protocol import EncoderBase
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import get_conv_blocks
