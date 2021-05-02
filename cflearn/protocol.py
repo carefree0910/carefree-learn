@@ -428,7 +428,8 @@ class InferenceProtocol:
                     if loss is None:
                         local_losses = None
                     else:
-                        local_losses = loss(local_results, batch)
+                        with eval_context(loss, use_grad=use_grad):
+                            local_losses = loss(local_results, batch)
                 for k, v in local_results.items():
                     if v is None:
                         continue
