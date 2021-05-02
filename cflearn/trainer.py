@@ -77,6 +77,13 @@ class TrainerCallback(WithRegister):
     ) -> None:
         pass
 
+    def mutate_train_loss_kwargs(
+        self,
+        kwargs: Dict[str, Any],
+        trainer: "Trainer",
+    ) -> None:
+        pass
+
     def mutate_optimizer_pack(
         self,
         pack: OptimizerPack,
@@ -514,7 +521,10 @@ class Trainer:
             for callback in self.callbacks:
                 callback.mutate_train_forward_kwargs(forward_kwargs, self)
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
-            loss_dict = self.loss(forward_results, batch, self.state)
+            loss_kwargs: Dict[str, Any] = {}
+            for callback in self.callbacks:
+                callback.mutate_train_loss_kwargs(loss_kwargs, self)
+            loss_dict = self.loss(forward_results, batch, self.state, **loss_kwargs)
         # backward
         loss = loss_dict[LOSS_KEY]
         self.grad_scaler.scale(loss).backward()
