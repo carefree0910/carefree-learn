@@ -12,42 +12,13 @@ from ..encoder import EncoderBase
 from ..decoder import DecoderBase
 from ..toolkit import f_map_dim
 from ..toolkit import auto_num_downsample
-from ....types import losses_type
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
-from ....protocol import LossProtocol
 from ....protocol import ModelProtocol
-from ....constants import LOSS_KEY
+from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
-
-
-@LossProtocol.register("vae")
-class VAELoss(LossProtocol):
-    def _init_config(self) -> None:
-        self.kld_ratio = self.config.setdefault("kld_ratio", 0.1)
-
-    def _core(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        **kwargs: Any,
-    ) -> losses_type:
-        # reconstruction loss
-        original = batch[INPUT_KEY]
-        reconstruction = forward_results[PREDICTIONS_KEY]
-        mse = F.mse_loss(reconstruction, original)
-        # kld loss
-        mu, log_var = map(forward_results.get, ["mu", "log_var"])
-        assert mu is not None and log_var is not None
-        var = log_var.exp()
-        kld_losses = -0.5 * torch.sum(1 + log_var - mu ** 2 - var, dim=1)
-        kld_loss = torch.mean(kld_losses, dim=0)
-        # gather
-        loss = mse + self.kld_ratio * kld_loss
-        return {"mse": mse, "kld": kld_loss, LOSS_KEY: loss}
 
 
 class VanillaVAE(ModelProtocol):
@@ -126,7 +97,4 @@ class VanillaVAE(ModelProtocol):
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
 
-__all__ = [
-    "VAELoss",
-    "VanillaVAE",
-]
+__all__ = ["VanillaVAE"]
