@@ -2,6 +2,8 @@
 
 import os
 import math
+import shutil
+
 import cflearn
 
 from torch import Tensor
@@ -23,6 +25,10 @@ def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
 
 @cflearn.TrainerCallback.register("vq_vae")
 class VQVAECallback(cflearn.TrainerCallback):
+    def __init__(self, num_keep: int = 25):
+        super().__init__()
+        self.num_keep = num_keep
+
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
             return None
@@ -34,7 +40,13 @@ class VQVAECallback(cflearn.TrainerCallback):
             outputs = trainer.model(0, batch, state)
             codes, indices = trainer.model.sample_codebook(num_samples=len(original))
         reconstructed = outputs[cflearn.PREDICTIONS_KEY]
-        image_folder = os.path.join(trainer.workplace, "images", str(state.step))
+        image_folder = os.path.join(trainer.workplace, "images")
+        os.makedirs(image_folder, exist_ok=True)
+        current_steps = sorted(map(int, os.listdir(image_folder)))
+        if len(current_steps) >= self.num_keep:
+            for step in current_steps[:-self.num_keep]:
+                shutil.rmtree(os.path.join(image_folder, str(step)))
+        image_folder = os.path.join(image_folder, str(state.step))
         os.makedirs(image_folder, exist_ok=True)
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(reconstructed, os.path.join(image_folder, f"reconstructed.png"))
