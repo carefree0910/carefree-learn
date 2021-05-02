@@ -10,7 +10,7 @@ from typing import Optional
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
 from ..toolkit import f_map_dim
-from ..toolkit import auto_num_downsample
+from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
@@ -37,7 +37,7 @@ class VanillaVAE(ModelProtocol):
     ):
         super().__init__()
         self.img_size = img_size
-        num_downsample = auto_num_downsample(img_size, min_size, target_downsample)
+        num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         # encoder
         if encoder_configs is None:
             encoder_configs = {}
