@@ -22,7 +22,6 @@ from ...types import data_type
 from ...types import np_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
-from ...protocol import loss_dict
 from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
@@ -31,7 +30,6 @@ from ...constants import PREDICTIONS_KEY
 from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
-from ...misc.toolkit import prepare_workplace_from
 from ...misc.internal_ import MLData
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLInference
@@ -152,14 +150,14 @@ class SimplePipeline(DLPipeline):
         self.default_encoding_configs = default_encoding_configs or {}
         self._num_repeat: Optional[int] = num_repeat
 
-    def _prepare_data(
-        self,
-        x: np.ndarray,
-        y: np.ndarray,
-        x_valid: Optional[np.ndarray],
-        y_valid: Optional[np.ndarray],
-    ) -> None:
-        # prepare
+    def _prepare_trainer_defaults(self) -> None:
+        super()._prepare_trainer_defaults()
+        callback_names = self.trainer_config["callback_names"]
+        if "_inject_loader_name" not in callback_names:
+            callback_names.append("_inject_loader_name")
+
+    def _prepare_data(self, x: np.ndarray, *args: Any) -> None:
+        y, x_valid, y_valid = args
         self.input_dim = x.shape[-1]
         train_loader = MLLoader(
             MLData(x, y),
@@ -189,14 +187,8 @@ class SimplePipeline(DLPipeline):
 
     def _prepare_modules(self) -> None:
         self._prepare_data_attributes()
-        if not self.in_loading:
-            workplace = prepare_workplace_from(self.trainer_config["workplace"])
-            self.trainer_config["workplace"] = workplace
-            self.trainer_config["metrics_log_file"] = self.metrics_log_file
-            with open(os.path.join(workplace, self.configs_file), "w") as f:
-                json.dump(self.config, f)
-        # prepare
-        self.loss = loss_dict[self.loss_name](**(self.loss_config or {}))
+        self._prepare_workplace()
+        self._prepare_loss()
         assert self.input_dim is not None
         self.model = MLModel(
             self.input_dim,
@@ -213,53 +205,6 @@ class SimplePipeline(DLPipeline):
             num_repeat=self._num_repeat,
         )
         self.inference = MLInference(model=self.model)
-
-    def _prepare_trainer_defaults(self) -> None:
-        # set some trainer defaults to ml tasks which work well in practice
-        if self.trainer_config["monitor_names"] is None:
-            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
-        auto_callback_setup = False
-        tqdm_settings = self.trainer_config["tqdm_settings"]
-        callback_names = self.trainer_config["callback_names"]
-        callback_configs = self.trainer_config["callback_configs"]
-        optimizer_settings = self.trainer_config["optimizer_settings"]
-        if callback_names is None:
-            callback_names = []
-            auto_callback_setup = True
-        if callback_configs is None:
-            callback_configs = {}
-        if isinstance(callback_names, str):
-            callback_names = [callback_names]
-        if "_log_metrics_msg" not in callback_names and auto_callback_setup:
-            callback_names.append("_log_metrics_msg")
-            verbose = False
-            if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
-                verbose = True
-            log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
-            log_metrics_msg_config.setdefault("verbose", verbose)
-        if "_default_opt_settings" not in callback_names:
-            callback_names.append("_default_opt_settings")
-        if "_inject_loader_name" not in callback_names:
-            callback_names.append("_inject_loader_name")
-        if optimizer_settings is None:
-            optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
-        self.trainer_config["tqdm_settings"] = tqdm_settings
-        self.trainer_config["callback_names"] = callback_names
-        self.trainer_config["callback_configs"] = callback_configs
-        self.trainer_config["optimizer_settings"] = optimizer_settings
-
-    # TODO : support sample weights
-    def _before_loop(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
-        self._prepare_data(x, y, x_valid, y_valid)  # type: ignore
-        self._prepare_modules()
-        self._prepare_trainer_defaults()
 
     def _make_new_loader(  # type: ignore
         self,
@@ -465,13 +410,8 @@ class CarefreePipeline(SimplePipeline):
         self.read_config = read_config or {}
 
     # TODO : support sample weights
-    def _prepare_data(
-        self,
-        x: data_type,
-        y: data_type,
-        x_valid: data_type,
-        y_valid: data_type,
-    ) -> None:
+    def _prepare_data(self, x: data_type, *args: Any) -> None:
+        y, x_valid, y_valid = args
         self.data.read(x, y, **self.read_config)
         if x_valid is not None:
             self.train_data = self.data

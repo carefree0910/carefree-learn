@@ -16,7 +16,6 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 
 from .trainer import make_trainer
-from ...types import data_type
 from ...types import np_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
@@ -35,6 +34,7 @@ from ...constants import WARNING_PREFIX
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import eval_context
+from ...misc.toolkit import prepare_workplace_from
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
@@ -126,16 +126,8 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     def is_rank_0(self) -> bool:
         return self.trainer.is_rank_0
 
-    def fit(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
-        *,
-        cuda: Optional[str] = None,
-    ) -> "PipelineProtocol":
-        self._before_loop(x, y, x_valid, y_valid, cuda)
+    def fit(self, x: Any, *args: Any, cuda: Optional[str] = None) -> "PipelineProtocol":
+        self._before_loop(x, *args, cuda)
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(
             self.loss,
@@ -149,20 +141,13 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         return self
 
     @abstractmethod
-    def _before_loop(
-        self,
-        x: data_type,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
+    def _before_loop(self, x: Any, *args: Any, cuda: Optional[str] = None) -> None:
         pass
 
     @abstractmethod
     def _make_new_loader(
         self,
-        x: data_type,
+        x: Any,
         batch_size: int,
         **kwargs: Any,
     ) -> DataLoaderProtocol:
@@ -170,7 +155,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
 
     def predict(
         self,
-        x: data_type,
+        x: Any,
         *,
         batch_size: int = 128,
         make_loader_kwargs: Optional[Dict[str, Any]] = None,
@@ -209,6 +194,59 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
 class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     config: Dict[str, Any]
     input_dim: Optional[int]
+
+    def _prepare_workplace(self) -> None:
+        if not self.in_loading:
+            workplace = prepare_workplace_from(self.trainer_config["workplace"])
+            self.trainer_config["workplace"] = workplace
+            self.trainer_config["metrics_log_file"] = self.metrics_log_file
+            with open(os.path.join(workplace, self.configs_file), "w") as f:
+                json.dump(self.config, f)
+
+    def _prepare_loss(self) -> None:
+        self.loss = LossProtocol.make(self.loss_name, **(self.loss_config or {}))
+
+    def _prepare_trainer_defaults(self) -> None:
+        # set some trainer defaults to ml tasks which work well in practice
+        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
+        auto_callback_setup = False
+        tqdm_settings = self.trainer_config["tqdm_settings"]
+        callback_names = self.trainer_config["callback_names"]
+        callback_configs = self.trainer_config["callback_configs"]
+        optimizer_settings = self.trainer_config["optimizer_settings"]
+        if callback_names is None:
+            callback_names = []
+            auto_callback_setup = True
+        if callback_configs is None:
+            callback_configs = {}
+        if isinstance(callback_names, str):
+            callback_names = [callback_names]
+        if "_log_metrics_msg" not in callback_names and auto_callback_setup:
+            callback_names.append("_log_metrics_msg")
+            verbose = False
+            if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
+                verbose = True
+            log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
+            log_metrics_msg_config.setdefault("verbose", verbose)
+        if "_default_opt_settings" not in callback_names:
+            callback_names.append("_default_opt_settings")
+        if optimizer_settings is None:
+            optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
+        self.trainer_config["tqdm_settings"] = tqdm_settings
+        self.trainer_config["callback_names"] = callback_names
+        self.trainer_config["callback_configs"] = callback_configs
+        self.trainer_config["optimizer_settings"] = optimizer_settings
+
+    # TODO : support sample weights
+    def _before_loop(self, x: Any, *args: Any, cuda: Optional[str] = None) -> None:
+        self._prepare_data(x, *args)
+        self._prepare_modules()
+        self._prepare_trainer_defaults()
+
+    @abstractmethod
+    def _prepare_data(self, x: Any, *args: Any) -> None:
+        pass
 
     @abstractmethod
     def _prepare_modules(self) -> None:
