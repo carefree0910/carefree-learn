@@ -12,7 +12,6 @@ from typing import Dict
 from typing import Tuple
 from typing import Optional
 from torch.autograd import Function
-from cflearn.misc.toolkit import to_torch
 
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
@@ -23,6 +22,7 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import to_torch
 
 
 class VQSTE(Function):
