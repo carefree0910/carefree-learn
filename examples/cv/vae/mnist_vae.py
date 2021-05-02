@@ -68,6 +68,7 @@ vae = cflearn.VanillaVAE(28, 1)
 inference = cflearn.DLInference(model=vae)
 cf_trainer = cflearn.Trainer(
     workplace="_logs",
+    loss_metrics_weights={"kld": 0.002, "mse": 1.0},
     callbacks=[VAECallback(), _LogMetricsMsgCallback()],
 )
 cf_trainer.fit(loss, vae, inference, train_loader, valid_loader, cuda="0")

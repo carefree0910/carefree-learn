@@ -240,6 +240,7 @@ class Trainer:
         amp: bool = False,
         clip_norm: float = 0.0,
         metrics: Optional[MetricProtocol] = None,
+        loss_metrics_weights: Optional[Dict[str, float]] = None,
         monitors: Optional[Union[TrainerMonitor, List[TrainerMonitor]]] = None,
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
@@ -276,6 +277,7 @@ class Trainer:
                 optimizer_packs = [optimizer_packs]
             self.optimizer_packs = optimizer_packs
         self.metrics = metrics
+        self.loss_metrics_weights = loss_metrics_weights
         self.rank = rank
         self.ddp = rank is not None
         self.is_rank_0 = rank is None or rank == 0
@@ -665,7 +667,13 @@ class Trainer:
             return outputs, self.metrics.evaluate(outputs, loader)
         loss_items = outputs.loss_items
         assert loss_items is not None
-        return outputs, MetricsOutputs(-loss_items[LOSS_KEY], loss_items)
+        if not self.loss_metrics_weights:
+            score = -loss_items[LOSS_KEY]
+        else:
+            score = 0.0
+            for k, w in self.loss_metrics_weights.items():
+                score -= loss_items[k] * w
+        return outputs, MetricsOutputs(score, loss_items)
 
     # checkpointing
 
