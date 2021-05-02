@@ -20,7 +20,7 @@ class GradientNormLoss(nn.Module):
 
     def forward(self, net_input: torch.Tensor, output: torch.Tensor) -> torch.Tensor:
         gradients = get_gradient(output, net_input, True, True)
-        gradients = gradients.view(net_input.shape[0], -1)
+        gradients = gradients.view(net_input.shape[0], -1)  # type: ignore
         gradients_norm = gradients.norm(2, dim=1)
         return torch.mean((gradients_norm - self.k) ** 2)
 

@@ -40,10 +40,9 @@ class DiscriminatorBase(nn.Module, WithRegister):
         self.img_size = img_size
         self.in_channels = in_channels
         self.num_classes = num_classes
-        self.conditional = num_classes is not None
 
     def generate_cond(self, out_channels: int) -> None:
-        if not self.conditional:
+        if self.num_classes is None:
             self.cond = None
         else:
             self.cond = Conv2d(

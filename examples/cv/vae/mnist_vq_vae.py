@@ -44,7 +44,7 @@ class VQVAECallback(cflearn.TrainerCallback):
         os.makedirs(image_folder, exist_ok=True)
         current_steps = sorted(map(int, os.listdir(image_folder)))
         if len(current_steps) >= self.num_keep:
-            for step in current_steps[:-self.num_keep]:
+            for step in current_steps[: -self.num_keep]:
                 shutil.rmtree(os.path.join(image_folder, str(step)))
         image_folder = os.path.join(image_folder, str(state.step))
         os.makedirs(image_folder, exist_ok=True)
