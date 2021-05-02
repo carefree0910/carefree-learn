@@ -13,6 +13,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import Generic
 from typing import TypeVar
@@ -138,6 +139,44 @@ class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
+        pass
+
+
+class StepOutputs(NamedTuple):
+    forward_results: tensor_dict_type
+    loss_dict: tensor_dict_type
+
+
+class InferenceOutputs(NamedTuple):
+    forward_results: np_dict_type
+    labels: Optional[np.ndarray]
+    loss_items: Optional[Dict[str, float]]
+
+
+class MetricsOutputs(NamedTuple):
+    final_score: float
+    metric_values: Dict[str, float]
+
+
+class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
+    @abstractmethod
+    def train_step(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> StepOutputs:
+        pass
+
+    @abstractmethod
+    def evaluate_step(
+        self,
+        loader: DataLoaderProtocol,
+        portion: float,
+        trainer: Any,
+    ) -> Tuple[InferenceOutputs, MetricsOutputs]:
         pass
 
 
@@ -337,12 +376,6 @@ class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
 # inference
 
 
-class InferenceOutputs(NamedTuple):
-    forward_results: np_dict_type
-    labels: Optional[np.ndarray]
-    loss_items: Optional[Dict[str, float]]
-
-
 class ONNX:
     def __init__(
         self,
@@ -470,11 +503,6 @@ class InferenceProtocol:
 
 
 # metrics
-
-
-class MetricsOutputs(NamedTuple):
-    final_score: float
-    metric_values: Dict[str, float]
 
 
 class MetricProtocol(ABC, WithRegister):

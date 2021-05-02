@@ -16,6 +16,7 @@ from torch.optim.lr_scheduler import _LRScheduler
 
 from .constants import *
 from .types import tensor_dict_type
+from .protocol import StepOutputs
 from .protocol import LossProtocol
 from .protocol import TrainerState
 from .protocol import WithRegister
@@ -27,6 +28,7 @@ from .protocol import MetricProtocol
 from .protocol import InferenceOutputs
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
+from .protocol import ModelWithCustomSteps
 from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import scheduler_requires_metric
@@ -37,11 +39,6 @@ from .modules.schedulers import WarmupScheduler
 
 
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
-
-
-class StepOutputs(NamedTuple):
-    forward_results: tensor_dict_type
-    loss_dict: tensor_dict_type
 
 
 class OptimizerPack(NamedTuple):
@@ -511,21 +508,27 @@ class Trainer:
                     monitor.handle_extension(self.state)
         return MonitorResults(terminate, save_checkpoint, outputs, self.intermediate)
 
-    def _step(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-    ) -> StepOutputs:
+    def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
         batch = to_device(batch, self.device)
+        # kwargs
+        forward_kwargs: Dict[str, Any] = {}
+        for callback in self.callbacks:
+            callback.mutate_train_forward_kwargs(forward_kwargs, self)
+        loss_kwargs: Dict[str, Any] = {}
+        for callback in self.callbacks:
+            callback.mutate_train_loss_kwargs(loss_kwargs, self)
+        # allow model defines its own training step
+        if isinstance(self.model, ModelWithCustomSteps):
+            return self.model.train_step(
+                batch_idx,
+                batch,
+                self,
+                forward_kwargs,
+                loss_kwargs,
+            )
         # forward & loss
         with torch.cuda.amp.autocast(enabled=self.use_amp):
-            forward_kwargs: Dict[str, Any] = {}
-            for callback in self.callbacks:
-                callback.mutate_train_forward_kwargs(forward_kwargs, self)
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
-            loss_kwargs: Dict[str, Any] = {}
-            for callback in self.callbacks:
-                callback.mutate_train_loss_kwargs(loss_kwargs, self)
             loss_dict = self.loss(forward_results, batch, self.state, **loss_kwargs)
         # backward
         loss = loss_dict[LOSS_KEY]
@@ -656,6 +659,8 @@ class Trainer:
     ) -> Tuple[InferenceOutputs, MetricsOutputs]:
         if loader is None:
             loader = self.validation_loader
+        if isinstance(self.model, ModelWithCustomSteps):
+            return self.model.evaluate_step(loader, portion, self)
         loss = self.loss if self.metrics is None else None
         outputs = self.inference.get_outputs(
             loader,
