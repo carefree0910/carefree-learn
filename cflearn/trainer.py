@@ -553,7 +553,7 @@ class Trainer:
         if self.is_rank_0:
             with open(os.path.join(self.workplace, "model.txt"), "w") as f:
                 f.write(str(model))
-        self.loss = loss
+        self.loss = loss.to(self.device)
         self.model = model.to(self.device)
         self.inference = inference
         self.train_loader = train_loader
