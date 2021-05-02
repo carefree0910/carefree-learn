@@ -68,6 +68,7 @@ class VanillaVAE(ModelProtocol):
             decoder_configs = {}
         decoder_configs["img_size"] = img_size
         decoder_configs["latent_channels"] = latent_channels
+        decoder_configs["latent_resolution"] = map_dim
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
         self.decoder = DecoderBase.make(decoder, **decoder_configs)

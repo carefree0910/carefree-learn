@@ -20,17 +20,31 @@ class VanillaDecoder(DecoderBase):
         self,
         img_size: int,
         latent_channels: int,
+        latent_resolution: int,
         num_upsample: int,
         out_channels: int,
         last_kernel_size: int = 7,
         norm_type: str = "instance",
+        *,
+        cond_channels: int = 16,
+        num_classes: Optional[int] = None,
     ):
-        super().__init__(img_size, latent_channels, num_upsample, out_channels)
+        super().__init__(
+            img_size,
+            latent_channels,
+            latent_resolution,
+            num_upsample,
+            out_channels,
+            cond_channels=cond_channels,
+            num_classes=num_classes,
+        )
         self.last_kernel_size = last_kernel_size
-        blocks: List[nn.Module] = []
         in_nc = latent_channels
+        if self.is_conditional:
+            in_nc += cond_channels
+        blocks: List[nn.Module] = []
         for i in range(self.num_upsample):
-            out_nc = in_nc // 2
+            out_nc = (latent_channels if i == 0 else in_nc) // 2
             blocks.extend(
                 get_conv_blocks(
                     in_nc,
@@ -61,6 +75,7 @@ class VanillaDecoder(DecoderBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
+        batch = self._inject_cond(batch)
         return {PREDICTIONS_KEY: self.decoder(batch[INPUT_KEY])}
 
 
