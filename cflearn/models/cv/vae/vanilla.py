@@ -112,7 +112,7 @@ class VanillaVAE(ModelProtocol):
         batch[INPUT_KEY] = self.from_latent(net)
         decoded = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         net = F.interpolate(decoded, size=self.img_size)
-        net = F.tanh(net)
+        net = torch.tanh(net)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
 
