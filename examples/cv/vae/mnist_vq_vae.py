@@ -7,7 +7,6 @@ import cflearn
 from torch import Tensor
 from typing import Tuple
 from cflearn.types import tensor_dict_type
-from cflearn.trainer import _LogMetricsMsgCallback
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from torch.utils.data import DataLoader
@@ -22,6 +21,7 @@ def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
     return {cflearn.INPUT_KEY: img, cflearn.LABEL_KEY: labels.view(-1, 1)}
 
 
+@cflearn.TrainerCallback.register("vq_vae")
 class VQVAECallback(cflearn.TrainerCallback):
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
@@ -71,11 +71,15 @@ valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: i
 train_loader = loader_base(train_pt_loader, batch_callback)
 valid_loader = loader_base(valid_pt_loader, batch_callback)
 
-loss = cflearn.loss_dict["vq_vae"]()
-vae = cflearn.VQVAE(28, 16, 1, target_downsample=2)
-inference = cflearn.DLInference(model=vae)
-cf_trainer = cflearn.Trainer(
-    workplace="_logs",
-    callbacks=[VQVAECallback(), _LogMetricsMsgCallback()],
+m = cflearn.cv.SimplePipeline(
+    "vq_vae",
+    {
+        "img_size": 28,
+        "num_code": 16,
+        "in_channels": 1,
+        "target_downsample": 2,
+    },
+    loss_name="vq_vae",
+    callback_names=["vq_vae", "_log_metrics_msg"],
 )
-cf_trainer.fit(loss, vae, inference, train_loader, valid_loader, cuda="0")
+m.fit(train_loader, valid_loader, cuda="0")
