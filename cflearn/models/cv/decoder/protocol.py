@@ -23,7 +23,6 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         img_size: int,
         latent_channels: int,
         out_channels: int,
-        last_kernel_size: int = 7,
         *args: Any,
         **kwargs: Any,
     ):
@@ -31,7 +30,6 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self.img_size = img_size
         self.latent_channels = latent_channels
         self.out_channels = out_channels
-        self.last_kernel_size = last_kernel_size
 
     @abstractmethod
     def forward(

@@ -23,7 +23,8 @@ class VanillaEncoder(EncoderBase):
         latent_channels: int = 128,
         first_kernel_size: int = 7,
     ):
-        super().__init__(img_size, in_channels, latent_channels, first_kernel_size)
+        super().__init__(img_size, in_channels, latent_channels)
+        self.first_kernel_size = first_kernel_size
         self.num_downsample = num_downsample(img_size)
         start_channels = int(round(latent_channels / (2 ** self.num_downsample)))
         if start_channels <= 0:

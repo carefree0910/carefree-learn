@@ -23,7 +23,6 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         img_size: int,
         in_channels: int,
         latent_channels: int = 128,
-        first_kernel_size: int = 7,
         *args: Any,
         **kwargs: Any,
     ):
@@ -31,7 +30,6 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self.img_size = img_size
         self.in_channels = in_channels
         self.latent_channels = latent_channels
-        self.first_kernel_size = first_kernel_size
 
     @abstractmethod
     def forward(
