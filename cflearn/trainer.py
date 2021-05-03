@@ -697,7 +697,7 @@ class Trainer:
                     self.checkpoint_scores.pop(file)
                     os.remove(os.path.join(folder, file))
         # pt
-        file = f"{PT_PREFIX}{self.state.epoch}.pt"
+        file = f"{PT_PREFIX}{self.state.step}.pt"
         torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
         self.checkpoint_scores[file] = score
