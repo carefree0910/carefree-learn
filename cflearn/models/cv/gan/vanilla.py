@@ -47,10 +47,11 @@ class VanillaGAN(ModelWithCustomSteps):
         generator_configs: Optional[Dict[str, Any]] = None,
         discriminator_configs: Optional[Dict[str, Any]] = None,
         *,
-        gan_mode: str = "lsgan",
         generator: str = "vanilla",
         discriminator: str = "basic",
         num_classes: Optional[int] = None,
+        gan_mode: str = "lsgan",
+        gan_loss_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -91,6 +92,9 @@ class VanillaGAN(ModelWithCustomSteps):
         # loss
         self.gan_mode = gan_mode
         self.gan_loss = GANLoss(gan_mode)
+        if gan_loss_configs is None:
+            gan_loss_configs = {}
+        self.lambda_gp = gan_loss_configs.get("lambda_gp", 10.0)
 
     def _decode(self, z: Tensor, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
