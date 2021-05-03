@@ -19,6 +19,7 @@ from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 
 
+@ModelProtocol.register("vae")
 class VanillaVAE(ModelProtocol):
     def __init__(
         self,
