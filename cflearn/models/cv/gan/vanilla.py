@@ -146,12 +146,14 @@ class VanillaGAN(ModelWithCustomSteps):
         self,
         batch: tensor_dict_type,
         forward_kwargs: Dict[str, Any],
-        labels: Optional[Tensor],
-    ) -> Tuple[Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        labels = batch.get(LABEL_KEY)
+        if labels is not None:
+            labels = labels.view(-1)
         sampled = self.sample(len(batch[INPUT_KEY]), labels, **forward_kwargs)
         pred_fake = self.discriminator(sampled)
         loss_g = self.gan_loss(pred_fake, GANTarget(True, labels))
-        return loss_g, sampled
+        return loss_g, sampled, labels
 
     def _d_losses(
         self,
@@ -191,14 +193,10 @@ class VanillaGAN(ModelWithCustomSteps):
     ) -> StepOutputs:
         opt_g = trainer.optimizers["g_parameters"]
         opt_d = trainer.optimizers["d_parameters"]
-        net = batch[INPUT_KEY]
-        labels = batch.get(LABEL_KEY)
-        if labels is not None:
-            labels = labels.view(-1)
         # generator step
         self._toggle_optimizer(opt_g)
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            loss_g, sampled = self._g_loss(batch, forward_kwargs, labels)
+            loss_g, sampled, labels = self._g_loss(batch, forward_kwargs)
         trainer.grad_scaler.scale(loss_g).backward()
         if trainer.clip_norm > 0.0:
             trainer._clip_norm_step()
@@ -208,7 +206,7 @@ class VanillaGAN(ModelWithCustomSteps):
         self._toggle_optimizer(opt_d)
         sampled = sampled.detach()
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            loss_d, loss_dict = self._d_losses(net, sampled, labels)
+            loss_d, loss_dict = self._d_losses(batch[INPUT_KEY], sampled, labels)
         trainer.grad_scaler.scale(loss_d).backward()
         if trainer.clip_norm > 0.0:
             trainer._clip_norm_step()
@@ -233,12 +231,8 @@ class VanillaGAN(ModelWithCustomSteps):
             if i / len(loader) >= portion:
                 break
             batch = to_device(batch, self.device)
-            net = batch[INPUT_KEY]
-            labels = batch.get(LABEL_KEY)
-            if labels is not None:
-                labels = labels.view(-1)
-            loss_g, sampled = self._g_loss(batch, {}, labels)
-            loss_d, loss_dict = self._d_losses(net, sampled, labels)
+            loss_g, sampled, labels = self._g_loss(batch, {})
+            loss_d, loss_dict = self._d_losses(batch[INPUT_KEY], sampled, labels)
             self._gather_losses(loss_g, loss_dict)
             for k, v in loss_dict.items():
                 loss_items.setdefault(k, []).append(v.item())
