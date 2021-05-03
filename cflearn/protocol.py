@@ -141,6 +141,9 @@ class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
+    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
+        self.forward(batch_idx, batch)
+
 
 class StepOutputs(NamedTuple):
     forward_results: tensor_dict_type

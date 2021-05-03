@@ -248,5 +248,10 @@ class VanillaGAN(ModelWithCustomSteps):
         metric_outputs = MetricsOutputs(score, mean_loss_items)
         return inference_outputs, metric_outputs
 
+    # summary
+
+    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
+        self._g_loss(batch, {})
+
 
 __all__ = ["VanillaGAN"]
