@@ -4,6 +4,8 @@ from typing import List
 from typing import Union
 from typing import Optional
 
+from ...trainer import callback_dict
+from ...protocol import loss_dict
 from ...protocol import ModelProtocol
 from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import get_arguments
@@ -101,6 +103,85 @@ class SimplePipeline(DLPipeline):
         return x
 
 
+@DLPipeline.register("cv.carefree")
+class CarefreePipeline(SimplePipeline):
+    def __init__(
+        self,
+        model_name: str,
+        model_config: Dict[str, Any],
+        *,
+        loss_name: Optional[str] = None,
+        loss_config: Optional[Dict[str, Any]] = None,
+        # data loader
+        shuffle_train: bool = True,
+        shuffle_valid: bool = False,
+        batch_size: int = 4,
+        valid_batch_size: int = 4,
+        # trainer
+        state_config: Optional[Dict[str, Any]] = None,
+        num_epoch: int = 40,
+        max_epoch: int = 1000,
+        valid_portion: float = 1.0,
+        amp: bool = False,
+        clip_norm: float = 0.0,
+        metric_names: Optional[Union[str, List[str]]] = None,
+        metric_configs: Optional[Dict[str, Any]] = None,
+        loss_metrics_weights: Optional[Dict[str, float]] = None,
+        monitor_names: Optional[Union[str, List[str]]] = None,
+        monitor_configs: Optional[Dict[str, Any]] = None,
+        callback_names: Optional[Union[str, List[str]]] = None,
+        callback_configs: Optional[Dict[str, Any]] = None,
+        optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
+        workplace: str = "_logs",
+        rank: Optional[int] = None,
+        tqdm_settings: Optional[Dict[str, Any]] = None,
+        # misc
+        in_loading: bool = False,
+    ):
+        if loss_name is None:
+            loss_name = model_name if model_name in loss_dict else "mse"
+        if state_config is None:
+            state_config = {}
+        state_config.setdefault("max_snapshot_file", 25)
+        if callback_names is None:
+            if model_name in callback_dict:
+                callback_names = model_name
+        super().__init__(
+            model_name,
+            model_config,
+            loss_name=loss_name,
+            loss_config=loss_config,
+            shuffle_train=shuffle_train,
+            shuffle_valid=shuffle_valid,
+            batch_size=batch_size,
+            valid_batch_size=valid_batch_size,
+            state_config=state_config,
+            num_epoch=num_epoch,
+            max_epoch=max_epoch,
+            valid_portion=valid_portion,
+            amp=amp,
+            clip_norm=clip_norm,
+            metric_names=metric_names,
+            metric_configs=metric_configs,
+            loss_metrics_weights=loss_metrics_weights,
+            monitor_names=monitor_names,
+            monitor_configs=monitor_configs,
+            callback_names=callback_names,
+            callback_configs=callback_configs,
+            optimizer_settings=optimizer_settings,
+            workplace=workplace,
+            rank=rank,
+            tqdm_settings=tqdm_settings,
+            in_loading=in_loading,
+        )
+
+    def _prepare_trainer_defaults(self) -> None:
+        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config["monitor_names"] = "conservative"
+        super()._prepare_trainer_defaults()
+
+
 __all__ = [
     "SimplePipeline",
+    "CarefreePipeline",
 ]

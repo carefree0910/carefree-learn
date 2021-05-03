@@ -83,7 +83,7 @@ valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: i
 train_loader = loader_base(train_pt_loader, batch_callback)
 valid_loader = loader_base(valid_pt_loader, batch_callback)
 
-m = cflearn.cv.SimplePipeline(
+m = cflearn.cv.CarefreePipeline(
     "vq_vae",
     {
         "img_size": 28,
@@ -91,7 +91,5 @@ m = cflearn.cv.SimplePipeline(
         "in_channels": 1,
         "target_downsample": 2,
     },
-    loss_name="vq_vae",
-    callback_names="vq_vae",
 )
 m.fit(train_loader, valid_loader, cuda="0")

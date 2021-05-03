@@ -66,12 +66,9 @@ valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: i
 train_loader = loader_base(train_pt_loader, batch_callback)
 valid_loader = loader_base(valid_pt_loader, batch_callback)
 
-m = cflearn.cv.SimplePipeline(
+m = cflearn.cv.CarefreePipeline(
     "gan",
     {"img_size": 28, "in_channels": 1},
-    loss_name="mse",
-    monitor_names=[],
-    callback_names="gan",
     optimizer_settings={
         "g_parameters": {
             "optimizer": "adam",

@@ -113,8 +113,21 @@ class PlateauMonitor(TrainerMonitor):
         self.plateau_level += self.max_plateau_increase / 5.0
 
 
+@TrainerMonitor.register("conservative")
+class ConservativeMonitor(TrainerMonitor):
+    def snapshot(self, new_score: float) -> bool:
+        return True
+
+    def check_terminate(self, new_score: float) -> bool:
+        return False
+
+    def punish_extension(self) -> None:
+        pass
+
+
 __all__ = [
     "BasicMonitor",
     "MeanStdMonitor",
     "PlateauMonitor",
+    "ConservativeMonitor",
 ]
