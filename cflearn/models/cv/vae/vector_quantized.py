@@ -2,7 +2,6 @@ import torch
 
 import numpy as np
 import torch.nn as nn
-import torch.nn.functional as F
 
 from PIL import Image
 from PIL import ImageDraw
@@ -119,8 +118,7 @@ class VQVAE(ModelProtocol):
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 
     def _decode(self, z: Tensor, **kwargs: Any) -> Tensor:
-        decoded = self.decoder.decode({INPUT_KEY: z}, **kwargs)[PREDICTIONS_KEY]
-        net = F.interpolate(decoded, size=self.img_size)
+        net = self.decoder.decode({INPUT_KEY: z}, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
     def forward(

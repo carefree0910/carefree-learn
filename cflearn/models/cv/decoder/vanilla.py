@@ -3,6 +3,7 @@ import torch.nn as nn
 from typing import Any
 from typing import List
 from typing import Optional
+from torch.nn.functional import interpolate
 
 from .protocol import DecoderBase
 from ....types import tensor_dict_type
@@ -76,7 +77,9 @@ class VanillaDecoder(DecoderBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         batch = self._inject_cond(batch)
-        return {PREDICTIONS_KEY: self.decoder(batch[INPUT_KEY])}
+        net = self.decoder(batch[INPUT_KEY])
+        net = interpolate(net, size=self.img_size)
+        return {PREDICTIONS_KEY: net}
 
 
 __all__ = ["VanillaDecoder"]

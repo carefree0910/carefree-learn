@@ -3,7 +3,6 @@ import torch
 import random
 
 import torch.nn as nn
-import torch.nn.functional as F
 
 from torch import Tensor
 from typing import Any
@@ -98,8 +97,7 @@ class VanillaGAN(ModelWithCustomSteps):
 
     def _decode(self, z: Tensor, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
-        decoded = self.generator.decode(batch, **kwargs)[PREDICTIONS_KEY]
-        net = F.interpolate(decoded, size=self.img_size)
+        net = self.generator.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
     def forward(

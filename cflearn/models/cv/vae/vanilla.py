@@ -1,7 +1,6 @@
 import torch
 
 import torch.nn as nn
-import torch.nn.functional as F
 
 from typing import Any
 from typing import Dict
@@ -81,8 +80,7 @@ class VanillaVAE(ModelProtocol):
 
     def _decode(self, z: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         batch = {INPUT_KEY: self.from_latent(z)}
-        decoded = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
-        net = F.interpolate(decoded, size=self.img_size)
+        net = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
     def forward(
