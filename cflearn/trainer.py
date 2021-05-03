@@ -290,8 +290,8 @@ class Trainer:
             self.checkpoint_folder = os.path.join(self.workplace, CHECKPOINTS_FOLDER)
             os.makedirs(self.checkpoint_folder, exist_ok=True)
         # properties
+        self.lr_metrics_updated = False
         self.intermediate: Optional[MetricsOutputs] = None
-        self.intermediate_updated = False
         self.final_results: Optional[MetricsOutputs] = None
         self.checkpoint_scores: Dict[str, float] = {}
 
@@ -452,15 +452,16 @@ class Trainer:
                 kwargs["metrics"] = -math.inf
             else:
                 kwargs["metrics"] = self.intermediate.final_score
-            should_log_lr = self.intermediate_updated
-            self.intermediate_updated = False
+            should_log_lr &= self.lr_metrics_updated
         return should_log_lr, kwargs
 
     def _scheduler_step(self) -> None:
+        lr_metric_logged = False
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
                 should_log_lr, kwargs = self._get_scheduler_settings(key, scheduler)
-                if self.state.should_log_lr and should_log_lr:
+                if should_log_lr:
+                    lr_metric_logged = True
                     for callback in self.callbacks:
                         callback.log_lr(
                             f"lr-{key}",
@@ -468,6 +469,8 @@ class Trainer:
                             self.state,
                         )
                 scheduler.step(**shallow_copy_dict(kwargs))
+        if lr_metric_logged:
+            self.lr_metrics_updated = False
 
     def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
         if not self.is_rank_0:
@@ -494,7 +497,7 @@ class Trainer:
         if self.state.should_monitor:
             # get metrics
             outputs, self.intermediate = self.get_metrics(portion=self.valid_portion)
-            self.intermediate_updated = True
+            self.lr_metrics_updated = True
             # logging
             self._logging_step(self.intermediate)
             # check terminate
