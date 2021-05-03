@@ -185,13 +185,15 @@ def summary(
 
             m_dict: OrderedDict[str, Any] = OrderedDict()
             m_dict["input_shape"] = list(inp.size())
-            m_dict["input_shape"][0] = -1
+            if len(m_dict["input_shape"]) > 0:
+                m_dict["input_shape"][0] = -1
             if isinstance(output, (list, tuple)):
                 m_dict["output_shape"] = [[-1] + list(o.size())[1:] for o in output]
                 m_dict["is_multiple_output"] = True
             else:
                 m_dict["output_shape"] = list(output.size())
-                m_dict["output_shape"][0] = -1
+                if len(m_dict["output_shape"]) > 0:
+                    m_dict["output_shape"][0] = -1
                 m_dict["is_multiple_output"] = False
 
             num_params_, num_trainable_params_ = _get_param_counts(module_)
