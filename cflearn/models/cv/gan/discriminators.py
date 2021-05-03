@@ -71,8 +71,9 @@ class NLayerDiscriminator(DiscriminatorBase):
         in_channels: int,
         num_classes: Optional[int] = None,
         *,
-        num_layers: int = 3,
+        num_layers: int = 2,
         start_channels: int = 16,
+        norm_type: str = "batch",
     ):
         super().__init__(img_size, in_channels, num_classes)
         self.img_size = img_size
@@ -86,8 +87,9 @@ class NLayerDiscriminator(DiscriminatorBase):
                 kernel_size=4,
                 stride=2,
                 padding=1,
+                bias=False,
             ),
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(0.2, inplace=True),
         ]
         nc_multiplier = 1
         for i in range(1, num_layers):
@@ -98,15 +100,24 @@ class NLayerDiscriminator(DiscriminatorBase):
                     start_channels * nc_multiplier_prev,
                     start_channels * nc_multiplier,
                     4,
-                    1 if i == num_layers - 1 else 2,
-                    activation=nn.LeakyReLU(0.2),
+                    2,
+                    bias=False,
                     padding=1,
+                    norm_type=norm_type,
+                    activation=nn.LeakyReLU(0.2, inplace=True),
                 )
             )
         self.model = nn.Sequential(*blocks)
         # heads
         out_channels = start_channels * nc_multiplier
-        self.clf = Conv2d(out_channels, 1, kernel_size=4, padding=1, stride=1)
+        self.clf = Conv2d(
+            out_channels,
+            1,
+            kernel_size=4,
+            padding=1,
+            stride=1,
+            bias=False,
+        )
         self.generate_cond(out_channels)
 
 

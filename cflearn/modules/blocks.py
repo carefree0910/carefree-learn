@@ -1466,7 +1466,7 @@ class Conv2d(Module):
         return (
             f"{self.in_c}, {self.out_c}, kernel_size={self.kernel_size}, "
             f"stride={self.stride}, padding={self.padding}, "
-            f"demodulate={self.demodulate}"
+            f"bias={self.bias is not None}, demodulate={self.demodulate}"
         )
 
 

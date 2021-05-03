@@ -37,8 +37,9 @@ class VanillaEncoder(EncoderBase):
             start_channels,
             first_kernel_size,
             1,
+            bias=False,
             norm_type=norm_type,
-            activation=nn.LeakyReLU(0.2),
+            activation=nn.LeakyReLU(0.2, inplace=True),
         )
         in_nc = start_channels
         for i in range(self.num_downsample):
@@ -47,19 +48,22 @@ class VanillaEncoder(EncoderBase):
                 out_nc = latent_channels
             else:
                 out_nc = min(in_nc * 2, latent_channels)
-            new_blocks: List[nn.Module]
             if is_last:
-                new_blocks = [Conv2d(in_nc, out_nc, kernel_size=3, stride=2)]
-            else:
-                new_blocks = get_conv_blocks(
-                    in_nc,
-                    out_nc,
-                    3,
-                    2,
-                    norm_type=norm_type,
-                    activation=nn.LeakyReLU(0.2),
+                blocks.append(
+                    Conv2d(in_nc, out_nc, kernel_size=3, stride=2, bias=False)
                 )
-            blocks.extend(new_blocks)
+            else:
+                blocks.extend(
+                    get_conv_blocks(
+                        in_nc,
+                        out_nc,
+                        3,
+                        2,
+                        bias=False,
+                        norm_type=norm_type,
+                        activation=nn.LeakyReLU(0.2, inplace=True),
+                    )
+                )
             in_nc = out_nc
         self.encoder = nn.Sequential(*blocks)
 

@@ -253,7 +253,7 @@ def summary(
     if not hasattr(model, "summary_forward"):
         model(0, sample_batch)
     else:
-        model.summary_forward(0, sample_batch)
+        model.summary_forward(0, sample_batch)  # type: ignore
 
     # remove these hooks
     for h in hooks:

@@ -52,9 +52,10 @@ class VanillaDecoder(DecoderBase):
                     out_nc,
                     3,
                     1,
+                    bias=False,
                     factor=2,
                     norm_type=norm_type,
-                    activation=nn.LeakyReLU(0.2),
+                    activation=nn.LeakyReLU(0.2, inplace=True),
                     conv_base=UpsampleConv2d,
                 )
             )
@@ -65,6 +66,7 @@ class VanillaDecoder(DecoderBase):
                 out_channels,
                 kernel_size=last_kernel_size,
                 stride=1,
+                bias=False,
             )
         )
         self.decoder = nn.Sequential(*blocks)

@@ -42,14 +42,14 @@ class VanillaGAN(ModelWithCustomSteps):
         out_channels: Optional[int] = None,
         latent_dim: int = 128,
         latent_channels: int = 128,
-        latent_resolution: int = 4,
+        latent_resolution: int = 2,
         generator_configs: Optional[Dict[str, Any]] = None,
         discriminator_configs: Optional[Dict[str, Any]] = None,
         *,
         generator: str = "vanilla",
         discriminator: str = "basic",
         num_classes: Optional[int] = None,
-        gan_mode: str = "lsgan",
+        gan_mode: str = "vanilla",
         gan_loss_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -66,7 +66,7 @@ class VanillaGAN(ModelWithCustomSteps):
         shape = -1, compressed_channels, latent_resolution, latent_resolution
         self.from_latent = nn.Sequential(
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(compressed_channels, latent_channels, kernel_size=1),
+            Conv2d(compressed_channels, latent_channels, kernel_size=1, bias=False),
         )
         # generator
         if generator_configs is None:
@@ -144,7 +144,7 @@ class VanillaGAN(ModelWithCustomSteps):
         self,
         batch: tensor_dict_type,
         forward_kwargs: Dict[str, Any],
-    ) -> Tuple[Tensor, Tensor, Tensor]:
+    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
         labels = batch.get(LABEL_KEY)
         if labels is not None:
             labels = labels.view(-1)

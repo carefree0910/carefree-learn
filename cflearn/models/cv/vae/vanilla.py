@@ -54,13 +54,13 @@ class VanillaVAE(ModelProtocol):
             raise ValueError(msg)
         compressed_channels = latent_dim // map_area
         self.to_latent = nn.Sequential(
-            Conv2d(latent_channels, 2 * compressed_channels, kernel_size=1),
+            Conv2d(latent_channels, 2 * compressed_channels, kernel_size=1, bias=False),
             Lambda(lambda tensor: tensor.view(-1, 2 * latent_dim), "flatten"),
         )
         shape = -1, compressed_channels, map_dim, map_dim
         self.from_latent = nn.Sequential(
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(compressed_channels, latent_channels, kernel_size=1),
+            Conv2d(compressed_channels, latent_channels, kernel_size=1, bias=False),
         )
         # decoder
         if decoder_configs is None:
