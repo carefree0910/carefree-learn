@@ -224,14 +224,14 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             callback_names = [callback_names]
         auto_callback = self.trainer_config.get("auto_callback", True)
         if "_log_metrics_msg" not in callback_names and auto_callback:
-            callback_names.append("_log_metrics_msg")
+            callback_names.insert(0, "_log_metrics_msg")
             verbose = False
             if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
                 verbose = True
             log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
             log_metrics_msg_config.setdefault("verbose", verbose)
         if "_default_opt_settings" not in callback_names and auto_callback:
-            callback_names.append("_default_opt_settings")
+            callback_names.insert(0, "_default_opt_settings")
         if optimizer_settings is None:
             optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
         self.trainer_config["tqdm_settings"] = tqdm_settings
