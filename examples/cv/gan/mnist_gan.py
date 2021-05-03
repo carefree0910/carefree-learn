@@ -70,7 +70,8 @@ m = cflearn.cv.SimplePipeline(
     "gan",
     {"img_size": 28, "in_channels": 1},
     loss_name="mse",
-    callback_names=["gan", "_log_metrics_msg"],
+    monitor_names=[],
+    callback_names="gan",
     optimizer_settings={
         "g_parameters": {
             "optimizer": "adam",

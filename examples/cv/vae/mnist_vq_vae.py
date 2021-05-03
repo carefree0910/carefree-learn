@@ -92,6 +92,6 @@ m = cflearn.cv.SimplePipeline(
         "target_downsample": 2,
     },
     loss_name="vq_vae",
-    callback_names=["vq_vae", "_log_metrics_msg"],
+    callback_names="vq_vae",
 )
 m.fit(train_loader, valid_loader, cuda="0")
