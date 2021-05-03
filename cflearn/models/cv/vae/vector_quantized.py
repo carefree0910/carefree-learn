@@ -69,14 +69,12 @@ class VQCodebook(nn.Module):
         span = 1.0 / num_code
         self.embedding.weight.data.uniform_(-span, span)
 
-    def forward(self, z_e: Tensor) -> Tuple[Tensor, Tensor, Tensor]:
+    def forward(self, z_e: Tensor) -> Tuple[Tensor, Tensor]:
         z_e = z_e.permute(0, 2, 3, 1).contiguous()
         z_q, indices = VQSTE.apply(z_e, self.embedding.weight.detach())
         indices = indices.view(*z_q.shape[:-1])
         z_q = z_q.permute(0, 3, 1, 2).contiguous()
-        z_q_g_flatten = self.embedding.weight[indices]
-        z_q_g = z_q_g_flatten.view_as(z_e).permute(0, 3, 1, 2).contiguous()
-        return z_q, z_q_g, indices
+        return z_q, indices
 
 
 @ModelProtocol.register("vq_vae")
@@ -133,7 +131,10 @@ class VQVAE(ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         z_e = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
-        z_q, z_q_g, indices = self.codebook(z_e)
+        z_q, indices = self.codebook(z_e)
+        z_q_g_flatten = self.codebook.embedding.weight[indices]
+        shape = -1, *z_q.shape[2:], self.latent_channels
+        z_q_g = z_q_g_flatten.view(*shape).permute(0, 3, 1, 2).contiguous()
         net = self._decode(z_q, **kwargs)
         return {PREDICTIONS_KEY: net, "z_e": z_e, "z_q_g": z_q_g, "indices": indices}
 
