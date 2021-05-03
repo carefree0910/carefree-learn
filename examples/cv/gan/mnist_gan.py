@@ -39,7 +39,7 @@ class GANCallback(cflearn.TrainerCallback):
         os.makedirs(image_folder, exist_ok=True)
         current_steps = sorted(map(int, os.listdir(image_folder)))
         if len(current_steps) >= self.num_keep:
-            for step in current_steps[: -self.num_keep]:
+            for step in current_steps[: -self.num_keep + 1]:
                 shutil.rmtree(os.path.join(image_folder, str(step)))
         image_folder = os.path.join(image_folder, str(trainer.state.step))
         os.makedirs(image_folder, exist_ok=True)
