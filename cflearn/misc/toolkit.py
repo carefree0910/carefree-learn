@@ -274,9 +274,8 @@ def summary(
             current_keys = previous_keys + [k]
             concat_k = ".".join(current_keys)
             current_summary = raw_summary_dict.get(concat_k)
-            if current_summary is not None:
-                summary_dict[f"{prefix}{k}-{current_count}"] = current_summary
-                hierarchy_counts[current_layer] = current_count + 1
+            summary_dict[f"{prefix}{k}-{current_count}"] = current_summary
+            hierarchy_counts[current_layer] = current_count + 1
             if v is not None:
                 _inject_summary(v, current_keys)
 
@@ -292,20 +291,23 @@ def summary(
     messages.append(line_new)
     messages.append("-" * line_length)
     total_output = 0
-    for layer in summary_dict:
-        # name, input_shape, output_shape, num_trainable_params
-        line_new = line_format.format(
-            "-".join(layer.split("-")[:-1]),
-            str(summary_dict[layer]["input_shape"]),
-            str(summary_dict[layer]["output_shape"]),
-            "{0:,}".format(summary_dict[layer]["num_trainable_params"]),
-        )
-        output_shape = summary_dict[layer]["output_shape"]
-        is_multiple_output = summary_dict[layer]["is_multiple_output"]
-        if not is_multiple_output:
-            output_shape = [output_shape]
-        for shape in output_shape:
-            total_output += prod(shape)
+    for layer, layer_summary in summary_dict.items():
+        layer_name = "-".join(layer.split("-")[:-1])
+        if layer_summary is None:
+            line_new = line_format.format(layer_name, "", "", "")
+        else:
+            line_new = line_format.format(
+                layer_name,
+                str(layer_summary["input_shape"]),
+                str(layer_summary["output_shape"]),
+                "{0:,}".format(layer_summary["num_trainable_params"]),
+            )
+            output_shape = layer_summary["output_shape"]
+            is_multiple_output = layer_summary["is_multiple_output"]
+            if not is_multiple_output:
+                output_shape = [output_shape]
+            for shape in output_shape:
+                total_output += prod(shape)
         messages.append(line_new)
 
     total_params, trainable_params = _get_param_counts(model)
