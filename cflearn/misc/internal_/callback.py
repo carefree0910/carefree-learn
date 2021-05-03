@@ -1,5 +1,6 @@
 import os
 import mlflow
+import shutil
 import getpass
 import platform
 
@@ -104,6 +105,27 @@ class MLFlowCallback(TrainerCallback):
         self.mlflow_client.set_terminated(self.run_id)
 
 
+class ArtifactCallback(TrainerCallback):
+    key: str
+
+    def __init__(self, num_keep: int = 25):
+        super().__init__()
+        self.num_keep = num_keep
+
+    def _prepare_folder(self, trainer: Trainer) -> str:
+        state = trainer.state
+        sub_folder = os.path.join(trainer.workplace, self.key)
+        os.makedirs(sub_folder, exist_ok=True)
+        current_steps = sorted(map(int, os.listdir(sub_folder)))
+        if len(current_steps) >= self.num_keep:
+            for step in current_steps[: -self.num_keep + 1]:
+                shutil.rmtree(os.path.join(sub_folder, str(step)))
+        sub_folder = os.path.join(sub_folder, str(state.step))
+        os.makedirs(sub_folder, exist_ok=True)
+        return sub_folder
+
+
 __all__ = [
     "MLFlowCallback",
+    "ArtifactCallback",
 ]

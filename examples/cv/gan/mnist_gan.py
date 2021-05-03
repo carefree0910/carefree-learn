@@ -1,8 +1,6 @@
 # type: ignore
 
 import os
-import shutil
-
 import cflearn
 
 from torch import Tensor
@@ -21,11 +19,9 @@ def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
     return {cflearn.INPUT_KEY: img, cflearn.LABEL_KEY: labels.view(-1, 1)}
 
 
-@cflearn.TrainerCallback.register("gan")
-class GANCallback(cflearn.TrainerCallback):
-    def __init__(self, num_keep: int = 25):
-        super().__init__()
-        self.num_keep = num_keep
+@cflearn.ArtifactCallback.register("gan")
+class GANCallback(cflearn.ArtifactCallback):
+    key = "images"
 
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
@@ -35,14 +31,7 @@ class GANCallback(cflearn.TrainerCallback):
         original = batch[cflearn.INPUT_KEY]
         with eval_context(trainer.model):
             sampled = trainer.model.sample(len(original), batch.get(cflearn.LABEL_KEY))
-        image_folder = os.path.join(trainer.workplace, "images")
-        os.makedirs(image_folder, exist_ok=True)
-        current_steps = sorted(map(int, os.listdir(image_folder)))
-        if len(current_steps) >= self.num_keep:
-            for step in current_steps[: -self.num_keep + 1]:
-                shutil.rmtree(os.path.join(image_folder, str(step)))
-        image_folder = os.path.join(image_folder, str(trainer.state.step))
-        os.makedirs(image_folder, exist_ok=True)
+        image_folder = self._prepare_folder(trainer)
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(sampled, os.path.join(image_folder, "sampled.png"))
 
