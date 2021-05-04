@@ -114,7 +114,7 @@ class PixelCNN(ModelProtocol):
         for i in range(img_size):
             for j in range(img_size):
                 out = self.net(sampled)
-                probabilities = F.softmax(out[:, :, i, j]).data
+                probabilities = F.softmax(out[:, :, i, j], dim=1).data
                 local_sampled = torch.multinomial(probabilities, 1)
                 sampled[:, :, i, j] = local_sampled.float() / (self.num_classes - 1)
         return sampled
