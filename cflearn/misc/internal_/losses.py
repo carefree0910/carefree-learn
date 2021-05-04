@@ -117,8 +117,7 @@ class CrossEntropyLoss(LossProtocol):
         predictions: torch.Tensor,
         labels: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        logits_mat = predictions.view(-1, predictions.shape[-1])
-        log_prob_mat = F.log_softmax(logits_mat, dim=1)
+        log_prob_mat = F.log_softmax(predictions, dim=1)
         nll_losses = -log_prob_mat.gather(dim=1, index=labels)
         return log_prob_mat, nll_losses
 
