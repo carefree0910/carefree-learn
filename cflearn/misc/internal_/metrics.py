@@ -27,7 +27,8 @@ class Accuracy(MetricProtocol):
     ) -> float:
         logits = outputs.forward_results[PREDICTIONS_KEY]
         predictions = logits.argmax(1)
-        return (predictions == outputs.labels.ravel()).mean().item()  # type: ignore
+        labels = outputs.labels.reshape(predictions.shape)  # type: ignore
+        return (predictions == labels).mean().item()
 
 
 @MetricProtocol.register("quantile")
