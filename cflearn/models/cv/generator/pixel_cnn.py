@@ -19,6 +19,8 @@ from ....modules.blocks import Conv2d
 
 
 class MaskedConv2d(Conv2d):
+    mask: Tensor
+
     def __init__(
         self,
         mask_type: str,
