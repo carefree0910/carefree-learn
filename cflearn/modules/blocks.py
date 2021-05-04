@@ -1526,8 +1526,8 @@ def get_conv_blocks(
 ) -> List[Module]:
     blocks: List[Module] = [
         conv_base(
-            in_channels,
-            out_channels,
+            in_channels=in_channels,
+            out_channels=out_channels,
             kernel_size=kernel_size,
             stride=stride,
             bias=bias,
