@@ -33,7 +33,6 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         *,
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
-        **kwargs: Any,
     ):
         super().__init__()
         self.img_size = img_size

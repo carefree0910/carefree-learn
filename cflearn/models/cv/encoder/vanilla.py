@@ -1,7 +1,6 @@
 import torch.nn as nn
 
 from typing import Any
-from typing import List
 from typing import Optional
 
 from .protocol import EncoderBase
