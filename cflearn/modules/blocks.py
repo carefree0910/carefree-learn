@@ -1075,6 +1075,42 @@ class PreNorm(nn.Module):
         return self.module(*x_list, **kwargs).output
 
 
+class ImgToPatches(nn.Module):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int = 128,
+        **conv_kwargs: Any,
+    ):
+        super().__init__()
+        if img_size % patch_size != 0:
+            raise ValueError(
+                f"`img_size` ({img_size}) should be "
+                f"divided by `patch_size` ({patch_size})"
+            )
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.in_channels = in_channels
+        self.latent_dim = latent_dim
+        self.num_patches = (img_size // patch_size) ** 2
+        self.projection = Conv2d(
+            in_channels,
+            latent_dim,
+            kernel_size=patch_size,
+            stride=patch_size,
+            **conv_kwargs,
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        # B, C, H, W
+        net = self.projection(net)
+        net = net.view(*net.shape[:2], -1)
+        # B, N, C
+        return net.transpose(1, 2).contiguous()
+
+
 # mappings
 
 

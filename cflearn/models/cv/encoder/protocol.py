@@ -6,10 +6,13 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
+from cftool.misc import shallow_copy_dict
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import WithRegister
+from ....constants import INPUT_KEY
+from ....modules.blocks import ImgToPatches
 
 
 encoders: Dict[str, Type["EncoderBase"]] = {}
@@ -76,7 +79,49 @@ class Encoder1DBase(nn.Module, WithRegister, metaclass=ABCMeta):
         return self.forward(0, batch, **kwargs)
 
 
+class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int = 128,
+        to_patches_configs: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(img_size, in_channels, latent_dim)
+        self.to_patches = ImgToPatches(
+            img_size,
+            patch_size,
+            in_channels,
+            latent_dim,
+            **(to_patches_configs or {}),
+        )
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        batch = shallow_copy_dict(batch)
+        patches = self.to_patches(batch[INPUT_KEY])
+        batch[INPUT_KEY] = patches
+        return self.from_patches(batch_idx, batch, state, **kwargs)
+
+    @abstractmethod
+    def from_patches(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        pass
+
+
 __all__ = [
     "EncoderBase",
     "Encoder1DBase",
+    "Encoder1DFromPatches",
 ]
