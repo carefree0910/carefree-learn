@@ -34,8 +34,18 @@ from ..misc.toolkit import Initializer
 # auxiliary
 
 
-def _get_clones(module: Module, n: int) -> ModuleList:
-    return ModuleList([copy.deepcopy(module) for _ in range(n)])
+def _get_clones(
+    module: Module,
+    n: int,
+    *,
+    return_list: bool = False,
+) -> Union[ModuleList, List[Module]]:
+    module_list = [module]
+    for _ in range(n - 1):
+        module_list.append(copy.deepcopy(module))
+    if return_list:
+        return module_list
+    return ModuleList(module_list)
 
 
 class Lambda(Module):
