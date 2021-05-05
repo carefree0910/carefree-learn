@@ -539,6 +539,8 @@ class InferenceProtocol:
 class MetricProtocol(ABC, WithRegister):
     d: Dict[str, Type["MetricProtocol"]] = metric_dict
 
+    trainer: Any
+
     def __init__(self, *args: Any, **kwargs: Any):
         pass
 

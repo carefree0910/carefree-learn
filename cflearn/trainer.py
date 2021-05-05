@@ -32,6 +32,7 @@ from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import scheduler_requires_metric
 from .misc.internal_ import BasicMonitor
+from .misc.internal_ import MultipleMetrics
 from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
 from .modules.schedulers import WarmupScheduler
@@ -273,6 +274,12 @@ class Trainer:
                 optimizer_packs = [optimizer_packs]
             self.optimizer_packs = optimizer_packs
         self.metrics = metrics
+        if metrics is not None:
+            if not isinstance(metrics, MultipleMetrics):
+                metrics.trainer = self
+            else:
+                for metric in metrics.metrics:
+                    metric.trainer = self
         self.loss_metrics_weights = loss_metrics_weights
         self.rank = rank
         self.ddp = rank is not None
