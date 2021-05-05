@@ -186,6 +186,10 @@ class MultipleMetrics(MetricProtocol):
     def is_positive(self) -> bool:
         raise NotImplementedError
 
+    @property
+    def requires_all(self) -> bool:
+        return any(metric.requires_all for metric in self.metrics)
+
     def _core(
         self,
         np_batch: np_dict_type,

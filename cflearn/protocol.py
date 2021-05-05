@@ -434,6 +434,9 @@ class InferenceProtocol:
             iterator = enumerate(loader)
             if use_tqdm:
                 iterator = tqdm(list(iterator), desc="inference")
+            requires_all_outputs = return_outputs
+            if metrics is not None and metrics.requires_all:
+                requires_all_outputs = True
             for i, batch in iterator:
                 if i / len(loader) >= portion:
                     break
@@ -470,13 +473,14 @@ class InferenceProtocol:
                     else:
                         v_np = to_numpy(v)
                     np_outputs[k] = v_np
-                    if not return_outputs:
+                    if not requires_all_outputs:
                         results[k] = None
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 # metrics
-                if metrics is not None:
-                    metric_outputs_list.append(metrics.evaluate(np_batch, np_outputs))
+                if metrics is not None and not metrics.requires_all:
+                    sub_outputs = metrics.evaluate(np_batch, np_outputs)
+                    metric_outputs_list.append(sub_outputs)
                 # loss
                 if loss is not None:
                     with eval_context(loss, use_grad=use_grad):
@@ -485,15 +489,22 @@ class InferenceProtocol:
                         loss_items.setdefault(k, []).append(v.item())
             # gather outputs
             final_results: Dict[str, Union[np.ndarray, Any]]
-            if not return_outputs:
+            if not requires_all_outputs:
                 final_results = {k: None for k in results}
             else:
                 final_results = {
-                    k: np.vstack(v) for k, v in results.items() if v is not None
+                    batch_key: np.vstack(batch_results)
+                    for batch_key, batch_results in results.items()
+                    if batch_results is not None
                 }
             # gather metric outputs
             if metrics is None:
                 metric_outputs = None
+            elif metrics.requires_all:
+                metric_outputs = metrics.evaluate(
+                    {LABEL_KEY: np.vstack(labels)},
+                    final_results,
+                )
             else:
                 scores = []
                 metric_values: Dict[str, List[float]] = {}
@@ -531,12 +542,6 @@ class MetricProtocol(ABC, WithRegister):
     def __init__(self, *args: Any, **kwargs: Any):
         pass
 
-    @staticmethod
-    def softmax(logits: np.ndarray) -> np.ndarray:
-        logits = logits - np.max(logits, axis=1, keepdims=True)
-        exp = np.exp(logits)
-        return exp / exp.sum(1, keepdims=True)
-
     @property
     @abstractmethod
     def is_positive(self) -> bool:
@@ -550,6 +555,16 @@ class MetricProtocol(ABC, WithRegister):
         loader: Optional[DataLoaderProtocol],
     ) -> float:
         pass
+
+    @property
+    def requires_all(self) -> bool:
+        return False
+
+    @staticmethod
+    def softmax(logits: np.ndarray) -> np.ndarray:
+        logits = logits - np.max(logits, axis=1, keepdims=True)
+        exp = np.exp(logits)
+        return exp / exp.sum(1, keepdims=True)
 
     def evaluate(
         self,
