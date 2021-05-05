@@ -4,6 +4,8 @@ from typing import Any
 from typing import Optional
 
 from .protocol import EncoderBase
+from .protocol import Encoder1DBase
+from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
@@ -76,4 +78,42 @@ class VanillaEncoder(EncoderBase):
         return {PREDICTIONS_KEY: self.encoder(batch[INPUT_KEY])}
 
 
-__all__ = ["VanillaEncoder"]
+@Encoder1DBase.register("vanilla")
+class VanillaEncoder1D(Encoder1DBase):
+    def __init__(
+        self,
+        img_size: int,
+        in_channels: int,
+        latent_dim: int = 128,
+        first_kernel_size: int = 7,
+        norm_type: str = "batch",
+    ):
+        super().__init__(img_size, in_channels, latent_dim)
+        num_downsample = auto_num_layers(img_size)
+        self.encoder = VanillaEncoder(
+            img_size,
+            in_channels,
+            num_downsample,
+            latent_dim,
+            first_kernel_size,
+            norm_type,
+        )
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        encoding = self.encoder(batch_idx, batch, state, **kwargs)
+        net = encoding[PREDICTIONS_KEY]
+        net = self.pool(net).squeeze()
+        return {PREDICTIONS_KEY: net}
+
+
+__all__ = [
+    "VanillaEncoder",
+    "VanillaEncoder1D",
+]
