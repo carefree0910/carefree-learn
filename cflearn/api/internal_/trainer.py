@@ -10,7 +10,7 @@ from ...trainer import OptimizerPack
 from ...trainer import TrainerMonitor
 from ...trainer import TrainerCallback
 from ...protocol import MetricProtocol
-from ...misc.internal_.metrics import MultipleMetrics
+from ...misc.internal_ import MultipleMetrics
 
 
 def make_trainer(

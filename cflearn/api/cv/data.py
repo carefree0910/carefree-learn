@@ -7,8 +7,8 @@ from typing import Optional
 from cflearn.types import tensor_dict_type
 from torchvision.datasets import MNIST
 from torch.utils.data import DataLoader
-from cflearn.misc.internal_.data import DLData
-from cflearn.misc.internal_.data import DLLoader
+from cflearn.misc.internal_ import DLData
+from cflearn.misc.internal_ import DLLoader
 
 
 def get_mnist(
