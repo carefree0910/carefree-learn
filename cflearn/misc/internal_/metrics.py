@@ -7,10 +7,11 @@ from typing import Optional
 from sklearn import metrics
 from scipy import stats as ss
 
+from ...types import np_dict_type
 from ...protocol import MetricsOutputs
 from ...protocol import MetricProtocol
-from ...protocol import InferenceOutputs
 from ...protocol import DataLoaderProtocol
+from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 
 
@@ -22,12 +23,13 @@ class Accuracy(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        logits = outputs.forward_results[PREDICTIONS_KEY]
+        logits = np_outputs[PREDICTIONS_KEY]
         predictions = logits.argmax(1)
-        labels = outputs.labels.reshape(predictions.shape)  # type: ignore
+        labels = np_batch[LABEL_KEY].reshape(predictions.shape)  # type: ignore
         return (predictions == labels).mean().item()
 
 
@@ -45,10 +47,11 @@ class Quantile(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        diff = outputs.labels - outputs.forward_results[PREDICTIONS_KEY]  # type: ignore
+        diff = np_batch[LABEL_KEY] - np_outputs[PREDICTIONS_KEY]  # type: ignore
         return np.maximum(self.q * diff, (self.q - 1.0) * diff).mean(0).sum().item()
 
 
@@ -60,11 +63,12 @@ class F1Score(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        labels = outputs.labels.ravel()  # type: ignore
-        predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
+        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
+        predictions = np_outputs[PREDICTIONS_KEY].ravel()
         return metrics.f1_score(labels, predictions)
 
 
@@ -76,11 +80,12 @@ class R2Score(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        labels = outputs.labels.ravel()  # type: ignore
-        predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
+        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
+        predictions = np_outputs[PREDICTIONS_KEY].ravel()
         return metrics.r2_score(labels, predictions)
 
 
@@ -92,13 +97,14 @@ class AUC(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        logits = outputs.forward_results[PREDICTIONS_KEY]
+        logits = np_outputs[PREDICTIONS_KEY]
         num_classes = logits.shape[1]
         probabilities = self.softmax(logits)
-        labels = outputs.labels.ravel()  # type: ignore
+        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
         if num_classes == 2:
             return metrics.roc_auc_score(labels, probabilities[..., 1])
         return metrics.roc_auc_score(labels, probabilities, multi_class="ovr")
@@ -112,11 +118,12 @@ class MAE(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        predictions = outputs.forward_results[PREDICTIONS_KEY]
-        return np.mean(np.abs(outputs.labels - predictions)).item()  # type: ignore
+        predictions = np_outputs[PREDICTIONS_KEY]
+        return np.mean(np.abs(np_batch[LABEL_KEY] - predictions)).item()  # type: ignore
 
 
 @MetricProtocol.register("mse")
@@ -127,11 +134,12 @@ class MSE(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        predictions = outputs.forward_results[PREDICTIONS_KEY]
-        return np.mean(np.square(outputs.labels - predictions)).item()  # type: ignore
+        predictions = np_outputs[PREDICTIONS_KEY]
+        return np.mean(np.square(np_batch[LABEL_KEY] - predictions)).item()  # type: ignore
 
 
 @MetricProtocol.register("ber")
@@ -142,11 +150,12 @@ class BER(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        labels = outputs.labels.ravel()  # type: ignore
-        predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
+        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
+        predictions = np_outputs[PREDICTIONS_KEY].ravel()
         mat = metrics.confusion_matrix(labels, predictions)
         tp = np.diag(mat)
         fp = mat.sum(axis=0) - tp
@@ -163,11 +172,12 @@ class Correlation(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        labels = outputs.labels.ravel()  # type: ignore
-        predictions = outputs.forward_results[PREDICTIONS_KEY].ravel()
+        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
+        predictions = np_outputs[PREDICTIONS_KEY].ravel()
         return float(ss.pearsonr(labels, predictions)[0])
 
 
@@ -178,7 +188,8 @@ class MultipleMetrics(MetricProtocol):
 
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
         raise NotImplementedError
@@ -195,14 +206,15 @@ class MultipleMetrics(MetricProtocol):
 
     def evaluate(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol] = None,
     ) -> MetricsOutputs:
         scores: List[float] = []
         weights: List[float] = []
         metrics_values: Dict[str, float] = {}
         for metric in self.metrics:
-            metric_outputs = metric.evaluate(outputs, loader)
+            metric_outputs = metric.evaluate(np_batch, np_outputs, loader)
             w = self.weights.get(metric.__identifier__, 1.0)
             weights.append(w)
             scores.append(metric_outputs.final_score * w)

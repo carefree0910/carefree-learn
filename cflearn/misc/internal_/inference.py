@@ -4,6 +4,7 @@ from typing import Optional
 from .data import MLLoader
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
+from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...protocol import InferenceProtocol
 
@@ -15,6 +16,7 @@ class MLInference(InferenceProtocol):
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
+        metrics: Optional[MetricProtocol] = None,
         loss: Optional[LossProtocol] = None,
         return_outputs: bool = True,
         use_tqdm: bool = False,
@@ -25,6 +27,7 @@ class MLInference(InferenceProtocol):
             loader,
             portion=portion,
             state=state,
+            metrics=metrics,
             loss=loss,
             return_outputs=return_outputs,
             use_tqdm=use_tqdm,

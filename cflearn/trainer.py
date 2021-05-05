@@ -25,7 +25,6 @@ from .protocol import MetricsOutputs
 from .protocol import MonitorResults
 from .protocol import TrainerMonitor
 from .protocol import MetricProtocol
-from .protocol import InferenceOutputs
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
@@ -498,12 +497,11 @@ class Trainer:
                 )
 
     def _monitor_step(self) -> MonitorResults:
-        outputs = None
         terminate = False
         save_checkpoint = False
         if self.state.should_monitor:
             # get metrics
-            outputs, self.intermediate = self.get_metrics(portion=self.valid_portion)
+            self.intermediate = self.get_metrics(portion=self.valid_portion)
             self.lr_metrics_updated = True
             # logging
             self._logging_step(self.intermediate)
@@ -516,7 +514,7 @@ class Trainer:
                     terminate = True
                 for monitor in self.monitors:
                     monitor.handle_extension(self.state)
-        return MonitorResults(terminate, save_checkpoint, outputs, self.intermediate)
+        return MonitorResults(terminate, save_checkpoint, self.intermediate)
 
     def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
         batch = to_device(batch, self.device)
@@ -646,14 +644,14 @@ class Trainer:
                 step_tqdm.close()
             self.epoch_tqdm.close()
         # restore
-        if not self.ddp and os.path.isdir(self.checkpoint_folder):
+        if not self.ddp and self.has_checkpoint_folder:
             if not self.tqdm_settings.in_distributed:
                 print(f"{INFO_PREFIX}rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
         if self.is_rank_0:
-            _, self.final_results = self.get_metrics()
+            self.final_results = self.get_metrics()
             self._logging_step(self.final_results)
             if not has_ckpt:
                 self.save_checkpoint(self.final_results.final_score)
@@ -666,20 +664,22 @@ class Trainer:
         *,
         portion: float = 1.0,
         loader: Optional[DataLoaderProtocol] = None,
-    ) -> Tuple[InferenceOutputs, MetricsOutputs]:
+    ) -> MetricsOutputs:
         if loader is None:
             loader = self.validation_loader
         if isinstance(self.model, ModelWithCustomSteps):
             return self.model.evaluate_step(loader, portion, self)
-        loss = self.loss if self.metrics is None else None
         outputs = self.inference.get_outputs(
             loader,
             portion=portion,
             state=self.state,
-            loss=loss,
+            metrics=self.metrics,
+            loss=self.loss if self.metrics is None else None,
+            return_outputs=False,
         )
         if self.metrics is not None:
-            return outputs, self.metrics.evaluate(outputs, loader)
+            assert outputs.metric_outputs is not None
+            return outputs.metric_outputs
         loss_items = outputs.loss_items
         assert loss_items is not None
         if not self.loss_metrics_weights:
@@ -688,7 +688,7 @@ class Trainer:
             score = 0.0
             for k, w in self.loss_metrics_weights.items():
                 score -= loss_items[k] * w
-        return outputs, MetricsOutputs(score, loss_items)
+        return MetricsOutputs(score, loss_items)
 
     # checkpointing
 

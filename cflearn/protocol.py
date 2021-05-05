@@ -13,7 +13,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
-from typing import Tuple
 from typing import Union
 from typing import Generic
 from typing import TypeVar
@@ -150,15 +149,16 @@ class StepOutputs(NamedTuple):
     loss_dict: tensor_dict_type
 
 
-class InferenceOutputs(NamedTuple):
-    forward_results: np_dict_type
-    labels: Optional[np.ndarray]
-    loss_items: Optional[Dict[str, float]]
-
-
 class MetricsOutputs(NamedTuple):
     final_score: float
     metric_values: Dict[str, float]
+
+
+class InferenceOutputs(NamedTuple):
+    forward_results: np_dict_type
+    labels: Optional[np.ndarray]
+    metric_outputs: Optional[MetricsOutputs]
+    loss_items: Optional[Dict[str, float]]
 
 
 class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
@@ -179,7 +179,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
         loader: DataLoaderProtocol,
         portion: float,
         trainer: Any,
-    ) -> Tuple[InferenceOutputs, MetricsOutputs]:
+    ) -> MetricsOutputs:
         pass
 
 
@@ -320,8 +320,7 @@ class TrainerMonitor(ABC, WithRegister):
 class MonitorResults(NamedTuple):
     terminate: bool
     save_checkpoint: bool
-    outputs: Optional["InferenceOutputs"]
-    metric_outputs: Optional["MetricsOutputs"]
+    metric_outputs: Optional[MetricsOutputs]
 
 
 # loss
@@ -421,6 +420,7 @@ class InferenceProtocol:
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
+        metrics: Optional["MetricProtocol"] = None,
         loss: Optional[LossProtocol] = None,
         return_outputs: bool = True,
         use_tqdm: bool = False,
@@ -428,6 +428,7 @@ class InferenceProtocol:
     ) -> InferenceOutputs:
         def _core() -> InferenceOutputs:
             results: Dict[str, Optional[List[np.ndarray]]] = {}
+            metric_outputs_list: List[MetricsOutputs] = []
             loss_items: Dict[str, List[float]] = {}
             labels = []
             iterator = enumerate(loader)
@@ -436,6 +437,10 @@ class InferenceProtocol:
             for i, batch in iterator:
                 if i / len(loader) >= portion:
                     break
+                np_batch = {
+                    batch_key: None if batch_tensor is None else to_numpy(batch_tensor)
+                    for batch_key, batch_tensor in batch.items()
+                }
                 if self.model is not None:
                     batch = to_device(batch, self.model.device)
                 local_labels = batch[LABEL_KEY]
@@ -444,43 +449,41 @@ class InferenceProtocol:
                         local_labels = to_numpy(local_labels)
                     labels.append(local_labels)
                 if self.onnx is not None:
-                    local_results = self.onnx.inference(
-                        {
-                            k: None if v is None else to_numpy(v)
-                            for k, v in batch.items()
-                        }
-                    )
-                    local_losses = None
+                    local_outputs = self.onnx.inference(np_batch)
                 else:
                     assert self.model is not None
                     with eval_context(self.model, use_grad=use_grad):
                         assert not self.model.training
-                        local_results = self.model(
+                        local_outputs = self.model(
                             i,
                             batch,
                             state,
                             **shallow_copy_dict(kwargs),
                         )
-                    if loss is None:
-                        local_losses = None
-                    else:
-                        with eval_context(loss, use_grad=use_grad):
-                            local_losses = loss(local_results, batch)
-                for k, v in local_results.items():
+                # gather outputs
+                np_outputs: np_dict_type = {}
+                for k, v in local_outputs.items():
                     if v is None:
                         continue
                     if isinstance(v, np.ndarray):
                         v_np = v
                     else:
                         v_np = to_numpy(v)
+                    np_outputs[k] = v_np
                     if not return_outputs:
                         results[k] = None
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
-                if local_losses is not None:
+                # metrics
+                if metrics is not None:
+                    metric_outputs_list.append(metrics.evaluate(np_batch, np_outputs))
+                # loss
+                if loss is not None:
+                    with eval_context(loss, use_grad=use_grad):
+                        local_losses = loss(local_outputs, batch)
                     for k, v in local_losses.items():
                         loss_items.setdefault(k, []).append(v.item())
-
+            # gather outputs
             final_results: Dict[str, Union[np.ndarray, Any]]
             if not return_outputs:
                 final_results = {k: None for k in results}
@@ -488,10 +491,24 @@ class InferenceProtocol:
                 final_results = {
                     k: np.vstack(v) for k, v in results.items() if v is not None
                 }
-
+            # gather metric outputs
+            if metrics is None:
+                metric_outputs = None
+            else:
+                scores = []
+                metric_values: Dict[str, List[float]] = {}
+                for sub_outputs in metric_outputs_list:
+                    scores.append(sub_outputs.final_score)
+                    for k, v in sub_outputs.metric_values.items():
+                        metric_values.setdefault(k, []).append(v)
+                metric_outputs = MetricsOutputs(
+                    sum(scores) / len(scores),
+                    {k: sum(vl) / len(vl) for k, vl in metric_values.items()},
+                )
             return InferenceOutputs(
                 final_results,
                 None if not labels else np.vstack(labels),
+                metric_outputs,
                 None
                 if not loss_items
                 else {k: sum(v) / len(v) for k, v in loss_items.items()},
@@ -528,17 +545,19 @@ class MetricProtocol(ABC, WithRegister):
     @abstractmethod
     def _core(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
         pass
 
     def evaluate(
         self,
-        outputs: InferenceOutputs,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol] = None,
     ) -> MetricsOutputs:
-        metric = self._core(outputs, loader)
+        metric = self._core(np_batch, np_outputs, loader)
         score = metric * (1.0 if self.is_positive else -1.0)
         return MetricsOutputs(score, {self.__identifier__: metric})
 

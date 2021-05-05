@@ -20,7 +20,6 @@ from ....types import tensor_dict_type
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
-from ....protocol import InferenceOutputs
 from ....protocol import DataLoaderProtocol
 from ....protocol import ModelWithCustomSteps
 from ....constants import LOSS_KEY
@@ -223,7 +222,7 @@ class VanillaGAN(ModelWithCustomSteps):
         loader: DataLoaderProtocol,
         portion: float,
         trainer: Any,
-    ) -> Tuple[InferenceOutputs, MetricsOutputs]:
+    ) -> MetricsOutputs:
         loss_items: Dict[str, List[float]] = {}
         for i, batch in enumerate(loader):
             if i / len(loader) >= portion:
@@ -236,7 +235,6 @@ class VanillaGAN(ModelWithCustomSteps):
                 loss_items.setdefault(k, []).append(v.item())
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        inference_outputs = InferenceOutputs({}, None, mean_loss_items)
         if not trainer.loss_metrics_weights:
             score = -mean_loss_items[LOSS_KEY]
         else:
@@ -244,7 +242,7 @@ class VanillaGAN(ModelWithCustomSteps):
             for k, w in trainer.loss_metrics_weights.items():
                 score -= mean_loss_items[k] * w
         metric_outputs = MetricsOutputs(score, mean_loss_items)
-        return inference_outputs, metric_outputs
+        return metric_outputs
 
     # summary
 
