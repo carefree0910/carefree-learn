@@ -11,6 +11,8 @@ import torchvision
 import numpy as np
 import torch.nn as nn
 
+from PIL import Image
+from PIL import ImageDraw
 from typing import Any
 from typing import Set
 from typing import Dict
@@ -599,3 +601,13 @@ def save_images(
     if n_row is None:
         n_row = math.ceil(math.sqrt(len(arr)))
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
+
+
+def make_indices_visualization_map(indices: torch.Tensor) -> torch.Tensor:
+    images = []
+    for idx in indices.view(-1).tolist():
+        img = Image.new("RGB", (28, 28), (250, 250, 250))
+        draw = ImageDraw.Draw(img)
+        draw.text((12, 9), str(idx), (0, 0, 0))
+        images.append(to_torch(np.array(img).transpose([2, 0, 1])))
+    return torch.stack(images).float()

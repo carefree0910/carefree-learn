@@ -8,6 +8,7 @@ from torchvision.transforms import transforms
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
+from cflearn.misc.toolkit import make_indices_visualization_map
 from cflearn.modules.blocks import upscale
 
 
@@ -30,12 +31,12 @@ class VQVAECallback(cflearn.ArtifactCallback):
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(reconstructed, os.path.join(image_folder, "reconstructed.png"))
         save_images(codes, os.path.join(image_folder, "codes.png"))
-        indices_map = trainer.model.make_map_from(indices)
+        indices_map = make_indices_visualization_map(indices)
         save_images(indices_map, os.path.join(image_folder, "code_indices.png"))
         # inspect
         sample = reconstructed[:1]
         sample_indices = outputs["indices"][0].view(-1)
-        sample_indices_map = trainer.model.make_map_from(sample_indices)
+        sample_indices_map = make_indices_visualization_map(sample_indices)
         sample_indices_vis = trainer.model.sample_codebook(indices=sample_indices)[0]
         scaled = upscale(sample, math.sqrt(len(sample_indices)))
         save_images(scaled, os.path.join(image_folder, "sampled.png"))

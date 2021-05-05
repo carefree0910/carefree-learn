@@ -1,10 +1,7 @@
 import torch
 
-import numpy as np
 import torch.nn as nn
 
-from PIL import Image
-from PIL import ImageDraw
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -21,7 +18,6 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import to_torch
 
 
 class VQSTE(Function):
@@ -153,16 +149,6 @@ class VQVAE(ModelProtocol):
         z_q = z_q.view(-1, self.latent_channels, self.f_map_dim, self.f_map_dim)
         net = self._decode(z_q, **kwargs)
         return net, indices
-
-    @staticmethod
-    def make_map_from(indices: Tensor) -> Tensor:
-        images = []
-        for idx in indices.view(-1).tolist():
-            img = Image.new("RGB", (28, 28), (250, 250, 250))
-            draw = ImageDraw.Draw(img)
-            draw.text((12, 9), str(idx), (0, 0, 0))
-            images.append(to_torch(np.array(img).transpose([2, 0, 1])))
-        return torch.stack(images).float()
 
 
 __all__ = ["VQVAE"]
