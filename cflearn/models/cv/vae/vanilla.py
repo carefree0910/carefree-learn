@@ -6,7 +6,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from ..encoder import EncoderBase
+from ..encoder import Encoder1DBase
 from ..decoder import DecoderBase
 from ..toolkit import f_map_dim
 from ..toolkit import auto_num_layers
@@ -29,45 +29,40 @@ class VanillaVAE(ModelProtocol):
         min_size: int = 4,
         target_downsample: int = 4,
         latent_dim: int = 128,
-        encoder_configs: Optional[Dict[str, Any]] = None,
+        encoder1d_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
         *,
-        encoder: str = "vanilla",
+        encoder1d: str = "vanilla",
         decoder: str = "vanilla",
     ):
         super().__init__()
         self.img_size = img_size
-        num_downsample = auto_num_layers(img_size, min_size, target_downsample)
-        # encoder
-        if encoder_configs is None:
-            encoder_configs = {}
-        encoder_configs["img_size"] = img_size
-        encoder_configs["in_channels"] = in_channels
-        encoder_configs["num_downsample"] = num_downsample
-        self.encoder = EncoderBase.make(encoder, **encoder_configs)
-        # latent
         self.latent_dim = latent_dim
-        latent_channels = self.encoder.latent_channels
+        num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         map_dim = f_map_dim(img_size, num_downsample)
         map_area = map_dim ** 2
         if latent_dim % map_area != 0:
             msg = f"`latent_dim` should be divided by `map_area` ({map_area})"
             raise ValueError(msg)
+        # encoder
+        if encoder1d_configs is None:
+            encoder1d_configs = {}
+        encoder1d_configs["img_size"] = img_size
+        encoder1d_configs["in_channels"] = in_channels
+        encoder1d_configs["latent_dim"] = 2 * latent_dim
+        self.encoder = Encoder1DBase.make(encoder1d, **encoder1d_configs)
+        # latent
         compressed_channels = latent_dim // map_area
-        self.to_latent = nn.Sequential(
-            Conv2d(latent_channels, 2 * compressed_channels, kernel_size=1, bias=False),
-            Lambda(lambda tensor: tensor.view(-1, 2 * latent_dim), "flatten"),
-        )
         shape = -1, compressed_channels, map_dim, map_dim
         self.from_latent = nn.Sequential(
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(compressed_channels, latent_channels, kernel_size=1, bias=False),
+            Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
         )
         # decoder
         if decoder_configs is None:
             decoder_configs = {}
         decoder_configs["img_size"] = img_size
-        decoder_configs["latent_channels"] = latent_channels
+        decoder_configs["latent_channels"] = latent_dim
         decoder_configs["latent_resolution"] = map_dim
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
@@ -91,15 +86,14 @@ class VanillaVAE(ModelProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        encoding = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
-        net = self.to_latent(encoding)
+        net = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)
         net = self._decode(net, **kwargs)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
-    def reconstruct(self, tensor: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        return self.forward(0, {INPUT_KEY: tensor}, **kwargs)[PREDICTIONS_KEY]
+    def reconstruct(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
     def sample(self, num_sample: int, **kwargs: Any) -> torch.Tensor:
         z = torch.randn(num_sample, self.latent_dim).to(self.device)
