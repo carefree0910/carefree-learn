@@ -281,6 +281,7 @@ class Trainer:
         for callback in self.callbacks:
             callback.is_rank_0 = self.is_rank_0
         # initialize artifact structure
+        self.checkpoint_folder = None
         if self.is_rank_0:
             self.workplace = workplace
             os.makedirs(self.workplace, exist_ok=True)
@@ -312,6 +313,12 @@ class Trainer:
     @property
     def input_sample(self) -> tensor_dict_type:
         return next(iter(self.train_loader_copy))
+
+    @property
+    def has_checkpoint_folder(self) -> bool:
+        if self.checkpoint_folder is None:
+            return False
+        return os.path.isdir(self.checkpoint_folder)
 
     # init
 
@@ -687,6 +694,10 @@ class Trainer:
 
     def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
         if folder is None:
+            if self.checkpoint_folder is None:
+                assert not self.is_rank_0
+                msg = "`save_checkpoint` should not be called when not `is_rank_0`"
+                raise ValueError(msg)
             folder = self.checkpoint_folder
         scores_path = os.path.join(folder, SCORES_FILE)
         # leave top_k snapshots only
@@ -711,6 +722,10 @@ class Trainer:
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> bool:
         if folder is None:
+            if self.checkpoint_folder is None:
+                assert not self.is_rank_0
+                msg = "`restore_checkpoint` should not be called when not `is_rank_0`"
+                raise ValueError(msg)
             folder = self.checkpoint_folder
         checkpoints = get_sorted_checkpoints(os.path.join(folder, SCORES_FILE))
         if not checkpoints:
