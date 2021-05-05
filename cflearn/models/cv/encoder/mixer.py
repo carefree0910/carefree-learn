@@ -12,6 +12,7 @@ from ....constants import PREDICTIONS_KEY
 from ...ml.mixer import MixerBlock
 from ....modules.blocks import _get_clones
 from ....modules.blocks import Lambda
+from ....modules.blocks import PreNorm
 
 
 @Encoder1DFromPatches.register("mixer")
@@ -37,7 +38,11 @@ class MixerEncoder(Encoder1DFromPatches):
         mixer_block = MixerBlock(self.to_patches.num_patches, latent_dim, norm_type)
         self.encoder = nn.Sequential(
             *_get_clones(mixer_block, num_layers, return_list=True),
-            Lambda(lambda x: x.mean(1), name="global_average"),
+            PreNorm(
+                latent_dim,
+                module=Lambda(lambda x: x.mean(1), name="global_average"),
+                norm_type=norm_type,
+            ),
         )
 
     def from_patches(
