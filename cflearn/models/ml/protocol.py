@@ -255,7 +255,7 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         if num_repeat is None:
             self.core = core
         else:
-            self.core = _get_clones(core, num_repeat)
+            self.core = _get_clones(core, num_repeat)  # type: ignore
         self.__identifier__ = core_name
         self._num_repeat = num_repeat
 
