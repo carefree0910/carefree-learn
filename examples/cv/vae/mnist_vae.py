@@ -3,20 +3,10 @@
 import os
 import cflearn
 
-from torch import Tensor
-from typing import Tuple
-from cflearn.types import tensor_dict_type
-from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
-from torch.utils.data import DataLoader
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
-
-
-def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
-    img, labels = batch
-    return {cflearn.INPUT_KEY: img, cflearn.LABEL_KEY: labels.view(-1, 1)}
 
 
 @cflearn.ArtifactCallback.register("vae")
@@ -38,24 +28,13 @@ class VAECallback(cflearn.ArtifactCallback):
         save_images(sampled, os.path.join(image_folder, "sampled.png"))
 
 
-data_base = cflearn.data_dict["dl"]
-loader_base = cflearn.loader_dict["dl"]
-
 transform = transforms.Compose(
     [
         transforms.ToTensor(),
         transforms.Lambda(lambda t: t * 2.0 - 1.0),
     ]
 )
-
-train_data = data_base(MNIST("data", transform=transform, download=True))
-valid_data = data_base(MNIST("data", train=False, transform=transform, download=True))
-
-train_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: ignore
-valid_pt_loader = DataLoader(train_data, batch_size=64, shuffle=True)  # type: ignore
-
-train_loader = loader_base(train_pt_loader, batch_callback)
-valid_loader = loader_base(valid_pt_loader, batch_callback)
+train_loader, valid_loader = cflearn.cv.get_mnist(transform=transform)
 
 # loss = cflearn.loss_dict["vae"]()
 # vae = cflearn.VanillaVAE(28, 1)
