@@ -158,6 +158,17 @@ class SimplePipeline(DLPipeline):
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
 
+    def _before_loop(  # type: ignore
+        self,
+        x: Any,
+        y: Any = None,
+        x_valid: Any = None,
+        y_valid: Any = None,
+        *,
+        cuda: Optional[str] = None,
+    ) -> None:
+        super()._before_loop(x, y, x_valid, y_valid, cuda=cuda)
+
     def _prepare_data(self, x: np.ndarray, *args: Any) -> None:
         y, x_valid, y_valid = args
         self.input_dim = x.shape[-1]
