@@ -1072,7 +1072,11 @@ class PreNorm(nn.Module):
             x_list.append(x_list[1])
         if len(x_list) != 3:
             raise ValueError("there should be three inputs for `Attention`")
-        return self.module(*x_list, **kwargs).output
+        return_attention = kwargs.pop("return_attention", False)
+        attention_outputs = self.module(*x_list, **kwargs)
+        if return_attention:
+            return attention_outputs.weights
+        return attention_outputs.output
 
 
 class ImgToPatches(nn.Module):
