@@ -126,7 +126,7 @@ class TransformerEncoder(nn.Module):
 
     def forward(self, net: Tensor) -> Tensor:
         batch_size = net.shape[0]
-        head_tokens = torch.tile(self.head_token, [batch_size, 1, 1])
+        head_tokens = self.head_token.repeat([batch_size, 1, 1])
         net = torch.cat([head_tokens, net], dim=1)
         pos_encoding = self.interpolate_pos_encoding(net, self.pos_encoding)
         net = net + pos_encoding

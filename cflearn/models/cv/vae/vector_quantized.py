@@ -144,7 +144,7 @@ class VQVAE(ModelProtocol):
                 raise ValueError("either `indices` or `num_samples` should be provided")
             indices = torch.randint(self.num_code, [num_samples])
         indices = indices.view(-1, 1, 1)
-        tiled = torch.tile(indices, [1, self.f_map_dim, self.f_map_dim]).view(-1)
+        tiled = indices.repeat([1, self.f_map_dim, self.f_map_dim]).view(-1)
         z_q = self.codebook.embedding(tiled.to(self.device))
         z_q = z_q.view(-1, self.latent_channels, self.f_map_dim, self.f_map_dim)
         net = self._decode(z_q, **kwargs)
