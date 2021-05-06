@@ -37,7 +37,7 @@ m = cflearn.cv.CarefreePipeline(
         "img_size": 28,
         "in_channels": 1,
         "num_classes": 10,
-        "encoder1d": "mixer",
+        "encoder1d": "vit",
         "encoder1d_configs": {"patch_size": 7},
     },
     loss_name="cross_entropy",
