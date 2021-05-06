@@ -112,10 +112,11 @@ class TransformerEncoder(nn.Module):
         self.norm = NormFactory(norm_type).make(dim)
         # initializations
         nn.init.trunc_normal_(self.pos_encoding, std=0.02)
-        nn.init.trunc_normal_(self.head_token, std=0.02)
+        if self.head_token is not None:
+            nn.init.trunc_normal_(self.head_token, std=0.02)
         self.apply(self._init_weights)
 
-    def _init_weights(self, m):
+    def _init_weights(self, m: nn.Module) -> None:
         if isinstance(m, nn.Linear):
             nn.init.trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
@@ -126,8 +127,9 @@ class TransformerEncoder(nn.Module):
 
     def forward(self, net: Tensor) -> Tensor:
         batch_size = net.shape[0]
-        head_tokens = self.head_token.repeat([batch_size, 1, 1])
-        net = torch.cat([head_tokens, net], dim=1)
+        if self.head_token is not None:
+            head_tokens = self.head_token.repeat([batch_size, 1, 1])
+            net = torch.cat([head_tokens, net], dim=1)
         pos_encoding = self.interpolate_pos_encoding(net, self.pos_encoding)
         net = net + pos_encoding
         for layer in self.layers:
@@ -138,7 +140,7 @@ class TransformerEncoder(nn.Module):
         return net.mean(1)
 
     # this is mainly for vision transformers (ViTs)
-    def interpolate_pos_encoding(self, x: Tensor, pos_encoding):
+    def interpolate_pos_encoding(self, x: Tensor, pos_encoding: Tensor) -> Tensor:
         head_dim = int(self.head_token is not None)
         num_current_history = x.shape[1] - head_dim
         num_history = pos_encoding.shape[1] - head_dim
@@ -152,7 +154,7 @@ class TransformerEncoder(nn.Module):
         shape = int(math.sqrt(num_history))
         if shape ** 2 != num_history:
             raise ValueError(f"`num_history` ({num_history}) should be a square number")
-        pos_encoding = nn.functional.interpolate(
+        pos_encoding = F.interpolate(
             pos_encoding.reshape(1, shape, shape, dim).permute(0, 3, 1, 2),
             scale_factor=math.sqrt(num_current_history / num_history),
             mode="bicubic",
