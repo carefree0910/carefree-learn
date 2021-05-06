@@ -62,7 +62,7 @@ class QuantileLoss(LossProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
-        quantile_error = batch[LABEL_KEY] - forward_results["quantiles"]
+        quantile_error = batch[LABEL_KEY] - forward_results[PREDICTIONS_KEY]
         neg_errors = self.q * quantile_error  # type: ignore
         pos_errors = (self.q - 1.0) * quantile_error  # type: ignore
         quantile_losses = torch.max(neg_errors, pos_errors)
