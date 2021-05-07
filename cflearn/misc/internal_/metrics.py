@@ -95,6 +95,10 @@ class AUC(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
+    @property
+    def requires_all(self) -> bool:
+        return True
+
     def _core(
         self,
         np_batch: np_dict_type,
