@@ -129,7 +129,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         return self.trainer.is_rank_0
 
     def fit(self, x: Any, *args: Any, cuda: Optional[str] = None) -> "PipelineProtocol":
-        self._before_loop(x, *args, cuda)
+        self._before_loop(x, *args, cuda=cuda)
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(
             self.loss,
