@@ -1104,6 +1104,7 @@ class ImgToPatches(nn.Module):
             latent_dim,
             kernel_size=patch_size,
             stride=patch_size,
+            padding=0,
             **conv_kwargs,
         )
 
