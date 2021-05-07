@@ -28,15 +28,14 @@ class MLPBlock(nn.Module):
 class MixerBlock(nn.Module):
     def __init__(self, num_tokens: int, latent_dim: int, norm_type: str = "batch_norm"):
         super().__init__()
-        token_mixing = nn.Sequential(
-            Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
-            MLPBlock(num_tokens),
-            Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
-        )
         self.token_mixing = Residual(
             PreNorm(
                 latent_dim,
-                module=token_mixing,
+                module=nn.Sequential(
+                    Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
+                    MLPBlock(num_tokens),
+                    Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
+                ),
                 norm_type=norm_type,
             )
         )

@@ -1,8 +1,7 @@
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
-
-import torch
 from cftool.misc import shallow_copy_dict
 
 from ..encoder import Encoder1DBase
@@ -58,7 +57,7 @@ class VanillaClassifier(ModelProtocol):
         batch[MERGED_KEY] = encoding[PREDICTIONS_KEY]
         return self.head(batch_idx, batch, state, **kwargs)
 
-    def classify(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def classify(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
