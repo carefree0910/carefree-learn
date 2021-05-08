@@ -132,23 +132,32 @@ class VQVAE(ModelProtocol):
         net = self._decode(z_q, **kwargs)
         return {PREDICTIONS_KEY: net, "z_e": z_e, "z_q_g": z_q_g, "indices": indices}
 
+    def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
+        batch = {INPUT_KEY: net}
+        z_e = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
+        _, indices = self.codebook(z_e)
+        return indices
+
+    def reconstruct_from(self, code_indices: Tensor, **kwargs: Any) -> Tensor:
+        z_q = self.codebook.embedding(code_indices.to(self.device))
+        z_q = z_q.permute(0, 3, 1, 2)
+        return self._decode(z_q, **kwargs)
+
     def sample_codebook(
         self,
         *,
-        indices: Optional[Tensor] = None,
+        code_indices: Optional[Tensor] = None,
         num_samples: Optional[int] = None,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
-        if indices is None:
+        if code_indices is None:
             if num_samples is None:
                 raise ValueError("either `indices` or `num_samples` should be provided")
-            indices = torch.randint(self.num_code, [num_samples])
-        indices = indices.view(-1, 1, 1)
-        tiled = indices.repeat([1, self.f_map_dim, self.f_map_dim]).view(-1)
-        z_q = self.codebook.embedding(tiled.to(self.device))
-        z_q = z_q.view(-1, self.latent_channels, self.f_map_dim, self.f_map_dim)
-        net = self._decode(z_q, **kwargs)
-        return net, indices
+            code_indices = torch.randint(self.num_code, [num_samples])
+        code_indices = code_indices.view(-1, 1, 1)
+        tiled = code_indices.repeat([1, self.f_map_dim, self.f_map_dim])
+        net = self.reconstruct_from(tiled, **kwargs)
+        return net, code_indices
 
 
 __all__ = ["VQVAE"]
