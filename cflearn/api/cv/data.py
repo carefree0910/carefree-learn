@@ -78,7 +78,7 @@ def get_tensor_loader(
     batch_size: int = 64,
 ) -> DLLoader:
     data = DLData(TensorDataset(x, y))
-    return DLLoader(DataLoader(data, batch_size, shuffle))
+    return DLLoader(DataLoader(data, batch_size, shuffle))  # type: ignore
 
 
 def get_tensor_loaders(

@@ -31,7 +31,7 @@ train_loader, valid_loader = cflearn.cv.get_mnist(
     transform=transforms.Compose(
         [
             transforms.ToTensor(),
-            transforms.Lambda(lambda t: (t * 255).long())
+            transforms.Lambda(lambda t: (t * 255).long()),
         ]
     ),
     label_callback=lambda batch: batch[0],
