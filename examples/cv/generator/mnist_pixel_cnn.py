@@ -3,7 +3,6 @@
 import os
 import cflearn
 
-from torchvision.transforms import transforms
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
@@ -27,7 +26,7 @@ class PixelCNNCallback(cflearn.ArtifactCallback):
 
 
 train_loader, valid_loader = cflearn.cv.get_mnist(
-    transform=transforms.ToTensor(),
+    transform="for_classification",
     label_callback=lambda batch: (batch[0] * 255).long(),
 )
 

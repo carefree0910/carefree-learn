@@ -28,13 +28,7 @@ class VAECallback(cflearn.ArtifactCallback):
         save_images(sampled, os.path.join(image_folder, "sampled.png"))
 
 
-transform = transforms.Compose(
-    [
-        transforms.ToTensor(),
-        transforms.Lambda(lambda t: t * 2.0 - 1.0),
-    ]
-)
-train_loader, valid_loader = cflearn.cv.get_mnist(transform=transform)
+train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_generation")
 
 # loss = cflearn.loss_dict["vae"]()
 # vae = cflearn.VanillaVAE(28, 1)

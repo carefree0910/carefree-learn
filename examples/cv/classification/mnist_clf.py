@@ -3,7 +3,6 @@
 import os
 import cflearn
 
-from torchvision.transforms import transforms
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
@@ -28,8 +27,7 @@ class ClassificationCallback(cflearn.ArtifactCallback):
         save_images(labels_map, os.path.join(image_folder, "labels.png"))
 
 
-transform = transforms.ToTensor()
-train_loader, valid_loader = cflearn.cv.get_mnist(transform=transform)
+train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_classification")
 
 m = cflearn.cv.CarefreePipeline(
     "clf",
