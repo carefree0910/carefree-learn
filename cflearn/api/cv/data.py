@@ -6,8 +6,11 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from cflearn.types import tensor_dict_type
+from cflearn.constants import INPUT_KEY
+from cflearn.constants import LABEL_KEY
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
+from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 from cflearn.misc.internal_ import DLData
 from cflearn.misc.internal_ import DLLoader
@@ -49,4 +52,43 @@ def get_mnist(
 
     train_loader = DLLoader(train_pt_loader, batch_callback)
     valid_loader = DLLoader(valid_pt_loader, batch_callback)
+    return train_loader, valid_loader
+
+
+class TensorDataset(Dataset):
+    def __init__(self, x: Tensor, y: Optional[Tensor]):
+        self.x = x
+        self.y = y
+
+    def __getitem__(self, index: int) -> tensor_dict_type:
+        return {
+            INPUT_KEY: self.x[index],
+            LABEL_KEY: 0 if self.y is None else self.y[index],
+        }
+
+    def __len__(self) -> int:
+        return self.x.shape[0]
+
+
+def get_tensor_loader(
+    x: Tensor,
+    y: Optional[Tensor],
+    *,
+    shuffle: bool = True,
+    batch_size: int = 64,
+) -> DLLoader:
+    data = DLData(TensorDataset(x, y))
+    return DLLoader(DataLoader(data, batch_size, shuffle))
+
+
+def get_tensor_loaders(
+    x_train: Tensor,
+    y_train: Optional[Tensor] = None,
+    x_valid: Optional[Tensor] = None,
+    y_valid: Optional[Tensor] = None,
+) -> Tuple[DLLoader, Optional[DLLoader]]:
+    train_loader = get_tensor_loader(x_train, y_train)
+    if x_valid is None:
+        return train_loader, None
+    valid_loader = get_tensor_loader(x_valid, y_valid)
     return train_loader, valid_loader
