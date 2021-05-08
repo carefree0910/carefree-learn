@@ -227,6 +227,47 @@ class SimplePipeline(DLPipeline):
     ) -> MLLoader:
         return MLLoader(MLData(x, None), shuffle=False, batch_size=batch_size)
 
+    @classmethod
+    def pack(
+        cls,
+        workplace: str,
+        *,
+        input_dim: Optional[int] = None,
+        config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
+        pack_folder: Optional[str] = None,
+        cuda: Optional[str] = None,
+    ) -> str:
+        if input_dim is None:
+            raise ValueError("`input_dim` should be provided for ml.SimplePipeline")
+
+        def _callback(d: Dict[str, Any]) -> None:
+            d["input_dim"] = input_dim
+            if config_bundle_callback is not None:
+                config_bundle_callback(d)
+
+        return super().pack(
+            workplace,
+            config_bundle_callback=_callback,
+            pack_folder=pack_folder,
+            cuda=cuda,
+        )
+
+    @classmethod
+    def _load_infrastructure(
+        cls,
+        export_folder: str,
+        cuda: Optional[str],
+        callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
+    ) -> "SimplePipeline":
+        def _callback(m: DLPipeline, config_bundle: Dict[str, Any]) -> None:
+            m.input_dim = config_bundle["input_dim"]
+            if callback is not None:
+                callback(m, config_bundle)
+
+        m_ = super()._load_infrastructure(export_folder, cuda, _callback)
+        assert isinstance(m_, SimplePipeline)
+        return m_
+
     def to_pattern(
         self,
         *,
@@ -264,12 +305,13 @@ class SimplePipeline(DLPipeline):
         cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
+        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "SimplePipeline":
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder, cuda)
+                m = cls._load_infrastructure(export_folder, cuda, callback)
                 assert isinstance(m, SimplePipeline)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
         m._prepare_modules()
@@ -594,8 +636,9 @@ class CarefreePipeline(SimplePipeline):
         cls,
         export_folder: str,
         cuda: Optional[str],
+        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "CarefreePipeline":
-        m = super()._load_infrastructure(export_folder, cuda)
+        m = super()._load_infrastructure(export_folder, cuda, callback)
         assert isinstance(m, CarefreePipeline)
         data_folder = os.path.join(export_folder, cls.data_folder)
         m.data = TabularData.load(data_folder, compress=False)
@@ -609,8 +652,9 @@ class CarefreePipeline(SimplePipeline):
         cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
+        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "CarefreePipeline":
-        def _callback(m_: Any, states_: Dict[str, Any]) -> Dict[str, Any]:
+        def _states_callback(m_: Any, states_: Dict[str, Any]) -> Dict[str, Any]:
             if states_callback is not None:
                 states_ = states_callback(m_, states_)
             if m_.encoder is not None:
@@ -626,7 +670,8 @@ class CarefreePipeline(SimplePipeline):
             export_folder,
             cuda=cuda,
             compress=compress,
-            states_callback=_callback,
+            states_callback=_states_callback,
+            callback=callback,
         )
         assert isinstance(m, CarefreePipeline)
         return m
@@ -636,7 +681,8 @@ class CarefreePipeline(SimplePipeline):
         cls,
         workplace: str,
         *,
-        input_dim: int,
+        input_dim: Optional[int] = None,
+        config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         pack_folder: Optional[str] = None,
         cuda: Optional[str] = None,
     ) -> str:
