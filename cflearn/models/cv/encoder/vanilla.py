@@ -6,7 +6,6 @@ from typing import Optional
 
 from .protocol import EncoderBase
 from .protocol import Encoder1DBase
-from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
@@ -105,6 +104,7 @@ class VanillaEncoder1D(Encoder1DBase):
         self,
         img_size: int,
         in_channels: int,
+        num_downsample: int,
         latent_dim: int = 128,
         first_kernel_size: int = 7,
         num_residual_blocks: int = 0,
@@ -113,7 +113,6 @@ class VanillaEncoder1D(Encoder1DBase):
         norm_type: str = "batch",
     ):
         super().__init__(img_size, in_channels, latent_dim)
-        num_downsample = auto_num_layers(img_size)
         self.encoder = VanillaEncoder(
             img_size,
             in_channels,

@@ -50,6 +50,8 @@ class VanillaVAE(ModelProtocol):
         encoder1d_configs["img_size"] = img_size
         encoder1d_configs["in_channels"] = in_channels
         encoder1d_configs["latent_dim"] = 2 * latent_dim
+        if encoder1d == "vanilla":
+            encoder1d_configs["num_downsample"] = num_downsample
         self.encoder = Encoder1DBase.make(encoder1d, **encoder1d_configs)
         # latent
         compressed_channels = latent_dim // map_area
