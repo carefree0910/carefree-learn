@@ -3,7 +3,6 @@
 import os
 import cflearn
 
-from torchvision.transforms import transforms
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
@@ -29,16 +28,6 @@ class VAECallback(cflearn.ArtifactCallback):
 
 
 train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_generation")
-
-# loss = cflearn.loss_dict["vae"]()
-# vae = cflearn.VanillaVAE(28, 1)
-# inference = cflearn.DLInference(model=vae)
-# cf_trainer = cflearn.Trainer(
-#     workplace="_logs",
-#     loss_metrics_weights={"kld": 0.002, "mse": 1.0},
-#     callbacks=[VAECallback(), _LogMetricsMsgCallback()],
-# )
-# cf_trainer.fit(loss, vae, inference, train_loader, valid_loader, cuda="0")
 
 m = cflearn.cv.CarefreePipeline(
     "vae",
