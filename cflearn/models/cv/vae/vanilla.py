@@ -17,6 +17,7 @@ from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
+from ....modules.blocks import Linear
 
 
 @ModelProtocol.register("vae")
@@ -49,10 +50,11 @@ class VanillaVAE(ModelProtocol):
             encoder1d_configs = {}
         encoder1d_configs["img_size"] = img_size
         encoder1d_configs["in_channels"] = in_channels
-        encoder1d_configs["latent_dim"] = 2 * latent_dim
+        encoder1d_configs["latent_dim"] = latent_dim
         if encoder1d == "vanilla":
             encoder1d_configs["num_downsample"] = num_downsample
         self.encoder = Encoder1DBase.make(encoder1d, **encoder1d_configs)
+        self.to_statistics = Linear(latent_dim, 2 * latent_dim, bias=False)
         # latent
         compressed_channels = latent_dim // map_area
         shape = -1, compressed_channels, map_dim, map_dim
@@ -89,6 +91,7 @@ class VanillaVAE(ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
+        net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)
         net = self._decode(net, **kwargs)
