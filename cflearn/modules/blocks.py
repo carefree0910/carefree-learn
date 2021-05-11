@@ -1398,7 +1398,7 @@ class HighwayBlock(_SkipConnectBlock):
         return gate * nonlinear + (1.0 - gate) * linear
 
 
-# convolutions
+# cv
 
 
 class Conv2d(Module):
@@ -1592,3 +1592,30 @@ def get_conv_blocks(
     if activation is not None:
         blocks.append(activation)
     return blocks
+
+
+class ResidualBlock(nn.Module):
+    def __init__(
+        self,
+        dim: int,
+        dropout: float,
+        kernel_size: int = 3,
+        stride: int = 1,
+        *,
+        norm_type: str = "batch",
+        **kwargs: Any,
+    ):
+        super().__init__()
+        kwargs["norm_type"] = norm_type
+        k1 = shallow_copy_dict(kwargs)
+        k1.setdefault("activation", nn.LeakyReLU(0.2, inplace=True))
+        blocks = get_conv_blocks(dim, dim, kernel_size, stride, **kwargs)
+        if 0.0 < dropout < 1.0:
+            blocks.append(nn.Dropout(dropout))
+        k2 = shallow_copy_dict(kwargs)
+        k2.setdefault("activation", nn.LeakyReLU(0.2, inplace=True))
+        blocks.extend(get_conv_blocks(dim, dim, kernel_size, stride, **kwargs))
+        self.net = Residual(nn.Sequential(*blocks))
+
+    def forward(self, net: Tensor) -> Tensor:
+        return self.net(net)
