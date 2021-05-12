@@ -14,6 +14,7 @@ from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
+from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
@@ -22,8 +23,6 @@ from ....modules.blocks import Linear
 
 @ModelProtocol.register("vae")
 class VanillaVAE(ModelProtocol):
-    condition_tokens: Optional[nn.Parameter]
-
     def __init__(
         self,
         img_size: int,
@@ -62,27 +61,8 @@ class VanillaVAE(ModelProtocol):
         # latent
         compressed_channels = latent_dim // map_area
         shape = -1, compressed_channels, map_dim, map_dim
-        blocks = [Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}")]
-        if num_classes is None:
-            self.condition_tokens = None
-        else:
-            compressed_channels += num_classes
-            token_shape = num_classes, map_dim, map_dim
-            self.condition_tokens = nn.Parameter(torch.randn(1, *token_shape))
-            blocks.append(
-                Lambda(
-                    lambda tensor: torch.cat(
-                        [
-                            tensor,
-                            self.condition_tokens.repeat(tensor.shape[0], 1, 1, 1),  # type: ignore
-                        ],
-                        dim=1,
-                    ),
-                    f"concat ({num_classes}) condition tokens",
-                )
-            )
         self.from_latent = nn.Sequential(
-            *blocks,
+            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
             Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
         )
         # decoder
@@ -93,6 +73,7 @@ class VanillaVAE(ModelProtocol):
         decoder_configs["latent_resolution"] = map_dim
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
+        decoder_configs["num_classes"] = num_classes
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 
     @staticmethod
@@ -101,8 +82,16 @@ class VanillaVAE(ModelProtocol):
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def _decode(self, z: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        batch = {INPUT_KEY: self.from_latent(z)}
+    def _decode(
+        self,
+        z: torch.Tensor,
+        *,
+        class_indices: Optional[torch.Tensor],
+        **kwargs: Any,
+    ) -> torch.Tensor:
+        if class_indices is None and self.num_classes is not None:
+            class_indices = torch.randint(self.num_classes, [len(z)]).to(z.device)
+        batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: class_indices}
         net = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
@@ -117,15 +106,34 @@ class VanillaVAE(ModelProtocol):
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)
-        net = self._decode(net, **kwargs)
+        class_indices = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
+        net = self._decode(net, class_indices=class_indices, **kwargs)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
     def reconstruct(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
+        batch = {INPUT_KEY: net}
+        labels = kwargs.get("labels")
+        if labels is None and self.num_classes is None:
+            raise ValueError(
+                "`labels` should be provided in `reconstruct` "
+                "for conditional `VanillaVAE`"
+            )
+        batch[LABEL_KEY] = labels
+        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
 
-    def sample(self, num_sample: int, **kwargs: Any) -> torch.Tensor:
+    def sample(
+        self,
+        num_sample: int,
+        *,
+        class_idx: Optional[int] = None,
+        **kwargs: Any,
+    ) -> torch.Tensor:
         z = torch.randn(num_sample, self.latent_dim).to(self.device)
-        return self._decode(z, **kwargs)
+        if class_idx is None:
+            class_indices = None
+        else:
+            class_indices = torch.full([num_sample], class_idx)
+        return self._decode(z, class_indices=class_indices, **kwargs)
 
 
 __all__ = ["VanillaVAE"]
