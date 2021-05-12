@@ -20,6 +20,7 @@ from cftool.misc import Saving
 
 from ...types import data_type
 from ...types import np_dict_type
+from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...protocol import MetricProtocol
@@ -27,6 +28,7 @@ from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
+from ..internal_.pipeline import _split_sw
 from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
@@ -165,18 +167,33 @@ class SimplePipeline(DLPipeline):
         x_valid: Any = None,
         y_valid: Any = None,
         *,
+        sample_weights: sample_weights_type = None,
         cuda: Optional[str] = None,
     ) -> None:
-        super()._before_loop(x, y, x_valid, y_valid, cuda=cuda)
+        super()._before_loop(
+            x,
+            y,
+            x_valid,
+            y_valid,
+            sample_weights=sample_weights,
+            cuda=cuda,
+        )
 
-    def _prepare_data(self, x: np.ndarray, *args: Any) -> None:
+    def _prepare_data(
+        self,
+        x: np.ndarray,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+    ) -> None:
         y, x_valid, y_valid = args
         self.input_dim = x.shape[-1]
+        train_weights, valid_weights = _split_sw(sample_weights)
         train_loader = MLLoader(
             MLData(x, y),
             name="train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
+            sample_weights=train_weights,
         )
         if x_valid is None or y_valid is None:
             valid_loader = None
@@ -186,6 +203,7 @@ class SimplePipeline(DLPipeline):
                 name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
+                sample_weights=valid_weights,
             )
         self.train_loader = train_loader
         self.valid_loader = valid_loader
@@ -467,7 +485,12 @@ class CarefreePipeline(SimplePipeline):
         self.read_config = read_config or {}
 
     # TODO : support sample weights
-    def _prepare_data(self, x: data_type, *args: Any) -> None:
+    def _prepare_data(
+        self,
+        x: data_type,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+    ) -> None:
         y, x_valid, y_valid = args
         self.data.read(x, y, **self.read_config)
         if x_valid is not None:
@@ -494,11 +517,13 @@ class CarefreePipeline(SimplePipeline):
                 split_result = self.data.split(split, order=self.valid_split_order)
                 self.train_data = split_result.remained
                 self.valid_data = split_result.split
+        train_weights, valid_weights = _split_sw(sample_weights)
         train_loader = MLLoader(
             MLData(*self.train_data.processed.xy),
             name="train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
+            sample_weights=train_weights,
         )
         if self.valid_data is None:
             valid_loader = None
@@ -508,6 +533,7 @@ class CarefreePipeline(SimplePipeline):
                 name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
+                sample_weights=valid_weights,
             )
         self.train_loader = train_loader
         self.valid_loader = valid_loader

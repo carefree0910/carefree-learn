@@ -3,12 +3,15 @@ import json
 import torch
 import shutil
 
+import numpy as np
+
 from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -18,6 +21,7 @@ from cftool.misc import Saving
 
 from .trainer import make_trainer
 from ...types import np_dict_type
+from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
@@ -39,6 +43,25 @@ from ...misc.toolkit import prepare_workplace_from
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
+split_sw_type = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
+
+
+def _norm_sw(sample_weights: Optional[np.ndarray]) -> Optional[np.ndarray]:
+    if sample_weights is None:
+        return None
+    return sample_weights / sample_weights.sum()
+
+
+def _split_sw(sample_weights: sample_weights_type) -> split_sw_type:
+    if sample_weights is None:
+        train_weights = valid_weights = None
+    else:
+        if not isinstance(sample_weights, np.ndarray):
+            train_weights, valid_weights = sample_weights
+        else:
+            train_weights, valid_weights = sample_weights, None
+    train_weights, valid_weights = map(_norm_sw, [train_weights, valid_weights])
+    return train_weights, valid_weights
 
 
 class PipelineProtocol(WithRegister, metaclass=ABCMeta):
@@ -129,8 +152,14 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     def is_rank_0(self) -> bool:
         return self.trainer.is_rank_0
 
-    def fit(self, x: Any, *args: Any, cuda: Optional[str] = None) -> "PipelineProtocol":
-        self._before_loop(x, *args, cuda=cuda)
+    def fit(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> "PipelineProtocol":
+        self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(
             self.loss,
@@ -144,7 +173,13 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         return self
 
     @abstractmethod
-    def _before_loop(self, x: Any, *args: Any, cuda: Optional[str] = None) -> None:
+    def _before_loop(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> None:
         pass
 
     @abstractmethod
@@ -241,13 +276,24 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.trainer_config["optimizer_settings"] = optimizer_settings
 
     # TODO : support sample weights
-    def _before_loop(self, x: Any, *args: Any, cuda: Optional[str] = None) -> None:
-        self._prepare_data(x, *args)
+    def _before_loop(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> None:
+        self._prepare_data(x, *args, sample_weights=sample_weights)
         self._prepare_modules()
         self._prepare_trainer_defaults()
 
     @abstractmethod
-    def _prepare_data(self, x: Any, *args: Any) -> None:
+    def _prepare_data(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+    ) -> None:
         pass
 
     @abstractmethod

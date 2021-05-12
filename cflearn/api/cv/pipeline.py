@@ -4,6 +4,7 @@ from typing import List
 from typing import Union
 from typing import Optional
 
+from ...types import sample_weights_type
 from ...trainer import callback_dict
 from ...protocol import loss_dict
 from ...protocol import ModelProtocol
@@ -86,7 +87,12 @@ class SimplePipeline(DLPipeline):
         self.model_name = model_name
         self.model_config = model_config or {}
 
-    def _prepare_data(self, x: DLLoader, *args: Any) -> None:
+    def _prepare_data(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+    ) -> None:
         self.train_loader = x
         self.valid_loader = args[0]
 

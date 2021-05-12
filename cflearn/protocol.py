@@ -28,6 +28,7 @@ from .constants import *
 from .types import losses_type
 from .types import np_dict_type
 from .types import tensor_dict_type
+from .types import sample_weights_type
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
 from .misc.toolkit import to_standard
@@ -99,8 +100,8 @@ class DataLoaderProtocol(ABC, WithRegister):
     data: DataProtocol
     batch_size: int
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
+    def __init__(self, *, sample_weights: sample_weights_type = None):
+        self.sample_weights = sample_weights
 
     @abstractmethod
     def __iter__(self) -> "DataLoaderProtocol":

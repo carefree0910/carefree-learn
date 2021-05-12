@@ -7,6 +7,7 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
 from ...types import tensor_dict_type
+from ...types import sample_weights_type
 from ...protocol import DataProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
@@ -39,8 +40,14 @@ class MLLoader(DataLoaderProtocol):
         *,
         name: Optional[str] = None,
         batch_size: int = 128,
+        sample_weights: sample_weights_type = None,
     ):
-        super().__init__()
+        if sample_weights is not None and len(data) != len(sample_weights):
+            raise ValueError(
+                f"the number of data samples ({len(data)}) is not identical with "
+                f"the number of sample weights ({len(sample_weights)})"
+            )
+        super().__init__(sample_weights=sample_weights)
         self.data = data
         self.shuffle = shuffle
         self.name = name
@@ -48,7 +55,11 @@ class MLLoader(DataLoaderProtocol):
 
     def __iter__(self) -> "MLLoader":
         self.cursor = 0
-        self.indices = np.arange(len(self.data))
+        num_samples = len(self.data)
+        self.indices = np.arange(num_samples)
+        if self.sample_weights is not None:
+            numbers = np.random.multinomial(num_samples, self.sample_weights)
+            self.indices = self.indices.repeat(numbers)
         if self.shuffle:
             np.random.shuffle(self.indices)
         return self
@@ -90,8 +101,15 @@ class DLLoader(DataLoaderProtocol):
         self,
         loader: DataLoader,
         batch_callback: Optional[Callable[[Any], tensor_dict_type]] = None,
+        *,
+        sample_weights: sample_weights_type = None,
     ):
-        super().__init__()
+        if sample_weights is not None:
+            raise ValueError(
+                "in `DLLoader`, we should introduce `sample_weights` to the original "
+                "Pytorch `DataLoader` (by specifying corresponding samplers)"
+            )
+        super().__init__(sample_weights=sample_weights)
         self.loader = loader
         self.data = loader.dataset  # type: ignore
         self.batch_size = loader.batch_size  # type: ignore
