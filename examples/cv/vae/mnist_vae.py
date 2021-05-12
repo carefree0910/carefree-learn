@@ -31,6 +31,10 @@ train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_generation")
 
 m = cflearn.cv.CarefreePipeline(
     "vae",
-    {"img_size": 28, "in_channels": 1},
+    {
+        "img_size": 28,
+        "in_channels": 1,
+        "num_classes": 10,
+    },
 )
-m.fit(train_loader, valid_loader, cuda="0")
+m.fit(train_loader, valid_loader, cuda="1")

@@ -22,6 +22,8 @@ from ....modules.blocks import Linear
 
 @ModelProtocol.register("vae")
 class VanillaVAE(ModelProtocol):
+    condition_tokens: Optional[nn.Parameter]
+
     def __init__(
         self,
         img_size: int,
@@ -30,6 +32,7 @@ class VanillaVAE(ModelProtocol):
         min_size: int = 2,
         target_downsample: int = 4,
         latent_dim: int = 256,
+        num_classes: Optional[int] = None,
         encoder1d_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
         *,
@@ -39,6 +42,7 @@ class VanillaVAE(ModelProtocol):
         super().__init__()
         self.img_size = img_size
         self.latent_dim = latent_dim
+        self.num_classes = num_classes
         num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         map_dim = f_map_dim(img_size, num_downsample)
         map_area = map_dim ** 2
@@ -58,8 +62,27 @@ class VanillaVAE(ModelProtocol):
         # latent
         compressed_channels = latent_dim // map_area
         shape = -1, compressed_channels, map_dim, map_dim
+        blocks = [Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}")]
+        if num_classes is None:
+            self.condition_tokens = None
+        else:
+            compressed_channels += num_classes
+            token_shape = num_classes, map_dim, map_dim
+            self.condition_tokens = nn.Parameter(torch.randn(1, *token_shape))
+            blocks.append(
+                Lambda(
+                    lambda tensor: torch.cat(
+                        [
+                            tensor,
+                            self.condition_tokens.repeat(tensor.shape[0], 1, 1, 1),  # type: ignore
+                        ],
+                        dim=1,
+                    ),
+                    f"concat ({num_classes}) condition tokens",
+                )
+            )
         self.from_latent = nn.Sequential(
-            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
+            *blocks,
             Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
         )
         # decoder
