@@ -134,13 +134,14 @@ class VanillaVAE(ModelProtocol):
 
     def reconstruct(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         batch = {INPUT_KEY: net}
-        labels = kwargs.get("labels")
-        if labels is None and self.num_classes is None:
-            raise ValueError(
-                "`labels` should be provided in `reconstruct` "
-                "for conditional `VanillaVAE`"
-            )
-        batch[LABEL_KEY] = labels
+        if self.num_classes is not None:
+            labels = kwargs.get("labels")
+            if labels is None:
+                raise ValueError(
+                    "`labels` should be provided in `reconstruct` "
+                    "for conditional `VanillaVAE`"
+                )
+            batch[LABEL_KEY] = labels
         return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
 
     def sample(
