@@ -20,7 +20,7 @@ class VAELoss(LossProtocol):
 
     def _init_config(self) -> None:
         self.kld_ema = self.config.setdefault("kld_ema", 0.999)
-        self.kld_weight = self.config.setdefault("kld_weight", 1.0e-3)
+        self.kld_weight = self.config.setdefault("kld_weight", 2.0e-3)
         self.register_buffer("kld_ratio", torch.tensor([0.0], dtype=torch.float32))
 
     def _core(
