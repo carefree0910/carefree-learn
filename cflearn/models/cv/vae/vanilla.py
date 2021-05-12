@@ -23,6 +23,8 @@ from ....modules.blocks import Linear
 
 @ModelProtocol.register("vae")
 class VanillaVAE(ModelProtocol):
+    latent_padding: Optional[nn.Parameter]
+
     def __init__(
         self,
         img_size: int,
@@ -31,6 +33,7 @@ class VanillaVAE(ModelProtocol):
         min_size: int = 2,
         target_downsample: int = 4,
         latent_dim: int = 256,
+        latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         encoder1d_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
@@ -61,8 +64,27 @@ class VanillaVAE(ModelProtocol):
         # latent
         compressed_channels = latent_dim // map_area
         shape = -1, compressed_channels, map_dim, map_dim
+        blocks = [Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}")]
+        if latent_padding_channels is None:
+            self.latent_padding = None
+        else:
+            compressed_channels += latent_padding_channels
+            token_shape = latent_padding_channels, map_dim, map_dim
+            self.latent_padding = nn.Parameter(torch.randn(1, *token_shape))
+            blocks.append(
+                Lambda(
+                    lambda tensor: torch.cat(
+                        [
+                            tensor,
+                            self.latent_padding.repeat(tensor.shape[0], 1, 1, 1),  # type: ignore
+                        ],
+                        dim=1,
+                    ),
+                    f"concat ({latent_padding_channels}) latent padding tokens",
+                )
+            )
         self.from_latent = nn.Sequential(
-            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
+            *blocks,
             Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
         )
         # decoder
