@@ -17,6 +17,7 @@ from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
+from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import ChannelPadding
 
@@ -84,6 +85,7 @@ class VQVAE(ModelProtocol):
         min_size: int = 4,
         target_downsample: int = 4,
         latent_padding_channels: Optional[int] = 16,
+        num_classes: Optional[int] = None,
         encoder_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
         *,
@@ -92,6 +94,7 @@ class VQVAE(ModelProtocol):
     ):
         super().__init__()
         self.img_size = img_size
+        self.num_classes = num_classes
         num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         # encoder
         if encoder_configs is None:
@@ -119,12 +122,16 @@ class VQVAE(ModelProtocol):
         decoder_configs["latent_resolution"] = self.map_dim
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
+        decoder_configs["num_classes"] = num_classes
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 
-    def _decode(self, z: Tensor, **kwargs: Any) -> Tensor:
+    def _decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
+        if labels is None and self.num_classes is not None:
+            labels = torch.randint(self.num_classes, [len(z)]).to(z.device)
         if self.latent_padding is not None:
             z = self.latent_padding(z)
-        net = self.decoder.decode({INPUT_KEY: z}, **kwargs)[PREDICTIONS_KEY]
+        batch = {INPUT_KEY: z, LABEL_KEY: labels}
+        net = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
     def forward(
@@ -139,6 +146,7 @@ class VQVAE(ModelProtocol):
         z_q_g_flatten = self.codebook.embedding.weight[indices]
         shape = -1, *z_q.shape[2:], self.latent_channels
         z_q_g = z_q_g_flatten.view(*shape).permute(0, 3, 1, 2).contiguous()
+        kwargs[LABEL_KEY] = batch[LABEL_KEY]
         net = self._decode(z_q, **kwargs)
         return {PREDICTIONS_KEY: net, "z_e": z_e, "z_q_g": z_q_g, "indices": indices}
 
@@ -148,16 +156,23 @@ class VQVAE(ModelProtocol):
         _, indices = self.codebook(z_e)
         return indices
 
-    def reconstruct_from(self, code_indices: Tensor, **kwargs: Any) -> Tensor:
+    def reconstruct_from(
+        self,
+        code_indices: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
         z_q = self.codebook.embedding(code_indices.to(self.device))
         z_q = z_q.permute(0, 3, 1, 2)
-        return self._decode(z_q, **kwargs)
+        return self._decode(z_q, labels=labels, **kwargs)
 
     def sample_codebook(
         self,
         *,
         code_indices: Optional[Tensor] = None,
         num_samples: Optional[int] = None,
+        class_idx: Optional[int] = None,
         **kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         if code_indices is None:
@@ -166,6 +181,8 @@ class VQVAE(ModelProtocol):
             code_indices = torch.randint(self.num_code, [num_samples])
         code_indices = code_indices.view(-1, 1, 1)
         tiled = code_indices.repeat([1, self.map_dim, self.map_dim])
+        if class_idx is not None:
+            kwargs["labels"] = torch.full([num_samples], class_idx)
         net = self.reconstruct_from(tiled, **kwargs)
         return net, code_indices
 
