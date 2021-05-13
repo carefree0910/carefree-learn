@@ -18,6 +18,7 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....modules.blocks import ChannelPadding
 
 
 class VQSTE(Function):
@@ -82,6 +83,7 @@ class VQVAE(ModelProtocol):
         out_channels: Optional[int] = None,
         min_size: int = 4,
         target_downsample: int = 4,
+        latent_padding_channels: Optional[int] = 16,
         encoder_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
         *,
@@ -100,20 +102,28 @@ class VQVAE(ModelProtocol):
         self.encoder = EncoderBase.make(encoder, **encoder_configs)
         # latent
         self.num_code = num_code
-        self.f_map_dim = f_map_dim(img_size, num_downsample)
+        self.map_dim = f_map_dim(img_size, num_downsample)
         self.latent_channels = self.encoder.latent_channels
         self.codebook = VQCodebook(num_code, self.latent_channels)
+        decoder_in_channels = self.latent_channels
+        if latent_padding_channels is None:
+            self.latent_padding = None
+        else:
+            decoder_in_channels += latent_padding_channels
+            self.latent_padding = ChannelPadding(latent_padding_channels, self.map_dim)
         # decoder
         if decoder_configs is None:
             decoder_configs = {}
         decoder_configs["img_size"] = img_size
-        decoder_configs["latent_channels"] = self.latent_channels
-        decoder_configs["latent_resolution"] = self.f_map_dim
+        decoder_configs["latent_channels"] = decoder_in_channels
+        decoder_configs["latent_resolution"] = self.map_dim
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 
     def _decode(self, z: Tensor, **kwargs: Any) -> Tensor:
+        if self.latent_padding is not None:
+            z = self.latent_padding(z)
         net = self.decoder.decode({INPUT_KEY: z}, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
@@ -155,7 +165,7 @@ class VQVAE(ModelProtocol):
                 raise ValueError("either `indices` or `num_samples` should be provided")
             code_indices = torch.randint(self.num_code, [num_samples])
         code_indices = code_indices.view(-1, 1, 1)
-        tiled = code_indices.repeat([1, self.f_map_dim, self.f_map_dim])
+        tiled = code_indices.repeat([1, self.map_dim, self.map_dim])
         net = self.reconstruct_from(tiled, **kwargs)
         return net, code_indices
 
