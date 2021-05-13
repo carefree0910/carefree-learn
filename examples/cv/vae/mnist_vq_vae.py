@@ -35,12 +35,12 @@ class VQVAECallback(cflearn.ArtifactCallback):
         # inspect
         sample = reconstructed[:1]
         sample_indices = outputs["indices"][0].view(-1)
-        sample_indices_map = make_indices_visualization_map(sample_indices)
-        sample_indices_vis = trainer.model.sample_codebook(indices=sample_indices)[0]
+        sample_map = make_indices_visualization_map(sample_indices)
+        sample_vis = trainer.model.sample_codebook(code_indices=sample_indices)[0]
         scaled = upscale(sample, math.sqrt(len(sample_indices)))
         save_images(scaled, os.path.join(image_folder, "sampled.png"))
-        save_images(sample_indices_map, os.path.join(image_folder, "sampled_idx.png"))
-        save_images(sample_indices_vis, os.path.join(image_folder, "sampled_codes.png"))
+        save_images(sample_map, os.path.join(image_folder, "sampled_idx.png"))
+        save_images(sample_vis, os.path.join(image_folder, "sampled_codes.png"))
 
 
 train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_generation")
