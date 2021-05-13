@@ -10,6 +10,7 @@ LOSS_KEY = "loss"
 INPUT_KEY = "input"
 PREDICTIONS_KEY = "predictions"
 LABEL_KEY = "labels"
+ORIGINAL_LABEL_KEY = "original_labels"
 BATCH_INDICES_KEY = "batch_indices"
 
 PT_PREFIX = "model_"

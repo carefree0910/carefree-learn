@@ -26,10 +26,14 @@ def get_mnist(
     def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
         img, labels = batch
         if label_callback is None:
-            labels = labels.view(-1, 1)
+            actual_labels = labels.view(-1, 1)
         else:
-            labels = label_callback(batch)
-        return {cflearn.INPUT_KEY: img, cflearn.LABEL_KEY: labels}
+            actual_labels = label_callback(batch)
+        return {
+            cflearn.INPUT_KEY: img,
+            cflearn.LABEL_KEY: actual_labels,
+            cflearn.ORIGINAL_LABEL_KEY: labels,
+        }
 
     if isinstance(transform, str):
         if transform == "for_classification":
