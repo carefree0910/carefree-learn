@@ -161,10 +161,17 @@ class VQVAE(ModelProtocol):
         code_indices: Tensor,
         *,
         labels: Optional[Tensor] = None,
+        use_one_hot: bool = False,
         **kwargs: Any,
     ) -> Tensor:
         z_q = self.codebook.embedding(code_indices.to(self.device))
         z_q = z_q.permute(0, 3, 1, 2)
+        if use_one_hot:
+            one_hot = torch.zeros_like(z_q)
+            i = int(round(0.5 * z_q.shape[2]))
+            j = int(round(0.5 * z_q.shape[3]))
+            one_hot[..., i, j] = z_q[..., i, j]
+            z_q = one_hot
         return self._decode(z_q, labels=labels, **kwargs)
 
     def sample_codebook(
@@ -183,6 +190,7 @@ class VQVAE(ModelProtocol):
         tiled = code_indices.repeat([1, self.map_dim, self.map_dim])
         if class_idx is not None:
             kwargs["labels"] = torch.full([num_samples], class_idx)
+        kwargs.setdefault("use_one_hot", True)
         net = self.reconstruct_from(tiled, **kwargs)
         return net, code_indices
 
