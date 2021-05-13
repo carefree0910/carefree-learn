@@ -1,5 +1,3 @@
-import torch
-
 import torch.nn as nn
 
 from abc import abstractmethod
@@ -15,6 +13,7 @@ from ....protocol import TrainerState
 from ....protocol import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....modules.blocks import ChannelPadding
 
 
 decoders: Dict[str, Type["DecoderBase"]] = {}
@@ -43,12 +42,14 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         # conditional
         self.cond_channels = cond_channels
         self.num_classes = num_classes
-        self.cond = None
-        if num_classes is not None:
-            shape = num_classes, cond_channels, latent_resolution, latent_resolution
-            self.cond = nn.Parameter(torch.empty(*shape))
-            with torch.no_grad():
-                nn.init.zeros_(self.cond.data)
+        if num_classes is None:
+            self.cond = None
+        else:
+            self.cond = ChannelPadding(
+                cond_channels,
+                latent_resolution,
+                num_classes=num_classes,
+            )
 
     @property
     def is_conditional(self) -> bool:
@@ -57,8 +58,7 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
     def _inject_cond(self, batch: tensor_dict_type) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
         if self.cond is not None:
-            cond = self.cond[batch[LABEL_KEY].view(-1)]
-            batch[INPUT_KEY] = torch.cat([batch[INPUT_KEY], cond], dim=1)
+            batch[INPUT_KEY] = self.cond(batch[INPUT_KEY], batch[LABEL_KEY])
         return batch
 
     @abstractmethod

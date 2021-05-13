@@ -1622,11 +1622,29 @@ class ResidualBlock(nn.Module):
 
 
 class ChannelPadding(nn.Module):
-    def __init__(self, dim: int, map_dim: int):
+    def __init__(
+        self,
+        dim: int,
+        map_dim: Optional[int] = None,
+        *,
+        num_classes: Optional[int] = None,
+    ):
         super().__init__()
-        token_shape = dim, map_dim, map_dim
-        self.channel_padding = nn.Parameter(torch.randn(1, *token_shape))
+        self.is_global = map_dim is None
+        self.is_conditional = num_classes is not None
+        if self.is_global:
+            map_dim = 1
+        token_shape = (num_classes or 1), dim, map_dim, map_dim
+        self.channel_padding = nn.Parameter(torch.randn(*token_shape))
 
-    def forward(self, net: Tensor) -> Tensor:
-        repeated = self.channel_padding.repeat(net.shape[0], 1, 1, 1)  # type: ignore
-        return torch.cat([net, repeated], dim=1)
+    def forward(self, net: Tensor, labels: Optional[Tensor] = None) -> Tensor:
+        if not self.is_conditional:
+            padding = self.channel_padding.repeat(net.shape[0], 1, 1, 1)
+        else:
+            if labels is None:
+                msg = "`labels` should be provided in conditional `ChannelPadding`"
+                raise ValueError(msg)
+            padding = self.channel_padding[labels.view(-1)]
+        if self.is_global:
+            padding = padding.repeat(1, 1, *net.shape[-2:])
+        return torch.cat([net, padding], dim=1)
