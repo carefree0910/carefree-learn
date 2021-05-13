@@ -1619,3 +1619,14 @@ class ResidualBlock(nn.Module):
 
     def forward(self, net: Tensor) -> Tensor:
         return self.net(net)
+
+
+class ChannelPadding(nn.Module):
+    def __init__(self, dim: int, map_dim: int):
+        super().__init__()
+        token_shape = dim, map_dim, map_dim
+        self.channel_padding = nn.Parameter(torch.randn(1, *token_shape))
+
+    def forward(self, net: Tensor) -> Tensor:
+        repeated = self.channel_padding.repeat(net.shape[0], 1, 1, 1)  # type: ignore
+        return torch.cat([net, repeated], dim=1)

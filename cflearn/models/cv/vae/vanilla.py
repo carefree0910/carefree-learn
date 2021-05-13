@@ -4,6 +4,7 @@ import torch.nn as nn
 
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 
 from ..encoder import Encoder1DBase
@@ -19,12 +20,11 @@ from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
+from ....modules.blocks import ChannelPadding
 
 
 @ModelProtocol.register("vae")
 class VanillaVAE(ModelProtocol):
-    latent_padding: Optional[nn.Parameter]
-
     def __init__(
         self,
         img_size: int,
@@ -64,25 +64,12 @@ class VanillaVAE(ModelProtocol):
         # latent
         compressed_channels = latent_dim // map_area
         shape = -1, compressed_channels, map_dim, map_dim
-        blocks = [Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}")]
-        if latent_padding_channels is None:
-            self.latent_padding = None
-        else:
+        reshape = Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}")
+        blocks: List[nn.Module] = [reshape]
+        if latent_padding_channels is not None:
             compressed_channels += latent_padding_channels
-            token_shape = latent_padding_channels, map_dim, map_dim
-            self.latent_padding = nn.Parameter(torch.randn(1, *token_shape))
-            blocks.append(
-                Lambda(
-                    lambda tensor: torch.cat(
-                        [
-                            tensor,
-                            self.latent_padding.repeat(tensor.shape[0], 1, 1, 1),  # type: ignore
-                        ],
-                        dim=1,
-                    ),
-                    f"concat ({latent_padding_channels}) latent padding tokens",
-                )
-            )
+            latent_padding = ChannelPadding(latent_padding_channels, map_dim)
+            blocks.append(latent_padding)
         self.from_latent = nn.Sequential(
             *blocks,
             Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
