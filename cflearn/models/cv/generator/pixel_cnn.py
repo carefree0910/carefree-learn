@@ -14,9 +14,11 @@ from ....trainer import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....constants import ORIGINAL_LABEL_KEY
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
+from ....modules.blocks import ChannelPadding
 
 
 class MaskedConv2d(Conv2d):
@@ -72,8 +74,10 @@ class PixelCNN(ModelProtocol):
         need_embedding: bool = False,
         latent_channels: int = 128,
         *,
-        num_layers: int = 6,
         norm_type: str = "batch",
+        num_layers: int = 6,
+        channel_padding: Optional[int] = 16,
+        num_conditional_classes: Optional[int] = None,
     ):
         super().__init__()
         if in_channels != 1:
@@ -81,6 +85,7 @@ class PixelCNN(ModelProtocol):
         self.in_channels = in_channels
         self.num_classes = num_classes
         self.latent_channels = latent_channels
+        self.num_conditional_classes = num_conditional_classes
 
         def _get_block(in_nc: int, out_nc: int, mask_type: str) -> nn.Sequential:
             return nn.Sequential(
@@ -98,19 +103,35 @@ class PixelCNN(ModelProtocol):
                 )
             )
 
+        # to blocks
         if not need_embedding:
             self.to_blocks = nn.Sequential(
                 Lambda(lambda t: t.float() / (num_classes - 1), name="normalize"),
-                _get_block(in_channels, latent_channels, "A"),
+                Conv2d(in_channels, latent_channels, kernel_size=3, bias=False),
             )
         else:
             self.to_blocks = nn.Sequential(
                 Lambda(lambda t: t.squeeze(1), name="squeeze"),
                 nn.Embedding(num_classes, latent_channels),
                 Lambda(lambda t: t.permute(0, 3, 1, 2), name="permute"),
-                _get_block(latent_channels, latent_channels, "A"),
             )
-        blocks: List[nn.Module] = []
+        # channel padding
+        start_channels = latent_channels
+        if channel_padding is not None:
+            start_channels += channel_padding
+            self.channel_padding = ChannelPadding(
+                channel_padding,
+                num_classes=num_conditional_classes,
+            )
+        else:
+            if num_conditional_classes is not None:
+                raise ValueError(
+                    "`channel_padding` should be provided "
+                    "when `num_conditional_classes` is provided"
+                )
+            self.channel_padding = None
+        # blocks
+        blocks: List[nn.Module] = [_get_block(start_channels, latent_channels, "A")]
         for i in range(num_layers - 1):
             blocks.append(_get_block(latent_channels, latent_channels, "B"))
         blocks.append(Conv2d(latent_channels, num_classes, kernel_size=1))
@@ -125,14 +146,34 @@ class PixelCNN(ModelProtocol):
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
         net = self.to_blocks(net)
+        if self.channel_padding is not None:
+            net = self.channel_padding(net, batch[ORIGINAL_LABEL_KEY])
         return {PREDICTIONS_KEY: self.net(net)}
 
-    def sample(self, num_sample: int, img_size: int, **kwargs: Any) -> Tensor:
+    def sample(
+        self,
+        num_sample: int,
+        img_size: int,
+        class_idx: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Tensor:
         shape = num_sample, self.in_channels, img_size, img_size
         sampled = torch.zeros(shape, dtype=torch.long, device=self.device)
+        if self.num_conditional_classes is None:
+            labels = None
+        else:
+            if class_idx is not None:
+                labels = torch.full([num_sample], class_idx, device=self.device)
+            else:
+                labels = torch.randint(
+                    self.num_conditional_classes,
+                    [num_sample],
+                    device=self.device,
+                )
         for i in range(img_size):
             for j in range(img_size):
-                out = self.forward(0, {INPUT_KEY: sampled}, **kwargs)[PREDICTIONS_KEY]
+                batch = {INPUT_KEY: sampled, ORIGINAL_LABEL_KEY: labels}
+                out = self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
                 probabilities = F.softmax(out[:, :, i, j], dim=1).data
                 sampled[:, :, i, j] = torch.multinomial(probabilities, 1)
         return sampled
