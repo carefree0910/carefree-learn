@@ -2,6 +2,7 @@ import torch
 
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -86,21 +87,15 @@ class VanillaVAE(ModelProtocol):
         self.decoder = DecoderBase.make(decoder, **decoder_configs)
 
     @staticmethod
-    def reparameterize(mu: torch.Tensor, log_var: torch.Tensor) -> torch.Tensor:
+    def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:
         std = torch.exp(0.5 * log_var)
         eps = torch.randn_like(std)
         return eps * std + mu
 
-    def _decode(
-        self,
-        z: torch.Tensor,
-        *,
-        class_indices: Optional[torch.Tensor],
-        **kwargs: Any,
-    ) -> torch.Tensor:
-        if class_indices is None and self.num_classes is not None:
-            class_indices = torch.randint(self.num_classes, [len(z)]).to(z.device)
-        batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: class_indices}
+    def _decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
+        if labels is None and self.num_classes is not None:
+            labels = torch.randint(self.num_classes, [len(z)]).to(z.device)
+        batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
 
@@ -115,17 +110,17 @@ class VanillaVAE(ModelProtocol):
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)
-        class_indices = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
-        net = self._decode(net, class_indices=class_indices, **kwargs)
+        labels = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
+        net = self._decode(net, labels=labels, **kwargs)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
-    def reconstruct(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def reconstruct(self, net: Tensor, **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: net}
         if self.num_classes is not None:
-            labels = kwargs.get("labels")
+            labels = kwargs.get(LABEL_KEY)
             if labels is None:
                 raise ValueError(
-                    "`labels` should be provided in `reconstruct` "
+                    f"`{LABEL_KEY}` should be provided in `reconstruct` "
                     "for conditional `VanillaVAE`"
                 )
             batch[LABEL_KEY] = labels
@@ -133,17 +128,17 @@ class VanillaVAE(ModelProtocol):
 
     def sample(
         self,
-        num_sample: int,
+        num_samples: int,
         *,
         class_idx: Optional[int] = None,
         **kwargs: Any,
-    ) -> torch.Tensor:
-        z = torch.randn(num_sample, self.latent_dim).to(self.device)
+    ) -> Tensor:
+        z = torch.randn(num_samples, self.latent_dim).to(self.device)
         if class_idx is None:
-            class_indices = None
+            labels = None
         else:
-            class_indices = torch.full([num_sample], class_idx)
-        return self._decode(z, class_indices=class_indices, **kwargs)
+            labels = torch.full([num_samples], class_idx)
+        return self._decode(z, labels=labels, **kwargs)
 
 
 __all__ = ["VanillaVAE"]
