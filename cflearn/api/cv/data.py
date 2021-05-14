@@ -1,5 +1,3 @@
-import cflearn
-
 from torch import Tensor
 from typing import Tuple
 from typing import Union
@@ -8,6 +6,7 @@ from typing import Optional
 from cflearn.types import tensor_dict_type
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
+from cflearn.constants import ORIGINAL_LABEL_KEY
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
@@ -30,9 +29,9 @@ def get_mnist(
         else:
             actual_labels = label_callback(batch)
         return {
-            cflearn.INPUT_KEY: img,
-            cflearn.LABEL_KEY: actual_labels,
-            cflearn.ORIGINAL_LABEL_KEY: labels,
+            INPUT_KEY: img,
+            LABEL_KEY: actual_labels,
+            ORIGINAL_LABEL_KEY: labels,
         }
 
     if isinstance(transform, str):
@@ -60,15 +59,27 @@ def get_mnist(
 
 
 class TensorDataset(Dataset):
-    def __init__(self, x: Tensor, y: Optional[Tensor]):
+    def __init__(
+        self,
+        x: Tensor,
+        y: Optional[Tensor],
+        others: Optional[tensor_dict_type] = None,
+    ):
         self.x = x
         self.y = y
+        self.others = others
 
     def __getitem__(self, index: int) -> tensor_dict_type:
-        return {
+        label = 0 if self.y is None else self.y[index]
+        item = {
             INPUT_KEY: self.x[index],
-            LABEL_KEY: 0 if self.y is None else self.y[index],
+            LABEL_KEY: label,
+            ORIGINAL_LABEL_KEY: label,
         }
+        if self.others is not None:
+            for k, v in self.others.items():
+                item[k] = v[index]
+        return item
 
     def __len__(self) -> int:
         return self.x.shape[0]
@@ -77,11 +88,12 @@ class TensorDataset(Dataset):
 def get_tensor_loader(
     x: Tensor,
     y: Optional[Tensor],
+    others: Optional[tensor_dict_type] = None,
     *,
     shuffle: bool = True,
     batch_size: int = 64,
 ) -> DLLoader:
-    data = DLData(TensorDataset(x, y))
+    data = DLData(TensorDataset(x, y, others))
     return DLLoader(DataLoader(data, batch_size, shuffle))  # type: ignore
 
 
@@ -90,9 +102,11 @@ def get_tensor_loaders(
     y_train: Optional[Tensor] = None,
     x_valid: Optional[Tensor] = None,
     y_valid: Optional[Tensor] = None,
+    train_others: Optional[tensor_dict_type] = None,
+    valid_others: Optional[tensor_dict_type] = None,
 ) -> Tuple[DLLoader, Optional[DLLoader]]:
-    train_loader = get_tensor_loader(x_train, y_train)
+    train_loader = get_tensor_loader(x_train, y_train, train_others)
     if x_valid is None:
         return train_loader, None
-    valid_loader = get_tensor_loader(x_valid, y_valid)
+    valid_loader = get_tensor_loader(x_valid, y_valid, valid_others)
     return train_loader, valid_loader
