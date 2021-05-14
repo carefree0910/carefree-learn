@@ -160,6 +160,7 @@ class VQVAE(ModelProtocol):
         self,
         code_indices: Tensor,
         *,
+        class_idx: Optional[int] = None,
         labels: Optional[Tensor] = None,
         use_one_hot: bool = False,
         **kwargs: Any,
@@ -172,6 +173,8 @@ class VQVAE(ModelProtocol):
             j = int(round(0.5 * z_q.shape[3]))
             one_hot[..., i, j] = z_q[..., i, j]
             z_q = one_hot
+        if labels is None and class_idx is not None:
+            labels = torch.full([len(z_q)], class_idx, device=self.device)
         return self._decode(z_q, labels=labels, **kwargs)
 
     def sample_codebook(
