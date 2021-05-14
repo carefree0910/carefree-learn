@@ -106,7 +106,7 @@ class VanillaGAN(ModelWithCustomSteps):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim).to(self.device)
+        z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
         return {PREDICTIONS_KEY: self._decode(z, batch[LABEL_KEY], **kwargs)}
 
     def sample(
@@ -115,11 +115,11 @@ class VanillaGAN(ModelWithCustomSteps):
         labels: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
-        z = torch.randn(num_sample, self.latent_dim).to(self.device)
+        z = torch.randn(num_sample, self.latent_dim, device=self.device)
         if self.num_classes is None:
             labels = None
         elif labels is None:
-            labels = torch.randint(self.num_classes, [num_sample]).to(self.device)
+            labels = torch.randint(self.num_classes, [num_sample], device=self.device)
         return self._decode(z, labels, **kwargs)
 
     # training part

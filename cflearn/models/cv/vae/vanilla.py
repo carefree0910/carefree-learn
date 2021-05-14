@@ -94,7 +94,7 @@ class VanillaVAE(ModelProtocol):
 
     def _decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:
-            labels = torch.randint(self.num_classes, [len(z)]).to(z.device)
+            labels = torch.randint(self.num_classes, [len(z)], device=z.device)
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
@@ -133,7 +133,7 @@ class VanillaVAE(ModelProtocol):
         class_idx: Optional[int] = None,
         **kwargs: Any,
     ) -> Tensor:
-        z = torch.randn(num_samples, self.latent_dim).to(self.device)
+        z = torch.randn(num_samples, self.latent_dim, device=self.device)
         if class_idx is None:
             labels = None
         else:

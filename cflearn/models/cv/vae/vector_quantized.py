@@ -127,7 +127,7 @@ class VQVAE(ModelProtocol):
 
     def _decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:
-            labels = torch.randint(self.num_classes, [len(z)]).to(z.device)
+            labels = torch.randint(self.num_classes, [len(z)], device=z.device)
         if self.latent_padding is not None:
             z = self.latent_padding(z)
         batch = {INPUT_KEY: z, LABEL_KEY: labels}
