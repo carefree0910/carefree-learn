@@ -19,14 +19,23 @@ class PixelCNNCallback(cflearn.ArtifactCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         original = batch[cflearn.INPUT_KEY].float() / 255.0
-        with eval_context(trainer.model):
-            sampled_indices = trainer.model.sample(len(original), original.shape[2])
+        num_samples, img_size = len(original), original.shape[2]
+        model = trainer.model
+        with eval_context(model):
+            sampled_indices = model.sample(num_samples, img_size)
             sampled = sampled_indices.float() / 255.0
         image_folder = self._prepare_folder(trainer)
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(sampled, os.path.join(image_folder, "sampled.png"))
+        if num_conditional_classes is not None:
+            with eval_context(model):
+                for i in range(num_conditional_classes):
+                    sampled_indices = model.sample(num_samples, img_size, i)
+                    sampled = sampled_indices.float() / 255.0
+                    save_images(sampled, os.path.join(image_folder, f"sampled_{i}.png"))
 
 
+num_conditional_classes = 10
 train_loader, valid_loader = cflearn.cv.get_mnist(
     transform=transforms.Compose(
         [
@@ -39,7 +48,11 @@ train_loader, valid_loader = cflearn.cv.get_mnist(
 
 m = cflearn.cv.CarefreePipeline(
     "pixel_cnn",
-    {"in_channels": 1, "num_classes": 256},
+    {
+        "in_channels": 1,
+        "num_classes": 256,
+        "num_conditional_classes": num_conditional_classes,
+    },
     loss_name="cross_entropy",
     metric_names="acc",
 )
