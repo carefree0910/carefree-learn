@@ -105,18 +105,17 @@ class PixelCNN(ModelProtocol):
 
         # to blocks
         if not need_embedding:
-            self.to_blocks = nn.Sequential(
-                Lambda(lambda t: t.float() / (num_classes - 1), name="normalize"),
-                Conv2d(in_channels, latent_channels, kernel_size=3, bias=False),
-            )
+            start_channels = in_channels
+            normalize = lambda t: t.float() / (num_classes - 1)
+            self.to_blocks = nn.Sequential(Lambda(normalize, name="normalize"))
         else:
+            start_channels = latent_channels
             self.to_blocks = nn.Sequential(
                 Lambda(lambda t: t.squeeze(1), name="squeeze"),
                 nn.Embedding(num_classes, latent_channels),
                 Lambda(lambda t: t.permute(0, 3, 1, 2), name="permute"),
             )
         # channel padding
-        start_channels = latent_channels
         if channel_padding is not None:
             start_channels += channel_padding
             self.channel_padding = ChannelPadding(
