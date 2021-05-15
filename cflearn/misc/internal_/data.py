@@ -16,6 +16,14 @@ from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
 
 
+def get_weighted_indices(n: int, weights: Optional[np.ndarray]) -> np.ndarray:
+    indices = np.arange(n)
+    if weights is not None:
+        numbers = np.random.multinomial(n, weights)
+        indices = indices.repeat(numbers)
+    return indices
+
+
 @DataProtocol.register("ml")
 class MLData(DataProtocol):
     def __init__(self, x: np.ndarray, y: Optional[np.ndarray]):
@@ -55,11 +63,7 @@ class MLLoader(DataLoaderProtocol):
 
     def __iter__(self) -> "MLLoader":
         self.cursor = 0
-        num_samples = len(self.data)
-        self.indices = np.arange(num_samples)
-        if self.sample_weights is not None:
-            numbers = np.random.multinomial(num_samples, self.sample_weights)
-            self.indices = self.indices.repeat(numbers)
+        self.indices = get_weighted_indices(len(self.data), self.sample_weights)
         if self.shuffle:
             np.random.shuffle(self.indices)
         return self
@@ -132,4 +136,5 @@ __all__ = [
     "MLLoader",
     "DLData",
     "DLLoader",
+    "get_weighted_indices",
 ]
