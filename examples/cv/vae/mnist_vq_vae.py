@@ -41,7 +41,8 @@ class VQVAECallback(cflearn.ArtifactCallback):
                     codes, indices = model.sample_codebook(**kwargs)
                     save_images(codes, os.path.join(image_folder, f"codes_{i}.png"))
                     indices_map = make_indices_visualization_map(indices)
-                    save_images(indices_map, os.path.join(image_folder, f"code_indices_{i}.png"))
+                    i_path = os.path.join(image_folder, f"code_indices_{i}.png")
+                    save_images(indices_map, i_path)
         # inspect
         sample = reconstructed[:1]
         sample_indices = outputs["indices"][0].view(-1)
