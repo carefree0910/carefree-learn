@@ -18,9 +18,12 @@ from cftool.misc import shallow_copy_dict
 from .encoders import Encoder
 from .encoders import EncodingResult
 from ...types import tensor_dict_type
+from ...protocol import StepOutputs
 from ...protocol import TrainerState
 from ...protocol import WithRegister
-from ...protocol import ModelProtocol
+from ...protocol import MetricsOutputs
+from ...protocol import DataLoaderProtocol
+from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
@@ -189,6 +192,9 @@ class Transform(nn.Module):
 class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["MLCoreProtocol"]] = ml_core_dict
 
+    custom_train_step: bool = False
+    custom_evaluate_step: bool = False
+
     def __init__(
         self,
         in_dim: int,
@@ -212,8 +218,26 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
+    def train_step(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> StepOutputs:
+        pass
 
-class MLModel(ModelProtocol, metaclass=ABCMeta):
+    def evaluate_step(
+        self,
+        loader: DataLoaderProtocol,
+        portion: float,
+        trainer: Any,
+    ) -> MetricsOutputs:
+        pass
+
+
+class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
     core: Union[MLCoreProtocol, nn.ModuleList]
 
     def __init__(
@@ -258,6 +282,9 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
             self.core = _get_clones(core, num_repeat)  # type: ignore
         self.__identifier__ = core_name
         self._num_repeat = num_repeat
+        # custom steps
+        self.custom_train_step = self.core.custom_train_step
+        self.custom_evaluate_step = self.core.custom_evaluate_step
 
     def forward(
         self,
@@ -298,6 +325,30 @@ class MLModel(ModelProtocol, metaclass=ABCMeta):
         for k in sorted(all_results):
             final_results[k] = torch.stack(all_results[k]).mean(0)
         return final_results
+
+    def train_step(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> StepOutputs:
+        return self.core.train_step(
+            batch_idx,
+            batch,
+            trainer,
+            forward_kwargs,
+            loss_kwargs,
+        )
+
+    def evaluate_step(
+        self,
+        loader: DataLoaderProtocol,
+        portion: float,
+        trainer: Any,
+    ) -> MetricsOutputs:
+        return self.core.evaluate_step(loader, portion, trainer)
 
 
 __all__ = [
