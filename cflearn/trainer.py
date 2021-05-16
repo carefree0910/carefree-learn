@@ -558,6 +558,14 @@ class Trainer:
         self._scheduler_step()
         return StepOutputs(forward_results, loss_dict)
 
+    def _weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
+        if not self.loss_metrics_weights:
+            return -loss_items[LOSS_KEY]
+        score = 0.0
+        for k, w in self.loss_metrics_weights.items():
+            score -= loss_items[k] * w
+        return score
+
     # api
 
     def fit(
@@ -691,12 +699,7 @@ class Trainer:
             return outputs.metric_outputs
         loss_items = outputs.loss_items
         assert loss_items is not None
-        if not self.loss_metrics_weights:
-            score = -loss_items[LOSS_KEY]
-        else:
-            score = 0.0
-            for k, w in self.loss_metrics_weights.items():
-                score -= loss_items[k] * w
+        score = self._weighted_loss_score(loss_items)
         return MetricsOutputs(score, loss_items)
 
     # checkpointing

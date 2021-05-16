@@ -235,14 +235,8 @@ class VanillaGAN(ModelWithCustomSteps):
                 loss_items.setdefault(k, []).append(v.item())
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        if not trainer.loss_metrics_weights:
-            score = -mean_loss_items[LOSS_KEY]
-        else:
-            score = 0.0
-            for k, w in trainer.loss_metrics_weights.items():
-                score -= mean_loss_items[k] * w
-        metric_outputs = MetricsOutputs(score, mean_loss_items)
-        return metric_outputs
+        score = trainer._weighted_loss_score(mean_loss_items)
+        return MetricsOutputs(score, mean_loss_items)
 
     # summary
 
