@@ -1,0 +1,144 @@
+import torch
+
+import torch.nn.functional as F
+
+from abc import abstractmethod
+from abc import ABCMeta
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Tuple
+from typing import Optional
+
+from ..types import tensor_dict_type
+from ..protocol import StepOutputs
+from ..protocol import LossProtocol
+from ..protocol import TrainerState
+from ..protocol import MetricsOutputs
+from ..protocol import DataLoaderProtocol
+from ..protocol import ModelWithCustomSteps
+from ..constants import LOSS_KEY
+from ..constants import LABEL_KEY
+from ..constants import LATENT_KEY
+from ..constants import PREDICTIONS_KEY
+from ..misc.toolkit import to_device
+
+
+class BAKEBase(ModelWithCustomSteps, metaclass=ABCMeta):
+    lb: float
+    bake_loss: LossProtocol
+    w_ensemble: float
+    is_classification: bool
+
+    @abstractmethod
+    def forward_with_latent(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        pass
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        return self.forward_with_latent(batch_idx, batch, state, **kwargs)
+
+    def _get_losses(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+        state = trainer.state
+        forward_results = self(batch_idx, batch, state, **forward_kwargs)
+        loss_dict = trainer.loss(forward_results, batch, state, **loss_kwargs)
+        loss = loss_dict[LOSS_KEY]
+        predictions = forward_results[PREDICTIONS_KEY]
+        # BAKE
+        latent = F.normalize(forward_results[LATENT_KEY])
+        batch_size = latent.shape[0]
+        eye = torch.eye(batch_size, device=latent.device)
+        similarities = F.softmax(latent.mm(latent.t()) - eye * 1.0e9, dim=1)
+        inv = (eye - self.w_ensemble * similarities).inverse()
+        weights = (1.0 - self.w_ensemble) * inv
+        if not self.is_classification:
+            bake_inp = predictions
+            soft_labels = weights.mm(predictions).detach()
+        else:
+            bake_inp = F.log_softmax(predictions)
+            soft_labels = weights.mm(F.softmax(predictions, dim=1)).detach()
+        bake_loss = self.bake_loss(
+            {PREDICTIONS_KEY: bake_inp},
+            {LABEL_KEY: soft_labels},
+            state,
+            **loss_kwargs,
+        )[LOSS_KEY]
+        loss_dict["bake"] = bake_loss
+        loss_dict[LOSS_KEY] = loss + self.lb * bake_loss
+        return forward_results, loss_dict
+
+    def train_step(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> StepOutputs:
+        # forward stuffs
+        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+            forward_results, loss_dict = self._get_losses(
+                batch_idx,
+                batch,
+                trainer,
+                forward_kwargs,
+                loss_kwargs,
+            )
+        # backward stuffs
+        loss = loss_dict[LOSS_KEY]
+        trainer.grad_scaler.scale(loss).backward()
+        if trainer.clip_norm > 0.0:
+            trainer._clip_norm_step()
+        trainer._optimizer_step()
+        trainer._scheduler_step()
+        return StepOutputs(forward_results, loss_dict)
+
+    def evaluate_step(
+        self,
+        loader: DataLoaderProtocol,
+        portion: float,
+        trainer: Any,
+    ) -> MetricsOutputs:
+        if trainer.metrics is not None:
+            outputs = trainer.inference.get_outputs(
+                loader,
+                portion=portion,
+                state=trainer.state,
+                metrics=trainer.metrics,
+                return_outputs=False,
+            )
+            assert outputs.metric_outputs is not None
+            return outputs.metric_outputs
+        loss_items: Dict[str, List[float]] = {}
+        for i, batch in enumerate(loader):
+            if i / len(loader) >= portion:
+                break
+            batch = to_device(batch, self.device)
+            _, losses = self._get_losses(0, batch, trainer, {}, {})
+            for k, v in losses.items():
+                loss_items.setdefault(k, []).append(v.item())
+        # gather
+        mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
+        score = trainer._weighted_loss_score(mean_loss_items)
+        return MetricsOutputs(score, mean_loss_items)
+
+
+__all__ = ["BAKEBase"]

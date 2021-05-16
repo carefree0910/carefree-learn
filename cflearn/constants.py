@@ -8,6 +8,7 @@ TIME_FORMAT = "%Y-%m-%d_%H-%M-%S-%f"
 
 LOSS_KEY = "loss"
 INPUT_KEY = "input"
+LATENT_KEY = "latent"
 PREDICTIONS_KEY = "predictions"
 LABEL_KEY = "labels"
 ORIGINAL_LABEL_KEY = "original_labels"
