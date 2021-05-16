@@ -489,7 +489,9 @@ class Trainer:
         if not self.is_rank_0:
             return None
         if self.epoch_tqdm is not None:
-            self.epoch_tqdm.set_postfix(metrics_outputs.metric_values)
+            metric_values = shallow_copy_dict(metrics_outputs.metric_values)
+            metric_values["score"] = metrics_outputs.final_score
+            self.epoch_tqdm.set_postfix(metric_values)
         for callback in self.callbacks:
             callback.log_metrics(metrics_outputs, self.state)
         if self.state.should_log_artifacts:
