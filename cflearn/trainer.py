@@ -326,6 +326,10 @@ class Trainer:
             return False
         return os.path.isdir(self.checkpoint_folder)
 
+    @property
+    def model_has_custom_steps(self) -> bool:
+        return isinstance(self.model, ModelWithCustomSteps)
+
     # init
 
     def default_lr_configs(
@@ -535,7 +539,7 @@ class Trainer:
         for callback in self.callbacks:
             callback.mutate_train_loss_kwargs(loss_kwargs, self)
         # allow model defines its own training step
-        if isinstance(self.model, ModelWithCustomSteps):
+        if self.model_has_custom_steps and self.model.custom_train_step:
             return self.model.train_step(
                 batch_idx,
                 batch,
@@ -684,7 +688,7 @@ class Trainer:
     ) -> MetricsOutputs:
         if loader is None:
             loader = self.validation_loader
-        if isinstance(self.model, ModelWithCustomSteps):
+        if self.model_has_custom_steps and self.model.custom_evaluate_step:
             return self.model.evaluate_step(loader, portion, self)
         outputs = self.inference.get_outputs(
             loader,

@@ -163,6 +163,9 @@ class InferenceOutputs(NamedTuple):
 
 
 class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
+    custom_train_step: bool = True
+    custom_evaluate_step: bool = True
+
     @abstractmethod
     def train_step(
         self,
