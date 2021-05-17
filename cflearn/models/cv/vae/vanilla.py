@@ -117,7 +117,7 @@ class VanillaVAE(ModelProtocol):
     def reconstruct(self, net: Tensor, **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: net}
         if self.num_classes is not None:
-            labels = kwargs.get(LABEL_KEY)
+            labels = kwargs.pop(LABEL_KEY, None)
             if labels is None:
                 raise ValueError(
                     f"`{LABEL_KEY}` should be provided in `reconstruct` "
