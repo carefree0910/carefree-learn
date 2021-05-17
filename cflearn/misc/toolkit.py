@@ -10,6 +10,7 @@ import torchvision
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from PIL import Image
 from PIL import ImageDraw
@@ -589,6 +590,19 @@ def to_2d(arr: data_type) -> data_type:
 
 
 # cv
+
+
+def align_to(
+    src: torch.Tensor,
+    *,
+    size: Optional[int] = None,
+    anchor: Optional[torch.Tensor] = None,
+) -> torch.Tensor:
+    if size is not None:
+        return F.interpolate(src, size=size)
+    if anchor is None:
+        raise ValueError("either `size` or `anchor` should be provided")
+    return F.interpolate(src, size=(anchor.shape[2], anchor.shape[3]))
 
 
 def save_images(
