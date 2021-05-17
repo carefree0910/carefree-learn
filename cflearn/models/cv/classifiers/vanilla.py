@@ -18,9 +18,9 @@ from ...ml.protocol import MLCoreProtocol
 class VanillaClassifier(ModelProtocol):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         num_classes: int,
+        img_size: Optional[int] = None,
         latent_dim: int = 128,
         encoder1d_configs: Optional[Dict[str, Any]] = None,
         head_configs: Optional[Dict[str, Any]] = None,
