@@ -152,6 +152,11 @@ def get_gradient(
     return grads
 
 
+def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
+    for param in module.parameters():
+        param.requires_grad = requires_grad
+
+
 # This is a modified version of https://github.com/sksq96/pytorch-summary
 #  So it can summary `carefree-learn` model structures better
 def summary(
