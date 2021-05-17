@@ -60,7 +60,7 @@ class VanillaVAE(ModelProtocol):
         encoder1d_configs["latent_dim"] = latent_dim
         if encoder1d == "vanilla":
             encoder1d_configs["num_downsample"] = num_downsample
-        self.encoder = Encoder1DBase.make(encoder1d, **encoder1d_configs)
+        self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
         self.to_statistics = Linear(latent_dim, 2 * latent_dim, bias=False)
         # latent
         compressed_channels = latent_dim // map_area
@@ -84,7 +84,7 @@ class VanillaVAE(ModelProtocol):
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
         decoder_configs["num_classes"] = num_classes
-        self.decoder = DecoderBase.make(decoder, **decoder_configs)
+        self.decoder = DecoderBase.make(decoder, config=decoder_configs)
 
     @staticmethod
     def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:

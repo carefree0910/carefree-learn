@@ -55,8 +55,8 @@ class WithRegister(Generic[T]):
         return cls.d[name]
 
     @classmethod
-    def make(cls, name: str, *args: Any, **kwargs: Any) -> T:
-        return cls.get(name)(*args, **kwargs)  # type: ignore
+    def make(cls, name: str, config: Dict[str, Any]) -> T:
+        return cls.get(name)(**config)
 
     @classmethod
     def make_multiple(

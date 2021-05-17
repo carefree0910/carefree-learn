@@ -102,7 +102,7 @@ class VQVAE(ModelProtocol):
         encoder_configs["img_size"] = img_size
         encoder_configs["in_channels"] = in_channels
         encoder_configs["num_downsample"] = num_downsample
-        self.encoder = EncoderBase.make(encoder, **encoder_configs)
+        self.encoder = EncoderBase.make(encoder, config=encoder_configs)
         # latent
         self.num_code = num_code
         self.map_dim = f_map_dim(img_size, num_downsample)
@@ -123,7 +123,7 @@ class VQVAE(ModelProtocol):
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
         decoder_configs["num_classes"] = num_classes
-        self.decoder = DecoderBase.make(decoder, **decoder_configs)
+        self.decoder = DecoderBase.make(decoder, config=decoder_configs)
 
     def _decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:

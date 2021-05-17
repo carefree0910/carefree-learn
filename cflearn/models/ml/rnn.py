@@ -147,7 +147,7 @@ class RNNWithBAKE(BAKEBase, RNN):
         self.is_classification = is_classification
         if bake_loss == "auto":
             bake_loss = "focal" if is_classification else "mae"
-        self.bake_loss = LossProtocol.make(bake_loss, **(bake_loss_config or {}))
+        self.bake_loss = LossProtocol.make(bake_loss, config=bake_loss_config or {})
 
     def forward_with_latent(
         self,

@@ -76,7 +76,7 @@ class VanillaGAN(ModelWithCustomSteps):
         generator_configs["num_upsample"] = num_upsample
         generator_configs["out_channels"] = out_channels or in_channels
         generator_configs["num_classes"] = num_classes
-        self.generator = DecoderBase.make(generator, **generator_configs)
+        self.generator = DecoderBase.make(generator, config=generator_configs)
         # discriminator
         if discriminator_configs is None:
             discriminator_configs = {}
@@ -85,7 +85,7 @@ class VanillaGAN(ModelWithCustomSteps):
         discriminator_configs["num_classes"] = num_classes
         self.discriminator = DiscriminatorBase.make(
             discriminator,
-            **discriminator_configs,
+            config=discriminator_configs,
         )
         # loss
         self.gan_mode = gan_mode

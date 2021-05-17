@@ -99,7 +99,7 @@ class SimplePipeline(DLPipeline):
     def _prepare_modules(self) -> None:
         self._prepare_workplace()
         self._prepare_loss()
-        self.model = ModelProtocol.make(self.model_name, **self.model_config)
+        self.model = ModelProtocol.make(self.model_name, config=self.model_config)
         self.inference = DLInference(model=self.model)
 
     def _make_new_loader(self, x: Any, batch_size: int = 0, **kwargs: Any) -> DLLoader:

@@ -36,14 +36,14 @@ class VanillaClassifier(ModelProtocol):
         encoder1d_configs["img_size"] = img_size
         encoder1d_configs["in_channels"] = in_channels
         encoder1d_configs["latent_dim"] = latent_dim
-        self.encoder1d = Encoder1DBase.make(encoder1d, **encoder1d_configs)
+        self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
         # head
         if head_configs is None:
             head_configs = {}
         head_configs["in_dim"] = latent_dim
         head_configs["out_dim"] = num_classes
         head_configs["num_history"] = 1
-        self.head = MLCoreProtocol.make(head, **head_configs)
+        self.head = MLCoreProtocol.make(head, config=head_configs)
 
     def forward(
         self,

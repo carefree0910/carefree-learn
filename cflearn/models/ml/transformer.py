@@ -52,11 +52,13 @@ class TransformerLayer(nn.Module):
             dim,
             module=Attention.make(
                 "basic",
-                dim,
-                dropout=dropout,
-                num_heads=num_heads,
-                in_linear_config={"bias": qkv_bias},
-                is_self_attention=True,
+                config=dict(
+                    dim=dim,
+                    dropout=dropout,
+                    num_heads=num_heads,
+                    in_linear_config={"bias": qkv_bias},
+                    is_self_attention=True,
+                ),
             ),
             norm_type=norm_type,
         )
