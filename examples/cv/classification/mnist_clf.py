@@ -32,11 +32,12 @@ train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_classification"
 m = cflearn.cv.CarefreePipeline(
     "clf",
     {
-        "img_size": 28,
+        # "img_size": 28,
         "in_channels": 1,
         "num_classes": 10,
-        "encoder1d": "vit",
-        "encoder1d_configs": {"patch_size": 7},
+        "latent_dim": 512,
+        "encoder1d": "backbone",
+        "encoder1d_configs": {"name": "resnet18"},
     },
     loss_name="cross_entropy",
     metric_names="acc",
