@@ -50,9 +50,7 @@ class BackboneEncoder(Encoder1DBase):
         super().__init__(img_size, in_channels, latent_dim)
         if img_size is not None:
             print(f"{WARNING_PREFIX}`img_size` will not affect `BackboneEncoder`")
-        self.to_rgb = None
-        if in_channels != 3:
-            self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
+        self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         if config is None:
             config: Dict[str, Any] = {}
         remove_layers = config.setdefault("remove_layers", remove_layers)
