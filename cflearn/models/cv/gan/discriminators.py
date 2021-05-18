@@ -26,7 +26,7 @@ class DiscriminatorBase(nn.Module, WithRegister):
     d: Dict[str, Type["DiscriminatorBase"]] = discriminator_dict
 
     clf: nn.Module
-    model: nn.Module
+    net: nn.Module
     cond: Optional[nn.Module]
 
     def __init__(
@@ -54,7 +54,7 @@ class DiscriminatorBase(nn.Module, WithRegister):
             )
 
     def forward(self, x: torch.Tensor) -> DiscriminatorOutput:
-        feature_map = self.model(x)
+        feature_map = self.net(x)
         logits = self.clf(feature_map)
         cond_logits = None
         if self.cond is not None:
@@ -107,7 +107,7 @@ class NLayerDiscriminator(DiscriminatorBase):
                     activation=nn.LeakyReLU(0.2, inplace=True),
                 )
             )
-        self.model = nn.Sequential(*blocks)
+        self.net = nn.Sequential(*blocks)
         # heads
         out_channels = start_channels * nc_multiplier
         self.clf = Conv2d(
