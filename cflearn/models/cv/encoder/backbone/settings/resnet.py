@@ -29,6 +29,8 @@ class ResNetPreset(Preset):
         "resnet101": 2048,
     }
     increment_configs = {
+        "resnet18": {"out_channels": [64, 64, 128, 256, 512]},
+        "resnet50": {"out_channels": [64, 256, 512, 1024, 2048]},
         "resnet101": {"out_channels": [64, 256, 512, 1024, 2048]},
     }
 
