@@ -1092,7 +1092,7 @@ class ImgToPatches(nn.Module):
         if img_size % patch_size != 0:
             raise ValueError(
                 f"`img_size` ({img_size}) should be "
-                f"divided by `patch_size` ({patch_size})"
+                f"divisible by `patch_size` ({patch_size})"
             )
         self.img_size = img_size
         self.patch_size = patch_size

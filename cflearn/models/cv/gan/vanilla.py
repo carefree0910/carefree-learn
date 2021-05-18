@@ -59,7 +59,7 @@ class VanillaGAN(ModelWithCustomSteps):
         self.latent_dim = latent_dim
         map_area = latent_resolution ** 2
         if latent_dim % map_area != 0:
-            msg = f"`latent_dim` should be divided by `map_area` ({map_area})"
+            msg = f"`latent_dim` should be divisible by `map_area` ({map_area})"
             raise ValueError(msg)
         compressed_channels = latent_dim // map_area
         shape = -1, compressed_channels, latent_resolution, latent_resolution
