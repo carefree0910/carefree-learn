@@ -121,9 +121,10 @@ def get_tensor_loader(
     *,
     shuffle: bool = True,
     batch_size: int = 64,
+    num_workers: int = 0,
 ) -> DLLoader:
     data = DLData(TensorDataset(x, y, others))
-    return DLLoader(DataLoader(data, batch_size, shuffle))  # type: ignore
+    return DLLoader(DataLoader(data, batch_size, shuffle, num_workers=num_workers))  # type: ignore
 
 
 def get_tensor_loaders(
@@ -133,11 +134,16 @@ def get_tensor_loaders(
     y_valid: Optional[Tensor] = None,
     train_others: Optional[tensor_dict_type] = None,
     valid_others: Optional[tensor_dict_type] = None,
+    *,
+    shuffle: bool = True,
+    batch_size: int = 64,
+    num_workers: int = 0,
 ) -> Tuple[DLLoader, Optional[DLLoader]]:
-    train_loader = get_tensor_loader(x_train, y_train, train_others)
+    base_kwargs = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+    train_loader = get_tensor_loader(x_train, y_train, train_others, **base_kwargs)
     if x_valid is None:
         return train_loader, None
-    valid_loader = get_tensor_loader(x_valid, y_valid, valid_others)
+    valid_loader = get_tensor_loader(x_valid, y_valid, valid_others, **base_kwargs)
     return train_loader, valid_loader
 
 
@@ -401,10 +407,12 @@ def get_image_folder_loaders(
     *,
     batch_size: int,
     shuffle: bool = True,
+    num_workers: int = 0,
     transform: Optional[Union[str, Callable]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
     train_data = DLData(ImageFolderDataset(folder, "train", transform))
     valid_data = DLData(ImageFolderDataset(folder, "test", transform))
-    train_loader = DLLoader(DataLoader(train_data, batch_size, shuffle))  # type: ignore
-    valid_loader = DLLoader(DataLoader(valid_data, batch_size, shuffle))  # type: ignore
+    base_kwargs = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+    train_loader = DLLoader(DataLoader(train_data, **base_kwargs))  # type: ignore
+    valid_loader = DLLoader(DataLoader(valid_data, **base_kwargs))  # type: ignore
     return train_loader, valid_loader
