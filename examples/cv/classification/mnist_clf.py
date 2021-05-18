@@ -27,7 +27,7 @@ class ClassificationCallback(cflearn.ArtifactCallback):
         save_images(labels_map, os.path.join(image_folder, "labels.png"))
 
 
-train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_classification")
+train_loader, valid_loader = cflearn.cv.get_mnist(transform="to_tensor")
 
 m = cflearn.cv.CarefreePipeline(
     "clf",

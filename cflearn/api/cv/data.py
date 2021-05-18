@@ -32,6 +32,28 @@ from cflearn.misc.internal_ import DLData
 from cflearn.misc.internal_ import DLLoader
 
 
+class TransformFactory:
+    def __init__(self, transform: Optional[Union[str, Callable]] = None):
+        if isinstance(transform, str):
+            if transform == "to_tensor":
+                transform = transforms.ToTensor()
+            elif transform == "for_generation":
+                transform = transforms.Compose(
+                    [
+                        transforms.ToTensor(),
+                        transforms.Lambda(lambda t: t * 2.0 - 1.0),
+                    ]
+                )
+            else:
+                raise NotImplementedError(f"'{transform}' transform is not implemented")
+        self.transform = transform
+
+    def __call__(self, net: Tensor, *args: Any, **kwargs: Any) -> Tensor:
+        if self.transform is None:
+            return net
+        return self.transform(net, *args, **kwargs)
+
+
 def get_mnist(
     *,
     shuffle: bool = True,
@@ -51,21 +73,9 @@ def get_mnist(
             ORIGINAL_LABEL_KEY: labels,
         }
 
-    if isinstance(transform, str):
-        if transform == "for_classification":
-            transform = transforms.ToTensor()
-        elif transform == "for_generation":
-            transform = transforms.Compose(
-                [
-                    transforms.ToTensor(),
-                    transforms.Lambda(lambda t: t * 2.0 - 1.0),
-                ]
-            )
-        else:
-            raise NotImplementedError(f"'{transform}' transform is not implemented")
-
-    train_data = DLData(MNIST("data", transform=transform, download=True))
-    valid_data = DLData(MNIST("data", train=False, transform=transform, download=True))
+    factory = TransformFactory(transform)
+    train_data = DLData(MNIST("data", transform=factory, download=True))
+    valid_data = DLData(MNIST("data", train=False, transform=factory, download=True))
 
     train_pt_loader = DataLoader(train_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
     valid_pt_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
