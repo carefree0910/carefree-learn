@@ -55,22 +55,22 @@ class BackboneEncoder(Encoder1DBase):
             self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         if config is None:
             config: Dict[str, Any] = {}
-        remove_layers = config.setdefault("backbone_remove_layers", remove_layers)
-        target_layers = config.setdefault("backbone_target_layers", target_layers)
-        latent_dim = config.get("backbone_latent_dim", latent_dim)
-        increment_config = config.setdefault("backbone_increment_configs", increment_config)
+        remove_layers = config.setdefault("remove_layers", remove_layers)
+        target_layers = config.setdefault("target_layers", target_layers)
+        latent_dim = config.get("latent_dim", latent_dim)
+        increment_config = config.setdefault("increment_config", increment_config)
         if remove_layers is None:
             remove_layers = Preset.remove_layers.get(name)
             if remove_layers is None:
                 msg = f"`remove_layers` should be provided for `{name}`"
                 raise ValueError(msg)
-            config["backbone_remove_layers"] = remove_layers
+            config["remove_layers"] = remove_layers
         if target_layers is None:
             target_layers = Preset.target_layers.get(name)
             if target_layers is None:
                 msg = f"`target_layers` should be provided for `{name}`"
                 raise ValueError(msg)
-            config["backbone_target_layers"] = target_layers
+            config["target_layers"] = target_layers
         preset_dim = Preset.latent_dims.get(name)
         if latent_dim is None:
             latent_dim = preset_dim
@@ -86,17 +86,17 @@ class BackboneEncoder(Encoder1DBase):
                 )
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
-        config.setdefault("backbone_finetune", finetune)
-        config.setdefault("backbone_pretrained", pretrained)
-        config.setdefault("backbone_need_normalize", need_normalize)
+        config.setdefault("finetune", finetune)
+        config.setdefault("pretrained", pretrained)
+        config.setdefault("need_normalize", need_normalize)
         self.net = Backbone(
             name,
             latent_dim=latent_dim,
-            pretrained=config["backbone_pretrained"],
-            need_normalize=config["backbone_need_normalize"],
-            requires_grad=config["backbone_finetune"],
-            remove_layers=config["backbone_remove_layers"],
-            target_layers=config["backbone_target_layers"],
+            pretrained=config["pretrained"],
+            need_normalize=config["need_normalize"],
+            requires_grad=config["finetune"],
+            remove_layers=config["remove_layers"],
+            target_layers=config["target_layers"],
             increment_config=increment_config,
             **config.setdefault("backbone_kwargs", {}),
         )
