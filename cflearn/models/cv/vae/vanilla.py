@@ -17,6 +17,7 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
@@ -106,7 +107,7 @@ class VanillaVAE(ModelProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
+        net = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)

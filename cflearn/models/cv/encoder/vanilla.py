@@ -9,7 +9,7 @@ from .protocol import Encoder1DBase
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
+from ....constants import LATENT_KEY
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -95,7 +95,7 @@ class VanillaEncoder(EncoderBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.encoder(batch[INPUT_KEY])}
+        return {LATENT_KEY: self.encoder(batch[INPUT_KEY])}
 
 
 @Encoder1DBase.register("vanilla")
@@ -133,10 +133,9 @@ class VanillaEncoder1D(Encoder1DBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        encoding = self.encoder(batch_idx, batch, state, **kwargs)
-        net = encoding[PREDICTIONS_KEY]
+        net = self.encoder(batch_idx, batch, state, **kwargs)[LATENT_KEY]
         net = self.pool(net).squeeze()
-        return {PREDICTIONS_KEY: net}
+        return {LATENT_KEY: net}
 
 
 __all__ = [

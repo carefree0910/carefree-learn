@@ -9,6 +9,7 @@ from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
+from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...ml.protocol import MERGED_KEY
 from ...ml.protocol import MLCoreProtocol
@@ -54,7 +55,7 @@ class VanillaClassifier(ModelProtocol):
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
         encoding = self.encoder1d(batch_idx, batch, state, **kwargs)
-        batch[MERGED_KEY] = encoding[PREDICTIONS_KEY]
+        batch[MERGED_KEY] = encoding[LATENT_KEY]
         return self.head(batch_idx, batch, state, **kwargs)
 
     def classify(self, net: Tensor, **kwargs: Any) -> Tensor:

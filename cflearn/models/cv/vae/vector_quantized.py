@@ -18,6 +18,7 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import ChannelPadding
 
@@ -141,7 +142,7 @@ class VQVAE(ModelProtocol):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        z_e = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
+        z_e = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
         z_q, indices = self.codebook(z_e)
         z_q_g_flatten = self.codebook.embedding.weight[indices]
         shape = -1, *z_q.shape[2:], self.latent_channels
@@ -152,7 +153,7 @@ class VQVAE(ModelProtocol):
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: net}
-        z_e = self.encoder.encode(batch, **kwargs)[PREDICTIONS_KEY]
+        z_e = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
         _, indices = self.codebook(z_e)
         return indices
 

@@ -14,7 +14,7 @@ from torchvision.models import resnet101
 from torchvision.models import resnet152
 from torchvision.models._utils import IntermediateLayerGetter
 
-from .....constants import PREDICTIONS_KEY
+from .....constants import LATENT_KEY
 from .....misc.toolkit import set_requires_grad
 
 
@@ -131,8 +131,8 @@ class Backbone(nn.Module):
         if self.gap is not None:
             net = self.gap(net)
         if self._backbone_return_tensor:
-            return {PREDICTIONS_KEY: net}
-        rs[PREDICTIONS_KEY] = net
+            return {LATENT_KEY: net}
+        rs[LATENT_KEY] = net
         return rs
 
     def load_state_dict(self, state_dict: tensor_dict_type, **kwargs: Any) -> None:  # type: ignore
