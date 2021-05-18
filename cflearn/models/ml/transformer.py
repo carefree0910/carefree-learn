@@ -142,9 +142,9 @@ class TransformerEncoder(nn.Module):
         return net.mean(1)
 
     # this is mainly for vision transformers (ViTs)
-    def interpolate_pos_encoding(self, x: Tensor, pos_encoding: Tensor) -> Tensor:
+    def interpolate_pos_encoding(self, net: Tensor, pos_encoding: Tensor) -> Tensor:
         head_dim = int(self.head_token is not None)
-        num_current_history = x.shape[1] - head_dim
+        num_current_history = net.shape[1] - head_dim
         num_history = pos_encoding.shape[1] - head_dim
         if num_current_history == num_history:
             return pos_encoding
@@ -152,7 +152,7 @@ class TransformerEncoder(nn.Module):
         if self.head_token is not None:
             head_encoding = pos_encoding[:, :1]
             pos_encoding = pos_encoding[:, 1:]
-        dim = x.shape[-1]
+        dim = net.shape[-1]
         shape = int(math.sqrt(num_history))
         if shape ** 2 != num_history:
             raise ValueError(f"`num_history` ({num_history}) should be a square number")

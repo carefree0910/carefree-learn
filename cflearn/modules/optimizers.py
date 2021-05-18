@@ -36,12 +36,12 @@ register_optimizer("rmsprop")(torch.optim.RMSprop)
 # reference : https://github.com/clovaai/AdamP
 
 
-def channel_view(x: Tensor) -> Tensor:
-    return x.view(x.shape[0], -1)
+def channel_view(net: Tensor) -> Tensor:
+    return net.view(net.shape[0], -1)
 
 
-def layer_view(x: Tensor) -> Tensor:
-    return x.view(1, -1)
+def layer_view(net: Tensor) -> Tensor:
+    return net.view(1, -1)
 
 
 def cosine_similarity(x: Tensor, y: Tensor, eps: float, view_func: Callable) -> Tensor:

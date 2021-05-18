@@ -60,9 +60,9 @@ class MaskedConv2d(Conv2d):
         self.mask[:, :, h // 2, w // 2 + (mask_type == "B") :] = 0.0
         self.mask[:, :, h // 2 + 1 :] = 0.0
 
-    def forward(self, x: Tensor, style: Optional[Tensor] = None) -> Tensor:
+    def forward(self, net: Tensor, style: Optional[Tensor] = None) -> Tensor:
         self.weight.data *= self.mask
-        return super().forward(x, style)
+        return super().forward(net, style)
 
 
 @ModelProtocol.register("pixel_cnn")

@@ -53,8 +53,8 @@ class DiscriminatorBase(nn.Module, WithRegister):
                 stride=1,
             )
 
-    def forward(self, x: torch.Tensor) -> DiscriminatorOutput:
-        feature_map = self.net(x)
+    def forward(self, net: torch.Tensor) -> DiscriminatorOutput:
+        feature_map = self.net(net)
         logits = self.clf(feature_map)
         cond_logits = None
         if self.cond is not None:

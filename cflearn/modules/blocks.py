@@ -224,8 +224,8 @@ class _multiplied_activation(Module, metaclass=ABCMeta):
     def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
         pass
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return self._core(x * self.ratio)
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        return self._core(net * self.ratio)
 
     def extra_repr(self) -> str:
         return f"ratio={self.ratio.item()}, trainable={self.trainable}"
@@ -289,8 +289,8 @@ class Activations:
                 super().__init__()
                 self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
 
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
-                projection, gate = self.linear(x).chunk(2, dim=1)
+            def forward(self, net: torch.Tensor) -> torch.Tensor:
+                projection, gate = self.linear(net).chunk(2, dim=1)
                 return projection * torch.sigmoid(gate)
 
         return GLU()
@@ -298,8 +298,8 @@ class Activations:
     @property
     def mish(self) -> Module:
         class Mish(Module):
-            def forward(self, x: torch.Tensor) -> torch.Tensor:
-                return x * (torch.tanh(F.softplus(x)))
+            def forward(self, net: torch.Tensor) -> torch.Tensor:
+                return net * (torch.tanh(F.softplus(net)))
 
         return Mish()
 
@@ -311,9 +311,9 @@ class Activations:
         kwargs = self.configs.setdefault("logit", {})
         eps = kwargs.setdefault("eps", 1.0e-6)
 
-        def _logit(x: torch.Tensor) -> torch.Tensor:
-            x = torch.clamp(x, eps, 1.0 - eps)
-            return torch.log(x / (1.0 - x))
+        def _logit(net: torch.Tensor) -> torch.Tensor:
+            net = torch.clamp(net, eps, 1.0 - eps)
+            return torch.log(net / (1.0 - net))
 
         return Lambda(_logit, f"logit_{eps:.2e}")
 
@@ -322,8 +322,8 @@ class Activations:
         kwargs = self.configs.setdefault("atanh", {})
         eps = kwargs.setdefault("eps", 1.0e-6)
 
-        def _atanh(x: torch.Tensor) -> torch.Tensor:
-            return torch.atanh(torch.clamp(x, -1.0 + eps, 1.0 - eps))
+        def _atanh(net: torch.Tensor) -> torch.Tensor:
+            return torch.atanh(torch.clamp(net, -1.0 + eps, 1.0 - eps))
 
         return Lambda(_atanh, f"atanh_{eps:.2e}")
 
@@ -332,8 +332,8 @@ class Activations:
         kwargs = self.configs.setdefault("isoftplus", {})
         eps = kwargs.setdefault("eps", 1.0e-6)
 
-        def _isoftplus(x: torch.Tensor) -> torch.Tensor:
-            return torch.log(x.clamp_min(eps).exp() - 1.0)
+        def _isoftplus(net: torch.Tensor) -> torch.Tensor:
+            return torch.log(net.clamp_min(eps).exp() - 1.0)
 
         return Lambda(_isoftplus, f"isoftplus_{eps:.2e}")
 
@@ -344,10 +344,10 @@ class Activations:
         eps = config.setdefault("eps", 1e-12)
         suffix = "_randomized" if randomize_at_zero else ""
 
-        def _core(x: torch.Tensor) -> torch.Tensor:
+        def _core(net: torch.Tensor) -> torch.Tensor:
             if randomize_at_zero:
-                x = x + (2 * torch.empty_like(x).uniform_() - 1.0) * eps
-            return torch.sign(x)
+                net = net + (2 * torch.empty_like(net).uniform_() - 1.0) * eps
+            return torch.sign(net)
 
         return Lambda(_core, f"sign{suffix}")
 
@@ -1050,8 +1050,8 @@ class Residual(nn.Module):
         super().__init__()
         self.module = module
 
-    def forward(self, x: Tensor, **kwargs: Any) -> Tensor:
-        return x + self.module(x, **kwargs)
+    def forward(self, net: Tensor, **kwargs: Any) -> Tensor:
+        return net + self.module(net, **kwargs)
 
 
 class PreNorm(nn.Module):
@@ -1457,14 +1457,14 @@ class Conv2d(Module):
         dilation = self.dilation
         return ((size - 1) * (stride - 1) + dilation * (self.kernel_size - 1)) // 2
 
-    def forward(self, x: Tensor, style: Optional[Tensor] = None) -> Tensor:
-        b, c, *hw = x.shape
+    def forward(self, net: Tensor, style: Optional[Tensor] = None) -> Tensor:
+        b, c, *hw = net.shape
         # padding
         padding = self.padding
         if self.padding == "same":
             padding = tuple(map(self._same_padding, hw))
         if self.reflection_pad is not None:
-            x = self.reflection_pad(x)
+            net = self.reflection_pad(net)
         # transform kernel
         w: Union[nn.Parameter, Tensor] = self.weight
         if self.transform_kernel:
@@ -1495,13 +1495,13 @@ class Conv2d(Module):
             # prepare for group convolution
             bias = None
             groups = b
-            x = x.view(1, -1, *hw)  # 1, b*in, h, w
+            net = net.view(1, -1, *hw)  # 1, b*in, h, w
             w = w.view(b * self.out_c, *w.shape[2:])  # b*out, in, wh, ww
         if self.demodulate:
             w = w * torch.rsqrt(w.pow(2).sum([-3, -2, -1], keepdim=True) + 1e-8)
         # if style is provided, we should view the results back
-        x = F.conv2d(
-            x,
+        net = F.conv2d(
+            net,
             w,
             bias,
             stride=self.stride,
@@ -1510,8 +1510,8 @@ class Conv2d(Module):
             groups=groups,
         )
         if style is None:
-            return x
-        return x.view(-1, self.out_c, *hw)
+            return net
+        return net.view(-1, self.out_c, *hw)
 
     def extra_repr(self) -> str:
         return (
@@ -1521,8 +1521,8 @@ class Conv2d(Module):
         )
 
 
-def upscale(x: torch.Tensor, factor: float) -> torch.Tensor:
-    return F.interpolate(x, scale_factor=factor, recompute_scale_factor=True)  # type: ignore
+def upscale(net: torch.Tensor, factor: float) -> torch.Tensor:
+    return F.interpolate(net, scale_factor=factor, recompute_scale_factor=True)  # type: ignore
 
 
 class UpsampleConv2d(Conv2d):
@@ -1555,10 +1555,10 @@ class UpsampleConv2d(Conv2d):
         )
         self.factor = factor
 
-    def forward(self, x: Tensor, y: Optional[Tensor] = None) -> Tensor:
+    def forward(self, net: Tensor, y: Optional[Tensor] = None) -> Tensor:
         if self.factor is not None:
-            x = upscale(x, factor=self.factor)
-        return super().forward(x, y)
+            net = upscale(net, factor=self.factor)
+        return super().forward(net, y)
 
 
 def get_conv_blocks(

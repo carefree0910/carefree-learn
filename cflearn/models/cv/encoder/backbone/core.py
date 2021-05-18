@@ -47,12 +47,12 @@ class VGG(nn.Module):
         self.slice3 = sliced_modules[2]
         self.slice4 = sliced_modules[3]
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.slice1(x)
-        x = self.slice2(x)
-        x = self.slice3(x)
-        x = self.slice4(x)
-        return x
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        net = self.slice1(net)
+        net = self.slice2(net)
+        net = self.slice3(net)
+        net = self.slice4(net)
+        return net
 
 
 def sliced_vgg16(pretrained: bool = True) -> VGG:
