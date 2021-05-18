@@ -5,6 +5,7 @@ import shutil
 
 import numpy as np
 
+from PIL import Image
 from tqdm import tqdm
 from torch import Tensor
 from typing import Any
@@ -28,6 +29,7 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from cflearn.misc.toolkit import to_torch
 from cflearn.misc.internal_ import DLData
 from cflearn.misc.internal_ import DLLoader
 
@@ -351,3 +353,58 @@ def prepare_image_folder(
 
     _save(tr_indices, num_jobs, "train")
     _save(te_indices, num_jobs // 2, "test")
+
+
+class ImageFolderDataset(Dataset):
+    def __init__(
+        self,
+        folder: str,
+        split: str,
+        transform: Optional[Union[str, Callable]] = None,
+    ):
+        self.folder = os.path.abspath(os.path.join(folder, split))
+        with open(os.path.join(self.folder, "labels.json"), "r") as f:
+            self.labels = json.load(f)
+        support_appendix = {".jpg", ".png", ".npy"}
+        self.img_paths = list(
+            map(
+                lambda file: os.path.join(self.folder, file),
+                filter(
+                    lambda file: file[-4:] in support_appendix,
+                    os.listdir(self.folder),
+                ),
+            )
+        )
+        self.transform = TransformFactory(transform)
+
+    def __getitem__(self, index: int) -> Dict[str, Any]:
+        file = self.img_paths[index]
+        img = Image.open(file)
+        if isinstance(self.transform, dict):
+            raise ValueError(
+                "`transform` is defined as `dict`, "
+                "so you need to customize `__getitem__` method"
+            )
+        img = self.transform(img)
+        label = self.labels[file]
+        if isinstance(label, str):
+            if label.endswith(".npy"):
+                label = to_torch(np.load(label))
+        return {INPUT_KEY: img, LABEL_KEY: label}
+
+    def __len__(self) -> int:
+        return len(self.img_paths)
+
+
+def get_image_folder_loaders(
+    folder: str,
+    *,
+    batch_size: int,
+    shuffle: bool = True,
+    transform: Optional[Union[str, Callable]] = None,
+) -> Tuple[DLLoader, DLLoader]:
+    train_data = DLData(ImageFolderDataset(folder, "train", transform))
+    valid_data = DLData(ImageFolderDataset(folder, "test", transform))
+    train_loader = DLLoader(DataLoader(train_data, batch_size, shuffle))  # type: ignore
+    valid_loader = DLLoader(DataLoader(valid_data, batch_size, shuffle))  # type: ignore
+    return train_loader, valid_loader
