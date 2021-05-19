@@ -91,7 +91,7 @@ class UnetGenerator(ModelProtocol):
         self,
         in_channels: int,
         out_channels: int,
-        backbone: str = "resnet18",
+        backbone: str = "mobilenet_v2",
         backbone_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
