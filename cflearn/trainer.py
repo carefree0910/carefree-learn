@@ -540,7 +540,7 @@ class Trainer:
             callback.mutate_train_loss_kwargs(loss_kwargs, self)
         # allow model defines its own training step
         if self.model_has_custom_steps and self.model.custom_train_step:
-            return self.model.train_step(
+            return self.model.train_step(  # type: ignore
                 batch_idx,
                 batch,
                 self,
@@ -689,7 +689,7 @@ class Trainer:
         if loader is None:
             loader = self.validation_loader
         if self.model_has_custom_steps and self.model.custom_evaluate_step:
-            return self.model.evaluate_step(loader, portion, self)
+            return self.model.evaluate_step(loader, portion, self)  # type: ignore
         outputs = self.inference.get_outputs(
             loader,
             portion=portion,

@@ -48,6 +48,7 @@ class TransformFactory:
                 )
             else:
                 raise NotImplementedError(f"'{transform}' transform is not implemented")
+        assert callable(transform)
         self.transform = transform
 
     def __call__(self, net: Tensor, *args: Any, **kwargs: Any) -> Tensor:
@@ -140,10 +141,10 @@ def get_tensor_loaders(
     num_workers: int = 0,
 ) -> Tuple[DLLoader, Optional[DLLoader]]:
     base_kwargs = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-    train_loader = get_tensor_loader(x_train, y_train, train_others, **base_kwargs)
+    train_loader = get_tensor_loader(x_train, y_train, train_others, **base_kwargs)  # type: ignore
     if x_valid is None:
         return train_loader, None
-    valid_loader = get_tensor_loader(x_valid, y_valid, valid_others, **base_kwargs)
+    valid_loader = get_tensor_loader(x_valid, y_valid, valid_others, **base_kwargs)  # type: ignore
     return train_loader, valid_loader
 
 
@@ -276,7 +277,8 @@ def prepare_image_folder(
     # prepare core
     num_sample = len(all_img_paths)
     if valid_split < 1:
-        valid_split = min(10000, int(num_sample * valid_split))
+        valid_split = min(10000, int(round(num_sample * valid_split)))
+    assert isinstance(valid_split, int)
 
     shuffled_indices = np.random.permutation(num_sample)
     if train_all_data:
@@ -288,12 +290,10 @@ def prepare_image_folder(
     if copy_fn is None:
         copy_fn = lambda src, tgt: shutil.copy(src, tgt)
     if get_img_path_fn is None:
+
         def get_img_path_fn(i: int, split_folder: str, src_img_path: str) -> str:
             ext = os.path.splitext(src_img_path)[1]
             return os.path.join(split_folder, f"{i}{ext}")
-
-    if not isinstance(labels, dict):
-        labels = {"": labels}
 
     def _split(
         split: str,
@@ -307,6 +307,10 @@ def prepare_image_folder(
         iterator = enumerate(split_indices)
         if use_tqdm:
             iterator = tqdm(iterator, total=len(split_indices), position=position)
+
+        assert copy_fn is not None
+        assert get_img_path_fn is not None
+
         for i, idx in iterator:
             i += unit * position
             img_path = all_img_paths[idx]
@@ -314,8 +318,7 @@ def prepare_image_folder(
             try:
                 copy_fn(img_path, new_img_path)
                 key = os.path.abspath(new_img_path)
-                assert isinstance(labels, dict)
-                for label_type, type_labels in labels.items():
+                for label_type, type_labels in labels_dict.items():
                     current_collection = current_labels.setdefault(label_type, {})
                     current_collection[key] = type_labels[idx]
             except Exception as err:

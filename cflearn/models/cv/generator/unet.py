@@ -97,8 +97,19 @@ class UnetGenerator(ModelProtocol):
     ):
         # `backbone` here should define `out_channels` in its `increment_config`
         super().__init__()
-        self.backbone = BackboneEncoder(backbone, backbone_config, in_channels)
-        backbone_channels = self.backbone.net.increment_config["out_channels"]
+        self.backbone = BackboneEncoder(backbone, in_channels, backbone_config)
+        increment_config = self.backbone.net.increment_config
+        if increment_config is None:
+            raise ValueError(
+                "`increment_config` should be provided in `BackboneEncoder` "
+                "for `UnetGenerator`"
+            )
+        backbone_channels = increment_config.get("out_channels")
+        if backbone_channels is None:
+            raise ValueError(
+                "`out_channels` should be provided in `increment_config` "
+                "for `UnetGenerator`"
+            )
         self.decoder = UnetDecoder(backbone_channels, **(decoder_config or {}))
         self.head = Conv2d(backbone_channels[0], out_channels, kernel_size=3)
 

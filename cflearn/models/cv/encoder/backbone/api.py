@@ -35,8 +35,8 @@ class BackboneEncoder(Encoder1DBase):
     def __init__(
         self,
         name: str,
+        in_channels: int,
         config: Optional[Dict[str, Any]] = None,
-        in_channels: int = 3,
         img_size: Optional[int] = None,
         latent_dim: Optional[int] = None,
         *,
@@ -47,12 +47,11 @@ class BackboneEncoder(Encoder1DBase):
         target_layers: Optional[Dict[str, str]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(img_size, in_channels, latent_dim)
+        super().__init__(-1, in_channels, -1)
         if img_size is not None:
             print(f"{WARNING_PREFIX}`img_size` will not affect `BackboneEncoder`")
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
-        if config is None:
-            config: Dict[str, Any] = {}
+        config = config or {}
         remove_layers = config.setdefault("remove_layers", remove_layers)
         target_layers = config.setdefault("target_layers", target_layers)
         latent_dim = config.get("latent_dim", latent_dim)
@@ -82,6 +81,7 @@ class BackboneEncoder(Encoder1DBase):
                     f"identical with `preset_dim` ({preset_dim}), "
                     f"please consider set `latent_dim` to {preset_dim}"
                 )
+        self.latent_dim = latent_dim
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
         config.setdefault("finetune", finetune)

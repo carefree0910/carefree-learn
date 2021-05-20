@@ -48,7 +48,7 @@ class MLLoader(DataLoaderProtocol):
         *,
         name: Optional[str] = None,
         batch_size: int = 128,
-        sample_weights: sample_weights_type = None,
+        sample_weights: Optional[np.ndarray] = None,
     ):
         if sample_weights is not None and len(data) != len(sample_weights):
             raise ValueError(
@@ -106,7 +106,7 @@ class DLLoader(DataLoaderProtocol):
         loader: DataLoader,
         batch_callback: Optional[Callable[[Any], tensor_dict_type]] = None,
         *,
-        sample_weights: sample_weights_type = None,
+        sample_weights: Optional[np.ndarray] = None,
     ):
         if sample_weights is not None:
             raise ValueError(

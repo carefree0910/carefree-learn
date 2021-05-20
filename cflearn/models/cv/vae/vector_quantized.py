@@ -193,7 +193,7 @@ class VQVAE(ModelProtocol):
         code_indices = code_indices.view(-1, 1, 1)
         tiled = code_indices.repeat([1, self.map_dim, self.map_dim])
         if class_idx is not None:
-            kwargs["labels"] = torch.full([num_samples], class_idx)
+            kwargs["labels"] = torch.full([len(code_indices)], class_idx)
         kwargs.setdefault("use_one_hot", True)
         net = self.reconstruct_from(tiled, **kwargs)
         return net, code_indices

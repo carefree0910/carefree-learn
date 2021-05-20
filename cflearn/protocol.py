@@ -56,7 +56,7 @@ class WithRegister(Generic[T]):
 
     @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> T:
-        return cls.get(name)(**config)
+        return cls.get(name)(**config)  # type: ignore
 
     @classmethod
     def make_multiple(
@@ -100,7 +100,7 @@ class DataLoaderProtocol(ABC, WithRegister):
     data: DataProtocol
     batch_size: int
 
-    def __init__(self, *, sample_weights: sample_weights_type = None):
+    def __init__(self, *, sample_weights: Optional[np.ndarray] = None):
         self.sample_weights = sample_weights
 
     @abstractmethod

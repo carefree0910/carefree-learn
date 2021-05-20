@@ -1,7 +1,9 @@
+from typing import List
+
 from ..api import Preset
 
 
-remove_layers = []
+remove_layers: List[str] = []
 target_layers = {
     "slice1": "stage0",
     "slice2": "stage1",

@@ -283,8 +283,8 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         self.__identifier__ = core_name
         self._num_repeat = num_repeat
         # custom steps
-        self.custom_train_step = self.core.custom_train_step
-        self.custom_evaluate_step = self.core.custom_evaluate_step
+        self.custom_train_step = core.custom_train_step
+        self.custom_evaluate_step = core.custom_evaluate_step
 
     def forward(
         self,
@@ -334,6 +334,8 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
+        if not isinstance(self.core, MLCoreProtocol):
+            raise ValueError("`num_repeat` is not supported for `ModelWithCustomSteps`")
         return self.core.train_step(
             batch_idx,
             batch,
@@ -348,6 +350,8 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         portion: float,
         trainer: Any,
     ) -> MetricsOutputs:
+        if not isinstance(self.core, MLCoreProtocol):
+            raise ValueError("`num_repeat` is not supported for `ModelWithCustomSteps`")
         return self.core.evaluate_step(loader, portion, trainer)
 
 

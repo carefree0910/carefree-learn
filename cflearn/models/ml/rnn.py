@@ -102,7 +102,7 @@ class RNN(MLCoreProtocol):
 
 
 @MLCoreProtocol.register("bake_rnn")
-class RNNWithBAKE(BAKEBase, RNN):
+class RNNWithBAKE(BAKEBase):
     def __init__(
         self,
         in_dim: int,
@@ -125,8 +125,7 @@ class RNNWithBAKE(BAKEBase, RNN):
         w_ensemble: float = 0.5,
         is_classification: bool,
     ):
-        RNN.__init__(
-            self,
+        self.rnn = RNN(
             in_dim,
             out_dim,
             num_history,
@@ -157,11 +156,11 @@ class RNNWithBAKE(BAKEBase, RNN):
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
-        for rnn in self.rnn_list:
+        for rnn in self.rnn.rnn_list:
             net, final_state = rnn(net, None)
         latent = net[:, -1]
         batch[MERGED_KEY] = latent
-        results = self.head(batch_idx, batch, state, **kwargs)
+        results = self.rnn.head(batch_idx, batch, state, **kwargs)
         results[LATENT_KEY] = latent
         return results
 

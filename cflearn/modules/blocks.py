@@ -1635,7 +1635,7 @@ class ChannelPadding(nn.Module):
         if self.is_global:
             map_dim = 1
         token_shape = (num_classes or 1), dim, map_dim, map_dim
-        self.channel_padding = nn.Parameter(torch.randn(*token_shape))
+        self.channel_padding = nn.Parameter(torch.randn(*token_shape))  # type: ignore
 
     def forward(self, net: Tensor, labels: Optional[Tensor] = None) -> Tensor:
         if not self.is_conditional:

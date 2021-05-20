@@ -178,7 +178,7 @@ class Backbone(nn.Module):
                         pop_keys.append(key)
             for key in pop_keys:
                 state_dict.pop(key)
-        super().load_state_dict(state_dict, **kwargs)
+        super().load_state_dict(state_dict, **kwargs)  # type: ignore
 
 
 __all__ = [

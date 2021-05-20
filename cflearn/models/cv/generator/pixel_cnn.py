@@ -116,19 +116,18 @@ class PixelCNN(ModelProtocol):
                 Lambda(lambda t: t.permute(0, 3, 1, 2), name="permute"),
             )
         # channel padding
+        self.channel_padding = None
         if channel_padding is not None:
             start_channels += channel_padding
             self.channel_padding = ChannelPadding(
                 channel_padding,
                 num_classes=num_conditional_classes,
             )
-        else:
-            if num_conditional_classes is not None:
-                raise ValueError(
-                    "`channel_padding` should be provided "
-                    "when `num_conditional_classes` is provided"
-                )
-            self.channel_padding = None
+        elif num_conditional_classes is not None:
+            raise ValueError(
+                "`channel_padding` should be provided "
+                "when `num_conditional_classes` is provided"
+            )
         # blocks
         blocks: List[nn.Module] = [_get_block(start_channels, latent_channels, "A")]
         for i in range(num_layers - 1):

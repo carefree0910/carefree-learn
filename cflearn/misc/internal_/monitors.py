@@ -42,7 +42,7 @@ class MeanStdMonitor(BasicMonitor):
     def __init__(
         self,
         *,
-        patience: float = 5.0,
+        patience: int = 5,
         window_size: int = 25,
         overfit_tolerance: float = 25.0,
     ):
