@@ -6,8 +6,8 @@ from .protocol import Encoder1DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
 from ...ml.transformer import TransformerEncoder
+from ....constants import LATENT_KEY
 
 
 @Encoder1DFromPatches.register("vit")
@@ -53,7 +53,7 @@ class ViTEncoder(Encoder1DFromPatches):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.encoder(batch[INPUT_KEY])}
+        return {LATENT_KEY: self.encoder(batch[INPUT_KEY])}
 
 
 __all__ = ["ViTEncoder"]

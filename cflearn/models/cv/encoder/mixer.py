@@ -8,11 +8,11 @@ from .protocol import Encoder1DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
 from ...ml.mixer import MixerBlock
 from ....modules.blocks import _get_clones
 from ....modules.blocks import Lambda
 from ....modules.blocks import PreNorm
+from ....constants import LATENT_KEY
 
 
 @Encoder1DFromPatches.register("mixer")
@@ -52,7 +52,7 @@ class MixerEncoder(Encoder1DFromPatches):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.encoder(batch[INPUT_KEY])}
+        return {LATENT_KEY: self.encoder(batch[INPUT_KEY])}
 
 
 __all__ = ["MixerEncoder"]

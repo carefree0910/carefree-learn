@@ -53,7 +53,7 @@ class TransformerLayer(nn.Module):
             module=Attention.make(
                 "basic",
                 config=dict(
-                    dim=dim,
+                    input_dim=dim,
                     dropout=dropout,
                     num_heads=num_heads,
                     in_linear_config={"bias": qkv_bias},
