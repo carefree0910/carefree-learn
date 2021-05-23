@@ -1646,5 +1646,8 @@ class ChannelPadding(nn.Module):
                 raise ValueError(msg)
             padding = self.channel_padding[labels.view(-1)]
         if self.is_global:
-            padding = padding.repeat(1, 1, *net.shape[-2:])
+            if len(net.shape) == 2:
+                padding = padding.squeeze()
+            else:
+                padding = padding.repeat(1, 1, *net.shape[-2:])
         return torch.cat([net, padding], dim=1)
