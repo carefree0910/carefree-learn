@@ -97,6 +97,10 @@ class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
             **(to_patches_configs or {}),
         )
 
+    @property
+    def num_patches(self) -> int:
+        return self.to_patches.num_patches
+
     def forward(
         self,
         batch_idx: int,
