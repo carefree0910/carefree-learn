@@ -46,7 +46,6 @@ class TokenMixerFactory(ABC):
         latent_dim: int,
         feedforward_dim: int,
         dropout: float,
-        norm_type: str,
         **kwargs: Any,
     ) -> nn.Module:
         pass
@@ -65,13 +64,18 @@ class MixingBlock(nn.Module):
         **token_mixing_kwargs: Any,
     ):
         super().__init__()
-        self.token_mixing = token_mixing_factory.make(
-            num_tokens,
-            latent_dim,
-            feedforward_dim,
-            dropout,
-            norm_type,
-            **token_mixing_kwargs,
+        self.token_mixing = Residual(
+            PreNorm(
+                latent_dim,
+                module=token_mixing_factory.make(
+                    num_tokens,
+                    latent_dim,
+                    feedforward_dim,
+                    dropout,
+                    **token_mixing_kwargs,
+                ),
+                norm_type=norm_type,
+            )
         )
         self.channel_mixing = Residual(
             PreNorm(

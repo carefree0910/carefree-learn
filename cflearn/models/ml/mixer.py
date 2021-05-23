@@ -6,8 +6,6 @@ from .stacks import FeedForward
 from .stacks import MixedStackedModel
 from .stacks import TokenMixerFactory
 from ...modules.blocks import Lambda
-from ...modules.blocks import PreNorm
-from ...modules.blocks import Residual
 
 
 class MLPTokenMixer(TokenMixerFactory):
@@ -17,19 +15,12 @@ class MLPTokenMixer(TokenMixerFactory):
         latent_dim: int,
         feedforward_dim: int,
         dropout: float,
-        norm_type: str,
         **kwargs: Any,
     ) -> nn.Module:
-        return Residual(
-            PreNorm(
-                latent_dim,
-                module=nn.Sequential(
-                    Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
-                    FeedForward(num_tokens, num_tokens, dropout),
-                    Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
-                ),
-                norm_type=norm_type,
-            )
+        return nn.Sequential(
+            Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
+            FeedForward(num_tokens, num_tokens, dropout),
+            Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
         )
 
 

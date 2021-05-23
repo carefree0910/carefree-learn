@@ -3,7 +3,6 @@ import torch.nn as nn
 from typing import Any
 from .stacks import MixedStackedModel
 from .stacks import TokenMixerFactory
-from ...modules.blocks import PreNorm
 from ...modules.blocks import Attention
 
 
@@ -14,24 +13,19 @@ class AttentionTokenMixer(TokenMixerFactory):
         latent_dim: int,
         feedforward_dim: int,
         dropout: float,
-        norm_type: str,
         **kwargs: Any,
     ) -> nn.Module:
         qkv_bias = kwargs.get("qkv_bias", False)
         num_heads = kwargs.get("num_heads", 8)
-        return PreNorm(
-            latent_dim,
-            module=Attention.make(
-                "basic",
-                config=dict(
-                    input_dim=latent_dim,
-                    dropout=dropout,
-                    num_heads=num_heads,
-                    in_linear_config={"bias": qkv_bias},
-                    is_self_attention=True,
-                ),
+        return Attention.make(
+            "basic",
+            config=dict(
+                input_dim=latent_dim,
+                dropout=dropout,
+                num_heads=num_heads,
+                in_linear_config={"bias": qkv_bias},
+                is_self_attention=True,
             ),
-            norm_type=norm_type,
         )
 
 
