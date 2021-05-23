@@ -1,5 +1,3 @@
-import torch.nn as nn
-
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -8,11 +6,9 @@ from .protocol import Encoder1DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ...ml.mixer import MixerBlock
-from ....modules.blocks import _get_clones
-from ....modules.blocks import Lambda
-from ....modules.blocks import PreNorm
 from ....constants import LATENT_KEY
+from ...ml.mixer import MLPTokenMixer
+from ...ml.stacks import MixedStackedEncoder
 
 
 @Encoder1DFromPatches.register("mixer")
@@ -35,14 +31,12 @@ class MixerEncoder(Encoder1DFromPatches):
             latent_dim,
             to_patches_configs,
         )
-        mixer_block = MixerBlock(self.to_patches.num_patches, latent_dim, norm_type)
-        self.encoder = nn.Sequential(
-            *_get_clones(mixer_block, num_layers, return_list=True),
-            PreNorm(
-                latent_dim,
-                module=Lambda(lambda x: x.mean(1), name="global_average"),
-                norm_type=norm_type,
-            ),
+        self.encoder = MixedStackedEncoder(
+            latent_dim,
+            self.num_patches,
+            MLPTokenMixer(),
+            num_layers=num_layers,
+            norm_type=norm_type,
         )
 
     def from_patches(

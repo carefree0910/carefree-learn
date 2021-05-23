@@ -6,8 +6,9 @@ from .protocol import Encoder1DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ...ml.transformer import TransformerEncoder
 from ....constants import LATENT_KEY
+from ...ml.stacks import MixedStackedEncoder
+from ...ml.transformer import AttentionTokenMixer
 
 
 @Encoder1DFromPatches.register("vit")
@@ -18,14 +19,14 @@ class ViTEncoder(Encoder1DFromPatches):
         patch_size: int,
         in_channels: int,
         latent_dim: int = 128,
-        feed_forward_dim: int = 512,
         to_patches_configs: Optional[Dict[str, Any]] = None,
         *,
-        num_heads: int = 8,
         num_layers: int = 4,
         dropout: float = 0.0,
-        qkv_bias: bool = False,
         norm_type: str = "batch_norm",
+        feedforward_dim_ratio: float = 4.0,
+        qkv_bias: bool = False,
+        num_heads: int = 8,
     ):
         super().__init__(
             img_size,
@@ -34,16 +35,18 @@ class ViTEncoder(Encoder1DFromPatches):
             latent_dim,
             to_patches_configs,
         )
-        self.encoder = TransformerEncoder(
+        self.encoder = MixedStackedEncoder(
             latent_dim,
-            num_heads,
-            self.to_patches.num_patches,
-            feed_forward_dim,
+            self.num_patches,
+            AttentionTokenMixer(),
             num_layers=num_layers,
             dropout=dropout,
-            qkv_bias=qkv_bias,
             norm_type=norm_type,
+            feedforward_dim_ratio=feedforward_dim_ratio,
             use_head_token=True,
+            use_positional_encoding=True,
+            qkv_bias=qkv_bias,
+            num_heads=num_heads,
         )
 
     def from_patches(
