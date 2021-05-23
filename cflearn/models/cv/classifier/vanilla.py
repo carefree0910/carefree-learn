@@ -23,11 +23,11 @@ class VanillaClassifier(ModelProtocol):
         num_classes: int,
         img_size: Optional[int] = None,
         latent_dim: int = 128,
-        encoder1d_configs: Optional[Dict[str, Any]] = None,
-        head_configs: Optional[Dict[str, Any]] = None,
         *,
         encoder1d: str = "vanilla",
         head: str = "linear",
+        encoder1d_configs: Optional[Dict[str, Any]] = None,
+        head_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size

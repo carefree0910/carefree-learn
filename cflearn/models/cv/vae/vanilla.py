@@ -37,11 +37,11 @@ class VanillaVAE(ModelProtocol):
         latent_dim: int = 256,
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
-        encoder1d_configs: Optional[Dict[str, Any]] = None,
-        decoder_configs: Optional[Dict[str, Any]] = None,
         *,
         encoder1d: str = "vanilla",
         decoder: str = "vanilla",
+        encoder1d_configs: Optional[Dict[str, Any]] = None,
+        decoder_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size
