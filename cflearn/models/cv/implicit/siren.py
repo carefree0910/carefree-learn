@@ -82,8 +82,8 @@ class Modulator(nn.Module):
         return tuple(nets)
 
 
-def _make_grid(size: int, in_dim: int) -> Tensor:
-    tensors = [torch.linspace(-1.0, 1.0, steps=size)] * in_dim
+def _make_grid(size: int, in_dim: int, device: Optional[torch.device] = None) -> Tensor:
+    tensors = [torch.linspace(-1.0, 1.0, steps=size, device=device)] * in_dim
     grid = torch.stack(torch.meshgrid(*tensors), dim=-1)
     return grid.view(1, -1, grid.shape[-1])
 
@@ -138,10 +138,11 @@ class Siren(nn.Module):
 
     def forward(self, latent: Tensor, *, size: Optional[int] = None) -> Tensor:
         mods = self.modulator(latent)
-        grid = self.grid if size is None else _make_grid(size, self.in_dim)
-        grid = grid.to(latent.device)
-        net = grid.clone().detach().requires_grad_()
-        net = net.repeat(latent.shape[0], 1, 1)
+        if size is None:
+            grid = self.grid
+        else:
+            grid = _make_grid(size, self.in_dim, latent.device)
+        net = grid.repeat(latent.shape[0], 1, 1)
         for block, mod in zip(self.blocks, mods):
             net = block(net) * mod.unsqueeze(1)
         return self.head(net)
