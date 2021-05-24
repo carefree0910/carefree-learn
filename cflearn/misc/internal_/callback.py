@@ -121,10 +121,14 @@ class ArtifactCallback(TrainerCallback):
         super().__init__()
         self.num_keep = num_keep
 
-    def _prepare_folder(self, trainer: Trainer) -> str:
+    def _prepare_folder(self, trainer: Trainer, *, check_num_keep: bool = True) -> str:
         state = trainer.state
         sub_folder = os.path.join(trainer.workplace, self.key)
         os.makedirs(sub_folder, exist_ok=True)
+        if not check_num_keep:
+            sub_folder = os.path.join(sub_folder, str(state.step))
+            os.makedirs(sub_folder, exist_ok=True)
+            return sub_folder
         current_steps = sorted(os.listdir(sub_folder))
         if len(current_steps) >= self.num_keep:
             must_keep = set()
@@ -201,7 +205,7 @@ class SizedGeneratorCallback(GeneratorCallback):
         if not self.is_rank_0:
             return None
         super().log_artifacts(trainer)
-        image_folder = self._prepare_folder(trainer)
+        image_folder = self._prepare_folder(trainer, check_num_keep=False)
         with eval_context(trainer.model):
             for size in [64, 128, 256]:
                 sampled = trainer.model.sample(4, size=size)
