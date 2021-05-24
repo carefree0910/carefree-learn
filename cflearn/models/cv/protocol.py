@@ -1,4 +1,5 @@
 import torch
+import random
 
 from abc import abstractmethod
 from abc import ABC
@@ -117,5 +118,7 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         z2 = torch.randn(1, self.latent_dim, device=self.device)
         ratio = torch.linspace(0.0, 1.0, num_samples, device=self.device)[:, None]
         z = slerp(z1, z2, ratio) if use_slerp else ratio * z1 + (1.0 - ratio) * z2
+        if class_idx is None and self.is_conditional:
+            class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
         return self.decode(z, labels=labels, **kwargs)
