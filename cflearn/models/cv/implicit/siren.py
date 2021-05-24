@@ -8,7 +8,11 @@ from torch import Tensor
 from typing import Callable
 from typing import Optional
 
+from ....types import tensor_dict_type
+from ....constants import LABEL_KEY
+from ....modules.blocks import Lambda
 from ....modules.blocks import Activations
+from ....modules.blocks import ChannelPadding
 
 
 class Sine(nn.Module):
@@ -154,7 +158,69 @@ def img_siren_head(size: int, out_channels: int) -> Callable[[Tensor], Tensor]:
     return _head
 
 
+class ImgSiren(nn.Module):
+    def __init__(
+        self,
+        img_size: int,
+        out_channels: int,
+        latent_dim: int = 256,
+        num_classes: Optional[int] = None,
+        conditional_dim: int = 16,
+        *,
+        num_layers: int = 4,
+        w_sin: float = 1.0,
+        w_sin_initial: float = 30.0,
+        bias: bool = True,
+        final_activation: Optional[str] = None,
+    ):
+        super().__init__()
+        self.out_channels = out_channels
+        # condition
+        self.cond_padding = None
+        if num_classes is not None:
+            self.cond_padding = ChannelPadding(conditional_dim, num_classes=num_classes)
+            latent_dim += conditional_dim
+        # siren
+        self.siren = Siren(
+            img_size,
+            2,
+            out_channels,
+            latent_dim,
+            num_layers=num_layers,
+            w_sin=w_sin,
+            w_sin_initial=w_sin_initial,
+            bias=bias,
+            final_activation=final_activation,
+        )
+        # head
+        self.head = Lambda(img_siren_head(img_size, out_channels), name="head")
+
+    def forward(self, net: Tensor, batch: tensor_dict_type) -> Tensor:
+        if self.cond_padding is not None:
+            net = self.cond_padding(net, batch[LABEL_KEY].view(-1))
+        net = self.siren(net)
+        return self.head(net)
+
+    def decode(
+        self,
+        z: Tensor,
+        *,
+        labels: Optional[Tensor],
+        size: Optional[int] = None,
+    ) -> Tensor:
+        if self.cond_padding is not None:
+            if labels is None:
+                msg = "`labels` should be provided in conditional `ImgSiren`"
+                raise ValueError(msg)
+            z = self.cond_padding(z, labels)
+        net = self.siren(z, size=size)
+        if size is None:
+            return self.head(net)
+        return img_siren_head(size, self.out_channels)(net)
+
+
 __all__ = [
     "Siren",
+    "ImgSiren",
     "img_siren_head",
 ]

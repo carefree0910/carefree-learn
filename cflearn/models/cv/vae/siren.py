@@ -9,15 +9,11 @@ from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
-from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
-from ..implicit.siren import img_siren_head
-from ..implicit.siren import Siren
-from ....modules.blocks import Lambda
+from ..implicit.siren import ImgSiren
 from ....modules.blocks import Linear
-from ....modules.blocks import ChannelPadding
 
 
 @ModelProtocol.register("siren_vae")
@@ -57,25 +53,19 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
             encoder1d_configs["num_downsample"] = num_downsample
         self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
         self.to_statistics = Linear(latent_dim, 2 * latent_dim, bias=False)
-        # condition
-        self.cond_padding = None
-        if num_classes is not None:
-            self.cond_padding = ChannelPadding(conditional_dim, num_classes=num_classes)
-            latent_dim += conditional_dim
         # siren
-        self.siren = Siren(
+        self.siren = ImgSiren(
             img_size,
-            2,
             self.out_channels,
             latent_dim,
+            num_classes,
+            conditional_dim,
             num_layers=num_layers,
             w_sin=w_sin,
             w_sin_initial=w_sin_initial,
             bias=bias,
             final_activation=final_activation,
         )
-        # head
-        self.head = Lambda(img_siren_head(img_size, self.out_channels), name="head")
 
     @property
     def can_reconstruct(self) -> bool:
@@ -89,19 +79,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         size: Optional[int] = None,
         **kwargs: Any,
     ) -> Tensor:
-        if self.cond_padding is None:
-            if labels is not None:
-                msg = "`labels` should not be provided in non-conditional `SirenVAE`"
-                raise ValueError(msg)
-        else:
-            if labels is None:
-                msg = "`labels` should be provided in conditional `SirenVAE`"
-                raise ValueError(msg)
-            z = self.cond_padding(z, labels)
-        net = self.siren(z, size=size)
-        if size is None:
-            return self.head(net)
-        return img_siren_head(size, self.out_channels)(net)
+        return self.siren.decode(z, labels=labels, size=size)
 
     def forward(
         self,
@@ -114,10 +92,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = VanillaVAE.reparameterize(mu, log_var)
-        if self.cond_padding is not None:
-            net = self.cond_padding(net, batch[LABEL_KEY].view(-1))
-        net = self.siren(net)
-        net = self.head(net)
+        net = self.siren(net, batch)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
 
