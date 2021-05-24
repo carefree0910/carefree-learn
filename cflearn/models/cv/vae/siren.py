@@ -1,7 +1,6 @@
 from torch import Tensor
 from typing import Any
 from typing import Dict
-from typing import Callable
 from typing import Optional
 
 from .vanilla import VanillaVAE
@@ -14,19 +13,11 @@ from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
+from ..implicit.siren import img_siren_head
 from ..implicit.siren import Siren
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
 from ....modules.blocks import ChannelPadding
-
-
-def _siren_head(size: int, out_channels: int) -> Callable[[Tensor], Tensor]:
-    def _head(t: Tensor) -> Tensor:
-        t = t.view(-1, size, size, out_channels)
-        t = t.permute(0, 3, 1, 2)
-        return t
-
-    return _head
 
 
 @ModelProtocol.register("siren_vae")
@@ -84,7 +75,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
             final_activation=final_activation,
         )
         # head
-        self.head = Lambda(_siren_head(img_size, self.out_channels), name="head")
+        self.head = Lambda(img_siren_head(img_size, self.out_channels), name="head")
 
     @property
     def can_reconstruct(self) -> bool:
@@ -110,7 +101,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         net = self.siren(z, size=size)
         if size is None:
             return self.head(net)
-        return _siren_head(size, self.out_channels)(net)
+        return img_siren_head(size, self.out_channels)(net)
 
     def forward(
         self,

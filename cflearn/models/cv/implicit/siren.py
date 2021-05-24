@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
+from typing import Callable
 from typing import Optional
 
 from ....modules.blocks import Activations
@@ -142,4 +143,18 @@ class Siren(nn.Module):
         return self.head(net)
 
 
-__all__ = ["Siren"]
+# image usages
+
+def img_siren_head(size: int, out_channels: int) -> Callable[[Tensor], Tensor]:
+    def _head(t: Tensor) -> Tensor:
+        t = t.view(-1, size, size, out_channels)
+        t = t.permute(0, 3, 1, 2)
+        return t
+
+    return _head
+
+
+__all__ = [
+    "Siren",
+    "img_siren_head",
+]
