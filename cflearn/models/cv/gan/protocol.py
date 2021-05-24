@@ -92,7 +92,7 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
         **kwargs: Any,
     ) -> tensor_dict_type:
         z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
-        return {PREDICTIONS_KEY: self.decode(z, batch[LABEL_KEY], **kwargs)}
+        return {PREDICTIONS_KEY: self.decode(z, labels=batch[LABEL_KEY], **kwargs)}
 
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
         self._g_loss(batch, {})

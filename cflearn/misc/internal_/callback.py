@@ -186,7 +186,7 @@ class GeneratorCallback(ArtifactCallback):
             interpolations = model.interpolate(self.num_interpolations)
         save_images(interpolations, os.path.join(image_folder, "interpolations.png"))
         # conditional sampling
-        if not is_conditional:
+        if model.num_classes is None:
             return None
         cond_folder = os.path.join(image_folder, "conditional")
         os.makedirs(cond_folder, exist_ok=True)
@@ -206,9 +206,15 @@ class SizedGeneratorCallback(GeneratorCallback):
             return None
         super().log_artifacts(trainer)
         image_folder = self._prepare_folder(trainer, check_num_keep=False)
+        sample_method = getattr(trainer.model, "sample", None)
+        if sample_method is None:
+            raise ValueError(
+                "`sample` should be implemented when `SizedGeneratorCallback` is used "
+                "(and the `sample` method should support accepting `size` kwarg)"
+            )
         with eval_context(trainer.model):
             for size in [64, 128, 256]:
-                sampled = trainer.model.sample(4, size=size)
+                sampled = sample_method(4, size=size)
                 path = os.path.join(image_folder, f"sampled_{size}x{size}.png")
                 save_images(sampled, path)
 

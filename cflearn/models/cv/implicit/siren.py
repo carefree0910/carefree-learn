@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
+from typing import Tuple
 from typing import Callable
 from typing import Optional
 
@@ -72,7 +73,7 @@ class Modulator(nn.Module):
             )
         self.blocks = nn.ModuleList(blocks)
 
-    def forward(self, z: Tensor) -> Tensor:
+    def forward(self, z: Tensor) -> Tuple[Tensor, ...]:
         net = z
         nets = []
         for block in self.blocks:
@@ -142,13 +143,14 @@ class Siren(nn.Module):
             grid = self.grid
         else:
             grid = _make_grid(size, self.in_dim, latent.device)
-        net = grid.repeat(latent.shape[0], 1, 1)
+        net = grid.repeat(latent.shape[0], 1, 1)  # type: ignore
         for block, mod in zip(self.blocks, mods):
             net = block(net) * mod.unsqueeze(1)
         return self.head(net)
 
 
 # image usages
+
 
 def img_siren_head(size: int, out_channels: int) -> Callable[[Tensor], Tensor]:
     def _head(t: Tensor) -> Tensor:

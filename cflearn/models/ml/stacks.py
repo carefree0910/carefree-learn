@@ -109,24 +109,23 @@ class PositionalEncoding(nn.Module):
         self.has_head_token = has_head_token
 
     def forward(self, net: Tensor) -> Tensor:
-        if self.pos_encoding is None:
+        if self.pos_encoding is None or self.pos_drop is None:
             return net
-        pos_encoding = self.interpolate_pos_encoding(net)
+        pos_encoding = self.interpolate_pos_encoding(net, self.pos_encoding)
         pos_encoding = self.pos_drop(pos_encoding)
         return net + pos_encoding
 
     # this is for vision positional encodings
-    def interpolate_pos_encoding(self, net: Tensor) -> Tensor:
+    def interpolate_pos_encoding(self, net: Tensor, pos_encoding: Tensor) -> Tensor:
         head_dim = int(self.has_head_token)
         num_current_history = net.shape[1] - head_dim
-        num_history = self.pos_encoding.shape[1] - head_dim
+        num_history = pos_encoding.shape[1] - head_dim
         if num_current_history == num_history:
-            return self.pos_encoding
+            return pos_encoding
         head_encoding = None
-        pos_encoding = self.pos_encoding
         if self.has_head_token:
-            head_encoding = self.pos_encoding[:, :1]
-            pos_encoding = self.pos_encoding[:, 1:]
+            head_encoding = pos_encoding[:, :1]
+            pos_encoding = pos_encoding[:, 1:]
         dim = net.shape[-1]
         shape = int(math.sqrt(num_history))
         if shape ** 2 != num_history:

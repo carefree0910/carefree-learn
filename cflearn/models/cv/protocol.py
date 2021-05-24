@@ -10,13 +10,13 @@ from typing import Optional
 
 from .toolkit import slerp
 from ...types import tensor_dict_type
+from ...trainer import TrainerState
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 
 
 class GeneratorMixin(ABC):
-    device: torch.device
     latent_dim: int
     num_classes: Optional[int]
 
@@ -24,11 +24,22 @@ class GeneratorMixin(ABC):
 
     @property
     @abstractmethod
+    def device(self) -> torch.device:
+        pass
+
+    @property
+    @abstractmethod
     def can_reconstruct(self) -> bool:
         pass
 
     @abstractmethod
-    def forward(self, *args: Any, **kwargs: Any) -> tensor_dict_type:
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
         pass
 
     @abstractmethod
@@ -78,7 +89,7 @@ class GeneratorMixin(ABC):
         num_samples: int,
         class_idx: Optional[int] = None,
     ) -> Optional[Tensor]:
-        if not self.is_conditional:
+        if self.num_classes is None:
             return None
         if class_idx is not None:
             return torch.full([num_samples], class_idx, device=self.device)
@@ -118,7 +129,7 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         z2 = torch.randn(1, self.latent_dim, device=self.device)
         ratio = torch.linspace(0.0, 1.0, num_samples, device=self.device)[:, None]
         z = slerp(z1, z2, ratio) if use_slerp else ratio * z1 + (1.0 - ratio) * z2
-        if class_idx is None and self.is_conditional:
+        if class_idx is None and self.num_classes is not None:
             class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
         return self.decode(z, labels=labels, **kwargs)
