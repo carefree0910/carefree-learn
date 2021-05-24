@@ -195,8 +195,23 @@ class GeneratorCallback(ArtifactCallback):
                 save_images(interpolations, path)
 
 
+@TrainerCallback.register("sized_generator")
+class SizedGeneratorCallback(GeneratorCallback):
+    def log_artifacts(self, trainer: Trainer) -> None:
+        if not self.is_rank_0:
+            return None
+        super().log_artifacts(trainer)
+        image_folder = self._prepare_folder(trainer)
+        with eval_context(trainer.model):
+            for size in [64, 128, 256]:
+                sampled = trainer.model.sample(4, size=size)
+                path = os.path.join(image_folder, f"sampled_{size}x{size}.png")
+                save_images(sampled, path)
+
+
 __all__ = [
     "MLFlowCallback",
     "ArtifactCallback",
     "GeneratorCallback",
+    "SizedGeneratorCallback",
 ]
