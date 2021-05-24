@@ -16,6 +16,7 @@ from .losses import GANLoss
 from .losses import GANTarget
 from .discriminators import DiscriminatorBase
 from ..decoder import DecoderBase
+from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
@@ -33,7 +34,7 @@ from ....modules.blocks import Lambda
 
 
 @ModelWithCustomSteps.register("gan")
-class VanillaGAN(ModelWithCustomSteps):
+class VanillaGAN(ModelWithCustomSteps, GaussianGeneratorMixin):
     def __init__(
         self,
         img_size: int,
@@ -94,7 +95,11 @@ class VanillaGAN(ModelWithCustomSteps):
             gan_loss_configs = {}
         self.lambda_gp = gan_loss_configs.get("lambda_gp", 10.0)
 
-    def _decode(self, z: Tensor, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
+    @property
+    def can_reconstruct(self) -> bool:
+        return False
+
+    def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.generator.decode(batch, **kwargs)[PREDICTIONS_KEY]
         return torch.tanh(net)
@@ -107,20 +112,7 @@ class VanillaGAN(ModelWithCustomSteps):
         **kwargs: Any,
     ) -> tensor_dict_type:
         z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
-        return {PREDICTIONS_KEY: self._decode(z, batch[LABEL_KEY], **kwargs)}
-
-    def sample(
-        self,
-        num_sample: int,
-        labels: Optional[Tensor] = None,
-        **kwargs: Any,
-    ) -> Tensor:
-        z = torch.randn(num_sample, self.latent_dim, device=self.device)
-        if self.num_classes is None:
-            labels = None
-        elif labels is None:
-            labels = torch.randint(self.num_classes, [num_sample], device=self.device)
-        return self._decode(z, labels, **kwargs)
+        return {PREDICTIONS_KEY: self.decode(z, batch[LABEL_KEY], **kwargs)}
 
     # training part
 
@@ -147,7 +139,7 @@ class VanillaGAN(ModelWithCustomSteps):
         labels = batch.get(LABEL_KEY)
         if labels is not None:
             labels = labels.view(-1)
-        sampled = self.sample(len(batch[INPUT_KEY]), labels, **forward_kwargs)
+        sampled = self.sample(len(batch[INPUT_KEY]), labels=labels, **forward_kwargs)
         pred_fake = self.discriminator(sampled)
         loss_g = self.gan_loss(pred_fake, GANTarget(True, labels))
         return loss_g, sampled, labels

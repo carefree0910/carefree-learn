@@ -1,5 +1,3 @@
-import torch
-
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -8,10 +6,10 @@ from typing import Optional
 
 from .vanilla import VanillaVAE
 from ..toolkit import auto_num_layers
+from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
-from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
@@ -32,7 +30,7 @@ def _siren_head(size: int, out_channels: int) -> Callable[[Tensor], Tensor]:
 
 
 @ModelProtocol.register("siren_vae")
-class SirenVAE(ModelProtocol):
+class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
     def __init__(
         self,
         img_size: int,
@@ -88,6 +86,32 @@ class SirenVAE(ModelProtocol):
         # head
         self.head = Lambda(_siren_head(img_size, self.out_channels), name="head")
 
+    @property
+    def can_reconstruct(self) -> bool:
+        return True
+
+    def decode(
+        self,
+        z: Tensor,
+        *,
+        labels: Optional[Tensor],
+        size: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        if self.cond_padding is None:
+            if labels is not None:
+                msg = "`labels` should not be provided in non-conditional `SirenVAE`"
+                raise ValueError(msg)
+        else:
+            if labels is None:
+                msg = "`labels` should be provided in conditional `SirenVAE`"
+                raise ValueError(msg)
+            z = self.cond_padding(z, labels)
+        net = self.siren(z, size=size)
+        if size is None:
+            return self.head(net)
+        return _siren_head(size, self.out_channels)(net)
+
     def forward(
         self,
         batch_idx: int,
@@ -104,40 +128,6 @@ class SirenVAE(ModelProtocol):
         net = self.siren(net)
         net = self.head(net)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
-
-    def reconstruct(self, net: Tensor, **kwargs: Any) -> Tensor:
-        batch = {INPUT_KEY: net}
-        if self.num_classes is not None:
-            labels = kwargs.pop(LABEL_KEY, None)
-            if labels is None:
-                raise ValueError(
-                    f"`{LABEL_KEY}` should be provided in `reconstruct` "
-                    "for conditional `VanillaVAE`"
-                )
-            batch[LABEL_KEY] = labels
-        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
-
-    def sample(
-        self,
-        num_samples: int,
-        *,
-        size: Optional[int] = None,
-        class_idx: Optional[int] = None,
-    ) -> Tensor:
-        device = self.device
-        net = torch.randn(num_samples, self.latent_dim, device=device)
-        if self.cond_padding is not None:
-            if class_idx is not None:
-                labels = torch.full([num_samples], class_idx, device=device)
-            else:
-                labels = torch.randint(self.num_classes, [num_samples], device=device)
-            net = self.cond_padding(net, labels)
-        net = self.siren(net, size=size)
-        if size is None:
-            net = self.head(net)
-        else:
-            net = _siren_head(size, self.out_channels)(net)
-        return net
 
 
 __all__ = [
