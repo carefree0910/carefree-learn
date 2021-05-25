@@ -239,5 +239,6 @@ __all__ = [
     "R2Score",
     "Accuracy",
     "Quantile",
+    "Correlation",
     "MultipleMetrics",
 ]
