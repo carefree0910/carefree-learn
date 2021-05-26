@@ -247,6 +247,7 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         only_categorical: bool,
         core_name: str,
         core_config: Dict[str, Any],
+        pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
         super().__init__()
@@ -269,6 +270,7 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         core_config["out_dim"] = out_dim
         core_config["num_history"] = num_history
         core = ml_core_dict[core_name](**core_config)
+        self._pre_process_batch = pre_process_batch
         if num_repeat is None:
             self.core = core
         else:
@@ -286,22 +288,23 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        batch_indices = batch.get(BATCH_INDICES_KEY)
-        if batch_indices is not None:
-            batch_indices = to_numpy(batch_indices)
-        split = self.dimensions.split_features(
-            batch[INPUT_KEY],
-            batch_indices,
-            kwargs.get("loader_name"),
-        )
-        batch[NUMERICAL_KEY] = split.numerical
-        if split.categorical is None:
-            batch[ONE_HOT_KEY] = None
-            batch[EMBEDDING_KEY] = None
-        else:
-            batch[ONE_HOT_KEY] = split.categorical.one_hot
-            batch[EMBEDDING_KEY] = split.categorical.embedding
-        batch[MERGED_KEY] = self.transform(split)
+        if self._pre_process_batch:
+            batch_indices = batch.get(BATCH_INDICES_KEY)
+            if batch_indices is not None:
+                batch_indices = to_numpy(batch_indices)
+            split = self.dimensions.split_features(
+                batch[INPUT_KEY],
+                batch_indices,
+                kwargs.get("loader_name"),
+            )
+            batch[NUMERICAL_KEY] = split.numerical
+            if split.categorical is None:
+                batch[ONE_HOT_KEY] = None
+                batch[EMBEDDING_KEY] = None
+            else:
+                batch[ONE_HOT_KEY] = split.categorical.one_hot
+                batch[EMBEDDING_KEY] = split.categorical.embedding
+            batch[MERGED_KEY] = self.transform(split)
         if self._num_repeat is None:
             return self.core(batch_idx, batch, state, **kwargs)
         all_results: Dict[str, List[torch.Tensor]] = {}

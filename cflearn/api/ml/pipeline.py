@@ -102,6 +102,7 @@ class SimplePipeline(DLPipeline):
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
+        pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
         self.config = get_arguments()
@@ -152,7 +153,8 @@ class SimplePipeline(DLPipeline):
             default_encoding_methods = ["embedding"]
         self.default_encoding_methods = default_encoding_methods
         self.default_encoding_configs = default_encoding_configs or {}
-        self._num_repeat: Optional[int] = num_repeat
+        self._pre_process_batch = pre_process_batch
+        self._num_repeat = num_repeat
 
     def _prepare_trainer_defaults(self) -> None:
         super()._prepare_trainer_defaults()
@@ -233,6 +235,7 @@ class SimplePipeline(DLPipeline):
             only_categorical=self.only_categorical,
             core_name=self.core_name,
             core_config=self.core_config,
+            pre_process_batch=self._pre_process_batch,
             num_repeat=self._num_repeat,
         )
         self.inference = MLInference(model=self.model)
