@@ -339,8 +339,7 @@ class SimplePipeline(DLPipeline):
             base_folder = os.path.dirname(os.path.abspath(export_folder))
             with lock_manager(base_folder, [export_folder]):
                 with Saving.compress_loader(export_folder, compress):
-                    score_path = os.path.join(export_folder, SCORES_FILE)
-                    checkpoints = get_sorted_checkpoints(score_path)
+                    checkpoints = get_sorted_checkpoints(export_folder)
                     checkpoint_path = os.path.join(export_folder, checkpoints[0])
                     states = torch.load(checkpoint_path, map_location=m.device)
                     current_keys = list(states.keys())

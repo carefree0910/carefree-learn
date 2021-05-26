@@ -357,14 +357,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [pack_folder]):
             checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
-            scores_path = os.path.join(checkpoint_folder, SCORES_FILE)
-            best_file = get_sorted_checkpoints(scores_path)[0]
+            best_file = get_sorted_checkpoints(checkpoint_folder)[0]
             new_file = f"{PT_PREFIX}-1.pt"
             shutil.copy(
                 os.path.join(checkpoint_folder, best_file),
                 os.path.join(pack_folder, new_file),
             )
-            with open(scores_path, "r") as rf:
+            with open(os.path.join(checkpoint_folder, SCORES_FILE), "r") as rf:
                 scores = json.load(rf)
             with open(os.path.join(pack_folder, SCORES_FILE), "w") as wf:
                 json.dump({new_file: scores[best_file]}, wf)
@@ -412,8 +411,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 m._prepare_modules()
                 m.model.to(m.device)
                 # restore checkpoint
-                score_path = os.path.join(export_folder, SCORES_FILE)
-                checkpoints = get_sorted_checkpoints(score_path)
+                checkpoints = get_sorted_checkpoints(export_folder)
                 if not checkpoints:
                     msg = f"{WARNING_PREFIX}no model file found in {export_folder}"
                     raise ValueError(msg)

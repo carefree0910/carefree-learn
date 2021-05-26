@@ -200,9 +200,10 @@ class TqdmSettings(NamedTuple):
     desc: str = "epoch"
 
 
-def get_sorted_checkpoints(scores_path: str) -> List[str]:
+def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
     # better checkpoints will be placed earlier,
     #  which means `checkpoints[0]` is the best checkpoint
+    scores_path = os.path.join(checkpoint_folder, SCORES_FILE)
     if not os.path.isfile(scores_path):
         return []
     with open(scores_path, "r") as f:
@@ -715,10 +716,9 @@ class Trainer:
                 msg = "`save_checkpoint` should not be called when not `is_rank_0`"
                 raise ValueError(msg)
             folder = self.checkpoint_folder
-        scores_path = os.path.join(folder, SCORES_FILE)
         # leave top_k snapshots only
         if self.state.max_snapshot_file > 0:
-            checkpoints = get_sorted_checkpoints(scores_path)
+            checkpoints = get_sorted_checkpoints(folder)
             if len(checkpoints) >= self.state.max_snapshot_file:
                 for file in checkpoints[self.state.max_snapshot_file - 1 :]:
                     self.checkpoint_scores.pop(file)
@@ -728,7 +728,7 @@ class Trainer:
         torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
         self.checkpoint_scores[file] = score
-        with open(scores_path, "w") as f:
+        with open(os.path.join(folder, SCORES_FILE), "w") as f:
             json.dump(self.checkpoint_scores, f)
 
     def restore_checkpoint(
@@ -743,7 +743,7 @@ class Trainer:
                 msg = "`restore_checkpoint` should not be called when not `is_rank_0`"
                 raise ValueError(msg)
             folder = self.checkpoint_folder
-        checkpoints = get_sorted_checkpoints(os.path.join(folder, SCORES_FILE))
+        checkpoints = get_sorted_checkpoints(folder)
         if not checkpoints:
             if not self.tqdm_settings.in_distributed:
                 print(f"{WARNING_PREFIX}no model file found in {folder}")
