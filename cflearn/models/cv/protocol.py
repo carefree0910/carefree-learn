@@ -73,15 +73,13 @@ class GeneratorMixin(ABC):
         name = self.__class__.__name__
         if not self.can_reconstruct:
             raise ValueError(f"`{name}` does not support `reconstruct`")
-        batch = {INPUT_KEY: net}
-        if self.num_classes is not None:
-            labels = kwargs.pop(LABEL_KEY, None)
-            if labels is None:
-                raise ValueError(
-                    f"`{LABEL_KEY}` should be provided in `reconstruct` "
-                    f"for conditional `{name}`"
-                )
-            batch[LABEL_KEY] = labels
+        labels = kwargs.pop(LABEL_KEY, None)
+        batch = {INPUT_KEY: net, LABEL_KEY: labels}
+        if self.is_conditional and labels is None:
+            raise ValueError(
+                f"`{LABEL_KEY}` should be provided in `reconstruct` "
+                f"for conditional `{name}`"
+            )
         return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
 
     def get_sample_labels(
