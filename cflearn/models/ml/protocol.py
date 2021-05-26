@@ -195,14 +195,7 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     custom_train_step: bool = False
     custom_evaluate_step: bool = False
 
-    def __init__(
-        self,
-        in_dim: int,
-        out_dim: int,
-        num_history: int,
-        *args: Any,
-        **kwargs: Any,
-    ):
+    def __init__(self, in_dim: int, out_dim: int, num_history: int):
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim
