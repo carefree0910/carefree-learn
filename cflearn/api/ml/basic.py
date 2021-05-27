@@ -194,6 +194,9 @@ def repeat_with(
     return_patterns: bool = True,
     compress: bool = True,
     use_tqdm: bool = True,
+    available_cuda_list: Optional[List[int]] = None,
+    resource_config: Optional[Dict[str, Any]] = None,
+    task_meta_kwargs: Optional[Dict[str, Any]] = None,
     **kwargs: Any,
 ) -> RepeatResult:
     if os.path.isdir(workplace):
@@ -266,7 +269,11 @@ def repeat_with(
             workplace=workplace,
         )
         # experiment
-        experiment = Experiment(num_jobs=num_jobs)
+        experiment = Experiment(
+            num_jobs=num_jobs,
+            available_cuda_list=available_cuda_list,
+            resource_config=resource_config,
+        )
         for model in models:
             for i in range(num_repeat):
                 local_config = fetch_config(model)
@@ -276,6 +283,7 @@ def repeat_with(
                     root_workplace=workplace,
                     config=local_config,
                     data_folder=data_folder,
+                    **(task_meta_kwargs or {}),
                 )
         # finalize
         results = experiment.run_tasks(use_tqdm=use_tqdm)
