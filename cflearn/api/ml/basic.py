@@ -199,9 +199,10 @@ def repeat_with(
     available_cuda_list: Optional[List[int]] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     task_meta_kwargs: Optional[Dict[str, Any]] = None,
+    is_fix: bool = False,
     **kwargs: Any,
 ) -> RepeatResult:
-    if os.path.isdir(workplace):
+    if os.path.isdir(workplace) and not is_fix:
         print(f"{WARNING_PREFIX}'{workplace}' already exists, it will be erased")
         shutil.rmtree(workplace)
     kwargs = shallow_copy_dict(kwargs)
@@ -211,6 +212,10 @@ def repeat_with(
         sequential = num_jobs <= 1
     if model_configs is None:
         model_configs = {}
+
+    def is_buggy(i_: int, model_: str) -> bool:
+        i_workplace = os.path.join(workplace, model_, str(i_))
+        return get_latest_workplace(i_workplace) is None
 
     def fetch_config(core_name: str) -> Dict[str, Any]:
         local_kwargs = shallow_copy_dict(kwargs)
@@ -249,6 +254,8 @@ def repeat_with(
                     leave=False,
                 )
             for i in sub_iterator:
+                if is_fix and not is_buggy(i, model):
+                    continue
                 local_config = fetch_config(model)
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
@@ -278,11 +285,14 @@ def repeat_with(
         )
         for model in models:
             for i in range(num_repeat):
+                if is_fix and not is_buggy(i, model):
+                    continue
                 local_config = fetch_config(model)
                 experiment.add_task(
                     model=model,
                     compress=compress,
                     root_workplace=workplace,
+                    workplace_key=(model, str(i)),
                     config=local_config,
                     data_folder=data_folder,
                     **(task_meta_kwargs or {}),
