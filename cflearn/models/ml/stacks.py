@@ -18,7 +18,6 @@ from ...constants import PREDICTIONS_KEY
 from ...modules.blocks import _get_clones
 from ...modules.blocks import Lambda
 from ...modules.blocks import Linear
-from ...modules.blocks import Dropout
 from ...modules.blocks import PreNorm
 from ...modules.blocks import Residual
 
@@ -29,9 +28,9 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             Linear(in_dim, latent_dim),
             nn.GELU(),
-            Dropout(dropout),
+            nn.Dropout(dropout),
             Linear(latent_dim, in_dim),
-            Dropout(dropout),
+            nn.Dropout(dropout),
         )
 
     def forward(self, net: Tensor) -> Tensor:

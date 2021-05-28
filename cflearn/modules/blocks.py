@@ -71,33 +71,6 @@ class BN(nn.BatchNorm1d):
         return net
 
 
-class Dropout(Module):
-    def __init__(self, dropout: float):
-        if dropout < 0.0 or dropout >= 1.0:
-            msg = f"dropout probability has to be between [0, 1), but got {dropout}"
-            raise ValueError(msg)
-        super().__init__()
-        self._keep_prob = 1.0 - dropout
-        self._mask_cache: Optional[torch.Tensor] = None
-
-    def forward(self, net: torch.Tensor, *, reuse: bool = False) -> torch.Tensor:
-        if not self.training or self._keep_prob >= 1.0 - 1.0e-8:
-            return net
-        if reuse:
-            mask = self._mask_cache
-        else:
-            self._mask_cache = mask = (
-                torch.bernoulli(net.new(*net.shape).fill_(self._keep_prob))
-                / self._keep_prob
-            )
-        net = net * mask
-        del mask
-        return net
-
-    def extra_repr(self) -> str:
-        return f"keep={self._keep_prob}"
-
-
 class EMA(Module):
     def __init__(
         self,
@@ -1212,7 +1185,7 @@ class Mapping(MappingBase):
             activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activations.make(activation, activation_config)
         use_dropout = 0.0 < dropout < 1.0
-        self.dropout = None if not use_dropout else Dropout(dropout)
+        self.dropout = None if not use_dropout else nn.Dropout(dropout)
 
     @property
     def weight(self) -> Tensor:
@@ -1222,14 +1195,14 @@ class Mapping(MappingBase):
     def bias(self) -> Optional[Tensor]:
         return self.linear.bias
 
-    def forward(self, net: Tensor, *, reuse: bool = False) -> Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         net = self.linear(net)
         if self.bn is not None:
             net = self.bn(net)
         if self.activation is not None:
             net = self.activation(net)
         if self.dropout is not None:
-            net = self.dropout(net, reuse=reuse)
+            net = self.dropout(net)
         return net
 
     @classmethod
@@ -1340,7 +1313,7 @@ class ResBlock(_SkipConnectBlock):
             **kwargs,
         )
         self.res_bn = None if not batch_norm else BN(latent_dim)
-        self.res_dropout = Dropout(dropout)
+        self.res_dropout = nn.Dropout(dropout)
         if activation is None:
             self.res_activation: Optional[Module] = None
         else:

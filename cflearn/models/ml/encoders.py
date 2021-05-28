@@ -20,7 +20,6 @@ from ...misc.toolkit import Initializer
 from ...misc.toolkit import LoggingMixinWithRank
 from ...misc.internal_ import MLLoader
 from ...modules.blocks import Lambda
-from ...modules.blocks import Dropout
 
 
 class EncodingResult(NamedTuple):
@@ -158,7 +157,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         # embedding dropout
         self.embedding_dropout = None
         if self.use_embedding and 0.0 < self._embed_drop < 1.0:
-            self.embedding_dropout = Dropout(self._embed_drop)
+            self.embedding_dropout = nn.Dropout(self._embed_drop)
         # compile
         self.one_hot_columns = self.tgt_columns[self._one_hot_indices]
         self.embedding_columns = self.tgt_columns[self._embed_indices]
