@@ -76,7 +76,7 @@ def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) ->
     return workplace
 
 
-def get_latest_workplace(root: str) -> str:
+def get_latest_workplace(root: str) -> Optional[str]:
     all_workplaces = []
     for stuff in os.listdir(root):
         if not os.path.isdir(os.path.join(root, stuff)):
@@ -86,6 +86,8 @@ def get_latest_workplace(root: str) -> str:
             all_workplaces.append(stuff)
         except:
             pass
+    if not all_workplaces:
+        return None
     return os.path.join(root, sorted(all_workplaces)[-1])
 
 
