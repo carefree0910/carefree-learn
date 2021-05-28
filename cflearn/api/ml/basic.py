@@ -15,6 +15,7 @@ from typing import NamedTuple
 from tqdm.autonotebook import tqdm
 from cftool.ml import ModelPattern
 from cftool.ml import EnsemblePattern
+from cftool.dist import Parallel
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.ml.utils import patterns_type
@@ -30,6 +31,7 @@ from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
+from ...misc.toolkit import get_latest_workplace
 from ...misc.internal_ import MLData
 from ...models.ml.protocol import MLCoreProtocol
 
@@ -309,6 +311,18 @@ def repeat_with(
     return RepeatResult(data, experiment, pipelines_dict, patterns)
 
 
+def pack_repeat(
+    workplace: str,
+    pipeline_base: Type[SimplePipeline],
+    *,
+    num_jobs: int = 1,
+) -> List[str]:
+    sub_workplaces = []
+    for stuff in sorted(os.listdir(workplace)):
+        sub_workplaces.append(get_latest_workplace(os.path.join(workplace, stuff)))
+    return Parallel(num_jobs)(pipeline_base.pack, sub_workplaces).ordered_results
+
+
 def make_toy_model(
     model: str = "fcnn",
     config: Optional[Dict[str, Any]] = None,
@@ -361,6 +375,7 @@ __all__ = [
     "task_loader",
     "load_experiment_results",
     "repeat_with",
+    "pack_repeat",
     "make_toy_model",
     "ModelPattern",
     "EnsemblePattern",
