@@ -26,7 +26,10 @@ from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
 from ..basic import make
 from ...types import data_type
+from ...trainer import get_sorted_checkpoints
+from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
+from ...constants import CHECKPOINTS_FOLDER
 from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
@@ -215,7 +218,15 @@ def repeat_with(
 
     def is_buggy(i_: int, model_: str) -> bool:
         i_workplace = os.path.join(workplace, model_, str(i_))
-        return get_latest_workplace(i_workplace) is None
+        i_workplace = get_latest_workplace(i_workplace)
+        if i_workplace is None:
+            return True
+        checkpoint_folder = os.path.join(i_workplace, CHECKPOINTS_FOLDER)
+        if not os.path.isfile(os.path.join(checkpoint_folder, SCORES_FILE)):
+            return True
+        if not get_sorted_checkpoints(checkpoint_folder):
+            return True
+        return False
 
     def fetch_config(core_name: str) -> Dict[str, Any]:
         local_kwargs = shallow_copy_dict(kwargs)
