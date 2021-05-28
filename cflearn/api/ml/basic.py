@@ -330,7 +330,8 @@ def pack_repeat(
     sub_workplaces = []
     for stuff in sorted(os.listdir(workplace)):
         sub_workplaces.append(get_latest_workplace(os.path.join(workplace, stuff)))
-    return Parallel(num_jobs)(pipeline_base.pack, sub_workplaces).ordered_results
+    rs = Parallel(num_jobs).grouped(pipeline_base.pack, sub_workplaces).ordered_results
+    return sum(rs, [])
 
 
 def make_toy_model(
