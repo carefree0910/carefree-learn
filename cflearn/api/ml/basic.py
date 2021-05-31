@@ -340,7 +340,10 @@ def pack_repeat(
 ) -> List[str]:
     sub_workplaces = []
     for stuff in sorted(os.listdir(workplace)):
-        sub_workplaces.append(get_latest_workplace(os.path.join(workplace, stuff)))
+        stuff_path = os.path.join(workplace, stuff)
+        if not os.path.isdir(stuff_path):
+            continue
+        sub_workplaces.append(get_latest_workplace(stuff_path))
     rs = Parallel(num_jobs).grouped(pipeline_base.pack, sub_workplaces).ordered_results
     return sum(rs, [])
 
