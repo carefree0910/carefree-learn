@@ -1,4 +1,5 @@
 import os
+import json
 import shutil
 
 import numpy as np
@@ -348,6 +349,29 @@ def pack_repeat(
     return sum(rs, [])
 
 
+def pick_from_repeat_and_pack(
+    workplace: str,
+    pipeline_base: Type[SimplePipeline],
+    *,
+    num_pick: int,
+    num_jobs: int = 1,
+) -> List[str]:
+    score_workplace_pairs = []
+    for stuff in sorted(os.listdir(workplace)):
+        stuff_path = os.path.join(workplace, stuff)
+        if not os.path.isdir(stuff_path):
+            continue
+        sub_workplace = get_latest_workplace(stuff_path)
+        score_path = os.path.join(sub_workplace, CHECKPOINTS_FOLDER, SCORES_FILE)
+        with open(score_path, "r") as f:
+            score = float(max(json.load(f).values()))
+            score_workplace_pairs.append((score, sub_workplace))
+    score_workplace_pairs = sorted(score_workplace_pairs)[::-1]
+    sub_workplaces = [pair[1] for pair in score_workplace_pairs[:num_pick]]
+    rs = Parallel(num_jobs).grouped(pipeline_base.pack, sub_workplaces).ordered_results
+    return sum(rs, [])
+
+
 def make_toy_model(
     model: str = "fcnn",
     config: Optional[Dict[str, Any]] = None,
@@ -401,6 +425,7 @@ __all__ = [
     "load_experiment_results",
     "repeat_with",
     "pack_repeat",
+    "pick_from_repeat_and_pack",
     "make_toy_model",
     "ModelPattern",
     "EnsemblePattern",
