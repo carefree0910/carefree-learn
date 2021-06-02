@@ -10,6 +10,7 @@ import torchvision
 
 import numpy as np
 import torch.nn as nn
+import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
 from PIL import Image
@@ -29,6 +30,7 @@ from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
 from cftool.misc import prod
+from cftool.misc import show_or_save
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
@@ -37,6 +39,7 @@ from ..types import data_type
 from ..types import param_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
+from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import TIME_FORMAT
 from ..constants import WARNING_PREFIX
@@ -573,6 +576,39 @@ class Initializer(LoggingMixinWithRank):
     def orthogonal(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.orthogonal_(param.data, gain)
+
+
+class WeightsStrategy:
+    def __init__(self, strategy: Optional[str]):
+        self.strategy = strategy
+
+    def __call__(self, num_train: int, num_valid: int) -> sample_weights_type:
+        if self.strategy is None:
+            return None
+        return getattr(self, self.strategy)(num_train, num_valid)
+
+    def linear_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        return np.linspace(0, 1, num_train + 1)[1:]
+
+    def radius_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        return np.sin(np.arccos(1.0 - np.linspace(0, 1, num_train + 1)[1:]))
+
+    def log_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        return np.log(np.arange(num_train) + np.e)
+
+    def sigmoid_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        x = np.linspace(-5.0, 5.0, num_train)
+        return 1.0 / (1.0 + np.exp(-x))
+
+    def visualize(self, export_path: str = "weights_strategy.png") -> None:
+        n = 1000
+        x = np.linspace(0, 1, n)
+        y = self(n, 0)
+        if isinstance(y, tuple):
+            y = y[0]
+        plt.figure()
+        plt.plot(x, y)
+        show_or_save(export_path)
 
 
 # ml
