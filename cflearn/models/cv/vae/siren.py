@@ -12,7 +12,7 @@ from ....protocol import ModelProtocol
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
-from ..implicit.siren import ImgSiren
+from ...implicit.siren import ImgSiren
 from ....modules.blocks import Linear
 
 

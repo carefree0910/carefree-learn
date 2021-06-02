@@ -7,7 +7,7 @@ from typing import List
 from typing import Optional
 
 from .protocol import VanillaGANMixin
-from ..implicit.siren import ImgSiren
+from ...implicit.siren import ImgSiren
 
 
 @VanillaGANMixin.register("siren_gan")
