@@ -46,6 +46,7 @@ class FCNN(MLCoreProtocol):
             blocks.append(mapping)
             in_dim = hidden_unit
         blocks.append(nn.Linear(in_dim, out_dim, bias))
+        self.hidden_units = hidden_units
         self.net = nn.Sequential(*blocks)
 
     def forward(
