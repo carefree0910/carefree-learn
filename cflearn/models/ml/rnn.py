@@ -148,7 +148,7 @@ class RNNWithBAKE(BAKEBase):
             bake_loss = "focal" if is_classification else "mae"
         self.bake_loss = LossProtocol.make(bake_loss, config=bake_loss_config or {})
 
-    def forward_with_latent(
+    def forward(
         self,
         batch_idx: int,
         batch: tensor_dict_type,

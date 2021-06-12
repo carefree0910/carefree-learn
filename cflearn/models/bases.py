@@ -2,18 +2,15 @@ import torch
 
 import torch.nn.functional as F
 
-from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
-from typing import Optional
 
 from ..types import tensor_dict_type
 from ..protocol import StepOutputs
 from ..protocol import LossProtocol
-from ..protocol import TrainerState
 from ..protocol import MetricsOutputs
 from ..protocol import DataLoaderProtocol
 from ..protocol import ModelWithCustomSteps
@@ -29,25 +26,6 @@ class BAKEBase(ModelWithCustomSteps, metaclass=ABCMeta):
     bake_loss: LossProtocol
     w_ensemble: float
     is_classification: bool
-
-    @abstractmethod
-    def forward_with_latent(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return self.forward_with_latent(batch_idx, batch, state, **kwargs)
 
     def _get_losses(
         self,
