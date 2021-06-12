@@ -6,6 +6,7 @@ import torch.nn.functional as F
 
 from torch import Tensor
 from typing import Tuple
+from typing import Union
 from typing import Callable
 from typing import Optional
 
@@ -90,9 +91,11 @@ def _make_grid(size: int, in_dim: int, device: Optional[torch.device] = None) ->
 
 
 class Siren(nn.Module):
+    grid: Optional[Tensor]
+
     def __init__(
         self,
-        size: int,
+        size: Optional[int],
         in_dim: int,
         out_dim: int,
         latent_dim: int,
@@ -102,6 +105,8 @@ class Siren(nn.Module):
         w_sin_initial: float = 30.0,
         bias: bool = True,
         final_activation: Optional[str] = None,
+        keep_edge: bool = True,
+        use_modulator: bool = True,
     ):
         super().__init__()
         self.in_dim = in_dim
@@ -124,10 +129,17 @@ class Siren(nn.Module):
             )
         self.blocks = nn.ModuleList(blocks)
         # siren grid
-        grid = _make_grid(size, in_dim)
-        self.register_buffer("grid", grid)
+        self.keep_edge = keep_edge
+        if size is None:
+            self.grid = None
+        else:
+            grid = _make_grid(size, in_dim)
+            self.register_buffer("grid", grid)
         # latent modulator
-        self.modulator = Modulator(latent_dim, latent_dim, num_layers)
+        if not use_modulator:
+            self.modulator = None
+        else:
+            self.modulator = Modulator(latent_dim, latent_dim, num_layers)
         # head
         self.head = SirenLayer(
             in_dim=latent_dim,
@@ -137,13 +149,35 @@ class Siren(nn.Module):
             activation=Activations.make(final_activation),
         )
 
-    def forward(self, latent: Tensor, *, size: Optional[int] = None) -> Tensor:
-        mods = self.modulator(latent)
-        if size is None:
-            grid = self.grid
+    def forward(
+        self,
+        inp: Union[Tensor, Tuple[Tensor, ...]],
+        *,
+        init: Optional[Tensor] = None,
+        size: Optional[int] = None,
+    ) -> Tensor:
+        # get mods
+        if self.modulator is None:
+            mods = inp
+            device = inp[0].device
         else:
-            grid = _make_grid(size, self.in_dim, latent.device)
-        net = grid.repeat(latent.shape[0], 1, 1)  # type: ignore
+            mods = self.modulator(inp)
+            device = inp.device
+        # get siren input
+        if init is not None:
+            net = init
+        else:
+            if self.grid is None and size is None:
+                raise ValueError("`init` should be provided for None sized `Siren`")
+            else:
+                if size is None:
+                    grid = self.grid
+                else:
+                    grid = _make_grid(size, self.in_dim, device)
+                    if not self.keep_edge:
+                        grid = grid[1:-1]
+                net = grid.repeat(len(inp), 1, 1)  # type: ignore
+        # forward process
         for block, mod in zip(self.blocks, mods):
             net = block(net) * mod.unsqueeze(1)
         return self.head(net)
