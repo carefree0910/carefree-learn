@@ -2,6 +2,7 @@ import torch
 
 import torch.nn.functional as F
 
+from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
@@ -21,12 +22,8 @@ from ..constants import PREDICTIONS_KEY
 from ..misc.toolkit import to_device
 
 
-class BAKEBase(ModelWithCustomSteps, metaclass=ABCMeta):
-    lb: float
-    bake_loss: LossProtocol
-    w_ensemble: float
-    is_classification: bool
-
+class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
+    @abstractmethod
     def _get_losses(
         self,
         batch_idx: int,
@@ -35,33 +32,7 @@ class BAKEBase(ModelWithCustomSteps, metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> Tuple[tensor_dict_type, tensor_dict_type]:
-        state = trainer.state
-        forward_results = self(batch_idx, batch, state, **forward_kwargs)
-        loss_dict = trainer.loss(forward_results, batch, state, **loss_kwargs)
-        loss = loss_dict[LOSS_KEY]
-        predictions = forward_results[PREDICTIONS_KEY]
-        # BAKE
-        latent = F.normalize(forward_results[LATENT_KEY])
-        batch_size = latent.shape[0]
-        eye = torch.eye(batch_size, device=latent.device)
-        similarities = F.softmax(latent.mm(latent.t()) - eye * 1.0e9, dim=1)
-        inv = (eye - self.w_ensemble * similarities).inverse()
-        weights = (1.0 - self.w_ensemble) * inv
-        if not self.is_classification:
-            bake_inp = predictions
-            soft_labels = weights.mm(predictions).detach()
-        else:
-            bake_inp = F.log_softmax(predictions)
-            soft_labels = weights.mm(F.softmax(predictions, dim=1)).detach()
-        bake_loss = self.bake_loss(
-            {PREDICTIONS_KEY: bake_inp},
-            {LABEL_KEY: soft_labels},
-            state,
-            **loss_kwargs,
-        )[LOSS_KEY]
-        loss_dict["bake"] = bake_loss
-        loss_dict[LOSS_KEY] = loss + self.lb * bake_loss
-        return forward_results, loss_dict
+        pass
 
     def train_step(
         self,
@@ -119,4 +90,50 @@ class BAKEBase(ModelWithCustomSteps, metaclass=ABCMeta):
         return MetricsOutputs(score, mean_loss_items)
 
 
-__all__ = ["BAKEBase"]
+class BAKEBase(CustomLossBase, metaclass=ABCMeta):
+    lb: float
+    bake_loss: LossProtocol
+    w_ensemble: float
+    is_classification: bool
+
+    def _get_losses(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+        state = trainer.state
+        forward_results = self(batch_idx, batch, state, **forward_kwargs)
+        loss_dict = trainer.loss(forward_results, batch, state, **loss_kwargs)
+        loss = loss_dict[LOSS_KEY]
+        predictions = forward_results[PREDICTIONS_KEY]
+        # BAKE
+        latent = F.normalize(forward_results[LATENT_KEY])
+        batch_size = latent.shape[0]
+        eye = torch.eye(batch_size, device=latent.device)
+        similarities = F.softmax(latent.mm(latent.t()) - eye * 1.0e9, dim=1)
+        inv = (eye - self.w_ensemble * similarities).inverse()
+        weights = (1.0 - self.w_ensemble) * inv
+        if not self.is_classification:
+            bake_inp = predictions
+            soft_labels = weights.mm(predictions).detach()
+        else:
+            bake_inp = F.log_softmax(predictions)
+            soft_labels = weights.mm(F.softmax(predictions, dim=1)).detach()
+        bake_loss = self.bake_loss(
+            {PREDICTIONS_KEY: bake_inp},
+            {LABEL_KEY: soft_labels},
+            state,
+            **loss_kwargs,
+        )[LOSS_KEY]
+        loss_dict["bake"] = bake_loss
+        loss_dict[LOSS_KEY] = loss + self.lb * bake_loss
+        return forward_results, loss_dict
+
+
+__all__ = [
+    "BAKEBase",
+    "CustomLossBase",
+]
