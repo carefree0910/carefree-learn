@@ -335,8 +335,6 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        if not isinstance(self.core, MLCoreProtocol):
-            raise ValueError("`num_repeat` is not supported for `ModelWithCustomSteps`")
         return self.core.train_step(
             batch_idx,
             batch,
@@ -351,8 +349,6 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         portion: float,
         trainer: Any,
     ) -> MetricsOutputs:
-        if not isinstance(self.core, MLCoreProtocol):
-            raise ValueError("`num_repeat` is not supported for `ModelWithCustomSteps`")
         return self.core.evaluate_step(loader, portion, trainer)
 
 
