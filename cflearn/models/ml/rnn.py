@@ -125,6 +125,7 @@ class RNNWithBAKE(BAKEBase):
         w_ensemble: float = 0.5,
         is_classification: bool,
     ):
+        super().__init__()
         self.rnn = RNN(
             in_dim,
             out_dim,
