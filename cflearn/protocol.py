@@ -131,6 +131,9 @@ class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     def device(self) -> torch.device:
         return list(self.parameters())[0].device
 
+    def _init_with_trainer(self, trainer: Any) -> None:
+        pass
+
     @abstractmethod
     def forward(
         self,

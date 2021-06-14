@@ -602,6 +602,8 @@ class Trainer:
         )
         # optimizer
         self._init_optimizers()
+        # callback
+        self.model._init_with_trainer(self)
         # verbose
         if show_summary is None:
             show_summary = not self.tqdm_settings.in_distributed

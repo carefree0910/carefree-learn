@@ -201,6 +201,9 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         self.out_dim = out_dim
         self.num_history = num_history
 
+    def _init_with_trainer(self, trainer: Any) -> None:
+        pass
+
     @abstractmethod
     def forward(
         self,
@@ -280,6 +283,9 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         # custom steps
         self.custom_train_step = core.custom_train_step
         self.custom_evaluate_step = core.custom_evaluate_step
+
+    def _init_with_trainer(self, trainer: Any) -> None:
+        self.core._init_with_trainer(trainer)
 
     def forward(
         self,
