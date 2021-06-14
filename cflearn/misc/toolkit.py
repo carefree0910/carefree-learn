@@ -414,7 +414,7 @@ class mode_context(context_error_handler):
         if self._grad_context is not None:
             self._grad_context.__enter__()
 
-    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._training)
         if self._grad_context is not None:
