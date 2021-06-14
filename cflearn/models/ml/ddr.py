@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -12,7 +13,6 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
-from cftool.misc import is_numeric
 from cftool.misc import show_or_save
 
 from .fcnn import FCNN
@@ -22,31 +22,44 @@ from ...types import tensor_dict_type
 from ...protocol import losses_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
+from ...constants import LOSS_KEY
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ..implicit.siren import _make_grid
 from ..implicit.siren import Siren
 from ...misc.toolkit import to_numpy
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import get_gradient
 
 
-def _expand_tau(
+def all_exists(*tensors: Optional[Tensor]) -> bool:
+    return all(tensor is not None for tensor in tensors)
+
+
+def _expand_element(
     n: int,
-    tau: Union[float, List[float], torch.Tensor],
+    element: Union[float, List[float], np.ndarray, Tensor],
     device: Optional[torch.device] = None,
-) -> torch.Tensor:
-    if isinstance(tau, torch.Tensor):
-        return tau
-    if not is_numeric(tau):
-        tau_arr = np.asarray(tau, np.float32)
+) -> Tensor:
+    if isinstance(element, Tensor):
+        return element
+    if isinstance(element, np.ndarray):
+        element_arr = element.reshape(*element.shape, 1)
+    elif isinstance(element, float):
+        element_arr = np.repeat(element, n).astype(np.float32)
+        element_arr = element_arr.reshape([-1, 1, 1])
     else:
-        tau_arr = np.repeat(tau, n).astype(np.float32)
-    tau_tensor = torch.from_numpy(tau_arr.reshape([-1, 1]))
+        element_arr = np.array(element, np.float32).reshape([1, -1, 1])
+        element_arr = np.repeat(element_arr, n, axis=0)
+    element_tensor = torch.from_numpy(element_arr)
     if device is not None:
-        tau_tensor = tau_tensor.to(device)
-    tau_tensor = tau_tensor * 2.0 - 1.0
-    return tau_tensor
+        element_tensor = element_tensor.to(device)
+    return element_tensor
+
+
+def _make_grid_without_edge(num_samples: int, device: torch.device) -> Tensor:
+    return _make_grid(num_samples + 2, 1, device)[:, 1:-1]
 
 
 @MLCoreProtocol.register("ddr")
@@ -65,7 +78,10 @@ class DDR(CustomLossBase):
         dropout: float = 0.0,
         w_sin: float = 1.0,
         w_sin_initial: float = 30.0,
-        num_tau_samples: int = 32,
+        num_random_samples: int = 16,
+        predict_quantiles: bool = True,
+        predict_cdf: bool = True,
+        y_min_max: Optional[Tuple[float, float]] = None,
     ):
         super().__init__(in_dim, out_dim, num_history)
         self.fcnn = FCNN(
@@ -82,19 +98,55 @@ class DDR(CustomLossBase):
         hidden_units = self.fcnn.hidden_units
         if not len(set(hidden_units)) == 1:
             raise ValueError("`DDR` requires all hidden units to be identical")
-        self.q_siren = Siren(
-            None,
-            1,
-            1,
-            hidden_units[0],
-            num_layers=len(hidden_units),
-            w_sin=w_sin,
-            w_sin_initial=w_sin_initial,
-            bias=False,
-            keep_edge=False,
-            use_modulator=False,
-        )
-        self.num_tau_samples = num_tau_samples
+
+        def _make_siren() -> Siren:
+            return Siren(
+                None,
+                1,
+                1,
+                hidden_units[0],
+                num_layers=len(hidden_units),
+                w_sin=w_sin,
+                w_sin_initial=w_sin_initial,
+                bias=False,
+                keep_edge=False,
+                use_modulator=False,
+            )
+
+        self.predict_quantiles = predict_quantiles
+        self.predict_cdf = predict_cdf
+        self.q_siren = None if not predict_quantiles else _make_siren()
+        self.cdf_siren = None if not predict_cdf else _make_siren()
+        self.num_random_samples = num_random_samples
+        self._y_min_max = y_min_max
+
+    def _init_with_trainer(self, trainer: Any) -> None:
+        if self._y_min_max is None:
+            y_train = trainer.train_loader.data.y
+            self._y_min_max = y_train.min().item(), y_train.max().item()
+        self.register_buffer("y_min_max", torch.tensor(self._y_min_max))
+
+    def _get_quantiles(
+        self,
+        tau: Tensor,
+        mods: List[Tensor],
+        median: Tensor,
+    ) -> Tensor:
+        q_increment = self.q_siren(mods, init=tau).squeeze(-1)
+        return q_increment, median + q_increment
+
+    def _get_cdf(
+        self,
+        y_anchor: Tensor,
+        median: Tensor,
+        y_span: float,
+        mods: List[Tensor],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        y_residual = y_anchor - median.unsqueeze(1)
+        y_ratio = y_residual / y_span
+        logit = self.cdf_siren(mods, init=y_ratio).squeeze(-1)
+        cdf = torch.sigmoid(logit)
+        return y_ratio, logit, cdf
 
     def forward(
         self,
@@ -109,6 +161,8 @@ class DDR(CustomLossBase):
         num_samples = len(net)
         if len(net.shape) > 2:
             net = net.contiguous().view(num_samples, -1)
+        get_quantiles = kwargs.get("get_quantiles", True) and self.predict_quantiles
+        get_cdf = kwargs.get("get_cdf", True) and self.predict_cdf
         # median forward
         mods = []
         for block in self.fcnn.net:
@@ -116,25 +170,59 @@ class DDR(CustomLossBase):
             mods.append(net)
         median = mods.pop()
         results = {PREDICTIONS_KEY: median}
-        if not kwargs.get("get_quantiles", True):
+        if not get_quantiles and not get_cdf:
             return results
+        y_min, y_max = self.y_min_max.tolist()
+        y_span = y_max - y_min
         # quantile forward
-        tau = kwargs.get("tau", None)
-        if tau is not None:
-            tau = _expand_tau(num_samples, tau, device)
-        else:
-            shape = num_samples, self.num_tau_samples, 1
-            tau = torch.rand(*shape, device=device) * 2.0 - 1.0
-        tau.requires_grad_(True)
-        q_increment = self.q_siren(mods, init=tau).squeeze(-1)
-        quantiles = median + q_increment
-        results.update(
-            {
-                "tau": tau,
-                "q_increment": q_increment,
-                "quantiles": quantiles,
-            }
-        )
+        if get_quantiles:
+            tau = kwargs.get("tau", None)
+            if tau is not None:
+                tau = _expand_element(num_samples, tau, device) * 2.0 - 1.0
+            else:
+                shape = num_samples, self.num_random_samples, 1
+                if self.training:
+                    tau = torch.rand(*shape, device=device) * 2.0 - 1.0
+                else:
+                    tau = _make_grid_without_edge(self.num_random_samples, device)
+                    tau = tau.repeat(num_samples, 1, 1)
+            tau.requires_grad_(True)
+            q_increment, quantiles = self._get_quantiles(tau, mods, median)
+            results.update(
+                {
+                    "tau": tau,
+                    "q_increment": q_increment,
+                    "quantiles": quantiles,
+                }
+            )
+        # cdf forward
+        if get_cdf:
+            y_anchor = kwargs.get("y_anchor", None)
+            if y_anchor is not None:
+                y_anchor = _expand_element(num_samples, y_anchor, device)
+            else:
+                shape = num_samples, self.num_random_samples, 1
+                if self.training:
+                    y_anchor = torch.rand(*shape, device=device) * y_span + y_min
+                else:
+                    y_raw_ratio = _make_grid_without_edge(self.num_random_samples, device)
+                    y_raw_ratio = 0.5 * (y_raw_ratio + 1.0)
+                    y_anchor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
+            y_anchor.requires_grad_(True)
+            y_ratio, logit, cdf = self._get_cdf(y_anchor, median, y_span, mods)
+            pdf = get_gradient(cdf, y_anchor, True, True).squeeze(-1)
+            results.update(
+                {
+                    "y_anchor": y_anchor.squeeze(-1),
+                    "logit": logit,
+                    "cdf": cdf,
+                    "pdf": pdf,
+                }
+            )
+        # dual forward
+        if get_quantiles and get_cdf:
+            dual_y = results["quantiles"].unsqueeze(2).detach()
+            results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, mods)[-1]
         return results
 
     def _get_losses(
@@ -156,7 +244,9 @@ class DDR(CustomLossBase):
 @LossProtocol.register("ddr")
 class DDRLoss(LossProtocol):
     def _init_config(self) -> None:
-        self.lb_monotonous = self.config.setdefault("lb_monotonous", 0.1)
+        self.lb_ddr = self.config.setdefault("lb_ddr", 1.0)
+        self.lb_dual = self.config.setdefault("lb_dual", 1.0)
+        self.lb_monotonous = self.config.setdefault("lb_monotonous", 1.0)
 
     def _core(
         self,
@@ -165,25 +255,53 @@ class DDRLoss(LossProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
-        tau = forward_results["tau"]
-        quantiles = forward_results["quantiles"]
-        q_increment = forward_results["q_increment"]
-        predictions = forward_results[PREDICTIONS_KEY]
+        tau = forward_results.get("tau")
+        quantiles = forward_results.get("quantiles")
+        q_increment = forward_results.get("q_increment")
+        cdf = forward_results.get("cdf")
+        pdf = forward_results.get("pdf")
+        logit = forward_results.get("logit")
+        y_anchor = forward_results.get("y_anchor")
+        dual_cdf = forward_results.get("dual_cdf")
+        median = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
+        losses = {}
+        weighted_losses = []
         # mae
-        mae = F.l1_loss(predictions, labels, reduction="none")
+        mae = F.l1_loss(median, labels, reduction="none")
+        losses["mae"] = mae
+        weighted_losses.append(mae)
         # quantiles
-        quantile_error = labels - quantiles
-        tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)
-        neg_errors = tau_raw * quantile_error
-        pos_errors = (tau_raw - 1.0) * quantile_error
-        q_loss = torch.max(neg_errors, pos_errors).mean(1, keepdim=True)
-        # monotonous
-        g_tau = get_gradient(q_increment, tau, retain_graph=True, create_graph=True)
-        g_tau_loss = F.relu(-g_tau.squeeze(-1), inplace=True).mean(1, keepdim=True)
+        if all_exists(tau, quantiles, q_increment):
+            quantile_error = labels - quantiles
+            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)
+            neg_errors = tau_raw * quantile_error
+            pos_errors = (tau_raw - 1.0) * quantile_error
+            q_loss = torch.max(neg_errors, pos_errors).mean(1, keepdim=True)
+            g_tau = get_gradient(q_increment, tau, retain_graph=True, create_graph=True)
+            g_tau_loss = F.relu(-g_tau.squeeze(-1), inplace=True).mean(1, keepdim=True)
+            losses["q"] = q_loss
+            losses["g_tau"] = g_tau_loss
+            weighted_losses.append(self.lb_ddr * q_loss)
+            weighted_losses.append(self.lb_monotonous * g_tau_loss)
+        # cdf
+        if all_exists(cdf, pdf, logit, y_anchor):
+            indicative = (labels <= y_anchor).to(torch.float32)
+            cdf_loss = (-indicative * logit + F.softplus(logit)).mean(1, keepdim=True)
+            pdf_loss = F.relu(-pdf, inplace=True).mean(1, keepdim=True)
+            losses["cdf"] = cdf_loss
+            losses["pdf"] = pdf_loss
+            weighted_losses.append(self.lb_ddr * cdf_loss)
+            weighted_losses.append(self.lb_monotonous * pdf_loss)
+        # dual
+        if all_exists(dual_cdf):
+            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)
+            tau_recover_loss = F.l1_loss(tau_raw, dual_cdf)
+            losses["tau_recover"] = tau_recover_loss
+            weighted_losses.append(self.lb_dual * tau_recover_loss)
         # aggregate
-        loss = mae + q_loss + self.lb_monotonous * g_tau_loss
-        return {"mae": mae, "q_loss": q_loss, "g_tau_loss": g_tau_loss, "loss": loss}
+        losses[LOSS_KEY] = sum(weighted_losses)
+        return losses
 
 
 class DDRPredictor:
@@ -199,8 +317,20 @@ class DDRPredictor:
         return to_numpy(results[PREDICTIONS_KEY])
 
     def quantile(self, x: np.ndarray, tau: Union[float, List[float]]) -> np.ndarray:
-        results = self._fetch(x, tau=tau)
+        results = self._fetch(x, tau=tau, get_cdf=False)
         return to_numpy(results["quantiles"])
+
+    def cdf_pdf(
+        self,
+        x: np.ndarray,
+        y: Union[float, List[float]],
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        if isinstance(y, float):
+            y = [y]
+        y_anchor = np.array(y, np.float32).reshape([1, -1])
+        y_anchor = np.repeat(y_anchor, len(x), axis=0)
+        results = self._fetch(x, y_anchor=y_anchor, get_quantiles=False)
+        return to_numpy(results["cdf"]), to_numpy(results["pdf"])
 
 
 class DDRVisualizer:
@@ -210,6 +340,7 @@ class DDRVisualizer:
         dpi: int = 200,
         figsize: Tuple[int, int] = (8, 6),
     ):
+        self.m = ddr
         self.dpi = dpi
         self.figsize = figsize
         self.predictor = DDRPredictor(ddr)
@@ -251,7 +382,7 @@ class DDRVisualizer:
         y: np.ndarray,
         export_path: Optional[str],
         *,
-        tau: Union[float, List[float]],
+        ratios: Union[float, List[float]],
         **kwargs: Any,
     ) -> None:
         x_min, x_max = np.min(x), np.max(x)
@@ -269,10 +400,26 @@ class DDRVisualizer:
         fig = self._prepare_base_figure(x, y, x_base, mean, median, indices, "")
         render_args = x_min, x_max, y_min, y_max, y_padding
         # quantile curves
-        quantile_curves = self.predictor.quantile(x_base, tau)
-        for q, quantile_curve in zip(tau, quantile_curves.T):
-            plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
-        DDRVisualizer._render_figure(*render_args)
+        if self.m.predict_quantiles:
+            quantile_curves = self.predictor.quantile(x_base, ratios)
+            for q, quantile_curve in zip(ratios, quantile_curves.T):
+                plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
+            DDRVisualizer._render_figure(*render_args)
+        # cdf curves
+        if self.m.predict_cdf:
+            anchors = [ratio * (y_max - y_min) + y_min for ratio in ratios]
+            cdfs, pdfs = self.predictor.cdf_pdf(x_base, anchors)
+            for ratio, anchor, cdf, pdf in zip(ratios, anchors, cdfs.T, pdfs.T):
+                anchor_line = np.full(len(x_base), anchor)
+                plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
+                plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
+                plt.plot(
+                    x_base.ravel(),
+                    anchor_line,
+                    label=f"anchor {ratio:4.2f}",
+                    color="gray",
+                )
+            DDRVisualizer._render_figure(*render_args)
         show_or_save(export_path, fig)
 
     def visualize_multiple(
@@ -284,7 +431,7 @@ class DDRVisualizer:
         *,
         num_base: int = 1000,
         num_repeat: int = 10000,
-        tau: Union[float, List[float]],
+        ratios: Union[float, List[float]],
     ) -> None:
         x_min, x_max = x.min(), x.max()
         x_diff = x_max - x_min
@@ -313,10 +460,21 @@ class DDRVisualizer:
             plt.legend()
             show_or_save(os.path.join(export_folder, f"{prefix}_{num:4.2f}.png"))
 
-        yq_predictions = self.predictor.quantile(x_base, tau)
-        for q, yq_pred in zip(tau, yq_predictions.T):
-            yq = np.percentile(y_matrix, int(100 * q), axis=1)
-            _plot("quantile", q, yq, yq_pred, None)
+        if self.m.predict_quantiles:
+            yq_predictions = self.predictor.quantile(x_base, ratios)
+            for q, yq_pred in zip(ratios, yq_predictions.T):
+                yq = np.percentile(y_matrix, int(100 * q), axis=1)
+                _plot("quantile", q, yq, yq_pred, None)
+
+        if self.m.predict_cdf:
+            anchors = [ratio * (y_max - y_min) + y_min for ratio in ratios]
+            for anchor in anchors:
+                anchor_line = np.full(len(x_base), anchor)
+                yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
+                cdf, pdf = self.predictor.cdf_pdf(x_base, anchor)
+                cdf = cdf * y_diff + y_min
+                _plot("cdf", anchor, yd, cdf, anchor_line)
+                _plot("pdf", anchor, None, pdf, anchor_line)
 
 
 __all__ = [

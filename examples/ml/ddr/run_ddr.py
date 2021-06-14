@@ -9,7 +9,7 @@ from cflearn.models.ml.ddr import DDRVisualizer
 power = 4
 padding = 1.0
 output_folder = "fig"
-tau = [0.1, 0.3, 0.5, 0.7, 0.9]
+ratios = [0.1, 0.3, 0.5, 0.7, 0.9]
 
 num_samples = 10 ** power
 num_validation = num_test = int(min(10000, num_samples * 0.1))
@@ -41,7 +41,7 @@ visualizer.visualize(
     x_test,
     y_test,
     os.path.join(output_folder, "all.png"),
-    tau=tau,
+    ratios=ratios,
     padding=padding,
 )
 visualizer.visualize_multiple(
@@ -49,5 +49,5 @@ visualizer.visualize_multiple(
     x_test,
     y_test,
     output_folder,
-    tau=tau,
+    ratios=ratios,
 )
