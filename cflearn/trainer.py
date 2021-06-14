@@ -31,6 +31,7 @@ from .protocol import ModelWithCustomSteps
 from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import scheduler_requires_metric
+from .misc.toolkit import eval_context
 from .misc.internal_ import BasicMonitor
 from .misc.internal_ import MultipleMetrics
 from .modules.optimizers import optimizer_dict
@@ -692,7 +693,15 @@ class Trainer:
         if loader is None:
             loader = self.validation_loader
         if self.model_has_custom_steps and self.model.custom_evaluate_step:
-            return self.model.evaluate_step(loader, portion, self)  # type: ignore
+            use_grad = self.inference.use_grad_in_predict
+            try:
+                with eval_context(self.model, use_grad=use_grad):
+                    rs = self.model.evaluate_step(loader, portion, self)  # type: ignore
+            except:
+                self.inference.use_grad_in_predict = True
+                with eval_context(self.model, use_grad=True):
+                    rs = self.model.evaluate_step(loader, portion, self)  # type: ignore
+            return rs
         outputs = self.inference.get_outputs(
             loader,
             portion=portion,
