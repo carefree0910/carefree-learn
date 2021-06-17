@@ -83,6 +83,8 @@ def make_trainer(
     # epoch
     if fixed_epoch is not None:
         num_epoch = max_epoch = fixed_epoch
+    if max_epoch < num_epoch:
+        raise ValueError("`max_epoch` should not be smaller than `num_epoch`")
     return Trainer(
         state_config,
         num_epoch=num_epoch,
