@@ -277,7 +277,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.trainer_config["callback_configs"] = callback_configs
         self.trainer_config["optimizer_settings"] = optimizer_settings
 
-    # TODO : support sample weights
     def _before_loop(
         self,
         x: Any,

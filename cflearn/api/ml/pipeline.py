@@ -490,7 +490,6 @@ class CarefreePipeline(SimplePipeline):
         self.data = TabularData(**(data_config or {}))
         self.read_config = read_config or {}
 
-    # TODO : support sample weights
     def _prepare_data(
         self,
         x: data_type,
