@@ -278,18 +278,6 @@ class Activations:
 
     # custom
 
-    # TODO : After updated to pytorch>=1.7.0, re-implement this
-    @property
-    def logit(self) -> Module:
-        kwargs = self.configs.setdefault("logit", {})
-        eps = kwargs.setdefault("eps", 1.0e-6)
-
-        def _logit(net: torch.Tensor) -> torch.Tensor:
-            net = torch.clamp(net, eps, 1.0 - eps)
-            return torch.log(net / (1.0 - net))
-
-        return Lambda(_logit, f"logit_{eps:.2e}")
-
     @property
     def atanh(self) -> Module:
         kwargs = self.configs.setdefault("atanh", {})
