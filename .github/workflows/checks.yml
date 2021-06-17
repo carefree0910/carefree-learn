@@ -2,9 +2,9 @@ name: Checks
 
 on:
   push:
-    branches: [ _refactor ]
+    branches: [ v0.2.x ]
   pull_request:
-    branches: [ _refactor ]
+    branches: [ v0.2.x ]
 
 jobs:
   checks:
