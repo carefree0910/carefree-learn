@@ -28,4 +28,4 @@ jobs:
       - name: Test with mlflow
         shell: bash -l {0}
         run: |
-          mlflow run https://github.com/carefree0910/carefree-learn -e test -v _refactor
+          mlflow run https://github.com/carefree0910/carefree-learn -e test -v v0.2.x
