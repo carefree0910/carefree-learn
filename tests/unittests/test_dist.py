@@ -11,7 +11,7 @@ from cfdata.tabular import TabularDataset
 
 num_jobs = 0 if platform.system() == "Linux" else 2
 logging_folder = "__test_dist__"
-kwargs = {"max_epoch": 3}
+kwargs = {"fixed_epoch": 3}
 
 
 class TestDist(unittest.TestCase):

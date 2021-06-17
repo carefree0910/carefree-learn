@@ -40,7 +40,7 @@ class TestCustomization(unittest.TestCase):
                 "output_dim": 1,
                 "is_classification": False,
                 "loss_name": "mae",
-                "max_epoch": 0,
+                "fixed_epoch": 0,
             },
         )
         m.fit(x, y)
