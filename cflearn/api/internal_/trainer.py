@@ -19,6 +19,7 @@ def make_trainer(
     workplace: str,
     num_epoch: int = 40,
     max_epoch: int = 1000,
+    fixed_epoch: Optional[int] = None,
     valid_portion: float = 1.0,
     amp: bool = False,
     clip_norm: float = 0.0,
@@ -79,6 +80,9 @@ def make_trainer(
     if tqdm_settings is None:
         tqdm_settings = {}
     use_tqdm = tqdm_settings.setdefault("use_tqdm", False)
+    # epoch
+    if fixed_epoch is not None:
+        num_epoch = max_epoch = fixed_epoch
     return Trainer(
         state_config,
         num_epoch=num_epoch,
