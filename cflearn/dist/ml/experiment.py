@@ -58,8 +58,9 @@ class ExperimentResults(NamedTuple):
         folders: Dict[str, Dict[int, str]] = {}
         for workplace, workplace_key in zip(self.workplaces, self.workplace_keys):
             model, index = workplace_key
-            workplace = get_latest_workplace(workplace)
-            checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
+            latest_workplace = get_latest_workplace(workplace)
+            assert latest_workplace is not None, "internal error occurred"
+            checkpoint_folder = os.path.join(latest_workplace, CHECKPOINTS_FOLDER)
             folders.setdefault(model, {})[int(index)] = checkpoint_folder
         return {k: [v[i] for i in range(len(v))] for k, v in folders.items()}
 
@@ -68,8 +69,9 @@ class ExperimentResults(NamedTuple):
         paths: Dict[str, Dict[int, str]] = {}
         for workplace, workplace_key in zip(self.workplaces, self.workplace_keys):
             model, index = workplace_key
-            workplace = get_latest_workplace(workplace)
-            configs_path = os.path.join(workplace, CarefreePipeline.configs_file)
+            latest_workplace = get_latest_workplace(workplace)
+            assert latest_workplace is not None, "internal error occurred"
+            configs_path = os.path.join(latest_workplace, CarefreePipeline.configs_file)
             paths.setdefault(model, {})[int(index)] = configs_path
         return {k: [v[i] for i in range(len(v))] for k, v in paths.items()}
 

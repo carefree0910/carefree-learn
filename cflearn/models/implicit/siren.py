@@ -162,7 +162,7 @@ class Siren(nn.Module):
             device = inp[0].device
         else:
             mods = self.modulator(inp)
-            device = inp.device
+            device = inp.device  # type: ignore
         # get siren input
         if init is not None:
             net = init

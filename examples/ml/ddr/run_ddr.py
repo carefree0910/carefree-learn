@@ -36,7 +36,7 @@ m = cflearn.ml.SimplePipeline(
 m.fit(x_train, y_train, x_valid, y_valid)
 
 os.makedirs(output_folder, exist_ok=True)
-visualizer = DDRVisualizer(m.model.core)
+visualizer = DDRVisualizer(m.model.core)  # type: ignore
 visualizer.visualize(
     x_test,
     y_test,

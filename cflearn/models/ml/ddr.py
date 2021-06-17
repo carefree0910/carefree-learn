@@ -58,7 +58,7 @@ def _expand_element(
     return element_tensor
 
 
-def _make_grid_without_edge(num_samples: int, device: torch.device) -> Tensor:
+def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
     return _make_grid(num_samples + 2, 1, device)[:, 1:-1]
 
 
@@ -96,6 +96,7 @@ class DDR(CustomLossBase):
             dropout=dropout,
         )
         hidden_units = self.fcnn.hidden_units
+        assert hidden_units is not None
         if not len(set(hidden_units)) == 1:
             raise ValueError("`DDR` requires all hidden units to be identical")
 
@@ -104,8 +105,8 @@ class DDR(CustomLossBase):
                 None,
                 1,
                 1,
-                hidden_units[0],
-                num_layers=len(hidden_units),
+                hidden_units[0],  # type: ignore
+                num_layers=len(hidden_units),  # type: ignore
                 w_sin=w_sin,
                 w_sin_initial=w_sin_initial,
                 bias=False,
@@ -131,8 +132,8 @@ class DDR(CustomLossBase):
         tau: Tensor,
         mods: List[Tensor],
         median: Tensor,
-    ) -> Tensor:
-        q_increment = self.q_siren(mods, init=tau).squeeze(-1)
+    ) -> Tuple[Tensor, Tensor]:
+        q_increment = self.q_siren(mods, init=tau).squeeze(-1)  # type: ignore
         return q_increment, median + q_increment
 
     def _get_cdf(
@@ -144,7 +145,7 @@ class DDR(CustomLossBase):
     ) -> Tuple[Tensor, Tensor, Tensor]:
         y_residual = y_anchor - median.unsqueeze(1)
         y_ratio = y_residual / y_span
-        logit = self.cdf_siren(mods, init=y_ratio).squeeze(-1)
+        logit = self.cdf_siren(mods, init=y_ratio).squeeze(-1)  # type: ignore
         cdf = torch.sigmoid(logit)
         return y_ratio, logit, cdf
 
@@ -172,7 +173,7 @@ class DDR(CustomLossBase):
         results = {PREDICTIONS_KEY: median}
         if not get_quantiles and not get_cdf:
             return results
-        y_min, y_max = self.y_min_max.tolist()
+        y_min, y_max = self.y_min_max.tolist()  # type: ignore
         y_span = y_max - y_min
         # quantile forward
         if get_quantiles:
@@ -184,7 +185,7 @@ class DDR(CustomLossBase):
                 if self.training:
                     tau = torch.rand(*shape, device=device) * 2.0 - 1.0
                 else:
-                    tau = _make_grid_without_edge(self.num_random_samples, device)
+                    tau = _make_ddr_grid(self.num_random_samples, device)
                     tau = tau.repeat(num_samples, 1, 1)
             tau.requires_grad_(True)
             q_increment, quantiles = self._get_quantiles(tau, mods, median)
@@ -205,12 +206,12 @@ class DDR(CustomLossBase):
                 if self.training:
                     y_anchor = torch.rand(*shape, device=device) * y_span + y_min
                 else:
-                    y_raw_ratio = _make_grid_without_edge(self.num_random_samples, device)
+                    y_raw_ratio = _make_ddr_grid(self.num_random_samples, device)
                     y_raw_ratio = 0.5 * (y_raw_ratio + 1.0)
                     y_anchor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
             y_anchor.requires_grad_(True)
             y_ratio, logit, cdf = self._get_cdf(y_anchor, median, y_span, mods)
-            pdf = get_gradient(cdf, y_anchor, True, True).squeeze(-1)
+            pdf = get_gradient(cdf, y_anchor, True, True).squeeze(-1)  # type: ignore
             results.update(
                 {
                     "y_anchor": y_anchor.squeeze(-1),
@@ -274,12 +275,12 @@ class DDRLoss(LossProtocol):
         # quantiles
         if all_exists(tau, quantiles, q_increment):
             quantile_error = labels - quantiles
-            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)
+            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)  # type: ignore
             neg_errors = tau_raw * quantile_error
             pos_errors = (tau_raw - 1.0) * quantile_error
             q_loss = torch.max(neg_errors, pos_errors).mean(1, keepdim=True)
-            g_tau = get_gradient(q_increment, tau, retain_graph=True, create_graph=True)
-            g_tau_loss = F.relu(-g_tau.squeeze(-1), inplace=True).mean(1, keepdim=True)
+            g_tau = get_gradient(q_increment, tau, retain_graph=True, create_graph=True)  # type: ignore
+            g_tau_loss = F.relu(-g_tau.squeeze(-1), inplace=True).mean(1, keepdim=True)  # type: ignore
             losses["q"] = q_loss
             losses["g_tau"] = g_tau_loss
             weighted_losses.append(self.lb_ddr * q_loss)
@@ -288,19 +289,19 @@ class DDRLoss(LossProtocol):
         if all_exists(cdf, pdf, logit, y_anchor):
             indicative = (labels <= y_anchor).to(torch.float32)
             cdf_loss = (-indicative * logit + F.softplus(logit)).mean(1, keepdim=True)
-            pdf_loss = F.relu(-pdf, inplace=True).mean(1, keepdim=True)
+            pdf_loss = F.relu(-pdf, inplace=True).mean(1, keepdim=True)  # type: ignore
             losses["cdf"] = cdf_loss
             losses["pdf"] = pdf_loss
             weighted_losses.append(self.lb_ddr * cdf_loss)
             weighted_losses.append(self.lb_monotonous * pdf_loss)
         # dual
         if all_exists(dual_cdf):
-            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)
-            tau_recover_loss = F.l1_loss(tau_raw, dual_cdf)
+            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)  # type: ignore
+            tau_recover_loss = F.l1_loss(tau_raw, dual_cdf)  # type: ignore
             losses["tau_recover"] = tau_recover_loss
             weighted_losses.append(self.lb_dual * tau_recover_loss)
         # aggregate
-        losses[LOSS_KEY] = sum(weighted_losses)
+        losses[LOSS_KEY] = sum(weighted_losses)  # type: ignore
         return losses
 
 
@@ -308,7 +309,7 @@ class DDRPredictor:
     def __init__(self, ddr: DDR):
         self.m = ddr
 
-    def _fetch(self, x: np.ndarray, **kwargs) -> tensor_dict_type:
+    def _fetch(self, x: np.ndarray, **kwargs: Any) -> tensor_dict_type:
         x_tensor = to_torch(x).to(self.m.device)
         return self.m(0, {INPUT_KEY: x_tensor}, **kwargs)
 
@@ -385,6 +386,9 @@ class DDRVisualizer:
         ratios: Union[float, List[float]],
         **kwargs: Any,
     ) -> None:
+        if isinstance(ratios, float):
+            ratios = [ratios]
+
         x_min, x_max = np.min(x), np.max(x)
         y_min, y_max = np.min(y), np.max(y)
         padding, dense = kwargs.get("padding", 1.0), kwargs.get("dense", 400)
@@ -433,6 +437,9 @@ class DDRVisualizer:
         num_repeat: int = 10000,
         ratios: Union[float, List[float]],
     ) -> None:
+        if isinstance(ratios, float):
+            ratios = [ratios]
+
         x_min, x_max = x.min(), x.max()
         x_diff = x_max - x_min
         x_base = np.linspace(x_min - 0.1 * x_diff, x_max + 0.1 * x_diff, num_base)
@@ -444,7 +451,7 @@ class DDRVisualizer:
 
         def _plot(
             prefix: str,
-            num: int,
+            num: float,
             y_true: Optional[np.ndarray],
             predictions: np.ndarray,
             anchor_line_: Optional[np.ndarray],

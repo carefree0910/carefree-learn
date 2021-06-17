@@ -219,10 +219,10 @@ def repeat_with(
 
     def is_buggy(i_: int, model_: str) -> bool:
         i_workplace = os.path.join(workplace, model_, str(i_))
-        i_workplace = get_latest_workplace(i_workplace)
-        if i_workplace is None:
+        i_latest_workplace = get_latest_workplace(i_workplace)
+        if i_latest_workplace is None:
             return True
-        checkpoint_folder = os.path.join(i_workplace, CHECKPOINTS_FOLDER)
+        checkpoint_folder = os.path.join(i_latest_workplace, CHECKPOINTS_FOLDER)
         if not os.path.isfile(os.path.join(checkpoint_folder, SCORES_FILE)):
             return True
         if not get_sorted_checkpoints(checkpoint_folder):
@@ -362,6 +362,7 @@ def pick_from_repeat_and_pack(
         if not os.path.isdir(stuff_path):
             continue
         sub_workplace = get_latest_workplace(stuff_path)
+        assert sub_workplace is not None, "internal error occurred"
         score_path = os.path.join(sub_workplace, CHECKPOINTS_FOLDER, SCORES_FILE)
         with open(score_path, "r") as f:
             score = float(max(json.load(f).values()))
