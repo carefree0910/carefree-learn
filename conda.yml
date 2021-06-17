@@ -30,4 +30,4 @@ dependencies:
   - matplotlib>=3.0.3
   - pytest
   - pytest-cov
-  - git+https://github.com/carefree0910/carefree-learn.git@_refactor
+  - git+https://github.com/carefree0910/carefree-learn.git@v0.2.x
