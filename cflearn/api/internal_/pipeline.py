@@ -21,6 +21,7 @@ from cftool.misc import Saving
 
 from .trainer import make_trainer
 from ...types import np_dict_type
+from ...types import tensor_dict_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
@@ -428,6 +429,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
+        input_sample: Optional[tensor_dict_type] = None,
         compress: bool = True,
         remove_original: bool = True,
         verbose: bool = True,
@@ -435,8 +437,12 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     ) -> "DLPipeline":
         # prepare
         model = self.model.cpu()
-        input_sample = self.trainer.input_sample
-        input_sample.pop(BATCH_INDICES_KEY)
+        if input_sample is None:
+            if getattr(self, "trainer", None) is None:
+                msg = "either `input_sample` or `trainer` should be provided"
+                raise ValueError(msg)
+            input_sample = self.trainer.input_sample
+            input_sample.pop(BATCH_INDICES_KEY)
         with eval_context(model):
             forward_results = model(0, shallow_copy_dict(input_sample))
         input_names = sorted(input_sample.keys())
