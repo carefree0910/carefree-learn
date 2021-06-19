@@ -316,18 +316,10 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         if self._num_repeat is None:
             return self.core(batch_idx, batch, state, **kwargs)
         all_results: Dict[str, List[torch.Tensor]] = {}
-        futures = [
-            torch.jit.fork(
-                core,
-                batch_idx,
-                shallow_copy_dict(batch),
-                state,
-                **shallow_copy_dict(kwargs),
-            )
-            for core in self.core  # type: ignore
-        ]
-        for future in futures:
-            sub_results = torch.jit.wait(future)
+        for m in self.core:
+            m_batch = shallow_copy_dict(batch)
+            m_kwargs = shallow_copy_dict(kwargs)
+            sub_results = m(batch_idx, m_batch, state, **m_kwargs)
             for k, v in sub_results.items():
                 all_results.setdefault(k, []).append(v)
         final_results: tensor_dict_type = {}
