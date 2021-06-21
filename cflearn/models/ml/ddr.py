@@ -476,6 +476,7 @@ class DDRVisualizer:
         if self.m.predict_cdf:
             anchors = [ratio * (y_max - y_min) + y_min for ratio in ratios]
             for anchor in anchors:
+                assert isinstance(anchor, float)
                 anchor_line = np.full(len(x_base), anchor)
                 yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
                 cdf, pdf = self.predictor.cdf_pdf(x_base, anchor)

@@ -454,6 +454,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             input_sample = self.trainer.input_sample
             input_sample.pop(BATCH_INDICES_KEY)
         input_sample = shallow_copy_dict(input_sample)
+        assert isinstance(input_sample, dict)
         if num_samples is not None:
             input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
         with eval_context(model):
