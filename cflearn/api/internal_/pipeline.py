@@ -439,6 +439,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
         input_sample: Optional[tensor_dict_type] = None,
+        num_samples: Optional[int] = None,
         compress: bool = True,
         remove_original: bool = True,
         verbose: bool = True,
@@ -452,8 +453,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 raise ValueError(msg)
             input_sample = self.trainer.input_sample
             input_sample.pop(BATCH_INDICES_KEY)
+        input_sample = shallow_copy_dict(input_sample)
+        if num_samples is not None:
+            input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
         with eval_context(model):
-            forward_results = model(0, shallow_copy_dict(input_sample))
+            forward_results = model(0, input_sample)
         input_names = sorted(input_sample.keys())
         output_names = sorted(forward_results.keys())
         # setup
@@ -467,7 +471,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             dynamic_axes = {}
         elif isinstance(dynamic_axes, list):
             dynamic_axes = {axis: f"axis.{axis}" for axis in dynamic_axes}
-        dynamic_axes[0] = "batch_size"
+        if num_samples is None:
+            dynamic_axes[0] = "batch_size"
         dynamic_axes_settings = {}
         for name in input_names + output_names:
             dynamic_axes_settings[name] = dynamic_axes
