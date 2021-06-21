@@ -280,14 +280,15 @@ class SimplePipeline(DLPipeline):
         cls,
         export_folder: str,
         cuda: Optional[str],
-        callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "SimplePipeline":
         def _callback(m: DLPipeline, config_bundle: Dict[str, Any]) -> None:
             m.input_dim = config_bundle["input_dim"]
-            if callback is not None:
-                callback(m, config_bundle)
+            if post_callback is not None:
+                post_callback(m, config_bundle)
 
-        m_ = super()._load_infrastructure(export_folder, cuda, _callback)
+        m_ = super()._load_infrastructure(export_folder, cuda, pre_callback, _callback)
         assert isinstance(m_, SimplePipeline)
         return m_
 
@@ -328,13 +329,19 @@ class SimplePipeline(DLPipeline):
         cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
-        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "SimplePipeline":
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder, cuda, callback)
+                m = cls._load_infrastructure(
+                    export_folder,
+                    cuda,
+                    pre_callback,
+                    post_callback,
+                )
                 assert isinstance(m, SimplePipeline)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
         m._prepare_modules()
@@ -667,9 +674,15 @@ class CarefreePipeline(SimplePipeline):
         cls,
         export_folder: str,
         cuda: Optional[str],
-        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "CarefreePipeline":
-        m = super()._load_infrastructure(export_folder, cuda, callback)
+        m = super()._load_infrastructure(
+            export_folder,
+            cuda,
+            pre_callback,
+            post_callback,
+        )
         assert isinstance(m, CarefreePipeline)
         data_folder = os.path.join(export_folder, cls.data_folder)
         m.data = TabularData.load(data_folder, compress=False)
@@ -683,7 +696,8 @@ class CarefreePipeline(SimplePipeline):
         cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
-        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "CarefreePipeline":
         def _states_callback(m_: Any, states_: Dict[str, Any]) -> Dict[str, Any]:
             if states_callback is not None:
@@ -702,7 +716,8 @@ class CarefreePipeline(SimplePipeline):
             cuda=cuda,
             compress=compress,
             states_callback=_states_callback,
-            callback=callback,
+            pre_callback=pre_callback,
+            post_callback=post_callback,
         )
         assert isinstance(m, CarefreePipeline)
         return m

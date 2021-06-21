@@ -316,7 +316,7 @@ class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
         if self._num_repeat is None:
             return self.core(batch_idx, batch, state, **kwargs)
         all_results: Dict[str, List[torch.Tensor]] = {}
-        for m in self.core:
+        for m in self.core:  # type: ignore
             m_batch = shallow_copy_dict(batch)
             m_kwargs = shallow_copy_dict(kwargs)
             sub_results = m(batch_idx, m_batch, state, **m_kwargs)

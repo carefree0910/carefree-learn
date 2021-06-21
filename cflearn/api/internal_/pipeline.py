@@ -383,17 +383,20 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cls,
         export_folder: str,
         cuda: Optional[str],
-        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "DLPipeline":
         config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
+        if pre_callback is not None:
+            pre_callback(config_bundle)
         config = config_bundle["config"]
         config["in_loading"] = True
         m = cls(**config)
         device_info = DeviceInfo(*config_bundle["device_info"])
         device_info = device_info._replace(cuda=cuda)
         m.device_info = device_info
-        if callback is not None:
-            callback(m, config_bundle)
+        if post_callback is not None:
+            post_callback(m, config_bundle)
         return m
 
     @classmethod
@@ -404,12 +407,18 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cuda: Optional[str] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
-        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "DLPipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder, cuda, callback)
+                m = cls._load_infrastructure(
+                    export_folder,
+                    cuda,
+                    pre_callback,
+                    post_callback,
+                )
                 m._prepare_modules()
                 m.model.to(m.device)
                 # restore checkpoint
@@ -500,12 +509,18 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         *,
         compress: bool = True,
-        callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "DLPipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(export_folder, None, callback)
+                m = cls._load_infrastructure(
+                    export_folder,
+                    None,
+                    pre_callback,
+                    post_callback,
+                )
                 with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
                     onnx_kwargs = json.load(f)
                 onnx = ONNX(
