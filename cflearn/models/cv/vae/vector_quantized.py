@@ -7,7 +7,6 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
-from torch.autograd import Function
 
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
@@ -23,43 +22,6 @@ from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import ChannelPadding
 
 
-class VQSTE(Function):
-    @staticmethod
-    def forward(ctx: Any, *args: Any, **kwargs: Any) -> Any:
-        net, codebook = args
-
-        with torch.no_grad():
-            net_shape = net.shape
-            code_dimension = codebook.shape[1]
-            diff = net.view(-1, 1, code_dimension) - codebook[None, ...]
-            distances = (diff ** 2).sum(2)
-            _, indices_flatten = torch.min(distances, dim=1)
-            indices = indices_flatten.view(*net_shape[:-1])
-            ctx.mark_non_differentiable(indices)
-            ctx.mark_non_differentiable(indices_flatten)
-            ctx.save_for_backward(indices_flatten, codebook)
-
-        codes_flatten = codebook[indices_flatten]
-        codes = codes_flatten.view_as(net)
-        return codes, indices_flatten
-
-    @staticmethod
-    def backward(ctx: Any, *grad_outputs: Any) -> Any:
-        grad_output = grad_outputs[0]
-        grad_net, grad_codebook = None, None
-
-        if ctx.needs_input_grad[0]:
-            grad_net = grad_output.clone()
-        if ctx.needs_input_grad[1]:
-            indices, codebook = ctx.saved_tensors
-            code_dimension = codebook.shape[1]
-            grad_output_flatten = grad_output.contiguous().view(-1, code_dimension)
-            grad_codebook = torch.zeros_like(codebook)
-            grad_codebook.index_add_(0, indices, grad_output_flatten)
-
-        return grad_net, grad_codebook
-
-
 class VQCodebook(nn.Module):
     def __init__(self, num_code: int, code_dimension: int):
         super().__init__()
@@ -69,7 +31,19 @@ class VQCodebook(nn.Module):
 
     def forward(self, z_e: Tensor) -> Tuple[Tensor, Tensor]:
         z_e = z_e.permute(0, 2, 3, 1).contiguous()
-        z_q, indices = VQSTE.apply(z_e, self.embedding.weight.detach())
+
+        codebook = self.embedding.weight.detach()
+        with torch.no_grad():
+            code_dimension = codebook.shape[1]
+            diff = z_e.view(-1, 1, code_dimension) - codebook[None, ...]
+            distances = (diff ** 2).sum(2)
+            _, indices = torch.min(distances, dim=1)
+
+        codes_flatten = codebook[indices]
+        z_q = codes_flatten.view_as(z_e)
+        # VQSTE in one line of code
+        z_q = z_e + (z_q - z_e).detach()
+
         indices = indices.view(*z_q.shape[:-1])
         z_q = z_q.permute(0, 3, 1, 2).contiguous()
         return z_q, indices
