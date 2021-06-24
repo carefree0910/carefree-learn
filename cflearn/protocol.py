@@ -28,7 +28,6 @@ from .constants import *
 from .types import losses_type
 from .types import np_dict_type
 from .types import tensor_dict_type
-from .types import sample_weights_type
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
 from .misc.toolkit import to_standard

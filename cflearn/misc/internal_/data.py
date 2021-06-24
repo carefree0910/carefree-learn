@@ -7,7 +7,6 @@ from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
 from ...types import tensor_dict_type
-from ...types import sample_weights_type
 from ...protocol import DataProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
