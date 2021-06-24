@@ -1221,7 +1221,70 @@ class Mapping(MappingBase):
         )
 
 
-class _SkipConnectBlock(MappingBase, metaclass=ABCMeta):
+@MappingBase.register("res")
+class ResBlock(MappingBase):
+    to_latent: nn.Module
+
+    def __init__(
+        self,
+        in_dim: int,
+        latent_dim: int,
+        *,
+        bias: Optional[bool] = None,
+        pruner_config: Optional[dict] = None,
+        dropout: float = 0.0,
+        batch_norm: bool = True,
+        activation: Optional[str] = "ReLU",
+        init_method: str = "xavier_uniform",
+        **kwargs: Any,
+    ):
+        super().__init__()
+        # input mapping
+        if in_dim == latent_dim:
+            self.to_latent = nn.Identity()
+        else:
+            self.to_latent = Linear(
+                in_dim,
+                latent_dim,
+                bias=True if bias is None else bias,
+                pruner_config=pruner_config,
+                init_method=init_method,
+                **kwargs,
+            )
+        # residual unit
+        self.residual_unit = nn.Sequential(
+            BN(latent_dim),
+            Activations.make(activation, kwargs.setdefault("activation_config", None)),
+            nn.Identity() if not 0.0 < dropout < 1.0 else nn.Dropout(dropout),
+            Mapping(
+                latent_dim,
+                latent_dim,
+                bias=bias,
+                pruner_config=pruner_config,
+                dropout=dropout,
+                batch_norm=batch_norm,
+                activation=activation,
+                init_method=init_method,
+                **kwargs,
+            ),
+            Linear(
+                latent_dim,
+                latent_dim,
+                bias=True if bias is None else bias,
+                pruner_config=pruner_config,
+                init_method=init_method,
+                **kwargs,
+            ),
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        net = self.to_latent(net)
+        res = self.residual_unit(net)
+        return net + res
+
+
+@MappingBase.register("highway")
+class HighwayBlock(MappingBase):
     def __init__(
         self,
         in_dim: int,
@@ -1255,95 +1318,6 @@ class _SkipConnectBlock(MappingBase, metaclass=ABCMeta):
             init_method=init_method,
             **kwargs,
         )
-
-    def forward(self, net: Tensor) -> Tensor:
-        linear = self.linear_mapping(net)
-        nonlinear = self.nonlinear_mapping(net)
-        return self._skip_connect(net, linear, nonlinear)
-
-    @abstractmethod
-    def _skip_connect(self, net: Tensor, linear: Tensor, nonlinear: Tensor) -> Tensor:
-        pass
-
-
-@MappingBase.register("res")
-class ResBlock(_SkipConnectBlock):
-    def __init__(
-        self,
-        in_dim: int,
-        latent_dim: int,
-        *,
-        bias: Optional[bool] = None,
-        pruner_config: Optional[dict] = None,
-        dropout: float = 0.0,
-        batch_norm: bool = True,
-        activation: Optional[str] = "ReLU",
-        init_method: str = "xavier_uniform",
-        **kwargs: Any,
-    ):
-        super().__init__(
-            in_dim,
-            latent_dim,
-            bias=bias,
-            pruner_config=pruner_config,
-            dropout=dropout,
-            batch_norm=batch_norm,
-            activation=activation,
-            init_method=init_method,
-            **kwargs,
-        )
-        self.res_linear = Linear(
-            latent_dim,
-            latent_dim,
-            bias=True if bias is None else bias,
-            pruner_config=pruner_config,
-            init_method=init_method,
-            **kwargs,
-        )
-        self.res_bn = None if not batch_norm else BN(latent_dim)
-        self.res_dropout = nn.Dropout(dropout)
-        if activation is None:
-            self.res_activation: Optional[Module] = None
-        else:
-            activation_config = kwargs.setdefault("activation_config", None)
-            self.res_activation = Activations.make(activation, activation_config)
-
-    def _skip_connect(self, net: Tensor, linear: Tensor, nonlinear: Tensor) -> Tensor:
-        net = linear + self.res_linear(nonlinear)
-        if self.res_bn is not None:
-            net = self.res_bn(net)
-        net = self.res_dropout(net)
-        if self.res_activation is None:
-            return net
-        return self.res_activation(net)
-
-
-@MappingBase.register("highway")
-class HighwayBlock(_SkipConnectBlock):
-    def __init__(
-        self,
-        in_dim: int,
-        latent_dim: int,
-        *,
-        bias: Optional[bool] = None,
-        pruner_config: Optional[dict] = None,
-        dropout: float = 0.0,
-        batch_norm: bool = True,
-        activation: Optional[str] = "ReLU",
-        init_method: str = "xavier_uniform",
-        **kwargs: Any,
-    ):
-        super().__init__(
-            in_dim,
-            latent_dim,
-            bias=bias,
-            pruner_config=pruner_config,
-            dropout=dropout,
-            batch_norm=batch_norm,
-            activation=activation,
-            init_method=init_method,
-            **kwargs,
-        )
         self.gate_linear = Linear(
             in_dim,
             latent_dim,
@@ -1354,7 +1328,9 @@ class HighwayBlock(_SkipConnectBlock):
         )
         self.sigmoid = nn.Sigmoid()
 
-    def _skip_connect(self, net: Tensor, linear: Tensor, nonlinear: Tensor) -> Tensor:
+    def forward(self, net: Tensor) -> Tensor:
+        linear = self.linear_mapping(net)
+        nonlinear = self.nonlinear_mapping(net)
         gate = self.sigmoid(self.gate_linear(net))
         return gate * nonlinear + (1.0 - gate) * linear
 
