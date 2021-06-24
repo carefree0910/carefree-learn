@@ -24,7 +24,7 @@ m2 = cflearn.ml.SimplePipeline.load("iris")
 assert np.allclose(predictions, m2.predict(x)[cflearn.PREDICTIONS_KEY])
 m.to_onnx("iris_onnx")
 m3 = cflearn.ml.SimplePipeline.from_onnx("iris_onnx")
-assert np.allclose(predictions, m3.predict(x)[cflearn.PREDICTIONS_KEY], atol=1.0e-5)
+assert np.allclose(predictions, m3.predict(x)[cflearn.PREDICTIONS_KEY], atol=1.0e-4)
 workplace = get_latest_workplace("_logs")
 assert workplace is not None
 packed_path = cflearn.ml.SimplePipeline.pack(workplace, input_dim=input_dim)
