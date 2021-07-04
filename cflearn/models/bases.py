@@ -133,7 +133,41 @@ class BAKEBase(CustomLossBase, metaclass=ABCMeta):
         return forward_results, loss_dict
 
 
+class RDropoutBase(CustomLossBase, metaclass=ABCMeta):
+    lb: float
+    is_classification: bool
+
+    def _get_losses(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+        state = trainer.state
+        fr1 = self(batch_idx, batch, state, **forward_kwargs)
+        fr2 = self(batch_idx, batch, state, **forward_kwargs)
+        loss_dict = trainer.loss(fr1, batch, state, **loss_kwargs)
+        for k, v in trainer.loss(fr2, batch, state, **loss_kwargs).items():
+            loss_dict[k] = loss_dict[k] + v
+        loss = loss_dict[LOSS_KEY]
+        # R-Dropout loss
+        p1 = fr1[PREDICTIONS_KEY]
+        p2 = fr2[PREDICTIONS_KEY]
+        if not self.is_classification:
+            r_dropout = ((p1 - p2) ** 2).mean()
+        else:
+            p1_loss = F.kl_div(F.log_softmax(p1, dim=-1), F.softmax(p2, dim=-1))
+            p2_loss = F.kl_div(F.log_softmax(p2, dim=-1), F.softmax(p1, dim=-1))
+            r_dropout = 0.5 * (p1_loss + p2_loss)
+        loss_dict["r_dropout"] = r_dropout
+        loss_dict[LOSS_KEY] = loss + self.lb * r_dropout
+        return fr1, loss_dict
+
+
 __all__ = [
     "BAKEBase",
+    "RDropoutBase",
     "CustomLossBase",
 ]
