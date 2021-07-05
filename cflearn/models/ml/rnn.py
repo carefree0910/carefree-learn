@@ -100,7 +100,7 @@ class RNN(MLCoreProtocol):
         return self.head(batch_idx, batch, state, **kwargs)
 
 
-@MLCoreProtocol.register("bake_rnn")
+@MLCoreProtocol.register("rnn_bake")
 class RNNWithBAKE(BAKEBase):
     def __init__(
         self,
