@@ -99,4 +99,7 @@ class MixerWithRDropout(RDropoutBase):
         return self.mixer(batch_idx, batch, state, **kwargs)
 
 
-__all__ = ["Mixer"]
+__all__ = [
+    "Mixer",
+    "MixerWithRDropout",
+]

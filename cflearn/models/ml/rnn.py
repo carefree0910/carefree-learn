@@ -159,4 +159,7 @@ class RNNWithBAKE(BAKEBase):
         return results
 
 
-__all__ = ["RNN"]
+__all__ = [
+    "RNN",
+    "RNNWithBAKE",
+]
