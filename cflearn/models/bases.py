@@ -8,6 +8,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Optional
 
 from ..types import tensor_dict_type
 from ..protocol import StepOutputs
@@ -95,6 +96,21 @@ class BAKEBase(CustomLossBase, metaclass=ABCMeta):
     bake_loss: LossProtocol
     w_ensemble: float
     is_classification: bool
+
+    def _init_bake(
+        self,
+        lb: float,
+        bake_loss: str,
+        bake_loss_config: Optional[Dict[str, Any]],
+        w_ensemble: float,
+        is_classification: bool,
+    ) -> None:
+        self.lb = lb
+        self.w_ensemble = w_ensemble
+        self.is_classification = is_classification
+        if bake_loss == "auto":
+            bake_loss = "focal" if is_classification else "mae"
+        self.bake_loss = LossProtocol.make(bake_loss, config=bake_loss_config or {})
 
     def _get_losses(
         self,

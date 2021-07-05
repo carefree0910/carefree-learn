@@ -12,7 +12,6 @@ from .protocol import MERGED_KEY
 from .protocol import MLCoreProtocol
 from ..bases import BAKEBase
 from ...types import tensor_dict_type
-from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
@@ -141,13 +140,7 @@ class RNNWithBAKE(BAKEBase):
             batch_norm=batch_norm,
             dropout=dropout,
         )
-        # BAKE
-        self.lb = lb
-        self.w_ensemble = w_ensemble
-        self.is_classification = is_classification
-        if bake_loss == "auto":
-            bake_loss = "focal" if is_classification else "mae"
-        self.bake_loss = LossProtocol.make(bake_loss, config=bake_loss_config or {})
+        self._init_bake(lb, bake_loss, bake_loss_config, w_ensemble, is_classification)
 
     def forward(
         self,
