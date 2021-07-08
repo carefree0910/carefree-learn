@@ -19,8 +19,11 @@ from typing import Any
 from typing import Set
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import Generic
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import ContextManager
@@ -30,6 +33,7 @@ from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
 from cftool.misc import prod
+from cftool.misc import register_core
 from cftool.misc import show_or_save
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
@@ -609,6 +613,44 @@ class WeightsStrategy:
         plt.figure()
         plt.plot(x, y)
         show_or_save(export_path)
+
+
+T = TypeVar("T")
+
+
+class WithRegister(Generic[T]):
+    d: Dict[str, Type[T]]
+    __identifier__: str
+
+    @classmethod
+    def get(cls, name: str) -> Type[T]:
+        return cls.d[name]
+
+    @classmethod
+    def make(cls, name: str, config: Dict[str, Any]) -> T:
+        return cls.get(name)(**config)  # type: ignore
+
+    @classmethod
+    def make_multiple(
+        cls,
+        names: Union[str, List[str]],
+        configs: Optional[Dict[str, Any]] = None,
+    ) -> Union[T, List[T]]:
+        if configs is None:
+            configs = {}
+        if isinstance(names, str):
+            return cls.get(names)(**configs)  # type: ignore
+        return [
+            cls.get(name)(**shallow_copy_dict(configs.get(name, {})))  # type: ignore
+            for name in names
+        ]
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        def before(cls_: Type) -> None:
+            cls_.__identifier__ = name
+
+        return register_core(name, cls.d, before_register=before)
 
 
 # ml

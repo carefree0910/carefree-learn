@@ -28,7 +28,6 @@ from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
 from ...protocol import ONNX
-from ...protocol import WithRegister
 from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
 from ...protocol import MetricsOutputs
@@ -39,8 +38,9 @@ from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
-from ...misc.toolkit import eval_context
 from ...misc.toolkit import prepare_workplace_from
+from ...misc.toolkit import eval_context
+from ...misc.toolkit import WithRegister
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}

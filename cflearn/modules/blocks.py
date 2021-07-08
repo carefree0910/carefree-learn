@@ -26,9 +26,9 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
-from ..protocol import WithRegister
 from ..constants import WARNING_PREFIX
 from ..misc.toolkit import Initializer
+from ..misc.toolkit import WithRegister
 
 
 # auxiliary

@@ -10,7 +10,7 @@ from cftool.misc import shallow_copy_dict
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
-from ....protocol import WithRegister
+from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....modules.blocks import ChannelPadding

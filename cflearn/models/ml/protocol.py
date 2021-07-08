@@ -20,13 +20,13 @@ from .encoders import EncodingResult
 from ...types import tensor_dict_type
 from ...protocol import StepOutputs
 from ...protocol import TrainerState
-from ...protocol import WithRegister
 from ...protocol import MetricsOutputs
 from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
+from ...misc.toolkit import WithRegister
 from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import _get_clones
 

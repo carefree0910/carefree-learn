@@ -9,7 +9,7 @@ from typing import Type
 from typing import Optional
 from typing import NamedTuple
 
-from ....protocol import WithRegister
+from ....misc.toolkit import WithRegister
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 

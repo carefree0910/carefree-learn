@@ -19,7 +19,6 @@ from .types import tensor_dict_type
 from .protocol import StepOutputs
 from .protocol import LossProtocol
 from .protocol import TrainerState
-from .protocol import WithRegister
 from .protocol import ModelProtocol
 from .protocol import MetricsOutputs
 from .protocol import MonitorResults
@@ -32,6 +31,7 @@ from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
+from .misc.toolkit import WithRegister
 from .misc.internal_ import BasicMonitor
 from .misc.internal_ import MultipleMetrics
 from .modules.optimizers import optimizer_dict
