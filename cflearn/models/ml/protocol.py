@@ -233,7 +233,7 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         pass
 
 
-class MLModel(ModelWithCustomSteps, metaclass=ABCMeta):
+class MLModel(ModelWithCustomSteps):
     core: Union[MLCoreProtocol, nn.ModuleList]
 
     def __init__(
