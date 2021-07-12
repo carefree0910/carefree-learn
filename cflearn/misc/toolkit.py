@@ -659,6 +659,67 @@ class WithRegister(Generic[T]):
         return register_core(name, cls.d, before_register=before)
 
 
+# ml
+
+
+def is_int(arr: np.ndarray) -> bool:
+    return np.issubdtype(arr.dtype, np.integer)
+
+
+def is_float(arr: np.ndarray) -> bool:
+    return np.issubdtype(arr.dtype, np.floating)
+
+
+def to_2d(arr: data_type) -> data_type:
+    if arr is None or isinstance(arr, str):
+        return None
+    if isinstance(arr, np.ndarray):
+        return arr.reshape([len(arr), -1])
+    if isinstance(arr[0], list):
+        return arr
+    return [[elem] for elem in arr]  # type: ignore
+
+
+def corr(
+    predictions: torch.Tensor,
+    target: torch.Tensor,
+    weights: Optional[torch.Tensor] = None,
+    *,
+    get_diagonal: bool = False,
+) -> torch.Tensor:
+    w_sum = 0.0 if weights is None else weights.sum().item()
+    if weights is None:
+        mean = predictions.mean(0, keepdim=True)
+    else:
+        mean = (predictions * weights).sum(0, keepdim=True) / w_sum
+    vp = predictions - mean
+    if weights is None:
+        vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
+    else:
+        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True).sqrt()
+    if predictions is target:
+        mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
+    else:
+        if weights is None:
+            target_mean = target.mean(0, keepdim=True)
+        else:
+            target_mean = (target * weights).sum(0, keepdim=True) / w_sum
+        vt = (target - target_mean).t()
+        if weights is None:
+            vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
+        else:
+            vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True).sqrt()
+        mat = vt.matmul(vp) / (vp_norm * vt_norm)
+    if not get_diagonal:
+        return mat
+    if mat.shape[0] != mat.shape[1]:
+        raise ValueError(
+            "`get_diagonal` is set to True but the correlation matrix "
+            "is not a squared matrix, which is an invalid condition"
+        )
+    return mat.diag()
+
+
 def _to_address(path: str) -> str:
     return f"shared_{hash_code(path)}"
 
@@ -758,67 +819,6 @@ class SharedArrayWrapper:
         np.save(self.path, arr)
         np.save(self.flag_path, np.array([is_finished]))
         self._give_permission()
-
-
-# ml
-
-
-def is_int(arr: np.ndarray) -> bool:
-    return np.issubdtype(arr.dtype, np.integer)
-
-
-def is_float(arr: np.ndarray) -> bool:
-    return np.issubdtype(arr.dtype, np.floating)
-
-
-def to_2d(arr: data_type) -> data_type:
-    if arr is None or isinstance(arr, str):
-        return None
-    if isinstance(arr, np.ndarray):
-        return arr.reshape([len(arr), -1])
-    if isinstance(arr[0], list):
-        return arr
-    return [[elem] for elem in arr]  # type: ignore
-
-
-def corr(
-    predictions: torch.Tensor,
-    target: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
-    *,
-    get_diagonal: bool = False,
-) -> torch.Tensor:
-    w_sum = 0.0 if weights is None else weights.sum().item()
-    if weights is None:
-        mean = predictions.mean(0, keepdim=True)
-    else:
-        mean = (predictions * weights).sum(0, keepdim=True) / w_sum
-    vp = predictions - mean
-    if weights is None:
-        vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
-    else:
-        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True).sqrt()
-    if predictions is target:
-        mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
-    else:
-        if weights is None:
-            target_mean = target.mean(0, keepdim=True)
-        else:
-            target_mean = (target * weights).sum(0, keepdim=True) / w_sum
-        vt = (target - target_mean).t()
-        if weights is None:
-            vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
-        else:
-            vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True).sqrt()
-        mat = vt.matmul(vp) / (vp_norm * vt_norm)
-    if not get_diagonal:
-        return mat
-    if mat.shape[0] != mat.shape[1]:
-        raise ValueError(
-            "`get_diagonal` is set to True but the correlation matrix "
-            "is not a squared matrix, which is an invalid condition"
-        )
-    return mat.diag()
 
 
 # cv
