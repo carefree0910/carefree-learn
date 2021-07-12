@@ -412,12 +412,10 @@ class TimeSeriesDataManager(LoggingMixin):
                     raise ValueError("`masks` is not compatible with `x`")
         # pick
         begin, end = span.tolist()
-        tick_indices = np.arange(begin, end)
         # x & y
         x, y = x[begin:end], y[begin:end]
         # ticks
-        ticks = self.ticks_saw.read()
-        ticks = [ticks[i] for i in tick_indices]
+        ticks = self.ticks_saw.read()[begin:end]
         # indices
         valid_mask = self.valid_mask_saw.read().copy()
         if masks is not None:
@@ -428,9 +426,9 @@ class TimeSeriesDataManager(LoggingMixin):
                 local_valid = np.zeros_like(mask, np.bool_)
                 local_valid[offset_start:-padding] = mask[offset:]
                 valid_mask &= local_valid
-        valid_mask[tick_indices[: self.cfg.x_window - 1]] = False
+        valid_mask[begin : begin + self.cfg.x_window - 1] = False
         if self.cfg.y_window > 0:
-            valid_mask[tick_indices[-self.cfg.y_span :]] = False
+            valid_mask[end - self.cfg.y_span : end] = False
         tick_indices, object_indices = np.nonzero(valid_mask)
         indices = np.vstack([tick_indices, object_indices]).T
         return TSBundle(x, y, ticks, indices, begin)
