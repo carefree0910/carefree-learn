@@ -12,6 +12,7 @@ from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
+from ...misc.toolkit import corr
 from ...misc.toolkit import to_torch
 
 
@@ -67,46 +68,6 @@ class QuantileLoss(LossProtocol):
         pos_errors = (self.q - 1.0) * quantile_error  # type: ignore
         quantile_losses = torch.max(neg_errors, pos_errors)
         return quantile_losses.mean(1, keepdim=True)
-
-
-def corr(
-    predictions: torch.Tensor,
-    target: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
-    *,
-    get_diagonal: bool = False,
-) -> torch.Tensor:
-    w_sum = 0.0 if weights is None else weights.sum().item()
-    if weights is None:
-        mean = predictions.mean(0, keepdim=True)
-    else:
-        mean = (predictions * weights).sum(0, keepdim=True) / w_sum
-    vp = predictions - mean
-    if weights is None:
-        vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
-    else:
-        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True).sqrt()
-    if predictions is target:
-        mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
-    else:
-        if weights is None:
-            target_mean = target.mean(0, keepdim=True)
-        else:
-            target_mean = (target * weights).sum(0, keepdim=True) / w_sum
-        vt = (target - target_mean).t()
-        if weights is None:
-            vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
-        else:
-            vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True).sqrt()
-        mat = vt.matmul(vp) / (vp_norm * vt_norm)
-    if not get_diagonal:
-        return mat
-    if mat.shape[0] != mat.shape[1]:
-        raise ValueError(
-            "`get_diagonal` is set to True but the correlation matrix "
-            "is not a squared matrix, which is an invalid condition"
-        )
-    return mat.diag()
 
 
 @LossProtocol.register("corr")
