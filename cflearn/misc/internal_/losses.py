@@ -118,7 +118,9 @@ class CorrelationLoss(LossProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
-        return -corr(forward_results[PREDICTIONS_KEY], batch[LABEL_KEY])
+        predictions = forward_results[PREDICTIONS_KEY]
+        labels = batch[LABEL_KEY]
+        return -corr(predictions, labels, get_diagonal=True)
 
 
 @LossProtocol.register("cross_entropy")
