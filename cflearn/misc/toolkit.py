@@ -762,6 +762,8 @@ class SharedArrayWrapper:
         if self.to_memory:
             if not _check_sa(self.address):
                 return False
+            if not _check_sa(self.flag_address):
+                return False
             return sa.attach(self.flag_address).item()
         if not os.path.isfile(self.path):
             return False
