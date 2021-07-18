@@ -4,6 +4,8 @@ import torch
 import shutil
 
 import numpy as np
+import torch.distributed as dist
+import torch.multiprocessing as mp
 
 from abc import abstractmethod
 from abc import ABCMeta
@@ -35,9 +37,11 @@ from ...protocol import InferenceProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
+from ...constants import DDP_MODEL_NAME
 from ...constants import WARNING_PREFIX
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
+from ...misc.toolkit import get_latest_workplace
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
 from ...misc.toolkit import WithRegister
@@ -114,7 +118,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         callback_configs: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
-        rank: Optional[int] = None,
+        ddp_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
@@ -142,7 +146,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
             "callback_configs": callback_configs,
             "optimizer_settings": optimizer_settings,
             "workplace": workplace,
-            "rank": rank,
+            "ddp_config": ddp_config,
             "tqdm_settings": tqdm_settings,
         }
         self.in_loading = in_loading
@@ -153,7 +157,12 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
 
     @property
     def is_rank_0(self) -> bool:
-        return self.trainer.is_rank_0
+        ddp_config = self.trainer_config["ddp_config"]
+        if ddp_config is None:
+            return True
+        if ddp_config.get("rank", 0) == 0:
+            return True
+        return False
 
     def fit(
         self,
@@ -174,6 +183,22 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         )
         self.device_info = self.trainer.device_info
         return self
+
+    def _ddp_fit(
+        self,
+        rank: int,
+        x: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+        *args: Any,
+    ) -> "PipelineProtocol":
+        self.trainer_config = shallow_copy_dict(self.trainer_config)
+        self.trainer_config["ddp_config"]["rank"] = rank
+        self.fit(x, *args, sample_weights=sample_weights, cuda=cuda)
+        dist.barrier()
+        if self.is_rank_0:
+            self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
+        dist.destroy_process_group()
 
     @abstractmethod
     def _before_loop(
@@ -231,13 +256,42 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     ) -> "PipelineProtocol":
         pass
 
+    # ddp stuffs
+
+    def ddp(
+        self,
+        x: Any,
+        *args: Any,
+        world_size: int,
+        workplace: str = "__ddp__",
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> "PipelineProtocol":
+        current_workplace = self.trainer_config["workplace"]
+        new_workplace = os.path.join(workplace, current_workplace)
+        self.trainer_config["workplace"] = new_workplace
+        ddp_config = self.trainer_config["ddp_config"] or {}
+        ddp_config["world_size"] = world_size
+        self.trainer_config["ddp_config"] = ddp_config
+        self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
+        mp.spawn(
+            self._ddp_fit,
+            args=(x, sample_weights, cuda, *args),
+            nprocs=world_size,
+            join=True,
+        )
+        return self.ddp_load(new_workplace)
+
+    def ddp_load(self, workplace: str) -> "PipelineProtocol":
+        return self.load(os.path.join(workplace, DDP_MODEL_NAME))
+
 
 class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     config: Dict[str, Any]
     input_dim: Optional[int]
 
     def _prepare_workplace(self) -> None:
-        if not self.in_loading:
+        if self.is_rank_0 and not self.in_loading:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self.trainer_config["workplace"] = workplace
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
@@ -335,7 +389,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             score = self._save_misc(export_folder, retain_data)
-            self.trainer.save_checkpoint(score, export_folder)
+            self.trainer.save_checkpoint(score, export_folder, no_history=True)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
@@ -432,6 +486,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     states = states_callback(m, states)
                 m.model.load_state_dict(states)
         return m
+
+    def ddp_load(self, workplace: str) -> "DLPipeline":
+        return super().ddp_load(get_latest_workplace(workplace))
 
     def to_onnx(
         self,

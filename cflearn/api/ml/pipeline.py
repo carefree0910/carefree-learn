@@ -99,7 +99,7 @@ class SimplePipeline(DLPipeline):
         callback_configs: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
-        rank: Optional[int] = None,
+        ddp_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
@@ -132,7 +132,7 @@ class SimplePipeline(DLPipeline):
             callback_configs=callback_configs,
             optimizer_settings=optimizer_settings,
             workplace=workplace,
-            rank=rank,
+            ddp_config=ddp_config,
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
         )
@@ -435,7 +435,7 @@ class CarefreePipeline(SimplePipeline):
         callback_configs: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
-        rank: Optional[int] = None,
+        ddp_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
@@ -483,7 +483,7 @@ class CarefreePipeline(SimplePipeline):
             callback_configs=callback_configs,
             optimizer_settings=optimizer_settings,
             workplace=workplace,
-            rank=rank,
+            ddp_config=ddp_config,
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
             num_repeat=num_repeat,

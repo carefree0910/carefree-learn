@@ -5,6 +5,7 @@ import time
 import torch
 
 import numpy as np
+import torch.distributed as dist
 
 from typing import *
 from tqdm.autonotebook import tqdm
@@ -13,6 +14,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import fix_float_to_length
 from torch.optim.lr_scheduler import _LRScheduler
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from .constants import *
 from .types import tensor_dict_type
@@ -34,6 +36,7 @@ from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
 from .misc.internal_ import BasicMonitor
 from .misc.internal_ import MultipleMetrics
+from .misc.internal_ import ConservativeMonitor
 from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
 from .modules.schedulers import WarmupScheduler
@@ -215,6 +218,18 @@ def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
     return [files[i] for i in sorted_indices]
 
 
+def _setup_ddp(
+    rank: int,
+    world_size: int,
+    *,
+    backend: str = "gloo",
+    port: str = "12355",
+) -> None:
+    os.environ["MASTER_ADDR"] = "localhost"
+    os.environ["MASTER_PORT"] = port
+    dist.init_process_group(backend, rank=rank, world_size=world_size)
+
+
 class Trainer:
     loss: LossProtocol
     model: ModelProtocol
@@ -244,7 +259,7 @@ class Trainer:
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         metrics_log_file: str = "metrics.txt",
-        rank: Optional[int] = None,
+        ddp_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[TqdmSettings] = None,
     ):
         self.tqdm_settings = tqdm_settings or TqdmSettings()
@@ -283,9 +298,19 @@ class Trainer:
                 for metric in metrics.metrics:
                     metric.trainer = self
         self.loss_metrics_weights = loss_metrics_weights
-        self.rank = rank
-        self.ddp = rank is not None
-        self.is_rank_0 = rank is None or rank == 0
+        if ddp_config is None:
+            self.ddp = False
+            self.rank = None
+            self.ddp_config = {}
+        else:
+            self.ddp = True
+            self.rank = ddp_config.get("rank")
+            if self.rank is None:
+                raise ValueError("`rank` should be provided when `ddp` is used")
+            if ddp_config.get("world_size") is None:
+                raise ValueError("`world_size` should be provided when `ddp` is used")
+            self.ddp_config = shallow_copy_dict(ddp_config)
+        self.is_rank_0 = not self.ddp or self.rank == 0
         for callback in self.callbacks:
             callback.is_rank_0 = self.is_rank_0
         # initialize artifact structure
@@ -332,7 +357,21 @@ class Trainer:
     def model_has_custom_steps(self) -> bool:
         return isinstance(self.model, ModelWithCustomSteps)
 
+    @property
+    def model_for_training(self) -> torch.nn.Module:
+        return self.ddp_model or self.model
+
     # init
+
+    def _init_ddp(self) -> None:
+        self.ddp_model = None
+        if not self.ddp:
+            return None
+        # monitor
+        self.monitors = [] if not self.is_rank_0 else [ConservativeMonitor()]
+        # ddp setup
+        _setup_ddp(**self.ddp_config)
+        self.ddp_model = DDP(self.model.to(self.rank), device_ids=[self.rank])
 
     def default_lr_configs(
         self,
@@ -385,9 +424,9 @@ class Trainer:
 
     def _define_optimizer(self, pack: OptimizerPack) -> Optimizer:
         if pack.scope == "all":
-            parameters = self.model.parameters()
+            parameters = self.model_for_training.parameters()
         else:
-            attr = getattr(self.model, pack.scope)
+            attr = getattr(self.model_for_training, pack.scope)
             if not isinstance(attr, torch.nn.Module):
                 parameters = attr
             else:
@@ -446,7 +485,7 @@ class Trainer:
         for opt in self.optimizers.values():
             self.grad_scaler.unscale_(opt)
         self._gradient_norm = torch.nn.utils.clip_grad_norm_(
-            self.model.parameters(),
+            self.model_for_training.parameters(),
             max_norm=self.clip_norm,
         )
 
@@ -454,7 +493,7 @@ class Trainer:
         for opt in self.optimizers.values():
             self.grad_scaler.step(opt)
             self.grad_scaler.update()
-        for param in self.model.parameters():
+        for param in self.model_for_training.parameters():
             param.grad = None
 
     def _get_scheduler_settings(
@@ -601,6 +640,8 @@ class Trainer:
             max_epoch=self.max_epoch,
             **self.state_config,
         )
+        # ddp
+        self._init_ddp()
         # optimizer
         self._init_optimizers()
         # callback
@@ -669,7 +710,7 @@ class Trainer:
                 step_tqdm.close()
             self.epoch_tqdm.close()
         # restore
-        if not self.ddp and self.has_checkpoint_folder:
+        if self.is_rank_0 and self.has_checkpoint_folder:
             if not self.tqdm_settings.in_distributed:
                 print(f"{INFO_PREFIX}rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
@@ -720,7 +761,13 @@ class Trainer:
 
     # checkpointing
 
-    def save_checkpoint(self, score: float, folder: Optional[str] = None) -> None:
+    def save_checkpoint(
+        self,
+        score: float,
+        folder: Optional[str] = None,
+        *,
+        no_history: bool = False,
+    ) -> None:
         if folder is None:
             if self.checkpoint_folder is None:
                 assert not self.is_rank_0
@@ -738,9 +785,10 @@ class Trainer:
         file = f"{PT_PREFIX}{self.state.step}.pt"
         torch.save(self.model.state_dict(), os.path.join(folder, file))
         # scores
-        self.checkpoint_scores[file] = score
+        scores = {} if no_history else self.checkpoint_scores
+        scores[file] = score
         with open(os.path.join(folder, SCORES_FILE), "w") as f:
-            json.dump(self.checkpoint_scores, f)
+            json.dump(scores, f)
 
     def restore_checkpoint(
         self,

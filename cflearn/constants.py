@@ -17,6 +17,7 @@ BATCH_INDICES_KEY = "batch_indices"
 PT_PREFIX = "model_"
 SCORES_FILE = "scores.json"
 CHECKPOINTS_FOLDER = "checkpoints"
+DDP_MODEL_NAME = "ddp_model"
 
 META_CONFIG_NAME = "__meta__"
 DATA_CONFIG_FILE = "__data__.json"

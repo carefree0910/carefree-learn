@@ -33,7 +33,7 @@ def make_trainer(
     callback_configs: Optional[Dict[str, Any]] = None,
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
     metrics_log_file: str = "metrics.txt",
-    rank: Optional[int] = None,
+    ddp_config: Optional[Dict[str, Any]] = None,
     tqdm_settings: Optional[Dict[str, Any]] = None,
 ) -> Trainer:
     # metrics
@@ -99,7 +99,7 @@ def make_trainer(
         optimizer_packs=optimizer_packs,
         workplace=workplace,
         metrics_log_file=metrics_log_file,
-        rank=rank,
+        ddp_config=ddp_config,
         tqdm_settings=TqdmSettings(
             use_tqdm,
             tqdm_settings.setdefault("use_step_tqdm", use_tqdm),
