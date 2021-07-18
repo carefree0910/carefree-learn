@@ -191,7 +191,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         sample_weights: sample_weights_type = None,
         cuda: Optional[str] = None,
         *args: Any,
-    ) -> "PipelineProtocol":
+    ) -> None:
         self.trainer_config = shallow_copy_dict(self.trainer_config)
         self.trainer_config["ddp_config"]["rank"] = rank
         self.fit(x, *args, sample_weights=sample_weights, cuda=cuda)
@@ -488,7 +488,12 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         return m
 
     def ddp_load(self, workplace: str) -> "DLPipeline":
-        return super().ddp_load(get_latest_workplace(workplace))
+        latest_workplace = get_latest_workplace(workplace)
+        if latest_workplace is None:
+            raise ValueError(f"timestamp is not found under '{workplace}'")
+        m = super().ddp_load(latest_workplace)
+        assert isinstance(m, DLPipeline)
+        return m
 
     def to_onnx(
         self,

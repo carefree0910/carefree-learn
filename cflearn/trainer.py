@@ -367,6 +367,7 @@ class Trainer:
         self.ddp_model = None
         if not self.ddp:
             return None
+        assert self.rank is not None
         # monitor
         self.monitors = [] if not self.is_rank_0 else [ConservativeMonitor()]
         # ddp setup
