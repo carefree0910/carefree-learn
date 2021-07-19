@@ -164,6 +164,25 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
             return True
         return False
 
+    @abstractmethod
+    def _before_loop(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def _make_new_loader(
+        self,
+        x: Any,
+        batch_size: int,
+        **kwargs: Any,
+    ) -> DataLoaderProtocol:
+        pass
+
     def fit(
         self,
         x: Any,
@@ -183,41 +202,6 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         )
         self.device_info = self.trainer.device_info
         return self
-
-    def _ddp_fit(
-        self,
-        rank: int,
-        x: Any,
-        sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
-        *args: Any,
-    ) -> None:
-        self.trainer_config = shallow_copy_dict(self.trainer_config)
-        self.trainer_config["ddp_config"]["rank"] = rank
-        self.fit(x, *args, sample_weights=sample_weights, cuda=cuda)
-        dist.barrier()
-        if self.is_rank_0:
-            self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
-        dist.destroy_process_group()
-
-    @abstractmethod
-    def _before_loop(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
-        pass
-
-    @abstractmethod
-    def _make_new_loader(
-        self,
-        x: Any,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> DataLoaderProtocol:
-        pass
 
     def predict(
         self,
@@ -257,6 +241,22 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         pass
 
     # ddp stuffs
+
+    def _ddp_fit(
+        self,
+        rank: int,
+        x: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+        *args: Any,
+    ) -> None:
+        self.trainer_config = shallow_copy_dict(self.trainer_config)
+        self.trainer_config["ddp_config"]["rank"] = rank
+        self.fit(x, *args, sample_weights=sample_weights, cuda=cuda)
+        dist.barrier()
+        if self.is_rank_0:
+            self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
+        dist.destroy_process_group()
 
     def ddp(
         self,
