@@ -4,7 +4,14 @@ import torch
 
 import numpy as np
 
-from typing import *
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Tuple
+from typing import Union
+from typing import Callable
+from typing import Optional
+from typing import NamedTuple
 from cftool.dist import Parallel
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager

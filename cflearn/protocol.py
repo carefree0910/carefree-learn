@@ -20,10 +20,11 @@ from onnxruntime import InferenceSession
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 
-from .constants import *
 from .types import losses_type
 from .types import np_dict_type
 from .types import tensor_dict_type
+from .constants import LOSS_KEY
+from .constants import LABEL_KEY
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
 from .misc.toolkit import to_standard

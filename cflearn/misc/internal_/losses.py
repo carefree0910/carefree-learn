@@ -7,11 +7,12 @@ from typing import Any
 from typing import Tuple
 from typing import Optional
 
-from ...constants import *
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
+from ...constants import LABEL_KEY
+from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import corr
 from ...misc.toolkit import to_torch
 

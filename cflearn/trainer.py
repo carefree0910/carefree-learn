@@ -7,7 +7,15 @@ import torch
 import numpy as np
 import torch.distributed as dist
 
-from typing import *
+from typing import Any
+from typing import Dict
+from typing import List
+from typing import Type
+from typing import Tuple
+from typing import Union
+from typing import Callable
+from typing import Optional
+from typing import NamedTuple
 from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from cftool.misc import update_dict
@@ -16,7 +24,6 @@ from cftool.misc import fix_float_to_length
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from .constants import *
 from .types import tensor_dict_type
 from .protocol import StepOutputs
 from .protocol import LossProtocol
@@ -29,6 +36,13 @@ from .protocol import MetricProtocol
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
+from .constants import LOSS_KEY
+from .constants import PT_PREFIX
+from .constants import INFO_PREFIX
+from .constants import SCORES_FILE
+from .constants import ERROR_PREFIX
+from .constants import WARNING_PREFIX
+from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import scheduler_requires_metric

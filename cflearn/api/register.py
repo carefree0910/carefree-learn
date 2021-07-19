@@ -1,7 +1,9 @@
-from typing import *
+from typing import Type
+from typing import Callable
 from cfdata.tabular.processors.base import Processor
 
-from ..modules import *
+from ..modules import register_optimizer
+from ..modules import register_scheduler
 from ..protocol import LossProtocol
 from ..protocol import MetricProtocol
 from ..misc.toolkit import Initializer

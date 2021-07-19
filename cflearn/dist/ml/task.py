@@ -1,7 +1,9 @@
 import os
 import sys
 
-from typing import *
+from typing import Any
+from typing import Union
+from typing import Optional
 from cftool.misc import Saving, shallow_copy_dict
 
 from cflearn.constants import META_CONFIG_NAME
