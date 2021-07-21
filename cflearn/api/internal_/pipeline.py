@@ -574,16 +574,17 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self,
         x: Any,
         *args: Any,
-        world_size: int,
+        cuda_list: List[int],
         workplace: str = "__ddp__",
         sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
     ) -> "PipelineProtocol":
+        cuda_list = list(map(str, cuda_list))
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_list)
         current_workplace = self.trainer_config["workplace"]
         new_workplace = os.path.join(workplace, current_workplace)
         self.trainer_config["workplace"] = new_workplace
         ddp_config = self.trainer_config["ddp_config"] or {}
-        ddp_config["world_size"] = world_size
+        world_size = ddp_config["world_size"] = len(cuda_list)
         self.trainer_config["ddp_config"] = ddp_config
         self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
         mp.spawn(
@@ -592,6 +593,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             nprocs=world_size,
             join=True,
         )
+        # load from ddp
+        cuda = cuda_list[0]
         self.in_loading = True
         self.device_info = DeviceInfo(cuda, None)
         self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)

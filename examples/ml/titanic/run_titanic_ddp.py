@@ -7,4 +7,4 @@ if __name__ == "__main__":
     train_file = os.path.join(file_folder, "train.csv")
     test_file = os.path.join(file_folder, "test.csv")
     m = cflearn.ml.CarefreePipeline(data_config={"label_name": "Survived"})
-    m.ddp(train_file, world_size=2)
+    m.ddp(train_file, cuda_list=[1, 2])
