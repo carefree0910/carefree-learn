@@ -456,9 +456,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
+        simplify: bool = False,
         input_sample: Optional[tensor_dict_type] = None,
         num_samples: Optional[int] = None,
-        compress: bool = True,
+        compress: Optional[bool] = None,
         remove_original: bool = True,
         verbose: bool = True,
         **kwargs: Any,
@@ -509,9 +510,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 return self.model(0, batch)
 
         with lock_manager(base_folder, [export_folder]):
-            self._save_misc(export_folder, False)
-            with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
-                json.dump(kwargs, f)
+            if not simplify:
+                self._save_misc(export_folder, False)
+                with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
+                    json.dump(kwargs, f)
             onnx = ONNXWrapper()
             onnx_path = os.path.join(export_folder, self.onnx_file)
             with eval_context(onnx):
@@ -521,7 +523,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     onnx_path,
                     **shallow_copy_dict(kwargs),
                 )
-            if compress:
+            if compress or (compress is None and not simplify):
                 Saving.compress(abs_folder, remove_original=remove_original)
         self.model.to(self.device)
         return self
