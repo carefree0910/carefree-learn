@@ -90,6 +90,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     config_bundle_name = "config_bundle"
     onnx_file: str = "model.onnx"
     onnx_kwargs_file: str = "onnx.json"
+    onnx_keys_file: str = "onnx_keys.json"
 
     def __init__(
         self,
@@ -510,12 +511,15 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 return self.model(0, batch)
 
         with lock_manager(base_folder, [export_folder]):
-            if not simplify:
+            if simplify:
+                os.makedirs(export_folder, exist_ok=True)
+            else:
                 self._save_misc(export_folder, False)
                 with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
                     json.dump(kwargs, f)
             onnx = ONNXWrapper()
             onnx_path = os.path.join(export_folder, self.onnx_file)
+            input_keys = sorted(input_sample)
             with eval_context(onnx):
                 torch.onnx.export(
                     onnx,
@@ -523,6 +527,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     onnx_path,
                     **shallow_copy_dict(kwargs),
                 )
+                output_keys = sorted(onnx(input_sample))
+            if not simplify:
+                with open(os.path.join(export_folder, self.onnx_keys_file), "w") as f:
+                    json.dump({"input": input_keys, "output": output_keys}, f)
             if compress or (compress is None and not simplify):
                 Saving.compress(abs_folder, remove_original=remove_original)
         self.model.to(self.device)
