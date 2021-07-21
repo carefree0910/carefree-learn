@@ -240,49 +240,6 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     ) -> "PipelineProtocol":
         pass
 
-    # ddp stuffs
-
-    def _ddp_fit(
-        self,
-        rank: int,
-        x: Any,
-        sample_weights: sample_weights_type = None,
-        *args: Any,
-    ) -> None:
-        self.trainer_config = shallow_copy_dict(self.trainer_config)
-        self.trainer_config["ddp_config"]["rank"] = rank
-        self.fit(x, *args, sample_weights=sample_weights, cuda=str(rank))
-        dist.barrier()
-        if self.is_rank_0:
-            self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
-        dist.destroy_process_group()
-
-    def ddp(
-        self,
-        x: Any,
-        *args: Any,
-        world_size: int,
-        workplace: str = "__ddp__",
-        sample_weights: sample_weights_type = None,
-    ) -> "PipelineProtocol":
-        current_workplace = self.trainer_config["workplace"]
-        new_workplace = os.path.join(workplace, current_workplace)
-        self.trainer_config["workplace"] = new_workplace
-        ddp_config = self.trainer_config["ddp_config"] or {}
-        ddp_config["world_size"] = world_size
-        self.trainer_config["ddp_config"] = ddp_config
-        self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
-        mp.spawn(
-            self._ddp_fit,
-            args=(x, sample_weights, *args),
-            nprocs=world_size,
-            join=True,
-        )
-        return self.ddp_load(new_workplace)
-
-    def ddp_load(self, workplace: str) -> "PipelineProtocol":
-        return self.load(os.path.join(workplace, DDP_MODEL_NAME))
-
 
 class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     config: Dict[str, Any]
@@ -452,6 +409,20 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         return m
 
     @classmethod
+    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
+        return states
+
+    @classmethod
+    def _load_states_from(cls, m: Any, folder: str) -> Dict[str, Any]:
+        checkpoints = get_sorted_checkpoints(folder)
+        if not checkpoints:
+            msg = f"{WARNING_PREFIX}no model file found in {folder}"
+            raise ValueError(msg)
+        checkpoint_path = os.path.join(folder, checkpoints[0])
+        states = torch.load(checkpoint_path, map_location=m.device)
+        return cls._load_states_callback(m, states)
+
+    @classmethod
     def load(
         cls,
         export_folder: str,
@@ -474,23 +445,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 m._prepare_modules()
                 m.model.to(m.device)
                 # restore checkpoint
-                checkpoints = get_sorted_checkpoints(export_folder)
-                if not checkpoints:
-                    msg = f"{WARNING_PREFIX}no model file found in {export_folder}"
-                    raise ValueError(msg)
-                checkpoint_path = os.path.join(export_folder, checkpoints[0])
-                states = torch.load(checkpoint_path, map_location=m.device)
+                states = cls._load_states_from(m, export_folder)
                 if states_callback is not None:
                     states = states_callback(m, states)
                 m.model.load_state_dict(states)
-        return m
-
-    def ddp_load(self, workplace: str) -> "DLPipeline":
-        latest_workplace = get_latest_workplace(workplace)
-        if latest_workplace is None:
-            raise ValueError(f"timestamp is not found under '{workplace}'")
-        m = super().ddp_load(latest_workplace)
-        assert isinstance(m, DLPipeline)
         return m
 
     def to_onnx(
@@ -594,6 +552,56 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 )
                 m.inference = cls.inference_base(onnx=onnx)
         return m
+
+    # ddp stuffs
+
+    def _ddp_fit(
+        self,
+        rank: int,
+        x: Any,
+        sample_weights: sample_weights_type = None,
+        *args: Any,
+    ) -> None:
+        self.trainer_config = shallow_copy_dict(self.trainer_config)
+        self.trainer_config["ddp_config"]["rank"] = rank
+        self.fit(x, *args, sample_weights=sample_weights, cuda=str(rank))
+        dist.barrier()
+        if self.is_rank_0:
+            self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
+        dist.destroy_process_group()
+
+    def ddp(
+        self,
+        x: Any,
+        *args: Any,
+        world_size: int,
+        workplace: str = "__ddp__",
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> "PipelineProtocol":
+        current_workplace = self.trainer_config["workplace"]
+        new_workplace = os.path.join(workplace, current_workplace)
+        self.trainer_config["workplace"] = new_workplace
+        ddp_config = self.trainer_config["ddp_config"] or {}
+        ddp_config["world_size"] = world_size
+        self.trainer_config["ddp_config"] = ddp_config
+        self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
+        mp.spawn(
+            self._ddp_fit,
+            args=(x, sample_weights, *args),
+            nprocs=world_size,
+            join=True,
+        )
+        self.in_loading = True
+        self.device_info = DeviceInfo(cuda, None)
+        self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
+        latest_workplace = get_latest_workplace(new_workplace)
+        if latest_workplace is None:
+            raise ValueError(f"timestamp is not found under '{new_workplace}'")
+        ckpt_folder = os.path.join(latest_workplace, CHECKPOINTS_FOLDER)
+        states = self._load_states_from(self, ckpt_folder)
+        self.model.load_state_dict(states)
+        return self
 
 
 __all__ = [

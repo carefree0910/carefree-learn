@@ -689,38 +689,15 @@ class CarefreePipeline(SimplePipeline):
         return m
 
     @classmethod
-    def load(
-        cls,
-        export_folder: str,
-        *,
-        cuda: Optional[str] = None,
-        compress: bool = True,
-        states_callback: states_callback_type = None,
-        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "CarefreePipeline":
-        def _states_callback(m_: Any, states_: Dict[str, Any]) -> Dict[str, Any]:
-            if states_callback is not None:
-                states_ = states_callback(m_, states_)
-            if m_.encoder is not None:
-                encoder_cache_keys = []
-                for key in states_:
-                    if key.startswith("encoder") and key.endswith("cache"):
-                        encoder_cache_keys.append(key)
-                for key in encoder_cache_keys:
-                    states_.pop(key)
-            return states_
-
-        m = super().load(
-            export_folder,
-            cuda=cuda,
-            compress=compress,
-            states_callback=_states_callback,
-            pre_callback=pre_callback,
-            post_callback=post_callback,
-        )
-        assert isinstance(m, CarefreePipeline)
-        return m
+    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
+        if m.encoder is not None:
+            encoder_cache_keys = []
+            for key in states:
+                if key.startswith("encoder") and key.endswith("cache"):
+                    encoder_cache_keys.append(key)
+            for key in encoder_cache_keys:
+                states.pop(key)
+        return states
 
     @classmethod
     def pack(
