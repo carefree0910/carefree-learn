@@ -247,12 +247,11 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         rank: int,
         x: Any,
         sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
         *args: Any,
     ) -> None:
         self.trainer_config = shallow_copy_dict(self.trainer_config)
         self.trainer_config["ddp_config"]["rank"] = rank
-        self.fit(x, *args, sample_weights=sample_weights, cuda=cuda)
+        self.fit(x, *args, sample_weights=sample_weights, cuda=str(rank))
         dist.barrier()
         if self.is_rank_0:
             self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
@@ -265,7 +264,6 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         world_size: int,
         workplace: str = "__ddp__",
         sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
     ) -> "PipelineProtocol":
         current_workplace = self.trainer_config["workplace"]
         new_workplace = os.path.join(workplace, current_workplace)
@@ -276,7 +274,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
         mp.spawn(
             self._ddp_fit,
-            args=(x, sample_weights, cuda, *args),
+            args=(x, sample_weights, *args),
             nprocs=world_size,
             join=True,
         )
