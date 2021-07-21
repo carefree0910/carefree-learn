@@ -349,6 +349,8 @@ class Trainer:
 
     @property
     def use_tqdm_in_validation(self) -> bool:
+        if not self.is_rank_0:
+            return False
         if self.tqdm_settings.in_distributed:
             return False
         return self.tqdm_settings.use_tqdm_in_validation or self.state.is_terminate
@@ -675,7 +677,7 @@ class Trainer:
         # tqdm
         step_tqdm = None
         self.epoch_tqdm: Optional[tqdm] = None
-        if self.tqdm_settings.use_tqdm:
+        if self.is_rank_0 and self.tqdm_settings.use_tqdm:
             self.epoch_tqdm = tqdm(
                 list(range(self.state.num_epoch)),
                 position=self.tqdm_settings.position,
@@ -690,7 +692,7 @@ class Trainer:
             try:
                 self.state.epoch += 1
                 step_iterator = self.train_loader
-                if self.tqdm_settings.use_step_tqdm:
+                if self.is_rank_0 and self.tqdm_settings.use_step_tqdm:
                     step_tqdm = step_iterator = tqdm(
                         step_iterator,
                         total=len(self.train_loader),
