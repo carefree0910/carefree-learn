@@ -578,8 +578,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         workplace: str = "__ddp__",
         sample_weights: sample_weights_type = None,
     ) -> "PipelineProtocol":
-        cuda_list = list(map(str, cuda_list))
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(cuda_list)
+        str_cuda_list = list(map(str, cuda_list))
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str_cuda_list)
         current_workplace = self.trainer_config["workplace"]
         new_workplace = os.path.join(workplace, current_workplace)
         self.trainer_config["workplace"] = new_workplace
@@ -594,7 +594,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             join=True,
         )
         # load from ddp
-        cuda = cuda_list[0]
+        cuda = str_cuda_list[0]
         self.in_loading = True
         self.device_info = DeviceInfo(cuda, None)
         self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
