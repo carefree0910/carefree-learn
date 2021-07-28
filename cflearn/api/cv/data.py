@@ -53,10 +53,10 @@ class TransformFactory(WithRegister):
         assert callable(transform)
         self.transform = transform
 
-    def __call__(self, net: Tensor, *args: Any, **kwargs: Any) -> Tensor:
+    def __call__(self, inp: Any, *args: Any, **kwargs: Any) -> Tensor:
         if self.transform is None:
-            return net
-        return self.transform(net, *args, **kwargs)
+            return inp
+        return self.transform(inp, *args, **kwargs)
 
 
 @TransformFactory.register("to_tensor")
