@@ -40,6 +40,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
 
+from ..types import arr_type
 from ..types import data_type
 from ..types import param_type
 from ..types import tensor_dict_type
@@ -840,11 +841,7 @@ def align_to(
     return F.interpolate(src, size=(anchor.shape[2], anchor.shape[3]), mode=mode)
 
 
-def save_images(
-    arr: Union[np.ndarray, torch.Tensor],
-    path: str,
-    n_row: Optional[int] = None,
-) -> None:
+def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
     if isinstance(arr, np.ndarray):
         arr = to_torch(arr)
     if n_row is None:
@@ -852,7 +849,7 @@ def save_images(
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
-def normalize_image(arr: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+def normalize_image(arr: arr_type) -> arr_type:
     if isinstance(arr, np.ndarray):
         arr_min, arr_max = arr.min(axis=0), arr.max(axis=0)
     else:
