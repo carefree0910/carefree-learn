@@ -14,6 +14,7 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import align_to
+from ....misc.toolkit import normalize_image
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -239,12 +240,7 @@ class U2Net(ModelProtocol):
 
     def generate_from(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
         predictions = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
-        return norm_pred(predictions[0])
-
-
-def norm_pred(d: Tensor) -> Tensor:
-    d_min, d_max = torch.min(d), torch.max(d)
-    return (d - d_min) / (d_max - d_min)
+        return normalize_image(predictions[0])
 
 
 __all__ = ["U2Net"]

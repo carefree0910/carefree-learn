@@ -852,6 +852,14 @@ def save_images(
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
+def normalize_image(arr: Union[np.ndarray, torch.Tensor]) -> Union[np.ndarray, torch.Tensor]:
+    if isinstance(arr, np.ndarray):
+        arr_min, arr_max = arr.min(axis=0), arr.max(axis=0)
+    else:
+        arr_min, arr_max = arr.min(dim=0).values, arr.max(dim=0).values
+    return (arr - arr_min) / (arr_max - arr_min)
+
+
 def make_indices_visualization_map(indices: torch.Tensor) -> torch.Tensor:
     images = []
     for idx in indices.view(-1).tolist():
