@@ -852,9 +852,11 @@ def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
 def normalize_image(arr: arr_type) -> arr_type:
     if isinstance(arr, np.ndarray):
         arr_min, arr_max = arr.min(axis=0), arr.max(axis=0)
+        diff = np.maximum(1.0e-8, arr_max - arr_min)
     else:
         arr_min, arr_max = arr.min(dim=0).values, arr.max(dim=0).values
-    return (arr - arr_min) / (arr_max - arr_min)
+        diff = torch.clip(arr_max - arr_min, max=1.0e-8)
+    return (arr - arr_min) / diff
 
 
 def make_indices_visualization_map(indices: torch.Tensor) -> torch.Tensor:
