@@ -829,14 +829,15 @@ class SharedArrayWrapper:
 def align_to(
     src: torch.Tensor,
     *,
+    mode: str = "nearest",
     size: Optional[int] = None,
     anchor: Optional[torch.Tensor] = None,
 ) -> torch.Tensor:
     if size is not None:
-        return F.interpolate(src, size=size)
+        return F.interpolate(src, size=size, mode=mode)
     if anchor is None:
         raise ValueError("either `size` or `anchor` should be provided")
-    return F.interpolate(src, size=(anchor.shape[2], anchor.shape[3]))
+    return F.interpolate(src, size=(anchor.shape[2], anchor.shape[3]), mode=mode)
 
 
 def save_images(
