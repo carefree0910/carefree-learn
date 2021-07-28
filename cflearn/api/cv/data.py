@@ -12,6 +12,7 @@ from typing import Any
 from typing import Set
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Callable
@@ -31,24 +32,24 @@ from ...constants import ERROR_PREFIX
 from ...constants import WARNING_PREFIX
 from ...constants import ORIGINAL_LABEL_KEY
 from ...misc.toolkit import to_torch
+from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DLData
 from ...misc.internal_ import DLLoader
 
 
-class TransformFactory:
+cf_transforms: Dict[str, Type["TransformFactory"]] = {}
+
+
+class TransformFactory(WithRegister):
+    fn: Callable
+    d: Dict[str, Type["TransformFactory"]] = cf_transforms
+
     def __init__(self, transform: Optional[Union[str, Callable]] = None):
         if isinstance(transform, str):
-            if transform == "to_tensor":
-                transform = transforms.ToTensor()
-            elif transform == "for_generation":
-                transform = transforms.Compose(
-                    [
-                        transforms.ToTensor(),
-                        transforms.Lambda(lambda t: t * 2.0 - 1.0),
-                    ]
-                )
-            else:
+            ins = self.d.get(transform)
+            if ins is None:
                 raise NotImplementedError(f"'{transform}' transform is not implemented")
+            transform = ins.fn
         assert callable(transform)
         self.transform = transform
 
@@ -56,6 +57,21 @@ class TransformFactory:
         if self.transform is None:
             return net
         return self.transform(net, *args, **kwargs)
+
+
+@TransformFactory.register("to_tensor")
+class ToTensor(TransformFactory):
+    fn = transforms.ToTensor()
+
+
+@TransformFactory.register("for_generation")
+class ForGeneration(TransformFactory):
+    fn = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Lambda(lambda t: t * 2.0 - 1.0),
+        ]
+    )
 
 
 def get_mnist(
