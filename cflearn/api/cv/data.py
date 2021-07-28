@@ -25,6 +25,7 @@ from torchvision.transforms import transforms
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
+from ...types import np_dict_type
 from ...types import tensor_dict_type
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
@@ -42,6 +43,8 @@ cf_transforms: Dict[str, Type["TransformFactory"]] = {}
 
 class TransformFactory(WithRegister):
     fn: Callable
+    need_batch_process: bool = False
+
     d: Dict[str, Type["TransformFactory"]] = cf_transforms
 
     def __init__(self, transform: Optional[Union[str, Callable]] = None):
@@ -50,6 +53,7 @@ class TransformFactory(WithRegister):
             if ins is None:
                 raise NotImplementedError(f"'{transform}' transform is not implemented")
             transform = ins.fn
+            self.need_batch_process = ins.need_batch_process
         assert callable(transform)
         self.transform = transform
 
@@ -57,6 +61,16 @@ class TransformFactory(WithRegister):
         if self.transform is None:
             return inp
         return self.transform(inp, *args, **kwargs)
+
+    def process_batch(
+        self,
+        sample: np_dict_type,
+        *args: Any,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        if self.transform is not None:
+            sample = self.transform(sample, *args, **kwargs)
+        return {k: to_torch(v) for k, v in sample.items()}
 
 
 @TransformFactory.register("to_tensor")
@@ -404,19 +418,22 @@ class ImageFolderDataset(Dataset):
         self.transform = TransformFactory(transform)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-        file = self.img_paths[index]
-        img = Image.open(file)
         if isinstance(self.transform, dict):
             raise ValueError(
                 "`transform` is defined as `dict`, "
                 "so you need to customize `__getitem__` method"
             )
-        img = self.transform(img)
+        file = self.img_paths[index]
+        img = Image.open(file)
         label = self.labels[file]
-        if isinstance(label, str):
-            if label.endswith(".npy"):
-                label = to_torch(np.load(label))
-        return {INPUT_KEY: img, LABEL_KEY: label}
+        if isinstance(label, str) and label.endswith(".npy"):
+            label = np.load(label)
+        if self.transform.need_batch_process:
+            img_arr = np.array(img)
+            return self.transform.process_batch({INPUT_KEY: img_arr, LABEL_KEY: label})
+        if isinstance(label, np.ndarray):
+            label = to_torch(label)
+        return {INPUT_KEY: self.transform(img), LABEL_KEY: label}
 
     def __len__(self) -> int:
         return len(self.img_paths)
