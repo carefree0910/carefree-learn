@@ -31,8 +31,8 @@ class AlphaSegmentationCallback(ArtifactCallback):
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(label, os.path.join(image_folder, "label.png"))
         save_images(seg_map, os.path.join(image_folder, "mask.png"))
-        bundle = [original, label, seg_map]
-        np_original, np_label, np_mask = map(normalize_image, map(to_numpy, bundle))
+        np_original = normalize_image(to_numpy(original))
+        np_label, np_mask = map(to_numpy, [label, seg_map])
         rgba = np.concatenate([np_original, np_label], axis=1)
         rgba_pred = np.concatenate([np_original, np_mask], axis=1)
         save_images(to_torch(rgba), os.path.join(image_folder, "rgba.png"))
