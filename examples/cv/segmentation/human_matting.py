@@ -7,8 +7,8 @@ import cflearn
 import numpy as np
 
 from typing import List
+from cflearn.api.cv import AlphaSegmentationCallback
 from cflearn.misc.toolkit import to_device
-from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 
 
@@ -53,8 +53,8 @@ def prepare() -> None:
     )
 
 
-@cflearn.ArtifactCallback.register("unet")
-class UnetCallback(cflearn.ArtifactCallback):
+@AlphaSegmentationCallback.register("unet")
+class UnetCallback(AlphaSegmentationCallback):
     key = "images"
 
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
@@ -62,15 +62,10 @@ class UnetCallback(cflearn.ArtifactCallback):
             return None
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
-        original = batch[cflearn.INPUT_KEY]
         with eval_context(trainer.model):
-            logits = trainer.model.generate_from(original)
+            logits = trainer.model.generate_from(batch[cflearn.INPUT_KEY])
             seg_map = logits.argmax(1, keepdim=True).float()
-        image_folder = self._prepare_folder(trainer)
-        save_images(original, os.path.join(image_folder, "original.png"))
-        label = batch[cflearn.LABEL_KEY].float()
-        save_images(label, os.path.join(image_folder, "label.png"))
-        save_images(seg_map, os.path.join(image_folder, "segmentation.png"))
+        self._save_seg_results(trainer, batch, seg_map)
 
 
 if __name__ == "__main__":
