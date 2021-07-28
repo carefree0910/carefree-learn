@@ -1,6 +1,7 @@
 import os
 import json
 import math
+import random
 import shutil
 
 import numpy as np
@@ -17,9 +18,11 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from skimage import transform as sk_transform
 from cftool.dist import Parallel
 from cftool.misc import grouped
 from cftool.misc import grouped_into
+from cftool.misc import shallow_copy_dict
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
@@ -86,6 +89,93 @@ class ForGeneration(TransformFactory):
             transforms.Lambda(lambda t: t * 2.0 - 1.0),
         ]
     )
+
+
+def make_new_sample(sample: np_dict_type, img: Tensor, label: Tensor) -> np_dict_type:
+    new_sample = shallow_copy_dict(sample)
+    new_sample[INPUT_KEY] = img
+    new_sample[LABEL_KEY] = label
+    return new_sample
+
+
+class RescaleT:
+    def __init__(self, output_size: int):
+        assert isinstance(output_size, (int, tuple))
+        self.output_size = output_size
+
+    def __call__(self, sample: np_dict_type) -> np_dict_type:
+        img = sk_transform.resize(
+            sample[INPUT_KEY][..., :3],
+            (self.output_size, self.output_size),
+            mode="constant",
+        )
+        label = sk_transform.resize(
+            sample[LABEL_KEY],
+            (self.output_size, self.output_size),
+            mode="constant",
+            order=0,
+            preserve_range=True,
+        )
+        return make_new_sample(sample, img, label)
+
+
+class RandomCrop:
+    def __init__(self, output_size: int):
+        assert isinstance(output_size, (int, tuple))
+        if isinstance(output_size, int):
+            self.output_size = (output_size, output_size)
+        else:
+            assert len(output_size) == 2
+            self.output_size = output_size
+
+    def __call__(self, sample: np_dict_type) -> np_dict_type:
+        img, label = sample[INPUT_KEY], sample[LABEL_KEY]
+
+        if random.random() >= 0.5:
+            img = img[::-1]
+            label = label[::-1]
+
+        h, w = img.shape[:2]
+        new_h, new_w = self.output_size
+
+        top = np.random.randint(0, h - new_h)
+        left = np.random.randint(0, w - new_w)
+
+        img = img[top : top + new_h, left : left + new_w]
+        label = label[top : top + new_h, left : left + new_w]
+        return make_new_sample(sample, img, label)
+
+
+class ToNormalizedTensor:
+    def __call__(self, sample: np_dict_type) -> np_dict_type:
+        img, label = sample[INPUT_KEY], sample[LABEL_KEY]
+        if img.shape[2] == 1:
+            mean = np.array([0.485] * 3)[None, None, :]
+            std = np.array([0.229] * 3)[None, None, :]
+        else:
+            mean = np.array([0.485, 0.456, 0.406])[None, None, :]
+            std = np.array([0.229, 0.224, 0.225])[None, None, :]
+        new_img = (img - mean) / std
+        label_max = label.max()
+        if label_max < 1.0e-6:
+            new_label = label
+        else:
+            new_label = label / label_max
+        new_img = new_img.transpose([2, 0, 1])
+        new_label = new_label.transpose([2, 0, 1])
+        return make_new_sample(sample, new_img, new_label)
+
+
+@TransformFactory.register("for_salient_object_detection")
+class ForSalientObjectDetection(TransformFactory):
+    fn = transforms.Compose(
+        [
+            RescaleT(320),
+            RandomCrop(288),
+            ToNormalizedTensor(),
+        ]
+    )
+    need_batch_process = True
 
 
 def get_mnist(
