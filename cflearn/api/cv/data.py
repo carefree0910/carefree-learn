@@ -19,19 +19,20 @@ from typing import Optional
 from cftool.dist import Parallel
 from cftool.misc import grouped
 from cftool.misc import grouped_into
-from cflearn.types import tensor_dict_type
-from cflearn.constants import INPUT_KEY
-from cflearn.constants import LABEL_KEY
-from cflearn.constants import ERROR_PREFIX
-from cflearn.constants import WARNING_PREFIX
-from cflearn.constants import ORIGINAL_LABEL_KEY
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
-from cflearn.misc.toolkit import to_torch
-from cflearn.misc.internal_ import DLData
-from cflearn.misc.internal_ import DLLoader
+
+from ...types import tensor_dict_type
+from ...constants import INPUT_KEY
+from ...constants import LABEL_KEY
+from ...constants import ERROR_PREFIX
+from ...constants import WARNING_PREFIX
+from ...constants import ORIGINAL_LABEL_KEY
+from ...misc.toolkit import to_torch
+from ...misc.internal_ import DLData
+from ...misc.internal_ import DLLoader
 
 
 class TransformFactory:
