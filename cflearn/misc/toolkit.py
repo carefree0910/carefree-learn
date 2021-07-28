@@ -849,13 +849,17 @@ def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
-def normalize_image(arr: arr_type) -> arr_type:
+def normalize_image(arr: arr_type, *, global_norm: bool = True) -> arr_type:
+    eps = 1.0e-8
+    if global_norm:
+        arr_min, arr_max = arr.min().item(), arr.max().item()
+        return (arr - arr_min) / max(eps, arr_max - arr_min)
     if isinstance(arr, np.ndarray):
         arr_min, arr_max = arr.min(axis=0), arr.max(axis=0)
-        diff = np.maximum(1.0e-8, arr_max - arr_min)
+        diff = np.maximum(eps, arr_max - arr_min)
     else:
         arr_min, arr_max = arr.min(dim=0).values, arr.max(dim=0).values
-        diff = torch.clip(arr_max - arr_min, max=1.0e-8)
+        diff = torch.clip(arr_max - arr_min, max=eps)
     return (arr - arr_min) / diff
 
 
