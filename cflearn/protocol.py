@@ -430,21 +430,28 @@ class InferenceProtocol:
                             **shallow_copy_dict(kwargs),
                         )
                 # gather outputs
+                requires_metrics = metrics is not None and not metrics.requires_all
+                requires_np = requires_metrics or requires_all_outputs
                 np_outputs: np_dict_type = {}
                 for k, v in local_outputs.items():
+                    if not requires_np:
+                        results[k] = None
+                        continue
                     if v is None:
                         continue
                     if isinstance(v, np.ndarray):
                         v_np = v
-                    else:
+                    elif isinstance(v, torch.Tensor):
                         v_np = to_numpy(v)
+                    else:
+                        raise ValueError(f"unrecognized value ({k}={type(v)}) occurred")
                     np_outputs[k] = v_np
                     if not requires_all_outputs:
                         results[k] = None
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 # metrics
-                if metrics is not None and not metrics.requires_all:
+                if requires_metrics:
                     sub_outputs = metrics.evaluate(np_batch, np_outputs)
                     metric_outputs_list.append(sub_outputs)
                 # loss
