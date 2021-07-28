@@ -197,7 +197,7 @@ class U2NetCore(UNetBase):
 
     def forward(self, net: Tensor) -> List[Tensor]:
         up_nets = super().forward(net)
-        side_nets = []
+        side_nets: List[Tensor] = []
         for up_net, side_block in zip(up_nets[::-1], self.side_blocks):
             side_net = side_block(up_net)
             if side_nets:

@@ -452,7 +452,7 @@ class InferenceProtocol:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 # metrics
                 if requires_metrics:
-                    sub_outputs = metrics.evaluate(np_batch, np_outputs)
+                    sub_outputs = metrics.evaluate(np_batch, np_outputs)  # type: ignore
                     metric_outputs_list.append(sub_outputs)
                 # loss
                 if loss is not None:
