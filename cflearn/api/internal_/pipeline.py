@@ -72,6 +72,33 @@ def _split_sw(sample_weights: sample_weights_type) -> split_sw_type:
 class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["PipelineProtocol"]] = pipeline_dict
 
+    def __init__(self, *args: Any, **kwargs: Any):
+        pass
+
+    @abstractmethod
+    def fit(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+    ) -> "PipelineProtocol":
+        pass
+
+    @abstractmethod
+    def predict(self, x: Any, **kwargs: Any) -> np_dict_type:
+        pass
+
+    @abstractmethod
+    def save(self, export_folder: str, **kwargs: Any) -> "PipelineProtocol":
+        pass
+
+    @classmethod
+    @abstractmethod
+    def load(cls, export_folder: str, **kwargs: Any) -> "PipelineProtocol":
+        pass
+
+
+class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     loss: LossProtocol
     model: ModelProtocol
     trainer: Trainer
@@ -91,6 +118,9 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     onnx_file: str = "model.onnx"
     onnx_kwargs_file: str = "onnx.json"
     onnx_keys_file: str = "onnx_keys.json"
+
+    config: Dict[str, Any]
+    input_dim: Optional[int]
 
     def __init__(
         self,
@@ -125,6 +155,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         # misc
         in_loading: bool = False,
     ):
+        super().__init__()
         self.loss_name = loss_name
         self.loss_config = loss_config or {}
         self.shuffle_train = shuffle_train
@@ -154,6 +185,8 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         }
         self.in_loading = in_loading
 
+    # properties
+
     @property
     def device(self) -> torch.device:
         return self.device_info.device
@@ -167,15 +200,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
             return True
         return False
 
-    @abstractmethod
-    def _before_loop(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
-        pass
+    # abstract
 
     @abstractmethod
     def _make_new_loader(
@@ -186,67 +211,20 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     ) -> DataLoaderProtocol:
         pass
 
-    def fit(
+    @abstractmethod
+    def _prepare_data(
         self,
         x: Any,
         *args: Any,
         sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
-    ) -> "PipelineProtocol":
-        self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
-        self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
-        self.trainer.fit(
-            self.loss,
-            self.model,
-            self.inference,
-            self.train_loader,
-            self.valid_loader,
-            cuda=cuda,
-        )
-        self.device_info = self.trainer.device_info
-        return self
-
-    def predict(
-        self,
-        x: Any,
-        *,
-        batch_size: int = 128,
-        make_loader_kwargs: Optional[Dict[str, Any]] = None,
-        **predict_kwargs: Any,
-    ) -> np_dict_type:
-        loader = self._make_new_loader(x, batch_size, **(make_loader_kwargs or {}))
-        predict_kwargs = shallow_copy_dict(predict_kwargs)
-        if self.inference.onnx is None:
-            predict_kwargs["device"] = self.device
-        outputs = self.inference.get_outputs(loader, **predict_kwargs)
-        return outputs.forward_results
-
-    @abstractmethod
-    def save(
-        self,
-        export_folder: str,
-        *,
-        compress: bool = True,
-        retain_data: bool = False,
-        remove_original: bool = True,
-    ) -> "PipelineProtocol":
+    ) -> None:
         pass
 
-    @classmethod
     @abstractmethod
-    def load(
-        cls,
-        export_folder: str,
-        *,
-        compress: bool = True,
-        states_callback: states_callback_type = None,
-    ) -> "PipelineProtocol":
+    def _prepare_modules(self) -> None:
         pass
 
-
-class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
-    config: Dict[str, Any]
-    input_dim: Optional[int]
+    # internal
 
     def _prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading:
@@ -301,19 +279,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self._prepare_modules()
         self._prepare_trainer_defaults()
 
-    @abstractmethod
-    def _prepare_data(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-    ) -> None:
-        pass
-
-    @abstractmethod
-    def _prepare_modules(self) -> None:
-        pass
-
     def _save_misc(self, export_folder: str, retain_data: bool) -> float:
         os.makedirs(export_folder, exist_ok=True)
         # final results
@@ -335,6 +300,78 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
         return final_results.final_score
 
+    @classmethod
+    def _load_infrastructure(
+        cls,
+        export_folder: str,
+        cuda: Optional[str],
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+    ) -> "DLPipeline":
+        config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
+        if pre_callback is not None:
+            pre_callback(config_bundle)
+        config = config_bundle["config"]
+        config["in_loading"] = True
+        m = cls(**config)
+        device_info = DeviceInfo(*config_bundle["device_info"])
+        device_info = device_info._replace(cuda=cuda)
+        m.device_info = device_info
+        if post_callback is not None:
+            post_callback(m, config_bundle)
+        return m
+
+    @classmethod
+    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
+        return states
+
+    @classmethod
+    def _load_states_from(cls, m: Any, folder: str) -> Dict[str, Any]:
+        checkpoints = get_sorted_checkpoints(folder)
+        if not checkpoints:
+            msg = f"{WARNING_PREFIX}no model file found in {folder}"
+            raise ValueError(msg)
+        checkpoint_path = os.path.join(folder, checkpoints[0])
+        states = torch.load(checkpoint_path, map_location=m.device)
+        return cls._load_states_callback(m, states)
+
+    # api
+
+    def fit(
+        self,
+        x: Any,
+        *args: Any,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[str] = None,
+    ) -> "PipelineProtocol":
+        self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
+        self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
+        self.trainer.fit(
+            self.loss,
+            self.model,
+            self.inference,
+            self.train_loader,
+            self.valid_loader,
+            cuda=cuda,
+        )
+        self.device_info = self.trainer.device_info
+        return self
+
+    def predict(
+        self,
+        x: Any,
+        *,
+        batch_size: int = 128,
+        make_loader_kwargs: Optional[Dict[str, Any]] = None,
+        **predict_kwargs: Any,
+    ) -> np_dict_type:
+        loader = self._make_new_loader(x, batch_size, **(make_loader_kwargs or {}))
+        predict_kwargs = shallow_copy_dict(predict_kwargs)
+        if self.inference.onnx is None:
+            predict_kwargs["device"] = self.device
+        outputs = self.inference.get_outputs(loader, **predict_kwargs)
+        return outputs.forward_results
+
     def save(
         self,
         export_folder: str,
@@ -342,6 +379,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         compress: bool = True,
         retain_data: bool = False,
         remove_original: bool = True,
+        **kwargs: Any,
     ) -> "DLPipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
@@ -391,41 +429,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         return pack_folder
 
     @classmethod
-    def _load_infrastructure(
-        cls,
-        export_folder: str,
-        cuda: Optional[str],
-        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "DLPipeline":
-        config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
-        if pre_callback is not None:
-            pre_callback(config_bundle)
-        config = config_bundle["config"]
-        config["in_loading"] = True
-        m = cls(**config)
-        device_info = DeviceInfo(*config_bundle["device_info"])
-        device_info = device_info._replace(cuda=cuda)
-        m.device_info = device_info
-        if post_callback is not None:
-            post_callback(m, config_bundle)
-        return m
-
-    @classmethod
-    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
-        return states
-
-    @classmethod
-    def _load_states_from(cls, m: Any, folder: str) -> Dict[str, Any]:
-        checkpoints = get_sorted_checkpoints(folder)
-        if not checkpoints:
-            msg = f"{WARNING_PREFIX}no model file found in {folder}"
-            raise ValueError(msg)
-        checkpoint_path = os.path.join(folder, checkpoints[0])
-        states = torch.load(checkpoint_path, map_location=m.device)
-        return cls._load_states_callback(m, states)
-
-    @classmethod
     def load(
         cls,
         export_folder: str,
@@ -435,6 +438,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        **kwargs: Any,
     ) -> "DLPipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
