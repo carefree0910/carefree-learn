@@ -38,20 +38,6 @@ class AlphaSegmentationCallback(ArtifactCallback):
         save_images(to_torch(rgba), os.path.join(image_folder, "rgba.png"))
         save_images(to_torch(rgba_pred), os.path.join(image_folder, "rgba_pred.png"))
 
-    def log_artifacts(self, trainer: Trainer) -> None:
-        if not self.is_rank_0:
-            return None
-        batch = next(iter(trainer.validation_loader))
-        batch = to_device(batch, trainer.device)
-        original = batch[INPUT_KEY]
-        image_folder = self._prepare_folder(trainer)
-        save_images(original, os.path.join(image_folder, "original.png"))
-        label = batch[LABEL_KEY].float()
-        save_images(label, os.path.join(image_folder, "label.png"))
-        with eval_context(trainer.model):
-            seg_map = trainer.model.generate_from(original)
-            save_images(seg_map, os.path.join(image_folder, "segmentation.png"))
-
 
 __all__ = [
     "AlphaSegmentationCallback",
