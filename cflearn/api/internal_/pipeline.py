@@ -238,7 +238,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.loss = LossProtocol.make(self.loss_name, config=self.loss_config or {})
 
     def _prepare_trainer_defaults(self) -> None:
-        # set some trainer defaults to ml tasks which work well in practice
+        # set some trainer defaults to deep learning tasks which work well in practice
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
         tqdm_settings = self.trainer_config["tqdm_settings"]
