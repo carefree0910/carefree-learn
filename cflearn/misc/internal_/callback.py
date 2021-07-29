@@ -129,7 +129,7 @@ class ArtifactCallback(TrainerCallback):
             sub_folder = os.path.join(sub_folder, str(state.step))
             os.makedirs(sub_folder, exist_ok=True)
             return sub_folder
-        current_steps = sorted(os.listdir(sub_folder))
+        current_steps = sorted(map(int, os.listdir(sub_folder)))
         if len(current_steps) >= self.num_keep:
             must_keep = set()
             checkpoint_folder = trainer.checkpoint_folder
@@ -138,12 +138,12 @@ class ArtifactCallback(TrainerCallback):
                 with open(score_path, "r") as f:
                     for key in json.load(f):
                         name = os.path.splitext(key)[0]
-                        must_keep.add(name[len(PT_PREFIX) :])
+                        must_keep.add(int(name[len(PT_PREFIX) :]))
             num_left = len(current_steps)
             for step in current_steps:
                 if step in must_keep:
                     continue
-                shutil.rmtree(os.path.join(sub_folder, step))
+                shutil.rmtree(os.path.join(sub_folder, str(step)))
                 num_left -= 1
                 if num_left < self.num_keep:
                     break
