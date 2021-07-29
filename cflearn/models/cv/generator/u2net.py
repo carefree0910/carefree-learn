@@ -132,20 +132,20 @@ class U2NetCore(UNetBase):
         latent_channels: int = 32,
         num_layers: int = 5,
         max_layers: int = 7,
-        use_tiny: bool = False,
+        lite: bool = False,
     ):
         super().__init__()
         self.return_up_nets = True
 
-        mid_nc = latent_channels // 2 if use_tiny else latent_channels
+        mid_nc = latent_channels // 2 if lite else latent_channels
         out_nc = latent_channels * 2
-        in_nc = out_nc if use_tiny else latent_channels
+        in_nc = out_nc if lite else latent_channels
         current_layers = max_layers
 
         self.in_block = nn.Identity()
         blocks = [UNetRS(in_channels, mid_nc, out_nc, num_layers=current_layers)]
         for i in range(num_layers - 2):
-            if use_tiny:
+            if lite:
                 in_nc = out_nc
             else:
                 in_nc = out_nc
@@ -157,9 +157,9 @@ class U2NetCore(UNetBase):
                     UNetRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
                 )
             )
-            if not use_tiny:
+            if not lite:
                 mid_nc *= 2
-        if not use_tiny:
+        if not lite:
             in_nc *= 2
         blocks.append(
             nn.Sequential(
@@ -176,15 +176,15 @@ class U2NetCore(UNetBase):
         ncs = [out_nc] * 2
         blocks = [UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers)]
         for i in range(num_layers - 2):
-            if not use_tiny:
+            if not lite:
                 mid_nc //= 2
                 out_nc //= 2
             blocks.append(UNetRS(in_nc, mid_nc, out_nc, num_layers=current_layers))
             current_layers += 1
-            if not use_tiny:
+            if not lite:
                 in_nc //= 2
             ncs.append(out_nc)
-        if not use_tiny:
+        if not lite:
             mid_nc //= 2
         blocks.append(UNetRS(in_nc, mid_nc, out_nc, num_layers=current_layers))
         ncs.append(out_nc)
@@ -217,7 +217,7 @@ class U2Net(ModelProtocol):
         latent_channels: int = 32,
         num_layers: int = 5,
         max_layers: int = 7,
-        use_tiny: bool = False,
+        lite: bool = False,
     ):
         super().__init__()
         self.core = U2NetCore(
@@ -226,7 +226,7 @@ class U2Net(ModelProtocol):
             latent_channels=latent_channels,
             num_layers=num_layers,
             max_layers=max_layers,
-            use_tiny=use_tiny,
+            lite=lite,
         )
 
     def forward(

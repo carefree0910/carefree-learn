@@ -98,13 +98,13 @@ if __name__ == "__main__":
         {
             "in_channels": 3,
             "out_channels": 1,
-            "use_tiny": True,
+            "lite": True,
         },
         loss_name="multi_bce",
         # lr=4.0e-3,
         finetune_config={
             # "pretrained_ckpt": "pretrained/model.pt",
-            "pretrained_ckpt": "pretrained/model_tiny.pt",
+            "pretrained_ckpt": "pretrained/model_lite.pt",
             # "freeze_except": r"(.*\.side_blocks\..*|.*\.out\..*)",
         },
     )
