@@ -68,6 +68,40 @@ class OptimizerPack(NamedTuple):
     scheduler_config: Optional[Dict[str, Any]] = None
 
 
+class DefaultOptimizerSettings(NamedTuple):
+    lr: float = 1.0e-3
+    optimizer_name: str = "adam"
+    scheduler_name: str = "warmup"
+    optimizer_config: Optional[Dict[str, Any]] = None
+    scheduler_config: Optional[Dict[str, Any]] = None
+
+    def get_opt_pack(self, trainer: "Trainer") -> OptimizerPack:
+        optimizer_config = self.optimizer_config or {}
+        scheduler_config = self.scheduler_config or {}
+        if self.scheduler_name != "warmup":
+            optimizer_config.setdefault("lr", self.lr)
+        else:
+            multiplier = scheduler_config.setdefault("multiplier", 3)
+            optimizer_config.setdefault("lr", self.lr / multiplier)
+            batch_size = trainer.train_loader.batch_size
+            default_max_warmup_step = int(round(3.0e5 / batch_size))
+            num_step_per_epoch = trainer.state.num_step_per_epoch
+            scheduler_config.setdefault(
+                "warmup_step",
+                min(default_max_warmup_step, 10 * num_step_per_epoch),
+            )
+        if self.optimizer_name == "nag":
+            optimizer_config.setdefault("momentum", 0.999)
+            optimizer_config.setdefault("weight_decay", 1e-7)
+        return OptimizerPack(
+            "all",
+            self.optimizer_name,
+            self.scheduler_name,
+            optimizer_config,
+            scheduler_config,
+        )
+
+
 class DeviceInfo(NamedTuple):
     cuda: Optional[str]
     rank: Optional[int]
@@ -176,40 +210,6 @@ class _LogMetricsMsgCallback(TrainerCallback):
         self.timer = time.time()
 
 
-@TrainerCallback.register("_default_opt_settings")
-class _DefaultOptimizerSettings(TrainerCallback):
-    def mutate_optimizer_pack(
-        self,
-        pack: OptimizerPack,
-        trainer: "Trainer",
-    ) -> OptimizerPack:
-        default_lr = 1.0e-3
-        optimizer_config = pack.optimizer_config or {}
-        scheduler_config = pack.scheduler_config or {}
-        if pack.scheduler_name != "warmup":
-            optimizer_config.setdefault("lr", default_lr)
-        else:
-            multiplier = scheduler_config.setdefault("multiplier", 3)
-            optimizer_config.setdefault("lr", default_lr / multiplier)
-            batch_size = trainer.train_loader.batch_size
-            default_max_warmup_step = int(round(3.0e5 / batch_size))
-            num_step_per_epoch = trainer.state.num_step_per_epoch
-            scheduler_config.setdefault(
-                "warmup_step",
-                min(default_max_warmup_step, 10 * num_step_per_epoch),
-            )
-        if pack.optimizer_name == "nag":
-            optimizer_config.setdefault("momentum", 0.999)
-            optimizer_config.setdefault("weight_decay", 1e-7)
-        return OptimizerPack(
-            pack.scope,
-            pack.optimizer_name,
-            pack.scheduler_name,
-            optimizer_config,
-            scheduler_config,
-        )
-
-
 class TqdmSettings(NamedTuple):
     use_tqdm: bool = False
     use_step_tqdm: bool = False
@@ -272,6 +272,11 @@ class Trainer:
         loss_metrics_weights: Optional[Dict[str, float]] = None,
         monitors: Optional[Union[TrainerMonitor, List[TrainerMonitor]]] = None,
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
+        lr: Optional[float] = None,
+        optimizer_name: Optional[str] = None,
+        scheduler_name: Optional[str] = None,
+        optimizer_config: Optional[Dict[str, Any]] = None,
+        scheduler_config: Optional[Dict[str, Any]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         metrics_log_file: str = "metrics.txt",
         ddp_config: Optional[Dict[str, Any]] = None,
@@ -293,16 +298,42 @@ class Trainer:
                 monitors = [monitors]
             self.monitors = monitors
         if callbacks is None:
-            self.callbacks = [_DefaultOptimizerSettings()]
+            self.callbacks = []
             if not self.tqdm_settings.use_tqdm:
                 self.callbacks.append(_LogMetricsMsgCallback())
         else:
             if not isinstance(callbacks, list):
                 callbacks = [callbacks]
             self.callbacks = callbacks
+        settings: Dict[str, Any] = {}
+        if lr is not None:
+            settings["lr"] = lr
+        if optimizer_name is not None:
+            settings["optimizer_name"] = optimizer_name
+        if scheduler_name is not None:
+            settings["scheduler_name"] = scheduler_name
+        if optimizer_config is not None:
+            settings["optimizer_config"] = optimizer_config
+        if scheduler_config is not None:
+            settings["scheduler_config"] = scheduler_config
+        self.default_opt_settings = DefaultOptimizerSettings(**settings)
         if optimizer_packs is None:
-            self.optimizer_packs = [OptimizerPack("all", "adam")]
+            self.optimizer_packs = None
         else:
+            msg = None
+            msg_fmt = "`{}` should not be provided when `optimizer_packs` is provided"
+            if lr is not None:
+                msg = msg_fmt.format("lr")
+            elif optimizer_name is not None:
+                msg = msg_fmt.format("optimizer_name")
+            elif scheduler_name is not None:
+                msg = msg_fmt.format("scheduler_name")
+            elif optimizer_config is not None:
+                msg = msg_fmt.format("optimizer_config")
+            elif scheduler_config is not None:
+                msg = msg_fmt.format("scheduler_config")
+            if msg is not None:
+                raise ValueError(msg)
             if not isinstance(optimizer_packs, list):
                 optimizer_packs = [optimizer_packs]
             self.optimizer_packs = optimizer_packs
@@ -521,6 +552,8 @@ class Trainer:
         self.optimizers: Dict[str, Optimizer] = {}
         self.schedulers: Dict[str, Optional[_LRScheduler]] = {}
         # initialize
+        if self.optimizer_packs is None:
+            self.optimizer_packs = [self.default_opt_settings.get_opt_pack(self)]
         for pack in self.optimizer_packs:
             for callback in self.callbacks:
                 pack = callback.mutate_optimizer_pack(pack, self)

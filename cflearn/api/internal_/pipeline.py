@@ -147,6 +147,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         monitor_configs: Optional[Dict[str, Any]] = None,
         callback_names: Optional[Union[str, List[str]]] = None,
         callback_configs: Optional[Dict[str, Any]] = None,
+        lr: Optional[float] = None,
+        optimizer_name: Optional[str] = None,
+        scheduler_name: Optional[str] = None,
+        optimizer_config: Optional[Dict[str, Any]] = None,
+        scheduler_config: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
         ddp_config: Optional[Dict[str, Any]] = None,
@@ -177,6 +182,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             "monitor_configs": monitor_configs,
             "callback_names": callback_names,
             "callback_configs": callback_configs,
+            "lr": lr,
+            "optimizer_name": optimizer_name,
+            "scheduler_name": scheduler_name,
+            "optimizer_config": optimizer_config,
+            "scheduler_config": scheduler_config,
             "optimizer_settings": optimizer_settings,
             "workplace": workplace,
             "ddp_config": ddp_config,
@@ -259,10 +269,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 verbose = True
             log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
             log_metrics_msg_config.setdefault("verbose", verbose)
-        if "_default_opt_settings" not in callback_names and auto_callback:
-            callback_names.insert(0, "_default_opt_settings")
-        if optimizer_settings is None:
-            optimizer_settings = {"all": {"optimizer": "adam", "scheduler": "warmup"}}
         self.trainer_config["tqdm_settings"] = tqdm_settings
         self.trainer_config["callback_names"] = callback_names
         self.trainer_config["callback_configs"] = callback_configs
