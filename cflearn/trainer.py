@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import math
 import time
@@ -274,6 +275,7 @@ class Trainer:
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         metrics_log_file: str = "metrics.txt",
         ddp_config: Optional[Dict[str, Any]] = None,
+        finetune_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[TqdmSettings] = None,
     ):
         self.tqdm_settings = tqdm_settings or TqdmSettings()
@@ -327,6 +329,7 @@ class Trainer:
         self.is_rank_0 = not self.ddp or self.rank == 0
         for callback in self.callbacks:
             callback.is_rank_0 = self.is_rank_0
+        self.finetune_config = finetune_config
         # initialize artifact structure
         self.checkpoint_folder = None
         if self.is_rank_0:
@@ -389,6 +392,43 @@ class Trainer:
         # ddp setup
         _setup_ddp(**self.ddp_config)
         self.ddp_model = DDP(self.model.to(self.rank), device_ids=[self.rank])
+
+    def _init_finetune(self) -> None:
+        if self.finetune_config is None:
+            return None
+        pretrained_ckpt = self.finetune_config.get("pretrained_ckpt")
+        if pretrained_ckpt is None:
+            raise ValueError("`rank` should be provided when `finetune` is triggered")
+        print(f"{INFO_PREFIX}loading pretrained checkpoint from '{pretrained_ckpt}'...")
+        d = torch.load(pretrained_ckpt, map_location=self.device)
+        self.model.load_state_dict(d)
+        freeze = self.finetune_config.get("freeze", "")
+        freeze_except = self.finetune_config.get("freeze_except", "")
+        if not freeze and not freeze_except:
+            return None
+        msg_fmt = f"{INFO_PREFIX}{'{}'} parameters will be {'{}'} under '{'{}'}'"
+        param_names = []
+        if freeze:
+            num_frozen = 0
+            for name, param in self.model.named_parameters():
+                if re.match(freeze, name):
+                    num_frozen += 1
+                    param.requires_grad_(False)
+                    param_names.append(name)
+            msg = msg_fmt.format(num_frozen, "frozen", freeze)
+        elif freeze_except:
+            num_trainable = 0
+            for name, param in self.model.named_parameters():
+                if not re.match(freeze_except, name):
+                    param.requires_grad_(False)
+                else:
+                    num_trainable += 1
+                    param_names.append(name)
+            msg = msg_fmt.format(num_trainable, "trainable", freeze_except)
+        else:
+            msg = "`freeze` & `freeze_except` should not be provided simultaneously"
+            raise ValueError(msg)
+        print("\n".join(["=" * 100, msg, "-" * 100] + param_names + ["-" * 100]))
 
     def default_lr_configs(
         self,
@@ -663,6 +703,8 @@ class Trainer:
         self._init_optimizers()
         # callback
         self.model._init_with_trainer(self)
+        # finetune
+        self._init_finetune()
         # verbose
         if show_summary is None:
             show_summary = not self.tqdm_settings.in_distributed
