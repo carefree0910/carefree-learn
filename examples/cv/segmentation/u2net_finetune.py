@@ -12,12 +12,14 @@ from typing import Any
 from typing import List
 from typing import Optional
 from cflearn.types import losses_type
+from cflearn.types import np_dict_type
 from cflearn.types import tensor_dict_type
 from cflearn.constants import LOSS_KEY
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.protocol import TrainerState
+from cflearn.protocol import DataLoaderProtocol
 from cflearn.api.cv import AlphaSegmentationCallback
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import eval_context
@@ -87,6 +89,32 @@ class MultiBCE(cflearn.LossProtocol):
         return losses
 
 
+def iou(pred: np.ndarray, target: np.ndarray) -> float:
+    intersect = np.sqrt(pred * target)
+    union = np.maximum(pred, target)
+    return intersect.sum() / union.sum()
+
+
+@cflearn.MetricProtocol.register("multi_iou")
+class MultiIOU(cflearn.MetricProtocol):
+    @property
+    def is_positive(self) -> bool:
+        return True
+
+    def _core(
+        self,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
+        labels = np_batch[LABEL_KEY]
+        iou_scores = []
+        for pred in np_outputs[PREDICTIONS_KEY]:
+            pred = 1.0 / (1.0 + np.exp(-pred))
+            iou_scores.append(iou(pred, labels))
+        return sum(iou_scores) / len(iou_scores)
+
+
 if __name__ == "__main__":
     prepare()
     train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
@@ -103,7 +131,9 @@ if __name__ == "__main__":
             "lite": True,
         },
         loss_name="multi_bce",
+        metric_names="multi_iou",
         # lr=4.0e-3,
+        scheduler_name="none",
         finetune_config={
             # "pretrained_ckpt": "pretrained/model.pt",
             "pretrained_ckpt": "pretrained/model_lite.pt",
