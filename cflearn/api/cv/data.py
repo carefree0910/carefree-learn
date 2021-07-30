@@ -122,7 +122,11 @@ class ForGeneration(Transforms):
         return False
 
 
-def make_new_sample(sample: np_dict_type, img: Tensor, label: Tensor) -> np_dict_type:
+def make_new_sample(
+    sample: np_dict_type,
+    img: Tensor,
+    label: Optional[Tensor],
+) -> np_dict_type:
     new_sample = shallow_copy_dict(sample)
     new_sample[INPUT_KEY] = img
     new_sample[LABEL_KEY] = label
@@ -140,8 +144,11 @@ class RescaleT:
             (self.output_size, self.output_size),
             mode="constant",
         )
+        label = sample.get(LABEL_KEY)
+        if label is None:
+            return make_new_sample(sample, img, None)
         label = sk_transform.resize(
-            sample[LABEL_KEY],
+            label,
             (self.output_size, self.output_size),
             mode="constant",
             order=0,
