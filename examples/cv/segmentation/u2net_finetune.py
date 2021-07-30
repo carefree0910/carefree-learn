@@ -5,6 +5,7 @@ import cv2
 import cflearn
 
 import numpy as np
+import torch.nn as nn
 
 from typing import Any
 from typing import List
@@ -69,8 +70,11 @@ class U2NetCallback(AlphaSegmentationCallback):
         self._save_seg_results(trainer, batch, logits)
 
 
-@cflearn.LossProtocol.register("multi_bce")
-class MultiBCE(cflearn.LossProtocol):
+@cflearn.LossProtocol.register("u2net")
+class U2NetLoss(cflearn.LossProtocol):
+    def _init_config(self) -> None:
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
+
     def _core(
         self,
         forward_results: tensor_dict_type,
@@ -81,30 +85,13 @@ class MultiBCE(cflearn.LossProtocol):
         predictions = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
         losses = {
-            f"lv{i}": F.binary_cross_entropy_with_logits(pred, labels, reduction="none")
+            f"lv{i}": self.bce(pred, labels).mean((1, 2, 3))
             for i, pred in enumerate(predictions)
         }
+        for i, pred in enumerate(predictions):
+            losses[f"iou{i}"] = 1.0 - iou(pred, labels)
         losses[LOSS_KEY] = sum(losses.values())
         return losses
-
-
-@cflearn.MetricProtocol.register("multi_iou")
-class MultiIOU(cflearn.MetricProtocol):
-    @property
-    def is_positive(self) -> bool:
-        return True
-
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        labels = np_batch[LABEL_KEY]
-        iou_scores = []
-        for pred in np_outputs[PREDICTIONS_KEY]:
-            iou_scores.append(iou(pred, labels).mean().item())
-        return sum(iou_scores) / len(iou_scores)
 
 
 if __name__ == "__main__":
@@ -122,8 +109,8 @@ if __name__ == "__main__":
             "out_channels": 1,
             "lite": True,
         },
-        loss_name="multi_bce",
-        metric_names="multi_iou",
+        loss_name="u2net",
+        loss_metrics_weights={"iou0": 1.0},
         # lr=4.0e-3,
         scheduler_name="none",
         finetune_config={
