@@ -21,10 +21,11 @@ class AlphaSegmentationCallback(ArtifactCallback):
         self,
         trainer: Trainer,
         batch: tensor_dict_type,
-        seg_map: torch.Tensor,
+        logits: torch.Tensor,
     ) -> None:
         original = batch[INPUT_KEY]
         label = batch[LABEL_KEY].float()
+        seg_map = min_max_normalize(torch.sigmoid(logits))
         image_folder = self._prepare_folder(trainer)
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(label, os.path.join(image_folder, "label.png"))

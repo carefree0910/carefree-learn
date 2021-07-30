@@ -64,9 +64,8 @@ class U2NetCallback(AlphaSegmentationCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):
-            seg_map = trainer.model.generate_from(batch[INPUT_KEY])
-            seg_map = min_max_normalize(torch.sigmoid(seg_map))
-        self._save_seg_results(trainer, batch, seg_map)
+            logits = trainer.model.generate_from(batch[INPUT_KEY])
+        self._save_seg_results(trainer, batch, logits)
 
 
 @cflearn.LossProtocol.register("multi_bce")

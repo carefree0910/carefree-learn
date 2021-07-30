@@ -63,9 +63,8 @@ class UnetCallback(AlphaSegmentationCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):
-            logits = trainer.model.generate_from(batch[cflearn.INPUT_KEY])
-            seg_map = logits.argmax(1, keepdim=True).float()
-        self._save_seg_results(trainer, batch, seg_map)
+            logits = trainer.model.generate_from(batch[cflearn.INPUT_KEY])[..., [1]]
+        self._save_seg_results(trainer, batch, logits)
 
 
 if __name__ == "__main__":
