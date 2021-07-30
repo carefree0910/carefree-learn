@@ -14,7 +14,6 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import align_to
-from ....misc.toolkit import normalize_image
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -204,7 +203,7 @@ class U2NetCore(UNetBase):
                 side_net = align_to(side_net, anchor=side_nets[0], mode="bilinear")
             side_nets.append(side_net)
         side_nets.append(self.out(torch.cat(side_nets, dim=1)))
-        return list(map(torch.sigmoid, side_nets))
+        return side_nets
 
 
 @ModelProtocol.register("u2net")
@@ -238,9 +237,8 @@ class U2Net(ModelProtocol):
     ) -> tensor_dict_type:
         return {PREDICTIONS_KEY: self.core(batch[INPUT_KEY])}
 
-    def generate_from(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
-        predictions = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
-        return normalize_image(predictions[0])
+    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
+        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY][0]
 
 
 __all__ = ["U2Net"]

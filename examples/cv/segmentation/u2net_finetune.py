@@ -2,6 +2,7 @@
 
 import os
 import cv2
+import torch
 import cflearn
 
 import numpy as np
@@ -63,6 +64,7 @@ class U2NetCallback(AlphaSegmentationCallback):
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):
             seg_map = trainer.model.generate_from(batch[cflearn.INPUT_KEY])
+            seg_map = normalize_image(torch.sigmoid(seg_map))
         self._save_seg_results(trainer, batch, seg_map)
 
 
@@ -78,7 +80,7 @@ class MultiBCE(cflearn.LossProtocol):
         predictions = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
         losses = {
-            f"lv{i}": F.binary_cross_entropy(pred, labels, reduction="none")
+            f"lv{i}": F.binary_cross_entropy_with_logits(pred, labels, reduction="none")
             for i, pred in enumerate(predictions)
         }
         losses[LOSS_KEY] = sum(losses.values())
