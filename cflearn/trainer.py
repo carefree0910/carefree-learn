@@ -71,7 +71,7 @@ class OptimizerPack(NamedTuple):
 class DefaultOptimizerSettings(NamedTuple):
     lr: float = 1.0e-3
     optimizer_name: str = "adam"
-    scheduler_name: str = "warmup"
+    scheduler_name: Optional[str] = "warmup"
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
 
@@ -311,6 +311,8 @@ class Trainer:
         if optimizer_name is not None:
             settings["optimizer_name"] = optimizer_name
         if scheduler_name is not None:
+            if scheduler_name == "none":
+                scheduler_name = None
             settings["scheduler_name"] = scheduler_name
         if optimizer_config is not None:
             settings["optimizer_config"] = optimizer_config
