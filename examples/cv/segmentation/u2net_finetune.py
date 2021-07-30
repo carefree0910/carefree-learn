@@ -21,7 +21,7 @@ from cflearn.protocol import TrainerState
 from cflearn.api.cv import AlphaSegmentationCallback
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import eval_context
-from cflearn.misc.toolkit import normalize_image
+from cflearn.misc.toolkit import min_max_normalize
 
 
 src_folder = "raw"
@@ -41,7 +41,7 @@ def prepare() -> None:
         hierarchy[1] = f"{file_id}.png"
         rgba_path = os.path.abspath(os.path.join(*hierarchy))
         alpha = cv2.imread(rgba_path, cv2.IMREAD_UNCHANGED)[..., -1:]
-        alpha = normalize_image(alpha.astype(np.float32), global_norm=True)
+        alpha = min_max_normalize(alpha.astype(np.float32), global_norm=True)
         np.save(label_path, alpha)
         return label_path
 
@@ -65,7 +65,7 @@ class U2NetCallback(AlphaSegmentationCallback):
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):
             seg_map = trainer.model.generate_from(batch[INPUT_KEY])
-            seg_map = normalize_image(torch.sigmoid(seg_map))
+            seg_map = min_max_normalize(torch.sigmoid(seg_map))
         self._save_seg_results(trainer, batch, seg_map)
 
 

@@ -849,7 +849,7 @@ def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
-def normalize_image(arr: arr_type, *, global_norm: bool = True) -> arr_type:
+def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
     eps = 1.0e-8
     if global_norm:
         arr_min, arr_max = arr.min().item(), arr.max().item()

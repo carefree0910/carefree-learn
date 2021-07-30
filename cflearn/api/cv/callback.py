@@ -12,7 +12,7 @@ from ...misc.toolkit import to_torch
 from ...misc.toolkit import to_device
 from ...misc.toolkit import save_images
 from ...misc.toolkit import eval_context
-from ...misc.toolkit import normalize_image
+from ...misc.toolkit import min_max_normalize
 from ...misc.internal_.callback import ArtifactCallback
 
 
@@ -31,7 +31,7 @@ class AlphaSegmentationCallback(ArtifactCallback):
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(label, os.path.join(image_folder, "label.png"))
         save_images(seg_map, os.path.join(image_folder, "mask.png"))
-        np_original = normalize_image(to_numpy(original))
+        np_original = min_max_normalize(to_numpy(original))
         np_label, np_mask = map(to_numpy, [label, seg_map])
         rgba = np.concatenate([np_original, np_label], axis=1)
         rgba_pred = np.concatenate([np_original, np_mask], axis=1)
