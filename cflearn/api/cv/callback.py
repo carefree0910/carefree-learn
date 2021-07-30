@@ -9,9 +9,7 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...misc.toolkit import to_numpy
 from ...misc.toolkit import to_torch
-from ...misc.toolkit import to_device
 from ...misc.toolkit import save_images
-from ...misc.toolkit import eval_context
 from ...misc.toolkit import min_max_normalize
 from ...misc.internal_.callback import ArtifactCallback
 
