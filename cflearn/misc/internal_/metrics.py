@@ -13,6 +13,7 @@ from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import softmax
 
 
 @MetricProtocol.register("acc")
@@ -107,7 +108,7 @@ class AUC(MetricProtocol):
     ) -> float:
         logits = np_outputs[PREDICTIONS_KEY]
         num_classes = logits.shape[1]
-        probabilities = self.softmax(logits)
+        probabilities = softmax(logits)
         labels = np_batch[LABEL_KEY].ravel()  # type: ignore
         if num_classes == 2:
             return metrics.roc_auc_score(labels, probabilities[..., 1])

@@ -660,6 +660,17 @@ class WithRegister(Generic[T]):
         return register_core(name, cls.d, before_register=before)
 
 
+# dl
+
+
+def softmax(arr: arr_type) -> arr_type:
+    if isinstance(arr, torch.Tensor):
+        return F.softmax(arr, dim=1)
+    logits = arr - np.max(arr, axis=1, keepdims=True)
+    exp = np.exp(logits)
+    return exp / exp.sum(1, keepdims=True)
+
+
 # ml
 
 

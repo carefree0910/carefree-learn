@@ -545,12 +545,6 @@ class MetricProtocol(ABC, WithRegister):
     def requires_all(self) -> bool:
         return False
 
-    @staticmethod
-    def softmax(logits: np.ndarray) -> np.ndarray:
-        logits = logits - np.max(logits, axis=1, keepdims=True)
-        exp = np.exp(logits)
-        return exp / exp.sum(1, keepdims=True)
-
     def evaluate(
         self,
         np_batch: np_dict_type,

@@ -23,13 +23,13 @@ from ...types import np_dict_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
-from ...protocol import MetricProtocol
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
 from ..internal_.pipeline import _split_sw
 from ..internal_.pipeline import DLPipeline
+from ...misc.toolkit import softmax
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
 from ...misc.internal_ import MLData
@@ -325,7 +325,7 @@ class SimplePipeline(DLPipeline):
             if pre_process is not None:
                 x = pre_process(x)
             logits = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
-            return MetricProtocol.softmax(logits)
+            return softmax(logits)
 
         return ModelPattern(
             init_method=lambda: self,
