@@ -2,11 +2,9 @@
 
 import os
 import cv2
-import torch
 import cflearn
 
 import numpy as np
-import torch.nn.functional as F
 
 from typing import Any
 from typing import List
@@ -21,6 +19,7 @@ from cflearn.constants import PREDICTIONS_KEY
 from cflearn.protocol import TrainerState
 from cflearn.protocol import DataLoaderProtocol
 from cflearn.api.cv import AlphaSegmentationCallback
+from cflearn.misc.toolkit import iou
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import min_max_normalize
@@ -89,12 +88,6 @@ class MultiBCE(cflearn.LossProtocol):
         return losses
 
 
-def iou(pred: np.ndarray, target: np.ndarray) -> float:
-    intersect = np.sqrt(pred * target)
-    union = np.maximum(pred, target)
-    return intersect.sum() / union.sum()
-
-
 @cflearn.MetricProtocol.register("multi_iou")
 class MultiIOU(cflearn.MetricProtocol):
     @property
@@ -110,8 +103,7 @@ class MultiIOU(cflearn.MetricProtocol):
         labels = np_batch[LABEL_KEY]
         iou_scores = []
         for pred in np_outputs[PREDICTIONS_KEY]:
-            pred = 1.0 / (1.0 + np.exp(-pred))
-            iou_scores.append(iou(pred, labels))
+            iou_scores.append(iou(pred, labels).mean().item())
         return sum(iou_scores) / len(iou_scores)
 
 

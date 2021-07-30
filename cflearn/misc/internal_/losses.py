@@ -13,8 +13,23 @@ from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import iou
 from ...misc.toolkit import corr
 from ...misc.toolkit import to_torch
+
+
+@LossProtocol.register("iou")
+class IOULoss(LossProtocol):
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        logits = forward_results[PREDICTIONS_KEY]
+        labels = batch[LABEL_KEY]
+        return iou(logits, labels)
 
 
 @LossProtocol.register("mae")
@@ -167,6 +182,7 @@ class FocalLoss(LossProtocol):
 
 
 __all__ = [
+    "IOULoss",
     "MAELoss",
     "MSELoss",
     "QuantileLoss",

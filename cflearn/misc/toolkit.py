@@ -860,6 +860,24 @@ def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
+def iou(logits: arr_type, labels: arr_type) -> arr_type:
+    is_torch = isinstance(logits, torch.Tensor)
+    num_classes = logits.shape[1]
+    if num_classes == 1:
+        if is_torch:
+            heat_map = torch.sigmoid(logits)
+        else:
+            heat_map = 1.0 / (1.0 + np.exp(-logits))
+    elif num_classes == 2:
+        heat_map = softmax(logits)[:, [1], ...]
+    else:
+        raise ValueError("`IOU` only supports binary situations")
+    intersect = heat_map * labels
+    union = heat_map + labels - intersect
+    kwargs = {"dim" if is_torch else "axis": tuple(range(1, len(intersect.shape)))}
+    return intersect.sum(**kwargs) / union.sum(**kwargs)
+
+
 def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
     eps = 1.0e-8
     if global_norm:

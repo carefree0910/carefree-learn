@@ -13,6 +13,7 @@ from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import iou
 from ...misc.toolkit import softmax
 
 
@@ -186,6 +187,23 @@ class Correlation(MetricProtocol):
         return float(ss.pearsonr(labels, predictions)[0])
 
 
+@MetricProtocol.register("iou")
+class IOU(MetricProtocol):
+    @property
+    def is_positive(self) -> bool:
+        return True
+
+    def _core(
+        self,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
+        logits = np_outputs[PREDICTIONS_KEY]
+        labels = np_batch[LABEL_KEY]
+        return iou(logits, labels).mean().item()
+
+
 class MultipleMetrics(MetricProtocol):
     @property
     def is_positive(self) -> bool:
@@ -234,6 +252,7 @@ class MultipleMetrics(MetricProtocol):
 __all__ = [
     "AUC",
     "BER",
+    "IOU",
     "MAE",
     "MSE",
     "F1Score",
