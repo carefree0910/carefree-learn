@@ -553,11 +553,12 @@ class ImageFolderDataset(Dataset):
         if isinstance(label, str) and label.endswith(".npy"):
             label = np.load(label)
         if self.transform is None:
+            img = to_torch(np.array(img).astype(np.float32))
             if isinstance(label, np.ndarray):
                 label = to_torch(label)
-            return {INPUT_KEY: to_torch(np.array(img)), LABEL_KEY: label}
+            return {INPUT_KEY: img, LABEL_KEY: label}
         if self.transform.need_batch_process:
-            img_arr = np.array(img)
+            img_arr = np.array(img).astype(np.float32)
             return self.transform({INPUT_KEY: img_arr, LABEL_KEY: label})
         if isinstance(label, np.ndarray):
             label = to_torch(label)
