@@ -188,6 +188,7 @@ class RandomCropWithVFlip:
 class ToNormalizedArray:
     def __call__(self, sample: np_dict_type) -> np_dict_type:
         img, label = sample[INPUT_KEY], sample[LABEL_KEY]
+        img = min_max_normalize(img)
         img = imagenet_normalize(img)
         if label is None:
             return make_new_sample(sample, img.transpose([2, 0, 1]), None)
