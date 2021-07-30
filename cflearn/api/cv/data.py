@@ -6,6 +6,7 @@ import shutil
 
 import numpy as np
 
+from abc import abstractmethod
 from PIL import Image
 from tqdm import tqdm
 from torch import Tensor
@@ -41,54 +42,83 @@ from ...misc.internal_ import DLData
 from ...misc.internal_ import DLLoader
 
 
-cf_transforms: Dict[str, Type["TransformFactory"]] = {}
+cf_transforms: Dict[str, Type["Transforms"]] = {}
 
 
-class TransformFactory(WithRegister):
-    fn: Callable
-    need_batch_process: bool = False
+class Transforms(WithRegister):
+    d: Dict[str, Type["Transforms"]] = cf_transforms
 
-    d: Dict[str, Type["TransformFactory"]] = cf_transforms
+    fn: Any
 
-    def __init__(self, transform: Optional[Union[str, Callable]] = None):
-        if isinstance(transform, str):
-            ins = self.d.get(transform)
-            if ins is None:
-                raise NotImplementedError(f"'{transform}' transform is not implemented")
-            transform = ins.fn
-            self.need_batch_process = ins.need_batch_process
-        assert callable(transform)
-        self.transform = transform
+    def __init__(self, *args: Any, **kwargs: Any):
+        pass
 
-    def __call__(self, inp: Any, *args: Any, **kwargs: Any) -> Tensor:
-        if self.transform is None:
-            return inp
-        return self.transform(inp, *args, **kwargs)
+    def __call__(self, inp: Any, *args: Any, **kwargs: Any) -> Any:
+        if self.need_batch_process:
+            return {k: self.fn(v, *args, **kwargs) for k, v in inp.items()}
+        return self.fn(inp, *args, **kwargs)
 
-    def process_batch(
-        self,
-        sample: np_dict_type,
-        *args: Any,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        if self.transform is not None:
-            sample = self.transform(sample, *args, **kwargs)
-        return {k: to_torch(v) for k, v in sample.items()}
+    @property
+    @abstractmethod
+    def need_batch_process(self) -> bool:
+        pass
+
+    @classmethod
+    def convert(
+        cls,
+        transform: Optional[Union[str, "Transforms"]],
+        transform_config: Optional[Dict[str, Any]] = None,
+    ) -> Optional["Transforms"]:
+        if transform is None:
+            return None
+        if isinstance(transform, Transforms):
+            return transform
+        return cls.make(transform, transform_config or {})
 
 
-@TransformFactory.register("to_tensor")
-class ToTensor(TransformFactory):
+@Transforms.register("sample_fn")
+class SampleFunction(Transforms):
+    def __init__(self, fn: Callable):
+        super().__init__()
+        self.fn = fn
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
+@Transforms.register("batch_fn")
+class BatchFunction(Transforms):
+    def __init__(self, fn: Callable):
+        super().__init__()
+        self.fn = fn
+
+    @property
+    def need_batch_process(self) -> bool:
+        return True
+
+
+@Transforms.register("to_tensor")
+class ToTensor(Transforms):
     fn = transforms.ToTensor()
 
+    @property
+    def need_batch_process(self) -> bool:
+        return False
 
-@TransformFactory.register("for_generation")
-class ForGeneration(TransformFactory):
+
+@Transforms.register("for_generation")
+class ForGeneration(Transforms):
     fn = transforms.Compose(
         [
             transforms.ToTensor(),
             transforms.Lambda(lambda t: t * 2.0 - 1.0),
         ]
     )
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
 
 
 def make_new_sample(sample: np_dict_type, img: Tensor, label: Tensor) -> np_dict_type:
@@ -119,19 +149,20 @@ class RescaleT:
         return make_new_sample(sample, img, label)
 
 
-class RandomCrop:
-    def __init__(self, output_size: int):
+class RandomCropWithVFlip:
+    def __init__(self, output_size: int, p_vflip: float):
         assert isinstance(output_size, (int, tuple))
         if isinstance(output_size, int):
             self.output_size = (output_size, output_size)
         else:
             assert len(output_size) == 2
             self.output_size = output_size
+        self.p_vflip = p_vflip
 
     def __call__(self, sample: np_dict_type) -> np_dict_type:
         img, label = sample[INPUT_KEY], sample[LABEL_KEY]
 
-        if random.random() >= 0.5:
+        if random.random() >= self.p_vflip:
             img = img[::-1]
             label = label[::-1]
 
@@ -166,23 +197,35 @@ class ToNormalizedTensor:
         return make_new_sample(sample, new_img, new_label)
 
 
-@TransformFactory.register("for_salient_object_detection")
-class ForSalientObjectDetection(TransformFactory):
-    fn = transforms.Compose(
-        [
-            RescaleT(320),
-            RandomCrop(288),
-            ToNormalizedTensor(),
-        ]
-    )
-    need_batch_process = True
+@Transforms.register("for_salient_object_detection")
+class ForSalientObjectDetection(Transforms):
+    def __init__(
+        self,
+        *,
+        rescale_size: int = 320,
+        crop_size: int = 288,
+        p_vflip: float = 0.5,
+    ):
+        super().__init__()
+        self.fn = transforms.Compose(
+            [
+                RescaleT(rescale_size),
+                RandomCropWithVFlip(crop_size, p_vflip),
+                ToNormalizedTensor(),
+            ]
+        )
+
+    @property
+    def need_batch_process(self) -> bool:
+        return True
 
 
 def get_mnist(
     *,
     shuffle: bool = True,
     batch_size: int = 64,
-    transform: Optional[Union[str, Callable]] = None,
+    transform: Optional[Union[str, Transforms]] = None,
+    transform_config: Optional[Dict[str, Any]] = None,
     label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
     def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
@@ -197,9 +240,9 @@ def get_mnist(
             ORIGINAL_LABEL_KEY: labels,
         }
 
-    factory = TransformFactory(transform)
-    train_data = DLData(MNIST("data", transform=factory, download=True))
-    valid_data = DLData(MNIST("data", train=False, transform=factory, download=True))
+    transform = Transforms.convert(transform, transform_config)
+    train_data = DLData(MNIST("data", transform=transform, download=True))
+    valid_data = DLData(MNIST("data", train=False, transform=transform, download=True))
 
     train_pt_loader = DataLoader(train_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
     valid_pt_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
@@ -490,7 +533,8 @@ class ImageFolderDataset(Dataset):
         self,
         folder: str,
         split: str,
-        transform: Optional[Union[str, Callable]] = None,
+        transform: Optional[Union[str, Transforms]] = None,
+        transform_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = os.path.abspath(os.path.join(folder, split))
         with open(os.path.join(self.folder, "labels.json"), "r") as f:
@@ -505,22 +549,21 @@ class ImageFolderDataset(Dataset):
                 ),
             )
         )
-        self.transform = TransformFactory(transform)
+        self.transform = Transforms.convert(transform, transform_config)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-        if isinstance(self.transform, dict):
-            raise ValueError(
-                "`transform` is defined as `dict`, "
-                "so you need to customize `__getitem__` method"
-            )
         file = self.img_paths[index]
         img = Image.open(file)
         label = self.labels[file]
         if isinstance(label, str) and label.endswith(".npy"):
             label = np.load(label)
+        if self.transform is None:
+            if isinstance(label, np.ndarray):
+                label = to_torch(label)
+            return {INPUT_KEY: to_torch(np.array(img)), LABEL_KEY: label}
         if self.transform.need_batch_process:
             img_arr = np.array(img)
-            return self.transform.process_batch({INPUT_KEY: img_arr, LABEL_KEY: label})
+            return self.transform({INPUT_KEY: img_arr, LABEL_KEY: label})
         if isinstance(label, np.ndarray):
             label = to_torch(label)
         return {INPUT_KEY: self.transform(img), LABEL_KEY: label}
@@ -535,7 +578,7 @@ def get_image_folder_loaders(
     batch_size: int,
     shuffle: bool = True,
     num_workers: int = 0,
-    transform: Optional[Union[str, Callable]] = None,
+    transform: Optional[Union[str, Transforms]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
     train_data = DLData(ImageFolderDataset(folder, "train", transform))
     valid_data = DLData(ImageFolderDataset(folder, "test", transform))
