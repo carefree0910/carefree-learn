@@ -37,6 +37,7 @@ from ...constants import ERROR_PREFIX
 from ...constants import WARNING_PREFIX
 from ...constants import ORIGINAL_LABEL_KEY
 from ...misc.toolkit import to_torch
+from ...misc.toolkit import min_max_normalize
 from ...misc.toolkit import imagenet_normalize
 from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DLData
@@ -134,22 +135,24 @@ def make_new_sample(
 
 
 class RescaleT:
-    def __init__(self, output_size: int):
-        assert isinstance(output_size, (int, tuple))
+    def __init__(self, output_size: Union[int, tuple]):
+        if isinstance(output_size, int):
+            output_size = output_size, output_size
         self.output_size = output_size
 
     def __call__(self, sample: np_dict_type) -> np_dict_type:
         img = sk_transform.resize(
-            sample[INPUT_KEY][..., :3],
-            (self.output_size, self.output_size),
+            (sample[INPUT_KEY][..., :3] * 255.0).astype(np.uint8),
+            self.output_size,
             mode="constant",
         )
+        img = img.astype(np.float32)
         label = sample.get(LABEL_KEY)
         if label is None:
             return make_new_sample(sample, img, None)
         label = sk_transform.resize(
             label,
-            (self.output_size, self.output_size),
+            self.output_size,
             mode="constant",
             order=0,
             preserve_range=True,
