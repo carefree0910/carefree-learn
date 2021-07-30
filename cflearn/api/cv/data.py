@@ -568,7 +568,7 @@ class ImageFolderDataset(Dataset):
                 label = to_torch(label)
             return {INPUT_KEY: img, LABEL_KEY: label}
         if self.transform.need_batch_process:
-            img_arr = np.array(img).astype(np.float32)
+            img_arr = np.array(img).astype(np.float32) / 255.0
             return self.transform({INPUT_KEY: img_arr, LABEL_KEY: label})
         if isinstance(label, np.ndarray):
             label = to_torch(label)
