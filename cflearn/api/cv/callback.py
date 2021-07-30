@@ -26,16 +26,20 @@ class AlphaSegmentationCallback(ArtifactCallback):
         original = batch[INPUT_KEY]
         label = batch[LABEL_KEY].float()
         seg_map = min_max_normalize(torch.sigmoid(logits))
+        sharp_map = (seg_map > seg_map.mean(0)).to(torch.float32)
         image_folder = self._prepare_folder(trainer)
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(label, os.path.join(image_folder, "label.png"))
         save_images(seg_map, os.path.join(image_folder, "mask.png"))
+        save_images(sharp_map, os.path.join(image_folder, "sharp_mask.png"))
         np_original = min_max_normalize(to_numpy(original))
-        np_label, np_mask = map(to_numpy, [label, seg_map])
+        np_label, np_mask, np_sharp = map(to_numpy, [label, seg_map, sharp_map])
         rgba = np.concatenate([np_original, np_label], axis=1)
         rgba_pred = np.concatenate([np_original, np_mask], axis=1)
+        rgba_sharp = np.concatenate([np_original, np_sharp], axis=1)
         save_images(to_torch(rgba), os.path.join(image_folder, "rgba.png"))
         save_images(to_torch(rgba_pred), os.path.join(image_folder, "rgba_pred.png"))
+        save_images(to_torch(rgba_sharp), os.path.join(image_folder, "rgba_sharp.png"))
 
 
 __all__ = [
