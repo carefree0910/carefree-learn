@@ -164,8 +164,8 @@ class RandomCropWithVFlip:
         img, label = sample[INPUT_KEY], sample[LABEL_KEY]
 
         if random.random() >= self.p_vflip:
-            img = img[::-1]
-            label = label[::-1]
+            img = img[::-1].copy()
+            label = label[::-1].copy()
 
         h, w = img.shape[:2]
         new_h, new_w = self.output_size
