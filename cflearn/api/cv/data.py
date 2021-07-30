@@ -37,6 +37,7 @@ from ...constants import ERROR_PREFIX
 from ...constants import WARNING_PREFIX
 from ...constants import ORIGINAL_LABEL_KEY
 from ...misc.toolkit import to_torch
+from ...misc.toolkit import imagenet_normalize
 from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DLData
 from ...misc.internal_ import DLLoader
@@ -180,21 +181,15 @@ class RandomCropWithVFlip:
 class ToNormalizedTensor:
     def __call__(self, sample: np_dict_type) -> np_dict_type:
         img, label = sample[INPUT_KEY], sample[LABEL_KEY]
-        if img.shape[2] == 1:
-            mean = np.array([0.485] * 3)[None, None, :]
-            std = np.array([0.229] * 3)[None, None, :]
-        else:
-            mean = np.array([0.485, 0.456, 0.406])[None, None, :]
-            std = np.array([0.229, 0.224, 0.225])[None, None, :]
-        new_img = (img - mean) / std
+        img = imagenet_normalize(img)
         label_max = label.max()
         if label_max < 1.0e-6:
             new_label = label
         else:
             new_label = label / label_max
-        new_img = new_img.transpose([2, 0, 1])
+        img = img.transpose([2, 0, 1])
         new_label = new_label.transpose([2, 0, 1])
-        return make_new_sample(sample, new_img, new_label)
+        return make_new_sample(sample, img, new_label)
 
 
 @Transforms.register("for_salient_object_detection")

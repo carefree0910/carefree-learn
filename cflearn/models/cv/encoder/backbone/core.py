@@ -17,6 +17,7 @@ from torchvision.models._utils import IntermediateLayerGetter
 
 from .....constants import LATENT_KEY
 from .....misc.toolkit import set_requires_grad
+from .....misc.toolkit import imagenet_normalize
 
 
 class VGG(nn.Module):
@@ -147,19 +148,10 @@ class Backbone(nn.Module):
         self.gap = None
         if requires_gap:
             self.gap = nn.AdaptiveAvgPool2d((1, 1))
-        # normalize
-        if need_normalize:
-            mean = torch.tensor([0.485, 0.456, 0.406]).view(-1, 1, 1)
-            std = torch.tensor([0.229, 0.224, 0.225]).view(-1, 1, 1)
-            self.register_buffer("mean", mean)
-            self.register_buffer("std", std)
-
-    def normalize(self, net: torch.Tensor) -> torch.Tensor:
-        return (net - self.mean) / self.std
 
     def forward(self, net: torch.Tensor) -> tensor_dict_type:
         if self.need_normalize:
-            net = self.normalize(net)
+            net = imagenet_normalize(net)
         rs = self.core(net)
         net = rs if self._backbone_return_tensor else list(rs.values())[-1]
         if self.gap is not None:
