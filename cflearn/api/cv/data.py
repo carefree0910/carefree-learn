@@ -185,7 +185,7 @@ class RandomCropWithVFlip:
         return make_new_sample(sample, img, label)
 
 
-class ToNormalizedTensor:
+class ToNormalizedArray:
     def __call__(self, sample: np_dict_type) -> np_dict_type:
         img, label = sample[INPUT_KEY], sample[LABEL_KEY]
         img = imagenet_normalize(img)
@@ -215,7 +215,7 @@ class ForSalientObjectDetection(Transforms):
             [
                 RescaleT(rescale_size),
                 RandomCropWithVFlip(crop_size, p_vflip),
-                ToNormalizedTensor(),
+                ToNormalizedArray(),
             ]
         )
 
