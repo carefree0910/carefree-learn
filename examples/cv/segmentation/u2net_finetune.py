@@ -14,6 +14,7 @@ from typing import Optional
 from cflearn.types import losses_type
 from cflearn.types import tensor_dict_type
 from cflearn.constants import LOSS_KEY
+from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.protocol import TrainerState
@@ -63,7 +64,7 @@ class U2NetCallback(AlphaSegmentationCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         with eval_context(trainer.model):
-            seg_map = trainer.model.generate_from(batch[cflearn.INPUT_KEY])
+            seg_map = trainer.model.generate_from(batch[INPUT_KEY])
             seg_map = normalize_image(torch.sigmoid(seg_map))
         self._save_seg_results(trainer, batch, seg_map)
 

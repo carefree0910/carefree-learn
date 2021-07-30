@@ -85,16 +85,16 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def predict(self, x: Any, **kwargs: Any) -> np_dict_type:
+    def predict(self, x: Any, **predict_kwargs: Any) -> np_dict_type:
         pass
 
     @abstractmethod
-    def save(self, export_folder: str, **kwargs: Any) -> "PipelineProtocol":
+    def save(self, export_folder: str) -> "PipelineProtocol":
         pass
 
     @classmethod
     @abstractmethod
-    def load(cls, export_folder: str, **kwargs: Any) -> "PipelineProtocol":
+    def load(cls, export_folder: str) -> "PipelineProtocol":
         pass
 
 
@@ -385,7 +385,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         compress: bool = True,
         retain_data: bool = False,
         remove_original: bool = True,
-        **kwargs: Any,
     ) -> "DLPipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
@@ -444,7 +443,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-        **kwargs: Any,
     ) -> "DLPipeline":
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):

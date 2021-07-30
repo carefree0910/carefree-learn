@@ -126,7 +126,7 @@ class UnetGenerator(ModelProtocol):
         net = self.head(self.decoder(features))
         return {PREDICTIONS_KEY: align_to(net, anchor=inp)}
 
-    def generate_from(self, net: torch.Tensor, **kwargs: Any) -> torch.Tensor:
+    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
