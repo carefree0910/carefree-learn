@@ -443,6 +443,11 @@ class InferenceProtocol:
                         v_np = v
                     elif isinstance(v, torch.Tensor):
                         v_np = to_numpy(v)
+                    elif isinstance(v, list):
+                        if isinstance(v[0], np.ndarray):
+                            v_np = v
+                        else:
+                            v_np = list(map(to_numpy, v))
                     else:
                         raise ValueError(f"unrecognized value ({k}={type(v)}) occurred")
                     np_outputs[k] = v_np
@@ -467,6 +472,11 @@ class InferenceProtocol:
             else:
                 final_results = {
                     batch_key: np.vstack(batch_results)
+                    if isinstance(batch_results[0], np.ndarray)
+                    else [
+                        np.vstack([batch[i] for batch in batch_results])
+                        for i in range(len(batch_results[0]))
+                    ]
                     for batch_key, batch_results in results.items()
                     if batch_results is not None
                 }
