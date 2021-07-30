@@ -202,7 +202,7 @@ class U2NetCore(UNetBase):
             if side_nets:
                 side_net = align_to(side_net, anchor=side_nets[0], mode="bilinear")
             side_nets.append(side_net)
-        side_nets.append(self.out(torch.cat(side_nets, dim=1)))
+        side_nets.insert(0, self.out(torch.cat(side_nets, dim=1)))
         return side_nets
 
 
