@@ -55,8 +55,8 @@ class Transforms(WithRegister):
         pass
 
     def __call__(self, inp: Any, *args: Any, **kwargs: Any) -> Any:
-        if self.need_batch_process:
-            return {k: self.fn(v, *args, **kwargs) for k, v in inp.items()}
+        if self.need_batch_process and not isinstance(inp, dict):
+            raise ValueError(f"`inp` should be a batch for {self.__class__.__name__}")
         return self.fn(inp, *args, **kwargs)
 
     @property
