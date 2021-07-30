@@ -868,7 +868,7 @@ def imagenet_normalize(arr: arr_type) -> arr_type:
     mean_rgb, std_rgb = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
     np_constructor = lambda inp: np.array(inp, dtype=np.float32).reshape([1, 1, -1])
     torch_constructor = lambda inp: torch.tensor(inp).view(-1, 1, 1)
-    constructor = np_constructor if isinstance(np.ndarray) else torch_constructor
+    constructor = np_constructor if isinstance(arr, np.ndarray) else torch_constructor
     if arr.shape[2] == 1:
         mean, std = map(constructor, [mean_gray, std_gray])
     else:
