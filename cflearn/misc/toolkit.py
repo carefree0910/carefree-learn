@@ -882,6 +882,14 @@ def iou(logits: arr_type, labels: arr_type) -> arr_type:
     return intersect.sum(**kwargs) / union.sum(**kwargs)
 
 
+def is_gray(arr: arr_type) -> bool:
+    if isinstance(arr, np.ndarray):
+        return arr.shape[2] == 1
+    if len(arr.shape) == 3:
+        return arr.shape[0] == 1
+    return arr.shape[1] == 1
+
+
 def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
     eps = 1.0e-8
     if global_norm:
@@ -897,12 +905,12 @@ def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
 
 
 def imagenet_normalize(arr: arr_type) -> arr_type:
-    mean_gray, std_gray = [0.485] * 3, [0.229] * 3
+    mean_gray, std_gray = [0.485], [0.229]
     mean_rgb, std_rgb = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
     np_constructor = lambda inp: np.array(inp, dtype=np.float32).reshape([1, 1, -1])
-    torch_constructor = lambda inp: torch.tensor(inp).view(-1, 1, 1)
+    torch_constructor = lambda inp: torch.tensor(inp, device=arr.device).view(-1, 1, 1)
     constructor = np_constructor if isinstance(arr, np.ndarray) else torch_constructor
-    if arr.shape[2] == 1:
+    if is_gray(arr):
         mean, std = map(constructor, [mean_gray, std_gray])
     else:
         mean, std = map(constructor, [mean_rgb, std_rgb])
