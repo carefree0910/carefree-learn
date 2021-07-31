@@ -13,6 +13,7 @@ from typing import Optional
 from ..types import tensor_dict_type
 from ..protocol import StepOutputs
 from ..protocol import LossProtocol
+from ..protocol import ModelProtocol
 from ..protocol import MetricsOutputs
 from ..protocol import DataLoaderProtocol
 from ..protocol import ModelWithCustomSteps
@@ -21,6 +22,7 @@ from ..constants import LABEL_KEY
 from ..constants import LATENT_KEY
 from ..constants import PREDICTIONS_KEY
 from ..misc.toolkit import to_device
+from ..misc.toolkit import set_requires_grad
 
 
 class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
@@ -182,8 +184,28 @@ class RDropoutBase(CustomLossBase, metaclass=ABCMeta):
         return fr1, loss_dict
 
 
+class CascadeBase(ModelProtocol, metaclass=ABCMeta):
+    lv1_net: ModelProtocol
+    lv2_net: ModelProtocol
+
+    def _construct(
+        self,
+        lv1_model_name: str,
+        lv2_model_name: str,
+        lv1_model_config: Dict[str, Any],
+        lv2_model_config: Dict[str, Any],
+        lv1_model_ckpt_path: str,
+    ) -> None:
+        self.lv1_net = self.make(lv1_model_name, lv1_model_config)
+        state_dict = torch.load(lv1_model_ckpt_path, map_location="cpu")
+        self.lv1_net.load_state_dict(state_dict)
+        set_requires_grad(self.lv1_net, False)
+        self.lv2_net = self.make(lv2_model_name, lv2_model_config)
+
+
 __all__ = [
     "BAKEBase",
+    "CascadeBase",
     "RDropoutBase",
     "CustomLossBase",
 ]
