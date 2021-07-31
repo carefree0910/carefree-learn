@@ -29,7 +29,7 @@ class IOULoss(LossProtocol):
     ) -> losses_type:
         logits = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
-        return iou(logits, labels)
+        return 1.0 - iou(logits, labels)
 
 
 @LossProtocol.register("mae")
