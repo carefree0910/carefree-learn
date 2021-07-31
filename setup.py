@@ -10,6 +10,7 @@ setup(
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "pymatting>=1.1.1",
         "scikit-image",
         "numba>=0.50",
         "mlflow",

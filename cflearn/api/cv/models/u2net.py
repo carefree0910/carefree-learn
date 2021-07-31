@@ -4,6 +4,8 @@ import torch
 import numpy as np
 
 from PIL import Image
+from typing import Any
+from typing import Dict
 from typing import Optional
 from skimage import io
 from torchvision.transforms import Compose
@@ -12,10 +14,13 @@ from ..data import RescaleT
 from ..data import ToNormalizedArray
 from ....trainer import DeviceInfo
 from ....constants import INPUT_KEY
+from ....constants import WARNING_PREFIX
 from ....misc.toolkit import to_numpy
 from ....misc.toolkit import to_torch
 from ....misc.toolkit import eval_context
+from ....misc.toolkit import naive_cutout
 from ....misc.toolkit import min_max_normalize
+from ....misc.toolkit import alpha_matting_cutout
 from ....models.cv import U2Net
 
 
@@ -56,6 +61,8 @@ class U2NetAPI:
         self,
         src_path: str,
         tgt_path: Optional[str] = None,
+        *,
+        alpha_matting_config: Optional[Dict[str, Any]] = None,
     ) -> np.ndarray:
         img = io.imread(src_path)
         img = img.astype(np.float32) / 255.0
@@ -68,8 +75,17 @@ class U2NetAPI:
         if tgt_path is not None:
             folder = os.path.split(tgt_path)[0]
             os.makedirs(folder, exist_ok=True)
-            rgba = np.concatenate([img, alpha[..., None]], axis=2)
-            rgba = (rgba * 255.0).astype(np.uint8)
+            if alpha_matting_config is None:
+                rgba = naive_cutout(img, alpha)
+            else:
+                try:
+                    rgba = alpha_matting_cutout(img, alpha, **alpha_matting_config)
+                except Exception as err:
+                    print(
+                        f"{WARNING_PREFIX}alpha_matting failed at {src_path} ({err}), "
+                        f"naive cutting will be used"
+                    )
+                    rgba = naive_cutout(img, alpha)
             io.imsave(tgt_path, rgba)
         return alpha
 
