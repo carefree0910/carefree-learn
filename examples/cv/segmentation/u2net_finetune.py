@@ -11,14 +11,12 @@ from typing import Any
 from typing import List
 from typing import Optional
 from cflearn.types import losses_type
-from cflearn.types import np_dict_type
 from cflearn.types import tensor_dict_type
 from cflearn.constants import LOSS_KEY
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.protocol import TrainerState
-from cflearn.protocol import DataLoaderProtocol
 from cflearn.api.cv import AlphaSegmentationCallback
 from cflearn.misc.toolkit import iou
 from cflearn.misc.toolkit import to_device
