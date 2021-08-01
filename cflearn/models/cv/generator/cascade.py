@@ -40,7 +40,7 @@ class CascadeU2Net(CascadeBase):
         )
         if lv2_model_config is None:
             lv2_model_config = shallow_copy_dict(lv1_model_config)
-        lv2_model_config["in_channels"] = in_channels * 2
+        lv2_model_config["in_channels"] = in_channels + out_channels
         self._construct(
             "u2net",
             "u2net",
@@ -59,9 +59,8 @@ class CascadeU2Net(CascadeBase):
         lv1_outputs = self.lv1_net(batch_idx, batch, state, **kwargs)
         lv1_logits = lv1_outputs[PREDICTIONS_KEY]
         lv1_alpha = torch.sigmoid(lv1_logits[0])
-        net = batch[INPUT_KEY]
-        masked_net = net * lv1_alpha
-        lv2_input = torch.cat([net, masked_net], dim=1)
+        lv1_alpha = imagenet_normalize(lv1_alpha)
+        lv2_input = torch.cat([batch[INPUT_KEY], lv1_alpha], dim=1)
         lv2_outputs = self.lv2_net(batch_idx, {INPUT_KEY: lv2_input}, state, **kwargs)
         lv2_logits = lv2_outputs[PREDICTIONS_KEY]
         merged_logits = [lv1 + lv2 for lv1, lv2 in zip(lv1_logits, lv2_logits)]
