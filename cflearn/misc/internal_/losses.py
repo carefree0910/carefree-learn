@@ -4,13 +4,17 @@ import numpy as np
 import torch.nn.functional as F
 
 from typing import Any
+from typing import Dict
+from typing import List
 from typing import Tuple
+from typing import Union
 from typing import Optional
 
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
+from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import iou
@@ -181,6 +185,58 @@ class FocalLoss(LossProtocol):
         return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 
 
+class MultiStageLoss(LossProtocol):
+    names: Union[str, List[str]]
+    configs: Dict[str, Any]
+
+    def _init_config(self) -> None:
+        if isinstance(self.names, str):
+            base_losses = [LossProtocol.make(self.names, self.configs)]
+        else:
+            base_losses = [
+                LossProtocol.make(name, self.configs.get(name, {}))
+                for name in self.names
+            ]
+        self.base_losses = torch.nn.ModuleList(base_losses)
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        predictions = forward_results[PREDICTIONS_KEY]
+        losses = {}
+        for i, pred in enumerate(predictions):
+            forward_results[PREDICTIONS_KEY] = pred
+            for loss_ins in self.base_losses:
+                loss = loss_ins._core(forward_results, batch, state, **kwargs)
+                losses[f"{loss_ins.__identifier__}{i}"] = loss
+        losses[LOSS_KEY] = sum(losses.values())
+        return losses
+
+    @classmethod
+    def register_(
+        cls,
+        base_loss_names: Union[str, List[str]],
+        base_configs: Optional[Dict[str, Any]] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> None:
+        if tag is None:
+            prefix = "multi_stage_"
+            if isinstance(base_loss_names, str):
+                tag = f"{prefix}{base_loss_names}"
+            else:
+                tag = f"{prefix}{'_'.join(base_loss_names)}"
+
+        @cls.register(tag)
+        class _(MultiStageLoss):
+            names = base_loss_names
+            configs = base_configs or {}
+
+
 __all__ = [
     "IOULoss",
     "MAELoss",
@@ -190,4 +246,5 @@ __all__ = [
     "CrossEntropyLoss",
     "LabelSmoothCrossEntropyLoss",
     "FocalLoss",
+    "MultiStageLoss",
 ]
