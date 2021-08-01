@@ -46,6 +46,7 @@ from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
 from .misc.toolkit import to_device
+from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
@@ -227,10 +228,7 @@ def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
         return []
     with open(scores_path, "r") as f:
         scores = json.load(f)
-    files = list(scores.keys())
-    scores_list = [scores[file] for file in files]
-    sorted_indices = np.argsort(scores_list)[::-1]
-    return [files[i] for i in sorted_indices]
+    return list(sort_dict_by_value(scores).keys())[::-1]
 
 
 def _setup_ddp(
@@ -882,7 +880,7 @@ class Trainer:
         scores = {} if no_history else self.checkpoint_scores
         scores[file] = score
         with open(os.path.join(folder, SCORES_FILE), "w") as f:
-            json.dump(scores, f)
+            json.dump(sort_dict_by_value(scores), f)
 
     def restore_checkpoint(
         self,

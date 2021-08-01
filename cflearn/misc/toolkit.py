@@ -109,6 +109,11 @@ def get_latest_workplace(root: str) -> Optional[str]:
     return os.path.join(root, sorted(all_workplaces)[-1])
 
 
+def sort_dict_by_value(d: Dict[Any, Any]) -> OrderedDict:
+    sorted_items = sorted([(v, k) for k, v in d.items()])
+    return OrderedDict({item[1]: item[0] for item in sorted_items})
+
+
 def to_standard(arr: np.ndarray) -> np.ndarray:
     if is_int(arr):
         arr = arr.astype(np.int64)
