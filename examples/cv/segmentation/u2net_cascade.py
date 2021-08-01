@@ -2,16 +2,7 @@
 
 import cflearn
 
-from typing import Any
-from typing import Optional
-from cflearn.types import losses_type
-from cflearn.types import tensor_dict_type
-from cflearn.constants import LOSS_KEY
-from cflearn.constants import LABEL_KEY
-from cflearn.constants import PREDICTIONS_KEY
-from cflearn.protocol import TrainerState
 from cflearn.api.cv import AlphaSegmentationCallback
-from cflearn.misc.toolkit import iou
 
 from u2net_finetune import prepare
 from u2net_finetune import U2NetCallback
