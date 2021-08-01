@@ -1,11 +1,9 @@
 # type: ignore
 
-import torch
 import cflearn
 
 from typing import Any
 from typing import Optional
-from torch.nn import L1Loss
 from cflearn.types import losses_type
 from cflearn.types import tensor_dict_type
 from cflearn.constants import LOSS_KEY
