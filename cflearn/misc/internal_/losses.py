@@ -1,6 +1,7 @@
 import torch
 
 import numpy as np
+import torch.nn as nn
 import torch.nn.functional as F
 
 from typing import Any
@@ -34,6 +35,24 @@ class IOULoss(LossProtocol):
         logits = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
         return 1.0 - iou(logits, labels)
+
+
+@LossProtocol.register("bce")
+class BCELoss(LossProtocol):
+    def _init_config(self) -> None:
+        self.bce = nn.BCEWithLogitsLoss(reduction="none")
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        predictions = forward_results[PREDICTIONS_KEY]
+        labels = batch[LABEL_KEY]
+        losses = self.bce(predictions, labels)
+        return losses.mean(tuple(range(1, len(losses.shape))))
 
 
 @LossProtocol.register("mae")
@@ -197,7 +216,7 @@ class MultiStageLoss(LossProtocol):
                 LossProtocol.make(name, self.configs.get(name, {}))
                 for name in self.names
             ]
-        self.base_losses = torch.nn.ModuleList(base_losses)
+        self.base_losses = nn.ModuleList(base_losses)
 
     def _core(
         self,
