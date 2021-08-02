@@ -119,6 +119,49 @@ class U2NetAPI:
         return alpha, rgba
 
 
+class U2NetAPIWithONNX:
+    def __init__(
+        self,
+        onnx_path: str,
+        rescale_size: int = 320,
+    ):
+        self.ort_session = InferenceSession(onnx_path)
+        self.transform = Compose([RescaleT(rescale_size), ToNormalizedArray()])
+
+    def _generate(
+        self,
+        src: np.ndarray,
+        smooth: int,
+        tight: float,
+        alpha_matting_config: Optional[Dict[str, Any]],
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        transformed = self.transform({INPUT_KEY: src})[INPUT_KEY][None, ...]
+        ort_inputs = {
+            node.name: to_standard(transformed)
+            for node in self.ort_session.get_inputs()
+        }
+        logits = self.ort_session.run(None, ort_inputs)[0][0][0]
+        logits = np.clip(logits, -50.0, 50.0)
+        alpha = 1.0 / (1.0 + np.exp(-logits))
+        return cutout(src, alpha, smooth, tight, alpha_matting_config)
+
+    def generate_alpha(
+        self,
+        src_path: str,
+        tgt_path: Optional[str] = None,
+        *,
+        smooth: int = 16,
+        tight: float = 0.5,
+        alpha_matting_config: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        img = io.imread(src_path)
+        img = img.astype(np.float32) / 255.0
+        alpha, rgba = self._generate(img, smooth, tight, alpha_matting_config)
+        export(rgba, tgt_path)
+        return alpha, rgba
+
+
 __all__ = [
     "U2NetAPI",
+    "U2NetAPIWithONNX",
 ]
