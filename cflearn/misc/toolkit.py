@@ -927,6 +927,8 @@ def to_uint8(normalized: np.ndarray) -> np.ndarray:
 
 
 def naive_cutout(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
+    if img.shape[-1] == 4:
+        img = img[..., :3] * img[..., -1:]
     return to_uint8(np.concatenate([img, mask[..., None]], axis=2))
 
 
@@ -938,7 +940,7 @@ def alpha_matting_cutout(
     erode_structure_size: int = 10,
     base_size: int = 1000,
 ) -> np.ndarray:
-    img_ins = Image.fromarray(to_uint8(img))
+    img_ins = Image.fromarray(to_uint8(img)).convert("RGB")
     size = img_ins.size
     img_ins.thumbnail((base_size, base_size), Image.LANCZOS)
     mask_ins = Image.fromarray(mask)
