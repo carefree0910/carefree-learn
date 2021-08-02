@@ -5,7 +5,6 @@ import math
 import time
 import torch
 
-import numpy as np
 import torch.distributed as dist
 
 from typing import Any
@@ -228,7 +227,7 @@ def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
         return []
     with open(scores_path, "r") as f:
         scores = json.load(f)
-    return list(sort_dict_by_value(scores).keys())[::-1]
+    return list(sort_dict_by_value(scores, reverse=True).keys())
 
 
 def _setup_ddp(
@@ -880,7 +879,7 @@ class Trainer:
         scores = {} if no_history else self.checkpoint_scores
         scores[file] = score
         with open(os.path.join(folder, SCORES_FILE), "w") as f:
-            json.dump(sort_dict_by_value(scores), f)
+            json.dump(sort_dict_by_value(scores, reverse=True), f)
 
     def restore_checkpoint(
         self,
