@@ -6,8 +6,12 @@ import numpy as np
 from PIL import Image
 from typing import Any
 from typing import Dict
+from typing import Tuple
 from typing import Optional
 from skimage import io
+from skimage.filters import gaussian
+from skimage.filters import unsharp_mask
+from onnxruntime import InferenceSession
 from torchvision.transforms import Compose
 
 from ..data import RescaleT
@@ -17,6 +21,7 @@ from ....constants import INPUT_KEY
 from ....constants import WARNING_PREFIX
 from ....misc.toolkit import to_numpy
 from ....misc.toolkit import to_torch
+from ....misc.toolkit import to_standard
 from ....misc.toolkit import eval_context
 from ....misc.toolkit import naive_cutout
 from ....misc.toolkit import min_max_normalize
@@ -24,10 +29,37 @@ from ....misc.toolkit import alpha_matting_cutout
 from ....models.cv import U2Net
 
 
-def align_to(src: np.ndarray, tgt: np.ndarray) -> np.ndarray:
-    im = Image.fromarray(src)
-    im = im.resize((tgt.shape[1], tgt.shape[0]), resample=Image.BILINEAR)
-    return np.array(im)
+def cutout(
+    img: np.ndarray,
+    alpha: np.ndarray,
+    smooth: int = 4,
+    tight: float = 0.9,
+    alpha_matting_config: Optional[Dict[str, Any]] = None,
+) -> Tuple[np.ndarray, np.ndarray]:
+    alpha_im = Image.fromarray(min_max_normalize(alpha))
+    alpha_im = alpha_im.resize((img.shape[1], img.shape[0]), Image.NEAREST)
+    alpha = gaussian(np.array(alpha_im), smooth)
+    alpha = unsharp_mask(alpha, smooth, smooth * tight)
+    alpha = min_max_normalize(alpha)
+    if alpha_matting_config is None:
+        rgba = naive_cutout(img, alpha)
+    else:
+        try:
+            rgba = alpha_matting_cutout(img, alpha, **alpha_matting_config)
+        except Exception as err:
+            print(
+                f"{WARNING_PREFIX}alpha_matting failed ({err}), "
+                f"naive cutting will be used"
+            )
+            rgba = naive_cutout(img, alpha)
+    return alpha, rgba
+
+
+def export(rgba: np.ndarray, tgt_path: Optional[str]) -> None:
+    if tgt_path is not None:
+        folder = os.path.split(tgt_path)[0]
+        os.makedirs(folder, exist_ok=True)
+        io.imsave(tgt_path, rgba)
 
 
 class U2NetAPI:
@@ -57,37 +89,36 @@ class U2NetAPI:
         self.model.load_state_dict(torch.load(pt_path, map_location=self.device))
         self.transform = Compose([RescaleT(rescale_size), ToNormalizedArray()])
 
+    def _generate(
+        self,
+        src: np.ndarray,
+        smooth: int,
+        tight: float,
+        alpha_matting_config: Optional[Dict[str, Any]],
+    ) -> Tuple[np.ndarray, np.ndarray]:
+        transformed = self.transform({INPUT_KEY: src})[INPUT_KEY]
+        tensor = to_torch(transformed).to(self.device)[None, ...]
+        with eval_context(self.model):
+            tensor = torch.sigmoid(self.model.generate_from(tensor)[0][0])
+        alpha = to_numpy(tensor)
+        return cutout(src, alpha, smooth, tight, alpha_matting_config)
+
     def generate_alpha(
         self,
         src_path: str,
         tgt_path: Optional[str] = None,
         *,
+        smooth: int = 16,
+        tight: float = 0.5,
         alpha_matting_config: Optional[Dict[str, Any]] = None,
-    ) -> np.ndarray:
+    ) -> Tuple[np.ndarray, np.ndarray]:
         img = io.imread(src_path)
         img = img.astype(np.float32) / 255.0
-        transformed = self.transform({INPUT_KEY: img})[INPUT_KEY]
-        tensor = to_torch(transformed).to(self.device)[None, ...]
-        with eval_context(self.model):
-            tensor = torch.sigmoid(self.model.generate_from(tensor))
-        alpha = min_max_normalize(to_numpy(tensor)[0][0])
-        alpha = align_to(alpha, img)
-        if tgt_path is not None:
-            folder = os.path.split(tgt_path)[0]
-            os.makedirs(folder, exist_ok=True)
-            if alpha_matting_config is None:
-                rgba = naive_cutout(img, alpha)
-            else:
-                try:
-                    rgba = alpha_matting_cutout(img, alpha, **alpha_matting_config)
-                except Exception as err:
-                    print(
-                        f"{WARNING_PREFIX}alpha_matting failed at {src_path} ({err}), "
-                        f"naive cutting will be used"
-                    )
-                    rgba = naive_cutout(img, alpha)
-            io.imsave(tgt_path, rgba)
-        return alpha
+        alpha, rgba = self._generate(img, smooth, tight, alpha_matting_config)
+        export(rgba, tgt_path)
+        return alpha, rgba
 
 
-__all__ = ["U2NetAPI"]
+__all__ = [
+    "U2NetAPI",
+]
