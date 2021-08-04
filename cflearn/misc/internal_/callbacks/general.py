@@ -99,6 +99,8 @@ class MLFlowCallback(TrainerCallback):
     def log_metrics(self, metric_outputs: MetricsOutputs, state: TrainerState) -> None:
         for key, value in metric_outputs.metric_values.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
+        score = metric_outputs.final_score
+        self.mlflow_client.log_metric(self.run_id, "score", score, step=state.step)
 
     def log_artifacts(self, trainer: Trainer) -> None:
         self.mlflow_client.log_artifacts(self.run_id, trainer.workplace)
