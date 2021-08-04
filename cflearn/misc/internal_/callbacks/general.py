@@ -14,19 +14,13 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
-from ..toolkit import to_device
-from ..toolkit import save_images
-from ..toolkit import eval_context
-from ...trainer import Trainer
-from ...trainer import TrainerCallback
-from ...protocol import TrainerState
-from ...protocol import MetricsOutputs
-from ...constants import INPUT_KEY
-from ...constants import LABEL_KEY
-from ...constants import PT_PREFIX
-from ...constants import SCORES_FILE
-from ...constants import WARNING_PREFIX
-from ...models.cv.protocol import GeneratorMixin
+from cflearn.trainer import Trainer
+from cflearn.trainer import TrainerCallback
+from cflearn.protocol import TrainerState
+from cflearn.protocol import MetricsOutputs
+from cflearn.constants import PT_PREFIX
+from cflearn.constants import SCORES_FILE
+from cflearn.constants import WARNING_PREFIX
 
 
 def parse_mlflow_uri(path: str) -> str:
@@ -152,76 +146,7 @@ class ArtifactCallback(TrainerCallback):
         return sub_folder
 
 
-@TrainerCallback.register("generator")
-class GeneratorCallback(ArtifactCallback):
-    key = "images"
-    num_interpolations = 16
-
-    def log_artifacts(self, trainer: Trainer) -> None:
-        if not self.is_rank_0:
-            return None
-        batch = next(iter(trainer.validation_loader))
-        batch = to_device(batch, trainer.device)
-        original = batch[INPUT_KEY]
-        model = trainer.model
-        if not isinstance(model, GeneratorMixin):
-            msg = "`GeneratorCallback` is only compatible with `GeneratorMixin`"
-            raise ValueError(msg)
-        is_conditional = model.is_conditional
-        labels = None if not is_conditional else batch[LABEL_KEY]
-        image_folder = self._prepare_folder(trainer)
-        # original
-        save_images(original, os.path.join(image_folder, "original.png"))
-        # reconstruct
-        if model.can_reconstruct:
-            with eval_context(model):
-                reconstructed = model.reconstruct(original, labels=labels)
-            save_images(reconstructed, os.path.join(image_folder, "reconstructed.png"))
-        # sample
-        with eval_context(model):
-            sampled = model.sample(len(original))
-        save_images(sampled, os.path.join(image_folder, "sampled.png"))
-        # interpolation
-        with eval_context(model):
-            interpolations = model.interpolate(self.num_interpolations)
-        save_images(interpolations, os.path.join(image_folder, "interpolations.png"))
-        # conditional sampling
-        if model.num_classes is None:
-            return None
-        cond_folder = os.path.join(image_folder, "conditional")
-        os.makedirs(cond_folder, exist_ok=True)
-        with eval_context(model):
-            for i in range(model.num_classes):
-                sampled = model.sample(len(original), class_idx=i)
-                interpolations = model.interpolate(len(original), class_idx=i)
-                save_images(sampled, os.path.join(cond_folder, f"sampled_{i}.png"))
-                path = os.path.join(cond_folder, f"interpolations_{i}.png")
-                save_images(interpolations, path)
-
-
-@TrainerCallback.register("sized_generator")
-class SizedGeneratorCallback(GeneratorCallback):
-    def log_artifacts(self, trainer: Trainer) -> None:
-        if not self.is_rank_0:
-            return None
-        super().log_artifacts(trainer)
-        image_folder = self._prepare_folder(trainer, check_num_keep=False)
-        sample_method = getattr(trainer.model, "sample", None)
-        if sample_method is None:
-            raise ValueError(
-                "`sample` should be implemented when `SizedGeneratorCallback` is used "
-                "(and the `sample` method should support accepting `size` kwarg)"
-            )
-        with eval_context(trainer.model):
-            for size in [64, 128, 256]:
-                sampled = sample_method(4, size=size)
-                path = os.path.join(image_folder, f"sampled_{size}x{size}.png")
-                save_images(sampled, path)
-
-
 __all__ = [
     "MLFlowCallback",
     "ArtifactCallback",
-    "GeneratorCallback",
-    "SizedGeneratorCallback",
 ]

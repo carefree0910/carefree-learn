@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from typing import Any
 from typing import List
 from typing import Optional
+from cflearn.misc import AlphaSegmentationCallback
 from cflearn.types import losses_type
 from cflearn.types import tensor_dict_type
 from cflearn.protocol import LossProtocol
@@ -18,7 +19,6 @@ from cflearn.protocol import TrainerState
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
-from cflearn.api.cv import AlphaSegmentationCallback
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import min_max_normalize

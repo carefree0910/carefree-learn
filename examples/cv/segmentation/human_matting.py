@@ -7,7 +7,7 @@ import cflearn
 import numpy as np
 
 from typing import List
-from cflearn.api.cv import AlphaSegmentationCallback
+from cflearn.misc import AlphaSegmentationCallback
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import eval_context
 

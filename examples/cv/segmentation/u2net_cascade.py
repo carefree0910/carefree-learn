@@ -2,7 +2,7 @@
 
 import cflearn
 
-from cflearn.api.cv import AlphaSegmentationCallback
+from cflearn.misc import AlphaSegmentationCallback
 
 from u2net_finetune import prepare
 from u2net_finetune import SigmoidMAE
