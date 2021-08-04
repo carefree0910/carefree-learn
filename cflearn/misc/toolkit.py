@@ -889,7 +889,7 @@ def iou(logits: arr_type, labels: arr_type) -> arr_type:
 
 def is_gray(arr: arr_type) -> bool:
     if isinstance(arr, np.ndarray):
-        return arr.shape[2] == 1
+        return arr.shape[-1] == 1
     if len(arr.shape) == 3:
         return arr.shape[0] == 1
     return arr.shape[1] == 1
