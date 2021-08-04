@@ -1,5 +1,7 @@
 ![carefree-learn][socialify-image]
 
+[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://share.streamlit.io/carefree0910/carefree-learn-apps/main/app.py)
+
 `carefree-learn` is a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on [PyTorch](https://pytorch.org/).
 
 
