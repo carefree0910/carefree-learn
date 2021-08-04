@@ -31,7 +31,7 @@ setup(
         "matplotlib>=3.0.3",
     ],
     author="carefree0910",
-    author_email="syameimaru_kurumi@pku.edu.cn",
+    author_email="syameimaru.saki@gmail.com",
     url="https://github.com/carefree0910/carefree-learn",
     download_url=f"https://github.com/carefree0910/carefree-learn/archive/v{VERSION}.tar.gz",
     description=DESCRIPTION,
