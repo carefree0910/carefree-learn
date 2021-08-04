@@ -2,11 +2,10 @@
 
 import cflearn
 
-from cflearn.misc import AlphaSegmentationCallback
+from cflearn.misc import U2NetCallback
 
 from u2net_finetune import prepare
 from u2net_finetune import SigmoidMAE
-from u2net_finetune import U2NetCallback
 
 
 src_folder = "raw"
@@ -15,7 +14,7 @@ tgt_folder = "u2net_finetune"
 label_folder = "u2net_finetune_labels"
 
 
-@AlphaSegmentationCallback.register("cascade_u2net")
+@U2NetCallback.register("cascade_u2net")
 class CascadeU2NetCallback(U2NetCallback):
     pass
 

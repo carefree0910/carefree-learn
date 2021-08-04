@@ -11,16 +11,12 @@ import torch.nn.functional as F
 from typing import Any
 from typing import List
 from typing import Optional
-from cflearn.misc import AlphaSegmentationCallback
 from cflearn.types import losses_type
 from cflearn.types import tensor_dict_type
 from cflearn.protocol import LossProtocol
 from cflearn.protocol import TrainerState
-from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
-from cflearn.misc.toolkit import to_device
-from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import min_max_normalize
 
 
@@ -67,20 +63,6 @@ class SigmoidMAE(LossProtocol):
         labels = batch[LABEL_KEY]
         losses = F.l1_loss(torch.sigmoid(predictions), labels, reduction="none")
         return losses.mean((1, 2, 3))
-
-
-@AlphaSegmentationCallback.register("u2net")
-class U2NetCallback(AlphaSegmentationCallback):
-    key = "images"
-
-    def log_artifacts(self, trainer: cflearn.Trainer) -> None:
-        if not self.is_rank_0:
-            return None
-        batch = next(iter(trainer.validation_loader))
-        batch = to_device(batch, trainer.device)
-        with eval_context(trainer.model):
-            logits = trainer.model.generate_from(batch[INPUT_KEY])
-        self._save_seg_results(trainer, batch, logits)
 
 
 if __name__ == "__main__":

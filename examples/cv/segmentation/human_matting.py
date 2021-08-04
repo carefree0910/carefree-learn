@@ -7,9 +7,6 @@ import cflearn
 import numpy as np
 
 from typing import List
-from cflearn.misc import AlphaSegmentationCallback
-from cflearn.misc.toolkit import to_device
-from cflearn.misc.toolkit import eval_context
 
 
 src_folder = "data"
@@ -51,20 +48,6 @@ def prepare() -> None:
         filter_fn=filter_fn,
         make_labels_in_parallel=True,
     )
-
-
-@AlphaSegmentationCallback.register("unet")
-class UnetCallback(AlphaSegmentationCallback):
-    key = "images"
-
-    def log_artifacts(self, trainer: cflearn.Trainer) -> None:
-        if not self.is_rank_0:
-            return None
-        batch = next(iter(trainer.validation_loader))
-        batch = to_device(batch, trainer.device)
-        with eval_context(trainer.model):
-            logits = trainer.model.generate_from(batch[cflearn.INPUT_KEY])[..., [-1]]
-        self._save_seg_results(trainer, batch, logits)
 
 
 if __name__ == "__main__":
