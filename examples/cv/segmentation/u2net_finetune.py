@@ -2,21 +2,11 @@
 
 import os
 import cv2
-import torch
 import cflearn
 
 import numpy as np
-import torch.nn.functional as F
 
-from typing import Any
 from typing import List
-from typing import Optional
-from cflearn.types import losses_type
-from cflearn.types import tensor_dict_type
-from cflearn.protocol import LossProtocol
-from cflearn.protocol import TrainerState
-from cflearn.constants import LABEL_KEY
-from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import min_max_normalize
 
 
@@ -48,21 +38,6 @@ def prepare() -> None:
         label_fn=label_fn,
         make_labels_in_parallel=True,
     )
-
-
-@LossProtocol.register("sigmoid_mae")
-class SigmoidMAE(LossProtocol):
-    def _core(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> losses_type:
-        predictions = forward_results[PREDICTIONS_KEY]
-        labels = batch[LABEL_KEY]
-        losses = F.l1_loss(torch.sigmoid(predictions), labels, reduction="none")
-        return losses.mean((1, 2, 3))
 
 
 if __name__ == "__main__":

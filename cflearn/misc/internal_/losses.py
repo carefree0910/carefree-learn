@@ -69,6 +69,21 @@ class MAELoss(LossProtocol):
         return F.l1_loss(predictions, labels, reduction="none")
 
 
+@LossProtocol.register("sigmoid_mae")
+class SigmoidMAELoss(LossProtocol):
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        predictions = forward_results[PREDICTIONS_KEY]
+        labels = batch[LABEL_KEY]
+        losses = F.l1_loss(torch.sigmoid(predictions), labels, reduction="none")
+        return losses.mean((1, 2, 3))
+
+
 @LossProtocol.register("mse")
 class MSELoss(LossProtocol):
     def _core(
@@ -261,6 +276,7 @@ __all__ = [
     "MAELoss",
     "MSELoss",
     "QuantileLoss",
+    "SigmoidMAELoss",
     "CorrelationLoss",
     "CrossEntropyLoss",
     "LabelSmoothCrossEntropyLoss",
