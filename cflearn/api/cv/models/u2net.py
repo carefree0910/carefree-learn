@@ -89,21 +89,14 @@ class U2NetAPI:
         self.model.load_state_dict(torch.load(pt_path, map_location=self.device))
         self.transform = Compose([RescaleT(rescale_size), ToNormalizedArray()])
 
-    def _generate(
-        self,
-        src: np.ndarray,
-        smooth: int,
-        tight: float,
-        alpha_matting_config: Optional[Dict[str, Any]],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def _get_alpha(self, src: np.ndarray) -> np.ndarray:
         transformed = self.transform({INPUT_KEY: src})[INPUT_KEY]
         tensor = to_torch(transformed).to(self.device)[None, ...]
         with eval_context(self.model):
             tensor = torch.sigmoid(self.model.generate_from(tensor)[0][0])
-        alpha = to_numpy(tensor)
-        return cutout(src, alpha, smooth, tight, alpha_matting_config)
+        return to_numpy(tensor)
 
-    def generate_alpha(
+    def generate_cutout(
         self,
         src_path: str,
         tgt_path: Optional[str] = None,
@@ -114,7 +107,8 @@ class U2NetAPI:
     ) -> Tuple[np.ndarray, np.ndarray]:
         img = io.imread(src_path)
         img = img.astype(np.float32) / 255.0
-        alpha, rgba = self._generate(img, smooth, tight, alpha_matting_config)
+        alpha = self._get_alpha(img)
+        alpha, rgba = cutout(img, alpha, smooth, tight, alpha_matting_config)
         export(rgba, tgt_path)
         return alpha, rgba
 
@@ -128,13 +122,7 @@ class U2NetAPIWithONNX:
         self.ort_session = InferenceSession(onnx_path)
         self.transform = Compose([RescaleT(rescale_size), ToNormalizedArray()])
 
-    def _generate(
-        self,
-        src: np.ndarray,
-        smooth: int,
-        tight: float,
-        alpha_matting_config: Optional[Dict[str, Any]],
-    ) -> Tuple[np.ndarray, np.ndarray]:
+    def _get_alpha(self, src: np.ndarray) -> np.ndarray:
         transformed = self.transform({INPUT_KEY: src})[INPUT_KEY][None, ...]
         ort_inputs = {
             node.name: to_standard(transformed)
@@ -142,10 +130,9 @@ class U2NetAPIWithONNX:
         }
         logits = self.ort_session.run(None, ort_inputs)[0][0][0]
         logits = np.clip(logits, -50.0, 50.0)
-        alpha = 1.0 / (1.0 + np.exp(-logits))
-        return cutout(src, alpha, smooth, tight, alpha_matting_config)
+        return 1.0 / (1.0 + np.exp(-logits))
 
-    def generate_alpha(
+    def generate_cutout(
         self,
         src_path: str,
         tgt_path: Optional[str] = None,
@@ -156,7 +143,8 @@ class U2NetAPIWithONNX:
     ) -> Tuple[np.ndarray, np.ndarray]:
         img = io.imread(src_path)
         img = img.astype(np.float32) / 255.0
-        alpha, rgba = self._generate(img, smooth, tight, alpha_matting_config)
+        alpha = self._get_alpha(img)
+        alpha, rgba = cutout(img, alpha, smooth, tight, alpha_matting_config)
         export(rgba, tgt_path)
         return alpha, rgba
 
