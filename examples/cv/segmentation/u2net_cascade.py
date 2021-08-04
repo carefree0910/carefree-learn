@@ -5,6 +5,7 @@ import cflearn
 from cflearn.api.cv import AlphaSegmentationCallback
 
 from u2net_finetune import prepare
+from u2net_finetune import SigmoidMAE
 from u2net_finetune import U2NetCallback
 
 
@@ -27,18 +28,19 @@ if __name__ == "__main__":
         num_workers=2,
         transform="for_salient_object_detection",
     )
-    cflearn.MultiStageLoss.register_(["bce", "iou"])
+    cflearn.MultiStageLoss.register_(["bce", "iou", "sigmoid_mae"])
     m = cflearn.cv.CarefreePipeline(
         "cascade_u2net",
         {
             "in_channels": 3,
             "out_channels": 1,
-            "lv1_model_ckpt_path": "pretrained/model_269926.pt",
+            "lv1_model_ckpt_path": "pretrained/model_3269_bce.pt",
             "lv2_resolution": 512,
             "lv2_model_config": {"lite": True},
             "lite": False,
         },
-        loss_name="multi_stage_bce_iou",
+        loss_name="multi_stage_bce_iou_sigmoid_mae",
+        loss_metrics_weights={"bce0": 0.2, "iou0": 0.4, "sigmoid_mae0": 0.4},
         scheduler_name="none",
     )
-    m.fit(train_loader, valid_loader, cuda="6")
+    m.fit(train_loader, valid_loader, cuda="7")
