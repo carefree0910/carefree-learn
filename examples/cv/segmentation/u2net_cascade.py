@@ -5,7 +5,6 @@ import cflearn
 from cflearn.misc import U2NetCallback
 
 from u2net_finetune import prepare
-from u2net_finetune import SigmoidMAE
 
 
 src_folder = "raw"
