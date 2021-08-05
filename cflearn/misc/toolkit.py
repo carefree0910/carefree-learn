@@ -881,7 +881,7 @@ def iou(logits: arr_type, labels: arr_type) -> arr_type:
         else:
             heat_map = 1.0 / (1.0 + np.exp(-logits))
     elif num_classes == 2:
-        heat_map = softmax(logits)[:, [1], ...]
+        heat_map = softmax(logits)[:, [1]]
     else:
         raise ValueError("`IOU` only supports binary situations")
     intersect = heat_map * labels
