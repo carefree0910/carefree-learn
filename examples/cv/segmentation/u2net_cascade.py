@@ -25,6 +25,7 @@ if __name__ == "__main__":
         batch_size=4,
         num_workers=2,
         transform="for_salient_object_detection",
+        test_transform="for_salient_object_detection_test",
     )
     cflearn.MultiStageLoss.register_(["bce", "iou", "sigmoid_mae"])
     m = cflearn.cv.CarefreePipeline(
