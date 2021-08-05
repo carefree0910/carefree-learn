@@ -851,14 +851,17 @@ def align_to(
     src: torch.Tensor,
     *,
     mode: str = "nearest",
-    size: Optional[int] = None,
+    size: Optional[Union[int, Tuple[int, int]]] = None,
     anchor: Optional[torch.Tensor] = None,
+    **kwargs: Any,
 ) -> torch.Tensor:
-    if size is not None:
-        return F.interpolate(src, size=size, mode=mode)
-    if anchor is None:
-        raise ValueError("either `size` or `anchor` should be provided")
-    return F.interpolate(src, size=(anchor.shape[2], anchor.shape[3]), mode=mode)
+    if size is None:
+        if anchor is None:
+            raise ValueError("either `size` or `anchor` should be provided")
+        size = (anchor.shape[2], anchor.shape[3])
+    if "linear" in mode or mode == "bicubic":
+        kwargs.setdefault("align_corners", False)
+    return F.interpolate(src, size=size, mode=mode, **kwargs)
 
 
 def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
