@@ -173,7 +173,7 @@ class RandomCropWithVFlip:
     def __call__(self, sample: np_dict_type) -> np_dict_type:
         img, label = sample[INPUT_KEY], sample[LABEL_KEY]
 
-        if random.random() >= self.p_vflip:
+        if random.random() <= self.p_vflip:
             img = img[::-1].copy()
             label = label[::-1].copy()
 

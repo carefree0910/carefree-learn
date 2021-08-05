@@ -34,7 +34,7 @@ class CascadeU2Net(CascadeBase):
     ):
         super().__init__()
         if lv1_model_trainable is None:
-            lv1_model_trainable = lv1_model_ckpt_path is not None
+            lv1_model_trainable = lv1_model_ckpt_path is None
         if not lv1_model_trainable and lv1_model_ckpt_path is None:
             raise ValueError("lv1 model should be trainable when ckpt is not provided")
         lv1_model_config = dict(
