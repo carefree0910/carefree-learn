@@ -588,9 +588,10 @@ def get_image_folder_loaders(
     shuffle: bool = True,
     num_workers: int = 0,
     transform: Optional[Union[str, Transforms]] = None,
+    test_transform: Optional[Union[str, Transforms]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
     train_data = DLData(ImageFolderDataset(folder, "train", transform))
-    valid_data = DLData(ImageFolderDataset(folder, "test", transform))
+    valid_data = DLData(ImageFolderDataset(folder, "test", test_transform or transform))
     base_kwargs = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     train_loader = DLLoader(DataLoader(train_data, **base_kwargs))  # type: ignore
     valid_loader = DLLoader(DataLoader(valid_data, **base_kwargs))  # type: ignore
