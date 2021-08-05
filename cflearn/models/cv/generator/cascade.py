@@ -23,6 +23,7 @@ class CascadeU2Net(CascadeBase):
         out_channels: int,
         *,
         lv1_model_ckpt_path: str,
+        lv2_name: str = "alpha_refine",
         lv2_resolution: Optional[int] = None,
         lv2_model_config: Optional[Dict[str, Any]] = None,
         latent_channels: int = 32,
@@ -42,12 +43,11 @@ class CascadeU2Net(CascadeBase):
         self.lv2_resolution = lv2_resolution
         if lv2_model_config is None:
             lv2_model_config = {}
-        for k, v in lv1_model_config.items():
-            lv2_model_config.setdefault(k, v)
         lv2_model_config["in_channels"] = in_channels + out_channels
+        lv2_model_config["out_channels"] = out_channels
         self._construct(
             "u2net",
-            "u2net",
+            lv2_name,
             lv1_model_config,
             lv2_model_config,
             lv1_model_ckpt_path,
@@ -61,23 +61,29 @@ class CascadeU2Net(CascadeBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         lv1_outputs = self.lv1_net(batch_idx, batch, state, **kwargs)
-        lv1_alpha = torch.sigmoid(lv1_outputs[PREDICTIONS_KEY][0])
+        lv1_raw_alpha = lv1_outputs[PREDICTIONS_KEY][0]
+        lv1_alpha = torch.sigmoid(lv1_raw_alpha)
         lv1_alpha = imagenet_normalize(lv1_alpha)
         inp = batch[INPUT_KEY]
         resolution = lv1_alpha.shape[-1]
         if self.lv2_resolution is not None:
-            inp = align_to(batch[INPUT_KEY], size=self.lv2_resolution)
-            lv1_alpha = align_to(lv1_alpha, size=self.lv2_resolution)
+            inp = align_to(batch[INPUT_KEY], size=self.lv2_resolution, mode="bilinear")
+            lv1_alpha = align_to(lv1_alpha, size=self.lv2_resolution, mode="bilinear")
         lv2_input = torch.cat([inp, lv1_alpha], dim=1)
         lv2_outputs = self.lv2_net(batch_idx, {INPUT_KEY: lv2_input}, state, **kwargs)
-        if self.lv2_resolution is None:
-            return lv2_outputs
-        lv2_logits = lv2_outputs[PREDICTIONS_KEY]
-        lv2_outputs = [align_to(logits, size=resolution) for logits in lv2_logits]
-        return {PREDICTIONS_KEY: lv2_outputs}
+        lv2_raw_alpha = lv2_outputs[PREDICTIONS_KEY]
+        if isinstance(lv2_raw_alpha, list):
+            lv2_raw_alpha = lv2_raw_alpha[0]
+        if self.lv2_resolution is not None:
+            lv2_raw_alpha = align_to(lv2_raw_alpha, size=resolution, mode="bilinear")
+        final_raw_alpha = lv1_raw_alpha + lv2_raw_alpha
+        return {PREDICTIONS_KEY: final_raw_alpha}
 
     def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY][0]
+        results = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
+        if isinstance(results, list):
+            results = results[0]
+        return results
 
 
 __all__ = [
