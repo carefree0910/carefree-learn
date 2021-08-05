@@ -22,24 +22,23 @@ if __name__ == "__main__":
     prepare()
     train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
         tgt_folder,
-        batch_size=4,
-        num_workers=2,
+        batch_size=16,
+        num_workers=4,
         transform="for_salient_object_detection",
         test_transform="for_salient_object_detection_test",
     )
-    cflearn.MultiStageLoss.register_(["bce", "iou", "sigmoid_mae"])
     m = cflearn.cv.CarefreePipeline(
         "cascade_u2net",
         {
             "in_channels": 3,
             "out_channels": 1,
-            "lv1_model_ckpt_path": "pretrained/model_3269_bce.pt",
+            "lv1_model_ckpt_path": "pretrained/model_200343_all.pt",
             "lv2_resolution": 512,
-            "lv2_model_config": {"lite": True},
             "lite": False,
         },
-        loss_name="multi_stage_bce_iou_sigmoid_mae",
-        loss_metrics_weights={"bce0": 0.2, "iou0": 0.4, "sigmoid_mae0": 0.4},
-        scheduler_name="none",
+        loss_name="sigmoid_mae",
+        callback_names=["unet", "mlflow"],
+        callback_configs={"mlflow": {"experiment_name": "large_refine"}},
+        lr=1.0e-4,
     )
     m.fit(train_loader, valid_loader, cuda="7")
