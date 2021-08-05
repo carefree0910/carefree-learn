@@ -10,10 +10,10 @@ from typing import List
 from cflearn.misc.toolkit import min_max_normalize
 
 
-src_folder = "raw"
-src_rgba_folder = "rgba"
-tgt_folder = "u2net_finetune"
-label_folder = "u2net_finetune_labels"
+src_folder = "data/raw"
+src_rgba_folder = "data/rgba"
+tgt_folder = "data/products-10k"
+label_folder = "data/products-10k_labels"
 
 
 def prepare() -> None:
@@ -24,6 +24,7 @@ def prepare() -> None:
         if os.path.isfile(label_path):
             return label_path
         hierarchy[0] = src_rgba_folder
+        hierarchy.pop(1)
         hierarchy[1] = f"{file_id}.png"
         rgba_path = os.path.abspath(os.path.join(*hierarchy))
         alpha = cv2.imread(rgba_path, cv2.IMREAD_UNCHANGED)[..., -1:]

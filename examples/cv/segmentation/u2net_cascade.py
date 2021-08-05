@@ -7,10 +7,10 @@ from cflearn.misc import U2NetCallback
 from u2net_finetune import prepare
 
 
-src_folder = "raw"
-src_rgba_folder = "rgba"
-tgt_folder = "u2net_finetune"
-label_folder = "u2net_finetune_labels"
+src_folder = "data/raw"
+src_rgba_folder = "data/rgba"
+tgt_folder = "data/products-10k"
+label_folder = "data/products-10k_labels"
 
 
 @U2NetCallback.register("cascade_u2net")
