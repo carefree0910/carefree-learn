@@ -194,12 +194,15 @@ class CascadeBase(ModelProtocol, metaclass=ABCMeta):
         lv2_model_name: str,
         lv1_model_config: Dict[str, Any],
         lv2_model_config: Dict[str, Any],
-        lv1_model_ckpt_path: str,
+        lv1_model_ckpt_path: Optional[str],
+        lv1_model_trainable: bool,
     ) -> None:
         self.lv1_net = self.make(lv1_model_name, lv1_model_config)
-        state_dict = torch.load(lv1_model_ckpt_path, map_location="cpu")
-        self.lv1_net.load_state_dict(state_dict)
-        set_requires_grad(self.lv1_net, False)
+        if lv1_model_ckpt_path is not None:
+            state_dict = torch.load(lv1_model_ckpt_path, map_location="cpu")
+            self.lv1_net.load_state_dict(state_dict)
+        if not lv1_model_trainable:
+            set_requires_grad(self.lv1_net, False)
         self.lv2_net = self.make(lv2_model_name, lv2_model_config)
 
 

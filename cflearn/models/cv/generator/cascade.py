@@ -22,16 +22,21 @@ class CascadeU2Net(CascadeBase):
         in_channels: int,
         out_channels: int,
         *,
-        lv1_model_ckpt_path: str,
         lv2_name: str = "alpha_refine",
         lv2_resolution: Optional[int] = None,
         lv2_model_config: Optional[Dict[str, Any]] = None,
+        lv1_model_trainable: Optional[bool] = None,
+        lv1_model_ckpt_path: Optional[str] = None,
         latent_channels: int = 32,
         num_layers: int = 5,
         max_layers: int = 7,
         lite: bool = False,
     ):
         super().__init__()
+        if lv1_model_trainable is None:
+            lv1_model_trainable = lv1_model_ckpt_path is not None
+        if not lv1_model_trainable and lv1_model_ckpt_path is None:
+            raise ValueError("lv1 model should be trainable when ckpt is not provided")
         lv1_model_config = dict(
             in_channels=in_channels,
             out_channels=out_channels,
@@ -51,6 +56,7 @@ class CascadeU2Net(CascadeBase):
             lv1_model_config,
             lv2_model_config,
             lv1_model_ckpt_path,
+            lv1_model_trainable,
         )
 
     def forward(
