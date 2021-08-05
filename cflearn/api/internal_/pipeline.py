@@ -245,6 +245,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 json.dump(self.config, f)
 
     def _prepare_loss(self) -> None:
+        if self.in_loading:
+            return None
         self.loss = LossProtocol.make(self.loss_name, config=self.loss_config or {})
 
     def _prepare_trainer_defaults(self) -> None:
