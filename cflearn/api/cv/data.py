@@ -230,20 +230,9 @@ class ForSalientObjectDetection(Transforms):
 
 @Transforms.register("for_salient_object_detection_test")
 class ForSalientObjectDetectionTest(Transforms):
-    def __init__(
-        self,
-        *,
-        rescale_size: int = 320,
-        crop_size: int = 288,
-    ):
+    def __init__(self, *, rescale_size: int = 320):
         super().__init__()
-        self.fn = transforms.Compose(
-            [
-                RescaleT(rescale_size),
-                RandomCropWithVFlip(crop_size, 0.0),
-                ToNormalizedArray(),
-            ]
-        )
+        self.fn = transforms.Compose([RescaleT(rescale_size), ToNormalizedArray()])
 
     @property
     def need_batch_process(self) -> bool:
