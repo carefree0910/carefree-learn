@@ -39,10 +39,6 @@ from cftool.misc import show_or_save
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
-from scipy.ndimage.morphology import binary_erosion
-from pymatting.util.util import stack_images
-from pymatting.alpha.estimate_alpha_cf import estimate_alpha_cf
-from pymatting.foreground.estimate_foreground_ml import estimate_foreground_ml
 
 from ..types import arr_type
 from ..types import data_type
@@ -923,61 +919,6 @@ def imagenet_normalize(arr: arr_type) -> arr_type:
     else:
         mean, std = map(constructor, [mean_rgb, std_rgb])
     return (arr - mean) / std
-
-
-def to_uint8(normalized: np.ndarray) -> np.ndarray:
-    return (np.clip(normalized * 255.0, 0.0, 255.0)).astype(np.uint8)
-
-
-def naive_cutout(img: np.ndarray, mask: np.ndarray) -> np.ndarray:
-    if img.shape[-1] == 4:
-        img = img[..., :3] * img[..., -1:]
-    return to_uint8(np.concatenate([img, mask[..., None]], axis=2))
-
-
-def alpha_matting_cutout(
-    img: np.ndarray,
-    mask: np.ndarray,
-    foreground_threshold: float = 0.94117647,
-    background_threshold: float = 0.0392156862745,
-    erode_structure_size: int = 10,
-    base_size: int = 1000,
-) -> np.ndarray:
-    img_ins = Image.fromarray(to_uint8(img)).convert("RGB")
-    size = img_ins.size
-    img_ins.thumbnail((base_size, base_size), Image.LANCZOS)
-    mask_ins = Image.fromarray(mask)
-    mask_ins = mask_ins.resize(img_ins.size, Image.LANCZOS)
-
-    img = np.array(img_ins)
-    mask = np.array(mask_ins)
-
-    is_foreground = mask > foreground_threshold
-    is_background = mask < background_threshold
-
-    structure = None
-    if erode_structure_size > 0:
-        structure = np.ones((erode_structure_size, erode_structure_size), dtype=np.int)
-
-    is_foreground = binary_erosion(is_foreground, structure=structure)
-    is_background = binary_erosion(is_background, structure=structure, border_value=1)
-
-    trimap = np.full(mask.shape, dtype=np.uint8, fill_value=128)
-    trimap[is_foreground] = 255
-    trimap[is_background] = 0
-
-    img_normalized = img / 255.0
-    trimap_normalized = trimap / 255.0
-
-    alpha = estimate_alpha_cf(img_normalized, trimap_normalized)
-    foreground = estimate_foreground_ml(img_normalized, alpha)
-    cutout = stack_images(foreground, alpha)
-
-    cutout = to_uint8(cutout)
-    cutout = Image.fromarray(cutout)
-    cutout = cutout.resize(size, Image.LANCZOS)
-
-    return np.array(cutout)
 
 
 def make_indices_visualization_map(indices: torch.Tensor) -> torch.Tensor:
