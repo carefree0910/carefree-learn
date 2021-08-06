@@ -39,6 +39,6 @@ if __name__ == "__main__":
         loss_name="sigmoid_mae",
         callback_names=["unet", "mlflow"],
         callback_configs={"mlflow": {"experiment_name": "large_refine"}},
-        lr=1.0e-4,
+        scheduler_name="plateau",
     )
     m.fit(train_loader, valid_loader, cuda="7")

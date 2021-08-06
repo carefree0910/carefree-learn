@@ -45,31 +45,29 @@ if __name__ == "__main__":
     prepare()
     train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
         tgt_folder,
-        batch_size=8,
-        num_workers=2,
+        batch_size=16,
+        num_workers=4,
         transform="for_salient_object_detection",
+        test_transform="for_salient_object_detection_test",
     )
-    cflearn.MultiStageLoss.register_(["bce", "iou", "sigmoid_mae"])
+    cflearn.MultiStageLoss.register_(["bce", "iou"])
     m = cflearn.cv.CarefreePipeline(
         "u2net",
         {
             "in_channels": 3,
             "out_channels": 1,
-            # "lite": True,
+            "lite": True,
         },
-        loss_name="multi_stage_bce_iou_sigmoid_mae",
-        loss_metrics_weights={"bce0": 0.2, "iou0": 0.4, "sigmoid_mae0": 0.4},
+        loss_name="multi_stage_bce_iou",
+        loss_metrics_weights={"bce0": 0.2, "iou0": 0.8},
         callback_names=["u2net", "mlflow"],
-        callback_configs={"mlflow": {"experiment_name": "large_pretrain"}},
-        # clip_norm=1.0,
-        # lr=4.0e-3,
-        # scheduler_name="none",
-        # optimizer_config={"weight_decay": 1.0e-4},
+        callback_configs={"mlflow": {"experiment_name": "lite_pretrain"}},
         finetune_config={
-            "pretrained_ckpt": "pretrained/model.pt",
-            # "pretrained_ckpt": "pretrained/model_lite.pt",
+            # "pretrained_ckpt": "pretrained/model.pt",
+            "pretrained_ckpt": "pretrained/model_lite.pt",
             # "freeze_except": r"(.*\.side_blocks\..*|.*\.out\..*)",
         },
+        scheduler_name="none",
     )
-    m.fit(train_loader, valid_loader, cuda="3")
+    m.fit(train_loader, valid_loader, cuda="0")
     # m.ddp(train_loader, valid_loader, cuda_list=[0, 2, 3, 4])
