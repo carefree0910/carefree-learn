@@ -9,6 +9,7 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import get_conv_blocks
+from ....modules.blocks import ResidualBlock
 
 
 @ModelProtocol.register("alpha_refine")
@@ -18,8 +19,10 @@ class AlphaRefineNet(ModelProtocol):
         in_channels: int,
         out_channels: int,
         *,
-        num_layers: int = 4,
+        num_layers: int = 3,
         latent_channels: int = 64,
+        dropout: float = 0.0,
+        eca_kernel_size: Optional[int] = None,
     ):
         super().__init__()
         blocks = get_conv_blocks(
@@ -30,13 +33,11 @@ class AlphaRefineNet(ModelProtocol):
             activation=nn.ReLU(inplace=True),
         )
         for _ in range(num_layers - 2):
-            blocks.extend(
-                get_conv_blocks(
+            blocks.append(
+                ResidualBlock(
                     latent_channels,
-                    latent_channels,
-                    3,
-                    1,
-                    activation=nn.ReLU(inplace=True),
+                    dropout,
+                    eca_kernel_size=eca_kernel_size,
                 )
             )
         blocks.extend(get_conv_blocks(latent_channels, out_channels, 3, 1))
