@@ -1498,6 +1498,26 @@ class UpsampleConv2d(Conv2d):
         return super().forward(net, y)
 
 
+class ECABlock(nn.Module):
+    def __init__(self, kernel_size: int = 3):
+        super().__init__()
+        self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        self.conv = nn.Conv1d(
+            1,
+            1,
+            kernel_size=kernel_size,
+            padding=(kernel_size - 1) // 2,
+            bias=False,
+        )
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, net: Tensor) -> Tensor:
+        w = self.avg_pool(net).squeeze(-1).transpose(-1, -2)
+        w = self.conv(w).transpose(-1, -2).unsqueeze(-1)
+        w = self.sigmoid(w)
+        return w * net
+
+
 def get_conv_blocks(
     in_channels: int,
     out_channels: int,
@@ -1508,6 +1528,7 @@ def get_conv_blocks(
     demodulate: bool = False,
     norm_type: Optional[str] = None,
     norm_kwargs: Optional[Dict[str, Any]] = None,
+    eca_kernel_size: Optional[int] = None,
     activation: Optional[Module] = None,
     conv_base: Type["Conv2d"] = Conv2d,
     **conv2d_kwargs: Any,
@@ -1526,6 +1547,8 @@ def get_conv_blocks(
     if not demodulate:
         factory = NormFactory(norm_type)
         factory.inject_to(out_channels, norm_kwargs or {}, blocks)
+    if eca_kernel_size is not None:
+        blocks.append(ECABlock(kernel_size))
     if activation is not None:
         blocks.append(activation)
     return blocks
@@ -1539,6 +1562,7 @@ class ResidualBlock(nn.Module):
         kernel_size: int = 3,
         stride: int = 1,
         *,
+        eca_kernel_size: Optional[int] = None,
         norm_type: str = "batch",
         **kwargs: Any,
     ):
@@ -1550,6 +1574,7 @@ class ResidualBlock(nn.Module):
         if 0.0 < dropout < 1.0:
             blocks.append(nn.Dropout(dropout))
         k2 = shallow_copy_dict(kwargs)
+        k2["eca_kernel_size"] = eca_kernel_size
         blocks.extend(get_conv_blocks(dim, dim, kernel_size, stride, **k2))
         self.net = Residual(nn.Sequential(*blocks))
 
