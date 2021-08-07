@@ -22,8 +22,8 @@ if __name__ == "__main__":
     prepare()
     train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
         tgt_folder,
-        batch_size=16,
-        num_workers=4,
+        batch_size=8,
+        num_workers=2,
         transform="for_salient_object_detection",
         test_transform="for_salient_object_detection_test",
     )
@@ -32,13 +32,14 @@ if __name__ == "__main__":
         {
             "in_channels": 3,
             "out_channels": 1,
-            "lv1_model_ckpt_path": "pretrained/model_200343_all.pt",
+            "lv1_model_ckpt_path": "pretrained/light_0.001.pt",
             "lv2_resolution": 512,
-            "lite": False,
+            "lv2_model_config": {"eca_kernel_size": 3},
+            "lite": True,
         },
         loss_name="sigmoid_mae",
         callback_names=["unet", "mlflow"],
-        callback_configs={"mlflow": {"experiment_name": "large_refine"}},
+        callback_configs={"mlflow": {"experiment_name": "light_refine"}},
         scheduler_name="plateau",
     )
-    m.fit(train_loader, valid_loader, cuda="7")
+    m.fit(train_loader, valid_loader, cuda="5")
