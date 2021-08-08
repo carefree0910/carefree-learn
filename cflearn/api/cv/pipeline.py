@@ -98,6 +98,7 @@ class SimplePipeline(DLPipeline):
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
         )
+        self.input_dim = None
         self.model_name = model_name
         self.model_config = model_config or {}
 
