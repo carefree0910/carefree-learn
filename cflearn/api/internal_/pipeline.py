@@ -446,6 +446,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "DLPipeline":
+        if export_folder.endswith(".zip"):
+            export_folder = export_folder[:-4]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
