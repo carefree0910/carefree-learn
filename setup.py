@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
-VERSION = "0.1.16"
-DESCRIPTION = "A minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch"
+VERSION = "0.2.0"
+DESCRIPTION = "Deep Learning with PyTorch made easy"
 with open("README.md", encoding="utf-8") as f:
     LONG_DESCRIPTION = f.read()
 
@@ -36,5 +36,5 @@ setup(
     description=DESCRIPTION,
     long_description=LONG_DESCRIPTION,
     long_description_content_type="text/markdown",
-    keywords="python automl machine-learning solution PyTorch",
+    keywords="python machine-learning deep-learning solution PyTorch",
 )
