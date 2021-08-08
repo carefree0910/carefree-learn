@@ -19,7 +19,7 @@ import numpy as np
 
 x = np.random.random([1000, 10])
 y = np.random.random([1000, 1])
-m = cflearn.ml.CarefreePipeline().fit(x,  y)
+m = cflearn.ml.CarefreePipeline().fit(x, y)
 ```
 
 #### Computer Vision 🖼️
