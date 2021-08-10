@@ -22,6 +22,7 @@ from typing import Optional
 from skimage import transform as sk_transform
 from cftool.dist import Parallel
 from cftool.misc import grouped
+from cftool.misc import is_numeric
 from cftool.misc import grouped_into
 from cftool.misc import shallow_copy_dict
 from torchvision.datasets import MNIST
@@ -568,7 +569,9 @@ class ImageFolderDataset(Dataset):
         file = self.img_paths[index]
         img = Image.open(file)
         label = self.labels[file]
-        if isinstance(label, str) and label.endswith(".npy"):
+        if is_numeric(label):
+            label = np.array([label])
+        elif isinstance(label, str) and label.endswith(".npy"):
             label = np.load(label)
         if self.transform is None:
             img = to_torch(np.array(img).astype(np.float32))
