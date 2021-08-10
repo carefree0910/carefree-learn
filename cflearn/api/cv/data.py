@@ -78,28 +78,6 @@ class Transforms(WithRegister):
         return cls.make(transform, transform_config or {})
 
 
-@Transforms.register("sample_fn")
-class SampleFunction(Transforms):
-    def __init__(self, fn: Callable):
-        super().__init__()
-        self.fn = fn
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
-
-
-@Transforms.register("batch_fn")
-class BatchFunction(Transforms):
-    def __init__(self, fn: Callable):
-        super().__init__()
-        self.fn = fn
-
-    @property
-    def need_batch_process(self) -> bool:
-        return True
-
-
 @Transforms.register("to_tensor")
 class ToTensor(Transforms):
     fn = transforms.ToTensor()
