@@ -87,6 +87,22 @@ class ToTensor(Transforms):
         return False
 
 
+@Transforms.register("random_resized_crop")
+class RandomResizedCrop(Transforms):
+    def __init__(self, *, size: int = 224):
+        super().__init__()
+        self.fn = transforms.Compose(
+            [
+                transforms.RandomResizedCrop(size),
+                transforms.ToTensor(),
+            ]
+        )
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("for_generation")
 class ForGeneration(Transforms):
     fn = transforms.Compose(
