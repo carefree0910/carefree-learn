@@ -1,3 +1,4 @@
+from torch import nn
 from typing import Any
 from typing import Dict
 from typing import List
@@ -9,6 +10,7 @@ from ..protocol import Encoder1DBase
 from .....types import tensor_dict_type
 from .....trainer import TrainerState
 from .....constants import INPUT_KEY
+from .....constants import LATENT_KEY
 from .....constants import WARNING_PREFIX
 from .....modules.blocks import Conv2d
 
@@ -98,6 +100,7 @@ class BackboneEncoder(Encoder1DBase):
             increment_config=increment_config,
             **config.setdefault("backbone_kwargs", {}),
         )
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
     def forward(
         self,
@@ -106,10 +109,12 @@ class BackboneEncoder(Encoder1DBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
-        if self.to_rgb is not None:
-            net = self.to_rgb(net)
-        return self.net(net)
+        net = self.to_rgb(batch[INPUT_KEY])
+        outputs = self.net(net)
+        latent = outputs[LATENT_KEY]
+        if latent.shape[-2] != 1 or latent.shape[-1] != 1:
+            outputs[LATENT_KEY] = self.pool(latent)
+        return outputs
 
 
 __all__ = ["BackboneEncoder"]
