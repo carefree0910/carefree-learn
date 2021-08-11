@@ -51,17 +51,28 @@ class MLFlowCallback(TrainerCallback):
         tracking_folder: str = os.getcwd(),
     ):
         super().__init__()
-        tracking_folder = os.path.abspath(tracking_folder)
+        self.experiment_name = experiment_name
+        self.params = params
+        self.run_name = run_name
+        self.run_name_prefix = run_name_prefix
+        self.run_tags = run_tags
+        self.tracking_folder = tracking_folder
+
+    def initialize(self) -> None:
+        if not self.is_rank_0:
+            return None
+        tracking_folder = os.path.abspath(self.tracking_folder)
         tracking_dir = os.path.join(tracking_folder, "mlruns")
         with lock_manager(tracking_folder, ["mlruns"]):
             os.makedirs(tracking_dir, exist_ok=True)
             tracking_uri = parse_mlflow_uri(tracking_dir)
             self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
-            experiment = self.mlflow_client.get_experiment_by_name(experiment_name)
+            name = self.experiment_name
+            experiment = self.mlflow_client.get_experiment_by_name(name)
             if experiment is not None:
                 experiment_id = experiment.experiment_id
             else:
-                experiment_id = self.mlflow_client.create_experiment(experiment_name)
+                experiment_id = self.mlflow_client.create_experiment(name)
 
         run = None
         from_external = False
@@ -79,33 +90,41 @@ class MLFlowCallback(TrainerCallback):
                 )
 
         if run is None:
-            if run_tags is None:
-                run_tags = {}
-            run_tags.setdefault(MLFLOW_USER, getpass.getuser())
-            if run_name is not None:
-                if run_name_prefix is not None:
-                    run_name = f"{run_name_prefix}_{run_name}"
-                run_tags.setdefault(MLFLOW_RUN_NAME, run_name)
-            run = self.mlflow_client.create_run(experiment_id, tags=run_tags)
+            if self.run_tags is None:
+                self.run_tags = {}
+            self.run_tags.setdefault(MLFLOW_USER, getpass.getuser())
+            if self.run_name is not None:
+                if self.run_name_prefix is not None:
+                    self.run_name = f"{self.run_name_prefix}_{self.run_name}"
+                self.run_tags.setdefault(MLFLOW_RUN_NAME, self.run_name)
+            run = self.mlflow_client.create_run(experiment_id, tags=self.run_tags)
         self.run_id = run.info.run_id
 
         if not from_external:
-            for key, value in (params or {}).items():
+            for key, value in (self.params or {}).items():
                 self.mlflow_client.log_param(self.run_id, key, value)
 
     def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
+        if not self.is_rank_0:
+            return None
         self.mlflow_client.log_metric(self.run_id, key, lr, step=state.step)
 
     def log_metrics(self, metric_outputs: MetricsOutputs, state: TrainerState) -> None:
+        if not self.is_rank_0:
+            return None
         for key, value in metric_outputs.metric_values.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
         score = metric_outputs.final_score
         self.mlflow_client.log_metric(self.run_id, "score", score, step=state.step)
 
     def log_artifacts(self, trainer: Trainer) -> None:
+        if not self.is_rank_0:
+            return None
         self.mlflow_client.log_artifacts(self.run_id, trainer.workplace)
 
     def finalize(self, trainer: Trainer) -> None:
+        if not self.is_rank_0:
+            return None
         self.log_artifacts(trainer)
         self.mlflow_client.set_terminated(self.run_id)
 
