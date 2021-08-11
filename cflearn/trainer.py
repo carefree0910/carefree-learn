@@ -120,6 +120,9 @@ class TrainerCallback(WithRegister):
     def __init__(self, *args: Any, **kwargs: Any):
         pass
 
+    def initialize(self) -> None:
+        pass
+
     def mutate_train_forward_kwargs(
         self,
         kwargs: Dict[str, Any],
@@ -352,6 +355,7 @@ class Trainer:
         self.is_rank_0 = not self.ddp or self.rank == 0
         for callback in self.callbacks:
             callback.is_rank_0 = self.is_rank_0
+            callback.initialize()
         self.finetune_config = finetune_config
         # initialize artifact structure
         self.checkpoint_folder = None
