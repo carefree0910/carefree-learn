@@ -22,6 +22,7 @@ class AlphaRefineNet(ModelProtocol):
         num_layers: int = 3,
         latent_channels: int = 64,
         dropout: float = 0.0,
+        ca_reduction: Optional[int] = None,
         eca_kernel_size: Optional[int] = None,
     ):
         super().__init__()
@@ -37,6 +38,7 @@ class AlphaRefineNet(ModelProtocol):
                 ResidualBlock(
                     latent_channels,
                     dropout,
+                    ca_reduction=ca_reduction,
                     eca_kernel_size=eca_kernel_size,
                 )
             )

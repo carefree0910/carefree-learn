@@ -1589,6 +1589,7 @@ def get_conv_blocks(
     demodulate: bool = False,
     norm_type: Optional[str] = None,
     norm_kwargs: Optional[Dict[str, Any]] = None,
+    ca_reduction: Optional[int] = None,
     eca_kernel_size: Optional[int] = None,
     activation: Optional[Module] = None,
     conv_base: Type["Conv2d"] = Conv2d,
@@ -1612,6 +1613,8 @@ def get_conv_blocks(
         blocks.append(ECABlock(kernel_size))
     if activation is not None:
         blocks.append(activation)
+    if ca_reduction is not None:
+        blocks.append(CABlock(out_channels, ca_reduction))
     return blocks
 
 
@@ -1623,6 +1626,7 @@ class ResidualBlock(Module):
         kernel_size: int = 3,
         stride: int = 1,
         *,
+        ca_reduction: Optional[int] = None,
         eca_kernel_size: Optional[int] = None,
         norm_type: str = "batch",
         **kwargs: Any,
@@ -1630,6 +1634,7 @@ class ResidualBlock(Module):
         super().__init__()
         kwargs["norm_type"] = norm_type
         k1 = shallow_copy_dict(kwargs)
+        k1["ca_reduction"] = ca_reduction
         k1.setdefault("activation", nn.LeakyReLU(0.2, inplace=True))
         blocks = get_conv_blocks(dim, dim, kernel_size, stride, **k1)
         if 0.0 < dropout < 1.0:
