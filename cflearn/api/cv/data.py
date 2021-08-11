@@ -88,6 +88,22 @@ class ToTensor(Transforms):
         return False
 
 
+@Transforms.register("resize")
+class Resize(Transforms):
+    def __init__(self, *, size: int = 224):
+        super().__init__()
+        self.fn = transforms.Compose(
+            [
+                transforms.Resize((size, size)),
+                transforms.ToTensor(),
+            ]
+        )
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("random_resized_crop")
 class RandomResizedCrop(Transforms):
     def __init__(self, *, size: int = 224):
