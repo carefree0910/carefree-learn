@@ -1509,7 +1509,7 @@ class UpsampleConv2d(Conv2d):
 
 
 class CABlock(Module):
-    """ Coordinate Attention """
+    """Coordinate Attention"""
 
     def __init__(self, num_channels: int, reduction: int = 32):
         super().__init__()
@@ -1558,7 +1558,7 @@ class CABlock(Module):
 
 
 class ECABlock(Module):
-    """ Efficient Channel Attention """
+    """Efficient Channel Attention"""
 
     def __init__(self, kernel_size: int = 3):
         super().__init__()
