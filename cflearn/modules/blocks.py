@@ -62,7 +62,7 @@ class Lambda(Module):
 
 
 class BN(nn.BatchNorm1d):
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         if len(net.shape) == 3:
             net = net.transpose(1, 2)
         net = super().forward(net)
@@ -115,7 +115,7 @@ class EMA(Module):
         return "\n".join(
             [f"(0): decay_rate={self._decay}\n(1): Params("]
             + [
-                f"  {name:<{max_str_len}s} - torch.Tensor({list(param.shape)})"
+                f"  {name:<{max_str_len}s} - Tensor({list(param.shape)})"
                 for name, param in self.tgt_params
             ]
             + [")"]
@@ -155,7 +155,7 @@ class MTL(Module):
         self,
         loss_dict: tensor_dict_type,
         naive: bool = False,
-    ) -> torch.Tensor:
+    ) -> Tensor:
         if not self.registered:
             raise ValueError("losses need to be registered")
         if naive or self._method is None:
@@ -163,10 +163,10 @@ class MTL(Module):
         return getattr(self, f"_{self._method}")(loss_dict)
 
     @staticmethod
-    def _naive(loss_dict: tensor_dict_type) -> torch.Tensor:
+    def _naive(loss_dict: tensor_dict_type) -> Tensor:
         return sum(loss_dict.values())  # type: ignore
 
-    def _softmax(self, loss_dict: tensor_dict_type) -> torch.Tensor:
+    def _softmax(self, loss_dict: tensor_dict_type) -> Tensor:
         assert self._slice is not None
         w = self.w if self._slice == self._n_task else self.w[: self._slice]
         softmax_w = nn.functional.softmax(w, dim=0)
@@ -174,7 +174,7 @@ class MTL(Module):
         for key, loss in loss_dict.items():
             idx = self._registered.get(key)
             losses.append(loss if idx is None else loss * softmax_w[idx])
-        final_loss: torch.Tensor = sum(losses)  # type: ignore
+        final_loss: Tensor = sum(losses)  # type: ignore
         return final_loss * self._slice
 
     def extra_repr(self) -> str:
@@ -194,10 +194,10 @@ class _multiplied_activation(Module, metaclass=ABCMeta):
         self.ratio = ratio_ if not trainable else nn.Parameter(ratio_)
 
     @abstractmethod
-    def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+    def _core(self, multiplied: Tensor) -> Tensor:
         pass
 
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         return self._core(net * self.ratio)
 
     def extra_repr(self) -> str:
@@ -225,9 +225,7 @@ class Activations:
     """
 
     def __init__(self, configs: Optional[Dict[str, Any]] = None):
-        if configs is None:
-            configs = {}
-        self.configs = configs
+        self.configs = configs or {}
 
     def __getattr__(self, item: str) -> Module:
         kwargs = self.configs.setdefault(item, {})
@@ -262,7 +260,7 @@ class Activations:
                 super().__init__()
                 self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
 
-            def forward(self, net: torch.Tensor) -> torch.Tensor:
+            def forward(self, net: Tensor) -> Tensor:
                 projection, gate = self.linear(net).chunk(2, dim=1)
                 return projection * torch.sigmoid(gate)
 
@@ -271,7 +269,7 @@ class Activations:
     @property
     def mish(self) -> Module:
         class Mish(Module):
-            def forward(self, net: torch.Tensor) -> torch.Tensor:
+            def forward(self, net: Tensor) -> Tensor:
                 return net * (torch.tanh(F.softplus(net)))
 
         return Mish()
@@ -283,7 +281,7 @@ class Activations:
         kwargs = self.configs.setdefault("atanh", {})
         eps = kwargs.setdefault("eps", 1.0e-6)
 
-        def _atanh(net: torch.Tensor) -> torch.Tensor:
+        def _atanh(net: Tensor) -> Tensor:
             return torch.atanh(torch.clamp(net, -1.0 + eps, 1.0 - eps))
 
         return Lambda(_atanh, f"atanh_{eps:.2e}")
@@ -293,7 +291,7 @@ class Activations:
         kwargs = self.configs.setdefault("isoftplus", {})
         eps = kwargs.setdefault("eps", 1.0e-6)
 
-        def _isoftplus(net: torch.Tensor) -> torch.Tensor:
+        def _isoftplus(net: Tensor) -> Tensor:
             return torch.log(net.clamp_min(eps).exp() - 1.0)
 
         return Lambda(_isoftplus, f"isoftplus_{eps:.2e}")
@@ -305,7 +303,7 @@ class Activations:
         eps = config.setdefault("eps", 1e-12)
         suffix = "_randomized" if randomize_at_zero else ""
 
-        def _core(net: torch.Tensor) -> torch.Tensor:
+        def _core(net: Tensor) -> Tensor:
             if randomize_at_zero:
                 net = net + (2 * torch.empty_like(net).uniform_() - 1.0) * eps
             return torch.sign(net)
@@ -324,7 +322,7 @@ class Activations:
     @property
     def multiplied_sine(self) -> Module:
         class MultipliedSine(_multiplied_activation):
-            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+            def _core(self, multiplied: Tensor) -> Tensor:
                 return torch.sin(multiplied)
 
         config = self.configs.setdefault("multiplied_sine", {})
@@ -334,7 +332,7 @@ class Activations:
     @property
     def multiplied_tanh(self) -> Module:
         class MultipliedTanh(_multiplied_activation):
-            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+            def _core(self, multiplied: Tensor) -> Tensor:
                 return torch.tanh(multiplied)
 
         return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
@@ -342,7 +340,7 @@ class Activations:
     @property
     def multiplied_sigmoid(self) -> Module:
         class MultipliedSigmoid(_multiplied_activation):
-            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+            def _core(self, multiplied: Tensor) -> Tensor:
                 return torch.sigmoid(multiplied)
 
         return MultipliedSigmoid(**self.configs.setdefault("multiplied_sigmoid", {}))
@@ -354,7 +352,7 @@ class Activations:
                 super().__init__(ratio, trainable)
                 self.dim = dim
 
-            def _core(self, multiplied: torch.Tensor) -> torch.Tensor:
+            def _core(self, multiplied: Tensor) -> Tensor:
                 return F.softmax(multiplied, dim=self.dim)
 
         return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
@@ -378,7 +376,7 @@ class Activations:
                 self.retain_sign = retain_sign
                 self.trainable = trainable
 
-            def forward(self, net: torch.Tensor) -> torch.Tensor:
+            def forward(self, net: Tensor) -> Tensor:
                 net_abs = net.abs()
                 bias = F.softplus(self.bias)
                 cup_mask = self.sigmoid(net_abs - bias)
@@ -397,7 +395,7 @@ class Activations:
 
     @property
     def h_swish(self) -> Module:
-        class HSwish(nn.Module):
+        class HSwish(Module):
             def __init__(self, inplace: bool = True):
                 super().__init__()
                 self.relu = nn.ReLU6(inplace=inplace)
@@ -635,12 +633,12 @@ class DNDF(Module):
 class Pruner(Module):
     def __init__(self, config: Dict[str, Any], w_shape: Optional[List[int]] = None):
         super().__init__()
-        self.eps: torch.Tensor
-        self.exp: torch.Tensor
-        self.alpha: Union[torch.Tensor, nn.Parameter]
-        self.beta: Union[torch.Tensor, nn.Parameter]
-        self.gamma: Union[torch.Tensor, nn.Parameter]
-        self.max_ratio: Union[torch.Tensor, nn.Parameter]
+        self.eps: Tensor
+        self.exp: Tensor
+        self.alpha: Union[Tensor, nn.Parameter]
+        self.beta: Union[Tensor, nn.Parameter]
+        self.gamma: Union[Tensor, nn.Parameter]
+        self.max_ratio: Union[Tensor, nn.Parameter]
         tensor = partial(torch.tensor, dtype=torch.float32)
         self.method = config.setdefault("method", "auto_prune")
         if self.method == "surgery":
@@ -693,7 +691,7 @@ class Pruner(Module):
             keys = ["alpha", "beta", "gamma", "max_ratio", "eps"]
         self._repr_keys = keys
 
-    def forward(self, w: torch.Tensor) -> torch.Tensor:
+    def forward(self, w: Tensor) -> Tensor:
         w_abs = torch.abs(w)
         if self.method == "surgery":
             mu, std = torch.mean(w_abs), torch.std(w_abs)
@@ -947,7 +945,7 @@ class DecayedAttention(Attention):
 
 
 class PixelNorm(Module):
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
+    def forward(self, net: Tensor) -> Tensor:
         return F.normalize(net, dim=1)
 
 
@@ -1018,8 +1016,8 @@ class NormFactory:
         current_blocks.extend(subsequent_blocks)
 
 
-class Residual(nn.Module):
-    def __init__(self, module: nn.Module):
+class Residual(Module):
+    def __init__(self, module: Module):
         super().__init__()
         self.module = module
 
@@ -1027,10 +1025,10 @@ class Residual(nn.Module):
         return net + self.module(net, **kwargs)
 
 
-class PreNorm(nn.Module):
-    def __init__(self, *dims: int, module: nn.Module, norm_type: str = "layer_norm"):
+class PreNorm(Module):
+    def __init__(self, *dims: int, module: Module, norm_type: str = "layer_norm"):
         super().__init__()
-        self.norms = nn.ModuleList([])
+        self.norms = ModuleList([])
         for dim in dims:
             self.norms.append(NormFactory(norm_type).make(dim))
         self.module = module
@@ -1052,7 +1050,7 @@ class PreNorm(nn.Module):
         return attention_outputs.output
 
 
-class ImgToPatches(nn.Module):
+class ImgToPatches(Module):
     def __init__(
         self,
         img_size: int,
@@ -1235,7 +1233,7 @@ class Mapping(MappingBase):
 
 @MappingBase.register("res")
 class ResBlock(MappingBase):
-    to_latent: nn.Module
+    to_latent: Module
 
     def __init__(
         self,
@@ -1470,7 +1468,7 @@ class Conv2d(Module):
         )
 
 
-def upscale(net: torch.Tensor, factor: float) -> torch.Tensor:
+def upscale(net: Tensor, factor: float) -> Tensor:
     return F.interpolate(net, scale_factor=factor, recompute_scale_factor=True)  # type: ignore
 
 
@@ -1510,7 +1508,7 @@ class UpsampleConv2d(Conv2d):
         return super().forward(net, y)
 
 
-class CABlock(nn.Module):
+class CABlock(Module):
     """ Coordinate Attention """
 
     def __init__(self, num_channels: int, reduction: int = 32):
@@ -1559,7 +1557,7 @@ class CABlock(nn.Module):
         return original * net_w * net_h
 
 
-class ECABlock(nn.Module):
+class ECABlock(Module):
     """ Efficient Channel Attention """
 
     def __init__(self, kernel_size: int = 3):
@@ -1617,7 +1615,7 @@ def get_conv_blocks(
     return blocks
 
 
-class ResidualBlock(nn.Module):
+class ResidualBlock(Module):
     def __init__(
         self,
         dim: int,
@@ -1645,7 +1643,7 @@ class ResidualBlock(nn.Module):
         return self.net(net)
 
 
-class ChannelPadding(nn.Module):
+class ChannelPadding(Module):
     def __init__(
         self,
         dim: int,
