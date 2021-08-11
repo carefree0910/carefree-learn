@@ -134,13 +134,6 @@ class TrainerCallback(WithRegister):
     ) -> None:
         pass
 
-    def mutate_optimizer_pack(
-        self,
-        pack: OptimizerPack,
-        trainer: "Trainer",
-    ) -> OptimizerPack:
-        return pack
-
     def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
         pass
 
@@ -554,8 +547,6 @@ class Trainer:
         if self.optimizer_packs is None:
             self.optimizer_packs = [self.default_opt_settings.get_opt_pack(self)]
         for pack in self.optimizer_packs:
-            for callback in self.callbacks:
-                pack = callback.mutate_optimizer_pack(pack, self)
             opt = self._define_optimizer(pack)
             self._define_scheduler(opt, pack)
         # check requires metric
