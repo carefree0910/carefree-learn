@@ -395,6 +395,18 @@ class Activations:
 
         return CupMasked(**self.configs.setdefault("cup_masked", {}))
 
+    @property
+    def h_swish(self) -> Module:
+        class HSwish(nn.Module):
+            def __init__(self, inplace: bool = True):
+                super().__init__()
+                self.relu = nn.ReLU6(inplace=inplace)
+
+            def forward(self, net: Tensor) -> Tensor:
+                return net * (self.relu(net + 3.0) / 6.0)
+
+        return HSwish(**self.configs.setdefault("h_swish", {}))
+
     @classmethod
     def make(
         cls,
@@ -1498,7 +1510,58 @@ class UpsampleConv2d(Conv2d):
         return super().forward(net, y)
 
 
+class CABlock(nn.Module):
+    """ Coordinate Attention """
+
+    def __init__(self, num_channels: int, reduction: int = 32):
+        super().__init__()
+        self.pool_h = nn.AdaptiveAvgPool2d((None, 1))
+        self.pool_w = nn.AdaptiveAvgPool2d((1, None))
+        latent_channels = max(8, num_channels // reduction)
+        self.conv_blocks = nn.Sequential(
+            *get_conv_blocks(
+                num_channels,
+                latent_channels,
+                kernel_size=1,
+                stride=1,
+                norm_type="batch",
+                activation=Activations.make("h_swish"),
+                padding=0,
+            )
+        )
+
+        conv2d = lambda: Conv2d(
+            latent_channels,
+            num_channels,
+            kernel_size=1,
+            stride=1,
+            padding=0,
+        )
+        self.conv_h = conv2d()
+        self.conv_w = conv2d()
+
+    def forward(self, net: Tensor) -> Tensor:
+        original = net
+
+        n, c, h, w = net.shape
+        net_h = self.pool_h(net)
+        net_w = self.pool_w(net).permute(0, 1, 3, 2)
+
+        net = torch.cat([net_h, net_w], dim=2)
+        net = self.conv_blocks(net)
+
+        net_h, net_w = torch.split(net, [h, w], dim=2)
+        net_w = net_w.permute(0, 1, 3, 2)
+
+        net_h = self.conv_h(net_h).sigmoid()
+        net_w = self.conv_w(net_w).sigmoid()
+
+        return original * net_w * net_h
+
+
 class ECABlock(nn.Module):
+    """ Efficient Channel Attention """
+
     def __init__(self, kernel_size: int = 3):
         super().__init__()
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
