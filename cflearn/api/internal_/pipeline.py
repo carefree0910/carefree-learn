@@ -551,6 +551,50 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         return self
 
     @classmethod
+    def pack_onnx(
+        cls,
+        workplace: str,
+        export_folder: str,
+        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
+        *,
+        config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
+        pack_folder: Optional[str] = None,
+        states_callback: states_callback_type = None,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        simplify: bool = False,
+        input_sample: Optional[tensor_dict_type] = None,
+        num_samples: Optional[int] = None,
+        compress: Optional[bool] = None,
+        remove_original: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> "DLPipeline":
+        packed = cls.pack(
+            workplace,
+            config_bundle_callback=config_bundle_callback,
+            pack_folder=pack_folder,
+        )
+        m = cls.load(
+            packed,
+            states_callback=states_callback,
+            pre_callback=pre_callback,
+            post_callback=post_callback,
+        )
+        m.to_onnx(
+            export_folder,
+            dynamic_axes,
+            simplify=simplify,
+            input_sample=input_sample,
+            num_samples=num_samples,
+            compress=compress,
+            remove_original=remove_original,
+            verbose=verbose,
+            **kwargs,
+        )
+        return m
+
+    @classmethod
     def from_onnx(
         cls,
         export_folder: str,
