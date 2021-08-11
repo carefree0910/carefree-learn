@@ -50,7 +50,6 @@ if __name__ == "__main__":
         transform="for_salient_object_detection",
         test_transform="for_salient_object_detection_test",
     )
-    cflearn.MultiStageLoss.register_(["bce", "iou"])
     m = cflearn.cv.CarefreePipeline(
         "u2net",
         {
@@ -58,7 +57,7 @@ if __name__ == "__main__":
             "out_channels": 1,
             "lite": True,
         },
-        loss_name="multi_stage_bce_iou",
+        loss_name="multi_stage:bce,iou",
         loss_metrics_weights={"bce0": 0.2, "iou0": 0.8},
         callback_names=["u2net", "mlflow"],
         callback_configs={"mlflow": {"experiment_name": "lite_pretrain"}},

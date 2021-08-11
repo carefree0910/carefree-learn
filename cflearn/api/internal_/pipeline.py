@@ -45,6 +45,7 @@ from ...misc.toolkit import get_latest_workplace
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
 from ...misc.toolkit import WithRegister
+from ...misc.internal_.losses import MultiStageLoss
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
@@ -247,6 +248,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _prepare_loss(self) -> None:
         if self.in_loading:
             return None
+        if self.loss_name.startswith("multi_stage:"):
+            loss_names = self.loss_name.split(":")[1].split(",")
+            MultiStageLoss.register_(loss_names)
+            self.loss_name = f"multi_stage_{'_'.join(loss_names)}"
         self.loss = LossProtocol.make(self.loss_name, config=self.loss_config or {})
 
     def _prepare_trainer_defaults(self) -> None:
