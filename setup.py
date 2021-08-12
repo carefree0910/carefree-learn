@@ -14,6 +14,7 @@ setup(
         "numba>=0.50",
         "mlflow",
         "onnx",
+        "onnx-simplifier",
         "onnxruntime",
         "plotly",
         "optuna>=2.3.0",

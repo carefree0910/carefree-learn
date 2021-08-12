@@ -1,5 +1,6 @@
 import os
 import json
+import onnx
 import torch
 import shutil
 
@@ -17,6 +18,7 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from onnxsim import simplify as onnx_simplify
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -36,11 +38,13 @@ from ...protocol import MetricsOutputs
 from ...protocol import InferenceProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import PT_PREFIX
+from ...constants import INFO_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import DDP_MODEL_NAME
 from ...constants import WARNING_PREFIX
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
+from ...misc.toolkit import to_numpy
 from ...misc.toolkit import get_latest_workplace
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
@@ -536,17 +540,24 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self._save_misc(export_folder, False)
                 with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
                     json.dump(kwargs, f)
-            onnx = ONNXWrapper()
+            m_onnx = ONNXWrapper()
             onnx_path = os.path.join(export_folder, self.onnx_file)
             input_keys = sorted(input_sample)
-            with eval_context(onnx):
+            with eval_context(m_onnx):
                 torch.onnx.export(
-                    onnx,
+                    m_onnx,
                     (input_sample, {}),
                     onnx_path,
                     **shallow_copy_dict(kwargs),
                 )
-                output_keys = sorted(onnx(input_sample))
+                model = onnx.load(onnx_path)
+                np_sample = {k: to_numpy(v) for k, v in input_sample.items()}
+                model_simplified, check = onnx_simplify(model, input_data=np_sample)
+                if check and verbose:
+                    print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
+                    model = model_simplified
+                onnx.save(model, onnx_path)
+                output_keys = sorted(m_onnx(input_sample))
             if not simplify:
                 with open(os.path.join(export_folder, self.onnx_keys_file), "w") as f:
                     json.dump({"input": input_keys, "output": output_keys}, f)
