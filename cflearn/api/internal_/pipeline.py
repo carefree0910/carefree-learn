@@ -22,6 +22,7 @@ from onnxsim import simplify as onnx_simplify
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
+from onnxsim.onnx_simplifier import get_input_names
 
 from .trainer import make_trainer
 from ...types import np_dict_type
@@ -551,7 +552,12 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     **shallow_copy_dict(kwargs),
                 )
                 model = onnx.load(onnx_path)
-                np_sample = {k: to_numpy(v) for k, v in input_sample.items()}
+                input_names = get_input_names(model)
+                np_sample = {
+                    name: to_numpy(tensor)
+                    for name, tensor in input_sample.items()
+                    if name in input_names
+                }
                 model_simplified, check = onnx_simplify(model, input_data=np_sample)
                 if check and verbose:
                     print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
