@@ -558,7 +558,15 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     for name, tensor in input_sample.items()
                     if name in input_names
                 }
-                model_simplified, check = onnx_simplify(model, input_data=np_sample)
+                try:
+                    model_simplified, check = onnx_simplify(model, input_data=np_sample)
+                except Exception as err:
+                    if verbose:
+                        print(
+                            f"{WARNING_PREFIX}Simplified ONNX model "
+                            f"is not validated ({err})"
+                        )
+                    check = False
                 if check and verbose:
                     print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
                     model = model_simplified
