@@ -181,7 +181,7 @@ class Pack(LoggingMixin):
         *,
         verbose: bool = True,
     ) -> None:
-        """ This method will simply pack onnx models and won't retain data """
+        """This method will simply pack onnx models and won't retain data"""
         for i, pipeline in enumerate(pipelines):
             local_export_folder = os.path.join(export_folder, f"m_{i:04d}")
             Pack.pack(
@@ -238,7 +238,7 @@ python_models: Dict[str, Type["PythonModelBase"]] = {}
 
 
 class PythonModelBase(PythonModel, metaclass=ABCMeta):
-    """ Should implement self.predictor """
+    """Should implement self.predictor"""
 
     def predict(
         self,

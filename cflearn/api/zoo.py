@@ -86,7 +86,7 @@ class Zoo(LoggingMixin, metaclass=ABCMeta):
 
     @property
     def m(self) -> Pipeline:
-        """ return corresponding model of self.config """
+        """return corresponding model of self.config"""
         return make(self.model, **self.config)
 
     @classmethod
