@@ -24,8 +24,11 @@ class AlphaRefineNet(ModelProtocol):
         dropout: float = 0.0,
         ca_reduction: Optional[int] = None,
         eca_kernel_size: Optional[int] = None,
+        lite: bool = False,
     ):
         super().__init__()
+        if lite:
+            latent_channels //= 2
         blocks = get_conv_blocks(
             in_channels,
             latent_channels,
@@ -34,14 +37,25 @@ class AlphaRefineNet(ModelProtocol):
             activation=nn.ReLU(inplace=True),
         )
         for _ in range(num_layers - 2):
-            blocks.append(
-                ResidualBlock(
-                    latent_channels,
-                    dropout,
-                    ca_reduction=ca_reduction,
-                    eca_kernel_size=eca_kernel_size,
+            if lite:
+                blocks.extend(
+                    get_conv_blocks(
+                        latent_channels,
+                        latent_channels,
+                        3,
+                        1,
+                        activation=nn.ReLU6(inplace=True),
+                    )
                 )
-            )
+            else:
+                blocks.append(
+                    ResidualBlock(
+                        latent_channels,
+                        dropout,
+                        ca_reduction=ca_reduction,
+                        eca_kernel_size=eca_kernel_size,
+                    )
+                )
         blocks.extend(get_conv_blocks(latent_channels, out_channels, 3, 1))
         self.net = nn.Sequential(*blocks)
 
