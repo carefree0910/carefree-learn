@@ -2,7 +2,7 @@
 
 `carefree-learn` is a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on [PyTorch](https://pytorch.org/).
 
-> This is the `v0.1.x` branch with (relatively) stable features which focuses on tabular tasks. In the (under development) `v0.2.x` branch, `carefree-learn` aims to become a general Deep Learning framework and provides carefree APIs for solving all DL tasks (e.g. Computer Vision tasks) as well!
+> This is the `v0.1.x` branch with (relatively) stable features which only focuses on tabular tasks. In the (under development) [`v0.2.x`](https://github.com/carefree0910/carefree-learn/tree/v0.2.x) branch, `carefree-learn` aims to become a general Deep Learning framework and will provide carefree APIs for solving all DL tasks (e.g. Computer Vision tasks)!
 
 
 ## Carefree?
