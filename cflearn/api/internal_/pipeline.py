@@ -559,7 +559,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     if name in input_names
                 }
                 try:
-                    model_simplified, check = onnx_simplify(model, input_data=np_sample)
+                    model_simplified, check = onnx_simplify(
+                        model,
+                        input_data=np_sample,
+                        dynamic_input_shape=bool(dynamic_axes),
+                    )
                 except Exception as err:
                     if verbose:
                         print(
