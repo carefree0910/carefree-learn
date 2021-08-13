@@ -69,14 +69,36 @@ class Transforms(WithRegister):
     @classmethod
     def convert(
         cls,
-        transform: Optional[Union[str, "Transforms"]],
+        transform: Optional[Union[str, List[str], "Transforms"]],
         transform_config: Optional[Dict[str, Any]] = None,
     ) -> Optional["Transforms"]:
         if transform is None:
             return None
         if isinstance(transform, Transforms):
             return transform
-        return cls.make(transform, transform_config or {})
+        if transform_config is None:
+            transform_config = {}
+        if isinstance(transform, str):
+            return cls.make(transform, transform_config)
+        transform_list = [cls.make(t, transform_config.get(t, {})) for t in transform]
+        return Compose(transform_list)
+
+
+@Transforms.register("compose")
+class Compose(Transforms):
+    def __init__(self, transform_list: List[Transforms]):
+        super().__init__()
+        if len(set(t.need_batch_process for t in transform_list)) > 1:
+            raise ValueError(
+                "all transforms should have identical "
+                "`need_batch_process` property in `Compose`"
+            )
+        self.fn = transforms.Compose(transform_list)
+        self.transform_list = transform_list
+
+    @property
+    def need_batch_process(self) -> bool:
+        return self.transform_list[0].need_batch_process
 
 
 @Transforms.register("to_tensor")
@@ -92,12 +114,7 @@ class ToTensor(Transforms):
 class Resize(Transforms):
     def __init__(self, *, size: int = 224):
         super().__init__()
-        self.fn = transforms.Compose(
-            [
-                transforms.Resize((size, size)),
-                transforms.ToTensor(),
-            ]
-        )
+        self.fn = transforms.Resize((size, size))
 
     @property
     def need_batch_process(self) -> bool:
@@ -108,12 +125,7 @@ class Resize(Transforms):
 class RandomResizedCrop(Transforms):
     def __init__(self, *, size: int = 224):
         super().__init__()
-        self.fn = transforms.Compose(
-            [
-                transforms.RandomResizedCrop(size),
-                transforms.ToTensor(),
-            ]
-        )
+        self.fn = transforms.RandomResizedCrop(size)
 
     @property
     def need_batch_process(self) -> bool:
