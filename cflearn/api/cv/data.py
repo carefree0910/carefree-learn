@@ -132,18 +132,19 @@ class RandomResizedCrop(Transforms):
         return False
 
 
-@Transforms.register("for_generation")
-class ForGeneration(Transforms):
-    fn = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.Lambda(lambda t: t * 2.0 - 1.0),
-        ]
-    )
+@Transforms.register("-1~1")
+class N1To1(Transforms):
+    fn = transforms.Lambda(lambda t: t * 2.0 - 1.0)
 
     @property
     def need_batch_process(self) -> bool:
         return False
+
+
+@Transforms.register("for_generation")
+class ForGeneration(Compose):
+    def __init__(self):
+        super().__init__([ToTensor(), N1To1()])
 
 
 def make_new_sample(
