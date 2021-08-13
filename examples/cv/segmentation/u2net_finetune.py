@@ -47,8 +47,8 @@ if __name__ == "__main__":
         tgt_folder,
         batch_size=16,
         num_workers=4,
-        transform="for_salient_object_detection",
-        test_transform="for_salient_object_detection_test",
+        transform="a_bundle_with_mask",
+        test_transform="a_bundle_with_mask_test",
     )
     m = cflearn.cv.CarefreePipeline(
         "u2net",

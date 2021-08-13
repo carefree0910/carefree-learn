@@ -1,10 +1,10 @@
 import os
 import json
 import math
-import random
 import shutil
 
 import numpy as np
+import albumentations as A
 
 from abc import abstractmethod
 from PIL import Image
@@ -19,14 +19,13 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
-from skimage import transform as sk_transform
 from cftool.dist import Parallel
 from cftool.misc import grouped
 from cftool.misc import is_numeric
 from cftool.misc import grouped_into
-from cftool.misc import shallow_copy_dict
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
+from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
@@ -38,8 +37,6 @@ from ...constants import ERROR_PREFIX
 from ...constants import WARNING_PREFIX
 from ...constants import ORIGINAL_LABEL_KEY
 from ...misc.toolkit import to_torch
-from ...misc.toolkit import min_max_normalize
-from ...misc.toolkit import imagenet_normalize
 from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DLData
 from ...misc.internal_ import DLLoader
@@ -143,124 +140,180 @@ class N1To1(Transforms):
 
 @Transforms.register("for_generation")
 class ForGeneration(Compose):
-    def __init__(self):
+    def __init__(self):  # type: ignore
         super().__init__([ToTensor(), N1To1()])
 
 
-def make_new_sample(
-    sample: np_dict_type,
-    img: Tensor,
-    label: Optional[Tensor],
-) -> np_dict_type:
-    new_sample = shallow_copy_dict(sample)
-    new_sample[INPUT_KEY] = img
-    new_sample[LABEL_KEY] = label
-    return new_sample
+class ATransforms(Transforms):
+    input_alias = "image"
+
+    @property
+    def label_alias(self) -> str:
+        split = self.__identifier__.split("_")
+        if split[-2] == "with":
+            return split[-1]
+        raise NotImplementedError
+
+    @property
+    def need_batch_process(self) -> bool:
+        return True
+
+    def __call__(self, sample: np_dict_type, **kwargs: Any) -> np_dict_type:  # type: ignore
+        inp_keys_mapping = {
+            self.input_alias
+            if k == INPUT_KEY
+            else self.label_alias
+            if k == LABEL_KEY
+            else k: k
+            for k in sample
+        }
+        inp = {k: sample[v] for k, v in inp_keys_mapping.items()}
+        return {inp_keys_mapping[k]: v for k, v in self.fn(**inp).items()}
 
 
-class RescaleT:
-    def __init__(self, output_size: Union[int, tuple]):
-        if isinstance(output_size, int):
-            output_size = output_size, output_size
-        self.output_size = output_size
-
-    def __call__(self, sample: np_dict_type) -> np_dict_type:
-        img = sk_transform.resize(
-            (sample[INPUT_KEY][..., :3] * 255.0).astype(np.uint8),
-            self.output_size,
-            mode="constant",
-        )
-        img = img.astype(np.float32)
-        label = sample.get(LABEL_KEY)
-        if label is None:
-            return make_new_sample(sample, img, None)
-        label = sk_transform.resize(
-            label,
-            self.output_size,
-            mode="constant",
-            order=0,
-            preserve_range=True,
-        )
-        return make_new_sample(sample, img, label)
+@Transforms.register("resize_with_mask")
+class AResize(ATransforms):
+    def __init__(self, size: Union[int, tuple]):
+        super().__init__()
+        if isinstance(size, int):
+            size = size, size
+        self.fn = A.Resize(*size)
 
 
-class RandomCropWithVFlip:
-    def __init__(self, output_size: int, p_vflip: float):
-        assert isinstance(output_size, (int, tuple))
-        if isinstance(output_size, int):
-            self.output_size = (output_size, output_size)
-        else:
-            assert len(output_size) == 2
-            self.output_size = output_size
-        self.p_vflip = p_vflip
-
-    def __call__(self, sample: np_dict_type) -> np_dict_type:
-        img, label = sample[INPUT_KEY], sample[LABEL_KEY]
-
-        if random.random() <= self.p_vflip:
-            img = img[::-1].copy()
-            label = label[::-1].copy()
-
-        h, w = img.shape[:2]
-        new_h, new_w = self.output_size
-
-        top = np.random.randint(0, h - new_h)
-        left = np.random.randint(0, w - new_w)
-
-        img = img[top : top + new_h, left : left + new_w]
-        label = label[top : top + new_h, left : left + new_w]
-        return make_new_sample(sample, img, label)
+@Transforms.register("random_crop_with_mask")
+class RandomCrop(ATransforms):
+    def __init__(self, size: Union[int, tuple]):
+        super().__init__()
+        if isinstance(size, int):
+            size = size, size
+        self.fn = A.RandomCrop(*size)
 
 
-class ToNormalizedArray:
-    def __call__(self, sample: np_dict_type) -> np_dict_type:
-        img, label = sample[INPUT_KEY], sample[LABEL_KEY]
-        img = min_max_normalize(img)
-        img = imagenet_normalize(img)
-        if label is None:
-            return make_new_sample(sample, img.transpose([2, 0, 1]), None)
-        label_max = label.max()
-        if label_max < 1.0e-6:
-            new_label = label
-        else:
-            new_label = label / label_max
-        img = img.transpose([2, 0, 1])
-        new_label = new_label.transpose([2, 0, 1])
-        return make_new_sample(sample, img, new_label)
+@Transforms.register("shift_scale_rotate_with_mask")
+class ShiftScaleRotate(ATransforms):
+    def __init__(self, p: float = 0.5):
+        super().__init__()
+        self.fn = A.ShiftScaleRotate(p=p)
 
 
-@Transforms.register("for_salient_object_detection")
-class ForSalientObjectDetection(Transforms):
+@Transforms.register("hflip_with_mask")
+class HFlip(ATransforms):
+    def __init__(self, p: float = 0.5):
+        super().__init__()
+        self.fn = A.HorizontalFlip(p=p)
+
+
+@Transforms.register("vflip_with_mask")
+class VFlip(ATransforms):
+    def __init__(self, p: float = 0.5):
+        super().__init__()
+        self.fn = A.VerticalFlip(p=p)
+
+
+@Transforms.register("normalize_with_mask")
+class Normalize(ATransforms):
     def __init__(
         self,
-        *,
-        rescale_size: int = 320,
-        crop_size: int = 288,
-        p_vflip: float = 0.5,
+        mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
+        std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
+        max_pixel_value: float = 1.0,
+        p: float = 1.0,
     ):
         super().__init__()
-        self.fn = transforms.Compose(
+        self.fn = A.Normalize(mean, std, max_pixel_value, p=p)
+
+
+@Transforms.register("rgb_shift_with_mask")
+class RGBShift(ATransforms):
+    def __init__(
+        self,
+        r_shift_limit: float = 0.08,
+        g_shift_limit: float = 0.08,
+        b_shift_limit: float = 0.08,
+        p: float = 0.5,
+    ):
+        super().__init__()
+        self.fn = A.RGBShift(r_shift_limit, g_shift_limit, b_shift_limit, p=p)
+
+
+@Transforms.register("gaussian_blur_with_mask")
+class GaussianBlur(ATransforms):
+    def __init__(
+        self,
+        blur_limit: Tuple[int, int] = (3, 7),
+        sigma_limit: int = 0,
+        p: float = 0.5,
+    ):
+        super().__init__()
+        self.fn = A.GaussianBlur(blur_limit, sigma_limit, p=p)
+
+
+@Transforms.register("hue_saturation_with_mask")
+class HueSaturationValue(ATransforms):
+    def __init__(
+        self,
+        hue_shift_limit: float = 0.08,
+        sat_shift_limit: float = 0.12,
+        val_shift_limit: float = 0.08,
+        p: float = 0.5,
+    ):
+        super().__init__()
+        self.fn = A.HueSaturationValue(
+            hue_shift_limit,
+            sat_shift_limit,
+            val_shift_limit,
+            p,
+        )
+
+
+@Transforms.register("brightness_contrast_with_mask")
+class RandomBrightnessContrast(ATransforms):
+    def __init__(
+        self,
+        brightness_limit: float = 0.2,
+        contrast_limit: float = 0.2,
+        brightness_by_max: bool = True,
+        p: float = 0.5,
+    ):
+        super().__init__()
+        self.fn = A.RandomBrightnessContrast(
+            brightness_limit,
+            contrast_limit,
+            brightness_by_max,
+            p,
+        )
+
+
+@Transforms.register("a_to_tensor_with_mask")
+class AToTensor(ATransforms):
+    def __init__(self, transpose_mask: bool = True):
+        super().__init__()
+        self.fn = ToTensorV2(transpose_mask)
+
+
+@Transforms.register("a_bundle_with_mask")
+class ABundle(Compose):
+    def __init__(self, *, resize_size: int = 320, crop_size: int = 288, p: float = 0.5):
+        super().__init__(
             [
-                RescaleT(rescale_size),
-                RandomCropWithVFlip(crop_size, p_vflip),
-                ToNormalizedArray(),
+                AResize(resize_size),
+                RandomCrop(crop_size),
+                HFlip(p),
+                VFlip(p),
+                RGBShift(p=p),
+                GaussianBlur(p=p),
+                HueSaturationValue(p=p),
+                RandomBrightnessContrast(p=p),
+                Normalize(),
+                AToTensor(),
             ]
         )
 
-    @property
-    def need_batch_process(self) -> bool:
-        return True
 
-
-@Transforms.register("for_salient_object_detection_test")
-class ForSalientObjectDetectionTest(Transforms):
-    def __init__(self, *, rescale_size: int = 320):
-        super().__init__()
-        self.fn = transforms.Compose([RescaleT(rescale_size), ToNormalizedArray()])
-
-    @property
-    def need_batch_process(self) -> bool:
-        return True
+@Transforms.register("a_bundle_with_mask_test")
+class ABundleTest(Compose):
+    def __init__(self, *, resize_size: int = 320):
+        super().__init__([AResize(resize_size), Normalize(), AToTensor()])
 
 
 def get_mnist(
