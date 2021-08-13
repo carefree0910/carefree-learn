@@ -133,6 +133,7 @@ class Elements(NamedTuple):
     log_pipeline_to_artifacts: bool = False
     cuda: Optional[Union[int, str]] = None
     mlflow_config: Optional[Dict[str, Any]] = None
+    num_repeat: Optional[int] = None
     extra_config: Optional[Dict[str, Any]] = None
     user_config: Optional[Dict[str, Any]] = None
     user_increment_config: Optional[Dict[str, Any]] = None

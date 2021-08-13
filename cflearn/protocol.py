@@ -322,6 +322,8 @@ class PrefetchLoader:
             raise StopIteration
         if self.use_stream:
             torch.cuda.current_stream(self.device).wait_stream(self.stream)
+        if not self.enable_prefetch and not self.is_cpu:
+            self._to_device(self.next_batch_indices)
         batch, batch_indices = self.next_batch, self.next_batch_indices
         self.preload()
         return batch, batch_indices
@@ -360,7 +362,7 @@ class PrefetchLoader:
             return None
 
         if not self.enable_prefetch:
-            self._to_device(indices_tensor)
+            self.next_batch_indices = indices_tensor
         else:
             with torch.cuda.stream(self.stream):
                 self._to_device(indices_tensor)
@@ -590,10 +592,11 @@ class ModelProtocol(nn.Module, LoggingMixinWithRank, metaclass=ABCMeta):
             self.log_block_msg(msg, verbose_level=3)  # type: ignore
         return "\n".join([all_msg, msg])
 
-    def sorted_checkpoints(self, folder: str) -> List[str]:
+    @classmethod
+    def sorted_checkpoints(cls, folder: str) -> List[str]:
         # better checkpoints will be placed earlier,
         #  which means `checkpoints[0]` is the best checkpoint
-        scores_path = os.path.join(folder, self.scores_file)
+        scores_path = os.path.join(folder, cls.scores_file)
         if not os.path.isfile(scores_path):
             return []
         with open(scores_path, "r") as f:

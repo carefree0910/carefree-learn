@@ -33,7 +33,9 @@ from ..types import tensor_tuple_type
 
 
 def _get_clones(module: nn.Module, n: int) -> nn.ModuleList:
-    return nn.ModuleList([copy.deepcopy(module) for _ in range(n)])
+    module_list = [module]
+    module_list.extend(copy.deepcopy(module) for _ in range(n - 1))
+    return nn.ModuleList(module_list)
 
 
 mapping_dict: Dict[str, Type["MappingBase"]] = {}

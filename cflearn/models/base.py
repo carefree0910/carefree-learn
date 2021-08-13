@@ -30,6 +30,7 @@ from ..protocol import DataLoaderProtocol
 from ..misc.toolkit import to_torch
 from ..modules.heads import HeadBase
 from ..modules.heads import HeadConfigs
+from ..modules.blocks import _get_clones
 from ..modules.blocks import DNDF
 from ..modules.transform import transform_config_mapping
 from ..modules.transform import Transform
@@ -248,6 +249,10 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         return self.tr_loader.labels_key
 
     @property
+    def num_repeat(self) -> int:
+        return self.environment.num_repeat or 1
+
+    @property
     def num_history(self) -> int:
         num_history = 1
         if self.tr_data.is_ts:
@@ -296,19 +301,22 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         transform_key = pipe_config.transform
         if transform_key in self.transforms:
             transform_exists = True
-            transform = self.transforms[transform_key]
+            transforms = self.transforms[transform_key]
         else:
             transform_exists = False
             transform_cfg = Configs.get("transform", transform_key, **transform_config)
             transform_kwargs = transform_cfg.pop()
             update_dict(meta_transform_config, transform_kwargs)
-            transform = Transform(self.dimensions, **transform_kwargs)
+            transforms = _get_clones(
+                Transform(self.dimensions, **transform_kwargs),
+                self.num_repeat,
+            )
         # extractor
         extractor_cfg_key = pipe_config.extractor_config_key
         extractor_unique_key = pipe_config.extractor_unique_key
         extractor_exists = extractor_unique_key in self.extractors
         if pipe_config.reuse_extractor and extractor_exists:
-            extractor = self.extractors[extractor_unique_key]
+            extractors = self.extractors[extractor_unique_key]
         else:
             if extractor_exists:
                 new_index = 0
@@ -330,23 +338,26 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             if pipe_config.use_extractor_meta:
                 extractor_kwargs = extractor_kwargs[pipe_config.extractor]
             update_dict(meta_extractor_config, extractor_kwargs)
-            extractor = ExtractorBase.make(
-                pipe_config.extractor,
-                transform.out_dim,
-                transform.dimensions,
-                extractor_kwargs,
+            extractors = _get_clones(
+                ExtractorBase.make(
+                    pipe_config.extractor,
+                    transforms[0].out_dim,
+                    transforms[0].dimensions,
+                    extractor_kwargs,
+                ),
+                self.num_repeat,
             )
         # head
         head_cfg_key = pipe_config.head_config_key
         if head_cfg_key in self._head_configs:
             head_kwargs = self._head_configs[head_cfg_key]
             head_cfg = self._head_config_ins_dict[head_cfg_key]
-            head_cfg.in_dim = extractor.out_dim
+            head_cfg.in_dim = extractors[0].out_dim
         else:
             head_cfg = HeadConfigs.get(
                 pipe_config.head_scope,
                 pipe_config.head_config,
-                in_dim=extractor.out_dim,
+                in_dim=extractors[0].out_dim,
                 tr_data=self.tr_data,
                 tr_weights=self.tr_weights,
                 dimensions=self.dimensions,
@@ -359,15 +370,18 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
             head_kwargs = head_kwargs[pipe_config.head]
         head_cfg.inject_dimensions(head_kwargs)
         update_dict(meta_head_config, head_kwargs)
-        head = HeadBase.make(pipe_config.head, head_kwargs)
+        heads = _get_clones(
+            HeadBase.make(pipe_config.head, head_kwargs),
+            self.num_repeat,
+        )
         # gather
         self.pipes[key] = transform_key, extractor_unique_key, head_cfg_key
         if not transform_exists:
-            self.transforms[transform_key] = transform
-        self.extractors[extractor_unique_key] = extractor
-        self.heads[key] = head
+            self.transforms[transform_key] = transforms
+        self.extractors[extractor_unique_key] = extractors
+        self.heads[key] = heads
         # bypass
-        if transform.out_dim == 0 or extractor.out_dim == 0:
+        if transforms[0].out_dim == 0 or extractors[0].out_dim == 0:
             self.bypassed_pipes.add(key)
 
     # Inheritance
@@ -527,33 +541,49 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
         extract_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
         head_kwargs_dict: Optional[Dict[str, Dict[str, Any]]] = None,
     ) -> tensor_dict_type:
-        results: Dict[str, Union[Tensor, tensor_dict_type]] = {}
-        for key, (transform_key, extractor_key, _) in self.pipes.items():
-            if key in self.bypassed_pipes:
-                continue
-            # transform
-            transformed = self._transform_cache.get(transform_key)
-            if transformed is None:
-                transformed = self._transform(self.transforms[transform_key], net)
-                self._transform_cache[transform_key] = transformed
-            # extract
-            if extract_kwargs_dict is None:
-                extract_kwargs_dict = {}
-            extracted = self._extractor_cache.get(extractor_key)
-            if extracted is None:
-                extract_kwargs = extract_kwargs_dict.get(extractor_key, {})
-                extracted = self._extract(
-                    self.extractors[extractor_key],
-                    transformed,
-                    extract_kwargs,
-                )
-                self._extractor_cache[extractor_key] = extracted
-            if head_kwargs_dict is None:
-                head_kwargs_dict = {}
-            head_kwargs = head_kwargs_dict.get(key, {})
-            results[key] = self._head(self.heads[key], extracted, head_kwargs)
-        if clear_cache:
-            self.clear_execute_cache()
+        results: Dict[str, Any] = {}
+        for i in range(self.num_repeat):
+            for key, (transform_key, extractor_key, _) in self.pipes.items():
+                if key in self.bypassed_pipes:
+                    continue
+                # transform
+                transformed = self._transform_cache.get(transform_key)
+                if transformed is None:
+                    transform = self.transforms[transform_key][i]
+                    transformed = self._transform(transform, net)
+                    self._transform_cache[transform_key] = transformed
+                # extract
+                if extract_kwargs_dict is None:
+                    extract_kwargs_dict = {}
+                extracted = self._extractor_cache.get(extractor_key)
+                if extracted is None:
+                    extract_kwargs = extract_kwargs_dict.get(extractor_key, {})
+                    extracted = self._extract(
+                        self.extractors[extractor_key][i],
+                        transformed,
+                        extract_kwargs,
+                    )
+                    self._extractor_cache[extractor_key] = extracted
+                if head_kwargs_dict is None:
+                    head_kwargs_dict = {}
+                head_kwargs = head_kwargs_dict.get(key, {})
+                head_result = self._head(self.heads[key][i], extracted, head_kwargs)
+                if isinstance(head_result, Tensor):
+                    results.setdefault(key, []).append(head_result)
+                else:
+                    key_results = results.setdefault(key, {})
+                    for k, v in head_result.items():
+                        key_results.setdefault(k, []).append(v)
+            if clear_cache:
+                self.clear_execute_cache()
+        # aggregate num_repeat results
+        for k in sorted(results):
+            v = results[k]
+            if isinstance(v, list):
+                results[k] = torch.stack(v).mean(0)
+            else:
+                for vk in sorted(v):
+                    v[vk] = torch.stack(v[vk]).mean(0)
         return results
 
     def clear_execute_cache(self) -> None:
