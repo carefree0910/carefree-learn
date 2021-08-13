@@ -2,8 +2,6 @@
 
 import cflearn
 
-from cflearn.misc import U2NetCallback
-
 from u2net_finetune import prepare
 
 
@@ -11,11 +9,6 @@ src_folder = "data/raw"
 src_rgba_folder = "data/rgba"
 tgt_folder = "data/products-10k"
 label_folder = "data/products-10k_labels"
-
-
-@U2NetCallback.register("cascade_u2net")
-class CascadeU2NetCallback(U2NetCallback):
-    pass
 
 
 if __name__ == "__main__":
