@@ -30,11 +30,11 @@ from .base import ModelBase
 class NNB(ModelBase):
     @property
     def mnb(self) -> nn.Module:
-        return self.heads["nnb_mnb"]
+        return self.heads["nnb_mnb"][0]
 
     @property
     def normal(self) -> nn.Module:
-        return self.heads["nnb_normal"]
+        return self.heads["nnb_normal"][0]
 
     @property
     def class_log_prior(self) -> Callable:

@@ -26,7 +26,7 @@ linear = cflearn.make("linear", **kwargs).fit(x, y_add)  # type: ignore
 fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_add)  # type: ignore
 cflearn.evaluate(x, y_add, pipelines=[linear, fcnn])
 
-linear_core = linear.model.heads["linear"].linear  # type: ignore
+linear_core = linear.model.heads["linear"][0].linear  # type: ignore
 print(f"w: {linear_core.weight.data}, b: {linear_core.bias.data}")
 
 # prod
@@ -53,7 +53,7 @@ fcnn = cflearn.make("fcnn", **kwargs).fit(x, y_prod)  # type: ignore
 prod = cflearn.make("prod", **kwargs).fit(x, y_prod)  # type: ignore
 cflearn.evaluate(x, y_prod, pipelines=[linear, fcnn, prod])
 
-prod_linear = prod.model.heads["linear"].linear  # type: ignore
+prod_linear = prod.model.heads["linear"][0].linear  # type: ignore
 print(f"w: {prod_linear.weight.item():8.6f}, b: {prod_linear.bias.item():8.6f}")
 
 # mixture
@@ -99,8 +99,8 @@ prod = cflearn.make("prod", **kwargs).fit(x, y_mix)  # type: ignore
 mixture = cflearn.make("mixture", **kwargs).fit(x, y_mix)  # type: ignore
 cflearn.evaluate(x, y_mix, pipelines=[linear, fcnn, prod, mixture])
 
-add_linear = mixture.model.heads["add"].linear  # type: ignore
-prod_linear = mixture.model.heads["prod"].linear  # type: ignore
+add_linear = mixture.model.heads["add"][0].linear  # type: ignore
+prod_linear = mixture.model.heads["prod"][0].linear  # type: ignore
 print(f"add  w: {add_linear.weight.data}")
 print(f"add  b: {add_linear.bias.data}")
 print(f"prod w: {prod_linear.weight.data}")

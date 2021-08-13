@@ -583,7 +583,21 @@ class ModelBase(ModelProtocol, metaclass=ABCMeta):
                 results[k] = torch.stack(v).mean(0)
             else:
                 for vk in sorted(v):
-                    v[vk] = torch.stack(v[vk]).mean(0)
+                    vv = v[vk]
+                    if vv[0] is None:
+                        v[vk] = None
+                        continue
+                    vv_dtype = vv[0].dtype
+                    is_float32 = vv_dtype == torch.float32
+                    if not is_float32:
+                        vv = [vvv.to(torch.float32) for vvv in vv]
+                    new_vv = torch.stack(vv).mean(0)
+                    if not is_float32:
+                        if vv_dtype == torch.bool:
+                            new_vv = new_vv >= 0.5
+                        else:
+                            new_vv = new_vv.to(vv_dtype)
+                    v[vk] = new_vv
         return results
 
     def clear_execute_cache(self) -> None:

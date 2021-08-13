@@ -37,7 +37,7 @@ class TestCustomization(unittest.TestCase):
         cflearn.register_model("tce", pipes=[pipe])
         kwargs = {"task_type": "reg", "use_simplify_data": True, "fixed_epoch": 0}
         m = cflearn.make("tce", **kwargs).fit(x, y)  # type: ignore
-        self.assertTrue(list(m.model.parameters())[0] is m.model.heads["foo"].dummy)  # type: ignore
+        self.assertTrue(list(m.model.parameters())[0] is m.model.heads["foo"][0].dummy)  # type: ignore
         self.assertTrue(np.allclose(m.predict(x), np.ones_like(y)))  # type: ignore
         cflearn._rmtree("_logs")
 
