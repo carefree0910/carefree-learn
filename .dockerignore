@@ -1,0 +1,4 @@
+examples
+tests
+.*
+carefree-learn.egg-info
