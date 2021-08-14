@@ -111,6 +111,28 @@ After installing PyTorch, installation of `carefree-learn` would be rather easy:
 pip install carefree-learn
 ```
 
+## Docker
+
+### Prepare
+
+`carefree-learn` has already been published on DockerHub, so it can be pulled directly:
+
+```bash
+docker pull carefree0910/carefree-learn
+```
+
+or can be built locally:
+
+```bash
+docker build -t carefree-learn .
+```
+
+### Run
+
+```bash
+docker run --rm -it --gpus all carefree-learn
+```
+
 
 ## Examples
 
