@@ -118,19 +118,19 @@ pip install carefree-learn
 `carefree-learn` has already been published on DockerHub, so it can be pulled directly:
 
 ```bash
-docker pull carefree0910/carefree-learn
+docker pull carefree0910/carefree-learn:v0.2.x
 ```
 
 or can be built locally:
 
 ```bash
-docker build -t carefree-learn .
+docker build -t carefree-learn:v0.2.x .
 ```
 
 ### Run
 
 ```bash
-docker run --rm -it --gpus all carefree-learn
+docker run --rm -it --gpus all carefree-learn:v0.2.x
 ```
 
 
