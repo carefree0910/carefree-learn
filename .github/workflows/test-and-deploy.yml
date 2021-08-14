@@ -41,7 +41,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v3
         with:
-          images: nolibox/carefree-learn
+          images: carefree0910/carefree-learn
           tags: |
             type=ref,event=branch
             type=ref,event=pr
