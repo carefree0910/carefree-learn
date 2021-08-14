@@ -571,7 +571,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                             f"is not validated ({err})"
                         )
                     check = False
-                if check and verbose:
+                if not check and verbose:
+                    print(f"{INFO_PREFIX}Simplified ONNX model is not validated!")
+                elif check and verbose:
                     print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
                     model = model_simplified
                 onnx.save(model, onnx_path)
