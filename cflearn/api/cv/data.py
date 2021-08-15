@@ -1,4 +1,5 @@
 import os
+import cv2
 import json
 import math
 import shutil
@@ -191,9 +192,9 @@ class RandomCrop(ATransforms):
 
 @Transforms.register("shift_scale_rotate_with_mask")
 class ShiftScaleRotate(ATransforms):
-    def __init__(self, p: float = 0.5):
+    def __init__(self, p: float = 0.5, border_mode: int = cv2.BORDER_REFLECT_101):
         super().__init__()
-        self.fn = A.ShiftScaleRotate(p=p)
+        self.fn = A.ShiftScaleRotate(border_mode=border_mode, p=p)
 
 
 @Transforms.register("hflip_with_mask")
@@ -300,6 +301,7 @@ class ABundle(Compose):
                 RandomCrop(crop_size),
                 HFlip(p),
                 VFlip(p),
+                ShiftScaleRotate(p, cv2.BORDER_CONSTANT),
                 RGBShift(p=p),
                 GaussianBlur(p=p),
                 HueSaturationValue(p=p),
