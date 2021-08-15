@@ -101,6 +101,24 @@ class DefaultOptimizerSettings(NamedTuple):
             scheduler_config,
         )
 
+    def update_opt_pack(self, trainer: "Trainer", pack: OptimizerPack) -> OptimizerPack:
+        self_pack = self.get_opt_pack(trainer)
+        opt_config = pack.optimizer_config or {}
+        sch_config = pack.scheduler_config or {}
+        if self_pack.optimizer_name != pack.optimizer_name:
+            opt_config.setdefault("lr", self.lr)
+        else:
+            opt_config = update_dict(opt_config, self_pack.optimizer_config)
+        if self_pack.scheduler_name == pack.scheduler_name:
+            sch_config = update_dict(sch_config, self_pack.scheduler_config)
+        return OptimizerPack(
+            pack.scope,
+            pack.optimizer_name,
+            pack.scheduler_name,
+            opt_config,
+            sch_config,
+        )
+
 
 class DeviceInfo(NamedTuple):
     cuda: Optional[str]
@@ -551,6 +569,7 @@ class Trainer:
         if self.optimizer_packs is None:
             self.optimizer_packs = [self.default_opt_settings.get_opt_pack(self)]
         for pack in self.optimizer_packs:
+            pack = self.default_opt_settings.update_opt_pack(self, pack)
             opt = self._define_optimizer(pack)
             self._define_scheduler(opt, pack)
         # check requires metric
