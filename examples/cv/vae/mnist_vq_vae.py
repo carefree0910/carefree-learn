@@ -3,12 +3,19 @@
 import os
 import math
 import cflearn
+import argparse
 
 from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import make_indices_visualization_map
 from cflearn.modules.blocks import upscale
+
+# CI
+parser = argparse.ArgumentParser()
+parser.add_argument("--ci", type=int, default=0)
+args = parser.parse_args()
+is_ci = bool(args.ci)
 
 
 @cflearn.ArtifactCallback.register("vq_vae")
@@ -56,7 +63,11 @@ class VQVAECallback(cflearn.ArtifactCallback):
 
 
 num_classes = 10
-train_loader, valid_loader = cflearn.cv.get_mnist(transform="for_generation")
+train, valid = cflearn.cv.get_mnist(
+    root="../data",
+    batch_size=4 if is_ci else 64,
+    transform="for_generation",
+)
 
 m = cflearn.cv.CarefreePipeline(
     "vq_vae",
@@ -67,5 +78,7 @@ m = cflearn.cv.CarefreePipeline(
         "target_downsample": 2,
         "num_classes": num_classes,
     },
+    fixed_steps=1 if is_ci else None,
+    valid_portion=0.0001 if is_ci else None,
 )
-m.fit(train_loader, valid_loader, cuda="1")
+m.fit(train, valid, cuda=None if is_ci else "1")

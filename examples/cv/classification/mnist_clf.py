@@ -1,9 +1,20 @@
 # type: ignore
 
 import cflearn
+import argparse
+
+# CI
+parser = argparse.ArgumentParser()
+parser.add_argument("--ci", type=int, default=0)
+args = parser.parse_args()
+is_ci = bool(args.ci)
 
 
-train_loader, valid_loader = cflearn.cv.get_mnist(transform="to_tensor")
+train, valid = cflearn.cv.get_mnist(
+    root="../data",
+    batch_size=4 if is_ci else 64,
+    transform="to_tensor",
+)
 
 m = cflearn.cv.CarefreePipeline(
     "clf",
@@ -17,5 +28,7 @@ m = cflearn.cv.CarefreePipeline(
     },
     loss_name="cross_entropy",
     metric_names="acc",
+    fixed_steps=1 if is_ci else None,
+    valid_portion=0.0001 if is_ci else None,
 )
-m.fit(train_loader, valid_loader, cuda="0")
+m.fit(train, valid, cuda=None if is_ci else "0")

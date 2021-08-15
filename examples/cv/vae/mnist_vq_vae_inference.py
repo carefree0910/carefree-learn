@@ -24,8 +24,12 @@ num_classes = 10
 # export vq vae codes
 def export_code_indices() -> None:
     os.makedirs(code_export_folder, exist_ok=True)
-    train, valid = cflearn.cv.get_mnist(shuffle=False, transform="for_generation")
-    for name, loader in zip(["train", "valid"], [train, valid]):
+    code_train, code_valid = cflearn.cv.get_mnist(
+        root="../data",
+        shuffle=False,
+        transform="for_generation",
+    )
+    for name, loader in zip(["train", "valid"], [code_train, code_valid]):
         labels = []
         code_indices = []
         for batch in tqdm(loader, desc=f"{name} codes", total=len(loader)):
@@ -84,7 +88,7 @@ if __name__ == "__main__":
     y_train = torch.load(os.path.join(code_export_folder, "train_labels.pt"))
     x_valid = torch.load(os.path.join(code_export_folder, "valid.pt"))
     y_valid = torch.load(os.path.join(code_export_folder, "valid_labels.pt"))
-    train_loader, valid_loader = cflearn.cv.get_tensor_loaders(
+    train, valid = cflearn.cv.get_tensor_loaders(
         x_train,
         y_train=x_train,
         x_valid=x_valid,
@@ -105,4 +109,4 @@ if __name__ == "__main__":
         metric_names="acc",
         workplace=f"{inference_folder}/_logs",
     )
-    m.fit(train_loader, valid_loader, cuda=cuda)
+    m.fit(train, valid, cuda=cuda)
