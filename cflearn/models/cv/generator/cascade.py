@@ -12,7 +12,6 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import align_to
-from ....misc.toolkit import imagenet_normalize
 
 
 @ModelProtocol.register("cascade_u2net")
@@ -69,7 +68,6 @@ class CascadeU2Net(CascadeBase):
         lv1_outputs = self.lv1_net(batch_idx, batch, state, **kwargs)
         lv1_raw_alpha = lv1_outputs[PREDICTIONS_KEY][0]
         lv1_alpha = torch.sigmoid(lv1_raw_alpha)
-        lv1_alpha = imagenet_normalize(lv1_alpha)
         inp = batch[INPUT_KEY]
         resolution = lv1_alpha.shape[-1]
         if self.lv2_resolution is not None:
