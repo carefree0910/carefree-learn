@@ -825,7 +825,7 @@ class Trainer:
         # finalize
         self.state.set_terminate()
         if self.is_rank_0:
-            self.final_results = self.get_metrics()
+            self.final_results = self.get_metrics(portion=self.valid_portion)
             self._logging_step(self.final_results)
             if not has_ckpt:
                 self.save_checkpoint(self.final_results.final_score)
