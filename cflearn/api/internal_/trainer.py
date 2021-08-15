@@ -20,6 +20,7 @@ def make_trainer(
     num_epoch: int = 40,
     max_epoch: int = 1000,
     fixed_epoch: Optional[int] = None,
+    log_steps: Optional[int] = None,
     valid_portion: float = 1.0,
     amp: bool = False,
     clip_norm: float = 0.0,
@@ -42,6 +43,12 @@ def make_trainer(
     finetune_config: Optional[Dict[str, Any]] = None,
     tqdm_settings: Optional[Dict[str, Any]] = None,
 ) -> Trainer:
+    if state_config is None:
+        state_config = {}
+    if log_steps is not None:
+        state_config.setdefault("num_step_per_log", log_steps)
+        state_config.setdefault("snapshot_start_step", log_steps)
+        state_config.setdefault("num_step_per_snapshot", log_steps)
     # metrics
     metrics: Optional[Union[MetricProtocol, MultipleMetrics]]
     if metric_names is None:
