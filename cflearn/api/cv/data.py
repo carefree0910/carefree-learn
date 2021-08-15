@@ -67,19 +67,33 @@ class Transforms(WithRegister):
     @classmethod
     def convert(
         cls,
-        transform: Optional[Union[str, List[str], "Transforms"]],
+        transform: Optional[Union[str, List[str], "Transforms", Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
     ) -> Optional["Transforms"]:
         if transform is None:
             return None
         if isinstance(transform, Transforms):
             return transform
+        if callable(transform):
+            need_batch = (transform_config or {}).get("need_batch_process", False)
+            return Function(transform, need_batch)
         if transform_config is None:
             transform_config = {}
         if isinstance(transform, str):
             return cls.make(transform, transform_config)
         transform_list = [cls.make(t, transform_config.get(t, {})) for t in transform]
         return Compose(transform_list)
+
+
+class Function(Transforms):
+    def __init__(self, fn: Callable, need_batch_process: bool = False):
+        super().__init__()
+        self.fn = fn
+        self._need_batch_process = need_batch_process
+
+    @property
+    def need_batch_process(self) -> bool:
+        return self._need_batch_process
 
 
 @Transforms.register("compose")
@@ -323,7 +337,7 @@ def get_mnist(
     root: str = "data",
     shuffle: bool = True,
     batch_size: int = 64,
-    transform: Optional[Union[str, Transforms]] = None,
+    transform: Optional[Union[str, List[str], "Transforms", Callable]],
     transform_config: Optional[Dict[str, Any]] = None,
     label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
@@ -632,7 +646,7 @@ class ImageFolderDataset(Dataset):
         self,
         folder: str,
         split: str,
-        transform: Optional[Union[str, Transforms]] = None,
+        transform: Optional[Union[str, List[str], "Transforms", Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = os.path.abspath(os.path.join(folder, split))
