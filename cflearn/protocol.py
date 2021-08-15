@@ -159,6 +159,7 @@ class TrainerState:
         *,
         num_epoch: int,
         max_epoch: int,
+        fixed_steps: Optional[int] = None,
         extension: int = 5,
         enable_logging: bool = True,
         min_num_sample: int = 3000,
@@ -174,6 +175,7 @@ class TrainerState:
         self.num_step_per_epoch = len(loader)
         self.num_epoch = num_epoch
         self.max_epoch = max_epoch
+        self.fixed_steps = fixed_steps
         self.extension = extension
         self.enable_logging = enable_logging
         if snapshot_start_step is None:
@@ -195,7 +197,15 @@ class TrainerState:
 
     @property
     def should_train(self) -> bool:
+        if self.fixed_steps is not None:
+            return self.step < self.fixed_steps
         return self.epoch < self.num_epoch
+
+    @property
+    def should_terminate(self) -> bool:
+        if self.fixed_steps is None:
+            return False
+        return self.step == self.fixed_steps
 
     @property
     def should_monitor(self) -> bool:
