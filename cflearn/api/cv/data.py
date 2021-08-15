@@ -320,6 +320,7 @@ class ABundleTest(Compose):
 
 def get_mnist(
     *,
+    root: str = "data",
     shuffle: bool = True,
     batch_size: int = 64,
     transform: Optional[Union[str, Transforms]] = None,
@@ -339,8 +340,8 @@ def get_mnist(
         }
 
     transform = Transforms.convert(transform, transform_config)
-    train_data = DLData(MNIST("data", transform=transform, download=True))
-    valid_data = DLData(MNIST("data", train=False, transform=transform, download=True))
+    train_data = DLData(MNIST(root, transform=transform, download=True))
+    valid_data = DLData(MNIST(root, train=False, transform=transform, download=True))
 
     train_pt_loader = DataLoader(train_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
     valid_pt_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
