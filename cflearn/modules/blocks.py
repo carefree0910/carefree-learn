@@ -1358,7 +1358,7 @@ class Conv2d(Module):
         groups: int = 1,
         stride: int = 1,
         dilation: int = 1,
-        padding: Any = "reflection",
+        padding: Any = "same",
         transform_kernel: bool = False,
         bias: bool = True,
         demodulate: bool = False,
@@ -1368,7 +1368,13 @@ class Conv2d(Module):
         self.in_c, self.out_c = in_channels, out_channels
         self.kernel_size = kernel_size
         self.reflection_pad = None
-        if padding == "reflection":
+        if padding == "same":
+            padding = kernel_size // 2
+            if transform_kernel:
+                padding = [padding] * 4
+                padding[0] += 1
+                padding[2] += 1
+        elif padding == "reflection":
             padding = 0
             reflection_padding: Any = kernel_size // 2
             if transform_kernel:
