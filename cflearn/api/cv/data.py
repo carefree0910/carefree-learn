@@ -30,7 +30,6 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
 
-from ...types import np_dict_type
 from ...types import tensor_dict_type
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
@@ -162,70 +161,84 @@ class ForGeneration(Compose):
 class ATransforms(Transforms):
     input_alias = "image"
 
-    @property
-    def label_alias(self) -> str:
-        split = self.__identifier__.split("_")
-        if split[-2] == "with":
-            return split[-1]
-        raise NotImplementedError
+    def __init__(self, *, label_alias: Optional[str] = None):
+        super().__init__()
+        self.label_alias = label_alias
 
-    @property
-    def need_batch_process(self) -> bool:
-        return True
-
-    def __call__(self, sample: np_dict_type, **kwargs: Any) -> np_dict_type:  # type: ignore
+    def __call__(self, inp: Any, **kwargs: Any) -> Any:  # type: ignore
+        if not self.need_batch_process:
+            kwargs[self.input_alias] = inp
+            return self.fn(**kwargs)[self.input_alias]
         inp_keys_mapping = {
             self.input_alias
             if k == INPUT_KEY
             else self.label_alias
             if k == LABEL_KEY
             else k: k
-            for k in sample
+            for k in inp
         }
-        inp = {k: sample[v] for k, v in inp_keys_mapping.items()}
+        inp = {k: inp[v] for k, v in inp_keys_mapping.items()}
         return {inp_keys_mapping[k]: v for k, v in self.fn(**inp).items()}
 
+    @property
+    def need_batch_process(self) -> bool:
+        return self.label_alias is not None
 
-@Transforms.register("resize_with_mask")
+    @classmethod
+    def make(cls, name: str, config: Dict[str, Any]) -> "ATransforms":
+        split = name.split("_")
+        if split[-2] == "with":
+            name = "_".join(split[:-2])
+            config.setdefault("label_alias", split[-1])
+        return super().make(name, config)
+
+
+@Transforms.register("resize")
 class AResize(ATransforms):
-    def __init__(self, size: Union[int, tuple]):
-        super().__init__()
+    def __init__(self, size: Union[int, tuple], *, label_alias: Optional[str] = None):
+        super().__init__(label_alias=label_alias)
         if isinstance(size, int):
             size = size, size
         self.fn = A.Resize(*size)
 
 
-@Transforms.register("random_crop_with_mask")
+@Transforms.register("random_crop")
 class RandomCrop(ATransforms):
-    def __init__(self, size: Union[int, tuple]):
-        super().__init__()
+    def __init__(self, size: Union[int, tuple], *, label_alias: Optional[str] = None):
+        super().__init__(label_alias=label_alias)
         if isinstance(size, int):
             size = size, size
         self.fn = A.RandomCrop(*size)
 
 
-@Transforms.register("shift_scale_rotate_with_mask")
+@Transforms.register("shift_scale_rotate")
 class ShiftScaleRotate(ATransforms):
-    def __init__(self, p: float = 0.5, border_mode: int = cv2.BORDER_REFLECT_101):
-        super().__init__()
+    def __init__(
+        self,
+        p: float = 0.5,
+        border_mode: int = cv2.BORDER_REFLECT_101,
+        *,
+        label_alias: Optional[str] = None,
+    ):
+        super().__init__(label_alias=label_alias)
         self.fn = A.ShiftScaleRotate(border_mode=border_mode, p=p)
 
 
-@Transforms.register("hflip_with_mask")
+@Transforms.register("hflip")
 class HFlip(ATransforms):
-    def __init__(self, p: float = 0.5):
-        super().__init__()
+    def __init__(self, p: float = 0.5, *, label_alias: Optional[str] = None):
+        super().__init__(label_alias=label_alias)
         self.fn = A.HorizontalFlip(p=p)
 
 
-@Transforms.register("vflip_with_mask")
+@Transforms.register("vflip")
 class VFlip(ATransforms):
-    def __init__(self, p: float = 0.5):
-        super().__init__()
+    def __init__(self, p: float = 0.5, *, label_alias: Optional[str] = None):
+        super().__init__(label_alias=label_alias)
         self.fn = A.VerticalFlip(p=p)
 
 
-@Transforms.register("normalize_with_mask")
+@Transforms.register("normalize")
 class Normalize(ATransforms):
     def __init__(
         self,
@@ -233,12 +246,14 @@ class Normalize(ATransforms):
         std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
         max_pixel_value: float = 1.0,
         p: float = 1.0,
+        *,
+        label_alias: Optional[str] = None,
     ):
-        super().__init__()
+        super().__init__(label_alias=label_alias)
         self.fn = A.Normalize(mean, std, max_pixel_value, p=p)
 
 
-@Transforms.register("rgb_shift_with_mask")
+@Transforms.register("rgb_shift")
 class RGBShift(ATransforms):
     def __init__(
         self,
@@ -246,24 +261,28 @@ class RGBShift(ATransforms):
         g_shift_limit: float = 0.08,
         b_shift_limit: float = 0.08,
         p: float = 0.5,
+        *,
+        label_alias: Optional[str] = None,
     ):
-        super().__init__()
+        super().__init__(label_alias=label_alias)
         self.fn = A.RGBShift(r_shift_limit, g_shift_limit, b_shift_limit, p=p)
 
 
-@Transforms.register("gaussian_blur_with_mask")
+@Transforms.register("gaussian_blur")
 class GaussianBlur(ATransforms):
     def __init__(
         self,
         blur_limit: Tuple[int, int] = (3, 7),
         sigma_limit: int = 0,
         p: float = 0.5,
+        *,
+        label_alias: Optional[str] = None,
     ):
-        super().__init__()
+        super().__init__(label_alias=label_alias)
         self.fn = A.GaussianBlur(blur_limit, sigma_limit, p=p)
 
 
-@Transforms.register("hue_saturation_with_mask")
+@Transforms.register("hue_saturation")
 class HueSaturationValue(ATransforms):
     def __init__(
         self,
@@ -271,6 +290,8 @@ class HueSaturationValue(ATransforms):
         sat_shift_limit: float = 0.12,
         val_shift_limit: float = 0.08,
         p: float = 0.5,
+        *,
+        label_alias: Optional[str] = None,
     ):
         super().__init__()
         self.fn = A.HueSaturationValue(
@@ -278,10 +299,11 @@ class HueSaturationValue(ATransforms):
             sat_shift_limit,
             val_shift_limit,
             p,
+            label_alias=label_alias,
         )
 
 
-@Transforms.register("brightness_contrast_with_mask")
+@Transforms.register("brightness_contrast")
 class RandomBrightnessContrast(ATransforms):
     def __init__(
         self,
@@ -289,8 +311,10 @@ class RandomBrightnessContrast(ATransforms):
         contrast_limit: float = 0.2,
         brightness_by_max: bool = True,
         p: float = 0.5,
+        *,
+        label_alias: Optional[str] = None,
     ):
-        super().__init__()
+        super().__init__(label_alias=label_alias)
         self.fn = A.RandomBrightnessContrast(
             brightness_limit,
             contrast_limit,
@@ -299,37 +323,55 @@ class RandomBrightnessContrast(ATransforms):
         )
 
 
-@Transforms.register("a_to_tensor_with_mask")
+@Transforms.register("a_to_tensor")
 class AToTensor(ATransforms):
-    def __init__(self, transpose_mask: bool = True):
-        super().__init__()
+    def __init__(
+        self,
+        transpose_mask: bool = True,
+        *,
+        label_alias: Optional[str] = None,
+    ):
+        super().__init__(label_alias=label_alias)
         self.fn = ToTensorV2(transpose_mask)
 
 
-@Transforms.register("a_bundle_with_mask")
+@Transforms.register("a_bundle")
 class ABundle(Compose):
-    def __init__(self, *, resize_size: int = 320, crop_size: int = 288, p: float = 0.5):
+    def __init__(
+        self,
+        *,
+        resize_size: int = 320,
+        crop_size: int = 288,
+        p: float = 0.5,
+        label_alias: Optional[str] = None,
+    ):
         super().__init__(
             [
-                AResize(resize_size),
-                RandomCrop(crop_size),
-                HFlip(p),
-                VFlip(p),
-                ShiftScaleRotate(p, cv2.BORDER_CONSTANT),
-                RGBShift(p=p),
-                GaussianBlur(p=p),
-                HueSaturationValue(p=p),
-                RandomBrightnessContrast(p=p),
-                Normalize(),
-                AToTensor(),
+                AResize(resize_size, label_alias=label_alias),
+                RandomCrop(crop_size, label_alias=label_alias),
+                HFlip(p, label_alias=label_alias),
+                VFlip(p, label_alias=label_alias),
+                ShiftScaleRotate(p, cv2.BORDER_CONSTANT, label_alias=label_alias),
+                RGBShift(p=p, label_alias=label_alias),
+                GaussianBlur(p=p, label_alias=label_alias),
+                HueSaturationValue(p=p, label_alias=label_alias),
+                RandomBrightnessContrast(p=p, label_alias=label_alias),
+                Normalize(label_alias=label_alias),
+                AToTensor(label_alias=label_alias),
             ]
         )
 
 
-@Transforms.register("a_bundle_with_mask_test")
+@Transforms.register("a_bundle_test")
 class ABundleTest(Compose):
-    def __init__(self, *, resize_size: int = 320):
-        super().__init__([AResize(resize_size), Normalize(), AToTensor()])
+    def __init__(self, *, resize_size: int = 320, label_alias: Optional[str] = None):
+        super().__init__(
+            [
+                AResize(resize_size, label_alias=label_alias),
+                Normalize(label_alias=label_alias),
+                AToTensor(label_alias=label_alias),
+            ]
+        )
 
 
 def get_mnist(
