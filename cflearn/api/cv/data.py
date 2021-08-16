@@ -182,6 +182,13 @@ class ATransforms(Transforms):
         return super().make(name, config)
 
 
+@Transforms.register("to_array")
+class ToArray(ATransforms):
+    def __init__(self, *, label_alias: Optional[str] = None):
+        super().__init__(label_alias=label_alias)
+        self.fn = lambda **inp: {k: np.array(v) for k, v in inp.items()}
+
+
 @Transforms.register("resize")
 class Resize(ATransforms):
     def __init__(self, size: Union[int, tuple], *, label_alias: Optional[str] = None):
