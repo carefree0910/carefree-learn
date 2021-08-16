@@ -178,18 +178,38 @@ class TrainerState:
         self.fixed_steps = fixed_steps
         self.extension = extension
         self.enable_logging = enable_logging
+        self.min_num_sample = min_num_sample
         if snapshot_start_step is None:
             snapshot_start_step = math.ceil(min_num_sample / self.batch_size)
         self.snapshot_start_step = snapshot_start_step
         self.max_snapshot_file = max_snapshot_file
+        self.num_snapshot_per_epoch = num_snapshot_per_epoch
         self.num_step_per_log = num_step_per_log
         if num_step_per_snapshot is None:
             num_step_per_snapshot = max(1, int(len(loader) / num_snapshot_per_epoch))
             num_step_per_snapshot = min(max_step_per_snapshot, num_step_per_snapshot)
         self.num_step_per_snapshot = num_step_per_snapshot
+        self.max_step_per_snapshot = max_step_per_snapshot
 
     def set_terminate(self) -> None:
         self.step = self.epoch = -1
+
+    @property
+    def configs(self) -> Dict[str, Any]:
+        return {
+            "num_epoch": self.num_epoch,
+            "max_epoch": self.max_epoch,
+            "fixed_steps": self.fixed_steps,
+            "extension": self.extension,
+            "enable_logging": self.enable_logging,
+            "min_num_sample": self.min_num_sample,
+            "snapshot_start_step": self.snapshot_start_step,
+            "max_snapshot_file": self.max_snapshot_file,
+            "num_snapshot_per_epoch": self.num_snapshot_per_epoch,
+            "num_step_per_log": self.num_step_per_log,
+            "num_step_per_snapshot": self.num_step_per_snapshot,
+            "max_step_per_snapshot": self.max_step_per_snapshot,
+        }
 
     @property
     def is_terminate(self) -> bool:

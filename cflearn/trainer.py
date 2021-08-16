@@ -675,6 +675,34 @@ class Trainer:
 
     # api
 
+    @property
+    def configs(self) -> Dict[str, Any]:
+        return {
+            "state_config": self.state.configs,
+            "valid_portion": self.valid_portion,
+            "amp": self.use_amp,
+            "clip_norm": self.clip_norm,
+            "metrics": (
+                None
+                if self.metrics is None
+                else self.metrics.__identifier__
+                if not isinstance(self.metrics, MultipleMetrics)
+                else [metric.__identifier__ for metric in self.metrics.metrics]
+            ),
+            "loss_metrics_weights": self.loss_metrics_weights,
+            "monitors": [monitor.__identifier__ for monitor in self.monitors],
+            "callbacks": [callback.__identifier__ for callback in self.callbacks],
+            "optimizer_packs": (
+                None
+                if self.optimizer_packs is None
+                else [pack._asdict() for pack in self.optimizer_packs]
+            ),
+            "ddp_config": self.ddp_config,
+            "finetune_config": self.finetune_config,
+            "tqdm_settings": self.tqdm_settings._asdict(),
+            "device_info": self.device_info._asdict(),
+        }
+
     def fit(
         self,
         loss: LossProtocol,
@@ -683,6 +711,7 @@ class Trainer:
         train_loader: DataLoaderProtocol,
         valid_loader: Optional[DataLoaderProtocol] = None,
         *,
+        configs_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
         cuda: Optional[str] = None,
     ) -> "Trainer":
@@ -736,6 +765,10 @@ class Trainer:
         has_ckpt = terminate = False
         if self.epoch_tqdm is None:
             print(f"{INFO_PREFIX}entered training loop")
+        if configs_export_file is not None:
+            configs_export_path = os.path.join(self.workplace, configs_export_file)
+            with open(configs_export_path, "w") as f:
+                json.dump(self.configs, f)
         while self.state.should_train:
             try:
                 self.state.epoch += 1

@@ -116,6 +116,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     valid_loader: Optional[DataLoaderProtocol]
 
     configs_file: str = "configs.json"
+    trainer_configs_file: str = "trainer_configs.json"
     metrics_log_file: str = "metrics.txt"
 
     data_folder: str = "data"
@@ -374,6 +375,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             self.inference,
             self.train_loader,
             self.valid_loader,
+            configs_export_file=self.trainer_configs_file,
             cuda=cuda,
         )
         self.device_info = self.trainer.device_info
