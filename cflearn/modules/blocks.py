@@ -1483,9 +1483,6 @@ def upscale(
 ) -> Tensor:
     supported_mode = {"nearest"}
     if not onnx_compatible or mode not in supported_mode:
-        if onnx_compatible:
-            msg = f"mode '{mode}' is not onnx compatible, should be in {supported_mode}"
-            print(f"{WARNING_PREFIX}{msg}")
         return F.interpolate(
             net,
             mode=mode,
