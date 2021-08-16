@@ -18,6 +18,7 @@ from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 from cflearn.trainer import Trainer
 from cflearn.trainer import TrainerCallback
+from cflearn.protocol import StepOutputs
 from cflearn.protocol import TrainerState
 from cflearn.protocol import MetricsOutputs
 from cflearn.constants import PT_PREFIX
@@ -161,6 +162,15 @@ class MLFlowCallback(TrainerCallback):
         if not self.is_rank_0:
             return None
         self.mlflow_client.log_artifacts(self.run_id, trainer.workplace)
+
+    def after_step(self, step_outputs: StepOutputs, state: TrainerState) -> None:
+        if not self.is_rank_0:
+            return None
+        if state.should_log_losses:
+            for key, tensor in step_outputs.loss_dict.items():
+                key = f"tr_{key}"
+                value = tensor.item()
+                self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
 
     def finalize(self, trainer: Trainer) -> None:
         if not self.is_rank_0:
