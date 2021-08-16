@@ -115,8 +115,6 @@ class SimplePipeline(DLPipeline):
         num_repeat: Optional[int] = None,
     ):
         self.config = get_arguments()
-        self.config.pop("self")
-        self.config.pop("__class__")
         super().__init__(
             loss_name=loss_name,
             loss_config=loss_config,
@@ -466,8 +464,6 @@ class CarefreePipeline(SimplePipeline):
         num_repeat: Optional[int] = None,
     ):
         config = get_arguments()
-        config.pop("self")
-        config.pop("__class__")
         super().__init__(
             core_name,
             core_config,

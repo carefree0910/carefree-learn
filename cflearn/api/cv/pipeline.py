@@ -65,8 +65,6 @@ class SimplePipeline(DLPipeline):
         in_loading: bool = False,
     ):
         self.config = get_arguments()
-        self.config.pop("self")
-        self.config.pop("__class__")
         super().__init__(
             loss_name=loss_name,
             loss_config=loss_config,

@@ -154,11 +154,15 @@ def scheduler_requires_metric(scheduler: Any) -> bool:
     return False
 
 
-def get_arguments() -> Dict[str, Any]:
+def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
     frame = inspect.currentframe().f_back  # type: ignore
     if frame is None:
         raise ValueError("`get_arguments` should be called inside a frame")
-    return inspect.getargvalues(frame)[-1]
+    arguments = inspect.getargvalues(frame)[-1]
+    if pop_class_attributes:
+        arguments.pop("self", None)
+        arguments.pop("__class__", None)
+    return arguments
 
 
 def get_gradient(
