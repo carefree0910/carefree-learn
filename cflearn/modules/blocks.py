@@ -1515,7 +1515,7 @@ class Upsample(Module):
         return net
 
     def extra_repr(self) -> str:
-        return str(self.factor)
+        return f"{self.factor}, {self.mode}"
 
 
 class UpsampleConv2d(Conv2d):
