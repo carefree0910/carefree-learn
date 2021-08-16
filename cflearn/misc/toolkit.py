@@ -875,6 +875,7 @@ def interpolate(
         mode=mode,
         scale_factor=factor,
         recompute_scale_factor=True,
+        **kwargs,
     )
 
 
