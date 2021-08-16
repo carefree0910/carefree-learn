@@ -1474,9 +1474,24 @@ class Conv2d(Module):
         )
 
 
-def upscale(net: Tensor, factor: float, onnx_compatible: bool = False) -> Tensor:
-    if not onnx_compatible:
-        return F.interpolate(net, scale_factor=factor, recompute_scale_factor=True)  # type: ignore
+def upscale(
+    net: Tensor,
+    factor: float,
+    *,
+    mode: str = "nearest",
+    onnx_compatible: bool = False,
+) -> Tensor:
+    supported_mode = {"nearest"}
+    if not onnx_compatible or mode not in supported_mode:
+        if onnx_compatible:
+            msg = f"mode '{mode}' is not onnx compatible, should be in {supported_mode}"
+            print(f"{WARNING_PREFIX}{msg}")
+        return F.interpolate(
+            net,
+            mode=mode,
+            scale_factor=factor,
+            recompute_scale_factor=True,
+        )
     int_factor = int(factor)
     c, h, w = net.shape[1:]
     col = net.view(-1, 1)
@@ -1487,13 +1502,19 @@ def upscale(net: Tensor, factor: float, onnx_compatible: bool = False) -> Tensor
 
 
 class Upsample(Module):
-    def __init__(self, factor: Optional[float] = None):
+    def __init__(self, factor: Optional[float] = None, *, mode: str = "nearest"):
         super().__init__()
         self.factor = factor
+        self.mode = mode
 
     def forward(self, net: Tensor) -> Tensor:
         if self.factor is not None:
-            net = upscale(net, factor=self.factor, onnx_compatible=not self.training)
+            net = upscale(
+                net,
+                self.factor,
+                mode=self.mode,
+                onnx_compatible=not self.training,
+            )
         return net
 
     def extra_repr(self) -> str:
@@ -1511,6 +1532,7 @@ class UpsampleConv2d(Conv2d):
         stride: int = 1,
         dilation: int = 1,
         padding: Union[int, str] = "reflection",
+        mode: str = "nearest",
         transform_kernel: bool = False,
         bias: bool = True,
         demodulate: bool = False,
@@ -1528,7 +1550,7 @@ class UpsampleConv2d(Conv2d):
             bias=bias,
             demodulate=demodulate,
         )
-        self.upsample = Upsample(factor)
+        self.upsample = Upsample(factor, mode=mode)
 
     def forward(self, net: Tensor, y: Optional[Tensor] = None) -> Tensor:
         return super().forward(self.upsample(net), y)
