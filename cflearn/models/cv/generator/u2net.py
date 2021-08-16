@@ -17,6 +17,7 @@ from ....misc.toolkit import align_to
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
+from ....modules.blocks import Upsample
 
 
 class ConvSeq(nn.Sequential):
@@ -68,6 +69,8 @@ class UNetRS(UNetBase):
         out_channels: int = 3,
         *,
         num_layers: int,
+        inner_upsample_mode: str = "bilinear",
+        inner_upsample_factor: Optional[int] = None,
     ):
         super().__init__()
         self.msg = f"{in_channels}, {mid_channels}, {out_channels}, {num_layers}"
@@ -76,17 +79,19 @@ class UNetRS(UNetBase):
         for _ in range(num_layers - 2):
             blocks.append(
                 nn.Sequential(
-                    nn.MaxPool2d(2, stride=2, ceil_mode=True),
+                    nn.MaxPool2d(2, stride=2),
                     ConvSeq(mid_channels, mid_channels, dilation=1),
                 )
             )
         self.down_blocks = nn.ModuleList(blocks)
         self.last_down = ConvSeq(mid_channels, mid_channels, dilation=2)
-        blocks = _get_clones(
-            ConvSeq(mid_channels * 2, mid_channels, dilation=1),
-            num_layers - 2,
-            return_list=True,
-        )
+        basic_block = ConvSeq(mid_channels * 2, mid_channels, dilation=1)
+        if inner_upsample_factor is not None:
+            basic_block = nn.Sequential(
+                basic_block,
+                Upsample(inner_upsample_factor, mode=inner_upsample_mode),
+            )
+        blocks = _get_clones(basic_block, num_layers - 2, return_list=True)
         blocks.append(ConvSeq(mid_channels * 2, out_channels, dilation=1))
         self.up_blocks = nn.ModuleList(blocks)
 
@@ -128,6 +133,7 @@ class U2NetCore(UNetBase):
         in_channels: int,
         out_channels: int,
         *,
+        upsample_mode: str = "bilinear",
         latent_channels: int = 32,
         num_layers: int = 5,
         max_layers: int = 7,
@@ -142,7 +148,16 @@ class U2NetCore(UNetBase):
         current_layers = max_layers
 
         self.in_block = nn.Identity()
-        blocks = [UNetRS(in_channels, mid_nc, out_nc, num_layers=current_layers)]
+        blocks = [
+            UNetRS(
+                in_channels,
+                mid_nc,
+                out_nc,
+                num_layers=current_layers,
+                inner_upsample_mode=upsample_mode,
+                inner_upsample_factor=2,
+            ),
+        ]
         for i in range(num_layers - 2):
             if lite:
                 in_nc = out_nc
@@ -152,8 +167,15 @@ class U2NetCore(UNetBase):
             current_layers = max_layers - i - 1
             blocks.append(
                 nn.Sequential(
-                    nn.MaxPool2d(2, stride=2, ceil_mode=True),
-                    UNetRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
+                    nn.MaxPool2d(2, stride=2),
+                    UNetRS(
+                        in_nc,
+                        mid_nc,
+                        out_nc,
+                        num_layers=current_layers,
+                        inner_upsample_mode=upsample_mode,
+                        inner_upsample_factor=2,
+                    ),
                 )
             )
             if not lite:
@@ -162,35 +184,66 @@ class U2NetCore(UNetBase):
             in_nc *= 2
         blocks.append(
             nn.Sequential(
-                nn.MaxPool2d(2, stride=2, ceil_mode=True),
+                nn.MaxPool2d(2, stride=2),
                 UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
             )
         )
         self.down_blocks = nn.ModuleList(blocks)
         self.last_down = nn.Sequential(
-            nn.MaxPool2d(2, stride=2, ceil_mode=True),
+            nn.MaxPool2d(2, stride=2),
             UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
+            Upsample(2, mode=upsample_mode),
         )
         in_nc *= 2
         ncs = [out_nc] * 2
-        blocks = [UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers)]
+        blocks = [
+            nn.Sequential(
+                UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
+                Upsample(2, mode=upsample_mode),
+            )
+        ]
         for i in range(num_layers - 2):
             if not lite:
                 mid_nc //= 2
                 out_nc //= 2
-            blocks.append(UNetRS(in_nc, mid_nc, out_nc, num_layers=current_layers))
+            blocks.append(
+                nn.Sequential(
+                    UNetRS(
+                        in_nc,
+                        mid_nc,
+                        out_nc,
+                        num_layers=current_layers,
+                        inner_upsample_mode=upsample_mode,
+                        inner_upsample_factor=2,
+                    ),
+                    Upsample(2, mode=upsample_mode),
+                )
+            )
             current_layers += 1
             if not lite:
                 in_nc //= 2
             ncs.append(out_nc)
         if not lite:
             mid_nc //= 2
-        blocks.append(UNetRS(in_nc, mid_nc, out_nc, num_layers=current_layers))
+        blocks.append(
+            UNetRS(
+                in_nc,
+                mid_nc,
+                out_nc,
+                num_layers=current_layers,
+                inner_upsample_mode=upsample_mode,
+                inner_upsample_factor=2,
+            )
+        )
         ncs.append(out_nc)
         self.up_blocks = nn.ModuleList(blocks)
 
-        ncs = ncs[::-1]
-        blocks = [Conv2d(nc, out_channels, kernel_size=3, padding=1) for nc in ncs]
+        blocks = []
+        for i, nc in enumerate(ncs[::-1]):
+            block = Conv2d(nc, out_channels, kernel_size=3, padding=1)
+            if i > 1:
+                block = nn.Sequential(block, Upsample(2 ** (i - 1), mode=upsample_mode))
+            blocks.append(block)
         self.side_blocks = nn.ModuleList(blocks)
         self.out = Conv2d((len(ncs)) * out_channels, out_channels, kernel_size=1)
 
@@ -199,7 +252,7 @@ class U2NetCore(UNetBase):
         side_nets: List[Tensor] = []
         for up_net, side_block in zip(up_nets[::-1], self.side_blocks):
             side_net = side_block(up_net)
-            if side_nets:
+            if side_nets and side_net.shape != side_nets[0].shape:
                 side_net = align_to(side_net, anchor=side_nets[0], mode="bilinear")
             side_nets.append(side_net)
         side_nets.insert(0, self.out(torch.cat(side_nets, dim=1)))
@@ -213,6 +266,7 @@ class U2Net(ModelProtocol):
         in_channels: int,
         out_channels: int,
         *,
+        upsample_mode: str = "bilinear",
         latent_channels: int = 32,
         num_layers: int = 5,
         max_layers: int = 7,
@@ -222,6 +276,7 @@ class U2Net(ModelProtocol):
         self.core = U2NetCore(
             in_channels,
             out_channels,
+            upsample_mode=upsample_mode,
             latent_channels=latent_channels,
             num_layers=num_layers,
             max_layers=max_layers,
