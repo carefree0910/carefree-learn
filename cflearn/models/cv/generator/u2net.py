@@ -17,7 +17,7 @@ from ....misc.toolkit import align_to
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
-from ....modules.blocks import Upsample
+from ....modules.blocks import Interpolate
 
 
 class ConvSeq(nn.Sequential):
@@ -89,7 +89,7 @@ class UNetRS(UNetBase):
         if inner_upsample_factor is not None:
             basic_block = nn.Sequential(
                 basic_block,
-                Upsample(inner_upsample_factor, mode=inner_upsample_mode),
+                Interpolate(inner_upsample_factor, mode=inner_upsample_mode),
             )
         blocks = _get_clones(basic_block, num_layers - 2, return_list=True)
         blocks.append(ConvSeq(mid_channels * 2, out_channels, dilation=1))
@@ -192,14 +192,14 @@ class U2NetCore(UNetBase):
         self.last_down = nn.Sequential(
             nn.MaxPool2d(2, stride=2),
             UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
-            Upsample(2, mode=upsample_mode),
+            Interpolate(2, mode=upsample_mode),
         )
         in_nc *= 2
         ncs = [out_nc] * 2
         blocks = [
             nn.Sequential(
                 UNetFRS(in_nc, mid_nc, out_nc, num_layers=current_layers),
-                Upsample(2, mode=upsample_mode),
+                Interpolate(2, mode=upsample_mode),
             )
         ]
         for i in range(num_layers - 2):
@@ -216,7 +216,7 @@ class U2NetCore(UNetBase):
                         inner_upsample_mode=upsample_mode,
                         inner_upsample_factor=2,
                     ),
-                    Upsample(2, mode=upsample_mode),
+                    Interpolate(2, mode=upsample_mode),
                 )
             )
             current_layers += 1
@@ -242,7 +242,7 @@ class U2NetCore(UNetBase):
         for i, nc in enumerate(ncs[::-1]):
             block = Conv2d(nc, out_channels, kernel_size=3, padding=1)
             if i > 1:
-                block = nn.Sequential(block, Upsample(2 ** (i - 1), mode=upsample_mode))
+                block = nn.Sequential(block, Interpolate(2 ** (i - 1), mode=upsample_mode))
             blocks.append(block)
         self.side_blocks = nn.ModuleList(blocks)
         self.out = Conv2d((len(ncs)) * out_channels, out_channels, kernel_size=1)

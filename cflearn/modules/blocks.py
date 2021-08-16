@@ -1483,7 +1483,7 @@ def interpolate(net: Tensor, factor: float, mode: str = "nearest") -> Tensor:
     )
 
 
-class Upsample(Module):
+class Interpolate(Module):
     def __init__(self, factor: Optional[float] = None, *, mode: str = "nearest"):
         super().__init__()
         self.factor = factor
@@ -1527,7 +1527,7 @@ class UpsampleConv2d(Conv2d):
             bias=bias,
             demodulate=demodulate,
         )
-        self.upsample = Upsample(factor, mode=mode)
+        self.upsample = Interpolate(factor, mode=mode)
 
     def forward(self, net: Tensor, y: Optional[Tensor] = None) -> Tensor:
         return super().forward(self.upsample(net), y)
