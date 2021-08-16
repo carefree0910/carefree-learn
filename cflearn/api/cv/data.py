@@ -197,7 +197,12 @@ class ToArray(ATransforms):
 
 @Transforms.register("resize")
 class Resize(ATransforms):
-    def __init__(self, size: Union[int, tuple], *, label_alias: Optional[str] = None):
+    def __init__(
+        self,
+        size: Union[int, tuple] = 224,
+        *,
+        label_alias: Optional[str] = None,
+    ):
         super().__init__(label_alias=label_alias)
         if isinstance(size, int):
             size = size, size
