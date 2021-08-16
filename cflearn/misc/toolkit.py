@@ -279,10 +279,11 @@ def summary(
     model.apply(register_hook)
 
     # make a forward pass
-    if not hasattr(model, "summary_forward"):
-        model(0, sample_batch)
-    else:
-        model.summary_forward(0, sample_batch)  # type: ignore
+    with eval_context(model):
+        if not hasattr(model, "summary_forward"):
+            model(0, sample_batch)
+        else:
+            model.summary_forward(0, sample_batch)  # type: ignore
 
     # remove these hooks
     for h in hooks:
