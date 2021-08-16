@@ -1475,16 +1475,15 @@ class Conv2d(Module):
 
 
 def upscale(net: Tensor, factor: float, onnx_compatible: bool = False) -> Tensor:
-    if not onnx_compatible or int(factor) != 2:
-        if onnx_compatible:
-            print(f"{WARNING_PREFIX}only `factor = 2` is implemented for onnx mode")
+    if not onnx_compatible:
         return F.interpolate(net, scale_factor=factor, recompute_scale_factor=True)  # type: ignore
+    int_factor = int(factor)
     c, h, w = net.shape[1:]
     col = net.view(-1, 1)
-    upsample = torch.cat([col, col], 1)
-    upsample = upsample.view(-1, w * 2)
-    net = torch.cat([upsample, upsample], 1)
-    return net.view(-1, c, h * 2, w * 2)
+    upsample = torch.cat([col] * int_factor, 1)
+    upsample = upsample.view(-1, w * int_factor)
+    net = torch.cat([upsample] * int_factor, 1)
+    return net.view(-1, c, h * int_factor, w * int_factor)
 
 
 class Upsample(Module):
