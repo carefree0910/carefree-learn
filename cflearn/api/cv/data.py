@@ -121,17 +121,6 @@ class ToTensor(Transforms):
         return False
 
 
-@Transforms.register("resize")
-class Resize(Transforms):
-    def __init__(self, *, size: int = 224):
-        super().__init__()
-        self.fn = transforms.Resize((size, size))
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
-
-
 @Transforms.register("random_resized_crop")
 class RandomResizedCrop(Transforms):
     def __init__(self, *, size: int = 224):
@@ -194,7 +183,7 @@ class ATransforms(Transforms):
 
 
 @Transforms.register("resize")
-class AResize(ATransforms):
+class Resize(ATransforms):
     def __init__(self, size: Union[int, tuple], *, label_alias: Optional[str] = None):
         super().__init__(label_alias=label_alias)
         if isinstance(size, int):
