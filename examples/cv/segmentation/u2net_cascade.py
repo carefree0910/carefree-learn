@@ -17,8 +17,8 @@ if __name__ == "__main__":
         tgt_folder,
         batch_size=8,
         num_workers=2,
-        transform="a_bundle_with_mask",
-        test_transform="a_bundle_with_mask_test",
+        transform=cflearn.cv.ABundle(label_alias="mask"),
+        test_transform=cflearn.cv.ABundleTest(label_alias="mask"),
     )
     m = cflearn.cv.CarefreePipeline(
         "cascade_u2net",

@@ -83,6 +83,14 @@ class Transforms(WithRegister):
         transform_list = [cls.make(t, transform_config.get(t, {})) for t in transform]
         return Compose(transform_list)
 
+    @classmethod
+    def make(cls, name: str, config: Dict[str, Any]) -> "Transforms":
+        split = name.split("_")
+        if split[-2] == "with":
+            name = "_".join(split[:-2])
+            config.setdefault("label_alias", split[-1])
+        return super().make(name, config)
+
 
 class Function(Transforms):
     def __init__(self, fn: Callable, need_batch_process: bool = False):
@@ -178,14 +186,6 @@ class ATransforms(Transforms):
     @property
     def need_batch_process(self) -> bool:
         return self.label_alias is not None
-
-    @classmethod
-    def make(cls, name: str, config: Dict[str, Any]) -> "ATransforms":
-        split = name.split("_")
-        if split[-2] == "with":
-            name = "_".join(split[:-2])
-            config.setdefault("label_alias", split[-1])
-        return super().make(name, config)
 
 
 @Transforms.register("to_array")
@@ -300,13 +300,12 @@ class HueSaturationValue(ATransforms):
         *,
         label_alias: Optional[str] = None,
     ):
-        super().__init__()
+        super().__init__(label_alias=label_alias)
         self.fn = A.HueSaturationValue(
             hue_shift_limit,
             sat_shift_limit,
             val_shift_limit,
             p,
-            label_alias=label_alias,
         )
 
 
@@ -354,7 +353,7 @@ class ABundle(Compose):
     ):
         super().__init__(
             [
-                AResize(resize_size, label_alias=label_alias),
+                Resize(resize_size, label_alias=label_alias),
                 RandomCrop(crop_size, label_alias=label_alias),
                 HFlip(p, label_alias=label_alias),
                 VFlip(p, label_alias=label_alias),
@@ -374,7 +373,7 @@ class ABundleTest(Compose):
     def __init__(self, *, resize_size: int = 320, label_alias: Optional[str] = None):
         super().__init__(
             [
-                AResize(resize_size, label_alias=label_alias),
+                Resize(resize_size, label_alias=label_alias),
                 Normalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
