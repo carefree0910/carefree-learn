@@ -10,7 +10,9 @@ from ...trainer import OptimizerPack
 from ...trainer import TrainerMonitor
 from ...trainer import TrainerCallback
 from ...protocol import MetricProtocol
+from ...misc.internal_ import BasicMonitor
 from ...misc.internal_ import MultipleMetrics
+from ...misc.internal_.callbacks.general import _LogMetricsMsgCallback
 
 
 def make_trainer(
@@ -99,6 +101,11 @@ def make_trainer(
         num_epoch = max_epoch = fixed_epoch
     if max_epoch < num_epoch:
         raise ValueError("`max_epoch` should not be smaller than `num_epoch`")
+    # default behaviors
+    if monitors is None:
+        monitors = [BasicMonitor()]
+    if callbacks is None and not use_tqdm:
+        callbacks = [_LogMetricsMsgCallback()]
     return Trainer(
         state_config,
         num_epoch=num_epoch,

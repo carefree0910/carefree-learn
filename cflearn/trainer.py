@@ -2,7 +2,6 @@ import os
 import re
 import json
 import math
-import time
 import torch
 
 import torch.distributed as dist
@@ -20,7 +19,6 @@ from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
-from cftool.misc import fix_float_to_length
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
 
@@ -49,7 +47,6 @@ from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
-from .misc.internal_ import BasicMonitor
 from .misc.internal_ import MultipleMetrics
 from .misc.internal_ import ConservativeMonitor
 from .modules.optimizers import optimizer_dict
@@ -186,44 +183,6 @@ class TrainerCallback(WithRegister):
         pass
 
 
-@TrainerCallback.register("_log_metrics_msg")
-class _LogMetricsMsgCallback(TrainerCallback):
-    def __init__(self, verbose: bool = True) -> None:
-        super().__init__()
-        self.verbose = verbose
-        self.timer = time.time()
-
-    def log_metrics_msg(
-        self,
-        metrics_outputs: MetricsOutputs,
-        metrics_log_path: str,
-        state: TrainerState,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        final_score = metrics_outputs.final_score
-        metric_values = metrics_outputs.metric_values
-        core = " | ".join(
-            [
-                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
-                for k in sorted(metric_values)
-            ]
-        )
-        total_step = state.num_step_per_epoch
-        current_step = state.step % (total_step + 1)
-        step_ratio = f"[{current_step} / {total_step}]"
-        timer_str = f"[{time.time() - self.timer:.3f}s]"
-        msg = (
-            f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
-            f"score : {fix_float_to_length(final_score, 8)} |"
-        )
-        if self.verbose:
-            print(msg)
-        with open(metrics_log_path, "a") as f:
-            f.write(f"{msg}\n")
-        self.timer = time.time()
-
-
 class TqdmSettings(NamedTuple):
     use_tqdm: bool = False
     use_step_tqdm: bool = False
@@ -305,15 +264,13 @@ class Trainer:
         self.grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
         self.clip_norm = clip_norm
         if monitors is None:
-            self.monitors = [BasicMonitor()]
+            self.monitors = []
         else:
             if not isinstance(monitors, list):
                 monitors = [monitors]
             self.monitors = monitors
         if callbacks is None:
             self.callbacks = []
-            if not self.tqdm_settings.use_tqdm:
-                self.callbacks.append(_LogMetricsMsgCallback())
         else:
             if not isinstance(callbacks, list):
                 callbacks = [callbacks]

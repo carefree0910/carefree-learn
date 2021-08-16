@@ -1,5 +1,6 @@
 import os
 import json
+import time
 import mlflow
 import shutil
 import getpass
@@ -9,6 +10,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from cftool.misc import lock_manager
+from cftool.misc import fix_float_to_length
 from mlflow.exceptions import MlflowException
 from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
@@ -26,6 +28,44 @@ from cflearn.constants import WARNING_PREFIX
 def parse_mlflow_uri(path: str) -> str:
     delim = "/" if platform.system() == "Windows" else ""
     return f"file://{delim}{path}"
+
+
+@TrainerCallback.register("_log_metrics_msg")
+class _LogMetricsMsgCallback(TrainerCallback):
+    def __init__(self, verbose: bool = True) -> None:
+        super().__init__()
+        self.verbose = verbose
+        self.timer = time.time()
+
+    def log_metrics_msg(
+        self,
+        metrics_outputs: MetricsOutputs,
+        metrics_log_path: str,
+        state: TrainerState,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        final_score = metrics_outputs.final_score
+        metric_values = metrics_outputs.metric_values
+        core = " | ".join(
+            [
+                f"{k} : {fix_float_to_length(metric_values[k], 8)}"
+                for k in sorted(metric_values)
+            ]
+        )
+        total_step = state.num_step_per_epoch
+        current_step = state.step % (total_step + 1)
+        step_ratio = f"[{current_step} / {total_step}]"
+        timer_str = f"[{time.time() - self.timer:.3f}s]"
+        msg = (
+            f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
+            f"score : {fix_float_to_length(final_score, 8)} |"
+        )
+        if self.verbose:
+            print(msg)
+        with open(metrics_log_path, "a") as f:
+            f.write(f"{msg}\n")
+        self.timer = time.time()
 
 
 @TrainerCallback.register("_inject_loader_name")
