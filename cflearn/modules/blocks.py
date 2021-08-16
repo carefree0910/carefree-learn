@@ -1487,6 +1487,20 @@ def upscale(net: Tensor, factor: float, onnx_compatible: bool = False) -> Tensor
     return net.view(-1, c, h * 2, w * 2)
 
 
+class Upsample(Module):
+    def __init__(self, factor: Optional[float] = None):
+        super().__init__()
+        self.factor = factor
+
+    def forward(self, net: Tensor) -> Tensor:
+        if self.factor is not None:
+            net = upscale(net, factor=self.factor, onnx_compatible=not self.training)
+        return net
+
+    def extra_repr(self) -> str:
+        return str(self.factor)
+
+
 class UpsampleConv2d(Conv2d):
     def __init__(
         self,
@@ -1515,12 +1529,10 @@ class UpsampleConv2d(Conv2d):
             bias=bias,
             demodulate=demodulate,
         )
-        self.factor = factor
+        self.upsample = Upsample(factor)
 
     def forward(self, net: Tensor, y: Optional[Tensor] = None) -> Tensor:
-        if self.factor is not None:
-            net = upscale(net, factor=self.factor, onnx_compatible=not self.training)
-        return super().forward(net, y)
+        return super().forward(self.upsample(net), y)
 
 
 class CABlock(Module):
