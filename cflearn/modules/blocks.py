@@ -1474,7 +1474,7 @@ class Conv2d(Module):
         )
 
 
-def upscale(net: Tensor, factor: float, mode: str = "nearest") -> Tensor:
+def interpolate(net: Tensor, factor: float, mode: str = "nearest") -> Tensor:
     return F.interpolate(
         net,
         mode=mode,
@@ -1491,7 +1491,7 @@ class Upsample(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         if self.factor is not None:
-            net = upscale(net, self.factor, self.mode)
+            net = interpolate(net, self.factor, self.mode)
         return net
 
     def extra_repr(self) -> str:
