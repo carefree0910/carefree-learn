@@ -147,6 +147,12 @@ class ForGeneration(Compose):
         super().__init__([ToTensor(), N1To1()])
 
 
+@Transforms.register("for_imagenet")
+class ForImagenet(Compose):
+    def __init__(self):  # type: ignore
+        super().__init__([ToArray(), Resize(224), Normalize(), ToTensor()])
+
+
 class ATransforms(Transforms):
     input_alias = "image"
 
