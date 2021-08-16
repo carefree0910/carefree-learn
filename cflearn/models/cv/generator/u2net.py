@@ -13,7 +13,7 @@ from ....trainer import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import align_to
+from ....misc.toolkit import interpolate
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -53,7 +53,7 @@ class UNetBase(nn.Module):
         up_nets = [inner]
         for down_net, up_block in zip(down_nets[::-1], self.up_blocks):
             if inner.shape != down_net.shape:
-                inner = align_to(inner, anchor=down_net, mode="bilinear")
+                inner = interpolate(inner, anchor=down_net, mode="bilinear")
             inner = up_block(torch.cat([inner, down_net], dim=1))
             up_nets.append(inner)
         if self.return_up_nets:
@@ -253,7 +253,7 @@ class U2NetCore(UNetBase):
         for up_net, side_block in zip(up_nets[::-1], self.side_blocks):
             side_net = side_block(up_net)
             if side_nets and side_net.shape != side_nets[0].shape:
-                side_net = align_to(side_net, anchor=side_nets[0], mode="bilinear")
+                side_net = interpolate(side_net, anchor=side_nets[0], mode="bilinear")
             side_nets.append(side_net)
         side_nets.insert(0, self.out(torch.cat(side_nets, dim=1)))
         return side_nets

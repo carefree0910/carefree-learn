@@ -16,7 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.backbone import BackboneEncoder
-from ....misc.toolkit import align_to
+from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 
@@ -55,7 +55,7 @@ class UnetDecoderBlock(nn.Module):
     def forward(self, net: Tensor, skip: Optional[Tensor] = None) -> Tensor:
         net = F.interpolate(net, scale_factor=2, mode="nearest")
         if skip is not None:
-            net = torch.cat([skip, align_to(net, anchor=skip)], dim=1)
+            net = torch.cat([skip, interpolate(net, anchor=skip)], dim=1)
         return self.net(net)
 
 
@@ -124,7 +124,7 @@ class UnetGenerator(ModelProtocol):
         features = self.backbone(batch_idx, batch, state, **kwargs)
         features.pop(LATENT_KEY)
         net = self.head(self.decoder(features))
-        return {PREDICTIONS_KEY: align_to(net, anchor=inp)}
+        return {PREDICTIONS_KEY: interpolate(net, anchor=inp)}
 
     def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]

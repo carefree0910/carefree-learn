@@ -844,21 +844,34 @@ class SharedArrayWrapper:
 # cv
 
 
-def align_to(
+def interpolate(
     src: torch.Tensor,
     *,
     mode: str = "nearest",
+    factor: Optional[float] = None,
     size: Optional[Union[int, Tuple[int, int]]] = None,
     anchor: Optional[torch.Tensor] = None,
     **kwargs: Any,
 ) -> torch.Tensor:
-    if size is None:
-        if anchor is None:
-            raise ValueError("either `size` or `anchor` should be provided")
-        size = (anchor.shape[2], anchor.shape[3])
     if "linear" in mode or mode == "bicubic":
         kwargs.setdefault("align_corners", False)
-    return F.interpolate(src, size=size, mode=mode, **kwargs)
+    if factor is None:
+        if size is None:
+            if anchor is None:
+                raise ValueError("either `size` or `anchor` should be provided")
+            size = (anchor.shape[2], anchor.shape[3])
+        return F.interpolate(src, size=size, mode=mode, **kwargs)
+    template = "`{}` will take no affect because `factor` is provided"
+    if size is not None:
+        print(f"{WARNING_PREFIX}{template.format('size')}")
+    if anchor is not None:
+        print(f"{WARNING_PREFIX}{template.format('anchor')}")
+    return F.interpolate(
+        src,
+        mode=mode,
+        scale_factor=factor,
+        recompute_scale_factor=True,
+    )
 
 
 def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:

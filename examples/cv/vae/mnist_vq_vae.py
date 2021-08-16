@@ -6,10 +6,10 @@ import cflearn
 import argparse
 
 from cflearn.misc.toolkit import to_device
+from cflearn.misc.toolkit import interpolate
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import make_indices_visualization_map
-from cflearn.modules.blocks import interpolate
 
 # CI
 parser = argparse.ArgumentParser()
@@ -56,7 +56,7 @@ class VQVAECallback(cflearn.ArtifactCallback):
         sample_map = make_indices_visualization_map(sample_indices)
         with eval_context(model):
             sample_vis = model.sample_codebook(code_indices=sample_indices)[0]
-        scaled = interpolate(sample, math.sqrt(len(sample_indices)))
+        scaled = interpolate(sample, factor=math.sqrt(len(sample_indices)))
         save_images(scaled, os.path.join(image_folder, "sampled.png"))
         save_images(sample_map, os.path.join(image_folder, "sampled_idx.png"))
         save_images(sample_vis, os.path.join(image_folder, "sampled_codes.png"))

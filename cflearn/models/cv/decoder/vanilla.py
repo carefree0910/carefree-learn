@@ -9,7 +9,7 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import align_to
+from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import UpsampleConv2d
@@ -80,7 +80,7 @@ class VanillaDecoder(DecoderBase):
     ) -> tensor_dict_type:
         batch = self._inject_cond(batch)
         net = self.decoder(batch[INPUT_KEY])
-        net = align_to(net, size=self.img_size)
+        net = interpolate(net, size=self.img_size)
         return {PREDICTIONS_KEY: net}
 
 

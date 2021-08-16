@@ -27,6 +27,7 @@ from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
 from ..constants import WARNING_PREFIX
+from ..misc.toolkit import interpolate
 from ..misc.toolkit import Initializer
 from ..misc.toolkit import WithRegister
 
@@ -1474,15 +1475,6 @@ class Conv2d(Module):
         )
 
 
-def interpolate(net: Tensor, factor: float, mode: str = "nearest") -> Tensor:
-    return F.interpolate(
-        net,
-        mode=mode,
-        scale_factor=factor,
-        recompute_scale_factor=True,
-    )
-
-
 class Interpolate(Module):
     def __init__(self, factor: Optional[float] = None, mode: str = "nearest"):
         super().__init__()
@@ -1491,7 +1483,7 @@ class Interpolate(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         if self.factor is not None:
-            net = interpolate(net, self.factor, self.mode)
+            net = interpolate(net, mode=self.mode, factor=self.factor)
         return net
 
     def extra_repr(self) -> str:

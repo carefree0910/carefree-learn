@@ -11,7 +11,7 @@ from ....trainer import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import align_to
+from ....misc.toolkit import interpolate
 
 
 @ModelProtocol.register("cascade_u2net")
@@ -71,15 +71,16 @@ class CascadeU2Net(CascadeBase):
         inp = batch[INPUT_KEY]
         resolution = lv1_alpha.shape[-1]
         if self.lv2_resolution is not None:
-            inp = align_to(batch[INPUT_KEY], size=self.lv2_resolution, mode="bilinear")
-            lv1_alpha = align_to(lv1_alpha, size=self.lv2_resolution, mode="bilinear")
+            lv2_res = self.lv2_resolution
+            inp = interpolate(batch[INPUT_KEY], size=lv2_res, mode="bilinear")
+            lv1_alpha = interpolate(lv1_alpha, size=lv2_res, mode="bilinear")
         lv2_input = torch.cat([inp, lv1_alpha], dim=1)
         lv2_outputs = self.lv2_net(batch_idx, {INPUT_KEY: lv2_input}, state, **kwargs)
         lv2_raw_alpha = lv2_outputs[PREDICTIONS_KEY]
         if isinstance(lv2_raw_alpha, list):
             lv2_raw_alpha = lv2_raw_alpha[0]
         if self.lv2_resolution is not None:
-            lv2_raw_alpha = align_to(lv2_raw_alpha, size=resolution, mode="bilinear")
+            lv2_raw_alpha = interpolate(lv2_raw_alpha, size=resolution, mode="bilinear")
         final_raw_alpha = lv1_raw_alpha + lv2_raw_alpha
         return {PREDICTIONS_KEY: final_raw_alpha}
 
