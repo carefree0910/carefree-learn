@@ -86,7 +86,7 @@ class Transforms(WithRegister):
     @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> "Transforms":
         split = name.split("_")
-        if split[-2] == "with":
+        if len(split) >= 3 and split[-2] == "with":
             name = "_".join(split[:-2])
             config.setdefault("label_alias", split[-1])
         return super().make(name, config)
