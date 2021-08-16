@@ -654,11 +654,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 )
                 with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
                     onnx_kwargs = json.load(f)
-                onnx = ONNX(
+                m_onnx = ONNX(
                     onnx_path=os.path.join(export_folder, cls.onnx_file),
                     output_names=onnx_kwargs["output_names"],
                 )
-                m.inference = cls.inference_base(onnx=onnx)
+                m.inference = cls.inference_base(onnx=m_onnx)
         return m
 
     # ddp stuffs
