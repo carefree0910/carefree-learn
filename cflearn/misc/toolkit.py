@@ -651,9 +651,9 @@ class WithRegister(Generic[T]):
         if configs is None:
             configs = {}
         if isinstance(names, str):
-            return cls.get(names)(**configs)  # type: ignore
+            return cls.make(names, configs)  # type: ignore
         return [
-            cls.get(name)(**shallow_copy_dict(configs.get(name, {})))  # type: ignore
+            cls.make(name, shallow_copy_dict(configs.get(name, {})))  # type: ignore
             for name in names
         ]
 
