@@ -1474,28 +1474,13 @@ class Conv2d(Module):
         )
 
 
-def upscale(
-    net: Tensor,
-    factor: float,
-    *,
-    mode: str = "nearest",
-    onnx_compatible: bool = False,
-) -> Tensor:
-    supported_mode = {"nearest"}
-    if not onnx_compatible or mode not in supported_mode:
-        return F.interpolate(
-            net,
-            mode=mode,
-            scale_factor=factor,
-            recompute_scale_factor=True,
-        )
-    int_factor = int(factor)
-    c, h, w = net.shape[1:]
-    col = net.view(-1, 1)
-    upsample = torch.cat([col] * int_factor, 1)
-    upsample = upsample.view(-1, w * int_factor)
-    net = torch.cat([upsample] * int_factor, 1)
-    return net.view(-1, c, h * int_factor, w * int_factor)
+def upscale(net: Tensor, factor: float, mode: str = "nearest") -> Tensor:
+    return F.interpolate(
+        net,
+        mode=mode,
+        scale_factor=factor,
+        recompute_scale_factor=True,
+    )
 
 
 class Upsample(Module):
@@ -1506,12 +1491,7 @@ class Upsample(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         if self.factor is not None:
-            net = upscale(
-                net,
-                self.factor,
-                mode=self.mode,
-                onnx_compatible=not self.training,
-            )
+            net = upscale(net, self.factor, self.mode)
         return net
 
     def extra_repr(self) -> str:
