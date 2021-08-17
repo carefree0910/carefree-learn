@@ -14,6 +14,13 @@ class TestExample(unittest.TestCase):
             0,
         )
 
+    def test_products_10k_clf(self) -> None:
+        folder = os.path.join(examples_folder, "classification")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'products-10k_clf.py')} --ci 1"),
+            0,
+        )
+
     def test_mnist_gan(self) -> None:
         folder = os.path.join(examples_folder, "gan")
         self.assertEqual(
@@ -32,6 +39,17 @@ class TestExample(unittest.TestCase):
         folder = os.path.join(examples_folder, "generator")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'mnist_pixel_cnn.py')} --ci 1"),
+            0,
+        )
+
+    def test_products_10k_seg(self) -> None:
+        folder = os.path.join(examples_folder, "segmentation")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'u2net_finetune.py')} --ci 1"),
+            0,
+        )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'u2net_cascade.py')} --ci 1"),
             0,
         )
 

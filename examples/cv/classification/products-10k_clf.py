@@ -1,24 +1,37 @@
 # type: ignore
 
+import os
 import cflearn
+import argparse
 
 from typing import List
 
+# CI
+parser = argparse.ArgumentParser()
+parser.add_argument("--ci", type=int, default=0)
+args = parser.parse_args()
+is_ci = bool(args.ci)
 
-src_folder = "data/products-10k"
-tgt_folder = "data/products-10k_data"
+
+data_folder = "../data" if is_ci else "data"
+dataset = f"products-10k{'_clf_tiny' if is_ci else ''}"
+src_folder = os.path.join(data_folder, dataset)
+tgt_folder = os.path.join(data_folder, "products-10k_data")
 
 
 def prepare() -> None:
     def label_fn(hierarchy: List[str]) -> int:
         return int(hierarchy[2] == "pos")
 
+    if is_ci and not os.path.isdir(src_folder):
+        cflearn.download_dataset(dataset, root=data_folder)
     cflearn.cv.prepare_image_folder(
         src_folder,
         tgt_folder,
         to_index=False,
         label_fn=label_fn,
         make_labels_in_parallel=False,
+        num_jobs=0 if is_ci else 8,
     )
 
 
@@ -42,8 +55,9 @@ if __name__ == "__main__":
             "encoder1d_configs": {"name": "resnet18"},
         },
         loss_name="cross_entropy",
-        metric_names=["acc", "auc"],
+        metric_names=["acc"] if is_ci else ["acc", "auc"],
         callback_names=["clf", "mlflow"],
         callback_configs={"mlflow": {"experiment_name": "products-10k_clf"}},
+        fixed_steps=1 if is_ci else None,
     )
-    m.fit(train_loader, valid_loader, cuda="7")
+    m.fit(train_loader, valid_loader, cuda=None if is_ci else "7")

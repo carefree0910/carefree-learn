@@ -1,22 +1,25 @@
 # type: ignore
 
 import cflearn
+import argparse
 
 from u2net_finetune import prepare
+from u2net_finetune import pretrained_ckpt
+
+# CI
+parser = argparse.ArgumentParser()
+parser.add_argument("--ci", type=int, default=0)
+args = parser.parse_args()
+is_ci = bool(args.ci)
 
 
-src_folder = "data/raw"
-src_rgba_folder = "data/rgba"
-tgt_folder = "data/products-10k"
-label_folder = "data/products-10k_labels"
-
+finetune_ckpt = "pretrained/lite_finetune_aug.pt"
 
 if __name__ == "__main__":
-    prepare()
-    train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
-        tgt_folder,
-        batch_size=8,
-        num_workers=2,
+    train, valid = cflearn.cv.get_image_folder_loaders(
+        prepare(is_ci),
+        batch_size=16,
+        num_workers=4,
         transform=cflearn.cv.ABundle(label_alias="mask"),
         test_transform=cflearn.cv.ABundleTest(label_alias="mask"),
     )
@@ -25,14 +28,15 @@ if __name__ == "__main__":
         {
             "in_channels": 3,
             "out_channels": 1,
-            "lv1_model_ckpt_path": "pretrained/light_0.001.pt",
-            "lv2_resolution": 512,
-            "lv2_model_config": {"eca_kernel_size": 3},
+            "lv1_model_ckpt_path": pretrained_ckpt if is_ci else finetune_ckpt,
+            "lv2_model_config": {"lite": True},
             "lite": True,
         },
         loss_name="sigmoid_mae",
         callback_names=["unet", "mlflow"],
         callback_configs={"mlflow": {"experiment_name": "lite_refine"}},
-        scheduler_name="plateau",
+        scheduler_name="none",
+        fixed_steps=1 if is_ci else None,
     )
-    m.fit(train_loader, valid_loader, cuda="5")
+    m.fit(train, valid, cuda=None if is_ci else "5")
+    # m.ddp(train_loader, valid_loader, cuda_list=["4", "5"])
