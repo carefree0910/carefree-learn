@@ -685,8 +685,8 @@ def prepare_image_folder(
             with open(os.path.join(tgt_folder, dtype, label_file), "w") as f_:
                 json.dump(type_labels, f_)
 
-    _save(tr_indices, num_jobs, "train")
-    _save(te_indices, num_jobs // 2, "test")
+    _save(tr_indices, max(1, num_jobs), "train")
+    _save(te_indices, max(1, num_jobs // 2), "test")
 
 
 class ImageFolderDataset(Dataset):
