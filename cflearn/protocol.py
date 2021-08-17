@@ -560,11 +560,12 @@ class InferenceProtocol:
             )
 
         use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
-        try:
-            return _core()
-        except:
-            use_grad = self.use_grad_in_predict = True
-            return _core()
+        with loader.temporarily_disable_shuffle():
+            try:
+                return _core()
+            except:
+                use_grad = self.use_grad_in_predict = True
+                return _core()
 
 
 # metrics
