@@ -7,6 +7,7 @@ from .constants import *
 
 from .api import cv
 from .api import ml
+from .api.data import *
 from .api.basic import *
 from .api.register import *
 from . import dist
