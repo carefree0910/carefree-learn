@@ -28,7 +28,6 @@ from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
 
 from ...types import tensor_dict_type
 from ...constants import INPUT_KEY
@@ -40,6 +39,7 @@ from ...misc.toolkit import to_torch
 from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DLData
 from ...misc.internal_ import DLLoader
+from ...misc.internal_ import DataLoader
 
 
 cf_transforms: Dict[str, Type["Transforms"]] = {}

@@ -4,8 +4,8 @@ from typing import Any
 from typing import Callable
 from typing import Optional
 from torch.utils.data import Dataset
-from torch.utils.data import DataLoader
 from torch.utils.data import SequentialSampler
+from torch.utils.data import DataLoader as TorchDataLoader
 
 from ...types import tensor_dict_type
 from ...protocol import DataProtocol
@@ -110,6 +110,23 @@ class DLData(DataProtocol):
         return self.dataset[item]
 
 
+class DataLoader(TorchDataLoader):
+    def __setattr__(self, attr: str, val: Any) -> None:
+        if self.__initialized and attr in (
+            "batch_size",
+            "batch_sampler",
+            "drop_last",
+            "dataset",
+            "persistent_workers",
+        ):
+            raise ValueError(
+                f"{attr} attribute should not be set after "
+                f"{self.__class__.__name__} is initialized"
+            )
+
+        super(TorchDataLoader, self).__setattr__(attr, val)
+
+
 @DataLoaderProtocol.register("dl")
 class DLLoader(DataLoaderProtocol):
     data: DLData
@@ -145,10 +162,15 @@ class DLLoader(DataLoaderProtocol):
         return self.batch_callback(batch)
 
     def disable_shuffle(self) -> None:
-        self.loader.sampler = SequentialSampler(self.data)
+        sampler = SequentialSampler(self.data)
+        self.loader.sampler = sampler
+        if hasattr(self.loader, "batch_sampler"):
+            self.loader.batch_sampler.sampler = sampler
 
     def recover_shuffle(self) -> None:
         self.loader.sampler = self.sampler_backup
+        if hasattr(self.loader, "batch_sampler"):
+            self.loader.batch_sampler.sampler = self.sampler_backup
 
 
 __all__ = [
@@ -156,5 +178,6 @@ __all__ = [
     "MLLoader",
     "DLData",
     "DLLoader",
+    "DataLoader",
     "get_weighted_indices",
 ]
