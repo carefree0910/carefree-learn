@@ -459,6 +459,7 @@ class TimeSeriesLoader(DataLoaderProtocol):
         self.bundle = bundle
         self.is_clf = is_clf
         self.shuffle = shuffle
+        self.shuffle_backup = shuffle
         self.batch_size = batch_size
         self.callback = DataCallback.make_with(cfg, is_clf)
         self.indices = self.bundle.indices.copy() - self.bundle.offset
@@ -469,10 +470,6 @@ class TimeSeriesLoader(DataLoaderProtocol):
         rolled_x = StrideArray(bundle.x).roll(x_window, axis=0)
         rolled_y = StrideArray(bundle.y).roll(y_window or x_window, axis=0)
         self.data = MLData(rolled_x, rolled_y)
-
-    @property
-    def num_samples(self) -> int:
-        return len(self.indices)
 
     def __len__(self) -> int:
         return math.ceil(self.bundle.indices.shape[0] / self.batch_size)
@@ -515,6 +512,12 @@ class TimeSeriesLoader(DataLoaderProtocol):
         sample[BATCH_INDICES_KEY] = to_torch(batch_indices)
         return sample
 
+    def disable_shuffle(self) -> None:
+        self.shuffle = False
+
+    def recover_shuffle(self) -> None:
+        self.shuffle = self.shuffle_backup
+
     def copy(self) -> "TimeSeriesLoader":
         return TimeSeriesLoader(
             self.cfg,
@@ -524,6 +527,10 @@ class TimeSeriesLoader(DataLoaderProtocol):
             batch_size=self.batch_size,
             sample_weights=self.sample_weights,
         )
+
+    @property
+    def num_samples(self) -> int:
+        return len(self.indices)
 
     def _handle_nan(
         self,

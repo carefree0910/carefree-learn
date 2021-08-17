@@ -5,6 +5,7 @@ from typing import Callable
 from typing import Optional
 from torch.utils.data import Dataset
 from torch.utils.data import DataLoader
+from torch.utils.data import SequentialSampler
 
 from ...types import tensor_dict_type
 from ...protocol import DataProtocol
@@ -57,6 +58,7 @@ class MLLoader(DataLoaderProtocol):
         super().__init__(sample_weights=sample_weights)
         self.data = data
         self.shuffle = shuffle
+        self.shuffle_backup = shuffle
         self.name = name
         self.batch_size = batch_size
 
@@ -79,8 +81,20 @@ class MLLoader(DataLoaderProtocol):
             BATCH_INDICES_KEY: to_torch(indices),
         }
 
+    def disable_shuffle(self) -> None:
+        self.shuffle = False
+
+    def recover_shuffle(self) -> None:
+        self.shuffle = self.shuffle_backup
+
     def copy(self) -> "MLLoader":
-        return MLLoader(self.data, False, name=self.name, batch_size=self.batch_size)
+        return MLLoader(
+            self.data,
+            self.shuffle,
+            name=self.name,
+            batch_size=self.batch_size,
+            sample_weights=self.sample_weights,
+        )
 
 
 @DataProtocol.register("dl")
@@ -117,6 +131,7 @@ class DLLoader(DataLoaderProtocol):
         self.data = loader.dataset  # type: ignore
         self.batch_size = loader.batch_size  # type: ignore
         self.batch_callback = batch_callback
+        self.sampler_backup = loader.sampler
         self._iterator: Optional[Any] = None
 
     def __iter__(self) -> "DLLoader":
@@ -128,6 +143,12 @@ class DLLoader(DataLoaderProtocol):
         if self.batch_callback is None:
             return batch
         return self.batch_callback(batch)
+
+    def disable_shuffle(self) -> None:
+        self.loader.sampler = SequentialSampler(self.data)
+
+    def recover_shuffle(self) -> None:
+        self.loader.sampler = self.sampler_backup
 
 
 __all__ = [

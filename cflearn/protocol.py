@@ -70,6 +70,14 @@ class DataLoaderProtocol(ABC, WithRegister):
     def __next__(self) -> tensor_dict_type:
         pass
 
+    @abstractmethod
+    def disable_shuffle(self) -> None:
+        pass
+
+    @abstractmethod
+    def recover_shuffle(self) -> None:
+        pass
+
     def __len__(self) -> int:
         return math.ceil(len(self.data) / self.batch_size)
 

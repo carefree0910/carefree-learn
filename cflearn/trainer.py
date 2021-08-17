@@ -724,6 +724,7 @@ class Trainer:
         self.inference = inference
         self.train_loader = train_loader
         self.train_loader_copy = train_loader.copy()
+        self.train_loader_copy.disable_shuffle()
         self.valid_loader = valid_loader
         self.state = TrainerState(
             train_loader,
