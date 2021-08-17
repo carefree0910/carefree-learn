@@ -540,15 +540,17 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             def forward(self, batch: Dict[str, Any]) -> Any:
                 return self.model(0, batch)
 
-        with lock_manager(base_folder, [export_folder]):
+        with lock_manager(base_folder, []) as lock:
+            onnx_path = os.path.join(export_folder, self.onnx_file)
             if simplify:
+                lock._stuffs = [onnx_path]
                 os.makedirs(export_folder, exist_ok=True)
             else:
+                lock._stuffs = [export_folder]
                 self._save_misc(export_folder, False)
                 with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
                     json.dump(kwargs, f)
             m_onnx = ONNXWrapper()
-            onnx_path = os.path.join(export_folder, self.onnx_file)
             input_keys = sorted(input_sample)
             with eval_context(m_onnx):
                 torch.onnx.export(
