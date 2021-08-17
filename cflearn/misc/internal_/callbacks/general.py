@@ -104,7 +104,7 @@ class MLFlowCallback(TrainerCallback):
             return None
         tracking_folder = os.path.abspath(self.tracking_folder)
         tracking_dir = os.path.join(tracking_folder, "mlruns")
-        with lock_manager(tracking_folder, ["mlruns"]):
+        with lock_manager(tracking_folder, []) as lock:
             os.makedirs(tracking_dir, exist_ok=True)
             tracking_uri = parse_mlflow_uri(tracking_dir)
             self.mlflow_client = mlflow.tracking.MlflowClient(tracking_uri)
@@ -114,6 +114,7 @@ class MLFlowCallback(TrainerCallback):
                 experiment_id = experiment.experiment_id
             else:
                 experiment_id = self.mlflow_client.create_experiment(name)
+            lock._stuffs = [os.path.join(tracking_dir, experiment_id)]
 
         run = None
         from_external = False
