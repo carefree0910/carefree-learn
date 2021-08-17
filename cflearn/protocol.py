@@ -84,6 +84,19 @@ class DataLoaderProtocol(ABC, WithRegister):
     def copy(self) -> "DataLoaderProtocol":
         return deepcopy(self)
 
+    def temporarily_disable_shuffle(self) -> context_error_handler:
+        class _(context_error_handler):
+            def __init__(self, loader: DataLoaderProtocol):
+                self.loader = loader
+
+            def __enter__(self) -> None:
+                self.loader.disable_shuffle()
+
+            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+                self.loader.recover_shuffle()
+
+        return _(self)
+
 
 # model
 
