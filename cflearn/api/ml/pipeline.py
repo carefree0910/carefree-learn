@@ -639,7 +639,9 @@ class CarefreePipeline(SimplePipeline):
             if self.in_loading:
                 loaders = []
             else:
-                loaders = [self.train_loader.copy()]
+                train_loader_copy = self.train_loader.copy()
+                train_loader_copy.disable_shuffle()
+                loaders = [train_loader_copy]
                 if self.valid_loader is not None:
                     loaders.append(self.valid_loader)
             encoder = Encoder(
