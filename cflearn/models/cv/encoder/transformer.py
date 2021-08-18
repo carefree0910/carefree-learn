@@ -7,8 +7,8 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ...ml.stacks import MixedStackedEncoder
-from ...ml.transformer import AttentionTokenMixer
+from ....modules.blocks import AttentionTokenMixer
+from ....modules.blocks import MixedStackedEncoder
 
 
 @Encoder1DFromPatches.register("vit")

@@ -24,11 +24,15 @@ from ...protocol import MetricsOutputs
 from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
+from ...constants import PREDICTIONS_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
 from ...misc.toolkit import WithRegister
 from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import _get_clones
+from ...modules.blocks import Linear
+from ...modules.blocks import TokenMixerFactory
+from ...modules.blocks import MixedStackedEncoder
 
 
 NUMERICAL_KEY = "_numerical"
@@ -233,6 +237,53 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         pass
 
 
+class MixedStackedModel(MLCoreProtocol):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        num_history: int,
+        latent_dim: int,
+        token_mixing_factory: TokenMixerFactory,
+        *,
+        num_layers: int = 4,
+        dropout: float = 0.0,
+        norm_type: str = "batch_norm",
+        feedforward_dim_ratio: float = 1.0,
+        use_head_token: bool = False,
+        use_positional_encoding: bool = False,
+        **token_mixing_kwargs: Any,
+    ):
+        super().__init__(in_dim, out_dim, num_history)
+        self.to_encoder = Linear(in_dim, latent_dim)
+        self.encoder = MixedStackedEncoder(
+            latent_dim,
+            num_history,
+            token_mixing_factory,
+            num_layers=num_layers,
+            dropout=dropout,
+            norm_type=norm_type,
+            feedforward_dim_ratio=feedforward_dim_ratio,
+            use_head_token=use_head_token,
+            use_positional_encoding=use_positional_encoding,
+            **token_mixing_kwargs,
+        )
+        self.head = Linear(latent_dim, out_dim)
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        net = batch[MERGED_KEY]
+        net = self.to_encoder(net)
+        net = self.encoder(net)
+        net = self.head(net)
+        return {PREDICTIONS_KEY: net}
+
+
 class MLModel(ModelWithCustomSteps):
     core: Union[MLCoreProtocol, nn.ModuleList]
 
@@ -361,5 +412,6 @@ __all__ = [
     "Dimensions",
     "Transform",
     "MLCoreProtocol",
+    "MixedStackedModel",
     "MLModel",
 ]

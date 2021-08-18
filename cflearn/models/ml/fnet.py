@@ -1,23 +1,5 @@
-import torch.nn as nn
-
-from typing import Any
-from torch.fft import fft
-
-from .stacks import MixedStackedModel
-from .stacks import TokenMixerFactory
-from ...modules.blocks import Lambda
-
-
-class FourierTokenMixer(TokenMixerFactory):
-    @staticmethod
-    def make(
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-        **kwargs: Any,
-    ) -> nn.Module:
-        return Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
+from .protocol import MixedStackedModel
+from ...modules.blocks import FourierTokenMixer
 
 
 @MixedStackedModel.register("fnet")

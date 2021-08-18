@@ -7,8 +7,8 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ...ml.mixer import MLPTokenMixer
-from ...ml.stacks import MixedStackedEncoder
+from ....modules.blocks import MLPTokenMixer
+from ....modules.blocks import MixedStackedEncoder
 
 
 @Encoder1DFromPatches.register("mixer")

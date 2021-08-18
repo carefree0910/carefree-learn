@@ -1,32 +1,5 @@
-import torch.nn as nn
-
-from typing import Any
-from .stacks import MixedStackedModel
-from .stacks import TokenMixerFactory
-from ...modules.blocks import Attention
-
-
-class AttentionTokenMixer(TokenMixerFactory):
-    @staticmethod
-    def make(
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-        **kwargs: Any,
-    ) -> nn.Module:
-        qkv_bias = kwargs.get("qkv_bias", False)
-        num_heads = kwargs.get("num_heads", 8)
-        return Attention.make(
-            "basic",
-            config=dict(
-                input_dim=latent_dim,
-                dropout=dropout,
-                num_heads=num_heads,
-                in_linear_config={"bias": qkv_bias},
-                is_self_attention=True,
-            ),
-        )
+from .protocol import MixedStackedModel
+from ...modules.blocks import AttentionTokenMixer
 
 
 @MixedStackedModel.register("transformer")

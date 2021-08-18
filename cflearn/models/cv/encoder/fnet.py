@@ -7,8 +7,8 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ...ml.fnet import FourierTokenMixer
-from ...ml.stacks import MixedStackedEncoder
+from ....modules.blocks import FourierTokenMixer
+from ....modules.blocks import MixedStackedEncoder
 
 
 @Encoder1DFromPatches.register("fnet")

@@ -1,14 +1,9 @@
-import torch.nn as nn
-
 from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .stacks import FeedForward
-from .stacks import MixedStackedModel
-from .stacks import TokenMixerFactory
 from .protocol import MERGED_KEY
-from .protocol import MLCoreProtocol
+from .protocol import MixedStackedModel
 from ..bases import BAKEBase
 from ..bases import RDropoutBase
 from ...types import tensor_dict_type
@@ -16,23 +11,7 @@ from ...protocol import TrainerState
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
-from ...modules.blocks import Lambda
-
-
-class MLPTokenMixer(TokenMixerFactory):
-    @staticmethod
-    def make(
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-        **kwargs: Any,
-    ) -> nn.Module:
-        return nn.Sequential(
-            Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
-            FeedForward(num_tokens, num_tokens, dropout),
-            Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
-        )
+from ...modules.blocks import MLPTokenMixer
 
 
 @MixedStackedModel.register("mixer")
@@ -63,7 +42,7 @@ class Mixer(MixedStackedModel):
         )
 
 
-@MLCoreProtocol.register("mixer_bake")
+@MixedStackedModel.register("mixer_bake")
 class MixerWithBAKE(BAKEBase):
     def __init__(
         self,
@@ -107,7 +86,7 @@ class MixerWithBAKE(BAKEBase):
         return {LATENT_KEY: latent, PREDICTIONS_KEY: net}
 
 
-@MLCoreProtocol.register("mixer_r_dropout")
+@MixedStackedModel.register("mixer_r_dropout")
 class MixerWithRDropout(RDropoutBase):
     def __init__(
         self,

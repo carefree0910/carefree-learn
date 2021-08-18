@@ -7,6 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from abc import abstractmethod
+from abc import ABC
 from abc import ABCMeta
 from torch import Tensor
 from typing import Any
@@ -22,6 +23,7 @@ from typing import NamedTuple
 from functools import partial
 from torch.nn import Module
 from torch.nn import ModuleList
+from torch.fft import fft
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 
@@ -1344,6 +1346,255 @@ class HighwayBlock(MappingBase):
         nonlinear = self.nonlinear_mapping(net)
         gate = self.sigmoid(self.gate_linear(net))
         return gate * nonlinear + (1.0 - gate) * linear
+
+
+# mixed stacks
+
+
+class FeedForward(Module):
+    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+        super().__init__()
+        self.net = nn.Sequential(
+            Linear(in_dim, latent_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            Linear(latent_dim, in_dim),
+            nn.Dropout(dropout),
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        return self.net(net)
+
+
+class TokenMixerFactory(ABC):
+    @staticmethod
+    @abstractmethod
+    def make(
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+        **kwargs: Any,
+    ) -> Module:
+        pass
+
+
+class MixingBlock(Module):
+    def __init__(
+        self,
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        token_mixing_factory: TokenMixerFactory,
+        *,
+        dropout: float = 0.0,
+        norm_type: str = "batch_norm",
+        **token_mixing_kwargs: Any,
+    ):
+        super().__init__()
+        self.token_mixing = Residual(
+            PreNorm(
+                latent_dim,
+                module=token_mixing_factory.make(
+                    num_tokens,
+                    latent_dim,
+                    feedforward_dim,
+                    dropout,
+                    **token_mixing_kwargs,
+                ),
+                norm_type=norm_type,
+            )
+        )
+        self.channel_mixing = Residual(
+            PreNorm(
+                latent_dim,
+                module=FeedForward(latent_dim, feedforward_dim, dropout),
+                norm_type=norm_type,
+            )
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        return self.channel_mixing(self.token_mixing(net))
+
+
+class PositionalEncoding(Module):
+    def __init__(
+        self,
+        dim: int,
+        num_history: int,
+        dropout: float = 0.0,
+        *,
+        has_head_token: bool,
+        enable: bool = True,
+    ):
+        super().__init__()
+        self.pos_drop = None
+        self.pos_encoding = None
+        if enable:
+            self.pos_drop = nn.Dropout(p=dropout)
+            self.pos_encoding = nn.Parameter(torch.zeros(1, num_history, dim))
+            nn.init.trunc_normal_(self.pos_encoding, std=0.02)
+        self.has_head_token = has_head_token
+
+    def forward(self, net: Tensor) -> Tensor:
+        if self.pos_encoding is None or self.pos_drop is None:
+            return net
+        pos_encoding = self.interpolate_pos_encoding(net, self.pos_encoding)
+        pos_encoding = self.pos_drop(pos_encoding)
+        return net + pos_encoding
+
+    # this is for vision positional encodings
+    def interpolate_pos_encoding(self, net: Tensor, pos_encoding: Tensor) -> Tensor:
+        head_dim = int(self.has_head_token)
+        num_current_history = net.shape[1] - head_dim
+        num_history = pos_encoding.shape[1] - head_dim
+        if num_current_history == num_history:
+            return pos_encoding
+        head_encoding = None
+        if self.has_head_token:
+            head_encoding = pos_encoding[:, :1]
+            pos_encoding = pos_encoding[:, 1:]
+        dim = net.shape[-1]
+        shape = int(math.sqrt(num_history))
+        if shape ** 2 != num_history:
+            raise ValueError(f"`num_history` ({num_history}) should be a square number")
+        pos_encoding = F.interpolate(
+            pos_encoding.reshape(1, shape, shape, dim).permute(0, 3, 1, 2),
+            scale_factor=math.sqrt(num_current_history / num_history),
+            mode="bicubic",
+        )
+        pos_encoding = pos_encoding.permute(0, 2, 3, 1).view(1, -1, dim)
+        if head_encoding is None:
+            return pos_encoding
+        return torch.cat([head_encoding, pos_encoding], dim=1)
+
+
+class MixedStackedEncoder(Module):
+    def __init__(
+        self,
+        dim: int,
+        num_history: int,
+        token_mixing_factory: TokenMixerFactory,
+        *,
+        num_layers: int = 4,
+        dropout: float = 0.0,
+        norm_type: str = "batch_norm",
+        feedforward_dim_ratio: float = 1.0,
+        use_head_token: bool = False,
+        use_positional_encoding: bool = False,
+        **token_mixing_kwargs: Any,
+    ):
+        super().__init__()
+        # head token
+        if not use_head_token:
+            self.head_token = None
+        else:
+            self.head_token = nn.Parameter(torch.zeros(1, 1, dim))
+        # positional encoding
+        num_history += int(use_head_token)
+        self.pos_encoding = PositionalEncoding(
+            dim,
+            num_history,
+            dropout,
+            has_head_token=use_head_token,
+            enable=use_positional_encoding,
+        )
+        # core
+        feedforward_dim = int(round(dim * feedforward_dim_ratio))
+        mixing_block = MixingBlock(
+            num_history,
+            dim,
+            feedforward_dim,
+            token_mixing_factory,
+            dropout=dropout,
+            norm_type=norm_type,
+            **token_mixing_kwargs,
+        )
+        self.mixing_blocks = _get_clones(mixing_block, num_layers)
+        # initializations
+        if self.head_token is not None:
+            nn.init.trunc_normal_(self.head_token, std=0.02)
+        self.apply(self._init_weights)
+        # head
+        if self.head_token is not None:
+            head = Lambda(lambda x: x[:, 0], name="head_token")
+        else:
+            head = Lambda(lambda x: x.mean(1), name="global_average")
+        self.head = PreNorm(dim, module=head, norm_type=norm_type)
+
+    def _init_weights(self, m: Module) -> None:
+        if isinstance(m, nn.Linear):
+            nn.init.trunc_normal_(m.weight, std=0.02)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
+
+    def forward(self, net: Tensor) -> Tensor:
+        batch_size = net.shape[0]
+        if self.head_token is not None:
+            head_tokens = self.head_token.repeat([batch_size, 1, 1])
+            net = torch.cat([head_tokens, net], dim=1)
+        net = self.pos_encoding(net)
+        for block in self.mixing_blocks:
+            net = block(net)
+        net = self.head(net)
+        return net
+
+
+# token mixers
+
+
+class MLPTokenMixer(TokenMixerFactory):
+    @staticmethod
+    def make(
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+        **kwargs: Any,
+    ) -> nn.Module:
+        return nn.Sequential(
+            Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
+            FeedForward(num_tokens, num_tokens, dropout),
+            Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
+        )
+
+
+class FourierTokenMixer(TokenMixerFactory):
+    @staticmethod
+    def make(
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+        **kwargs: Any,
+    ) -> nn.Module:
+        return Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
+
+
+class AttentionTokenMixer(TokenMixerFactory):
+    @staticmethod
+    def make(
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+        **kwargs: Any,
+    ) -> nn.Module:
+        qkv_bias = kwargs.get("qkv_bias", False)
+        num_heads = kwargs.get("num_heads", 8)
+        return Attention.make(
+            "basic",
+            config=dict(
+                input_dim=latent_dim,
+                dropout=dropout,
+                num_heads=num_heads,
+                in_linear_config={"bias": qkv_bias},
+                is_self_attention=True,
+            ),
+        )
 
 
 # cv
