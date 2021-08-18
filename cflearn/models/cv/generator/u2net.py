@@ -136,7 +136,7 @@ class U2NetCore(UNetBase):
         upsample_mode: str = "bilinear",
         latent_channels: int = 32,
         num_layers: int = 5,
-        max_layers: int = 7,
+        num_inner_layers: int = 7,
         lite: bool = False,
     ):
         super().__init__()
@@ -145,7 +145,7 @@ class U2NetCore(UNetBase):
         mid_nc = latent_channels // 2 if lite else latent_channels
         out_nc = latent_channels * 2
         in_nc = out_nc if lite else latent_channels
-        current_layers = max_layers
+        current_layers = num_inner_layers
 
         self.in_block = nn.Identity()
         blocks = [
@@ -164,7 +164,7 @@ class U2NetCore(UNetBase):
             else:
                 in_nc = out_nc
                 out_nc *= 2
-            current_layers = max_layers - i - 1
+            current_layers = num_inner_layers - i - 1
             blocks.append(
                 nn.Sequential(
                     nn.MaxPool2d(2, stride=2),
@@ -269,7 +269,7 @@ class U2Net(ModelProtocol):
         upsample_mode: str = "bilinear",
         latent_channels: int = 32,
         num_layers: int = 5,
-        max_layers: int = 7,
+        num_inner_layers: int = 7,
         lite: bool = False,
     ):
         super().__init__()
@@ -279,7 +279,7 @@ class U2Net(ModelProtocol):
             upsample_mode=upsample_mode,
             latent_channels=latent_channels,
             num_layers=num_layers,
-            max_layers=max_layers,
+            num_inner_layers=num_inner_layers,
             lite=lite,
         )
 
