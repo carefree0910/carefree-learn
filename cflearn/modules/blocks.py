@@ -779,7 +779,7 @@ class Attention(Module, WithRegister):
         self.is_self_attn = is_self_attention
         if not is_self_attention:
             self.k_dim = k_dim or input_dim
-            self.v_dim = v_dim or input_dim
+            self.v_dim = v_dim or self.k_dim
         else:
             if k_dim is not None and k_dim != input_dim:
                 raise ValueError("self attention is used but `k_dim` != `input_dim`")
