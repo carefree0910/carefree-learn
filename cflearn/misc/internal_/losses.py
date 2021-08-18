@@ -264,6 +264,8 @@ class MultiStageLoss(LossProtocol):
                 tag = f"{prefix}{base_loss_names}"
             else:
                 tag = f"{prefix}{'_'.join(base_loss_names)}"
+        if tag in cls.d:
+            return None
 
         @cls.register(tag)
         class _(MultiStageLoss):
