@@ -31,8 +31,11 @@ def prepare(ci: bool) -> str:
         return label_path
 
     data_root = "../data" if ci else "data"
-    dataset = f"products-10k{'_tiny' if ci else ''}"
-    data_folder = os.path.join(data_root, dataset)
+    dataset = "products-10k_tiny"
+    if not ci:
+        data_folder = data_root
+    else:
+        data_folder = os.path.join(data_root, dataset)
     src_folder = os.path.join(data_folder, "raw")
     src_rgba_folder = os.path.join(data_folder, "rgba")
     tgt_folder = os.path.join(data_folder, "products-10k")
