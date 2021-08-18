@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
@@ -219,9 +220,12 @@ class FocalLoss(LossProtocol):
         return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 
 
-class MultiStageLoss(LossProtocol):
+class MultiLoss(LossProtocol, metaclass=ABCMeta):
+    prefix: str
+
     names: Union[str, List[str]]
     configs: Dict[str, Any]
+    base_losses: nn.ModuleList
 
     def _init_config(self) -> None:
         if isinstance(self.names, str):
@@ -232,6 +236,31 @@ class MultiStageLoss(LossProtocol):
                 for name in self.names
             ]
         self.base_losses = nn.ModuleList(base_losses)
+
+    @classmethod
+    def register_(
+        cls,
+        base_loss_names: Union[str, List[str]],
+        base_configs: Optional[Dict[str, Any]] = None,
+        *,
+        tag: Optional[str] = None,
+    ) -> None:
+        if tag is None:
+            if isinstance(base_loss_names, str):
+                tag = f"{cls.prefix}_{base_loss_names}"
+            else:
+                tag = f"{cls.prefix}_{'_'.join(base_loss_names)}"
+        if tag in cls.d:
+            return None
+
+        @cls.register(tag)
+        class _(cls):
+            names = base_loss_names
+            configs = base_configs or {}
+
+
+class MultiStageLoss(MultiLoss):
+    prefix = "multi_stage"
 
     def _core(
         self,
@@ -249,28 +278,6 @@ class MultiStageLoss(LossProtocol):
                 losses[f"{loss_ins.__identifier__}{i}"] = loss
         losses[LOSS_KEY] = sum(losses.values())
         return losses
-
-    @classmethod
-    def register_(
-        cls,
-        base_loss_names: Union[str, List[str]],
-        base_configs: Optional[Dict[str, Any]] = None,
-        *,
-        tag: Optional[str] = None,
-    ) -> None:
-        if tag is None:
-            prefix = "multi_stage_"
-            if isinstance(base_loss_names, str):
-                tag = f"{prefix}{base_loss_names}"
-            else:
-                tag = f"{prefix}{'_'.join(base_loss_names)}"
-        if tag in cls.d:
-            return None
-
-        @cls.register(tag)
-        class _(MultiStageLoss):
-            names = base_loss_names
-            configs = base_configs or {}
 
 
 __all__ = [
