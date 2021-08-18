@@ -31,7 +31,7 @@ class CascadeU2Net(CascadeBase):
         lv1_model_ckpt_path: Optional[str] = None,
         latent_channels: int = 32,
         num_layers: int = 5,
-        max_layers: int = 7,
+        num_inner_layers: int = 7,
         lite: bool = False,
     ):
         super().__init__()
@@ -44,7 +44,7 @@ class CascadeU2Net(CascadeBase):
             out_channels=out_channels,
             latent_channels=latent_channels,
             num_layers=num_layers,
-            max_layers=max_layers,
+            num_inner_layers=num_inner_layers,
             lite=lite,
         )
         self.lv2_resolution = lv2_resolution
