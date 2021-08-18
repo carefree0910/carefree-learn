@@ -79,6 +79,6 @@ m = cflearn.cv.CarefreePipeline(
         "num_classes": num_classes,
     },
     fixed_steps=1 if is_ci else None,
-    valid_portion=0.0001 if is_ci else None,
+    valid_portion=0.0001 if is_ci else 1.0,
 )
 m.fit(train, valid, cuda=None if is_ci else "1")

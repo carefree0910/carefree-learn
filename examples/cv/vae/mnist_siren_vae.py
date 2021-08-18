@@ -28,6 +28,6 @@ m = cflearn.cv.CarefreePipeline(
     loss_name="vae",
     loss_metrics_weights={"kld": 0.001, "mse": 1.0},
     fixed_steps=1 if is_ci else None,
-    valid_portion=0.0001 if is_ci else None,
+    valid_portion=0.0001 if is_ci else 1.0,
 )
 m.fit(train, valid, cuda=None if is_ci else "3")
