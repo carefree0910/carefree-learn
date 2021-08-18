@@ -274,6 +274,25 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
 
 
 @MultiLoss.record_prefix()
+class MultiTaskLoss(MultiLoss):
+    prefix = "multi_task"
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        losses = {}
+        for loss_ins in self.base_losses:
+            loss = loss_ins._core(forward_results, batch, state, **kwargs)
+            losses[f"{loss_ins.__identifier__}"] = loss
+        losses[LOSS_KEY] = sum(losses.values())
+        return losses
+
+
+@MultiLoss.record_prefix()
 class MultiStageLoss(MultiLoss):
     prefix = "multi_stage"
 
