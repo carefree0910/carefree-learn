@@ -766,7 +766,7 @@ class Trainer:
         has_ckpt = terminate = False
         if self.epoch_tqdm is None:
             print(f"{INFO_PREFIX}entered training loop")
-        if configs_export_file is not None:
+        if self.is_rank_0 and configs_export_file is not None:
             configs_export_path = os.path.join(self.workplace, configs_export_file)
             with open(configs_export_path, "w") as f:
                 json.dump(self.configs, f)
