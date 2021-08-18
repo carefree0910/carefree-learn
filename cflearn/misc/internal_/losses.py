@@ -8,8 +8,10 @@ from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import Callable
 from typing import Optional
 
 from ...types import losses_type
@@ -220,6 +222,9 @@ class FocalLoss(LossProtocol):
         return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 
 
+multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
+
+
 class MultiLoss(LossProtocol, metaclass=ABCMeta):
     prefix: str
 
@@ -254,11 +259,21 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
             return None
 
         @cls.register(tag)
-        class _(cls):
+        class _(cls):  # type: ignore
             names = base_loss_names
             configs = base_configs or {}
 
+    @classmethod
+    def record_prefix(cls) -> Callable[[Type["MultiLoss"]], Type["MultiLoss"]]:
+        def _(cls_: Type[MultiLoss]) -> Type[MultiLoss]:
+            global multi_prefix_mapping
+            multi_prefix_mapping[cls_.prefix] = cls_
+            return cls_
 
+        return _
+
+
+@MultiLoss.record_prefix()
 class MultiStageLoss(MultiLoss):
     prefix = "multi_stage"
 
