@@ -864,12 +864,19 @@ def interpolate(
             if anchor is None:
                 raise ValueError("either `size` or `anchor` should be provided")
             size = (anchor.shape[2], anchor.shape[3])
+        if isinstance(size, int):
+            if src.shape[2] == src.shape[3] == size:
+                return src
+        elif src.shape[2] == size[0] and src.shape[3] == size[1]:
+            return src
         return F.interpolate(src, size=size, mode=mode, **kwargs)
     template = "`{}` will take no affect because `factor` is provided"
     if size is not None:
         print(f"{WARNING_PREFIX}{template.format('size')}")
     if anchor is not None:
         print(f"{WARNING_PREFIX}{template.format('anchor')}")
+    if factor == 1.0:
+        return src
     return F.interpolate(
         src,
         mode=mode,
