@@ -753,7 +753,8 @@ class ImageFolderDataset(Dataset):
         self.transform = Transforms.convert(transform, transform_config)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-        if self.context is not None:
+        # TODO : Change this to self.context once found out why CI breaks down
+        if getattr(self, "context", None) is not None:
             key = str(index).encode("ascii")
             item: LMDBItem = dill.loads(self.context.get(key))
             img = Image.fromarray(item.image)
