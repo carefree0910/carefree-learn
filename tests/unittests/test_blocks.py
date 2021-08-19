@@ -139,7 +139,7 @@ class TestBlocks(unittest.TestCase):
 
         output = attention(q, k, v, mask=mask).output
 
-        self.assertTrue(torch.allclose(permute(torch_output), output))
+        self.assertTrue(torch.allclose(permute(torch_output), output, atol=1.0e-4))
 
 
 if __name__ == "__main__":
