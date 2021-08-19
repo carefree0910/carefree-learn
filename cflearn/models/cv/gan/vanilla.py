@@ -26,7 +26,6 @@ class VanillaGAN(VanillaGANMixin):
         in_channels: int,
         out_channels: Optional[int] = None,
         latent_dim: int = 128,
-        latent_channels: int = 128,
         latent_resolution: int = 2,
         *,
         generator: str = "vanilla",
@@ -57,13 +56,13 @@ class VanillaGAN(VanillaGANMixin):
         shape = -1, compressed_channels, latent_resolution, latent_resolution
         self.from_latent = nn.Sequential(
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(compressed_channels, latent_channels, kernel_size=1, bias=False),
+            Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
         )
         # generator
         if generator_configs is None:
             generator_configs = {}
         generator_configs["img_size"] = img_size
-        generator_configs["latent_channels"] = latent_channels
+        generator_configs["latent_channels"] = latent_dim
         generator_configs["latent_resolution"] = latent_resolution
         generator_configs["num_upsample"] = num_upsample
         generator_configs["out_channels"] = out_channels or in_channels
