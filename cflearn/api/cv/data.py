@@ -277,6 +277,19 @@ class RGBShift(ATransforms):
         self.fn = A.RGBShift(r_shift_limit, g_shift_limit, b_shift_limit, p=p)
 
 
+@Transforms.register("solarize")
+class Solarize(ATransforms):
+    def __init__(
+        self,
+        threshold: float = 0.5,
+        p: float = 0.5,
+        *,
+        label_alias: Optional[str] = None,
+    ):
+        super().__init__(label_alias=label_alias)
+        self.fn = A.Solarize(threshold, p=p)
+
+
 @Transforms.register("gaussian_blur")
 class GaussianBlur(ATransforms):
     def __init__(
@@ -361,6 +374,7 @@ class ABundle(Compose):
                 VFlip(p, label_alias=label_alias),
                 ShiftScaleRotate(p, cv2.BORDER_CONSTANT, label_alias=label_alias),
                 RGBShift(p=p, label_alias=label_alias),
+                Solarize(p=p, label_alias=label_alias),
                 GaussianBlur(p=p, label_alias=label_alias),
                 HueSaturationValue(p=p, label_alias=label_alias),
                 RandomBrightnessContrast(p=p, label_alias=label_alias),
