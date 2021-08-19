@@ -2070,6 +2070,8 @@ class ChannelPadding(Module):
         num_classes: Optional[int] = None,
     ):
         super().__init__()
+        self.dim = dim
+        self.map_dim = map_dim
         self.is_global = map_dim is None
         self.is_conditional = num_classes is not None
         if self.is_global:
@@ -2091,3 +2093,7 @@ class ChannelPadding(Module):
             else:
                 padding = padding.repeat(1, 1, *net.shape[-2:])
         return torch.cat([net, padding], dim=1)
+
+    def extra_repr(self) -> str:
+        map_dim_str = "global" if self.is_global else f"{self.map_dim}x{self.map_dim}"
+        return f"{self.dim}, {map_dim_str}"
