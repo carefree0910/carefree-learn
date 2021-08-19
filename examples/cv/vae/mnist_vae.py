@@ -22,8 +22,8 @@ m = cflearn.cv.CarefreePipeline(
     {
         "in_channels": 1,
         "num_classes": num_classes,
-        "num_downsample": 3,
-        "latent_resolution": 4,
+        "img_size": 28,
+        "latent_channels": 64,
     },
     callback_names="generator",
     loss_metrics_weights={"kld": 0.001, "mse": 1.0},
