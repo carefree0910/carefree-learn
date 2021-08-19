@@ -9,7 +9,6 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import UpsampleConv2d
@@ -19,7 +18,6 @@ from ....modules.blocks import UpsampleConv2d
 class VanillaDecoder(DecoderBase):
     def __init__(
         self,
-        img_size: int,
         latent_channels: int,
         latent_resolution: int,
         num_upsample: int,
@@ -27,15 +25,16 @@ class VanillaDecoder(DecoderBase):
         last_kernel_size: int = 7,
         norm_type: str = "instance",
         *,
+        img_size: Optional[int] = None,
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
     ):
         super().__init__(
-            img_size,
             latent_channels,
             latent_resolution,
             num_upsample,
             out_channels,
+            img_size=img_size,
             cond_channels=cond_channels,
             num_classes=num_classes,
         )
@@ -80,7 +79,7 @@ class VanillaDecoder(DecoderBase):
     ) -> tensor_dict_type:
         batch = self._inject_cond(batch)
         net = self.decoder(batch[INPUT_KEY])
-        net = interpolate(net, size=self.img_size)
+        net = self.resize(net)
         return {PREDICTIONS_KEY: net}
 
 

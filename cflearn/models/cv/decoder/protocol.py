@@ -2,6 +2,7 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABCMeta
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Type
@@ -10,6 +11,7 @@ from cftool.misc import shallow_copy_dict
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
+from ....misc.toolkit import interpolate
 from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
@@ -24,12 +26,12 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
 
     def __init__(
         self,
-        img_size: int,
         latent_channels: int,
         latent_resolution: int,
         num_upsample: int,
         out_channels: int,
         *,
+        img_size: Optional[int] = None,
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
     ):
@@ -60,6 +62,11 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         if self.cond is not None:
             batch[INPUT_KEY] = self.cond(batch[INPUT_KEY], batch[LABEL_KEY])
         return batch
+
+    def resize(self, net: Tensor) -> Tensor:
+        if self.img_size is None:
+            return net
+        return interpolate(net, size=self.img_size)
 
     @abstractmethod
     def forward(
