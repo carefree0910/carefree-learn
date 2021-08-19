@@ -19,6 +19,7 @@ from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
+from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
 from ....modules.blocks import Conv2d
@@ -66,6 +67,9 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
                     "automatically with `img_size`)"
                 )
             latent_resolution = f_map_dim(img_size, num_downsample)
+        if img_size is None:
+            raw_size = latent_resolution * 2 ** num_downsample
+            print(f"{INFO_PREFIX}img_size is not provided, raw_size will be {raw_size}")
         self.latent_dim = latent_channels * latent_resolution ** 2
         # encoder
         if encoder1d_configs is None:
