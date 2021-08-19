@@ -4,30 +4,11 @@ channels:
 - pytorch
 dependencies:
 - python=3.6.13
-- pytorch=1.8.1
-- torchaudio=0.8.1
-- torchvision=0.9.1
+- pytorch=1.9.0
+- torchaudio=0.9.0
+- torchvision=0.10.0
 - pip
 - pip:
-  - mlflow
-  - mypy
-  - black
-  - onnx
-  - onnxruntime
-  - plotly
-  - optuna>=2.3.0
-  - carefree-ml>=0.1.1
-  - carefree-data>=0.2.4
-  - carefree-toolkit>=0.2.7
-  - dill
-  - future
-  - psutil
-  - tb-nightly
-  - cython>=0.29.12
-  - numpy>=1.19.2
-  - scipy>=1.2.1
-  - scikit-learn>=0.23.1
-  - matplotlib>=3.0.3
   - pytest
   - pytest-cov
   - git+https://github.com/carefree0910/carefree-learn.git@v0.2.x
