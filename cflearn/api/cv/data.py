@@ -493,7 +493,7 @@ def prepare_image_folder(
 ) -> None:
     if not force_rerun and all(
         os.path.isfile(os.path.join(tgt_folder, split, "labels.json"))
-        for split in ["train", "test"]
+        for split in ["train", "valid"]
     ):
         return None
 
