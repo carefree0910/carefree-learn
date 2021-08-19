@@ -5,7 +5,7 @@ from typing import Union
 from typing import Optional
 
 
-def f_map_dim(img_size: int, num_layer: int) -> int:
+def get_latent_resolution(img_size: int, num_layer: int) -> int:
     return int(round(img_size / 2 ** num_layer))
 
 

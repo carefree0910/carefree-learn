@@ -10,7 +10,7 @@ from typing import Optional
 
 from ..encoder import Encoder1DBase
 from ..decoder import DecoderBase
-from ..toolkit import f_map_dim
+from ..toolkit import get_latent_resolution
 from ..toolkit import auto_num_layers
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
@@ -66,7 +66,7 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
                     "(when `map_dim` is not provided, it will be inferred "
                     "automatically with `img_size`)"
                 )
-            latent_resolution = f_map_dim(img_size, num_downsample)
+            latent_resolution = get_latent_resolution(img_size, num_downsample)
         if img_size is None:
             raw_size = latent_resolution * 2 ** num_downsample
             print(f"{INFO_PREFIX}img_size is not provided, raw_size will be {raw_size}")
