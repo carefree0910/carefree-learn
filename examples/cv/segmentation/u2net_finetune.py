@@ -59,7 +59,7 @@ if __name__ == "__main__":
     train, valid = cflearn.cv.get_image_folder_loaders(
         prepare(is_ci),
         batch_size=16,
-        num_workers=4,
+        num_workers=2 if is_ci else 4,
         transform=cflearn.cv.ABundle(label_alias="mask"),
         test_transform=cflearn.cv.ABundleTest(label_alias="mask"),
     )
