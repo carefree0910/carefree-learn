@@ -20,6 +20,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import interpolate
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
@@ -30,59 +31,70 @@ from ....modules.blocks import ChannelPadding
 class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         out_channels: Optional[int] = None,
-        min_size: int = 2,
+        latent_channels: int = 16,
         target_downsample: int = 4,
-        latent_dim: int = 256,
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
+        img_size: Optional[int] = None,
+        min_size: int = 2,
+        num_downsample: Optional[int] = None,
+        latent_resolution: Optional[int] = None,
         encoder1d: str = "vanilla",
         decoder: str = "vanilla",
         encoder1d_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        self.img_size = img_size
-        self.latent_dim = latent_dim
+        # dimensions
         self.num_classes = num_classes
-        num_downsample = auto_num_layers(img_size, min_size, target_downsample)
-        map_dim = f_map_dim(img_size, num_downsample)
-        map_area = map_dim ** 2
-        if latent_dim % map_area != 0:
-            msg = f"`latent_dim` should be divisible by `map_area` ({map_area})"
-            raise ValueError(msg)
+        if num_downsample is None:
+            if img_size is None:
+                raise ValueError(
+                    "either `img_size` or `num_downsample` should be provided "
+                    "(when `num_downsample` is not provided, it will be inferred "
+                    "automatically with `img_size` & `min_size`)"
+                )
+            num_downsample = auto_num_layers(img_size, min_size, target_downsample)
+        if latent_resolution is None:
+            if img_size is None:
+                raise ValueError(
+                    "either `img_size` or `map_dim` should be provided "
+                    "(when `map_dim` is not provided, it will be inferred "
+                    "automatically with `img_size`)"
+                )
+            latent_resolution = f_map_dim(img_size, num_downsample)
+        self.latent_dim = latent_channels * latent_resolution ** 2
         # encoder
         if encoder1d_configs is None:
             encoder1d_configs = {}
         encoder1d_configs["img_size"] = img_size
         encoder1d_configs["in_channels"] = in_channels
-        encoder1d_configs["latent_dim"] = latent_dim
+        encoder1d_configs["latent_dim"] = self.latent_dim
         if encoder1d == "vanilla":
             encoder1d_configs["num_downsample"] = num_downsample
         self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
-        self.to_statistics = Linear(latent_dim, 2 * latent_dim, bias=False)
+        self.to_statistics = Linear(self.latent_dim, 2 * self.latent_dim, bias=False)
         # latent
-        compressed_channels = latent_dim // map_area
-        shape = -1, compressed_channels, map_dim, map_dim
-        reshape = Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}")
-        blocks: List[nn.Module] = [reshape]
+        shape = -1, latent_channels, latent_resolution, latent_resolution
+        blocks: List[nn.Module] = [
+            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
+            Conv2d(latent_channels, self.latent_dim, kernel_size=1, bias=False),
+        ]
+        latent_dim = self.latent_dim
         if latent_padding_channels is not None:
-            compressed_channels += latent_padding_channels
-            latent_padding = ChannelPadding(latent_padding_channels, map_dim)
+            latent_dim += latent_padding_channels
+            latent_padding = ChannelPadding(latent_padding_channels, latent_resolution)
             blocks.append(latent_padding)
-        self.from_latent = nn.Sequential(
-            *blocks,
-            Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
-        )
+        self.from_latent = nn.Sequential(*blocks)
         # decoder
         if decoder_configs is None:
             decoder_configs = {}
         decoder_configs["img_size"] = img_size
         decoder_configs["latent_channels"] = latent_dim
-        decoder_configs["latent_resolution"] = map_dim
+        decoder_configs["latent_resolution"] = latent_resolution
         decoder_configs["num_upsample"] = num_downsample
         decoder_configs["out_channels"] = out_channels or in_channels
         decoder_configs["num_classes"] = num_classes
@@ -112,12 +124,14 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
+        inp = batch[INPUT_KEY]
         net = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = self.reparameterize(mu, log_var)
         labels = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
         net = self.decode(net, labels=labels, **kwargs)
+        net = interpolate(net, anchor=inp)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
 
