@@ -137,9 +137,9 @@ class TestBlocks(unittest.TestCase):
         attention.out_linear.linear.weight.data = out_proj_weight
         attention.out_linear.linear.bias.data = out_proj_bias
 
-        output = attention(q, k, v, mask=mask).output
-
-        self.assertTrue(torch.allclose(permute(torch_output), output, atol=1.0e-4))
+        output = attention(q, k, v, mask=mask).output / 1000.0
+        torch_output = permute(torch_output) / 1000.0
+        self.assertTrue(torch.allclose(torch_output, output, atol=1.0e-4))
 
 
 if __name__ == "__main__":
