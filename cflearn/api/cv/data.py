@@ -1,7 +1,6 @@
 import os
 import cv2
 import json
-import math
 import shutil
 
 import numpy as np
@@ -21,9 +20,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.dist import Parallel
-from cftool.misc import grouped
 from cftool.misc import is_numeric
-from cftool.misc import grouped_into
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from albumentations.pytorch import ToTensorV2
@@ -489,6 +486,7 @@ def prepare_image_folder(
     num_jobs: int = 8,
     train_all_data: bool = False,
     valid_split: Union[int, float] = 0.1,
+    max_num_valid: int = 10000,
     copy_fn: Optional[Callable[[str, str], None]] = None,
     get_img_path_fn: Optional[Callable[[int, str, str], str]] = None,
     use_tqdm: bool = True,
@@ -503,11 +501,9 @@ def prepare_image_folder(
         src_prepare_fn(src_folder)
     os.makedirs(tgt_folder, exist_ok=True)
 
-    labels = []
-    all_img_paths = []
-
     walked = list(os.walk(src_folder))
     print("> collecting hierarchies")
+    all_img_paths = []
     hierarchy_list = []
     if extensions is None:
         extensions = {".jpg", ".png"}
@@ -521,34 +517,25 @@ def prepare_image_folder(
             hierarchy_list.append(hierarchy)
             all_img_paths.append(os.path.join(folder, file))
 
-    print("> making labels")
-
-    def task(i: int, i_hierarchy_list: List[List[str]]) -> List[Any]:
-        i_labels = []
-        iterator = tqdm(i_hierarchy_list, position=i + 1, leave=False)
-        for i_hierarchy in iterator:
+    def get_labels(fn: Callable[[List[str]], Any]) -> List[Any]:
+        def task(h: List[str]) -> Any:
             try:
-                i_labels.append(label_fn(i_hierarchy))
+                return fn(h)
             except Exception as err:
-                err_path = "/".join(i_hierarchy)
+                err_path = "/".join(h)
                 msg = f"error occurred ({err}) when getting label of {err_path}"
                 print(f"{ERROR_PREFIX}{msg}")
-                i_labels.append(None)
-        return i_labels
+                return None
 
-    if not make_labels_in_parallel:
-        labels = task(-1, hierarchy_list)
-    else:
-        labels = []
-        parallel = Parallel(num_jobs)
-        indices = list(range(num_jobs))
-        grouped_folders = grouped_into(hierarchy_list, num_jobs)
-        groups = parallel(task, indices, grouped_folders).ordered_results
-        for labels_group in groups:
-            labels.extend(labels_group)
+        if not make_labels_in_parallel:
+            return [task(h) for h in tqdm(hierarchy_list)]
+        parallel = Parallel(num_jobs, use_tqdm=use_tqdm)
+        groups = parallel.grouped(task, hierarchy_list).ordered_results
+        return sum(groups, [])
 
+    print("> making labels")
+    labels = get_labels(label_fn)
     excluded_indices = {i for i, label in enumerate(labels) if label is None}
-
     extra_labels_dict: Optional[Dict[str, List[str]]] = None
     if extra_label_names is not None:
         extra_labels_dict = {}
@@ -558,11 +545,8 @@ def prepare_image_folder(
                 "when `extra_label_names` is provided"
             )
         print("> making extra labels")
-        # TODO : support parallel here
-        for hierarchy in hierarchy_list:
-            for el_name, el_fn in zip(extra_label_names, extra_label_fns):
-                collection = extra_labels_dict.setdefault(el_name, [])
-                collection.append(el_fn(hierarchy))
+        for el_name, el_fn in zip(extra_label_names, extra_label_fns):
+            extra_labels_dict[el_name] = get_labels(el_fn)
         for extra_labels in extra_labels_dict.values():
             for i, extra_label in enumerate(extra_labels):
                 if extra_label is None:
@@ -602,15 +586,15 @@ def prepare_image_folder(
     # prepare core
     num_sample = len(all_img_paths)
     if valid_split < 1:
-        valid_split = min(10000, int(round(num_sample * valid_split)))
+        valid_split = min(max_num_valid, int(round(num_sample * valid_split)))
     assert isinstance(valid_split, int)
 
     shuffled_indices = np.random.permutation(num_sample)
     if train_all_data:
-        tr_indices = shuffled_indices
+        train_indices = shuffled_indices
     else:
-        tr_indices = shuffled_indices[:-valid_split]
-    te_indices = shuffled_indices[-valid_split:]
+        train_indices = shuffled_indices[:-valid_split]
+    valid_indices = shuffled_indices[-valid_split:]
 
     if copy_fn is None:
         copy_fn = lambda src, tgt: shutil.copy(src, tgt)
@@ -620,49 +604,28 @@ def prepare_image_folder(
             ext = os.path.splitext(src_img_path)[1]
             return os.path.join(split_folder, f"{i}{ext}")
 
-    def _split(
-        split: str,
-        split_indices: np.ndarray,
-        unit: int,
-        position: int,
-    ) -> Dict[str, Any]:
-        current_labels: Dict[str, Any] = {}
-        split_folder = os.path.join(tgt_folder, split)
-        os.makedirs(split_folder, exist_ok=True)
-        iterator = enumerate(split_indices)
-        if use_tqdm:
-            iterator = tqdm(iterator, total=len(split_indices), position=position)
-
-        assert copy_fn is not None
-        assert get_img_path_fn is not None
-
-        for i, idx in iterator:
-            i += unit * position
+    def save(indices: np.ndarray, d_num_jobs: int, dtype: str) -> None:
+        def record(idx: int) -> Optional[Dict[str, Any]]:
+            assert copy_fn is not None
+            assert get_img_path_fn is not None
+            split_folder = os.path.join(tgt_folder, dtype)
+            os.makedirs(split_folder, exist_ok=True)
             img_path = all_img_paths[idx]
-            new_img_path = get_img_path_fn(i, split_folder, img_path)
+            new_img_path = get_img_path_fn(idx, split_folder, img_path)
             try:
                 copy_fn(img_path, new_img_path)
                 key = os.path.abspath(new_img_path)
-                for label_type, type_labels in labels_dict.items():
-                    current_collection = current_labels.setdefault(label_type, {})
-                    current_collection[key] = type_labels[idx]
+                idx_labels: Dict[str, Any] = {}
+                for label_t, t_labels in labels_dict.items():
+                    idx_labels[label_t] = {key: t_labels[idx]}
+                return idx_labels
             except Exception as err:
                 print(f"error occurred with {img_path} : {err}")
-                continue
-        return current_labels
+                return None
 
-    def _save(indices_: np.ndarray, num_jobs_: int, dtype: str) -> None:
-        parallel_ = Parallel(num_jobs_)
-        unit = int(math.ceil(len(indices_) / num_jobs_))
-        indices_groups = grouped(indices_, unit, keep_tail=True)
-        parallel_(
-            _split,
-            [dtype] * num_jobs_,
-            indices_groups,
-            [unit] * num_jobs_,
-            list(range(num_jobs_)),
-        )
-        all_labels_list = parallel_.ordered_results
+        parallel = Parallel(d_num_jobs, use_tqdm=use_tqdm)
+        all_labels_list: List[Dict[str, Any]]
+        all_labels_list = sum(parallel.grouped(record, indices).ordered_results, [])
         merged_labels = all_labels_list[0]
         for sub_labels_ in all_labels_list[1:]:
             for k, v in sub_labels_.items():
@@ -685,8 +648,8 @@ def prepare_image_folder(
             with open(os.path.join(tgt_folder, dtype, label_file), "w") as f_:
                 json.dump(type_labels, f_)
 
-    _save(tr_indices, max(1, num_jobs), "train")
-    _save(te_indices, max(1, num_jobs // 2), "test")
+    save(train_indices, max(1, num_jobs), "train")
+    save(valid_indices, max(1, num_jobs // 2), "valid")
 
 
 class ImageFolderDataset(Dataset):
@@ -746,8 +709,10 @@ def get_image_folder_loaders(
     test_shuffle: Optional[bool] = None,
     test_transform: Optional[Union[str, Transforms]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
+    if test_transform is None:
+        test_transform = transform
     train_data = DLData(ImageFolderDataset(folder, "train", transform))
-    valid_data = DLData(ImageFolderDataset(folder, "test", test_transform or transform))
+    valid_data = DLData(ImageFolderDataset(folder, "valid", test_transform))
     base_kwargs = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     train_loader = DLLoader(DataLoader(train_data, **base_kwargs))  # type: ignore
     if test_shuffle is None:
