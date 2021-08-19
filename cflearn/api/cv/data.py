@@ -1,6 +1,8 @@
 import os
 import cv2
+import dill
 import json
+import lmdb
 import shutil
 
 import numpy as np
@@ -19,8 +21,11 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
+from skimage import io
 from cftool.dist import Parallel
 from cftool.misc import is_numeric
+from cftool.misc import shallow_copy_dict
 from torchvision.datasets import MNIST
 from torchvision.transforms import transforms
 from albumentations.pytorch import ToTensorV2
@@ -470,6 +475,15 @@ def get_tensor_loaders(
     return train_loader, valid_loader
 
 
+class LMDBItem(NamedTuple):
+    image: np.ndarray
+    labels: Dict[str, Any]
+
+
+def _default_lmdb_path(folder: str, split: str) -> str:
+    return f"{folder}.{split}"
+
+
 def prepare_image_folder(
     src_folder: str,
     tgt_folder: str,
@@ -489,6 +503,7 @@ def prepare_image_folder(
     max_num_valid: int = 10000,
     copy_fn: Optional[Callable[[str, str], None]] = None,
     get_img_path_fn: Optional[Callable[[int, str, str], str]] = None,
+    lmdb_configs: Optional[Dict[str, Any]] = None,
     use_tqdm: bool = True,
 ) -> None:
     if not force_rerun and all(
@@ -605,7 +620,7 @@ def prepare_image_folder(
             return os.path.join(split_folder, f"{i}{ext}")
 
     def save(indices: np.ndarray, d_num_jobs: int, dtype: str) -> None:
-        def record(idx: int) -> Optional[Dict[str, Any]]:
+        def record(idx: int) -> Optional[Tuple[str, Dict[str, Any]]]:
             assert copy_fn is not None
             assert get_img_path_fn is not None
             split_folder = os.path.join(tgt_folder, dtype)
@@ -618,17 +633,18 @@ def prepare_image_folder(
                 idx_labels: Dict[str, Any] = {}
                 for label_t, t_labels in labels_dict.items():
                     idx_labels[label_t] = {key: t_labels[idx]}
-                return idx_labels
+                return key, idx_labels
             except Exception as err:
                 print(f"error occurred with {img_path} : {err}")
                 return None
 
         parallel = Parallel(d_num_jobs, use_tqdm=use_tqdm)
-        all_labels_list: List[Dict[str, Any]]
-        all_labels_list = sum(parallel.grouped(record, indices).ordered_results, [])
-        merged_labels = all_labels_list[0]
+        results: List[Tuple[str, Dict[str, Any]]]
+        results = sum(parallel.grouped(record, indices).ordered_results, [])
+        new_paths, all_labels_list = zip(*results)
+        merged_labels = shallow_copy_dict(all_labels_list[0])
         for sub_labels_ in all_labels_list[1:]:
-            for k, v in sub_labels_.items():
+            for k, v in shallow_copy_dict(sub_labels_).items():
                 merged_labels[k].update(v)
         print(
             "\n".join(
@@ -647,6 +663,37 @@ def prepare_image_folder(
             label_file = f"{label_type}{delim}labels.json"
             with open(os.path.join(tgt_folder, dtype, label_file), "w") as f_:
                 json.dump(type_labels, f_)
+        # lmdb
+        if lmdb_configs is None:
+            return None
+        local_lmdb_configs = shallow_copy_dict(lmdb_configs)
+        local_lmdb_configs.setdefault("path", _default_lmdb_path(tgt_folder, dtype))
+        local_lmdb_configs.setdefault("map_size", 1099511627776 * 2)
+        db = lmdb.open(**local_lmdb_configs)
+        context = db.begin(write=True)
+        d_num_samples = len(indices)
+        iterator = zip(range(d_num_samples), new_paths, all_labels_list)
+        if use_tqdm:
+            iterator = tqdm(iterator, total=d_num_samples, desc="lmdb")
+        for i, path, i_labels in iterator:
+            i_new_labels = {}
+            for k, v in i_labels.items():
+                vv = v[path]
+                if isinstance(vv, str):
+                    if vv.endswith(".npy"):
+                        vv = np.load(vv)
+                i_new_labels[k] = vv
+            context.put(
+                str(i).encode("ascii"),
+                dill.dumps(LMDBItem(io.imread(path), i_new_labels)),
+            )
+        context.put(
+            "length".encode("ascii"),
+            str(d_num_samples).encode("ascii"),
+        )
+        context.commit()
+        db.sync()
+        db.close()
 
     save(train_indices, max(1, num_jobs), "train")
     save(valid_indices, max(1, num_jobs // 2), "valid")
@@ -659,30 +706,54 @@ class ImageFolderDataset(Dataset):
         split: str,
         transform: Optional[Union[str, List[str], "Transforms", Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        lmdb_configs: Optional[Dict[str, Any]] = None,
     ):
-        self.folder = os.path.abspath(os.path.join(folder, split))
-        with open(os.path.join(self.folder, "labels.json"), "r") as f:
-            self.labels = json.load(f)
-        support_appendix = {".jpg", ".png", ".npy"}
-        self.img_paths = list(
-            map(
-                lambda file: os.path.join(self.folder, file),
-                filter(
-                    lambda file: file[-4:] in support_appendix,
-                    os.listdir(self.folder),
-                ),
+        if lmdb_configs is not None:
+            self.lmdb_configs = shallow_copy_dict(lmdb_configs)
+            self.lmdb_configs.setdefault("path", _default_lmdb_path(folder, split))
+            self.lmdb_configs.setdefault("lock", False)
+            self.lmdb_configs.setdefault("meminit", False)
+            self.lmdb_configs.setdefault("readonly", True)
+            self.lmdb_configs.setdefault("readahead", False)
+            self.lmdb_configs.setdefault("max_readers", 32)
+            self.lmdb = lmdb.open(**self.lmdb_configs)
+            self.context = self.lmdb.begin(buffers=True, write=False)
+            with self.lmdb.begin(write=False) as context:
+                self.length = int(context.get("length".encode("ascii")).decode("ascii"))
+        else:
+            self.lmdb = self.context = None
+            self.folder = os.path.abspath(os.path.join(folder, split))
+            with open(os.path.join(self.folder, "labels.json"), "r") as f:
+                self.labels = json.load(f)
+            support_appendix = {".jpg", ".png", ".npy"}
+            self.img_paths = list(
+                map(
+                    lambda file: os.path.join(self.folder, file),
+                    filter(
+                        lambda file: file[-4:] in support_appendix,
+                        os.listdir(self.folder),
+                    ),
+                )
             )
-        )
+            self.length = len(self.img_paths)
         self.transform = Transforms.convert(transform, transform_config)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-        file = self.img_paths[index]
-        img = Image.open(file)
-        label = self.labels[file]
-        if is_numeric(label):
-            label = np.array([label])
-        elif isinstance(label, str) and label.endswith(".npy"):
-            label = np.load(label)
+        if self.context is not None:
+            key = str(index).encode("ascii")
+            item: LMDBItem = dill.loads(self.context.get(key))
+            img = Image.fromarray(item.image)
+            label = item.labels
+            if len(label) == 1:
+                label = list(label.values())[0]
+        else:
+            file = self.img_paths[index]
+            img = Image.open(file)
+            label = self.labels[file]
+            if is_numeric(label):
+                label = np.array([label])
+            elif isinstance(label, str) and label.endswith(".npy"):
+                label = np.load(label)
         if self.transform is None:
             img = to_torch(np.array(img).astype(np.float32))
             if isinstance(label, np.ndarray):
@@ -696,7 +767,7 @@ class ImageFolderDataset(Dataset):
         return {INPUT_KEY: self.transform(img), LABEL_KEY: label}
 
     def __len__(self) -> int:
-        return len(self.img_paths)
+        return self.length
 
 
 def get_image_folder_loaders(
@@ -708,11 +779,24 @@ def get_image_folder_loaders(
     transform: Optional[Union[str, Transforms]] = None,
     test_shuffle: Optional[bool] = None,
     test_transform: Optional[Union[str, Transforms]] = None,
+    lmdb_configs: Optional[Dict[str, Any]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
-    if test_transform is None:
-        test_transform = transform
-    train_data = DLData(ImageFolderDataset(folder, "train", transform))
-    valid_data = DLData(ImageFolderDataset(folder, "valid", test_transform))
+    train_data = DLData(
+        ImageFolderDataset(
+            folder,
+            "train",
+            transform,
+            lmdb_configs=lmdb_configs,
+        )
+    )
+    valid_data = DLData(
+        ImageFolderDataset(
+            folder,
+            "valid",
+            test_transform or transform,
+            lmdb_configs=lmdb_configs,
+        )
+    )
     base_kwargs = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
     train_loader = DLLoader(DataLoader(train_data, **base_kwargs))  # type: ignore
     if test_shuffle is None:

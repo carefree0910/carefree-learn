@@ -161,6 +161,19 @@ class DLLoader(DataLoaderProtocol):
             return batch
         return self.batch_callback(batch)
 
+    def copy(self) -> "DLLoader":
+        if not hasattr(self.data.dataset, "lmdb"):
+            copied = super().copy()
+            assert isinstance(copied, DLLoader)
+        else:
+            lmdb, context = self.data.dataset.lmdb, self.data.dataset.context
+            self.data.dataset.__dict__.pop("lmdb")
+            self.data.dataset.__dict__.pop("context")
+            copied = super().copy()
+            assert isinstance(copied, DLLoader)
+            copied.data.dataset.lmdb, copied.data.dataset.context = lmdb, context
+        return copied
+
     def disable_shuffle(self) -> None:
         sampler = SequentialSampler(self.data)
         self.loader.sampler = sampler
