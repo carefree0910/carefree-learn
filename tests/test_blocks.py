@@ -4,6 +4,7 @@ import unittest
 
 import torch.nn as nn
 
+from cflearn.misc.toolkit import inject_parameters
 from cflearn.modules.blocks import DNDF
 from cflearn.modules.blocks import Linear
 from cflearn.modules.blocks import Attention
@@ -16,18 +17,11 @@ class TestBlocks(unittest.TestCase):
         batch_size = 32
 
         net = torch.randn(batch_size, input_dim)
-        weight = torch.randn(output_dim, input_dim)
-        bias = torch.randn(output_dim)
-
         torch_linear = nn.Linear(input_dim, output_dim)
-        torch_linear.weight.data = weight
-        torch_linear.bias.data = bias
         torch_output = torch_linear(net)
 
         linear = Linear(input_dim, output_dim)
-        linear.weight.data = weight
-        assert linear.bias is not None
-        linear.bias.data = bias
+        inject_parameters(torch_linear, linear)
         output = linear(net)
 
         self.assertTrue(torch.allclose(torch_output, output))
@@ -69,10 +63,7 @@ class TestBlocks(unittest.TestCase):
             t2 = time.time()
 
             dndf_fast = DNDF(d, k, use_fast_dndf=True)
-            with torch.no_grad():
-                dndf_fast.tree_proj.weight.data = dndf.tree_proj.weight.data
-                dndf_fast.tree_proj.bias.data = dndf.tree_proj.bias.data  # type: ignore
-                dndf_fast.leaves.data = dndf.leaves.data  # type: ignore
+            inject_parameters(dndf, dndf_fast)
             net = torch.empty_like(inp).requires_grad_(True)
             net.data = inp.data
 

@@ -304,6 +304,29 @@ def softmax(arr: arr_type) -> arr_type:
     return exp / exp.sum(1, keepdims=True)
 
 
+def inject_parameters(
+    src: nn.Module,
+    tgt: nn.Module,
+    *,
+    strict: bool = True,
+    tgt_filter_fn: Optional[Callable[[str], bool]] = None,
+) -> None:
+    src_states = src.state_dict()
+    tgt_states = tgt.state_dict()
+    if tgt_filter_fn is not None:
+        pop_keys = [key for key in tgt_states if not tgt_filter_fn(key)]
+        for key in pop_keys:
+            tgt_states.pop(key)
+    if strict and len(src_states) != len(tgt_states):
+        raise ValueError(f"lengths of states are not identical between {src} and {tgt}")
+    new_states = OrderedDict()
+    for (src_k, src_v), (tgt_k, tgt_v) in zip(src_states.items(), tgt_states.items()):
+        if src_v.shape != tgt_v.shape:
+            raise ValueError(f"shape of {src_k} is not identical with shape of {tgt_k}")
+        new_states[tgt_k] = src_v
+    tgt.load_state_dict(new_states, strict=True)
+
+
 def get_gradient(
     y: torch.Tensor,
     x: torch.Tensor,
