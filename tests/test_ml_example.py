@@ -7,6 +7,13 @@ examples_folder = os.path.join(file_folder, os.pardir, "examples", "ml")
 
 
 class TestExample(unittest.TestCase):
+    def test_ddr(self) -> None:
+        folder = os.path.join(examples_folder, "ddr")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'run_ddr.py')}"),
+            0,
+        )
+
     def test_iris(self) -> None:
         folder = os.path.join(examples_folder, "iris")
         self.assertEqual(
