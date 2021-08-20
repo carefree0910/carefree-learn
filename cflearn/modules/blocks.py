@@ -809,12 +809,12 @@ class Attention(Module, WithRegister):
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
         if is_self_attention:
-            self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, self.embed_dim))
+            self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, input_dim))
             nn.init.xavier_uniform_(self.in_w)
             self.q_w = self.k_w = self.v_w = None
         else:
             self.in_w = None
-            self.q_w = nn.Parameter(torch.empty(self.embed_dim, self.embed_dim))
+            self.q_w = nn.Parameter(torch.empty(self.embed_dim, input_dim))
             self.k_w = nn.Parameter(torch.empty(self.embed_dim, self.k_dim))
             self.v_w = nn.Parameter(torch.empty(self.embed_dim, self.v_dim))
             nn.init.xavier_uniform_(self.q_w)

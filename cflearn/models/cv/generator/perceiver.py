@@ -73,4 +73,4 @@ class PerceiverIOGenerator(ModelProtocol):
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
-__all__ = ["PerceiverIO"]
+__all__ = ["PerceiverIOGenerator"]
