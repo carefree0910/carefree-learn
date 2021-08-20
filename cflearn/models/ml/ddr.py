@@ -100,11 +100,11 @@ class DDR(CustomLossBase):
         if not len(set(hidden_units)) == 1:
             raise ValueError("`DDR` requires all hidden units to be identical")
 
-        def _make_siren() -> Siren:
+        def _make_siren(_in_dim: Optional[int] = None) -> Siren:
             return Siren(
                 None,
-                1,
-                1,
+                _in_dim or 1,
+                out_dim,
                 hidden_units[0],  # type: ignore
                 num_layers=len(hidden_units),  # type: ignore
                 w_sin=w_sin,
@@ -117,7 +117,7 @@ class DDR(CustomLossBase):
         self.predict_quantiles = predict_quantiles
         self.predict_cdf = predict_cdf
         self.q_siren = None if not predict_quantiles else _make_siren()
-        self.cdf_siren = None if not predict_cdf else _make_siren()
+        self.cdf_siren = None if not predict_cdf else _make_siren(out_dim)
         self.num_random_samples = num_random_samples
         self._y_min_max = y_min_max
 
@@ -133,8 +133,8 @@ class DDR(CustomLossBase):
         mods: List[Tensor],
         median: Tensor,
     ) -> Tuple[Tensor, Tensor]:
-        q_increment = self.q_siren(mods, init=tau).squeeze(-1)  # type: ignore
-        return q_increment, median + q_increment
+        q_increment = self.q_siren(mods, init=tau)  # type: ignore
+        return q_increment, median[:, None] + q_increment
 
     def _get_cdf(
         self,
@@ -222,7 +222,7 @@ class DDR(CustomLossBase):
             )
         # dual forward
         if get_quantiles and get_cdf:
-            dual_y = results["quantiles"].unsqueeze(2).detach()
+            dual_y = results["quantiles"].detach()
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, mods)[-1]
         return results
 
@@ -272,15 +272,16 @@ class DDRLoss(LossProtocol):
         mae = F.l1_loss(median, labels, reduction="none")
         losses["mae"] = mae
         weighted_losses.append(mae)
+        # TODO : double check the following implementations
         # quantiles
         if all_exists(tau, quantiles, q_increment):
-            quantile_error = labels - quantiles
-            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)  # type: ignore
+            quantile_error = labels[:, None] - quantiles
+            tau_raw = 0.5 * (tau.detach() + 1.0)  # type: ignore
             neg_errors = tau_raw * quantile_error
             pos_errors = (tau_raw - 1.0) * quantile_error
-            q_loss = torch.max(neg_errors, pos_errors).mean(1, keepdim=True)
+            q_loss = torch.max(neg_errors, pos_errors).mean((1, 2), keepdim=True)
             g_tau = get_gradient(q_increment, tau, retain_graph=True, create_graph=True)  # type: ignore
-            g_tau_loss = F.relu(-g_tau.squeeze(-1), inplace=True).mean(1, keepdim=True)  # type: ignore
+            g_tau_loss = F.relu(-g_tau, inplace=True).mean((1, 2), keepdim=True)  # type: ignore
             losses["q"] = q_loss
             losses["g_tau"] = g_tau_loss
             weighted_losses.append(self.lb_ddr * q_loss)
@@ -288,8 +289,9 @@ class DDRLoss(LossProtocol):
         # cdf
         if all_exists(cdf, pdf, logit, y_anchor):
             indicative = (labels <= y_anchor).to(torch.float32)
-            cdf_loss = (-indicative * logit + F.softplus(logit)).mean(1, keepdim=True)
-            pdf_loss = F.relu(-pdf, inplace=True).mean(1, keepdim=True)  # type: ignore
+            cdf_loss = -indicative * logit + F.softplus(logit)
+            cdf_loss = cdf_loss.mean((1, 2), keepdim=True)
+            pdf_loss = F.relu(-pdf, inplace=True).mean((1, 2), keepdim=True)  # type: ignore
             losses["cdf"] = cdf_loss
             losses["pdf"] = pdf_loss
             weighted_losses.append(self.lb_ddr * cdf_loss)
