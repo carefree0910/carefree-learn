@@ -5,26 +5,47 @@ import unittest
 import torch.nn as nn
 
 from cflearn.misc.toolkit import inject_parameters
+from cflearn.modules.blocks import BN
+from cflearn.modules.blocks import EMA
 from cflearn.modules.blocks import DNDF
+from cflearn.modules.blocks import Conv2d
 from cflearn.modules.blocks import Linear
+from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
 
 
 class TestBlocks(unittest.TestCase):
-    def test_linear(self) -> None:
-        input_dim = 256
-        output_dim = 512
-        batch_size = 32
+    def test_lambda(self) -> None:
+        inp = torch.randn(2, 3, 4, 5)
+        self.assertTrue(
+            torch.allclose(
+                Lambda(lambda net: net + 1)(inp),
+                inp + 1,
+            )
+        )
 
-        net = torch.randn(batch_size, input_dim)
-        torch_linear = nn.Linear(input_dim, output_dim)
-        torch_output = torch_linear(net)
+    def test_bn(self) -> None:
+        bn = BN(128)
+        self.assertSequenceEqual(bn(torch.randn(4, 128)).shape, [4, 128])
+        self.assertSequenceEqual(bn(torch.randn(4, 8, 128)).shape, [4, 8, 128])
 
-        linear = Linear(input_dim, output_dim)
-        inject_parameters(torch_linear, linear)
-        output = linear(net)
-
-        self.assertTrue(torch.allclose(torch_output, output))
+    def test_ema(self) -> None:
+        decay = 0.9
+        p1 = nn.Parameter(torch.randn(2, 3, 4, 5))
+        p2 = nn.Parameter(torch.randn(2, 3, 4, 5))
+        p3 = nn.Parameter(torch.randn(2, 3, 4, 5))
+        gt = p1.data
+        gt = decay * gt + (1.0 - decay) * p2.data
+        gt = decay * gt + (1.0 - decay) * p3.data
+        ema = EMA(decay, [("test", p1)])
+        p1.data = p2.data
+        ema()
+        p1.data = p3.data
+        ema()
+        ema.eval()
+        self.assertTrue(torch.allclose(p1.data, gt.data))
+        ema.train()
+        self.assertTrue(torch.allclose(p1.data, p3.data))
 
     def test_dndf(self) -> None:
         input_dim = 256
@@ -108,6 +129,58 @@ class TestBlocks(unittest.TestCase):
         output = attention(q, k, v, mask=mask).output
         torch_output = permute(torch_output)
         self.assertTrue(torch.allclose(torch_output, output, atol=1.0e-4))
+
+    def test_linear(self) -> None:
+        input_dim = 256
+        output_dim = 512
+        batch_size = 32
+
+        net = torch.randn(batch_size, input_dim)
+        torch_linear = nn.Linear(input_dim, output_dim)
+        torch_output = torch_linear(net)
+
+        linear = Linear(input_dim, output_dim)
+        inject_parameters(torch_linear, linear)
+        output = linear(net)
+
+        self.assertTrue(torch.allclose(torch_output, output))
+
+    def test_conv2d(self) -> None:
+        batch_size = 32
+        h = w = 32
+        in_channels = 16
+        out_channels = 128
+        kernel_size = 4
+        stride = 2
+        padding = 1
+        dilation = 2
+        groups = 2
+
+        net = torch.randn(batch_size, in_channels, h, w)
+        torch_conv2d = nn.Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size,
+            stride,
+            padding,
+            dilation,
+            groups,
+        )
+        torch_output = torch_conv2d(net)
+
+        conv2d = Conv2d(
+            in_channels,
+            out_channels,
+            kernel_size=kernel_size,
+            groups=groups,
+            stride=stride,
+            dilation=dilation,
+            padding=padding,
+        )
+        inject_parameters(torch_conv2d, conv2d)
+        output = conv2d(net)
+
+        self.assertTrue(torch.allclose(torch_output, output))
 
 
 if __name__ == "__main__":
