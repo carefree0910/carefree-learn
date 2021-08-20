@@ -64,6 +64,8 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
 
 @MLCoreProtocol.register("ddr")
 class DDR(CustomLossBase):
+    use_grad_in_summary = True
+
     def __init__(
         self,
         in_dim: int,

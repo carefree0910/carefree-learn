@@ -454,7 +454,7 @@ def summary(
     model.apply(register_hook)
 
     # make a forward pass
-    with eval_context(model):
+    with eval_context(model, use_grad=getattr(model, "use_grad_in_summary", False)):
         if not hasattr(model, "summary_forward"):
             model(0, sample_batch)
         else:
