@@ -25,8 +25,9 @@ class ViTEncoder(Encoder1DFromPatches):
         dropout: float = 0.0,
         norm_type: str = "batch_norm",
         feedforward_dim_ratio: float = 4.0,
-        qkv_bias: bool = False,
+        bias: bool = False,
         num_heads: int = 8,
+        **attention_kwargs: Any,
     ):
         super().__init__(
             img_size,
@@ -45,8 +46,9 @@ class ViTEncoder(Encoder1DFromPatches):
             feedforward_dim_ratio=feedforward_dim_ratio,
             use_head_token=True,
             use_positional_encoding=True,
-            qkv_bias=qkv_bias,
+            bias=bias,
             num_heads=num_heads,
+            **attention_kwargs,
         )
 
     def from_patches(

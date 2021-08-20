@@ -1,3 +1,5 @@
+from typing import Any
+
 from .protocol import MixedStackedModel
 from ...modules.blocks import AttentionTokenMixer
 
@@ -16,8 +18,9 @@ class Transformer(MixedStackedModel):
         norm_type: str = "batch_norm",
         feedforward_dim_ratio: float = 4.0,
         use_head_token: bool = False,
-        qkv_bias: bool = False,
+        bias: bool = False,
         num_heads: int = 8,
+        **attention_kwargs: Any,
     ):
         super().__init__(
             in_dim,
@@ -31,8 +34,9 @@ class Transformer(MixedStackedModel):
             feedforward_dim_ratio=feedforward_dim_ratio,
             use_head_token=use_head_token,
             use_positional_encoding=True,
-            qkv_bias=qkv_bias,
+            bias=bias,
             num_heads=num_heads,
+            **attention_kwargs,
         )
 
 

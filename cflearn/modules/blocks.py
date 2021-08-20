@@ -1710,18 +1710,12 @@ class AttentionTokenMixer(TokenMixerFactory):
         dropout: float,
         **kwargs: Any,
     ) -> nn.Module:
-        qkv_bias = kwargs.get("qkv_bias", False)
-        num_heads = kwargs.get("num_heads", 8)
-        return Attention.make(
-            "basic",
-            config=dict(
-                input_dim=latent_dim,
-                num_heads=num_heads,
-                bias=qkv_bias,
-                dropout=dropout,
-                is_self_attention=True,
-            ),
-        )
+        kwargs.setdefault("bias", False)
+        kwargs.setdefault("num_heads", 8)
+        kwargs["dropout"] = dropout
+        kwargs["input_dim"] = latent_dim
+        kwargs["is_self_attention"] = True
+        return Attention.make("basic", config=kwargs)
 
 
 # cv
