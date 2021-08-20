@@ -30,7 +30,6 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
-from ..constants import WARNING_PREFIX
 from ..misc.toolkit import interpolate
 from ..misc.toolkit import Initializer
 from ..misc.toolkit import WithRegister
@@ -779,6 +778,7 @@ class Attention(Module, WithRegister):
         input_dim: int,
         num_heads: int = 1,
         *,
+        bias: bool = True,
         dropout: float = 0.0,
         is_self_attention: bool = False,
         k_dim: Optional[int] = None,
@@ -786,10 +786,6 @@ class Attention(Module, WithRegister):
         embed_dim: Optional[int] = None,
         activation: Optional[str] = None,
         activation_config: Optional[Dict[str, Any]] = None,
-        q_linear_config: Optional[Dict[str, Any]] = None,
-        k_linear_config: Optional[Dict[str, Any]] = None,
-        v_linear_config: Optional[Dict[str, Any]] = None,
-        in_linear_config: Optional[Dict[str, Any]] = None,
         out_linear_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -812,33 +808,22 @@ class Attention(Module, WithRegister):
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
-        def _warn(prefix: str) -> None:
-            print(
-                f"{WARNING_PREFIX}self attention is used so `{prefix}_linear_config` "
-                "will be ignored, please use `in_linear_config` instead"
-            )
-
-        if q_linear_config is None:
-            q_linear_config = {}
-        elif is_self_attention:
-            _warn("q")
-        if k_linear_config is None:
-            k_linear_config = {}
-        elif is_self_attention:
-            _warn("k")
-        if v_linear_config is None:
-            v_linear_config = {}
-        elif is_self_attention:
-            _warn("v")
-
         if is_self_attention:
-            if in_linear_config is None:
-                in_linear_config = {}
-            self.in_linear = Linear(input_dim, 3 * self.embed_dim, **in_linear_config)
+            self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, self.embed_dim))
+            nn.init.xavier_uniform_(self.in_w)
+            self.q_w = self.k_w = self.v_w = None
         else:
-            self.q_linear = Linear(input_dim, self.embed_dim, **q_linear_config)
-            self.k_linear = Linear(self.k_dim, self.embed_dim, **k_linear_config)
-            self.v_linear = Linear(self.v_dim, self.embed_dim, **v_linear_config)
+            self.in_w = None
+            self.q_w = nn.Parameter(torch.empty(self.embed_dim, self.embed_dim))
+            self.k_w = nn.Parameter(torch.empty(self.embed_dim, self.k_dim))
+            self.v_w = nn.Parameter(torch.empty(self.embed_dim, self.v_dim))
+            nn.init.xavier_uniform_(self.q_w)
+            nn.init.xavier_uniform_(self.k_w)
+            nn.init.xavier_uniform_(self.v_w)
+        if not bias:
+            self.qkv_bias = None
+        else:
+            self.qkv_bias = nn.Parameter(torch.zeros(3 * self.embed_dim))
 
         if out_linear_config is None:
             out_linear_config = {}
@@ -870,14 +855,19 @@ class Attention(Module, WithRegister):
         # `mask` represents slots which will be zeroed
         k_len = k.shape[1]
         if self.is_self_attn:
-            q, k, v = self.in_linear(q).chunk(3, dim=-1)
+            qkv = F.linear(q, self.in_w, self.qkv_bias)
+            q, k, v = qkv.chunk(3, dim=-1)
         else:
+            if self.qkv_bias is None:
+                q_bias = k_bias = v_bias = None
+            else:
+                q_bias, k_bias, v_bias = self.qkv_bias.chunk(3)
             # B, Sq, Din -> B, Sq, D
-            q = self.q_linear(q)
+            q = F.linear(q, self.q_w, q_bias)
             # B, Sk, Dk -> B, Sk, D
-            k = self.k_linear(k)
+            k = F.linear(k, self.k_w, k_bias)
             # B, Sv, Dv -> B, Sk, D
-            v = self.v_linear(v)
+            v = F.linear(v, self.v_w, v_bias)
         q, k, v = map(self.activation, [q, k, v])
         # scale
         q = q * self.scaling
@@ -926,10 +916,6 @@ class DecayedAttention(Attention):
         embed_dim: Optional[int] = None,
         activation: Optional[str] = None,
         activation_config: Optional[Dict[str, Any]] = None,
-        q_linear_config: Optional[Dict[str, Any]] = None,
-        k_linear_config: Optional[Dict[str, Any]] = None,
-        v_linear_config: Optional[Dict[str, Any]] = None,
-        in_linear_config: Optional[Dict[str, Any]] = None,
         out_linear_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
@@ -942,10 +928,6 @@ class DecayedAttention(Attention):
             embed_dim=embed_dim,
             activation=activation,
             activation_config=activation_config,
-            q_linear_config=q_linear_config,
-            k_linear_config=k_linear_config,
-            v_linear_config=v_linear_config,
-            in_linear_config=in_linear_config,
             out_linear_config=out_linear_config,
         )
         mask = np.zeros([seq_len, seq_len], dtype=np.float32)
