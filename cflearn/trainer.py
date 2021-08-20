@@ -207,7 +207,7 @@ def _setup_ddp(
     rank: int,
     world_size: int,
     *,
-    backend: str = "gloo",
+    backend: str = "nccl",
     port: str = "12355",
 ) -> None:
     os.environ["MASTER_ADDR"] = "localhost"
