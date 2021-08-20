@@ -4,6 +4,7 @@ import json
 import math
 import torch
 
+import torch.nn as nn
 import torch.distributed as dist
 
 from typing import Any
@@ -43,6 +44,7 @@ from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
 from .misc.toolkit import to_device
+from .misc.toolkit import has_batch_norms
 from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
@@ -395,6 +397,8 @@ class Trainer:
         self.monitors = [] if not self.is_rank_0 else [ConservativeMonitor()]
         # ddp setup
         _setup_ddp(**self.ddp_config)
+        if has_batch_norms(self.model):
+            self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
         self.ddp_model = DDP(self.model.to(self.rank), device_ids=[self.rank])
 
     def _init_finetune(self) -> None:

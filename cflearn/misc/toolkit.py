@@ -304,6 +304,14 @@ def softmax(arr: arr_type) -> arr_type:
     return exp / exp.sum(1, keepdims=True)
 
 
+def has_batch_norms(m: nn.Module) -> bool:
+    bn_types = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)
+    for name, module in m.named_modules():
+        if isinstance(module, bn_types):
+            return True
+    return False
+
+
 def inject_parameters(
     src: nn.Module,
     tgt: nn.Module,
