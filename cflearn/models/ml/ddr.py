@@ -122,12 +122,13 @@ class DDR(CustomLossBase):
         self.cdf_siren = None if not predict_cdf else _make_siren(out_dim)
         self.num_random_samples = num_random_samples
         self._y_min_max = y_min_max
+        self.register_buffer("y_min_max", torch.tensor([0.0, 0.0]))
 
     def _init_with_trainer(self, trainer: Any) -> None:
         if self._y_min_max is None:
             y_train = trainer.train_loader.data.y
             self._y_min_max = y_train.min().item(), y_train.max().item()
-        self.register_buffer("y_min_max", torch.tensor(self._y_min_max))
+        self.y_min_max = torch.tensor(self._y_min_max)
 
     def _get_quantiles(
         self,
@@ -147,7 +148,7 @@ class DDR(CustomLossBase):
     ) -> Tuple[Tensor, Tensor, Tensor]:
         y_residual = y_anchor - median.unsqueeze(1)
         y_ratio = y_residual / y_span
-        logit = self.cdf_siren(mods, init=y_ratio).squeeze(-1)  # type: ignore
+        logit = self.cdf_siren(mods, init=y_ratio)  # type: ignore
         cdf = torch.sigmoid(logit)
         return y_ratio, logit, cdf
 
@@ -213,10 +214,10 @@ class DDR(CustomLossBase):
                     y_anchor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
             y_anchor.requires_grad_(True)
             y_ratio, logit, cdf = self._get_cdf(y_anchor, median, y_span, mods)
-            pdf = get_gradient(cdf, y_anchor, True, True).squeeze(-1)  # type: ignore
+            pdf = get_gradient(cdf, y_anchor, True, True)  # type: ignore
             results.update(
                 {
-                    "y_anchor": y_anchor.squeeze(-1),
+                    "y_anchor": y_anchor,
                     "logit": logit,
                     "cdf": cdf,
                     "pdf": pdf,
@@ -274,10 +275,10 @@ class DDRLoss(LossProtocol):
         mae = F.l1_loss(median, labels, reduction="none")
         losses["mae"] = mae
         weighted_losses.append(mae)
-        # TODO : double check the following implementations
         # quantiles
+        labels = labels[:, None]
         if all_exists(tau, quantiles, q_increment):
-            quantile_error = labels[:, None] - quantiles
+            quantile_error = labels - quantiles
             tau_raw = 0.5 * (tau.detach() + 1.0)  # type: ignore
             neg_errors = tau_raw * quantile_error
             pos_errors = (tau_raw - 1.0) * quantile_error
@@ -300,7 +301,7 @@ class DDRLoss(LossProtocol):
             weighted_losses.append(self.lb_monotonous * pdf_loss)
         # dual
         if all_exists(dual_cdf):
-            tau_raw = 0.5 * (tau.squeeze(-1).detach() + 1.0)  # type: ignore
+            tau_raw = 0.5 * (tau.detach() + 1.0)  # type: ignore
             tau_recover_loss = F.l1_loss(tau_raw, dual_cdf)  # type: ignore
             losses["tau_recover"] = tau_recover_loss
             weighted_losses.append(self.lb_dual * tau_recover_loss)
@@ -410,6 +411,9 @@ class DDRVisualizer:
         # quantile curves
         if self.m.predict_quantiles:
             quantile_curves = self.predictor.quantile(x_base, ratios)
+            if quantile_curves.shape[-1] != 1:
+                raise ValueError("`out_dim` > 1 is not supported")
+            quantile_curves = quantile_curves[..., 0]
             for q, quantile_curve in zip(ratios, quantile_curves.T):
                 plt.plot(x_base.ravel(), quantile_curve, label=f"quantile {q:4.2f}")
             DDRVisualizer._render_figure(*render_args)
@@ -417,6 +421,9 @@ class DDRVisualizer:
         if self.m.predict_cdf:
             anchors = [ratio * (y_max - y_min) + y_min for ratio in ratios]
             cdfs, pdfs = self.predictor.cdf_pdf(x_base, anchors)
+            if cdfs.shape[-1] != 1 or pdfs.shape[-1] != 1:
+                raise ValueError("`out_dim` > 1 is not supported")
+            cdfs, pdfs = cdfs[..., 0], pdfs[..., 0]
             for ratio, anchor, cdf, pdf in zip(ratios, anchors, cdfs.T, pdfs.T):
                 anchor_line = np.full(len(x_base), anchor)
                 plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
@@ -473,6 +480,7 @@ class DDRVisualizer:
 
         if self.m.predict_quantiles:
             yq_predictions = self.predictor.quantile(x_base, ratios)
+            yq_predictions = yq_predictions[..., 0]
             for q, yq_pred in zip(ratios, yq_predictions.T):
                 yq = np.percentile(y_matrix, int(100 * q), axis=1)
                 _plot("quantile", q, yq, yq_pred, None)
@@ -484,6 +492,7 @@ class DDRVisualizer:
                 anchor_line = np.full(len(x_base), anchor)
                 yd = np.mean(y_matrix <= anchor, axis=1) * y_diff + y_min
                 cdf, pdf = self.predictor.cdf_pdf(x_base, anchor)
+                cdf, pdf = cdf[..., 0], pdf[..., 0]
                 cdf = cdf * y_diff + y_min
                 _plot("cdf", anchor, yd, cdf, anchor_line)
                 _plot("pdf", anchor, None, pdf, anchor_line)
