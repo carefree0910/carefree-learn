@@ -21,7 +21,7 @@ from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 
 
-class UnetDecoderBlock(nn.Module):
+class UNetDecoderBlock(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -59,7 +59,7 @@ class UnetDecoderBlock(nn.Module):
         return self.net(net)
 
 
-class UnetDecoder(nn.Module):
+class UNetDecoder(nn.Module):
     def __init__(self, backbone_channels: List[int], **kwargs: Any):
         super().__init__()
         in_channels = backbone_channels[::-1]
@@ -67,7 +67,7 @@ class UnetDecoder(nn.Module):
         out_channels = skip_channels.copy()
         out_channels[-1] = in_channels[-1]
         blocks = [
-            UnetDecoderBlock(in_ch, skip_ch, out_ch, **kwargs)
+            UNetDecoderBlock(in_ch, skip_ch, out_ch, **kwargs)
             for in_ch, skip_ch, out_ch in zip(in_channels, skip_channels, out_channels)
         ]
         self.blocks = nn.ModuleList(blocks)
@@ -86,7 +86,7 @@ class UnetDecoder(nn.Module):
 
 
 @ModelProtocol.register("unet")
-class UnetGenerator(ModelProtocol):
+class UNet(ModelProtocol):
     def __init__(
         self,
         in_channels: int,
@@ -102,15 +102,15 @@ class UnetGenerator(ModelProtocol):
         if increment_config is None:
             raise ValueError(
                 "`increment_config` should be provided in `BackboneEncoder` "
-                "for `UnetGenerator`"
+                "for `UNetGenerator`"
             )
         backbone_channels = increment_config.get("out_channels")
         if backbone_channels is None:
             raise ValueError(
                 "`out_channels` should be provided in `increment_config` "
-                "for `UnetGenerator`"
+                "for `UNetGenerator`"
             )
-        self.decoder = UnetDecoder(backbone_channels, **(decoder_config or {}))
+        self.decoder = UNetDecoder(backbone_channels, **(decoder_config or {}))
         self.head = Conv2d(backbone_channels[0], out_channels, kernel_size=3)
 
     def forward(
@@ -130,4 +130,4 @@ class UnetGenerator(ModelProtocol):
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
-__all__ = ["UnetGenerator"]
+__all__ = ["UNet"]

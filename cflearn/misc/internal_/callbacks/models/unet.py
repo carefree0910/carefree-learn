@@ -6,7 +6,7 @@ from .....misc.toolkit import eval_context
 
 
 @AlphaSegmentationCallback.register("unet")
-class UnetCallback(AlphaSegmentationCallback):
+class UNetCallback(AlphaSegmentationCallback):
     key = "images"
 
     def log_artifacts(self, trainer: Trainer) -> None:
@@ -20,5 +20,5 @@ class UnetCallback(AlphaSegmentationCallback):
 
 
 __all__ = [
-    "UnetCallback",
+    "UNetCallback",
 ]
