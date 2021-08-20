@@ -1716,9 +1716,9 @@ class AttentionTokenMixer(TokenMixerFactory):
             "basic",
             config=dict(
                 input_dim=latent_dim,
-                dropout=dropout,
                 num_heads=num_heads,
-                in_linear_config={"bias": qkv_bias},
+                bias=qkv_bias,
+                dropout=dropout,
                 is_self_attention=True,
             ),
         )
