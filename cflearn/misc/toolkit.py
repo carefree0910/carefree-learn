@@ -118,6 +118,169 @@ def to_standard(arr: np.ndarray) -> np.ndarray:
     return arr
 
 
+def parse_args(args: Any) -> Namespace:
+    return Namespace(**{k: None if not v else v for k, v in args.__dict__.items()})
+
+
+def parse_path(path: Optional[str], root_dir: Optional[str]) -> Optional[str]:
+    if path is None:
+        return None
+    if root_dir is None:
+        return path
+    return os.path.abspath(os.path.join(root_dir, path))
+
+
+def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
+    frame = inspect.currentframe().f_back  # type: ignore
+    if frame is None:
+        raise ValueError("`get_arguments` should be called inside a frame")
+    arguments = inspect.getargvalues(frame)[-1]
+    if pop_class_attributes:
+        arguments.pop("self", None)
+        arguments.pop("__class__", None)
+    return arguments
+
+
+def _rmtree(folder: str, patience: float = 10.0) -> None:
+    if not os.path.isdir(folder):
+        return None
+    t = time.time()
+    while True:
+        try:
+            if time.time() - t >= patience:
+                prefix = LoggingMixin.warning_prefix
+                print(f"\n{prefix}failed to rmtree: {folder}")
+                break
+            shutil.rmtree(folder)
+            break
+        except:
+            print("", end=".", flush=True)
+            time.sleep(1)
+
+
+T = TypeVar("T")
+
+
+class WithRegister(Generic[T]):
+    d: Dict[str, Type[T]]
+    __identifier__: str
+
+    @classmethod
+    def get(cls, name: str) -> Type[T]:
+        return cls.d[name]
+
+    @classmethod
+    def make(cls, name: str, config: Dict[str, Any]) -> T:
+        return cls.get(name)(**config)  # type: ignore
+
+    @classmethod
+    def make_multiple(
+        cls,
+        names: Union[str, List[str]],
+        configs: Optional[Dict[str, Any]] = None,
+    ) -> Union[T, List[T]]:
+        if configs is None:
+            configs = {}
+        if isinstance(names, str):
+            return cls.make(names, configs)  # type: ignore
+        return [
+            cls.make(name, shallow_copy_dict(configs.get(name, {})))  # type: ignore
+            for name in names
+        ]
+
+    @classmethod
+    def register(cls, name: str) -> Callable[[Type], Type]:
+        def before(cls_: Type) -> None:
+            cls_.__identifier__ = name
+
+        return register_core(name, cls.d, before_register=before)
+
+
+class WeightsStrategy:
+    def __init__(self, strategy: Optional[str]):
+        self.strategy = strategy
+
+    def __call__(self, num_train: int, num_valid: int) -> sample_weights_type:
+        if self.strategy is None:
+            return None
+        return getattr(self, self.strategy)(num_train, num_valid)
+
+    def linear_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        return np.linspace(0, 1, num_train + 1)[1:]
+
+    def radius_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        return np.sin(np.arccos(1.0 - np.linspace(0, 1, num_train + 1)[1:]))
+
+    def log_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        return np.log(np.arange(num_train) + np.e)
+
+    def sigmoid_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
+        x = np.linspace(-5.0, 5.0, num_train)
+        return 1.0 / (1.0 + np.exp(-x))
+
+    def visualize(self, export_path: str = "weights_strategy.png") -> None:
+        n = 1000
+        x = np.linspace(0, 1, n)
+        y = self(n, 0)
+        if isinstance(y, tuple):
+            y = y[0]
+        plt.figure()
+        plt.plot(x, y)
+        show_or_save(export_path)
+
+
+class LoggingMixinWithRank(LoggingMixin):
+    is_rank_0: bool = True
+
+    def set_rank_0(self, value: bool) -> None:
+        self.is_rank_0 = value
+        for v in self.__dict__.values():
+            if isinstance(v, LoggingMixinWithRank):
+                v.set_rank_0(value)
+
+    def _init_logging(
+        self,
+        verbose_level: Optional[int] = 2,
+        trigger: bool = True,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        super()._init_logging(verbose_level, trigger)
+
+    def log_msg(
+        self,
+        body: str,
+        prefix: str = "",
+        verbose_level: Optional[int] = 1,
+        msg_level: int = logging.INFO,
+        frame: Any = None,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        super().log_msg(body, prefix, verbose_level, msg_level, frame)
+
+    def log_block_msg(
+        self,
+        body: str,
+        prefix: str = "",
+        title: str = "",
+        verbose_level: Optional[int] = 1,
+        msg_level: int = logging.INFO,
+        frame: Any = None,
+    ) -> None:
+        if not self.is_rank_0:
+            return None
+        super().log_block_msg(body, prefix, title, verbose_level, msg_level, frame)
+
+    def log_timing(self) -> None:
+        if not self.is_rank_0:
+            return None
+        return super().log_timing()
+
+
+# dl
+
+
 def to_torch(arr: np.ndarray) -> torch.Tensor:
     return torch.from_numpy(to_standard(arr))
 
@@ -133,36 +296,12 @@ def to_device(batch: tensor_dict_type, device: torch.device) -> tensor_dict_type
     }
 
 
-def parse_args(args: Any) -> Namespace:
-    return Namespace(**{k: None if not v else v for k, v in args.__dict__.items()})
-
-
-def parse_path(path: Optional[str], root_dir: Optional[str]) -> Optional[str]:
-    if path is None:
-        return None
-    if root_dir is None:
-        return path
-    return os.path.abspath(os.path.join(root_dir, path))
-
-
-def scheduler_requires_metric(scheduler: Any) -> bool:
-    signature = inspect.signature(scheduler.step)
-    for name, param in signature.parameters.items():
-        if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-            if name == "metrics":
-                return True
-    return False
-
-
-def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
-    frame = inspect.currentframe().f_back  # type: ignore
-    if frame is None:
-        raise ValueError("`get_arguments` should be called inside a frame")
-    arguments = inspect.getargvalues(frame)[-1]
-    if pop_class_attributes:
-        arguments.pop("self", None)
-        arguments.pop("__class__", None)
-    return arguments
+def softmax(arr: arr_type) -> arr_type:
+    if isinstance(arr, torch.Tensor):
+        return F.softmax(arr, dim=1)
+    logits = arr - np.max(arr, axis=1, keepdims=True)
+    exp = np.exp(logits)
+    return exp / exp.sum(1, keepdims=True)
 
 
 def get_gradient(
@@ -180,6 +319,15 @@ def get_gradient(
 def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
     for param in module.parameters():
         param.requires_grad = requires_grad
+
+
+def scheduler_requires_metric(scheduler: Any) -> bool:
+    signature = inspect.signature(scheduler.step)
+    for name, param in signature.parameters.items():
+        if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+            if name == "metrics":
+                return True
+    return False
 
 
 # This is a modified version of https://github.com/sksq96/pytorch-summary
@@ -375,23 +523,6 @@ def summary(
     return msg
 
 
-def _rmtree(folder: str, patience: float = 10.0) -> None:
-    if not os.path.isdir(folder):
-        return None
-    t = time.time()
-    while True:
-        try:
-            if time.time() - t >= patience:
-                prefix = LoggingMixin.warning_prefix
-                print(f"\n{prefix}failed to rmtree: {folder}")
-                break
-            shutil.rmtree(folder)
-            break
-        except:
-            print("", end=".", flush=True)
-            time.sleep(1)
-
-
 class mode_context(context_error_handler):
     """
     Help entering specific mode and recovering previous mode
@@ -460,55 +591,6 @@ class eval_context(mode_context):
 
     def __init__(self, module: nn.Module, *, use_grad: bool = False):
         super().__init__(module, to_train=False, use_grad=use_grad)
-
-
-class LoggingMixinWithRank(LoggingMixin):
-    is_rank_0: bool = True
-
-    def set_rank_0(self, value: bool) -> None:
-        self.is_rank_0 = value
-        for v in self.__dict__.values():
-            if isinstance(v, LoggingMixinWithRank):
-                v.set_rank_0(value)
-
-    def _init_logging(
-        self,
-        verbose_level: Optional[int] = 2,
-        trigger: bool = True,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        super()._init_logging(verbose_level, trigger)
-
-    def log_msg(
-        self,
-        body: str,
-        prefix: str = "",
-        verbose_level: Optional[int] = 1,
-        msg_level: int = logging.INFO,
-        frame: Any = None,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        super().log_msg(body, prefix, verbose_level, msg_level, frame)
-
-    def log_block_msg(
-        self,
-        body: str,
-        prefix: str = "",
-        title: str = "",
-        verbose_level: Optional[int] = 1,
-        msg_level: int = logging.INFO,
-        frame: Any = None,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        super().log_block_msg(body, prefix, title, verbose_level, msg_level, frame)
-
-    def log_timing(self) -> None:
-        if not self.is_rank_0:
-            return None
-        return super().log_timing()
 
 
 class Initializer(LoggingMixinWithRank):
@@ -597,88 +679,6 @@ class Initializer(LoggingMixinWithRank):
     def orthogonal(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.orthogonal_(param.data, gain)
-
-
-class WeightsStrategy:
-    def __init__(self, strategy: Optional[str]):
-        self.strategy = strategy
-
-    def __call__(self, num_train: int, num_valid: int) -> sample_weights_type:
-        if self.strategy is None:
-            return None
-        return getattr(self, self.strategy)(num_train, num_valid)
-
-    def linear_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        return np.linspace(0, 1, num_train + 1)[1:]
-
-    def radius_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        return np.sin(np.arccos(1.0 - np.linspace(0, 1, num_train + 1)[1:]))
-
-    def log_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        return np.log(np.arange(num_train) + np.e)
-
-    def sigmoid_decay(self, num_train: int, num_valid: int) -> sample_weights_type:
-        x = np.linspace(-5.0, 5.0, num_train)
-        return 1.0 / (1.0 + np.exp(-x))
-
-    def visualize(self, export_path: str = "weights_strategy.png") -> None:
-        n = 1000
-        x = np.linspace(0, 1, n)
-        y = self(n, 0)
-        if isinstance(y, tuple):
-            y = y[0]
-        plt.figure()
-        plt.plot(x, y)
-        show_or_save(export_path)
-
-
-T = TypeVar("T")
-
-
-class WithRegister(Generic[T]):
-    d: Dict[str, Type[T]]
-    __identifier__: str
-
-    @classmethod
-    def get(cls, name: str) -> Type[T]:
-        return cls.d[name]
-
-    @classmethod
-    def make(cls, name: str, config: Dict[str, Any]) -> T:
-        return cls.get(name)(**config)  # type: ignore
-
-    @classmethod
-    def make_multiple(
-        cls,
-        names: Union[str, List[str]],
-        configs: Optional[Dict[str, Any]] = None,
-    ) -> Union[T, List[T]]:
-        if configs is None:
-            configs = {}
-        if isinstance(names, str):
-            return cls.make(names, configs)  # type: ignore
-        return [
-            cls.make(name, shallow_copy_dict(configs.get(name, {})))  # type: ignore
-            for name in names
-        ]
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        def before(cls_: Type) -> None:
-            cls_.__identifier__ = name
-
-        return register_core(name, cls.d, before_register=before)
-
-
-# dl
-
-
-def softmax(arr: arr_type) -> arr_type:
-    if isinstance(arr, torch.Tensor):
-        return F.softmax(arr, dim=1)
-    logits = arr - np.max(arr, axis=1, keepdims=True)
-    exp = np.exp(logits)
-    return exp / exp.sum(1, keepdims=True)
 
 
 # ml
