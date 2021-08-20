@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import Optional
 
@@ -67,6 +68,9 @@ class AlphaRefineNet(ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         return {PREDICTIONS_KEY: self.net(batch[INPUT_KEY])}
+
+    def refine_from(self, net: Tensor, **kwargs: Any) -> Tensor:
+        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
 __all__ = [
