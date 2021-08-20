@@ -3,7 +3,7 @@ import unittest
 
 
 file_folder = os.path.dirname(__file__)
-examples_folder = os.path.join(file_folder, os.pardir, os.pardir, "examples", "ml")
+examples_folder = os.path.join(file_folder, os.pardir, "examples", "ml")
 
 
 class TestExample(unittest.TestCase):
