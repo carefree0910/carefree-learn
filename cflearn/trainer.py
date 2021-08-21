@@ -22,6 +22,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
 
 from .types import tensor_dict_type
 from .protocol import StepOutputs
@@ -780,6 +781,10 @@ class Trainer:
         while self.state.should_train:
             try:
                 self.state.epoch += 1
+                if isinstance(self.train_loader, DLLoader):
+                    sampler = self.train_loader.loader.sampler
+                    if isinstance(sampler, DistributedSampler):
+                        sampler.set_epoch(self.state.epoch)
                 step_iterator = self.train_loader
                 if self.is_rank_0 and self.tqdm_settings.use_step_tqdm:
                     step_tqdm = step_iterator = tqdm(

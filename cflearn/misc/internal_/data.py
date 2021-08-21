@@ -1,12 +1,15 @@
 import numpy as np
+import torch.distributed as dist
 
 from typing import Any
 from typing import Tuple
 from typing import Callable
 from typing import Optional
 from torch.utils.data import Dataset
+from torch.utils.data import Sampler
 from torch.utils.data import SequentialSampler
 from torch.utils.data import DataLoader as TorchDataLoader
+from torch.utils.data.distributed import DistributedSampler
 
 from ...types import tensor_dict_type
 from ...types import sample_weights_type
@@ -129,6 +132,28 @@ class DLData(DataProtocol):
 
 
 class DataLoader(TorchDataLoader):
+    def __init__(
+        self,
+        dataset: Dataset,
+        batch_size: Optional[int] = 1,
+        shuffle: bool = False,
+        sampler: Optional[Sampler[int]] = None,
+        *args: Any,
+        use_distributed_sampler: Optional[bool] = None,
+        **kwargs: Any,
+    ):
+        if use_distributed_sampler is None:
+            use_distributed_sampler = dist.is_initialized()
+        if use_distributed_sampler:
+            if sampler is not None and not isinstance(sampler, DistributedSampler):
+                raise ValueError(
+                    "`sampler` should be `DistributedSampler` "
+                    "when `use_distributed_sampler` is True"
+                )
+            sampler = DistributedSampler(dataset, shuffle=shuffle)
+            shuffle = False
+        super().__init__(dataset, batch_size, shuffle, sampler, *args, **kwargs)
+
     def __setattr__(self, attr: str, val: Any) -> None:
         if self.__initialized and attr in (
             "batch_size",
@@ -178,6 +203,9 @@ class DLLoader(DataLoaderProtocol):
         if self.batch_callback is None:
             return batch
         return self.batch_callback(batch)
+
+    def __len__(self) -> int:
+        return len(self.loader)
 
     def copy(self) -> "DLLoader":
         if not hasattr(self.data.dataset, "lmdb"):
