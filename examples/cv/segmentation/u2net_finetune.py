@@ -8,6 +8,7 @@ import argparse
 import numpy as np
 
 from typing import List
+from cflearn.misc.toolkit import download_dataset
 from cflearn.misc.toolkit import min_max_normalize
 
 # CI
@@ -41,7 +42,7 @@ def prepare(ci: bool) -> str:
     tgt_folder = os.path.join(data_folder, "products-10k")
     label_folder = os.path.join(data_folder, "products-10k_labels")
     if ci and not os.path.isdir(src_folder):
-        cflearn.download_dataset(dataset, root=data_root)
+        download_dataset(dataset, root=data_root)
     cflearn.cv.prepare_image_folder(
         src_folder,
         tgt_folder,

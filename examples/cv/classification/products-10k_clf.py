@@ -5,6 +5,7 @@ import cflearn
 import argparse
 
 from typing import List
+from cflearn.misc.toolkit import download_dataset
 
 # CI
 parser = argparse.ArgumentParser()
@@ -24,7 +25,7 @@ def prepare() -> None:
         return int(hierarchy[2] == "pos")
 
     if is_ci and not os.path.isdir(src_folder):
-        cflearn.download_dataset(dataset, root=data_folder)
+        download_dataset(dataset, root=data_folder)
     cflearn.cv.prepare_image_folder(
         src_folder,
         tgt_folder,
