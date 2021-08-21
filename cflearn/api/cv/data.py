@@ -23,6 +23,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from skimage import io
+from functools import partial
 from cftool.dist import Parallel
 from cftool.misc import is_numeric
 from cftool.misc import shallow_copy_dict
@@ -396,6 +397,22 @@ class ABundleTest(Compose):
         )
 
 
+def batch_callback(
+    label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]],
+    batch: Tuple[Tensor, Tensor],
+) -> tensor_dict_type:
+    img, labels = batch
+    if label_callback is None:
+        actual_labels = labels.view(-1, 1)
+    else:
+        actual_labels = label_callback(batch)
+    return {
+        INPUT_KEY: img,
+        LABEL_KEY: actual_labels,
+        ORIGINAL_LABEL_KEY: labels,
+    }
+
+
 def get_mnist(
     *,
     root: str = "data",
@@ -405,18 +422,6 @@ def get_mnist(
     transform_config: Optional[Dict[str, Any]] = None,
     label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
 ) -> Tuple[DLLoader, DLLoader]:
-    def batch_callback(batch: Tuple[Tensor, Tensor]) -> tensor_dict_type:
-        img, labels = batch
-        if label_callback is None:
-            actual_labels = labels.view(-1, 1)
-        else:
-            actual_labels = label_callback(batch)
-        return {
-            INPUT_KEY: img,
-            LABEL_KEY: actual_labels,
-            ORIGINAL_LABEL_KEY: labels,
-        }
-
     transform = Transforms.convert(transform, transform_config)
     train_data = DLData(MNIST(root, transform=transform, download=True))
     valid_data = DLData(MNIST(root, train=False, transform=transform, download=True))
@@ -424,8 +429,8 @@ def get_mnist(
     train_pt_loader = DataLoader(train_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
     valid_pt_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
 
-    train_loader = DLLoader(train_pt_loader, batch_callback)
-    valid_loader = DLLoader(valid_pt_loader, batch_callback)
+    train_loader = DLLoader(train_pt_loader, partial(batch_callback, label_callback))
+    valid_loader = DLLoader(valid_pt_loader, partial(batch_callback, label_callback))
     return train_loader, valid_loader
 
 
