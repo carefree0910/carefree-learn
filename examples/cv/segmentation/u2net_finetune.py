@@ -94,5 +94,5 @@ if __name__ == "__main__":
         pipeline_configs["fixed_steps"] = 1
         pipeline_configs["finetune_config"] = {"pretrained_ckpt": pretrained_ckpt}
     m = cflearn.cv.CarefreePipeline(**pipeline_configs)
-    m.fit(train, valid, cuda=None if is_ci else "0")
-    # m.ddp(train_loader, valid_loader, cuda_list=[0, 1])
+    m.fit(train, valid, cuda=None if is_ci else 0)
+    # m.ddp(train, valid, cuda_list=[0, 1])

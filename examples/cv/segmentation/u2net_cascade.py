@@ -38,5 +38,5 @@ if __name__ == "__main__":
         scheduler_name="none",
         fixed_steps=1 if is_ci else None,
     )
-    m.fit(train, valid, cuda=None if is_ci else "5")
-    # m.ddp(train_loader, valid_loader, cuda_list=["4", "5"])
+    m.fit(train, valid, cuda=None if is_ci else 5)
+    # m.ddp(train, valid, cuda_list=[4, 5])

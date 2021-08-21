@@ -60,4 +60,4 @@ if __name__ == "__main__":
         callback_configs={"mlflow": {"experiment_name": "products-10k_clf"}},
         fixed_steps=1 if is_ci else None,
     )
-    m.fit(train_loader, valid_loader, cuda=None if is_ci else "7")
+    m.fit(train_loader, valid_loader, cuda=None if is_ci else 7)
