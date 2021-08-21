@@ -804,6 +804,8 @@ class Trainer:
                     if terminate:
                         break
             except KeyboardInterrupt:
+                if dist.is_initialized():
+                    raise
                 print(f"{ERROR_PREFIX}keyboard interrupted")
                 terminate = True
             if terminate:
