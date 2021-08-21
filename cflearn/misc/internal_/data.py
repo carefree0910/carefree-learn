@@ -189,7 +189,6 @@ class DLLoader(DataLoaderProtocol):
         super().__init__(sample_weights=sample_weights)
         self.loader = loader
         self.data = loader.dataset  # type: ignore
-        self.batch_size = loader.batch_size  # type: ignore
         self.batch_callback = batch_callback
         self.sampler_backup = loader.sampler
         self._iterator: Optional[Any] = None
@@ -206,6 +205,13 @@ class DLLoader(DataLoaderProtocol):
 
     def __len__(self) -> int:
         return len(self.loader)
+
+    @property
+    def batch_size(self):
+        batch_size = self.loader.batch_size
+        if dist.is_initialized():
+            batch_size *= dist.get_world_size()
+        return batch_size
 
     def copy(self) -> "DLLoader":
         if not hasattr(self.data.dataset, "lmdb"):
