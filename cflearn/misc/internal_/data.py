@@ -1,6 +1,7 @@
 import numpy as np
 
 from typing import Any
+from typing import Tuple
 from typing import Callable
 from typing import Optional
 from torch.utils.data import Dataset
@@ -8,12 +9,29 @@ from torch.utils.data import SequentialSampler
 from torch.utils.data import DataLoader as TorchDataLoader
 
 from ...types import tensor_dict_type
+from ...types import sample_weights_type
 from ...protocol import DataProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
+
+
+class DataModule:
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        pass
+
+    def initialize(self) -> Any:
+        pass
+
+
+class DLDataModule(DataModule):
+    train_loader: DataLoaderProtocol
+    valid_loader: Optional[DataLoaderProtocol]
+
+    def initialize(self) -> Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]:
+        pass
 
 
 def get_weighted_indices(n: int, weights: Optional[np.ndarray]) -> np.ndarray:
@@ -187,6 +205,8 @@ class DLLoader(DataLoaderProtocol):
 
 
 __all__ = [
+    "DataModule",
+    "DLDataModule",
     "MLData",
     "MLLoader",
     "DLData",

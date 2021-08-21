@@ -43,7 +43,7 @@ class PixelCNNCallback(cflearn.ArtifactCallback):
 
 
 num_conditional_classes = None if is_ci else 10
-train, valid = cflearn.cv.get_mnist(
+data = cflearn.cv.MNISTData(
     root="../data",
     batch_size=4 if is_ci else 64,
     transform=transforms.Compose(
@@ -67,4 +67,4 @@ m = cflearn.cv.CarefreePipeline(
     fixed_steps=1 if is_ci else None,
     valid_portion=0.0001 if is_ci else 1.0,
 )
-m.fit(train, valid, cuda=None if is_ci else 0)
+m.fit(data, cuda=None if is_ci else 0)

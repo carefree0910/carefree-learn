@@ -33,6 +33,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Dataset
 
 from ...types import tensor_dict_type
+from ...types import sample_weights_type
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import ERROR_PREFIX
@@ -43,6 +44,7 @@ from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DLData
 from ...misc.internal_ import DLLoader
 from ...misc.internal_ import DataLoader
+from ...misc.internal_ import DLDataModule
 
 
 cf_transforms: Dict[str, Type["Transforms"]] = {}
@@ -413,25 +415,59 @@ def batch_callback(
     }
 
 
-def get_mnist(
-    *,
-    root: str = "data",
-    shuffle: bool = True,
-    batch_size: int = 64,
-    transform: Optional[Union[str, List[str], "Transforms", Callable]],
-    transform_config: Optional[Dict[str, Any]] = None,
-    label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
-) -> Tuple[DLLoader, DLLoader]:
-    transform = Transforms.convert(transform, transform_config)
-    train_data = DLData(MNIST(root, transform=transform, download=True))
-    valid_data = DLData(MNIST(root, train=False, transform=transform, download=True))
+class MNISTData(DLDataModule):
+    def __init__(
+        self,
+        *,
+        root: str = "data",
+        shuffle: bool = True,
+        batch_size: int = 64,
+        transform: Optional[Union[str, List[str], "Transforms", Callable]],
+        transform_config: Optional[Dict[str, Any]] = None,
+        label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
+    ):
+        self.root = root
+        self.shuffle = shuffle
+        self.batch_size = batch_size
+        self.transform = Transforms.convert(transform, transform_config)
+        self.label_callback = label_callback
 
-    train_pt_loader = DataLoader(train_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
-    valid_pt_loader = DataLoader(valid_data, batch_size=batch_size, shuffle=shuffle)  # type: ignore
+    # TODO : support sample weights
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        self.train_data = DLData(
+            MNIST(
+                self.root,
+                transform=self.transform,
+                download=True,
+            )
+        )
+        self.valid_data = DLData(
+            MNIST(
+                self.root,
+                train=False,
+                transform=self.transform,
+                download=True,
+            )
+        )
 
-    train_loader = DLLoader(train_pt_loader, partial(batch_callback, label_callback))
-    valid_loader = DLLoader(valid_pt_loader, partial(batch_callback, label_callback))
-    return train_loader, valid_loader
+    def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
+        train_loader = DLLoader(
+            DataLoader(
+                self.train_data,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+            ),
+            partial(batch_callback, self.label_callback),
+        )
+        valid_loader = DLLoader(
+            DataLoader(
+                self.valid_data,
+                batch_size=self.batch_size,
+                shuffle=self.shuffle,
+            ),
+            partial(batch_callback, self.label_callback),
+        )
+        return train_loader, valid_loader
 
 
 class TensorDataset(Dataset):

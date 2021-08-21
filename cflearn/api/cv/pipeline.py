@@ -4,7 +4,6 @@ from typing import List
 from typing import Union
 from typing import Optional
 
-from ...types import sample_weights_type
 from ...trainer import callback_dict
 from ...protocol import loss_dict
 from ...protocol import ModelProtocol
@@ -12,15 +11,13 @@ from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import get_arguments
 from ...misc.internal_ import DLLoader
 from ...misc.internal_ import DLInference
+from ...misc.internal_ import DLDataModule
 
 
 @DLPipeline.register("cv.simple")
 class SimplePipeline(DLPipeline):
     inference: DLInference
     inference_base = DLInference
-
-    train_loader: DLLoader
-    valid_loader: Optional[DLLoader]
 
     def __init__(
         self,
@@ -104,26 +101,21 @@ class SimplePipeline(DLPipeline):
         self.model_name = model_name
         self.model_config = model_config or {}
 
-    def _prepare_data(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-    ) -> None:
-        self.train_loader = x
-        self.valid_loader = args[0]
-
     def _prepare_modules(self) -> None:
         self._prepare_workplace()
         self._prepare_loss()
         self.model = ModelProtocol.make(self.model_name, config=self.model_config)
         self.inference = DLInference(model=self.model)
 
-    def _make_new_loader(self, x: Any, batch_size: int = 0, **kwargs: Any) -> DLLoader:
-        if not isinstance(x, DLLoader):
-            msg = "`SimplePipeline` only supports inference with a given loader"
-            raise ValueError(msg)
-        return x
+    def _make_new_loader(
+        self,
+        data: DLDataModule,
+        batch_size: int = 0,
+        **kwargs: Any,
+    ) -> DLLoader:
+        if data.valid_loader is not None:
+            raise ValueError("`valid_loader` should not be provided")
+        return data.train_loader
 
 
 @DLPipeline.register("cv.carefree")

@@ -50,6 +50,8 @@ from ...misc.toolkit import get_latest_workplace
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
 from ...misc.toolkit import WithRegister
+from ...misc.internal_ import DataModule
+from ...misc.internal_ import DLDataModule
 from ...misc.internal_.losses import multi_prefix_mapping
 
 
@@ -84,7 +86,7 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     @abstractmethod
     def fit(
         self,
-        x: Any,
+        data: DataModule,
         *args: Any,
         sample_weights: sample_weights_type = None,
     ) -> "PipelineProtocol":
@@ -111,9 +113,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     inference: InferenceProtocol
     inference_base: Type[InferenceProtocol]
     device_info: DeviceInfo
-
-    train_loader: DataLoaderProtocol
-    valid_loader: Optional[DataLoaderProtocol]
 
     configs_file: str = "configs.json"
     trainer_configs_file: str = "trainer_configs.json"
@@ -226,19 +225,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     @abstractmethod
     def _make_new_loader(
         self,
-        x: Any,
+        data: DLDataModule,
         batch_size: int,
         **kwargs: Any,
     ) -> DataLoaderProtocol:
-        pass
-
-    @abstractmethod
-    def _prepare_data(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-    ) -> None:
         pass
 
     @abstractmethod
@@ -291,17 +281,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.trainer_config["callback_names"] = callback_names
         self.trainer_config["callback_configs"] = callback_configs
         self.trainer_config["optimizer_settings"] = optimizer_settings
-
-    def _before_loop(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
-        self._prepare_data(x, *args, sample_weights=sample_weights)
-        self._prepare_modules()
-        self._prepare_trainer_defaults()
 
     def _save_misc(self, export_folder: str, retain_data: bool) -> float:
         os.makedirs(export_folder, exist_ok=True)
@@ -359,40 +338,46 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         states = torch.load(checkpoint_path, map_location=m.device)
         return cls._load_states_callback(m, states)
 
-    # api
+    # core
 
-    def fit(
-        self,
-        x: Any,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-        cuda: Optional[Union[int, str]] = None,
-    ) -> "PipelineProtocol":
-        if cuda is not None:
-            cuda = str(cuda)
-        self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
+    def _fit(self, data: DLDataModule, cuda: Optional[str]) -> None:
+        self._prepare_modules()
+        self._prepare_trainer_defaults()
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(
+            data,
             self.loss,
             self.model,
             self.inference,
-            self.train_loader,
-            self.valid_loader,
             configs_export_file=self.trainer_configs_file,
             cuda=cuda,
         )
         self.device_info = self.trainer.device_info
+
+    # api
+
+    def fit(
+        self,
+        data: DLDataModule,
+        *,
+        sample_weights: sample_weights_type = None,
+        cuda: Optional[Union[int, str]] = None,
+    ) -> "PipelineProtocol":
+        data.prepare(sample_weights)
+        if cuda is not None:
+            cuda = str(cuda)
+        self._fit(data, cuda)
         return self
 
     def predict(
         self,
-        x: Any,
+        data: DLDataModule,
         *,
         batch_size: int = 128,
         make_loader_kwargs: Optional[Dict[str, Any]] = None,
         **predict_kwargs: Any,
     ) -> np_dict_type:
-        loader = self._make_new_loader(x, batch_size, **(make_loader_kwargs or {}))
+        loader = self._make_new_loader(data, batch_size, **(make_loader_kwargs or {}))
         predict_kwargs = shallow_copy_dict(predict_kwargs)
         if self.inference.onnx is None:
             predict_kwargs["device"] = self.device
@@ -670,16 +655,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     # ddp stuffs
 
-    def _ddp_fit(
-        self,
-        rank: int,
-        x: Any,
-        sample_weights: sample_weights_type = None,
-        *args: Any,
-    ) -> None:
+    def _ddp_fit(self, rank: int, data: DLDataModule) -> None:
         self.trainer_config = shallow_copy_dict(self.trainer_config)
         self.trainer_config["ddp_config"]["rank"] = rank
-        self.fit(x, *args, sample_weights=sample_weights, cuda=str(rank))
+        self._fit(data, rank)
         dist.barrier()
         if self.is_rank_0:
             self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
@@ -687,8 +666,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def ddp(
         self,
-        x: Any,
-        *args: Any,
+        data: DLDataModule,
+        *,
         cuda_list: List[int],
         workplace: str = "__ddp__",
         sample_weights: sample_weights_type = None,
@@ -702,17 +681,14 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         world_size = ddp_config["world_size"] = len(cuda_list)
         self.trainer_config["ddp_config"] = ddp_config
         self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
-        mp.spawn(
-            self._ddp_fit,
-            args=(x, sample_weights, *args),
-            nprocs=world_size,
-            join=True,
-        )
+        data.prepare(sample_weights)
+        mp.spawn(self._ddp_fit, args=(data,), nprocs=world_size, join=True)
         # load from ddp
         cuda = str_cuda_list[0]
         self.in_loading = True
         self.device_info = DeviceInfo(cuda, None)
-        self._before_loop(x, *args, sample_weights=sample_weights, cuda=cuda)
+        self._prepare_modules()
+        self._prepare_trainer_defaults()
         latest_workplace = get_latest_workplace(new_workplace)
         if latest_workplace is None:
             raise ValueError(f"timestamp is not found under '{new_workplace}'")

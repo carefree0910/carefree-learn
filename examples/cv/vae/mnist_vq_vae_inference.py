@@ -24,11 +24,13 @@ num_classes = 10
 # export vq vae codes
 def export_code_indices() -> None:
     os.makedirs(code_export_folder, exist_ok=True)
-    code_train, code_valid = cflearn.cv.get_mnist(
+    code_data = cflearn.cv.MNISTData(
         root="../data",
         shuffle=False,
         transform="for_generation",
     )
+    code_data.prepare()
+    code_train, code_valid = code_data.initialize()
     for name, loader in zip(["train", "valid"], [code_train, code_valid]):
         labels = []
         code_indices = []

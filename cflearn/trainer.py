@@ -49,6 +49,8 @@ from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
+from .misc.internal_ import DLLoader
+from .misc.internal_ import DLDataModule
 from .misc.internal_ import MultipleMetrics
 from .misc.internal_ import ConservativeMonitor
 from .modules.optimizers import optimizer_dict
@@ -709,11 +711,10 @@ class Trainer:
 
     def fit(
         self,
+        data: DLDataModule,
         loss: LossProtocol,
         model: ModelProtocol,
         inference: InferenceProtocol,
-        train_loader: DataLoaderProtocol,
-        valid_loader: Optional[DataLoaderProtocol] = None,
         *,
         configs_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
@@ -726,6 +727,10 @@ class Trainer:
         self.loss = loss.to(self.device)
         self.model = model.to(self.device)
         self.inference = inference
+        # ddp
+        self._init_ddp()
+        # data
+        train_loader, valid_loader = data.initialize()
         self.train_loader = train_loader
         self.train_loader_copy = train_loader.copy()
         self.train_loader_copy.disable_shuffle()
@@ -737,8 +742,6 @@ class Trainer:
             fixed_steps=self.fixed_steps,
             **self.state_config,
         )
-        # ddp
-        self._init_ddp()
         # optimizer
         self._init_optimizers()
         # callback

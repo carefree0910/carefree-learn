@@ -27,10 +27,9 @@ m = cflearn.ml.CarefreePipeline().fit(x, y)
 ```python
 # MNIST classification task with resnet18
 
-import os
 import cflearn
 
-train_loader, valid_loader = cflearn.cv.get_mnist(transform="to_tensor")
+data = cflearn.cv.MNISTData(transform="to_tensor")
 
 m = cflearn.cv.CarefreePipeline(
     "clf",
@@ -44,7 +43,7 @@ m = cflearn.cv.CarefreePipeline(
     loss_name="cross_entropy",
     metric_names="acc",
 )
-m.fit(train_loader, valid_loader)
+m.fit(data)
 ```
 
 ### Developer Side

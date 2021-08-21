@@ -45,9 +45,6 @@ class SimplePipeline(DLPipeline):
     inference: MLInference
     inference_base = MLInference
 
-    train_loader: MLLoader
-    valid_loader: Optional[MLLoader]
-
     encoder: Optional[Encoder]
     numerical_columns_mapping: Dict[int, int]
     categorical_columns_mapping: Dict[int, int]
@@ -177,25 +174,6 @@ class SimplePipeline(DLPipeline):
         callback_names = self.trainer_config["callback_names"]
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
-
-    def _before_loop(  # type: ignore
-        self,
-        x: Any,
-        y: Any = None,
-        x_valid: Any = None,
-        y_valid: Any = None,
-        *,
-        sample_weights: sample_weights_type = None,
-        cuda: Optional[str] = None,
-    ) -> None:
-        super()._before_loop(
-            x,
-            y,
-            x_valid,
-            y_valid,
-            sample_weights=sample_weights,
-            cuda=cuda,
-        )
 
     def _prepare_data(
         self,
