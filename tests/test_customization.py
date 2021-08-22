@@ -35,16 +35,11 @@ class TestCustomization(unittest.TestCase):
         y = np.random.random([1000, 1])
         m = cflearn.make(
             "ml.simple",
-            config={
-                "core_name": "foo",
-                "output_dim": 1,
-                "is_classification": False,
-                "loss_name": "mae",
-                "fixed_epoch": 0,
-            },
+            config={"core_name": "foo", "output_dim": 1, "fixed_epoch": 0},
         )
-        m.fit(x, y)
-        predictions = m.predict(x)[cflearn.PREDICTIONS_KEY]
+        data = cflearn.ml.MLData(x, y, is_classification=False)
+        m.fit(data)
+        predictions = m.predict(data)[cflearn.PREDICTIONS_KEY]
         self.assertTrue(np.allclose(predictions, np.ones_like(y)))
         self.assertTrue(list(m.model.parameters())[0] is m.model.core.dummy)  # type: ignore
 

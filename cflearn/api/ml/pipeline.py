@@ -197,7 +197,7 @@ class SimplePipeline(DLPipeline):
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
 
-    def _make_new_loader(
+    def _make_new_loader(  # type: ignore
         self,
         data: MLData,
         batch_size: int,
@@ -393,7 +393,9 @@ class CarefreePipeline(SimplePipeline):
 
     def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
         if self.cf_data is None:
+            assert isinstance(self.data, MLData)
             self.cf_data = self.data.cf_data
+            assert self.cf_data is not None
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -446,10 +448,12 @@ class CarefreePipeline(SimplePipeline):
                 loaders = []
             else:
                 train_loader, valid_loader = self.data.initialize()
+                assert isinstance(train_loader, MLLoader)
                 train_loader_copy = train_loader.copy()
                 train_loader_copy.disable_shuffle()
                 loaders = [train_loader_copy]
                 if valid_loader is not None:
+                    assert isinstance(valid_loader, MLLoader)
                     loaders.append(valid_loader)
             encoder = Encoder(
                 self.encoder_config,
@@ -467,6 +471,7 @@ class CarefreePipeline(SimplePipeline):
         super()._prepare_modules(data_json)
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
+        assert self.cf_data is not None
         results = outputs.forward_results
         if self.cf_data.is_clf:
             return results
@@ -481,12 +486,13 @@ class CarefreePipeline(SimplePipeline):
             recovered[k] = v
         return recovered
 
-    def _make_new_loader(
+    def _make_new_loader(  # type: ignore
         self,
         data: MLData,
         batch_size: int,
         **kwargs: Any,
     ) -> MLLoader:
+        assert self.cf_data is not None
         return MLLoader(
             MLDataset(*self.cf_data.transform(data.x_train, None, **kwargs).xy),
             shuffle=False,
@@ -495,6 +501,7 @@ class CarefreePipeline(SimplePipeline):
 
     def _save_misc(self, export_folder: str, retain_data: bool) -> float:
         data_folder = os.path.join(export_folder, self.data_folder)
+        assert self.cf_data is not None
         self.cf_data.save(data_folder, retain_data=retain_data, compress=False)
         return super()._save_misc(export_folder, retain_data)
 

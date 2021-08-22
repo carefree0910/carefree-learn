@@ -222,7 +222,7 @@ class CVLoader(DataLoaderProtocol):
         return len(self.loader)
 
     @property
-    def batch_size(self):
+    def batch_size(self) -> int:  # type: ignore
         batch_size = self.loader.batch_size
         if dist.is_initialized():
             batch_size *= dist.get_world_size()

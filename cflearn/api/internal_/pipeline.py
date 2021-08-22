@@ -87,13 +87,13 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     def fit(
         self,
         data: DataModule,
-        *args: Any,
+        *,
         sample_weights: sample_weights_type = None,
     ) -> "PipelineProtocol":
         pass
 
     @abstractmethod
-    def predict(self, x: Any, **predict_kwargs: Any) -> np_dict_type:
+    def predict(self, data: DataModule, **predict_kwargs: Any) -> np_dict_type:
         pass
 
     @abstractmethod
@@ -353,7 +353,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     # api
 
-    def fit(
+    def fit(  # type: ignore
         self,
         data: DLDataModule,
         *,
@@ -366,7 +366,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self._fit(data, cuda)
         return self
 
-    def predict(
+    def predict(  # type: ignore
         self,
         data: DLDataModule,
         *,
@@ -662,7 +662,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _ddp_fit(self, rank: int, data: DLDataModule) -> None:
         self.trainer_config = shallow_copy_dict(self.trainer_config)
         self.trainer_config["ddp_config"]["rank"] = rank
-        self._fit(data, rank)
+        self._fit(data, str(rank))
         dist.barrier()
         if self.is_rank_0:
             self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))

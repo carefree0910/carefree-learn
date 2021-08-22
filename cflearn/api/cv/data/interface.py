@@ -121,11 +121,11 @@ class TensorData(DLDataModule):
             self.valid_data = _get_data(self.x_valid, self.y_valid, self.valid_others)
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
-        train_loader = CVLoader(DataLoader(self.train_data, **self.d))
+        train_loader = CVLoader(DataLoader(self.train_data, **self.d))  # type: ignore
         if self.valid_data is None:
             valid_loader = None
         else:
-            valid_loader = CVLoader(DataLoader(self.valid_data, **self.d))
+            valid_loader = CVLoader(DataLoader(self.valid_data, **self.d))  # type: ignore
         return train_loader, valid_loader
 
 

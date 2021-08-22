@@ -52,8 +52,8 @@ class TestRegister(unittest.TestCase):
         config = {"data_config": {"label_process_method": "plus_one"}}
         m = cflearn.ml.make_toy_model(config=config)
         assert isinstance(m, cflearn.ml.CarefreePipeline)
-        y = m.data.converted.y
-        processed_y = m.data.processed.y
+        y = m.cf_data.converted.y  # type: ignore
+        processed_y = m.cf_data.processed.y  # type: ignore
         self.assertTrue(np.allclose(y + 1, processed_y))
 
 

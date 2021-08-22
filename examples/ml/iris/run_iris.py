@@ -1,3 +1,5 @@
+# type: ignore
+
 import os
 import pickle
 import cflearn
@@ -23,7 +25,7 @@ if __name__ == "__main__":
     print(m.cf_data.processed.y[0])
 
     train_x, train_y = m.data.train_cf_data.processed.xy
-    valid_x, valid_y = m.data.valid_cf_data.processed.xy  # type: ignore
+    valid_x, valid_y = m.data.valid_cf_data.processed.xy
     stacked = np.vstack([train_x, valid_x])
     print(stacked.mean(0))
     print(stacked.std(0))

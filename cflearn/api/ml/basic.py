@@ -74,7 +74,7 @@ def _to_pipelines(pipelines: various_pipelines_type) -> pipelines_type:
 
 
 def evaluate(
-    data: MLInferenceData,
+    data: Union[MLData, MLInferenceData],
     *,
     metrics: Union[str, List[str]],
     metric_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
@@ -114,6 +114,7 @@ def evaluate(
             if not isinstance(data_pipeline, CarefreePipeline):
                 raise ValueError("only `CarefreePipeline` can handle file inputs")
             cf_data = data_pipeline.cf_data
+            assert cf_data is not None
             x, y = cf_data.read_file(x, contains_labels=contains_labels)
             y = cf_data.transform(x, y).y
         # get metrics
@@ -322,13 +323,13 @@ def repeat_with(
             for model, pipelines in pipelines_dict.items()
         }
 
-    data = None
+    cf_data = None
     if patterns is not None:
         m = patterns[models[0]][0].model
         if isinstance(m, CarefreePipeline):
-            data = m.cf_data
+            cf_data = m.cf_data
 
-    return RepeatResult(data, experiment, pipelines_dict, patterns)
+    return RepeatResult(cf_data, experiment, pipelines_dict, patterns)
 
 
 def pack_repeat(
@@ -400,20 +401,24 @@ def make_toy_model(
     base_config = {
         "core_name": model,
         "core_config": model_config,
-        "is_classification": is_classification,
         "output_dim": 1 + int(is_classification),
-        "valid_split": 0.0,
         "num_epoch": 2,
         "max_epoch": 4,
-        "data_config": {
-            "valid_columns": list(range(x_np.shape[1])),
-            "label_process_method": "identical",
-        },
     }
     updated = update_dict(config, base_config)
     m = make(pipeline_type, config=updated)
     assert isinstance(m, SimplePipeline)
-    m.fit(x_np, y_np, cuda=cuda)
+    data = MLData(
+        x_np,
+        y_np,
+        cf_data=TabularData(
+            valid_columns=list(range(x_np.shape[1])),
+            label_process_method="identical",
+        ),
+        is_classification=is_classification,
+        valid_split=0.0,
+    )
+    m.fit(data, cuda=cuda)
     return m
 
 

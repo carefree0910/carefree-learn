@@ -14,6 +14,9 @@ from ...misc.internal_ import DLDataModule
 
 
 class MLData(DLDataModule):
+    train_data: MLDataset
+    valid_data: Optional[MLDataset]
+
     def __init__(
         self,
         x_train: data_type,
@@ -39,6 +42,7 @@ class MLData(DLDataModule):
         # inference
         for_inference: bool = False,
     ):
+        assert x_train is not None
         self.x_train = x_train
         self.y_train = y_train
         self.x_valid = x_valid
@@ -100,7 +104,10 @@ class MLData(DLDataModule):
                     self.train_cf_data = rs.remained
                     self.valid_cf_data = rs.split
             self.train_data = MLDataset(*self.train_cf_data.processed.xy)
-            self.valid_data = MLDataset(*self.valid_cf_data.processed.xy)
+            if self.valid_cf_data is None:
+                self.valid_data = None
+            else:
+                self.valid_data = MLDataset(*self.valid_cf_data.processed.xy)
             self.num_classes = self.train_cf_data.num_classes
             self.input_dim = self.train_cf_data.processed_dim
             return None

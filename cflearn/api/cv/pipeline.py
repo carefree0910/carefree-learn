@@ -109,7 +109,7 @@ class SimplePipeline(DLPipeline):
     ) -> CVLoader:
         if data.valid_loader is not None:
             raise ValueError("`valid_loader` should not be provided")
-        return data.train_loader
+        return data.train_loader  # type: ignore
 
 
 @DLPipeline.register("cv.carefree")
