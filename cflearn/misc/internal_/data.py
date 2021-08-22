@@ -118,8 +118,8 @@ class MLLoader(DataLoaderProtocol):
         )
 
 
-@DataProtocol.register("dl")
-class DLData(DataProtocol):
+@DataProtocol.register("cv")
+class CVData(DataProtocol):
     def __init__(self, dataset: Dataset):
         super().__init__()
         self.dataset = dataset
@@ -170,9 +170,9 @@ class DataLoader(TorchDataLoader):
         super(TorchDataLoader, self).__setattr__(attr, val)
 
 
-@DataLoaderProtocol.register("dl")
-class DLLoader(DataLoaderProtocol):
-    data: DLData
+@DataLoaderProtocol.register("cv")
+class CVLoader(DataLoaderProtocol):
+    data: CVData
 
     def __init__(
         self,
@@ -183,7 +183,7 @@ class DLLoader(DataLoaderProtocol):
     ):
         if sample_weights is not None:
             raise ValueError(
-                "in `DLLoader`, we should introduce `sample_weights` to the original "
+                "in `CVLoader`, we should introduce `sample_weights` to the original "
                 "Pytorch `DataLoader` (by specifying corresponding samplers)"
             )
         super().__init__(sample_weights=sample_weights)
@@ -193,7 +193,7 @@ class DLLoader(DataLoaderProtocol):
         self.sampler_backup = loader.sampler
         self._iterator: Optional[Any] = None
 
-    def __iter__(self) -> "DLLoader":
+    def __iter__(self) -> "CVLoader":
         self._iterator = self.loader.__iter__()
         return self
 
@@ -213,16 +213,16 @@ class DLLoader(DataLoaderProtocol):
             batch_size *= dist.get_world_size()
         return batch_size
 
-    def copy(self) -> "DLLoader":
+    def copy(self) -> "CVLoader":
         if not hasattr(self.data.dataset, "lmdb"):
             copied = super().copy()
-            assert isinstance(copied, DLLoader)
+            assert isinstance(copied, CVLoader)
         else:
             lmdb, context = self.data.dataset.lmdb, self.data.dataset.context
             self.data.dataset.__dict__.pop("lmdb")
             self.data.dataset.__dict__.pop("context")
             copied = super().copy()
-            assert isinstance(copied, DLLoader)
+            assert isinstance(copied, CVLoader)
             copied.data.dataset.lmdb, copied.data.dataset.context = lmdb, context
         return copied
 
@@ -243,8 +243,8 @@ __all__ = [
     "DLDataModule",
     "MLData",
     "MLLoader",
-    "DLData",
-    "DLLoader",
+    "CVData",
+    "CVLoader",
     "DataLoader",
     "get_weighted_indices",
 ]

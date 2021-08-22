@@ -16,8 +16,8 @@ from .core import ImageFolderDataset
 from .transforms import Transforms
 from ....types import tensor_dict_type
 from ....types import sample_weights_type
-from ....misc.internal_ import DLData
-from ....misc.internal_ import DLLoader
+from ....misc.internal_ import CVData
+from ....misc.internal_ import CVLoader
 from ....misc.internal_ import DataLoader
 from ....misc.internal_ import DLDataModule
 
@@ -41,14 +41,14 @@ class MNISTData(DLDataModule):
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        self.train_data = DLData(
+        self.train_data = CVData(
             MNIST(
                 self.root,
                 transform=self.transform,
                 download=True,
             )
         )
-        self.valid_data = DLData(
+        self.valid_data = CVData(
             MNIST(
                 self.root,
                 train=False,
@@ -57,8 +57,8 @@ class MNISTData(DLDataModule):
             )
         )
 
-    def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
-        train_loader = DLLoader(
+    def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
+        train_loader = CVLoader(
             DataLoader(
                 self.train_data,
                 batch_size=self.batch_size,
@@ -66,7 +66,7 @@ class MNISTData(DLDataModule):
             ),
             partial(batch_callback, self.label_callback),
         )
-        valid_loader = DLLoader(
+        valid_loader = CVLoader(
             DataLoader(
                 self.valid_data,
                 batch_size=self.batch_size,
@@ -101,8 +101,8 @@ class TensorData(DLDataModule):
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        def _get_data(x: Any, y: Any, others: Any) -> DLData:
-            return DLData(TensorDataset(x, y, others))
+        def _get_data(x: Any, y: Any, others: Any) -> CVData:
+            return CVData(TensorDataset(x, y, others))
 
         self.train_data = _get_data(self.x_train, self.y_train, self.train_others)
         if self.x_valid is None:
@@ -110,12 +110,12 @@ class TensorData(DLDataModule):
         else:
             self.valid_data = _get_data(self.x_valid, self.y_valid, self.valid_others)
 
-    def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
-        train_loader = DLLoader(DataLoader(self.train_data, **self.d))
+    def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
+        train_loader = CVLoader(DataLoader(self.train_data, **self.d))
         if self.valid_data is None:
             valid_loader = None
         else:
-            valid_loader = DLLoader(DataLoader(self.valid_data, **self.d))
+            valid_loader = CVLoader(DataLoader(self.valid_data, **self.d))
         return train_loader, valid_loader
 
 
@@ -142,7 +142,7 @@ class ImageFolderData(DLDataModule):
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        self.train_data = DLData(
+        self.train_data = CVData(
             ImageFolderDataset(
                 self.folder,
                 "train",
@@ -150,7 +150,7 @@ class ImageFolderData(DLDataModule):
                 lmdb_configs=self.lmdb_configs,
             )
         )
-        self.valid_data = DLData(
+        self.valid_data = CVData(
             ImageFolderDataset(
                 self.folder,
                 "valid",
@@ -159,11 +159,11 @@ class ImageFolderData(DLDataModule):
             )
         )
 
-    def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
+    def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         d = shallow_copy_dict(self.d)
-        train_loader = DLLoader(DataLoader(self.train_data, **d))  # type: ignore
+        train_loader = CVLoader(DataLoader(self.train_data, **d))  # type: ignore
         d["shuffle"] = self.test_shuffle or self.shuffle
-        valid_loader = DLLoader(DataLoader(self.valid_data, **d))  # type: ignore
+        valid_loader = CVLoader(DataLoader(self.valid_data, **d))  # type: ignore
         return train_loader, valid_loader
 
 

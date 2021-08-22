@@ -35,11 +35,11 @@ class MLInference(InferenceProtocol):
         )
 
 
-class DLInference(InferenceProtocol):
+class CVInference(InferenceProtocol):
     pass
 
 
 __all__ = [
     "MLInference",
-    "DLInference",
+    "CVInference",
 ]

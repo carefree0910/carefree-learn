@@ -50,7 +50,7 @@ from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
-from .misc.internal_ import DLLoader
+from .misc.internal_ import CVLoader
 from .misc.internal_ import DLDataModule
 from .misc.internal_ import MultipleMetrics
 from .misc.internal_ import ConservativeMonitor
@@ -781,7 +781,7 @@ class Trainer:
         while self.state.should_train:
             try:
                 self.state.epoch += 1
-                if isinstance(self.train_loader, DLLoader):
+                if isinstance(self.train_loader, CVLoader):
                     sampler = self.train_loader.loader.sampler
                     if isinstance(sampler, DistributedSampler):
                         sampler.set_epoch(self.state.epoch)
