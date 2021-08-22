@@ -378,6 +378,7 @@ def make_toy_model(
     *,
     pipeline_type: str = "ml.carefree",
     is_classification: bool = False,
+    data_config: Optional[Dict[str, Any]] = None,
     data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     cuda: Optional[str] = None,
 ) -> SimplePipeline:
@@ -408,13 +409,19 @@ def make_toy_model(
     updated = update_dict(config, base_config)
     m = make(pipeline_type, config=updated)
     assert isinstance(m, SimplePipeline)
-    data = MLData(
-        x_np,
-        y_np,
-        cf_data=TabularData(
+    if data_config is None:
+        data_config = {}
+    data_config = update_dict(
+        data_config,
+        dict(
             valid_columns=list(range(x_np.shape[1])),
             label_process_method="identical",
         ),
+    )
+    data = MLData(
+        x_np,
+        y_np,
+        cf_data=TabularData(**data_config),
         is_classification=is_classification,
         valid_split=0.0,
     )
