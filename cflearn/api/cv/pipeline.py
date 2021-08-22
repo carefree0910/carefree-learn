@@ -1,6 +1,7 @@
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Union
 from typing import Optional
 
@@ -16,8 +17,8 @@ from ...misc.internal_ import DLDataModule
 
 @DLPipeline.register("cv.simple")
 class SimplePipeline(DLPipeline):
-    inference_base = DLInference
     inference: CVInference
+    inference_base = Type[CVInference]
 
     def __init__(
         self,
