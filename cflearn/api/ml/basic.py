@@ -36,7 +36,7 @@ from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
 from ...misc.toolkit import get_latest_workplace
-from ...misc.internal_ import MLData
+from ...misc.internal_ import MLDataset
 from ...models.ml.protocol import MLCoreProtocol
 
 
@@ -177,7 +177,7 @@ def load_experiment_results(
 
 
 class RepeatResult(NamedTuple):
-    data: Optional[MLData]
+    data: Optional[MLDataset]
     experiment: Optional[Experiment]
     pipelines: Optional[Dict[str, List[SimplePipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]

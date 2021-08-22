@@ -16,7 +16,7 @@ from .core import ImageFolderDataset
 from .transforms import Transforms
 from ....types import tensor_dict_type
 from ....types import sample_weights_type
-from ....misc.internal_ import CVData
+from ....misc.internal_ import CVDataset
 from ....misc.internal_ import CVLoader
 from ....misc.internal_ import DataLoader
 from ....misc.internal_ import DLDataModule
@@ -41,14 +41,14 @@ class MNISTData(DLDataModule):
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        self.train_data = CVData(
+        self.train_data = CVDataset(
             MNIST(
                 self.root,
                 transform=self.transform,
                 download=True,
             )
         )
-        self.valid_data = CVData(
+        self.valid_data = CVDataset(
             MNIST(
                 self.root,
                 train=False,
@@ -101,8 +101,8 @@ class TensorData(DLDataModule):
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        def _get_data(x: Any, y: Any, others: Any) -> CVData:
-            return CVData(TensorDataset(x, y, others))
+        def _get_data(x: Any, y: Any, others: Any) -> CVDataset:
+            return CVDataset(TensorDataset(x, y, others))
 
         self.train_data = _get_data(self.x_train, self.y_train, self.train_others)
         if self.x_valid is None:
@@ -142,7 +142,7 @@ class ImageFolderData(DLDataModule):
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        self.train_data = CVData(
+        self.train_data = CVDataset(
             ImageFolderDataset(
                 self.folder,
                 "train",
@@ -150,7 +150,7 @@ class ImageFolderData(DLDataModule):
                 lmdb_configs=self.lmdb_configs,
             )
         )
-        self.valid_data = CVData(
+        self.valid_data = CVDataset(
             ImageFolderDataset(
                 self.folder,
                 "valid",

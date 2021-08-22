@@ -32,7 +32,7 @@ from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
 
 
-data_dict: Dict[str, Type["DataProtocol"]] = {}
+dataset_dict: Dict[str, Type["DatasetProtocol"]] = {}
 loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
 model_dict: Dict[str, Type["ModelProtocol"]] = {}
 monitor_dict: Dict[str, Type["TrainerMonitor"]] = {}
@@ -43,8 +43,8 @@ metric_dict: Dict[str, Type["MetricProtocol"]] = {}
 # data
 
 
-class DataProtocol(ABC, WithRegister):
-    d: Dict[str, Type["DataProtocol"]] = data_dict
+class DatasetProtocol(ABC, WithRegister):
+    d: Dict[str, Type["DatasetProtocol"]] = dataset_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -56,7 +56,7 @@ class DataProtocol(ABC, WithRegister):
 
 class DataLoaderProtocol(ABC, WithRegister):
     d: Dict[str, Type["DataLoaderProtocol"]] = loader_dict
-    data: DataProtocol
+    data: DatasetProtocol
     batch_size: int
 
     def __init__(self, *, sample_weights: Optional[np.ndarray] = None):
@@ -609,10 +609,10 @@ class MetricProtocol(ABC, WithRegister):
 
 
 __all__ = [
-    "data_dict",
+    "dataset_dict",
     "loader_dict",
     "loss_dict",
-    "DataProtocol",
+    "DatasetProtocol",
     "DataLoaderProtocol",
     "ModelProtocol",
     "TrainerState",

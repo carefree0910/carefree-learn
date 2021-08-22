@@ -13,7 +13,7 @@ from torch.utils.data.distributed import DistributedSampler
 
 from ...types import tensor_dict_type
 from ...types import sample_weights_type
-from ...protocol import DataProtocol
+from ...protocol import DatasetProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
@@ -45,8 +45,8 @@ def get_weighted_indices(n: int, weights: Optional[np.ndarray]) -> np.ndarray:
     return indices
 
 
-@DataProtocol.register("ml")
-class MLData(DataProtocol):
+@DatasetProtocol.register("ml")
+class MLDataset(DatasetProtocol):
     def __init__(self, x: np.ndarray, y: Optional[np.ndarray]):
         super().__init__()
         self.x = x
@@ -58,13 +58,13 @@ class MLData(DataProtocol):
 
 @DataLoaderProtocol.register("ml")
 class MLLoader(DataLoaderProtocol):
-    data: MLData
+    data: MLDataset
     cursor: int
     indices: np.ndarray
 
     def __init__(
         self,
-        data: MLData,
+        data: MLDataset,
         shuffle: bool,
         *,
         name: Optional[str] = None,
@@ -118,8 +118,8 @@ class MLLoader(DataLoaderProtocol):
         )
 
 
-@DataProtocol.register("cv")
-class CVData(DataProtocol):
+@DatasetProtocol.register("cv")
+class CVDataset(DatasetProtocol):
     def __init__(self, dataset: Dataset):
         super().__init__()
         self.dataset = dataset
@@ -172,7 +172,7 @@ class DataLoader(TorchDataLoader):
 
 @DataLoaderProtocol.register("cv")
 class CVLoader(DataLoaderProtocol):
-    data: CVData
+    data: CVDataset
 
     def __init__(
         self,
@@ -241,9 +241,9 @@ class CVLoader(DataLoaderProtocol):
 __all__ = [
     "DataModule",
     "DLDataModule",
-    "MLData",
+    "MLDataset",
     "MLLoader",
-    "CVData",
+    "CVDataset",
     "CVLoader",
     "DataLoader",
     "get_weighted_indices",

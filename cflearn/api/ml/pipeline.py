@@ -32,7 +32,7 @@ from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import softmax
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
-from ...misc.internal_ import MLData
+from ...misc.internal_ import MLDataset
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLInference
 from ...models.ml.encoders import Encoder
@@ -185,7 +185,7 @@ class SimplePipeline(DLPipeline):
         self.input_dim = x.shape[-1]
         train_weights, valid_weights = _split_sw(sample_weights)
         train_loader = MLLoader(
-            MLData(x, y),
+            MLDataset(x, y),
             name="train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
@@ -195,7 +195,7 @@ class SimplePipeline(DLPipeline):
             valid_loader = None
         else:
             valid_loader = MLLoader(
-                MLData(x_valid, y_valid),
+                MLDataset(x_valid, y_valid),
                 name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
@@ -240,7 +240,7 @@ class SimplePipeline(DLPipeline):
         batch_size: int,
         **kwargs: Any,
     ) -> MLLoader:
-        return MLLoader(MLData(x, None), shuffle=False, batch_size=batch_size)
+        return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
 
     @classmethod
     def pack(
@@ -537,7 +537,7 @@ class CarefreePipeline(SimplePipeline):
                 self.valid_data = split_result.split
         train_weights, valid_weights = _split_sw(sample_weights)
         train_loader = MLLoader(
-            MLData(*self.train_data.processed.xy),
+            MLDataset(*self.train_data.processed.xy),
             name="train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
@@ -547,7 +547,7 @@ class CarefreePipeline(SimplePipeline):
             valid_loader = None
         else:
             valid_loader = MLLoader(
-                MLData(*self.valid_data.processed.xy),
+                MLDataset(*self.valid_data.processed.xy),
                 name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
@@ -667,7 +667,7 @@ class CarefreePipeline(SimplePipeline):
         **kwargs: Any,
     ) -> MLLoader:
         return MLLoader(
-            MLData(*self.data.transform(x, None, **kwargs).xy),
+            MLDataset(*self.data.transform(x, None, **kwargs).xy),
             shuffle=False,
             batch_size=batch_size,
         )

@@ -23,7 +23,7 @@ from cftool.misc import LoggingMixin
 from cftool.stat import RollingStat
 
 from .data import get_weighted_indices
-from .data import MLData
+from .data import MLDataset
 from ...types import tensor_dict_type
 from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
@@ -212,7 +212,7 @@ class SpanSplit(NamedTuple):
 
 
 class TimeSeriesDataManager(LoggingMixin):
-    data: MLData
+    data: MLDataset
 
     def __init__(
         self,
@@ -436,7 +436,7 @@ class TimeSeriesDataManager(LoggingMixin):
 
 @DataLoaderProtocol.register("ts")
 class TimeSeriesLoader(DataLoaderProtocol):
-    data: MLData
+    data: MLDataset
 
     def __init__(
         self,
@@ -469,7 +469,7 @@ class TimeSeriesLoader(DataLoaderProtocol):
         y_window = cfg.y_window
         rolled_x = StrideArray(bundle.x).roll(x_window, axis=0)
         rolled_y = StrideArray(bundle.y).roll(y_window or x_window, axis=0)
-        self.data = MLData(rolled_x, rolled_y)
+        self.data = MLDataset(rolled_x, rolled_y)
 
     def __len__(self) -> int:
         return math.ceil(self.bundle.indices.shape[0] / self.batch_size)
