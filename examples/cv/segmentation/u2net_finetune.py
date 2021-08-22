@@ -57,7 +57,7 @@ def prepare(ci: bool) -> str:
 pretrained_ckpt = "pretrained/model_lite.pt"
 
 if __name__ == "__main__":
-    train, valid = cflearn.cv.get_image_folder_loaders(
+    data = cflearn.cv.ImageFolderData(
         prepare(is_ci),
         batch_size=16,
         num_workers=2 if is_ci else 4,
@@ -89,11 +89,11 @@ if __name__ == "__main__":
     else:
         import torch
 
-        m = cflearn.cv.CarefreePipeline(**pipeline_configs).fit(train, valid)
+        m = cflearn.cv.CarefreePipeline(**pipeline_configs).fit(data)
         os.makedirs(os.path.dirname(pretrained_ckpt), exist_ok=True)
         torch.save(m.model.state_dict(), pretrained_ckpt)
         pipeline_configs["fixed_steps"] = 1
         pipeline_configs["finetune_config"] = {"pretrained_ckpt": pretrained_ckpt}
     m = cflearn.cv.CarefreePipeline(**pipeline_configs)
-    m.fit(train, valid, cuda=None if is_ci else 0)
-    # m.ddp(train, valid, cuda_list=[0, 1])
+    m.fit(data, cuda=None if is_ci else 0)
+    # m.ddp(data, cuda_list=[1, 2, 3, 4])

@@ -16,7 +16,7 @@ is_ci = bool(args.ci)
 finetune_ckpt = "pretrained/lite_finetune_aug.pt"
 
 if __name__ == "__main__":
-    train, valid = cflearn.cv.get_image_folder_loaders(
+    data = cflearn.cv.ImageFolderData(
         prepare(is_ci),
         batch_size=16,
         num_workers=2 if is_ci else 4,
@@ -38,5 +38,5 @@ if __name__ == "__main__":
         scheduler_name="none",
         fixed_steps=1 if is_ci else None,
     )
-    m.fit(train, valid, cuda=None if is_ci else 5)
-    # m.ddp(train, valid, cuda_list=[4, 5])
+    m.fit(data, cuda=None if is_ci else 5)
+    # m.ddp(data, cuda_list=[4, 5])

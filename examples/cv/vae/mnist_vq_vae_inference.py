@@ -90,7 +90,7 @@ if __name__ == "__main__":
     y_train = torch.load(os.path.join(code_export_folder, "train_labels.pt"))
     x_valid = torch.load(os.path.join(code_export_folder, "valid.pt"))
     y_valid = torch.load(os.path.join(code_export_folder, "valid_labels.pt"))
-    train, valid = cflearn.cv.get_tensor_loaders(
+    data = cflearn.cv.TensorData(
         x_train,
         y_train=x_train,
         x_valid=x_valid,
@@ -111,4 +111,4 @@ if __name__ == "__main__":
         metric_names="acc",
         workplace=f"{inference_folder}/_logs",
     )
-    m.fit(train, valid, cuda=cuda)
+    m.fit(data, cuda=cuda)

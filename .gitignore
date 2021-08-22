@@ -10,4 +10,3 @@ pip-wheel-metadata
 dist/*
 **/mlruns/*
 *.zip
-**/data

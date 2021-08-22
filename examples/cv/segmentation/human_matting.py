@@ -54,7 +54,7 @@ def prepare() -> None:
 
 if __name__ == "__main__":
     prepare()
-    train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
+    data = cflearn.cv.ImageFolderData(
         tgt_folder,
         batch_size=8,
         num_workers=2,
@@ -72,4 +72,4 @@ if __name__ == "__main__":
         callback_names=["u2net", "mlflow"],
         callback_configs={"mlflow": {"experiment_name": "large_hm"}},
     )
-    m.fit(train_loader, valid_loader, cuda="0")
+    m.fit(data, cuda="0")

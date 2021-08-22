@@ -38,7 +38,7 @@ def prepare() -> None:
 
 if __name__ == "__main__":
     prepare()
-    train_loader, valid_loader = cflearn.cv.get_image_folder_loaders(
+    data = cflearn.cv.ImageFolderData(
         tgt_folder,
         batch_size=16,
         num_workers=4,
@@ -61,4 +61,4 @@ if __name__ == "__main__":
         callback_configs={"mlflow": {"experiment_name": "products-10k_clf"}},
         fixed_steps=1 if is_ci else None,
     )
-    m.fit(train_loader, valid_loader, cuda=None if is_ci else 7)
+    m.fit(data, cuda=None if is_ci else 7)
