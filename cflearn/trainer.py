@@ -245,6 +245,7 @@ class Trainer:
         amp: bool = False,
         clip_norm: float = 0.0,
         metrics: Optional[MetricProtocol] = None,
+        use_losses_as_metrics: Optional[bool] = None,
         loss_metrics_weights: Optional[Dict[str, float]] = None,
         monitors: Optional[Union[TrainerMonitor, List[TrainerMonitor]]] = None,
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
@@ -316,12 +317,27 @@ class Trainer:
                 optimizer_packs = [optimizer_packs]
             self.optimizer_packs = optimizer_packs
         self.metrics = metrics
-        if metrics is not None:
+        if metrics is None:
+            if use_losses_as_metrics is None:
+                use_losses_as_metrics = True
+            if not use_losses_as_metrics:
+                msg = "`metrics` should be provided when not `use_losses_as_metrics`"
+                raise ValueError(msg)
+        else:
             if not isinstance(metrics, MultipleMetrics):
                 metrics.trainer = self
             else:
                 for metric in metrics.metrics:
                     metric.trainer = self
+        if loss_metrics_weights is not None:
+            if use_losses_as_metrics is None:
+                use_losses_as_metrics = True
+            elif not use_losses_as_metrics:
+                raise ValueError(
+                    "`use_losses_as_metrics` should not be False "
+                    "when `loss_metrics_weights` is provided"
+                )
+        self.use_losses_as_metrics = use_losses_as_metrics
         self.loss_metrics_weights = loss_metrics_weights
         if ddp_config is None:
             self.ddp = False
@@ -865,16 +881,20 @@ class Trainer:
             portion=portion,
             state=self.state,
             metrics=self.metrics,
-            loss=self.loss if self.metrics is None else None,
+            loss=self.loss if self.use_losses_as_metrics else None,
             return_outputs=False,
         )
-        if self.metrics is not None:
-            assert outputs.metric_outputs is not None
-            return outputs.metric_outputs
+        metrics = {}
+        final_scores = []
         loss_items = outputs.loss_items
-        assert loss_items is not None
-        score = self._weighted_loss_score(loss_items)
-        return MetricsOutputs(score, loss_items)
+        metric_outputs = outputs.metric_outputs
+        if loss_items is not None:
+            metrics.update(loss_items)
+            final_scores.append(self._weighted_loss_score(loss_items))
+        if metric_outputs is not None:
+            metrics.update(metric_outputs.metric_values)
+            final_scores.append(metric_outputs.final_score)
+        return MetricsOutputs(sum(final_scores) / len(final_scores), metrics)
 
     # checkpointing
 
