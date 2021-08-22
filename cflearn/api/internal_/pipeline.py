@@ -116,6 +116,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     configs_file: str = "configs.json"
     trainer_configs_file: str = "trainer_configs.json"
+    data_json_file: str = "data.json"
     metrics_log_file: str = "metrics.txt"
 
     data_folder: str = "data"
@@ -241,6 +242,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if self.is_rank_0 and not self.in_loading:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self.trainer_config["workplace"] = workplace
+            self.trainer_config["data_json_file"] = self.data_json_file
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
             with open(os.path.join(workplace, self.configs_file), "w") as f:
                 json.dump(self.config, f)

@@ -1,7 +1,13 @@
+import json
+
 import numpy as np
 import torch.distributed as dist
 
+from abc import abstractmethod
+from abc import ABC
+from abc import ABCMeta
 from typing import Any
+from typing import Dict
 from typing import Tuple
 from typing import Callable
 from typing import Optional
@@ -21,15 +27,24 @@ from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
 
 
-class DataModule:
+class DataModule(ABC):
+    @property
+    @abstractmethod
+    def json(self) -> Dict[str, Any]:
+        pass
+
     def prepare(self, sample_weights: sample_weights_type) -> None:
         pass
 
     def initialize(self) -> Any:
         pass
 
+    def save_json(self, path: str) -> None:
+        with open(path, "w") as f:
+            json.dump(self.json, f)
 
-class DLDataModule(DataModule):
+
+class DLDataModule(DataModule, metaclass=ABCMeta):
     train_loader: DataLoaderProtocol
     valid_loader: Optional[DataLoaderProtocol]
 

@@ -1,3 +1,5 @@
+import json
+
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -38,6 +40,10 @@ class MNISTData(DLDataModule):
         self.batch_size = batch_size
         self.transform = Transforms.convert(transform, transform_config)
         self.label_callback = label_callback
+
+    @property
+    def json(self) -> Dict[str, Any]:
+        return dict(root=self.root, shuffle=self.shuffle, batch_size=self.batch_size)
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
@@ -99,6 +105,10 @@ class TensorData(DLDataModule):
         self.valid_others = valid_others
         self.d = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
+    @property
+    def json(self) -> Dict[str, Any]:
+        return self.d
+
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
         def _get_data(x: Any, y: Any, others: Any) -> CVDataset:
@@ -139,6 +149,17 @@ class ImageFolderData(DLDataModule):
         self.test_transform = test_transform
         self.lmdb_configs = lmdb_configs
         self.d = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+
+    @property
+    def json(self) -> Dict[str, Any]:
+        d = shallow_copy_dict(self.d)
+        d["test_shuffle"] = self.test_shuffle
+        try:
+            json.dumps(self.lmdb_configs)
+            d["lmdb_configs"] = self.lmdb_configs
+        except Exception as err:
+            d["lmdb_configs"] = str(err)
+        return d
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
