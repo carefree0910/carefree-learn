@@ -134,11 +134,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         *,
         loss_name: str,
         loss_config: Optional[Dict[str, Any]] = None,
-        # data loader
-        shuffle_train: bool = True,
-        shuffle_valid: bool = False,
-        batch_size: int = 128,
-        valid_batch_size: int = 512,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -172,10 +167,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         super().__init__()
         self.loss_name = loss_name
         self.loss_config = loss_config or {}
-        self.shuffle_train = shuffle_train
-        self.shuffle_valid = shuffle_valid
-        self.batch_size = batch_size
-        self.valid_batch_size = valid_batch_size
         self.trainer_config: Dict[str, Any] = {
             "state_config": state_config,
             "num_epoch": num_epoch,
@@ -233,7 +224,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _prepare_modules(self) -> None:
+    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
         pass
 
     # internal
@@ -257,7 +248,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.loss_name = f"{prefix}_{'_'.join(loss_names)}"
         self.loss = LossProtocol.make(self.loss_name, config=self.loss_config or {})
 
-    def _prepare_trainer_defaults(self) -> None:
+    def _prepare_trainer_defaults(self, data_json: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
@@ -343,8 +334,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     # core
 
     def _fit(self, data: DLDataModule, cuda: Optional[str]) -> None:
-        self._prepare_modules()
-        self._prepare_trainer_defaults()
+        self.data = data
+        data_json = data.json
+        self._prepare_modules(data_json)
+        self._prepare_trainer_defaults(data_json)
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(
             data,
@@ -399,6 +392,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         with lock_manager(base_folder, [export_folder]):
             score = self._save_misc(export_folder, retain_data)
             self.trainer.save_checkpoint(score, export_folder, no_history=True)
+            with open(os.path.join(export_folder, self.data_json_file), "w") as f:
+                json.dump(self.trainer.data_json, f)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
@@ -438,6 +433,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             if config_bundle_callback is not None:
                 config_bundle_callback(config_bundle)
             Saving.save_dict(config_bundle, cls.config_bundle_name, pack_folder)
+            shutil.copy(
+                os.path.join(workplace, cls.data_json_file),
+                os.path.join(pack_folder, cls.data_json_file),
+            )
             Saving.compress(abs_folder, remove_original=True)
         return pack_folder
 
@@ -463,7 +462,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     pre_callback,
                     post_callback,
                 )
-                m._prepare_modules()
+                with open(os.path.join(export_folder, cls.data_json_file), "r") as f:
+                    m._prepare_modules(json.load(f))
                 m.model.to(m.device)
                 # restore checkpoint
                 states = cls._load_states_from(m, export_folder)
@@ -689,8 +689,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cuda = str_cuda_list[0]
         self.in_loading = True
         self.device_info = DeviceInfo(cuda, None)
-        self._prepare_modules()
-        self._prepare_trainer_defaults()
+        self.data = data
+        data_json = data.json
+        self._prepare_modules(data_json)
+        self._prepare_trainer_defaults(data_json)
         latest_workplace = get_latest_workplace(new_workplace)
         if latest_workplace is None:
             raise ValueError(f"timestamp is not found under '{new_workplace}'")

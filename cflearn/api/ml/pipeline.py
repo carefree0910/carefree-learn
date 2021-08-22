@@ -18,22 +18,20 @@ from cftool.ml import ModelPattern
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 
-from ...types import data_type
+from .data import MLData
 from ...types import np_dict_type
-from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
-from ..internal_.pipeline import _split_sw
 from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import softmax
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
-from ...misc.internal_ import MLDataset
 from ...misc.internal_ import MLLoader
+from ...misc.internal_ import MLDataset
 from ...misc.internal_ import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
@@ -56,22 +54,10 @@ class SimplePipeline(DLPipeline):
         core_name: str = "fcnn",
         core_config: Optional[Dict[str, Any]] = None,
         *,
-        output_dim: int,
-        is_classification: bool,
-        loss_name: str,
+        input_dim: Optional[int] = None,
+        output_dim: Optional[int] = None,
+        loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
-        # valid split
-        valid_split: Optional[Union[int, float]] = None,
-        min_valid_split: int = 100,
-        max_valid_split: int = 10000,
-        max_valid_split_ratio: float = 0.5,
-        valid_split_order: str = "auto",
-        # data loader
-        num_history: int = 1,
-        shuffle_train: bool = True,
-        shuffle_valid: bool = False,
-        batch_size: int = 128,
-        valid_batch_size: int = 512,
         # encoder
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
@@ -115,10 +101,6 @@ class SimplePipeline(DLPipeline):
         super().__init__(
             loss_name=loss_name,
             loss_config=loss_config,
-            shuffle_train=shuffle_train,
-            shuffle_valid=shuffle_valid,
-            batch_size=batch_size,
-            valid_batch_size=valid_batch_size,
             state_config=state_config,
             num_epoch=num_epoch,
             max_epoch=max_epoch,
@@ -149,16 +131,10 @@ class SimplePipeline(DLPipeline):
         )
         self.core_name = core_name
         self.core_config = core_config or {}
-        self.valid_split = valid_split
-        self.min_valid_split = min_valid_split
-        self.max_valid_split = max_valid_split
-        self.max_valid_split_ratio = max_valid_split_ratio
-        self.valid_split_order = valid_split_order
-        self.num_history = num_history
-        self.input_dim = None
+        self.input_dim = input_dim
         self.output_dim = output_dim
-        self.is_classification = is_classification
         self.only_categorical = only_categorical
+        self.encoder = None
         self.encoder_config = encoder_config or {}
         self.encoding_methods = encoding_methods or {}
         self.encoding_configs = encoding_configs or {}
@@ -169,58 +145,32 @@ class SimplePipeline(DLPipeline):
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
-    def _prepare_trainer_defaults(self) -> None:
-        super()._prepare_trainer_defaults()
-        callback_names = self.trainer_config["callback_names"]
-        if "_inject_loader_name" not in callback_names:
-            callback_names.append("_inject_loader_name")
-
-    def _prepare_data(
-        self,
-        x: np.ndarray,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-    ) -> None:
-        y, x_valid, y_valid = args
-        self.input_dim = x.shape[-1]
-        train_weights, valid_weights = _split_sw(sample_weights)
-        train_loader = MLLoader(
-            MLDataset(x, y),
-            name="train",
-            shuffle=self.shuffle_train,
-            batch_size=self.batch_size,
-            sample_weights=train_weights,
-        )
-        if x_valid is None or y_valid is None:
-            valid_loader = None
-        else:
-            valid_loader = MLLoader(
-                MLDataset(x_valid, y_valid),
-                name="valid",
-                shuffle=self.shuffle_valid,
-                batch_size=self.valid_batch_size,
-                sample_weights=valid_weights,
-            )
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-
-    def _prepare_data_attributes(self) -> None:
-        self.encoder = None
-        assert self.input_dim is not None
-        self.numerical_columns_mapping = {i: i for i in range(self.input_dim)}
-        self.categorical_columns_mapping = {}
-        self.use_one_hot = False
-        self.use_embedding = False
-
-    def _prepare_modules(self) -> None:
-        self._prepare_data_attributes()
+    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
+        self.is_classification = data_json["is_classification"]
+        is_reg = not self.is_classification
+        if self.input_dim is None:
+            self.input_dim = data_json["input_dim"]
+        if self.output_dim is None:
+            self.output_dim = 1 if is_reg else data_json["num_classes"]
+            if self.output_dim is None:
+                raise ValueError(
+                    "either `MLData` with `cf_data`, or `output_dim`, "
+                    "should be provided"
+                )
+        self.use_auto_loss = self.loss_name == "auto"
+        if self.use_auto_loss:
+            self.loss_name = "mae" if is_reg else "focal"
+        if self.encoder is None:
+            self.numerical_columns_mapping = {i: i for i in range(self.input_dim)}
+            self.categorical_columns_mapping = {}
+            self.use_one_hot = False
+            self.use_embedding = False
         self._prepare_workplace()
         self._prepare_loss()
-        assert self.input_dim is not None
         self.model = MLModel(
             self.input_dim,
             self.output_dim,
-            self.num_history,
+            data_json["num_history"],
             encoder=self.encoder,
             numerical_columns_mapping=self.numerical_columns_mapping,
             categorical_columns_mapping=self.categorical_columns_mapping,
@@ -234,55 +184,25 @@ class SimplePipeline(DLPipeline):
         )
         self.inference = MLInference(model=self.model)
 
-    def _make_new_loader(  # type: ignore
+    def _prepare_trainer_defaults(self, data_json: Dict[str, Any]) -> None:
+        super()._prepare_trainer_defaults(data_json)
+        if self.trainer_config["metric_names"] is None and self.use_auto_loss:
+            if data_json["is_classification"]:
+                self.trainer_config["metric_names"] = ["acc", "auc"]
+            else:
+                self.trainer_config["metric_names"] = ["mae", "mse"]
+        callback_names = self.trainer_config["callback_names"]
+        if "_inject_loader_name" not in callback_names:
+            callback_names.append("_inject_loader_name")
+
+    def _make_new_loader(
         self,
-        x: np.ndarray,
+        data: MLData,
         batch_size: int,
         **kwargs: Any,
     ) -> MLLoader:
+        x = data.x_train
         return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
-
-    @classmethod
-    def pack(
-        cls,
-        workplace: str,
-        *,
-        input_dim: Optional[int] = None,
-        config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
-        pack_folder: Optional[str] = None,
-        cuda: Optional[str] = None,
-    ) -> str:
-        if input_dim is None:
-            raise ValueError("`input_dim` should be provided for ml.SimplePipeline")
-
-        def _callback(d: Dict[str, Any]) -> None:
-            d["input_dim"] = input_dim
-            if config_bundle_callback is not None:
-                config_bundle_callback(d)
-
-        return super().pack(
-            workplace,
-            config_bundle_callback=_callback,
-            pack_folder=pack_folder,
-            cuda=cuda,
-        )
-
-    @classmethod
-    def _load_infrastructure(
-        cls,
-        export_folder: str,
-        cuda: Optional[str],
-        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "SimplePipeline":
-        def _callback(m: DLPipeline, config_bundle: Dict[str, Any]) -> None:
-            m.input_dim = config_bundle["input_dim"]
-            if post_callback is not None:
-                post_callback(m, config_bundle)
-
-        m_ = super()._load_infrastructure(export_folder, cuda, pre_callback, _callback)
-        assert isinstance(m_, SimplePipeline)
-        return m_
 
     def to_pattern(
         self,
@@ -336,7 +256,8 @@ class SimplePipeline(DLPipeline):
                 )
                 assert isinstance(m, SimplePipeline)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
-        m._prepare_modules()
+        with open(os.path.join(export_folder, cls.data_json_file), "r") as f:
+            m._prepare_modules(json.load(f))
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
         for i, export_folder in enumerate(export_folders):
@@ -375,34 +296,14 @@ class SimplePipeline(DLPipeline):
 
 @DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):
-    data: TabularData
-    train_data: TabularData
-    valid_data: Optional[TabularData]
-
     def __init__(
         self,
         core_name: str = "fcnn",
         core_config: Optional[Dict[str, Any]] = None,
         *,
         output_dim: Optional[int] = None,
-        is_classification: Optional[bool] = None,
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
-        # data
-        data_config: Optional[Dict[str, Any]] = None,
-        read_config: Optional[Dict[str, Any]] = None,
-        # valid split
-        valid_split: Optional[Union[int, float]] = None,
-        min_valid_split: int = 100,
-        max_valid_split: int = 10000,
-        max_valid_split_ratio: float = 0.5,
-        valid_split_order: str = "auto",
-        # data loader
-        num_history: int = 1,
-        shuffle_train: bool = True,
-        shuffle_valid: bool = False,
-        batch_size: int = 128,
-        valid_batch_size: int = 512,
         # encoder
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
@@ -446,19 +347,8 @@ class CarefreePipeline(SimplePipeline):
             core_name,
             core_config,
             output_dim=output_dim,  # type: ignore
-            is_classification=is_classification,  # type: ignore
             loss_name=loss_name,
             loss_config=loss_config,
-            valid_split=valid_split,
-            min_valid_split=min_valid_split,
-            max_valid_split=max_valid_split,
-            max_valid_split_ratio=max_valid_split_ratio,
-            valid_split_order=valid_split_order,
-            num_history=num_history,
-            shuffle_train=shuffle_train,
-            shuffle_valid=shuffle_valid,
-            batch_size=batch_size,
-            valid_batch_size=valid_batch_size,
             only_categorical=only_categorical,
             encoder_config=encoder_config,
             encoding_methods=encoding_methods,
@@ -495,77 +385,11 @@ class CarefreePipeline(SimplePipeline):
             num_repeat=num_repeat,
         )
         self.config = config
-        if data_config is None:
-            data_config = {}
-        data_config["default_categorical_process"] = "identical"
-        if is_classification is not None:
-            data_config["task_type"] = "clf" if is_classification else "reg"
-        self.data = TabularData(**(data_config or {}))
-        self.read_config = read_config or {}
+        self.cf_data = None
 
-    def _prepare_data(
-        self,
-        x: data_type,
-        *args: Any,
-        sample_weights: sample_weights_type = None,
-    ) -> None:
-        y, x_valid, y_valid = args
-        self.data.read(x, y, **self.read_config)
-        if x_valid is not None:
-            self.train_data = self.data
-            self.valid_data = self.data.copy_to(x_valid, y_valid)
-        else:
-            if isinstance(self.valid_split, int):
-                split = self.valid_split
-            else:
-                num_data = len(self.data)
-                if isinstance(self.valid_split, float):
-                    split = int(round(self.valid_split * num_data))
-                else:
-                    default_split = 0.1
-                    num_split = int(round(default_split * num_data))
-                    num_split = max(self.min_valid_split, num_split)
-                    max_split = int(round(num_data * self.max_valid_split_ratio))
-                    max_split = min(max_split, self.max_valid_split)
-                    split = min(num_split, max_split)
-            if split <= 0:
-                self.train_data = self.data
-                self.valid_data = None
-            else:
-                split_result = self.data.split(split, order=self.valid_split_order)
-                self.train_data = split_result.remained
-                self.valid_data = split_result.split
-        train_weights, valid_weights = _split_sw(sample_weights)
-        train_loader = MLLoader(
-            MLDataset(*self.train_data.processed.xy),
-            name="train",
-            shuffle=self.shuffle_train,
-            batch_size=self.batch_size,
-            sample_weights=train_weights,
-        )
-        if self.valid_data is None:
-            valid_loader = None
-        else:
-            valid_loader = MLLoader(
-                MLDataset(*self.valid_data.processed.xy),
-                name="valid",
-                shuffle=self.shuffle_valid,
-                batch_size=self.valid_batch_size,
-                sample_weights=valid_weights,
-            )
-        self.train_loader = train_loader
-        self.valid_loader = valid_loader
-
-    def _prepare_data_attributes(self) -> None:
-        self.is_classification = self.data.is_clf
-        if self.input_dim is None:
-            self.input_dim = self.data.processed_dim
-        if self.output_dim is None:
-            self.output_dim = 1 if self.data.is_reg else self.data.num_classes
-        if self.loss_name == "auto":
-            self.loss_name = "focal" if self.data.is_clf else "mae"
-
-    def _prepare_modules(self) -> None:
+    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
+        if self.cf_data is None:
+            self.cf_data = self.data.cf_data
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -576,12 +400,12 @@ class CarefreePipeline(SimplePipeline):
         true_categorical_columns = []
         use_one_hot = False
         use_embedding = False
-        if self.data.is_simplify:
-            for idx in range(self.data.processed.x.shape[1]):
+        if self.cf_data.is_simplify:
+            for idx in range(self.cf_data.processed.x.shape[1]):
                 numerical_columns_mapping[idx] = idx
         else:
-            ts_indices = self.data.ts_indices
-            recognizers = self.data.recognizers
+            ts_indices = self.cf_data.ts_indices
+            recognizers = self.cf_data.recognizers
             sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
             for idx in sorted_indices:
                 recognizer = recognizers[idx]
@@ -617,11 +441,12 @@ class CarefreePipeline(SimplePipeline):
             if self.in_loading:
                 loaders = []
             else:
-                train_loader_copy = self.train_loader.copy()
+                train_loader, valid_loader = self.data.initialize()
+                train_loader_copy = train_loader.copy()
                 train_loader_copy.disable_shuffle()
                 loaders = [train_loader_copy]
-                if self.valid_loader is not None:
-                    loaders.append(self.valid_loader)
+                if valid_loader is not None:
+                    loaders.append(valid_loader)
             encoder = Encoder(
                 self.encoder_config,
                 categorical_dims,
@@ -635,21 +460,13 @@ class CarefreePipeline(SimplePipeline):
         self.use_embedding = use_embedding
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
-        super()._prepare_modules()
-
-    def _prepare_trainer_defaults(self) -> None:
-        if self.trainer_config["metric_names"] is None:
-            if self.data.is_clf:
-                self.trainer_config["metric_names"] = ["acc", "auc"]
-            else:
-                self.trainer_config["metric_names"] = ["mae", "mse"]
-        super()._prepare_trainer_defaults()
+        super()._prepare_modules(data_json)
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
         results = outputs.forward_results
-        if self.data.is_clf:
+        if self.cf_data.is_clf:
             return results
-        fn = partial(self.data.recover_labels, inplace=True)
+        fn = partial(self.cf_data.recover_labels, inplace=True)
         recovered = {}
         for k, v in results.items():
             if is_float(v):
@@ -662,19 +479,19 @@ class CarefreePipeline(SimplePipeline):
 
     def _make_new_loader(
         self,
-        x: data_type,
+        data: MLData,
         batch_size: int,
         **kwargs: Any,
     ) -> MLLoader:
         return MLLoader(
-            MLDataset(*self.data.transform(x, None, **kwargs).xy),
+            MLDataset(*self.cf_data.transform(data.x_train, None, **kwargs).xy),
             shuffle=False,
             batch_size=batch_size,
         )
 
     def _save_misc(self, export_folder: str, retain_data: bool) -> float:
         data_folder = os.path.join(export_folder, self.data_folder)
-        self.data.save(data_folder, retain_data=retain_data, compress=False)
+        self.cf_data.save(data_folder, retain_data=retain_data, compress=False)
         return super()._save_misc(export_folder, retain_data)
 
     @classmethod
@@ -693,7 +510,7 @@ class CarefreePipeline(SimplePipeline):
         )
         assert isinstance(m, CarefreePipeline)
         data_folder = os.path.join(export_folder, cls.data_folder)
-        m.data = TabularData.load(data_folder, compress=False)
+        m.cf_data = TabularData.load(data_folder, compress=False)
         return m
 
     @classmethod

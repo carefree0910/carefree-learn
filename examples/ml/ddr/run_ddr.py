@@ -23,17 +23,17 @@ f = lambda inp: (
 x = 2.0 * np.random.random([num_samples, 1]) - 1.0
 y = f(x)
 
-x_train, y_train = x[:num_train], y[:num_train]
-x_valid, y_valid = x[num_train:-num_test], y[num_train:-num_test]
+data = cflearn.ml.MLData(
+    x[:num_train],
+    y[:num_train],
+    x[num_train:-num_test],
+    y[num_train:-num_test],
+    is_classification=False,
+)
 x_test, y_test = x[-num_test:], y[-num_test:]
 
-m = cflearn.ml.SimplePipeline(
-    "ddr",
-    output_dim=1,
-    is_classification=False,
-    loss_name="ddr",
-)
-m.fit(x_train, y_train, x_valid, y_valid)
+m = cflearn.ml.SimplePipeline("ddr", output_dim=1, loss_name="ddr")
+m.fit(data)
 
 os.makedirs(output_folder, exist_ok=True)
 visualizer = DDRVisualizer(m.model.core)  # type: ignore
@@ -44,10 +44,4 @@ visualizer.visualize(
     ratios=ratios,
     padding=padding,
 )
-visualizer.visualize_multiple(
-    f,
-    x_test,
-    y_test,
-    output_folder,
-    ratios=ratios,
-)
+visualizer.visualize_multiple(f, x_test, y_test, output_folder, ratios=ratios)

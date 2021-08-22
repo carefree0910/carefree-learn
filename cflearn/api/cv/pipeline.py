@@ -27,11 +27,6 @@ class SimplePipeline(DLPipeline):
         *,
         loss_name: str,
         loss_config: Optional[Dict[str, Any]] = None,
-        # data loader
-        shuffle_train: bool = True,
-        shuffle_valid: bool = False,
-        batch_size: int = 4,
-        valid_batch_size: int = 4,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -66,10 +61,6 @@ class SimplePipeline(DLPipeline):
         super().__init__(
             loss_name=loss_name,
             loss_config=loss_config,
-            shuffle_train=shuffle_train,
-            shuffle_valid=shuffle_valid,
-            batch_size=batch_size,
-            valid_batch_size=valid_batch_size,
             state_config=state_config,
             num_epoch=num_epoch,
             max_epoch=max_epoch,
@@ -102,7 +93,7 @@ class SimplePipeline(DLPipeline):
         self.model_name = model_name
         self.model_config = model_config or {}
 
-    def _prepare_modules(self) -> None:
+    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
         self._prepare_workplace()
         self._prepare_loss()
         self.model = ModelProtocol.make(self.model_name, config=self.model_config)
@@ -128,11 +119,6 @@ class CarefreePipeline(SimplePipeline):
         *,
         loss_name: Optional[str] = None,
         loss_config: Optional[Dict[str, Any]] = None,
-        # data loader
-        shuffle_train: bool = True,
-        shuffle_valid: bool = False,
-        batch_size: int = 4,
-        valid_batch_size: int = 4,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -176,10 +162,6 @@ class CarefreePipeline(SimplePipeline):
             model_config,
             loss_name=loss_name,
             loss_config=loss_config,
-            shuffle_train=shuffle_train,
-            shuffle_valid=shuffle_valid,
-            batch_size=batch_size,
-            valid_batch_size=valid_batch_size,
             state_config=state_config,
             num_epoch=num_epoch,
             max_epoch=max_epoch,
@@ -209,10 +191,10 @@ class CarefreePipeline(SimplePipeline):
             in_loading=in_loading,
         )
 
-    def _prepare_trainer_defaults(self) -> None:
+    def _prepare_trainer_defaults(self, data_json: Dict[str, Any]) -> None:
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = "conservative"
-        super()._prepare_trainer_defaults()
+        super()._prepare_trainer_defaults(data_json)
 
 
 __all__ = [

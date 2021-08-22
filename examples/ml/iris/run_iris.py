@@ -15,37 +15,38 @@ sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
 if __name__ == "__main__":
     metrics = ["acc", "auc"]
     m = cflearn.ml.CarefreePipeline()
-    m.fit(iris_data_file)
-    print(m.data.raw.x[0])
-    print(m.data.raw.y[0])
-    print(m.data.processed.x[0])
-    print(m.data.processed.y[0])
+    data = cflearn.ml.MLData.with_cf_data(iris_data_file)
+    m.fit(data)
+    print(m.cf_data.raw.x[0])
+    print(m.cf_data.raw.y[0])
+    print(m.cf_data.processed.x[0])
+    print(m.cf_data.processed.y[0])
 
-    train_x, train_y = m.train_data.processed.xy
-    valid_x, valid_y = m.valid_data.processed.xy  # type: ignore
+    train_x, train_y = m.data.train_cf_data.processed.xy
+    valid_x, valid_y = m.data.valid_cf_data.processed.xy  # type: ignore
     stacked = np.vstack([train_x, valid_x])
     print(stacked.mean(0))
     print(stacked.std(0))
 
-    predictions = m.predict(iris_data_file, contains_labels=True)
-    cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=m)
+    predictions = m.predict(data, contains_labels=True)
+    cflearn.ml.evaluate(data, metrics=metrics, pipelines=m)
 
     result = cflearn.ml.repeat_with(
-        iris_data_file,
+        data,
         pipeline_base=cflearn.ml.CarefreePipeline,
         num_repeat=2,
     )
-    cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=result.pipelines)
+    cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     models = ["linear", "fcnn"]
     result = cflearn.ml.repeat_with(
-        iris_data_file,
+        data,
         pipeline_base=cflearn.ml.CarefreePipeline,
         models=models,
         num_repeat=2,
         num_jobs=2,
     )
-    cflearn.ml.evaluate(iris_data_file, metrics=metrics, pipelines=result.pipelines)
+    cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     experiment = cflearn.dist.ml.Experiment()
     data_folder = experiment.dump_data_bundle(train_x, train_y, valid_x, valid_y)
@@ -74,8 +75,8 @@ if __name__ == "__main__":
                 sk_model = pickle.load(f)
                 # In `carefree-learn`, we treat labels as column vectors.
                 # So we need to reshape the outputs from the scikit-learn models.
-                sk_predict = lambda x: sk_model.predict(x).reshape([-1, 1])
-                sk_predict_prob = lambda x: sk_model.predict_proba(x)
+                sk_predict = lambda d: sk_model.predict(d.x_train).reshape([-1, 1])
+                sk_predict_prob = lambda d: sk_model.predict_proba(d.x_train)
                 sk_pattern = cflearn.ml.ModelPattern(
                     predict_method=sk_predict,
                     predict_prob_method=sk_predict_prob,
@@ -83,8 +84,7 @@ if __name__ == "__main__":
                 sk_patterns[model] = sk_pattern
 
     cflearn.ml.evaluate(
-        valid_x,
-        valid_y,
+        cflearn.ml.MLInferenceData(valid_x, valid_y),
         metrics=metrics,
         pipelines=pipelines,
         other_patterns=sk_patterns,

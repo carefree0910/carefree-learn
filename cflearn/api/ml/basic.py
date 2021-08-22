@@ -14,6 +14,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
+from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
 from cftool.ml import EnsemblePattern
 from cftool.dist import Parallel
@@ -23,10 +24,11 @@ from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 
+from .data import MLData
+from .data import MLInferenceData
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
 from ..basic import make
-from ...types import data_type
 from ...trainer import get_sorted_checkpoints
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
@@ -36,7 +38,6 @@ from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
 from ...misc.toolkit import get_latest_workplace
-from ...misc.internal_ import MLDataset
 from ...models.ml.protocol import MLCoreProtocol
 
 
@@ -73,8 +74,7 @@ def _to_pipelines(pipelines: various_pipelines_type) -> pipelines_type:
 
 
 def evaluate(
-    x: data_type,
-    y: data_type = None,
+    data: MLInferenceData,
     *,
     metrics: Union[str, List[str]],
     metric_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
@@ -92,6 +92,7 @@ def evaluate(
         metric_configs = [{} for _ in range(len(metrics))]
 
     patterns = {}
+    x, y = data.x_train, data.y_train
     if pipelines is None:
         msg = None
         if y is None:
@@ -112,9 +113,9 @@ def evaluate(
             data_pipeline = list(pipelines.values())[0][0]
             if not isinstance(data_pipeline, CarefreePipeline):
                 raise ValueError("only `CarefreePipeline` can handle file inputs")
-            data = data_pipeline.data
-            x, y = data.read_file(x, contains_labels=contains_labels)
-            y = data.transform(x, y).y
+            cf_data = data_pipeline.cf_data
+            x, y = cf_data.read_file(x, contains_labels=contains_labels)
+            y = cf_data.transform(x, y).y
         # get metrics
         if predict_config is None:
             predict_config = {}
@@ -148,7 +149,7 @@ def evaluate(
         for metric, metric_config in zip(metrics_list, metric_configs_list)
     ]
     comparer = Comparer(patterns, estimators)
-    comparer.compare(x, y, verbose_level=comparer_verbose_level)
+    comparer.compare(data, y, verbose_level=comparer_verbose_level)
     return comparer
 
 
@@ -177,17 +178,14 @@ def load_experiment_results(
 
 
 class RepeatResult(NamedTuple):
-    data: Optional[MLDataset]
+    data: Optional[TabularData]
     experiment: Optional[Experiment]
     pipelines: Optional[Dict[str, List[SimplePipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
 
 def repeat_with(
-    x: data_type,
-    y: data_type = None,
-    x_valid: data_type = None,
-    y_valid: data_type = None,
+    data: MLData,
     *,
     pipeline_base: Type[SimplePipeline] = CarefreePipeline,
     workplace: str = "_repeat",
@@ -272,7 +270,7 @@ def repeat_with(
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
                 m = pipeline_base(**local_config)
-                m.fit(x, y, x_valid, y_valid, cuda=cuda)
+                m.fit(data, cuda=cuda)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
     else:
@@ -283,10 +281,10 @@ def repeat_with(
             )
         # data
         data_folder = Experiment.dump_data_bundle(
-            x,
-            y,
-            x_valid,
-            y_valid,
+            data.x_train,
+            data.y_train,
+            data.x_valid,
+            data.y_valid,
             workplace=workplace,
         )
         # experiment
@@ -328,7 +326,7 @@ def repeat_with(
     if patterns is not None:
         m = patterns[models[0]][0].model
         if isinstance(m, CarefreePipeline):
-            data = m.data
+            data = m.cf_data
 
     return RepeatResult(data, experiment, pipelines_dict, patterns)
 
