@@ -622,6 +622,8 @@ class Trainer:
     def _monitor_step(self) -> MonitorResults:
         terminate = False
         save_checkpoint = False
+        for monitor in self.monitors:
+            monitor.handle_extension(self.state)
         if self.state.should_monitor:
             # get metrics
             self.intermediate = self.get_metrics(portion=self.valid_portion)
@@ -635,8 +637,6 @@ class Trainer:
                     save_checkpoint = True
                 if any(monitor.check_terminate(score) for monitor in self.monitors):
                     terminate = True
-                for monitor in self.monitors:
-                    monitor.handle_extension(self.state)
         return MonitorResults(terminate, save_checkpoint, self.intermediate)
 
     def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
