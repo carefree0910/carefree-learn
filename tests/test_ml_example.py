@@ -31,11 +31,11 @@ class TestExample(unittest.TestCase):
     def test_simple(self) -> None:
         folder = os.path.join(examples_folder, "simple")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'boston.py')}"),
+            os.system(f"python {os.path.join(folder, 'iris.py')}"),
             0,
         )
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'iris.py')}"),
+            os.system(f"python {os.path.join(folder, 'boston.py')}"),
             0,
         )
 
