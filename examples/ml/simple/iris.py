@@ -33,7 +33,7 @@ assert np.allclose(p, m4.predict(idata)[cflearn.PREDICTIONS_KEY])
 m = base(output_dim=3, metric_names=metrics).fit(data)
 p2 = m.predict(idata)[cflearn.PREDICTIONS_KEY]
 packed_paths = []
-for stuff in os.listdir("_logs"):
+for stuff in sorted(os.listdir("_logs"))[-2:]:
     folder = os.path.join("_logs", stuff)
     packed_paths.append(base.pack(folder))
 fused = base.fuse_multiple(packed_paths)
