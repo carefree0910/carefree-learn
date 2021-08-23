@@ -1563,33 +1563,52 @@ class PositionalEncoding(Module):
             nn.init.trunc_normal_(self.pos_encoding, std=0.02)
         self.has_head_token = has_head_token
 
-    def forward(self, net: Tensor) -> Tensor:
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        hwp: Optional[Tuple[int, int, int]] = None,
+    ) -> Tensor:
         if self.pos_encoding is None or self.pos_drop is None:
             return net
-        pos_encoding = self.interpolate_pos_encoding(net, self.pos_encoding)
+        pos_encoding = self.interpolate_pos_encoding(net, hwp)
         pos_encoding = self.pos_drop(pos_encoding)
         return net + pos_encoding
 
     # this is for vision positional encodings
-    def interpolate_pos_encoding(self, net: Tensor, pos_encoding: Tensor) -> Tensor:
+    def interpolate_pos_encoding(
+        self,
+        net: Tensor,
+        hwp: Optional[Tuple[int, int, int]],
+    ) -> Tensor:
         head_dim = int(self.has_head_token)
+        pos_encoding = self.pos_encoding
+        assert pos_encoding is not None
         num_current_history = net.shape[1] - head_dim
         num_history = pos_encoding.shape[1] - head_dim
-        if num_current_history == num_history:
+        if hwp is None:
+            w = h = patch_size = None
+        else:
+            h, w, patch_size = hwp
+        if num_current_history == num_history and w == h:
             return pos_encoding
+        if w is None or h is None or patch_size is None:
+            raise ValueError("`hwp` should be provided for `interpolate_pos_encoding`")
         head_encoding = None
         if self.has_head_token:
             head_encoding = pos_encoding[:, :1]
             pos_encoding = pos_encoding[:, 1:]
         dim = net.shape[-1]
-        shape = int(math.sqrt(num_history))
-        if shape ** 2 != num_history:
-            raise ValueError(f"`num_history` ({num_history}) should be a square number")
+        # This assume that the original input is squared image
+        sqrt = math.sqrt(num_history)
+        pw, ph = map(float, [w // patch_size, h // patch_size])
+        pw, ph = pw + 0.1, ph + 0.1
         pos_encoding = F.interpolate(
-            pos_encoding.reshape(1, shape, shape, dim).permute(0, 3, 1, 2),
-            scale_factor=math.sqrt(num_current_history / num_history),
+            pos_encoding.reshape(1, int(sqrt), int(sqrt), dim).permute(0, 3, 1, 2),
+            scale_factor=(pw / sqrt, ph / sqrt),
             mode="bicubic",
         )
+        assert int(pw) == pos_encoding.shape[-2] and int(ph) == pos_encoding.shape[-1]
         pos_encoding = pos_encoding.permute(0, 2, 3, 1).view(1, -1, dim)
         if head_encoding is None:
             return pos_encoding
@@ -1658,12 +1677,12 @@ class MixedStackedEncoder(Module):
             nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, net: Tensor) -> Tensor:
+    def forward(self, net: Tensor, **kwargs: Any) -> Tensor:
         batch_size = net.shape[0]
         if self.head_token is not None:
             head_tokens = self.head_token.repeat([batch_size, 1, 1])
             net = torch.cat([head_tokens, net], dim=1)
-        net = self.pos_encoding(net)
+        net = self.pos_encoding(net, **kwargs)
         for block in self.mixing_blocks:
             net = block(net)
         net = self.head(net)

@@ -3,10 +3,6 @@ from typing import Dict
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....constants import INPUT_KEY
-from ....constants import LATENT_KEY
 from ....modules.blocks import AttentionTokenMixer
 from ....modules.blocks import MixedStackedEncoder
 
@@ -50,15 +46,6 @@ class ViTEncoder(Encoder1DFromPatches):
             num_heads=num_heads,
             **attention_kwargs,
         )
-
-    def from_patches(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {LATENT_KEY: self.encoder(batch[INPUT_KEY])}
 
 
 __all__ = ["ViTEncoder"]

@@ -12,6 +12,7 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
+from ....constants import LATENT_KEY
 from ....modules.blocks import ImgToPatches
 
 
@@ -80,6 +81,8 @@ class Encoder1DBase(nn.Module, WithRegister, metaclass=ABCMeta):
 
 
 class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
+    encoder: nn.Module
+
     def __init__(
         self,
         img_size: int,
@@ -109,19 +112,11 @@ class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
         **kwargs: Any,
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
-        patches = self.to_patches(batch[INPUT_KEY])
+        inp = batch[INPUT_KEY]
+        patches = self.to_patches(inp)
         batch[INPUT_KEY] = patches
-        return self.from_patches(batch_idx, batch, state, **kwargs)
-
-    @abstractmethod
-    def from_patches(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
+        kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size
+        return {LATENT_KEY: self.encoder(batch[INPUT_KEY], **kwargs)}
 
 
 __all__ = [
