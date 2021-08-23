@@ -1638,24 +1638,24 @@ class MixedStackedEncoder(Module):
             **token_mixing_kwargs,
         )
         self.mixing_blocks = _get_clones(mixing_block, num_layers)
-        # initializations
-        if self.head_token is not None:
-            nn.init.trunc_normal_(self.head_token, std=0.02)
-        self.apply(self._init_weights)
         # head
         if self.head_token is not None:
             head = Lambda(lambda x: x[:, 0], name="head_token")
         else:
             head = Lambda(lambda x: x.mean(1), name="global_average")
         self.head = PreNorm(dim, module=head, norm_type=norm_type)
+        # initializations
+        if self.head_token is not None:
+            nn.init.trunc_normal_(self.head_token, std=0.02)
+        self.apply(self._init_weights)
 
     def _init_weights(self, m: Module) -> None:
         if isinstance(m, nn.Linear):
             nn.init.trunc_normal_(m.weight, std=0.02)
             if isinstance(m, nn.Linear) and m.bias is not None:
-                nn.init.constant_(m.bias, 0)
+                nn.init.constant_(m.bias, 0.0)
         elif isinstance(m, nn.LayerNorm):
-            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)
 
     def forward(self, net: Tensor) -> Tensor:
