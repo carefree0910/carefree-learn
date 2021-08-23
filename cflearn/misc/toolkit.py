@@ -846,7 +846,11 @@ class SharedArrayWrapper:
             os.remove(self.flag_path)
 
     def _give_permission(self) -> None:
-        os.system(f"chmod -R 777 {self.folder}")
+        if self.to_memory:
+            os.system(f"chmod 766 /dev/shm/{self.address}")
+            os.system(f"chmod 766 /dev/shm/{self.flag_address}")
+        else:
+            os.system(f"chmod -R 766 {self.folder}")
 
     def _write(
         self,
@@ -862,9 +866,9 @@ class SharedArrayWrapper:
         if self.to_memory:
             _write_shared(self.address, arr)
             _write_shared(self.flag_address, np.array([is_finished]))
-            return None
-        np.save(self.path, arr)
-        np.save(self.flag_path, np.array([is_finished]))
+        else:
+            np.save(self.path, arr)
+            np.save(self.flag_path, np.array([is_finished]))
         self._give_permission()
 
 
