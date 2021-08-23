@@ -23,7 +23,7 @@ class ViTEncoder(Encoder1DFromPatches):
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
-        norm_type: str = "batch_norm",
+        norm_type: str = "layer_norm",
         feedforward_dim_ratio: float = 4.0,
         bias: bool = False,
         num_heads: int = 8,
