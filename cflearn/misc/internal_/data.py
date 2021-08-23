@@ -61,7 +61,7 @@ class DataModule(WithRegister, metaclass=ABCMeta):
         Saving.save_dict(self.info, self.info_name, folder)
 
     @classmethod
-    def load(cls, folder: str) -> str:
+    def load(cls, folder: str) -> Dict[str, Any]:
         folder = os.path.join(folder, cls.package_folder)
         with open(os.path.join(folder, cls.id_file), "r") as f:
             base = cls.get(f.read())

@@ -244,7 +244,7 @@ class SimplePipeline(DLPipeline):
         compress: bool = True,
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
     ) -> "SimplePipeline":
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
@@ -501,14 +501,15 @@ class CarefreePipeline(SimplePipeline):
         export_folder: str,
         cuda: Optional[str],
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "DLPipeline":
+        post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
+    ) -> "CarefreePipeline":
         m = super()._load_infrastructure(
             export_folder,
             cuda,
             pre_callback,
             post_callback,
         )
+        assert isinstance(m, CarefreePipeline)
         m.cf_data = DLDataModule.load(export_folder)["cf_data"]
         return m
 

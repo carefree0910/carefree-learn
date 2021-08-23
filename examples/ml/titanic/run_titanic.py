@@ -15,6 +15,7 @@ data = cflearn.ml.MLData.with_cf_data(
     data_config={"label_name": "Survived"},
 )
 m = base().fit(data)
+assert isinstance(m, base)
 
 idata = cflearn.ml.MLInferenceData(test_file)
 results = m.predict(idata, make_loader_kwargs={"contains_labels": False})
@@ -26,7 +27,9 @@ m2 = base.load(export_folder)
 results = m2.predict(idata, make_loader_kwargs={"contains_labels": False})
 assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY])
 
-m3 = base.load(base.pack(get_latest_workplace("_logs")))
+latest = get_latest_workplace("_logs")
+assert latest is not None
+m3 = base.load(base.pack(latest))
 results = m3.predict(idata, make_loader_kwargs={"contains_labels": False})
 assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY])
 

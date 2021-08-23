@@ -105,11 +105,11 @@ class TensorData(DLDataModule):
         self.y_valid = y_valid
         self.train_others = train_others
         self.valid_others = valid_others
-        self.d = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+        self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
     @property
     def info(self) -> Dict[str, Any]:
-        return self.d
+        return self.kw
 
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
@@ -123,11 +123,11 @@ class TensorData(DLDataModule):
             self.valid_data = _get_data(self.x_valid, self.y_valid, self.valid_others)
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
-        train_loader = CVLoader(DataLoader(self.train_data, **self.d))  # type: ignore
+        train_loader = CVLoader(DataLoader(self.train_data, **self.kw))  # type: ignore
         if self.valid_data is None:
             valid_loader = None
         else:
-            valid_loader = CVLoader(DataLoader(self.valid_data, **self.d))  # type: ignore
+            valid_loader = CVLoader(DataLoader(self.valid_data, **self.kw))  # type: ignore
         return train_loader, valid_loader
 
 
@@ -151,11 +151,11 @@ class ImageFolderData(DLDataModule):
         self.test_shuffle = test_shuffle
         self.test_transform = test_transform
         self.lmdb_configs = lmdb_configs
-        self.d = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+        self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
     @property
     def info(self) -> Dict[str, Any]:
-        d = shallow_copy_dict(self.d)
+        d = shallow_copy_dict(self.kw)
         d["test_shuffle"] = self.test_shuffle
         try:
             json.dumps(self.lmdb_configs)
@@ -184,7 +184,7 @@ class ImageFolderData(DLDataModule):
         )
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
-        d = shallow_copy_dict(self.d)
+        d = shallow_copy_dict(self.kw)
         train_loader = CVLoader(DataLoader(self.train_data, **d))  # type: ignore
         d["shuffle"] = self.test_shuffle or self.shuffle
         valid_loader = CVLoader(DataLoader(self.valid_data, **d))  # type: ignore
