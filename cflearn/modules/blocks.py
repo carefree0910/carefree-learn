@@ -810,7 +810,7 @@ class Attention(Module, WithRegister):
 
         if is_self_attention:
             self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, input_dim))
-            nn.init.xavier_uniform_(self.in_w)
+            nn.init.kaiming_uniform_(self.in_w, a=math.sqrt(5.0))
             self.q_w = self.k_w = self.v_w = None
         else:
             self.in_w = None
