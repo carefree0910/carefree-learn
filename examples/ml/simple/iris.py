@@ -1,3 +1,4 @@
+import os
 import cflearn
 
 import numpy as np
@@ -28,3 +29,13 @@ assert workplace is not None
 packed_path = base.pack(workplace)
 m4 = base.load(packed_path)
 assert np.allclose(p, m4.predict(idata)[cflearn.PREDICTIONS_KEY])
+
+m = base(output_dim=3, metric_names=metrics).fit(data)
+p2 = m.predict(idata)[cflearn.PREDICTIONS_KEY]
+packed_paths = []
+for stuff in os.listdir("_logs"):
+    folder = os.path.join("_logs", stuff)
+    packed_paths.append(base.pack(folder))
+fused = base.fuse_multiple(packed_paths)
+p_fused = fused.predict(idata)[cflearn.PREDICTIONS_KEY]
+assert np.allclose(0.5 * (p + p2), p_fused)
