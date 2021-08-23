@@ -991,11 +991,13 @@ class NormFactory:
     @property
     def default_config(self) -> Dict[str, Any]:
         norm_type = self.norm_type
-        config = {}
+        config: Dict[str, Any] = {}
         if norm_type == "batch":
             config = {"affine": True, "track_running_stats": True}
         elif norm_type == "instance":
             config = {"affine": False, "track_running_stats": False}
+        elif norm_type == "layer_norm":
+            config = {"eps": 1.0e-6}
         return config
 
     def make(self, *args: Any, **kwargs: Any) -> Module:
