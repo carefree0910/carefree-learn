@@ -257,8 +257,8 @@ class SimplePipeline(DLPipeline):
                     post_callback,
                 )
                 assert isinstance(m, SimplePipeline)
+                data_info = DLDataModule.load(export_folder)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
-        data_info = DLDataModule.load(export_folder)
         m._prepare_modules(data_info)
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
