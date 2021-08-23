@@ -1490,6 +1490,23 @@ class TokenMixerFactory(ABC):
         pass
 
 
+class DropPath(Module):
+    def __init__(self, dropout: float = 0.0):
+        super().__init__()
+        self.dropout = dropout
+
+    def forward(self, net: Tensor) -> Tensor:
+        if not 0.0 < self.dropout < 1.0 or not self.training:
+            return net
+        keep_prob = 1.0 - self.dropout
+        shape = (net.shape[0],) + (1,) * (net.ndim - 1)
+        rand = torch.rand(shape, dtype=net.dtype, device=net.device)
+        random_tensor = keep_prob + rand
+        random_tensor.floor_()
+        net = net.div(keep_prob) * random_tensor
+        return net
+
+
 class MixingBlock(Module):
     def __init__(
         self,
@@ -1499,33 +1516,33 @@ class MixingBlock(Module):
         token_mixing_factory: TokenMixerFactory,
         *,
         dropout: float = 0.0,
+        drop_path: float = 0.1,
         norm_type: str = "batch_norm",
         **token_mixing_kwargs: Any,
     ):
         super().__init__()
-        self.token_mixing = Residual(
-            PreNorm(
+        self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        self.token_mixing = PreNorm(
+            latent_dim,
+            module=token_mixing_factory.make(
+                num_tokens,
                 latent_dim,
-                module=token_mixing_factory.make(
-                    num_tokens,
-                    latent_dim,
-                    feedforward_dim,
-                    dropout,
-                    **token_mixing_kwargs,
-                ),
-                norm_type=norm_type,
-            )
+                feedforward_dim,
+                dropout,
+                **token_mixing_kwargs,
+            ),
+            norm_type=norm_type,
         )
-        self.channel_mixing = Residual(
-            PreNorm(
-                latent_dim,
-                module=FeedForward(latent_dim, feedforward_dim, dropout),
-                norm_type=norm_type,
-            )
+        self.channel_mixing = PreNorm(
+            latent_dim,
+            module=FeedForward(latent_dim, feedforward_dim, dropout),
+            norm_type=norm_type,
         )
 
     def forward(self, net: Tensor) -> Tensor:
-        return self.channel_mixing(self.token_mixing(net))
+        net = net + self.drop_path(self.token_mixing(net))
+        net = net + self.drop_path(self.channel_mixing(net))
+        return net
 
 
 class PositionalEncoding(Module):
