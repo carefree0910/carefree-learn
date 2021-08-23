@@ -31,7 +31,6 @@ from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
 from ..misc.toolkit import interpolate
-from ..misc.toolkit import Initializer
 from ..misc.toolkit import WithRegister
 
 
@@ -1518,7 +1517,7 @@ class MixingBlock(Module):
         token_mixing_factory: TokenMixerFactory,
         *,
         dropout: float = 0.0,
-        drop_path: float = 0.1,
+        drop_path: float = 0.0,
         norm_type: str = "batch_norm",
         **token_mixing_kwargs: Any,
     ):
@@ -1627,6 +1626,7 @@ class MixedStackedEncoder(Module):
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
+        drop_path_rate: float = 0.1,
         norm_type: str = "batch_norm",
         feedforward_dim_ratio: float = 1.0,
         use_head_token: bool = False,
@@ -1649,17 +1649,23 @@ class MixedStackedEncoder(Module):
             enable=use_positional_encoding,
         )
         # core
+        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, num_layers)]
         feedforward_dim = int(round(dim * feedforward_dim_ratio))
-        mixing_block = MixingBlock(
-            num_history,
-            dim,
-            feedforward_dim,
-            token_mixing_factory,
-            dropout=dropout,
-            norm_type=norm_type,
-            **token_mixing_kwargs,
+        self.mixing_blocks = ModuleList(
+            [
+                MixingBlock(
+                    num_history,
+                    dim,
+                    feedforward_dim,
+                    token_mixing_factory,
+                    dropout=dropout,
+                    drop_path=drop_path,
+                    norm_type=norm_type,
+                    **token_mixing_kwargs,
+                )
+                for drop_path in dpr
+            ]
         )
-        self.mixing_blocks = _get_clones(mixing_block, num_layers)
         # head
         if self.head_token is not None:
             head = Lambda(lambda x: x[:, 0], name="head_token")
