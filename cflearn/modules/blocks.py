@@ -1231,7 +1231,6 @@ class Linear(Module):
         *,
         bias: bool = True,
         pruner_config: Optional[Dict[str, Any]] = None,
-        init_method: Optional[str] = "xavier_uniform",
         **kwargs: Any,
     ):
         super().__init__()
@@ -1241,9 +1240,6 @@ class Linear(Module):
         else:
             pruner = Pruner(pruner_config, [out_dim, in_dim])
         self.config, self.pruner = shallow_copy_dict(kwargs), pruner
-        self._use_bias, self._init_method = bias, init_method
-        with torch.no_grad():
-            self.reset_parameters()
 
     @property
     def weight(self) -> Tensor:
@@ -1258,18 +1254,6 @@ class Linear(Module):
         if self.pruner is not None:
             weight = self.pruner(weight)
         return F.linear(net, weight, self.linear.bias)
-
-    def reset_parameters(self) -> None:
-        if self._init_method is None:
-            return
-        if self._init_method not in Initializer.defined_initialization:
-            return
-        initializer = Initializer(self.config.setdefault("initialize_config", {}))
-        assert isinstance(self.linear.weight, nn.Parameter)
-        initializer.initialize(self.linear.weight, self._init_method)
-        bias_fill = self.config.setdefault("bias_fill", 0.0)
-        if self._use_bias:
-            self.linear.bias.data.fill_(bias_fill)
 
 
 class MappingBase(Module, WithRegister):
