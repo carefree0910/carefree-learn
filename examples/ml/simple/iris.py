@@ -6,24 +6,25 @@ from cfdata.tabular import TabularDataset
 from cflearn.misc.toolkit import get_latest_workplace
 
 
+base = cflearn.ml.SimplePipeline
 metrics = ["acc", "auc"]
 x, y = TabularDataset.iris().xy
 data = cflearn.ml.MLData(x, y, is_classification=True)
-m = cflearn.ml.SimplePipeline(output_dim=3, metric_names=metrics)
-m.fit(data)
+m = base(output_dim=3, metric_names=metrics).fit(data)
+assert isinstance(m, base)
 
 idata = cflearn.ml.MLInferenceData(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
-predictions = m.predict(idata)[cflearn.PREDICTIONS_KEY]
+p = m.predict(idata)[cflearn.PREDICTIONS_KEY]
 m.save("iris")
-m2 = cflearn.ml.SimplePipeline.load("iris")
-assert np.allclose(predictions, m2.predict(idata)[cflearn.PREDICTIONS_KEY])
+m2 = base.load("iris")
+assert np.allclose(p, m2.predict(idata)[cflearn.PREDICTIONS_KEY])
 m.to_onnx("iris_onnx")
-m3 = cflearn.ml.SimplePipeline.from_onnx("iris_onnx")
-assert np.allclose(predictions, m3.predict(idata)[cflearn.PREDICTIONS_KEY], atol=1.0e-4)
+m3 = base.from_onnx("iris_onnx")
+assert np.allclose(p, m3.predict(idata)[cflearn.PREDICTIONS_KEY], atol=1.0e-4)
 workplace = get_latest_workplace("_logs")
 assert workplace is not None
-packed_path = cflearn.ml.SimplePipeline.pack(workplace)
-m4 = cflearn.ml.SimplePipeline.load(packed_path)
-assert np.allclose(predictions, m4.predict(idata)[cflearn.PREDICTIONS_KEY])
+packed_path = base.pack(workplace)
+m4 = base.load(packed_path)
+assert np.allclose(p, m4.predict(idata)[cflearn.PREDICTIONS_KEY])
