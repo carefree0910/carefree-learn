@@ -1,13 +1,22 @@
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....constants import INPUT_KEY
-from ....constants import LATENT_KEY
 from ....modules.blocks import PerceiverIO
+
+
+class PerceiverIOForEncoder1D(PerceiverIO):
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        mask: Optional[Tensor] = None,
+        out_queries: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        return super().forward(net, mask=mask, out_queries=out_queries)
 
 
 @Encoder1DFromPatches.register("perceiver_io")
@@ -39,7 +48,7 @@ class PerceiverIOEncoder(Encoder1DFromPatches):
             latent_dim,
             to_patches_configs,
         )
-        self.encoder = PerceiverIO(
+        self.encoder = PerceiverIOForEncoder1D(
             input_dim=latent_dim,
             num_layers=num_layers,
             num_latents=num_latents,
@@ -55,15 +64,6 @@ class PerceiverIOEncoder(Encoder1DFromPatches):
             reuse_weights=reuse_weights,
             num_self_attn_repeat=num_self_attn_repeat,
         )
-
-    def from_patches(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {LATENT_KEY: self.encoder(batch[INPUT_KEY]).squeeze()}
 
 
 __all__ = [
