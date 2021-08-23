@@ -95,7 +95,7 @@ class SimplePipeline(DLPipeline):
         self.model_name = model_name
         self.model_config = model_config or {}
 
-    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
+    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
         self._prepare_workplace()
         self._prepare_loss()
         self.model = ModelProtocol.make(self.model_name, config=self.model_config)
@@ -195,10 +195,10 @@ class CarefreePipeline(SimplePipeline):
             in_loading=in_loading,
         )
 
-    def _prepare_trainer_defaults(self, data_json: Dict[str, Any]) -> None:
+    def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = "conservative"
-        super()._prepare_trainer_defaults(data_json)
+        super()._prepare_trainer_defaults(data_info)
 
 
 __all__ = [

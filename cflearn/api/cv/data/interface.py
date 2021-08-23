@@ -24,6 +24,7 @@ from ....misc.internal_ import DataLoader
 from ....misc.internal_ import DLDataModule
 
 
+@DLDataModule.register("mnist")
 class MNISTData(DLDataModule):
     def __init__(
         self,
@@ -42,7 +43,7 @@ class MNISTData(DLDataModule):
         self.label_callback = label_callback
 
     @property
-    def json(self) -> Dict[str, Any]:
+    def info(self) -> Dict[str, Any]:
         return dict(root=self.root, shuffle=self.shuffle, batch_size=self.batch_size)
 
     # TODO : support sample weights
@@ -83,6 +84,7 @@ class MNISTData(DLDataModule):
         return train_loader, valid_loader
 
 
+@DLDataModule.register("tensor")
 class TensorData(DLDataModule):
     def __init__(
         self,
@@ -106,7 +108,7 @@ class TensorData(DLDataModule):
         self.d = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
     @property
-    def json(self) -> Dict[str, Any]:
+    def info(self) -> Dict[str, Any]:
         return self.d
 
     # TODO : support sample weights
@@ -129,6 +131,7 @@ class TensorData(DLDataModule):
         return train_loader, valid_loader
 
 
+@DLDataModule.register("image_folder")
 class ImageFolderData(DLDataModule):
     def __init__(
         self,
@@ -151,7 +154,7 @@ class ImageFolderData(DLDataModule):
         self.d = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
     @property
-    def json(self) -> Dict[str, Any]:
+    def info(self) -> Dict[str, Any]:
         d = shallow_copy_dict(self.d)
         d["test_shuffle"] = self.test_shuffle
         try:

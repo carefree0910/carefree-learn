@@ -1,8 +1,12 @@
+import os
+import tempfile
+
 from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Union
 from typing import Optional
+from cftool.misc import Saving
 from cfdata.tabular.api import TabularData
 
 from ...types import data_type
@@ -13,9 +17,12 @@ from ...misc.internal_ import MLDataset
 from ...misc.internal_ import DLDataModule
 
 
+@DLDataModule.register("ml")
 class MLData(DLDataModule):
     train_data: MLDataset
     valid_data: Optional[MLDataset]
+
+    tmp_cf_data_name = ".tmp_cf_data"
 
     def __init__(
         self,
@@ -65,8 +72,9 @@ class MLData(DLDataModule):
         self.valid_batch_size = valid_batch_size
 
     @property
-    def json(self) -> Dict[str, Any]:
+    def info(self) -> Dict[str, Any]:
         return {
+            "cf_data": self.cf_data,
             "input_dim": self.input_dim,
             "num_classes": self.num_classes,
             "num_history": self.num_history,
@@ -140,6 +148,33 @@ class MLData(DLDataModule):
                 sample_weights=self.valid_weights,
             )
         return train_loader, valid_loader
+
+    def save_info(self, folder: str) -> None:
+        info = self.info
+        if info["cf_data"] is not None:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_name = os.path.join(tmp_dir, self.tmp_cf_data_name)
+                info["cf_data"].save(tmp_name, retain_data=False)
+                zip_file = f"{tmp_name}.zip"
+                with open(zip_file, "rb") as f:
+                    info["cf_data"] = f.read()
+                os.remove(zip_file)
+        Saving.save_dict(info, self.info_name, folder)
+
+    @classmethod
+    def load_info(cls, folder: str) -> Dict[str, Any]:
+        d = super().load_info(folder)
+        cf_data = d["cf_data"]
+        if cf_data is None:
+            return d
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_name = os.path.join(tmp_dir, cls.tmp_cf_data_name)
+            zip_file = f"{tmp_name}.zip"
+            with open(zip_file, "wb") as f:
+                f.write(cf_data)
+            d["cf_data"] = TabularData.load(tmp_name)
+            os.remove(zip_file)
+        return d
 
     @classmethod
     def with_cf_data(

@@ -255,7 +255,7 @@ class Trainer:
         optimizer_config: Optional[Dict[str, Any]] = None,
         scheduler_config: Optional[Dict[str, Any]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
-        data_json_file: str = "data.json",
+        data_info_name: str = "data_info",
         metrics_log_file: str = "metrics.txt",
         ddp_config: Optional[Dict[str, Any]] = None,
         finetune_config: Optional[Dict[str, Any]] = None,
@@ -358,7 +358,7 @@ class Trainer:
         self.finetune_config = finetune_config
         # initialize artifact structure
         self.checkpoint_folder = None
-        self.data_json_file = data_json_file
+        self.data_info_name = data_info_name
         if self.is_rank_0:
             self.workplace = workplace
             os.makedirs(self.workplace, exist_ok=True)
@@ -739,10 +739,10 @@ class Trainer:
         show_summary: Optional[bool] = None,
         cuda: Optional[str] = None,
     ) -> "Trainer":
-        self.data_json = data.json
+        self.data_info = data.info
         self.device_info = DeviceInfo(cuda, self.rank)
         if self.is_rank_0:
-            data.save_json(os.path.join(self.workplace, self.data_json_file))
+            data.save(self.workplace)
             with open(os.path.join(self.workplace, "model.txt"), "w") as f:
                 f.write(str(model))
         self.loss = loss.to(self.device)

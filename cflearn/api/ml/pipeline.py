@@ -13,7 +13,6 @@ from typing import Optional
 from functools import partial
 from collections import OrderedDict
 from cfdata.tabular import ColumnTypes
-from cfdata.tabular import TabularData
 from cftool.ml import ModelPattern
 from cftool.misc import lock_manager
 from cftool.misc import Saving
@@ -33,6 +32,7 @@ from ...misc.toolkit import get_arguments
 from ...misc.internal_ import MLLoader
 from ...misc.internal_ import MLDataset
 from ...misc.internal_ import MLInference
+from ...misc.internal_ import DLDataModule
 from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
 
@@ -147,13 +147,13 @@ class SimplePipeline(DLPipeline):
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
-    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
-        self.is_classification = data_json["is_classification"]
+    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
+        self.is_classification = data_info["is_classification"]
         is_reg = not self.is_classification
         if self.input_dim is None:
-            self.input_dim = data_json["input_dim"]
+            self.input_dim = data_info["input_dim"]
         if self.output_dim is None:
-            self.output_dim = 1 if is_reg else data_json["num_classes"]
+            self.output_dim = 1 if is_reg else data_info["num_classes"]
             if self.output_dim is None:
                 raise ValueError(
                     "either `MLData` with `cf_data`, or `output_dim`, "
@@ -172,7 +172,7 @@ class SimplePipeline(DLPipeline):
         self.model = MLModel(
             self.input_dim,
             self.output_dim,
-            data_json["num_history"],
+            data_info["num_history"],
             encoder=self.encoder,
             numerical_columns_mapping=self.numerical_columns_mapping,
             categorical_columns_mapping=self.categorical_columns_mapping,
@@ -186,10 +186,10 @@ class SimplePipeline(DLPipeline):
         )
         self.inference = MLInference(model=self.model)
 
-    def _prepare_trainer_defaults(self, data_json: Dict[str, Any]) -> None:
-        super()._prepare_trainer_defaults(data_json)
+    def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
+        super()._prepare_trainer_defaults(data_info)
         if self.trainer_config["metric_names"] is None and self.use_auto_loss:
-            if data_json["is_classification"]:
+            if data_info["is_classification"]:
                 self.trainer_config["metric_names"] = ["acc", "auc"]
             else:
                 self.trainer_config["metric_names"] = ["mae", "mse"]
@@ -258,8 +258,8 @@ class SimplePipeline(DLPipeline):
                 )
                 assert isinstance(m, SimplePipeline)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
-        with open(os.path.join(export_folder, cls.data_json_file), "r") as f:
-            m._prepare_modules(json.load(f))
+        data_info = DLDataModule.load(export_folder)
+        m._prepare_modules(data_info)
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
         for i, export_folder in enumerate(export_folders):
@@ -286,7 +286,7 @@ class SimplePipeline(DLPipeline):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            self._save_misc(export_folder, False)
+            self._save_misc(export_folder)
             file = f"{PT_PREFIX}-1.pt"
             torch.save(self.model.state_dict(), os.path.join(export_folder, file))
             with open(os.path.join(export_folder, SCORES_FILE), "w") as f:
@@ -389,13 +389,9 @@ class CarefreePipeline(SimplePipeline):
             num_repeat=num_repeat,
         )
         self.config = config
-        self.cf_data = None
 
-    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
-        if self.cf_data is None:
-            assert isinstance(self.data, MLData)
-            self.cf_data = self.data.cf_data
-            assert self.cf_data is not None
+    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
+        self.cf_data = data_info["cf_data"]
         # encoder
         excluded = 0
         numerical_columns_mapping = {}
@@ -468,7 +464,7 @@ class CarefreePipeline(SimplePipeline):
         self.use_embedding = use_embedding
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
-        super()._prepare_modules(data_json)
+        super()._prepare_modules(data_info)
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
         assert self.cf_data is not None
@@ -499,12 +495,6 @@ class CarefreePipeline(SimplePipeline):
             batch_size=batch_size,
         )
 
-    def _save_misc(self, export_folder: str, retain_data: bool) -> float:
-        data_folder = os.path.join(export_folder, self.data_folder)
-        assert self.cf_data is not None
-        self.cf_data.save(data_folder, retain_data=retain_data, compress=False)
-        return super()._save_misc(export_folder, retain_data)
-
     @classmethod
     def _load_infrastructure(
         cls,
@@ -512,16 +502,14 @@ class CarefreePipeline(SimplePipeline):
         cuda: Optional[str],
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "CarefreePipeline":
+    ) -> "DLPipeline":
         m = super()._load_infrastructure(
             export_folder,
             cuda,
             pre_callback,
             post_callback,
         )
-        assert isinstance(m, CarefreePipeline)
-        data_folder = os.path.join(export_folder, cls.data_folder)
-        m.cf_data = TabularData.load(data_folder, compress=False)
+        m.cf_data = DLDataModule.load(export_folder)["cf_data"]
         return m
 
     @classmethod
@@ -534,21 +522,6 @@ class CarefreePipeline(SimplePipeline):
             for key in encoder_cache_keys:
                 states.pop(key)
         return states
-
-    @classmethod
-    def pack(
-        cls,
-        workplace: str,
-        *,
-        input_dim: Optional[int] = None,
-        config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
-        pack_folder: Optional[str] = None,
-        cuda: Optional[str] = None,
-    ) -> str:
-        raise ValueError(
-            "`CarefreePipeline` does not support packing from workplace, "
-            "because it utilizes `carefree-data` which cannot be accessed"
-        )
 
 
 __all__ = [

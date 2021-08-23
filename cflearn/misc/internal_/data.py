@@ -1,16 +1,17 @@
-import json
+import os
 
 import numpy as np
 import torch.distributed as dist
 
 from abc import abstractmethod
-from abc import ABC
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
+from typing import Type
 from typing import Tuple
 from typing import Callable
 from typing import Optional
+from cftool.misc import Saving
 from torch.utils.data import Dataset
 from torch.utils.data import Sampler
 from torch.utils.data import SequentialSampler
@@ -25,12 +26,22 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
+from ...misc.toolkit import WithRegister
 
 
-class DataModule(ABC):
+data_modules: Dict[str, Type["DataModule"]] = {}
+
+
+class DataModule(WithRegister, metaclass=ABCMeta):
+    d: Dict[str, Type["DataModule"]] = data_modules
+
+    id_file = "id.txt"
+    info_name = "info"
+    package_folder = "data_module"
+
     @property
     @abstractmethod
-    def json(self) -> Dict[str, Any]:
+    def info(self) -> Dict[str, Any]:
         pass
 
     def prepare(self, sample_weights: sample_weights_type) -> None:
@@ -39,11 +50,29 @@ class DataModule(ABC):
     def initialize(self) -> Any:
         pass
 
-    def save_json(self, path: str) -> None:
-        with open(path, "w") as f:
-            json.dump(self.json, f)
+    def save(self, folder: str) -> None:
+        folder = os.path.join(folder, self.package_folder)
+        os.makedirs(folder, exist_ok=True)
+        with open(os.path.join(folder, self.id_file), "w") as f:
+            f.write(self.__identifier__)
+        self.save_info(folder)
+
+    def save_info(self, folder: str) -> None:
+        Saving.save_dict(self.info, self.info_name, folder)
+
+    @classmethod
+    def load(cls, folder: str) -> str:
+        folder = os.path.join(folder, cls.package_folder)
+        with open(os.path.join(folder, cls.id_file), "r") as f:
+            base = cls.get(f.read())
+        return base.load_info(folder)
+
+    @classmethod
+    def load_info(cls, folder: str) -> Dict[str, Any]:
+        return Saving.load_dict(cls.info_name, folder)
 
 
+@DataModule.register("dl")
 class DLDataModule(DataModule, metaclass=ABCMeta):
     train_loader: DataLoaderProtocol
     valid_loader: Optional[DataLoaderProtocol]

@@ -116,10 +116,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     configs_file: str = "configs.json"
     trainer_configs_file: str = "trainer_configs.json"
-    data_json_file: str = "data.json"
+    data_info_name: str = "data_info"
     metrics_log_file: str = "metrics.txt"
 
-    data_folder: str = "data"
     final_results_file = "final_results.json"
     config_bundle_name = "config_bundle"
     onnx_file: str = "model.onnx"
@@ -226,7 +225,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _prepare_modules(self, data_json: Dict[str, Any]) -> None:
+    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
         pass
 
     # internal
@@ -235,7 +234,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if self.is_rank_0 and not self.in_loading:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self.trainer_config["workplace"] = workplace
-            self.trainer_config["data_json_file"] = self.data_json_file
+            self.trainer_config["data_info_name"] = self.data_info_name
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
             with open(os.path.join(workplace, self.configs_file), "w") as f:
                 json.dump(self.config, f)
@@ -250,7 +249,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.loss_name = f"{prefix}_{'_'.join(loss_names)}"
         self.loss = LossProtocol.make(self.loss_name, config=self.loss_config or {})
 
-    def _prepare_trainer_defaults(self, data_json: Dict[str, Any]) -> None:
+    def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
@@ -277,8 +276,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.trainer_config["callback_configs"] = callback_configs
         self.trainer_config["optimizer_settings"] = optimizer_settings
 
-    def _save_misc(self, export_folder: str, retain_data: bool) -> float:
+    def _save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
+        self.data.save(export_folder)
         # final results
         try:
             final_results = self.trainer.final_results
@@ -293,7 +293,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         config_bundle = {
             "config": shallow_copy_dict(self.config),
             "device_info": self.device_info,
-            "input_dim": self.input_dim,
         }
         Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
         return final_results.final_score
@@ -337,9 +336,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def _fit(self, data: DLDataModule, cuda: Optional[str]) -> None:
         self.data = data
-        data_json = data.json
-        self._prepare_modules(data_json)
-        self._prepare_trainer_defaults(data_json)
+        data_info = data.info
+        self._prepare_modules(data_info)
+        self._prepare_trainer_defaults(data_info)
         self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
         self.trainer.fit(
             data,
@@ -386,16 +385,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         *,
         compress: bool = True,
-        retain_data: bool = False,
         remove_original: bool = True,
     ) -> "DLPipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            score = self._save_misc(export_folder, retain_data)
+            score = self._save_misc(export_folder)
             self.trainer.save_checkpoint(score, export_folder, no_history=True)
-            with open(os.path.join(export_folder, self.data_json_file), "w") as f:
-                json.dump(self.trainer.data_json, f)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
@@ -431,13 +427,16 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 json.dump({new_file: scores[best_file]}, wf)
             with open(os.path.join(workplace, cls.configs_file), "r") as rf:
                 config = json.load(rf)
-            config_bundle = {"config": config, "device_info": DeviceInfo(cuda, None)}
+            config_bundle = {
+                "config": config,
+                "device_info": DeviceInfo(cuda, None),
+            }
             if config_bundle_callback is not None:
                 config_bundle_callback(config_bundle)
             Saving.save_dict(config_bundle, cls.config_bundle_name, pack_folder)
-            shutil.copy(
-                os.path.join(workplace, cls.data_json_file),
-                os.path.join(pack_folder, cls.data_json_file),
+            shutil.copytree(
+                os.path.join(workplace, DataModule.package_folder),
+                os.path.join(pack_folder, DataModule.package_folder),
             )
             Saving.compress(abs_folder, remove_original=True)
         return pack_folder
@@ -464,8 +463,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     pre_callback,
                     post_callback,
                 )
-                with open(os.path.join(export_folder, cls.data_json_file), "r") as f:
-                    m._prepare_modules(json.load(f))
+                data_info = DataModule.load(export_folder)
+                m._prepare_modules(data_info)
                 m.model.to(m.device)
                 # restore checkpoint
                 states = cls._load_states_from(m, export_folder)
@@ -539,7 +538,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 os.makedirs(export_folder, exist_ok=True)
             else:
                 lock._stuffs = [export_folder]
-                self._save_misc(export_folder, False)
+                self._save_misc(export_folder)
                 with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
                     json.dump(kwargs, f)
             m_onnx = ONNXWrapper()
@@ -692,9 +691,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.in_loading = True
         self.device_info = DeviceInfo(cuda, None)
         self.data = data
-        data_json = data.json
-        self._prepare_modules(data_json)
-        self._prepare_trainer_defaults(data_json)
+        data_info = data.info
+        self._prepare_modules(data_info)
+        self._prepare_trainer_defaults(data_info)
         latest_workplace = get_latest_workplace(new_workplace)
         if latest_workplace is None:
             raise ValueError(f"timestamp is not found under '{new_workplace}'")
