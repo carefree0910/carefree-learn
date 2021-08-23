@@ -360,23 +360,31 @@ def inject_parameters(
     src: nn.Module,
     tgt: nn.Module,
     *,
-    strict: bool = True,
+    strict: Optional[bool] = None,
     tgt_filter_fn: Optional[Callable[[str], bool]] = None,
+    custom_mappings: Optional[Dict[str, str]] = None,
 ) -> None:
+    if strict is None:
+        strict = tgt_filter_fn is None
     src_states = src.state_dict()
     tgt_states = tgt.state_dict()
     if tgt_filter_fn is not None:
         pop_keys = [key for key in tgt_states if not tgt_filter_fn(key)]
         for key in pop_keys:
             tgt_states.pop(key)
-    if strict and len(src_states) != len(tgt_states):
+    if len(src_states) != len(tgt_states):
         raise ValueError(f"lengths of states are not identical between {src} and {tgt}")
     new_states = OrderedDict()
+    if custom_mappings is not None:
+        for src_k, tgt_k in custom_mappings.items():
+            new_states[tgt_k] = src_states[src_k]
     for (src_k, src_v), (tgt_k, tgt_v) in zip(src_states.items(), tgt_states.items()):
+        if custom_mappings is not None and src_k in custom_mappings:
+            continue
         if src_v.shape != tgt_v.shape:
             raise ValueError(f"shape of {src_k} is not identical with shape of {tgt_k}")
         new_states[tgt_k] = src_v
-    tgt.load_state_dict(new_states, strict=True)
+    tgt.load_state_dict(new_states, strict=strict)
 
 
 def get_gradient(
