@@ -1773,10 +1773,11 @@ class Conv2d(Module):
         self.demodulate = demodulate
         # initialize
         with torch.no_grad():
-            # nn.init.normal_(self.weight.data, 0.0, 0.02)
-            nn.init.xavier_normal_(self.weight.data, gain / math.sqrt(2.0))
+            nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5.0))
             if self.bias is not None:
-                self.bias.zero_()
+                fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
+                bound = 1 / math.sqrt(fan_in)
+                nn.init.uniform_(self.bias, -bound, bound)
 
     def _same_padding(self, size: int) -> int:
         stride = self.stride
