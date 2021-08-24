@@ -20,6 +20,7 @@ def prepare() -> None:
         label_fn=label_fn,
         make_labels_in_parallel=False,
         num_jobs=0,
+        lmdb_configs=lmdb_configs,
     )
 
 
@@ -36,6 +37,7 @@ tgt_folder = os.path.join(data_folder, "poster_data")
 
 img_size = 224
 num_epoch = 2000
+lmdb_configs: dict = {}
 Image.MAX_IMAGE_PIXELS = None
 
 
@@ -47,6 +49,7 @@ if __name__ == "__main__":
         num_workers=0 if is_ci else 10,
         transform="ssl",
         transform_config={"img_size": img_size},
+        lmdb_configs=lmdb_configs,
     )
 
     m = cflearn.cv.CarefreePipeline(
