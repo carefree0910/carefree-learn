@@ -21,7 +21,6 @@ from ....types import tensor_dict_type
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
-from ....protocol import DataLoaderProtocol
 from ....protocol import ModelWithCustomSteps
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
@@ -29,6 +28,7 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
+from ....misc.internal_ import CVLoader
 
 
 class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
@@ -195,7 +195,8 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         trainer.grad_scaler.scale(loss_g).backward()
         if trainer.clip_norm > 0.0:
             trainer._clip_norm_step()
-        opt_g.step()
+        trainer.grad_scaler.step(opt_g)
+        trainer.grad_scaler.update()
         opt_g.zero_grad()
         # discriminator step
         self._toggle_optimizer(opt_d)
@@ -206,7 +207,8 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         trainer.grad_scaler.scale(loss_d).backward()
         if trainer.clip_norm > 0.0:
             trainer._clip_norm_step()
-        opt_d.step()
+        trainer.grad_scaler.step(opt_d)
+        trainer.grad_scaler.update()
         opt_d.zero_grad()
         # finalize
         trainer._scheduler_step()
@@ -216,7 +218,7 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
 
     def evaluate_step(
         self,
-        loader: DataLoaderProtocol,
+        loader: CVLoader,
         portion: float,
         trainer: Any,
     ) -> MetricsOutputs:
