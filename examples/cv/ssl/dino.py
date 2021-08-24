@@ -1,136 +1,10 @@
 import os
-import random
 import cflearn
 import argparse
 
 from PIL import Image
-from PIL import ImageOps
-from PIL import ImageFilter
 from typing import List
-from typing import Tuple
-from torchvision import transforms
-from torchvision.transforms import InterpolationMode
 from cflearn.misc.toolkit import download_dataset
-
-
-class GaussianBlur:
-    def __init__(
-        self,
-        p: float = 0.5,
-        radius_min: float = 0.1,
-        radius_max: float = 2.0,
-    ):
-        self.prob = p
-        self.radius_min = radius_min
-        self.radius_max = radius_max
-
-    def __call__(self, img: Image) -> Image:
-        if random.random() > self.prob:
-            return img
-        r = random.uniform(self.radius_min, self.radius_max)
-        return img.filter(ImageFilter.GaussianBlur(radius=r))
-
-
-class Solarization:
-    def __init__(self, p: float):
-        self.p = p
-
-    def __call__(self, img: Image) -> Image:
-        if random.random() > self.p:
-            return img
-        return ImageOps.solarize(img)
-
-
-class Augmentation:
-    def __init__(
-        self,
-        img_size: int,
-        local_crops_number: int = 8,
-        local_crops_scale: Tuple[float, float] = (0.05, 0.4),
-        global_crops_scale: Tuple[float, float] = (0.4, 1.0),
-    ):
-        flip_and_color_jitter = transforms.Compose(
-            [
-                transforms.RandomHorizontalFlip(p=0.5),
-                transforms.RandomApply(
-                    [
-                        transforms.ColorJitter(
-                            brightness=0.4,
-                            contrast=0.4,
-                            saturation=0.2,
-                            hue=0.1,
-                        )
-                    ],
-                    p=0.8,
-                ),
-                transforms.RandomGrayscale(p=0.2),
-            ]
-        )
-        normalize = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
-            ]
-        )
-
-        # global crop 1
-        self.global_transform1 = transforms.Compose(
-            [
-                transforms.RandomResizedCrop(
-                    img_size,
-                    scale=global_crops_scale,
-                    interpolation=InterpolationMode.BICUBIC,
-                ),
-                flip_and_color_jitter,
-                GaussianBlur(1.0),
-                normalize,
-            ]
-        )
-        # global crop 2
-        self.global_transform2 = transforms.Compose(
-            [
-                transforms.RandomResizedCrop(
-                    img_size,
-                    scale=global_crops_scale,
-                    interpolation=InterpolationMode.BICUBIC,
-                ),
-                flip_and_color_jitter,
-                GaussianBlur(0.1),
-                Solarization(0.2),
-                normalize,
-            ]
-        )
-        # local crop
-        self.local_crops_number = local_crops_number
-        self.local_transform = transforms.Compose(
-            [
-                transforms.RandomResizedCrop(
-                    int(img_size * 3 / 7),
-                    scale=local_crops_scale,
-                    interpolation=InterpolationMode.BICUBIC,
-                ),
-                flip_and_color_jitter,
-                GaussianBlur(0.5),
-                normalize,
-            ]
-        )
-
-    def __call__(self, image: Image) -> Image:
-        image = image.convert("RGB")
-        crops = [self.global_transform1(image), self.global_transform2(image)]
-        for _ in range(self.local_crops_number):
-            crops.append(self.local_transform(image))
-        return crops
-
-
-class DINOTransform(cflearn.cv.Transforms):
-    def __init__(self, img_size: int):
-        super().__init__()
-        self.fn = Augmentation(img_size)
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
 
 
 def prepare() -> None:
@@ -171,7 +45,8 @@ if __name__ == "__main__":
         tgt_folder,
         batch_size=4 if is_ci else 32,
         num_workers=0 if is_ci else 10,
-        transform=DINOTransform(img_size),
+        transform="ssl",
+        transform_config={"img_size": img_size},
     )
 
     m = cflearn.cv.CarefreePipeline(
