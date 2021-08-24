@@ -169,6 +169,9 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
     ) -> MetricsOutputs:
         pass
 
+    def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
+        pass
+
 
 # trainer
 

@@ -38,6 +38,7 @@ from ...protocol import ModelProtocol
 from ...protocol import MetricsOutputs
 from ...protocol import InferenceProtocol
 from ...protocol import DataLoaderProtocol
+from ...protocol import ModelWithCustomSteps
 from ...constants import PT_PREFIX
 from ...constants import INFO_PREFIX
 from ...constants import SCORES_FILE
@@ -339,7 +340,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         data_info = data.info
         self._prepare_modules(data_info)
         self._prepare_trainer_defaults(data_info)
-        self.trainer = make_trainer(**shallow_copy_dict(self.trainer_config))
+        trainer_config = shallow_copy_dict(self.trainer_config)
+        if isinstance(self.model, ModelWithCustomSteps):
+            self.model.permute_trainer_config(trainer_config)
+        self.trainer = make_trainer(**trainer_config)
         self.trainer.fit(
             data,
             self.loss,
