@@ -216,7 +216,7 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         self._gather_losses(loss_g, loss_dict)
         return StepOutputs(forward_results, loss_dict)
 
-    def evaluate_step(
+    def evaluate_step(  # type: ignore
         self,
         loader: CVLoader,
         portion: float,
