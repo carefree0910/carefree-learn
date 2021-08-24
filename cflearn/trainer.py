@@ -426,6 +426,9 @@ class Trainer:
         self.monitors = [] if not self.is_rank_0 else [ConservativeMonitor()]
         # ddp setup
         _setup_ddp(**self.ddp_config)
+        if self.model_has_custom_steps and self.model.custom_ddp_initialization:
+            self.model.init_ddp(self)
+            return None
         if has_batch_norms(self.model):
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
         self.ddp_model = DDP(self.model.to(self.rank), device_ids=[self.rank])
