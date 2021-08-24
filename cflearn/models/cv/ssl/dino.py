@@ -81,14 +81,14 @@ class MultiCropWrapper(nn.Module):
         img_end_idx: Optional[int] = None,
         **kwargs: Any,
     ) -> Tensor:
-        net = batch[INPUT_KEY]
-        if not isinstance(net, list):
-            net = batch[INPUT_KEY] = [net]
+        img_crops = batch[INPUT_KEY]
+        if not isinstance(img_crops, list):
+            img_crops = batch[INPUT_KEY] = [img_crops]
         if img_end_idx is not None:
-            net = net[:img_end_idx]
+            img_crops = img_crops[:img_end_idx]
         idx_crops = torch.cumsum(
             torch.unique_consecutive(
-                torch.tensor([inp.shape[-1] for inp in net]),
+                torch.tensor([img_crop.shape[-1] for img_crop in img_crops]),
                 return_counts=True,
             )[1],
             0,
@@ -97,7 +97,7 @@ class MultiCropWrapper(nn.Module):
         start_idx = 0
         for end_idx in idx_crops:
             local_batch = shallow_copy_dict(batch)
-            local_batch[INPUT_KEY] = torch.cat(net[start_idx:end_idx])
+            local_batch[INPUT_KEY] = torch.cat(img_crops[start_idx:end_idx])
             idx_rs = self.backbone(batch_idx, local_batch, state, **kwargs)
             idx_out = idx_rs[LATENT_KEY]
             if isinstance(idx_out, tuple):
