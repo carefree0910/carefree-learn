@@ -203,15 +203,15 @@ class DINOLoss(nn.Module):
         teacher_logits_list = teacher_logits.detach().chunk(2)
 
         total_loss = 0.0
-        n_loss_terms = 0
+        num_loss_terms = 0
         for it, t_logit in enumerate(teacher_logits_list):
             for iv, v_logit in enumerate(student_logits_list):
                 if iv == it:
                     continue
                 loss = torch.sum(-t_logit * F.log_softmax(v_logit, dim=-1), dim=-1)
                 total_loss += loss.mean()
-                n_loss_terms += 1
-        total_loss /= n_loss_terms
+                num_loss_terms += 1
+        total_loss /= num_loss_terms
         self.update_center(teacher_output)
         return total_loss
 
