@@ -28,6 +28,7 @@ from typing import Generic
 from typing import TypeVar
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from typing import ContextManager
 from zipfile import ZipFile
 from argparse import Namespace
@@ -611,6 +612,21 @@ def summary(
     if not return_only:
         print(msg)
     return msg
+
+
+class DDPInfo(NamedTuple):
+    rank: int
+    world_size: int
+    local_rank: int
+
+
+def get_ddp_info() -> Optional[DDPInfo]:
+    if "RANK" in os.environ and "WORLD_SIZE" in os.environ:
+        rank = int(os.environ["RANK"])
+        world_size = int(os.environ["WORLD_SIZE"])
+        local_rank = int(os.environ["LOCAL_RANK"])
+        return DDPInfo(rank, world_size, local_rank)
+    return None
 
 
 class mode_context(context_error_handler):
