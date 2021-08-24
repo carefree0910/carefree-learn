@@ -54,6 +54,13 @@ class TestExample(unittest.TestCase):
         #     0,
         # )
 
+    def test_dino(self) -> None:
+        folder = os.path.join(examples_folder, "ssl")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'dino.py')} --ci 1"),
+            0,
+        )
+
     def test_mnist_vae(self) -> None:
         folder = os.path.join(examples_folder, "vae")
         self.assertEqual(
