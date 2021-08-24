@@ -170,7 +170,7 @@ if __name__ == "__main__":
     data = cflearn.cv.ImageFolderData(
         tgt_folder,
         batch_size=4 if is_ci else 32,
-        num_workers=0 if is_ci else 8,
+        num_workers=0 if is_ci else 10,
         transform=DINOTransform(img_size),
     )
 
@@ -182,6 +182,7 @@ if __name__ == "__main__":
             "teacher_temp_epochs": num_epoch,
             "encoder_configs": {"img_size": img_size, "in_channels": 3},
         },
+        amp=True,
         fixed_epoch=num_epoch,
         callback_names=["mlflow"],
         callback_configs={"mlflow": {"experiment_name": "poster"}},
