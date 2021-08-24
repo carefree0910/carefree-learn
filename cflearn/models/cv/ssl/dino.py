@@ -400,8 +400,8 @@ class DINO(ModelWithCustomSteps):
             -mean_loss,
             {
                 "loss": mean_loss,
-                "lr": self.lr_schedule[trainer.state.step],
-                "wd": self.wd_schedule[trainer.state.step],
+                "lr": self.lr_schedule[trainer.state.step],  # type: ignore
+                "wd": self.wd_schedule[trainer.state.step],  # type: ignore
             },
         )
 
