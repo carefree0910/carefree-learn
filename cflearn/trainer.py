@@ -711,8 +711,7 @@ class Trainer:
     @property
     def configs(self) -> Dict[str, Any]:
         ddp_info = get_ddp_info()
-        if ddp_info is not None:
-            ddp_info = ddp_info._asdict()
+        ddp_d = None if ddp_info is None else ddp_info._asdict()
         return {
             "state_config": self.state.configs,
             "valid_portion": self.valid_portion,
@@ -733,7 +732,7 @@ class Trainer:
                 if self.optimizer_packs is None
                 else [pack._asdict() for pack in self.optimizer_packs]
             ),
-            "ddp_info": ddp_info,
+            "ddp_info": ddp_d,
             "finetune_config": self.finetune_config,
             "tqdm_settings": self.tqdm_settings._asdict(),
             "device_info": self.device_info._asdict(),
