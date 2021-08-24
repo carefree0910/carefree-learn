@@ -1507,6 +1507,9 @@ class DropPath(Module):
         net = net.div(keep_prob) * random_tensor
         return net
 
+    def extra_repr(self) -> str:
+        return str(self.dropout)
+
 
 class MixingBlock(Module):
     def __init__(
