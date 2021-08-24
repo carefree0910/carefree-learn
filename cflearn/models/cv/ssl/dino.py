@@ -225,6 +225,8 @@ class DINOLoss(nn.Module):
 
 @ModelWithCustomSteps.register("dino")
 class DINO(ModelWithCustomSteps):
+    custom_params_groups = True
+
     lr_schedule: Optional[Scheduler]
     wd_schedule: Optional[Scheduler]
     momentum_schedule: Optional[Scheduler]
