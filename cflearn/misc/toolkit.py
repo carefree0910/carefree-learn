@@ -942,7 +942,7 @@ def interpolate(
     src: torch.Tensor,
     *,
     mode: str = "nearest",
-    factor: Optional[float] = None,
+    factor: Optional[Union[float, Tuple[float, float]]] = None,
     size: Optional[Union[int, Tuple[int, int]]] = None,
     anchor: Optional[torch.Tensor] = None,
     **kwargs: Any,
@@ -965,7 +965,7 @@ def interpolate(
         print(f"{WARNING_PREFIX}{template.format('size')}")
     if anchor is not None:
         print(f"{WARNING_PREFIX}{template.format('anchor')}")
-    if factor == 1.0:
+    if factor == 1.0 or factor == (1.0, 1.0):
         return src
     return F.interpolate(
         src,
