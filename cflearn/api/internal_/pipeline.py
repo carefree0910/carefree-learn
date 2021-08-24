@@ -5,8 +5,6 @@ import torch
 import shutil
 
 import numpy as np
-import torch.distributed as dist
-import torch.multiprocessing as mp
 
 from abc import abstractmethod
 from abc import ABCMeta
@@ -42,12 +40,11 @@ from ...protocol import ModelWithCustomSteps
 from ...constants import PT_PREFIX
 from ...constants import INFO_PREFIX
 from ...constants import SCORES_FILE
-from ...constants import DDP_MODEL_NAME
 from ...constants import WARNING_PREFIX
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
-from ...misc.toolkit import get_latest_workplace
+from ...misc.toolkit import get_ddp_info
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
 from ...misc.toolkit import WithRegister
@@ -159,7 +156,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         scheduler_config: Optional[Dict[str, Any]] = None,
         optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
         workplace: str = "_logs",
-        ddp_config: Optional[Dict[str, Any]] = None,
         finetune_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
@@ -193,7 +189,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             "scheduler_config": scheduler_config,
             "optimizer_settings": optimizer_settings,
             "workplace": workplace,
-            "ddp_config": ddp_config,
             "finetune_config": finetune_config,
             "tqdm_settings": tqdm_settings,
         }
@@ -207,10 +202,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     @property
     def is_rank_0(self) -> bool:
-        ddp_config = self.trainer_config["ddp_config"]
-        if ddp_config is None:
+        ddp_info = get_ddp_info()
+        if ddp_info is None:
             return True
-        if ddp_config.get("rank", 0) == 0:
+        if ddp_info.rank == 0:
             return True
         return False
 
@@ -659,52 +654,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 )
                 m.inference = cls.inference_base(onnx=m_onnx)
         return m
-
-    # ddp stuffs
-
-    def _ddp_fit(self, rank: int, data: DLDataModule) -> None:
-        self.trainer_config = shallow_copy_dict(self.trainer_config)
-        self.trainer_config["ddp_config"]["rank"] = rank
-        self._fit(data, str(rank))
-        dist.barrier()
-        if self.is_rank_0:
-            self.save(os.path.join(self.trainer.workplace, DDP_MODEL_NAME))
-        dist.destroy_process_group()
-
-    def ddp(
-        self,
-        data: DLDataModule,
-        *,
-        cuda_list: List[int],
-        workplace: str = "__ddp__",
-        sample_weights: sample_weights_type = None,
-    ) -> "PipelineProtocol":
-        str_cuda_list = list(map(str, cuda_list))
-        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(str_cuda_list)
-        current_workplace = self.trainer_config["workplace"]
-        new_workplace = os.path.join(workplace, current_workplace)
-        self.trainer_config["workplace"] = new_workplace
-        ddp_config = self.trainer_config["ddp_config"] or {}
-        world_size = ddp_config["world_size"] = len(cuda_list)
-        self.trainer_config["ddp_config"] = ddp_config
-        self.trainer_config["max_epoch"] = self.trainer_config["num_epoch"]
-        data.prepare(sample_weights)
-        mp.spawn(self._ddp_fit, args=(data,), nprocs=world_size, join=True)
-        # load from ddp
-        cuda = str_cuda_list[0]
-        self.in_loading = True
-        self.device_info = DeviceInfo(cuda, None)
-        self.data = data
-        data_info = data.info
-        self._prepare_modules(data_info)
-        self._prepare_trainer_defaults(data_info)
-        latest_workplace = get_latest_workplace(new_workplace)
-        if latest_workplace is None:
-            raise ValueError(f"timestamp is not found under '{new_workplace}'")
-        ckpt_folder = os.path.join(latest_workplace, CHECKPOINTS_FOLDER)
-        states = self._load_states_from(self, ckpt_folder)
-        self.model.load_state_dict(states)
-        return self
 
 
 __all__ = [

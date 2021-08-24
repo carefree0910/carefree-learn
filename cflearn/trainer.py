@@ -45,6 +45,7 @@ from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
 from .misc.toolkit import to_device
+from .misc.toolkit import get_ddp_info
 from .misc.toolkit import has_batch_norms
 from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
@@ -208,16 +209,15 @@ def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
     return list(sort_dict_by_value(scores, reverse=True).keys())
 
 
-def _setup_ddp(
-    rank: int,
-    world_size: int,
-    *,
-    backend: str = "nccl",
-    port: str = "12355",
-) -> None:
-    os.environ["MASTER_ADDR"] = "localhost"
-    os.environ["MASTER_PORT"] = port
-    dist.init_process_group(backend, rank=rank, world_size=world_size)
+def _setup_ddp(*, backend: str = "nccl", dist_url: str = "env://") -> None:
+    ddp_info = get_ddp_info()
+    assert ddp_info is not None
+    dist.init_process_group(
+        backend,
+        init_method=dist_url,
+        world_size=ddp_info.world_size,
+        rank=ddp_info.rank,
+    )
 
 
 class Trainer:
@@ -257,7 +257,6 @@ class Trainer:
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         data_info_name: str = "data_info",
         metrics_log_file: str = "metrics.txt",
-        ddp_config: Optional[Dict[str, Any]] = None,
         finetune_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[TqdmSettings] = None,
     ):
@@ -339,18 +338,13 @@ class Trainer:
                 )
         self.use_losses_as_metrics = use_losses_as_metrics
         self.loss_metrics_weights = loss_metrics_weights
-        if ddp_config is None:
+        ddp_info = get_ddp_info()
+        if ddp_info is None:
             self.ddp = False
             self.rank = None
-            self.ddp_config = {}
         else:
             self.ddp = True
-            self.rank = ddp_config.get("rank")
-            if self.rank is None:
-                raise ValueError("`rank` should be provided when `ddp` is used")
-            if ddp_config.get("world_size") is None:
-                raise ValueError("`world_size` should be provided when `ddp` is used")
-            self.ddp_config = shallow_copy_dict(ddp_config)
+            self.rank = ddp_info.local_rank
         self.is_rank_0 = not self.ddp or self.rank == 0
         for callback in self.callbacks:
             callback.is_rank_0 = self.is_rank_0
@@ -425,7 +419,7 @@ class Trainer:
         # monitor
         self.monitors = [] if not self.is_rank_0 else [ConservativeMonitor()]
         # ddp setup
-        _setup_ddp(**self.ddp_config)
+        _setup_ddp()
         if self.model_has_custom_steps and self.model.custom_ddp_initialization:
             self.model.init_ddp(self)
             return None
@@ -716,6 +710,9 @@ class Trainer:
 
     @property
     def configs(self) -> Dict[str, Any]:
+        ddp_info = get_ddp_info()
+        if ddp_info is not None:
+            ddp_info = ddp_info._asdict()
         return {
             "state_config": self.state.configs,
             "valid_portion": self.valid_portion,
@@ -736,7 +733,7 @@ class Trainer:
                 if self.optimizer_packs is None
                 else [pack._asdict() for pack in self.optimizer_packs]
             ),
-            "ddp_config": self.ddp_config,
+            "ddp_info": ddp_info,
             "finetune_config": self.finetune_config,
             "tqdm_settings": self.tqdm_settings._asdict(),
             "device_info": self.device_info._asdict(),

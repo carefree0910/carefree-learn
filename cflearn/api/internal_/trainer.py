@@ -44,7 +44,6 @@ def make_trainer(
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
     data_info_name: str = "data_info",
     metrics_log_file: str = "metrics.txt",
-    ddp_config: Optional[Dict[str, Any]] = None,
     finetune_config: Optional[Dict[str, Any]] = None,
     tqdm_settings: Optional[Dict[str, Any]] = None,
 ) -> Trainer:
@@ -130,7 +129,6 @@ def make_trainer(
         workplace=workplace,
         data_info_name=data_info_name,
         metrics_log_file=metrics_log_file,
-        ddp_config=ddp_config,
         finetune_config=finetune_config,
         tqdm_settings=TqdmSettings(
             use_tqdm,

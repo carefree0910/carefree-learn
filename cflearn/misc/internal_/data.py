@@ -26,6 +26,7 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
+from ...misc.toolkit import get_ddp_info
 from ...misc.toolkit import WithRegister
 
 
@@ -187,7 +188,7 @@ class DataLoader(TorchDataLoader):
         **kwargs: Any,
     ):
         if use_distributed_sampler is None:
-            use_distributed_sampler = dist.is_initialized()
+            use_distributed_sampler = get_ddp_info() is not None
         if use_distributed_sampler:
             if sampler is not None and not isinstance(sampler, DistributedSampler):
                 raise ValueError(
