@@ -391,7 +391,15 @@ class Trainer:
 
     @property
     def input_sample(self) -> tensor_dict_type:
-        return next(iter(self.train_loader_copy))
+        sample = next(iter(self.train_loader_copy))
+        for k, v in sample.items():
+            if isinstance(v, torch.Tensor):
+                sample[k] = v[:1]
+            elif isinstance(v, list):
+                sample[k] = [vv[:1] if isinstance(vv, torch.Tensor) else vv for vv in v]
+            else:
+                sample[k] = v
+        return sample
 
     @property
     def has_checkpoint_folder(self) -> bool:
