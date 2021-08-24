@@ -12,6 +12,7 @@ from typing import Tuple
 from typing import Optional
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 from ..encoder import Encoder1DBase
 from ....types import tensor_dict_type
@@ -23,6 +24,7 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import to_device
+from ....misc.toolkit import has_batch_norms
 from ....misc.internal_ import CVLoader
 
 
@@ -226,6 +228,7 @@ class DINOLoss(nn.Module):
 @ModelWithCustomSteps.register("dino")
 class DINO(ModelWithCustomSteps):
     custom_params_groups = True
+    custom_ddp_initialization = True
 
     lr_schedule: Optional[Scheduler]
     wd_schedule: Optional[Scheduler]
@@ -257,6 +260,7 @@ class DINO(ModelWithCustomSteps):
         teacher_cfg = update_dict(teacher_specific or {}, shallow_copy_dict(base))
         student = Encoder1DBase.make(encoder_name, student_cfg)
         teacher = Encoder1DBase.make(encoder_name, teacher_cfg)
+        self.ddp_student = self.ddp_teacher = None
         self.student = MultiCropWrapper(
             student,
             DINOHead(
@@ -272,7 +276,6 @@ class DINO(ModelWithCustomSteps):
         )
         self.freeze_last_layer = freeze_last_layer
         self.teacher.load_state_dict(self.student.state_dict())
-        self.teacher.requires_grad_(False)
         self.loss = DINOLoss(
             out_dim,
             teacher_temp,
@@ -288,6 +291,14 @@ class DINO(ModelWithCustomSteps):
         self.lr_schedule = None
         self.wd_schedule = None
         self.momentum_schedule = None
+
+    @property
+    def student_for_training(self) -> MultiCropWrapper:
+        return self.ddp_student or self.student
+
+    @property
+    def teacher_for_training(self) -> MultiCropWrapper:
+        return self.ddp_teacher or self.teacher
 
     def forward(
         self,
@@ -310,14 +321,19 @@ class DINO(ModelWithCustomSteps):
     ) -> Tuple[tensor_dict_type, Tensor]:
         state = trainer.state
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            teacher_output = self.teacher(
+            teacher_output = self.teacher_for_training(
                 batch_idx,
                 batch,
                 state,
                 img_end_idx=2,
                 **forward_kwargs,
             )
-            student_output = self.student(batch_idx, batch, state, **forward_kwargs)
+            student_output = self.student_for_training(
+                batch_idx,
+                batch,
+                state,
+                **forward_kwargs,
+            )
             epoch = state.epoch
             num_crops = len(batch[INPUT_KEY])
             loss = self.loss(epoch, num_crops, student_output, teacher_output)
@@ -347,24 +363,33 @@ class DINO(ModelWithCustomSteps):
                 self.teacher_temp_epochs,
                 state.num_step_per_epoch,
             )
-
+        # manual scheduling
         optimizer = trainer.optimizers["all"]
         for i, param_group in enumerate(optimizer.param_groups):
             param_group["lr"] = self.lr_schedule[state.step]
             if i == 0:
                 param_group["weight_decay"] = self.wd_schedule[state.step]
-
+        # forward pass
         rs, loss = self._get_loss(batch_idx, batch, trainer, forward_kwargs)
+        # backward pass
+        optimizer.zero_grad()
         trainer.grad_scaler.scale(loss).backward()
+        # clip norm
         if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
+            trainer.grad_scaler.unscale_(optimizer)
+            nn.utils.clip_grad_norm_(
+                self.student_for_training.parameters(),
+                max_norm=trainer.clip_norm,
+            )
+        # freeze last layer
         if state.epoch <= self.freeze_last_layer:
             for n, p in self.student.named_parameters():
                 if "last_layer" in n:
                     p.grad = None
-        trainer._optimizer_step()
-        trainer._scheduler_step()
-
+        # update parameters
+        trainer.grad_scaler.step(optimizer)
+        trainer.grad_scaler.update()
+        # update momentum teacher
         if self.momentum_schedule is None:
             self.momentum_schedule = cosine_scheduler(
                 self.momentum_teacher,
@@ -379,7 +404,7 @@ class DINO(ModelWithCustomSteps):
                 self.teacher.parameters(),
             ):
                 param_k.data.mul_(m).add_((1.0 - m) * param_q.detach().data)
-
+        # return
         return StepOutputs(rs, {LOSS_KEY: loss})
 
     def evaluate_step(  # type: ignore
@@ -417,6 +442,17 @@ class DINO(ModelWithCustomSteps):
             else:
                 regularized.append(param)
         return [{"params": regularized}, {"params": bias_and_norm, "weight_decay": 0.0}]
+
+    def _init_with_trainer(self, trainer: Any) -> None:
+        self.teacher_for_training.requires_grad_(False)
+
+    def init_ddp(self, trainer: Any) -> None:
+        if has_batch_norms(self.student):
+            self.student = nn.SyncBatchNorm.convert_sync_batchnorm(self.student)
+            self.teacher = nn.SyncBatchNorm.convert_sync_batchnorm(self.teacher)
+        self.ddp_student = DDP(self.student, device_ids=[trainer.rank])
+        self.ddp_teacher = DDP(self.teacher, device_ids=[trainer.rank])
+        self.ddp_teacher.requires_grad_(False)  # type: ignore
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
         # TODO : make `permute_trainer_config` more general
