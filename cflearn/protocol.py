@@ -148,6 +148,7 @@ class InferenceOutputs(NamedTuple):
 class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
     custom_train_step: bool = True
     custom_evaluate_step: bool = True
+    custom_params_groups: bool = False
 
     @abstractmethod
     def train_step(
@@ -167,6 +168,10 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
         portion: float,
         trainer: Any,
     ) -> MetricsOutputs:
+        pass
+
+    @staticmethod
+    def params_groups(m: nn.Module) -> Any:
         pass
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
