@@ -55,7 +55,9 @@ class _LogMetricsMsgCallback(TrainerCallback):
             ]
         )
         total_step = state.num_step_per_epoch
-        current_step = state.step % (total_step + 1)
+        current_step = state.step % total_step
+        if current_step == 0:
+            current_step = total_step if state.step > 0 else 0
         step_ratio = f"[{current_step} / {total_step}]"
         timer_str = f"[{time.time() - self.timer:.3f}s]"
         msg = (
