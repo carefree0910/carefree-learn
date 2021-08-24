@@ -53,7 +53,7 @@ class UNetDecoderBlock(nn.Module):
         )
 
     def forward(self, net: Tensor, skip: Optional[Tensor] = None) -> Tensor:
-        net = F.interpolate(net, scale_factor=2, mode="nearest")
+        net = interpolate(net, mode="nearest", factor=2)
         if skip is not None:
             net = torch.cat([skip, interpolate(net, anchor=skip)], dim=1)
         return self.net(net)

@@ -1608,9 +1608,9 @@ class PositionalEncoding(Module):
         sqrt = math.sqrt(num_history)
         pw, ph = map(float, [w // patch_size, h // patch_size])
         pw, ph = pw + 0.1, ph + 0.1
-        pos_encoding = F.interpolate(
+        pos_encoding = interpolate(
             pos_encoding.reshape(1, int(sqrt), int(sqrt), dim).permute(0, 3, 1, 2),
-            scale_factor=(pw / sqrt, ph / sqrt),
+            factor=(pw / sqrt, ph / sqrt),
             mode="bicubic",
         )
         assert int(pw) == pos_encoding.shape[-2] and int(ph) == pos_encoding.shape[-1]
