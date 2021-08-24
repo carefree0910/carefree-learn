@@ -662,6 +662,7 @@ class mode_context(context_error_handler):
         *,
         to_train: Optional[bool],
         use_grad: Optional[bool],
+        use_inference: Optional[bool] = None,
     ):
         self._to_train = to_train
         self._module, self._training = module, module.training
@@ -673,16 +674,24 @@ class mode_context(context_error_handler):
             self._grad_context: Optional[ContextManager] = None
         else:
             self._grad_context = torch.enable_grad() if use_grad else torch.no_grad()
+        if use_inference is None:
+            self._inference_context: Optional[ContextManager] = None
+        else:
+            self._inference_context = torch.inference_mode(use_inference)
 
     def __enter__(self) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._to_train)
         if self._grad_context is not None:
             self._grad_context.__enter__()
+        if self._inference_context is not None:
+            self._inference_context.__enter__()
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._training)
+        if self._inference_context is not None:
+            self._inference_context.__exit__(exc_type, exc_val, exc_tb)
         if self._grad_context is not None:
             self._grad_context.__exit__(exc_type, exc_val, exc_tb)
         for p, v in self._cache.items():
@@ -695,7 +704,7 @@ class train_context(mode_context):
     """
 
     def __init__(self, module: nn.Module, *, use_grad: bool = True):
-        super().__init__(module, to_train=True, use_grad=use_grad)
+        super().__init__(module, to_train=True, use_grad=use_grad, use_inference=False)
 
 
 class eval_context(mode_context):
@@ -704,7 +713,12 @@ class eval_context(mode_context):
     """
 
     def __init__(self, module: nn.Module, *, use_grad: bool = False):
-        super().__init__(module, to_train=False, use_grad=use_grad)
+        super().__init__(
+            module,
+            to_train=False,
+            use_grad=use_grad,
+            use_inference=not use_grad,
+        )
 
 
 class Initializer(LoggingMixinWithRank):
