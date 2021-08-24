@@ -18,7 +18,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from skimage import io
 from cftool.dist import Parallel
 from cftool.misc import is_numeric
 from cftool.misc import shallow_copy_dict
@@ -287,7 +286,7 @@ def prepare_image_folder(
                 i_new_labels[k] = vv
             context.put(
                 str(i).encode("ascii"),
-                dill.dumps(LMDBItem(io.imread(path), i_new_labels)),
+                dill.dumps(LMDBItem(np.array(Image.open(path)), i_new_labels)),
             )
         context.put(
             "length".encode("ascii"),
