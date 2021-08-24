@@ -350,7 +350,7 @@ class DINO(ModelWithCustomSteps):
         state = trainer.state
         if self.lr_schedule is None:
             self.lr_schedule = cosine_scheduler(
-                self.lr * (len(batch[INPUT_KEY]) * world_size()) / 256.0,  # type: ignore
+                self.lr * (len(batch[INPUT_KEY][0]) * world_size()) / 256.0,  # type: ignore
                 self.min_lr,
                 self.teacher_temp_epochs,
                 state.num_step_per_epoch,
