@@ -810,7 +810,7 @@ class Attention(Module, WithRegister):
 
         if is_self_attention:
             self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, input_dim))
-            nn.init.kaiming_uniform_(self.in_w, a=math.sqrt(5.0))
+            nn.init.trunc_normal_(self.in_w, std=0.02)
             self.q_w = self.k_w = self.v_w = None
         else:
             self.in_w = None
@@ -1682,9 +1682,9 @@ class MixedStackedEncoder(Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, m: Module) -> None:
-        if isinstance(m, nn.Linear):
+        if isinstance(m, nn.Linear) or isinstance(m, Linear):
             nn.init.trunc_normal_(m.weight, std=0.02)
-            if isinstance(m, nn.Linear) and m.bias is not None:
+            if m.bias is not None:
                 nn.init.constant_(m.bias, 0.0)
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0.0)
