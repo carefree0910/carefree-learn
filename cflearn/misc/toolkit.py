@@ -587,7 +587,10 @@ def summary(
     total_params, trainable_params = _get_param_counts(model)
     # assume 4 bytes/number (float on cuda).
     x_batch = sample_batch[INPUT_KEY]
-    total_input_size = abs(prod(x_batch.shape[1:]) * 4.0 / (1024 ** 2.0))
+    get_size = lambda t: abs(prod(t.shape[1:]) * 4.0 / (1024 ** 2.0))
+    if not isinstance(x_batch, list):
+        x_batch = [x_batch]
+    total_input_size = sum(map(get_size, x_batch))
     # x2 for gradients
     total_output_size = abs(2.0 * total_output * 4.0 / (1024 ** 2.0))
     total_params_size = abs(total_params * 4.0 / (1024 ** 2.0))
