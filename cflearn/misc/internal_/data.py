@@ -264,8 +264,8 @@ class CVLoader(DataLoaderProtocol):
             assert isinstance(copied, CVLoader)
         else:
             lmdb, context = self.data.dataset.lmdb, self.data.dataset.context
-            self.data.dataset.__dict__.pop("lmdb")
-            self.data.dataset.__dict__.pop("context")
+            self.data.dataset.__dict__.pop("lmdb", None)
+            self.data.dataset.__dict__.pop("context", None)
             copied = super().copy()
             assert isinstance(copied, CVLoader)
             copied.data.dataset.lmdb, copied.data.dataset.context = lmdb, context
