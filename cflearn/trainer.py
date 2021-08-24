@@ -404,7 +404,7 @@ class Trainer:
         return isinstance(self.model, ModelWithCustomSteps)
 
     @property
-    def model_for_training(self) -> torch.nn.Module:
+    def model_for_training(self) -> nn.Module:
         return self.ddp_model or self.model
 
     # init
@@ -513,7 +513,7 @@ class Trainer:
             parameters = self.model_for_training.parameters()
         else:
             attr = getattr(self.model_for_training, pack.scope)
-            if not isinstance(attr, torch.nn.Module):
+            if not isinstance(attr, nn.Module):
                 parameters = attr
             else:
                 parameters = attr.parameters()
@@ -571,7 +571,7 @@ class Trainer:
     def _clip_norm_step(self) -> None:
         for opt in self.optimizers.values():
             self.grad_scaler.unscale_(opt)
-        self._gradient_norm = torch.nn.utils.clip_grad_norm_(
+        self._gradient_norm = nn.utils.clip_grad_norm_(
             self.model_for_training.parameters(),
             max_norm=self.clip_norm,
         )
