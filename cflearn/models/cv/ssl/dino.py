@@ -394,7 +394,14 @@ class DINO(ModelWithCustomSteps):
             losses.append(self._get_loss(i, batch, trainer, {})[1].item())
         # gather
         mean_loss = sum(losses) / len(losses)
-        return MetricsOutputs(-mean_loss, {"loss": mean_loss})
+        return MetricsOutputs(
+            -mean_loss,
+            {
+                "loss": mean_loss,
+                "lr": self.lr_schedule[trainer.state.step],
+                "wd": self.wd_schedule[trainer.state.step],
+            },
+        )
 
     @staticmethod
     def params_groups(m: nn.Module) -> Any:
