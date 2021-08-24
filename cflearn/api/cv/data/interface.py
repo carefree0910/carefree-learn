@@ -141,15 +141,19 @@ class ImageFolderData(DLDataModule):
         num_workers: int = 0,
         shuffle: bool = True,
         transform: Optional[Union[str, Transforms]] = None,
+        transform_config: Optional[Dict[str, Any]] = None,
         test_shuffle: Optional[bool] = None,
         test_transform: Optional[Union[str, Transforms]] = None,
+        test_transform_config: Optional[Dict[str, Any]] = None,
         lmdb_configs: Optional[Dict[str, Any]] = None,
     ):
         self.folder = folder
         self.shuffle = shuffle
         self.transform = transform
+        self.transform_config = transform_config
         self.test_shuffle = test_shuffle
         self.test_transform = test_transform
+        self.test_transform_config = test_transform_config
         self.lmdb_configs = lmdb_configs
         self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
@@ -171,7 +175,8 @@ class ImageFolderData(DLDataModule):
                 self.folder,
                 "train",
                 self.transform,
-                lmdb_configs=self.lmdb_configs,
+                self.transform_config,
+                self.lmdb_configs,
             )
         )
         self.valid_data = CVDataset(
@@ -179,7 +184,8 @@ class ImageFolderData(DLDataModule):
                 self.folder,
                 "valid",
                 self.test_transform or self.transform,
-                lmdb_configs=self.lmdb_configs,
+                self.test_transform_config or self.transform_config,
+                self.lmdb_configs,
             )
         )
 
