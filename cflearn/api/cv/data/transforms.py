@@ -176,9 +176,9 @@ class SSLTransform(Transforms):
         def __init__(
             self,
             img_size: int,
-            local_crops_number: int = 8,
-            local_crops_scale: Tuple[float, float] = (0.05, 0.4),
-            global_crops_scale: Tuple[float, float] = (0.4, 1.0),
+            local_crops_number: int,
+            local_crops_scale: Tuple[float, float],
+            global_crops_scale: Tuple[float, float],
         ):
             flip_and_color_jitter = transforms.Compose(
                 [
@@ -253,9 +253,20 @@ class SSLTransform(Transforms):
                 crops.append(self.local_transform(image))
             return crops
 
-    def __init__(self, img_size: int):
+    def __init__(
+        self,
+        img_size: int,
+        local_crops_number: int = 8,
+        local_crops_scale: Tuple[float, float] = (0.05, 0.4),
+        global_crops_scale: Tuple[float, float] = (0.4, 1.0),
+    ):
         super().__init__()
-        self.fn = self.Augmentation(img_size)
+        self.fn = self.Augmentation(
+            img_size,
+            local_crops_number,
+            local_crops_scale,
+            global_crops_scale,
+        )
 
     @property
     def need_batch_process(self) -> bool:
