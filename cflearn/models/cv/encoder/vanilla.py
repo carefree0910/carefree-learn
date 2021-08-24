@@ -10,6 +10,7 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
+from ....misc.toolkit import squeeze
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -134,7 +135,7 @@ class VanillaEncoder1D(Encoder1DBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = self.encoder(batch_idx, batch, state, **kwargs)[LATENT_KEY]
-        net = self.pool(net).squeeze()
+        net = squeeze(self.pool(net))
         return {LATENT_KEY: net}
 
 

@@ -345,6 +345,14 @@ def to_device(batch: tensor_dict_type, device: torch.device) -> tensor_dict_type
     }
 
 
+def squeeze(arr: arr_type) -> arr_type:
+    n = arr.shape[0]
+    arr = arr.squeeze()
+    if n == 1:
+        arr = arr[None, ...]
+    return arr
+
+
 def softmax(arr: arr_type) -> arr_type:
     if isinstance(arr, torch.Tensor):
         return F.softmax(arr, dim=1)

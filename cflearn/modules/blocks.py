@@ -30,6 +30,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
+from ..misc.toolkit import squeeze
 from ..misc.toolkit import interpolate
 from ..misc.toolkit import WithRegister
 
@@ -2097,7 +2098,7 @@ class ChannelPadding(Module):
             padding = self.channel_padding[labels.view(-1)]
         if self.is_global:
             if len(net.shape) == 2:
-                padding = padding.squeeze()
+                padding = squeeze(padding)
             else:
                 padding = padding.repeat(1, 1, *net.shape[-2:])
         return torch.cat([net, padding], dim=1)

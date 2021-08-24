@@ -27,6 +27,7 @@ from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
 from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import softmax
+from ...misc.toolkit import squeeze
 from ...misc.toolkit import is_float
 from ...misc.toolkit import get_arguments
 from ...misc.internal_ import MLLoader
@@ -474,7 +475,7 @@ class CarefreePipeline(SimplePipeline):
                 if v.shape[1] == 1:
                     v = fn(v)
                 else:
-                    v = np.apply_along_axis(fn, axis=0, arr=v).squeeze()
+                    v = squeeze(np.apply_along_axis(fn, axis=0, arr=v))
             recovered[k] = v
         return recovered
 

@@ -29,6 +29,7 @@ from ...protocol import DataLoaderProtocol
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import BATCH_INDICES_KEY
+from ...misc.toolkit import squeeze
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import WithRegister
 from ...misc.toolkit import SharedArrayWrapper
@@ -158,7 +159,7 @@ class KeepEdge(FilterFunctions):
     def get_valid_labels_mask(self, labels: np.ndarray) -> np.ndarray:
         labels = np.transpose(labels, [0, 2, 1])
         ratio = self.config.setdefault("ratio", 0.1)
-        aggregated = self.data_callback.aggregate_labels(labels).squeeze()
+        aggregated = squeeze(self.data_callback.aggregate_labels(labels))
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
             floor = np.nanquantile(aggregated, ratio, axis=1, keepdims=True)
