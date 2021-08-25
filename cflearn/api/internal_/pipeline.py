@@ -260,6 +260,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if isinstance(callback_names, str):
             callback_names = [callback_names]
         auto_callback = self.trainer_config.get("auto_callback", True)
+        if "mlflow" in callback_names and auto_callback:
+            mlflow_config = callback_configs.setdefault("mlflow", {})
+            mlflow_config.setdefault("experiment_name", self.model.__identifier__)
         if "_log_metrics_msg" not in callback_names and auto_callback:
             callback_names.insert(0, "_log_metrics_msg")
             verbose = False
