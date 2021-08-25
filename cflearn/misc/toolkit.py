@@ -637,6 +637,11 @@ def get_ddp_info() -> Optional[DDPInfo]:
     return None
 
 
+def get_world_size() -> int:
+    ddp_info = get_ddp_info()
+    return 1 if ddp_info is None else ddp_info.world_size
+
+
 class mode_context(context_error_handler):
     """
     Help entering specific mode and recovering previous mode

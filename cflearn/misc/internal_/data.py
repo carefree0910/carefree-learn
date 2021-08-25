@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-import torch.distributed as dist
 
 from abc import abstractmethod
 from abc import ABCMeta
@@ -27,6 +26,7 @@ from ...constants import LABEL_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import get_ddp_info
+from ...misc.toolkit import get_world_size
 from ...misc.toolkit import WithRegister
 
 
@@ -253,10 +253,7 @@ class CVLoader(DataLoaderProtocol):
 
     @property
     def batch_size(self) -> int:  # type: ignore
-        batch_size = self.loader.batch_size
-        if dist.is_initialized():
-            batch_size *= dist.get_world_size()
-        return batch_size
+        return self.loader.batch_size * get_world_size()
 
     def copy(self) -> "CVLoader":
         dataset = self.data.dataset

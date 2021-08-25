@@ -24,12 +24,9 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import to_device
+from ....misc.toolkit import get_world_size
 from ....misc.toolkit import has_batch_norms
 from ....misc.internal_ import CVLoader
-
-
-def world_size() -> int:
-    return 1 if not dist.is_initialized() else dist.get_world_size()
 
 
 def _get_dino_defaults(name: str) -> Dict[str, Any]:
@@ -220,7 +217,7 @@ class DINOLoss(nn.Module):
         batch_center = torch.sum(teacher_output, dim=0, keepdim=True)
         if dist.is_initialized():
             dist.all_reduce(batch_center)
-        batch_center = batch_center / (len(teacher_output) * world_size())
+        batch_center = batch_center / (len(teacher_output) * get_world_size())
         m = self.center_momentum
         self.center = self.center * m + batch_center * (1.0 - m)
 
@@ -365,7 +362,7 @@ class DINO(ModelWithCustomSteps):
         state = trainer.state
         if self.lr_schedule is None:
             self.lr_schedule = cosine_scheduler(
-                self.lr * (len(batch[INPUT_KEY][0]) * world_size()) / 256.0,  # type: ignore
+                self.lr * (len(batch[INPUT_KEY][0]) * get_world_size()) / 256.0,  # type: ignore
                 self.min_lr,
                 self.teacher_temp_epochs,
                 state.num_step_per_epoch,
