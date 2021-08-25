@@ -304,10 +304,6 @@ def prepare_image_folder(
 
 
 class ImageFolderDataset(Dataset):
-    lmdb = None
-    context = None
-    lmdb_configs = None
-
     def __init__(
         self,
         folder: str,
@@ -329,6 +325,7 @@ class ImageFolderDataset(Dataset):
             with self.lmdb.begin(write=False) as context:
                 self.length = int(context.get("length".encode("ascii")).decode("ascii"))
         else:
+            self.lmdb = self.context = None
             self.folder = os.path.abspath(os.path.join(folder, split))
             with open(os.path.join(self.folder, "labels.json"), "r") as f:
                 self.labels = json.load(f)
@@ -346,11 +343,6 @@ class ImageFolderDataset(Dataset):
         self.transform = Transforms.convert(transform, transform_config)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
-        if self.lmdb_configs is not None:
-            if self.lmdb is None:
-                self.lmdb = lmdb.open(**self.lmdb_configs)
-            if self.context is None:
-                self.context = self.lmdb.begin(buffers=True, write=False)
         if self.context is not None:
             key = str(index).encode("ascii")
             item: LMDBItem = dill.loads(self.context.get(key))

@@ -259,16 +259,11 @@ class CVLoader(DataLoaderProtocol):
         return batch_size
 
     def copy(self) -> "CVLoader":
-        if not hasattr(self.data.dataset, "lmdb"):
-            copied = super().copy()
-            assert isinstance(copied, CVLoader)
-        else:
-            lmdb, context = self.data.dataset.lmdb, self.data.dataset.context
-            self.data.dataset.__dict__.pop("lmdb", None)
-            self.data.dataset.__dict__.pop("context", None)
-            copied = super().copy()
-            assert isinstance(copied, CVLoader)
-            copied.data.dataset.lmdb, copied.data.dataset.context = lmdb, context
+        dataset = self.data.dataset
+        self.data.__dict__.pop("dataset")
+        copied = super().copy()
+        assert isinstance(copied, CVLoader)
+        self.data.dataset = copied.data.dataset = dataset
         return copied
 
     def disable_shuffle(self) -> None:
