@@ -527,11 +527,13 @@ def summary(
     model.apply(register_hook)
 
     # make a forward pass
-    with eval_context(model, use_grad=getattr(model, "use_grad_in_summary", False)):
+    with eval_context(model, use_grad=None):
         if not hasattr(model, "summary_forward"):
             model(0, sample_batch)
         else:
             model.summary_forward(0, sample_batch)  # type: ignore
+        for param in model.parameters():
+            param.grad = None
 
     # remove these hooks
     for h in hooks:

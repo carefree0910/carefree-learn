@@ -198,7 +198,6 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
 
     custom_train_step: bool = False
     custom_evaluate_step: bool = False
-    use_grad_in_summary: bool = False
 
     def __init__(self, in_dim: int, out_dim: int, num_history: int):
         super().__init__()
@@ -340,10 +339,6 @@ class MLModel(ModelWithCustomSteps):
         if isinstance(self.core, nn.ModuleList):
             raise ValueError("`num_repeat` is not supported for custom models")
         self.core._init_with_trainer(trainer)
-
-    @property
-    def use_grad_in_summary(self) -> bool:
-        return self.core.use_grad_in_summary
 
     def forward(
         self,
