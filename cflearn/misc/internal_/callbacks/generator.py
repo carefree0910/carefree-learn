@@ -79,7 +79,7 @@ class SizedGeneratorCallback(GeneratorCallback):
                 "(and the `sample` method should support accepting `size` kwarg)"
             )
         with eval_context(trainer.model):
-            for size in [64, 128, 256]:
+            for size in [32, 64, 128]:
                 sampled = sample_method(4, size=size).cpu()
                 path = os.path.join(image_folder, f"sampled_{size}x{size}.png")
                 save_images(sampled, path)
