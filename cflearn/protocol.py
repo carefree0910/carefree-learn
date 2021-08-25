@@ -29,6 +29,7 @@ from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
 from .misc.toolkit import to_standard
 from .misc.toolkit import eval_context
+from .misc.toolkit import get_ddp_info
 from .misc.toolkit import WithRegister
 
 
@@ -204,7 +205,9 @@ class TrainerState:
         max_step_per_snapshot: int = 2000,
     ):
         self.step = self.epoch = 0
-        self.batch_size = loader.batch_size
+        ddp_info = get_ddp_info()
+        world_size = 1 if ddp_info is None else ddp_info.world_size
+        self.batch_size = loader.batch_size * world_size
         self.num_step_per_epoch = len(loader)
         self.num_epoch = num_epoch
         self.max_epoch = max_epoch
