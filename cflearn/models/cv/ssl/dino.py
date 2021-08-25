@@ -309,6 +309,18 @@ class DINO(ModelWithCustomSteps):
     ) -> tensor_dict_type:
         return self.student.backbone(batch_idx, batch, state, **kwargs)
 
+    def state_dict(
+        self,
+        destination: Any = None,
+        prefix: str = "",
+        keep_vars: bool = False,
+    ) -> Any:
+        states = super().state_dict(destination, prefix, keep_vars)
+        for k in list(states.keys()):
+            if k.startswith("ddp"):
+                states.pop(k)
+        return states
+
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
         self.student(batch_idx, to_device(batch, self.device))
 
