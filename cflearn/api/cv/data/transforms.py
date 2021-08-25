@@ -273,6 +273,29 @@ class SSLTransform(Transforms):
         return False
 
 
+@Transforms.register("ssl_test")
+class SSLTestTransform(Transforms):
+    def __init__(self, img_size: int):
+        super().__init__()
+        self.fn = transforms.Compose(
+            [
+                Function(lambda img: img.convert("RGB")),
+                transforms.Resize(
+                    int(round(img_size * 8.0 / 7.0)),
+                    interpolation=InterpolationMode.BICUBIC,
+                ),
+                transforms.CenterCrop(img_size),
+                ToArray(),
+                Normalize(),
+                transforms.ToTensor(),
+            ]
+        )
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 class ATransforms(Transforms):
     input_alias = "image"
 
@@ -515,6 +538,7 @@ __all__ = [
     "ForGeneration",
     "ForImagenet",
     "SSLTransform",
+    "SSLTestTransform",
     "ToArray",
     "Resize",
     "RandomCrop",
