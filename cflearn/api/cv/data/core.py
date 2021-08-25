@@ -31,6 +31,8 @@ from ....constants import ERROR_PREFIX
 from ....constants import WARNING_PREFIX
 from ....constants import ORIGINAL_LABEL_KEY
 from ....misc.toolkit import to_torch
+from ....misc.internal_ import CVLoader
+from ....misc.internal_ import DataLoader
 
 
 def batch_callback(
@@ -377,3 +379,32 @@ class ImageFolderDataset(Dataset):
 
     def __len__(self) -> int:
         return self.length
+
+
+class InferenceImageFolderDataset(Dataset):
+    def __init__(self, folder: str, transform: Optional[Callable]):
+        self.folder = os.path.abspath(folder)
+        support_appendix = {".jpg", ".png"}
+        self.img_paths = list(
+            map(
+                lambda file: os.path.join(self.folder, file),
+                filter(
+                    lambda file: file[-4:] in support_appendix,
+                    os.listdir(self.folder),
+                ),
+            )
+        )
+        self.transform = transform
+
+    def __getitem__(self, index: int) -> Dict[str, Tensor]:
+        img = Image.open(self.img_paths[index])
+        if self.transform is None:
+            img = to_torch(np.array(img).astype(np.float32))
+            return {INPUT_KEY: img}
+        return {INPUT_KEY: self.transform(img)}
+
+    def __len__(self) -> int:
+        return len(self.img_paths)
+
+    def make_loader(self, batch_size: int, num_workers: int = 0) -> CVLoader:
+        return CVLoader(DataLoader(self, batch_size, num_workers=num_workers))
