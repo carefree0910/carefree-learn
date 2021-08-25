@@ -21,8 +21,6 @@ setup(
         "onnx-simplifier",
         "onnxruntime",
         "plotly",
-        "optuna>=2.3.0",
-        "carefree-ml>=0.1.1",
         "carefree-data>=0.2.5",
         "carefree-toolkit>=0.2.7",
         "dill",
