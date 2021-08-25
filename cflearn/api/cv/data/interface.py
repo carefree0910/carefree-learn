@@ -140,10 +140,10 @@ class ImageFolderData(DLDataModule):
         batch_size: int,
         num_workers: int = 0,
         shuffle: bool = True,
-        transform: Optional[Union[str, Transforms]] = None,
+        transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
         test_shuffle: Optional[bool] = None,
-        test_transform: Optional[Union[str, Transforms]] = None,
+        test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         test_transform_config: Optional[Dict[str, Any]] = None,
         lmdb_configs: Optional[Dict[str, Any]] = None,
     ):
