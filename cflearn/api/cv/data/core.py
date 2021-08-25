@@ -244,6 +244,7 @@ def prepare_image_folder(
         parallel = Parallel(d_num_jobs, use_tqdm=use_tqdm)
         results: List[Tuple[str, Dict[str, Any]]]
         results = sum(parallel.grouped(record, indices).ordered_results, [])
+        results = [r for r in results if r is not None]
         new_paths, all_labels_list = zip(*results)
         merged_labels = shallow_copy_dict(all_labels_list[0])
         for sub_labels_ in all_labels_list[1:]:
@@ -274,7 +275,7 @@ def prepare_image_folder(
         local_lmdb_configs.setdefault("map_size", 1099511627776 * 2)
         db = lmdb.open(**local_lmdb_configs)
         context = db.begin(write=True)
-        d_num_samples = len(indices)
+        d_num_samples = len(results)
         iterator = zip(range(d_num_samples), new_paths, all_labels_list)
         if use_tqdm:
             iterator = tqdm(iterator, total=d_num_samples, desc="lmdb")
