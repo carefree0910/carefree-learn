@@ -476,11 +476,6 @@ class InferenceProtocol:
                 }
                 if self.model is not None:
                     batch = to_device(batch, self.model.device)
-                local_labels = batch[LABEL_KEY]
-                if local_labels is not None:
-                    if not isinstance(local_labels, np.ndarray):
-                        local_labels = to_numpy(local_labels)
-                    labels.append(local_labels)
                 if self.onnx is not None:
                     local_outputs = self.onnx.inference(np_batch)
                 else:
@@ -519,6 +514,12 @@ class InferenceProtocol:
                         results[k] = None
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
+                if requires_np:
+                    local_labels = batch[LABEL_KEY]
+                    if local_labels is not None:
+                        if not isinstance(local_labels, np.ndarray):
+                            local_labels = to_numpy(local_labels)
+                        labels.append(local_labels)
                 # metrics
                 if requires_metrics:
                     sub_outputs = metrics.evaluate(np_batch, np_outputs)  # type: ignore
