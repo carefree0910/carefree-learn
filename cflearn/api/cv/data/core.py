@@ -350,6 +350,8 @@ class ImageFolderDataset(Dataset):
             label = item.labels
             if len(label) == 1:
                 label = list(label.values())[0]
+            if is_numeric(label):
+                label = np.array([label])
         else:
             file = self.img_paths[index]
             img = Image.open(file)
