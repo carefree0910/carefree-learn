@@ -105,8 +105,8 @@ def make_trainer(
     # default behaviors
     if monitors is None:
         monitors = [BasicMonitor()]
-    if callbacks is None and not use_tqdm:
-        callbacks = [_LogMetricsMsgCallback()]
+    if callbacks is None:
+        callbacks = [_LogMetricsMsgCallback(not use_tqdm)]
     return Trainer(
         state_config,
         num_epoch=num_epoch,
