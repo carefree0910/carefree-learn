@@ -80,7 +80,7 @@ class SizedGeneratorCallback(GeneratorCallback):
             )
         with eval_context(trainer.model):
             for size in [64, 128, 256]:
-                sampled = sample_method(4, size=size)
+                sampled = sample_method(4, size=size).cpu()
                 path = os.path.join(image_folder, f"sampled_{size}x{size}.png")
                 save_images(sampled, path)
 
