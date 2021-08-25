@@ -717,12 +717,20 @@ class eval_context(mode_context):
     Useful when we need to predict something with our PyTorch model during training.
     """
 
-    def __init__(self, module: nn.Module, *, use_grad: bool = False):
+    def __init__(
+        self,
+        module: nn.Module,
+        *,
+        use_grad: Optional[bool] = False,
+        use_inference: Optional[bool] = None,
+    ):
+        if use_inference is None and use_grad is not None:
+            use_inference = not use_grad
         super().__init__(
             module,
             to_train=False,
             use_grad=use_grad,
-            use_inference=not use_grad,
+            use_inference=use_inference,
         )
 
 
