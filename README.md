@@ -148,7 +148,7 @@ If you use `carefree-learn` in your research, we would greatly appreciate if you
 @misc{carefree-learn,
   year={2020},
   author={Yujian He},
-  title={carefree-learn, a minimal Automatic Machine Learning (AutoML) solution for tabular datasets based on PyTorch},
+  title={carefree-learn, Deep Learning with PyTorch made easy},
   howpublished={\url{https://https://github.com/carefree0910/carefree-learn/}},
 }
 ```
