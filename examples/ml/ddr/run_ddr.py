@@ -3,8 +3,6 @@ import cflearn
 
 import numpy as np
 
-from cflearn.models.ml.ddr import DDRVisualizer
-
 
 power = 4
 padding = 1.0
@@ -36,7 +34,7 @@ m = cflearn.ml.SimplePipeline("ddr", output_dim=1, loss_name="ddr")
 m.fit(data)
 
 os.makedirs(output_folder, exist_ok=True)
-visualizer = DDRVisualizer(m.model.core)  # type: ignore
+visualizer = cflearn.ml.DDRVisualizer(m.model.core)  # type: ignore
 visualizer.visualize(
     x_test,
     y_test,
