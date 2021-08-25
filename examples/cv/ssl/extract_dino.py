@@ -5,21 +5,12 @@ import torch
 import cflearn
 
 from PIL import Image
-from typing import Any
-from typing import Dict
-
-
-def states_callback(_: Any, states: Dict[str, Any]) -> Dict[str, Any]:
-    for k in list(states.keys()):
-        if k.startswith("ddp"):
-            states.pop(k)
-    return states
 
 
 base = cflearn.cv.CarefreePipeline
 packed = base.pack(".versions/512_2000")
-dino = base.load(packed, states_callback=states_callback).model
-dino_api = cflearn.cv.DINOPredictor(dino.cuda())
+dino = base.load(packed).model.cuda()
+dino_api = cflearn.cv.DINOPredictor(dino)
 
 data_folder = "data/poster_data"
 features_folder = ".features"
