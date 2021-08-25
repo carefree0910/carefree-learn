@@ -103,6 +103,15 @@ class Compose(Transforms):
         return self.transform_list[0].need_batch_process
 
 
+@Transforms.register("to_gray")
+class ToGray(Transforms):
+    fn = transforms.Grayscale()
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("to_tensor")
 class ToTensor(Transforms):
     fn = transforms.ToTensor()
@@ -532,6 +541,7 @@ class ABundleTest(Compose):
 __all__ = [
     "Function",
     "Compose",
+    "ToGray",
     "ToTensor",
     "RandomResizedCrop",
     "N1To1",
