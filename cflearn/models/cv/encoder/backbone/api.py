@@ -12,6 +12,7 @@ from .....trainer import TrainerState
 from .....constants import INPUT_KEY
 from .....constants import LATENT_KEY
 from .....constants import WARNING_PREFIX
+from .....misc.toolkit import squeeze
 from .....modules.blocks import Conv2d
 
 
@@ -113,7 +114,8 @@ class BackboneEncoder(Encoder1DBase):
         outputs = self.net(net)
         latent = outputs[LATENT_KEY]
         if latent.shape[-2] != 1 or latent.shape[-1] != 1:
-            outputs[LATENT_KEY] = self.pool(latent)
+            latent = self.pool(latent)
+        outputs[LATENT_KEY] = squeeze(latent)
         return outputs
 
 
