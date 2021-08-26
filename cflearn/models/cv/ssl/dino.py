@@ -324,6 +324,28 @@ class DINO(ModelWithCustomSteps):
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
         self.student(batch_idx, to_device(batch, self.device))
 
+    def _get_outputs(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+    ) -> tensor_dict_type:
+        teacher_output = self.teacher_for_training(
+            batch_idx,
+            batch,
+            trainer.state,
+            img_end_idx=2,
+            **forward_kwargs,
+        )
+        student_output = self.student_for_training(
+            batch_idx,
+            batch,
+            trainer.state,
+            **forward_kwargs,
+        )
+        return {"student": student_output, "teacher": teacher_output}
+
     def _get_loss(
         self,
         batch_idx: int,
@@ -331,25 +353,14 @@ class DINO(ModelWithCustomSteps):
         trainer: Any,
         forward_kwargs: Dict[str, Any],
     ) -> Tuple[tensor_dict_type, Tensor]:
-        state = trainer.state
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            teacher_output = self.teacher_for_training(
-                batch_idx,
-                batch,
-                state,
-                img_end_idx=2,
-                **forward_kwargs,
-            )
-            student_output = self.student_for_training(
-                batch_idx,
-                batch,
-                state,
-                **forward_kwargs,
-            )
-            epoch = state.epoch
+            outputs = self._get_outputs(batch_idx, batch, trainer, forward_kwargs)
+            epoch = trainer.state.epoch
             num_crops = len(batch[INPUT_KEY])
+            student_output = outputs["student"]
+            teacher_output = outputs["teacher"]
             loss = self.loss(epoch, num_crops, student_output, teacher_output)
-        return {"student": student_output, "teacher": teacher_output}, loss
+        return outputs, loss
 
     def train_step(
         self,
