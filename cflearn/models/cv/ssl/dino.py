@@ -329,6 +329,9 @@ class DINO(ModelWithCustomSteps):
     def get_latent(self, net: Tensor) -> Tensor:
         return self.forward(0, {INPUT_KEY: net})[LATENT_KEY]
 
+    def get_logits(self, net: Tensor) -> Tensor:
+        return self.student(0, {INPUT_KEY: net})
+
     def state_dict(
         self,
         destination: Any = None,
