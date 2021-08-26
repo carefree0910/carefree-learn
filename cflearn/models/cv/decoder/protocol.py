@@ -9,6 +9,7 @@ from typing import Type
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
+from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....misc.toolkit import interpolate
@@ -28,10 +29,10 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         latent_channels: int,
         latent_resolution: int,
-        num_upsample: int,
         out_channels: int,
         *,
         img_size: Optional[int] = None,
+        num_upsample: Optional[int] = None,
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
     ):
@@ -39,8 +40,13 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self.img_size = img_size
         self.latent_channels = latent_channels
         self.latent_resolution = latent_resolution
-        self.num_upsample = num_upsample
         self.out_channels = out_channels
+        if num_upsample is None:
+            if img_size is None:
+                msg = "`img_size` should be provided when `num_upsample` is not"
+                raise ValueError(msg)
+            num_upsample = auto_num_layers(img_size, latent_resolution, None)
+        self.num_upsample = num_upsample
         # conditional
         self.cond_channels = cond_channels
         self.num_classes = num_classes
