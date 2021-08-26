@@ -110,31 +110,29 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         # fast embedding
         if self.use_embedding and self._use_fast_embed:
             if isinstance(self._unified_embed_dim, int):
-                unified_embed_dim = self._unified_embed_dim
+                unified_dim = self._unified_embed_dim
             else:
                 if self._unified_embed_dim == "max":
-                    unified_embed_dim = max(self._embed_dims)
+                    unified_dim = max(self._embed_dims)
                 elif self._unified_embed_dim == "mean":
-                    unified_embed_dim = int(
-                        round(sum(self._embed_dims) / self.num_embedding)
-                    )
+                    unified_dim = int(round(sum(self._embed_dims) / self.num_embedding))
                 elif self._unified_embed_dim == "median":
                     half_idx = self.num_embedding // 2
                     sorted_dims = sorted(self._embed_dims)
                     if self.num_embedding % 2 != 0:
-                        unified_embed_dim = sorted_dims[half_idx]
+                        unified_dim = sorted_dims[half_idx]
                     else:
                         left = sorted_dims[half_idx - 1]
                         right = sorted_dims[half_idx]
-                        unified_embed_dim = int(round(0.5 * (left + right)))
+                        unified_dim = int(round(0.5 * (left + right)))
                 else:
                     raise NotImplementedError(
                         f"unified embedding dim '{self._unified_embed_dim}' "
                         "is not recognized"
                     )
             for i in self._embed_indices:
-                self.merged_dims[i] += unified_embed_dim
-            embedding_dim_sum = unified_embed_dim * self.num_embedding
+                self.merged_dims[i] += unified_dim
+            embedding_dim_sum = unified_dim * self.num_embedding
             self.embedding_dim = embedding_dim_sum
             self.merged_dim += embedding_dim_sum
             if self._fe_init_method is None:
@@ -145,7 +143,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             self.embeddings.append(
                 Embedding(
                     sum(input_dims),
-                    unified_embed_dim,
+                    unified_dim,
                     self._fe_init_method,
                     self._fe_init_config,
                 )
@@ -154,6 +152,14 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             embed_dims_cumsum = self.input_dims[self._embed_indices].cumsum(0)[:-1]
             embed_dims_cumsum = embed_dims_cumsum.to(torch.long)
             self.register_buffer("embed_dims_cumsum", embed_dims_cumsum)
+            if not self._recover_dim:
+                self.register_buffer("recover_indices", None)
+            else:
+                recover_indices = []
+                for i, dim in enumerate(self._embed_dims):
+                    recover_indices.extend(i * unified_dim + j for j in range(dim))
+                recover_indices_tensor = torch.tensor(recover_indices, dtype=torch.long)
+                self.register_buffer("recover_indices", recover_indices_tensor)
         # embedding dropout
         self.embedding_dropout = None
         if self.use_embedding and 0.0 < self._embed_drop < 1.0:
@@ -234,6 +240,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             {"mean": 0.0, "std": 0.02},
         )
         self._use_fast_embed = config.setdefault("use_fast_embedding", True)
+        self._recover_dim = config.setdefault("recover_original_dim", False)
         # [ mean | median | max | int ]
         self._unified_embed_dim = config.setdefault("unified_embedding_dim", "max")
         self._fe_init_method = config.setdefault("fast_embedding_init_method", None)
@@ -323,7 +330,10 @@ class Encoder(nn.Module, LoggingMixinWithRank):
     def _embedding(self, indices_columns: torch.Tensor) -> torch.Tensor:
         if self._use_fast_embed:
             embed_mat = self.embeddings[0](indices_columns)
-            return embed_mat.view(-1, self.embedding_dim)
+            embed_mat = embed_mat.view(-1, self.embedding_dim)
+            if not self._recover_dim:
+                return embed_mat
+            return embed_mat[..., self.recover_indices]
         split = self._to_split(indices_columns)
         encodings = [
             embedding(flat_feature)
