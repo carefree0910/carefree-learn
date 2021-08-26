@@ -308,7 +308,7 @@ class ImageFolderDataset(Dataset):
         self,
         folder: str,
         split: str,
-        transform: Optional[Union[str, List[str], "Transforms", Callable]],
+        transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
         lmdb_configs: Optional[Dict[str, Any]] = None,
     ):

@@ -32,7 +32,7 @@ class MNISTData(DLDataModule):
         root: str = "data",
         shuffle: bool = True,
         batch_size: int = 64,
-        transform: Optional[Union[str, List[str], "Transforms", Callable]],
+        transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
         label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
     ):
