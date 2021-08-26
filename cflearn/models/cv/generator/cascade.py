@@ -115,11 +115,11 @@ class CascadeDINO(ModelProtocol):
             bias=False,
         )
         self.decoder = VanillaDecoder(
-            img_size,
             latent_channels,
             img_size // 2 ** num_upsample,
-            num_upsample,
             out_channels,
+            img_size=img_size,
+            num_upsample=num_upsample,
         ).decoder
 
     def forward(
