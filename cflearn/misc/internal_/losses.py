@@ -229,15 +229,14 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
     prefix: str
 
     names: Union[str, List[str]]
-    configs: Dict[str, Any]
     base_losses: nn.ModuleList
 
     def _init_config(self) -> None:
         if isinstance(self.names, str):
-            base_losses = [LossProtocol.make(self.names, self.configs)]
+            base_losses = [LossProtocol.make(self.names, self.config)]
         else:
             base_losses = [
-                LossProtocol.make(name, self.configs.get(name, {}))
+                LossProtocol.make(name, self.config.get(name, {}))
                 for name in self.names
             ]
         self.base_losses = nn.ModuleList(base_losses)
@@ -246,7 +245,6 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
     def register_(
         cls,
         base_loss_names: Union[str, List[str]],
-        base_configs: Optional[Dict[str, Any]] = None,
         *,
         tag: Optional[str] = None,
     ) -> None:
@@ -261,7 +259,6 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
         @cls.register(tag)
         class _(cls):  # type: ignore
             names = base_loss_names
-            configs = base_configs or {}
 
     @classmethod
     def record_prefix(cls) -> Callable[[Type["MultiLoss"]], Type["MultiLoss"]]:
