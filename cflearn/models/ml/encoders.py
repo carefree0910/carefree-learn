@@ -152,7 +152,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             embed_dims_cumsum = self.input_dims[self._embed_indices].cumsum(0)[:-1]
             embed_dims_cumsum = embed_dims_cumsum.to(torch.long)
             self.register_buffer("embed_dims_cumsum", embed_dims_cumsum)
-            if not self._recover_dim:
+            if not self._recover_dim or len(set(self._embed_dims)) == 1:
                 self.register_buffer("recover_indices", None)
             else:
                 recover_indices = []
@@ -331,7 +331,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         if self._use_fast_embed:
             embed_mat = self.embeddings[0](indices_columns)
             embed_mat = embed_mat.view(-1, self.embedding_dim)
-            if not self._recover_dim:
+            if not self._recover_dim or self.recover_indices is None:
                 return embed_mat
             return embed_mat[..., self.recover_indices]
         split = self._to_split(indices_columns)
