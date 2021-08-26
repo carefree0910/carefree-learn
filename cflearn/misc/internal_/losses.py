@@ -13,12 +13,14 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from cftool.misc import shallow_copy_dict
 
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...constants import LOSS_KEY
+from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import iou
@@ -99,6 +101,26 @@ class MSELoss(LossProtocol):
         predictions = forward_results[PREDICTIONS_KEY]
         labels = batch[LABEL_KEY]
         return F.mse_loss(predictions, labels, reduction="none")
+
+
+@LossProtocol.register("recon")
+class ReconstructionLoss(LossProtocol):
+    def _init_config(self) -> None:
+        base_loss_name = self.config.pop("base_loss", None)
+        if base_loss_name is None:
+            raise ValueError("`base_loss` should be provided for `ReconstructionLoss`")
+        self.base_loss = LossProtocol.make(base_loss_name, self.config)
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        batch = shallow_copy_dict(batch)
+        batch[LABEL_KEY] = batch[INPUT_KEY]
+        return self.base_loss._core(forward_results, batch, state, **kwargs)
 
 
 @LossProtocol.register("quantile")
