@@ -34,7 +34,8 @@ class VanillaClassifier(ModelProtocol):
         # encoder1d
         if encoder1d_configs is None:
             encoder1d_configs = {}
-        encoder1d_configs["img_size"] = img_size
+        if encoder1d != "backbone":
+            encoder1d_configs["img_size"] = img_size
         encoder1d_configs["in_channels"] = in_channels
         encoder1d_configs["latent_dim"] = latent_dim
         self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
