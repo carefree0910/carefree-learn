@@ -1,3 +1,4 @@
+import math
 import torch
 
 import torch.nn as nn
@@ -34,7 +35,7 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         self,
         in_channels: int,
         out_channels: Optional[int] = None,
-        latent_channels: int = 16,
+        latent_dim: int = 128,
         target_downsample: int = 4,
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
@@ -42,6 +43,7 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
+        num_upsample: Optional[int] = None,
         latent_resolution: Optional[int] = None,
         encoder1d: str = "vanilla",
         decoder: str = "vanilla",
@@ -50,7 +52,10 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
     ):
         super().__init__()
         # dimensions
+        self.latent_dim = latent_dim
         self.num_classes = num_classes
+        # up / down sample stuffs
+        num_upsample = num_upsample or num_downsample
         if num_downsample is None:
             if img_size is None:
                 raise ValueError(
@@ -62,15 +67,14 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         if latent_resolution is None:
             if img_size is None:
                 raise ValueError(
-                    "either `img_size` or `map_dim` should be provided "
-                    "(when `map_dim` is not provided, it will be inferred "
+                    "either `img_size` or `latent_resolution` should be provided "
+                    "(when `latent_resolution` is not provided, it will be inferred "
                     "automatically with `img_size`)"
                 )
             latent_resolution = get_latent_resolution(img_size, num_downsample)
         if img_size is None:
             raw_size = latent_resolution * 2 ** num_downsample
             print(f"{INFO_PREFIX}img_size is not provided, raw_size will be {raw_size}")
-        self.latent_dim = latent_channels * latent_resolution ** 2
         # encoder
         if encoder1d_configs is None:
             encoder1d_configs = {}
@@ -83,8 +87,11 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
         self.to_statistics = Linear(self.latent_dim, 2 * self.latent_dim, bias=False)
         # latent
+        latent_area = latent_resolution ** 2
+        latent_channels = math.ceil(self.latent_dim / latent_area)
         shape = -1, latent_channels, latent_resolution, latent_resolution
         blocks: List[nn.Module] = [
+            Linear(self.latent_dim, latent_channels * latent_area),
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
             Conv2d(latent_channels, self.latent_dim, kernel_size=1, bias=False),
         ]
@@ -100,7 +107,7 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         decoder_configs["img_size"] = img_size
         decoder_configs["latent_channels"] = latent_dim
         decoder_configs["latent_resolution"] = latent_resolution
-        decoder_configs["num_upsample"] = num_downsample
+        decoder_configs["num_upsample"] = num_upsample
         decoder_configs["out_channels"] = out_channels or in_channels
         decoder_configs["num_classes"] = num_classes
         self.decoder = DecoderBase.make(decoder, config=decoder_configs)
