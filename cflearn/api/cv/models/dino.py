@@ -1,23 +1,23 @@
 import torch
 
 from PIL import Image
-from tqdm import tqdm
 from torch import Tensor
 from typing import List
 from typing import Tuple
 
 from ..data import SSLTestTransform
-from ..data import InferenceImageFolderDataset
+from ..data import InferenceImageFolderData
+from ..pipeline import SimplePipeline
 from ....constants import LATENT_KEY
-from ....misc.toolkit import to_device
+from ....misc.toolkit import to_torch
 from ....misc.toolkit import eval_context
-from ....models.cv import DINO
 
 
 class DINOPredictor:
-    def __init__(self, dino: DINO):
-        self.dino = dino
-        img_size = dino.student.backbone.img_size
+    def __init__(self, m: SimplePipeline):
+        self.m = m
+        self.dino = m.model
+        img_size = self.dino.student.backbone.img_size
         self.transform = SSLTestTransform(img_size)
 
     @property
@@ -38,17 +38,14 @@ class DINOPredictor:
         num_workers: int = 0,
         use_tqdm: bool = True,
     ) -> Tuple[Tensor, List[str]]:
-        dataset = InferenceImageFolderDataset(src_folder, self.transform)
-        loader = dataset.make_loader(batch_size, num_workers)
-        outputs = []
-        iterator = enumerate(loader)
-        if use_tqdm:
-            iterator = tqdm(iterator, total=len(loader))
-        with eval_context(self.dino):
-            for i, batch in iterator:
-                batch = to_device(batch, self.device)
-                outputs.append(self.dino(i, batch)[LATENT_KEY].cpu())
-        return torch.cat(outputs, dim=0), dataset.img_paths
+        data = InferenceImageFolderData(
+            src_folder,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            transform=self.transform,
+        )
+        outputs = self.m.predict(data, use_tqdm=use_tqdm)[LATENT_KEY]
+        return to_torch(outputs), data.dataset.img_paths
 
 
 __all__ = [
