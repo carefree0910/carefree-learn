@@ -815,6 +815,8 @@ class Trainer:
                     sampler = self.train_loader.loader.sampler
                     if isinstance(sampler, DistributedSampler):
                         sampler.set_epoch(self.state.epoch)
+                        if self.valid_loader is not None:
+                            self.valid_loader.loader.sampler.set_epoch(self.state.epoch)  # type: ignore
                 step_iterator = self.train_loader
                 if self.is_rank_0 and self.tqdm_settings.use_step_tqdm:
                     step_tqdm = step_iterator = tqdm(
