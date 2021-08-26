@@ -155,7 +155,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             if not self._recover_dim or len(set(self._embed_dims)) == 1:
                 self.register_buffer("recover_indices", None)
             else:
-                recover_indices = []
+                recover_indices: List[int] = []
                 for i, dim in enumerate(self._embed_dims):
                     recover_indices.extend(i * unified_dim + j for j in range(dim))
                 recover_indices_tensor = torch.tensor(recover_indices, dtype=torch.long)
