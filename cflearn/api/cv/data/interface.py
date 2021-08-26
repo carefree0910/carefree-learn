@@ -18,6 +18,7 @@ from torchvision.datasets import MNIST
 from .core import batch_callback
 from .core import TensorDataset
 from .core import ImageFolderDataset
+from .core import InferenceImageFolderDataset
 from .transforms import Transforms
 from ....types import tensor_dict_type
 from ....types import sample_weights_type
@@ -227,9 +228,39 @@ class ImageFolderData(CVDataModule):
         return train_loader, valid_loader
 
 
+class InferenceImageFolderData(CVDataModule):
+    def __init__(
+        self,
+        folder: str,
+        *,
+        batch_size: int,
+        num_workers: int = 0,
+        transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
+        transform_config: Optional[Dict[str, Any]] = None,
+    ):
+        self.folder = folder
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.transform = Transforms.convert(transform, transform_config)
+        self.kw = dict(batch_size=batch_size, num_workers=num_workers)
+        self.prepare(None)
+
+    @property
+    def info(self) -> Dict[str, Any]:
+        return self.kw
+
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        self.dataset = InferenceImageFolderDataset(self.folder, self.transform)
+
+    def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
+        loader = self.dataset.make_loader(self.batch_size, self.num_workers)
+        return loader, None
+
+
 __all__ = [
     "CVDataModule",
     "MNISTData",
     "TensorData",
     "ImageFolderData",
+    "InferenceImageFolderData",
 ]
