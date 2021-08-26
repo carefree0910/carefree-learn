@@ -20,10 +20,9 @@ data = cflearn.cv.MNISTData(
 m = cflearn.cv.CarefreePipeline(
     "vae",
     {
+        "img_size": 28,
         "in_channels": 1,
         "num_classes": num_classes,
-        "img_size": 28,
-        "latent_channels": 64,
     },
     callback_names="generator",
     loss_metrics_weights={"kld": 0.001, "mse": 1.0},
