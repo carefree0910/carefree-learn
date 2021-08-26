@@ -4,6 +4,8 @@ import unittest
 
 import torch.nn as nn
 
+from typing import List
+from typing import Tuple
 from cflearn.misc.toolkit import inject_parameters
 from cflearn.modules.blocks import BN
 from cflearn.modules.blocks import EMA
@@ -12,6 +14,7 @@ from cflearn.modules.blocks import Conv2d
 from cflearn.modules.blocks import Linear
 from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
+from cflearn.models.ml.encoders import Encoder
 
 
 class TestBlocks(unittest.TestCase):
@@ -181,6 +184,65 @@ class TestBlocks(unittest.TestCase):
         output = conv2d(net)
 
         self.assertTrue(torch.allclose(torch_output, output))
+
+    def test_ml_embedding(self) -> None:
+        def _make(
+            embed_dims: List[int],
+            use_fast_embedding: bool,
+            recover_original_dim: bool,
+        ) -> Encoder:
+            nd = len(embed_dims)
+            return Encoder(
+                {
+                    "use_fast_embedding": use_fast_embedding,
+                    "recover_original_dim": recover_original_dim,
+                },
+                embed_dims,
+                ["embedding"] * nd,
+                [{"embedding_dim": d} for d in embed_dims],
+                list(range(nd)),
+                [],
+            )
+
+        def _run(
+            encoder: Encoder,
+            net: torch.Tensor,
+            repeat: int,
+        ) -> Tuple[torch.Tensor, float]:
+            t = time.time()
+            encoded = encoder(net, None, None).embedding
+            for _ in range(repeat - 1):
+                encoder(net, None, None)
+            return encoded, time.time() - t
+
+        def _test_case(embed_dims: List[int]) -> Tuple[float, float, float]:
+            nd = len(embed_dims)
+            net = torch.cat([torch.randint(d, (bs, 1)) for d in embed_dims], dim=1)
+            e = _make(embed_dims, False, False)
+            r1, t1_ = _run(e, net, num_repeat)
+            self.assertSequenceEqual(r1.shape, [bs, sum(embed_dims)])
+            e = _make(embed_dims, True, False)
+            r2, t2_ = _run(e, net, num_repeat)
+            self.assertSequenceEqual(r2.shape, [bs, nd * max(embed_dims)])
+            e = _make(embed_dims, True, True)
+            r3, t3_ = _run(e, net, num_repeat)
+            self.assertSequenceEqual(r3.shape, [bs, sum(embed_dims)])
+            return t1_, t2_, t3_
+
+        bs = 128
+        num_repeat = 100
+        t1, t2, t3 = _test_case([4] * 30)
+        self.assertTrue(t1 > t2 and t1 > t3)
+        t1, t2, t3 = _test_case([4] * 10 + [8] * 10 + [16] * 10)
+        self.assertTrue(t1 > t3 > t2)
+        for dim in [4, 64, 128, 256]:
+            for n_dim in [10, 3]:
+                t1, t2, t3 = _test_case([dim] * n_dim)
+                self.assertTrue(t1 > t2 and t1 > t3)
+        for dim in [4, 16]:
+            dims = [dim] * 8 + [dim * 2] * 8 + [dim * 3] * 8
+            t1, t2, t3 = _test_case(dims)
+            self.assertTrue(t1 > t3 > t2)
 
 
 if __name__ == "__main__":
