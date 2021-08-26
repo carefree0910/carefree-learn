@@ -1,5 +1,8 @@
+import os
+import dill
 import json
 
+from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -24,8 +27,31 @@ from ....misc.internal_ import DataLoader
 from ....misc.internal_ import DLDataModule
 
 
+class CVDataModule(DLDataModule, metaclass=ABCMeta):
+    test_transform: Optional[Transforms]
+
+    transform_file = "transform.pkl"
+
+    def save_info(self, folder: str) -> None:
+        super().save_info(folder)
+        with open(os.path.join(folder, self.transform_file), "wb") as f:
+            dill.dump(self.test_transform, f)
+
+    @classmethod
+    def load_info(cls, folder: str) -> Dict[str, Any]:
+        info = super().load_info(folder)
+        transform_path = os.path.join(folder, cls.transform_file)
+        if not os.path.isfile(transform_path):
+            test_transform = None
+        else:
+            with open(transform_path, "rb") as f:
+                test_transform = dill.load(f)
+        info["test_transform"] = test_transform
+        return info
+
+
 @DLDataModule.register("mnist")
-class MNISTData(DLDataModule):
+class MNISTData(CVDataModule):
     def __init__(
         self,
         *,
@@ -40,6 +66,7 @@ class MNISTData(DLDataModule):
         self.shuffle = shuffle
         self.batch_size = batch_size
         self.transform = Transforms.convert(transform, transform_config)
+        self.test_transform = self.transform
         self.label_callback = label_callback
 
     @property
@@ -85,7 +112,7 @@ class MNISTData(DLDataModule):
 
 
 @DLDataModule.register("tensor")
-class TensorData(DLDataModule):
+class TensorData(CVDataModule):
     def __init__(
         self,
         x_train: Tensor,
@@ -106,6 +133,7 @@ class TensorData(DLDataModule):
         self.train_others = train_others
         self.valid_others = valid_others
         self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+        self.test_transform = None
 
     @property
     def info(self) -> Dict[str, Any]:
@@ -132,7 +160,7 @@ class TensorData(DLDataModule):
 
 
 @DLDataModule.register("image_folder")
-class ImageFolderData(DLDataModule):
+class ImageFolderData(CVDataModule):
     def __init__(
         self,
         folder: str,
@@ -149,11 +177,15 @@ class ImageFolderData(DLDataModule):
     ):
         self.folder = folder
         self.shuffle = shuffle
-        self.transform = transform
-        self.transform_config = transform_config
+        self.transform = Transforms.convert(transform, transform_config)
         self.test_shuffle = test_shuffle
-        self.test_transform = test_transform
-        self.test_transform_config = test_transform_config
+        if test_transform is None:
+            test_transform = transform
+            if test_transform_config is None:
+                test_transform_config = transform_config
+        self.test_transform = Transforms.convert(test_transform, test_transform_config)
+        if self.test_transform is None:
+            self.test_transform = self.transform
         self.lmdb_configs = lmdb_configs
         self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
@@ -175,17 +207,15 @@ class ImageFolderData(DLDataModule):
                 self.folder,
                 "train",
                 self.transform,
-                self.transform_config,
-                self.lmdb_configs,
+                lmdb_configs=self.lmdb_configs,
             )
         )
         self.valid_data = CVDataset(
             ImageFolderDataset(
                 self.folder,
                 "valid",
-                self.test_transform or self.transform,
-                self.test_transform_config or self.transform_config,
-                self.lmdb_configs,
+                self.test_transform,
+                lmdb_configs=self.lmdb_configs,
             )
         )
 
@@ -198,6 +228,7 @@ class ImageFolderData(DLDataModule):
 
 
 __all__ = [
+    "CVDataModule",
     "MNISTData",
     "TensorData",
     "ImageFolderData",

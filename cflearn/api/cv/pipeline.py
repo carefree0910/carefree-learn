@@ -5,6 +5,7 @@ from typing import Type
 from typing import Union
 from typing import Optional
 
+from .data import CVDataModule
 from ...trainer import callback_dict
 from ...protocol import loss_dict
 from ...protocol import ModelProtocol
@@ -12,7 +13,6 @@ from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import get_arguments
 from ...misc.internal_ import CVLoader
 from ...misc.internal_ import CVInference
-from ...misc.internal_ import DLDataModule
 
 
 @DLPipeline.register("cv.simple")
@@ -101,7 +101,7 @@ class SimplePipeline(DLPipeline):
 
     def _make_new_loader(
         self,
-        data: DLDataModule,
+        data: CVDataModule,
         batch_size: int = 0,
         **kwargs: Any,
     ) -> CVLoader:
