@@ -49,6 +49,8 @@ if __name__ == "__main__":
         num_workers=0 if is_ci else 10,
         transform="ssl",
         transform_config={"img_size": img_size},
+        test_transform="ssl_test",
+        test_transform_config={"img_size": img_size},
         lmdb_configs=lmdb_configs,
     )
 

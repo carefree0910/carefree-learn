@@ -222,6 +222,25 @@ class DINOLoss(nn.Module):
         self.center = self.center * m + batch_center * (1.0 - m)
 
 
+class DINOEvaluateLoss:
+    def __init__(self, train_loss: DINOLoss):
+        self.train_loss = train_loss
+
+    def __call__(
+        self,
+        epoch: int,
+        student_output: Tensor,
+        teacher_output: Tensor,
+    ) -> float:
+        s_logits = student_output / self.train_loss.student_temp
+        epoch_idx = min(epoch, self.train_loss.num_epochs)
+        temp = self.train_loss.teacher_temp_schedule[epoch_idx]
+        centered = teacher_output - self.train_loss.center
+        t_logits = F.softmax(centered / temp, dim=-1)
+        loss = torch.sum(-t_logits * F.log_softmax(s_logits, dim=-1), dim=-1).mean()
+        return loss.item()
+
+
 @ModelWithCustomSteps.register("dino")
 class DINO(ModelWithCustomSteps):
     custom_params_groups = True
@@ -280,6 +299,7 @@ class DINO(ModelWithCustomSteps):
             warmup_teacher_temp_epochs,
             teacher_temp_epochs,
         )
+        self.evaluate_loss = DINOEvaluateLoss(self.loss)
         self.momentum_teacher = momentum_teacher
         self.teacher_temp_epochs = teacher_temp_epochs
         self.weight_decay = weight_decay
@@ -441,7 +461,14 @@ class DINO(ModelWithCustomSteps):
             if i / len(loader) >= portion:
                 break
             batch = to_device(batch, self.device)
-            losses.append(self._get_loss(i, batch, trainer, {})[1].item())
+            outputs = self._get_outputs(i, batch, trainer, {})
+            losses.append(
+                self.evaluate_loss(
+                    trainer.state.epoch,
+                    outputs["student"],
+                    outputs["teacher"],
+                )
+            )
         # gather
         mean_loss = sum(losses) / len(losses)
         return MetricsOutputs(
