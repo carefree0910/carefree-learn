@@ -152,6 +152,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
             )
             assert isinstance(self.input_dims, torch.Tensor)
             embed_dims_cumsum = self.input_dims[self._embed_indices].cumsum(0)[:-1]
+            embed_dims_cumsum = embed_dims_cumsum.to(torch.long)
             self.register_buffer("embed_dims_cumsum", embed_dims_cumsum)
         # embedding dropout
         self.embedding_dropout = None
