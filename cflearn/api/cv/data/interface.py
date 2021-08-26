@@ -256,6 +256,24 @@ class InferenceImageFolderData(CVDataModule):
         loader = self.dataset.make_loader(self.batch_size, self.num_workers)
         return loader, None
 
+    @classmethod
+    def from_package(
+        cls,
+        src_folder: str,
+        *,
+        package_folder: str,
+        batch_size: int,
+        num_workers: int = 0,
+    ) -> "InferenceImageFolderData":
+        info = cls.load(package_folder)
+        transform = info["test_transform"]
+        return cls(
+            src_folder,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            transform=transform,
+        )
+
 
 __all__ = [
     "CVDataModule",
