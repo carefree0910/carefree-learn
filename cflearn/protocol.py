@@ -515,7 +515,7 @@ class InferenceProtocol:
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
-                    local_labels = batch[LABEL_KEY]
+                    local_labels = batch.get(LABEL_KEY)
                     if local_labels is not None:
                         if not isinstance(local_labels, np.ndarray):
                             local_labels = to_numpy(local_labels)

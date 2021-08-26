@@ -377,8 +377,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     ) -> np_dict_type:
         loader = self._make_new_loader(data, batch_size, **(make_loader_kwargs or {}))
         predict_kwargs = shallow_copy_dict(predict_kwargs)
-        if self.inference.onnx is None:
-            predict_kwargs["device"] = self.device
         outputs = self.inference.get_outputs(loader, **predict_kwargs)
         return outputs.forward_results
 
