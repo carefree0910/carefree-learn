@@ -463,7 +463,7 @@ class InferenceProtocol:
             labels = []
             iterator = enumerate(loader)
             if use_tqdm:
-                iterator = tqdm(list(iterator), desc="inference")
+                iterator = tqdm(iterator, "inference", len(loader))
             requires_all_outputs = return_outputs
             if metrics is not None and metrics.requires_all:
                 requires_all_outputs = True
