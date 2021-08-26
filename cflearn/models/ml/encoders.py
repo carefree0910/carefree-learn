@@ -79,7 +79,7 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         config: Dict[str, Any],
         input_dims: List[int],
         methods_list: List[Union[str, List[str]]],
-        configs: List[Dict[str, Any]],
+        method_configs: List[Dict[str, Any]],
         categorical_columns: List[int],
         loaders: List[MLLoader],
     ):
@@ -102,12 +102,11 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         self._one_hot_indices: List[int] = []
         self._embed_indices: List[int] = []
         self._embed_dims: List[int] = []
-        for i, (in_dim, methods, config) in enumerate(
-            zip(input_dims, methods_list, configs)
-        ):
+        iterator = zip(input_dims, methods_list, method_configs)
+        for i, (in_dim, methods, methods_config) in enumerate(iterator):
             if isinstance(methods, str):
                 methods = [methods]
-            self._register(i, in_dim, methods, config)
+            self._register(i, in_dim, methods, methods_config)
         # fast embedding
         if self.use_embedding and self._use_fast_embed:
             if isinstance(self._unified_embed_dim, int):
@@ -244,14 +243,14 @@ class Encoder(nn.Module, LoggingMixinWithRank):
         i: int,
         in_dim: int,
         methods: List[str],
-        config: Dict[str, Any],
+        methods_config: Dict[str, Any],
     ) -> None:
         for method in methods:
             attr = getattr(self, f"_register_{method}", None)
             if attr is None:
                 msg = f"encoding method '{method}' is not implemented"
                 raise NotImplementedError(msg)
-            attr(i, in_dim, config)
+            attr(i, in_dim, methods_config)
 
     def _register_one_hot(self, i: int, in_dim: int, _: Dict[str, Any]) -> None:
         self.one_hot_encoders.append(OneHot(in_dim))
