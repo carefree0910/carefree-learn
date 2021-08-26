@@ -163,7 +163,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     ):
         super().__init__()
         self.loss_name = loss_name
-        self.loss_config = loss_config or {}
+        self.loss_config = loss_config
         self.trainer_config: Dict[str, Any] = {
             "state_config": state_config,
             "num_epoch": num_epoch,
@@ -243,7 +243,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 loss_names = self.loss_name.split(":")[1].split(",")
                 base.register_(loss_names)
                 self.loss_name = f"{prefix}_{'_'.join(loss_names)}"
-        self.loss = LossProtocol.make(self.loss_name, config=self.loss_config or {})
+        self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
 
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice

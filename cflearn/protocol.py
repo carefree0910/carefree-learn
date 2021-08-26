@@ -359,13 +359,9 @@ class MonitorResults(NamedTuple):
 class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["LossProtocol"]] = loss_dict
 
-    def __init__(
-        self,
-        config: Optional[Dict[str, Any]] = None,
-        reduction: str = "mean",
-    ):
+    def __init__(self, reduction: str = "mean", **kwargs: Any):
         super().__init__()
-        self.config = config or {}
+        self.config = kwargs
         self._init_config()
         self._reduction = reduction
 
