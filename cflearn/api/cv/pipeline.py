@@ -99,15 +99,17 @@ class SimplePipeline(DLPipeline):
         self.model = ModelProtocol.make(self.model_name, config=self.model_config)
         self.inference = CVInference(model=self.model)
 
-    def _make_new_loader(
+    def _make_new_loader(  # type: ignore
         self,
         data: CVDataModule,
         batch_size: int = 0,
         **kwargs: Any,
     ) -> CVLoader:
-        if data.valid_loader is not None:
+        train_loader, valid_loader = data.initialize()
+        if valid_loader is not None:
             raise ValueError("`valid_loader` should not be provided")
-        return data.train_loader  # type: ignore
+        assert isinstance(train_loader, CVLoader)
+        return train_loader
 
 
 @DLPipeline.register("cv.carefree")
