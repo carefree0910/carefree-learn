@@ -75,9 +75,6 @@ class DataModule(WithRegister, metaclass=ABCMeta):
 
 @DataModule.register("dl")
 class DLDataModule(DataModule, metaclass=ABCMeta):
-    train_loader: DataLoaderProtocol
-    valid_loader: Optional[DataLoaderProtocol]
-
     def initialize(self) -> Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]:
         pass
 
