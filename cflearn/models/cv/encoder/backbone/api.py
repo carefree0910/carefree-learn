@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Optional
 
 from .core import Backbone
+from ..protocol import EncoderBase
 from ..protocol import Encoder1DBase
 from .....types import tensor_dict_type
 from .....trainer import TrainerState
@@ -33,8 +34,8 @@ class Preset:
         return _register
 
 
-@Encoder1DBase.register("backbone")
-class BackboneEncoder1D(Encoder1DBase):
+@EncoderBase.register("backbone")
+class BackboneEncoder(EncoderBase):
     def __init__(
         self,
         name: str,
@@ -101,6 +102,48 @@ class BackboneEncoder1D(Encoder1DBase):
             increment_config=increment_config,
             **config.setdefault("backbone_kwargs", {}),
         )
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        return self.net(self.to_rgb(batch[INPUT_KEY]))
+
+
+@Encoder1DBase.register("backbone")
+class BackboneEncoder1D(Encoder1DBase):
+    def __init__(
+        self,
+        name: str,
+        in_channels: int,
+        config: Optional[Dict[str, Any]] = None,
+        img_size: Optional[int] = None,
+        latent_dim: Optional[int] = None,
+        *,
+        finetune: bool = True,
+        pretrained: bool = False,
+        need_normalize: bool = False,
+        remove_layers: Optional[List[str]] = None,
+        target_layers: Optional[Dict[str, str]] = None,
+        increment_config: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(-1, in_channels, -1)
+        self.encoder = BackboneEncoder(
+            name,
+            in_channels,
+            config,
+            img_size,
+            latent_dim,
+            finetune=finetune,
+            pretrained=pretrained,
+            need_normalize=need_normalize,
+            remove_layers=remove_layers,
+            target_layers=target_layers,
+            increment_config=increment_config,
+        )
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
     def forward(
@@ -110,8 +153,7 @@ class BackboneEncoder1D(Encoder1DBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = self.to_rgb(batch[INPUT_KEY])
-        outputs = self.net(net)
+        outputs = self.encoder(batch_idx, batch, state, **kwargs)
         latent = outputs[LATENT_KEY]
         if latent.shape[-2] != 1 or latent.shape[-1] != 1:
             latent = self.pool(latent)
@@ -120,5 +162,6 @@ class BackboneEncoder1D(Encoder1DBase):
 
 
 __all__ = [
+    "BackboneEncoder",
     "BackboneEncoder1D",
 ]
