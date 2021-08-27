@@ -51,10 +51,9 @@ class BackboneEncoder(EncoderBase):
         increment_config: Optional[Dict[str, Any]] = None,
         **backbone_kwargs: Any,
     ):
-        super().__init__(-1, in_channels, -1)
+        # preset stuffs
         if img_size is not None:
             print(f"{WARNING_PREFIX}`img_size` will not affect `BackboneEncoder`")
-        self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         if remove_layers is None:
             remove_layers = Preset.remove_layers.get(name)
             if remove_layers is None:
@@ -81,6 +80,9 @@ class BackboneEncoder(EncoderBase):
         self.latent_dim = latent_dim
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
+        # initialization
+        super().__init__(-1, in_channels, -1, latent_dim)
+        self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         self.net = Backbone(
             name,
             latent_dim=latent_dim,
