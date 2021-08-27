@@ -263,6 +263,12 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
             ]
         self.base_losses = nn.ModuleList(base_losses)
 
+    @staticmethod
+    def _inject(key: str, base_losses: losses_type, all_losses: losses_type) -> None:
+        if isinstance(base_losses, dict):
+            base_losses = base_losses[LOSS_KEY]
+        all_losses[key] = base_losses
+
     @classmethod
     def register_(
         cls,
@@ -303,10 +309,13 @@ class MultiTaskLoss(MultiLoss):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> losses_type:
-        losses = {}
+        losses: losses_type = {}
         for loss_ins in self.base_losses:
-            loss = loss_ins._core(forward_results, batch, state, **kwargs)
-            losses[f"{loss_ins.__identifier__}"] = loss
+            self._inject(
+                loss_ins.__identifier__,
+                loss_ins._core(forward_results, batch, state, **kwargs),
+                losses,
+            )
         losses[LOSS_KEY] = sum(losses.values())
         return losses
 
@@ -323,12 +332,15 @@ class MultiStageLoss(MultiLoss):
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]
-        losses = {}
+        losses: losses_type = {}
         for i, pred in enumerate(predictions):
             forward_results[PREDICTIONS_KEY] = pred
             for loss_ins in self.base_losses:
-                loss = loss_ins._core(forward_results, batch, state, **kwargs)
-                losses[f"{loss_ins.__identifier__}{i}"] = loss
+                self._inject(
+                    f"{loss_ins.__identifier__}{i}",
+                    loss_ins._core(forward_results, batch, state, **kwargs),
+                    losses,
+                )
         losses[LOSS_KEY] = sum(losses.values())
         return losses
 
