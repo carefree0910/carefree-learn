@@ -34,7 +34,7 @@ class Preset:
 
 
 @Encoder1DBase.register("backbone")
-class BackboneEncoder(Encoder1DBase):
+class BackboneEncoder1D(Encoder1DBase):
     def __init__(
         self,
         name: str,
@@ -119,4 +119,6 @@ class BackboneEncoder(Encoder1DBase):
         return outputs
 
 
-__all__ = ["BackboneEncoder"]
+__all__ = [
+    "BackboneEncoder1D",
+]

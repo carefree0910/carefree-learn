@@ -1,7 +1,6 @@
 import torch
 
 import torch.nn as nn
-import torch.nn.functional as F
 
 from torch import Tensor
 from typing import Any
@@ -15,7 +14,7 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
-from ..encoder.backbone import BackboneEncoder
+from ..encoder.backbone import BackboneEncoder1D
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -97,7 +96,7 @@ class UNet(ModelProtocol):
     ):
         # `backbone` here should define `out_channels` in its `increment_config`
         super().__init__()
-        self.backbone = BackboneEncoder(backbone, in_channels, backbone_config)
+        self.backbone = BackboneEncoder1D(backbone, in_channels, backbone_config)
         increment_config = self.backbone.net.increment_config
         if increment_config is None:
             raise ValueError(
