@@ -21,6 +21,7 @@ class Preset:
     remove_layers: Dict[str, List[str]] = {}
     target_layers: Dict[str, Dict[str, str]] = {}
     latent_dims: Dict[str, int] = {}
+    num_downsample: Dict[str, int] = {}
     increment_configs: Dict[str, Dict[str, Any]] = {}
 
     @classmethod
@@ -29,6 +30,7 @@ class Preset:
             cls.remove_layers.update(settings.remove_layers)
             cls.target_layers.update(settings.target_layers)
             cls.latent_dims.update(settings.latent_dims)
+            cls.num_downsample.update(settings.num_downsample)
             cls.increment_configs.update(settings.increment_configs)
 
         return _register
@@ -42,6 +44,7 @@ class BackboneEncoder(EncoderBase):
         in_channels: int,
         img_size: Optional[int] = None,
         latent_dim: Optional[int] = None,
+        num_downsample: Optional[int] = None,
         *,
         finetune: bool = True,
         pretrained: bool = False,
@@ -78,6 +81,14 @@ class BackboneEncoder(EncoderBase):
                     f"please consider set `latent_dim` to {preset_dim}"
                 )
         self.latent_dim = latent_dim
+        if num_downsample is not None:
+            preset_downsample = Preset.num_downsample.get(name)
+            if preset_downsample is not None and num_downsample != preset_downsample:
+                raise ValueError(
+                    f"provided `num_downsample` ({num_downsample}) is not "
+                    f"identical with `preset_downsample` ({preset_downsample}), "
+                    f"please consider set `num_downsample` to {preset_downsample}"
+                )
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
         # initialization
