@@ -76,7 +76,8 @@ class VQVAE(ModelProtocol):
         # encoder
         if encoder_configs is None:
             encoder_configs = {}
-        encoder_configs["img_size"] = img_size
+        if encoder != "backbone":
+            encoder_configs["img_size"] = img_size
         encoder_configs["in_channels"] = in_channels
         encoder_configs["num_downsample"] = num_downsample
         self.encoder = EncoderBase.make(encoder, config=encoder_configs)
