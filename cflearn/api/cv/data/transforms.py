@@ -141,8 +141,8 @@ class N1To1(Transforms):
         return False
 
 
-@Transforms.register("inverse")
-class Inverse(Transforms):
+@Transforms.register("inverse_0~1")
+class Inverse0To1(Transforms):
     fn = transforms.Lambda(lambda t: 1.0 - t)
 
     @property
@@ -554,7 +554,7 @@ __all__ = [
     "ToTensor",
     "RandomResizedCrop",
     "N1To1",
-    "Inverse",
+    "Inverse0To1",
     "ForGeneration",
     "ForImagenet",
     "SSLTransform",
