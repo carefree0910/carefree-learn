@@ -38,17 +38,22 @@ class VQVAECallback(ArtifactCallback):
         save_images(reconstructed, os.path.join(image_folder, "reconstructed.png"))
         with eval_context(model):
             codes, indices = model.sample_codebook(num_samples=len(original))
-        save_images(codes, os.path.join(image_folder, "codes.png"))
+        code_folder = os.path.join(image_folder, "codes")
+        os.makedirs(code_folder, exist_ok=True)
+        save_images(codes, os.path.join(code_folder, "codes.png"))
         indices_map = make_indices_visualization_map(indices)
-        save_images(indices_map, os.path.join(image_folder, "code_indices.png"))
+        save_images(indices_map, os.path.join(code_folder, "code_indices.png"))
         if self.num_classes is not None:
+            code_cond_folder = os.path.join(code_folder, "conditional")
             with eval_context(model):
                 for i in range(self.num_classes):
                     kwargs = dict(num_samples=len(original), class_idx=i)
                     codes, indices = model.sample_codebook(**kwargs)
-                    save_images(codes, os.path.join(image_folder, f"codes_{i}.png"))
+                    i_cond_folder = os.path.join(code_cond_folder, str(i))
+                    os.makedirs(i_cond_folder, exist_ok=True)
+                    save_images(codes, os.path.join(i_cond_folder, f"codes.png"))
                     indices_map = make_indices_visualization_map(indices)
-                    i_path = os.path.join(image_folder, f"code_indices_{i}.png")
+                    i_path = os.path.join(i_cond_folder, f"code_indices.png")
                     save_images(indices_map, i_path)
         # inspect
         sample = reconstructed[:1]
