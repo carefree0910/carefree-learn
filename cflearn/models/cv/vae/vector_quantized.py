@@ -57,6 +57,7 @@ class VQVAE(ModelProtocol):
         num_code: int,
         in_channels: int,
         out_channels: Optional[int] = None,
+        num_downsample: Optional[int] = None,
         min_size: int = 4,
         target_downsample: int = 4,
         latent_padding_channels: Optional[int] = 16,
@@ -70,7 +71,8 @@ class VQVAE(ModelProtocol):
         super().__init__()
         self.img_size = img_size
         self.num_classes = num_classes
-        num_downsample = auto_num_layers(img_size, min_size, target_downsample)
+        if num_downsample is None:
+            num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         # encoder
         if encoder_configs is None:
             encoder_configs = {}
