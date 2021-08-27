@@ -43,7 +43,7 @@ class BackboneEncoder(EncoderBase):
         name: str,
         in_channels: int,
         img_size: Optional[int] = None,
-        latent_dim: Optional[int] = None,
+        latent_channels: Optional[int] = None,
         num_downsample: Optional[int] = None,
         *,
         finetune: bool = True,
@@ -68,19 +68,18 @@ class BackboneEncoder(EncoderBase):
                 msg = f"`target_layers` should be provided for `{name}`"
                 raise ValueError(msg)
         preset_dim = Preset.latent_dims.get(name)
-        if latent_dim is None:
-            latent_dim = preset_dim
-            if latent_dim is None:
+        if latent_channels is None:
+            latent_channels = preset_dim
+            if latent_channels is None:
                 msg = f"`latent_dim` should be provided for `{name}`"
                 raise ValueError(msg)
         else:
-            if preset_dim is not None and latent_dim != preset_dim:
+            if preset_dim is not None and latent_channels != preset_dim:
                 raise ValueError(
-                    f"provided `latent_dim` ({latent_dim}) is not "
+                    f"provided `latent_dim` ({latent_channels}) is not "
                     f"identical with `preset_dim` ({preset_dim}), "
                     f"please consider set `latent_dim` to {preset_dim}"
                 )
-        self.latent_dim = latent_dim
         if num_downsample is not None:
             preset_downsample = Preset.num_downsample.get(name)
             if preset_downsample is not None and num_downsample != preset_downsample:
@@ -92,11 +91,11 @@ class BackboneEncoder(EncoderBase):
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
         # initialization
-        super().__init__(-1, in_channels, -1, latent_dim)
+        super().__init__(-1, in_channels, -1, latent_channels)
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         self.net = Backbone(
             name,
-            latent_dim=latent_dim,
+            latent_dim=latent_channels,
             pretrained=pretrained,
             need_normalize=need_normalize,
             requires_grad=finetune,
