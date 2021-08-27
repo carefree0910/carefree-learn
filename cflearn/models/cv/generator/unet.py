@@ -96,7 +96,9 @@ class UNet(ModelProtocol):
     ):
         # `backbone` here should define `out_channels` in its `increment_config`
         super().__init__()
-        self.backbone = BackboneEncoder1D(backbone, in_channels, backbone_config)
+        if backbone_config is None:
+            backbone_config = {}
+        self.backbone = BackboneEncoder1D(backbone, in_channels, **backbone_config)
         increment_config = self.backbone.net.increment_config
         if increment_config is None:
             raise ValueError(

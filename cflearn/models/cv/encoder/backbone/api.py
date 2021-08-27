@@ -40,7 +40,6 @@ class BackboneEncoder(EncoderBase):
         self,
         name: str,
         in_channels: int,
-        config: Optional[Dict[str, Any]] = None,
         img_size: Optional[int] = None,
         latent_dim: Optional[int] = None,
         *,
@@ -50,28 +49,22 @@ class BackboneEncoder(EncoderBase):
         remove_layers: Optional[List[str]] = None,
         target_layers: Optional[Dict[str, str]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
+        **backbone_kwargs: Any,
     ):
         super().__init__(-1, in_channels, -1)
         if img_size is not None:
             print(f"{WARNING_PREFIX}`img_size` will not affect `BackboneEncoder`")
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
-        config = config or {}
-        remove_layers = config.setdefault("remove_layers", remove_layers)
-        target_layers = config.setdefault("target_layers", target_layers)
-        latent_dim = config.get("latent_dim", latent_dim)
-        increment_config = config.setdefault("increment_config", increment_config)
         if remove_layers is None:
             remove_layers = Preset.remove_layers.get(name)
             if remove_layers is None:
                 msg = f"`remove_layers` should be provided for `{name}`"
                 raise ValueError(msg)
-            config["remove_layers"] = remove_layers
         if target_layers is None:
             target_layers = Preset.target_layers.get(name)
             if target_layers is None:
                 msg = f"`target_layers` should be provided for `{name}`"
                 raise ValueError(msg)
-            config["target_layers"] = target_layers
         preset_dim = Preset.latent_dims.get(name)
         if latent_dim is None:
             latent_dim = preset_dim
@@ -88,19 +81,16 @@ class BackboneEncoder(EncoderBase):
         self.latent_dim = latent_dim
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
-        config.setdefault("finetune", finetune)
-        config.setdefault("pretrained", pretrained)
-        config.setdefault("need_normalize", need_normalize)
         self.net = Backbone(
             name,
             latent_dim=latent_dim,
-            pretrained=config["pretrained"],
-            need_normalize=config["need_normalize"],
-            requires_grad=config["finetune"],
-            remove_layers=config["remove_layers"],
-            target_layers=config["target_layers"],
+            pretrained=pretrained,
+            need_normalize=need_normalize,
+            requires_grad=finetune,
+            remove_layers=remove_layers,
+            target_layers=target_layers,
             increment_config=increment_config,
-            **config.setdefault("backbone_kwargs", {}),
+            **backbone_kwargs,
         )
 
     def forward(
@@ -119,7 +109,6 @@ class BackboneEncoder1D(Encoder1DBase):
         self,
         name: str,
         in_channels: int,
-        config: Optional[Dict[str, Any]] = None,
         img_size: Optional[int] = None,
         latent_dim: Optional[int] = None,
         *,
@@ -129,12 +118,12 @@ class BackboneEncoder1D(Encoder1DBase):
         remove_layers: Optional[List[str]] = None,
         target_layers: Optional[Dict[str, str]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
+        **backbone_kwargs: Any,
     ):
         super().__init__(-1, in_channels, -1)
         self.encoder = BackboneEncoder(
             name,
             in_channels,
-            config,
             img_size,
             latent_dim,
             finetune=finetune,
@@ -143,6 +132,7 @@ class BackboneEncoder1D(Encoder1DBase):
             remove_layers=remove_layers,
             target_layers=target_layers,
             increment_config=increment_config,
+            **backbone_kwargs,
         )
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
