@@ -99,7 +99,7 @@ class UNet(ModelProtocol):
         if backbone_config is None:
             backbone_config = {}
         self.backbone = BackboneEncoder1D(backbone, in_channels, **backbone_config)
-        increment_config = self.backbone.net.increment_config
+        increment_config = self.backbone.encoder.increment_config
         if increment_config is None:
             raise ValueError(
                 "`increment_config` should be provided in `BackboneEncoder` "
