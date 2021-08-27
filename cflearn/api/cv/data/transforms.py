@@ -150,6 +150,15 @@ class Inverse0To1(Transforms):
         return False
 
 
+@Transforms.register("inverse_-1~1")
+class InverseN1To1(Transforms):
+    fn = transforms.Lambda(lambda t: -t)
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("for_generation")
 class ForGeneration(Compose):
     def __init__(self):  # type: ignore
@@ -555,6 +564,7 @@ __all__ = [
     "RandomResizedCrop",
     "N1To1",
     "Inverse0To1",
+    "InverseN1To1",
     "ForGeneration",
     "ForImagenet",
     "SSLTransform",
