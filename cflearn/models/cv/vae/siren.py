@@ -3,7 +3,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .vanilla import VanillaVAE
+from .vanilla import reparameterize
 from ..toolkit import auto_num_layers
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
@@ -92,7 +92,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         net = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
-        net = VanillaVAE.reparameterize(mu, log_var)
+        net = reparameterize(mu, log_var)
         net = self.siren(net, batch)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 

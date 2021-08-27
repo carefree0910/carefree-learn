@@ -3,12 +3,16 @@ import torch
 
 import torch.nn as nn
 
+from abc import abstractmethod
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
+from typing import Union
 from typing import Optional
 
+from ..encoder import EncoderBase
 from ..encoder import Encoder1DBase
 from ..decoder import DecoderBase
 from ..toolkit import get_latent_resolution
@@ -29,13 +33,21 @@ from ....modules.blocks import Linear
 from ....modules.blocks import ChannelPadding
 
 
-@ModelProtocol.register("vae")
-class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
+def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:
+    std = torch.exp(0.5 * log_var)
+    eps = torch.randn_like(std)
+    return eps * std + mu
+
+
+class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
+    encoder_base: Union[Type[EncoderBase], Type[Encoder1DBase]]
+    to_statistics: nn.Module
+    from_latent: nn.Module
+
     def __init__(
         self,
         in_channels: int,
         out_channels: Optional[int] = None,
-        latent_dim: int = 128,
         target_downsample: int = 4,
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
@@ -45,15 +57,13 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         num_downsample: Optional[int] = None,
         num_upsample: Optional[int] = None,
         latent_resolution: Optional[int] = None,
-        encoder1d: str = "vanilla",
+        encoder: str = "vanilla",
         decoder: str = "vanilla",
-        encoder1d_configs: Optional[Dict[str, Any]] = None,
+        encoder_configs: Optional[Dict[str, Any]] = None,
         decoder_configs: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
     ):
         super().__init__()
-        # dimensions
-        self.latent_dim = latent_dim
-        self.num_classes = num_classes
         # up / down sample stuffs
         num_upsample = num_upsample or num_downsample
         if num_downsample is None:
@@ -75,52 +85,88 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         if img_size is None:
             raw_size = latent_resolution * 2 ** num_downsample
             print(f"{INFO_PREFIX}img_size is not provided, raw_size will be {raw_size}")
-        # encoder
-        if encoder1d_configs is None:
-            encoder1d_configs = {}
-        if encoder1d != "backbone":
-            encoder1d_configs["img_size"] = img_size
-        encoder1d_configs["in_channels"] = in_channels
-        encoder1d_configs["latent_dim"] = self.latent_dim
-        if encoder1d == "vanilla":
-            encoder1d_configs["num_downsample"] = num_downsample
-        self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
-        self.to_statistics = Linear(self.latent_dim, 2 * self.latent_dim, bias=False)
-        # latent
-        latent_area = latent_resolution ** 2
-        latent_channels = math.ceil(self.latent_dim / latent_area)
-        shape = -1, latent_channels, latent_resolution, latent_resolution
-        blocks: List[nn.Module] = [
-            Linear(self.latent_dim, latent_channels * latent_area),
-            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(latent_channels, self.latent_dim, kernel_size=1, bias=False),
-        ]
-        latent_dim = self.latent_dim
-        if latent_padding_channels is not None:
-            latent_dim += latent_padding_channels
-            latent_padding = ChannelPadding(latent_padding_channels, latent_resolution)
-            blocks.append(latent_padding)
-        self.from_latent = nn.Sequential(*blocks)
-        # decoder
-        if decoder_configs is None:
-            decoder_configs = {}
-        decoder_configs["img_size"] = img_size
-        decoder_configs["latent_channels"] = latent_dim
-        decoder_configs["latent_resolution"] = latent_resolution
-        decoder_configs["num_upsample"] = num_upsample
-        decoder_configs["out_channels"] = out_channels or in_channels
-        decoder_configs["num_classes"] = num_classes
-        self.decoder = DecoderBase.make(decoder, config=decoder_configs)
+        # properties
+        latent_d = kwargs.get(self.key, 128)
+        self.latent_d = latent_d
+        self.latent_padding_channels = latent_padding_channels
+        self.num_classes = num_classes
+        self.num_downsample = num_downsample
+        self.num_upsample = num_upsample
+        self.latent_resolution = latent_resolution
+        # build
+        self._build(
+            in_channels,
+            out_channels,
+            img_size,
+            encoder,
+            decoder,
+            encoder_configs,
+            decoder_configs,
+        )
 
-    @staticmethod
-    def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:
-        std = torch.exp(0.5 * log_var)
-        eps = torch.randn_like(std)
-        return eps * std + mu
+    @property
+    def key(self) -> str:
+        return "latent_dim" if self.is_1d else "latent_channels"
+
+    @property
+    def is_1d(self) -> bool:
+        return self.encoder_base is Encoder1DBase
 
     @property
     def can_reconstruct(self) -> bool:
         return True
+
+    @abstractmethod
+    def _build(
+        self,
+        in_channels: int,
+        out_channels: Optional[int],
+        img_size: Optional[int],
+        encoder: str,
+        decoder: str,
+        encoder_configs: Optional[Dict[str, Any]],
+        decoder_configs: Optional[Dict[str, Any]],
+    ) -> None:
+        pass
+
+    def _encoder(
+        self,
+        latent_d: int,
+        img_size: Optional[int],
+        in_channels: int,
+        num_downsample: int,
+        encoder: str,
+        encoder_configs: Optional[Dict[str, Any]],
+    ) -> None:
+        if encoder_configs is None:
+            encoder_configs = {}
+        if encoder != "backbone":
+            encoder_configs["img_size"] = img_size
+        encoder_configs["in_channels"] = in_channels
+        encoder_configs[self.key] = latent_d
+        encoder_configs["num_downsample"] = num_downsample
+        self.encoder = self.encoder_base.make(encoder, config=encoder_configs)
+
+    def _decoder(
+        self,
+        latent_d: int,
+        img_size: Optional[int],
+        in_channels: int,
+        latent_resolution: int,
+        num_classes: Optional[int],
+        out_channels: Optional[int],
+        decoder: str,
+        decoder_configs: Optional[Dict[str, Any]],
+    ) -> None:
+        if decoder_configs is None:
+            decoder_configs = {}
+        decoder_configs["img_size"] = img_size
+        decoder_configs["latent_channels"] = latent_d
+        decoder_configs["latent_resolution"] = latent_resolution
+        decoder_configs["num_upsample"] = self.num_upsample
+        decoder_configs["out_channels"] = out_channels or in_channels
+        decoder_configs["num_classes"] = num_classes
+        self.decoder = DecoderBase.make(decoder, config=decoder_configs)
 
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:
@@ -140,11 +186,120 @@ class VanillaVAE(ModelProtocol, GaussianGeneratorMixin):
         net = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
-        net = self.reparameterize(mu, log_var)
+        net = reparameterize(mu, log_var)
         labels = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
         net = self.decode(net, labels=labels, **kwargs)
         net = interpolate(net, anchor=inp)
         return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
 
 
-__all__ = ["VanillaVAE"]
+@ModelProtocol.register("vae")
+@ModelProtocol.register("vae1d")
+class VanillaVAE1D(VanillaVAEBase):
+    encoder_base = Encoder1DBase
+
+    def _build(
+        self,
+        in_channels: int,
+        out_channels: Optional[int],
+        img_size: Optional[int],
+        encoder: str,
+        decoder: str,
+        encoder_configs: Optional[Dict[str, Any]],
+        decoder_configs: Optional[Dict[str, Any]],
+    ) -> None:
+        latent_d = self.latent_dim = self.latent_d
+        self._encoder(
+            latent_d,
+            img_size,
+            in_channels,
+            self.num_downsample,
+            encoder,
+            encoder_configs,
+        )
+        self.to_statistics = Linear(latent_d, 2 * latent_d, bias=False)
+        latent_resolution = self.latent_resolution
+        latent_area = latent_resolution ** 2
+        latent_channels = math.ceil(self.latent_d / latent_area)
+        shape = -1, latent_channels, latent_resolution, latent_resolution
+        blocks: List[nn.Module] = [
+            Linear(self.latent_d, latent_channels * latent_area),
+            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
+            Conv2d(latent_channels, self.latent_d, kernel_size=1, bias=False),
+        ]
+        lpc = self.latent_padding_channels
+        if lpc is not None:
+            latent_d += lpc
+            latent_padding = ChannelPadding(lpc, latent_resolution)
+            blocks.append(latent_padding)
+        self.from_latent = nn.Sequential(*blocks)
+        self._decoder(
+            latent_d,
+            img_size,
+            in_channels,
+            latent_resolution,
+            self.num_classes,
+            out_channels,
+            decoder,
+            decoder_configs,
+        )
+
+
+@ModelProtocol.register("vae2d")
+class VanillaVAE2D(VanillaVAEBase):
+    encoder_base = EncoderBase
+
+    def _build(
+        self,
+        in_channels: int,
+        out_channels: Optional[int],
+        img_size: Optional[int],
+        encoder: str,
+        decoder: str,
+        encoder_configs: Optional[Dict[str, Any]],
+        decoder_configs: Optional[Dict[str, Any]],
+    ) -> None:
+        latent_d = self.latent_d
+        self._encoder(
+            latent_d,
+            img_size,
+            in_channels,
+            self.num_downsample,
+            encoder,
+            encoder_configs,
+        )
+        self.latent_dim = latent_d * self.latent_resolution ** 2
+        self.to_statistics = Conv2d(
+            latent_d,
+            latent_d * 2,
+            kernel_size=1,
+            padding=0,
+            bias=False,
+        )
+        latent_resolution = self.latent_resolution
+        shape = -1, latent_d, latent_resolution, latent_resolution
+        blocks = [Lambda(lambda net: net.view(shape), f"reshape -> {shape}")]
+        lpc = self.latent_padding_channels
+        if lpc is None:
+            self.from_latent = blocks[0]
+        else:
+            latent_d += lpc
+            latent_padding = ChannelPadding(lpc, latent_resolution)
+            blocks.append(latent_padding)
+            self.from_latent = nn.Sequential(*blocks)
+        self._decoder(
+            latent_d,
+            img_size,
+            in_channels,
+            latent_resolution,
+            self.num_classes,
+            out_channels,
+            decoder,
+            decoder_configs,
+        )
+
+
+__all__ = [
+    "VanillaVAE1D",
+    "VanillaVAE2D",
+]

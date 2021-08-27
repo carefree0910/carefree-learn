@@ -170,9 +170,16 @@ class TestModels(unittest.TestCase):
             [batch_size, num_classes],
         )
 
-        vae = cflearn.VanillaVAE(in_channels, out_channels, img_size=img_size)
+        vae1d = cflearn.VanillaVAE1D(in_channels, out_channels, img_size=img_size)
         self.assertSequenceEqual(
-            vae.decode(torch.randn(batch_size, vae.latent_dim), labels=None).shape,
+            vae1d.decode(torch.randn(batch_size, vae1d.latent_dim), labels=None).shape,
+            [batch_size, out_channels, img_size, img_size],
+        )
+
+        vae2d = cflearn.VanillaVAE2D(in_channels, out_channels, img_size=img_size)
+        latent_d = vae2d.encoder.latent_channels * vae2d.latent_resolution ** 2
+        self.assertSequenceEqual(
+            vae2d.decode(torch.randn(batch_size, latent_d), labels=None).shape,
             [batch_size, out_channels, img_size, img_size],
         )
 
