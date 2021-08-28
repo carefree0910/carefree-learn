@@ -53,7 +53,7 @@ class Backbone(nn.Module):
         backbone_base = backbone_dict.get(name)
         if backbone_base is None:
             raise ValueError(f"backbone '{name}' is not recognized")
-        backbone = backbone_base(pretrained, **kwargs)
+        backbone = self.raw_backbone = backbone_base(pretrained, **kwargs)
         self._backbone_return_tensor = True
         # layers
         if remove_layers is not None:
