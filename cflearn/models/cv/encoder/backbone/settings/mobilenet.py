@@ -24,6 +24,9 @@ class MobileNetPreset(Preset):
     latent_dims = {
         "mobilenet_v2": 320,
     }
+    num_downsample = {
+        "mobilenet_v2": 5,
+    }
     increment_configs = {
         "mobilenet_v2": {"out_channels": [16, 24, 32, 96, 320]},
     }
