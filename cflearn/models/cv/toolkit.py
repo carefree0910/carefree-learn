@@ -5,8 +5,8 @@ from typing import Union
 from typing import Optional
 
 
-def get_latent_resolution(img_size: int, num_layer: int) -> int:
-    return int(img_size / 2 ** num_layer)
+def get_latent_resolution(img_size: int, num_layer: int, *, ceil: bool = False) -> int:
+    return (math.ceil if ceil else int)(img_size / 2 ** num_layer)  # type: ignore
 
 
 def auto_num_layers(
