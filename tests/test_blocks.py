@@ -259,7 +259,7 @@ class TestBlocks(unittest.TestCase):
             out_channels = backbone.increment_config["out_channels"]
             for i, (k, v) in enumerate(results.items()):
                 if k == LATENT_KEY:
-                    self.assertEqual(v.shape[1], backbone.latent_dim)
+                    self.assertEqual(v.shape[1], backbone.latent_channels)
                 else:
                     self.assertEqual(k, target_layers[i])
                     self.assertEqual(v.shape[1], out_channels[i])

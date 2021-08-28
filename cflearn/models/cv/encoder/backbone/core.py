@@ -112,7 +112,7 @@ class Backbone(nn.Module):
         self,
         name: str = "resnet101",
         *,
-        latent_dim: int,
+        latent_channels: int,
         remove_layers: List[str],
         target_layers: Dict[str, str],
         increment_config: Dict[str, Any],
@@ -123,7 +123,7 @@ class Backbone(nn.Module):
         **kwargs: Any,
     ):
         super().__init__()
-        self.latent_dim = latent_dim
+        self.latent_channels = latent_channels
         self.need_normalize = need_normalize
         self.remove_layers = remove_layers
         self.target_layers = target_layers

@@ -93,7 +93,7 @@ class BackboneEncoder(EncoderBase):
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         self.net = Backbone(
             name,
-            latent_dim=latent_channels,
+            latent_channels=latent_channels,  # type: ignore
             pretrained=pretrained,
             need_normalize=need_normalize,
             requires_grad=finetune,
