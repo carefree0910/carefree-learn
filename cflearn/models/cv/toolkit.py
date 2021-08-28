@@ -14,7 +14,7 @@ def auto_num_layers(
     min_size: int = 4,
     target_layers: Optional[int] = 4,
 ) -> int:
-    max_layers = int(round(math.log2(img_size / min_size)))
+    max_layers = math.floor(math.log2(img_size / min_size))
     if target_layers is None:
         return max_layers
     return max(2, min(target_layers, max_layers))
