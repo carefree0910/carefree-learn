@@ -20,7 +20,6 @@ from .....modules.blocks import Conv2d
 class Preset:
     remove_layers: Dict[str, List[str]] = {}
     target_layers: Dict[str, Dict[str, str]] = {}
-    latent_dims: Dict[str, int] = {}
     increment_configs: Dict[str, Dict[str, Any]] = {}
 
     @classmethod
@@ -28,7 +27,6 @@ class Preset:
         def _register(settings: Preset) -> None:
             cls.remove_layers.update(settings.remove_layers)
             cls.target_layers.update(settings.target_layers)
-            cls.latent_dims.update(settings.latent_dims)
             cls.increment_configs.update(settings.increment_configs)
 
         return _register
@@ -65,19 +63,19 @@ class BackboneEncoder(EncoderBase):
             if target_layers is None:
                 msg = f"`target_layers` should be provided for `{name}`"
                 raise ValueError(msg)
-        preset_dim = Preset.latent_dims.get(name)
-        if latent_channels is None:
-            latent_channels = preset_dim
-            if latent_channels is None:
-                msg = f"`latent_dim` should be provided for `{name}`"
-                raise ValueError(msg)
-        else:
-            if preset_dim is not None and latent_channels != preset_dim:
-                raise ValueError(
-                    f"provided `latent_dim` ({latent_channels}) is not "
-                    f"identical with `preset_dim` ({preset_dim}), "
-                    f"please consider set `latent_dim` to {preset_dim}"
-                )
+        if increment_config is None:
+            increment_config = Preset.increment_configs.get(name)
+        out_channels = increment_config.get("out_channels")
+        if out_channels is None:
+            raise ValueError("`out_channels` should be provided in `increment_config`")
+        preset_latent_channels = out_channels[-1]
+        if latent_channels is not None and latent_channels != preset_latent_channels:
+            raise ValueError(
+                f"provided `latent_channels` ({latent_channels}) is not "
+                f"identical with `preset_latent_channels` ({preset_latent_channels}), "
+                f"please consider set `latent_channels` to {preset_latent_channels}"
+            )
+        latent_channels = preset_latent_channels
         target_downsample = len(target_layers)
         if num_downsample is None:
             num_downsample = target_downsample
@@ -87,8 +85,6 @@ class BackboneEncoder(EncoderBase):
                 f"identical with `target_downsample` ({target_downsample}), "
                 f"please consider set `num_downsample` to {target_downsample}"
             )
-        if increment_config is None:
-            increment_config = Preset.increment_configs.get(name)
         # initialization
         super().__init__(-1, in_channels, num_downsample, latent_channels)
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)

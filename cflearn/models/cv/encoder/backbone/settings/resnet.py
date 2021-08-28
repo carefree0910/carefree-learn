@@ -25,11 +25,6 @@ class ResNetPreset(Preset):
         "resnet50": target_layers,
         "resnet101": target_layers,
     }
-    latent_dims = {
-        "resnet18": 512,
-        "resnet50": 2048,
-        "resnet101": 2048,
-    }
     increment_configs = {
         "resnet18": {"out_channels": [64, 64, 128, 256, 512]},
         "resnet50": {"out_channels": [64, 256, 512, 1024, 2048]},

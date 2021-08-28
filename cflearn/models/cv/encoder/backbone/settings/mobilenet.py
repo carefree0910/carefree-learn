@@ -22,9 +22,6 @@ class MobileNetPreset(Preset):
     target_layers = {
         "mobilenet_v2": target_layers,
     }
-    latent_dims = {
-        "mobilenet_v2": 320,
-    }
     increment_configs = {
         "mobilenet_v2": {"out_channels": [16, 24, 32, 96, 320]},
     }
