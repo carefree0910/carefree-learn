@@ -14,7 +14,6 @@ from torchvision.models._utils import IntermediateLayerGetter
 from .models import *
 from .....constants import LATENT_KEY
 from .....misc.toolkit import set_requires_grad
-from .....misc.toolkit import imagenet_normalize
 
 
 backbone_dict = {
@@ -39,14 +38,11 @@ class Backbone(nn.Module):
         target_layers: Dict[str, str],
         increment_config: Dict[str, Any],
         pretrained: bool = True,
-        requires_gap: bool = False,
-        need_normalize: bool = False,
         requires_grad: bool = False,
         **kwargs: Any,
     ):
         super().__init__()
         self.latent_channels = latent_channels
-        self.need_normalize = need_normalize
         self.remove_layers = remove_layers
         self.target_layers = target_layers
         self.increment_config = increment_config
@@ -66,18 +62,10 @@ class Backbone(nn.Module):
         self.core = backbone
         # requires grad
         set_requires_grad(self.core, requires_grad)
-        # gap
-        self.gap = None
-        if requires_gap:
-            self.gap = nn.AdaptiveAvgPool2d((1, 1))
 
     def forward(self, net: torch.Tensor) -> tensor_dict_type:
-        if self.need_normalize:
-            net = imagenet_normalize(net)
         rs = self.core(net)
         net = rs if self._backbone_return_tensor else list(rs.values())[-1]
-        if self.gap is not None:
-            net = self.gap(net)
         if self._backbone_return_tensor:
             return {LATENT_KEY: net}
         rs[LATENT_KEY] = net
