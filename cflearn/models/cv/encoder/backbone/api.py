@@ -78,7 +78,11 @@ class BackboneEncoder(EncoderBase):
                 f"please consider set `latent_channels` to {preset_latent_channels}"
             )
         latent_channels = preset_latent_channels
-        target_downsample = len(target_layers)
+        stage_idx = set()
+        for layer in target_layers.values():
+            if layer.startswith("stage"):
+                stage_idx.add(int(layer.split("_")[0][-1]))
+        target_downsample = len(stage_idx) - int(bool(0 in stage_idx))
         if num_downsample is None:
             num_downsample = target_downsample
         elif num_downsample != target_downsample:
