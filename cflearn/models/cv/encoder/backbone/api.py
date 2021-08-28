@@ -55,16 +55,19 @@ class BackboneEncoder(EncoderBase):
             print(f"{WARNING_PREFIX}`img_size` will not affect `BackboneEncoder`")
         if remove_layers is None:
             remove_layers = Preset.remove_layers.get(name)
-            if remove_layers is None:
-                msg = f"`remove_layers` should be provided for `{name}`"
-                raise ValueError(msg)
+        if remove_layers is None:
+            msg = f"`remove_layers` should be provided for `{name}`"
+            raise ValueError(msg)
         if target_layers is None:
             target_layers = Preset.target_layers.get(name)
-            if target_layers is None:
-                msg = f"`target_layers` should be provided for `{name}`"
-                raise ValueError(msg)
+        if target_layers is None:
+            msg = f"`target_layers` should be provided for `{name}`"
+            raise ValueError(msg)
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
+        if increment_config is None:
+            msg = f"`increment_config` should be provided for `{name}`"
+            raise ValueError(msg)
         out_channels = increment_config.get("out_channels")
         if out_channels is None:
             raise ValueError("`out_channels` should be provided in `increment_config`")
@@ -86,7 +89,7 @@ class BackboneEncoder(EncoderBase):
                 f"please consider set `num_downsample` to {target_downsample}"
             )
         # initialization
-        super().__init__(-1, in_channels, num_downsample, latent_channels)
+        super().__init__(img_size, in_channels, num_downsample, latent_channels)  # type: ignore
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         self.net = Backbone(
             name,

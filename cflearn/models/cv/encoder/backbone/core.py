@@ -4,7 +4,6 @@ from torch import nn
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Optional
 from cflearn.types import tensor_dict_type
 from torchvision.models import vgg16
 from torchvision.models import vgg19
@@ -114,13 +113,13 @@ class Backbone(nn.Module):
         name: str = "resnet101",
         *,
         latent_dim: int,
+        remove_layers: List[str],
+        target_layers: Dict[str, str],
+        increment_config: Dict[str, Any],
         pretrained: bool = True,
         requires_gap: bool = False,
         need_normalize: bool = False,
         requires_grad: bool = False,
-        remove_layers: Optional[List[str]] = None,
-        target_layers: Optional[Dict[str, str]] = None,
-        increment_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
         super().__init__()
