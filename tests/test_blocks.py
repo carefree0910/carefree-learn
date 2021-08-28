@@ -255,6 +255,7 @@ class TestBlocks(unittest.TestCase):
             for layer in backbone.remove_layers:
                 self.assertTrue(not hasattr(backbone.core, layer))
             target_layers = list(backbone.target_layers.values())
+            self.assertEqual(encoder.num_downsample, len(target_layers))
             out_channels = backbone.increment_config["out_channels"]
             for i, (k, v) in enumerate(results.items()):
                 if k == LATENT_KEY:

@@ -21,7 +21,6 @@ class Preset:
     remove_layers: Dict[str, List[str]] = {}
     target_layers: Dict[str, Dict[str, str]] = {}
     latent_dims: Dict[str, int] = {}
-    num_downsample: Dict[str, int] = {}
     increment_configs: Dict[str, Dict[str, Any]] = {}
 
     @classmethod
@@ -30,7 +29,6 @@ class Preset:
             cls.remove_layers.update(settings.remove_layers)
             cls.target_layers.update(settings.target_layers)
             cls.latent_dims.update(settings.latent_dims)
-            cls.num_downsample.update(settings.num_downsample)
             cls.increment_configs.update(settings.increment_configs)
 
         return _register
@@ -80,18 +78,19 @@ class BackboneEncoder(EncoderBase):
                     f"identical with `preset_dim` ({preset_dim}), "
                     f"please consider set `latent_dim` to {preset_dim}"
                 )
-        if num_downsample is not None:
-            preset_downsample = Preset.num_downsample.get(name)
-            if preset_downsample is not None and num_downsample != preset_downsample:
-                raise ValueError(
-                    f"provided `num_downsample` ({num_downsample}) is not "
-                    f"identical with `preset_downsample` ({preset_downsample}), "
-                    f"please consider set `num_downsample` to {preset_downsample}"
-                )
+        target_downsample = len(target_layers)
+        if num_downsample is None:
+            num_downsample = target_downsample
+        elif num_downsample != target_downsample:
+            raise ValueError(
+                f"provided `num_downsample` ({num_downsample}) is not "
+                f"identical with `target_downsample` ({target_downsample}), "
+                f"please consider set `num_downsample` to {target_downsample}"
+            )
         if increment_config is None:
             increment_config = Preset.increment_configs.get(name)
         # initialization
-        super().__init__(-1, in_channels, -1, latent_channels)
+        super().__init__(-1, in_channels, num_downsample, latent_channels)
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         self.net = Backbone(
             name,
