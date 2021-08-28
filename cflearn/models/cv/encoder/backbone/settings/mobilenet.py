@@ -1,16 +1,17 @@
 from typing import List
+from collections import OrderedDict
 
 from ..api import Preset
 
 
 remove_layers: List[str] = []
-target_layers = {
-    "slice1": "stage0",
-    "slice2": "stage1",
-    "slice3": "stage2",
-    "slice4": "stage3",
-    "slice5": "stage4",
-}
+target_layers = OrderedDict(
+    slice1="stage0",
+    slice2="stage1",
+    slice3="stage2",
+    slice4="stage3",
+    slice5="stage4",
+)
 
 
 @Preset.register_settings()

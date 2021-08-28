@@ -1,14 +1,16 @@
+from collections import OrderedDict
+
 from ..api import Preset
 
 
 remove_layers = ["fc", "avgpool"]
-target_layers = {
-    "relu": "stage0",
-    "layer1": "stage1",
-    "layer2": "stage2",
-    "layer3": "stage3",
-    "layer4": "stage4",
-}
+target_layers = OrderedDict(
+    relu="stage0",
+    layer1="stage1",
+    layer2="stage2",
+    layer3="stage3",
+    layer4="stage4",
+)
 
 
 @Preset.register_settings()
