@@ -60,7 +60,7 @@ if __name__ == "__main__":
             "out_dim": 512,
             "norm_last_layer": False,
             "teacher_temp_epochs": num_epoch,
-            "encoder_configs": {"img_size": img_size, "in_channels": 3},
+            "encoder1d_configs": {"img_size": img_size, "in_channels": 3},
         },
         amp=True,
         fixed_epoch=num_epoch,
