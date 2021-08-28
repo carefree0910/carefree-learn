@@ -20,6 +20,7 @@ from .....misc.toolkit import imagenet_normalize
 backbone_dict = {
     "vgg16": sliced_vgg16,
     "vgg19": sliced_vgg19,
+    "rep_vgg": rep_vgg,
     "resnet18": resnet18,
     "resnet50": resnet50,
     "resnet101": resnet101,

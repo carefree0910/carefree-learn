@@ -249,9 +249,17 @@ class TestBlocks(unittest.TestCase):
 
     def test_cv_backbone(self) -> None:
         def _check(name: str) -> None:
-            encoder = BackboneEncoder(name, in_channels)
+            if not name.startswith("rep_vgg"):
+                key = name
+                check_rep_vgg_deploy = False
+            else:
+                key = "rep_vgg"
+                check_rep_vgg_deploy = name.endswith("_deploy")
+            encoder = BackboneEncoder(key, in_channels)
             results = encoder(0, {INPUT_KEY: inp})
             backbone = encoder.net
+            if check_rep_vgg_deploy:
+                backbone.raw_backbone.switch_to_deploy()
             for layer in backbone.remove_layers:
                 self.assertTrue(not hasattr(backbone.core, layer))
             target_layers = list(backbone.target_layers.values())
@@ -276,6 +284,8 @@ class TestBlocks(unittest.TestCase):
                     "mobilenet_v2",
                     "vgg16",
                     "vgg19",
+                    "rep_vgg",
+                    "rep_vgg_deploy",
                     "resnet18",
                     "resnet50",
                     "resnet101",
