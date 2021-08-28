@@ -250,7 +250,8 @@ class TestBlocks(unittest.TestCase):
 
     def test_cv_backbone(self) -> None:
         def _check(name: str) -> None:
-            if not name.startswith("rep_vgg"):
+            is_rep_vgg = name.startswith("rep_vgg")
+            if not is_rep_vgg:
                 key = name
                 check_rep_vgg_deploy = False
             else:
@@ -264,7 +265,11 @@ class TestBlocks(unittest.TestCase):
             for layer in backbone.remove_layers:
                 self.assertTrue(not hasattr(backbone.core, layer))
             target_layers = list(backbone.target_layers.values())
-            latent_resolution = get_latent_resolution(img_size, encoder.num_downsample)
+            latent_resolution = get_latent_resolution(
+                img_size,
+                encoder.num_downsample,
+                ceil=is_rep_vgg,
+            )
             out_channels = backbone.increment_config["out_channels"]
             for i, (k, v) in enumerate(results.items()):
                 if k == LATENT_KEY:
