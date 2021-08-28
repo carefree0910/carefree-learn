@@ -127,6 +127,7 @@ class Backbone(nn.Module):
         self.latent_dim = latent_dim
         self.need_normalize = need_normalize
         self.remove_layers = remove_layers
+        self.target_layers = target_layers
         self.increment_config = increment_config
         # backbone
         backbone_base = backbone_dict.get(name)
