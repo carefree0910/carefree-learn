@@ -6,6 +6,8 @@ import torch.nn as nn
 
 from typing import List
 from typing import Tuple
+from cflearn.constants import INPUT_KEY
+from cflearn.constants import LATENT_KEY
 from cflearn.misc.toolkit import inject_parameters
 from cflearn.modules.blocks import BN
 from cflearn.modules.blocks import EMA
@@ -14,6 +16,7 @@ from cflearn.modules.blocks import Conv2d
 from cflearn.modules.blocks import Linear
 from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
+from cflearn.models.cv.encoder import BackboneEncoder
 from cflearn.models.ml.encoders import Encoder
 
 
@@ -243,6 +246,41 @@ class TestBlocks(unittest.TestCase):
             dims = [dim] * 8 + [dim * 2] * 8 + [dim * 3] * 8
             t1, t2, t3 = _test_case(dims)
             self.assertTrue(t1 > t3 > t2)
+
+    def test_cv_backbone(self) -> None:
+        def _check(name: str) -> None:
+            encoder = BackboneEncoder(name, in_channels)
+            results = encoder(0, {INPUT_KEY: inp})
+            backbone = encoder.net
+            for layer in backbone.remove_layers:
+                self.assertTrue(not hasattr(backbone.core, layer))
+            target_layers = list(backbone.target_layers.values())
+            out_channels = backbone.increment_config["out_channels"]
+            for i, (k, v) in enumerate(results.items()):
+                if k == LATENT_KEY:
+                    self.assertEqual(v.shape[1], backbone.latent_dim)
+                else:
+                    self.assertEqual(k, target_layers[i])
+                    self.assertEqual(v.shape[1], out_channels[i])
+
+        img_size = 23
+        batch_size = 11
+        in_channels = 3
+
+        inp = torch.randn(batch_size, in_channels, img_size, img_size)
+        list(
+            map(
+                _check,
+                [
+                    "mobilenet_v2",
+                    "vgg16",
+                    "vgg19",
+                    "resnet18",
+                    "resnet50",
+                    "resnet101",
+                ],
+            )
+        )
 
 
 if __name__ == "__main__":
