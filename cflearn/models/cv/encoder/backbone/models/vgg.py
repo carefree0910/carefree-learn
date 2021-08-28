@@ -1,22 +1,16 @@
 import torch
 
 from torch import nn
+from typing import Any
+from typing import List
 from torchvision.models import vgg16
 from torchvision.models import vgg19
 
 
 class VGG(nn.Module):
-    def __init__(self, name: str, pretrained: bool = True):
+    def __init__(self, base: Any, slices: List[int], pretrained: bool = True):
         super().__init__()
-        if name == "vgg16":
-            make = vgg16
-            slices = [4, 9, 16, 23]
-        elif name == "vgg19":
-            make = vgg19
-            slices = [4, 9, 18, 27]
-        else:
-            raise NotImplementedError(f"'{name}' is not implemented")
-        vgg_layers = make(pretrained=pretrained).features
+        vgg_layers = base(pretrained=pretrained).features
         start_idx = 0
         sliced_modules = []
         for slice_idx in slices:
@@ -39,11 +33,11 @@ class VGG(nn.Module):
 
 
 def sliced_vgg16(pretrained: bool = True) -> VGG:
-    return VGG("vgg16", pretrained=pretrained)
+    return VGG(vgg16, [4, 9, 16, 23], pretrained=pretrained)
 
 
 def sliced_vgg19(pretrained: bool = True) -> VGG:
-    return VGG("vgg19", pretrained=pretrained)
+    return VGG(vgg19, [4, 9, 18, 27], pretrained=pretrained)
 
 
 __all__ = [
