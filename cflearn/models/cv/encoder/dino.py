@@ -29,6 +29,7 @@ class DINOEncoder(Encoder1DBase):
         self.dino = torch.hub.load("facebookresearch/dino:main", name, **dino_kwargs)
         if latent_dim is not None and latent_dim != self.dino.num_features:
             raise ValueError(f"`latent_dim` should be {self.dino.num_features}")
+        self.latent_dim = self.dino.num_features
         self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
 
     def forward(

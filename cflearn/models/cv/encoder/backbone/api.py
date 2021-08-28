@@ -144,6 +144,7 @@ class BackboneEncoder1D(Encoder1DBase):
             increment_config=increment_config,
             **backbone_kwargs,
         )
+        self.latent_dim = self.encoder.latent_channels
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
     def forward(
