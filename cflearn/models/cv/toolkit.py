@@ -6,7 +6,7 @@ from typing import Optional
 
 
 def get_latent_resolution(img_size: int, num_layer: int) -> int:
-    return int(round(img_size / 2 ** num_layer))
+    return int(img_size / 2 ** num_layer)
 
 
 def auto_num_layers(
