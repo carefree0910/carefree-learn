@@ -19,6 +19,8 @@ from .....misc.toolkit import set_requires_grad
 backbone_dict = {
     "vgg16": sliced_vgg16,
     "vgg19": sliced_vgg19,
+    "rep_vgg": rep_vgg,
+    "rep_vgg_lite": rep_vgg_lite,
     "rep_vgg_large": rep_vgg_large,
     "resnet18": resnet18,
     "resnet50": resnet50,
