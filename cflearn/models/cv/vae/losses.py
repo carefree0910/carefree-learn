@@ -17,6 +17,7 @@ from ....constants import PREDICTIONS_KEY
 @LossProtocol.register("vae")
 @LossProtocol.register("vae1d")
 @LossProtocol.register("vae2d")
+@LossProtocol.register("siren_vae")
 class VAELoss(LossProtocol):
     kld_ratio: torch.Tensor
 
