@@ -251,14 +251,14 @@ class RepVGG(nn.Module):
         super().__init__()
         deploy = False
         out_channels = min(64, int(64 * width_multiplier[0]))
-        self.stage0 = RepVGGBlock(
+        self.stage1 = RepVGGBlock(
             3,
             out_channels,
             deploy=deploy,
             stride=2,
             use_post_se=use_post_se,
         )
-        self.stage1 = RepVGGStage(
+        self.stage2 = RepVGGStage(
             out_channels,
             int(64 * width_multiplier[0]),
             num_blocks[0],
@@ -266,7 +266,7 @@ class RepVGG(nn.Module):
             stride=2,
             use_post_se=use_post_se,
         )
-        self.stage2 = RepVGGStage(
+        self.stage3 = RepVGGStage(
             int(64 * width_multiplier[0]),
             int(128 * width_multiplier[1]),
             num_blocks[1],
@@ -274,7 +274,7 @@ class RepVGG(nn.Module):
             stride=2,
             use_post_se=use_post_se,
         )
-        self.stage3_first = RepVGGStage(
+        self.stage4_first = RepVGGStage(
             int(128 * width_multiplier[1]),
             int(256 * width_multiplier[2]),
             num_blocks[2] // 2,
@@ -282,7 +282,7 @@ class RepVGG(nn.Module):
             stride=2,
             use_post_se=use_post_se,
         )
-        self.stage3_second = RepVGGStage(
+        self.stage4_second = RepVGGStage(
             int(256 * width_multiplier[2]),
             int(256 * width_multiplier[2]),
             num_blocks[2] // 2,
@@ -290,7 +290,7 @@ class RepVGG(nn.Module):
             stride=1,
             use_post_se=use_post_se,
         )
-        self.stage4 = RepVGGStage(
+        self.stage5 = RepVGGStage(
             int(256 * width_multiplier[2]),
             int(512 * width_multiplier[3]),
             num_blocks[3],
@@ -300,21 +300,21 @@ class RepVGG(nn.Module):
         )
 
     def forward(self, net: Tensor) -> Tensor:
-        net = self.stage0(net)
         net = self.stage1(net)
         net = self.stage2(net)
-        net = self.stage3_first(net)
-        net = self.stage3_second(net)
-        net = self.stage4(net)
+        net = self.stage3(net)
+        net = self.stage4_first(net)
+        net = self.stage4_second(net)
+        net = self.stage5(net)
         return net
 
     def switch_to_deploy(self) -> None:
-        self.stage0.switch_to_deploy()
         self.stage1.switch_to_deploy()
         self.stage2.switch_to_deploy()
-        self.stage3_first.switch_to_deploy()
-        self.stage3_second.switch_to_deploy()
-        self.stage4.switch_to_deploy()
+        self.stage3.switch_to_deploy()
+        self.stage4_first.switch_to_deploy()
+        self.stage4_second.switch_to_deploy()
+        self.stage5.switch_to_deploy()
 
 
 def rep_vgg(pretrained: bool = False) -> RepVGG:

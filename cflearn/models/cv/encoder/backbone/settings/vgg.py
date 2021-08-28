@@ -24,12 +24,12 @@ class VGGPreset(Preset):
         "vgg16": target_layers,
         "vgg19": target_layers,
         "rep_vgg": OrderedDict(
-            stage0="stage0",
             stage1="stage1",
             stage2="stage2",
-            stage3_first="stage3_first",
-            stage3_second="stage3_second",
-            stage4="stage4",
+            stage3="stage3",
+            stage4_first="stage4_first",
+            stage4_second="stage4_second",
+            stage5="stage5",
         ),
     }
     increment_configs = {
