@@ -255,8 +255,11 @@ class TestBlocks(unittest.TestCase):
                 key = name
                 check_rep_vgg_deploy = False
             else:
-                key = "rep_vgg"
                 check_rep_vgg_deploy = name.endswith("_deploy")
+                if not check_rep_vgg_deploy:
+                    key = name
+                else:
+                    key = "_".join(name.split("_")[:-1])
             encoder = BackboneEncoder(key, in_channels)
             results = encoder(0, {INPUT_KEY: inp})
             backbone = encoder.net
@@ -291,8 +294,8 @@ class TestBlocks(unittest.TestCase):
                     "mobilenet_v2",
                     "vgg16",
                     "vgg19",
-                    "rep_vgg",
-                    "rep_vgg_deploy",
+                    "rep_vgg_large",
+                    "rep_vgg_large_deploy",
                     "resnet18",
                     "resnet50",
                     "resnet101",

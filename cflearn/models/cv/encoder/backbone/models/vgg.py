@@ -317,7 +317,7 @@ class RepVGG(nn.Module):
         self.stage5.switch_to_deploy()
 
 
-def rep_vgg(pretrained: bool = False) -> RepVGG:
+def rep_vgg_large(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")
     return RepVGG([8, 14, 24, 1], [2.5, 2.5, 2.5, 5.0])
@@ -326,5 +326,5 @@ def rep_vgg(pretrained: bool = False) -> RepVGG:
 __all__ = [
     "sliced_vgg16",
     "sliced_vgg19",
-    "rep_vgg",
+    "rep_vgg_large",
 ]
