@@ -2001,6 +2001,36 @@ class ECABlock(Module):
         return w * net
 
 
+class SEBlock(Module):
+    def __init__(self, in_channels: int, latent_channels: int):
+        super().__init__()
+        self.in_channels = in_channels
+        self.down = Conv2d(
+            in_channels,
+            latent_channels,
+            kernel_size=1,
+            stride=1,
+            bias=True,
+        )
+        self.up = Conv2d(
+            latent_channels,
+            in_channels,
+            kernel_size=1,
+            stride=1,
+            bias=True,
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        inp = net
+        net = F.avg_pool2d(net, kernel_size=net.shape[3])
+        net = self.down(net)
+        net = F.relu(net)
+        net = self.up(net)
+        net = torch.sigmoid(net)
+        net = net.view(-1, self.in_channels, 1, 1)
+        return inp * net
+
+
 def get_conv_blocks(
     in_channels: int,
     out_channels: int,
