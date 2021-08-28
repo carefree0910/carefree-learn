@@ -23,8 +23,16 @@ class VGGPreset(Preset):
         "vgg19": target_layers,
     }
     latent_dims = {
-        "vgg16": -1,
-        "vgg19": -1,
+        "vgg16": 512,
+        "vgg19": 512,
+    }
+    num_downsample = {
+        "vgg16": 4,
+        "vgg19": 4,
+    }
+    increment_configs = {
+        "vgg16": {"out_channels": [64, 128, 256, 512]},
+        "vgg19": {"out_channels": [64, 128, 256, 512]},
     }
 
 
