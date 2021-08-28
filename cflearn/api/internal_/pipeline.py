@@ -446,7 +446,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cls,
         export_folder: str,
         *,
-        cuda: Optional[str] = None,
+        cuda: Optional[Union[int, str]] = None,
         compress: bool = True,
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
@@ -459,7 +459,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             with Saving.compress_loader(export_folder, compress):
                 m = cls._load_infrastructure(
                     export_folder,
-                    cuda,
+                    None if cuda is None else str(cuda),
                     pre_callback,
                     post_callback,
                 )
