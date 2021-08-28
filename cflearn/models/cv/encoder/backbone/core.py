@@ -5,95 +5,16 @@ from typing import Any
 from typing import Dict
 from typing import List
 from cflearn.types import tensor_dict_type
-from torchvision.models import vgg16
-from torchvision.models import vgg19
 from torchvision.models import resnet18
 from torchvision.models import resnet50
 from torchvision.models import resnet101
 from torchvision.models import resnet152
-from torchvision.models import mobilenet_v2
 from torchvision.models._utils import IntermediateLayerGetter
 
+from .models import *
 from .....constants import LATENT_KEY
 from .....misc.toolkit import set_requires_grad
 from .....misc.toolkit import imagenet_normalize
-
-
-class VGG(nn.Module):
-    def __init__(self, name: str, pretrained: bool = True):
-        super().__init__()
-        if name == "vgg16":
-            make = vgg16
-            slices = [4, 9, 16, 23]
-        elif name == "vgg19":
-            make = vgg19
-            slices = [4, 9, 18, 27]
-        else:
-            raise NotImplementedError(f"'{name}' is not implemented")
-        vgg_layers = make(pretrained=pretrained).features
-        start_idx = 0
-        sliced_modules = []
-        for slice_idx in slices:
-            local_module = nn.Sequential()
-            for i in range(start_idx, slice_idx):
-                local_module.add_module(str(i), vgg_layers[i])
-            sliced_modules.append(local_module)
-            start_idx = slice_idx
-        self.slice1 = sliced_modules[0]
-        self.slice2 = sliced_modules[1]
-        self.slice3 = sliced_modules[2]
-        self.slice4 = sliced_modules[3]
-
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        net = self.slice1(net)
-        net = self.slice2(net)
-        net = self.slice3(net)
-        net = self.slice4(net)
-        return net
-
-
-def sliced_vgg16(pretrained: bool = True) -> VGG:
-    return VGG("vgg16", pretrained=pretrained)
-
-
-def sliced_vgg19(pretrained: bool = True) -> VGG:
-    return VGG("vgg19", pretrained=pretrained)
-
-
-class MobileNet(nn.Module):
-    def __init__(self, name: str, pretrained: bool = True):
-        super().__init__()
-        if name == "mobilenet_v2":
-            make = mobilenet_v2
-            slices = [2, 4, 7, 14, 18]
-        else:
-            raise NotImplementedError(f"'{name}' is not implemented")
-        mobilenet_layers = make(pretrained=pretrained).features
-        start_idx = 0
-        sliced_modules = []
-        for slice_idx in slices:
-            local_module = nn.Sequential()
-            for i in range(start_idx, slice_idx):
-                local_module.add_module(str(i), mobilenet_layers[i])
-            sliced_modules.append(local_module)
-            start_idx = slice_idx
-        self.slice1 = sliced_modules[0]
-        self.slice2 = sliced_modules[1]
-        self.slice3 = sliced_modules[2]
-        self.slice4 = sliced_modules[3]
-        self.slice5 = sliced_modules[4]
-
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        net = self.slice1(net)
-        net = self.slice2(net)
-        net = self.slice3(net)
-        net = self.slice4(net)
-        net = self.slice5(net)
-        return net
-
-
-def sliced_mobilenet_v2(pretrained: bool = True) -> MobileNet:
-    return MobileNet("mobilenet_v2", pretrained=pretrained)
 
 
 backbone_dict = {
