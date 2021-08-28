@@ -252,8 +252,8 @@ class DINO(ModelWithCustomSteps):
 
     def __init__(
         self,
-        encoder_name: str = "vit",
-        encoder_configs: Optional[Dict[str, Any]] = None,
+        encoder1d_name: str = "vit",
+        encoder1d_configs: Optional[Dict[str, Any]] = None,
         student_specific: Optional[Dict[str, Any]] = None,
         teacher_specific: Optional[Dict[str, Any]] = None,
         *,
@@ -271,11 +271,11 @@ class DINO(ModelWithCustomSteps):
         warmup_epochs: int = 10,
     ):
         super().__init__()
-        base = update_dict(encoder_configs or {}, _get_dino_defaults(encoder_name))
+        base = update_dict(encoder1d_configs or {}, _get_dino_defaults(encoder1d_name))
         student_cfg = update_dict(student_specific or {}, shallow_copy_dict(base))
         teacher_cfg = update_dict(teacher_specific or {}, shallow_copy_dict(base))
-        student = Encoder1DBase.make(encoder_name, student_cfg)
-        teacher = Encoder1DBase.make(encoder_name, teacher_cfg)
+        student = Encoder1DBase.make(encoder1d_name, student_cfg)
+        teacher = Encoder1DBase.make(encoder1d_name, teacher_cfg)
         self.ddp_student = self.ddp_teacher = None
         self.student = MultiCropWrapper(
             student,
