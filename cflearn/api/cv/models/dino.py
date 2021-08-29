@@ -16,10 +16,9 @@ from ....misc.toolkit import eval_context
 
 
 class DINOPredictor:
-    def __init__(self, m: SimplePipeline):
+    def __init__(self, m: SimplePipeline, img_size: int):
         self.m = m
         self.dino = m.model
-        img_size = self.dino.student.backbone.img_size
         self.transform = SSLTestTransform(img_size)
 
     @property
