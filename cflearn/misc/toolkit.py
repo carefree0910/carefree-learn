@@ -1029,6 +1029,14 @@ def interpolate(
     )
 
 
+def make_grid(arr: arr_type, n_row: Optional[int] = None) -> torch.Tensor:
+    if isinstance(arr, np.ndarray):
+        arr = to_torch(arr)
+    if n_row is None:
+        n_row = math.ceil(math.sqrt(len(arr)))
+    return torchvision.utils.make_grid(arr, n_row)
+
+
 def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
     if isinstance(arr, np.ndarray):
         arr = to_torch(arr)
