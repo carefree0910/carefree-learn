@@ -791,7 +791,8 @@ class SharedArrayWrapper:
     def __init__(self, root: str, path: str, *, to_memory: bool):
         self.path = os.path.join(root, path)
         self.folder, file = os.path.split(self.path)
-        os.makedirs(self.folder, exist_ok=True)
+        if not to_memory:
+            os.makedirs(self.folder, exist_ok=True)
         self.flag_path = os.path.join(self.folder, f"flag_of_{file}")
         self.address, self.flag_address = map(_to_address, [self.path, self.flag_path])
         if to_memory and sa is None:
