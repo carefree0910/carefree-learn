@@ -1,4 +1,3 @@
-import math
 import torch
 
 from torch import Tensor
@@ -12,9 +11,7 @@ from ....trainer import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ..decoder.vanilla import VanillaDecoder
 from ....misc.toolkit import interpolate
-from ....modules.blocks import Conv2d
 
 
 @ModelProtocol.register("cascade_u2net")
@@ -94,56 +91,6 @@ class CascadeU2Net(CascadeBase):
         return results
 
 
-@ModelProtocol.register("cascade_dino")
-class CascadeDINO(ModelProtocol):
-    def __init__(
-        self,
-        img_size: int,
-        num_upsample: int,
-        out_channels: int,
-        *,
-        dino_channels: int,
-        latent_channels: int = 128,
-        dino_name: str = "dino_vits8",
-    ):
-        super().__init__()
-        self.dino = torch.hub.load("facebookresearch/dino:main", dino_name)
-        self.to_latent = Conv2d(
-            dino_channels,
-            latent_channels,
-            kernel_size=1,
-            bias=False,
-        )
-        self.decoder = VanillaDecoder(
-            latent_channels,
-            img_size // 2 ** num_upsample,
-            out_channels,
-            img_size=img_size,
-            num_upsample=num_upsample,
-        ).decoder
-
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
-        net = self.dino.get_last_selfattention(net)[..., 0, 1:]
-        resolution = int(round(math.sqrt(net.shape[-1])))
-        net = net.view(net.shape[0], -1, resolution, resolution)
-        net = self.to_latent(net)
-        return {PREDICTIONS_KEY: self.decoder(net)}
-
-    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        results = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
-        if isinstance(results, list):
-            results = results[0]
-        return results
-
-
 __all__ = [
     "CascadeU2Net",
-    "CascadeDINO",
 ]

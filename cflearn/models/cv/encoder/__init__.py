@@ -1,4 +1,3 @@
-from .dino import *
 from .fnet import *
 from .mixer import *
 from .vanilla import *
