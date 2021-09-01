@@ -119,7 +119,7 @@ class VQVAE(ModelProtocol):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         z_e = self.encoder.encode(batch, **kwargs)[LATENT_KEY]

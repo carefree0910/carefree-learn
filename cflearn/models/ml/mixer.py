@@ -75,7 +75,7 @@ class MixerWithBAKE(BAKEBase):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
@@ -118,7 +118,7 @@ class MixerWithRDropout(RDropoutBase):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         batch[MERGED_KEY] = batch[INPUT_KEY]

@@ -90,7 +90,7 @@ class RNN(MLCoreProtocol):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[MERGED_KEY]
@@ -146,7 +146,7 @@ class RNNWithBAKE(BAKEBase):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]

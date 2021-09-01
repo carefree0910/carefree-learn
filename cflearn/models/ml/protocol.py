@@ -212,7 +212,7 @@ class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         pass
@@ -347,7 +347,7 @@ class MLModel(ModelWithCustomSteps):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         if self._pre_process_batch:

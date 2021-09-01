@@ -62,7 +62,7 @@ class CascadeU2Net(CascadeBase):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         lv1_outputs = self.lv1_net(batch_idx, batch, state, **kwargs)

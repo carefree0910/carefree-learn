@@ -50,7 +50,7 @@ class WideAndDeep(MLCoreProtocol):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
+        state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         one_hot = batch[ONE_HOT_KEY]
