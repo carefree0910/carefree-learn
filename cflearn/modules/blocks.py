@@ -797,7 +797,7 @@ class Attention(Module, WithRegister):
             else:
                 kv_same = True
         self.kv_same = kv_same
-        self.is_self_attn = is_self_attention and reduction_ratio is None
+        self.qkv_same = is_self_attention and reduction_ratio is None
         if not is_self_attention:
             self.k_dim = k_dim or input_dim
             self.v_dim = v_dim or self.k_dim
@@ -815,7 +815,7 @@ class Attention(Module, WithRegister):
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
-        if self.is_self_attn:
+        if self.qkv_same:
             self.kv_w = self.q_w = self.k_w = self.v_w = None
             self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, input_dim))
             nn.init.trunc_normal_(self.in_w, std=0.02)
@@ -835,7 +835,7 @@ class Attention(Module, WithRegister):
             nn.init.xavier_uniform_(self.v_w)
         if not bias:
             self.q_bias = self.kv_bias = self.qkv_bias = None
-        elif self.is_self_attn or not kv_same:
+        elif self.qkv_same or not kv_same:
             self.q_bias = self.kv_bias = None
             self.qkv_bias = nn.Parameter(torch.zeros(3 * self.embed_dim))
         else:
@@ -897,7 +897,7 @@ class Attention(Module, WithRegister):
         mask: Optional[Tensor] = None,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
-        if self.is_self_attn:
+        if self.qkv_same:
             qkv = F.linear(q, self.in_w, self.qkv_bias)
             q, k, v = qkv.chunk(3, dim=-1)
         elif self.kv_same:
