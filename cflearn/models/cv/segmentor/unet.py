@@ -101,17 +101,7 @@ class UNet(ModelProtocol):
             backbone_config=backbone_config,
         )
         increment_config = self.backbone.encoder.net.increment_config
-        if increment_config is None:
-            raise ValueError(
-                "`increment_config` should be provided in `BackboneEncoder` "
-                "for `UNetGenerator`"
-            )
-        backbone_channels = increment_config.get("out_channels")
-        if backbone_channels is None:
-            raise ValueError(
-                "`out_channels` should be provided in `increment_config` "
-                "for `UNetGenerator`"
-            )
+        backbone_channels = increment_config["out_channels"]
         self.decoder = UNetDecoder(backbone_channels, **(decoder_config or {}))
         self.head = Conv2d(backbone_channels[0], out_channels, kernel_size=3)
 
