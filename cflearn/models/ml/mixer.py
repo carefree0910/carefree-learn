@@ -11,7 +11,6 @@ from ...protocol import TrainerState
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
-from ...modules.blocks import MLPTokenMixer
 
 
 @MixedStackedModel.register("mixer")
@@ -32,7 +31,7 @@ class Mixer(MixedStackedModel):
             out_dim,
             num_history,
             latent_dim,
-            MLPTokenMixer(),
+            token_mixing_type="mlp",
             num_layers=num_layers,
             dropout=dropout,
             norm_type=norm_type,

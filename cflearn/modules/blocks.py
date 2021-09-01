@@ -7,7 +7,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from abc import abstractmethod
-from abc import ABC
 from abc import ABCMeta
 from torch import Tensor
 from einops import repeat
@@ -1584,17 +1583,88 @@ class FeedForward(FFN):
         return self.net(net)
 
 
-class TokenMixerFactory(ABC):
-    @staticmethod
-    @abstractmethod
-    def make(
+token_mixers: Dict[str, Type["TokenMixerBase"]] = {}
+
+
+class TokenMixerBase(Module, WithRegister):
+    d: Dict[str, Type["TokenMixerBase"]] = token_mixers
+
+    def __init__(
+        self,
         num_tokens: int,
         latent_dim: int,
         feedforward_dim: int,
         dropout: float,
-        **kwargs: Any,
-    ) -> Module:
+    ):
+        super().__init__()
+        self.num_tokens = num_tokens
+        self.latent_dim = latent_dim
+        self.feedforward_dim = feedforward_dim
+        self.dropout = dropout
+
+    @abstractmethod
+    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
         pass
+
+
+@TokenMixerBase.register("mlp")
+class MLPTokenMixer(TokenMixerBase):
+    def __init__(
+        self,
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+    ):
+        super().__init__(num_tokens, latent_dim, feedforward_dim, dropout)
+        self.net = nn.Sequential(
+            Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
+            FeedForward(num_tokens, num_tokens, dropout),
+            Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
+        )
+
+    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+        return self.net(net)
+
+
+@TokenMixerBase.register("fourier")
+class FourierTokenMixer(TokenMixerBase):
+    def __init__(
+        self,
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+    ):
+        super().__init__(num_tokens, latent_dim, feedforward_dim, dropout)
+        self.net = Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
+
+    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+        return self.net(net)
+
+
+@TokenMixerBase.register("attention")
+class AttentionTokenMixer(TokenMixerBase):
+    def __init__(
+        self,
+        num_tokens: int,
+        latent_dim: int,
+        feedforward_dim: int,
+        dropout: float,
+        *,
+        attention_type: str = "basic",
+        **attention_kwargs: Any,
+    ):
+        super().__init__(num_tokens, latent_dim, feedforward_dim, dropout)
+        attention_kwargs.setdefault("bias", False)
+        attention_kwargs.setdefault("num_heads", 8)
+        attention_kwargs["dropout"] = dropout
+        attention_kwargs["input_dim"] = latent_dim
+        attention_kwargs["is_self_attention"] = True
+        self.net = Attention.make(attention_type, config=attention_kwargs)
+
+    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+        return self.net(net, net, net, hw=hw).output
 
 
 class DropPath(Module):
@@ -1623,26 +1693,30 @@ class MixingBlock(Module):
         num_tokens: int,
         latent_dim: int,
         feedforward_dim: int,
-        token_mixing_factory: TokenMixerFactory,
+        *,
+        token_mixing_type: str,
+        token_mixing_config: Optional[Dict[str, Any]] = None,
         channel_mixing_type: str = "ff",
         channel_mixing_config: Optional[Dict[str, Any]] = None,
-        *,
         dropout: float = 0.0,
         drop_path: float = 0.0,
         norm_type: str = "batch_norm",
-        **token_mixing_kwargs: Any,
     ):
         super().__init__()
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        if token_mixing_config is None:
+            token_mixing_config = {}
+        token_mixing_config.update(
+            {
+                "num_tokens": num_tokens,
+                "latent_dim": latent_dim,
+                "feedforward_dim": feedforward_dim,
+                "dropout": dropout,
+            }
+        )
         self.token_mixing = PreNorm(
             latent_dim,
-            module=token_mixing_factory.make(
-                num_tokens,
-                latent_dim,
-                feedforward_dim,
-                dropout,
-                **token_mixing_kwargs,
-            ),
+            module=TokenMixerBase.make(token_mixing_type, token_mixing_config),
             norm_type=norm_type,
         )
         if channel_mixing_config is None:
@@ -1748,10 +1822,11 @@ class MixedStackedEncoder(Module):
         self,
         dim: int,
         num_history: int,
-        token_mixing_factory: TokenMixerFactory,
+        *,
+        token_mixing_type: str,
+        token_mixing_config: Optional[Dict[str, Any]] = None,
         channel_mixing_type: str = "ff",
         channel_mixing_config: Optional[Dict[str, Any]] = None,
-        *,
         num_layers: int = 4,
         dropout: float = 0.0,
         dpr_list: Optional[List[float]] = None,
@@ -1760,7 +1835,6 @@ class MixedStackedEncoder(Module):
         feedforward_dim_ratio: float = 1.0,
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
-        **token_mixing_kwargs: Any,
     ):
         super().__init__()
         # head token
@@ -1787,13 +1861,13 @@ class MixedStackedEncoder(Module):
                     num_history,
                     dim,
                     feedforward_dim,
-                    token_mixing_factory,
-                    channel_mixing_type,
-                    channel_mixing_config,
+                    token_mixing_type=token_mixing_type,
+                    token_mixing_config=token_mixing_config,
+                    channel_mixing_type=channel_mixing_type,
+                    channel_mixing_config=channel_mixing_config,
                     dropout=dropout,
                     drop_path=drop_path,
                     norm_type=norm_type,
-                    **token_mixing_kwargs,
                 )
                 for drop_path in dpr_list
             ]
@@ -1833,54 +1907,6 @@ class MixedStackedEncoder(Module):
             net = block(net, hw)
         net = self.head(net)
         return net
-
-
-# token mixers
-
-
-class MLPTokenMixer(TokenMixerFactory):
-    @staticmethod
-    def make(
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-        **kwargs: Any,
-    ) -> nn.Module:
-        return nn.Sequential(
-            Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
-            FeedForward(num_tokens, num_tokens, dropout),
-            Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
-        )
-
-
-class FourierTokenMixer(TokenMixerFactory):
-    @staticmethod
-    def make(
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-        **kwargs: Any,
-    ) -> nn.Module:
-        return Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
-
-
-class AttentionTokenMixer(TokenMixerFactory):
-    @staticmethod
-    def make(
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-        **kwargs: Any,
-    ) -> nn.Module:
-        kwargs.setdefault("bias", False)
-        kwargs.setdefault("num_heads", 8)
-        kwargs["dropout"] = dropout
-        kwargs["input_dim"] = latent_dim
-        kwargs["is_self_attention"] = True
-        return Attention.make("basic", config=kwargs)
 
 
 # cv

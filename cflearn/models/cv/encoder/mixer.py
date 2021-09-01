@@ -3,7 +3,6 @@ from typing import Dict
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
-from ....modules.blocks import MLPTokenMixer
 from ....modules.blocks import MixedStackedEncoder
 
 
@@ -32,7 +31,7 @@ class MixerEncoder(Encoder1DFromPatches):
         self.encoder = MixedStackedEncoder(
             latent_dim,
             self.num_patches,
-            MLPTokenMixer(),
+            token_mixing_type="mlp",
             num_layers=num_layers,
             norm_type=norm_type,
         )

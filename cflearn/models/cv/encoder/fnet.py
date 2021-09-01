@@ -3,7 +3,6 @@ from typing import Dict
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
-from ....modules.blocks import FourierTokenMixer
 from ....modules.blocks import MixedStackedEncoder
 
 
@@ -32,7 +31,7 @@ class FNetEncoder(Encoder1DFromPatches):
         self.encoder = MixedStackedEncoder(
             latent_dim,
             self.num_patches,
-            FourierTokenMixer(),
+            token_mixing_type="fourier",
             num_layers=num_layers,
             norm_type=norm_type,
         )

@@ -31,7 +31,6 @@ from ...misc.toolkit import WithRegister
 from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import _get_clones
 from ...modules.blocks import Linear
-from ...modules.blocks import TokenMixerFactory
 from ...modules.blocks import MixedStackedEncoder
 
 
@@ -244,8 +243,9 @@ class MixedStackedModel(MLCoreProtocol):
         out_dim: int,
         num_history: int,
         latent_dim: int,
-        token_mixing_factory: TokenMixerFactory,
         *,
+        token_mixing_type: str,
+        token_mixing_config: Optional[Dict[str, Any]] = None,
         channel_mixing_type: str = "ff",
         channel_mixing_config: Optional[Dict[str, Any]] = None,
         num_layers: int = 4,
@@ -254,14 +254,14 @@ class MixedStackedModel(MLCoreProtocol):
         feedforward_dim_ratio: float = 1.0,
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
-        **token_mixing_kwargs: Any,
     ):
         super().__init__(in_dim, out_dim, num_history)
         self.to_encoder = Linear(in_dim, latent_dim)
         self.encoder = MixedStackedEncoder(
             latent_dim,
             num_history,
-            token_mixing_factory,
+            token_mixing_type=token_mixing_type,
+            token_mixing_config=token_mixing_config,
             channel_mixing_type=channel_mixing_type,
             channel_mixing_config=channel_mixing_config,
             num_layers=num_layers,
@@ -270,7 +270,6 @@ class MixedStackedModel(MLCoreProtocol):
             feedforward_dim_ratio=feedforward_dim_ratio,
             use_head_token=use_head_token,
             use_positional_encoding=use_positional_encoding,
-            **token_mixing_kwargs,
         )
         self.head = Linear(latent_dim, out_dim)
 

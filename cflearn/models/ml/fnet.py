@@ -1,5 +1,4 @@
 from .protocol import MixedStackedModel
-from ...modules.blocks import FourierTokenMixer
 
 
 @MixedStackedModel.register("fnet")
@@ -20,7 +19,7 @@ class FNet(MixedStackedModel):
             out_dim,
             num_history,
             latent_dim,
-            FourierTokenMixer(),
+            token_mixing_type="fourier",
             num_layers=num_layers,
             dropout=dropout,
             norm_type=norm_type,

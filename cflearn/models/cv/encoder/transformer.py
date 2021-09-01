@@ -3,7 +3,6 @@ from typing import Dict
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
-from ....modules.blocks import AttentionTokenMixer
 from ....modules.blocks import MixedStackedEncoder
 
 
@@ -23,8 +22,6 @@ class ViTEncoder(Encoder1DFromPatches):
         drop_path_rate: float = 0.0,
         norm_type: str = "layer_norm",
         feedforward_dim_ratio: float = 4.0,
-        bias: bool = True,
-        num_heads: int = 6,
         **attention_kwargs: Any,
     ):
         super().__init__(
@@ -35,10 +32,13 @@ class ViTEncoder(Encoder1DFromPatches):
             to_patches_type,
             to_patches_config,
         )
+        attention_kwargs.setdefault("bias", True)
+        attention_kwargs.setdefault("num_heads", 6)
         self.encoder = MixedStackedEncoder(
             latent_dim,
             self.num_patches,
-            AttentionTokenMixer(),
+            token_mixing_type="attention",
+            token_mixing_config=attention_kwargs,
             num_layers=num_layers,
             dropout=dropout,
             drop_path_rate=drop_path_rate,
@@ -46,9 +46,6 @@ class ViTEncoder(Encoder1DFromPatches):
             feedforward_dim_ratio=feedforward_dim_ratio,
             use_head_token=True,
             use_positional_encoding=True,
-            bias=bias,
-            num_heads=num_heads,
-            **attention_kwargs,
         )
 
 
