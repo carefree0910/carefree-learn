@@ -797,7 +797,8 @@ class Attention(Module, WithRegister):
             else:
                 kv_same = True
         self.kv_same = kv_same
-        self.qkv_same = is_self_attention and reduction_ratio is None
+        has_reduction = reduction_ratio is not None and reduction_ratio > 1
+        self.qkv_same = is_self_attention and not has_reduction
         if not is_self_attention:
             self.k_dim = k_dim or input_dim
             self.v_dim = v_dim or self.k_dim
@@ -850,15 +851,15 @@ class Attention(Module, WithRegister):
         self.dropout = dropout
         self.activation = Activations.make(activation, activation_config)
 
-        if reduction_ratio is None:
+        if not has_reduction:
             self.reduction = None
         else:
             self.reduction = nn.Sequential(
                 Conv2d(
                     self.embed_dim,
                     self.embed_dim,
-                    kernel_size=reduction_ratio,
-                    stride=reduction_ratio,
+                    kernel_size=reduction_ratio,  # type: ignore
+                    stride=reduction_ratio,  # type: ignore
                 ),
                 Lambda(lambda t: t.flatten(2).transpose(1, 2)),
                 nn.LayerNorm(self.embed_dim),
