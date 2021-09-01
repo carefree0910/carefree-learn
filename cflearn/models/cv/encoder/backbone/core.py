@@ -87,4 +87,5 @@ class Backbone(nn.Module):
 
 __all__ = [
     "Backbone",
+    "backbone_dict",
 ]
