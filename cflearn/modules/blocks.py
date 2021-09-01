@@ -862,38 +862,38 @@ class Attention(Module, WithRegister):
                 q_bias = k_bias = v_bias = None
             else:
                 q_bias, k_bias, v_bias = self.qkv_bias.chunk(3)
-            # B, Sq, Din -> B, Sq, D
+            # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, q_bias)
-            # B, Sk, Dk -> B, Sk, D
+            # B, Nk, Dk -> B, Nk, D
             k = F.linear(k, self.k_w, k_bias)
-            # B, Sv, Dv -> B, Sk, D
+            # B, Nv, Dv -> B, Nk, D
             v = F.linear(v, self.v_w, v_bias)
         q, k, v = map(self.activation, [q, k, v])
         # scale
         q = q * self.scaling
-        # B, S*, D -> B * N_head, S*, D_head
+        # B, N*, D -> B * N_head, N*, D_head
         q, k, v = map(self._to_heads, [q, k, v])
         if mask is not None:
-            # B, Sq, Sk -> B * N_head, Sq, Sk
+            # B, Nq, Nk -> B * N_head, Nq, Nk
             mask = mask.repeat(self.num_heads, 1, 1)
-        # B * N_head, Sq, Sk
+        # B * N_head, Nq, Nk
         raw_weights = torch.bmm(q, k.transpose(-2, -1))
         if mask is not None:
             raw_weights.masked_fill_(mask, float("-inf"))
-        # B * N_head, Sq, Sk -> B * N_head, Sq, Sk
+        # B * N_head, Nq, Nk -> B * N_head, Nq, Nk
         weights = self._get_weights(raw_weights)
         if 0.0 < self.dropout < 1.0:
             weights = F.dropout(weights, self.dropout, self.training)
         weights = self._weights_callback(weights)
-        # B * N_head, Sq, D_head
+        # B * N_head, Nq, D_head
         output = torch.bmm(weights, v)
-        # B * N_head, Sq, D_head -> B, N_head, Sq, D_head
+        # B * N_head, Nq, D_head -> B, N_head, Nq, D_head
         nb, q_len, d_head = output.shape
         output = output.view(nb // self.num_heads, self.num_heads, q_len, d_head)
-        # B, N_head, Sq, D_head -> B, Sq, D
+        # B, N_head, Nq, D_head -> B, Nq, D
         output = output.permute(0, 2, 1, 3).contiguous()
         output = output.view(-1, q_len, self.embed_dim)
-        # B, Sq, D -> B, Sq, Din
+        # B, Nq, D -> B, Nq, Din
         output = self.activation(self.out_linear(output))
         return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
 
