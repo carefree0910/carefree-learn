@@ -376,6 +376,7 @@ def inject_parameters(
     strict: Optional[bool] = None,
     tgt_filter_fn: Optional[Callable[[str], bool]] = None,
     custom_mappings: Optional[Dict[str, str]] = None,
+    states_callback: Optional[Callable[[tensor_dict_type], tensor_dict_type]] = None,
 ) -> None:
     if strict is None:
         strict = tgt_filter_fn is None
@@ -385,6 +386,8 @@ def inject_parameters(
         pop_keys = [key for key in tgt_states if not tgt_filter_fn(key)]
         for key in pop_keys:
             tgt_states.pop(key)
+    if states_callback is not None:
+        src_states = states_callback(shallow_copy_dict(src_states))
     if len(src_states) != len(tgt_states):
         raise ValueError(f"lengths of states are not identical between {src} and {tgt}")
     new_states = OrderedDict()
