@@ -834,9 +834,14 @@ class Attention(Module, WithRegister):
             nn.init.xavier_uniform_(self.k_w)
             nn.init.xavier_uniform_(self.v_w)
         if not bias:
-            self.qkv_bias = None
-        else:
+            self.q_bias = self.kv_bias = self.qkv_bias = None
+        elif self.is_self_attn or not kv_same:
+            self.q_bias = self.kv_bias = None
             self.qkv_bias = nn.Parameter(torch.zeros(3 * self.embed_dim))
+        else:
+            self.qkv_bias = None
+            self.q_bias = nn.Parameter(torch.zeros(self.embed_dim))
+            self.kv_bias = nn.Parameter(torch.zeros(2 * self.embed_dim))
 
         if out_linear_config is None:
             out_linear_config = {}
@@ -896,20 +901,15 @@ class Attention(Module, WithRegister):
             qkv = F.linear(q, self.in_w, self.qkv_bias)
             q, k, v = qkv.chunk(3, dim=-1)
         elif self.kv_same:
-            if self.qkv_bias is None:
-                q_bias = kv_bias = None
-            else:
-                q_dim, kv_dim = self.embed_dim, 2 * self.embed_dim
-                q_bias, kv_bias = self.qkv_bias.split([q_dim, kv_dim])
             # B, Nq, Din -> B, Nq, D
-            q = F.linear(q, self.q_w, q_bias)
+            q = F.linear(q, self.q_w, self.q_bias)
             # B, Nk, Dk -> B, Nk, D
             if self.reduction is not None:
                 if hw is None:
                     msg = "`hw` should be provided when `reduction` is applied"
                     raise ValueError(msg)
                 k = self._reduce(k, hw)
-            k, v = F.linear(k, self.kv_w, kv_bias).chunk(2, dim=-1)
+            k, v = F.linear(k, self.kv_w, self.kv_bias).chunk(2, dim=-1)
         else:
             if self.qkv_bias is None:
                 q_bias = k_bias = v_bias = None
