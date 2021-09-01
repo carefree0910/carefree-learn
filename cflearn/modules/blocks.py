@@ -779,6 +779,7 @@ class Attention(Module, WithRegister):
         *,
         bias: bool = True,
         dropout: float = 0.0,
+        qk_scale: Optional[float] = None,
         kv_same: Optional[bool] = None,
         is_self_attention: bool = False,
         k_dim: Optional[int] = None,
@@ -812,7 +813,7 @@ class Attention(Module, WithRegister):
 
         self.num_heads = num_heads
         self.head_dim = self.embed_dim // num_heads
-        self.scaling = float(self.head_dim) ** -0.5
+        self.scaling = qk_scale or float(self.head_dim) ** -0.5
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
