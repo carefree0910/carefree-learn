@@ -1073,6 +1073,7 @@ class ImgToPatches(Module, WithRegister):
         self.patch_size = patch_size
         self.in_channels = in_channels
         self.latent_dim = latent_dim
+        self.num_patches = (img_size // patch_size) ** 2
 
     @abstractmethod
     def forward(self, net: Tensor) -> Tuple[Tensor, Any]:

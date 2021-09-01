@@ -9,7 +9,7 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import PerceiverIO
-from ....modules.blocks import ImgToPatches
+from ....modules.blocks import VanillaPatchEmbed
 
 
 @ModelProtocol.register("perceiver_io_generator")
@@ -33,7 +33,7 @@ class PerceiverIOGenerator(ModelProtocol):
         num_self_attn_repeat: int = 1,
     ):
         super().__init__()
-        self.to_patches = ImgToPatches(patch_size, patch_size, in_channels, latent_dim)
+        self.to_patches = VanillaPatchEmbed(0, patch_size, in_channels, latent_dim)
         self.to_latent = nn.Linear(in_channels, latent_dim)
         self.from_latent = nn.Linear(latent_dim, out_channels)
         self.net = PerceiverIO(
