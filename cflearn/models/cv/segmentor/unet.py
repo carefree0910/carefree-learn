@@ -14,7 +14,7 @@ from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
-from ..encoder.backbone import BackboneEncoder1D
+from ..encoder.backbone import BackboneEncoder
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -95,12 +95,12 @@ class UNet(ModelProtocol):
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        self.backbone = BackboneEncoder1D(
+        self.backbone = BackboneEncoder(
             backbone,
             in_channels,
             backbone_config=backbone_config,
         )
-        increment_config = self.backbone.encoder.net.increment_config
+        increment_config = self.backbone.net.increment_config
         backbone_channels = increment_config["out_channels"]
         self.decoder = UNetDecoder(backbone_channels, **(decoder_config or {}))
         self.head = Conv2d(backbone_channels[0], out_channels, kernel_size=3)
