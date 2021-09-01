@@ -93,7 +93,10 @@ class BackboneEncoder(EncoderBase):
             )
         # initialization
         super().__init__(img_size, in_channels, num_downsample, latent_channels)  # type: ignore
-        self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
+        if in_channels == 3:
+            self.to_rgb = None
+        else:
+            self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
         self.net = Backbone(
             name,
             latent_channels=latent_channels,  # type: ignore
@@ -112,7 +115,10 @@ class BackboneEncoder(EncoderBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        return self.net(self.to_rgb(batch[INPUT_KEY]))
+        net = batch[INPUT_KEY]
+        if self.to_rgb is not None:
+            net = self.to_rgb(net)
+        return self.net(net)
 
 
 @Encoder1DBase.register("backbone")
