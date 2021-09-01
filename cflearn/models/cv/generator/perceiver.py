@@ -61,7 +61,7 @@ class PerceiverIOGenerator(ModelProtocol):
     ) -> tensor_dict_type:
         inp = batch[INPUT_KEY]
         b, c, h, w = inp.shape
-        net = self.to_patches(inp)
+        net, _ = self.to_patches(inp)
         inp = inp.view(b, c, h * w).transpose(1, 2).contiguous()
         inp = self.to_latent(inp)
         net = self.net(net, out_queries=inp)

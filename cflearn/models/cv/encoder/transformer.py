@@ -15,7 +15,7 @@ class ViTEncoder(Encoder1DFromPatches):
         patch_size: int,
         in_channels: int,
         latent_dim: int = 384,
-        to_patches_configs: Optional[Dict[str, Any]] = None,
+        to_patches_config: Optional[Dict[str, Any]] = None,
         *,
         num_layers: int = 12,
         dropout: float = 0.0,
@@ -31,7 +31,7 @@ class ViTEncoder(Encoder1DFromPatches):
             patch_size,
             in_channels,
             latent_dim,
-            to_patches_configs,
+            to_patches_config,
         )
         self.encoder = MixedStackedEncoder(
             latent_dim,

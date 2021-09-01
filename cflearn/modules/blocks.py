@@ -1055,7 +1055,32 @@ class PreNorm(Module):
         return attention_outputs.output
 
 
-class ImgToPatches(Module):
+to_patches: Dict[str, Type["ImgToPatches"]] = {}
+
+
+class ImgToPatches(Module, WithRegister):
+    d: Dict[str, Type["ImgToPatches"]] = to_patches
+
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int,
+    ):
+        super().__init__()
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.in_channels = in_channels
+        self.latent_dim = latent_dim
+
+    @abstractmethod
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        """should return patches and its hw"""
+
+
+@ImgToPatches.register("vanilla")
+class VanillaPatchEmbed(ImgToPatches):
     def __init__(
         self,
         img_size: int,
@@ -1064,7 +1089,7 @@ class ImgToPatches(Module):
         latent_dim: int = 128,
         **conv_kwargs: Any,
     ):
-        super().__init__()
+        super().__init__(img_size, patch_size, in_channels, latent_dim)
         if img_size % patch_size != 0:
             raise ValueError(
                 f"`img_size` ({img_size}) should be "
@@ -1074,7 +1099,6 @@ class ImgToPatches(Module):
         self.patch_size = patch_size
         self.in_channels = in_channels
         self.latent_dim = latent_dim
-        self.num_patches = (img_size // patch_size) ** 2
         self.projection = Conv2d(
             in_channels,
             latent_dim,
@@ -1084,10 +1108,11 @@ class ImgToPatches(Module):
             **conv_kwargs,
         )
 
-    def forward(self, net: Tensor) -> Tensor:
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
         net = self.projection(net)
+        hw = net.shape[-2:]
         net = net.flatten(2).transpose(1, 2).contiguous()
-        return net
+        return net, hw
 
 
 class PerceiverIO(Module):

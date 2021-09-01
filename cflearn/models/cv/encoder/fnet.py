@@ -15,7 +15,7 @@ class FNetEncoder(Encoder1DFromPatches):
         patch_size: int,
         in_channels: int,
         latent_dim: int = 128,
-        to_patches_configs: Optional[Dict[str, Any]] = None,
+        to_patches_config: Optional[Dict[str, Any]] = None,
         *,
         num_layers: int = 4,
         norm_type: str = "layer_norm",
@@ -25,7 +25,7 @@ class FNetEncoder(Encoder1DFromPatches):
             patch_size,
             in_channels,
             latent_dim,
-            to_patches_configs,
+            to_patches_config,
         )
         self.encoder = MixedStackedEncoder(
             latent_dim,

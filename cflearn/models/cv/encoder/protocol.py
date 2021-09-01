@@ -89,16 +89,21 @@ class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
         patch_size: int,
         in_channels: int,
         latent_dim: int = 128,
-        to_patches_configs: Optional[Dict[str, Any]] = None,
+        to_patches_type: str = "vanilla",
+        to_patches_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(img_size, in_channels, latent_dim)
-        self.to_patches = ImgToPatches(
-            img_size,
-            patch_size,
-            in_channels,
-            latent_dim,
-            **(to_patches_configs or {}),
+        if to_patches_config is None:
+            to_patches_config = {}
+        to_patches_config.update(
+            {
+                "img_size": img_size,
+                "patch_size": patch_size,
+                "in_channels": in_channels,
+                "latent_dim": latent_dim,
+            }
         )
+        self.to_patches = ImgToPatches.make(to_patches_type, to_patches_config)
 
     @property
     def num_patches(self) -> int:
@@ -113,8 +118,9 @@ class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
         inp = batch[INPUT_KEY]
-        patches = self.to_patches(inp)
+        patches, hw = self.to_patches(inp)
         batch[INPUT_KEY] = patches
+        kwargs["hw"] = hw
         kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size
         return {LATENT_KEY: self.encoder(batch[INPUT_KEY], **kwargs)}
 

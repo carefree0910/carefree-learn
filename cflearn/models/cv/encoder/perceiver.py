@@ -27,7 +27,7 @@ class PerceiverIOEncoder(Encoder1DFromPatches):
         patch_size: int,
         in_channels: int,
         latent_dim: int = 128,
-        to_patches_configs: Optional[Dict[str, Any]] = None,
+        to_patches_config: Optional[Dict[str, Any]] = None,
         *,
         num_layers: int = 6,
         num_latents: int = 64,
@@ -46,7 +46,7 @@ class PerceiverIOEncoder(Encoder1DFromPatches):
             patch_size,
             in_channels,
             latent_dim,
-            to_patches_configs,
+            to_patches_config,
         )
         self.encoder = PerceiverIOForEncoder1D(
             input_dim=latent_dim,
