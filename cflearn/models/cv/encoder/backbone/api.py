@@ -47,7 +47,7 @@ class BackboneEncoder(EncoderBase):
         remove_layers: Optional[List[str]] = None,
         target_layers: Optional[Dict[str, str]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
-        **backbone_kwargs: Any,
+        backbone_config: Optional[Dict[str, Any]] = None,
     ):
         # preset stuffs
         if img_size is not None:
@@ -102,7 +102,7 @@ class BackboneEncoder(EncoderBase):
             remove_layers=remove_layers,
             target_layers=target_layers,
             increment_config=increment_config,
-            **backbone_kwargs,
+            **(backbone_config or {}),
         )
 
     def forward(
