@@ -260,7 +260,11 @@ class TestBlocks(unittest.TestCase):
                     key = name
                 else:
                     key = "_".join(name.split("_")[:-1])
-            encoder = BackboneEncoder(key, in_channels)
+            if not name.startswith("mix_vit"):
+                kw = {}
+            else:
+                kw = {"img_size": img_size, "in_channels": in_channels}
+            encoder = BackboneEncoder(key, in_channels, backbone_config=kw)
             results = encoder(0, {INPUT_KEY: inp})
             backbone = encoder.net
             if check_rep_vgg_deploy:
@@ -300,6 +304,9 @@ class TestBlocks(unittest.TestCase):
                     "rep_vgg_lite_deploy",
                     "rep_vgg_large",
                     "rep_vgg_large_deploy",
+                    "mix_vit",
+                    "mix_vit_lite",
+                    "mix_vit_large",
                     "resnet18",
                     "resnet50",
                     "resnet101",
