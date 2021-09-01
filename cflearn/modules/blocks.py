@@ -1085,11 +1085,9 @@ class ImgToPatches(Module):
         )
 
     def forward(self, net: Tensor) -> Tensor:
-        # B, C, H, W
         net = self.projection(net)
-        net = net.view(*net.shape[:2], -1)
-        # B, N, C
-        return net.transpose(1, 2).contiguous()
+        net = net.flatten(2).transpose(1, 2).contiguous()
+        return net
 
 
 class PerceiverIO(Module):
