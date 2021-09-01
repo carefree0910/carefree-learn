@@ -260,11 +260,7 @@ class TestBlocks(unittest.TestCase):
                     key = name
                 else:
                     key = "_".join(name.split("_")[:-1])
-            if not name.startswith("mix_vit"):
-                kw = {}
-            else:
-                kw = {"img_size": img_size, "in_channels": in_channels}
-            encoder = BackboneEncoder(key, in_channels, backbone_config=kw)
+            encoder = BackboneEncoder(key, in_channels)
             results = encoder(0, {INPUT_KEY: inp})
             backbone = encoder.net
             if check_rep_vgg_deploy:

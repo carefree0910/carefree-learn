@@ -25,7 +25,6 @@ class MixViTBlock(nn.Module):
 class MixViT(nn.Module):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         latent_dims: List[int],
         *,
@@ -40,21 +39,18 @@ class MixViT(nn.Module):
     ):
         super().__init__()
         # patch embeddings
-        to_patches_config = {"img_size": img_size}
         patch_embeds = []
         patch_in_channels = in_channels
         for i, (patch_size, stride) in enumerate(zip([7, 3, 3, 3], [4, 2, 2, 2])):
             latent_dim = latent_dims[i]
-            tpc = shallow_copy_dict(to_patches_config)
-            tpc.update(
-                {
-                    "patch_size": patch_size,
-                    "in_channels": patch_in_channels,
-                    "latent_dim": latent_dim,
-                    "stride": stride,
-                }
-            )
-            patch_embeds.append(ImgToPatches.make("overlap", tpc))
+            to_patches_config = {
+                "img_size": 0,
+                "patch_size": patch_size,
+                "in_channels": patch_in_channels,
+                "latent_dim": latent_dim,
+                "stride": stride,
+            }
+            patch_embeds.append(ImgToPatches.make("overlap", to_patches_config))
             patch_in_channels = latent_dim
         # transformer encoders
         total_num_layers = sum(num_layers_list)
@@ -71,7 +67,7 @@ class MixViT(nn.Module):
             encoders.append(
                 MixedStackedEncoder(
                     latent_dim,
-                    patch_embeds[i].num_patches,
+                    0,
                     token_mixing_type="attention",
                     token_mixing_config=ak,
                     channel_mixing_type="mix_ff",
@@ -98,16 +94,10 @@ class MixViT(nn.Module):
         return net
 
 
-def mix_vit(
-    pretrained: bool = False,
-    *,
-    img_size: int,
-    in_channels: int = 3,
-) -> MixViT:
+def mix_vit(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
     return MixViT(
-        img_size,
         in_channels,
         [64, 128, 320, 512],
         num_heads_list=[1, 2, 5, 8],
@@ -117,16 +107,10 @@ def mix_vit(
     )
 
 
-def mix_vit_lite(
-    pretrained: bool = False,
-    *,
-    img_size: int,
-    in_channels: int = 3,
-) -> MixViT:
+def mix_vit_lite(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
     return MixViT(
-        img_size,
         in_channels,
         [32, 64, 160, 256],
         num_heads_list=[1, 2, 5, 8],
@@ -136,16 +120,10 @@ def mix_vit_lite(
     )
 
 
-def mix_vit_large(
-    pretrained: bool = False,
-    *,
-    img_size: int,
-    in_channels: int = 3,
-) -> MixViT:
+def mix_vit_large(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
     return MixViT(
-        img_size,
         in_channels,
         [64, 128, 320, 512],
         num_heads_list=[1, 2, 5, 8],
