@@ -1834,6 +1834,7 @@ class MixedStackedEncoder(Module):
         drop_path_rate: float = 0.1,
         norm_type: str = "batch_norm",
         feedforward_dim_ratio: float = 1.0,
+        reduce_head: bool = True,
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
     ):
@@ -1876,6 +1877,8 @@ class MixedStackedEncoder(Module):
         # head
         if self.head_token is not None:
             head = Lambda(lambda x: x[:, 0], name="head_token")
+        elif not reduce_head:
+            head = nn.Identity()
         else:
             head = Lambda(lambda x: x.mean(1), name="global_average")
         self.head = PreNorm(dim, module=head, norm_type=norm_type)
