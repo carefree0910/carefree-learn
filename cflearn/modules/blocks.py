@@ -788,6 +788,7 @@ class Attention(Module, WithRegister):
         activation: Optional[str] = None,
         activation_config: Optional[Dict[str, Any]] = None,
         out_linear_config: Optional[Dict[str, Any]] = None,
+        reduction_ratio: Optional[int] = None,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -845,6 +846,20 @@ class Attention(Module, WithRegister):
         self.dropout = dropout
         self.activation = Activations.make(activation, activation_config)
 
+        if reduction_ratio is None:
+            self.reduction = None
+        else:
+            self.reduction = nn.Sequential(
+                Conv2d(
+                    self.embed_dim,
+                    self.embed_dim,
+                    kernel_size=reduction_ratio,
+                    stride=reduction_ratio,
+                ),
+                Lambda(lambda t: t.flatten(2).transpose(1, 2)),
+                nn.LayerNorm(self.embed_dim),
+            )
+
     def _to_heads(self, tensor: Tensor) -> Tensor:
         batch_size, seq_len, in_feature = tensor.shape
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
@@ -857,16 +872,26 @@ class Attention(Module, WithRegister):
     def _weights_callback(self, weights: Tensor) -> Tensor:
         return weights
 
+    def _reduce(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+        if self.reduction is None:
+            return net
+        if hw is None:
+            msg = "`hw` should be provided when `reduction` is applied"
+            raise ValueError(msg)
+        net = net.transpose(1, 2).reshape(-1, net.shape[1], *hw)
+        net = self.reduction(net)
+        return net
+
     def forward(
         self,
         q: Tensor,
         k: Tensor,
         v: Tensor,
         *,
+        hw: Optional[Tuple[int, int]] = None,
         mask: Optional[Tensor] = None,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
-        k_len = k.shape[1]
         if self.is_self_attn:
             qkv = F.linear(q, self.in_w, self.qkv_bias)
             q, k, v = qkv.chunk(3, dim=-1)
@@ -879,6 +904,11 @@ class Attention(Module, WithRegister):
             # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, q_bias)
             # B, Nk, Dk -> B, Nk, D
+            if self.reduction is not None:
+                if hw is None:
+                    msg = "`hw` should be provided when `reduction` is applied"
+                    raise ValueError(msg)
+                k = self._reduce(k, hw)
             k, v = F.linear(k, self.kv_w, kv_bias).chunk(2, dim=-1)
         else:
             if self.qkv_bias is None:
@@ -888,9 +918,9 @@ class Attention(Module, WithRegister):
             # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, q_bias)
             # B, Nk, Dk -> B, Nk, D
-            k = F.linear(k, self.k_w, k_bias)
+            k = F.linear(self._reduce(k, hw), self.k_w, k_bias)
             # B, Nv, Dv -> B, Nv, D
-            v = F.linear(v, self.v_w, v_bias)
+            v = F.linear(self._reduce(v, hw), self.v_w, v_bias)
         q, k, v = map(self.activation, [q, k, v])
         # scale
         q = q * self.scaling
@@ -917,6 +947,7 @@ class Attention(Module, WithRegister):
         output = output.transpose(1, 2).contiguous()
         output = output.view(-1, q_len, self.embed_dim)
         # B, Nq, D -> B, Nq, Din
+        k_len = k.shape[1]
         output = self.activation(self.out_linear(output))
         return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
 
