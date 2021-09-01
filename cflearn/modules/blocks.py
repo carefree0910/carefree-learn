@@ -878,6 +878,7 @@ class Attention(Module, WithRegister):
                 q_bias, kv_bias = self.qkv_bias.split([q_dim, kv_dim])
             # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, q_bias)
+            # B, Nk, Dk -> B, Nk, D
             k, v = F.linear(k, self.kv_w, kv_bias).chunk(2, dim=-1)
         else:
             if self.qkv_bias is None:
@@ -888,7 +889,7 @@ class Attention(Module, WithRegister):
             q = F.linear(q, self.q_w, q_bias)
             # B, Nk, Dk -> B, Nk, D
             k = F.linear(k, self.k_w, k_bias)
-            # B, Nv, Dv -> B, Nk, D
+            # B, Nv, Dv -> B, Nv, D
             v = F.linear(v, self.v_w, v_bias)
         q, k, v = map(self.activation, [q, k, v])
         # scale
