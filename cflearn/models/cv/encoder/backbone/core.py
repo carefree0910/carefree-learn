@@ -27,6 +27,9 @@ backbone_dict = {
     "resnet101": resnet101,
     "resnet152": resnet152,
     "mobilenet_v2": sliced_mobilenet_v2,
+    "mix_vit": mix_vit,
+    "mix_vit_lite": mix_vit_lite,
+    "mix_vit_large": mix_vit_large,
 }
 
 
