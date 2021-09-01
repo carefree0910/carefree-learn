@@ -1510,9 +1510,32 @@ class HighwayBlock(MappingBase):
 # mixed stacks
 
 
-class FeedForward(Module):
+ffn_dict: Dict[str, Type["FFN"]] = {}
+
+
+class FFN(Module, WithRegister):
+    d: Dict[str, Type["FFN"]] = ffn_dict
+
     def __init__(self, in_dim: int, latent_dim: int, dropout: float):
         super().__init__()
+        self.in_dim = in_dim
+        self.latent_dim = latent_dim
+        self.dropout = dropout
+
+    @property
+    @abstractmethod
+    def need_2d(self) -> bool:
+        pass
+
+    @abstractmethod
+    def forward(self, net: Tensor) -> Tensor:
+        pass
+
+
+@FFN.register("ff")
+class FeedForward(FFN):
+    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+        super().__init__(in_dim, latent_dim, dropout)
         self.net = nn.Sequential(
             Linear(in_dim, latent_dim),
             nn.GELU(),
@@ -1520,6 +1543,10 @@ class FeedForward(Module):
             Linear(latent_dim, in_dim),
             nn.Dropout(dropout),
         )
+
+    @property
+    def need_2d(self) -> bool:
+        return False
 
     def forward(self, net: Tensor) -> Tensor:
         return self.net(net)
@@ -1565,6 +1592,8 @@ class MixingBlock(Module):
         latent_dim: int,
         feedforward_dim: int,
         token_mixing_factory: TokenMixerFactory,
+        channel_mixing_type: str = "ff",
+        channel_mixing_config: Optional[Dict[str, Any]] = None,
         *,
         dropout: float = 0.0,
         drop_path: float = 0.0,
@@ -1584,15 +1613,30 @@ class MixingBlock(Module):
             ),
             norm_type=norm_type,
         )
+        if channel_mixing_config is None:
+            channel_mixing_config = {}
+        channel_mixing_config.update(
+            {
+                "in_dim": latent_dim,
+                "latent_dim": feedforward_dim,
+                "dropout": dropout,
+            }
+        )
         self.channel_mixing = PreNorm(
             latent_dim,
-            module=FeedForward(latent_dim, feedforward_dim, dropout),
+            module=FFN.make(channel_mixing_type, channel_mixing_config),
             norm_type=norm_type,
         )
 
-    def forward(self, net: Tensor) -> Tensor:
+    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
         net = net + self.drop_path(self.token_mixing(net))
-        net = net + self.drop_path(self.channel_mixing(net))
+        if not self.channel_mixing.module.need_2d:
+            channel_mixing_net = net
+        else:
+            if hw is None:
+                raise ValueError("`hw` should be provided when FFN needs 2d input")
+            channel_mixing_net = net.view(-1, *hw, net.shape[-1])
+        net = net + self.drop_path(self.channel_mixing(channel_mixing_net))
         return net
 
 
@@ -1673,6 +1717,8 @@ class MixedStackedEncoder(Module):
         dim: int,
         num_history: int,
         token_mixing_factory: TokenMixerFactory,
+        channel_mixing_type: str = "ff",
+        channel_mixing_config: Optional[Dict[str, Any]] = None,
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
@@ -1708,6 +1754,8 @@ class MixedStackedEncoder(Module):
                     dim,
                     feedforward_dim,
                     token_mixing_factory,
+                    channel_mixing_type,
+                    channel_mixing_config,
                     dropout=dropout,
                     drop_path=drop_path,
                     norm_type=norm_type,
@@ -1736,14 +1784,19 @@ class MixedStackedEncoder(Module):
             nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)
 
-    def forward(self, net: Tensor, **kwargs: Any) -> Tensor:
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        **kwargs: Any,
+    ) -> Tensor:
         batch_size = net.shape[0]
         if self.head_token is not None:
             head_tokens = self.head_token.repeat([batch_size, 1, 1])
             net = torch.cat([head_tokens, net], dim=1)
         net = self.pos_encoding(net, **kwargs)
         for block in self.mixing_blocks:
-            net = block(net)
+            net = block(net, hw)
         net = self.head(net)
         return net
 
