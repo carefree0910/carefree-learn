@@ -848,7 +848,7 @@ class Attention(Module, WithRegister):
     def _to_heads(self, tensor: Tensor) -> Tensor:
         batch_size, seq_len, in_feature = tensor.shape
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
-        return tensor.permute(0, 2, 1, 3).contiguous().view(-1, seq_len, self.head_dim)
+        return tensor.transpose(1, 2).contiguous().view(-1, seq_len, self.head_dim)
 
     def _get_weights(self, raw_weights: Tensor) -> Tensor:
         # in most cases the softmax version is good enough
@@ -914,7 +914,7 @@ class Attention(Module, WithRegister):
         nb, q_len, d_head = output.shape
         output = output.view(nb // self.num_heads, self.num_heads, q_len, d_head)
         # B, N_head, Nq, D_head -> B, Nq, D
-        output = output.permute(0, 2, 1, 3).contiguous()
+        output = output.transpose(1, 2).contiguous()
         output = output.view(-1, q_len, self.embed_dim)
         # B, Nq, D -> B, Nq, Din
         output = self.activation(self.out_linear(output))
@@ -2084,13 +2084,13 @@ class CABlock(Module):
 
         n, c, h, w = net.shape
         net_h = self.pool_h(net)
-        net_w = self.pool_w(net).permute(0, 1, 3, 2)
+        net_w = self.pool_w(net).transpose(2, 3)
 
         net = torch.cat([net_h, net_w], dim=2)
         net = self.conv_blocks(net)
 
         net_h, net_w = torch.split(net, [h, w], dim=2)
-        net_w = net_w.permute(0, 1, 3, 2)
+        net_w = net_w.transpose(2, 3)
 
         net_h = self.conv_h(net_h).sigmoid()
         net_w = self.conv_w(net_w).sigmoid()
