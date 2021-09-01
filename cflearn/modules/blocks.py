@@ -815,7 +815,7 @@ class Attention(Module, WithRegister):
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
-        if is_self_attention:
+        if self.is_self_attn:
             self.kv_w = self.q_w = self.k_w = self.v_w = None
             self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, input_dim))
             nn.init.trunc_normal_(self.in_w, std=0.02)
@@ -877,7 +877,8 @@ class Attention(Module, WithRegister):
         if hw is None:
             msg = "`hw` should be provided when `reduction` is applied"
             raise ValueError(msg)
-        net = net.transpose(1, 2).reshape(-1, net.shape[1], *hw)
+        net = net.transpose(1, 2).contiguous()
+        net = net.view(-1, net.shape[1], *hw)
         net = self.reduction(net)
         return net
 
@@ -1735,7 +1736,7 @@ class MixingBlock(Module):
         )
 
     def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
-        net = net + self.drop_path(self.token_mixing(net))
+        net = net + self.drop_path(self.token_mixing(net, hw=hw))
         if not self.channel_mixing.module.need_2d:
             channel_mixing_net = net
         else:
