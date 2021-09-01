@@ -1173,6 +1173,36 @@ class VanillaPatchEmbed(ImgToPatches):
         return net, hw
 
 
+@ImgToPatches.register("overlap")
+class OverlapPatchEmbed(ImgToPatches):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int = 768,
+        stride: int = 4,
+        **conv_kwargs: Any,
+    ):
+        super().__init__(img_size, patch_size, in_channels, latent_dim)
+        self.conv = Conv2d(
+            in_channels,
+            latent_dim,
+            kernel_size=patch_size,
+            stride=stride,
+            padding=(patch_size // 2, patch_size // 2),
+            **conv_kwargs,
+        )
+        self.norm = nn.LayerNorm(latent_dim)
+
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        net = self.conv(net)
+        hw = net.shape[-2:]
+        net = net.flatten(2).transpose(1, 2).contiguous()
+        net = self.norm(net)
+        return net, hw
+
+
 class PerceiverIO(Module):
     def __init__(
         self,
