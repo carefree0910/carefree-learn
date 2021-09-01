@@ -1981,6 +1981,23 @@ class Conv2d(Module):
         )
 
 
+class DepthWiseConv2d(Module):
+    def __init__(self, dim: int):
+        super().__init__()
+        self.net = Conv2d(
+            dim,
+            dim,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+            bias=True,
+            groups=dim,
+        )
+
+    def forward(self, net: Tensor) -> Tensor:
+        return self.net(net)
+
+
 class Interpolate(Module):
     def __init__(self, factor: Optional[float] = None, mode: str = "nearest"):
         super().__init__()
