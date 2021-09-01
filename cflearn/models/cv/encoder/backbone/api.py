@@ -129,7 +129,7 @@ class BackboneEncoder1D(Encoder1DBase):
         remove_layers: Optional[List[str]] = None,
         target_layers: Optional[Dict[str, str]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
-        **backbone_kwargs: Any,
+        backbone_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(-1, in_channels, -1)
         self.encoder = BackboneEncoder(
@@ -142,7 +142,7 @@ class BackboneEncoder1D(Encoder1DBase):
             remove_layers=remove_layers,
             target_layers=target_layers,
             increment_config=increment_config,
-            **backbone_kwargs,
+            backbone_config=backbone_config,
         )
         self.latent_dim = self.encoder.latent_channels
         self.pool = nn.AdaptiveAvgPool2d((1, 1))

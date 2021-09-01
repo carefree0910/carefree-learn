@@ -94,11 +94,12 @@ class UNet(ModelProtocol):
         backbone_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
-        # `backbone` here should define `out_channels` in its `increment_config`
         super().__init__()
-        if backbone_config is None:
-            backbone_config = {}
-        self.backbone = BackboneEncoder1D(backbone, in_channels, **backbone_config)
+        self.backbone = BackboneEncoder1D(
+            backbone,
+            in_channels,
+            backbone_config=backbone_config,
+        )
         increment_config = self.backbone.encoder.net.increment_config
         if increment_config is None:
             raise ValueError(
