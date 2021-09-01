@@ -393,10 +393,9 @@ def inject_parameters(
     new_states = OrderedDict()
     if custom_mappings is not None:
         for src_k, tgt_k in custom_mappings.items():
-            new_states[tgt_k] = src_states[src_k]
+            new_states[tgt_k] = src_states.pop(src_k)
+            tgt_states.pop(tgt_k)
     for (src_k, src_v), (tgt_k, tgt_v) in zip(src_states.items(), tgt_states.items()):
-        if custom_mappings is not None and src_k in custom_mappings:
-            continue
         if src_v.shape != tgt_v.shape:
             raise ValueError(f"shape of {src_k} is not identical with shape of {tgt_k}")
         new_states[tgt_k] = src_v
