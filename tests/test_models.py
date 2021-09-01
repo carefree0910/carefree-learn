@@ -74,7 +74,7 @@ class TestModels(unittest.TestCase):
     def test_cv(self) -> None:
         batch_size = 21
         patch_size = 5
-        img_size = 15
+        img_size = 35
         in_channels = 13
         out_channels = 5
         num_downsample = 2
@@ -274,6 +274,19 @@ class TestModels(unittest.TestCase):
         )
         self.assertSequenceEqual(
             cascade_u2net.generate_from(
+                torch.randn(
+                    batch_size,
+                    in_channels,
+                    img_size,
+                    img_size,
+                )
+            ).shape,
+            [batch_size, out_channels, img_size, img_size],
+        )
+
+        seg_former = cflearn.LinearSegmentation(in_channels, out_channels)
+        self.assertSequenceEqual(
+            seg_former.generate_from(
                 torch.randn(
                     batch_size,
                     in_channels,
