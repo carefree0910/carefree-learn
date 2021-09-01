@@ -1722,6 +1722,7 @@ class MixedStackedEncoder(Module):
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
+        dpr_list: Optional[List[float]] = None,
         drop_path_rate: float = 0.1,
         norm_type: str = "batch_norm",
         feedforward_dim_ratio: float = 1.0,
@@ -1745,7 +1746,8 @@ class MixedStackedEncoder(Module):
             enable=use_positional_encoding,
         )
         # core
-        dpr = [x.item() for x in torch.linspace(0, drop_path_rate, num_layers)]
+        if dpr_list is None:
+            dpr_list = [x.item() for x in torch.linspace(0, drop_path_rate, num_layers)]
         feedforward_dim = int(round(dim * feedforward_dim_ratio))
         self.mixing_blocks = ModuleList(
             [
@@ -1761,7 +1763,7 @@ class MixedStackedEncoder(Module):
                     norm_type=norm_type,
                     **token_mixing_kwargs,
                 )
-                for drop_path in dpr
+                for drop_path in dpr_list
             ]
         )
         # head
