@@ -860,6 +860,7 @@ class Attention(Module, WithRegister):
                     self.embed_dim,
                     kernel_size=reduction_ratio,  # type: ignore
                     stride=reduction_ratio,  # type: ignore
+                    padding=0,
                 ),
                 Lambda(lambda t: t.flatten(2).transpose(1, 2)),
                 nn.LayerNorm(self.embed_dim),
