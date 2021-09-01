@@ -780,6 +780,7 @@ class Attention(Module, WithRegister):
         *,
         bias: bool = True,
         dropout: float = 0.0,
+        kv_same: Optional[bool] = None,
         is_self_attention: bool = False,
         k_dim: Optional[int] = None,
         v_dim: Optional[int] = None,
@@ -790,7 +791,13 @@ class Attention(Module, WithRegister):
     ):
         super().__init__()
         self.input_dim = input_dim
-        self.is_self_attn = is_self_attention
+        if kv_same is None:
+            if k_dim is not None and v_dim is not None and k_dim != v_dim:
+                kv_same = False
+            else:
+                kv_same = True
+        self.kv_same = kv_same
+        self.is_self_attn = is_self_attention and reduction_ratio is None
         if not is_self_attention:
             self.k_dim = k_dim or input_dim
             self.v_dim = v_dim or self.k_dim
@@ -809,9 +816,15 @@ class Attention(Module, WithRegister):
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
         if is_self_attention:
+            self.kv_w = self.q_w = self.k_w = self.v_w = None
             self.in_w = nn.Parameter(torch.empty(3 * self.embed_dim, input_dim))
             nn.init.trunc_normal_(self.in_w, std=0.02)
-            self.q_w = self.k_w = self.v_w = None
+        elif kv_same:
+            self.in_w = self.k_w = self.v_w = None
+            self.q_w = nn.Parameter(torch.empty(self.embed_dim, input_dim))
+            self.kv_w = nn.Parameter(torch.empty(2 * self.embed_dim, input_dim))
+            nn.init.trunc_normal_(self.q_w, std=0.02)
+            nn.init.trunc_normal_(self.kv_w, std=0.02)
         else:
             self.in_w = None
             self.q_w = nn.Parameter(torch.empty(self.embed_dim, input_dim))
@@ -857,6 +870,15 @@ class Attention(Module, WithRegister):
         if self.is_self_attn:
             qkv = F.linear(q, self.in_w, self.qkv_bias)
             q, k, v = qkv.chunk(3, dim=-1)
+        elif self.kv_same:
+            if self.qkv_bias is None:
+                q_bias = kv_bias = None
+            else:
+                q_dim, kv_dim = self.embed_dim, 2 * self.embed_dim
+                q_bias, kv_bias = self.qkv_bias.split([q_dim, kv_dim])
+            # B, Nq, Din -> B, Nq, D
+            q = F.linear(q, self.q_w, q_bias)
+            k, v = F.linear(k, self.kv_w, kv_bias).chunk(2, dim=-1)
         else:
             if self.qkv_bias is None:
                 q_bias = k_bias = v_bias = None
