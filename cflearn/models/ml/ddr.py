@@ -1,8 +1,6 @@
-import os
 import torch
 
 import numpy as np
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
 from torch import Tensor
@@ -11,9 +9,7 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
-from typing import Callable
 from typing import Optional
-from cftool.misc import show_or_save
 
 from .fcnn import FCNN
 from .protocol import MLCoreProtocol
@@ -28,8 +24,6 @@ from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ..implicit.siren import _make_grid
 from ..implicit.siren import Siren
-from ...misc.toolkit import to_numpy
-from ...misc.toolkit import to_torch
 from ...misc.toolkit import get_gradient
 
 
