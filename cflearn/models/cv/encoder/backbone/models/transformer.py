@@ -98,7 +98,12 @@ class MixViT(nn.Module):
         return net
 
 
-def mix_vit(pretrained: bool = False, *, img_size: int, in_channels: int) -> MixViT:
+def mix_vit(
+    pretrained: bool = False,
+    *,
+    img_size: int,
+    in_channels: int = 3,
+) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
     return MixViT(
@@ -113,7 +118,10 @@ def mix_vit(pretrained: bool = False, *, img_size: int, in_channels: int) -> Mix
 
 
 def mix_vit_lite(
-    pretrained: bool = False, *, img_size: int, in_channels: int
+    pretrained: bool = False,
+    *,
+    img_size: int,
+    in_channels: int = 3,
 ) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
@@ -129,7 +137,10 @@ def mix_vit_lite(
 
 
 def mix_vit_large(
-    pretrained: bool = False, *, img_size: int, in_channels: int
+    pretrained: bool = False,
+    *,
+    img_size: int,
+    in_channels: int = 3,
 ) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
