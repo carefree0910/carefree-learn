@@ -9,7 +9,7 @@ from torchvision.models import resnet18
 from torchvision.models import resnet50
 from torchvision.models import resnet101
 from torchvision.models import resnet152
-from torchvision.models._utils import IntermediateLayerGetter
+from torchvision.models._utils import IntermediateLayerGetter as ILG
 
 from .models import *
 from .....constants import LATENT_KEY
@@ -31,6 +31,16 @@ backbone_dict = {
     "mix_vit_lite": mix_vit_lite,
     "mix_vit_large": mix_vit_large,
 }
+
+
+class IntermediateLayerGetter(ILG):
+    def __init__(self, model: nn.Module, return_layers: Dict[str, str]) -> None:
+        super().__init__(model, return_layers)
+        self.__original_model = {"model": model}
+
+    @property
+    def original_model(self) -> nn.Module:
+        return self.__original_model["model"]
 
 
 class Backbone(nn.Module):
@@ -55,7 +65,7 @@ class Backbone(nn.Module):
         backbone_base = backbone_dict.get(name)
         if backbone_base is None:
             raise ValueError(f"backbone '{name}' is not recognized")
-        backbone = self.raw_backbone = backbone_base(pretrained, **kwargs)
+        backbone = backbone_base(pretrained, **kwargs)
         self._backbone_return_tensor = True
         # layers
         if remove_layers is not None:

@@ -19,6 +19,7 @@ from cflearn.modules.blocks import Attention
 from cflearn.models.cv.encoder import BackboneEncoder
 from cflearn.models.cv.toolkit import get_latent_resolution
 from cflearn.models.ml.encoders import Encoder
+from cflearn.models.cv.encoder.backbone.core import IntermediateLayerGetter
 
 
 class TestBlocks(unittest.TestCase):
@@ -263,10 +264,13 @@ class TestBlocks(unittest.TestCase):
             encoder = BackboneEncoder(key, in_channels)
             results = encoder(0, {INPUT_KEY: inp})
             backbone = encoder.net
+            core = backbone.core
+            if isinstance(core, IntermediateLayerGetter):
+                core = core.original_model
             if check_rep_vgg_deploy:
-                backbone.raw_backbone.switch_to_deploy()
+                core.switch_to_deploy()
             for layer in backbone.remove_layers:
-                self.assertTrue(not hasattr(backbone.core, layer))
+                self.assertTrue(not hasattr(core, layer))
             target_layers = list(backbone.target_layers.values())
             latent_resolution = get_latent_resolution(
                 img_size,
