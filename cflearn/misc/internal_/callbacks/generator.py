@@ -11,10 +11,10 @@ from ...toolkit import to_device
 from ...toolkit import save_images
 from ...toolkit import eval_context
 from ...toolkit import min_max_normalize
-from ....types import tensor_dict_type
 from ....trainer import Trainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
 
 
@@ -84,17 +84,22 @@ class SizedGeneratorCallback(GeneratorCallback):
                 save_images(sampled, path)
 
 
-class AlphaSegmentationCallback(ArtifactCallback):
-    key = "images"
-
-    def _save_seg_results(
-        self,
-        trainer: Trainer,
-        batch: tensor_dict_type,
-        logits: torch.Tensor,
-    ) -> None:
+@ImageCallback.register("unet")
+@ImageCallback.register("u2net")
+@ImageCallback.register("cascade_u2net")
+class AlphaSegmentationCallback(ImageCallback):
+    def log_artifacts(self, trainer: Trainer) -> None:
+        if not self.is_rank_0:
+            return None
+        batch = next(iter(trainer.validation_loader))
+        batch = to_device(batch, trainer.device)
+        with eval_context(trainer.model):
+            results = trainer.model(0, batch)
         original = batch[INPUT_KEY]
         label = batch[LABEL_KEY].float()
+        logits = results[PREDICTIONS_KEY]
+        if logits.shape[1] != 1:
+            logits = logits[:, [-1]]
         seg_map = min_max_normalize(torch.sigmoid(logits))
         sharp_map = (seg_map > 0.5).to(torch.float32)
         image_folder = self._prepare_folder(trainer)
