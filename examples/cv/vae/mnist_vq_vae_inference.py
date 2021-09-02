@@ -53,10 +53,8 @@ vq_vae = m_base.load(m_base.pack(log_folder), cuda=cuda).model
 
 
 # use pixel cnn to generate the codes
-@cflearn.ArtifactCallback.register("pixel_cnn")
-class PixelCNNCallback(cflearn.ArtifactCallback):
-    key = "images"
-
+@cflearn.ImageCallback.register("pixel_cnn")
+class PixelCNNCallback(cflearn.ImageCallback):
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
             return None

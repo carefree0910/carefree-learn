@@ -1,6 +1,6 @@
 import os
 
-from .general import ArtifactCallback
+from .general import ImageCallback
 from ...toolkit import to_device
 from ...toolkit import save_images
 from ...toolkit import eval_context
@@ -9,10 +9,8 @@ from ....trainer import Trainer
 from ....constants import INPUT_KEY
 
 
-@ArtifactCallback.register("clf")
-class ClassificationCallback(ArtifactCallback):
-    key = "images"
-
+@ImageCallback.register("clf")
+class ClassificationCallback(ImageCallback):
     def log_artifacts(self, trainer: Trainer) -> None:
         if not self.is_rank_0:
             return None

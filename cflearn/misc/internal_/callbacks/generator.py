@@ -3,8 +3,8 @@ import torch
 
 import numpy as np
 
+from .general import ImageCallback
 from .general import TrainerCallback
-from .general import ArtifactCallback
 from ...toolkit import to_numpy
 from ...toolkit import to_torch
 from ...toolkit import to_device
@@ -19,8 +19,7 @@ from ....models.cv.protocol import GeneratorMixin
 
 
 @TrainerCallback.register("generator")
-class GeneratorCallback(ArtifactCallback):
-    key = "images"
+class GeneratorCallback(ImageCallback):
     num_interpolations = 16
 
     def log_artifacts(self, trainer: Trainer) -> None:

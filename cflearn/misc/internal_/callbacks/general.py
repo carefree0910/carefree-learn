@@ -220,7 +220,12 @@ class ArtifactCallback(TrainerCallback):
         return sub_folder
 
 
+class ImageCallback(ArtifactCallback):
+    key = "images"
+
+
 __all__ = [
     "MLFlowCallback",
     "ArtifactCallback",
+    "ImageCallback",
 ]

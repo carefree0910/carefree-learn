@@ -3,7 +3,7 @@ import math
 
 from typing import Optional
 
-from ..generator import ArtifactCallback
+from ..general import ImageCallback
 from .....trainer import Trainer
 from .....constants import INPUT_KEY
 from .....constants import PREDICTIONS_KEY
@@ -14,10 +14,8 @@ from .....misc.toolkit import eval_context
 from .....misc.toolkit import make_indices_visualization_map
 
 
-@ArtifactCallback.register("vq_vae")
-class VQVAECallback(ArtifactCallback):
-    key = "images"
-
+@ImageCallback.register("vq_vae")
+class VQVAECallback(ImageCallback):
     def __init__(self, num_keep: int = 25, num_classes: Optional[int] = None):
         super().__init__(num_keep)
         self.num_classes = num_classes

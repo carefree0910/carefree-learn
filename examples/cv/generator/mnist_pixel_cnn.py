@@ -16,10 +16,8 @@ args = parser.parse_args()
 is_ci = bool(args.ci) or True
 
 
-@cflearn.ArtifactCallback.register("pixel_cnn")
-class PixelCNNCallback(cflearn.ArtifactCallback):
-    key = "images"
-
+@cflearn.ImageCallback.register("pixel_cnn")
+class PixelCNNCallback(cflearn.ImageCallback):
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
             return None
