@@ -1986,7 +1986,7 @@ class Conv2d(Module):
         transform_kernel: bool = False,
         bias: bool = True,
         demodulate: bool = False,
-        gain: float = math.sqrt(2.0),
+        weight_scale: Optional[float] = None,
     ):
         super().__init__()
         self.in_c, self.out_c = in_channels, out_channels
@@ -2022,6 +2022,7 @@ class Conv2d(Module):
         else:
             self.bias = nn.Parameter(torch.empty(out_channels))
         self.demodulate = demodulate
+        self.weight_scale = weight_scale
         # initialize
         with torch.no_grad():
             nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5.0))
@@ -2077,6 +2078,8 @@ class Conv2d(Module):
             w = w.view(b * self.out_c, *w.shape[2:])  # b*out, in, wh, ww
         if self.demodulate:
             w = w * torch.rsqrt(w.pow(2).sum([-3, -2, -1], keepdim=True) + 1e-8)
+        if self.weight_scale is not None:
+            w = w * self.weight_scale
         # if style is provided, we should view the results back
         net = F.conv2d(
             net,
