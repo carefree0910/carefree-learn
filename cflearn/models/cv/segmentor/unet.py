@@ -72,7 +72,8 @@ class UNetDecoder(nn.Module):
         self.blocks = nn.ModuleList(blocks)
 
     def forward(self, backbone_outputs: tensor_dict_type) -> Tensor:
-        features = [backbone_outputs[f"stage{i}"] for i in range(len(backbone_outputs))]
+        indices = [int(k[5:]) for k in sorted(backbone_outputs)]
+        features = [backbone_outputs[f"stage{i}"] for i in indices]
         features = features[::-1]
 
         net = features[0]
