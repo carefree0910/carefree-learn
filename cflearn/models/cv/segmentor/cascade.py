@@ -5,6 +5,8 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from .constants import LV1_ALPHA_KEY
+from .constants import LV1_RAW_ALPHA_KEY
 from ...bases import CascadeBase
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
@@ -47,7 +49,7 @@ class CascadeU2Net(CascadeBase):
         self.lv2_resolution = lv2_resolution
         if lv2_model_config is None:
             lv2_model_config = {}
-        lv2_model_config["in_channels"] = in_channels + out_channels
+        lv2_model_config["in_channels"] = in_channels
         lv2_model_config["out_channels"] = out_channels
         self._construct(
             "u2net",
@@ -73,16 +75,24 @@ class CascadeU2Net(CascadeBase):
         if self.lv2_resolution is not None:
             lv2_res = self.lv2_resolution
             inp = interpolate(batch[INPUT_KEY], size=lv2_res, mode="bilinear")
+            lv1_raw_alpha = interpolate(lv1_raw_alpha, size=lv2_res, mode="bilinear")
             lv1_alpha = interpolate(lv1_alpha, size=lv2_res, mode="bilinear")
-        lv2_input = torch.cat([inp, lv1_alpha], dim=1)
-        lv2_outputs = self.lv2_net(batch_idx, {INPUT_KEY: lv2_input}, state, **kwargs)
+        lv2_outputs = self.lv2_net(
+            batch_idx,
+            {
+                INPUT_KEY: inp,
+                LV1_ALPHA_KEY: lv1_alpha,
+                LV1_RAW_ALPHA_KEY: lv1_raw_alpha,
+            },
+            state,
+            **kwargs,
+        )
         lv2_raw_alpha = lv2_outputs[PREDICTIONS_KEY]
         if isinstance(lv2_raw_alpha, list):
             lv2_raw_alpha = lv2_raw_alpha[0]
         if self.lv2_resolution is not None:
             lv2_raw_alpha = interpolate(lv2_raw_alpha, size=resolution, mode="bilinear")
-        final_raw_alpha = lv1_raw_alpha + lv2_raw_alpha
-        return {PREDICTIONS_KEY: final_raw_alpha}
+        return {PREDICTIONS_KEY: lv2_raw_alpha}
 
     def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
         results = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]

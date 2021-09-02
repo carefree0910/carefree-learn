@@ -31,7 +31,7 @@ class AlphaRefineNet(ModelProtocol):
         if lite:
             latent_channels //= 2
         blocks = get_conv_blocks(
-            in_channels,
+            in_channels + 1,
             latent_channels,
             3,
             1,
@@ -67,7 +67,12 @@ class AlphaRefineNet(ModelProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.net(batch[INPUT_KEY])}
+        net = batch[INPUT_KEY]
+        lv1_raw_alpha = batch[LV1_RAW_ALPHA_KEY]
+        lv1_alpha = batch[LV1_ALPHA_KEY]
+        net = self.net(torch.cat([net, lv1_alpha], dim=1))
+        net = net + lv1_raw_alpha
+        return {PREDICTIONS_KEY: net}
 
     def refine_from(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
