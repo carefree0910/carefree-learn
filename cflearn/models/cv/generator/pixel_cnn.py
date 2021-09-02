@@ -34,11 +34,10 @@ class MaskedConv2d(Conv2d):
         groups: int = 1,
         stride: int = 1,
         dilation: int = 1,
-        padding: Any = "reflection",
+        padding: Any = "same",
         transform_kernel: bool = False,
         bias: bool = True,
         demodulate: bool = False,
-        gain: float = math.sqrt(2.0),
     ):
         assert mask_type in {"A", "B"}
         super().__init__(
@@ -52,7 +51,6 @@ class MaskedConv2d(Conv2d):
             transform_kernel=transform_kernel,
             bias=bias,
             demodulate=demodulate,
-            gain=gain,
         )
         self.register_buffer("mask", self.weight.data.clone())
         _, _, h, w = self.weight.shape
