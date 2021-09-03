@@ -43,7 +43,6 @@ class AdaINStylizer(ModelProtocol):
     def __init__(
         self,
         in_channels: int = 3,
-        out_channels: Optional[int] = None,
         *,
         backbone: str = "vgg16",
         backbone_config: Optional[Dict[str, Any]] = None,
@@ -63,7 +62,7 @@ class AdaINStylizer(ModelProtocol):
         decoder_config.setdefault("activation", "relu")
         self.decoder = VanillaDecoder(
             self.backbone.latent_channels,
-            out_channels or in_channels,
+            in_channels,
             num_upsample=self.backbone.num_downsample,
             **(decoder_config or {}),
         )
