@@ -92,7 +92,7 @@ def prepare_image_folder(
     tgt_folder: str,
     *,
     to_index: bool,
-    label_fn: Callable[[List[str]], Any],
+    label_fn: Optional[Callable[[List[str]], Any]],
     filter_fn: Optional[Callable[[List[str]], bool]] = None,
     force_rerun: bool = False,
     src_prepare_fn: Optional[Callable[[str], None]] = None,
@@ -159,6 +159,8 @@ def prepare_image_folder(
         return final_results
 
     print("> making labels")
+    if label_fn is None:
+        label_fn = lambda _: 0
     labels = get_labels(label_fn)
     excluded_indices = {i for i, label in enumerate(labels) if label is None}
     extra_labels_dict: Optional[Dict[str, List[str]]] = None
