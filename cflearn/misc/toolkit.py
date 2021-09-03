@@ -1087,6 +1087,38 @@ def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
     return (arr - arr_min) / diff
 
 
+def quantile_normalize(
+    arr: arr_type,
+    *,
+    q: float = 0.01,
+    global_norm: bool = True,
+) -> arr_type:
+    eps = 1.0e-8
+    # quantiles
+    if isinstance(arr, torch.Tensor):
+        kw = {"dim": 0}
+        quantile_fn = torch.quantile
+    else:
+        kw = {"axis": 0}
+        quantile_fn = np.quantile
+    if global_norm:
+        arr_min = quantile_fn(arr, q).item()
+        arr_max = quantile_fn(arr, 1.0 - q).item()
+    else:
+        arr_min = quantile_fn(arr, q, **kw)
+        arr_max = quantile_fn(arr, 1.0 - q, **kw)
+    # diff
+    if global_norm:
+        diff = max(eps, arr_max - arr_min)
+    else:
+        if isinstance(arr, torch.Tensor):
+            diff = torch.clamp(arr_max - arr_min, min=eps)
+        else:
+            diff = np.maximum(eps, arr_max - arr_min)
+    arr = arr.clip(arr_min, arr_max)
+    return (arr - arr_min) / diff
+
+
 def imagenet_normalize(arr: arr_type) -> arr_type:
     mean_gray, std_gray = [0.485], [0.229]
     mean_rgb, std_rgb = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
