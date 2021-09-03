@@ -2282,7 +2282,7 @@ def get_conv_blocks(
     norm_kwargs: Optional[Dict[str, Any]] = None,
     ca_reduction: Optional[int] = None,
     eca_kernel_size: Optional[int] = None,
-    activation: Optional[Module] = None,
+    activation: Optional[Union[str, Module]] = None,
     conv_base: Type["Conv2d"] = Conv2d,
     **conv2d_kwargs: Any,
 ) -> List[Module]:
@@ -2303,6 +2303,8 @@ def get_conv_blocks(
     if eca_kernel_size is not None:
         blocks.append(ECABlock(kernel_size))
     if activation is not None:
+        if isinstance(activation, str):
+            activation = Activations.make(activation)
         blocks.append(activation)
     if ca_reduction is not None:
         blocks.append(CABlock(out_channels, ca_reduction))
