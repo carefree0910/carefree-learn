@@ -16,6 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
+from ....models.cv.generator.constants import STYLE_KEY
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 
@@ -123,8 +124,30 @@ class AlphaSegmentationCallback(ImageCallback):
         save_images(to_torch(rgba_sharp), os.path.join(image_folder, "rgba_sharp.png"))
 
 
+@TrainerCallback.register("adain")
+@TrainerCallback.register("style_transfer")
+class StyleTransferCallback(ImageCallback):
+    def log_artifacts(self, trainer: Trainer) -> None:
+        if not self.is_rank_0:
+            return None
+        batch = next(iter(trainer.validation_loader))
+        batch = to_device(batch, trainer.device)
+        content = batch[INPUT_KEY]
+        style = batch[STYLE_KEY]
+        model = trainer.model
+        image_folder = self._prepare_folder(trainer)
+        # inputs
+        save_images(content, os.path.join(image_folder, "original.png"))
+        save_images(style, os.path.join(image_folder, "styles.png"))
+        # stylize
+        with eval_context(model):
+            stylized = model.stylize(content, style)
+        save_images(stylized, os.path.join(image_folder, "stylized.png"))
+
+
 __all__ = [
     "GeneratorCallback",
     "SizedGeneratorCallback",
     "AlphaSegmentationCallback",
+    "StyleTransferCallback",
 ]
