@@ -242,7 +242,7 @@ class InferenceImageFolderData(CVDataModule):
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.transform = Transforms.convert(transform, transform_config)
-        self.kw = dict(batch_size=batch_size, num_workers=num_workers)
+        self.kw: Dict[str, Any] = dict(batch_size=batch_size, num_workers=num_workers)
         self.prepare(None)
 
     @property

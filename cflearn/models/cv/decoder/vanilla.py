@@ -21,7 +21,7 @@ class VanillaDecoder(DecoderBase):
         latent_channels: int,
         out_channels: int,
         norm_type: str = "instance",
-        activation: str = "leaky_relu_0.2",
+        activation: Optional[str] = "leaky_relu_0.2",
         *,
         num_repeats: Optional[List[int]] = None,
         img_size: Optional[int] = None,
