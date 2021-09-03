@@ -19,7 +19,6 @@ class VanillaDecoder(DecoderBase):
     def __init__(
         self,
         latent_channels: int,
-        latent_resolution: int,
         out_channels: int,
         last_kernel_size: int = 7,
         norm_type: str = "instance",
@@ -28,15 +27,16 @@ class VanillaDecoder(DecoderBase):
         num_upsample: Optional[int] = None,
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
+        latent_resolution: Optional[int] = None,
     ):
         super().__init__(
             latent_channels,
-            latent_resolution,
             out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
             cond_channels=cond_channels,
             num_classes=num_classes,
+            latent_resolution=latent_resolution,
         )
         self.last_kernel_size = last_kernel_size
         in_nc = latent_channels

@@ -28,13 +28,13 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
     def __init__(
         self,
         latent_channels: int,
-        latent_resolution: int,
         out_channels: int,
         *,
         img_size: Optional[int] = None,
         num_upsample: Optional[int] = None,
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
+        latent_resolution: Optional[int] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -42,9 +42,11 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self.latent_resolution = latent_resolution
         self.out_channels = out_channels
         if num_upsample is None:
+            fmt = "`{}` should be provided when `num_upsample` is not"
             if img_size is None:
-                msg = "`img_size` should be provided when `num_upsample` is not"
-                raise ValueError(msg)
+                raise ValueError(fmt.format("img_size"))
+            if latent_resolution is None:
+                raise ValueError(fmt.format("latent_resolution"))
             num_upsample = auto_num_layers(img_size, latent_resolution, None)
         self.num_upsample = num_upsample
         # conditional
@@ -53,6 +55,9 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         if num_classes is None:
             self.cond = None
         else:
+            if latent_resolution is None:
+                msg = "`latent_resolution` should be provided for conditional modeling"
+                raise ValueError(msg)
             self.cond = ChannelPadding(
                 cond_channels,
                 latent_resolution,
