@@ -303,6 +303,25 @@ class TestModels(unittest.TestCase):
             [batch_size, out_channels, img_size, img_size],
         )
 
+        adain_stylizer = cflearn.AdaINStylizer(in_channels)
+        self.assertSequenceEqual(
+            adain_stylizer.stylize(
+                torch.randn(
+                    batch_size,
+                    in_channels,
+                    img_size,
+                    img_size,
+                ),
+                torch.randn(
+                    batch_size,
+                    in_channels,
+                    img_size,
+                    img_size,
+                ),
+            ).shape,
+            [batch_size, in_channels, img_size, img_size],
+        )
+
         pixel_cnn = cflearn.PixelCNN(1, num_classes)
         self.assertSequenceEqual(
             pixel_cnn.sample(1, img_size).shape,
