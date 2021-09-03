@@ -12,6 +12,18 @@ from cflearn.models.ml.protocol import EMBEDDING_KEY
 from cflearn.models.ml.protocol import NUMERICAL_KEY
 
 
+batch_size = 21
+patch_size = 5
+img_size = 35
+in_channels = 13
+out_channels = 5
+num_downsample = 2
+num_classes = 11
+latent_dim = 111
+
+inp = torch.randn(batch_size, in_channels, img_size, img_size)
+
+
 class TestModels(unittest.TestCase):
     def test_ml(self) -> None:
         def _make(core_name: str, **kwargs: Any) -> Module:
@@ -71,18 +83,7 @@ class TestModels(unittest.TestCase):
         self.assertSequenceEqual(_ts("mixer")(ts).shape, [batch_size, out_dim])
         self.assertSequenceEqual(_ts("fnet")(ts).shape, [batch_size, out_dim])
 
-    def test_cv(self) -> None:
-        batch_size = 21
-        patch_size = 5
-        img_size = 35
-        in_channels = 13
-        out_channels = 5
-        num_downsample = 2
-        num_classes = 11
-        latent_dim = 111
-
-        inp = torch.randn(batch_size, in_channels, img_size, img_size)
-
+    def test_cv_clf_cnn(self) -> None:
         vanilla_clf = cflearn.VanillaClassifier(
             in_channels,
             num_classes,
@@ -121,6 +122,7 @@ class TestModels(unittest.TestCase):
             [batch_size, num_classes],
         )
 
+    def test_cv_clf_mixed_stack(self) -> None:
         vit_clf = cflearn.VanillaClassifier(
             in_channels,
             num_classes,
@@ -157,19 +159,7 @@ class TestModels(unittest.TestCase):
             [batch_size, num_classes],
         )
 
-        perceiver_clf = cflearn.VanillaClassifier(
-            in_channels,
-            num_classes,
-            img_size,
-            16,
-            encoder1d="perceiver_io",
-            encoder1d_configs={"patch_size": patch_size},
-        )
-        self.assertSequenceEqual(
-            perceiver_clf.classify(inp).shape,
-            [batch_size, num_classes],
-        )
-
+    def test_cv_vae(self) -> None:
         vae1d = cflearn.VanillaVAE1D(in_channels, out_channels, img_size=img_size)
         self.assertSequenceEqual(
             vae1d.decode(torch.randn(batch_size, vae1d.latent_dim), labels=None).shape,
@@ -207,6 +197,7 @@ class TestModels(unittest.TestCase):
             [batch_size, out_channels, img_size, img_size],
         )
 
+    def test_cv_gan(self) -> None:
         gan = cflearn.VanillaGAN(img_size, in_channels, out_channels)
         self.assertSequenceEqual(
             gan.decode(torch.randn(batch_size, gan.latent_dim), labels=None).shape,
@@ -222,6 +213,7 @@ class TestModels(unittest.TestCase):
             [batch_size, out_channels, img_size, img_size],
         )
 
+    def test_cv_segmentation(self) -> None:
         unet = cflearn.UNet(in_channels, out_channels)
         self.assertSequenceEqual(
             unet.generate_from(
@@ -303,6 +295,7 @@ class TestModels(unittest.TestCase):
             [batch_size, out_channels, img_size, img_size],
         )
 
+    def test_cv_style_transfer(self) -> None:
         adain_stylizer = cflearn.AdaINStylizer(in_channels)
         self.assertSequenceEqual(
             adain_stylizer.stylize(
@@ -322,10 +315,25 @@ class TestModels(unittest.TestCase):
             [batch_size, in_channels, img_size, img_size],
         )
 
+    def test_cv_generator(self) -> None:
         pixel_cnn = cflearn.PixelCNN(1, num_classes)
         self.assertSequenceEqual(
             pixel_cnn.sample(1, img_size).shape,
             [1, 1, img_size, img_size],
+        )
+
+    def test_cv_perceiver_io(self) -> None:
+        perceiver_clf = cflearn.VanillaClassifier(
+            in_channels,
+            num_classes,
+            img_size,
+            16,
+            encoder1d="perceiver_io",
+            encoder1d_configs={"patch_size": patch_size},
+        )
+        self.assertSequenceEqual(
+            perceiver_clf.classify(inp).shape,
+            [batch_size, num_classes],
         )
 
         perceiver_io = cflearn.PerceiverIOGenerator(2, in_channels, out_channels)
