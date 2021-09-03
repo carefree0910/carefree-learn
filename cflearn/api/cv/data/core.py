@@ -148,8 +148,15 @@ def prepare_image_folder(
         if not make_labels_in_parallel:
             return [task(h) for h in tqdm(hierarchy_list)]
         parallel = Parallel(num_jobs, use_tqdm=use_tqdm)
-        groups = parallel.grouped(task, hierarchy_list).ordered_results
-        return sum(groups, [])
+        num_files = len(hierarchy_list)
+        random_indices = np.random.permutation(num_files).tolist()
+        shuffled = [hierarchy_list[i] for i in random_indices]
+        groups = parallel.grouped(task, shuffled).ordered_results
+        shuffled_results: List[Any] = sum(groups, [])
+        final_results = [None] * num_files
+        for idx, rs in zip(random_indices, shuffled_results):
+            final_results[idx] = rs
+        return final_results
 
     print("> making labels")
     labels = get_labels(label_fn)
