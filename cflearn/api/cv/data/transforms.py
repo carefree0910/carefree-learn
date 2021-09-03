@@ -357,6 +357,26 @@ class ToArray(ATransforms):
         self.fn = lambda **inp: {k: np.array(v) for k, v in inp.items()}
 
 
+@Transforms.register("to_rgb")
+class ToRGB(ATransforms):
+    def __init__(self, *, label_alias: Optional[str] = None):
+        super().__init__(label_alias=label_alias)
+        self.fn = lambda **inp: {k: self._to_rgb(k, v) for k, v in inp.items()}
+
+    def _to_rgb(self, k: str, v: np.ndarray) -> np.ndarray:
+        if k != self.input_alias:
+            return v
+        if len(v.shape) == 2:
+            v = v[..., None]
+        if v.shape[2] == 3:
+            return v
+        if v.shape[2] == 4:
+            return v[..., :3] * v[..., 3:]
+        if v.shape[2] == 1:
+            return v.repeat(3, axis=2)
+        raise ValueError(f"invalid shape ({v.shape}) occurred with '{k}'")
+
+
 @Transforms.register("resize")
 class Resize(ATransforms):
     def __init__(
@@ -556,6 +576,39 @@ class ABundleTest(Compose):
         )
 
 
+@Transforms.register("style_transfer")
+class StyleTransfer(Compose):
+    def __init__(
+        self,
+        *,
+        resize_size: int = 512,
+        crop_size: int = 256,
+        label_alias: Optional[str] = None,
+    ):
+        super().__init__(
+            [
+                ToRGB(label_alias=label_alias),
+                Resize(resize_size, label_alias=label_alias),
+                RandomCrop(crop_size, label_alias=label_alias),
+                Normalize(label_alias=label_alias),
+                AToTensor(label_alias=label_alias),
+            ]
+        )
+
+
+@Transforms.register("style_transfer_test")
+class StyleTransferTest(Compose):
+    def __init__(self, *, resize_size: int = 256, label_alias: Optional[str] = None):
+        super().__init__(
+            [
+                ToRGB(label_alias=label_alias),
+                Resize(resize_size, label_alias=label_alias),
+                Normalize(label_alias=label_alias),
+                AToTensor(label_alias=label_alias),
+            ]
+        )
+
+
 __all__ = [
     "Function",
     "Compose",
@@ -584,4 +637,6 @@ __all__ = [
     "AToTensor",
     "ABundle",
     "ABundleTest",
+    "StyleTransfer",
+    "StyleTransferTest",
 ]
