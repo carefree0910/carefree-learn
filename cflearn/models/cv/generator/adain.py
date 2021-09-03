@@ -21,6 +21,7 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import interpolate
 
 
 def mean_std(latent_map: Tensor, eps: float = 1.0e-5) -> Tuple[Tensor, Tensor]:
@@ -83,7 +84,7 @@ class AdaINStylizer(ModelProtocol):
         style_weight = kwargs.get("style_weight", 1.0)
         encoded = style_weight * encoded + (1.0 - style_weight) * content_latent
         rs = self.decoder(batch_idx, {INPUT_KEY: encoded}, state, **kwargs)
-        decoded = rs[PREDICTIONS_KEY]
+        decoded = interpolate(rs[PREDICTIONS_KEY], anchor=content)
         decoded_feats = self.backbone(batch_idx, {INPUT_KEY: decoded}, state, **kwargs)
         return {
             PREDICTIONS_KEY: decoded,
