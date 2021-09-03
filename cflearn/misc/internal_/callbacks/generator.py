@@ -16,6 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
+from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 
 @TrainerCallback.register("generator")
@@ -107,6 +108,9 @@ class AlphaSegmentationCallback(ImageCallback):
         save_images(label, os.path.join(image_folder, "label.png"))
         save_images(seg_map, os.path.join(image_folder, "mask.png"))
         save_images(sharp_map, os.path.join(image_folder, "mask_sharp.png"))
+        lv1_alpha = results.get(LV1_ALPHA_KEY)
+        if lv1_alpha is not None:
+            save_images(lv1_alpha, os.path.join(image_folder, "lv1_mask.png"))
         np_original = min_max_normalize(to_numpy(original))
         np_label, np_mask, np_sharp = map(to_numpy, [label, seg_map, sharp_map])
         rgba = np.concatenate([np_original, np_label], axis=1)
