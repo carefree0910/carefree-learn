@@ -261,14 +261,20 @@ class TestModels(unittest.TestCase):
                     in_channels,
                     img_size,
                     img_size,
-                )
+                ),
+                torch.randn(
+                    batch_size,
+                    1,
+                    img_size,
+                    img_size,
+                ),
             ).shape,
             [batch_size, out_channels, img_size, img_size],
         )
 
         cascade_u2net = cflearn.CascadeU2Net(
             in_channels,
-            out_channels,
+            1,
             num_layers=2,
             num_inner_layers=3,
         )
@@ -281,7 +287,7 @@ class TestModels(unittest.TestCase):
                     img_size,
                 )
             ).shape,
-            [batch_size, out_channels, img_size, img_size],
+            [batch_size, 1, img_size, img_size],
         )
 
         seg_former = cflearn.LinearSegmentation(in_channels, out_channels)

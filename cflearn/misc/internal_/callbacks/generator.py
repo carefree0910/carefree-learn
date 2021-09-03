@@ -99,6 +99,8 @@ class AlphaSegmentationCallback(ImageCallback):
         original = batch[INPUT_KEY]
         label = batch[LABEL_KEY].float()
         logits = results[PREDICTIONS_KEY]
+        if isinstance(logits, list):
+            logits = logits[0]
         if logits.shape[1] != 1:
             logits = logits[:, [-1]]
         seg_map = min_max_normalize(torch.sigmoid(logits))

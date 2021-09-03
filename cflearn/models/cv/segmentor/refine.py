@@ -1,9 +1,13 @@
+import torch
+
 import torch.nn as nn
 
 from torch import Tensor
 from typing import Any
 from typing import Optional
 
+from .constants import LV1_ALPHA_KEY
+from .constants import LV1_RAW_ALPHA_KEY
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
@@ -74,8 +78,10 @@ class AlphaRefineNet(ModelProtocol):
         net = net + lv1_raw_alpha
         return {PREDICTIONS_KEY: net}
 
-    def refine_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
+    def refine_from(self, net: Tensor, lv1_raw_alpha: Tensor, **kwargs: Any) -> Tensor:
+        alpha = torch.sigmoid(lv1_raw_alpha)
+        inp = {INPUT_KEY: net, LV1_RAW_ALPHA_KEY: lv1_raw_alpha, LV1_ALPHA_KEY: alpha}
+        return self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
 
 
 __all__ = [
