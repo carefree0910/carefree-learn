@@ -22,6 +22,7 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
+from ....misc.toolkit import quantile_normalize
 
 
 def mean_std(latent_map: Tensor, eps: float = 1.0e-5) -> Tuple[Tensor, Tensor]:
@@ -96,7 +97,8 @@ class AdaINStylizer(ModelProtocol):
 
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
         inp = {INPUT_KEY: net, STYLE_KEY: style}
-        return self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
+        decoded = self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
+        return quantile_normalize(decoded, **kwargs)
 
 
 @LossProtocol.register("adain")
