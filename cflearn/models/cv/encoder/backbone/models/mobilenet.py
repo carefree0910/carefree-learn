@@ -3,6 +3,8 @@ import torch
 from torch import nn
 from torchvision.models import mobilenet_v2
 
+from .register import register_backbone
+
 
 class MobileNet(nn.Module):
     def __init__(self, name: str, pretrained: bool = True):
@@ -31,6 +33,7 @@ class MobileNet(nn.Module):
         return net
 
 
+@register_backbone("mobilenet_v2")
 def sliced_mobilenet_v2(pretrained: bool = True) -> MobileNet:
     return MobileNet("mobilenet_v2", pretrained=pretrained)
 

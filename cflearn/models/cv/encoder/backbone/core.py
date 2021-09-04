@@ -11,26 +11,9 @@ from torchvision.models import resnet101
 from torchvision.models import resnet152
 from torchvision.models._utils import IntermediateLayerGetter as ILG
 
-from .models import *
 from .....constants import LATENT_KEY
+from .models.register import backbone_dict
 from .....misc.toolkit import set_requires_grad
-
-
-backbone_dict = {
-    "vgg16": sliced_vgg16,
-    "vgg19": sliced_vgg19,
-    "rep_vgg": rep_vgg,
-    "rep_vgg_lite": rep_vgg_lite,
-    "rep_vgg_large": rep_vgg_large,
-    "resnet18": resnet18,
-    "resnet50": resnet50,
-    "resnet101": resnet101,
-    "resnet152": resnet152,
-    "mobilenet_v2": sliced_mobilenet_v2,
-    "mix_vit": mix_vit,
-    "mix_vit_lite": mix_vit_lite,
-    "mix_vit_large": mix_vit_large,
-}
 
 
 class IntermediateLayerGetter(ILG):

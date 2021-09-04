@@ -11,6 +11,7 @@ from typing import Optional
 from torchvision.models import vgg16
 from torchvision.models import vgg19
 
+from .register import register_backbone
 from ......modules.blocks import get_conv_blocks
 from ......modules.blocks import Conv2d
 from ......modules.blocks import SEBlock
@@ -38,10 +39,12 @@ class VGG(nn.Module):
         return net
 
 
+@register_backbone("vgg16")
 def sliced_vgg16(pretrained: bool = True) -> VGG:
     return VGG(vgg16, [4, 9, 16, 23], pretrained=pretrained)
 
 
+@register_backbone("vgg19")
 def sliced_vgg19(pretrained: bool = True) -> VGG:
     return VGG(vgg19, [4, 9, 18, 27], pretrained=pretrained)
 
@@ -314,18 +317,21 @@ class RepVGG(nn.Module):
         self.stage5.switch_to_deploy()
 
 
+@register_backbone("rep_vgg")
 def rep_vgg(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")
     return RepVGG([4, 6, 16, 1], [2.0, 2.0, 2.0, 4.0])
 
 
+@register_backbone("rep_vgg_lite")
 def rep_vgg_lite(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")
     return RepVGG([2, 4, 14, 1], [0.75, 0.75, 0.75, 2.5])
 
 
+@register_backbone("rep_vgg_large")
 def rep_vgg_large(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")

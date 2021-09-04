@@ -5,6 +5,7 @@ from typing import Any
 from typing import List
 from cftool.misc import shallow_copy_dict
 
+from .register import register_backbone
 from ......modules.blocks import ImgToPatches
 from ......modules.blocks import MixedStackedEncoder
 
@@ -94,6 +95,7 @@ class MixViT(nn.Module):
         return net
 
 
+@register_backbone("mix_vit")
 def mix_vit(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
@@ -107,6 +109,7 @@ def mix_vit(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     )
 
 
+@register_backbone("mix_vit_lite")
 def mix_vit_lite(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
@@ -120,6 +123,7 @@ def mix_vit_lite(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     )
 
 
+@register_backbone("mix_vit_large")
 def mix_vit_large(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
