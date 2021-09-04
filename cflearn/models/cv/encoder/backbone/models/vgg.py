@@ -1,8 +1,8 @@
 import torch
 
 import numpy as np
+import torch.nn as nn
 
-from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import List
@@ -28,16 +28,13 @@ class VGG(nn.Module):
                 local_module.add_module(str(i), vgg_layers[i])
             sliced_modules.append(local_module)
             start_idx = slice_idx
-        self.slice1 = sliced_modules[0]
-        self.slice2 = sliced_modules[1]
-        self.slice3 = sliced_modules[2]
-        self.slice4 = sliced_modules[3]
+        self.num_slices = len(sliced_modules)
+        for i, sliced_m in enumerate(sliced_modules):
+            setattr(self, f"slice{i}",  sliced_m)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        net = self.slice1(net)
-        net = self.slice2(net)
-        net = self.slice3(net)
-        net = self.slice4(net)
+        for i in range(self.num_slices):
+            net = getattr(self, f"slice{i}")(net)
         return net
 
 

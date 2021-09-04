@@ -6,10 +6,10 @@ from ..api import Preset
 
 remove_layers: List[str] = []
 target_layers = OrderedDict(
-    slice1="stage0",
-    slice2="stage1",
-    slice3="stage2",
-    slice4="stage3",
+    slice0="stage0",
+    slice1="stage1",
+    slice2="stage2",
+    slice3="stage3",
 )
 
 rep_vgg_remove_layers: List[str] = []
