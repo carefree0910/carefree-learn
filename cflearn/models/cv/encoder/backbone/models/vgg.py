@@ -31,7 +31,7 @@ class VGG(nn.Module):
             start_idx = slice_idx
         self.num_slices = len(sliced_modules)
         for i, sliced_m in enumerate(sliced_modules):
-            setattr(self, f"slice{i}",  sliced_m)
+            setattr(self, f"slice{i}", sliced_m)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         for i in range(self.num_slices):

@@ -8,12 +8,11 @@ from torchvision.models import resnet101
 from torchvision.models import resnet152
 
 
-backbone_fn_type = Callable[[Any], nn.Module]
-backbone_dict: Dict[str, backbone_fn_type] = {}
+backbone_dict: Dict[str, Callable] = {}
 
 
-def register_backbone(name: str) -> Callable[[backbone_fn_type], backbone_fn_type]:
-    def _register(f: backbone_fn_type) -> backbone_fn_type:
+def register_backbone(name: str) -> Callable[[Callable], Callable]:
+    def _register(f: Callable) -> Callable:
         backbone_dict[name] = f
         return f
 
