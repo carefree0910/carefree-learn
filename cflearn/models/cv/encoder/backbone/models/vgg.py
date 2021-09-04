@@ -54,6 +54,11 @@ def sliced_vgg19_lite(pretrained: bool = True) -> VGG:
     return VGG(vgg19, [2, 7, 12, 21], pretrained=pretrained)
 
 
+@register_backbone("vgg19_large")
+def sliced_vgg19_large(pretrained: bool = True) -> VGG:
+    return VGG(vgg19, [4, 9, 18, 23, 27, 36], pretrained=pretrained)
+
+
 class RepVGGBlock(nn.Module):
     def __init__(
         self,
@@ -347,6 +352,7 @@ __all__ = [
     "sliced_vgg16",
     "sliced_vgg19",
     "sliced_vgg19_lite",
+    "sliced_vgg19_large",
     "rep_vgg",
     "rep_vgg_lite",
     "rep_vgg_large",
