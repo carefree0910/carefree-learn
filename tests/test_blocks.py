@@ -299,6 +299,7 @@ class TestBlocks(unittest.TestCase):
                     "vgg16",
                     "vgg19",
                     "vgg19_lite",
+                    "vgg19_large",
                     "rep_vgg",
                     "rep_vgg_deploy",
                     "rep_vgg_lite",

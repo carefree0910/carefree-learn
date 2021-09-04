@@ -96,18 +96,19 @@ class TestModels(unittest.TestCase):
             [batch_size, num_classes],
         )
 
-        vgg_clf = cflearn.VanillaClassifier(
-            in_channels,
-            num_classes,
-            img_size,
-            512,
-            encoder1d="backbone",
-            encoder1d_configs={"name": "vgg19_lite"},
-        )
-        self.assertSequenceEqual(
-            vgg_clf.classify(inp).shape,
-            [batch_size, num_classes],
-        )
+        for model_type in ["lite", "large"]:
+            vgg_clf = cflearn.VanillaClassifier(
+                in_channels,
+                num_classes,
+                img_size,
+                512,
+                encoder1d="backbone",
+                encoder1d_configs={"name": f"vgg19_{model_type}"},
+            )
+            self.assertSequenceEqual(
+                vgg_clf.classify(inp).shape,
+                [batch_size, num_classes],
+            )
 
         resnet_clf = cflearn.VanillaClassifier(
             in_channels,
