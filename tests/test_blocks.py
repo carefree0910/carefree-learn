@@ -298,6 +298,7 @@ class TestBlocks(unittest.TestCase):
                     "mobilenet_v2",
                     "vgg16",
                     "vgg19",
+                    "vgg19_lite",
                     "rep_vgg",
                     "rep_vgg_deploy",
                     "rep_vgg_lite",
