@@ -46,7 +46,7 @@ class AdaINStylizer(ModelProtocol):
         self,
         in_channels: int = 3,
         *,
-        backbone: str = "vgg16",
+        backbone: str = "vgg19_lite",
         backbone_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
@@ -79,20 +79,22 @@ class AdaINStylizer(ModelProtocol):
         style = batch[STYLE_KEY]
         content = batch[INPUT_KEY]
         style_feats = self.backbone(batch_idx, {INPUT_KEY: style}, state, **kwargs)
+        style_latent = style_feats.pop(LATENT_KEY)
         content_feats = self.backbone(batch_idx, {INPUT_KEY: content}, state, **kwargs)
         content_latent = content_feats[LATENT_KEY]
-        encoded = adain(content_latent, style_feats[LATENT_KEY])
+        encoded = adain(content_latent, style_latent)
         style_weight = kwargs.get("style_weight", 1.0)
         encoded = style_weight * encoded + (1.0 - style_weight) * content_latent
         rs = self.decoder(batch_idx, {INPUT_KEY: encoded}, state, **kwargs)
         decoded = interpolate(rs[PREDICTIONS_KEY], anchor=content)
         decoded_feats = self.backbone(batch_idx, {INPUT_KEY: decoded}, state, **kwargs)
+        decoded_content_latent = decoded_feats.pop(LATENT_KEY)
         return {
             PREDICTIONS_KEY: decoded,
             STYLE_LATENTS_KEY: style_feats,
             CONTENT_LATENT_KEY: encoded,
             STYLIZED_STYLE_LATENTS_KEY: decoded_feats,
-            STYLIZED_CONTENT_LATENT_KEY: decoded_feats[LATENT_KEY],
+            STYLIZED_CONTENT_LATENT_KEY: decoded_content_latent,
         }
 
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
