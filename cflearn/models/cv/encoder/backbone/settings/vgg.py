@@ -28,6 +28,7 @@ class VGGPreset(Preset):
     remove_layers = {
         "vgg16": remove_layers,
         "vgg19": remove_layers,
+        "vgg19_lite": remove_layers,
         "rep_vgg": rep_vgg_remove_layers,
         "rep_vgg_lite": rep_vgg_remove_layers,
         "rep_vgg_large": rep_vgg_remove_layers,
@@ -35,6 +36,7 @@ class VGGPreset(Preset):
     target_layers = {
         "vgg16": target_layers,
         "vgg19": target_layers,
+        "vgg19_lite": target_layers,
         "rep_vgg": rep_vgg_target_layers,
         "rep_vgg_lite": rep_vgg_target_layers,
         "rep_vgg_large": rep_vgg_target_layers,
@@ -42,6 +44,7 @@ class VGGPreset(Preset):
     increment_configs = {
         "vgg16": {"out_channels": [64, 128, 256, 512]},
         "vgg19": {"out_channels": [64, 128, 256, 512]},
+        "vgg19_lite": {"out_channels": [64, 128, 256, 512]},
         "rep_vgg": {"out_channels": [64, 128, 256, 512, 512, 2048]},
         "rep_vgg_lite": {"out_channels": [48, 48, 96, 192, 192, 1280]},
         "rep_vgg_large": {"out_channels": [64, 160, 320, 640, 640, 2560]},
