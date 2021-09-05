@@ -31,13 +31,11 @@ class DiscriminatorBase(nn.Module, WithRegister):
 
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         num_classes: Optional[int] = None,
         **kwargs: Any,
     ):
         super().__init__()
-        self.img_size = img_size
         self.in_channels = in_channels
         self.num_classes = num_classes
 
@@ -67,7 +65,6 @@ class DiscriminatorBase(nn.Module, WithRegister):
 class NLayerDiscriminator(DiscriminatorBase):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         num_classes: Optional[int] = None,
         *,
@@ -75,8 +72,7 @@ class NLayerDiscriminator(DiscriminatorBase):
         start_channels: int = 16,
         norm_type: str = "batch",
     ):
-        super().__init__(img_size, in_channels, num_classes)
-        self.img_size = img_size
+        super().__init__(in_channels, num_classes)
         self.num_layers = num_layers
         self.start_channels = start_channels
         # backbone

@@ -131,7 +131,6 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         )
         if discriminator_configs is None:
             discriminator_configs = {}
-        discriminator_configs["img_size"] = img_size
         discriminator_configs["in_channels"] = in_channels
         discriminator_configs["num_classes"] = num_classes
         self.discriminator = DiscriminatorBase.make(
