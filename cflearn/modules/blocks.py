@@ -2333,6 +2333,7 @@ class ResidualBlock(Module):
         if 0.0 < dropout < 1.0:
             blocks.append(nn.Dropout(dropout))
         k2 = shallow_copy_dict(kwargs)
+        k2["activation"] = None
         k2["eca_kernel_size"] = eca_kernel_size
         blocks.extend(get_conv_blocks(dim, dim, kernel_size, stride, **k2))
         self.net = Residual(nn.Sequential(*blocks))
