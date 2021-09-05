@@ -2284,19 +2284,21 @@ def get_conv_blocks(
     eca_kernel_size: Optional[int] = None,
     activation: Optional[Union[str, Module]] = None,
     conv_base: Type["Conv2d"] = Conv2d,
+    pre_activate: bool = False,
     **conv2d_kwargs: Any,
 ) -> List[Module]:
-    blocks: List[Module] = [
-        conv_base(
-            in_channels=in_channels,
-            out_channels=out_channels,
-            kernel_size=kernel_size,
-            stride=stride,
-            bias=bias,
-            demodulate=demodulate,
-            **conv2d_kwargs,
-        )
-    ]
+    conv = conv_base(
+        in_channels=in_channels,
+        out_channels=out_channels,
+        kernel_size=kernel_size,
+        stride=stride,
+        bias=bias,
+        demodulate=demodulate,
+        **conv2d_kwargs,
+    )
+    blocks: List[Module] = []
+    if not pre_activate:
+        blocks.append(conv)
     if not demodulate:
         factory = NormFactory(norm_type)
         factory.inject_to(out_channels, norm_kwargs or {}, blocks)
@@ -2308,6 +2310,8 @@ def get_conv_blocks(
         blocks.append(activation)
     if ca_reduction is not None:
         blocks.append(CABlock(out_channels, ca_reduction))
+    if pre_activate:
+        blocks.append(conv)
     return blocks
 
 
