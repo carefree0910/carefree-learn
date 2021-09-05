@@ -20,7 +20,7 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import adain
+from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import quantile_normalize
@@ -68,7 +68,7 @@ class AdaINStylizer(ModelProtocol):
         style_latent = style_feats.pop(LATENT_KEY)
         content_feats = self.backbone(batch_idx, {INPUT_KEY: content}, state, **kwargs)
         content_latent = content_feats[LATENT_KEY]
-        encoded = adain(content_latent, style_latent)
+        encoded = adain_with_tensor(content_latent, style_latent)
         style_weight = kwargs.get("style_weight", 1.0)
         encoded = style_weight * encoded + (1.0 - style_weight) * content_latent
         rs = self.decoder(batch_idx, {INPUT_KEY: encoded}, state, **kwargs)
