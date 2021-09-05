@@ -29,6 +29,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 
 from ..types import tensor_dict_type
+from ..misc.toolkit import adain_with_params
 from ..misc.toolkit import squeeze
 from ..misc.toolkit import interpolate
 from ..misc.toolkit import WithRegister
@@ -1007,6 +1008,22 @@ class DecayedAttention(Attention):
 class PixelNorm(Module):
     def forward(self, net: Tensor) -> Tensor:
         return F.normalize(net, dim=1)
+
+
+class AdaptiveInstanceNorm2d(nn.Module):
+    def __init__(self, dim: int, eps: float = 1.0e-5, momentum: float = 0.1):
+        super().__init__()
+        self.dim = dim
+        self.eps = eps
+        self.momentum = momentum
+        self.weight = None
+        self.bias = None
+
+    def forward(self, net: Tensor) -> Tensor:
+        return adain_with_params(net, self.bias, self.weight)
+
+    def extra_repr(self) -> str:
+        return str(self.dim)
 
 
 class NormFactory:
