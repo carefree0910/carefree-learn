@@ -37,6 +37,7 @@ from datetime import datetime
 from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
+from torch.optim import Optimizer
 from cftool.misc import prod
 from cftool.misc import hash_code
 from cftool.misc import register_core
@@ -325,6 +326,14 @@ class DownloadProgressBar(tqdm):
 
 
 # dl
+
+
+def toggle_optimizer(m: nn.Module, optimizer: Optimizer) -> None:
+    for param in m.parameters():
+        param.requires_grad = False
+    for group in optimizer.param_groups:
+        for param in group["params"]:
+            param.requires_grad = True
 
 
 def to_torch(arr: np.ndarray) -> Tensor:

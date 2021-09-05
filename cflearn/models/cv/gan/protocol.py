@@ -11,7 +11,6 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Optional
-from torch.optim import Optimizer
 
 from .losses import GANLoss
 from .losses import GANTarget
@@ -28,6 +27,7 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
+from ....misc.toolkit import toggle_optimizer
 from ....misc.internal_ import CVLoader
 
 
@@ -102,13 +102,6 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
         loss_dict["g_gan"] = loss_g
         loss = sum([sub_loss.detach() for sub_loss in loss_dict.values()])
         loss_dict[LOSS_KEY] = loss
-
-    def _toggle_optimizer(self, optimizer: Optimizer) -> None:
-        for param in self.parameters():
-            param.requires_grad = False
-        for group in optimizer.param_groups:
-            for param in group["params"]:
-                param.requires_grad = True
 
 
 class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
@@ -188,7 +181,7 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         opt_g = trainer.optimizers["g_parameters"]
         opt_d = trainer.optimizers["d_parameters"]
         # generator step
-        self._toggle_optimizer(opt_g)
+        toggle_optimizer(self, opt_g)
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
             loss_g, sampled, labels = self._g_loss(batch, forward_kwargs)
         trainer.grad_scaler.scale(loss_g).backward()
@@ -198,7 +191,7 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         trainer.grad_scaler.update()
         opt_g.zero_grad()
         # discriminator step
-        self._toggle_optimizer(opt_d)
+        toggle_optimizer(self, opt_d)
         with torch.no_grad():
             sampled = sampled.detach().clone()
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
