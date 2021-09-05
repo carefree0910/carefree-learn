@@ -1040,6 +1040,8 @@ class NormFactory:
         norm_layer: Union[Type[Module], Any]
         if norm_type == "batch_norm":
             norm_layer = BN
+        elif norm_type == "adain":
+            norm_layer = AdaptiveInstanceNorm2d
         elif norm_type == "layer_norm":
             norm_layer = nn.LayerNorm
         elif norm_type == "batch":
