@@ -2,7 +2,6 @@ from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Dict
-from typing import Tuple
 from typing import Optional
 
 from .constants import STYLE_KEY
@@ -21,23 +20,10 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import adain
+from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import quantile_normalize
-
-
-def mean_std(latent_map: Tensor, eps: float = 1.0e-5) -> Tuple[Tensor, Tensor]:
-    n, c = latent_map.shape[:2]
-    latent_var = latent_map.view(n, c, -1).var(dim=2) + eps
-    latent_std = latent_var.sqrt().view(n, c, 1, 1)
-    latent_mean = latent_map.view(n, c, -1).mean(dim=2).view(n, c, 1, 1)
-    return latent_mean, latent_std
-
-
-def adain(content_latent: Tensor, style_latent: Tensor) -> Tensor:
-    style_mean, style_std = mean_std(style_latent)
-    content_mean, content_std = mean_std(content_latent)
-    content_normalized = (content_latent - content_mean) / content_std
-    return content_normalized * style_std + style_mean
 
 
 @ModelProtocol.register("adain")
