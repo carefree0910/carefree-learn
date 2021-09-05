@@ -32,7 +32,6 @@ class SirenGAN(VanillaGANMixin):
         gan_loss_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
-            img_size,
             in_channels,
             discriminator=discriminator,
             discriminator_configs=discriminator_configs,

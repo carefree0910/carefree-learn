@@ -34,14 +34,12 @@ from ....misc.internal_ import CVLoader
 class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
     def __init__(
         self,
-        img_size: int,
         *,
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
         gan_loss_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        self.img_size = img_size
         self.num_classes = num_classes
         self.gan_mode = gan_mode
         self.gan_loss = GANLoss(gan_mode)
@@ -60,22 +58,22 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _g_loss(
+    def _g_losses(
         self,
         batch: tensor_dict_type,
         forward_kwargs: Dict[str, Any],
-    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
-        # loss_g, sampled, labels
+    ) -> Tuple[tensor_dict_type, tensor_dict_type, Optional[Tensor]]:
+        # g_losses, sampled, labels
         pass
 
     @abstractmethod
     def _d_losses(
         self,
-        net: Tensor,
-        sampled: Tensor,
+        batch: tensor_dict_type,
+        sampled: tensor_dict_type,
         labels: Optional[Tensor],
-    ) -> Tuple[Tensor, tensor_dict_type]:
-        # d_loss, losses
+    ) -> tensor_dict_type:
+        # d_losses
         pass
 
     # utilities
@@ -95,19 +93,81 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
         return {PREDICTIONS_KEY: self.decode(z, labels=batch[LABEL_KEY], **kwargs)}
 
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self._g_loss(batch, {})
-
-    @staticmethod
-    def _gather_losses(loss_g: Tensor, loss_dict: tensor_dict_type) -> None:
-        loss_dict["g_gan"] = loss_g
-        loss = sum([sub_loss.detach() for sub_loss in loss_dict.values()])
-        loss_dict[LOSS_KEY] = loss
+        self._g_losses(batch, {})
 
 
-class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
+class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
+    def train_step(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        trainer: Any,
+        forward_kwargs: Dict[str, Any],
+        loss_kwargs: Dict[str, Any],
+    ) -> StepOutputs:
+        opt_g = trainer.optimizers["g_parameters"]
+        opt_d = trainer.optimizers["d_parameters"]
+        # generator step
+        toggle_optimizer(self, opt_g)
+        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+            g_losses, sampled, labels = self._g_losses(batch, forward_kwargs)
+        g_loss = g_losses.pop(LOSS_KEY)
+        trainer.grad_scaler.scale(g_loss).backward()
+        if trainer.clip_norm > 0.0:
+            trainer._clip_norm_step()
+        trainer.grad_scaler.step(opt_g)
+        trainer.grad_scaler.update()
+        opt_g.zero_grad()
+        # discriminator step
+        toggle_optimizer(self, opt_d)
+        with torch.no_grad():
+            sampled = {k: v.detach().clone() for k, v in sampled.items()}
+        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+            d_losses = self._d_losses(batch, sampled, labels)
+        d_loss = d_losses.pop(LOSS_KEY)
+        trainer.grad_scaler.scale(d_loss).backward()
+        if trainer.clip_norm > 0.0:
+            trainer._clip_norm_step()
+        trainer.grad_scaler.step(opt_d)
+        trainer.grad_scaler.update()
+        opt_d.zero_grad()
+        # finalize
+        trainer._scheduler_step()
+        forward_results = {PREDICTIONS_KEY: sampled}
+        loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
+        loss_dict.update({k: v.item() for k, v in g_losses.items()})
+        loss_dict.update({k: v.item() for k, v in d_losses.items()})
+        return StepOutputs(forward_results, loss_dict)
+
+    def evaluate_step(  # type: ignore
+        self,
+        loader: CVLoader,
+        portion: float,
+        trainer: Any,
+    ) -> MetricsOutputs:
+        loss_items: Dict[str, List[float]] = {}
+        for i, batch in enumerate(loader):
+            if i / len(loader) >= portion:
+                break
+            batch = to_device(batch, self.device)
+            g_losses, sampled, labels = self._g_losses(batch, {})
+            d_losses = self._d_losses(batch, sampled, labels)
+            g_loss = g_losses.pop(LOSS_KEY)
+            d_loss = d_losses.pop(LOSS_KEY)
+            loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
+            loss_dict.update({k: v.item() for k, v in g_losses.items()})
+            loss_dict.update({k: v.item() for k, v in d_losses.items()})
+            for k, v in loss_dict.items():
+                loss_items.setdefault(k, []).append(v.item())
+        # gather
+        mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
+        score = trainer._weighted_loss_score(mean_loss_items)
+        return MetricsOutputs(score, mean_loss_items)
+
+
+class VanillaGANMixin(OneStageGANMixin, metaclass=ABCMeta):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         *,
         discriminator: str = "basic",
@@ -117,7 +177,6 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         gan_loss_configs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
-            img_size,
             num_classes=num_classes,
             gan_mode=gan_mode,
             gan_loss_configs=gan_loss_configs,
@@ -135,102 +194,47 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
     def d_parameters(self) -> List[nn.Parameter]:
         return list(self.discriminator.parameters())
 
-    def _g_loss(
+    def _g_losses(
         self,
         batch: tensor_dict_type,
         forward_kwargs: Dict[str, Any],
-    ) -> Tuple[Tensor, Tensor, Optional[Tensor]]:
+    ) -> Tuple[tensor_dict_type, tensor_dict_type, Optional[Tensor]]:
         labels = batch.get(LABEL_KEY)
         if labels is not None:
             labels = labels.view(-1)
         sampled = self.sample(len(batch[INPUT_KEY]), labels=labels, **forward_kwargs)
         pred_fake = self.discriminator(sampled)
         loss_g = self.gan_loss(pred_fake, GANTarget(True, labels))
-        return loss_g, sampled, labels
+        return {LOSS_KEY: loss_g}, {"sampled": sampled}, labels
 
     def _d_losses(
         self,
-        net: Tensor,
-        sampled: Tensor,
+        batch: tensor_dict_type,
+        sampled: tensor_dict_type,
         labels: Optional[Tensor],
-    ) -> Tuple[Tensor, tensor_dict_type]:
+    ) -> tensor_dict_type:
+        net = batch[INPUT_KEY]
+        sampled_tensor = sampled["sampled"]
         pred_real = self.discriminator(net)
         loss_d_real = self.gan_loss(pred_real, GANTarget(True, labels))
-        pred_fake = self.discriminator(sampled)
+        pred_fake = self.discriminator(sampled_tensor)
         loss_d_fake = self.gan_loss(pred_fake, GANTarget(False, labels))
         d_loss = 0.5 * (loss_d_fake + loss_d_real)
         losses = {"d_fake": loss_d_fake, "d_real": loss_d_real}
         if self.gan_mode == "wgangp":
             eps = random.random()
-            merged = eps * net + (1 - eps) * sampled
+            merged = eps * net + (1 - eps) * sampled_tensor
             with mode_context(self.discriminator, to_train=None, use_grad=True):
                 pred_merged = self.discriminator(merged.requires_grad_(True)).output
                 loss_gp = self.gan_loss.loss(merged, pred_merged)
             d_loss = d_loss + self.lambda_gp * loss_gp
             losses["d_gp"] = loss_gp
-        return d_loss, losses
-
-    def train_step(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        trainer: Any,
-        forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
-    ) -> StepOutputs:
-        opt_g = trainer.optimizers["g_parameters"]
-        opt_d = trainer.optimizers["d_parameters"]
-        # generator step
-        toggle_optimizer(self, opt_g)
-        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            loss_g, sampled, labels = self._g_loss(batch, forward_kwargs)
-        trainer.grad_scaler.scale(loss_g).backward()
-        if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
-        trainer.grad_scaler.step(opt_g)
-        trainer.grad_scaler.update()
-        opt_g.zero_grad()
-        # discriminator step
-        toggle_optimizer(self, opt_d)
-        with torch.no_grad():
-            sampled = sampled.detach().clone()
-        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            loss_d, loss_dict = self._d_losses(batch[INPUT_KEY], sampled, labels)
-        trainer.grad_scaler.scale(loss_d).backward()
-        if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
-        trainer.grad_scaler.step(opt_d)
-        trainer.grad_scaler.update()
-        opt_d.zero_grad()
-        # finalize
-        trainer._scheduler_step()
-        forward_results = {PREDICTIONS_KEY: sampled}
-        self._gather_losses(loss_g, loss_dict)
-        return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
-
-    def evaluate_step(  # type: ignore
-        self,
-        loader: CVLoader,
-        portion: float,
-        trainer: Any,
-    ) -> MetricsOutputs:
-        loss_items: Dict[str, List[float]] = {}
-        for i, batch in enumerate(loader):
-            if i / len(loader) >= portion:
-                break
-            batch = to_device(batch, self.device)
-            loss_g, sampled, labels = self._g_loss(batch, {})
-            loss_d, loss_dict = self._d_losses(batch[INPUT_KEY], sampled, labels)
-            self._gather_losses(loss_g, loss_dict)
-            for k, v in loss_dict.items():
-                loss_items.setdefault(k, []).append(v.item())
-        # gather
-        mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        score = trainer._weighted_loss_score(mean_loss_items)
-        return MetricsOutputs(score, mean_loss_items)
+        losses[LOSS_KEY] = d_loss
+        return losses
 
 
 __all__ = [
     "GANMixin",
+    "OneStageGANMixin",
     "VanillaGANMixin",
 ]
