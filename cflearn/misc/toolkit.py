@@ -1040,11 +1040,15 @@ def mean_std(latent_map: Tensor, eps: float = 1.0e-5) -> Tuple[Tensor, Tensor]:
     return latent_mean, latent_std
 
 
-def adain_with_tensor(src: Tensor, tgt: Tensor) -> Tensor:
-    tgt_mean, tgt_std = mean_std(tgt)
+def adain_with_params(src: Tensor, mean: Tensor, std: Tensor) -> Tensor:
     src_mean, src_std = mean_std(src)
     src_normalized = (src - src_mean) / src_std
-    return src_normalized * tgt_std + tgt_mean
+    return src_normalized * std + mean
+
+
+def adain_with_tensor(src: Tensor, tgt: Tensor) -> Tensor:
+    tgt_mean, tgt_std = mean_std(tgt)
+    return adain_with_params(src, tgt_mean, tgt_std)
 
 
 def make_grid(arr: arr_type, n_row: Optional[int] = None) -> Tensor:
