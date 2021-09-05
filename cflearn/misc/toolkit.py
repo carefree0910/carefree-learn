@@ -327,19 +327,19 @@ class DownloadProgressBar(tqdm):
 # dl
 
 
-def to_torch(arr: np.ndarray) -> torch.Tensor:
+def to_torch(arr: np.ndarray) -> Tensor:
     return torch.from_numpy(to_standard(arr))
 
 
-def to_numpy(tensor: torch.Tensor) -> np.ndarray:
+def to_numpy(tensor: Tensor) -> np.ndarray:
     return tensor.detach().cpu().numpy()
 
 
 def to_device(batch: tensor_dict_type, device: torch.device) -> tensor_dict_type:
     return {
         k: v.to(device)
-        if isinstance(v, torch.Tensor)
-        else [vv.to(device) if isinstance(vv, torch.Tensor) else vv for vv in v]
+        if isinstance(v, Tensor)
+        else [vv.to(device) if isinstance(vv, Tensor) else vv for vv in v]
         if isinstance(v, list)
         else v
         for k, v in batch.items()
@@ -355,7 +355,7 @@ def squeeze(arr: arr_type) -> arr_type:
 
 
 def softmax(arr: arr_type) -> arr_type:
-    if isinstance(arr, torch.Tensor):
+    if isinstance(arr, Tensor):
         return F.softmax(arr, dim=1)
     logits = arr - np.max(arr, axis=1, keepdims=True)
     exp = np.exp(logits)
@@ -404,11 +404,11 @@ def inject_parameters(
 
 
 def get_gradient(
-    y: torch.Tensor,
-    x: torch.Tensor,
+    y: Tensor,
+    x: Tensor,
     retain_graph: bool = False,
     create_graph: bool = False,
-) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
+) -> Union[Tensor, Tuple[Tensor, ...]]:
     grads = torch.autograd.grad(y, x, torch.ones_like(y), retain_graph, create_graph)
     if len(grads) == 1:
         return grads[0]
@@ -454,13 +454,13 @@ def summary(
                 return
 
             inp = inp[0]
-            if not isinstance(inp, torch.Tensor):
+            if not isinstance(inp, Tensor):
                 return
             if isinstance(output, (list, tuple)):
                 for element in output:
-                    if not isinstance(element, torch.Tensor):
+                    if not isinstance(element, Tensor):
                         return
-            elif not isinstance(output, torch.Tensor):
+            elif not isinstance(output, Tensor):
                 return
 
             m_dict: OrderedDict[str, Any] = OrderedDict()
@@ -849,12 +849,12 @@ def to_2d(arr: data_type) -> data_type:
 
 
 def corr(
-    predictions: torch.Tensor,
-    target: torch.Tensor,
-    weights: Optional[torch.Tensor] = None,
+    predictions: Tensor,
+    target: Tensor,
+    weights: Optional[Tensor] = None,
     *,
     get_diagonal: bool = False,
-) -> torch.Tensor:
+) -> Tensor:
     w_sum = 0.0 if weights is None else weights.sum().item()
     if weights is None:
         mean = predictions.mean(0, keepdim=True)
@@ -995,14 +995,14 @@ class SharedArrayWrapper:
 
 
 def interpolate(
-    src: torch.Tensor,
+    src: Tensor,
     *,
     mode: str = "nearest",
     factor: Optional[Union[float, Tuple[float, float]]] = None,
     size: Optional[Union[int, Tuple[int, int]]] = None,
-    anchor: Optional[torch.Tensor] = None,
+    anchor: Optional[Tensor] = None,
     **kwargs: Any,
-) -> torch.Tensor:
+) -> Tensor:
     if "linear" in mode or mode == "bicubic":
         kwargs.setdefault("align_corners", False)
     if factor is None:
@@ -1047,7 +1047,7 @@ def adain(content_latent: Tensor, style_latent: Tensor) -> Tensor:
     return content_normalized * style_std + style_mean
 
 
-def make_grid(arr: arr_type, n_row: Optional[int] = None) -> torch.Tensor:
+def make_grid(arr: arr_type, n_row: Optional[int] = None) -> Tensor:
     if isinstance(arr, np.ndarray):
         arr = to_torch(arr)
     if n_row is None:
@@ -1064,7 +1064,7 @@ def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
 
 
 def iou(logits: arr_type, labels: arr_type) -> arr_type:
-    is_torch = isinstance(logits, torch.Tensor)
+    is_torch = isinstance(logits, Tensor)
     num_classes = logits.shape[1]
     if num_classes == 1:
         if is_torch:
@@ -1111,7 +1111,7 @@ def quantile_normalize(
 ) -> arr_type:
     eps = 1.0e-8
     # quantiles
-    if isinstance(arr, torch.Tensor):
+    if isinstance(arr, Tensor):
         kw = {"dim": 0}
         quantile_fn = torch.quantile
     else:
@@ -1127,7 +1127,7 @@ def quantile_normalize(
     if global_norm:
         diff = max(eps, arr_max - arr_min)
     else:
-        if isinstance(arr, torch.Tensor):
+        if isinstance(arr, Tensor):
             diff = torch.clamp(arr_max - arr_min, min=eps)
         else:
             diff = np.maximum(eps, arr_max - arr_min)
@@ -1148,7 +1148,7 @@ def imagenet_normalize(arr: arr_type) -> arr_type:
     return (arr - mean) / std
 
 
-def make_indices_visualization_map(indices: torch.Tensor) -> torch.Tensor:
+def make_indices_visualization_map(indices: Tensor) -> Tensor:
     images = []
     for idx in indices.view(-1).tolist():
         img = Image.new("RGB", (28, 28), (250, 250, 250))
