@@ -1042,7 +1042,7 @@ class NormFactory:
             norm_layer = BN
         elif norm_type == "adain":
             norm_layer = AdaptiveInstanceNorm2d
-        elif norm_type == "layer_norm":
+        elif norm_type == "layer":
             norm_layer = nn.LayerNorm
         elif norm_type == "batch":
             norm_layer = nn.BatchNorm2d
@@ -1072,7 +1072,7 @@ class NormFactory:
             config = {"affine": True, "track_running_stats": True}
         elif norm_type == "instance":
             config = {"affine": False, "track_running_stats": False}
-        elif norm_type == "layer_norm":
+        elif norm_type == "layer":
             config = {"eps": 1.0e-6}
         return config
 
@@ -1107,7 +1107,7 @@ class Residual(Module):
 
 
 class PreNorm(Module):
-    def __init__(self, *dims: int, module: Module, norm_type: str = "layer_norm"):
+    def __init__(self, *dims: int, module: Module, norm_type: str = "layer"):
         super().__init__()
         self.norms = ModuleList([])
         for dim in dims:

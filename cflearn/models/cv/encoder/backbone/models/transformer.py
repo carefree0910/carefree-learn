@@ -35,7 +35,7 @@ class MixViT(nn.Module):
         reduction_ratios: List[int],
         dropout: float = 0.0,
         drop_path_rate: float = 0.1,
-        norm_type: str = "layer_norm",
+        norm_type: str = "layer",
         **attention_kwargs: Any,
     ):
         super().__init__()

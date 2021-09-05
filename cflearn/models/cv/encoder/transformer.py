@@ -20,7 +20,7 @@ class ViTEncoder(Encoder1DFromPatches):
         num_layers: int = 12,
         dropout: float = 0.0,
         drop_path_rate: float = 0.0,
-        norm_type: str = "layer_norm",
+        norm_type: str = "layer",
         feedforward_dim_ratio: float = 4.0,
         **attention_kwargs: Any,
     ):
