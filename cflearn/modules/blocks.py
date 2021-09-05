@@ -91,6 +91,25 @@ class BN(nn.BatchNorm1d):
         return net
 
 
+class LN(nn.LayerNorm):
+    def forward(self, net: Tensor) -> Tensor:
+        if len(net.shape) != 4 or len(self.normalized_shape) != 1:
+            return super().forward(net)
+        batch_size = net.shape[0]
+        if batch_size == 1:
+            mean = net.mean().view(1, 1, 1, 1)
+            std = net.std().view(1, 1, 1, 1)
+        else:
+            mean = net.view(batch_size, -1).mean(1).view(batch_size, 1, 1, 1)
+            std = net.view(batch_size, -1).std(1).view(batch_size, 1, 1, 1)
+        net = (net - mean) / (std + self.eps)
+        if self.elementwise_affine:
+            w = self.weight.view(-1, 1, 1)
+            b = self.bias.view(-1, 1, 1)
+            net = net * w + b
+        return net
+
+
 class EMA(Module):
     def __init__(
         self,
@@ -1040,6 +1059,8 @@ class NormFactory:
         norm_layer: Union[Type[Module], Any]
         if norm_type == "batch_norm":
             norm_layer = BN
+        elif norm_type == "layer_norm":
+            norm_layer = LN
         elif norm_type == "adain":
             norm_layer = AdaptiveInstanceNorm2d
         elif norm_type == "layer":
@@ -1072,7 +1093,7 @@ class NormFactory:
             config = {"affine": True, "track_running_stats": True}
         elif norm_type == "instance":
             config = {"affine": False, "track_running_stats": False}
-        elif norm_type == "layer":
+        elif norm_type == "layer" or norm_type == "layer_norm":
             config = {"eps": 1.0e-6}
         return config
 
