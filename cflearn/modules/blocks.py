@@ -2038,9 +2038,13 @@ class Conv2d(Module):
                 padding = [padding] * 4
                 padding[0] += 1
                 padding[2] += 1
-        elif padding == "reflection":
+        elif isinstance(padding, str) and padding.startswith("reflection"):
+            reflection_padding: Any
+            if padding == "reflection":
+                reflection_padding = kernel_size // 2
+            else:
+                reflection_padding = int(padding[len("reflection"):])
             padding = 0
-            reflection_padding: Any = kernel_size // 2
             if transform_kernel:
                 reflection_padding = [reflection_padding] * 4
                 reflection_padding[0] += 1
