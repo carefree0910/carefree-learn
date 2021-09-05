@@ -17,6 +17,8 @@ from ....modules.blocks import Conv2d
 from ....modules.blocks import ResidualBlock
 
 
+# TODO : Try ResidualBlockV2
+
 @EncoderBase.register("vanilla")
 class VanillaEncoder(EncoderBase):
     def __init__(
