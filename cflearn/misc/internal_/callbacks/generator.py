@@ -16,7 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
-from ....models.cv.generator.constants import STYLE_KEY
+from ....models.cv.stylizer.constants import STYLE_KEY
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 

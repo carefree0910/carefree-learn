@@ -19,7 +19,7 @@ from ..interface import InferenceImageFolderData
 from .....types import sample_weights_type
 from .....constants import INPUT_KEY
 from .....misc.internal_ import CVDataset
-from .....models.cv.generator.constants import STYLE_KEY
+from .....models.cv.stylizer.constants import STYLE_KEY
 
 
 class StyleTransferMixin:

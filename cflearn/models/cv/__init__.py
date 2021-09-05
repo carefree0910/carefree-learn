@@ -3,6 +3,7 @@ from .ssl import *
 from .vae import *
 from .encoder import *
 from .decoder import *
+from .stylizer import *
 from .generator import *
 from .segmentor import *
 from .classifier import *
