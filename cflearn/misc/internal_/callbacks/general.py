@@ -170,9 +170,8 @@ class MLFlowCallback(TrainerCallback):
         if not self.is_rank_0:
             return None
         if state.should_log_losses:
-            for key, tensor in step_outputs.loss_dict.items():
+            for key, value in step_outputs.loss_dict.items():
                 key = f"tr_{key}"
-                value = tensor.item()
                 self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
 
     def finalize(self, trainer: Trainer) -> None:

@@ -206,7 +206,7 @@ class VanillaGANMixin(GANMixin, metaclass=ABCMeta):
         trainer._scheduler_step()
         forward_results = {PREDICTIONS_KEY: sampled}
         self._gather_losses(loss_g, loss_dict)
-        return StepOutputs(forward_results, loss_dict)
+        return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
 
     def evaluate_step(  # type: ignore
         self,

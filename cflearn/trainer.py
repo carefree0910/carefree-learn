@@ -696,7 +696,7 @@ class Trainer:
         # optimize
         self._optimizer_step()
         self._scheduler_step()
-        return StepOutputs(forward_results, loss_dict)
+        return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
 
     def _weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
         if not self.loss_metrics_weights:

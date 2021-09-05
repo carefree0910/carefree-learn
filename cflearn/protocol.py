@@ -131,7 +131,7 @@ class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
 
 class StepOutputs(NamedTuple):
     forward_results: tensor_dict_type
-    loss_dict: tensor_dict_type
+    loss_dict: Dict[str, float]
 
 
 class MetricsOutputs(NamedTuple):

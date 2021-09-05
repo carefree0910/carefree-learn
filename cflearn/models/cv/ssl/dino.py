@@ -451,7 +451,7 @@ class DINO(ModelWithCustomSteps):
             ):
                 param_k.data.mul_(m).add_((1.0 - m) * param_q.detach().data)
         # return
-        return StepOutputs(rs, {LOSS_KEY: loss})
+        return StepOutputs(rs, {LOSS_KEY: loss.item()})
 
     def evaluate_step(  # type: ignore
         self,

@@ -61,7 +61,7 @@ class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
             trainer._clip_norm_step()
         trainer._optimizer_step()
         trainer._scheduler_step()
-        return StepOutputs(forward_results, loss_dict)
+        return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
 
     def evaluate_step(
         self,
