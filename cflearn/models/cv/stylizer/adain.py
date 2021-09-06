@@ -96,7 +96,7 @@ class AdaINStylizer(ModelProtocol):
         inp = {INPUT_KEY: net, STYLE_KEY: style}
         kwargs["need_stylized_features"] = False
         decoded = self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
-        return quantile_normalize(decoded, q=kwargs.get("q", 0.01))
+        return quantile_normalize(decoded, q=kwargs.get("q", 0.01), global_norm=False)
 
 
 @LossProtocol.register("adain")
