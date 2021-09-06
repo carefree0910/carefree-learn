@@ -1,8 +1,10 @@
 import os
+import json
 
 import numpy as np
 
 from PIL import Image
+from tqdm import tqdm
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -18,23 +20,39 @@ from ..interface import ImageFolderData
 from ..interface import InferenceImageFolderData
 from .....types import sample_weights_type
 from .....constants import INPUT_KEY
+from .....constants import WARNING_PREFIX
 from .....misc.internal_ import CVDataset
 from .....models.cv.stylizer.constants import STYLE_KEY
 
 
 class StyleTransferMixin:
     transform: Transforms
+    style_paths_file: str = "valid_paths.json"
 
     def _init_style_paths(self, style_folder: str) -> None:
         self.style_folder = style_folder
         walked = list(os.walk(style_folder))
         extensions = {".jpg", ".png"}
+        style_paths_path = os.path.join(style_folder, self.style_paths_file)
+        if os.path.isfile(style_paths_path):
+            with open(style_paths_path, "r") as f:
+                self.style_paths = json.load(f)
+            return None
         self.style_paths = []
-        for folder, _, files in walked:
-            for file in files:
+        for folder, _, files in tqdm(walked, desc="folders", position=0):
+            for file in tqdm(files, desc="files", position=1, leave=False):
                 if not any(file.endswith(ext) for ext in extensions):
                     continue
-                self.style_paths.append(os.path.join(folder, file))
+                path = os.path.join(folder, file)
+                try:
+                    Image.open(path).convert("RGB").verify()
+                    self.style_paths.append(path)
+                except Exception as err:
+                    prefix = f">{WARNING_PREFIX}"
+                    print(f"{prefix}error occurred ({err}) when reading '{path}'")
+                    continue
+        with open(style_paths_path, "w") as f:
+            json.dump(self.style_paths, f)
 
     def _inject_style(self, index: int, sample: Dict[str, Any]) -> None:
         style_path = self.style_paths[index % len(self.style_paths)]
