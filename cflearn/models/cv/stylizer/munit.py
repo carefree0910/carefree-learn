@@ -12,11 +12,14 @@ from typing import Tuple
 from typing import Optional
 
 from .constants import INPUT_B_KEY
+from .constants import LABEL_B_KEY
 from ....types import losses_type
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
+from ....constants import LABEL_KEY
+from ....constants import WARNING_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ..gan.losses import GANTarget
 from ..gan.protocol import OneStageGANMixin
@@ -354,6 +357,8 @@ class MUNITStylizerBase(OneStageGANMixin, metaclass=ABCMeta):
             "db": gan_weight,
             "ga": gan_weight,
             "gb": gan_weight,
+            "ab": recon_weight,
+            "ba": recon_weight,
             "a_recon": recon_weight,
             "b_recon": recon_weight,
             "sa_recon": style_recon_weight,
@@ -420,20 +425,26 @@ class MUNITUnifiedStylizer(MUNITStylizerBase):
     ) -> Tuple[tensor_dict_type, tensor_dict_type, Optional[Tensor]]:
         net_a = batch[INPUT_KEY]
         net_b = batch[INPUT_B_KEY]
+        net_ab_target = batch[LABEL_KEY]
+        net_ba_target = batch[LABEL_B_KEY]
         sa_random = self._random_style(len(net_a))
         sb_random = self._random_style(len(net_b))
         ca, sa = self.generator.encode(net_a)
         cb, sb = self.generator.encode(net_b)
         g_results: tensor_dict_type = {}
+        net_ab = self.generator.decode(ca, sb)
+        net_ba = self.generator.decode(cb, sa)
         net_a_recon = self.generator.decode(ca, sa)
         net_b_recon = self.generator.decode(cb, sb)
-        net_ba = g_results["net_ba"] = self.generator.decode(cb, sa_random)
-        net_ab = g_results["net_ab"] = self.generator.decode(ca, sb_random)
-        cb_recon, sa_recon = self.generator.encode(net_ba)
-        ca_recon, sb_recon = self.generator.encode(net_ab)
+        net_ba_random = g_results["net_ba"] = self.generator.decode(cb, sa_random)
+        net_ab_random = g_results["net_ab"] = self.generator.decode(ca, sb_random)
+        cb_recon, sa_recon = self.generator.encode(net_ba_random)
+        ca_recon, sb_recon = self.generator.encode(net_ab_random)
         g_losses: losses_type = {
-            "ga": self._gan_loss(net_ba, True),
-            "gb": self._gan_loss(net_ab, True),
+            "ga": self._gan_loss(net_ba_random, True),
+            "gb": self._gan_loss(net_ab_random, True),
+            "ab": self.l1(net_ab, net_ab_target),
+            "ba": self.l1(net_ba, net_ba_target),
             "a_recon": self.l1(net_a_recon, net_a),
             "b_recon": self.l1(net_b_recon, net_b),
             "sa_recon": self.l1(sa_recon, sa_random),
@@ -476,7 +487,15 @@ class MUNITUnifiedStylizer(MUNITStylizerBase):
             style = self.generator.style_encoder(style_net)
         return {PREDICTIONS_KEY: self.generator.decode(content, style)}
 
-    def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
+    def decode(
+        self,
+        z: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        if labels is not None:
+            print(f">{WARNING_PREFIX}`labels` will not affect `MUNITUnifiedStylizer`")
         content = kwargs.get("content")
         if content is None:
             raise ValueError("`content` should be provided for `MUNITUnifiedStylizer`")
