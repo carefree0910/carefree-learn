@@ -401,12 +401,14 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cls,
         workplace: str,
         *,
+        step: Optional[str] = None,
         config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         pack_folder: Optional[str] = None,
         cuda: Optional[str] = None,
     ) -> str:
         if pack_folder is None:
-            pack_folder = os.path.join(workplace, "packed")
+            pack_name = f"packed{'' if step is None else f'_{step}'}"
+            pack_folder = os.path.join(workplace, pack_name)
         if os.path.isdir(pack_folder):
             print(f"{WARNING_PREFIX}'{pack_folder}' already exists, it will be erased")
             shutil.rmtree(pack_folder)
@@ -415,7 +417,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [pack_folder]):
             checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
-            best_file = get_sorted_checkpoints(checkpoint_folder)[0]
+            if step is not None:
+                base_file = f"{PT_PREFIX}{step}.pt"
+            else:
+                best_file = get_sorted_checkpoints(checkpoint_folder)[0]
             new_file = f"{PT_PREFIX}-1.pt"
             shutil.copy(
                 os.path.join(checkpoint_folder, best_file),
@@ -592,6 +597,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
+        step: Optional[str] = None,
         config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         pack_folder: Optional[str] = None,
         states_callback: states_callback_type = None,
@@ -607,6 +613,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     ) -> "DLPipeline":
         packed = cls.pack(
             workplace,
+            step=step,
             config_bundle_callback=config_bundle_callback,
             pack_folder=pack_folder,
         )
