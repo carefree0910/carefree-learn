@@ -484,6 +484,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
         simplify: bool = False,
+        forward_fn: Optional[Callable[[ModelProtocol, tensor_dict_type], Any]] = None,
+        custom_output_names: Optional[List[str]] = None,
         input_sample: Optional[tensor_dict_type] = None,
         num_samples: Optional[int] = None,
         compress: Optional[bool] = None,
@@ -491,6 +493,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         verbose: bool = True,
         **kwargs: Any,
     ) -> "DLPipeline":
+        if forward_fn is not None and custom_output_names is None:
+            raise ValueError(
+                "`custom_output_names` should be provided "
+                "when `forward_fn` is specified"
+            )
         # prepare
         model = self.model.cpu()
         if input_sample is None:
@@ -505,11 +512,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         with eval_context(model):
             forward_results = model(0, shallow_copy_dict(input_sample))
         input_names = sorted(input_sample.keys())
-        output_names = sorted(forward_results.keys())
         # setup
         kwargs = shallow_copy_dict(kwargs)
         kwargs["input_names"] = input_names
-        kwargs["output_names"] = output_names
+        kwargs["output_names"] = custom_output_names or sorted(forward_results.keys())
         kwargs["opset_version"] = 11
         kwargs["export_params"] = True
         kwargs["do_constant_folding"] = True
@@ -520,7 +526,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if num_samples is None:
             dynamic_axes[0] = "batch_size"
         dynamic_axes_settings = {}
-        for name in input_names + output_names:
+        for name in input_names + kwargs["output_names"]:
             dynamic_axes_settings[name] = dynamic_axes
         kwargs["dynamic_axes"] = dynamic_axes_settings
         kwargs["verbose"] = verbose
@@ -534,6 +540,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.model = model
 
             def forward(self, batch: Dict[str, Any]) -> Any:
+                if forward_fn is not None:
+                    return forward_fn(self.model, batch)
                 return self.model(0, batch)
 
         with lock_manager(base_folder, []) as lock:
