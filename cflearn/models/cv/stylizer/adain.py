@@ -1,3 +1,5 @@
+import torch
+
 from torch import nn
 from torch import Tensor
 from typing import Any
@@ -32,8 +34,9 @@ class AdaINStylizer(ModelProtocol):
         self,
         in_channels: int = 3,
         *,
-        backbone: str = "vgg19_lite",
+        backbone: str = "vgg_style",
         backbone_config: Optional[Dict[str, Any]] = None,
+        backbone_pretrained_path: Optional[str] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -41,9 +44,11 @@ class AdaINStylizer(ModelProtocol):
             backbone,
             in_channels,
             finetune=False,
-            pretrained=True,
+            pretrained=backbone != "vgg_style",
             backbone_config=backbone_config,
         )
+        if backbone_pretrained_path is not None:
+            self.backbone.load_state_dict(torch.load(backbone_pretrained_path))
         if decoder_config is None:
             decoder_config = {}
         decoder_config.setdefault("norm_type", None)
@@ -73,8 +78,12 @@ class AdaINStylizer(ModelProtocol):
         encoded = style_weight * encoded + (1.0 - style_weight) * content_latent
         rs = self.decoder(batch_idx, {INPUT_KEY: encoded}, state, **kwargs)
         decoded = interpolate(rs[PREDICTIONS_KEY], anchor=content)
-        decoded_feats = self.backbone(batch_idx, {INPUT_KEY: decoded}, state, **kwargs)
-        decoded_content_latent = decoded_feats.pop(LATENT_KEY)
+        if not kwargs.get("need_stylized_features", True):
+            decoded_feats = decoded_content_latent = None
+        else:
+            decoded_inp = {INPUT_KEY: decoded}
+            decoded_feats = self.backbone(batch_idx, decoded_inp, state, **kwargs)
+            decoded_content_latent = decoded_feats.pop(LATENT_KEY)
         return {
             PREDICTIONS_KEY: decoded,
             STYLE_LATENTS_KEY: style_feats,
@@ -85,8 +94,9 @@ class AdaINStylizer(ModelProtocol):
 
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
         inp = {INPUT_KEY: net, STYLE_KEY: style}
+        kwargs["need_stylized_features"] = False
         decoded = self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
-        return quantile_normalize(decoded, **kwargs)
+        return quantile_normalize(decoded, q=kwargs.get("q", 0.01))
 
 
 @LossProtocol.register("adain")
