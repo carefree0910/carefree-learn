@@ -12,6 +12,7 @@ from torchvision.models import vgg16
 from torchvision.models import vgg19
 
 from .register import register_backbone
+from ......constants import WARNING_PREFIX
 from ......modules.blocks import get_conv_blocks
 from ......modules.blocks import Conv2d
 from ......modules.blocks import SEBlock
@@ -27,6 +28,62 @@ class VGG(nn.Module):
             local_module = nn.Sequential()
             for i in range(start_idx, slice_idx):
                 local_module.add_module(str(i), vgg_layers[i])
+            sliced_modules.append(local_module)
+            start_idx = slice_idx
+        self.num_slices = len(sliced_modules)
+        for i, sliced_m in enumerate(sliced_modules):
+            setattr(self, f"slice{i}", sliced_m)
+
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
+        for i in range(self.num_slices):
+            net = getattr(self, f"slice{i}")(net)
+        return net
+
+
+class VGGStyle(nn.Module):
+    def __init__(self, slices: List[int], pretrained: bool = True):
+        super().__init__()
+        if pretrained:
+            print(f"{WARNING_PREFIX}`VGGStyle` does not support `pretrained`")
+        start_idx = 0
+        blocks = [
+            nn.Conv2d(3, 3, (1, 1)),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(3, 64, (3, 3)),
+            nn.ReLU(),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(64, 64, (3, 3)),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(64, 128, (3, 3)),
+            nn.ReLU(),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(128, 128, (3, 3)),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(128, 256, (3, 3)),
+            nn.ReLU(),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(256, 256, (3, 3)),
+            nn.ReLU(),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(256, 256, (3, 3)),
+            nn.ReLU(),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(256, 256, (3, 3)),
+            nn.ReLU(),
+            nn.MaxPool2d((2, 2), (2, 2), (0, 0), ceil_mode=True),
+            nn.ReflectionPad2d((1, 1, 1, 1)),
+            nn.Conv2d(256, 512, (3, 3)),
+            nn.ReLU(),
+        ]
+        sliced_modules: List[nn.Module] = []
+        for slice_idx in slices:
+            local_module = nn.Sequential()
+            for i in range(start_idx, slice_idx):
+                local_module.add_module(str(i), blocks[i])
             sliced_modules.append(local_module)
             start_idx = slice_idx
         self.num_slices = len(sliced_modules)
@@ -57,6 +114,11 @@ def sliced_vgg19_lite(pretrained: bool = True) -> VGG:
 @register_backbone("vgg19_large")
 def sliced_vgg19_large(pretrained: bool = True) -> VGG:
     return VGG(vgg19, [4, 9, 18, 23, 27, 36], pretrained=pretrained)
+
+
+@register_backbone("vgg_style")
+def vgg_style(pretrained: bool = False) -> VGGStyle:
+    return VGGStyle([4, 11, 18, 31], pretrained=pretrained)
 
 
 class RepVGGBlock(nn.Module):
