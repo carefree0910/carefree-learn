@@ -253,7 +253,9 @@ def prepare_image_folder(
         parallel = Parallel(d_num_jobs, use_tqdm=use_tqdm)
         results: List[Tuple[str, Dict[str, Any]]]
         results = sum(parallel.grouped(record, indices).ordered_results, [])
-        results = [r for r in results if r is not None]
+        d_valid_indices = [i for i, r in enumerate(results) if r is not None]
+        results = [results[i] for i in d_valid_indices]
+        valid_paths = [all_img_paths[idx] for idx in indices[d_valid_indices]]
         new_paths, all_labels_list = zip(*results)
         merged_labels = shallow_copy_dict(all_labels_list[0])
         for sub_labels_ in all_labels_list[1:]:
@@ -271,10 +273,16 @@ def prepare_image_folder(
                 ]
             )
         )
+        dtype_folder = os.path.join(tgt_folder, dtype)
+        with open(os.path.join(dtype_folder, "paths.json"), "w") as f_:
+            json.dump(new_paths, f_)
+        path_mapping = dict(zip(new_paths, valid_paths))
+        with open(os.path.join(dtype_folder, "path_mapping.json"), "w") as f_:
+            json.dump(path_mapping, f_)
         for label_type, type_labels in merged_labels.items():
             delim = "_" if label_type else ""
             label_file = f"{label_type}{delim}labels.json"
-            with open(os.path.join(tgt_folder, dtype, label_file), "w") as f_:
+            with open(os.path.join(dtype_folder, label_file), "w") as f_:
                 json.dump(type_labels, f_)
         # lmdb
         if lmdb_configs is None:
