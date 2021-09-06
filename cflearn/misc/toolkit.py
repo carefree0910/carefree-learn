@@ -1105,7 +1105,7 @@ def is_gray(arr: arr_type) -> bool:
 def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
     eps = 1.0e-8
     if global_norm:
-        arr_min, arr_max = arr.min().item(), arr.max().item()
+        arr_min, arr_max = arr.min(), arr.max()
         return (arr - arr_min) / max(eps, arr_max - arr_min)
     if isinstance(arr, np.ndarray):
         arr_min, arr_max = arr.min(axis=0), arr.max(axis=0)
@@ -1131,8 +1131,8 @@ def quantile_normalize(
         kw = {"axis": 0}
         quantile_fn = np.quantile
     if global_norm:
-        arr_min = quantile_fn(arr, q).item()
-        arr_max = quantile_fn(arr, 1.0 - q).item()
+        arr_min = quantile_fn(arr, q)
+        arr_max = quantile_fn(arr, 1.0 - q)
     else:
         arr_min = quantile_fn(arr, q, **kw)
         arr_max = quantile_fn(arr, 1.0 - q, **kw)
