@@ -1,5 +1,6 @@
 import os
 import json
+import random
 
 import numpy as np
 
@@ -20,9 +21,12 @@ from ..interface import ImageFolderData
 from ..interface import InferenceImageFolderData
 from .....types import sample_weights_type
 from .....constants import INPUT_KEY
+from .....constants import LABEL_KEY
 from .....constants import WARNING_PREFIX
 from .....misc.internal_ import CVDataset
 from .....models.cv.stylizer.constants import STYLE_KEY
+from .....models.cv.stylizer.constants import INPUT_B_KEY
+from .....models.cv.stylizer.constants import LABEL_B_KEY
 
 
 class StyleTransferMixin:
@@ -183,4 +187,114 @@ class InferenceStyleTransferData(InferenceImageFolderData):
             self.folder,
             self.transform,
             style_folder=self.style_folder,
+        )
+
+
+class UnifiedStyleTransferDataset(ImageFolderDataset):
+    def __init__(
+        self,
+        folder: str,
+        split: str,
+        transform: Optional[Union[str, List[str], Transforms, Callable]],
+        transform_config: Optional[Dict[str, Any]] = None,
+        lmdb_configs: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(folder, split, transform, transform_config, lmdb_configs)
+        self.style2paths: Dict[str, List[str]] = {}
+        self.style_labels = {}
+        self.content_labels = {}
+        self.style2content2path: Dict[str, Dict[str, int]] = {}
+        with open(os.path.join(self.folder, "paths.json"), "r") as f:
+            paths = json.load(f)
+        assert set(paths) == set(self.img_paths)
+        with open(os.path.join(self.folder, "path_mapping.json"), "r") as f:
+            path_mapping = json.load(f)
+        for i, path in enumerate(self.img_paths):
+            original_path = path_mapping[path]
+            original_path = os.path.normpath(original_path)
+            split = original_path.split(os.sep)
+            content_label, style_label = split[-1], split[-2]
+            content_label = os.path.splitext(content_label)[0]
+            self.style_labels[path] = style_label
+            self.content_labels[path] = content_label
+            self.style2paths.setdefault(style_label, []).append(path)
+            self.style2content2path.setdefault(style_label, {})[content_label] = i
+
+    def __getitem__(self, index: int) -> Dict[str, Any]:
+        net_a = super().__getitem__(index)[INPUT_KEY]
+        path_a = self.img_paths[index]
+        style_a = self.style_labels[path_a]
+        content_a = self.content_labels[path_a]
+        content_b = None
+        while True:
+            b_index = random.randint(0, self.length - 1)
+            net_b = super().__getitem__(b_index)[INPUT_KEY]
+            path_b = self.img_paths[b_index]
+            style_b = self.style_labels[path_b]
+            if style_a == style_b:
+                continue
+            content_b = self.content_labels[path_b]
+            if content_a not in self.style2content2path[style_b]:
+                continue
+            if content_b not in self.style2content2path[style_a]:
+                continue
+            break
+        target_ab_index = self.style2content2path[style_b][content_a]
+        target_ba_index = self.style2content2path[style_a][content_b]
+        label_ab = super().__getitem__(target_ab_index)[INPUT_KEY]
+        label_ba = super().__getitem__(target_ba_index)[INPUT_KEY]
+        return {
+            INPUT_KEY: net_a,
+            INPUT_B_KEY: net_b,
+            LABEL_KEY: label_ab,
+            LABEL_B_KEY: label_ba,
+        }
+
+
+@ImageFolderData.register("unified_style_transfer")
+class UnifiedStyleTransferData(ImageFolderData):
+    def __init__(
+        self,
+        folder: str,
+        *,
+        batch_size: int,
+        num_workers: int = 0,
+        shuffle: bool = True,
+        transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
+        transform_config: Optional[Dict[str, Any]] = None,
+        test_shuffle: Optional[bool] = None,
+        test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
+        test_transform_config: Optional[Dict[str, Any]] = None,
+        lmdb_configs: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__(
+            folder,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=shuffle,
+            transform=transform,
+            transform_config=transform_config,
+            test_shuffle=test_shuffle,
+            test_transform=test_transform,
+            test_transform_config=test_transform_config,
+            lmdb_configs=lmdb_configs,
+        )
+
+    # TODO : support sample weights
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        self.train_data = CVDataset(
+            UnifiedStyleTransferDataset(
+                self.folder,
+                "train",
+                self.transform,
+                lmdb_configs=self.lmdb_configs,
+            )
+        )
+        self.valid_data = CVDataset(
+            UnifiedStyleTransferDataset(
+                self.folder,
+                "valid",
+                self.test_transform,
+                lmdb_configs=self.lmdb_configs,
+            )
         )
