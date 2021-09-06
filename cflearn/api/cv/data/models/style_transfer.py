@@ -27,9 +27,14 @@ class StyleTransferMixin:
 
     def _init_style_paths(self, style_folder: str) -> None:
         self.style_folder = style_folder
-        style_files = sorted(os.listdir(style_folder))
-        style_paths = [os.path.join(style_folder, file) for file in style_files]
-        self.style_paths = list(map(os.path.abspath, style_paths))  # type: ignore
+        walked = list(os.walk(style_folder))
+        extensions = {".jpg", ".png"}
+        self.style_paths = []
+        for folder, _, files in walked:
+            for file in files:
+                if not any(file.endswith(ext) for ext in extensions):
+                    continue
+                self.style_paths.append(os.path.join(folder, file))
 
     def _inject_style(self, index: int, sample: Dict[str, Any]) -> None:
         style_path = self.style_paths[index % len(self.style_paths)]
