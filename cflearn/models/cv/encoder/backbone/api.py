@@ -45,6 +45,7 @@ class BackboneEncoder(EncoderBase):
         finetune: bool = True,
         pretrained: bool = False,
         use_to_rgb: bool = False,
+        to_rgb_bias: bool = False,
         remove_layers: Optional[List[str]] = None,
         target_layers: Optional[Dict[str, str]] = None,
         increment_config: Optional[Dict[str, Any]] = None,
@@ -97,7 +98,7 @@ class BackboneEncoder(EncoderBase):
         if in_channels == 3 and not use_to_rgb:
             self.to_rgb = None
         else:
-            self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=False)
+            self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=to_rgb_bias)
         self.net = Backbone(
             name,
             latent_channels=latent_channels,  # type: ignore
