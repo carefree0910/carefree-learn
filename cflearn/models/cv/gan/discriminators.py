@@ -51,7 +51,7 @@ class DiscriminatorBase(nn.Module, WithRegister):
                 stride=1,
             )
 
-    def forward(self, net: torch.Tensor) -> DiscriminatorOutput:
+    def forward(self, net: torch.Tensor) -> Any:
         feature_map = self.net(net)
         logits = self.clf(feature_map)
         cond_logits = None
@@ -117,8 +117,68 @@ class NLayerDiscriminator(DiscriminatorBase):
         self.generate_cond(out_channels)
 
 
+@DiscriminatorBase.register("multi_scale")
+class MultiScaleDiscriminator(DiscriminatorBase):
+    def __init__(
+        self,
+        in_channels: int,
+        num_classes: Optional[int] = None,
+        *,
+        num_scales: int = 3,
+        num_layers: int = 4,
+        latent_channels: int = 64,
+        activation: str = "leaky_relu_0.2",
+        norm_type: Optional[str] = None,
+    ):
+        if num_classes is not None:
+            msg = "`MultiScaleDiscriminator` does not support conditional inputs"
+            raise ValueError(msg)
+        super().__init__(in_channels, num_classes)
+        self.num_layers = num_layers
+        self.latent_channels = latent_channels
+        self.activation = activation
+        self.norm_type = norm_type
+        self.downsample = nn.AvgPool2d(
+            3,
+            stride=2,
+            padding=[1, 1],
+            count_include_pad=False,
+        )
+        nets = [self._make() for _ in range(num_scales)]
+        self.discriminators = nn.ModuleList(nets)
+
+    def _make(self) -> nn.Sequential:
+        in_nc = self.in_channels
+        out_nc = self.latent_channels
+        blocks = []
+        for i in range(self.num_layers):
+            blocks.extend(
+                get_conv_blocks(
+                    in_nc,
+                    out_nc,
+                    4,
+                    2,
+                    norm_type=None if i == 0 else self.norm_type,
+                    activation=self.activation,
+                    padding="reflection1",
+                )
+            )
+            in_nc = out_nc
+            out_nc *= 2
+        blocks.append(Conv2d(in_nc, 1, kernel_size=1, stride=1, padding=0))
+        return nn.Sequential(*blocks)
+
+    def forward(self, net: torch.Tensor) -> List[DiscriminatorOutput]:
+        outputs = []
+        for discriminator in self.discriminators:
+            outputs.append(DiscriminatorOutput(discriminator(net)))
+            net = self.downsample(net)
+        return outputs
+
+
 __all__ = [
     "DiscriminatorOutput",
     "DiscriminatorBase",
     "NLayerDiscriminator",
+    "MultiScaleDiscriminator",
 ]
