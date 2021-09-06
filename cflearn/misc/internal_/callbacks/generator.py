@@ -17,6 +17,8 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
 from ....models.cv.stylizer.constants import STYLE_KEY
+from ....models.cv.stylizer.constants import INPUT_B_KEY
+from ....models.cv.stylizer.constants import LABEL_B_KEY
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 
@@ -143,6 +145,44 @@ class StyleTransferCallback(ImageCallback):
         with eval_context(model):
             stylized = model.stylize(content, style)
         save_images(stylized, os.path.join(image_folder, "stylized.png"))
+
+
+@TrainerCallback.register("munit_unified")
+@TrainerCallback.register("unified_style_transfer")
+class UnifiedStyleTransferCallback(ImageCallback):
+    def log_artifacts(self, trainer: Trainer) -> None:
+        if not self.is_rank_0:
+            return None
+        batch = next(iter(trainer.validation_loader))
+        batch = to_device(batch, trainer.device)
+        content_a = batch[INPUT_KEY]
+        content_b = batch[INPUT_B_KEY]
+        target_ab = batch[LABEL_KEY]
+        target_ba = batch[LABEL_B_KEY]
+        model = trainer.model
+        image_folder = self._prepare_folder(trainer)
+        # inputs
+        save_images(content_a, os.path.join(image_folder, "a.png"))
+        save_images(content_b, os.path.join(image_folder, "b.png"))
+        save_images(target_ab, os.path.join(image_folder, "ab_target.png"))
+        save_images(target_ba, os.path.join(image_folder, "ba_target.png"))
+        # stylize
+        with eval_context(model):
+            batch_size = len(content_a)
+            a_random = model.decode(model._random_style(batch_size), content=content_a)
+            b_random = model.decode(model._random_style(batch_size), content=content_b)
+            sa = model.generator.style_encoder(content_a)
+            sb = model.generator.style_encoder(content_b)
+            a_recon = model.decode(sa, content=content_a)
+            b_recon = model.decode(sb, content=content_b)
+            ab = model.decode(sb, content=content_a)
+            ba = model.decode(sa, content=content_b)
+        save_images(a_random, os.path.join(image_folder, "a_random.png"))
+        save_images(b_random, os.path.join(image_folder, "b_random.png"))
+        save_images(a_recon, os.path.join(image_folder, "a_recon.png"))
+        save_images(b_recon, os.path.join(image_folder, "b_recon.png"))
+        save_images(ab, os.path.join(image_folder, "ab.png"))
+        save_images(ba, os.path.join(image_folder, "ba.png"))
 
 
 __all__ = [
