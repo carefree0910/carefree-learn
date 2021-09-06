@@ -590,7 +590,6 @@ class StyleTransfer(Compose):
                 ToRGB(label_alias=label_alias),
                 Resize(resize_size, label_alias=label_alias),
                 RandomCrop(crop_size, label_alias=label_alias),
-                Normalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -603,7 +602,6 @@ class StyleTransferTest(Compose):
             [
                 ToRGB(label_alias=label_alias),
                 Resize(resize_size, label_alias=label_alias),
-                Normalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
         )
