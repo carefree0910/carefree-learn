@@ -46,6 +46,10 @@ class Transforms(WithRegister):
     def need_batch_process(self) -> bool:
         pass
 
+    @property
+    def need_numpy(self) -> bool:
+        return self.need_batch_process
+
     @classmethod
     def convert(
         cls,
@@ -101,6 +105,10 @@ class Compose(Transforms):
     @property
     def need_batch_process(self) -> bool:
         return self.transform_list[0].need_batch_process
+
+    @property
+    def need_numpy(self) -> bool:
+        return self.transform_list[0].need_numpy
 
 
 @Transforms.register("to_gray")
@@ -348,6 +356,10 @@ class ATransforms(Transforms):
     @property
     def need_batch_process(self) -> bool:
         return self.label_alias is not None
+
+    @property
+    def need_numpy(self) -> bool:
+        return True
 
 
 @Transforms.register("to_array")
