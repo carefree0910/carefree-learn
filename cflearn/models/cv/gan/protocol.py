@@ -158,7 +158,7 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
             loss_dict.update({k: v.item() for k, v in g_losses.items()})
             loss_dict.update({k: v.item() for k, v in d_losses.items()})
             for k, v in loss_dict.items():
-                loss_items.setdefault(k, []).append(v.item())
+                loss_items.setdefault(k, []).append(v)
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
         score = trainer._weighted_loss_score(mean_loss_items)
