@@ -329,7 +329,23 @@ class ImageFolderDataset(Dataset):
         transform_config: Optional[Dict[str, Any]] = None,
         lmdb_configs: Optional[Dict[str, Any]] = None,
     ):
-        if lmdb_configs is not None:
+        self.folder = os.path.abspath(os.path.join(folder, split))
+        support_appendix = {".jpg", ".png", ".npy"}
+        self.img_paths = list(
+            map(
+                lambda file: os.path.join(self.folder, file),
+                filter(
+                    lambda file: file[-4:] in support_appendix,
+                    os.listdir(self.folder),
+                ),
+            )
+        )
+        if lmdb_configs is None:
+            self.lmdb = self.context = None
+            with open(os.path.join(self.folder, "labels.json"), "r") as f:
+                self.labels = json.load(f)
+            self.length = len(self.img_paths)
+        else:
             self.lmdb_configs = shallow_copy_dict(lmdb_configs)
             self.lmdb_configs.setdefault("path", _default_lmdb_path(folder, split))
             self.lmdb_configs.setdefault("lock", False)
@@ -341,22 +357,6 @@ class ImageFolderDataset(Dataset):
             self.context = self.lmdb.begin(buffers=True, write=False)
             with self.lmdb.begin(write=False) as context:
                 self.length = int(context.get("length".encode("ascii")).decode("ascii"))
-        else:
-            self.lmdb = self.context = None
-            self.folder = os.path.abspath(os.path.join(folder, split))
-            with open(os.path.join(self.folder, "labels.json"), "r") as f:
-                self.labels = json.load(f)
-            support_appendix = {".jpg", ".png", ".npy"}
-            self.img_paths = list(
-                map(
-                    lambda file: os.path.join(self.folder, file),
-                    filter(
-                        lambda file: file[-4:] in support_appendix,
-                        os.listdir(self.folder),
-                    ),
-                )
-            )
-            self.length = len(self.img_paths)
         self.transform = Transforms.convert(transform, transform_config)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
@@ -382,12 +382,16 @@ class ImageFolderDataset(Dataset):
             if isinstance(label, np.ndarray):
                 label = to_torch(label)
             return {INPUT_KEY: img, LABEL_KEY: label}
+        if not self.transform.need_numpy:
+            inp = {INPUT_KEY: img}
+        else:
+            inp = {INPUT_KEY: np.array(img).astype(np.float32) / 255.0}
         if self.transform.need_batch_process:
-            img_arr = np.array(img).astype(np.float32) / 255.0
-            return self.transform({INPUT_KEY: img_arr, LABEL_KEY: label})
+            inp[LABEL_KEY] = label
+            return self.transform(inp)
         if isinstance(label, np.ndarray):
             label = to_torch(label)
-        return {INPUT_KEY: self.transform(img), LABEL_KEY: label}
+        return {INPUT_KEY: self.transform(inp[INPUT_KEY]), LABEL_KEY: label}
 
     def __len__(self) -> int:
         return self.length
