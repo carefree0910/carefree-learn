@@ -454,8 +454,8 @@ class MUNITUnifiedStylizer(MUNITStylizerBase):
         net_b = batch[INPUT_B_KEY]
         net_ba = sampled["net_ba"]
         net_ab = sampled["net_ab"]
-        loss_da = self._gan_loss(net_ba.detach(), False) + self._d_gan_loss(net_a, True)
-        loss_db = self._gan_loss(net_ab.detach(), False) + self._d_gan_loss(net_b, True)
+        loss_da = self._gan_loss(net_ba.detach(), False) + self._gan_loss(net_a, True)
+        loss_db = self._gan_loss(net_ab.detach(), False) + self._gan_loss(net_b, True)
         d_losses = dict(da=loss_da, db=loss_db)
         d_losses[LOSS_KEY] = sum(v * self.loss_weights[k] for k, v in d_losses.items())
         return d_losses
