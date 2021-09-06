@@ -19,6 +19,7 @@ from ....modules.blocks import ResidualBlock
 
 # TODO : Try ResidualBlockV2
 
+
 @ModelProtocol.register("alpha_refine")
 class AlphaRefineNet(ModelProtocol):
     def __init__(

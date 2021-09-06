@@ -2043,7 +2043,7 @@ class Conv2d(Module):
             if padding == "reflection":
                 reflection_padding = kernel_size // 2
             else:
-                reflection_padding = int(padding[len("reflection"):])
+                reflection_padding = int(padding[len("reflection") :])
             padding = 0
             if transform_kernel:
                 reflection_padding = [reflection_padding] * 4
@@ -2369,7 +2369,7 @@ class ResidualBlock(Module):
         *,
         ca_reduction: Optional[int] = None,
         eca_kernel_size: Optional[int] = None,
-        norm_type: str = "batch",
+        norm_type: Optional[str] = "batch",
         **kwargs: Any,
     ):
         super().__init__()

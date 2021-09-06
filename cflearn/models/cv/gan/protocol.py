@@ -223,9 +223,9 @@ class VanillaGANMixin(OneStageGANMixin, metaclass=ABCMeta):
         losses = {"d_fake": loss_d_fake, "d_real": loss_d_real}
         if self.gan_mode == "wgangp":
             eps = random.random()
-            merged = eps * net + (1 - eps) * sampled_tensor
+            merged = eps * net + (1.0 - eps) * sampled_tensor
             with mode_context(self.discriminator, to_train=None, use_grad=True):
-                pred_merged = self.discriminator(merged.requires_grad_(True)).output
+                pred_merged = self.discriminator(merged.requires_grad_(True)).output  # type: ignore
                 loss_gp = self.gan_loss.loss(merged, pred_merged)
             d_loss = d_loss + self.lambda_gp * loss_gp
             losses["d_gp"] = loss_gp
