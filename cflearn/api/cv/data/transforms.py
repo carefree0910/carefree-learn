@@ -599,9 +599,9 @@ class StyleTransfer(Compose):
     ):
         super().__init__(
             [
-                ToRGB(label_alias=label_alias),
                 Resize(resize_size, label_alias=label_alias),
                 RandomCrop(crop_size, label_alias=label_alias),
+                ToRGB(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -612,8 +612,8 @@ class StyleTransferTest(Compose):
     def __init__(self, *, resize_size: int = 256, label_alias: Optional[str] = None):
         super().__init__(
             [
-                ToRGB(label_alias=label_alias),
                 Resize(resize_size, label_alias=label_alias),
+                ToRGB(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
         )
