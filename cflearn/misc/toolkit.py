@@ -147,6 +147,27 @@ def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
     return arguments
 
 
+def download_model(
+    name: str,
+    *,
+    root: str = os.path.join(os.path.expanduser("~"), ".cflearn", "models"),
+    prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/latest/",
+    force_download: bool = False,
+) -> str:
+    os.makedirs(root, exist_ok=True)
+    file = f"{name}.pt"
+    path = os.path.join(root, file)
+    if os.path.isfile(path) and not force_download:
+        return path
+    with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=name) as t:
+        urllib.request.urlretrieve(
+            f"{prefix}{file}",
+            filename=path,
+            reporthook=t.update_to,
+        )
+    return path
+
+
 def download_dataset(
     name: str,
     *,
