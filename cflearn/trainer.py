@@ -518,7 +518,11 @@ class Trainer:
             if self.model_has_custom_steps and self.model.custom_params_groups:
                 parameters = self.model.params_groups(self.model_for_training)
             else:
-                parameters = self.model_for_training.parameters()
+                parameters = [
+                    param
+                    for param in self.model_for_training.parameters()
+                    if param.requires_grad
+                ]
         else:
             attr = getattr(self.model_for_training, pack.scope)
             if not isinstance(attr, nn.Module):
