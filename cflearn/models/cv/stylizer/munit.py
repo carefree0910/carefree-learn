@@ -336,8 +336,8 @@ class MUNITStylizerBase(OneStageGANMixin, metaclass=ABCMeta):
         mapping_latent_dim: int = 256,
         gan_weight: float = 1.0,
         recon_weight: float = 10.0,
-        style_recon_weight: float = 10.0,
-        content_recon_weight: float = 10.0,
+        style_recon_weight: float = 1.0,
+        content_recon_weight: float = 1.0,
     ):
         super().__init__(
             num_classes=None,
