@@ -619,6 +619,39 @@ class StyleTransferTest(Compose):
         )
 
 
+@Transforms.register("munit")
+class MUNIT(Compose):
+    def __init__(
+        self,
+        *,
+        p: float = 0.5,
+        resize_size: int = 256,
+        label_alias: Optional[str] = None,
+    ):
+        super().__init__(
+            [
+                Resize(resize_size, label_alias=label_alias),
+                HFlip(p, label_alias=label_alias),
+                ToRGB(label_alias=label_alias),
+                Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                AToTensor(label_alias=label_alias),
+            ]
+        )
+
+
+@Transforms.register("munit_test")
+class MUNITTest(Compose):
+    def __init__(self, *, resize_size: int = 256, label_alias: Optional[str] = None):
+        super().__init__(
+            [
+                Resize(resize_size, label_alias=label_alias),
+                ToRGB(label_alias=label_alias),
+                Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                AToTensor(label_alias=label_alias),
+            ]
+        )
+
+
 __all__ = [
     "Function",
     "Compose",
@@ -649,4 +682,6 @@ __all__ = [
     "ABundleTest",
     "StyleTransfer",
     "StyleTransferTest",
+    "MUNIT",
+    "MUNITTest",
 ]
