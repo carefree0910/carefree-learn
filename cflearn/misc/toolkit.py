@@ -1102,6 +1102,13 @@ def is_gray(arr: arr_type) -> bool:
     return arr.shape[1] == 1
 
 
+def clip_normalize(arr: arr_type) -> arr_type:
+    fn = np if isinstance(arr, np.ndarray) else torch
+    if arr.dtype == fn.uint8:
+        return arr
+    return fn.clip(arr, 0.0, 1.0)
+
+
 def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
     eps = 1.0e-8
     if global_norm:
