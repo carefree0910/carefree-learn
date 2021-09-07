@@ -366,10 +366,6 @@ class MUNITStylizerBase(OneStageGANMixin, metaclass=ABCMeta):
             "ca_recon": content_recon_weight,
             "cb_recon": content_recon_weight,
         }
-        self.gw = gan_weight
-        self.rw = recon_weight
-        self.sw = style_recon_weight
-        self.cw = content_recon_weight
         self._build()
 
     @abstractmethod
