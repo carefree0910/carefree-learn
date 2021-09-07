@@ -25,7 +25,7 @@ from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
-from ....misc.toolkit import quantile_normalize
+from ....misc.toolkit import clip_normalize
 
 
 @ModelProtocol.register("adain")
@@ -96,7 +96,7 @@ class AdaINStylizer(ModelProtocol):
         inp = {INPUT_KEY: net, STYLE_KEY: style}
         kwargs["need_stylized_features"] = False
         decoded = self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
-        return quantile_normalize(decoded, q=kwargs.get("q", 0.01), global_norm=False)
+        return clip_normalize(decoded)
 
 
 @LossProtocol.register("adain")
