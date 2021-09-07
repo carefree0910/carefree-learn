@@ -32,6 +32,20 @@ register_scheduler("cosine")(CosineAnnealingLR)
 register_scheduler("cosine_restarts")(CosineAnnealingWarmRestarts)
 
 
+@register_scheduler("linear_inverse")
+class LinearInverseScheduler(_LRScheduler):
+    def __init__(self, optimizer: Optimizer, decay: float):
+        self.decay = decay
+        super().__init__(optimizer)
+
+    def get_lr(self) -> List[float]:
+        return self._get_closed_form_lr()
+
+    def _get_closed_form_lr(self) -> List[float]:
+        denom = 1.0 + self.decay * self._step_count
+        return [base_lr / denom for base_lr in self.base_lrs]
+
+
 @register_scheduler("step")
 class StepLRWithFloor(StepLR):
     def __init__(
