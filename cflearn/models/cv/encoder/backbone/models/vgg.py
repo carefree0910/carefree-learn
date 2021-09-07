@@ -12,7 +12,7 @@ from torchvision.models import vgg16
 from torchvision.models import vgg19
 
 from .register import register_backbone
-from ......constants import WARNING_PREFIX
+from ......misc.toolkit import download_model
 from ......modules.blocks import get_conv_blocks
 from ......modules.blocks import Conv2d
 from ......modules.blocks import SEBlock
@@ -43,8 +43,6 @@ class VGG(nn.Module):
 class VGGStyle(nn.Module):
     def __init__(self, slices: List[int], pretrained: bool = True):
         super().__init__()
-        if pretrained:
-            print(f"{WARNING_PREFIX}`VGGStyle` does not support `pretrained`")
         start_idx = 0
         blocks = [
             nn.Conv2d(3, 3, (1, 1)),
@@ -89,6 +87,9 @@ class VGGStyle(nn.Module):
         self.num_slices = len(sliced_modules)
         for i, sliced_m in enumerate(sliced_modules):
             setattr(self, f"slice{i}", sliced_m)
+        if pretrained:
+            pt_path = download_model("vgg_style")
+            self.load_state_dict(torch.load(pt_path))
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         for i in range(self.num_slices):
@@ -117,7 +118,7 @@ def sliced_vgg19_large(pretrained: bool = True) -> VGG:
 
 
 @register_backbone("vgg_style")
-def vgg_style(pretrained: bool = False) -> VGGStyle:
+def vgg_style(pretrained: bool = True) -> VGGStyle:
     return VGGStyle([4, 11, 18, 31], pretrained=pretrained)
 
 

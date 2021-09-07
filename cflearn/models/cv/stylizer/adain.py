@@ -1,5 +1,3 @@
-import torch
-
 from torch import nn
 from torch import Tensor
 from typing import Any
@@ -36,7 +34,6 @@ class AdaINStylizer(ModelProtocol):
         *,
         backbone: str = "vgg_style",
         backbone_config: Optional[Dict[str, Any]] = None,
-        backbone_pretrained_path: Optional[str] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -44,11 +41,9 @@ class AdaINStylizer(ModelProtocol):
             backbone,
             in_channels,
             finetune=False,
-            pretrained=backbone != "vgg_style",
+            pretrained=True,
             backbone_config=backbone_config,
         )
-        if backbone_pretrained_path is not None:
-            self.backbone.load_state_dict(torch.load(backbone_pretrained_path))
         if decoder_config is None:
             decoder_config = {}
         decoder_config.setdefault("norm_type", None)
