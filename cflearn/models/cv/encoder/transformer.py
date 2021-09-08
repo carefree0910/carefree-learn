@@ -22,7 +22,9 @@ class ViTEncoder(Encoder1DFromPatches):
         drop_path_rate: float = 0.0,
         norm_type: str = "layer",
         feedforward_dim_ratio: float = 4.0,
-        **attention_kwargs: Any,
+        attention_kwargs: Optional[Dict[str, Any]] = None,
+        use_head_token: bool = True,
+        use_positional_encoding: bool = True,
     ):
         super().__init__(
             img_size,
@@ -32,6 +34,8 @@ class ViTEncoder(Encoder1DFromPatches):
             to_patches_type,
             to_patches_config,
         )
+        if attention_kwargs is None:
+            attention_kwargs = {}
         attention_kwargs.setdefault("bias", True)
         attention_kwargs.setdefault("num_heads", 6)
         self.encoder = MixedStackedEncoder(
@@ -44,8 +48,8 @@ class ViTEncoder(Encoder1DFromPatches):
             drop_path_rate=drop_path_rate,
             norm_type=norm_type,
             feedforward_dim_ratio=feedforward_dim_ratio,
-            use_head_token=True,
-            use_positional_encoding=True,
+            use_head_token=use_head_token,
+            use_positional_encoding=use_positional_encoding,
         )
 
 

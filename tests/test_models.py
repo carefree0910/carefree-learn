@@ -143,7 +143,10 @@ class TestModels(unittest.TestCase):
             img_size,
             latent_dim,
             encoder1d="vit",
-            encoder1d_configs={"patch_size": patch_size, "embed_dim": 18},
+            encoder1d_configs={
+                "patch_size": patch_size,
+                "attention_kwargs": {"embed_dim": 18},
+            },
         )
         self.assertSequenceEqual(vit_clf.classify(inp).shape, [batch_size, num_classes])
 
