@@ -1128,11 +1128,19 @@ class Residual(Module):
 
 
 class PreNorm(Module):
-    def __init__(self, *dims: int, module: Module, norm_type: str = "layer"):
+    def __init__(
+        self,
+        *dims: int,
+        module: Module,
+        norm_type: str = "layer",
+        norm_kwargs: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__()
+        if norm_kwargs is None:
+            norm_kwargs = {}
         self.norms = ModuleList([])
         for dim in dims:
-            self.norms.append(NormFactory(norm_type).make(dim))
+            self.norms.append(NormFactory(norm_type).make(dim, **norm_kwargs))
         self.module = module
 
     def forward(self, *xs: Tensor, **kwargs: Any) -> Tensor:
@@ -1782,6 +1790,7 @@ class MixingBlock(Module):
         dropout: float = 0.0,
         drop_path: float = 0.0,
         norm_type: str = "batch_norm",
+        norm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
@@ -1792,6 +1801,7 @@ class MixingBlock(Module):
             latent_dim,
             module=TokenMixerBase.make(token_mixing_type, token_mixing_config),
             norm_type=norm_type,
+            norm_kwargs=norm_kwargs,
         )
         if channel_mixing_config is None:
             channel_mixing_config = {}
@@ -1806,6 +1816,7 @@ class MixingBlock(Module):
             latent_dim,
             module=FFN.make(channel_mixing_type, channel_mixing_config),
             norm_type=norm_type,
+            norm_kwargs=norm_kwargs,
         )
 
     def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
@@ -1906,6 +1917,7 @@ class MixedStackedEncoder(Module):
         dpr_list: Optional[List[float]] = None,
         drop_path_rate: float = 0.1,
         norm_type: str = "batch_norm",
+        norm_kwargs: Optional[Dict[str, Any]] = None,
         feedforward_dim_ratio: float = 1.0,
         reduce_head: bool = True,
         use_head_token: bool = False,
@@ -1943,6 +1955,7 @@ class MixedStackedEncoder(Module):
                     dropout=dropout,
                     drop_path=drop_path,
                     norm_type=norm_type,
+                    norm_kwargs=norm_kwargs,
                 )
                 for drop_path in dpr_list
             ]
@@ -1954,7 +1967,12 @@ class MixedStackedEncoder(Module):
             head = nn.Identity()
         else:
             head = Lambda(lambda x: x.mean(1), name="global_average")
-        self.head = PreNorm(dim, module=head, norm_type=norm_type)
+        self.head = PreNorm(
+            dim,
+            module=head,
+            norm_type=norm_type,
+            norm_kwargs=norm_kwargs,
+        )
         # initializations
         if self.head_token is not None:
             nn.init.trunc_normal_(self.head_token, std=0.02)
