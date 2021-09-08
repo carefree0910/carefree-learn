@@ -690,6 +690,39 @@ class MUNITTest(Compose):
         )
 
 
+@Transforms.register("clf")
+class Classification(Compose):
+    def __init__(
+        self,
+        *,
+        p: float = 0.5,
+        resize_size: int = 512,
+        label_alias: Optional[str] = None,
+    ):
+        if label_alias is not None:
+            raise ValueError("`label_alias` should not be provided in `Classification`")
+        super().__init__(
+            [
+                Resize(int(resize_size * 1.2)),
+                ToRGB(),
+                Normalize(),
+                RandomCrop(resize_size),
+                HFlip(p),
+                AToTensor(),
+                ColorJitter(p=min(1.0, p * 1.6)),
+                RandomErase(p=p),
+            ]
+        )
+
+
+@Transforms.register("clf_test")
+class ClassificationTest(Compose):
+    def __init__(self, *, resize_size: int = 512, label_alias: Optional[str] = None):
+        if label_alias is not None:
+            raise ValueError("`label_alias` should not be provided in `Classification`")
+        super().__init__([Resize(resize_size), ToRGB(), Normalize(), AToTensor()])
+
+
 __all__ = [
     "Function",
     "Compose",
@@ -724,4 +757,6 @@ __all__ = [
     "StyleTransferTest",
     "MUNIT",
     "MUNITTest",
+    "Classification",
+    "ClassificationTest",
 ]
