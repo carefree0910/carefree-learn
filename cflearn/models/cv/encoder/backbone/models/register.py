@@ -1,5 +1,3 @@
-from torch import nn
-from typing import Any
 from typing import Dict
 from typing import Callable
 from torchvision.models import resnet18

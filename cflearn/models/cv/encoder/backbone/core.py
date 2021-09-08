@@ -5,10 +5,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from cflearn.types import tensor_dict_type
-from torchvision.models import resnet18
-from torchvision.models import resnet50
-from torchvision.models import resnet101
-from torchvision.models import resnet152
 from torchvision.models._utils import IntermediateLayerGetter as ILG
 
 from .....constants import LATENT_KEY
