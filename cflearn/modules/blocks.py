@@ -1902,6 +1902,18 @@ class PositionalEncoding(Module):
         return torch.cat([head_encoding, pos_encoding], dim=1)
 
 
+class SequencePooling(Module):
+    def __init__(self, dim: int, bias: bool = True):
+        super().__init__()
+        self.projection = Linear(dim, 1, bias=bias)
+
+    def forward(self, net: Tensor) -> Tensor:
+        weights = self.projection(net)
+        weights = F.softmax(weights, dim=1).transpose(-1, -2)
+        net = torch.matmul(weights, net)
+        return net.squeeze(-2)
+
+
 class MixedStackedEncoder(Module):
     def __init__(
         self,
@@ -1920,6 +1932,7 @@ class MixedStackedEncoder(Module):
         norm_kwargs: Optional[Dict[str, Any]] = None,
         feedforward_dim_ratio: float = 1.0,
         reduce_head: bool = True,
+        sequence_pool: bool = False,
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
     ):
@@ -1963,6 +1976,8 @@ class MixedStackedEncoder(Module):
         # head
         if self.head_token is not None:
             head = Lambda(lambda x: x[:, 0], name="head_token")
+        elif sequence_pool:
+            head = SequencePooling(dim)
         elif not reduce_head:
             head = nn.Identity()
         else:

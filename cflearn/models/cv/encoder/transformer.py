@@ -24,6 +24,7 @@ class ViTEncoder(Encoder1DFromPatches):
         norm_kwargs: Optional[Dict[str, Any]] = None,
         feedforward_dim_ratio: float = 4.0,
         attention_kwargs: Optional[Dict[str, Any]] = None,
+        sequence_pool: bool = False,
         use_head_token: bool = True,
         use_positional_encoding: bool = True,
     ):
@@ -50,6 +51,7 @@ class ViTEncoder(Encoder1DFromPatches):
             norm_type=norm_type,
             norm_kwargs=norm_kwargs,
             feedforward_dim_ratio=feedforward_dim_ratio,
+            sequence_pool=sequence_pool,
             use_head_token=use_head_token,
             use_positional_encoding=use_positional_encoding,
         )

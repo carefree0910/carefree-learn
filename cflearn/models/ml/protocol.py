@@ -252,6 +252,7 @@ class MixedStackedModel(MLCoreProtocol):
         dropout: float = 0.0,
         norm_type: str = "batch_norm",
         feedforward_dim_ratio: float = 1.0,
+        sequence_pool: bool = False,
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
     ):
@@ -268,6 +269,7 @@ class MixedStackedModel(MLCoreProtocol):
             dropout=dropout,
             norm_type=norm_type,
             feedforward_dim_ratio=feedforward_dim_ratio,
+            sequence_pool=sequence_pool,
             use_head_token=use_head_token,
             use_positional_encoding=use_positional_encoding,
         )
