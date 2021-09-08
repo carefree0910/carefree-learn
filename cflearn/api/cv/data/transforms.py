@@ -159,6 +159,35 @@ class RandomResizedCrop(Transforms):
         return False
 
 
+@Transforms.register("color_jitter")
+class ColorJitter(Transforms):
+    def __init__(
+        self,
+        *,
+        p: float,
+        brightness: float = 0.4,
+        contrast: float = 0.4,
+        saturation: float = 0.2,
+        hue: float = 0.1,
+    ):
+        super().__init__()
+        self.fn = transforms.RandomApply(
+            [
+                transforms.ColorJitter(
+                    brightness=brightness,
+                    contrast=contrast,
+                    saturation=saturation,
+                    hue=hue,
+                )
+            ],
+            p=p,
+        )
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("-1~1")
 class N1To1(Transforms):
     fn = transforms.Lambda(lambda t: t * 2.0 - 1.0)
@@ -237,17 +266,7 @@ class SSLTransform(Transforms):
             flip_and_color_jitter = transforms.Compose(
                 [
                     transforms.RandomHorizontalFlip(p=0.5),
-                    transforms.RandomApply(
-                        [
-                            transforms.ColorJitter(
-                                brightness=0.4,
-                                contrast=0.4,
-                                saturation=0.2,
-                                hue=0.1,
-                            )
-                        ],
-                        p=0.8,
-                    ),
+                    ColorJitter(p=0.8),
                     transforms.RandomGrayscale(p=0.2),
                 ]
             )
@@ -678,6 +697,7 @@ __all__ = [
     "ToTensor",
     "RandomErase",
     "RandomResizedCrop",
+    "ColorJitter",
     "N1To1",
     "Inverse0To1",
     "InverseN1To1",
