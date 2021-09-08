@@ -129,6 +129,25 @@ class ToTensor(Transforms):
         return False
 
 
+@Transforms.register("random_erase")
+class RandomErase(Transforms):
+    def __init__(
+        self,
+        *,
+        p: float,
+        scale: Tuple[float, float] = (0.02, 0.33),
+        ratio: Tuple[float, float] = (0.3, 3.3),
+        value: Any = 0,
+        inplace: bool = False,
+    ):
+        super().__init__()
+        self.fn = transforms.RandomErasing(p, scale, ratio, value, inplace)
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("random_resized_crop")
 class RandomResizedCrop(Transforms):
     def __init__(self, *, size: int = 224):
@@ -657,6 +676,7 @@ __all__ = [
     "Compose",
     "ToGray",
     "ToTensor",
+    "RandomErase",
     "RandomResizedCrop",
     "N1To1",
     "Inverse0To1",
