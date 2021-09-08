@@ -1,3 +1,5 @@
+import torch
+
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -10,6 +12,7 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
+from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ...ml.protocol import MERGED_KEY
 from ...ml.protocol import MLCoreProtocol
@@ -28,6 +31,7 @@ class VanillaClassifier(ModelProtocol):
         head: str = "linear",
         encoder1d_configs: Optional[Dict[str, Any]] = None,
         head_configs: Optional[Dict[str, Any]] = None,
+        encoder1d_pretrained_path: Optional[str] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -39,6 +43,13 @@ class VanillaClassifier(ModelProtocol):
         encoder1d_configs["in_channels"] = in_channels
         encoder1d_configs["latent_dim"] = latent_dim
         self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
+        if encoder1d_pretrained_path is not None:
+            print(
+                f"{INFO_PREFIX}loading pretrained encoder1d "
+                f"from '{encoder1d_pretrained_path}'"
+            )
+            d = torch.load(encoder1d_pretrained_path)
+            self.encoder1d.load_state_dict(d)
         # head
         if head_configs is None:
             head_configs = {}
