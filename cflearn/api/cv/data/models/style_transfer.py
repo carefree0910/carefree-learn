@@ -73,11 +73,11 @@ class StyleTransferDataset(ImageFolderDataset, StyleTransferMixin):  # type: ign
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_configs: Optional[Dict[str, Any]] = None,
+        lmdb_config: Optional[Dict[str, Any]] = None,
         *,
         style_folder: str,
     ):
-        super().__init__(folder, split, transform, transform_config, lmdb_configs)
+        super().__init__(folder, split, transform, transform_config, lmdb_config)
         self._init_style_paths(style_folder)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
@@ -118,7 +118,7 @@ class StyleTransferData(ImageFolderData):
         test_shuffle: Optional[bool] = None,
         test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         test_transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_configs: Optional[Dict[str, Any]] = None,
+        lmdb_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             folder,
@@ -130,7 +130,7 @@ class StyleTransferData(ImageFolderData):
             test_shuffle=test_shuffle,
             test_transform=test_transform,
             test_transform_config=test_transform_config,
-            lmdb_configs=lmdb_configs,
+            lmdb_config=lmdb_config,
         )
         self.style_folder = style_folder
 
@@ -147,7 +147,7 @@ class StyleTransferData(ImageFolderData):
                 self.folder,
                 "train",
                 self.transform,
-                lmdb_configs=self.lmdb_configs,
+                lmdb_config=self.lmdb_config,
                 style_folder=self.style_folder,
             )
         )
@@ -156,7 +156,7 @@ class StyleTransferData(ImageFolderData):
                 self.folder,
                 "valid",
                 self.test_transform,
-                lmdb_configs=self.lmdb_configs,
+                lmdb_config=self.lmdb_config,
                 style_folder=self.style_folder,
             )
         )
@@ -197,9 +197,9 @@ class UnifiedStyleTransferDataset(ImageFolderDataset):
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_configs: Optional[Dict[str, Any]] = None,
+        lmdb_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(folder, split, transform, transform_config, lmdb_configs)
+        super().__init__(folder, split, transform, transform_config, lmdb_config)
         self.style2paths: Dict[str, List[str]] = {}
         self.style_labels = {}
         self.content_labels = {}
@@ -265,7 +265,7 @@ class UnifiedStyleTransferData(ImageFolderData):
         test_shuffle: Optional[bool] = None,
         test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         test_transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_configs: Optional[Dict[str, Any]] = None,
+        lmdb_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             folder,
@@ -277,7 +277,7 @@ class UnifiedStyleTransferData(ImageFolderData):
             test_shuffle=test_shuffle,
             test_transform=test_transform,
             test_transform_config=test_transform_config,
-            lmdb_configs=lmdb_configs,
+            lmdb_config=lmdb_config,
         )
 
     # TODO : support sample weights
@@ -287,7 +287,7 @@ class UnifiedStyleTransferData(ImageFolderData):
                 self.folder,
                 "train",
                 self.transform,
-                lmdb_configs=self.lmdb_configs,
+                lmdb_config=self.lmdb_config,
             )
         )
         self.valid_data = CVDataset(
@@ -295,6 +295,6 @@ class UnifiedStyleTransferData(ImageFolderData):
                 self.folder,
                 "valid",
                 self.test_transform,
-                lmdb_configs=self.lmdb_configs,
+                lmdb_config=self.lmdb_config,
             )
         )

@@ -35,7 +35,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         bias: bool = True,
         final_activation: Optional[str] = None,
         encoder1d: str = "vanilla",
-        encoder1d_configs: Optional[Dict[str, Any]] = None,
+        encoder1d_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -44,15 +44,15 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         self.out_channels = out_channels or in_channels
         num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         # encoder
-        if encoder1d_configs is None:
-            encoder1d_configs = {}
+        if encoder1d_config is None:
+            encoder1d_config = {}
         if encoder1d != "backbone":
-            encoder1d_configs["img_size"] = img_size
-        encoder1d_configs["in_channels"] = in_channels
-        encoder1d_configs["latent_dim"] = latent_dim
+            encoder1d_config["img_size"] = img_size
+        encoder1d_config["in_channels"] = in_channels
+        encoder1d_config["latent_dim"] = latent_dim
         if encoder1d == "vanilla":
-            encoder1d_configs["num_downsample"] = num_downsample
-        self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
+            encoder1d_config["num_downsample"] = num_downsample
+        self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_config)
         self.to_statistics = Linear(latent_dim, 2 * latent_dim, bias=False)
         # siren
         self.siren = ImgSiren(

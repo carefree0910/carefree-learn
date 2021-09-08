@@ -174,7 +174,7 @@ class ImageFolderData(CVDataModule):
         test_shuffle: Optional[bool] = None,
         test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         test_transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_configs: Optional[Dict[str, Any]] = None,
+        lmdb_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = folder
         self.shuffle = shuffle
@@ -187,7 +187,7 @@ class ImageFolderData(CVDataModule):
         self.test_transform = Transforms.convert(test_transform, test_transform_config)
         if self.test_transform is None:
             self.test_transform = self.transform
-        self.lmdb_configs = lmdb_configs
+        self.lmdb_config = lmdb_config
         self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
     @property
@@ -195,10 +195,10 @@ class ImageFolderData(CVDataModule):
         d = shallow_copy_dict(self.kw)
         d["test_shuffle"] = self.test_shuffle
         try:
-            json.dumps(self.lmdb_configs)
-            d["lmdb_configs"] = self.lmdb_configs
+            json.dumps(self.lmdb_config)
+            d["lmdb_config"] = self.lmdb_config
         except Exception as err:
-            d["lmdb_configs"] = str(err)
+            d["lmdb_config"] = str(err)
         return d
 
     # TODO : support sample weights
@@ -208,7 +208,7 @@ class ImageFolderData(CVDataModule):
                 self.folder,
                 "train",
                 self.transform,
-                lmdb_configs=self.lmdb_configs,
+                lmdb_config=self.lmdb_config,
             )
         )
         self.valid_data = CVDataset(
@@ -216,7 +216,7 @@ class ImageFolderData(CVDataModule):
                 self.folder,
                 "valid",
                 self.test_transform,
-                lmdb_configs=self.lmdb_configs,
+                lmdb_config=self.lmdb_config,
             )
         )
 

@@ -53,7 +53,7 @@ if __name__ == "__main__":
             "num_classes": 2,
             "latent_dim": 512,
             "encoder1d": "backbone",
-            "encoder1d_configs": {"name": "resnet18"},
+            "encoder1d_config": {"name": "resnet18"},
         },
         loss_name="cross_entropy",
         metric_names=["acc"] if is_ci else ["acc", "auc"],

@@ -37,15 +37,15 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
         *,
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
-        gan_loss_configs: Optional[Dict[str, Any]] = None,
+        gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.num_classes = num_classes
         self.gan_mode = gan_mode
         self.gan_loss = GANLoss(gan_mode)
-        if gan_loss_configs is None:
-            gan_loss_configs = {}
-        self.lambda_gp = gan_loss_configs.get("lambda_gp", 10.0)
+        if gan_loss_config is None:
+            gan_loss_config = {}
+        self.lambda_gp = gan_loss_config.get("lambda_gp", 10.0)
 
     @property
     @abstractmethod
@@ -172,23 +172,23 @@ class VanillaGANMixin(OneStageGANMixin, metaclass=ABCMeta):
         in_channels: int,
         *,
         discriminator: str = "basic",
-        discriminator_configs: Optional[Dict[str, Any]] = None,
+        discriminator_config: Optional[Dict[str, Any]] = None,
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
-        gan_loss_configs: Optional[Dict[str, Any]] = None,
+        gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             num_classes=num_classes,
             gan_mode=gan_mode,
-            gan_loss_configs=gan_loss_configs,
+            gan_loss_config=gan_loss_config,
         )
-        if discriminator_configs is None:
-            discriminator_configs = {}
-        discriminator_configs["in_channels"] = in_channels
-        discriminator_configs["num_classes"] = num_classes
+        if discriminator_config is None:
+            discriminator_config = {}
+        discriminator_config["in_channels"] = in_channels
+        discriminator_config["num_classes"] = num_classes
         self.discriminator = DiscriminatorBase.make(
             discriminator,
-            config=discriminator_configs,
+            config=discriminator_config,
         )
 
     @property

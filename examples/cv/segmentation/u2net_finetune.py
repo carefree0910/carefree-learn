@@ -64,7 +64,7 @@ if __name__ == "__main__":
         transform=cflearn.cv.ABundle(label_alias="mask"),
         test_transform=cflearn.cv.ABundleTest(label_alias="mask"),
     )
-    pipeline_configs = dict(
+    pipeline_config = dict(
         model_name="u2net",
         model_config={
             "in_channels": 3,
@@ -81,7 +81,7 @@ if __name__ == "__main__":
         fixed_steps=0 if is_ci else None,
     )
     if not is_ci:
-        pipeline_configs["finetune_config"] = {
+        pipeline_config["finetune_config"] = {
             # "pretrained_ckpt": "pretrained/model.pt",
             "pretrained_ckpt": pretrained_ckpt,
             # "freeze_except": r"(.*\.side_blocks\..*|.*\.out\..*)",
@@ -89,11 +89,11 @@ if __name__ == "__main__":
     else:
         import torch
 
-        m = cflearn.cv.CarefreePipeline(**pipeline_configs).fit(data)
+        m = cflearn.cv.CarefreePipeline(**pipeline_config).fit(data)
         os.makedirs(os.path.dirname(pretrained_ckpt), exist_ok=True)
         torch.save(m.model.state_dict(), pretrained_ckpt)
-        pipeline_configs["fixed_steps"] = 1
-        pipeline_configs["finetune_config"] = {"pretrained_ckpt": pretrained_ckpt}
-    m = cflearn.cv.CarefreePipeline(**pipeline_configs)
+        pipeline_config["fixed_steps"] = 1
+        pipeline_config["finetune_config"] = {"pretrained_ckpt": pretrained_ckpt}
+    m = cflearn.cv.CarefreePipeline(**pipeline_config)
     m.fit(data, cuda=None if is_ci else 0)
     # m.ddp(data, cuda_list=[1, 2, 3, 4])

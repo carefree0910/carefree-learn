@@ -112,8 +112,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     inference_base: Type[InferenceProtocol]
     device_info: DeviceInfo
 
-    configs_file: str = "configs.json"
-    trainer_configs_file: str = "trainer_configs.json"
+    config_file: str = "config.json"
+    trainer_config_file: str = "trainer_config.json"
     data_info_name: str = "data_info"
     metrics_log_file: str = "metrics.txt"
 
@@ -232,7 +232,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             self.trainer_config["workplace"] = workplace
             self.trainer_config["data_info_name"] = self.data_info_name
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
-            with open(os.path.join(workplace, self.configs_file), "w") as f:
+            with open(os.path.join(workplace, self.config_file), "w") as f:
                 json.dump(self.config, f)
 
     def _prepare_loss(self) -> None:
@@ -347,7 +347,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             self.loss,
             self.model,
             self.inference,
-            configs_export_file=self.trainer_configs_file,
+            config_export_file=self.trainer_config_file,
             cuda=cuda,
         )
         self.device_info = self.trainer.device_info
@@ -430,7 +430,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 scores = json.load(rf)
             with open(os.path.join(pack_folder, SCORES_FILE), "w") as wf:
                 json.dump({new_file: scores[best_file]}, wf)
-            with open(os.path.join(workplace, cls.configs_file), "r") as rf:
+            with open(os.path.join(workplace, cls.config_file), "r") as rf:
                 config = json.load(rf)
             config_bundle = {
                 "config": config,

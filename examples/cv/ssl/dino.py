@@ -20,7 +20,7 @@ def prepare() -> None:
         label_fn=label_fn,
         make_labels_in_parallel=False,
         num_jobs=0,
-        lmdb_configs=lmdb_configs,
+        lmdb_config=lmdb_config,
     )
 
 
@@ -37,7 +37,7 @@ tgt_folder = os.path.join(data_folder, "poster_data")
 
 img_size = 224
 num_epoch = 2000
-lmdb_configs: dict = {}
+lmdb_config: dict = {}
 Image.MAX_IMAGE_PIXELS = None
 
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
         transform_config={"img_size": img_size},
         test_transform="ssl_test",
         test_transform_config={"img_size": img_size},
-        lmdb_configs=lmdb_configs,
+        lmdb_config=lmdb_config,
     )
 
     m = cflearn.cv.CarefreePipeline(
@@ -60,7 +60,7 @@ if __name__ == "__main__":
             "out_dim": 512,
             "norm_last_layer": False,
             "teacher_temp_epochs": num_epoch,
-            "encoder1d_configs": {"img_size": img_size, "in_channels": 3},
+            "encoder1d_config": {"img_size": img_size, "in_channels": 3},
         },
         amp=True,
         fixed_epoch=num_epoch,

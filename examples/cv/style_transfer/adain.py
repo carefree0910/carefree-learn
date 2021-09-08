@@ -24,7 +24,7 @@ if is_ci:
 content_folder = os.path.join(*hierarchy, "contents")
 style_folder = os.path.join(*hierarchy, "styles")
 gathered_folder = os.path.join(*hierarchy, "gathered")
-lmdb_configs: dict = {}
+lmdb_config: dict = {}
 
 
 if __name__ == "__main__":
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         to_index=False,
         label_fn=None,
         num_jobs=0 if is_ci else 24,
-        lmdb_configs=lmdb_configs,
+        lmdb_config=lmdb_config,
     )
     data = cflearn.cv.StyleTransferData(
         gathered_folder,
@@ -45,7 +45,7 @@ if __name__ == "__main__":
         num_workers=2 if is_ci else 4,
         transform=cflearn.cv.StyleTransfer(label_alias=STYLE_KEY),
         test_transform=cflearn.cv.StyleTransferTest(label_alias=STYLE_KEY),
-        lmdb_configs=lmdb_configs,
+        lmdb_config=lmdb_config,
     )
 
     m = cflearn.cv.CarefreePipeline(

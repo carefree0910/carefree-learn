@@ -24,7 +24,7 @@ m = cflearn.cv.CarefreePipeline(
         "num_classes": 10,
         "latent_dim": 512,
         "encoder1d": "backbone",
-        "encoder1d_configs": {"name": "resnet18"},
+        "encoder1d_config": {"name": "resnet18"},
     },
     loss_name="cross_entropy",
     metric_names="acc",

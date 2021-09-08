@@ -29,20 +29,20 @@ class VanillaClassifier(ModelProtocol):
         *,
         encoder1d: str = "vanilla",
         head: str = "linear",
-        encoder1d_configs: Optional[Dict[str, Any]] = None,
-        head_configs: Optional[Dict[str, Any]] = None,
+        encoder1d_config: Optional[Dict[str, Any]] = None,
+        head_config: Optional[Dict[str, Any]] = None,
         encoder1d_pretrained_path: Optional[str] = None,
     ):
         super().__init__()
         self.img_size = img_size
         # encoder1d
-        if encoder1d_configs is None:
-            encoder1d_configs = {}
+        if encoder1d_config is None:
+            encoder1d_config = {}
         if encoder1d != "backbone":
-            encoder1d_configs["img_size"] = img_size
-        encoder1d_configs["in_channels"] = in_channels
-        encoder1d_configs["latent_dim"] = latent_dim
-        self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_configs)
+            encoder1d_config["img_size"] = img_size
+        encoder1d_config["in_channels"] = in_channels
+        encoder1d_config["latent_dim"] = latent_dim
+        self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_config)
         if encoder1d_pretrained_path is not None:
             print(
                 f"{INFO_PREFIX}loading pretrained encoder1d "
@@ -51,12 +51,12 @@ class VanillaClassifier(ModelProtocol):
             d = torch.load(encoder1d_pretrained_path)
             self.encoder1d.load_state_dict(d)
         # head
-        if head_configs is None:
-            head_configs = {}
-        head_configs["in_dim"] = latent_dim
-        head_configs["out_dim"] = num_classes
-        head_configs["num_history"] = 1
-        self.head = MLCoreProtocol.make(head, config=head_configs)
+        if head_config is None:
+            head_config = {}
+        head_config["in_dim"] = latent_dim
+        head_config["out_dim"] = num_classes
+        head_config["num_history"] = 1
+        self.head = MLCoreProtocol.make(head, config=head_config)
 
     def forward(
         self,

@@ -78,8 +78,8 @@ class ExperimentResults(NamedTuple):
             model, index = workplace_key
             latest_workplace = get_latest_workplace(workplace)
             assert latest_workplace is not None, "internal error occurred"
-            configs_path = os.path.join(latest_workplace, CarefreePipeline.configs_file)
-            paths.setdefault(model, {})[int(index)] = configs_path
+            config_path = os.path.join(latest_workplace, CarefreePipeline.config_file)
+            paths.setdefault(model, {})[int(index)] = config_path
         return {k: [v[i] for i in range(len(v))] for k, v in paths.items()}
 
 

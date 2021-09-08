@@ -59,8 +59,8 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         latent_resolution: Optional[int] = None,
         encoder: str = "vanilla",
         decoder: str = "vanilla",
-        encoder_configs: Optional[Dict[str, Any]] = None,
-        decoder_configs: Optional[Dict[str, Any]] = None,
+        encoder_config: Optional[Dict[str, Any]] = None,
+        decoder_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ):
         super().__init__()
@@ -100,8 +100,8 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             img_size,
             encoder,
             decoder,
-            encoder_configs,
-            decoder_configs,
+            encoder_config,
+            decoder_config,
         )
 
     @property
@@ -124,8 +124,8 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         img_size: Optional[int],
         encoder: str,
         decoder: str,
-        encoder_configs: Optional[Dict[str, Any]],
-        decoder_configs: Optional[Dict[str, Any]],
+        encoder_config: Optional[Dict[str, Any]],
+        decoder_config: Optional[Dict[str, Any]],
     ) -> None:
         pass
 
@@ -136,16 +136,16 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         in_channels: int,
         num_downsample: int,
         encoder: str,
-        encoder_configs: Optional[Dict[str, Any]],
+        encoder_config: Optional[Dict[str, Any]],
     ) -> None:
-        if encoder_configs is None:
-            encoder_configs = {}
+        if encoder_config is None:
+            encoder_config = {}
         if encoder != "backbone":
-            encoder_configs["img_size"] = img_size
-        encoder_configs["in_channels"] = in_channels
-        encoder_configs[self.key] = latent_d
-        encoder_configs["num_downsample"] = num_downsample
-        self.encoder = self.encoder_base.make(encoder, config=encoder_configs)
+            encoder_config["img_size"] = img_size
+        encoder_config["in_channels"] = in_channels
+        encoder_config[self.key] = latent_d
+        encoder_config["num_downsample"] = num_downsample
+        self.encoder = self.encoder_base.make(encoder, config=encoder_config)
 
     def _decoder(
         self,
@@ -156,17 +156,17 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         num_classes: Optional[int],
         out_channels: Optional[int],
         decoder: str,
-        decoder_configs: Optional[Dict[str, Any]],
+        decoder_config: Optional[Dict[str, Any]],
     ) -> None:
-        if decoder_configs is None:
-            decoder_configs = {}
-        decoder_configs["img_size"] = img_size
-        decoder_configs["latent_channels"] = latent_d
-        decoder_configs["latent_resolution"] = latent_resolution
-        decoder_configs["num_upsample"] = self.num_upsample
-        decoder_configs["out_channels"] = out_channels or in_channels
-        decoder_configs["num_classes"] = num_classes
-        self.decoder = DecoderBase.make(decoder, config=decoder_configs)
+        if decoder_config is None:
+            decoder_config = {}
+        decoder_config["img_size"] = img_size
+        decoder_config["latent_channels"] = latent_d
+        decoder_config["latent_resolution"] = latent_resolution
+        decoder_config["num_upsample"] = self.num_upsample
+        decoder_config["out_channels"] = out_channels or in_channels
+        decoder_config["num_classes"] = num_classes
+        self.decoder = DecoderBase.make(decoder, config=decoder_config)
 
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:
@@ -205,8 +205,8 @@ class VanillaVAE1D(VanillaVAEBase):
         img_size: Optional[int],
         encoder: str,
         decoder: str,
-        encoder_configs: Optional[Dict[str, Any]],
-        decoder_configs: Optional[Dict[str, Any]],
+        encoder_config: Optional[Dict[str, Any]],
+        decoder_config: Optional[Dict[str, Any]],
     ) -> None:
         latent_d = self.latent_dim = self.latent_d
         self._encoder(
@@ -215,7 +215,7 @@ class VanillaVAE1D(VanillaVAEBase):
             in_channels,
             self.num_downsample,
             encoder,
-            encoder_configs,
+            encoder_config,
         )
         self.to_statistics = Linear(latent_d, 2 * latent_d, bias=False)
         latent_resolution = self.latent_resolution
@@ -241,7 +241,7 @@ class VanillaVAE1D(VanillaVAEBase):
             self.num_classes,
             out_channels,
             decoder,
-            decoder_configs,
+            decoder_config,
         )
 
 
@@ -256,8 +256,8 @@ class VanillaVAE2D(VanillaVAEBase):
         img_size: Optional[int],
         encoder: str,
         decoder: str,
-        encoder_configs: Optional[Dict[str, Any]],
-        decoder_configs: Optional[Dict[str, Any]],
+        encoder_config: Optional[Dict[str, Any]],
+        decoder_config: Optional[Dict[str, Any]],
     ) -> None:
         latent_d = self.latent_d
         self._encoder(
@@ -266,7 +266,7 @@ class VanillaVAE2D(VanillaVAEBase):
             in_channels,
             self.num_downsample,
             encoder,
-            encoder_configs,
+            encoder_config,
         )
         self.latent_dim = latent_d * self.latent_resolution ** 2
         self.to_statistics = Conv2d(
@@ -295,7 +295,7 @@ class VanillaVAE2D(VanillaVAEBase):
             self.num_classes,
             out_channels,
             decoder,
-            decoder_configs,
+            decoder_config,
         )
 
 

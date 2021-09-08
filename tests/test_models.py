@@ -89,7 +89,7 @@ class TestModels(unittest.TestCase):
             num_classes,
             img_size,
             latent_dim,
-            encoder1d_configs={"num_downsample": num_downsample},
+            encoder1d_config={"num_downsample": num_downsample},
         )
         self.assertSequenceEqual(
             vanilla_clf.classify(inp).shape,
@@ -103,7 +103,7 @@ class TestModels(unittest.TestCase):
                 img_size,
                 512,
                 encoder1d="backbone",
-                encoder1d_configs={"name": f"vgg19_{model_type}"},
+                encoder1d_config={"name": f"vgg19_{model_type}"},
             )
             self.assertSequenceEqual(
                 vgg_clf.classify(inp).shape,
@@ -116,7 +116,7 @@ class TestModels(unittest.TestCase):
             img_size,
             512,
             encoder1d="backbone",
-            encoder1d_configs={"name": "resnet18"},
+            encoder1d_config={"name": "resnet18"},
         )
         self.assertSequenceEqual(
             resnet_clf.classify(inp).shape,
@@ -129,7 +129,7 @@ class TestModels(unittest.TestCase):
             img_size,
             320,
             encoder1d="backbone",
-            encoder1d_configs={"name": "mobilenet_v2"},
+            encoder1d_config={"name": "mobilenet_v2"},
         )
         self.assertSequenceEqual(
             mobilenet_clf.classify(inp).shape,
@@ -143,7 +143,7 @@ class TestModels(unittest.TestCase):
             img_size,
             latent_dim,
             encoder1d="vit",
-            encoder1d_configs={
+            encoder1d_config={
                 "patch_size": patch_size,
                 "attention_kwargs": {"embed_dim": 18},
             },
@@ -156,7 +156,7 @@ class TestModels(unittest.TestCase):
             img_size,
             latent_dim,
             encoder1d="mixer",
-            encoder1d_configs={"patch_size": patch_size},
+            encoder1d_config={"patch_size": patch_size},
         )
         self.assertSequenceEqual(
             mixer_clf.classify(inp).shape,
@@ -169,7 +169,7 @@ class TestModels(unittest.TestCase):
             img_size,
             latent_dim,
             encoder1d="fnet",
-            encoder1d_configs={"patch_size": patch_size},
+            encoder1d_config={"patch_size": patch_size},
         )
         self.assertSequenceEqual(
             fnet_clf.classify(inp).shape,
@@ -346,7 +346,7 @@ class TestModels(unittest.TestCase):
             img_size,
             16,
             encoder1d="perceiver_io",
-            encoder1d_configs={"patch_size": patch_size},
+            encoder1d_config={"patch_size": patch_size},
         )
         self.assertSequenceEqual(
             perceiver_clf.classify(inp).shape,

@@ -65,8 +65,8 @@ class VQVAE(ModelProtocol):
         *,
         encoder: str = "vanilla",
         decoder: str = "vanilla",
-        encoder_configs: Optional[Dict[str, Any]] = None,
-        decoder_configs: Optional[Dict[str, Any]] = None,
+        encoder_config: Optional[Dict[str, Any]] = None,
+        decoder_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -74,13 +74,13 @@ class VQVAE(ModelProtocol):
         if num_downsample is None:
             num_downsample = auto_num_layers(img_size, min_size, target_downsample)
         # encoder
-        if encoder_configs is None:
-            encoder_configs = {}
+        if encoder_config is None:
+            encoder_config = {}
         if encoder != "backbone":
-            encoder_configs["img_size"] = img_size
-        encoder_configs["in_channels"] = in_channels
-        encoder_configs["num_downsample"] = num_downsample
-        self.encoder = EncoderBase.make(encoder, config=encoder_configs)
+            encoder_config["img_size"] = img_size
+        encoder_config["in_channels"] = in_channels
+        encoder_config["num_downsample"] = num_downsample
+        self.encoder = EncoderBase.make(encoder, config=encoder_config)
         # latent
         self.num_code = num_code
         self.latent_resolution = get_latent_resolution(img_size, num_downsample)
@@ -96,15 +96,15 @@ class VQVAE(ModelProtocol):
                 self.latent_resolution,
             )
         # decoder
-        if decoder_configs is None:
-            decoder_configs = {}
-        decoder_configs["img_size"] = img_size
-        decoder_configs["latent_channels"] = decoder_in_channels
-        decoder_configs["latent_resolution"] = self.latent_resolution
-        decoder_configs["num_upsample"] = num_downsample
-        decoder_configs["out_channels"] = out_channels or in_channels
-        decoder_configs["num_classes"] = num_classes
-        self.decoder = DecoderBase.make(decoder, config=decoder_configs)
+        if decoder_config is None:
+            decoder_config = {}
+        decoder_config["img_size"] = img_size
+        decoder_config["latent_channels"] = decoder_in_channels
+        decoder_config["latent_resolution"] = self.latent_resolution
+        decoder_config["num_upsample"] = num_downsample
+        decoder_config["out_channels"] = out_channels or in_channels
+        decoder_config["num_classes"] = num_classes
+        self.decoder = DecoderBase.make(decoder, config=decoder_config)
 
     def _decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:

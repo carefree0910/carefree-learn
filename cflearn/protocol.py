@@ -229,7 +229,7 @@ class TrainerState:
         self.step = self.epoch = -1
 
     @property
-    def configs(self) -> Dict[str, Any]:
+    def config(self) -> Dict[str, Any]:
         return {
             "num_epoch": self.num_epoch,
             "max_epoch": self.max_epoch,

@@ -253,7 +253,7 @@ class DINO(ModelWithCustomSteps):
     def __init__(
         self,
         encoder1d_name: str = "vit",
-        encoder1d_configs: Optional[Dict[str, Any]] = None,
+        encoder1d_config: Optional[Dict[str, Any]] = None,
         student_specific: Optional[Dict[str, Any]] = None,
         teacher_specific: Optional[Dict[str, Any]] = None,
         *,
@@ -271,7 +271,7 @@ class DINO(ModelWithCustomSteps):
         warmup_epochs: int = 10,
     ):
         super().__init__()
-        base = update_dict(encoder1d_configs or {}, _get_dino_defaults(encoder1d_name))
+        base = update_dict(encoder1d_config or {}, _get_dino_defaults(encoder1d_name))
         student_cfg = update_dict(student_specific or {}, shallow_copy_dict(base))
         teacher_cfg = update_dict(teacher_specific or {}, shallow_copy_dict(base))
         student = Encoder1DBase.make(encoder1d_name, student_cfg)

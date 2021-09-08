@@ -713,11 +713,11 @@ class Trainer:
     # api
 
     @property
-    def configs(self) -> Dict[str, Any]:
+    def config(self) -> Dict[str, Any]:
         ddp_info = get_ddp_info()
         ddp_d = None if ddp_info is None else ddp_info._asdict()
         return {
-            "state_config": self.state.configs,
+            "state_config": self.state.config,
             "valid_portion": self.valid_portion,
             "amp": self.use_amp,
             "clip_norm": self.clip_norm,
@@ -749,7 +749,7 @@ class Trainer:
         model: ModelProtocol,
         inference: InferenceProtocol,
         *,
-        configs_export_file: Optional[str] = None,
+        config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
         cuda: Optional[str] = None,
     ) -> "Trainer":
@@ -808,10 +808,10 @@ class Trainer:
         has_ckpt = terminate = False
         if self.is_rank_0 and self.epoch_tqdm is None:
             print(f"{INFO_PREFIX}entered training loop")
-        if self.is_rank_0 and configs_export_file is not None:
-            configs_export_path = os.path.join(self.workplace, configs_export_file)
-            with open(configs_export_path, "w") as f:
-                json.dump(self.configs, f)
+        if self.is_rank_0 and config_export_file is not None:
+            config_export_path = os.path.join(self.workplace, config_export_file)
+            with open(config_export_path, "w") as f:
+                json.dump(self.config, f)
         while self.state.should_train:
             try:
                 self.state.epoch += 1

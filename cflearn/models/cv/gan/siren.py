@@ -27,17 +27,17 @@ class SirenGAN(VanillaGANMixin):
         bias: bool = True,
         final_activation: Optional[str] = None,
         discriminator: str = "basic",
-        discriminator_configs: Optional[Dict[str, Any]] = None,
+        discriminator_config: Optional[Dict[str, Any]] = None,
         gan_mode: str = "vanilla",
-        gan_loss_configs: Optional[Dict[str, Any]] = None,
+        gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             in_channels,
             discriminator=discriminator,
-            discriminator_configs=discriminator_configs,
+            discriminator_config=discriminator_config,
             num_classes=num_classes,
             gan_mode=gan_mode,
-            gan_loss_configs=gan_loss_configs,
+            gan_loss_config=gan_loss_config,
         )
         self.latent_dim = latent_dim
         self.out_channels = out_channels or in_channels

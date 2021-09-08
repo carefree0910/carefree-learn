@@ -326,7 +326,7 @@ class MUNITStylizerBase(OneStageGANMixin, metaclass=ABCMeta):
         in_channels: int = 3,
         *,
         gan_mode: str = "lsgan",
-        gan_loss_configs: Optional[Dict[str, Any]] = None,
+        gan_loss_config: Optional[Dict[str, Any]] = None,
         latent_channels: int = 64,
         style_channels: int = 8,
         style_downsample: int = 4,
@@ -342,7 +342,7 @@ class MUNITStylizerBase(OneStageGANMixin, metaclass=ABCMeta):
         super().__init__(
             num_classes=None,
             gan_mode=gan_mode,
-            gan_loss_configs=gan_loss_configs,
+            gan_loss_config=gan_loss_config,
         )
         self.in_channels = in_channels
         self.latent_channels = latent_channels

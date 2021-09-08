@@ -30,19 +30,19 @@ class VanillaGAN(VanillaGANMixin):
         *,
         generator: str = "vanilla",
         discriminator: str = "basic",
-        generator_configs: Optional[Dict[str, Any]] = None,
-        discriminator_configs: Optional[Dict[str, Any]] = None,
+        generator_config: Optional[Dict[str, Any]] = None,
+        discriminator_config: Optional[Dict[str, Any]] = None,
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
-        gan_loss_configs: Optional[Dict[str, Any]] = None,
+        gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(
             in_channels,
             discriminator=discriminator,
-            discriminator_configs=discriminator_configs,
+            discriminator_config=discriminator_config,
             num_classes=num_classes,
             gan_mode=gan_mode,
-            gan_loss_configs=gan_loss_configs,
+            gan_loss_config=gan_loss_config,
         )
         num_upsample = math.ceil(math.log2(img_size / latent_resolution))
         # latent
@@ -58,15 +58,15 @@ class VanillaGAN(VanillaGANMixin):
             Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
         )
         # generator
-        if generator_configs is None:
-            generator_configs = {}
-        generator_configs["img_size"] = img_size
-        generator_configs["latent_channels"] = latent_dim
-        generator_configs["latent_resolution"] = latent_resolution
-        generator_configs["num_upsample"] = num_upsample
-        generator_configs["out_channels"] = out_channels or in_channels
-        generator_configs["num_classes"] = num_classes
-        self.generator = DecoderBase.make(generator, config=generator_configs)
+        if generator_config is None:
+            generator_config = {}
+        generator_config["img_size"] = img_size
+        generator_config["latent_channels"] = latent_dim
+        generator_config["latent_resolution"] = latent_resolution
+        generator_config["num_upsample"] = num_upsample
+        generator_config["out_channels"] = out_channels or in_channels
+        generator_config["num_classes"] = num_classes
+        self.generator = DecoderBase.make(generator, config=generator_config)
 
     @property
     def g_parameters(self) -> List[nn.Parameter]:

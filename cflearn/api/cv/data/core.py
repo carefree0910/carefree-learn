@@ -106,7 +106,7 @@ def prepare_image_folder(
     max_num_valid: int = 10000,
     copy_fn: Optional[Callable[[str, str], None]] = None,
     get_img_path_fn: Optional[Callable[[int, str, str], str]] = None,
-    lmdb_configs: Optional[Dict[str, Any]] = None,
+    lmdb_config: Optional[Dict[str, Any]] = None,
     use_tqdm: bool = True,
 ) -> None:
     if not force_rerun and all(
@@ -285,12 +285,12 @@ def prepare_image_folder(
             with open(os.path.join(dtype_folder, label_file), "w") as f_:
                 json.dump(type_labels, f_)
         # lmdb
-        if lmdb_configs is None:
+        if lmdb_config is None:
             return None
-        local_lmdb_configs = shallow_copy_dict(lmdb_configs)
-        local_lmdb_configs.setdefault("path", _default_lmdb_path(tgt_folder, dtype))
-        local_lmdb_configs.setdefault("map_size", 1099511627776 * 2)
-        db = lmdb.open(**local_lmdb_configs)
+        local_lmdb_config = shallow_copy_dict(lmdb_config)
+        local_lmdb_config.setdefault("path", _default_lmdb_path(tgt_folder, dtype))
+        local_lmdb_config.setdefault("map_size", 1099511627776 * 2)
+        db = lmdb.open(**local_lmdb_config)
         context = db.begin(write=True)
         d_num_samples = len(results)
         iterator = zip(range(d_num_samples), new_paths, all_labels_list)
@@ -327,7 +327,7 @@ class ImageFolderDataset(Dataset):
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_configs: Optional[Dict[str, Any]] = None,
+        lmdb_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = os.path.abspath(os.path.join(folder, split))
         support_appendix = {".jpg", ".png", ".npy"}
@@ -340,20 +340,20 @@ class ImageFolderDataset(Dataset):
                 ),
             )
         )
-        if lmdb_configs is None:
+        if lmdb_config is None:
             self.lmdb = self.context = None
             with open(os.path.join(self.folder, "labels.json"), "r") as f:
                 self.labels = json.load(f)
             self.length = len(self.img_paths)
         else:
-            self.lmdb_configs = shallow_copy_dict(lmdb_configs)
-            self.lmdb_configs.setdefault("path", _default_lmdb_path(folder, split))
-            self.lmdb_configs.setdefault("lock", False)
-            self.lmdb_configs.setdefault("meminit", False)
-            self.lmdb_configs.setdefault("readonly", True)
-            self.lmdb_configs.setdefault("readahead", False)
-            self.lmdb_configs.setdefault("max_readers", 32)
-            self.lmdb = lmdb.open(**self.lmdb_configs)
+            self.lmdb_config = shallow_copy_dict(lmdb_config)
+            self.lmdb_config.setdefault("path", _default_lmdb_path(folder, split))
+            self.lmdb_config.setdefault("lock", False)
+            self.lmdb_config.setdefault("meminit", False)
+            self.lmdb_config.setdefault("readonly", True)
+            self.lmdb_config.setdefault("readahead", False)
+            self.lmdb_config.setdefault("max_readers", 32)
+            self.lmdb = lmdb.open(**self.lmdb_config)
             self.context = self.lmdb.begin(buffers=True, write=False)
             with self.lmdb.begin(write=False) as context:
                 self.length = int(context.get("length".encode("ascii")).decode("ascii"))
