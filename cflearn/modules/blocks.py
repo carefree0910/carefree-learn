@@ -1834,6 +1834,7 @@ class MixingBlock(Module):
         drop_path: float = 0.0,
         norm_type: str = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
+        residual_after_norm: bool = False,
     ):
         super().__init__()
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
@@ -1855,16 +1856,28 @@ class MixingBlock(Module):
                 "dropout": dropout,
             }
         )
-        self.channel_mixing = PreNorm(
-            latent_dim,
-            module=FFN.make(channel_mixing_type, channel_mixing_config),
-            norm_type=norm_type,
-            norm_kwargs=norm_kwargs,
-        )
+        ffn = FFN.make(channel_mixing_type, channel_mixing_config)
+        if residual_after_norm:
+            factory = NormFactory(norm_type)
+            self.channel_norm = factory.make(latent_dim, **(norm_kwargs or {}))
+            self.channel_mixing = ffn
+        else:
+            self.channel_norm = None
+            self.channel_mixing = PreNorm(
+                latent_dim,
+                module=ffn,
+                norm_type=norm_type,
+                norm_kwargs=norm_kwargs,
+            )
 
     def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
         net = net + self.drop_path(self.token_mixing(net, hw=hw))
-        if not self.channel_mixing.module.need_2d:
+        if self.channel_norm is None:
+            need_2d = self.channel_mixing.module.need_2d
+        else:
+            net = self.channel_norm(net)
+            need_2d = self.channel_mixing.need_2d
+        if not need_2d:
             channel_mixing_net = net
         else:
             if hw is None:
@@ -1973,6 +1986,7 @@ class MixedStackedEncoder(Module):
         drop_path_rate: float = 0.1,
         norm_type: str = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
+        residual_after_norm: bool = False,
         feedforward_dim_ratio: float = 1.0,
         reduce_head: bool = True,
         sequence_pool: bool = False,
@@ -2012,6 +2026,7 @@ class MixedStackedEncoder(Module):
                     drop_path=drop_path,
                     norm_type=norm_type,
                     norm_kwargs=norm_kwargs,
+                    residual_after_norm=residual_after_norm,
                 )
                 for drop_path in dpr_list
             ]
