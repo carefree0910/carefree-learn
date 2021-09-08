@@ -1170,11 +1170,18 @@ class ImgToPatches(Module, WithRegister):
         self.patch_size = patch_size
         self.in_channels = in_channels
         self.latent_dim = latent_dim
-        self.num_patches = (img_size // patch_size) ** 2
 
     @abstractmethod
     def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
         """should return patches and its hw"""
+
+    @property
+    def num_patches(self) -> int:
+        shape = 1, self.in_channels, self.img_size, self.img_size
+        params = list(self.parameters())
+        device = "cpu" if not params else params[0].device
+        net = self.forward(torch.zeros(*shape, device=device))[0]
+        return net.shape[1]
 
 
 @ImgToPatches.register("vanilla")
