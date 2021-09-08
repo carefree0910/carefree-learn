@@ -82,6 +82,21 @@ class ColorJitter(Transforms):
         return False
 
 
+@Transforms.register("normalize")
+class Normalize(Transforms):
+    def __init__(
+        self,
+        mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
+        std: Tuple[float, float, float] = (0.229, 0.224, 0.225),
+    ):
+        super().__init__()
+        self.fn = transforms.Normalize(mean, std)
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
 @Transforms.register("-1~1")
 class N1To1(Transforms):
     fn = transforms.Lambda(lambda t: t * 2.0 - 1.0)
@@ -115,6 +130,7 @@ __all__ = [
     "RandomErase",
     "RandomResizedCrop",
     "ColorJitter",
+    "Normalize",
     "N1To1",
     "Inverse0To1",
     "InverseN1To1",
