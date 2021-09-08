@@ -122,8 +122,8 @@ class VFlip(ATransforms):
         self.fn = A.VerticalFlip(p=p)
 
 
-@Transforms.register("normalize")
-class Normalize(ATransforms):
+@Transforms.register("a_normalize")
+class ANormalize(ATransforms):
     def __init__(
         self,
         mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
@@ -239,7 +239,7 @@ __all__ = [
     "ShiftScaleRotate",
     "HFlip",
     "VFlip",
-    "Normalize",
+    "ANormalize",
     "RGBShift",
     "Solarize",
     "GaussianBlur",

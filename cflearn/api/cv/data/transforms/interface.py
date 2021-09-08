@@ -25,7 +25,7 @@ class ForGeneration(Compose):
 @Transforms.register("for_imagenet")
 class ForImagenet(Compose):
     def __init__(self):  # type: ignore
-        super().__init__([ToArray(), Resize(224), Normalize(), ToTensor()])
+        super().__init__([ToArray(), Resize(224), ANormalize(), ToTensor()])
 
 
 @Transforms.register("ssl")
@@ -160,7 +160,7 @@ class SSLTestTransform(Transforms):
                 ),
                 transforms.CenterCrop(img_size),
                 ToArray(),
-                Normalize(),
+                ANormalize(),
                 transforms.ToTensor(),
             ]
         )
@@ -192,7 +192,7 @@ class ABundle(Compose):
                 GaussianBlur(p=p, label_alias=label_alias),
                 HueSaturationValue(p=p, label_alias=label_alias),
                 RandomBrightnessContrast(p=p, label_alias=label_alias),
-                Normalize(label_alias=label_alias),
+                ANormalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -204,7 +204,7 @@ class ABundleTest(Compose):
         super().__init__(
             [
                 Resize(resize_size, label_alias=label_alias),
-                Normalize(label_alias=label_alias),
+                ANormalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -255,7 +255,7 @@ class MUNIT(Compose):
                 Resize(resize_size, label_alias=label_alias),
                 HFlip(p, label_alias=label_alias),
                 ToRGB(label_alias=label_alias),
-                Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ANormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -268,7 +268,7 @@ class MUNITTest(Compose):
             [
                 Resize(resize_size, label_alias=label_alias),
                 ToRGB(label_alias=label_alias),
-                Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+                ANormalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -289,7 +289,7 @@ class Classification(Compose):
             [
                 Resize(int(resize_size * 1.2)),
                 ToRGB(),
-                Normalize(),
+                ANormalize(),
                 RandomCrop(resize_size),
                 HFlip(p),
                 AToTensor(),
@@ -304,7 +304,7 @@ class ClassificationTest(Compose):
     def __init__(self, *, resize_size: int = 512, label_alias: Optional[str] = None):
         if label_alias is not None:
             raise ValueError("`label_alias` should not be provided in `Classification`")
-        super().__init__([Resize(resize_size), ToRGB(), Normalize(), AToTensor()])
+        super().__init__([Resize(resize_size), ToRGB(), ANormalize(), AToTensor()])
 
 
 __all__ = [
