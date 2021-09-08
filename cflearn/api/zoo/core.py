@@ -26,9 +26,9 @@ class ZooBase(ABC):
         json_path: Optional[str] = None,
         **kwargs: Any,
     ):
-        if model is None and json_path is None:
-            raise ValueError("either `name` or `json_path` should be provided")
         if json_path is None:
+            if model is None:
+                raise ValueError("either `model` or `json_path` should be provided")
             if "/" not in model:
                 model = f"{model}/baseline"
             model_type, model_name = model.split("/")
@@ -78,7 +78,7 @@ class CVZoo(ZooBase):
         m = ModelProtocol.make(self.m.model_name, config=self.m.model_config)
         if pretrained:
             if self.tag is None:
-                err_msg = self.err_msg_fmt.format('tag')
+                err_msg = self.err_msg_fmt.format("tag")
                 raise ValueError(f"{err_msg} when `pretrained` is True")
             m.load_state_dict(download_model(self.tag))
         return m

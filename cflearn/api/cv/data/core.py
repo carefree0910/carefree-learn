@@ -218,12 +218,12 @@ def prepare_image_folder(
     assert isinstance(valid_split, int)
 
     train_portion = (num_sample - valid_split) / num_sample
-    label_indices_mapping = {}
+    label_indices_mapping: Dict[Any, List[int]] = {}
     for i, label in enumerate(labels):
         label_indices_mapping.setdefault(label, []).append(i)
     tuple(map(random.shuffle, label_indices_mapping.values()))
-    train_indices_list = []
-    valid_indices_list = []
+    train_indices_list: List[List[int]] = []
+    valid_indices_list: List[List[int]] = []
     for label_indices in label_indices_mapping.values():
         num_label_samples = len(label_indices)
         num_train = int(round(train_portion * num_label_samples))
@@ -252,8 +252,8 @@ def prepare_image_folder(
         propagate(valid_indices_list, train_indices_list)
     elif diff < 0:
         propagate(train_indices_list, valid_indices_list)
-    merged_train_indices = sum(train_indices_list, [])
-    merged_valid_indices = sum(valid_indices_list, [])
+    merged_train_indices: List[int] = sum(train_indices_list, [])
+    merged_valid_indices: List[int] = sum(valid_indices_list, [])
     if train_all_data:
         merged_train_indices.extend(merged_valid_indices)
     train_indices = np.array(merged_train_indices)
