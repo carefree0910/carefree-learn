@@ -123,6 +123,19 @@ class TestModels(unittest.TestCase):
             [batch_size, num_classes],
         )
 
+        resnet_zoo_clf = cflearn.zoo.CVZoo.load_model(
+            model="clf/resnet101",
+            model_config=dict(
+                in_channels=in_channels,
+                num_classes=num_classes,
+                img_size=img_size,
+            ),
+        )
+        self.assertSequenceEqual(
+            resnet_zoo_clf.classify(inp).shape,
+            [batch_size, num_classes],
+        )
+
         mobilenet_clf = cflearn.VanillaClassifier(
             in_channels,
             num_classes,
@@ -149,6 +162,19 @@ class TestModels(unittest.TestCase):
             },
         )
         self.assertSequenceEqual(vit_clf.classify(inp).shape, [batch_size, num_classes])
+
+        cct_zoo_clf = cflearn.zoo.CVZoo.load_model(
+            model="clf/cct_large",
+            model_config=dict(
+                in_channels=in_channels,
+                num_classes=num_classes,
+                img_size=img_size,
+            ),
+        )
+        self.assertSequenceEqual(
+            cct_zoo_clf.classify(inp).shape,
+            [batch_size, num_classes],
+        )
 
         mixer_clf = cflearn.VanillaClassifier(
             in_channels,
