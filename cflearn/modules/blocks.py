@@ -1686,18 +1686,10 @@ token_mixers: Dict[str, Type["TokenMixerBase"]] = {}
 class TokenMixerBase(Module, WithRegister):
     d: Dict[str, Type["TokenMixerBase"]] = token_mixers
 
-    def __init__(
-        self,
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-    ):
+    def __init__(self, num_tokens: int, latent_dim: int):
         super().__init__()
         self.num_tokens = num_tokens
         self.latent_dim = latent_dim
-        self.feedforward_dim = feedforward_dim
-        self.dropout = dropout
 
     @abstractmethod
     def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
@@ -1706,14 +1698,8 @@ class TokenMixerBase(Module, WithRegister):
 
 @TokenMixerBase.register("mlp")
 class MLPTokenMixer(TokenMixerBase):
-    def __init__(
-        self,
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-    ):
-        super().__init__(num_tokens, latent_dim, feedforward_dim, dropout)
+    def __init__(self, num_tokens: int, latent_dim: int, *, dropout: float = 0.1):
+        super().__init__(num_tokens, latent_dim)
         self.net = nn.Sequential(
             Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
             FeedForward(num_tokens, num_tokens, dropout),
@@ -1726,14 +1712,8 @@ class MLPTokenMixer(TokenMixerBase):
 
 @TokenMixerBase.register("fourier")
 class FourierTokenMixer(TokenMixerBase):
-    def __init__(
-        self,
-        num_tokens: int,
-        latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
-    ):
-        super().__init__(num_tokens, latent_dim, feedforward_dim, dropout)
+    def __init__(self, num_tokens: int, latent_dim: int):
+        super().__init__(num_tokens, latent_dim)
         self.net = Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
 
     def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
@@ -1746,16 +1726,13 @@ class AttentionTokenMixer(TokenMixerBase):
         self,
         num_tokens: int,
         latent_dim: int,
-        feedforward_dim: int,
-        dropout: float,
         *,
         attention_type: str = "basic",
         **attention_kwargs: Any,
     ):
-        super().__init__(num_tokens, latent_dim, feedforward_dim, dropout)
+        super().__init__(num_tokens, latent_dim)
         attention_kwargs.setdefault("bias", False)
         attention_kwargs.setdefault("num_heads", 8)
-        attention_kwargs["dropout"] = dropout
         attention_kwargs["input_dim"] = latent_dim
         attention_kwargs["is_self_attention"] = True
         self.net = Attention.make(attention_type, config=attention_kwargs)
@@ -1803,14 +1780,7 @@ class MixingBlock(Module):
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         if token_mixing_config is None:
             token_mixing_config = {}
-        token_mixing_config.update(
-            {
-                "num_tokens": num_tokens,
-                "latent_dim": latent_dim,
-                "feedforward_dim": feedforward_dim,
-                "dropout": dropout,
-            }
-        )
+        token_mixing_config.update({"num_tokens": num_tokens, "latent_dim": latent_dim})
         self.token_mixing = PreNorm(
             latent_dim,
             module=TokenMixerBase.make(token_mixing_type, token_mixing_config),
