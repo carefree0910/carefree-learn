@@ -48,13 +48,8 @@ if __name__ == "__main__":
         lmdb_config=lmdb_config,
     )
 
-    m = cflearn.cv.CarefreePipeline(
-        "adain",
-        {},
+    m = cflearn.CVZoo.load_pipeline(
+        model="style_transfer/adain",
         callback_names=["adain", "mlflow"],
-        lr=1.0e-4,
-        scheduler_name="linear_inverse",
-        scheduler_config={"decay": 5.0e-5},
-        fixed_steps=0 if is_ci else None,
     )
-    m.fit(data, cuda=None if is_ci else 0)
+    m.fit(data, cuda=None if is_ci else 4)
