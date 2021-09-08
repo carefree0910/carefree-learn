@@ -1,0 +1,9 @@
+{
+  "tag": "adain",
+  "pipeline": "cv.carefree",
+  "model_name": "adain",
+  "model_config": {},
+  "lr": 1.0e-4,
+  "scheduler_name": "linear_inverse",
+  "scheduler_config": {"decay": 5.0e-5}
+}
