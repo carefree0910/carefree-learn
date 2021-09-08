@@ -1,0 +1,1 @@
+include cflearn/api/zoo/configs/*/*.json
