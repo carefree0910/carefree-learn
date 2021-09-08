@@ -1,8 +1,0 @@
-name: carefree-learn
-
-conda_env: conda.yml
-
-entry_points:
-  test:
-    command: |
-      pytest -v --cov

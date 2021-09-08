@@ -21,14 +21,16 @@ jobs:
         with:
           miniconda-version: "latest"
           python-version: ${{ matrix.python-version }}
-      - name: Install mlflow
+      - name: Install requirements
         shell: bash -l {0}
         run: |
-          pip install mlflow
-      - name: Test with mlflow
+          pip install pytest
+          pip install pytest-cov
+          conda install pytorch torchvision torchaudio cpuonly -c pytorch
+      - name: Test with pytest
         shell: bash -l {0}
         run: |
-          mlflow run https://github.com/carefree0910/carefree-learn -e test -v v0.2.x
+          pytest -v --cov
 
   deploy:
 
