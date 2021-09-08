@@ -27,6 +27,7 @@ jobs:
           pip install pytest
           pip install pytest-cov
           conda install pytorch torchvision torchaudio cpuonly -c pytorch
+          pip install .
       - name: Test with pytest
         shell: bash -l {0}
         run: |
