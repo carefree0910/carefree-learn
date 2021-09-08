@@ -2,6 +2,7 @@ import os
 import dill
 import json
 import lmdb
+import random
 import shutil
 
 import numpy as np
@@ -216,12 +217,47 @@ def prepare_image_folder(
         valid_split = min(max_num_valid, int(round(num_sample * valid_split)))
     assert isinstance(valid_split, int)
 
-    shuffled_indices = np.random.permutation(num_sample)
+    train_portion = (num_sample - valid_split) / num_sample
+    label_indices_mapping = {}
+    for i, label in enumerate(labels):
+        label_indices_mapping.setdefault(label, []).append(i)
+    tuple(map(random.shuffle, label_indices_mapping.values()))
+    train_indices_list = []
+    valid_indices_list = []
+    for label_indices in label_indices_mapping.values():
+        num_label_samples = len(label_indices)
+        num_train = int(round(train_portion * num_label_samples))
+        num_train = min(num_train, num_label_samples - 1)
+        if num_train == 0:
+            train_indices_list.append([label_indices[0]])
+        else:
+            train_indices_list.append(label_indices[:num_train])
+        valid_indices_list.append(label_indices[num_train:])
+
+    def propagate(src: List[List[int]], tgt: List[List[int]]) -> None:
+        resolved = 0
+        src_lengths = list(map(len, src))
+        sorted_indices = np.argsort(src_lengths).tolist()[::-1]
+        while True:
+            for idx in sorted_indices:
+                tgt[idx].append(src[idx].pop())
+                resolved += 1
+                if resolved == diff:
+                    break
+            if resolved == diff:
+                break
+
+    diff = sum(map(len, valid_indices_list)) - valid_split
+    if diff > 0:
+        propagate(valid_indices_list, train_indices_list)
+    elif diff < 0:
+        propagate(train_indices_list, valid_indices_list)
+    merged_train_indices = sum(train_indices_list, [])
+    merged_valid_indices = sum(valid_indices_list, [])
     if train_all_data:
-        train_indices = shuffled_indices
-    else:
-        train_indices = shuffled_indices[:-valid_split]
-    valid_indices = shuffled_indices[-valid_split:]
+        merged_train_indices.extend(merged_valid_indices)
+    train_indices = np.array(merged_train_indices)
+    valid_indices = np.array(merged_valid_indices)
 
     if copy_fn is None:
         copy_fn = lambda src, tgt: shutil.copy(src, tgt)
