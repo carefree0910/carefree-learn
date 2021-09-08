@@ -289,12 +289,12 @@ class Classification(Compose):
             [
                 Resize(int(resize_size * 1.2)),
                 ToRGB(),
-                ANormalize(),
                 RandomCrop(resize_size),
                 HFlip(p),
                 AToTensor(),
                 ColorJitter(p=min(1.0, p * 1.6)),
                 RandomErase(p=p),
+                Normalize(),
             ]
         )
 
