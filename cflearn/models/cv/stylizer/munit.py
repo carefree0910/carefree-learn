@@ -491,7 +491,7 @@ class MUNITUnifiedStylizer(MUNITStylizerBase):
         **kwargs: Any,
     ) -> Tensor:
         if labels is not None:
-            print(f">{WARNING_PREFIX}`labels` will not affect `MUNITUnifiedStylizer`")
+            print(f"{WARNING_PREFIX}`labels` will not affect `MUNITUnifiedStylizer`")
         content = kwargs.get("content")
         if content is None:
             raise ValueError("`content` should be provided for `MUNITUnifiedStylizer`")

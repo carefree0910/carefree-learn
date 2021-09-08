@@ -52,8 +52,8 @@ class StyleTransferMixin:
                     Image.open(path).convert("RGB").verify()
                     self.style_paths.append(path)
                 except Exception as err:
-                    prefix = f">{WARNING_PREFIX}"
-                    print(f"{prefix}error occurred ({err}) when reading '{path}'")
+                    msg = f"error occurred ({err}) when reading '{path}'"
+                    print(f"{WARNING_PREFIX}{msg}")
                     continue
         with open(style_paths_path, "w") as f:
             json.dump(self.style_paths, f)
