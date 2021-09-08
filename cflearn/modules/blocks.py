@@ -1258,6 +1258,49 @@ class OverlapPatchEmbed(ImgToPatches):
         return net, hw
 
 
+@ImgToPatches.register("conv")
+class ConvPatchEmbed(ImgToPatches):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_channels: int = 64,
+        latent_dim: int = 384,
+        padding: int = 3,
+        stride: int = 2,
+        bias: bool = False,
+        num_layers: int = 2,
+        activation: str = "relu",
+    ):
+        super().__init__(img_size, patch_size, in_channels, latent_dim)
+        latent_channels_list = [latent_channels] * (num_layers - 1)
+        num_channels_list = [in_channels] + latent_channels_list + [latent_dim]
+        self.conv = nn.Sequential(
+            *[
+                nn.Sequential(
+                    *get_conv_blocks(
+                        num_channels_list[i],
+                        num_channels_list[i + 1],
+                        patch_size,
+                        stride,
+                        bias=bias,
+                        activation=activation,
+                        padding=padding,
+                    ),
+                    nn.MaxPool2d(3, 2, 1),
+                )
+                for i in range(num_layers)
+            ]
+        )
+
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        net = self.conv(net)
+        hw = net.shape[-2:]
+        net = net.flatten(2).transpose(1, 2).contiguous()
+        return net, hw
+
+
 class PerceiverIO(Module):
     def __init__(
         self,
