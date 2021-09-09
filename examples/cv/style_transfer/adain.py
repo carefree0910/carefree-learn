@@ -51,5 +51,6 @@ if __name__ == "__main__":
     m = cflearn.CVZoo.load_pipeline(
         model="style_transfer/adain",
         callback_names=["adain", "mlflow"],
+        fixed_steps=1 if is_ci else None,
     )
     m.fit(data, cuda=None if is_ci else 4)
