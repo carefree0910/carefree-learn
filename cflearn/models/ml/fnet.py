@@ -1,3 +1,5 @@
+from typing import Optional
+
 from .protocol import MixedStackedModel
 
 
@@ -12,7 +14,7 @@ class FNet(MixedStackedModel):
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
     ):
         super().__init__(
             in_dim,

@@ -18,7 +18,7 @@ class MixerEncoder(Encoder1DFromPatches):
         to_patches_config: Optional[Dict[str, Any]] = None,
         *,
         num_layers: int = 4,
-        norm_type: str = "layer",
+        norm_type: Optional[str] = "layer",
     ):
         super().__init__(
             img_size,

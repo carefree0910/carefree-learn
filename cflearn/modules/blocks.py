@@ -1132,7 +1132,7 @@ class PreNorm(Module):
         self,
         *dims: int,
         module: Module,
-        norm_type: str = "layer",
+        norm_type: Optional[str] = "layer",
         norm_kwargs: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
@@ -1832,7 +1832,7 @@ class MixingBlock(Module):
         channel_mixing_config: Optional[Dict[str, Any]] = None,
         dropout: float = 0.0,
         drop_path: float = 0.0,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
         residual_after_norm: bool = False,
     ):
@@ -1984,7 +1984,7 @@ class MixedStackedEncoder(Module):
         dropout: float = 0.0,
         dpr_list: Optional[List[float]] = None,
         drop_path_rate: float = 0.1,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
         residual_after_norm: bool = False,
         feedforward_dim_ratio: float = 1.0,
@@ -2468,7 +2468,7 @@ class ResidualBlockV2(Module):
         *,
         ca_reduction: Optional[int] = None,
         eca_kernel_size: Optional[int] = None,
-        norm_type: str = "batch",
+        norm_type: Optional[str] = "batch",
         **kwargs: Any,
     ):
         super().__init__()

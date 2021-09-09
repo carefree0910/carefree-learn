@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from typing import Any
 from typing import List
+from typing import Optional
 from cftool.misc import shallow_copy_dict
 
 from .register import register_backbone
@@ -35,7 +36,7 @@ class MixViT(nn.Module):
         reduction_ratios: List[int],
         dropout: float = 0.0,
         drop_path_rate: float = 0.1,
-        norm_type: str = "layer",
+        norm_type: Optional[str] = "layer",
         **attention_kwargs: Any,
     ):
         super().__init__()

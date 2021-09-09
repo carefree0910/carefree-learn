@@ -72,7 +72,7 @@ class PixelCNN(ModelProtocol):
         need_embedding: bool = False,
         latent_channels: int = 128,
         *,
-        norm_type: str = "batch",
+        norm_type: Optional[str] = "batch",
         num_layers: int = 6,
         channel_padding: Optional[int] = 16,
         num_conditional_classes: Optional[int] = None,

@@ -1,4 +1,5 @@
 from typing import Any
+from typing import Optional
 
 from .protocol import MixedStackedModel
 
@@ -14,7 +15,7 @@ class Transformer(MixedStackedModel):
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
         feedforward_dim_ratio: float = 4.0,
         use_head_token: bool = False,
         **attention_kwargs: Any,

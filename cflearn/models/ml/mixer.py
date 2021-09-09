@@ -24,7 +24,7 @@ class Mixer(MixedStackedModel):
         *,
         num_layers: int = 4,
         dropout: float = 0.0,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
     ):
         super().__init__(
             in_dim,
@@ -52,7 +52,7 @@ class MixerWithBAKE(BAKEBase):
         *,
         num_layers: int = 4,
         dropout: float = 0.1,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
         lb: float = 0.1,
         bake_loss: str = "auto",
         bake_loss_config: Optional[Dict[str, Any]] = None,
@@ -96,7 +96,7 @@ class MixerWithRDropout(RDropoutBase):
         *,
         num_layers: int = 4,
         dropout: float = 0.1,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
         lb: float = 0.1,
         is_classification: bool,
     ):

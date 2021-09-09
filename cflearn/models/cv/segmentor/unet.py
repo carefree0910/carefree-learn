@@ -27,7 +27,7 @@ class UNetDecoderBlock(nn.Module):
         skip_channels: int,
         out_channels: int,
         *,
-        norm_type: str = "batch",
+        norm_type: Optional[str] = "batch",
     ):
         super().__init__()
         self.net = nn.Sequential(

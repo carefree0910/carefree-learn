@@ -250,7 +250,7 @@ class MixedStackedModel(MLCoreProtocol):
         channel_mixing_config: Optional[Dict[str, Any]] = None,
         num_layers: int = 4,
         dropout: float = 0.0,
-        norm_type: str = "batch_norm",
+        norm_type: Optional[str] = "batch_norm",
         feedforward_dim_ratio: float = 1.0,
         sequence_pool: bool = False,
         use_head_token: bool = False,

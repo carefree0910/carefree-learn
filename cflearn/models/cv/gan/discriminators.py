@@ -70,7 +70,7 @@ class NLayerDiscriminator(DiscriminatorBase):
         *,
         num_layers: int = 2,
         start_channels: int = 16,
-        norm_type: str = "batch",
+        norm_type: Optional[str] = "batch",
     ):
         super().__init__(in_channels, num_classes)
         self.num_layers = num_layers
