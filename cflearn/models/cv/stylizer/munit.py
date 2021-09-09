@@ -13,6 +13,7 @@ from typing import Optional
 
 from .constants import INPUT_B_KEY
 from .constants import LABEL_B_KEY
+from ..decoder import VanillaDecoder
 from ..encoder import VanillaEncoder
 from ....types import losses_type
 from ....types import tensor_dict_type
@@ -27,12 +28,9 @@ from ..gan.protocol import OneStageGANMixin
 from ..gan.discriminators import MultiScaleDiscriminator
 from ....misc.toolkit import squeeze
 from ....misc.toolkit import interpolate
-from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Mapping
-from ....modules.blocks import ResidualBlock
-from ....modules.blocks import UpsampleConv2d
 from ....modules.blocks import AdaptiveInstanceNorm2d
 
 
@@ -113,47 +111,22 @@ class Decoder(nn.Module):
         activation: str = "relu",
     ):
         super().__init__()
-        blocks = []
-        for _ in range(num_residual_blocks):
-            blocks.append(
-                ResidualBlock(
-                    latent_channels,
-                    0.0,
-                    norm_type=res_norm_type,
-                    activation=activation,
-                    padding="reflection",
-                )
-            )
-        for _ in range(num_upsample):
-            blocks.extend(
-                get_conv_blocks(
-                    latent_channels,
-                    latent_channels // 2,
-                    5,
-                    1,
-                    norm_type=norm_type,
-                    activation=activation,
-                    conv_base=UpsampleConv2d,
-                    padding="reflection",
-                    factor=2,
-                )
-            )
-            latent_channels //= 2
-        blocks.extend(
-            get_conv_blocks(
-                latent_channels,
-                out_channels,
-                7,
-                1,
-                norm_type=None,
-                activation="tanh",
-                padding="reflection",
-            )
-        )
-        self.net = nn.Sequential(*blocks)
+        self.net = VanillaDecoder(
+            latent_channels,
+            out_channels,
+            norm_type,
+            res_norm_type,
+            activation,
+            kernel_size=5,
+            last_kernel_size=7,
+            num_residual_blocks=num_residual_blocks,
+            num_repeats=[1] * num_upsample + [0],
+            num_upsample=num_upsample,
+        ).decoder
+        self.tanh = nn.Tanh()
 
     def forward(self, net: Tensor) -> Tensor:
-        return self.net(net)
+        return self.tanh(self.net(net))
 
 
 def get_num_adain_params(model: nn.Module) -> int:
