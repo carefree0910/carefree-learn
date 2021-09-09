@@ -251,6 +251,10 @@ class WithRegister(Generic[T]):
 
         return register_core(name, cls.d, before_register=before)
 
+    @classmethod
+    def check_subclass(cls, name: str) -> bool:
+        return issubclass(cls.d[name], cls)
+
 
 class WeightsStrategy:
     def __init__(self, strategy: Optional[str]):
