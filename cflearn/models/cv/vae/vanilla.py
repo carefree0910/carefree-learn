@@ -12,6 +12,8 @@ from typing import Type
 from typing import Union
 from typing import Optional
 
+from .constants import MU_KEY
+from .constants import LOG_VAR_KEY
 from ..encoder import EncoderBase
 from ..encoder import Encoder1DBase
 from ..decoder import DecoderBase
@@ -190,7 +192,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         labels = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
         net = self.decode(net, labels=labels, **kwargs)
         net = interpolate(net, anchor=inp)
-        return {PREDICTIONS_KEY: net, "mu": mu, "log_var": log_var}
+        return {PREDICTIONS_KEY: net, MU_KEY: mu, LOG_VAR_KEY: log_var}
 
 
 @ModelProtocol.register("vae")

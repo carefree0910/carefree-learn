@@ -5,6 +5,8 @@ import torch.nn.functional as F
 from typing import Any
 from typing import Optional
 
+from .constants import MU_KEY
+from .constants import LOG_VAR_KEY
 from ....types import losses_type
 from ....types import tensor_dict_type
 from ....protocol import LossProtocol
@@ -44,7 +46,7 @@ class VAELoss(LossProtocol):
         reconstruction = forward_results[PREDICTIONS_KEY]
         mse = F.mse_loss(reconstruction, original)
         # kld loss
-        mu, log_var = map(forward_results.get, ["mu", "log_var"])
+        mu, log_var = map(forward_results.get, [MU_KEY, LOG_VAR_KEY])
         assert mu is not None and log_var is not None
         var = log_var.exp()
         dim = tuple(i for i in range(1, len(mu.shape)))
