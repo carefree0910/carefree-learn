@@ -7,6 +7,7 @@ from typing import Optional
 from cftool.misc import shallow_copy_dict
 
 from ..encoder import Encoder1DBase
+from ..encoder import Encoder1DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
@@ -38,7 +39,7 @@ class VanillaClassifier(ModelProtocol):
         # encoder1d
         if encoder1d_config is None:
             encoder1d_config = {}
-        if encoder1d != "backbone":
+        if Encoder1DFromPatches.check_subclass(encoder1d):
             encoder1d_config["img_size"] = img_size
         encoder1d_config["in_channels"] = in_channels
         encoder1d_config["latent_dim"] = latent_dim

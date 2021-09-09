@@ -20,7 +20,6 @@ data = cflearn.cv.MNISTData(
 m = cflearn.cv.CarefreePipeline(
     "siren_vae",
     {
-        "img_size": 28,
         "in_channels": 1,
         "num_classes": num_classes,
     },

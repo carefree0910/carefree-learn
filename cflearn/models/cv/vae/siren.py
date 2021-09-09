@@ -14,6 +14,7 @@ from ....protocol import ModelProtocol
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
+from ..encoder.protocol import Encoder1DFromPatches
 from ...implicit.siren import ImgSiren
 from ....modules.blocks import Linear
 
@@ -48,7 +49,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         # encoder
         if encoder1d_config is None:
             encoder1d_config = {}
-        if encoder1d != "backbone":
+        if Encoder1DFromPatches.check_subclass(encoder1d):
             encoder1d_config["img_size"] = img_size
         encoder1d_config["in_channels"] = in_channels
         encoder1d_config["latent_dim"] = latent_dim

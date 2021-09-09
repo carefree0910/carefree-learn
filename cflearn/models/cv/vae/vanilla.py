@@ -16,6 +16,7 @@ from .constants import MU_KEY
 from .constants import LOG_VAR_KEY
 from ..encoder import EncoderBase
 from ..encoder import Encoder1DBase
+from ..encoder import Encoder1DFromPatches
 from ..decoder import DecoderBase
 from ..toolkit import get_latent_resolution
 from ..toolkit import auto_num_layers
@@ -142,7 +143,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
     ) -> None:
         if encoder_config is None:
             encoder_config = {}
-        if encoder != "backbone":
+        if Encoder1DFromPatches.check_subclass(encoder):
             encoder_config["img_size"] = img_size
         encoder_config["in_channels"] = in_channels
         encoder_config[self.key] = latent_d

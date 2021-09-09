@@ -22,7 +22,6 @@ from ....modules.blocks import ResidualBlock
 class VanillaEncoder(EncoderBase):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         num_downsample: int,
         latent_channels: int = 128,
@@ -37,7 +36,7 @@ class VanillaEncoder(EncoderBase):
         activation: str = "relu",
         padding: str = "same",
     ):
-        super().__init__(img_size, in_channels, num_downsample, latent_channels)
+        super().__init__(in_channels, num_downsample, latent_channels)
         self.first_kernel_size = first_kernel_size
         if start_channels is None:
             start_channels = int(round(latent_channels / (2 ** self.num_downsample)))
@@ -108,7 +107,6 @@ class VanillaEncoder(EncoderBase):
 class VanillaEncoder1D(Encoder1DBase):
     def __init__(
         self,
-        img_size: int,
         in_channels: int,
         num_downsample: int,
         latent_dim: int = 128,
@@ -123,9 +121,8 @@ class VanillaEncoder1D(Encoder1DBase):
         activation: str = "relu",
         padding: str = "same",
     ):
-        super().__init__(img_size, in_channels, latent_dim)
+        super().__init__(in_channels, latent_dim)
         self.encoder = VanillaEncoder(
-            img_size,
             in_channels,
             num_downsample,
             latent_dim,

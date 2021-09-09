@@ -12,7 +12,6 @@ from .....types import tensor_dict_type
 from .....trainer import TrainerState
 from .....constants import INPUT_KEY
 from .....constants import LATENT_KEY
-from .....constants import WARNING_PREFIX
 from .....misc.toolkit import squeeze
 from .....modules.blocks import Conv2d
 
@@ -38,7 +37,6 @@ class BackboneEncoder(EncoderBase):
         self,
         name: str,
         in_channels: int,
-        img_size: Optional[int] = None,
         latent_channels: Optional[int] = None,
         num_downsample: Optional[int] = None,
         *,
@@ -52,8 +50,6 @@ class BackboneEncoder(EncoderBase):
         backbone_config: Optional[Dict[str, Any]] = None,
     ):
         # preset stuffs
-        if img_size is not None:
-            print(f"{WARNING_PREFIX}`img_size` will not affect `BackboneEncoder`")
         if remove_layers is None:
             remove_layers = Preset.remove_layers.get(name)
         if remove_layers is None:
@@ -94,7 +90,7 @@ class BackboneEncoder(EncoderBase):
                 f"please consider set `num_downsample` to {target_downsample}"
             )
         # initialization
-        super().__init__(img_size, in_channels, num_downsample, latent_channels)  # type: ignore
+        super().__init__(in_channels, num_downsample, latent_channels)  # type: ignore
         if in_channels == 3 and not use_to_rgb:
             self.to_rgb = None
         else:
@@ -129,7 +125,6 @@ class BackboneEncoder1D(Encoder1DBase):
         self,
         name: str,
         in_channels: int,
-        img_size: Optional[int] = None,
         latent_dim: Optional[int] = None,
         *,
         finetune: bool = True,
@@ -139,11 +134,10 @@ class BackboneEncoder1D(Encoder1DBase):
         increment_config: Optional[Dict[str, Any]] = None,
         backbone_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(-1, in_channels, -1)
+        super().__init__(in_channels, -1)
         self.encoder = BackboneEncoder(
             name,
             in_channels,
-            img_size,
             latent_dim,
             finetune=finetune,
             pretrained=pretrained,
