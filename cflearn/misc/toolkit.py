@@ -405,6 +405,7 @@ def inject_parameters(
     tgt: nn.Module,
     *,
     strict: Optional[bool] = None,
+    src_filter_fn: Optional[Callable[[str], bool]] = None,
     tgt_filter_fn: Optional[Callable[[str], bool]] = None,
     custom_mappings: Optional[Dict[str, str]] = None,
     states_callback: Optional[Callable[[tensor_dict_type], tensor_dict_type]] = None,
@@ -413,6 +414,10 @@ def inject_parameters(
         strict = tgt_filter_fn is None
     src_states = src.state_dict()
     tgt_states = tgt.state_dict()
+    if src_filter_fn is not None:
+        pop_keys = [key for key in src_states if not src_filter_fn(key)]
+        for key in pop_keys:
+            src_states.pop(key)
     if tgt_filter_fn is not None:
         pop_keys = [key for key in tgt_states if not tgt_filter_fn(key)]
         for key in pop_keys:
