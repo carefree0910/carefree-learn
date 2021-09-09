@@ -7,7 +7,8 @@
     "latent_dim": 2048,
     "encoder1d": "backbone",
     "encoder1d_config": {
-      "name": "resnet101"
+      "name": "resnet101",
+      "pretrained": true
     }
   },
   "loss_name": "multi_task:focal,cross_entropy",
