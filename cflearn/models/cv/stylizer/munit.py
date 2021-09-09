@@ -13,6 +13,7 @@ from typing import Optional
 
 from .constants import INPUT_B_KEY
 from .constants import LABEL_B_KEY
+from ..encoder import VanillaEncoder
 from ....types import losses_type
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
@@ -47,60 +48,29 @@ class StyleEncoder(nn.Module):
         activation: str = "relu",
     ):
         super().__init__()
-        blocks = get_conv_blocks(
+        self.net = VanillaEncoder(
             in_channels,
-            latent_channels,
-            7,
-            1,
+            num_downsample,
+            latent_channels * 4,
+            start_channels=latent_channels,
             norm_type=norm_type,
             activation=activation,
             padding="reflection",
+        ).encoder
+        self.squeeze = nn.Sequential(
+            nn.AdaptiveAvgPool2d((1, 1)),
+            Conv2d(
+                latent_channels * 4,
+                out_channels,
+                kernel_size=1,
+                stride=1,
+                padding=0,
+            ),
+            Lambda(squeeze),
         )
-        for i in range(2):
-            blocks.extend(
-                get_conv_blocks(
-                    latent_channels,
-                    2 * latent_channels,
-                    4,
-                    2,
-                    norm_type=norm_type,
-                    activation=activation,
-                    padding="reflection1",
-                )
-            )
-            latent_channels *= 2
-        for i in range(num_downsample - 2):
-            blocks.extend(
-                get_conv_blocks(
-                    latent_channels,
-                    latent_channels,
-                    4,
-                    2,
-                    norm_type=norm_type,
-                    activation=activation,
-                    padding="reflection1",
-                )
-            )
-        blocks.extend(
-            [
-                nn.AdaptiveAvgPool2d((1, 1)),
-                Conv2d(
-                    latent_channels,
-                    out_channels,
-                    kernel_size=1,
-                    stride=1,
-                    padding=0,
-                ),
-                Lambda(squeeze),
-            ]
-        )
-        self.net = nn.Sequential(*blocks)
 
     def forward(self, net: Tensor) -> Tensor:
-        return self.net(net)
-
-
-# TODO : Try ResidualBlockV2
+        return self.squeeze(self.net(net))
 
 
 class ContentEncoder(nn.Module):
@@ -115,40 +85,16 @@ class ContentEncoder(nn.Module):
         activation: str = "relu",
     ):
         super().__init__()
-        blocks = get_conv_blocks(
+        self.out_channels = latent_channels * 2 ** num_downsample
+        self.net = VanillaEncoder(
             in_channels,
-            latent_channels,
-            7,
-            1,
+            num_downsample,
+            self.out_channels,
+            num_residual_blocks=num_residual_blocks,
             norm_type=norm_type,
             activation=activation,
             padding="reflection",
-        )
-        for _ in range(num_downsample):
-            blocks.extend(
-                get_conv_blocks(
-                    latent_channels,
-                    2 * latent_channels,
-                    4,
-                    2,
-                    norm_type=norm_type,
-                    activation=activation,
-                    padding="reflection1",
-                )
-            )
-            latent_channels *= 2
-        for _ in range(num_residual_blocks):
-            blocks.append(
-                ResidualBlock(
-                    latent_channels,
-                    0.0,
-                    norm_type=norm_type,
-                    activation=activation,
-                    padding="reflection",
-                )
-            )
-        self.net = nn.Sequential(*blocks)
-        self.out_channels = latent_channels
+        ).encoder
 
     def forward(self, net: Tensor) -> Tensor:
         return self.net(net)
