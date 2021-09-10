@@ -485,8 +485,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         *,
         simplify: bool = False,
         onnx_only: bool = False,
-        forward_fn: Optional[Callable[[ModelProtocol, tensor_dict_type], Any]] = None,
-        custom_output_names: Optional[List[str]] = None,
         input_sample: Optional[tensor_dict_type] = None,
         num_samples: Optional[int] = None,
         compress: Optional[bool] = None,
@@ -494,11 +492,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         verbose: bool = True,
         **kwargs: Any,
     ) -> "DLPipeline":
-        if forward_fn is not None and custom_output_names is None:
-            raise ValueError(
-                "`custom_output_names` should be provided "
-                "when `forward_fn` is specified"
-            )
         # prepare
         model = self.model.cpu()
         if input_sample is None:
@@ -516,7 +509,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         # setup
         kwargs = shallow_copy_dict(kwargs)
         kwargs["input_names"] = input_names
-        kwargs["output_names"] = custom_output_names or sorted(forward_results.keys())
+        kwargs["output_names"] = sorted(forward_results.keys())
         kwargs["opset_version"] = 11
         kwargs["export_params"] = True
         kwargs["do_constant_folding"] = True
@@ -541,9 +534,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.model = model
 
             def forward(self, batch: Dict[str, Any]) -> Any:
-                if forward_fn is not None:
-                    return forward_fn(self.model, batch)
-                return self.model(0, batch)
+                return self.model.onnx_forward(batch)
 
         with lock_manager(base_folder, []) as lock:
             onnx_path = os.path.join(export_folder, self.onnx_file)

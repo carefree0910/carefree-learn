@@ -71,6 +71,9 @@ class VanillaClassifier(ModelProtocol):
         batch[MERGED_KEY] = encoding[LATENT_KEY]
         return self.head(batch_idx, batch, state, **kwargs)
 
+    def onnx_forward(self, batch: tensor_dict_type) -> Any:
+        return self.classify(batch[INPUT_KEY])
+
     def classify(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 

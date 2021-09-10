@@ -87,6 +87,9 @@ class AdaINStylizer(ModelProtocol):
             STYLIZED_CONTENT_LATENT_KEY: decoded_content_latent,
         }
 
+    def onnx_forward(self, batch: tensor_dict_type) -> Any:
+        return self.stylize(batch[INPUT_KEY])
+
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
         inp = {INPUT_KEY: net, STYLE_KEY: style}
         kwargs["need_stylized_features"] = False

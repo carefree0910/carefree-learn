@@ -144,6 +144,9 @@ class ImageTranslatorMixin(ABC):
     ) -> tensor_dict_type:
         pass
 
+    def onnx_forward(self, batch: tensor_dict_type) -> Any:
+        return self.generate_from(batch[INPUT_KEY])
+
     def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
         rs = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
         if isinstance(rs, list):

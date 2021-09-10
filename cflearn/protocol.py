@@ -125,6 +125,9 @@ class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
+    def onnx_forward(self, batch: tensor_dict_type) -> Any:
+        return self.forward(0, batch)
+
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
         self.forward(batch_idx, batch)
 
