@@ -10,7 +10,6 @@ from typing import Optional
 
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
-from ..toolkit import get_latent_resolution
 from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
@@ -80,8 +79,8 @@ class VQVAE(ModelProtocol):
         self.encoder = EncoderBase.make(encoder, config=encoder_config)
         # latent
         self.num_code = num_code
-        self.latent_resolution = get_latent_resolution(img_size, num_downsample)
         self.latent_channels = self.encoder.latent_channels
+        self.latent_resolution = self.encoder.latent_resolution(img_size)
         self.codebook = VQCodebook(num_code, self.latent_channels)
         decoder_in_channels = self.latent_channels
         if latent_padding_channels is None:

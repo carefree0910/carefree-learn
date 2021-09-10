@@ -18,7 +18,6 @@ from ..encoder import EncoderBase
 from ..encoder import Encoder1DBase
 from ..encoder import Encoder1DFromPatches
 from ..decoder import DecoderBase
-from ..toolkit import get_latent_resolution
 from ..toolkit import auto_num_layers
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
@@ -26,7 +25,7 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import INFO_PREFIX
+from ....constants import WARNING_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
 from ....modules.blocks import Conv2d
@@ -67,7 +66,6 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
     ):
         super().__init__()
         # up / down sample stuffs
-        num_upsample = num_upsample or num_downsample
         if num_downsample is None:
             if img_size is None:
                 raise ValueError(
@@ -76,18 +74,15 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
                     "automatically with `img_size` & `min_size`)"
                 )
             num_downsample = auto_num_layers(img_size, min_size, target_downsample)
-        if latent_resolution is None:
-            if img_size is None:
-                raise ValueError(
-                    "either `img_size` or `latent_resolution` should be provided "
-                    "(when `latent_resolution` is not provided, it will be inferred "
-                    "automatically with `img_size`)"
-                )
-            latent_resolution = get_latent_resolution(img_size, num_downsample)
-        if img_size is None:
-            raw_size = latent_resolution * 2 ** num_downsample
-            print(f"{INFO_PREFIX}img_size is not provided, raw_size will be {raw_size}")
+        num_upsample = num_upsample or num_downsample
+        if latent_resolution is None and img_size is None:
+            raise ValueError(
+                "either `img_size` or `latent_resolution` should be provided "
+                "in `VanillaVAEBase` (when `latent_resolution` is not provided, "
+                "it will be inferred automatically with `img_size`)"
+            )
         # properties
+        self.img_size = img_size
         latent_d = kwargs.get(self.key, 128)
         self.latent_d = latent_d
         self.latent_padding_channels = latent_padding_channels
@@ -220,6 +215,8 @@ class VanillaVAE1D(VanillaVAEBase):
             encoder_config,
         )
         self.to_statistics = Linear(latent_d, 2 * latent_d, bias=False)
+        if self.latent_resolution is None:
+            self.latent_resolution = int(img_size / 2 ** self.num_upsample)
         latent_resolution = self.latent_resolution
         latent_area = latent_resolution ** 2
         latent_channels = math.ceil(self.latent_d / latent_area)
@@ -270,6 +267,8 @@ class VanillaVAE2D(VanillaVAEBase):
             encoder,
             encoder_config,
         )
+        if self.latent_resolution is None:
+            self.latent_resolution = self.encoder.latent_resolution(img_size)
         self.latent_dim = latent_d * self.latent_resolution ** 2
         self.to_statistics = Conv2d(
             latent_d,

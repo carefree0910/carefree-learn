@@ -8,7 +8,6 @@ from cflearn.misc.toolkit import to_standard
 from cflearn.misc.toolkit import get_arguments
 from cflearn.misc.toolkit import sort_dict_by_value
 from cflearn.models.cv.toolkit import auto_num_layers
-from cflearn.models.cv.toolkit import get_latent_resolution
 
 
 class TestToolkit(unittest.TestCase):
@@ -47,9 +46,6 @@ class TestToolkit(unittest.TestCase):
                 num_layers = auto_num_layers(img_size, min_size, None)
                 if num_layers == 0:
                     self.assertTrue(img_size < 2 * min_size)
-                    continue
-                latent_resolution = get_latent_resolution(img_size, num_layers)
-                self.assertTrue(2 * min_size > latent_resolution >= min_size)
 
 
 if __name__ == "__main__":

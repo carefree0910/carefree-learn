@@ -17,7 +17,6 @@ from cflearn.modules.blocks import Linear
 from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
 from cflearn.models.cv.encoder import BackboneEncoder
-from cflearn.models.cv.toolkit import get_latent_resolution
 from cflearn.models.ml.encoders import Encoder
 from cflearn.models.cv.encoder.backbone.core import IntermediateLayerGetter
 
@@ -272,11 +271,7 @@ class TestBlocks(unittest.TestCase):
             for layer in backbone.remove_layers:
                 self.assertTrue(not hasattr(core, layer))
             target_layers = list(backbone.target_layers.values())
-            latent_resolution = get_latent_resolution(
-                img_size,
-                encoder.num_downsample,
-                ceil=is_rep_vgg,
-            )
+            latent_resolution = encoder.latent_resolution(img_size)
             out_channels = backbone.increment_config["out_channels"]
             for i, (k, v) in enumerate(results.items()):
                 if k == LATENT_KEY:

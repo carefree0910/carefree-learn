@@ -1,3 +1,5 @@
+import torch
+
 import torch.nn as nn
 
 from abc import abstractmethod
@@ -10,6 +12,7 @@ from cftool.misc import shallow_copy_dict
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
+from ....misc.toolkit import eval_context
 from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
@@ -47,6 +50,14 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
 
     def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
         return self.forward(0, batch, **kwargs)[LATENT_KEY]
+
+    def latent_resolution(self, img_size: int) -> int:
+        shape = 1, self.in_channels, img_size, img_size
+        params = list(self.parameters())
+        device = "cpu" if not params else params[0].device
+        with eval_context(self):
+            net = self.encode({INPUT_KEY: torch.zeros(*shape, device=device)})
+        return net.shape[2]
 
 
 # encode to a 1d latent code
