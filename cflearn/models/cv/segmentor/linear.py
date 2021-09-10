@@ -23,7 +23,7 @@ from ....modules.blocks import Linear
 
 
 @ModelProtocol.register("linear_seg")
-class LinearSegmentation(ModelProtocol, ImageTranslatorMixin):
+class LinearSegmentation(ImageTranslatorMixin, ModelProtocol):
     def __init__(
         self,
         in_channels: int,

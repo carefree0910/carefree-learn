@@ -87,7 +87,7 @@ class UNetDecoder(nn.Module):
 
 
 @ModelProtocol.register("unet")
-class UNet(ModelProtocol, ImageTranslatorMixin):
+class UNet(ImageTranslatorMixin, ModelProtocol):
     def __init__(
         self,
         in_channels: int,

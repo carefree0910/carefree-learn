@@ -261,7 +261,7 @@ class U2NetCore(UNetBase):
 
 
 @ModelProtocol.register("u2net")
-class U2Net(ModelProtocol, ImageTranslatorMixin):
+class U2Net(ImageTranslatorMixin, ModelProtocol):
     def __init__(
         self,
         in_channels: int,

@@ -16,7 +16,7 @@ from ....misc.toolkit import interpolate
 
 
 @CascadeBase.register("cascade_u2net")
-class CascadeU2Net(CascadeBase, ImageTranslatorMixin):
+class CascadeU2Net(ImageTranslatorMixin, CascadeBase):
     def __init__(
         self,
         in_channels: int,

@@ -13,7 +13,7 @@ from ....modules.blocks import VanillaPatchEmbed
 
 
 @ModelProtocol.register("perceiver_io_generator")
-class PerceiverIOGenerator(ModelProtocol, ImageTranslatorMixin):
+class PerceiverIOGenerator(ImageTranslatorMixin, ModelProtocol):
     def __init__(
         self,
         patch_size: int,
