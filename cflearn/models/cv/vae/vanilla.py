@@ -26,7 +26,6 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import LATENT_KEY
 from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
@@ -186,7 +185,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         **kwargs: Any,
     ) -> tensor_dict_type:
         inp = batch[INPUT_KEY]
-        net = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
+        net = self.encoder.encode(batch, **kwargs)
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = reparameterize(mu, log_var)

@@ -11,7 +11,6 @@ from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
-from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
 from ..encoder.protocol import Encoder1DFromPatches
@@ -92,7 +91,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = self.encoder.encode(batch, **kwargs)[LATENT_KEY]
+        net = self.encoder.encode(batch, **kwargs)
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = reparameterize(mu, log_var)

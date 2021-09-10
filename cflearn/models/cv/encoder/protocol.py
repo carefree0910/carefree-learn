@@ -45,8 +45,8 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
-    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
-        return self.forward(0, batch, **kwargs)
+    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
+        return self.forward(0, batch, **kwargs)[LATENT_KEY]
 
 
 # encode to a 1d latent code
@@ -68,8 +68,8 @@ class Encoder1DBase(nn.Module, WithRegister, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
-    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
-        return self.forward(0, batch, **kwargs)
+    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
+        return self.forward(0, batch, **kwargs)[LATENT_KEY]
 
 
 class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
