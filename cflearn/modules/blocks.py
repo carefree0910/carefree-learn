@@ -802,6 +802,7 @@ class Attention(Module, WithRegister):
         dropout: float = 0.0,
         qk_scale: Optional[float] = None,
         kv_same: Optional[bool] = None,
+        qkv_bias_same: bool = True,
         is_self_attention: bool = False,
         k_dim: Optional[int] = None,
         v_dim: Optional[int] = None,
@@ -834,7 +835,7 @@ class Attention(Module, WithRegister):
 
         self.num_heads = num_heads
         self.head_dim = self.embed_dim // num_heads
-        self.scaling = qk_scale or float(self.head_dim) ** -0.5
+        self.scaling = qk_scale or float(self.head_dim) ** 0.5
         if self.head_dim * num_heads != self.embed_dim:
             raise ValueError("`embed_dim` must be divisible by `num_heads`")
 
@@ -857,12 +858,18 @@ class Attention(Module, WithRegister):
             nn.init.xavier_uniform_(self.k_w)
             nn.init.xavier_uniform_(self.v_w)
         if not bias:
-            self.q_bias = self.kv_bias = self.qkv_bias = None
+            self.q_bias = self.k_bias = self.v_bias = None
+            self.kv_bias = self.qkv_bias = None
+        elif not qkv_bias_same:
+            self.kv_bias = self.qkv_bias = None
+            self.q_bias = nn.Parameter(torch.zeros(self.embed_dim))
+            self.k_bias = nn.Parameter(torch.zeros(self.embed_dim))
+            self.v_bias = nn.Parameter(torch.zeros(self.embed_dim))
         elif self.qkv_same or not kv_same:
-            self.q_bias = self.kv_bias = None
+            self.q_bias = self.k_bias = self.v_bias = self.kv_bias = None
             self.qkv_bias = nn.Parameter(torch.zeros(3 * self.embed_dim))
         else:
-            self.qkv_bias = None
+            self.k_bias = self.v_bias = self.qkv_bias = None
             self.q_bias = nn.Parameter(torch.zeros(self.embed_dim))
             self.kv_bias = nn.Parameter(torch.zeros(2 * self.embed_dim))
 
@@ -889,9 +896,9 @@ class Attention(Module, WithRegister):
             )
 
     def _to_heads(self, tensor: Tensor) -> Tensor:
-        batch_size, seq_len, in_feature = tensor.shape
+        batch_size, seq_len, _ = tensor.shape
         tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
-        return tensor.transpose(1, 2).contiguous().view(-1, seq_len, self.head_dim)
+        return tensor.permute(0, 2, 1, 3)
 
     def _get_weights(self, raw_weights: Tensor) -> Tensor:
         # in most cases the softmax version is good enough
@@ -935,10 +942,12 @@ class Attention(Module, WithRegister):
                 k = self._reduce(k, hw)
             k, v = F.linear(k, self.kv_w, self.kv_bias).chunk(2, dim=-1)
         else:
-            if self.qkv_bias is None:
-                q_bias = k_bias = v_bias = None
-            else:
+            if self.qkv_bias is not None:
                 q_bias, k_bias, v_bias = self.qkv_bias.chunk(3)
+            else:
+                q_bias = self.q_bias
+                k_bias = self.k_bias
+                v_bias = self.v_bias
             # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, q_bias)
             # B, Nk, Dk -> B, Nk, D
@@ -946,34 +955,31 @@ class Attention(Module, WithRegister):
             # B, Nv, Dv -> B, Nv, D
             v = F.linear(self._reduce(v, hw), self.v_w, v_bias)
         q, k, v = map(self.activation, [q, k, v])
-        # scale
-        q = q * self.scaling
         # B, N*, D -> B * N_head, N*, D_head
         q, k, v = map(self._to_heads, [q, k, v])
         if mask is not None:
-            # B, Nq, Nk -> B * N_head, Nq, Nk
+            # B, Nq, Nk -> B, N_head, Nq, Nk
             mask = mask.repeat(self.num_heads, 1, 1)
-        # B * N_head, Nq, Nk
-        raw_weights = torch.bmm(q, k.transpose(-2, -1))
+        # B, N_head, Nq, Nk
+        raw_weights = torch.matmul(q, k.transpose(-2, -1))
         if mask is not None:
             raw_weights.masked_fill_(mask, float("-inf"))
-        # B * N_head, Nq, Nk -> B * N_head, Nq, Nk
+        # scale
+        raw_weights = raw_weights / self.scaling
+        # B, N_head, Nq, Nk -> B, N_head, Nq, Nk
         weights = self._get_weights(raw_weights)
         if 0.0 < self.dropout < 1.0:
             weights = F.dropout(weights, self.dropout, self.training)
         weights = self._weights_callback(weights)
-        # B * N_head, Nq, D_head
-        output = torch.bmm(weights, v)
-        # B * N_head, Nq, D_head -> B, N_head, Nq, D_head
-        nb, q_len, d_head = output.shape
-        output = output.view(nb // self.num_heads, self.num_heads, q_len, d_head)
-        # B, N_head, Nq, D_head -> B, Nq, D
+        # B, N_head, Nq, D_head
+        output = torch.matmul(weights, v)
+        # B, N_head, Nq, D_head -> B, Nq, N_head, D_head
         output = output.transpose(1, 2).contiguous()
-        output = output.view(-1, q_len, self.embed_dim)
+        # B, Nq, N_head, D_head -> B, Nq, D
+        output = output.view(*output.shape[:2], self.embed_dim)
         # B, Nq, D -> B, Nq, Din
-        k_len = k.shape[1]
         output = self.activation(self.out_linear(output))
-        return AttentionOutput(output, weights.view(-1, self.num_heads, q_len, k_len))
+        return AttentionOutput(output, weights)
 
 
 Attention.register("basic")(Attention)
@@ -1794,7 +1800,7 @@ class AttentionTokenMixer(TokenMixerBase):
         attention_kwargs.setdefault("bias", False)
         attention_kwargs.setdefault("num_heads", 8)
         attention_kwargs["input_dim"] = latent_dim
-        attention_kwargs["is_self_attention"] = True
+        attention_kwargs.setdefault("is_self_attention", True)
         self.net = Attention.make(attention_type, config=attention_kwargs)
 
     def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
