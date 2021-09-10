@@ -1946,8 +1946,9 @@ class PositionalEncoding(Module):
         dim = net.shape[-1]
         # This assume that the original input is squared image
         sqrt = math.sqrt(num_history)
-        pw, ph = map(float, [w // patch_size, h // patch_size])
-        pw, ph = pw + 0.1, ph + 0.1
+        wh_ratio = w / h
+        pw = math.sqrt(num_current_history * wh_ratio) + 0.1
+        ph = math.sqrt(num_current_history / wh_ratio) + 0.1
         pos_encoding = interpolate(
             pos_encoding.reshape(1, int(sqrt), int(sqrt), dim).permute(0, 3, 1, 2),
             factor=(pw / sqrt, ph / sqrt),
