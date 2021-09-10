@@ -54,6 +54,7 @@ from ..types import general_config_type
 from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import TIME_FORMAT
+from ..constants import INFO_PREFIX
 from ..constants import WARNING_PREFIX
 
 try:
@@ -351,6 +352,25 @@ class DownloadProgressBar(tqdm):
 
 
 # dl
+
+
+def fix_denormal_states(
+    states: tensor_dict_type,
+    *,
+    verbose: bool = False,
+) -> tensor_dict_type:
+    new_states = shallow_copy_dict(states)
+    num_total = num_denormal_total = 0
+    for k, v in states.items():
+        num_total += v.numel()
+        denormal = (v != 0) & (v.abs() < 1.0e-32)
+        num_denormal = denormal.sum().item()
+        num_denormal_total += num_denormal
+        if num_denormal > 0:
+            new_states[k][denormal] = v.new_zeros(num_denormal)
+    if verbose:
+        print(f"{INFO_PREFIX}denormal ratio : {num_denormal_total / num_total:8.6f}")
+    return new_states
 
 
 def toggle_optimizer(m: nn.Module, optimizer: Optimizer) -> None:

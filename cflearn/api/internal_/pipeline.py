@@ -45,6 +45,7 @@ from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
 from ...misc.toolkit import get_ddp_info
+from ...misc.toolkit import fix_denormal_states
 from ...misc.toolkit import prepare_workplace_from
 from ...misc.toolkit import eval_context
 from ...misc.toolkit import WithRegister
@@ -549,14 +550,18 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             m_onnx = ONNXWrapper()
             input_keys = sorted(input_sample)
             with eval_context(m_onnx):
+                original_states = model.state_dict()
+                fixed_states = fix_denormal_states(original_states, verbose=verbose)
+                model.load_state_dict(fixed_states)
                 torch.onnx.export(
                     m_onnx,
                     (input_sample, {}),
                     onnx_path,
                     **shallow_copy_dict(kwargs),
                 )
-                model = onnx.load(onnx_path)
-                input_names = get_input_names(model)
+                model.load_state_dict(original_states)
+                onnx_model = onnx.load(onnx_path)
+                input_names = get_input_names(onnx_model)
                 np_sample = {
                     name: to_numpy(tensor)
                     for name, tensor in input_sample.items()
@@ -564,11 +569,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 }
                 try:
                     if not simplify:
-                        model_simplified = model
+                        model_simplified = onnx_model
                         check = True
                     else:
                         model_simplified, check = onnx_simplify(
-                            model,
+                            onnx_model,
                             input_data=np_sample,
                             dynamic_input_shape=bool(dynamic_axes),
                         )
@@ -580,8 +585,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     print(f"{INFO_PREFIX}Simplified ONNX model is not validated!")
                 elif check and verbose and simplify:
                     print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
-                    model = model_simplified
-                onnx.save(model, onnx_path)
+                    onnx_model = model_simplified
+                onnx.save(onnx_model, onnx_path)
                 output_keys = sorted(m_onnx(input_sample))
             if not onnx_only:
                 with open(os.path.join(export_folder, self.onnx_keys_file), "w") as f:
