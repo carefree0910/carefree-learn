@@ -88,7 +88,7 @@ class AdaINStylizer(ModelProtocol):
         }
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.stylize(batch[INPUT_KEY])
+        return self.stylize(batch[INPUT_KEY], batch[STYLE_KEY])
 
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
         inp = {INPUT_KEY: net, STYLE_KEY: style}
