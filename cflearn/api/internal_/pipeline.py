@@ -418,7 +418,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         with lock_manager(base_folder, [pack_folder]):
             checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
             if step is not None:
-                base_file = f"{PT_PREFIX}{step}.pt"
+                best_file = f"{PT_PREFIX}{step}.pt"
             else:
                 best_file = get_sorted_checkpoints(checkpoint_folder)[0]
             new_file = f"{PT_PREFIX}-1.pt"
