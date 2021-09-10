@@ -32,6 +32,7 @@ from ..types import tensor_dict_type
 from ..misc.toolkit import adain_with_params
 from ..misc.toolkit import squeeze
 from ..misc.toolkit import interpolate
+from ..misc.toolkit import eval_context
 from ..misc.toolkit import WithRegister
 
 
@@ -1188,7 +1189,8 @@ class ImgToPatches(Module, WithRegister):
         shape = 1, self.in_channels, self.img_size, self.img_size
         params = list(self.parameters())
         device = "cpu" if not params else params[0].device
-        net = self.forward(torch.zeros(*shape, device=device))[0]
+        with eval_context(self):
+            net = self.forward(torch.zeros(*shape, device=device))[0]
         return net.shape[1]
 
 
