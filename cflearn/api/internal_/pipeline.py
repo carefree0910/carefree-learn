@@ -484,6 +484,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
         simplify: bool = False,
+        onnx_only: bool = False,
         forward_fn: Optional[Callable[[ModelProtocol, tensor_dict_type], Any]] = None,
         custom_output_names: Optional[List[str]] = None,
         input_sample: Optional[tensor_dict_type] = None,
@@ -546,7 +547,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
         with lock_manager(base_folder, []) as lock:
             onnx_path = os.path.join(export_folder, self.onnx_file)
-            if simplify:
+            if onnx_only:
                 lock._stuffs = [onnx_path]
                 os.makedirs(export_folder, exist_ok=True)
             else:
@@ -571,29 +572,30 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     if name in input_names
                 }
                 try:
-                    model_simplified, check = onnx_simplify(
-                        model,
-                        input_data=np_sample,
-                        dynamic_input_shape=bool(dynamic_axes),
-                    )
+                    if not simplify:
+                        model_simplified = model
+                        check = True
+                    else:
+                        model_simplified, check = onnx_simplify(
+                            model,
+                            input_data=np_sample,
+                            dynamic_input_shape=bool(dynamic_axes),
+                        )
                 except Exception as err:
                     if verbose:
-                        print(
-                            f"{WARNING_PREFIX}Simplified ONNX model "
-                            f"is not validated ({err})"
-                        )
+                        print(f"{WARNING_PREFIX}Failed to simplify ONNX model ({err})")
                     check = False
                 if not check and verbose:
                     print(f"{INFO_PREFIX}Simplified ONNX model is not validated!")
-                elif check and verbose:
+                elif check and verbose and simplify:
                     print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
                     model = model_simplified
                 onnx.save(model, onnx_path)
                 output_keys = sorted(m_onnx(input_sample))
-            if not simplify:
+            if not onnx_only:
                 with open(os.path.join(export_folder, self.onnx_keys_file), "w") as f:
                     json.dump({"input": input_keys, "output": output_keys}, f)
-            if compress or (compress is None and not simplify):
+            if compress or (compress is None and not onnx_only):
                 Saving.compress(abs_folder, remove_original=remove_original)
         self.model.to(self.device)
         return self
