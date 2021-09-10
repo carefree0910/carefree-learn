@@ -437,7 +437,10 @@ def inject_parameters(
             tgt_states.pop(tgt_k)
     for (src_k, src_v), (tgt_k, tgt_v) in zip(src_states.items(), tgt_states.items()):
         if src_v.shape != tgt_v.shape:
-            raise ValueError(f"shape of {src_k} is not identical with shape of {tgt_k}")
+            raise ValueError(
+                f"shape of {src_k} ({list(src_v.shape)}) is not identical with "
+                f"shape of {tgt_k} ({list(tgt_v.shape)})"
+            )
         new_states[tgt_k] = src_v
     tgt.load_state_dict(new_states, strict=strict)
 
