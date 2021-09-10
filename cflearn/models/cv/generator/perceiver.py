@@ -1,8 +1,8 @@
 from torch import nn
-from torch import Tensor
 from typing import Any
 from typing import Optional
 
+from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
@@ -13,7 +13,7 @@ from ....modules.blocks import VanillaPatchEmbed
 
 
 @ModelProtocol.register("perceiver_io_generator")
-class PerceiverIOGenerator(ModelProtocol):
+class PerceiverIOGenerator(ModelProtocol, ImageTranslatorMixin):
     def __init__(
         self,
         patch_size: int,
@@ -68,9 +68,6 @@ class PerceiverIOGenerator(ModelProtocol):
         net = self.from_latent(net)
         net = net.transpose(1, 2).contiguous().view(b, -1, h, w)
         return {PREDICTIONS_KEY: net}
-
-    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
 __all__ = ["PerceiverIOGenerator"]

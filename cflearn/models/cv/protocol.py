@@ -131,3 +131,21 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
             class_idx = random.randint(0, self.num_classes - 1)
         labels = self.get_sample_labels(num_samples, class_idx)
         return self.decode(z, labels=labels, **kwargs)
+
+
+class ImageTranslatorMixin(ABC):
+    @abstractmethod
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        pass
+
+    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
+        rs = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
+        if isinstance(rs, list):
+            rs = rs[0]
+        return rs

@@ -8,6 +8,7 @@ from typing import List
 from typing import Union
 from typing import Optional
 
+from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
@@ -260,7 +261,7 @@ class U2NetCore(UNetBase):
 
 
 @ModelProtocol.register("u2net")
-class U2Net(ModelProtocol):
+class U2Net(ModelProtocol, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -291,9 +292,6 @@ class U2Net(ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         return {PREDICTIONS_KEY: self.core(batch[INPUT_KEY])}
-
-    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY][0]
 
 
 __all__ = ["U2Net"]

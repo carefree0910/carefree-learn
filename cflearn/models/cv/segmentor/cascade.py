@@ -1,23 +1,22 @@
 import torch
 
-from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
 
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
+from ..protocol import ImageTranslatorMixin
 from ...bases import CascadeBase
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
-from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
 
 
-@ModelProtocol.register("cascade_u2net")
-class CascadeU2Net(CascadeBase):
+@CascadeBase.register("cascade_u2net")
+class CascadeU2Net(CascadeBase, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -93,12 +92,6 @@ class CascadeU2Net(CascadeBase):
         if self.lv2_resolution is not None:
             lv2_raw_alpha = interpolate(lv2_raw_alpha, size=resolution, mode="bilinear")
         return {PREDICTIONS_KEY: lv2_raw_alpha}
-
-    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        results = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
-        if isinstance(results, list):
-            results = results[0]
-        return results
 
 
 __all__ = [

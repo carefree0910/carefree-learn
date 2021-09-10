@@ -8,6 +8,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
@@ -86,7 +87,7 @@ class UNetDecoder(nn.Module):
 
 
 @ModelProtocol.register("unet")
-class UNet(ModelProtocol):
+class UNet(ModelProtocol, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -118,9 +119,6 @@ class UNet(ModelProtocol):
         features.pop(LATENT_KEY)
         net = self.head(self.decoder(features))
         return {PREDICTIONS_KEY: interpolate(net, anchor=inp)}
-
-    def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
 
 
 __all__ = ["UNet"]
