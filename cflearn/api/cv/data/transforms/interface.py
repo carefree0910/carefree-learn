@@ -12,7 +12,6 @@ from torchvision.transforms import InterpolationMode
 from .A import *
 from .pt import *
 from .protocol import Compose
-from .protocol import Function
 from .protocol import Transforms
 
 
@@ -153,13 +152,13 @@ class SSLTestTransform(Transforms):
         super().__init__()
         self.fn = transforms.Compose(
             [
-                Function(lambda img: img.convert("RGB")),
                 transforms.Resize(
                     int(round(img_size * 8.0 / 7.0)),
                     interpolation=InterpolationMode.BICUBIC,
                 ),
                 transforms.CenterCrop(img_size),
                 ToArray(),
+                ToRGB(),
                 ANormalize(),
                 transforms.ToTensor(),
             ]
