@@ -1,11 +1,15 @@
 import cv2
 import random
 
+import numpy as np
+
 from PIL import Image
 from PIL import ImageOps
 from PIL import ImageFilter
+from torch import Tensor
 from typing import Tuple
 from typing import Optional
+from skimage.transform import resize
 from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
 
@@ -13,6 +17,8 @@ from .A import *
 from .pt import *
 from .protocol import Compose
 from .protocol import Transforms
+from .....misc.toolkit import min_max_normalize
+from .....misc.toolkit import imagenet_normalize
 
 
 @Transforms.register("for_generation")
@@ -150,19 +156,18 @@ class SSLTransform(Transforms):
 class SSLTestTransform(Transforms):
     def __init__(self, img_size: int):
         super().__init__()
-        self.fn = transforms.Compose(
-            [
-                ToRGB(is_pil=True),
-                transforms.Resize(
-                    int(round(img_size * 8.0 / 7.0)),
-                    interpolation=InterpolationMode.BICUBIC,
-                ),
-                transforms.CenterCrop(img_size),
-                ToArray(),
-                ANormalize(),
-                transforms.ToTensor(),
-            ]
-        )
+        self.img_size = img_size
+        self.larger_size = int(round(img_size * 8.0 / 7.0))
+
+    def fn(self, img: Image.Image) -> Tensor:
+        img = img.convert("RGB")
+        img.thumbnail((self.larger_size, self.larger_size), Image.ANTIALIAS)
+        img_arr = np.array(img)
+        resized_img = resize(img_arr, (self.img_size, self.img_size), mode="constant")
+        resized_img = resized_img.astype(np.float32)
+        img_arr = min_max_normalize(resized_img)
+        img_arr = imagenet_normalize(img_arr)
+        return img_arr.transpose([2, 0, 1])
 
     @property
     def need_batch_process(self) -> bool:
