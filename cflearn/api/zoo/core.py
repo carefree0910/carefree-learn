@@ -21,8 +21,8 @@ configs_root = os.path.join(root, "configs")
 class ZooBase(ABC):
     def __init__(
         self,
-        *,
         model: Optional[str] = None,
+        *,
         json_path: Optional[str] = None,
         **kwargs: Any,
     ):
@@ -51,24 +51,24 @@ class ZooBase(ABC):
     @classmethod
     def load_model(
         cls,
-        *,
         model: Optional[str] = None,
+        *,
         json_path: Optional[str] = None,
         pretrained: bool = False,
         **kwargs: Any,
     ) -> ModelProtocol:
-        zoo = cls(model=model, json_path=json_path, **kwargs)
+        zoo = cls(model, json_path=json_path, **kwargs)
         return zoo.get_model(pretrained=pretrained)
 
     @classmethod
     def load_pipeline(
         cls,
-        *,
         model: Optional[str] = None,
+        *,
         json_path: Optional[str] = None,
         **kwargs: Any,
     ) -> PipelineProtocol:
-        return cls(model=model, json_path=json_path, **kwargs).m
+        return cls(model, json_path=json_path, **kwargs).m
 
 
 class CVZoo(ZooBase):
