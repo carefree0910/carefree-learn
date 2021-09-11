@@ -10,6 +10,7 @@ from typing import Optional
 from albumentations.pytorch import ToTensorV2
 
 from .protocol import Transforms
+from .....types import np_dict_type
 from .....constants import INPUT_KEY
 from .....constants import LABEL_KEY
 
@@ -47,17 +48,13 @@ class ATransforms(Transforms):
 
 @Transforms.register("to_array")
 class ToArray(ATransforms):
-    def __init__(self, *, label_alias: Optional[str] = None):
-        super().__init__(label_alias=label_alias)
-        self.fn = lambda **inp: {k: np.array(v) for k, v in inp.items()}
+    @staticmethod
+    def fn(**inp: Any) -> np_dict_type:
+        return {k: np.array(v) for k, v in inp.items()}
 
 
 @Transforms.register("to_rgb")
 class ToRGB(ATransforms):
-    def __init__(self, *, label_alias: Optional[str] = None):
-        super().__init__(label_alias=label_alias)
-        self.fn = lambda **inp: {k: self._to_rgb(k, v) for k, v in inp.items()}
-
     def _to_rgb(self, k: str, v: np.ndarray) -> np.ndarray:
         if k != self.input_alias:
             return v
@@ -70,6 +67,9 @@ class ToRGB(ATransforms):
         if v.shape[2] == 1:
             return v.repeat(3, axis=2)
         raise ValueError(f"invalid shape ({v.shape}) occurred with '{k}'")
+
+    def fn(self, **inp: np.ndarray) -> np_dict_type:
+        return {k: self._to_rgb(k, v) for k, v in inp.items()}
 
 
 @Transforms.register("resize")
