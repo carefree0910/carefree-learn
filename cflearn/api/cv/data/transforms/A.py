@@ -51,7 +51,7 @@ class ATransforms(Transforms):
 class ToArray(ATransforms):
     @staticmethod
     def fn(**inp: Any) -> np_dict_type:
-        return {k: np.array(v) for k, v in inp.items()}
+        return {k: np.array(v).astype(np.float32) / 255.0 for k, v in inp.items()}
 
 
 @Transforms.register("to_rgb")
