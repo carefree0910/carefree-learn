@@ -960,6 +960,7 @@ class Attention(Module, WithRegister):
         if mask is not None:
             # B, Nq, Nk -> B, N_head, Nq, Nk
             mask = mask.repeat(self.num_heads, 1, 1)
+            mask = mask.view(-1, self.num_heads, *mask.shape[1:])
         # B, N_head, Nq, Nk
         raw_weights = torch.matmul(q, k.transpose(-2, -1))
         if mask is not None:
