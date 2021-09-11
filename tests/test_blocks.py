@@ -118,7 +118,7 @@ class TestBlocks(unittest.TestCase):
         q = torch.randn(batch_size, q_len, input_dim)
         k = torch.randn(batch_size, k_len, k_dim)
         v = torch.randn(batch_size, k_len, v_dim)
-        mask = torch.randn(batch_size, q_len, k_len) >= 0.5
+        mask = torch.rand(batch_size, q_len, k_len) >= 0.5
 
         torch_attention = nn.MultiheadAttention(
             input_dim,
