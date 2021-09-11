@@ -152,13 +152,13 @@ class SSLTestTransform(Transforms):
         super().__init__()
         self.fn = transforms.Compose(
             [
+                ToRGB(is_pil=True),
                 transforms.Resize(
                     int(round(img_size * 8.0 / 7.0)),
                     interpolation=InterpolationMode.BICUBIC,
                 ),
                 transforms.CenterCrop(img_size),
                 ToArray(),
-                ToRGB(),
                 ANormalize(),
                 transforms.ToTensor(),
             ]
