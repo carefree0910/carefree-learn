@@ -1,3 +1,5 @@
+import os
+
 from cftool.misc import LoggingMixin
 
 INFO_PREFIX = LoggingMixin.info_prefix
@@ -21,3 +23,5 @@ CHECKPOINTS_FOLDER = "checkpoints"
 META_CONFIG_NAME = "__meta__"
 DATA_CONFIG_FILE = "__data__.json"
 ML_PIPELINE_SAVE_NAME = "ml_pipeline"
+
+CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "carefree-learn")

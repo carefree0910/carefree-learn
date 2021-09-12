@@ -26,6 +26,7 @@ from .data import get_weighted_indices
 from .data import MLDataset
 from ...types import tensor_dict_type
 from ...protocol import DataLoaderProtocol
+from ...constants import CACHE_DIR
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import BATCH_INDICES_KEY
@@ -221,7 +222,7 @@ class TimeSeriesDataManager(LoggingMixin):
         code: str,
         *,
         is_clf: bool,
-        cache_folder: str = os.path.join(os.path.expanduser("~"), ".cflearn", "ts"),
+        cache_folder: str = os.path.join(CACHE_DIR, "ts"),
     ):
         self.cfg = cfg
         self.code = code

@@ -52,6 +52,7 @@ from ..types import param_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import sample_weights_type
+from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
 from ..constants import TIME_FORMAT
 from ..constants import INFO_PREFIX
@@ -151,7 +152,7 @@ def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
 def download_model(
     name: str,
     *,
-    root: str = os.path.join(os.path.expanduser("~"), ".cflearn", "models"),
+    root: str = os.path.join(CACHE_DIR, "models"),
     prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/latest/",
     force_download: bool = False,
 ) -> str:
