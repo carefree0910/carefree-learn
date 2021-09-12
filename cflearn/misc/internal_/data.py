@@ -40,6 +40,8 @@ class DataModule(WithRegister, metaclass=ABCMeta):
     info_name = "info"
     package_folder = "data_module"
 
+    # inherit
+
     @property
     @abstractmethod
     def info(self) -> Dict[str, Any]:
@@ -51,26 +53,30 @@ class DataModule(WithRegister, metaclass=ABCMeta):
     def initialize(self) -> Any:
         pass
 
+    # internal
+
+    def _save_info(self, folder: str) -> None:
+        Saving.save_dict(self.info, self.info_name, folder)
+
+    @classmethod
+    def _load_info(cls, folder: str) -> Dict[str, Any]:
+        return Saving.load_dict(cls.info_name, folder)
+
+    # api
+
     def save(self, folder: str) -> None:
         folder = os.path.join(folder, self.package_folder)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, self.id_file), "w") as f:
             f.write(self.__identifier__)
-        self.save_info(folder)
-
-    def save_info(self, folder: str) -> None:
-        Saving.save_dict(self.info, self.info_name, folder)
+        self._save_info(folder)
 
     @classmethod
     def load(cls, folder: str) -> Dict[str, Any]:
         folder = os.path.join(folder, cls.package_folder)
         with open(os.path.join(folder, cls.id_file), "r") as f:
             base = cls.get(f.read())
-        return base.load_info(folder)
-
-    @classmethod
-    def load_info(cls, folder: str) -> Dict[str, Any]:
-        return Saving.load_dict(cls.info_name, folder)
+        return base._load_info(folder)
 
 
 @DataModule.register("dl")
