@@ -36,7 +36,6 @@ src_folder = os.path.join(data_folder, dataset)
 tgt_folder = os.path.join(data_folder, "poster_data")
 
 img_size = 224
-num_epoch = 2000
 lmdb_config: dict = {}
 Image.MAX_IMAGE_PIXELS = None
 
@@ -54,17 +53,9 @@ if __name__ == "__main__":
         lmdb_config=lmdb_config,
     )
 
-    m = cflearn.cv.CarefreePipeline(
-        "dino",
-        {
-            "out_dim": 512,
-            "norm_last_layer": False,
-            "teacher_temp_epochs": num_epoch,
-            "encoder1d_config": {"img_size": img_size, "in_channels": 3},
-        },
-        amp=True,
-        fixed_epoch=num_epoch,
-        callback_names=["mlflow"],
+    m = cflearn.CVZoo.load_pipeline(
+        model="ssl/dino",
+        callback_names="mlflow",
         callback_configs={"mlflow": {"experiment_name": "poster"}},
         fixed_steps=1 if is_ci else None,
     )
