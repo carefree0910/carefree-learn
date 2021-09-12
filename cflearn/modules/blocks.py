@@ -2002,6 +2002,7 @@ class MixedStackedEncoder(Module):
         sequence_pool: bool = False,
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
+        norm_after_head: bool = False,
     ):
         super().__init__()
         # head token
@@ -2050,12 +2051,17 @@ class MixedStackedEncoder(Module):
             head = nn.Identity()
         else:
             head = Lambda(lambda x: x.mean(1), name="global_average")
-        self.head = PreNorm(
-            dim,
-            module=head,
-            norm_type=norm_type,
-            norm_kwargs=norm_kwargs,
-        )
+        if norm_after_head:
+            self.head_norm = NormFactory(norm_type).make(dim, **(norm_kwargs or {}))
+            self.head = head
+        else:
+            self.head_norm = None
+            self.head = PreNorm(
+                dim,
+                module=head,
+                norm_type=norm_type,
+                norm_kwargs=norm_kwargs,
+            )
         # initializations
         if self.head_token is not None:
             nn.init.trunc_normal_(self.head_token, std=0.02)
@@ -2084,6 +2090,8 @@ class MixedStackedEncoder(Module):
         for block in self.mixing_blocks:
             net = block(net, hw)
         net = self.head(net)
+        if self.head_norm is not None:
+            net = self.head_norm(net)
         return net
 
 

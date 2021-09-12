@@ -28,6 +28,7 @@ class ViTEncoder(Encoder1DFromPatches):
         sequence_pool: bool = False,
         use_head_token: bool = True,
         use_positional_encoding: bool = True,
+        norm_after_head: bool = False,
     ):
         super().__init__(
             img_size,
@@ -56,6 +57,7 @@ class ViTEncoder(Encoder1DFromPatches):
             sequence_pool=sequence_pool,
             use_head_token=use_head_token,
             use_positional_encoding=use_positional_encoding,
+            norm_after_head=norm_after_head,
         )
 
 
