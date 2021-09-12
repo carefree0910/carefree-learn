@@ -1804,8 +1804,14 @@ class AttentionTokenMixer(TokenMixerBase):
         attention_kwargs.setdefault("is_self_attention", True)
         self.net = Attention.make(attention_type, config=attention_kwargs)
 
-    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
-        return self.net(net, net, net, hw=hw).output
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        mask: Optional[Tensor] = None,
+    ) -> Tensor:
+        return self.net(net, net, net, hw=hw, mask=mask).output
 
 
 class DropPath(Module):
@@ -1879,8 +1885,13 @@ class MixingBlock(Module):
                 norm_kwargs=norm_kwargs,
             )
 
-    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
-        net = net + self.drop_path(self.token_mixing(net, hw=hw))
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        net = net + self.drop_path(self.token_mixing(net, hw=hw, **kwargs))
         if self.channel_norm is None:
             need_2d = self.channel_mixing.module.need_2d
         else:
