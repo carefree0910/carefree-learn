@@ -1,8 +1,13 @@
+import torch
+
 from typing import Any
 from typing import Dict
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
+from ....types import tensor_dict_type
+from ....protocol import TrainerState
+from ....constants import LATENT_KEY
 from ....modules.blocks import MixedStackedEncoder
 
 
@@ -29,6 +34,7 @@ class ViTEncoder(Encoder1DFromPatches):
         use_head_token: bool = True,
         use_positional_encoding: bool = True,
         norm_after_head: bool = False,
+        output_dim: Optional[int] = None,
     ):
         super().__init__(
             img_size,
@@ -59,6 +65,23 @@ class ViTEncoder(Encoder1DFromPatches):
             use_positional_encoding=use_positional_encoding,
             norm_after_head=norm_after_head,
         )
+        if output_dim is None:
+            self.output_projection = None
+        else:
+            init = (latent_dim ** -0.5) * torch.randn(latent_dim, output_dim)
+            self.output_projection = torch.nn.Parameter(init)
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        rs = super().forward(batch_idx, batch, state, **kwargs)
+        if self.output_projection is not None:
+            rs[LATENT_KEY] = rs[LATENT_KEY] @ self.output_projection
+        return rs
 
 
 __all__ = ["ViTEncoder"]
