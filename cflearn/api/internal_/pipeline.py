@@ -361,7 +361,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         *,
         sample_weights: sample_weights_type = None,
         cuda: Optional[Union[int, str]] = None,
-    ) -> "PipelineProtocol":
+    ) -> "DLPipeline":
         data.prepare(sample_weights)
         if cuda is not None:
             cuda = str(cuda)
