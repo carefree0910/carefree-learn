@@ -173,14 +173,16 @@ class DINOLoss(nn.Module):
         self.center_momentum = center_momentum
         self.register_buffer("center", torch.zeros(1, out_dim))
         teacher_temp_constant_epochs = teacher_temp_epochs - warmup_teacher_temp_epochs
-        self.teacher_temp_schedule = np.concatenate(
-            (
-                np.linspace(
-                    warmup_teacher_temp,
-                    teacher_temp,
-                    warmup_teacher_temp_epochs,
-                ),
-                np.ones(teacher_temp_constant_epochs) * teacher_temp,
+        self.teacher_temp_schedule = Scheduler(
+            np.concatenate(
+                (
+                    np.linspace(
+                        warmup_teacher_temp,
+                        teacher_temp,
+                        warmup_teacher_temp_epochs,
+                    ),
+                    np.ones(teacher_temp_constant_epochs) * teacher_temp,
+                )
             )
         )
         self.num_epochs = teacher_temp_epochs
@@ -195,7 +197,7 @@ class DINOLoss(nn.Module):
         student_logits = student_output / self.student_temp
         student_logits_list = student_logits.chunk(num_crops)
 
-        temp = self.teacher_temp_schedule[min(epoch, self.num_epochs)]
+        temp = self.teacher_temp_schedule[epoch]
         teacher_logits = F.softmax((teacher_output - self.center) / temp, dim=-1)
         teacher_logits_list = teacher_logits.detach().chunk(2)
 
@@ -233,8 +235,7 @@ class DINOEvaluateLoss:
         teacher_output: Tensor,
     ) -> float:
         s_logits = student_output / self.train_loss.student_temp
-        epoch_idx = min(epoch, self.train_loss.num_epochs)
-        temp = self.train_loss.teacher_temp_schedule[epoch_idx]
+        temp = self.train_loss.teacher_temp_schedule[epoch]
         centered = teacher_output - self.train_loss.center
         t_logits = F.softmax(centered / temp, dim=-1)
         loss = torch.sum(-t_logits * F.log_softmax(s_logits, dim=-1), dim=-1).mean()
