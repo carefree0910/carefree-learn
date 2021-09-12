@@ -1849,9 +1849,11 @@ class MixingBlock(Module):
         drop_path: float = 0.0,
         norm_type: Optional[str] = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
+        first_norm: Optional[nn.Module] = None,
         residual_after_norm: bool = False,
     ):
         super().__init__()
+        self.first_norm = first_norm
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
         if token_mixing_config is None:
             token_mixing_config = {}
@@ -1891,6 +1893,8 @@ class MixingBlock(Module):
         hw: Optional[Tuple[int, int]] = None,
         **kwargs: Any,
     ) -> Tensor:
+        if self.first_norm is not None:
+            net = self.first_norm(net)
         net = net + self.drop_path(self.token_mixing(net, hw=hw, **kwargs))
         if self.channel_norm is None:
             need_2d = self.channel_mixing.module.need_2d
@@ -2007,6 +2011,7 @@ class MixedStackedEncoder(Module):
         drop_path_rate: float = 0.1,
         norm_type: Optional[str] = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
+        first_norm: Optional[nn.Module] = None,
         residual_after_norm: bool = False,
         feedforward_dim_ratio: float = 1.0,
         reduce_head: bool = True,
@@ -2048,9 +2053,10 @@ class MixedStackedEncoder(Module):
                     drop_path=drop_path,
                     norm_type=norm_type,
                     norm_kwargs=norm_kwargs,
+                    first_norm=first_norm if i == 0 else None,
                     residual_after_norm=residual_after_norm,
                 )
-                for drop_path in dpr_list
+                for i, drop_path in enumerate(dpr_list)
             ]
         )
         # head
