@@ -6,7 +6,6 @@ from typing import Optional
 from .vanilla import reparameterize
 from .constants import MU_KEY
 from .constants import LOG_VAR_KEY
-from ....misc.toolkit import auto_num_layers
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
@@ -15,6 +14,7 @@ from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
 from ..encoder.protocol import Encoder1DFromPatches
 from ...implicit.siren import ImgSiren
+from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Linear
 
 
