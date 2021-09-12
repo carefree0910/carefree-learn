@@ -9,10 +9,10 @@ from typing import Type
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
-from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....misc.toolkit import interpolate
+from ....misc.toolkit import auto_num_layers
 from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY

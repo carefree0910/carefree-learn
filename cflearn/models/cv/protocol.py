@@ -8,12 +8,12 @@ from torch import Tensor
 from typing import Any
 from typing import Optional
 
-from .toolkit import slerp
 from ...types import tensor_dict_type
 from ...trainer import TrainerState
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import slerp
 
 
 class GeneratorMixin(ABC):

@@ -6,8 +6,8 @@ from typing import Any
 from typing import Dict
 from cflearn.misc.toolkit import to_standard
 from cflearn.misc.toolkit import get_arguments
+from cflearn.misc.toolkit import auto_num_layers
 from cflearn.misc.toolkit import sort_dict_by_value
-from cflearn.models.cv.toolkit import auto_num_layers
 
 
 class TestToolkit(unittest.TestCase):

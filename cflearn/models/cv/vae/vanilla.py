@@ -18,16 +18,15 @@ from ..encoder import EncoderBase
 from ..encoder import Encoder1DBase
 from ..encoder import Encoder1DFromPatches
 from ..decoder import DecoderBase
-from ..toolkit import auto_num_layers
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import WARNING_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
+from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear

@@ -10,13 +10,13 @@ from typing import Optional
 
 from ..encoder import EncoderBase
 from ..decoder import DecoderBase
-from ..toolkit import auto_num_layers
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import ChannelPadding
 
 
