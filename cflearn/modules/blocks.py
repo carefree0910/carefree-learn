@@ -2087,22 +2087,30 @@ class MixedStackedEncoder(Module):
             nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)
 
+    def pre_process(self, net: Tensor, **kwargs: Any) -> Tensor:
+        batch_size = net.shape[0]
+        if self.head_token is not None:
+            head_tokens = self.head_token.repeat([batch_size, 1, 1])
+            net = torch.cat([head_tokens, net], dim=1)
+        net = self.pos_encoding(net, **kwargs)
+        return net
+
+    def post_process(self, net: Tensor) -> Tensor:
+        net = self.head(net)
+        if self.head_norm is not None:
+            net = self.head_norm(net)
+        return net
+
     def forward(
         self,
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         **kwargs: Any,
     ) -> Tensor:
-        batch_size = net.shape[0]
-        if self.head_token is not None:
-            head_tokens = self.head_token.repeat([batch_size, 1, 1])
-            net = torch.cat([head_tokens, net], dim=1)
-        net = self.pos_encoding(net, **kwargs)
+        net = self.pre_process(net, **kwargs)
         for block in self.mixing_blocks:
             net = block(net, hw)
-        net = self.head(net)
-        if self.head_norm is not None:
-            net = self.head_norm(net)
+        net = self.post_process(net)
         return net
 
 
