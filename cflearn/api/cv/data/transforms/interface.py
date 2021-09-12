@@ -22,13 +22,13 @@ from .....misc.toolkit import imagenet_normalize
 
 
 @Transforms.register("for_generation")
-class ForGeneration(Compose):
+class TransformForGeneration(Compose):
     def __init__(self):  # type: ignore
         super().__init__([ToTensor(), N1To1()])
 
 
 @Transforms.register("for_imagenet")
-class ForImagenet(Compose):
+class TransformForImagenet(Compose):
     def __init__(self):  # type: ignore
         super().__init__([ToArray(), Resize(224), ANormalize(), ToTensor()])
 
@@ -175,7 +175,7 @@ class SSLTestTransform(Transforms):
 
 
 @Transforms.register("a_bundle")
-class ABundle(Compose):
+class ABundleTransform(Compose):
     def __init__(
         self,
         *,
@@ -203,7 +203,7 @@ class ABundle(Compose):
 
 
 @Transforms.register("a_bundle_test")
-class ABundleTest(Compose):
+class ABundleTestTransform(Compose):
     def __init__(self, *, resize_size: int = 320, label_alias: Optional[str] = None):
         super().__init__(
             [
@@ -215,7 +215,7 @@ class ABundleTest(Compose):
 
 
 @Transforms.register("style_transfer")
-class StyleTransfer(Compose):
+class StyleTransferTransform(Compose):
     def __init__(
         self,
         *,
@@ -234,7 +234,7 @@ class StyleTransfer(Compose):
 
 
 @Transforms.register("style_transfer_test")
-class StyleTransferTest(Compose):
+class StyleTransferTestTransform(Compose):
     def __init__(self, *, resize_size: int = 256, label_alias: Optional[str] = None):
         super().__init__(
             [
@@ -246,7 +246,7 @@ class StyleTransferTest(Compose):
 
 
 @Transforms.register("munit")
-class MUNIT(Compose):
+class MUNITTransform(Compose):
     def __init__(
         self,
         *,
@@ -266,7 +266,7 @@ class MUNIT(Compose):
 
 
 @Transforms.register("munit_test")
-class MUNITTest(Compose):
+class MUNITTestTransform(Compose):
     def __init__(self, *, resize_size: int = 256, label_alias: Optional[str] = None):
         super().__init__(
             [
@@ -279,7 +279,7 @@ class MUNITTest(Compose):
 
 
 @Transforms.register("clf")
-class Classification(Compose):
+class ClassificationTransform(Compose):
     def __init__(
         self,
         *,
@@ -304,7 +304,7 @@ class Classification(Compose):
 
 
 @Transforms.register("clf_test")
-class ClassificationTest(Compose):
+class ClassificationTestTransform(Compose):
     def __init__(self, *, resize_size: int = 512, label_alias: Optional[str] = None):
         if label_alias is not None:
             raise ValueError("`label_alias` should not be provided in `Classification`")
@@ -312,16 +312,16 @@ class ClassificationTest(Compose):
 
 
 __all__ = [
-    "ForGeneration",
-    "ForImagenet",
+    "TransformForGeneration",
+    "TransformForImagenet",
     "SSLTransform",
     "SSLTestTransform",
-    "ABundle",
-    "ABundleTest",
-    "StyleTransfer",
-    "StyleTransferTest",
-    "MUNIT",
-    "MUNITTest",
-    "Classification",
-    "ClassificationTest",
+    "ABundleTransform",
+    "ABundleTestTransform",
+    "StyleTransferTransform",
+    "StyleTransferTestTransform",
+    "MUNITTransform",
+    "MUNITTestTransform",
+    "ClassificationTransform",
+    "ClassificationTestTransform",
 ]

@@ -43,8 +43,8 @@ if __name__ == "__main__":
         style_folder,
         batch_size=8,
         num_workers=2 if is_ci else 4,
-        transform=cflearn.cv.StyleTransfer(label_alias=STYLE_KEY),
-        test_transform=cflearn.cv.StyleTransferTest(label_alias=STYLE_KEY),
+        transform=cflearn.cv.StyleTransferTransform(label_alias=STYLE_KEY),
+        test_transform=cflearn.cv.StyleTransferTestTransform(label_alias=STYLE_KEY),
         lmdb_config=lmdb_config,
     )
 

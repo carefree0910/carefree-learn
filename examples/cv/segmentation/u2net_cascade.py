@@ -20,8 +20,8 @@ if __name__ == "__main__":
         prepare(is_ci),
         batch_size=16,
         num_workers=2 if is_ci else 4,
-        transform=cflearn.cv.ABundle(label_alias="mask"),
-        test_transform=cflearn.cv.ABundleTest(label_alias="mask"),
+        transform=cflearn.cv.ABundleTransform(label_alias="mask"),
+        test_transform=cflearn.cv.ABundleTestTransform(label_alias="mask"),
     )
     m = cflearn.cv.CarefreePipeline(
         "cascade_u2net",
