@@ -40,6 +40,7 @@ class CLIP(ModelProtocol):
         text_num_heads: int = 8,
     ):
         super().__init__()
+        self.img_size = img_size
         self.context_length = context_length
         self.vision_latent_dim = int(round(latent_dim * vision_latent_expand))
         self.vit = ViTEncoder(
