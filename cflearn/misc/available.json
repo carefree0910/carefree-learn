@@ -5,6 +5,7 @@
   "checkpoints": [
     "vgg_style",
     "adain",
-    "clip"
+    "clip",
+    "vq_generator"
   ]
 }
