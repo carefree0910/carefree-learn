@@ -342,8 +342,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def _fit(self, data: DLDataModule, cuda: Optional[str]) -> None:
         self.data = data
-        if not self.built:
-            self.build(data.info)
+        self.build(data.info)
         self.trainer.fit(
             data,
             self.loss,
@@ -358,6 +357,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def build(self, data_info: Dict[str, Any]) -> None:
         self._prepare_modules(data_info)
+        if self.in_loading:
+            return None
         self._prepare_trainer_defaults(data_info)
         trainer_config = shallow_copy_dict(self.trainer_config)
         if isinstance(self.model, ModelWithCustomSteps):
