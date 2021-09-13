@@ -1,5 +1,6 @@
 import os
 import json
+import torch
 
 from abc import ABC
 from typing import Any
@@ -90,7 +91,7 @@ class CVZoo(ZooBase):
             if zoo.tag is None:
                 err_msg = zoo.err_msg_fmt.format("tag")
                 raise ValueError(f"{err_msg} when `pretrained` is True")
-            m.load_state_dict(download_model(zoo.tag))
+            m.load_state_dict(torch.load(download_model(zoo.tag)))
         return m
 
 

@@ -41,6 +41,7 @@ from ...constants import PT_PREFIX
 from ...constants import INFO_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
+from ...constants import PREDICTIONS_KEY
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
@@ -514,7 +515,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if num_samples is not None:
             input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
         with eval_context(model):
-            forward_results = model(0, shallow_copy_dict(input_sample))
+            forward_results = model.onnx_forward(shallow_copy_dict(input_sample))
+        if not isinstance(forward_results, dict):
+            forward_results = {PREDICTIONS_KEY: forward_results}
         input_names = sorted(input_sample.keys())
         # setup
         kwargs = shallow_copy_dict(kwargs)

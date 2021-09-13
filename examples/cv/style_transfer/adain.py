@@ -49,7 +49,8 @@ if __name__ == "__main__":
     )
 
     m = cflearn.CVZoo.load_pipeline(
-        model="style_transfer/adain",
+        "style_transfer/adain",
+        data_info=data.info,
         callback_names=["adain", "mlflow"],
         fixed_steps=1 if is_ci else None,
     )

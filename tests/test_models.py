@@ -124,7 +124,7 @@ class TestModels(unittest.TestCase):
         )
 
         resnet_zoo_clf = cflearn.CVZoo.load_model(
-            model="clf/resnet101",
+            "clf/resnet101",
             model_config=dict(
                 in_channels=in_channels,
                 num_classes=num_classes,
@@ -164,7 +164,7 @@ class TestModels(unittest.TestCase):
         self.assertSequenceEqual(vit_clf.classify(inp).shape, [batch_size, num_classes])
 
         cct_zoo_clf = cflearn.CVZoo.load_model(
-            model="clf/cct_large",
+            "clf/cct_large",
             model_config=dict(
                 in_channels=in_channels,
                 num_classes=num_classes,

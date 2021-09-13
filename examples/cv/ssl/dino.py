@@ -54,7 +54,8 @@ if __name__ == "__main__":
     )
 
     m = cflearn.CVZoo.load_pipeline(
-        model="ssl/dino",
+        "ssl/dino",
+        data_info=data.info,
         callback_names="mlflow",
         callback_configs={"mlflow": {"experiment_name": "poster"}},
         fixed_steps=1 if is_ci else None,
