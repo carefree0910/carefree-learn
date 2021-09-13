@@ -194,7 +194,7 @@ def download_model(
     name: str,
     *,
     root: str = os.path.join(CACHE_DIR, "models"),
-    prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/latest/",
+    prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/checkpoints/",
     force_download: bool = False,
 ) -> str:
     return download(name, root, prefix, "pt", force_download, None, False)
