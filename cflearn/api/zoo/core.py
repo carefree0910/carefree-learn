@@ -1,9 +1,9 @@
 import os
 import json
 
-from abc import abstractmethod
 from abc import ABC
 from typing import Any
+from typing import Dict
 from typing import Optional
 from cftool.misc import update_dict
 
@@ -12,6 +12,7 @@ from ..internal_.pipeline import ModelProtocol
 from ..internal_.pipeline import PipelineProtocol
 from ..cv.pipeline import SimplePipeline as CVPipeline
 from ...misc.toolkit import download_model
+from ...misc.toolkit import download_data_info
 
 
 root = os.path.dirname(__file__)
@@ -23,6 +24,7 @@ class ZooBase(ABC):
         self,
         model: Optional[str] = None,
         *,
+        data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         **kwargs: Any,
     ):
@@ -43,44 +45,44 @@ class ZooBase(ABC):
             raise ValueError(self.err_msg_fmt.format("pipeline"))
         update_dict(kwargs, self.config)
         self.m = make(self.pipeline_name, config=self.config)
-
-    @abstractmethod
-    def get_model(self, *, pretrained: bool = False) -> ModelProtocol:
-        pass
-
-    @classmethod
-    def load_model(
-        cls,
-        model: Optional[str] = None,
-        *,
-        json_path: Optional[str] = None,
-        pretrained: bool = False,
-        **kwargs: Any,
-    ) -> ModelProtocol:
-        zoo = cls(model, json_path=json_path, **kwargs)
-        return zoo.get_model(pretrained=pretrained)
+        if data_info is None:
+            with open(download_data_info(self.tag), "r") as f:
+                data_info = json.load(f)
+        self.m.build(data_info)
 
     @classmethod
     def load_pipeline(
         cls,
         model: Optional[str] = None,
         *,
+        data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         **kwargs: Any,
     ) -> PipelineProtocol:
-        return cls(model, json_path=json_path, **kwargs).m
+        return cls(model, data_info=data_info, json_path=json_path, **kwargs).m
 
 
 class CVZoo(ZooBase):
     m: CVPipeline
 
-    def get_model(self, *, pretrained: bool = False) -> ModelProtocol:
-        m = ModelProtocol.make(self.m.model_name, config=self.m.model_config)
+    @classmethod
+    def load_model(
+        cls,
+        model: Optional[str] = None,
+        *,
+        data_info: Optional[Dict[str, Any]] = None,
+        json_path: Optional[str] = None,
+        pretrained: bool = False,
+        **kwargs: Any,
+    ) -> ModelProtocol:
+        kwargs.setdefault("in_loading", True)
+        zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
+        m = zoo.m.model
         if pretrained:
-            if self.tag is None:
-                err_msg = self.err_msg_fmt.format("tag")
+            if zoo.tag is None:
+                err_msg = zoo.err_msg_fmt.format("tag")
                 raise ValueError(f"{err_msg} when `pretrained` is True")
-            m.load_state_dict(download_model(self.tag))
+            m.load_state_dict(download_model(zoo.tag))
         return m
 
 
