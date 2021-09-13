@@ -83,6 +83,10 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
         pass
 
     @abstractmethod
+    def build(self, data_info: Dict[str, Any]) -> None:
+        pass
+
+    @abstractmethod
     def fit(
         self,
         data: DataModule,
@@ -194,6 +198,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             "tqdm_settings": tqdm_settings,
         }
         self.in_loading = in_loading
+        self.built = False
 
     # properties
 
@@ -336,13 +341,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def _fit(self, data: DLDataModule, cuda: Optional[str]) -> None:
         self.data = data
-        data_info = data.info
-        self._prepare_modules(data_info)
-        self._prepare_trainer_defaults(data_info)
-        trainer_config = shallow_copy_dict(self.trainer_config)
-        if isinstance(self.model, ModelWithCustomSteps):
-            self.model.permute_trainer_config(trainer_config)
-        self.trainer = make_trainer(**trainer_config)
+        if not self.built:
+            self.build(data.info)
         self.trainer.fit(
             data,
             self.loss,
@@ -354,6 +354,15 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.device_info = self.trainer.device_info
 
     # api
+
+    def build(self, data_info: Dict[str, Any]) -> None:
+        self._prepare_modules(data_info)
+        self._prepare_trainer_defaults(data_info)
+        trainer_config = shallow_copy_dict(self.trainer_config)
+        if isinstance(self.model, ModelWithCustomSteps):
+            self.model.permute_trainer_config(trainer_config)
+        self.trainer = make_trainer(**trainer_config)
+        self.built = True
 
     def fit(  # type: ignore
         self,
