@@ -23,6 +23,8 @@ from ....modules.blocks import ChannelPadding
 class VQCodebook(nn.Module):
     def __init__(self, num_code: int, code_dimension: int):
         super().__init__()
+        self.num_code = num_code
+        self.code_dimension = code_dimension
         self.embedding = nn.Embedding(num_code, code_dimension)
         span = 1.0 / num_code
         self.embedding.weight.data.uniform_(-span, span)
@@ -32,13 +34,16 @@ class VQCodebook(nn.Module):
 
         codebook = self.embedding.weight.detach()
         with torch.no_grad():
-            code_dimension = codebook.shape[1]
-            diff = z_e.view(-1, 1, code_dimension) - codebook[None, ...]
-            distances = (diff ** 2).sum(2)
-            _, indices = torch.min(distances, dim=1)
+            z_e_flattened = z_e.view(-1, self.code_dimension)
+            distances = (
+                torch.sum(z_e_flattened ** 2, dim=1, keepdim=True)
+                + torch.sum(codebook ** 2, dim=1)
+                - 2.0 * torch.einsum("bd,dn->bn", z_e_flattened, codebook.t())
+            )
+            indices = torch.argmin(distances, dim=1)
 
-        codes_flatten = codebook[indices]
-        z_q = codes_flatten.view_as(z_e)
+        z_q_flattened = codebook[indices]
+        z_q = z_q_flattened.view_as(z_e)
         # VQSTE in one line of code
         z_q = z_e + (z_q - z_e).detach()
 
