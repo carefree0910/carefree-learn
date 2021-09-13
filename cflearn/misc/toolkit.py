@@ -470,6 +470,12 @@ def softmax(arr: arr_type) -> arr_type:
     return exp / exp.sum(1, keepdims=True)
 
 
+def l2_normalize(arr: arr_type) -> arr_type:
+    if isinstance(arr, Tensor):
+        return arr / arr.norm(dim=-1, keepdim=True)
+    return arr / np.linalg.norm(arr, axis=-1, keepdims=True)
+
+
 def has_batch_norms(m: nn.Module) -> bool:
     bn_types = (nn.BatchNorm1d, nn.BatchNorm2d, nn.BatchNorm3d, nn.SyncBatchNorm)
     for name, module in m.named_modules():

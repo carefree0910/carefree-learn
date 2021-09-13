@@ -14,6 +14,7 @@ from ...protocol import ModelProtocol
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import l2_normalize
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
 
@@ -88,7 +89,7 @@ class CLIP(ModelProtocol):
 
     def encode_image(self, image: Tensor) -> Tensor:
         net = self.vit(0, {INPUT_KEY: image})[LATENT_KEY]
-        return net / net.norm(dim=-1, keepdim=True)
+        return l2_normalize(net)
 
     def encode_text(self, text: Tensor) -> Tensor:
         net = self.token_embedding(text)
@@ -100,7 +101,7 @@ class CLIP(ModelProtocol):
             # ONNX compatibility
             net = net[:, torch.nonzero(text)[:, 1][-1]]
         net = net @ self.text_projection
-        return net / net.norm(dim=-1, keepdim=True)
+        return l2_normalize(net)
 
     def forward(
         self,

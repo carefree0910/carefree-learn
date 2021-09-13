@@ -24,6 +24,7 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import to_device
+from ....misc.toolkit import l2_normalize
 from ....misc.toolkit import get_world_size
 from ....misc.toolkit import has_batch_norms
 from ....misc.internal_ import CVLoader
@@ -326,7 +327,7 @@ class DINO(ModelWithCustomSteps):
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = self.student.backbone(batch_idx, batch, state, **kwargs)[LATENT_KEY]
-        net = net / net.norm(dim=-1, keepdim=True)
+        net = l2_normalize(net)
         return {LATENT_KEY: net}
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
