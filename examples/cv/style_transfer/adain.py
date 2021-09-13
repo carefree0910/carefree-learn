@@ -48,7 +48,7 @@ if __name__ == "__main__":
         lmdb_config=lmdb_config,
     )
 
-    m = cflearn.CVZoo.load_pipeline(
+    m = cflearn.DLZoo.load_pipeline(
         "style_transfer/adain",
         data_info=data.info,
         callback_names=["adain", "mlflow"],

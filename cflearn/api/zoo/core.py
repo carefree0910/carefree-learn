@@ -10,9 +10,9 @@ from cftool.misc import update_dict
 
 from ..basic import make
 from ...constants import WARNING_PREFIX
+from ..internal_.pipeline import DLPipeline
 from ..internal_.pipeline import ModelProtocol
 from ..internal_.pipeline import PipelineProtocol
-from ..cv.pipeline import SimplePipeline as CVPipeline
 from ...misc.toolkit import download_model
 from ...misc.toolkit import download_data_info
 
@@ -71,8 +71,8 @@ class ZooBase(ABC):
         return cls(model, data_info=data_info, json_path=json_path, **kwargs).m
 
 
-class CVZoo(ZooBase):
-    m: CVPipeline
+class DLZoo(ZooBase):
+    m: DLPipeline
 
     @classmethod
     def load_model(
@@ -96,5 +96,5 @@ class CVZoo(ZooBase):
 
 
 __all__ = [
-    "CVZoo",
+    "DLZoo",
 ]
