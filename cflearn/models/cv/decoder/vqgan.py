@@ -19,7 +19,7 @@ from ....modules.blocks import Conv2d
 
 
 class Upsample(nn.Module):
-    def __init__(self, dim):
+    def __init__(self, dim: int):
         super().__init__()
         self.net = Conv2d(dim, dim, kernel_size=3, padding=1)
 
