@@ -149,6 +149,47 @@ def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
     return arguments
 
 
+def download(
+    name: str,
+    root: str,
+    prefix: str,
+    extension: str,
+    force_download: bool,
+    remove_zip: Optional[bool],
+    extract_zip: bool,
+) -> str:
+    os.makedirs(root, exist_ok=True)
+    file = f"{name}.{extension}"
+    path = os.path.join(root, file)
+    is_zip = extension == "zip"
+    zip_folder_path = os.path.join(root, name)
+    exists = os.path.isdir(zip_folder_path) if is_zip else os.path.isfile(path)
+    if exists and not force_download:
+        return zip_folder_path if is_zip else path
+    with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=name) as t:
+        urllib.request.urlretrieve(
+            f"{prefix}{file}",
+            filename=path,
+            reporthook=t.update_to,
+        )
+    if not is_zip:
+        return path
+    if extract_zip:
+        with ZipFile(path, "r") as zip_ref:
+            zip_ref.extractall(zip_folder_path)
+    if remove_zip is None:
+        remove_zip = extract_zip
+    if remove_zip:
+        if extract_zip:
+            os.remove(path)
+        else:
+            print(
+                f"{WARNING_PREFIX}zip file is not extracted, "
+                f"so we will not remove it!"
+            )
+    return zip_folder_path
+
+
 def download_model(
     name: str,
     *,
@@ -156,47 +197,19 @@ def download_model(
     prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/latest/",
     force_download: bool = False,
 ) -> str:
-    os.makedirs(root, exist_ok=True)
-    file = f"{name}.pt"
-    path = os.path.join(root, file)
-    if os.path.isfile(path) and not force_download:
-        return path
-    with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=name) as t:
-        urllib.request.urlretrieve(
-            f"{prefix}{file}",
-            filename=path,
-            reporthook=t.update_to,
-        )
-    return path
+    return download(name, root, prefix, "pt", force_download, None, False)
 
 
 def download_dataset(
     name: str,
     *,
     root: str = os.getcwd(),
+    prefix: str = "https://github.com/carefree0910/datasets/releases/download/latest/",
+    force_download: bool = False,
     remove_zip: Optional[bool] = None,
     extract_zip: bool = True,
-    prefix: str = "https://github.com/carefree0910/datasets/releases/download/latest/",
-) -> None:
-    os.makedirs(root, exist_ok=True)
-    file = f"{name}.zip"
-    tgt_zip_path = os.path.join(root, file)
-    with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=name) as t:
-        urllib.request.urlretrieve(
-            f"{prefix}{file}",
-            filename=tgt_zip_path,
-            reporthook=t.update_to,
-        )
-    if extract_zip:
-        with ZipFile(tgt_zip_path, "r") as zip_ref:
-            zip_ref.extractall(os.path.join(root, name))
-    if remove_zip is None:
-        remove_zip = extract_zip
-    if remove_zip:
-        if extract_zip:
-            os.remove(tgt_zip_path)
-        else:
-            print(f"{WARNING_PREFIX}zip file is not extracted, so we'll not remove it!")
+) -> str:
+    return download(name, root, prefix, "zip", force_download, remove_zip, extract_zip)
 
 
 def _rmtree(folder: str, patience: float = 10.0) -> None:
