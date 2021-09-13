@@ -1,0 +1,6 @@
+{
+  "tag": "clip",
+  "pipeline": "cv.carefree",
+  "model_name": "clip",
+  "model_config": {}
+}

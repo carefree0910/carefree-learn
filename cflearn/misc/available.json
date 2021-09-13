@@ -4,6 +4,7 @@
   ],
   "checkpoints": [
     "vgg_style",
-    "adain"
+    "adain",
+    "clip"
   ]
 }
