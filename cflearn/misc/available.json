@@ -2,6 +2,9 @@
   "data_info": [
     "adain"
   ],
+  "tokenizers": [
+    "clip"
+  ],
   "checkpoints": [
     "vgg_style",
     "adain",
