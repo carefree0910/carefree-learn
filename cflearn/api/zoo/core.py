@@ -8,6 +8,7 @@ from typing import Optional
 from cftool.misc import update_dict
 
 from ..basic import make
+from ...constants import WARNING_PREFIX
 from ..internal_.pipeline import ModelProtocol
 from ..internal_.pipeline import PipelineProtocol
 from ..cv.pipeline import SimplePipeline as CVPipeline
@@ -46,8 +47,15 @@ class ZooBase(ABC):
         update_dict(kwargs, self.config)
         self.m = make(self.pipeline_name, config=self.config)
         if data_info is None:
-            with open(download_data_info(self.tag), "r") as f:
-                data_info = json.load(f)
+            try:
+                with open(download_data_info(self.tag), "r") as f:
+                    data_info = json.load(f)
+            except ValueError:
+                print(
+                    f"{WARNING_PREFIX}`data_info` of '{self.tag}' does not exist "
+                    f"on the remote server, empty `data_info` will be used"
+                )
+                data_info = {}
         self.m.build(data_info)
 
     @classmethod
