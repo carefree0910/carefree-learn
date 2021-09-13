@@ -1,4 +1,5 @@
 import os
+import dill
 import json
 import torch
 
@@ -15,10 +16,22 @@ from ..internal_.pipeline import ModelProtocol
 from ..internal_.pipeline import PipelineProtocol
 from ...misc.toolkit import download_model
 from ...misc.toolkit import download_data_info
+from ...misc.toolkit import download_tokenizer
 
 
 root = os.path.dirname(__file__)
 configs_root = os.path.join(root, "configs")
+
+
+# tokenizers
+
+
+def load_tokenizer(name: str) -> Any:
+    with open(download_tokenizer(name), "rb") as f:
+        return dill.load(f)
+
+
+# models
 
 
 class ZooBase(ABC):
@@ -96,5 +109,6 @@ class DLZoo(ZooBase):
 
 
 __all__ = [
+    "load_tokenizer",
     "DLZoo",
 ]
