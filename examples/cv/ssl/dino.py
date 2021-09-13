@@ -59,4 +59,4 @@ if __name__ == "__main__":
         callback_configs={"mlflow": {"experiment_name": "poster"}},
         fixed_steps=1 if is_ci else None,
     )
-    m.fit(data, cuda=None if is_ci else 0)
+    m.fit(data, cuda=None if is_ci else 0)  # type: ignore

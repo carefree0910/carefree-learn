@@ -325,7 +325,9 @@ class DINO(ModelWithCustomSteps):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        return self.student.backbone(batch_idx, batch, state, **kwargs)
+        net = self.student.backbone(batch_idx, batch, state, **kwargs)[LATENT_KEY]
+        net = net / net.norm(dim=-1, keepdim=True)
+        return {LATENT_KEY: net}
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return self.get_latent(batch[INPUT_KEY])
