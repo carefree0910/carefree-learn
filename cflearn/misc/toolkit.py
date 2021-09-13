@@ -214,6 +214,24 @@ def download_data_info(
     )
 
 
+def download_tokenizer(
+    name: str,
+    *,
+    root: str = os.path.join(CACHE_DIR, "tokenizers"),
+    force_download: bool = False,
+) -> str:
+    return download(
+        "tokenizers",
+        "pretrained-models",
+        name,
+        root,
+        "pkl",
+        force_download,
+        None,
+        False,
+    )
+
+
 def download_model(
     name: str,
     *,
