@@ -150,14 +150,20 @@ def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
 
 
 def download(
+    tag: str,
+    repo: str,
     name: str,
     root: str,
-    prefix: str,
     extension: str,
     force_download: bool,
     remove_zip: Optional[bool],
     extract_zip: bool,
 ) -> str:
+    with open(os.path.join(os.path.dirname(__file__), "available.json"), "r") as f:
+        available = json.load(f)
+    if repo == "pretrained-models" and name not in available[tag]:
+        raise ValueError(f"'{name}' is currently not available at '{tag}'")
+    prefix = f"https://github.com/carefree0910/{repo}/releases/download/{tag}/"
     os.makedirs(root, exist_ok=True)
     file = f"{name}.{extension}"
     path = os.path.join(root, file)
@@ -194,32 +200,56 @@ def download_data_info(
     name: str,
     *,
     root: str = os.path.join(CACHE_DIR, "data_info"),
-    prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/data_info/",
     force_download: bool = False,
 ) -> str:
-    return download(name, root, prefix, "json", force_download, None, False)
+    return download(
+        "data_info",
+        "pretrained-models",
+        name,
+        root,
+        "json",
+        force_download,
+        None,
+        False,
+    )
 
 
 def download_model(
     name: str,
     *,
     root: str = os.path.join(CACHE_DIR, "models"),
-    prefix: str = "https://github.com/carefree0910/pretrained-models/releases/download/checkpoints/",
     force_download: bool = False,
 ) -> str:
-    return download(name, root, prefix, "pt", force_download, None, False)
+    return download(
+        "checkpoints",
+        "pretrained-models",
+        name,
+        root,
+        "pt",
+        force_download,
+        None,
+        False,
+    )
 
 
 def download_dataset(
     name: str,
     *,
     root: str = os.getcwd(),
-    prefix: str = "https://github.com/carefree0910/datasets/releases/download/latest/",
     force_download: bool = False,
     remove_zip: Optional[bool] = None,
     extract_zip: bool = True,
 ) -> str:
-    return download(name, root, prefix, "zip", force_download, remove_zip, extract_zip)
+    return download(
+        "latest",
+        "datasets",
+        name,
+        root,
+        "zip",
+        force_download,
+        remove_zip,
+        extract_zip,
+    )
 
 
 def _rmtree(folder: str, patience: float = 10.0) -> None:
