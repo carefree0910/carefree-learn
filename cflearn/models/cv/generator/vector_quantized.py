@@ -50,9 +50,9 @@ class VQGenerator(ModelProtocol):
         net, _ = self.codebook(net)
         return net
 
-    def decode(self, z_q: Tensor) -> Tensor:
+    def decode(self, z_q: Tensor, *, resize: bool = True) -> Tensor:
         net = self.post_q_conv(z_q)
-        net = self.decoder(0, {INPUT_KEY: net})[PREDICTIONS_KEY]
+        net = self.decoder(0, {INPUT_KEY: net}, resize=resize)[PREDICTIONS_KEY]
         return net
 
     def forward(

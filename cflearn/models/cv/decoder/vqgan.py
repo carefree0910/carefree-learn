@@ -102,7 +102,8 @@ class VQGANDecoder(DecoderBase):
         for block in self.upsample_blocks[::-1]:
             net = block(net)
         net = self.out(net)
-        net = self.resize(net)
+        if kwargs.get("resize", True):
+            net = self.resize(net)
         return {PREDICTIONS_KEY: net}
 
 
