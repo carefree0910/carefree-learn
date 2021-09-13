@@ -1,3 +1,4 @@
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
@@ -9,6 +10,7 @@ from ....trainer import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
+from ....constants import PREDICTIONS_KEY
 from ..vae.vector_quantized import VQCodebook
 from ....modules.blocks import Conv2d
 
@@ -41,6 +43,17 @@ class VQGenerator(ModelProtocol):
         self.codebook = VQCodebook(num_code, code_dimension)
         self.q_conv = Conv2d(latent_channels, code_dimension, kernel_size=1)
         self.post_q_conv = Conv2d(code_dimension, latent_channels, kernel_size=1)
+
+    def encode(self, net: Tensor) -> Tensor:
+        net = self.encoder(0, {INPUT_KEY: net})[LATENT_KEY]
+        net = self.q_conv(net)
+        net, _ = self.codebook(net)
+        return net
+
+    def decode(self, z_q: Tensor) -> Tensor:
+        net = self.post_q_conv(z_q)
+        net = self.decoder(0, {INPUT_KEY: net})[PREDICTIONS_KEY]
+        return net
 
     def forward(
         self,
