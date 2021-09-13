@@ -3,6 +3,7 @@
     "adain"
   ],
   "checkpoints": [
-    "vgg_style"
+    "vgg_style",
+    "adain"
   ]
 }
