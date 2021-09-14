@@ -167,8 +167,7 @@ class MLLoader(DataLoaderProtocol):
         )
 
 
-@DatasetProtocol.register("cv")
-class CVDataset(DatasetProtocol):
+class DLDataset(DatasetProtocol):
     def __init__(self, dataset: Dataset):
         super().__init__()
         self.dataset = dataset
@@ -178,6 +177,11 @@ class CVDataset(DatasetProtocol):
 
     def __getitem__(self, item: Any) -> Any:
         return self.dataset[item]
+
+
+@DatasetProtocol.register("cv")
+class CVDataset(DLDataset):
+    pass
 
 
 class DataLoader(TorchDataLoader):
@@ -219,9 +223,8 @@ class DataLoader(TorchDataLoader):
         super(TorchDataLoader, self).__setattr__(attr, val)
 
 
-@DataLoaderProtocol.register("cv")
-class CVLoader(DataLoaderProtocol):
-    data: CVDataset
+class DLLoader(DataLoaderProtocol):
+    data: DLDataset
 
     def __init__(
         self,
@@ -242,7 +245,7 @@ class CVLoader(DataLoaderProtocol):
         self.sampler_backup = loader.sampler
         self._iterator: Optional[Any] = None
 
-    def __iter__(self) -> "CVLoader":
+    def __iter__(self) -> "DLLoader":
         self._iterator = self.loader.__iter__()
         return self
 
@@ -259,7 +262,7 @@ class CVLoader(DataLoaderProtocol):
     def batch_size(self) -> int:  # type: ignore
         return self.loader.batch_size * get_world_size()
 
-    def copy(self) -> "CVLoader":
+    def copy(self) -> "DLLoader":
         dataset = self.data.dataset
         self.data.__dict__.pop("dataset")
         copied = super().copy()
@@ -279,13 +282,20 @@ class CVLoader(DataLoaderProtocol):
             self.loader.batch_sampler.sampler = self.sampler_backup
 
 
+@DataLoaderProtocol.register("cv")
+class CVLoader(DLLoader):
+    data: CVDataset
+
+
 __all__ = [
     "DataModule",
     "DLDataModule",
     "MLDataset",
     "MLLoader",
+    "DLDataset",
     "CVDataset",
-    "CVLoader",
     "DataLoader",
+    "DLLoader",
+    "CVLoader",
     "get_weighted_indices",
 ]
