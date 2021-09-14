@@ -41,10 +41,16 @@ class CutOuts(nn.Module):
         self.num_cuts_zoom = int(2 * num_cuts / 3)
         self.noise_factor = noise_factor
 
-        self.aug_zoom = transforms.RandomResizedCrop(
-            size=cut_size,
-            scale=(0.1, 0.75),
-            ratio=(0.85, 1.2),
+        self.aug_zoom = transforms.Compose(
+            [
+                transforms.RandomPerspective(distortion_scale=0.4, p=0.7),
+                transforms.RandomResizedCrop(
+                    size=cut_size,
+                    scale=(0.1, 0.75),
+                    ratio=(0.85, 1.2),
+                ),
+                transforms.ColorJitter(0.1, 0.1, 0.1),
+            ]
         )
 
         blocks = []
@@ -78,7 +84,13 @@ class CutOuts(nn.Module):
                     scale=(0.9 * n_s, n_s),
                 )
             )
-        blocks.append(transforms.CenterCrop(size=cut_size))
+        blocks.extend(
+            [
+                transforms.RandomPerspective(distortion_scale=0.2, p=0.7),
+                transforms.CenterCrop(size=cut_size),
+                transforms.ColorJitter(0.1, 0.1, 0.1),
+            ]
+        )
         self.aug_wide = transforms.Compose(blocks)
 
         self.avg_pool = nn.AdaptiveAvgPool2d((self.cut_size, self.cut_size))
