@@ -1373,7 +1373,7 @@ def perlin_noise_2d(
 ) -> np.ndarray:
     delta = periods[0] / shape[0], periods[1] / shape[1]
     d = (shape[0] // periods[0], shape[1] // periods[1])
-    grid = np.mgrid[: periods[0] : delta[0], : periods[1] : delta[1]]  # type: ignore
+    grid = np.mgrid[: periods[0] : delta[0], : periods[1] : delta[1]] % 1  # type: ignore
     grid = grid.transpose(1, 2, 0)
     # gradients
     angles = 2 * np.pi * np.random.rand(periods[0] + 1, periods[1] + 1)
@@ -1426,6 +1426,6 @@ def fractal_noise_2d(
 def contrast_noise(arr: arr_type) -> arr_type:
     arr = 0.9998 * arr + 0.0001
     arr = arr / (1.0 - arr)
-    arr = np.power(arr, -2.0)
+    arr = arr ** -2
     arr = 1.0 / (1.0 + arr)
     return arr
