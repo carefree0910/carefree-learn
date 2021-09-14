@@ -1421,3 +1421,11 @@ def fractal_noise_2d(
         frequency *= lacunarity
         amplitude *= persistence
     return noise
+
+
+def contrast_noise(arr: arr_type) -> arr_type:
+    arr = 0.9998 * arr + 0.0001
+    arr = arr / (1.0 - arr)
+    arr = np.power(arr, -2.0)
+    arr = 1.0 / (1.0 + arr)
+    return arr
