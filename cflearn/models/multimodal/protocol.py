@@ -17,8 +17,10 @@ from ...constants import PREDICTIONS_KEY
 
 
 class PerceptorProtocol(ModelProtocol, metaclass=ABCMeta):
-    def __init__(self) -> None:
+    def __init__(self, img_size: int, context_length: int):
         super().__init__()
+        self.img_size = img_size
+        self.context_length = context_length
         self.logit_scale = nn.Parameter(torch.tensor(math.log(1 / 0.07)))
 
     @abstractmethod
