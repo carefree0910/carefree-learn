@@ -149,6 +149,14 @@ def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
     return arguments
 
 
+def check_available(tag: str, repo: str, name: str) -> bool:
+    with open(os.path.join(os.path.dirname(__file__), "available.json"), "r") as f:
+        available = json.load(f)
+    if repo != "pretrained-models":
+        return True
+    return name in available[tag]
+
+
 def download(
     tag: str,
     repo: str,
@@ -159,9 +167,7 @@ def download(
     remove_zip: Optional[bool],
     extract_zip: bool,
 ) -> str:
-    with open(os.path.join(os.path.dirname(__file__), "available.json"), "r") as f:
-        available = json.load(f)
-    if repo == "pretrained-models" and name not in available[tag]:
+    if not check_available(tag, repo, name):
         raise ValueError(f"'{name}' is currently not available at '{tag}'")
     prefix = f"https://github.com/carefree0910/{repo}/releases/download/{tag}/"
     os.makedirs(root, exist_ok=True)
