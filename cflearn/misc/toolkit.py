@@ -78,7 +78,7 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
 
 def check_requires(fn: Any, name: str, strict: bool = True) -> bool:
     if isinstance(fn, type):
-        fn = fn.__init__
+        fn = fn.__init__  # type: ignore
     signature = inspect.signature(fn)
     for k, param in signature.parameters.items():
         if not strict and param.kind is inspect.Parameter.VAR_KEYWORD:
