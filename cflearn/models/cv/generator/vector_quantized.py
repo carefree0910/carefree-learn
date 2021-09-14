@@ -16,6 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import check_requires
 from ....modules.blocks import Conv2d
 from ....modules.blocks import ChannelPadding
 
@@ -78,16 +79,20 @@ class VQGenerator(ModelProtocol):
         if decoder_config is None:
             decoder_config = {}
         # encoder
-        encoder_config["img_size"] = img_size
+        encoder_base = EncoderBase.get(encoder)
+        if check_requires(encoder_base, "img_size"):
+            encoder_config["img_size"] = img_size
         encoder_config["in_channels"] = in_channels
         encoder_config["latent_channels"] = latent_channels
-        self.encoder = EncoderBase.make(encoder, encoder_config)
+        self.encoder = encoder_base(**encoder_config)
         latent_resolution = self.encoder.latent_resolution(img_size)
         self.latent_resolution = latent_resolution
         # codebook
         self.codebook = VQCodebook(num_code, code_dimension)
         # decoder
-        decoder_config["img_size"] = img_size
+        decoder_base = DecoderBase.get(decoder)
+        if check_requires(decoder_base, "img_size"):
+            decoder_config["img_size"] = img_size
         decoder_config["out_channels"] = out_channels or in_channels
         decoder_config["latent_resolution"] = latent_resolution
         if latent_padding_channels is None:
@@ -96,7 +101,7 @@ class VQGenerator(ModelProtocol):
             decoder_in_channels = latent_channels + latent_padding_channels
         decoder_config["latent_channels"] = decoder_in_channels
         decoder_config["num_classes"] = num_classes
-        self.decoder = DecoderBase.make(decoder, decoder_config)
+        self.decoder = decoder_base(**decoder_config)
         # latent padding
         if latent_padding_channels is None:
             self.latent_padding = None
