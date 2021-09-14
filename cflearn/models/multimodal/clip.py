@@ -1,26 +1,18 @@
-import math
 import torch
 
-import torch.nn as nn
-
+from torch import nn
 from torch import Tensor
-from typing import Any
-from typing import Optional
 
-from .constants import TEXT_KEY
-from ...types import tensor_dict_type
-from ...protocol import TrainerState
-from ...protocol import ModelProtocol
+from .protocol import PerceptorProtocol
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
-from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import l2_normalize
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
 
 
-@ModelProtocol.register("clip")
-class CLIP(ModelProtocol):
+@PerceptorProtocol.register("clip")
+class CLIP(PerceptorProtocol):
     def __init__(
         self,
         img_size: int = 224,
@@ -68,7 +60,6 @@ class CLIP(ModelProtocol):
         )
         projection_shape = self.text_latent_dim, latent_dim
         self.text_projection = nn.Parameter(torch.empty(*projection_shape))
-        self.logit_scale = nn.Parameter(torch.tensor(math.log(1 / 0.07)))
 
         self.reset_parameters()
 
@@ -103,21 +94,6 @@ class CLIP(ModelProtocol):
             net = net[:, torch.nonzero(text)[:, 1][-1]]
         net = net @ self.text_projection
         return l2_normalize(net)
-
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        image = batch[INPUT_KEY]
-        text = batch[TEXT_KEY]
-        image_features = self.encode_image(image)
-        text_features = self.encode_text(text)
-        logit_scale = self.logit_scale.exp()
-        logits_per_image = logit_scale * image_features @ text_features.t()
-        return {PREDICTIONS_KEY: logits_per_image}
 
 
 __all__ = ["CLIP"]
