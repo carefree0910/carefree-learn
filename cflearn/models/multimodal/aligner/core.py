@@ -185,6 +185,7 @@ class Text2ImageAligner(Aligner, metaclass=ABCMeta):
         *,
         text: str,
         noise: str = "fractal",
+        condition_path: Optional[str] = None,
         tokenizer_config: Optional[Dict[str, Any]] = None,
         num_cuts: int = 36,
         perceptor_config: Optional[Dict[str, Any]] = None,
@@ -206,12 +207,16 @@ class Text2ImageAligner(Aligner, metaclass=ABCMeta):
             perceptor_pretrained_path=perceptor_pretrained_path,
             generator_pretrained_path=generator_pretrained_path,
         )
-        noise_arr = noises[noise](*resolution)
-        noise_img = Image.fromarray(noise_arr).convert("RGB")
-        noise_arr = np.array(noise_img.resize(resolution, Image.LANCZOS))
-        noise_tensor = torch.from_numpy(noise_arr.transpose([2, 0, 1])[None, ...])
-        noise_tensor = noise_tensor.to(torch.float32) / 127.5 - 1.0
-        latent = self.generator.encode(noise_tensor)
+        if condition_path is not None:
+            img = Image.open(condition_path).convert("RGB")
+            img = img.resize(resolution, Image.LANCZOS)
+        else:
+            noise_arr = noises[noise](*resolution)
+            img = Image.fromarray(noise_arr).convert("RGB")
+        img_arr = np.array(img.resize(resolution, Image.LANCZOS))
+        img_tensor = torch.from_numpy(img_arr.transpose([2, 0, 1])[None, ...])
+        img_tensor = img_tensor.to(torch.float32) / 127.5 - 1.0
+        latent = self.generator.encode(img_tensor)
         self.z = nn.Parameter(latent)
         tokenizer_ins = TokenizerProtocol.make(tokenizer, tokenizer_config or {})
         text_tensor = torch.from_numpy(tokenizer_ins.tokenize(text))
