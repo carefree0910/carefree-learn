@@ -229,7 +229,7 @@ class TestModels(unittest.TestCase):
         num_code = 16
         vq_vae = cflearn.VQVAE(img_size, num_code, in_channels, out_channels)
         self.assertSequenceEqual(
-            vq_vae._decode(
+            vq_vae.decode(
                 torch.randn(
                     batch_size,
                     vq_vae.latent_channels,

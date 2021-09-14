@@ -61,6 +61,7 @@ class VQVAE(ModelProtocol):
             latent_padding_channels=latent_padding_channels,
             num_classes=num_classes,
         )
+        self.latent_resolution = self.generator.latent_resolution
 
     def forward(
         self,
@@ -76,6 +77,15 @@ class VQVAE(ModelProtocol):
         z_q_g = z_q_g_flatten.view(*shape).permute(0, 3, 1, 2).contiguous()
         results["z_q_g"] = z_q_g
         return results
+
+    def decode(
+        self,
+        z_q: Tensor,
+        *,
+        labels: Optional[Tensor] = None,
+        resize: bool = True,
+    ) -> Tensor:
+        return self.generator.decode(z_q, labels=labels, resize=resize)
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.generator.get_code_indices(net, **kwargs)
