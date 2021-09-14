@@ -1,5 +1,3 @@
-import os
-import dill
 import json
 
 from abc import ABCMeta
@@ -16,11 +14,9 @@ from cftool.misc import shallow_copy_dict
 from torchvision.datasets import MNIST
 
 from .core import batch_callback
-from .core import TensorDataset
 from .core import ImageFolderDataset
 from .core import InferenceImageFolderDataset
 from .transforms import Transforms
-from ....types import tensor_dict_type
 from ....types import sample_weights_type
 from ....misc.internal_ import CVDataset
 from ....misc.internal_ import CVLoader
@@ -90,54 +86,6 @@ class MNISTData(CVDataModule):
             ),
             partial(batch_callback, self.label_callback),
         )
-        return train_loader, valid_loader
-
-
-@DLDataModule.register("tensor")
-class TensorData(CVDataModule):
-    def __init__(
-        self,
-        x_train: Tensor,
-        y_train: Optional[Tensor] = None,
-        x_valid: Optional[Tensor] = None,
-        y_valid: Optional[Tensor] = None,
-        train_others: Optional[tensor_dict_type] = None,
-        valid_others: Optional[tensor_dict_type] = None,
-        *,
-        shuffle: bool = True,
-        batch_size: int = 64,
-        num_workers: int = 0,
-    ):
-        self.x_train = x_train
-        self.y_train = y_train
-        self.x_valid = x_valid
-        self.y_valid = y_valid
-        self.train_others = train_others
-        self.valid_others = valid_others
-        self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-        self.test_transform = None
-
-    @property
-    def info(self) -> Dict[str, Any]:
-        return self.kw
-
-    # TODO : support sample weights
-    def prepare(self, sample_weights: sample_weights_type) -> None:
-        def _get_data(x: Any, y: Any, others: Any) -> CVDataset:
-            return CVDataset(TensorDataset(x, y, others))
-
-        self.train_data = _get_data(self.x_train, self.y_train, self.train_others)
-        if self.x_valid is None:
-            self.valid_data = None
-        else:
-            self.valid_data = _get_data(self.x_valid, self.y_valid, self.valid_others)
-
-    def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
-        train_loader = CVLoader(DataLoader(self.train_data, **self.kw))  # type: ignore
-        if self.valid_data is None:
-            valid_loader = None
-        else:
-            valid_loader = CVLoader(DataLoader(self.valid_data, **self.kw))  # type: ignore
         return train_loader, valid_loader
 
 
@@ -259,7 +207,6 @@ class InferenceImageFolderData(CVDataModule):
 __all__ = [
     "CVDataModule",
     "MNISTData",
-    "TensorData",
     "ImageFolderData",
     "InferenceImageFolderData",
 ]

@@ -52,33 +52,6 @@ def batch_callback(
     }
 
 
-class TensorDataset(Dataset):
-    def __init__(
-        self,
-        x: Tensor,
-        y: Optional[Tensor],
-        others: Optional[tensor_dict_type] = None,
-    ):
-        self.x = x
-        self.y = y
-        self.others = others
-
-    def __getitem__(self, index: int) -> tensor_dict_type:
-        label = 0 if self.y is None else self.y[index]
-        item = {
-            INPUT_KEY: self.x[index],
-            LABEL_KEY: label,
-            ORIGINAL_LABEL_KEY: label,
-        }
-        if self.others is not None:
-            for k, v in self.others.items():
-                item[k] = v[index]
-        return item
-
-    def __len__(self) -> int:
-        return self.x.shape[0]
-
-
 class LMDBItem(NamedTuple):
     image: np.ndarray
     labels: Dict[str, Any]
