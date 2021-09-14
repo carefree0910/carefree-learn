@@ -93,6 +93,14 @@ class TensorData(DLDataModule):
         return train_loader, valid_loader
 
 
+@DLDataModule.register("dummy")
+class DummyData(TensorData):
+    def __init__(self, *, num_samples: int = 1, batch_size: int = 1):
+        dummy = torch.zeros([num_samples, 1])
+        super().__init__(dummy, dummy, dummy, dummy, batch_size=batch_size)
+
+
 __all__ = [
     "TensorData",
+    "DummyData",
 ]
