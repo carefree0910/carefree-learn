@@ -3,6 +3,7 @@
   "pipeline": "dl.carefree",
   "model_name": "clip_vqgan_aligner",
   "model_config": {},
+  "recompute_train_losses_in_eval": false,
   "lr": 0.2,
   "optimizer_name": "adam",
   "scheduler_name": "step",
