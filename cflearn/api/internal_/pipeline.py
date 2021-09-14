@@ -356,6 +356,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     # api
 
     def build(self, data_info: Dict[str, Any]) -> None:
+        if self.built:
+            return None
         self._prepare_modules(data_info)
         if self.in_loading:
             return None
