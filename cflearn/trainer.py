@@ -250,6 +250,7 @@ class Trainer:
         metrics: Optional[MetricProtocol] = None,
         use_losses_as_metrics: Optional[bool] = None,
         loss_metrics_weights: Optional[Dict[str, float]] = None,
+        recompute_train_losses_in_eval: bool = True,
         monitors: Optional[Union[TrainerMonitor, List[TrainerMonitor]]] = None,
         callbacks: Optional[Union[TrainerCallback, List[TrainerCallback]]] = None,
         lr: Optional[float] = None,
@@ -341,6 +342,7 @@ class Trainer:
                 )
         self.use_losses_as_metrics = use_losses_as_metrics
         self.loss_metrics_weights = loss_metrics_weights
+        self._recompute_train_losses = recompute_train_losses_in_eval
         ddp_info = get_ddp_info()
         if ddp_info is None:
             self.ddp = False
@@ -652,14 +654,19 @@ class Trainer:
                     self.state,
                 )
 
-    def _monitor_step(self) -> MonitorResults:
+    def _monitor_step(self, step_outputs: StepOutputs) -> MonitorResults:
         terminate = False
         save_checkpoint = False
         for monitor in self.monitors:
             monitor.handle_extension(self.state)
         if self.state.should_monitor:
             # get metrics
-            self.intermediate = self.get_metrics(portion=self.valid_portion)
+            if self.valid_loader is not None or self._recompute_train_losses:
+                self.intermediate = self.get_metrics(portion=self.valid_portion)
+            else:
+                loss_dict = step_outputs.loss_dict
+                loss_score = self._weighted_loss_score(loss_dict)
+                self.intermediate = MetricsOutputs(loss_score, loss_dict)
             self.lr_metrics_updated = True
             # logging
             self._logging_step(self.intermediate)
@@ -843,7 +850,7 @@ class Trainer:
                     step_outputs = self._step(i, batch)
                     for callback in self.callbacks:
                         callback.after_step(step_outputs, self.state)
-                    monitor_results = self._monitor_step()
+                    monitor_results = self._monitor_step(step_outputs)
                     for callback in self.callbacks:
                         callback.after_monitor(monitor_results, self.state)
                     if self.is_rank_0 and monitor_results.save_checkpoint:
