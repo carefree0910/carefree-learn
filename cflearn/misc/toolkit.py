@@ -76,6 +76,21 @@ def _parse_config(config: general_config_type) -> Dict[str, Any]:
     return shallow_copy_dict(config)
 
 
+def check_requires(fn: Any, name: str, strict: bool = True) -> bool:
+    if isinstance(fn, type):
+        fn = fn.__init__
+    signature = inspect.signature(fn)
+    for k, param in signature.parameters.items():
+        if not strict and param.kind is inspect.Parameter.VAR_KEYWORD:
+            return True
+        if k == name:
+            if param.kind is inspect.Parameter.KEYWORD_ONLY:
+                return True
+            if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+                return True
+    return False
+
+
 def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) -> str:
     current_time = datetime.now()
     if os.path.isdir(workplace):
@@ -585,12 +600,7 @@ def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
 
 
 def scheduler_requires_metric(scheduler: Any) -> bool:
-    signature = inspect.signature(scheduler.step)
-    for name, param in signature.parameters.items():
-        if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-            if name == "metrics":
-                return True
-    return False
+    return check_requires(scheduler.step, "metrics")
 
 
 # This is a modified version of https://github.com/sksq96/pytorch-summary
