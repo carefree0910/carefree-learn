@@ -7,7 +7,7 @@
   "lr": 0.2,
   "optimizer_name": "adam",
   "scheduler_name": "step",
-  "scheduler_config": {"step_size": 70},
+  "scheduler_config": {"step_size": 80, "lr_floor":  0.002},
   "log_steps": 10,
   "fixed_steps": 300
 }
