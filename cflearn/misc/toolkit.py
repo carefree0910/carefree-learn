@@ -1353,3 +1353,65 @@ def make_indices_visualization_map(indices: Tensor) -> Tensor:
         draw.text((12, 9), str(idx), (0, 0, 0))
         images.append(to_torch(np.array(img).transpose([2, 0, 1])))
     return torch.stack(images).float()
+
+
+def interpolant(arr: arr_type) -> arr_type:
+    return arr * arr * arr * (arr * (arr * 6.0 - 15.0) + 10.0)
+
+
+def perlin_noise_2d(
+    shape: Tuple[int, int],
+    periods: Tuple[int, int],
+    should_tile: Tuple[bool, bool] = (False, False),
+    interpolant_fn: Callable[[np.ndarray], np.ndarray] = interpolant,
+) -> np.ndarray:
+    delta = (periods[0] // shape[0], periods[1] // shape[1])
+    d = (shape[0] // periods[0], shape[1] // periods[1])
+    grid = np.mgrid[: periods[0] : delta[0], : periods[1] : delta[1]]
+    grid = grid.transpose(1, 2, 0)
+    # gradients
+    angles = 2 * np.pi * np.random.rand(periods[0] + 1, periods[1] + 1)
+    gradients = np.dstack((np.cos(angles), np.sin(angles)))
+    if should_tile[0]:
+        gradients[-1, :] = gradients[0, :]
+    if should_tile[1]:
+        gradients[:, -1] = gradients[:, 0]
+    gradients = gradients.repeat(d[0], 0).repeat(d[1], 1)
+    g00 = gradients[: -d[0], : -d[1]]
+    g10 = gradients[d[0] :, : -d[1]]
+    g01 = gradients[: -d[0], d[1] :]
+    g11 = gradients[d[0] :, d[1] :]
+    # ramps
+    n00 = np.sum(np.dstack((grid[:, :, 0], grid[:, :, 1])) * g00, 2)
+    n10 = np.sum(np.dstack((grid[:, :, 0] - 1, grid[:, :, 1])) * g10, 2)
+    n01 = np.sum(np.dstack((grid[:, :, 0], grid[:, :, 1] - 1)) * g01, 2)
+    n11 = np.sum(np.dstack((grid[:, :, 0] - 1, grid[:, :, 1] - 1)) * g11, 2)
+    # interpolation
+    arr = interpolant_fn(grid)
+    n0 = n00 * (1 - arr[:, :, 0]) + arr[:, :, 0] * n10
+    n1 = n01 * (1 - arr[:, :, 0]) + arr[:, :, 0] * n11
+    return np.sqrt(2) * ((1 - arr[:, :, 1]) * n0 + arr[:, :, 1] * n1)
+
+
+def fractal_noise_2d(
+    shape: Tuple[int, int],
+    periods: Tuple[int, int],
+    octaves: int = 1,
+    persistence: float = 0.5,
+    lacunarity: int = 2,
+    should_tile: Tuple[bool, bool] = (False, False),
+    interpolant_fn: Callable[[np.ndarray], np.ndarray] = interpolant,
+) -> np.ndarray:
+    noise = np.zeros(shape)
+    frequency = 1
+    amplitude = 1.0
+    for _ in range(octaves):
+        noise += amplitude * perlin_noise_2d(
+            shape,
+            (frequency * periods[0], frequency * periods[1]),
+            should_tile,
+            interpolant_fn,
+        )
+        frequency *= lacunarity
+        amplitude *= persistence
+    return noise
