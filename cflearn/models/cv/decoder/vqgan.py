@@ -42,20 +42,29 @@ class VQGANDecoder(DecoderBase):
         latent_dim: int = 128,
         res_dropout: float = 0.0,
         num_res_blocks: int = 3,
+        num_upsample: Optional[int] = None,
+        cond_channels: int = 16,
+        num_classes: Optional[int] = None,
+        latent_resolution: Optional[int] = None,
     ):
         if channel_multipliers is None:
             channel_multipliers = [1, 1, 2, 2, 4]
         if attention_resolutions is None:
             attention_resolutions = [16]
+        if num_upsample is not None and num_upsample != len(channel_multipliers):
+            raise ValueError(
+                f"`num_upsample` ({num_upsample}) should be identical with "
+                f"the length of `channel_multipliers` ({len(channel_multipliers)}"
+            )
         num_upsample = len(channel_multipliers)
         super().__init__(
             latent_channels,
             out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
-            cond_channels=0,
-            num_classes=None,
-            latent_resolution=None,
+            cond_channels=cond_channels,
+            num_classes=num_classes,
+            latent_resolution=latent_resolution,
         )
         in_nc = latent_dim * channel_multipliers[-1]
         current_res = img_size // 2 ** (num_upsample - 1)
