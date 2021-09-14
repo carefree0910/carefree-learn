@@ -6,6 +6,7 @@ from .protocol import *
 from .constants import *
 
 from .api import cv
+from .api import dl
 from .api import ml
 from .api.zoo import *
 from .api.basic import *
