@@ -9,6 +9,6 @@
     "vgg_style",
     "adain",
     "clip",
-    "vq_generator"
+    "vqgan_generator"
   ]
 }

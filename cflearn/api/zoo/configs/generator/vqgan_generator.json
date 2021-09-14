@@ -1,6 +1,6 @@
 {
-  "tag": "vq_generator",
+  "tag": "vqgan_generator",
   "pipeline": "cv.carefree",
-  "model_name": "vq_generator",
+  "model_name": "vqgan_generator",
   "model_config": {"img_size":  256}
 }
