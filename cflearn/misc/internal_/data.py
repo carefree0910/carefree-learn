@@ -81,6 +81,7 @@ class DataModule(WithRegister, metaclass=ABCMeta):
 
 @DataModule.register("dl")
 class DLDataModule(DataModule, metaclass=ABCMeta):
+    @abstractmethod
     def initialize(self) -> Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]:
         pass
 
