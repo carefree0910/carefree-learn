@@ -30,7 +30,7 @@ class TokenizerProtocol(WithRegister, metaclass=ABCMeta):
         if check_available("tokenizers", "pretrained-models", name):
             with open(download_tokenizer(name), "rb") as f:
                 return dill.load(f)
-        return super().make(cls, name, config)
+        return super().make(name, config)
 
 
 __all__ = [

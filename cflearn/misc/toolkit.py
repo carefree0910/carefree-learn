@@ -1371,9 +1371,9 @@ def perlin_noise_2d(
     should_tile: Tuple[bool, bool] = (False, False),
     interpolant_fn: Callable[[np.ndarray], np.ndarray] = interpolant,
 ) -> np.ndarray:
-    delta = (periods[0] // shape[0], periods[1] // shape[1])
+    delta = periods[0] / shape[0], periods[1] / shape[1]
     d = (shape[0] // periods[0], shape[1] // periods[1])
-    grid = np.mgrid[: periods[0] : delta[0], : periods[1] : delta[1]]
+    grid = np.mgrid[: periods[0] : delta[0], : periods[1] : delta[1]]  # type: ignore
     grid = grid.transpose(1, 2, 0)
     # gradients
     angles = 2 * np.pi * np.random.rand(periods[0] + 1, periods[1] + 1)

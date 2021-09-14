@@ -235,7 +235,7 @@ class DLLoader(DataLoaderProtocol):
     ):
         if sample_weights is not None:
             raise ValueError(
-                "in `CVLoader`, we should introduce `sample_weights` to the original "
+                "in `DLLoader`, we should introduce `sample_weights` to the original "
                 "Pytorch `DataLoader` (by specifying corresponding samplers)"
             )
         super().__init__(sample_weights=sample_weights)
@@ -266,7 +266,7 @@ class DLLoader(DataLoaderProtocol):
         dataset = self.data.dataset
         self.data.__dict__.pop("dataset")
         copied = super().copy()
-        assert isinstance(copied, CVLoader)
+        assert isinstance(copied, DLLoader)
         self.data.dataset = copied.data.dataset = dataset
         return copied
 
