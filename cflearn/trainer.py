@@ -669,6 +669,17 @@ class Trainer:
                     terminate = True
         return MonitorResults(terminate, save_checkpoint, self.intermediate)
 
+    def _post_loss_step(self, loss_dict: tensor_dict_type) -> None:
+        # backward
+        loss = loss_dict[LOSS_KEY]
+        self.grad_scaler.scale(loss).backward()
+        # clip norm
+        if self.clip_norm > 0.0:
+            self._clip_norm_step()
+        # optimize
+        self._optimizer_step()
+        self._scheduler_step()
+
     def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
         batch = to_device(batch, self.device)
         # kwargs
@@ -691,15 +702,8 @@ class Trainer:
         with torch.cuda.amp.autocast(enabled=self.use_amp):
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
             loss_dict = self.loss(forward_results, batch, self.state, **loss_kwargs)
-        # backward
-        loss = loss_dict[LOSS_KEY]
-        self.grad_scaler.scale(loss).backward()
-        # clip norm
-        if self.clip_norm > 0.0:
-            self._clip_norm_step()
-        # optimize
-        self._optimizer_step()
-        self._scheduler_step()
+        # post loss step
+        self._post_loss_step(loss_dict)
         return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
 
     def _weighted_loss_score(self, loss_items: Dict[str, float]) -> float:

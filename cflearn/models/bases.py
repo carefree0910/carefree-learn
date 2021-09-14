@@ -45,7 +45,6 @@ class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        # forward stuffs
         with torch.cuda.amp.autocast(enabled=trainer.use_amp):
             forward_results, loss_dict = self._get_losses(
                 batch_idx,
@@ -54,13 +53,7 @@ class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
                 forward_kwargs,
                 loss_kwargs,
             )
-        # backward stuffs
-        loss = loss_dict[LOSS_KEY]
-        trainer.grad_scaler.scale(loss).backward()
-        if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
-        trainer._optimizer_step()
-        trainer._scheduler_step()
+        trainer._post_loss_step(loss_dict)
         return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
 
     def evaluate_step(
