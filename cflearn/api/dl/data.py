@@ -95,9 +95,16 @@ class TensorData(DLDataModule):
 
 @DLDataModule.register("dummy")
 class DummyData(TensorData):
-    def __init__(self, *, num_samples: int = 1, batch_size: int = 1):
+    def __init__(
+        self,
+        *,
+        num_samples: int = 1,
+        batch_size: int = 1,
+        use_valid: bool = False,
+    ):
         dummy = torch.zeros([num_samples, 1])
-        super().__init__(dummy, dummy, dummy, dummy, batch_size=batch_size)
+        x_valid = y_valid = dummy if use_valid else None
+        super().__init__(dummy, dummy, x_valid, y_valid, batch_size=batch_size)
 
 
 __all__ = [
