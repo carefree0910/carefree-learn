@@ -92,6 +92,7 @@ class MLFlowCallback(TrainerCallback):
         run_name_prefix: Optional[str] = None,
         run_tags: Optional[Dict[str, Any]] = None,
         tracking_folder: str = os.getcwd(),
+        log_artifacts: bool = False,
     ):
         super().__init__()
         self.experiment_name = experiment_name
@@ -100,6 +101,7 @@ class MLFlowCallback(TrainerCallback):
         self.run_name_prefix = run_name_prefix
         self.run_tags = run_tags
         self.tracking_folder = tracking_folder
+        self._log_artifacts = log_artifacts
 
     def initialize(self) -> None:
         if not self.is_rank_0:
@@ -162,7 +164,7 @@ class MLFlowCallback(TrainerCallback):
         self.mlflow_client.log_metric(self.run_id, "score", score, step=state.step)
 
     def log_artifacts(self, trainer: Trainer) -> None:
-        if not self.is_rank_0:
+        if not self.is_rank_0 or not self._log_artifacts:
             return None
         self.mlflow_client.log_artifacts(self.run_id, trainer.workplace)
 
