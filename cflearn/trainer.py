@@ -158,6 +158,9 @@ class TrainerCallback(WithRegister):
     ) -> None:
         pass
 
+    def before_loop(self, trainer: "Trainer") -> None:
+        pass
+
     def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
         pass
 
@@ -816,6 +819,8 @@ class Trainer:
             config_export_path = os.path.join(self.workplace, config_export_file)
             with open(config_export_path, "w") as f:
                 json.dump(self.config, f)
+        for callback in self.callbacks:
+            callback.before_loop(self)
         while self.state.should_train:
             try:
                 self.state.epoch += 1
