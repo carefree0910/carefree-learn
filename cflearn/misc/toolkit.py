@@ -1,4 +1,5 @@
 import os
+import sys
 import json
 import math
 import time
@@ -289,6 +290,32 @@ def download_dataset(
         remove_zip,
         extract_zip,
     )
+
+
+def get_compatible_name(
+    tag: str,
+    repo: str,
+    name: str,
+    version: Tuple[int, int],
+    *,
+    bc: bool = False,
+) -> str:
+    version_info = sys.version_info
+    need_compatible = False
+    if bc and (version_info.major < version[0] or version_info.minor < version[1]):
+        need_compatible = True
+    if not bc and (version_info.major > version[0] or version_info.minor >= version[1]):
+        need_compatible = True
+    if need_compatible:
+        compatible_name = f"{name}_{version[0]}.{version[1]}"
+        if check_available(tag, repo, compatible_name):
+            name = compatible_name
+        else:
+            print(
+                f"{WARNING_PREFIX}compatible name '{compatible_name}' is not available "
+                f"on the server, will use the original name ({name}) instead"
+            )
+    return name
 
 
 def _rmtree(folder: str, patience: float = 10.0) -> None:
