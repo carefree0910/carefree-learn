@@ -2,6 +2,7 @@ import torch
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from abc import abstractmethod
 from abc import ABCMeta
@@ -20,9 +21,12 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
+from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ...cv.encoder import EncoderBase
 from ...nlp.tokenizers import TokenizerProtocol
 from ....misc.toolkit import interpolate
+from ....misc.toolkit import check_requires
 from ....misc.toolkit import download_model
 from ....misc.toolkit import DropNoGradStatesMixin
 
@@ -177,6 +181,8 @@ class ClampWithGrad(torch.autograd.Function):
 
 
 class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
+    vision: Optional[EncoderBase]
+
     def __init__(
         self,
         perceptor: str,
@@ -187,6 +193,12 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         text: str,
         noise: str = "fractal",
         condition_path: Optional[str] = None,
+        vision_encoder: Optional[str] = None,
+        vision_encoder_config: Optional[Dict[str, Any]] = None,
+        vision_encoder_pretrained_name: Optional[str] = None,
+        vision_encoder_pretrained_path: Optional[str] = None,
+        vision_weight: float = 0.1,
+        vision_monitor_step: int = 5,
         tokenizer_config: Optional[Dict[str, Any]] = None,
         num_cuts: int = 36,
         perceptor_config: Optional[Dict[str, Any]] = None,
@@ -208,6 +220,7 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
             perceptor_pretrained_path=perceptor_pretrained_path,
             generator_pretrained_path=generator_pretrained_path,
         )
+        # initialize latent map
         if condition_path is not None:
             img = Image.open(condition_path).convert("RGB")
             img = img.resize(resolution, Image.LANCZOS)
@@ -216,9 +229,40 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
             img = Image.fromarray(noise_arr).convert("RGB")
         img_arr = np.array(img.resize(resolution, Image.LANCZOS))
         img_tensor = torch.from_numpy(img_arr.transpose([2, 0, 1])[None, ...])
-        img_tensor = img_tensor.to(torch.float32) / 127.5 - 1.0
-        latent = self.generator.encode(img_tensor)
+        self.initial_img = img_tensor.to(torch.float32) / 255.0
+        # we assume that the `generator` requires images between [-1, 1]
+        latent = self.generator.encode(self.initial_img * 2.0 - 1.0)
         self.z = nn.Parameter(latent)
+        # vision constraints
+        self.vision = None
+        self.vision_weight = vision_weight
+        self.vision_monitor_step = vision_monitor_step
+        if vision_encoder is not None:
+            if condition_path is None:
+                fmt = "`{}` should be provided when `{}` is used"
+                raise ValueError(fmt.format("condition_path", "vision_encoder"))
+            vepp = vision_encoder_pretrained_path
+            if vepp is None:
+                if vepp is not None:
+                    vepp = download_model(vision_encoder_pretrained_name)
+            if vision_encoder_config is None:
+                vision_encoder_config = {}
+            encoder_base = EncoderBase.get(vision_encoder)
+            if check_requires(encoder_base, "img_size"):
+                vision_encoder_config["img_size"] = resolution
+            vision_encoder_config["in_channels"] = self.initial_img.shape[1]
+            self.vision = EncoderBase.make(vision_encoder, vision_encoder_config)
+            self.vision.requires_grad_(False).eval()
+            if vepp is not None:
+                with torch.no_grad():
+                    self.vision.load_state_dict(torch.load(vepp))
+        # vision latent code
+        if self.vision is None:
+            self.img_code = None
+        else:
+            img_code = self.vision.encode({INPUT_KEY: self.initial_img})
+            self.register_buffer("img_code", img_code)
+        # text latent code
         tokenizer_ins = TokenizerProtocol.make(tokenizer, tokenizer_config or {})
         text_tensor = torch.from_numpy(tokenizer_ins.tokenize(text))
         text_code = self.perceptor.encode_text(text_tensor)
@@ -229,7 +273,7 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         """should generate an image between [-1, 1]"""
 
     @abstractmethod
-    def normalize_image(self, image: Tensor) -> Tensor:
+    def perceptor_normalize(self, image: Tensor) -> Tensor:
         pass
 
     def _get_losses(
@@ -240,15 +284,22 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> Tuple[tensor_dict_type, tensor_dict_type]:
-        forward_results = self(batch_idx, batch, trainer.state, **forward_kwargs)
+        state = trainer.state
+        forward_results = self(batch_idx, batch, state, **forward_kwargs)
         net = forward_results[PREDICTIONS_KEY]
         cutouts = self.cutouts(net)
-        cutouts = self.normalize_image(cutouts)
-        img_code = self.perceptor.encode_image(cutouts)
+        perceptor_net = self.perceptor_normalize(cutouts)
+        img_code = self.perceptor.encode_image(perceptor_net)
         img_code = img_code.unsqueeze(1)
-        losses = img_code.sub(self.text_code).norm(dim=2)
-        losses = 2.0 * ((0.5 * losses).arcsin() ** 2)
-        return forward_results, {LOSS_KEY: losses.mean()}
+        distances = img_code.sub(self.text_code).norm(dim=2)
+        loss = align_loss = (2.0 * ((0.5 * distances).arcsin() ** 2)).mean()
+        losses = {"align": align_loss}
+        if self.vision is not None and state.step % self.vision_monitor_step == 0:
+            img_code = self.vision.encode({INPUT_KEY: net})
+            vision_loss = losses["vision"] = F.mse_loss(img_code, self.img_code)
+            loss = loss + vision_loss * self.vision_weight
+        losses[LOSS_KEY] = loss
+        return forward_results, losses
 
     # api
 

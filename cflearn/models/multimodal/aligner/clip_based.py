@@ -25,6 +25,12 @@ class CLIPWithVQGANAligner(Text2ImageAligner):
         text: str,
         noise: str = "fractal",
         condition_path: Optional[str] = None,
+        vision_encoder: Optional[str] = None,
+        vision_encoder_config: Optional[Dict[str, Any]] = None,
+        vision_encoder_pretrained_name: Optional[str] = None,
+        vision_encoder_pretrained_path: Optional[str] = None,
+        vision_weight: float = 0.1,
+        vision_monitor_step: int = 5,
         tokenizer_config: Optional[Dict[str, Any]] = None,
         num_cuts: int = 36,
         perceptor_config: Optional[Dict[str, Any]] = None,
@@ -37,6 +43,11 @@ class CLIPWithVQGANAligner(Text2ImageAligner):
         if generator_config is None:
             generator_config = {}
         generator_config.setdefault("img_size", 256)
+        if condition_path is not None:
+            if vision_encoder is None:
+                vision_encoder = "backbone"
+            if vision_encoder_config is None:
+                vision_encoder_config = {"name": "vgg_style", "pretrained": True}
         super().__init__(
             perceptor,
             generator,
@@ -45,6 +56,12 @@ class CLIPWithVQGANAligner(Text2ImageAligner):
             text=text,
             noise=noise,
             condition_path=condition_path,
+            vision_encoder=vision_encoder,
+            vision_encoder_config=vision_encoder_config,
+            vision_encoder_pretrained_name=vision_encoder_pretrained_name,
+            vision_encoder_pretrained_path=vision_encoder_pretrained_path,
+            vision_weight=vision_weight,
+            vision_monitor_step=vision_monitor_step,
             tokenizer_config=tokenizer_config,
             num_cuts=num_cuts,
             perceptor_config=perceptor_config,
@@ -63,7 +80,7 @@ class CLIPWithVQGANAligner(Text2ImageAligner):
         z_q = self.generator.codebook(self.z)[0]
         return self.generator.decode(z_q, resize=False)
 
-    def normalize_image(self, image: Tensor) -> Tensor:
+    def perceptor_normalize(self, image: Tensor) -> Tensor:
         return self.normalize(image)
 
 
