@@ -13,6 +13,7 @@ from typing import Union
 from ....misc.toolkit import WithRegister
 from ....misc.toolkit import check_available
 from ....misc.toolkit import download_tokenizer
+from ....misc.toolkit import get_compatible_name
 
 
 tokenizers: Dict[str, Type["TokenizerProtocol"]] = {}
@@ -27,7 +28,10 @@ class TokenizerProtocol(WithRegister, metaclass=ABCMeta):
 
     @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> "TokenizerProtocol":
-        if check_available("tokenizers", "pretrained-models", name):
+        tag = "tokenizers"
+        repo = "pretrained-models"
+        name = get_compatible_name(tag, repo, name, (3, 8))
+        if check_available(tag, repo, name):
             with open(download_tokenizer(name), "rb") as f:
                 return dill.load(f)
         return super().make(name, config)

@@ -3,7 +3,8 @@
     "adain"
   ],
   "tokenizers": [
-    "clip"
+    "clip",
+    "clip_3.8"
   ],
   "checkpoints": [
     "vgg_style",
