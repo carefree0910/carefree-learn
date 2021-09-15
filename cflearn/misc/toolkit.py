@@ -1036,7 +1036,9 @@ class DropNoGradStatesMixin:
         keep_vars: bool = False,
     ) -> tensor_dict_type:
         states = super().state_dict(destination, prefix, keep_vars)  # type: ignore
-        for key, value in list(states.items()):
+        for key, _ in self.named_buffers():  # type: ignore
+            states.pop(key)
+        for key, value in self.named_parameters():  # type: ignore
             if not value.requires_grad:
                 states.pop(key)
         return states
@@ -1047,7 +1049,7 @@ class DropNoGradStatesMixin:
         strict: bool = True,
     ) -> None:
         with torch.no_grad():
-            for key, value in super().state_dict().items():  # type: ignore
+            for key, value in self.named_parameters():  # type: ignore
                 if value.requires_grad:
                     loaded_value = state_dict.get(key)
                     if strict and loaded_value is None:
