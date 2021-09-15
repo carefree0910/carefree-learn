@@ -266,7 +266,7 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         tokenizer_ins = TokenizerProtocol.make(tokenizer, tokenizer_config or {})
         text_tensor = torch.from_numpy(tokenizer_ins.tokenize(text))
         text_code = self.perceptor.encode_text(text_tensor)
-        self.register_buffer("text_code", text_code.unsqueeze(0))
+        self.register_buffer("text_code", text_code)
 
     @abstractmethod
     def generate_raw(self) -> Tensor:
