@@ -24,6 +24,7 @@ from ....constants import PREDICTIONS_KEY
 from ...nlp.tokenizers import TokenizerProtocol
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import download_model
+from ....misc.toolkit import DropNoGradStatesMixin
 
 
 class CutOuts(nn.Module):
@@ -175,7 +176,7 @@ class ClampWithGrad(torch.autograd.Function):
         return grad * (grad * (inp - inp.clamp(ctx.min, ctx.max)) >= 0), None, None
 
 
-class Text2ImageAligner(Aligner, metaclass=ABCMeta):
+class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
     def __init__(
         self,
         perceptor: str,

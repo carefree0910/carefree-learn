@@ -1028,6 +1028,33 @@ class Initializer(LoggingMixinWithRank):
         nn.init.orthogonal_(param.data, gain)
 
 
+class DropNoGradStatesMixin:
+    def state_dict(
+        self,
+        destination: Any = None,
+        prefix: str = "",
+        keep_vars: bool = False,
+    ) -> tensor_dict_type:
+        states = super().state_dict(destination, prefix, keep_vars)  # type: ignore
+        for key, value in list(states.items()):
+            if not value.requires_grad:
+                states.pop(key)
+        return states
+
+    def load_state_dict(
+        self,
+        state_dict: tensor_dict_type,
+        strict: bool = True,
+    ) -> None:
+        with torch.no_grad():
+            for key, value in super().state_dict().items():  # type: ignore
+                if value.requires_grad:
+                    loaded_value = state_dict.get(key)
+                    if strict and loaded_value is None:
+                        raise ValueError(f"value for '{key}' is missing")
+                    value.data.copy_(loaded_value)
+
+
 # ml
 
 

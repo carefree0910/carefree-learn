@@ -1,5 +1,3 @@
-import torch
-
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -10,7 +8,6 @@ from torchvision.transforms import Normalize
 from .core import Text2ImageAligner
 from ..clip import CLIP
 from ...cv.generator import VQGANGenerator
-from ....types import tensor_dict_type
 
 
 @Text2ImageAligner.register("clip_vqgan_aligner")
@@ -68,22 +65,6 @@ class CLIPWithVQGANAligner(Text2ImageAligner):
 
     def normalize_image(self, image: Tensor) -> Tensor:
         return self.normalize(image)
-
-    def state_dict(
-        self,
-        destination: Any = None,
-        prefix: str = "",
-        keep_vars: bool = False,
-    ) -> tensor_dict_type:
-        return {"z": self.z}
-
-    def load_state_dict(
-        self,
-        state_dict: tensor_dict_type,
-        strict: bool = True,
-    ) -> None:
-        with torch.no_grad():
-            self.z.data.copy_(state_dict["z"])
 
 
 __all__ = [
