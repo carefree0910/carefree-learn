@@ -72,8 +72,12 @@ class VQGenerator(ModelProtocol):
         num_classes: Optional[int] = None,
     ):
         super().__init__()
+        self.img_size = img_size
         self.num_code = num_code
+        self.in_channels = in_channels
         self.num_classes = num_classes
+        self.code_dimension = code_dimension
+        self.latent_channels = latent_channels
         if encoder_config is None:
             encoder_config = {}
         if decoder_config is None:
