@@ -2225,7 +2225,7 @@ class Conv2d(Module):
                     f"`reflection_pad` should not be used {suffix}, "
                     "maybe you want to use `same` padding?"
                 )
-            w = w[None, ...] * (style[..., None, :, None, None] + 1.0)
+            w = w[None, ...] * style[..., None, :, None, None]
             # prepare for group convolution
             bias = None
             groups = b
