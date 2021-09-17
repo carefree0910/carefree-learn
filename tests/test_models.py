@@ -164,7 +164,7 @@ class TestModels(unittest.TestCase):
         self.assertSequenceEqual(vit_clf.classify(inp).shape, [batch_size, num_classes])
 
         cct_zoo_clf = cflearn.DLZoo.load_model(
-            "clf/cct_large",
+            "clf/cct.large",
             model_config=dict(
                 in_channels=in_channels,
                 num_classes=num_classes,
