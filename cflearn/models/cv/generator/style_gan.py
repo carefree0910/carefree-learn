@@ -113,7 +113,8 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         num_layers: int = 8,
         channel_base: int = 32768,
         channel_max: int = 512,
-        num_classes: Optional[int] = None,
+        num_style_classes: Optional[int] = None,
+        num_content_classes: Optional[int] = None,
         conv_clamp: Optional[float] = 256.0,
         block_kwargs: Optional[Dict[str, Any]] = None,
         mapping_kwargs: Optional[Dict[str, Any]] = None,
@@ -124,7 +125,8 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         self.out_channels = out_channels
         self.latent_channels = latent_channels
         self.num_layers = num_layers
-        self.num_classes = num_classes
+        self.num_style_classes = num_style_classes
+        self.num_content_classes = num_content_classes
         self.decoder = StyleGANDecoder(
             img_size,
             latent_dim,
@@ -132,14 +134,14 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
             latent_channels,
             channel_base=channel_base,
             channel_max=channel_max,
-            num_classes=num_classes,
+            num_classes=num_content_classes,
             conv_clamp=conv_clamp,
             **(block_kwargs or {}),
         )
         self.mapping = MappingNetwork(
             self.decoder.num_ws,
             latent_dim=latent_dim,
-            num_classes=num_classes,
+            num_classes=num_style_classes,
             num_layers=num_layers,
             **(mapping_kwargs or {}),
         )
