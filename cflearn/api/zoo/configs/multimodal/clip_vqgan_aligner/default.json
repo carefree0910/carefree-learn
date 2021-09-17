@@ -1,5 +1,4 @@
 {
-  "tag": "clip_vqgan_aligner",
   "pipeline": "dl.carefree",
   "model_name": "clip_vqgan_aligner",
   "model_config": {},

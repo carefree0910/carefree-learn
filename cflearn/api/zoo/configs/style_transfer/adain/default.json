@@ -1,5 +1,4 @@
 {
-  "tag": "adain",
   "pipeline": "cv.carefree",
   "model_name": "adain",
   "model_config": {},

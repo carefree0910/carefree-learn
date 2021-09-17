@@ -24,4 +24,5 @@ META_CONFIG_NAME = "__meta__"
 DATA_CONFIG_FILE = "__data__.json"
 ML_PIPELINE_SAVE_NAME = "ml_pipeline"
 
+DEFAULT_ZOO_TAG = "default"
 CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "carefree-learn")

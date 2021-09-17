@@ -1,5 +1,4 @@
 {
-  "tag": "resnet101",
   "pipeline": "cv.carefree",
   "model_name": "clf",
   "model_config": {

@@ -1,5 +1,4 @@
 {
-  "tag": "dino",
   "pipeline": "cv.carefree",
   "model_name": "dino",
   "model_config": {
