@@ -168,7 +168,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         if labels is None and self.num_classes is not None:
             labels = torch.randint(self.num_classes, [len(z)], device=z.device)
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
-        net = self.decoder.decode(batch, **kwargs)[PREDICTIONS_KEY]
+        net = self.decoder.decode(batch, **kwargs)
         return torch.tanh(net)
 
     def forward(

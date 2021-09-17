@@ -137,7 +137,7 @@ class VQGenerator(ModelProtocol):
             z_q = self.latent_padding(z_q)
         net = self.from_codebook(z_q)
         batch = {INPUT_KEY: net, LABEL_KEY: labels}
-        net = self.decoder.decode(batch, resize=resize)[PREDICTIONS_KEY]
+        net = self.decoder.decode(batch, resize=resize)
         return net
 
     def forward(

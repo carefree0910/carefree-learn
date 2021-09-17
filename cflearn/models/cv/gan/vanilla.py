@@ -13,7 +13,6 @@ from .protocol import VanillaGANMixin
 from ..decoder import DecoderBase
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 
@@ -74,7 +73,7 @@ class VanillaGAN(VanillaGANMixin):
 
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
-        net = self.generator.decode(batch, **kwargs)[PREDICTIONS_KEY]
+        net = self.generator.decode(batch, **kwargs)
         return torch.tanh(net)
 
 

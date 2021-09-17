@@ -16,6 +16,7 @@ from ....misc.toolkit import auto_num_layers
 from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import ChannelPadding
 
 
@@ -89,8 +90,8 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
-    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
-        return self.forward(0, batch, **kwargs)
+    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
+        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
 
 
 __all__ = ["DecoderBase"]
