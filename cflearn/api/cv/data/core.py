@@ -224,6 +224,7 @@ def prepare_image_folder(
     if diff > 0:
         propagate(valid_indices_list, train_indices_list)
     elif diff < 0:
+        diff *= -1
         propagate(train_indices_list, valid_indices_list)
     merged_train_indices: List[int] = sum(train_indices_list, [])
     merged_valid_indices: List[int] = sum(valid_indices_list, [])
