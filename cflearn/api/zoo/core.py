@@ -146,6 +146,7 @@ class DLZoo(ZooBase):
         verbose: bool = True,
         **kwargs: Any,
     ) -> DLPipeline:
+        kwargs["in_loading"] = True
         zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
         try:
             zoo.load_pretrained()
