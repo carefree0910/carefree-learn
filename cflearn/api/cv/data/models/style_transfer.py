@@ -253,33 +253,6 @@ class UnifiedStyleTransferDataset(ImageFolderDataset):
 
 @ImageFolderData.register("unified_style_transfer")
 class UnifiedStyleTransferData(ImageFolderData):
-    def __init__(
-        self,
-        folder: str,
-        *,
-        batch_size: int,
-        num_workers: int = 0,
-        shuffle: bool = True,
-        transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
-        transform_config: Optional[Dict[str, Any]] = None,
-        test_shuffle: Optional[bool] = None,
-        test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
-        test_transform_config: Optional[Dict[str, Any]] = None,
-        lmdb_config: Optional[Dict[str, Any]] = None,
-    ):
-        super().__init__(
-            folder,
-            batch_size=batch_size,
-            num_workers=num_workers,
-            shuffle=shuffle,
-            transform=transform,
-            transform_config=transform_config,
-            test_shuffle=test_shuffle,
-            test_transform=test_transform,
-            test_transform_config=test_transform_config,
-            lmdb_config=lmdb_config,
-        )
-
     # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
         self.train_data = CVDataset(
