@@ -23,6 +23,7 @@ class VanillaDecoder(DecoderBase):
         norm_type: Optional[str] = "instance",
         res_norm_type: Optional[str] = "instance",
         activation: Optional[str] = "leaky_relu_0.2",
+        padding: str = "reflection",
         *,
         kernel_size: int = 3,
         last_kernel_size: Optional[int] = None,
@@ -54,7 +55,7 @@ class VanillaDecoder(DecoderBase):
                     residual_dropout,
                     norm_type=res_norm_type,
                     activation=activation,
-                    padding="reflection",
+                    padding=padding,
                 )
             )
 
@@ -95,7 +96,7 @@ class VanillaDecoder(DecoderBase):
                         norm_type=norm_type,
                         activation=activation,
                         conv_base=UpsampleConv2d,
-                        padding="reflection",
+                        padding=padding,
                     )
                 )
             repeat_channels = latent_channels if i == 0 else in_nc
@@ -115,7 +116,7 @@ class VanillaDecoder(DecoderBase):
                         bias=True,
                         norm_type=norm_type,
                         activation=activation,
-                        padding="reflection",
+                        padding=padding,
                     )
                 )
                 in_nc = repeat_channels
