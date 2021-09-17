@@ -2262,7 +2262,9 @@ class Conv2d(Module):
             dilation=self.dilation,
             groups=groups,
         )
-        return net
+        if style is None:
+            return net
+        return net.view(b, -1, *net.shape[2:])
 
     def extra_repr(self) -> str:
         return (
