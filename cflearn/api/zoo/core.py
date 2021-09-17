@@ -6,10 +6,13 @@ import torch
 from abc import ABC
 from typing import Any
 from typing import Dict
+from typing import List
+from typing import Union
 from typing import Optional
 from cftool.misc import update_dict
 
 from ..basic import make
+from ...types import tensor_dict_type
 from ...constants import WARNING_PREFIX
 from ...constants import DEFAULT_ZOO_TAG
 from ..internal_.pipeline import DLPipeline
@@ -122,6 +125,50 @@ class DLZoo(ZooBase):
         if not pretrained:
             return zoo.m.model
         return zoo.load_pretrained()
+
+    @classmethod
+    def dump_onnx(
+        cls,
+        model: str,
+        export_folder: str,
+        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
+        *,
+        data_info: Optional[Dict[str, Any]] = None,
+        json_path: Optional[str] = None,
+        onnx_file: str = "model.onnx",
+        opset: int = 11,
+        simplify: bool = True,
+        onnx_only: bool = False,
+        input_sample: Optional[tensor_dict_type] = None,
+        num_samples: Optional[int] = None,
+        compress: Optional[bool] = None,
+        remove_original: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> DLPipeline:
+        zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
+        try:
+            zoo.load_pretrained()
+        except ValueError:
+            print(
+                f"{WARNING_PREFIX}no pretrained models are available for '{model}', "
+                f"so onnx will not be dumped"
+            )
+            return zoo.m
+        zoo.m.to_onnx(
+            export_folder,
+            dynamic_axes,
+            onnx_file=onnx_file,
+            opset=opset,
+            simplify=simplify,
+            onnx_only=onnx_only,
+            input_sample=input_sample,
+            num_samples=num_samples,
+            compress=compress,
+            remove_original=remove_original,
+            verbose=verbose,
+        )
+        return zoo.m
 
 
 __all__ = [
