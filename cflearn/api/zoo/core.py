@@ -99,6 +99,14 @@ class ZooBase(ABC):
 class DLZoo(ZooBase):
     m: DLPipeline
 
+    def load_pretrained(self) -> ModelProtocol:
+        if self.download_name is None:
+            err_msg = self.err_msg_fmt.format("tag")
+            raise ValueError(f"{err_msg} when `pretrained` is True")
+        m = self.m.model
+        m.load_state_dict(torch.load(download_model(self.download_name)))
+        return m
+
     @classmethod
     def load_model(
         cls,
@@ -111,13 +119,9 @@ class DLZoo(ZooBase):
     ) -> ModelProtocol:
         kwargs.setdefault("in_loading", True)
         zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
-        m = zoo.m.model
-        if pretrained:
-            if zoo.download_name is None:
-                err_msg = zoo.err_msg_fmt.format("tag")
-                raise ValueError(f"{err_msg} when `pretrained` is True")
-            m.load_state_dict(torch.load(download_model(zoo.download_name)))
-        return m
+        if not pretrained:
+            return zoo.m.model
+        return zoo.load_pretrained()
 
 
 __all__ = [
