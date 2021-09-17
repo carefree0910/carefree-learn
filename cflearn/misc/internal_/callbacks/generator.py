@@ -190,4 +190,5 @@ __all__ = [
     "SizedGeneratorCallback",
     "AlphaSegmentationCallback",
     "StyleTransferCallback",
+    "UnifiedStyleTransferCallback",
 ]
