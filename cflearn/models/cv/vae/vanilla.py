@@ -169,7 +169,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             labels = torch.randint(self.num_classes, [len(z)], device=z.device)
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.decoder.decode(batch, **kwargs)
-        return torch.tanh(net)
+        return net
 
     def forward(
         self,

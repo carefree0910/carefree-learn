@@ -74,7 +74,7 @@ class VanillaGAN(VanillaGANMixin):
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.generator.decode(batch, **kwargs)
-        return torch.tanh(net)
+        return net
 
 
 __all__ = ["VanillaGAN"]
