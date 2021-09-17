@@ -2191,7 +2191,13 @@ class Conv2d(Module):
         dilation = self.dilation
         return ((size - 1) * (stride - 1) + dilation * (self.kernel_size - 1)) // 2
 
-    def forward(self, net: Tensor, style: Optional[Tensor] = None) -> Tensor:
+    def forward(
+        self,
+        net: Tensor,
+        style: Optional[Tensor] = None,
+        *,
+        transpose: bool = False,
+    ) -> Tensor:
         b, c, *hw = net.shape
         # padding
         padding = self.padding
@@ -2235,8 +2241,19 @@ class Conv2d(Module):
             w = w * torch.rsqrt(w.pow(2).sum([-3, -2, -1], keepdim=True) + 1e-8)
         if self.weight_scale is not None:
             w = w * self.weight_scale
-        # if style is provided, we should view the results back
-        net = F.conv2d(
+        # conv core
+        if not transpose:
+            fn = F.conv2d
+        else:
+            fn = F.conv_transpose2d
+            if groups == 1:
+                w = w.transpose(0, 1)
+            else:
+                oc, ic, kh, kw = w.shape
+                w = w.reshape(groups, oc // groups, ic, kh, kw)
+                w = w.transpose(1, 2)
+                w = w.reshape(groups * ic, oc // groups, kh, kw)
+        net = fn(
             net,
             w,
             bias,
@@ -2245,9 +2262,7 @@ class Conv2d(Module):
             dilation=self.dilation,
             groups=groups,
         )
-        if style is None:
-            return net
-        return net.view(-1, self.out_c, *hw)
+        return net
 
     def extra_repr(self) -> str:
         return (
@@ -2300,12 +2315,22 @@ class UpsampleConv2d(Conv2d):
         stride: int = 1,
         dilation: int = 1,
         mode: str = "nearest",
-        padding: Union[int, str] = "same",
+        padding: Optional[Union[int, str]] = None,
         transform_kernel: bool = False,
         bias: bool = True,
         demodulate: bool = False,
         factor: Optional[float] = None,
     ):
+        if mode == "transpose":
+            if factor == 1.0:
+                mode = "nearest"
+                factor = None
+            elif factor is not None:
+                stride = int(round(factor))
+                if padding is None:
+                    padding = 0
+        if padding is None:
+            padding = "same"
         super().__init__(
             in_channels,
             out_channels,
@@ -2318,10 +2343,25 @@ class UpsampleConv2d(Conv2d):
             bias=bias,
             demodulate=demodulate,
         )
-        self.upsample = Interpolate(factor, mode)
+        if mode == "transpose":
+            self.upsample = None
+        else:
+            self.upsample = Interpolate(factor, mode)
 
-    def forward(self, net: Tensor, y: Optional[Tensor] = None) -> Tensor:
-        return super().forward(self.upsample(net), y)
+    def forward(
+        self,
+        net: Tensor,
+        style: Optional[Tensor] = None,
+        *,
+        transpose: bool = False,
+    ) -> Tensor:
+        if self.upsample is None:
+            transpose = True
+        else:
+            net = self.upsample(net)
+            if transpose:
+                raise ValueError("should not use transpose when `upsample` is used")
+        return super().forward(net, style, transpose=transpose)
 
 
 class CABlock(Module):
