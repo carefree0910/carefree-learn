@@ -125,7 +125,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     final_results_file = "final_results.json"
     config_bundle_name = "config_bundle"
-    onnx_file: str = "model.onnx"
     onnx_kwargs_file: str = "onnx.json"
     onnx_keys_file: str = "onnx_keys.json"
 
@@ -202,6 +201,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         }
         self.in_loading = in_loading
         self.built = False
+        self.device_info = DeviceInfo(None, None)
 
     # properties
 
@@ -499,6 +499,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
+        onnx_file: str = "model.onnx",
+        opset: int = 11,
         simplify: bool = True,
         onnx_only: bool = False,
         input_sample: Optional[tensor_dict_type] = None,
@@ -528,7 +530,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         kwargs = shallow_copy_dict(kwargs)
         kwargs["input_names"] = input_names
         kwargs["output_names"] = sorted(forward_results.keys())
-        kwargs["opset_version"] = 11
+        kwargs["opset_version"] = opset
         kwargs["export_params"] = True
         kwargs["do_constant_folding"] = True
         if dynamic_axes is None:
@@ -555,7 +557,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 return self.model.onnx_forward(batch)
 
         with lock_manager(base_folder, []) as lock:
-            onnx_path = os.path.join(export_folder, self.onnx_file)
+            onnx_path = os.path.join(export_folder, onnx_file)
             if onnx_only:
                 lock._stuffs = [onnx_path]
                 os.makedirs(export_folder, exist_ok=True)
@@ -626,6 +628,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        onnx_file: str = "model.onnx",
+        opset: int = 11,
         simplify: bool = True,
         onnx_only: bool = False,
         input_sample: Optional[tensor_dict_type] = None,
@@ -650,6 +654,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         m.to_onnx(
             export_folder,
             dynamic_axes,
+            onnx_file=onnx_file,
+            opset=opset,
             simplify=simplify,
             onnx_only=onnx_only,
             input_sample=input_sample,
@@ -666,6 +672,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cls,
         export_folder: str,
         *,
+        onnx_file: str = "model.onnx",
         compress: bool = True,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
@@ -682,7 +689,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
                     onnx_kwargs = json.load(f)
                 m_onnx = ONNX(
-                    onnx_path=os.path.join(export_folder, cls.onnx_file),
+                    onnx_path=os.path.join(export_folder, onnx_file),
                     output_names=onnx_kwargs["output_names"],
                 )
                 m.inference = cls.inference_base(onnx=m_onnx)
