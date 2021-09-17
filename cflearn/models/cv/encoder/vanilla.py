@@ -33,6 +33,7 @@ class VanillaEncoder(EncoderBase):
         residual_dropout: float = 0.0,
         residual_kwargs: Optional[Dict[str, Any]] = None,
         norm_type: Optional[str] = "instance",
+        norm_kwargs: Optional[Dict[str, Any]] = None,
         activation: str = "relu",
         padding: str = "same",
     ):
@@ -52,6 +53,7 @@ class VanillaEncoder(EncoderBase):
             first_kernel_size,
             1,
             norm_type=norm_type,
+            norm_kwargs=norm_kwargs,
             activation=activation,
             padding=padding,
         )
