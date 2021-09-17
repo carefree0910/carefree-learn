@@ -10,6 +10,12 @@
     "vgg_style",
     "adain",
     "clip",
-    "vqgan_generator"
+    "vqgan_generator",
+    "style_gan_generator.afhqcat",
+    "style_gan_generator.afhqdog",
+    "style_gan_generator.afhqwild",
+    "style_gan_generator.brecahad",
+    "style_gan_generator.ffhq",
+    "style_gan_generator.metfaces"
   ]
 }
