@@ -30,6 +30,7 @@ class VanillaDecoder(DecoderBase):
         num_residual_blocks: int = 0,
         residual_dropout: float = 0.0,
         num_repeats: Optional[List[int]] = None,
+        reduce_channel_on_upsample: bool = False,
         img_size: Optional[int] = None,
         num_upsample: Optional[int] = None,
         cond_channels: int = 16,
@@ -77,9 +78,16 @@ class VanillaDecoder(DecoderBase):
             is_last = i == self.num_upsample
             if is_last:
                 num_repeat += 1
+            if num_repeat == 0:
+                continue
+            repeat_channels = latent_channels if i == 0 else in_nc
+            out_nc = repeat_channels // 2
             if i != 0:
                 num_repeat -= 1
-                first_out_nc = in_nc
+                if reduce_channel_on_upsample:
+                    first_out_nc = out_nc
+                else:
+                    first_out_nc = in_nc if num_repeat != 0 else out_nc
                 if is_last and num_repeat == 0:
                     first_out_nc = out_channels
                     kernel_size = last_kernel_size
@@ -99,8 +107,7 @@ class VanillaDecoder(DecoderBase):
                         padding=padding,
                     )
                 )
-            repeat_channels = latent_channels if i == 0 else in_nc
-            out_nc = repeat_channels // 2
+                in_nc = first_out_nc
             for j in range(num_repeat):
                 if is_last and j == num_repeat - 1:
                     out_nc = out_channels
