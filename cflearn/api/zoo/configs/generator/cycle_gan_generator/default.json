@@ -1,0 +1,5 @@
+{
+  "pipeline": "cv.carefree",
+  "model_name": "cycle_gan_generator",
+  "model_config": {}
+}

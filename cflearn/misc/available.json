@@ -16,6 +16,7 @@
     "style_gan_generator.afhqwild",
     "style_gan_generator.brecahad",
     "style_gan_generator.ffhq",
-    "style_gan_generator.metfaces"
+    "style_gan_generator.metfaces",
+    "cycle_gan_generator.pixel_art"
   ]
 }
