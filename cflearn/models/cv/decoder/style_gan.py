@@ -15,6 +15,7 @@ from .protocol import DecoderBase
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
+from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Activations
@@ -245,9 +246,7 @@ class StyleGANBlock(nn.Module):
 
         if in_channels == 0:
             self.conv0 = None
-            self.const = nn.Parameter(torch.randn(out_channels, resolution, resolution))
         else:
-            self.const = None
             self.conv0 = StyleGANConv(
                 in_channels,
                 out_channels,
@@ -289,12 +288,9 @@ class StyleGANBlock(nn.Module):
         **conv_kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         w_iter = iter(ws.unbind(dim=1))
-        if net is None:
-            net = self.const.unsqueeze(0).repeat([ws.shape[0], 1, 1, 1])
-            net = self.conv1(net, next(w_iter), **conv_kwargs)
-        else:
-            net = self.conv0(net, next(w_iter), **conv_kwargs)  # type: ignore
-            net = self.conv1(net, next(w_iter), **conv_kwargs)
+        if self.conv0 is not None:
+            net = self.conv0(net, next(w_iter), **conv_kwargs)
+        net = self.conv1(net, next(w_iter), **conv_kwargs)
         if rgb is not None:
             rgb = resample(rgb, self.resample_filter, 2.0, [2, 1, 2, 1], 4.0)
         if self.to_rgb is not None:
@@ -311,7 +307,6 @@ class StyleGANDecoder(DecoderBase):
         img_size: int,
         latent_dim: int = 512,
         out_channels: int = 3,
-        latent_channels: int = 256,
         *,
         channel_base: int = 32768,
         channel_max: int = 512,
@@ -329,6 +324,7 @@ class StyleGANDecoder(DecoderBase):
             resolution: min(channel_base // resolution, channel_max)
             for resolution in self.block_resolutions
         }
+        latent_channels = channels_dict[4]
         super().__init__(
             latent_channels,
             out_channels,
@@ -339,6 +335,8 @@ class StyleGANDecoder(DecoderBase):
             latent_resolution=4,
         )
         self.num_classes = num_classes
+        shape = (1 if num_classes is None else num_classes), latent_channels, 4, 4
+        self.const = nn.Parameter(torch.randn(*shape))
         blocks = {}
         self.num_ws = 0
         for resolution in self.block_resolutions:
@@ -369,15 +367,21 @@ class StyleGANDecoder(DecoderBase):
         **kwargs: Any,
     ) -> tensor_dict_type:
         ws = batch[INPUT_KEY]
-        ws = ws.to(torch.float32)
         w_idx = 0
         block_ws = []
         for resolution in self.block_resolutions:
             block = self.blocks[str(resolution)]
             block_ws.append(ws.narrow(1, w_idx, block.num_conv + block.num_to_rgb))
             w_idx += block.num_conv
-        # TODO : supported (content) conditional by selecting const
-        net = rgb = None
+        rgb = None
+        batch_size = ws.shape[0]
+        if self.num_classes is None:
+            net = self.const.repeat([batch_size, 1, 1, 1])
+        else:
+            labels = batch.get(LABEL_KEY)
+            if labels is None:
+                labels = torch.randint(self.num_classes, [batch_size], device=ws.device)
+            net = self.const[labels.view(-1)]
         for resolution, resolution_ws in zip(self.block_resolutions, block_ws):
             block = self.blocks[str(resolution)]
             net, rgb = block(net, rgb, resolution_ws, **kwargs)

@@ -108,7 +108,6 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         img_size: int,
         latent_dim: int = 512,
         out_channels: int = 3,
-        latent_channels: int = 256,
         *,
         num_layers: int = 8,
         channel_base: int = 32768,
@@ -123,7 +122,6 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         self.img_size = img_size
         self.latent_dim = latent_dim
         self.out_channels = out_channels
-        self.latent_channels = latent_channels
         self.num_layers = num_layers
         self.num_style_classes = num_style_classes
         self.num_content_classes = num_content_classes
@@ -131,7 +129,6 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
             img_size,
             latent_dim,
             out_channels,
-            latent_channels,
             channel_base=channel_base,
             channel_max=channel_max,
             num_classes=num_content_classes,
