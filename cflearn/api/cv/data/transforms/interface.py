@@ -29,8 +29,8 @@ class TransformForGeneration(Compose):
 
 @Transforms.register("for_imagenet")
 class TransformForImagenet(Compose):
-    def __init__(self):  # type: ignore
-        super().__init__([ToArray(), Resize(224), ANormalize(), ToTensor()])
+    def __init__(self, img_size: int = 224):  # type: ignore
+        super().__init__([ToArray(), Resize(img_size), ANormalize(), ToTensor()])
 
 
 @Transforms.register("ssl")
