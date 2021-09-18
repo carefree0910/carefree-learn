@@ -111,6 +111,22 @@ class DLZoo(ZooBase):
         return m
 
     @classmethod
+    def load_pipeline(
+        cls,
+        model: Optional[str] = None,
+        *,
+        data_info: Optional[Dict[str, Any]] = None,
+        json_path: Optional[str] = None,
+        **kwargs: Any,
+    ) -> DLPipeline:
+        return super().load_pipeline(
+            model,
+            data_info=data_info,
+            json_path=json_path,
+            **kwargs,
+        )
+
+    @classmethod
     def load_model(
         cls,
         model: Optional[str] = None,
