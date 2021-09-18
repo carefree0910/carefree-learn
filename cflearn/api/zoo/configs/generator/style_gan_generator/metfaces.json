@@ -1,5 +1,5 @@
 {
   "pipeline": "cv.carefree",
   "model_name": "style_gan_generator",
-  "model_config": {"img_size":  1024}
+  "model_config": {"img_size": 1024}
 }
