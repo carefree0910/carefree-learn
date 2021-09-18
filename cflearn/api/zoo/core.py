@@ -119,7 +119,7 @@ class DLZoo(ZooBase):
         json_path: Optional[str] = None,
         **kwargs: Any,
     ) -> DLPipeline:
-        return super().load_pipeline(
+        return super().load_pipeline(  # type: ignore
             model,
             data_info=data_info,
             json_path=json_path,
