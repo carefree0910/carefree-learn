@@ -362,8 +362,31 @@ class TestModels(unittest.TestCase):
     def test_cv_generator(self) -> None:
         pixel_cnn = cflearn.PixelCNN(1, num_classes)
         self.assertSequenceEqual(
-            pixel_cnn.sample(1, img_size).shape,
-            [1, 1, img_size, img_size],
+            pixel_cnn.sample(5, img_size).shape,
+            [5, 1, img_size, img_size],
+        )
+
+        vqgan_generator = cflearn.VQGANGenerator(
+            img_size,
+            123,
+            in_channels,
+            out_channels,
+        )
+        self.assertSequenceEqual(
+            vqgan_generator(0, {INPUT_KEY: inp})[PREDICTIONS_KEY].shape,
+            [batch_size, out_channels, img_size, img_size],
+        )
+
+        style_gan_generator = cflearn.StyleGANGenerator(32, 123)
+        self.assertSequenceEqual(
+            style_gan_generator.generate_from(torch.randn(5, 123)).shape,
+            [5, 3, 32, 32],
+        )
+
+        cycle_gan_generator = cflearn.CycleGANGenerator(in_channels, out_channels)
+        self.assertSequenceEqual(
+            cycle_gan_generator.generate_from(inp).shape,
+            [batch_size, out_channels, img_size, img_size],
         )
 
     def test_cv_perceiver_io(self) -> None:
