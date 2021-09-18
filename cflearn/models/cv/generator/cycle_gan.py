@@ -10,6 +10,7 @@ from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..decoder.vanilla import VanillaDecoder
 from ..encoder.vanilla import VanillaEncoder
+from ....misc.toolkit import interpolate
 
 
 @ModelProtocol.register("cycle_gan_generator")
@@ -70,8 +71,10 @@ class CycleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
+        inp = batch[INPUT_KEY]
         net = self.encoder.encode(batch, **kwargs)
         net = self.decoder.decode({INPUT_KEY: net}, **kwargs)
+        net = interpolate(net, anchor=inp)
         return {PREDICTIONS_KEY: net}
 
 
