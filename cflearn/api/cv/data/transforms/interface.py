@@ -7,6 +7,7 @@ from PIL import Image
 from PIL import ImageOps
 from PIL import ImageFilter
 from torch import Tensor
+from typing import List
 from typing import Tuple
 from typing import Optional
 from skimage.transform import resize
@@ -23,8 +24,12 @@ from .....misc.toolkit import imagenet_normalize
 
 @Transforms.register("for_generation")
 class TransformForGeneration(Compose):
-    def __init__(self):  # type: ignore
-        super().__init__([ToTensor(), N1To1()])
+    def __init__(self, img_size: Optional[int] = None):  # type: ignore
+        transform_list: List[Transforms] = []
+        if img_size is not None:
+            transform_list.append(Resize(img_size))
+        transform_list.extend([ToTensor(), N1To1()])
+        super().__init__(transform_list)
 
 
 @Transforms.register("for_imagenet")
