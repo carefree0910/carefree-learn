@@ -79,13 +79,14 @@ class ZooBase(ABC):
                     with open(download_data_info(self.download_name), "r") as f:
                         data_info = json.load(f)
                 except ValueError:
-                    print(
-                        f"{WARNING_PREFIX}`data_info` of '{self.download_name}' "
-                        "does not exist on the remote server, "
-                        "empty `data_info` will be used"
-                    )
                     data_info = {}
-        self.m.build(data_info)
+        try:
+            self.m.build(data_info)
+        except Exception as err:
+            raise ValueError(
+                f"Failed to build '{self.pipeline_name}' ({err}), please provide "
+                "sufficient `data_info` to fix it"
+            )
 
     @classmethod
     def load_pipeline(
