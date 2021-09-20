@@ -23,6 +23,7 @@ from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 
 @TrainerCallback.register("gan")
+@TrainerCallback.register("vae")
 @TrainerCallback.register("generator")
 class GeneratorCallback(ImageCallback):
     num_interpolations = 16
@@ -70,6 +71,7 @@ class GeneratorCallback(ImageCallback):
 
 
 @TrainerCallback.register("siren_gan")
+@TrainerCallback.register("siren_vae")
 @TrainerCallback.register("sized_generator")
 class SizedGeneratorCallback(GeneratorCallback):
     def log_artifacts(self, trainer: Trainer) -> None:

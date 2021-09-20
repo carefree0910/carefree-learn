@@ -14,16 +14,9 @@ data = cflearn.cv.MNISTData(
     transform="for_generation",
 )
 
-m = cflearn.cv.CarefreePipeline(
-    "siren_vae",
-    {
-        "img_size": 28,
-        "in_channels": 1,
-        "num_classes": num_classes,
-    },
-    callback_names="sized_generator",
-    loss_metrics_weights={"kld": 0.001, "mse": 1.0},
-    fixed_steps=1 if is_ci else None,
-    valid_portion=0.0001 if is_ci else 1.0,
+m = cflearn.DLZoo.load_pipeline(
+    "vae/vanilla.gray",
+    model_config={"img_size": 28, "num_classes": num_classes},
+    debug=is_ci,
 )
 m.fit(data, cuda=None if is_ci else 3)
