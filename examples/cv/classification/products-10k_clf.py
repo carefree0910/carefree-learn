@@ -41,20 +41,11 @@ if __name__ == "__main__":
         transform=["resize", "to_tensor"],
     )
 
-    m = cflearn.cv.CarefreePipeline(
-        "clf",
-        {
-            # "img_size": 28,
-            "in_channels": 4,
-            "num_classes": 2,
-            "latent_dim": 512,
-            "encoder1d": "backbone",
-            "encoder1d_config": {"name": "resnet18"},
-        },
-        loss_name="cross_entropy",
-        metric_names=["acc"] if is_ci else ["acc", "auc"],
+    m = cflearn.DLZoo.load_pipeline(
+        "clf/resnet18",
+        model_config={"in_channels": 4, "num_classes": 2},
+        metric_names="acc" if is_ci else ["acc", "auc"],
         callback_names=["clf", "mlflow"],
-        callback_configs={"mlflow": {"experiment_name": "products-10k_clf"}},
-        fixed_steps=1 if is_ci else None,
+        debug=is_ci,
     )
     m.fit(data, cuda=None if is_ci else 7)
