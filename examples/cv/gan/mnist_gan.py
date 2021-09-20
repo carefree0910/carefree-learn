@@ -5,7 +5,7 @@ import cflearn
 from cflearn.misc.toolkit import check_is_ci
 
 
-ic_ci = check_is_ci()
+is_ci = check_is_ci()
 
 data = cflearn.cv.MNISTData(
     root="../data",
