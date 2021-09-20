@@ -3,7 +3,7 @@
     {"model_config": ["img_size"]}
   ],
   "pipeline": "cv.carefree",
-  "model_name": "gan",
+  "model_name": "siren_gan",
   "model_config": {
     "in_channels": 1
   },
