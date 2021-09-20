@@ -1,17 +1,13 @@
 # type: ignore
 
 import cflearn
-import argparse
 
 from u2net_finetune import prepare
 from u2net_finetune import pretrained_ckpt
+from cflearn.misc.toolkit import check_is_ci
 
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci)
 
+is_ci = check_is_ci()
 
 finetune_ckpt = "pretrained/lite_finetune_aug.pt"
 

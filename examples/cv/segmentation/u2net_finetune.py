@@ -3,19 +3,16 @@
 import os
 import cv2
 import cflearn
-import argparse
 
 import numpy as np
 
 from typing import List
+from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 from cflearn.misc.toolkit import min_max_normalize
 
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci)
+
+is_ci = check_is_ci()
 
 
 def prepare(ci: bool) -> str:

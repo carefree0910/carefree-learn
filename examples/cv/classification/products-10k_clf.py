@@ -2,17 +2,13 @@
 
 import os
 import cflearn
-import argparse
 
 from typing import List
+from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci)
 
+is_ci = check_is_ci()
 
 data_folder = "../data" if is_ci else "data"
 dataset = f"products-10k{'_clf_tiny' if is_ci else ''}"

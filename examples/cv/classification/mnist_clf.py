@@ -1,14 +1,11 @@
 # type: ignore
 
 import cflearn
-import argparse
 
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci)
+from cflearn.misc.toolkit import check_is_ci
 
+
+is_ci = check_is_ci()
 
 data = cflearn.cv.MNISTData(
     root="../data",

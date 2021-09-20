@@ -2,18 +2,15 @@
 
 import os
 import cflearn
-import argparse
 
 from torchvision.transforms import transforms
 from cflearn.misc.toolkit import to_device
+from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci) or True
+
+is_ci = check_is_ci()
 
 
 @cflearn.ImageCallback.register("pixel_cnn")

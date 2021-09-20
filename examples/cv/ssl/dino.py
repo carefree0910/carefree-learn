@@ -1,10 +1,13 @@
 import os
 import cflearn
-import argparse
 
 from PIL import Image
 from typing import List
+from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
+
+
+is_ci = check_is_ci()
 
 
 def prepare() -> None:
@@ -23,12 +26,6 @@ def prepare() -> None:
         lmdb_config=lmdb_config,
     )
 
-
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci)
 
 data_folder = "../data" if is_ci else "data"
 dataset = f"poster{'_tiny' if is_ci else ''}"

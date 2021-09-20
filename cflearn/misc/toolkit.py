@@ -7,6 +7,7 @@ import torch
 import shutil
 import inspect
 import logging
+import argparse
 import torchvision
 import urllib.request
 
@@ -163,6 +164,13 @@ def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
         arguments.pop("self", None)
         arguments.pop("__class__", None)
     return arguments
+
+
+def check_is_ci() -> bool:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ci", type=int, default=0)
+    args = parser.parse_args()
+    return bool(args.ci)
 
 
 def check_available(tag: str, repo: str, name: str) -> bool:

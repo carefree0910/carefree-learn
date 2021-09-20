@@ -2,18 +2,14 @@
 
 import os
 import cflearn
-import argparse
 
 from PIL import Image
+from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 from cflearn.models.cv.stylizer.constants import STYLE_KEY
 
-# CI
-parser = argparse.ArgumentParser()
-parser.add_argument("--ci", type=int, default=0)
-args = parser.parse_args()
-is_ci = bool(args.ci)
 
+is_ci = check_is_ci()
 Image.MAX_IMAGE_PIXELS = None
 
 data_root = "data"
