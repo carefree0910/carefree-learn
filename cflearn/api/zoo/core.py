@@ -87,10 +87,7 @@ class ZooBase(ABC):
         try:
             self.m.build(data_info)
         except Exception as err:
-            raise ValueError(
-                f"Failed to build '{self.pipeline_name}' ({err}), please provide "
-                "sufficient `data_info` to fix it"
-            )
+            raise ValueError(f"Failed to build '{self.pipeline_name}': {err}")
 
     @classmethod
     def load_pipeline(
