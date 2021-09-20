@@ -52,9 +52,8 @@ if __name__ == "__main__":
 
     m = cflearn.DLZoo.load_pipeline(
         "ssl/dino",
-        data_info=data.info,
         callback_names="mlflow",
-        callback_configs={"mlflow": {"experiment_name": "poster"}},
-        fixed_steps=1 if is_ci else None,
+        amp=not is_ci,
+        debug=is_ci,
     )
-    m.fit(data, cuda=None if is_ci else 0)  # type: ignore
+    m.fit(data, cuda=None if is_ci else 0)
