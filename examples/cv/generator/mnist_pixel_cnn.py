@@ -50,16 +50,12 @@ data = cflearn.cv.MNISTData(
     label_callback=lambda batch: batch[0],
 )
 
-m = cflearn.cv.CarefreePipeline(
-    "pixel_cnn",
-    {
-        "in_channels": 1,
+m = cflearn.DLZoo.load_pipeline(
+    "generator/pixel_cnn",
+    model_config={
         "num_classes": 256,
         "num_conditional_classes": num_conditional_classes,
     },
-    loss_name="cross_entropy",
-    metric_names="acc",
-    fixed_steps=1 if is_ci else None,
-    valid_portion=0.0001 if is_ci else 1.0,
+    debug=is_ci,
 )
 m.fit(data, cuda=None if is_ci else 0)
