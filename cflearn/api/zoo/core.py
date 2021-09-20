@@ -45,6 +45,7 @@ class ZooBase(ABC):
         *,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
+        debug: bool = False,
         **kwargs: Any,
     ):
         tag = DEFAULT_ZOO_TAG
@@ -69,6 +70,9 @@ class ZooBase(ABC):
         self.pipeline_name = self.config.pop("pipeline", None)
         if self.pipeline_name is None:
             raise ValueError(self.err_msg_fmt.format("pipeline"))
+        if debug:
+            kwargs.setdefault("fixed_steps", 1)
+            kwargs.setdefault("valid_portion", 1.0e-4)
         update_dict(kwargs, self.config)
         self.m = make(self.pipeline_name, config=self.config)
         if data_info is None:
@@ -95,9 +99,17 @@ class ZooBase(ABC):
         *,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
+        debug: bool = False,
         **kwargs: Any,
     ) -> PipelineProtocol:
-        return cls(model, data_info=data_info, json_path=json_path, **kwargs).m
+        zoo = cls(
+            model,
+            data_info=data_info,
+            json_path=json_path,
+            debug=debug,
+            **kwargs,
+        )
+        return zoo.m
 
 
 class DLZoo(ZooBase):
@@ -118,12 +130,14 @@ class DLZoo(ZooBase):
         *,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
+        debug: bool = False,
         **kwargs: Any,
     ) -> DLPipeline:
         return super().load_pipeline(  # type: ignore
             model,
             data_info=data_info,
             json_path=json_path,
+            debug=debug,
             **kwargs,
         )
 
