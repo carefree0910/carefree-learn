@@ -1,0 +1,20 @@
+{
+  "__requires__": [
+    {"model_config": ["img_size"]}
+  ],
+  "pipeline": "cv.carefree",
+  "model_name": "gan",
+  "model_config": {
+    "in_channels": 3
+  },
+  "optimizer_settings": {
+    "g_parameters": {
+        "optimizer": "adam",
+        "scheduler": "warmup"
+    },
+    "d_parameters": {
+        "optimizer": "adam",
+        "scheduler": "warmup"
+    }
+  }
+}

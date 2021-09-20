@@ -13,21 +13,5 @@ data = cflearn.cv.MNISTData(
     transform="for_generation",
 )
 
-m = cflearn.cv.CarefreePipeline(
-    "siren_gan",
-    {"img_size": 28, "in_channels": 1},
-    callback_names="sized_generator",
-    optimizer_settings={
-        "g_parameters": {
-            "optimizer": "adam",
-            "scheduler": "warmup",
-        },
-        "d_parameters": {
-            "optimizer": "adam",
-            "scheduler": "warmup",
-        },
-    },
-    fixed_steps=1 if is_ci else None,
-    valid_portion=0.0001 if is_ci else 1.0,
-)
+m = cflearn.DLZoo.load_pipeline("gan/siren.gray", img_size=28, debug=is_ci)
 m.fit(data, cuda=None if is_ci else 0)
