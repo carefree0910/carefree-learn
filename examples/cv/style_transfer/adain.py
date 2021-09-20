@@ -46,8 +46,7 @@ if __name__ == "__main__":
 
     m = cflearn.DLZoo.load_pipeline(
         "style_transfer/adain",
-        data_info=data.info,
         callback_names=["adain", "mlflow"],
-        fixed_steps=1 if is_ci else None,
+        debug=is_ci,
     )
     m.fit(data, cuda=None if is_ci else 4)
