@@ -50,6 +50,7 @@ class ZooBase(ABC):
     ):
         tag = DEFAULT_ZOO_TAG
         self.download_name = None
+        # load json
         if json_path is None:
             if model is None:
                 raise ValueError("either `model` or `json_path` should be provided")
@@ -67,12 +68,30 @@ class ZooBase(ABC):
         if self.download_name is None:
             self.download_name = self.config.pop("tag", None)
         self.err_msg_fmt = f"`{'{}'}` should be provided in '{json_path}'"
+        # get pipeline
         self.pipeline_name = self.config.pop("pipeline", None)
         if self.pipeline_name is None:
             raise ValueError(self.err_msg_fmt.format("pipeline"))
+        # handle debug
         if debug:
             kwargs.setdefault("fixed_steps", 1)
             kwargs.setdefault("valid_portion", 1.0e-4)
+        # handle requires
+
+        def _inject_requires(d: Dict[str, Any], local_requires: List[Any]) -> None:
+            for k in local_requires:
+                if isinstance(k, dict):
+                    for kk, kv in k.items():
+                        _inject_requires(d.setdefault(kk, {}), kv)
+                elif k not in d:
+                    required = kwargs.pop(k, None)
+                    if required is None:
+                        raise ValueError(f"'{k}' should be provided in `kwargs`")
+                    d[k] = required
+
+        requires = self.config.pop("__requires__", [])
+        _inject_requires(kwargs, requires)
+        # build
         update_dict(kwargs, self.config)
         self.m = make(self.pipeline_name, config=self.config)
         if data_info is None:
