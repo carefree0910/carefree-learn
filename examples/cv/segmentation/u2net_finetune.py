@@ -61,36 +61,17 @@ if __name__ == "__main__":
         transform=cflearn.cv.ABundleTransform(label_alias="mask"),
         test_transform=cflearn.cv.ABundleTestTransform(label_alias="mask"),
     )
-    pipeline_config = dict(
-        model_name="u2net",
-        model_config={
-            "in_channels": 3,
-            "out_channels": 1,
-            "lite": True,
-            # "upsample_mode": "nearest",
-        },
-        loss_name="multi_stage:bce,iou",
-        loss_metrics_weights={"bce0": 0.2, "iou0": 0.8},
-        callback_names=["u2net", "mlflow"],
-        callback_configs={"mlflow": {"experiment_name": "lite_pretrain"}},
-        # lr=2.0e-3,
-        scheduler_name="none",
-        fixed_steps=0 if is_ci else None,
-    )
-    if not is_ci:
-        pipeline_config["finetune_config"] = {
-            # "pretrained_ckpt": "pretrained/model.pt",
-            "pretrained_ckpt": pretrained_ckpt,
-            # "freeze_except": r"(.*\.side_blocks\..*|.*\.out\..*)",
-        }
-    else:
+    if is_ci:
         import torch
 
-        m = cflearn.cv.CarefreePipeline(**pipeline_config).fit(data)
+        m = cflearn.DLZoo.load_pipeline("segmentor/u2net.lite", debug=True).fit(data)
         os.makedirs(os.path.dirname(pretrained_ckpt), exist_ok=True)
         torch.save(m.model.state_dict(), pretrained_ckpt)
-        pipeline_config["fixed_steps"] = 1
-        pipeline_config["finetune_config"] = {"pretrained_ckpt": pretrained_ckpt}
-    m = cflearn.cv.CarefreePipeline(**pipeline_config)
+
+    m = cflearn.DLZoo.load_pipeline(
+        "segmentor/u2net.finetune_lite",
+        pretrained_ckpt=pretrained_ckpt,
+        callback_names=["u2net", "mlflow"],
+        debug=is_ci,
+    )
     m.fit(data, cuda=None if is_ci else 0)
-    # m.ddp(data, cuda_list=[1, 2, 3, 4])

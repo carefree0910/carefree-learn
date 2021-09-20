@@ -1,0 +1,11 @@
+{
+  "pipeline": "cv.carefree",
+  "model_name": "u2net",
+  "model_config": {
+    "in_channels": 3,
+    "out_channels": 1
+  },
+  "loss_name": "multi_stage:bce,iou",
+  "loss_metrics_weights": {"bce0": 0.2, "iou0": 0.8},
+  "scheduler_name": "none"
+}

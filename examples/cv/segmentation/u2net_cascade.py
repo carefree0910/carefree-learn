@@ -19,20 +19,11 @@ if __name__ == "__main__":
         transform=cflearn.cv.ABundleTransform(label_alias="mask"),
         test_transform=cflearn.cv.ABundleTestTransform(label_alias="mask"),
     )
-    m = cflearn.cv.CarefreePipeline(
-        "cascade_u2net",
-        {
-            "in_channels": 3,
-            "out_channels": 1,
-            "lv1_model_ckpt_path": pretrained_ckpt if is_ci else finetune_ckpt,
-            "lv2_model_config": {"lite": True},
-            "lite": True,
-        },
-        loss_name="sigmoid_mae",
-        callback_names=["unet", "mlflow"],
-        callback_configs={"mlflow": {"experiment_name": "lite_refine"}},
-        scheduler_name="none",
-        fixed_steps=1 if is_ci else None,
+
+    m = cflearn.DLZoo.load_pipeline(
+        "segmentor/u2net.refine_lite",
+        lv1_model_ckpt_path=pretrained_ckpt if is_ci else finetune_ckpt,
+        callback_names=["cascade_u2net", "mlflow"],
+        debug=is_ci,
     )
     m.fit(data, cuda=None if is_ci else 5)
-    # m.ddp(data, cuda_list=[4, 5])
