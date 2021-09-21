@@ -1,11 +1,9 @@
 {
+  "__bases__": ["vae/siren"],
   "__requires__": [
     {"model_config": ["img_size"]}
   ],
-  "pipeline": "cv.carefree",
-  "model_name": "siren_vae",
   "model_config": {
     "in_channels": 1
-  },
-  "loss_metrics_weights": {"kld": 0.001, "mse": 1.0}
+  }
 }

@@ -1,12 +1,9 @@
 {
+  "__bases__": ["vae/vq.lite"],
   "__requires__": [
     {"model_config": ["img_size"]}
   ],
-  "pipeline": "cv.carefree",
-  "model_name": "vq_vae",
   "model_config": {
-    "num_code": 16,
-    "in_channels": 1,
-    "target_downsample": 2
+    "in_channels": 1
   }
 }

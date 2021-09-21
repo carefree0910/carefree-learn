@@ -57,6 +57,16 @@ def _parse_model(model: str) -> ParsedModel:
     return ParsedModel(json_path, download_name)
 
 
+def _parse_config(json_path: str) -> Dict[str, Any]:
+    with open(json_path, "r") as f:
+        config = json.load(f)
+    bases = config.pop("__bases__", [])
+    for base in bases[::-1]:
+        parsed = _parse_model(base)
+        config = update_dict(config, _parse_config(parsed.json_path))
+    return config
+
+
 class ZooBase(ABC):
     def __init__(
         self,
@@ -76,8 +86,7 @@ class ZooBase(ABC):
             json_path = parsed.json_path
             self.download_name = parsed.download_name
         self.json_path = json_path
-        with open(json_path, "r") as f:
-            self.config = json.load(f)
+        self.config = _parse_config(json_path)
         if self.download_name is None:
             self.download_name = self.config.pop("tag", None)
         self.err_msg_fmt = f"`{'{}'}` should be provided in '{json_path}'"
