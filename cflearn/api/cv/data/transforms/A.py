@@ -56,20 +56,9 @@ class ToArray(ATransforms):
 
 @Transforms.register("to_rgb")
 class ToRGB(ATransforms):
-    def __init__(
-        self,
-        *,
-        is_pil: bool = False,
-        label_alias: Optional[str] = None,
-    ):
-        super().__init__(label_alias=label_alias)
-        self.is_pil = is_pil
-
     def _to_rgb(self, k: str, v: Any) -> Any:
         if k != self.input_alias:
             return v
-        if self.is_pil:
-            return v.convert("RGB")
         if len(v.shape) == 2:
             v = v[..., None]
         if v.shape[2] == 3:
