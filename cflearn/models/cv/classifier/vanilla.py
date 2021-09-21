@@ -17,6 +17,7 @@ from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ...ml.protocol import MERGED_KEY
 from ...ml.protocol import MLCoreProtocol
+from ....misc.toolkit import download_model
 
 
 @ModelProtocol.register("clf")
@@ -30,6 +31,7 @@ class VanillaClassifier(ModelProtocol):
         *,
         encoder1d: str = "vanilla",
         encoder1d_config: Optional[Dict[str, Any]] = None,
+        encoder1d_pretrained_name: Optional[str] = None,
         encoder1d_pretrained_path: Optional[str] = None,
         head: str = "linear",
         head_config: Optional[Dict[str, Any]] = None,
@@ -44,6 +46,9 @@ class VanillaClassifier(ModelProtocol):
         encoder1d_config["in_channels"] = in_channels
         encoder1d_config["latent_dim"] = latent_dim
         self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_config)
+        if encoder1d_pretrained_path is None:
+            if encoder1d_pretrained_name is not None:
+                encoder1d_pretrained_path = download_model(encoder1d_pretrained_name)
         if encoder1d_pretrained_path is not None:
             print(
                 f"{INFO_PREFIX}loading pretrained encoder1d "
