@@ -24,6 +24,7 @@ from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 @TrainerCallback.register("gan")
 @TrainerCallback.register("vae")
+@TrainerCallback.register("style_vae")
 @TrainerCallback.register("generator")
 class GeneratorCallback(ImageCallback):
     num_interpolations = 16
