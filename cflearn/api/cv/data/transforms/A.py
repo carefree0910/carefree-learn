@@ -73,6 +73,25 @@ class ToRGB(ATransforms):
         return {k: self._to_rgb(k, v) for k, v in inp.items()}
 
 
+@Transforms.register("a_to_gray")
+class AToGray(ATransforms):
+    def _to_gray(self, k: str, v: Any) -> Any:
+        if k != self.input_alias:
+            return v
+        if len(v.shape) == 2:
+            return v[..., None]
+        if v.shape[2] == 3:
+            return v.mean(axis=2, keepdims=True)
+        if v.shape[2] == 4:
+            return v[..., :3].mean(axis=2, keepdims=True) * v[..., 3:]
+        if v.shape[2] == 1:
+            return v
+        raise ValueError(f"invalid shape ({v.shape}) occurred with '{k}'")
+
+    def fn(self, **inp: Any) -> Dict[str, Any]:
+        return {k: self._to_gray(k, v) for k, v in inp.items()}
+
+
 @Transforms.register("resize")
 class Resize(ATransforms):
     def __init__(
@@ -235,6 +254,7 @@ class AToTensor(ATransforms):
 __all__ = [
     "ToArray",
     "ToRGB",
+    "AToGray",
     "Resize",
     "RandomCrop",
     "ShiftScaleRotate",
