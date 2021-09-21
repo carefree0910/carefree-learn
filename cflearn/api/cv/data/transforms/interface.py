@@ -24,10 +24,24 @@ from .....misc.toolkit import imagenet_normalize
 
 @Transforms.register("for_generation")
 class TransformForGeneration(Compose):
-    def __init__(self, img_size: Optional[int] = None, inverse: bool = False):  # type: ignore
+    def __init__(
+        self,
+        img_size: Optional[int] = None,
+        *,
+        inverse: bool = False,
+        to_gray: bool = False,
+        to_rgb: bool = False,
+    ):
         transform_list: List[Transforms] = []
         if img_size is not None:
             transform_list.append(Resize(img_size))
+        if to_rgb:
+            if to_gray:
+                msg = "should not use `to_rgb` and `to_gray` at the same time"
+                raise ValueError(msg)
+            transform_list.append(ToRGB())
+        elif to_gray:
+            transform_list.append(AToGray())
         transform_list.extend([ToTensor(), N1To1()])
         if inverse:
             transform_list.append(InverseN1To1())
