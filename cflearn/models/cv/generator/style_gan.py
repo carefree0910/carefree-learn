@@ -6,6 +6,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from .constants import STYLE_LABEL_KEY
 from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
@@ -151,11 +152,15 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         z = batch[INPUT_KEY]
-        labels = batch.get(LABEL_KEY)
         truncation_psi = kwargs.pop("truncation_psi", 1.0)
         truncation_cutoff = kwargs.pop("truncation_cutoff", None)
-        ws = self.mapping(z, labels, truncation_psi, truncation_cutoff)
-        rgb = self.decoder(batch_idx, {INPUT_KEY: ws}, state, **kwargs)[PREDICTIONS_KEY]
+        style_labels = batch.get(STYLE_LABEL_KEY)
+        ws = self.mapping(z, style_labels, truncation_psi, truncation_cutoff)
+        decoder_batch = {INPUT_KEY: ws}
+        content_labels = batch.get(LABEL_KEY)
+        if content_labels is not None:
+            decoder_batch[LABEL_KEY] = content_labels
+        rgb = self.decoder(batch_idx, decoder_batch, state, **kwargs)[PREDICTIONS_KEY]
         return {PREDICTIONS_KEY: rgb}
 
 
