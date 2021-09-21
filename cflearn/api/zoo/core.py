@@ -9,6 +9,7 @@ from typing import Dict
 from typing import List
 from typing import Union
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import update_dict
 
 from ..basic import make
@@ -38,6 +39,24 @@ def load_tokenizer(name: str) -> Any:
 # models
 
 
+class ParsedModel(NamedTuple):
+    json_path: str
+    download_name: str
+
+
+def _parse_model(model: str) -> ParsedModel:
+    tag = DEFAULT_ZOO_TAG
+    model_type, model_name = model.split("/")
+    download_name = model_name
+    if "." in model_name:
+        model_name, tag = model_name.split(".")
+    json_folder = os.path.join(configs_root, model_type, model_name)
+    json_path = os.path.join(json_folder, f"{tag}.json")
+    if not os.path.isfile(json_path):
+        json_path = os.path.join(json_folder, f"{DEFAULT_ZOO_TAG}.json")
+    return ParsedModel(json_path, download_name)
+
+
 class ZooBase(ABC):
     def __init__(
         self,
@@ -48,20 +67,14 @@ class ZooBase(ABC):
         debug: bool = False,
         **kwargs: Any,
     ):
-        tag = DEFAULT_ZOO_TAG
         self.download_name = None
         # load json
         if json_path is None:
             if model is None:
                 raise ValueError("either `model` or `json_path` should be provided")
-            model_type, model_name = model.split("/")
-            self.download_name = model_name
-            if "." in model_name:
-                model_name, tag = model_name.split(".")
-            json_folder = os.path.join(configs_root, model_type, model_name)
-            json_path = os.path.join(json_folder, f"{tag}.json")
-            if not os.path.isfile(json_path):
-                json_path = os.path.join(json_folder, f"{DEFAULT_ZOO_TAG}.json")
+            parsed = _parse_model(model)
+            json_path = parsed.json_path
+            self.download_name = parsed.download_name
         self.json_path = json_path
         with open(json_path, "r") as f:
             self.config = json.load(f)
