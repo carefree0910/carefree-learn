@@ -568,9 +568,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     json.dump(kwargs, f)
             m_onnx = ONNXWrapper()
             input_keys = sorted(input_sample)
+            original_states = model.state_dict()
+            fixed_states = fix_denormal_states(original_states, verbose=verbose)
             with eval_context(m_onnx):
-                original_states = model.state_dict()
-                fixed_states = fix_denormal_states(original_states, verbose=verbose)
                 model.load_state_dict(fixed_states)
                 torch.onnx.export(
                     m_onnx,
