@@ -59,7 +59,7 @@ class CycleGANGenerator(ImageTranslatorMixin, ModelProtocol):
             padding=padding,
             kernel_size=kernel_size,
             last_kernel_size=first_kernel_size,
-            num_repeats=[0] + [1] * num_downsample,
+            num_repeats="default",
             reduce_channel_on_upsample=True,
             num_upsample=num_downsample,
         )

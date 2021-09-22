@@ -2,6 +2,7 @@ import torch.nn as nn
 
 from typing import Any
 from typing import List
+from typing import Union
 from typing import Optional
 
 from .protocol import DecoderBase
@@ -29,7 +30,7 @@ class VanillaDecoder(DecoderBase):
         last_kernel_size: Optional[int] = None,
         num_residual_blocks: int = 0,
         residual_dropout: float = 0.0,
-        num_repeats: Optional[List[int]] = None,
+        num_repeats: Union[str, List[int]] = "default",
         reduce_channel_on_upsample: bool = False,
         img_size: Optional[int] = None,
         num_upsample: Optional[int] = None,
@@ -60,10 +61,15 @@ class VanillaDecoder(DecoderBase):
                 )
             )
 
-        if num_repeats is None:
-            repeats1 = (self.num_upsample - 1) // 2
-            repeats0 = self.num_upsample - repeats1 - 1
-            num_repeats = [1] + [4] * repeats0 + [2] * repeats1 + [1]
+        if isinstance(num_repeats, str):
+            if num_repeats == "default":
+                num_repeats = [0] + [1] * self.num_upsample
+            elif num_repeats == "repeated":
+                repeats1 = (self.num_upsample - 1) // 2
+                repeats0 = self.num_upsample - repeats1 - 1
+                num_repeats = [1] + [4] * repeats0 + [2] * repeats1 + [1]
+            else:
+                raise ValueError(f"unrecognized `num_repeats` '{num_repeats}` occurred")
         if len(num_repeats) != self.num_upsample + 1:
             msg = "length of `num_repeats` is not identical with `num_upsample + 1`"
             raise ValueError(msg)

@@ -51,6 +51,7 @@ class AdaINStylizer(ModelProtocol):
         self.decoder = VanillaDecoder(
             self.backbone.latent_channels,
             in_channels,
+            num_repeats="repeated",
             num_upsample=self.backbone.num_downsample,
             **(decoder_config or {}),
         )
