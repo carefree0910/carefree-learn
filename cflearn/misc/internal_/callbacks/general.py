@@ -54,7 +54,7 @@ class _LogMetricsMsgCallback(TrainerCallback):
         if self.metrics_log_path is None:
             return None
         with open(self.metrics_log_path, "a") as f:
-            f.write(f" lr : {fix_float_to_length(lr, 8)} |\n")
+            f.write(f" lr : {fix_float_to_length(lr, 12)} |\n")
         self.metrics_log_path = None
 
     def log_metrics_msg(
