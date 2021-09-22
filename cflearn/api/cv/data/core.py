@@ -61,16 +61,46 @@ def _default_lmdb_path(folder: str, split: str) -> str:
     return f"{folder}.{split}"
 
 
+class _PreparationProtocol:
+    def prepare_src_folder(self, src_path: str) -> None:
+        pass
+
+    def filter(self, hierarchy: List[str]) -> bool:
+        pass
+
+    def get_label(self, hierarchy: List[str]) -> Any:
+        pass
+
+    def copy(self, src_path: str, tgt_path: str) -> None:
+        pass
+
+    def get_new_img_path(self, idx: int, split_folder: str, old_img_path: str) -> str:
+        pass
+
+
+class DefaultPreparation(_PreparationProtocol):
+    def filter(self, hierarchy: List[str]) -> bool:
+        return True
+
+    def get_label(self, hierarchy: List[str]) -> Any:
+        return 0
+
+    def copy(self, src_path: str, tgt_path: str) -> None:
+        shutil.copyfile(src_path, tgt_path)
+
+    def get_new_img_path(self, idx: int, split_folder: str, old_img_path: str) -> str:
+        ext = os.path.splitext(old_img_path)[1]
+        return os.path.join(split_folder, f"{idx}{ext}")
+
+
 def prepare_image_folder(
     src_folder: str,
     tgt_folder: str,
     *,
     to_index: bool,
     prefix: Optional[str] = None,
-    label_fn: Optional[Callable[[List[str]], Any]],
-    filter_fn: Optional[Callable[[List[str]], bool]] = None,
+    preparation: _PreparationProtocol = DefaultPreparation(),
     force_rerun: bool = False,
-    src_prepare_fn: Optional[Callable[[str], None]] = None,
     extra_label_names: Optional[List[str]] = None,
     extra_label_fns: Optional[List[Callable[[List[str]], Any]]] = None,
     extensions: Optional[Set[str]] = None,
@@ -79,8 +109,6 @@ def prepare_image_folder(
     train_all_data: bool = False,
     valid_split: Union[int, float] = 0.1,
     max_num_valid: int = 10000,
-    copy_fn: Optional[Callable[[str, str], None]] = None,
-    get_img_path_fn: Optional[Callable[[int, str, str], str]] = None,
     lmdb_config: Optional[Dict[str, Any]] = None,
     use_tqdm: bool = True,
 ) -> str:
@@ -94,8 +122,7 @@ def prepare_image_folder(
     ):
         return tgt_folder
 
-    if src_prepare_fn is not None:
-        src_prepare_fn(src_folder)
+    preparation.prepare_src_folder(src_folder)
     os.makedirs(tgt_folder, exist_ok=True)
 
     walked = list(os.walk(src_folder))
@@ -113,15 +140,15 @@ def prepare_image_folder(
                 continue
             hierarchy = folder.split(os.path.sep) + [file]
             hierarchy = hierarchy[prefix_idx:]
-            if filter_fn is not None and not filter_fn(hierarchy):
+            if not preparation.filter(hierarchy):
                 continue
             hierarchy_list.append(hierarchy)
             all_img_paths.append(os.path.join(folder, file))
 
-    def get_labels(fn: Callable[[List[str]], Any]) -> List[Any]:
+    def get_labels(fn: Optional[Callable[[List[str]], Any]] = None) -> List[Any]:
         def task(h: List[str]) -> Any:
             try:
-                return fn(h)
+                return (fn or preparation.get_label)(h)
             except Exception as err:
                 err_path = "/".join(h)
                 msg = f"error occurred ({err}) when getting label of {err_path}"
@@ -142,9 +169,7 @@ def prepare_image_folder(
         return final_results
 
     print("> making labels")
-    if label_fn is None:
-        label_fn = lambda _: 0
-    labels = get_labels(label_fn)
+    labels = get_labels()
     excluded_indices = {i for i, label in enumerate(labels) if label is None}
     extra_labels_dict: Optional[Dict[str, List[str]]] = None
     if extra_label_names is not None:
@@ -242,24 +267,14 @@ def prepare_image_folder(
     train_indices = np.array(merged_train_indices)
     valid_indices = np.array(merged_valid_indices)
 
-    if copy_fn is None:
-        copy_fn = lambda src, tgt: shutil.copy(src, tgt)
-    if get_img_path_fn is None:
-
-        def get_img_path_fn(i: int, split_folder: str, src_img_path: str) -> str:
-            ext = os.path.splitext(src_img_path)[1]
-            return os.path.join(split_folder, f"{i}{ext}")
-
     def save(indices: np.ndarray, d_num_jobs: int, dtype: str) -> None:
         def record(idx: int) -> Optional[Tuple[str, Dict[str, Any]]]:
-            assert copy_fn is not None
-            assert get_img_path_fn is not None
             split_folder = os.path.join(tgt_folder, dtype)
             os.makedirs(split_folder, exist_ok=True)
             img_path = all_img_paths[idx]
-            new_img_path = get_img_path_fn(idx, split_folder, img_path)
+            new_img_path = preparation.get_new_img_path(idx, split_folder, img_path)
             try:
-                copy_fn(img_path, new_img_path)
+                preparation.copy(img_path, new_img_path)
                 key = os.path.abspath(new_img_path)
                 idx_labels: Dict[str, Any] = {}
                 for label_t, t_labels in labels_dict.items():
@@ -450,5 +465,6 @@ class InferenceImageFolderDataset(Dataset):
 
 __all__ = [
     "batch_callback",
+    "DefaultPreparation",
     "prepare_image_folder",
 ]

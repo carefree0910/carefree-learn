@@ -17,24 +17,22 @@ src_folder = os.path.join(data_folder, dataset)
 tgt_folder = os.path.join(data_folder, "products-10k_data")
 
 
-def prepare() -> None:
-    def label_fn(hierarchy: List[str]) -> int:
+class Products10kPreparation(cflearn.cv.DefaultPreparation):
+    def get_label(self, hierarchy: List[str]) -> int:
         return int(hierarchy[2] == "pos")
 
+
+if __name__ == "__main__":
     if is_ci and not os.path.isdir(src_folder):
         download_dataset(dataset, root=data_folder)
     cflearn.cv.prepare_image_folder(
         src_folder,
         tgt_folder,
         to_index=False,
-        label_fn=label_fn,
+        preparation=Products10kPreparation(),
         make_labels_in_parallel=False,
         num_jobs=0 if is_ci else 8,
     )
-
-
-if __name__ == "__main__":
-    prepare()
     data = cflearn.cv.ImageFolderData(
         tgt_folder,
         batch_size=16,

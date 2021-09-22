@@ -2,31 +2,12 @@ import os
 import cflearn
 
 from PIL import Image
-from typing import List
 from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 
 
 is_ci = check_is_ci()
-
-
-def prepare() -> None:
-    def label_fn(_: List[str]) -> int:
-        return 0
-
-    if is_ci and not os.path.isdir(src_folder):
-        download_dataset(dataset, root=data_folder)
-    cflearn.cv.prepare_image_folder(
-        src_folder,
-        tgt_folder,
-        to_index=False,
-        label_fn=label_fn,
-        make_labels_in_parallel=False,
-        num_jobs=0,
-        lmdb_config=lmdb_config,
-    )
-
 
 data_folder = DATA_CACHE_DIR if is_ci else "data"
 dataset = f"poster{'_tiny' if is_ci else ''}"
@@ -39,7 +20,16 @@ Image.MAX_IMAGE_PIXELS = None
 
 
 if __name__ == "__main__":
-    prepare()
+    if is_ci and not os.path.isdir(src_folder):
+        download_dataset(dataset, root=data_folder)
+    cflearn.cv.prepare_image_folder(
+        src_folder,
+        tgt_folder,
+        to_index=False,
+        make_labels_in_parallel=False,
+        num_jobs=0,
+        lmdb_config=lmdb_config,
+    )
     data = cflearn.cv.ImageFolderData(
         tgt_folder,
         batch_size=4 if is_ci else 32,

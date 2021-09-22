@@ -16,19 +16,25 @@ from cflearn.misc.toolkit import min_max_normalize
 is_ci = check_is_ci()
 
 
-def prepare(ci: bool) -> str:
-    def label_fn(hierarchy: List[str]) -> str:
+class U2NETPreparation(cflearn.cv.DefaultPreparation):
+    def __init__(self, src_rgba_folder: str, label_folder: str):
+        self.rgba_folder = src_rgba_folder
+        self.label_folder = label_folder
+
+    def get_label(self, hierarchy: List[str]) -> str:
         file_id = os.path.splitext(hierarchy[-1])[0]
-        os.makedirs(label_folder, exist_ok=True)
-        label_path = os.path.abspath(os.path.join(label_folder, f"{file_id}.npy"))
+        os.makedirs(self.label_folder, exist_ok=True)
+        label_path = os.path.abspath(os.path.join(self.label_folder, f"{file_id}.npy"))
         if os.path.isfile(label_path):
             return label_path
-        rgba_path = os.path.abspath(os.path.join(src_rgba_folder, f"{file_id}.png"))
+        rgba_path = os.path.abspath(os.path.join(self.rgba_folder, f"{file_id}.png"))
         alpha = cv2.imread(rgba_path, cv2.IMREAD_UNCHANGED)[..., -1:]
         alpha = min_max_normalize(alpha.astype(np.float32), global_norm=True)
         np.save(label_path, alpha)
         return label_path
 
+
+def prepare(ci: bool) -> str:
     data_root = DATA_CACHE_DIR if ci else "data"
     dataset = "products-10k_tiny"
     if not ci:
@@ -45,7 +51,7 @@ def prepare(ci: bool) -> str:
         src_folder,
         tgt_folder,
         to_index=False,
-        label_fn=label_fn,
+        preparation=U2NETPreparation(src_rgba_folder, label_folder),
         make_labels_in_parallel=not ci,
         num_jobs=0 if ci else 8,
     )
