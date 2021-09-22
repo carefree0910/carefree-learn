@@ -37,6 +37,7 @@ class _LogMetricsMsgCallback(TrainerCallback):
         super().__init__()
         self.verbose = verbose
         self.timer = time.time()
+        self.metrics_log_path: Optional[str] = None
 
     @staticmethod
     def _step_str(state: TrainerState) -> str:
@@ -48,6 +49,13 @@ class _LogMetricsMsgCallback(TrainerCallback):
             if current_step == 0:
                 current_step = total_step if state.step > 0 else 0
         return f"[{current_step} / {total_step}]"
+
+    def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
+        if self.metrics_log_path is None:
+            return None
+        with open(self.metrics_log_path, "a") as f:
+            f.write(f" lr : {fix_float_to_length(lr, 8)} |\n")
+        self.metrics_log_path = None
 
     def log_metrics_msg(
         self,
@@ -74,8 +82,11 @@ class _LogMetricsMsgCallback(TrainerCallback):
         if self.verbose:
             print(msg)
         with open(metrics_log_path, "a") as f:
-            f.write(f"{msg}\n")
+            if self.metrics_log_path is not None:
+                msg = f"\n{msg}"
+            f.write(msg)
         self.timer = time.time()
+        self.metrics_log_path = metrics_log_path
 
 
 @TrainerCallback.register("_inject_loader_name")
