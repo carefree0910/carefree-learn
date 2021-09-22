@@ -66,6 +66,7 @@ def prepare_image_folder(
     tgt_folder: str,
     *,
     to_index: bool,
+    prefix: Optional[str] = None,
     label_fn: Optional[Callable[[List[str]], Any]],
     filter_fn: Optional[Callable[[List[str]], bool]] = None,
     force_rerun: bool = False,
@@ -82,12 +83,16 @@ def prepare_image_folder(
     get_img_path_fn: Optional[Callable[[int, str, str], str]] = None,
     lmdb_config: Optional[Dict[str, Any]] = None,
     use_tqdm: bool = True,
-) -> None:
+) -> str:
+    if prefix is not None:
+        src_folder = os.path.join(prefix, src_folder)
+        tgt_folder = os.path.join(prefix, tgt_folder)
+
     if not force_rerun and all(
         os.path.isfile(os.path.join(tgt_folder, split, "labels.json"))
         for split in ["train", "valid"]
     ):
-        return None
+        return tgt_folder
 
     if src_prepare_fn is not None:
         src_prepare_fn(src_folder)
@@ -99,11 +104,15 @@ def prepare_image_folder(
     hierarchy_list = []
     if extensions is None:
         extensions = {".jpg", ".png"}
+    prefix_idx = 0
+    if prefix is not None:
+        prefix_idx = len(prefix.split(os.path.sep))
     for folder, _, files in tqdm(walked, desc="folders", position=0):
         for file in tqdm(files, desc="files", position=1, leave=False):
             if not any(file.endswith(ext) for ext in extensions):
                 continue
             hierarchy = folder.split(os.path.sep) + [file]
+            hierarchy = hierarchy[prefix_idx:]
             if filter_fn is not None and not filter_fn(hierarchy):
                 continue
             hierarchy_list.append(hierarchy)
@@ -328,6 +337,7 @@ def prepare_image_folder(
 
     save(train_indices, max(1, num_jobs), "train")
     save(valid_indices, max(1, num_jobs // 2), "valid")
+    return tgt_folder
 
 
 class ImageFolderDataset(Dataset):
