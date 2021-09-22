@@ -68,7 +68,7 @@ class _LogMetricsMsgCallback(TrainerCallback):
         step_str = self._step_str(state)
         timer_str = f"[{time.time() - self.timer:.3f}s]"
         msg = (
-            f"(epoch {state.epoch:^4d} {step_str} {timer_str} | {core} | "
+            f"| epoch {state.epoch:^4d} {step_str} {timer_str} | {core} | "
             f"score : {fix_float_to_length(final_score, 8)} |"
         )
         if self.verbose:
