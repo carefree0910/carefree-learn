@@ -195,9 +195,9 @@ class DLZoo(ZooBase):
     ) -> ModelProtocol:
         kwargs.setdefault("in_loading", True)
         zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
-        if not pretrained:
-            return zoo.m.model
-        return zoo.load_pretrained()
+        if pretrained:
+            zoo.load_pretrained()
+        return zoo.m.model
 
     @classmethod
     def dump_onnx(
