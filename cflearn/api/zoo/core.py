@@ -168,16 +168,20 @@ class DLZoo(ZooBase):
         *,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
+        pretrained: bool = False,
         debug: bool = False,
         **kwargs: Any,
     ) -> DLPipeline:
-        return super().load_pipeline(  # type: ignore
+        zoo = cls(
             model,
             data_info=data_info,
             json_path=json_path,
             debug=debug,
             **kwargs,
         )
+        if pretrained:
+            zoo.load_pretrained()
+        return zoo.m
 
     @classmethod
     def load_model(
