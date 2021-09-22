@@ -38,6 +38,17 @@ class _LogMetricsMsgCallback(TrainerCallback):
         self.verbose = verbose
         self.timer = time.time()
 
+    @staticmethod
+    def _step_str(state: TrainerState) -> str:
+        total_step = state.num_step_per_epoch
+        if state.step == -1:
+            current_step = -1
+        else:
+            current_step = state.step % total_step
+            if current_step == 0:
+                current_step = total_step if state.step > 0 else 0
+        return f"[{current_step} / {total_step}]"
+
     def log_metrics_msg(
         self,
         metrics_outputs: MetricsOutputs,
@@ -54,17 +65,10 @@ class _LogMetricsMsgCallback(TrainerCallback):
                 for k in sorted(metric_values)
             ]
         )
-        total_step = state.num_step_per_epoch
-        if state.step == -1:
-            current_step = -1
-        else:
-            current_step = state.step % total_step
-            if current_step == 0:
-                current_step = total_step if state.step > 0 else 0
-        step_ratio = f"[{current_step} / {total_step}]"
+        step_str = self._step_str(state)
         timer_str = f"[{time.time() - self.timer:.3f}s]"
         msg = (
-            f"(epoch {state.epoch:^4d} {step_ratio} {timer_str} | {core} | "
+            f"(epoch {state.epoch:^4d} {step_str} {timer_str} | {core} | "
             f"score : {fix_float_to_length(final_score, 8)} |"
         )
         if self.verbose:
