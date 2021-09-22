@@ -18,6 +18,7 @@ from .core import ImageFolderDataset
 from .core import InferenceImageFolderDataset
 from .transforms import Transforms
 from ....types import sample_weights_type
+from ....constants import DATA_CACHE_DIR
 from ....misc.internal_ import CVDataset
 from ....misc.internal_ import CVLoader
 from ....misc.internal_ import DataLoader
@@ -33,7 +34,7 @@ class MNISTData(CVDataModule):
     def __init__(
         self,
         *,
-        root: str = "data",
+        root: str = DATA_CACHE_DIR,
         shuffle: bool = True,
         batch_size: int = 64,
         transform: Optional[Union[str, List[str], Transforms, Callable]],

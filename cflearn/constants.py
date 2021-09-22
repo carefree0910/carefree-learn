@@ -26,3 +26,4 @@ ML_PIPELINE_SAVE_NAME = "ml_pipeline"
 
 DEFAULT_ZOO_TAG = "default"
 CACHE_DIR = os.path.join(os.path.expanduser("~"), ".cache", "carefree-learn")
+DATA_CACHE_DIR = os.path.join(CACHE_DIR, "data")
