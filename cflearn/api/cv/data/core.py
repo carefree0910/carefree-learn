@@ -271,6 +271,8 @@ def prepare_image_folder(
 
         parallel = Parallel(d_num_jobs, use_tqdm=use_tqdm)
         results: List[Tuple[str, Dict[str, Any]]]
+        indices = indices.copy()
+        np.random.shuffle(indices)
         results = sum(parallel.grouped(record, indices).ordered_results, [])
         d_valid_indices = [i for i, r in enumerate(results) if r is not None]
         results = [results[i] for i in d_valid_indices]
