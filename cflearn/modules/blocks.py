@@ -1168,148 +1168,6 @@ class PreNorm(Module):
         return attention_outputs.output
 
 
-to_patches: Dict[str, Type["ImgToPatches"]] = {}
-
-
-class ImgToPatches(Module, WithRegister):
-    d: Dict[str, Type["ImgToPatches"]] = to_patches
-
-    def __init__(
-        self,
-        img_size: int,
-        patch_size: int,
-        in_channels: int,
-        latent_dim: int,
-    ):
-        super().__init__()
-        self.img_size = img_size
-        self.patch_size = patch_size
-        self.in_channels = in_channels
-        self.latent_dim = latent_dim
-
-    @abstractmethod
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
-        """should return patches and its hw"""
-
-    @property
-    def num_patches(self) -> int:
-        shape = 1, self.in_channels, self.img_size, self.img_size
-        params = list(self.parameters())
-        device = "cpu" if not params else params[0].device
-        with eval_context(self):
-            net = self.forward(torch.zeros(*shape, device=device))[0]
-        return net.shape[1]
-
-
-@ImgToPatches.register("vanilla")
-class VanillaPatchEmbed(ImgToPatches):
-    def __init__(
-        self,
-        img_size: int,
-        patch_size: int,
-        in_channels: int,
-        latent_dim: int = 128,
-        **conv_kwargs: Any,
-    ):
-        super().__init__(img_size, patch_size, in_channels, latent_dim)
-        if img_size % patch_size != 0:
-            raise ValueError(
-                f"`img_size` ({img_size}) should be "
-                f"divisible by `patch_size` ({patch_size})"
-            )
-        self.img_size = img_size
-        self.patch_size = patch_size
-        self.in_channels = in_channels
-        self.latent_dim = latent_dim
-        self.projection = Conv2d(
-            in_channels,
-            latent_dim,
-            kernel_size=patch_size,
-            stride=patch_size,
-            padding=0,
-            **conv_kwargs,
-        )
-
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
-        net = self.projection(net)
-        hw = net.shape[-2:]
-        net = net.flatten(2).transpose(1, 2).contiguous()
-        return net, hw
-
-
-@ImgToPatches.register("overlap")
-class OverlapPatchEmbed(ImgToPatches):
-    def __init__(
-        self,
-        img_size: int,
-        patch_size: int,
-        in_channels: int,
-        latent_dim: int = 768,
-        stride: int = 4,
-        **conv_kwargs: Any,
-    ):
-        super().__init__(img_size, patch_size, in_channels, latent_dim)
-        self.conv = Conv2d(
-            in_channels,
-            latent_dim,
-            kernel_size=patch_size,
-            stride=stride,
-            padding=(patch_size // 2, patch_size // 2),
-            **conv_kwargs,
-        )
-        self.norm = nn.LayerNorm(latent_dim)
-
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
-        net = self.conv(net)
-        hw = net.shape[-2:]
-        net = net.flatten(2).transpose(1, 2).contiguous()
-        net = self.norm(net)
-        return net, hw
-
-
-@ImgToPatches.register("conv")
-class ConvPatchEmbed(ImgToPatches):
-    def __init__(
-        self,
-        img_size: int,
-        patch_size: int,
-        in_channels: int,
-        latent_channels: int = 64,
-        latent_dim: int = 384,
-        padding: int = 3,
-        stride: int = 2,
-        bias: bool = False,
-        num_layers: int = 2,
-        activation: str = "relu",
-    ):
-        super().__init__(img_size, patch_size, in_channels, latent_dim)
-        latent_channels_list = [latent_channels] * (num_layers - 1)
-        num_channels_list = [in_channels] + latent_channels_list + [latent_dim]
-        self.conv = nn.Sequential(
-            *[
-                nn.Sequential(
-                    *get_conv_blocks(
-                        num_channels_list[i],
-                        num_channels_list[i + 1],
-                        patch_size,
-                        stride,
-                        bias=bias,
-                        activation=activation,
-                        padding=padding,
-                    ),
-                    nn.MaxPool2d(3, 2, 1),
-                )
-                for i in range(num_layers)
-            ]
-        )
-
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
-        net = self.conv(net)
-        hw = net.shape[-2:]
-        net = net.flatten(2).transpose(1, 2).contiguous()
-        return net, hw
-
-
 class PerceiverIO(Module):
     def __init__(
         self,
@@ -1682,69 +1540,146 @@ class HighwayBlock(MappingBase):
 # mixed stacks
 
 
-ffn_dict: Dict[str, Type["FFN"]] = {}
+to_patches: Dict[str, Type["ImgToPatches"]] = {}
 
 
-class FFN(Module, WithRegister):
-    d: Dict[str, Type["FFN"]] = ffn_dict
+class ImgToPatches(Module, WithRegister):
+    d: Dict[str, Type["ImgToPatches"]] = to_patches
 
-    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int,
+    ):
         super().__init__()
-        self.in_dim = in_dim
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.in_channels = in_channels
         self.latent_dim = latent_dim
-        self.dropout = dropout
-
-    @property
-    @abstractmethod
-    def need_2d(self) -> bool:
-        pass
 
     @abstractmethod
-    def forward(self, net: Tensor) -> Tensor:
-        pass
-
-
-@FFN.register("ff")
-class FeedForward(FFN):
-    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
-        super().__init__(in_dim, latent_dim, dropout)
-        self.net = nn.Sequential(
-            Linear(in_dim, latent_dim),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            Linear(latent_dim, in_dim),
-            nn.Dropout(dropout),
-        )
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        """should return patches and its hw"""
 
     @property
-    def need_2d(self) -> bool:
-        return False
+    def num_patches(self) -> int:
+        shape = 1, self.in_channels, self.img_size, self.img_size
+        params = list(self.parameters())
+        device = "cpu" if not params else params[0].device
+        with eval_context(self):
+            net = self.forward(torch.zeros(*shape, device=device))[0]
+        return net.shape[1]
 
-    def forward(self, net: Tensor) -> Tensor:
-        return self.net(net)
 
-
-@FFN.register("mix_ff")
-class MixFeedForward(FFN):
-    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
-        super().__init__(in_dim, latent_dim, dropout)
-        self.net = nn.Sequential(
-            Linear(in_dim, latent_dim),
-            Lambda(lambda t: t.permute(0, 3, 1, 2), "permute -> BCHW"),
-            DepthWiseConv2d(latent_dim),
-            Lambda(lambda t: t.flatten(2).transpose(1, 2), "transpose -> BNC"),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            Linear(latent_dim, in_dim),
-            nn.Dropout(dropout),
+@ImgToPatches.register("vanilla")
+class VanillaPatchEmbed(ImgToPatches):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int = 128,
+        **conv_kwargs: Any,
+    ):
+        super().__init__(img_size, patch_size, in_channels, latent_dim)
+        if img_size % patch_size != 0:
+            raise ValueError(
+                f"`img_size` ({img_size}) should be "
+                f"divisible by `patch_size` ({patch_size})"
+            )
+        self.img_size = img_size
+        self.patch_size = patch_size
+        self.in_channels = in_channels
+        self.latent_dim = latent_dim
+        self.projection = Conv2d(
+            in_channels,
+            latent_dim,
+            kernel_size=patch_size,
+            stride=patch_size,
+            padding=0,
+            **conv_kwargs,
         )
 
-    @property
-    def need_2d(self) -> bool:
-        return True
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        net = self.projection(net)
+        hw = net.shape[-2:]
+        net = net.flatten(2).transpose(1, 2).contiguous()
+        return net, hw
 
-    def forward(self, net: Tensor) -> Tensor:
-        return self.net(net)
+
+@ImgToPatches.register("overlap")
+class OverlapPatchEmbed(ImgToPatches):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int = 768,
+        stride: int = 4,
+        **conv_kwargs: Any,
+    ):
+        super().__init__(img_size, patch_size, in_channels, latent_dim)
+        self.conv = Conv2d(
+            in_channels,
+            latent_dim,
+            kernel_size=patch_size,
+            stride=stride,
+            padding=(patch_size // 2, patch_size // 2),
+            **conv_kwargs,
+        )
+        self.norm = nn.LayerNorm(latent_dim)
+
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        net = self.conv(net)
+        hw = net.shape[-2:]
+        net = net.flatten(2).transpose(1, 2).contiguous()
+        net = self.norm(net)
+        return net, hw
+
+
+@ImgToPatches.register("conv")
+class ConvPatchEmbed(ImgToPatches):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_channels: int = 64,
+        latent_dim: int = 384,
+        padding: int = 3,
+        stride: int = 2,
+        bias: bool = False,
+        num_layers: int = 2,
+        activation: str = "relu",
+    ):
+        super().__init__(img_size, patch_size, in_channels, latent_dim)
+        latent_channels_list = [latent_channels] * (num_layers - 1)
+        num_channels_list = [in_channels] + latent_channels_list + [latent_dim]
+        self.conv = nn.Sequential(
+            *[
+                nn.Sequential(
+                    *get_conv_blocks(
+                        num_channels_list[i],
+                        num_channels_list[i + 1],
+                        patch_size,
+                        stride,
+                        bias=bias,
+                        activation=activation,
+                        padding=padding,
+                    ),
+                    nn.MaxPool2d(3, 2, 1),
+                )
+                for i in range(num_layers)
+            ]
+        )
+
+    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+        net = self.conv(net)
+        hw = net.shape[-2:]
+        net = net.flatten(2).transpose(1, 2).contiguous()
+        return net, hw
 
 
 token_mixers: Dict[str, Type["TokenMixerBase"]] = {}
@@ -1812,6 +1747,71 @@ class AttentionTokenMixer(TokenMixerBase):
         mask: Optional[Tensor] = None,
     ) -> Tensor:
         return self.net(net, net, net, hw=hw, mask=mask).output
+
+
+ffn_dict: Dict[str, Type["FFN"]] = {}
+
+
+class FFN(Module, WithRegister):
+    d: Dict[str, Type["FFN"]] = ffn_dict
+
+    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+        super().__init__()
+        self.in_dim = in_dim
+        self.latent_dim = latent_dim
+        self.dropout = dropout
+
+    @property
+    @abstractmethod
+    def need_2d(self) -> bool:
+        pass
+
+    @abstractmethod
+    def forward(self, net: Tensor) -> Tensor:
+        pass
+
+
+@FFN.register("ff")
+class FeedForward(FFN):
+    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+        super().__init__(in_dim, latent_dim, dropout)
+        self.net = nn.Sequential(
+            Linear(in_dim, latent_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            Linear(latent_dim, in_dim),
+            nn.Dropout(dropout),
+        )
+
+    @property
+    def need_2d(self) -> bool:
+        return False
+
+    def forward(self, net: Tensor) -> Tensor:
+        return self.net(net)
+
+
+@FFN.register("mix_ff")
+class MixFeedForward(FFN):
+    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+        super().__init__(in_dim, latent_dim, dropout)
+        self.net = nn.Sequential(
+            Linear(in_dim, latent_dim),
+            Lambda(lambda t: t.permute(0, 3, 1, 2), "permute -> BCHW"),
+            DepthWiseConv2d(latent_dim),
+            Lambda(lambda t: t.flatten(2).transpose(1, 2), "transpose -> BNC"),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            Linear(latent_dim, in_dim),
+            nn.Dropout(dropout),
+        )
+
+    @property
+    def need_2d(self) -> bool:
+        return True
+
+    def forward(self, net: Tensor) -> Tensor:
+        return self.net(net)
 
 
 class DropPath(Module):
