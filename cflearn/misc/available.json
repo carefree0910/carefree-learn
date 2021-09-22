@@ -19,6 +19,8 @@
     "style_gan_generator.metfaces",
     "cycle_gan_generator.pixel_art",
     "cct_large_224",
-    "cct_large_384"
+    "cct_large_384",
+    "u2net",
+    "u2net.lite"
   ]
 }
