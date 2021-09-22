@@ -79,15 +79,18 @@ class SizedGeneratorCallback(GeneratorCallback):
         if not self.is_rank_0:
             return None
         super().log_artifacts(trainer)
+        model = trainer.model
         image_folder = self._prepare_folder(trainer, check_num_keep=False)
-        sample_method = getattr(trainer.model, "sample", None)
+        sample_method = getattr(model, "sample", None)
         if sample_method is None:
             raise ValueError(
                 "`sample` should be implemented when `SizedGeneratorCallback` is used "
                 "(and the `sample` method should support accepting `size` kwarg)"
             )
-        with eval_context(trainer.model):
-            for size in [32, 64, 128]:
+        resolution = getattr(model, "img_size", 32)
+        with eval_context(model):
+            for i in range(1, 4):
+                size = resolution * 2 ** i
                 sampled = sample_method(4, size=size).cpu()
                 path = os.path.join(image_folder, f"sampled_{size}x{size}.png")
                 save_images(sampled, path)
