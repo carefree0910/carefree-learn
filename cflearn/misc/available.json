@@ -17,6 +17,8 @@
     "style_gan_generator.brecahad",
     "style_gan_generator.ffhq",
     "style_gan_generator.metfaces",
-    "cycle_gan_generator.pixel_art"
+    "cycle_gan_generator.pixel_art",
+    "cct_large_224",
+    "cct_large_384"
   ]
 }
