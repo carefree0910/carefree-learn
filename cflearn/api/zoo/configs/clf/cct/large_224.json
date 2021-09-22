@@ -1,0 +1,9 @@
+{
+  "__bases__": ["clf/cct.large"],
+  "__requires__": [
+    {"model_config": ["num_classes"]}
+  ],
+  "model_config": {
+    "img_size": 224
+  }
+}
