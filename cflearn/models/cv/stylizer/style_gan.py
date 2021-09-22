@@ -7,9 +7,9 @@ from typing import Optional
 
 from .constants import INPUT_B_KEY
 from .constants import LABEL_B_KEY
-from ..decoder import StyleGANDecoder
 from ..encoder import Encoder1DBase
 from ..encoder import Encoder1DFromPatches
+from ..generator import StyleGANDecoder
 from ...bases import CustomLossBase
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
@@ -79,8 +79,7 @@ class StyleGANStylizer(CustomLossBase):
         w_mu, w_log_var = net.chunk(2, dim=1)
         w = reparameterize(w_mu, w_log_var)
         ws = w.unsqueeze(1).repeat([1, self.num_ws, 1])
-        batch[INPUT_KEY] = ws
-        net = self.style_decoder.decode(batch)
+        net = self.style_decoder(ws, labels=batch.get(LABEL_KEY), **kwargs)
         return {
             PREDICTIONS_KEY: net,
             MU_KEY: w_mu,
