@@ -446,3 +446,9 @@ class InferenceImageFolderDataset(Dataset):
 
     def make_loader(self, batch_size: int, num_workers: int = 0) -> CVLoader:
         return CVLoader(DataLoader(self, batch_size, num_workers=num_workers))
+
+
+__all__ = [
+    "batch_callback",
+    "prepare_image_folder",
+]
