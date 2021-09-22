@@ -3,6 +3,7 @@ import cflearn
 
 from PIL import Image
 from typing import List
+from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 
@@ -27,7 +28,7 @@ def prepare() -> None:
     )
 
 
-data_folder = "../data" if is_ci else "data"
+data_folder = DATA_CACHE_DIR if is_ci else "data"
 dataset = f"poster{'_tiny' if is_ci else ''}"
 src_folder = os.path.join(data_folder, dataset)
 tgt_folder = os.path.join(data_folder, "poster_data")
@@ -50,10 +51,5 @@ if __name__ == "__main__":
         lmdb_config=lmdb_config,
     )
 
-    m = cflearn.DLZoo.load_pipeline(
-        "ssl/dino",
-        callback_names="mlflow",
-        amp=not is_ci,
-        debug=is_ci,
-    )
+    m = cflearn.api.dino(callback_names="mlflow", amp=not is_ci, debug=is_ci)
     m.fit(data, cuda=None if is_ci else 0)

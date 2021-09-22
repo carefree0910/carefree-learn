@@ -10,9 +10,8 @@ is_ci = check_is_ci()
 num_classes = 10
 data = cflearn.cv.MNISTData(batch_size=4 if is_ci else 64, transform="for_generation")
 
-m = cflearn.DLZoo.load_pipeline(
-    "vae/vq.gray_lite",
-    img_size=28,
+m = cflearn.api.vq_vae_gray_lite(
+    28,
     model_config={"num_classes": num_classes},
     callback_configs={"vq_vae": {"num_classes": num_classes}},
     debug=is_ci,

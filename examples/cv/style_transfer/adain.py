@@ -4,6 +4,7 @@ import os
 import cflearn
 
 from PIL import Image
+from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 from cflearn.models.cv.stylizer.constants import STYLE_KEY
@@ -12,7 +13,7 @@ from cflearn.models.cv.stylizer.constants import STYLE_KEY
 is_ci = check_is_ci()
 Image.MAX_IMAGE_PIXELS = None
 
-data_root = "data"
+data_root = DATA_CACHE_DIR if is_ci else "data"
 dataset = "adain_tiny"
 hierarchy = [data_root]
 if is_ci:
@@ -44,9 +45,5 @@ if __name__ == "__main__":
         lmdb_config=lmdb_config,
     )
 
-    m = cflearn.DLZoo.load_pipeline(
-        "style_transfer/adain",
-        callback_names=["adain", "mlflow"],
-        debug=is_ci,
-    )
+    m = cflearn.api.adain(True, callback_names=["adain", "mlflow"], debug=is_ci)
     m.fit(data, cuda=None if is_ci else 4)

@@ -49,12 +49,9 @@ data = cflearn.cv.MNISTData(
     label_callback=lambda batch: batch[0],
 )
 
-m = cflearn.DLZoo.load_pipeline(
-    "generator/pixel_cnn",
-    model_config={
-        "num_classes": 256,
-        "num_conditional_classes": num_conditional_classes,
-    },
+m = cflearn.api.pixel_cnn(
+    256,
+    model_config={"num_conditional_classes": num_conditional_classes},
     debug=is_ci,
 )
 m.fit(data, cuda=None if is_ci else 0)

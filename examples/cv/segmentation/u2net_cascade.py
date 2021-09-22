@@ -3,13 +3,14 @@
 import cflearn
 
 from u2net_finetune import prepare
-from u2net_finetune import pretrained_ckpt
 from cflearn.misc.toolkit import check_is_ci
+from cflearn.misc.toolkit import download_model
 
 
 is_ci = check_is_ci()
-
-finetune_ckpt = "pretrained/lite_finetune_aug.pt"
+finetune_ckpt = "path/to/your/finetune/model"
+if is_ci:
+    finetune_ckpt = download_model("u2net.lite")
 
 if __name__ == "__main__":
     data = cflearn.cv.ImageFolderData(
@@ -20,9 +21,8 @@ if __name__ == "__main__":
         test_transform=cflearn.cv.ABundleTestTransform(label_alias="mask"),
     )
 
-    m = cflearn.DLZoo.load_pipeline(
-        "segmentor/u2net.refine_lite",
-        lv1_model_ckpt_path=pretrained_ckpt if is_ci else finetune_ckpt,
+    m = cflearn.api.u2net_lite_refine(
+        finetune_ckpt,
         callback_names=["cascade_u2net", "mlflow"],
         debug=is_ci,
     )

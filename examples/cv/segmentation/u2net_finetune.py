@@ -7,6 +7,7 @@ import cflearn
 import numpy as np
 
 from typing import List
+from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 from cflearn.misc.toolkit import min_max_normalize
@@ -28,7 +29,7 @@ def prepare(ci: bool) -> str:
         np.save(label_path, alpha)
         return label_path
 
-    data_root = "../data" if ci else "data"
+    data_root = DATA_CACHE_DIR if ci else "data"
     dataset = "products-10k_tiny"
     if not ci:
         data_folder = data_root
@@ -51,8 +52,6 @@ def prepare(ci: bool) -> str:
     return tgt_folder
 
 
-pretrained_ckpt = "pretrained/model_lite.pt"
-
 if __name__ == "__main__":
     data = cflearn.cv.ImageFolderData(
         prepare(is_ci),
@@ -61,17 +60,5 @@ if __name__ == "__main__":
         transform=cflearn.cv.ABundleTransform(label_alias="mask"),
         test_transform=cflearn.cv.ABundleTestTransform(label_alias="mask"),
     )
-    if is_ci:
-        import torch
-
-        m = cflearn.DLZoo.load_pipeline("segmentor/u2net.lite", debug=True).fit(data)
-        os.makedirs(os.path.dirname(pretrained_ckpt), exist_ok=True)
-        torch.save(m.model.state_dict(), pretrained_ckpt)
-
-    m = cflearn.DLZoo.load_pipeline(
-        "segmentor/u2net.finetune_lite",
-        pretrained_ckpt=pretrained_ckpt,
-        callback_names=["u2net", "mlflow"],
-        debug=is_ci,
-    )
+    m = cflearn.api.u2net_lite_finetune(callback_names=["u2net", "mlflow"], debug=is_ci)
     m.fit(data, cuda=None if is_ci else 0)

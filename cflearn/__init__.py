@@ -12,4 +12,5 @@ from .api import multimodal
 from .api.zoo import *
 from .api.basic import *
 from .api.register import *
+from . import api
 from . import dist
