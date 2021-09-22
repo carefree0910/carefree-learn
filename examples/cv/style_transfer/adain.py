@@ -31,7 +31,6 @@ if __name__ == "__main__":
         content_folder,
         gathered_folder,
         to_index=False,
-        label_fn=None,
         num_jobs=0 if is_ci else 24,
         lmdb_config=lmdb_config,
     )
