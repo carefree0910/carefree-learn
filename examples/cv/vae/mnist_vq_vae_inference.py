@@ -14,9 +14,9 @@ from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 
 
-cuda = "1"
-log_folder = ".c_vq_vae"
-inference_folder = ".c_vq_vae_inference"
+cuda = 1
+log_folder = ".versions/c_vq_vae_v1"
+inference_folder = ".versions/c_vq_vae_inference_v1"
 code_export_folder = os.path.join(inference_folder, "codes")
 num_classes = 10
 
@@ -25,7 +25,7 @@ num_classes = 10
 def export_code_indices() -> None:
     os.makedirs(code_export_folder, exist_ok=True)
     code_data = cflearn.cv.MNISTData(shuffle=False, transform="for_generation")
-    code_data.prepare()
+    code_data.prepare(None)
     code_train, code_valid = code_data.initialize()
     for name, loader in zip(["train", "valid"], [code_train, code_valid]):
         labels = []
@@ -93,16 +93,12 @@ if __name__ == "__main__":
         valid_others={ORIGINAL_LABEL_KEY: y_valid},
     )
 
-    m = cflearn.cv.CarefreePipeline(
-        "pixel_cnn",
-        {
-            "in_channels": 1,
-            "num_classes": 16,
+    m = cflearn.api.pixel_cnn(
+        16,
+        model_config={
             "need_embedding": True,
             "num_conditional_classes": num_classes,
         },
-        loss_name="cross_entropy",
-        metric_names="acc",
         workplace=f"{inference_folder}/_logs",
     )
     m.fit(data, cuda=cuda)
