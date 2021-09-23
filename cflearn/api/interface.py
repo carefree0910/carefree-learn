@@ -290,14 +290,58 @@ def siren_vae_gray(img_size: int, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("vae/siren.gray", **kwargs)
 
 
-def vq_vae_lite(img_size: int, **kwargs: Any) -> DLPipeline:
+def _vq_vae(
+    model: str,
+    img_size: int,
+    num_classes: Optional[int] = None,
+    **kwargs: Any,
+) -> DLPipeline:
     kwargs["img_size"] = img_size
-    return DLZoo.load_pipeline("vae/vq.lite", **kwargs)
+    if num_classes is not None:
+        model_config = kwargs.setdefault("model_config", {})
+        num_classes = model_config.setdefault("num_classes", num_classes)
+        callback_names = kwargs.get("callback_names")
+        if callback_names is None or "vq_vae" in callback_names:
+            callback_configs = kwargs.setdefault("callback_configs", {})
+            vq_vae_callback_configs = callback_configs.setdefault("vq_vae", {})
+            vq_vae_callback_configs.setdefault("num_classes", num_classes)
+    return DLZoo.load_pipeline(f"vae/{model}", **kwargs)
 
 
-def vq_vae_gray_lite(img_size: int, **kwargs: Any) -> DLPipeline:
-    kwargs["img_size"] = img_size
-    return DLZoo.load_pipeline("vae/vq.gray_lite", **kwargs)
+def vq_vae(
+    img_size: int,
+    *,
+    num_classes: Optional[int] = None,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _vq_vae("vq", img_size, num_classes, **kwargs)
+
+
+def vq_vae_gray(
+    img_size: int,
+    *,
+    num_classes: Optional[int] = None,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _vq_vae("vq.gray", img_size, num_classes, **kwargs)
+
+
+def vq_vae_lite(
+    img_size: int,
+    *,
+    num_classes: Optional[int] = None,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _vq_vae("vq.lite", img_size, num_classes, **kwargs)
+
+
+def vq_vae_gray_lite(
+    img_size: int,
+    *,
+    num_classes: Optional[int] = None,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _vq_vae("vq.gray_lite", img_size, num_classes, **kwargs)
 
 
 __all__ = [
@@ -336,6 +380,8 @@ __all__ = [
     "style_vae_gray",
     "siren_vae",
     "siren_vae_gray",
+    "vq_vae",
+    "vq_vae_gray",
     "vq_vae_lite",
     "vq_vae_gray_lite",
 ]

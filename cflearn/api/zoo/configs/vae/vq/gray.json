@@ -4,7 +4,6 @@
     {"model_config": ["img_size"]}
   ],
   "model_config": {
-    "num_code": 16
-  },
-  "scheduler_config": {"decay": 1.0e-4}
+    "in_channels": 1
+  }
 }
