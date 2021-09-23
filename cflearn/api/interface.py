@@ -32,7 +32,7 @@ def fit_ml(
     data_kwargs = dict(is_classification=is_classification, data_config=data_config)
     args = x_train, y_train, x_valid, y_valid
     data_base = MLData.with_cf_data if carefree else MLData
-    data = data_base(*args, **data_kwargs)
+    data = data_base(*args, **data_kwargs)  # type: ignore
     m_base = MLCarefree if carefree else MLSimple
     return m_base(**(pipeline_config or {})).fit(data, **fit_kwargs)
 
