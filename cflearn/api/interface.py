@@ -260,6 +260,16 @@ def vanilla_vae_gray(img_size: int, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("vae/vanilla.gray", **kwargs)
 
 
+def vanilla_vae2d(img_size: int, **kwargs: Any) -> DLPipeline:
+    kwargs["img_size"] = img_size
+    return DLZoo.load_pipeline("vae/vanilla.2d", **kwargs)
+
+
+def vanilla_vae2d_gray(img_size: int, **kwargs: Any) -> DLPipeline:
+    kwargs["img_size"] = img_size
+    return DLZoo.load_pipeline("vae/vanilla.2d_gray", **kwargs)
+
+
 def style_vae(img_size: int, **kwargs: Any) -> DLPipeline:
     kwargs["img_size"] = img_size
     return DLZoo.load_pipeline("vae/style", **kwargs)
@@ -320,6 +330,8 @@ __all__ = [
     "adain",
     "vanilla_vae",
     "vanilla_vae_gray",
+    "vanilla_vae2d",
+    "vanilla_vae2d_gray",
     "style_vae",
     "style_vae_gray",
     "siren_vae",
