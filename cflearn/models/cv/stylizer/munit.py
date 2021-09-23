@@ -42,6 +42,7 @@ class StyleEncoder(nn.Module):
         out_channels: int,
         num_downsample: int,
         *,
+        kernel_size: int = 4,
         norm_type: Optional[str] = None,
         activation: str = "relu",
     ):
@@ -50,6 +51,7 @@ class StyleEncoder(nn.Module):
             in_channels,
             num_downsample,
             latent_channels * 4,
+            kernel_size=kernel_size,
             start_channels=latent_channels,
             norm_type=norm_type,
             activation=activation,
@@ -79,6 +81,7 @@ class ContentEncoder(nn.Module):
         num_downsample: int,
         num_residual_blocks: int,
         *,
+        kernel_size: int = 4,
         norm_type: Optional[str] = "instance",
         activation: str = "relu",
     ):
@@ -88,6 +91,7 @@ class ContentEncoder(nn.Module):
             in_channels,
             num_downsample,
             self.out_channels,
+            kernel_size=kernel_size,
             num_residual_blocks=num_residual_blocks,
             norm_type=norm_type,
             activation=activation,
