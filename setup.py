@@ -23,7 +23,7 @@ setup(
         "onnxruntime",
         "plotly",
         "carefree-data>=0.2.5",
-        "carefree-toolkit>=0.2.7",
+        "carefree-toolkit>=0.2.8",
         "dill",
         "future",
         "psutil",
