@@ -114,6 +114,19 @@ def resnet18(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipe
     return DLZoo.load_pipeline("clf/resnet18", **kwargs)
 
 
+def resnet18_model(
+    num_classes: int,
+    *,
+    pretrained: bool = False,
+    **kwargs: Any,
+) -> ModelProtocol:
+    kwargs["num_classes"] = num_classes
+    model_config = kwargs.setdefault("model_config", {})
+    encoder1d_config = model_config.setdefault("encoder1d_config", {})
+    encoder1d_config["pretrained"] = pretrained
+    return DLZoo.load_model("clf/resnet18", **kwargs)
+
+
 def resnet18_gray(num_classes: int, **kwargs: Any) -> DLPipeline:
     kwargs["num_classes"] = num_classes
     return DLZoo.load_pipeline("clf/resnet18.gray", **kwargs)
@@ -125,6 +138,19 @@ def resnet101(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPip
     encoder1d_config = model_config.setdefault("encoder1d_config", {})
     encoder1d_config["pretrained"] = pretrained
     return DLZoo.load_pipeline("clf/resnet101", **kwargs)
+
+
+def resnet101_model(
+    num_classes: int,
+    *,
+    pretrained: bool = False,
+    **kwargs: Any,
+) -> ModelProtocol:
+    kwargs["num_classes"] = num_classes
+    model_config = kwargs.setdefault("model_config", {})
+    encoder1d_config = model_config.setdefault("encoder1d_config", {})
+    encoder1d_config["pretrained"] = pretrained
+    return DLZoo.load_model("clf/resnet101", **kwargs)
 
 
 # gan
@@ -273,8 +299,9 @@ __all__ = [
     "cct_large_384",
     "cct_large_384_model",
     "resnet18",
+    "resnet18_model",
     "resnet18_gray",
-    "resnet101",
+    "resnet101_model",
     "vanilla_gan",
     "vanilla_gan_gray",
     "siren_gan",
