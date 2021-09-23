@@ -104,9 +104,9 @@ class PipelineProtocol(WithRegister, metaclass=ABCMeta):
     def save(self, export_folder: str) -> "PipelineProtocol":
         pass
 
-    @classmethod
+    @staticmethod
     @abstractmethod
-    def load(cls, export_folder: str) -> "PipelineProtocol":
+    def load(export_folder: str) -> "PipelineProtocol":
         pass
 
 
@@ -118,6 +118,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     inference_base: Type[InferenceProtocol]
     device_info: DeviceInfo
 
+    pipeline_file: str = "pipeline.txt"
     config_file: str = "config.json"
     trainer_config_file: str = "trainer_config.json"
     data_info_name: str = "data_info"
@@ -235,12 +236,17 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     # internal
 
+    def _write_pipeline_info(self, folder: str) -> None:
+        with open(os.path.join(folder, self.pipeline_file), "w") as f:
+            f.write(self.__identifier__)
+
     def _prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self.trainer_config["workplace"] = workplace
             self.trainer_config["data_info_name"] = self.data_info_name
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
+            self._write_pipeline_info(workplace)
             with open(os.path.join(workplace, self.config_file), "w") as f:
                 json.dump(self.config, f)
 
@@ -286,6 +292,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def _save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
+        self._write_pipeline_info(export_folder)
         self.data.save(export_folder)
         # final results
         try:
@@ -432,13 +439,17 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         abs_folder = os.path.abspath(pack_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [pack_folder]):
+            shutil.copyfile(
+                os.path.join(workplace, cls.pipeline_file),
+                os.path.join(pack_folder, cls.pipeline_file),
+            )
             checkpoint_folder = os.path.join(workplace, CHECKPOINTS_FOLDER)
             if step is not None:
                 best_file = f"{PT_PREFIX}{step}.pt"
             else:
                 best_file = get_sorted_checkpoints(checkpoint_folder)[0]
             new_file = f"{PT_PREFIX}-1.pt"
-            shutil.copy(
+            shutil.copyfile(
                 os.path.join(checkpoint_folder, best_file),
                 os.path.join(pack_folder, new_file),
             )
@@ -462,9 +473,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             Saving.compress(abs_folder, remove_original=True)
         return pack_folder
 
-    @classmethod
+    @staticmethod
+    def get_base(workplace: str) -> Type["DLPipeline"]:
+        with open(os.path.join(workplace, DLPipeline.pipeline_file), "r") as f:
+            return DLPipeline.get(f.read())
+
+    @staticmethod
     def load(
-        cls,
         export_folder: str,
         *,
         cuda: Optional[Union[int, str]] = None,
@@ -478,6 +493,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
+                cls = DLPipeline.get_base(export_folder)
                 m = cls._load_infrastructure(
                     export_folder,
                     None if cuda is None else str(cuda),
