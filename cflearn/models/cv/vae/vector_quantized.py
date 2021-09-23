@@ -1,3 +1,5 @@
+import torch
+
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -7,6 +9,7 @@ from typing import Optional
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
+from ....constants import PREDICTIONS_KEY
 from ..generator.vector_quantized import VQGenerator
 from ....misc.toolkit import auto_num_layers
 
@@ -21,7 +24,7 @@ class VQVAE(ModelProtocol):
         out_channels: Optional[int] = None,
         num_downsample: Optional[int] = None,
         min_size: int = 4,
-        target_downsample: int = 4,
+        target_downsample: int = 6,
         *,
         encoder: str = "vanilla",
         decoder: str = "vanilla",
@@ -71,6 +74,7 @@ class VQVAE(ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         results = self.generator(batch_idx, batch, state, **kwargs)
+        results[PREDICTIONS_KEY] = torch.tanh(results[PREDICTIONS_KEY])
         z_q, indices = results["z_q"], results["indices"]
         z_q_g_flatten = self.generator.codebook.embedding.weight[indices]
         shape = -1, *z_q.shape[2:], self.latent_channels
@@ -85,7 +89,8 @@ class VQVAE(ModelProtocol):
         labels: Optional[Tensor] = None,
         resize: bool = True,
     ) -> Tensor:
-        return self.generator.decode(z_q, labels=labels, resize=resize)
+        net = self.generator.decode(z_q, labels=labels, resize=resize)
+        return torch.tanh(net)
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.generator.get_code_indices(net, **kwargs)
@@ -99,13 +104,14 @@ class VQVAE(ModelProtocol):
         use_one_hot: bool = False,
         **kwargs: Any,
     ) -> Tensor:
-        return self.generator.reconstruct_from(
+        net = self.generator.reconstruct_from(
             code_indices,
             class_idx=class_idx,
             labels=labels,
             use_one_hot=use_one_hot,
             **kwargs,
         )
+        return torch.tanh(net)
 
     def sample_codebook(
         self,
