@@ -388,7 +388,7 @@ def make_toy_model(
         x_np, y_np = data_tuple
     else:
         if not is_classification:
-            x, y = [[0]], [[1]]
+            x, y = [[0]], [[1.0]]
         else:
             x, y = [[0], [1]], [[1], [0]]
         x_np, y_np = map(np.array, [x, y])
@@ -418,11 +418,11 @@ def make_toy_model(
             label_process_method="identical",
         ),
     )
-    data = MLData(
+    data = MLData.with_cf_data(
         x_np,
         y_np,
-        cf_data=TabularData(**data_config),
         is_classification=is_classification,
+        data_config=data_config,
         valid_split=0.0,
     )
     m.fit(data, cuda=cuda)
