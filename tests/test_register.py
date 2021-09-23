@@ -49,7 +49,8 @@ class TestRegister(unittest.TestCase):
             def _recover(self, processed_columns: np.ndarray) -> np.ndarray:
                 return processed_columns - 1
 
-        m = cflearn.ml.make_toy_model(data_config={"label_process_method": "plus_one"})
+        cf_data_config = {"label_process_method": "plus_one"}
+        m = cflearn.ml.make_toy_model(cf_data_config=cf_data_config)
         assert isinstance(m, cflearn.ml.CarefreePipeline)
         y = m.cf_data.converted.y  # type: ignore
         processed_y = m.cf_data.processed.y  # type: ignore

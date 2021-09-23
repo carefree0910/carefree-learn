@@ -24,12 +24,14 @@ def fit_ml(
     carefree: bool = False,
     is_classification: Optional[bool] = None,
     data_config: Optional[Dict[str, Any]] = None,
+    cf_data_config: Optional[Dict[str, Any]] = None,
     pipeline_config: Optional[Dict[str, Any]] = None,
     **fit_kwargs: Any,
 ) -> DLPipeline:
-    if data_config is None:
-        data_config = {}
-    data_kwargs = dict(is_classification=is_classification, data_config=data_config)
+    data_kwargs = {"is_classification": is_classification}
+    if carefree:
+        data_kwargs["cf_data_config"] = cf_data_config
+    update_dict(data_config or {}, data_kwargs)
     args = x_train, y_train, x_valid, y_valid
     data_base = MLData.with_cf_data if carefree else MLData
     data = data_base(*args, **data_kwargs)  # type: ignore

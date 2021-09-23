@@ -181,16 +181,16 @@ class MLData(DLDataModule):
         cls,
         *args: Any,
         is_classification: Optional[bool] = None,
-        data_config: Optional[Dict[str, Any]] = None,
+        cf_data_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> "MLData":
-        if data_config is None:
-            data_config = {}
-        data_config["default_categorical_process"] = "identical"
+        if cf_data_config is None:
+            cf_data_config = {}
+        cf_data_config["default_categorical_process"] = "identical"
         if is_classification is not None:
-            data_config["task_type"] = "clf" if is_classification else "reg"
+            cf_data_config["task_type"] = "clf" if is_classification else "reg"
         kwargs["is_classification"] = is_classification
-        kwargs["cf_data"] = TabularData(**(data_config or {}))
+        kwargs["cf_data"] = TabularData(**(cf_data_config or {}))
         return cls(*args, **kwargs)
 
 

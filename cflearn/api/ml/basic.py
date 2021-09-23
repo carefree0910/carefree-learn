@@ -378,7 +378,7 @@ def make_toy_model(
     *,
     pipeline_type: str = "ml.carefree",
     is_classification: bool = False,
-    data_config: Optional[Dict[str, Any]] = None,
+    cf_data_config: Optional[Dict[str, Any]] = None,
     data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     cuda: Optional[str] = None,
 ) -> SimplePipeline:
@@ -409,10 +409,10 @@ def make_toy_model(
     updated = update_dict(config, base_config)
     m = make(pipeline_type, config=updated)
     assert isinstance(m, SimplePipeline)
-    if data_config is None:
-        data_config = {}
-    data_config = update_dict(
-        data_config,
+    if cf_data_config is None:
+        cf_data_config = {}
+    cf_data_config = update_dict(
+        cf_data_config,
         dict(
             valid_columns=list(range(x_np.shape[1])),
             label_process_method="identical",
@@ -422,7 +422,7 @@ def make_toy_model(
         x_np,
         y_np,
         is_classification=is_classification,
-        data_config=data_config,
+        cf_data_config=cf_data_config,
         valid_split=0.0,
     )
     m.fit(data, cuda=cuda)
