@@ -1,8 +1,12 @@
 from typing import Any
 from typing import Dict
+from typing import Union
+from typing import Callable
 from typing import Optional
+from cftool.misc import update_dict
 
 from ..types import data_type
+from ..types import states_callback_type
 from ..protocol import ModelProtocol
 from .ml.data import MLData
 from .ml.pipeline import SimplePipeline as MLSimple
@@ -10,6 +14,46 @@ from .ml.pipeline import CarefreePipeline as MLCarefree
 from .zoo.core import DLZoo
 from .internal_.pipeline import DLPipeline
 from ..misc.toolkit import download_model
+
+
+# dl
+
+
+def pack(
+    workplace: str,
+    *,
+    step: Optional[str] = None,
+    config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
+    pack_folder: Optional[str] = None,
+    cuda: Optional[str] = None,
+) -> str:
+    cls = DLPipeline.get_base(workplace)
+    return cls.pack(
+        workplace,
+        step=step,
+        config_bundle_callback=config_bundle_callback,
+        pack_folder=pack_folder,
+        cuda=cuda,
+    )
+
+
+def load(
+    export_folder: str,
+    *,
+    cuda: Optional[Union[int, str]] = None,
+    compress: bool = True,
+    states_callback: states_callback_type = None,
+    pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+) -> DLPipeline:
+    return DLPipeline.load(
+        export_folder,
+        cuda=cuda,
+        compress=compress,
+        states_callback=states_callback,
+        pre_callback=pre_callback,
+        post_callback=post_callback,
+    )
 
 
 # ml
@@ -347,6 +391,8 @@ def vq_vae_gray_lite(
 
 
 __all__ = [
+    "pack",
+    "load",
     "fit_ml",
     "cct_large",
     "cct_large_model",
