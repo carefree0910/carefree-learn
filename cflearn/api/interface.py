@@ -1,10 +1,40 @@
 from typing import Any
+from typing import Dict
 from typing import Optional
 
+from ..types import data_type
 from ..protocol import ModelProtocol
+from .ml.data import MLData
+from .ml.pipeline import SimplePipeline as MLSimple
+from .ml.pipeline import CarefreePipeline as MLCarefree
 from .zoo.core import DLZoo
 from .internal_.pipeline import DLPipeline
 from ..misc.toolkit import download_model
+
+
+# ml
+
+
+def fit_ml(
+    x_train: data_type,
+    y_train: data_type = None,
+    x_valid: data_type = None,
+    y_valid: data_type = None,
+    *,
+    carefree: bool = False,
+    is_classification: Optional[bool] = None,
+    data_config: Optional[Dict[str, Any]] = None,
+    pipeline_config: Optional[Dict[str, Any]] = None,
+    **fit_kwargs: Any,
+) -> DLPipeline:
+    if data_config is None:
+        data_config = {}
+    data_kwargs = dict(is_classification=is_classification, data_config=data_config)
+    args = x_train, y_train, x_valid, y_valid
+    data_base = MLData.with_cf_data if carefree else MLData
+    data = data_base(*args, **data_kwargs)
+    m_base = MLCarefree if carefree else MLSimple
+    return m_base(**(pipeline_config or {})).fit(data, **fit_kwargs)
 
 
 # cv
@@ -235,6 +265,7 @@ def vq_vae_gray_lite(img_size: int, **kwargs: Any) -> DLPipeline:
 
 
 __all__ = [
+    "fit_ml",
     "cct_large",
     "cct_large_model",
     "cct_large_224",
