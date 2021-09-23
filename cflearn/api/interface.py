@@ -72,7 +72,7 @@ def fit_ml(
     pipeline_config: Optional[Dict[str, Any]] = None,
     **fit_kwargs: Any,
 ) -> DLPipeline:
-    data_kwargs = {"is_classification": is_classification}
+    data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
     if carefree:
         data_kwargs["cf_data_config"] = cf_data_config
     update_dict(data_config or {}, data_kwargs)
