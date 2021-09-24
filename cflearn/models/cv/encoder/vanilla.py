@@ -24,7 +24,7 @@ class VanillaEncoder(EncoderBase):
         self,
         in_channels: int,
         num_downsample: int,
-        latent_channels: int = 128,
+        latent_channels: int = 256,
         *,
         kernel_size: int = 3,
         first_kernel_size: int = 7,
@@ -32,9 +32,9 @@ class VanillaEncoder(EncoderBase):
         num_residual_blocks: int = 0,
         residual_dropout: float = 0.0,
         residual_kwargs: Optional[Dict[str, Any]] = None,
-        norm_type: Optional[str] = "instance",
+        norm_type: Optional[str] = "batch",
         norm_kwargs: Optional[Dict[str, Any]] = None,
-        activation: str = "relu",
+        activation: str = "leaky_relu_0.2",
         padding: str = "same",
     ):
         super().__init__(in_channels, num_downsample, latent_channels)
@@ -64,18 +64,23 @@ class VanillaEncoder(EncoderBase):
         in_nc = start_channels
         for i in range(self.num_downsample):
             is_last = i == self.num_downsample - 1
-            if is_last:
-                out_nc = latent_channels
-            else:
+            i_norm_type = norm_type
+            i_activation = activation
+            if not is_last:
                 out_nc = min(in_nc * 2, latent_channels)
+            else:
+                out_nc = latent_channels
+                if num_residual_blocks == 0:
+                    i_norm_type = None
+                    i_activation = None  # type: ignore
             blocks.extend(
                 get_conv_blocks(
                     in_nc,
                     out_nc,
                     kernel_size,
                     2,
-                    norm_type=norm_type,
-                    activation=activation,
+                    norm_type=i_norm_type,
+                    activation=i_activation,
                     padding=downsample_padding,
                 )
             )
@@ -119,8 +124,8 @@ class VanillaEncoder1D(Encoder1DBase):
         num_residual_blocks: int = 0,
         residual_dropout: float = 0.0,
         residual_kwargs: Optional[Dict[str, Any]] = None,
-        norm_type: Optional[str] = "instance",
-        activation: str = "relu",
+        norm_type: Optional[str] = "batch",
+        activation: str = "leaky_relu_0.2",
         padding: str = "same",
     ):
         super().__init__(in_channels, latent_dim)
