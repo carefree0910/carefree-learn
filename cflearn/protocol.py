@@ -407,6 +407,21 @@ class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         # requires returns a value with LOSS_KEY as its key
         return {k: self._reduce(v) for k, v in losses.items()}
 
+    @classmethod
+    def parse(cls, name: str) -> str:
+        if ":" not in name:
+            return name
+        split = name.split(":")
+        if split[-2] != AuxLoss.identifier:
+            for prefix, base in multi_prefix_mapping.items():
+                if name.startswith(f"{prefix}:"):
+                    loss_names = name.split(":")[1].split(",")
+                    return base.register_(loss_names)
+            return name
+        loss_name = cls.parse(":".join(split[:-2]))
+        aux_names = split[-1].split(",")
+        return AuxLoss.register_(loss_name, aux_names)
+
 
 multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
 
@@ -501,19 +516,6 @@ class AuxLoss(LossProtocol):
             )
         losses[LOSS_KEY] = sum(losses.values())
         return losses
-
-    @classmethod
-    def parse(cls, name: str) -> Optional[str]:
-        if ":" not in name:
-            return None
-        split = name.split(":")
-        if len(split) != 3:
-            return None
-        if split[1] != cls.identifier:
-            return None
-        loss_name = split[0]
-        aux_names = split[2].split(",")
-        return cls.register_(loss_name, aux_names)
 
     @classmethod
     def register_(

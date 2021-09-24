@@ -30,9 +30,7 @@ from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
-from ...protocol import multi_prefix_mapping
 from ...protocol import ONNX
-from ...protocol import AuxLoss
 from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
 from ...protocol import MetricsOutputs
@@ -254,13 +252,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _prepare_loss(self) -> None:
         if self.in_loading:
             return None
-        aux_loss_name = AuxLoss.parse(self.loss_name)
-        if aux_loss_name is not None:
-            self.loss_name = aux_loss_name
-        for prefix, base in multi_prefix_mapping.items():
-            if self.loss_name.startswith(f"{prefix}:"):
-                loss_names = self.loss_name.split(":")[1].split(",")
-                self.loss_name = base.register_(loss_names)
+        self.loss_name = LossProtocol.parse(self.loss_name)
         self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
 
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
