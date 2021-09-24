@@ -91,6 +91,7 @@ def fit_ml(
 def _clf(
     model: str,
     num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
     pretrained_name: Optional[str],
     img_size: Optional[int],
     return_model: bool = False,
@@ -102,72 +103,169 @@ def _clf(
     if pretrained_name is not None:
         model_config = kwargs.setdefault("model_config", {})
         model_config["encoder1d_pretrained_name"] = pretrained_name
+    model = f"clf/{model}"
     fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
-    return fn(f"clf/{model}", **kwargs)  # type: ignore
+    if aux_num_classes is None:
+        return fn(model, **kwargs)  # type: ignore
+    config = DLZoo(model, no_build=True, **kwargs).config
+    aux_labels = sorted(aux_num_classes)
+    loss_name = config["loss_name"]
+    config["loss_name"] = f"{loss_name}:aux:{','.join(aux_labels)}"
+    metric_names = config.setdefault("metric_names", [])
+    metric_configs = config.setdefault("metric_configs", {})
+    if isinstance(metric_configs, dict):
+        metric_configs = [metric_configs.get(name, {}) for name in metric_names]
+    for label in aux_labels:
+        metric_names.append("aux")
+        metric_configs.append({"key": label, "base": "acc"})
+    config["metric_configs"] = metric_configs
+    model_config = config.setdefault("model_config", {})
+    model_config["aux_num_classes"] = aux_num_classes
+    return fn(model, **config)  # type: ignore
 
 
-def cct(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
-    return _clf("cct", num_classes, None, img_size, **kwargs)
+def cct(
+    img_size: int,
+    num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
+    **kwargs: Any,
+) -> DLPipeline:
+    return _clf("cct", num_classes, aux_num_classes, None, img_size, **kwargs)
 
 
-def cct_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
-    return _clf("cct", num_classes, None, img_size, True, **kwargs)
+def cct_model(
+    img_size: int,
+    num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
+    **kwargs: Any,
+) -> ModelProtocol:
+    return _clf("cct", num_classes, aux_num_classes, None, img_size, True, **kwargs)
 
 
-def cct_lite(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
-    return _clf("cct.lite", num_classes, None, img_size, **kwargs)
+def cct_lite(
+    img_size: int,
+    num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
+    **kwargs: Any,
+) -> DLPipeline:
+    return _clf("cct.lite", num_classes, aux_num_classes, None, img_size, **kwargs)
 
 
-def cct_lite_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
-    return _clf("cct.lite", num_classes, None, img_size, True, **kwargs)
+def cct_lite_model(
+    img_size: int,
+    num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
+    **kwargs: Any,
+) -> ModelProtocol:
+    return _clf(
+        "cct.lite",
+        num_classes,
+        aux_num_classes,
+        None,
+        img_size,
+        True,
+        **kwargs,
+    )
 
 
-def cct_large(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
-    return _clf("cct.large", num_classes, None, img_size, **kwargs)
+def cct_large(
+    img_size: int,
+    num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
+    **kwargs: Any,
+) -> DLPipeline:
+    return _clf("cct.large", num_classes, aux_num_classes, None, img_size, **kwargs)
 
 
-def cct_large_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
-    return _clf("cct.large", num_classes, None, img_size, True, **kwargs)
+def cct_large_model(
+    img_size: int,
+    num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
+    **kwargs: Any,
+) -> ModelProtocol:
+    return _clf(
+        "cct.large",
+        num_classes,
+        aux_num_classes,
+        None,
+        img_size,
+        True,
+        **kwargs,
+    )
 
 
 def cct_large_224(
     num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
     *,
     pretrained: bool = True,
     **kwargs: Any,
 ) -> DLPipeline:
     pretrained_name = "cct_large_224" if pretrained else None
-    return _clf("cct.large_224", num_classes, pretrained_name, None, **kwargs)
+    return _clf(
+        "cct.large_224",
+        num_classes,
+        aux_num_classes,
+        pretrained_name,
+        None,
+        **kwargs,
+    )
 
 
 def cct_large_224_model(
     num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
     *,
     pretrained: bool = True,
     **kwargs: Any,
 ) -> ModelProtocol:
     pretrained_name = "cct_large_224" if pretrained else None
-    return _clf("cct.large_224", num_classes, pretrained_name, None, True, **kwargs)
+    return _clf(
+        "cct.large_224",
+        num_classes,
+        aux_num_classes,
+        pretrained_name,
+        None,
+        True,
+        **kwargs,
+    )
 
 
 def cct_large_384(
     num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
     *,
     pretrained: bool = True,
     **kwargs: Any,
 ) -> DLPipeline:
     pretrained_name = "cct_large_384" if pretrained else None
-    return _clf("cct.large_384", num_classes, pretrained_name, None, **kwargs)
+    return _clf(
+        "cct.large_384",
+        num_classes,
+        aux_num_classes,
+        pretrained_name,
+        None,
+        **kwargs,
+    )
 
 
 def cct_large_384_model(
     num_classes: int,
+    aux_num_classes: Optional[Dict[str, int]],
     *,
     pretrained: bool = True,
     **kwargs: Any,
 ) -> ModelProtocol:
     pretrained_name = "cct_large_384" if pretrained else None
-    return _clf("cct.large_384", num_classes, pretrained_name, None, True, **kwargs)
+    return _clf(
+        "cct.large_384",
+        num_classes,
+        aux_num_classes,
+        pretrained_name,
+        None,
+        True,
+        **kwargs,
+    )
 
 
 def resnet18(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
