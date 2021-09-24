@@ -14,6 +14,7 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from onnxruntime import InferenceSession
@@ -26,6 +27,7 @@ from .types import tensor_dict_type
 from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
+from .constants import PREDICTIONS_KEY
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
@@ -406,6 +408,137 @@ class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
         return {k: self._reduce(v) for k, v in losses.items()}
 
 
+multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
+
+
+class MultiLoss(LossProtocol, metaclass=ABCMeta):
+    prefix: str
+
+    names: Union[str, List[str]]
+    base_losses: nn.ModuleList
+
+    def _init_config(self) -> None:
+        if isinstance(self.names, str):
+            base_losses = [LossProtocol.make(self.names, self.config)]
+        else:
+            base_losses = [
+                LossProtocol.make(name, self.config.get(name, {}))
+                for name in self.names
+            ]
+        self.base_losses = nn.ModuleList(base_losses)
+
+    @staticmethod
+    def _inject(key: str, base_losses: losses_type, all_losses: losses_type) -> None:
+        if isinstance(base_losses, dict):
+            base_losses = base_losses[LOSS_KEY]
+        all_losses[key] = base_losses
+
+    @classmethod
+    def register_(
+        cls,
+        base_loss_names: Union[str, List[str]],
+        *,
+        tag: Optional[str] = None,
+    ) -> str:
+        if tag is None:
+            if isinstance(base_loss_names, str):
+                tag = f"{cls.prefix}_{base_loss_names}"
+            else:
+                tag = f"{cls.prefix}_{'_'.join(base_loss_names)}"
+        if tag in cls.d:
+            return tag
+
+        @cls.register(tag)
+        class _(cls):  # type: ignore
+            names = base_loss_names
+
+        return tag
+
+    @classmethod
+    def record_prefix(cls) -> Callable[[Type["MultiLoss"]], Type["MultiLoss"]]:
+        def _(cls_: Type[MultiLoss]) -> Type[MultiLoss]:
+            global multi_prefix_mapping
+            multi_prefix_mapping[cls_.prefix] = cls_
+            return cls_
+
+        return _
+
+
+class AuxLoss(LossProtocol):
+    identifier: str = "aux"
+    main_loss_key: str = "main"
+
+    loss: LossProtocol
+    loss_name: str
+    aux_names: List[str]
+
+    def _init_config(self) -> None:
+        self.loss = LossProtocol.make(self.loss_name, self.config)
+
+    @staticmethod
+    def _convert(losses: losses_type) -> torch.Tensor:
+        if isinstance(losses, dict):
+            return losses[LOSS_KEY]
+        return losses
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        main_losses = self.loss._core(forward_results, batch, state, **kwargs)
+        losses = {self.main_loss_key: self._convert(main_losses)}
+        for name in self.aux_names:
+            losses[name] = self._convert(
+                self.loss._core(
+                    {PREDICTIONS_KEY: forward_results[name]},
+                    {LABEL_KEY: batch[name]},
+                    state,
+                    **kwargs,
+                )
+            )
+        losses[LOSS_KEY] = sum(losses.values())
+        return losses
+
+    @classmethod
+    def parse(cls, name: str) -> Optional[str]:
+        if ":" not in name:
+            return None
+        split = name.split(":")
+        if len(split) != 3:
+            return None
+        if split[1] != cls.identifier:
+            return None
+        loss_name = split[0]
+        aux_names = split[2].split(",")
+        return cls.register_(loss_name, aux_names)
+
+    @classmethod
+    def register_(
+        cls,
+        base_loss_name: str,
+        aux_loss_names: List[str],
+        *,
+        tag: Optional[str] = None,
+    ) -> str:
+        for name in aux_loss_names:
+            if name == cls.main_loss_key:
+                raise ValueError(f"should not use '{cls.main_loss_key}' as aux name")
+        if tag is None:
+            tag = f"{base_loss_name}_{cls.identifier}_{'_'.join(aux_loss_names)}"
+        if tag in cls.d:
+            return tag
+
+        @cls.register(tag)
+        class _(cls):  # type: ignore
+            loss_name = base_loss_name
+            aux_names = aux_loss_names
+
+        return tag
+
+
 # inference
 
 
@@ -639,6 +772,8 @@ __all__ = [
     "TrainerMonitor",
     "MonitorResults",
     "LossProtocol",
+    "MultiLoss",
+    "AuxLoss",
     "InferenceOutputs",
     "InferenceProtocol",
     "MetricsOutputs",

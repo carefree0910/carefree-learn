@@ -30,7 +30,9 @@ from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
+from ...protocol import multi_prefix_mapping
 from ...protocol import ONNX
+from ...protocol import AuxLoss
 from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
 from ...protocol import MetricsOutputs
@@ -52,8 +54,6 @@ from ...misc.toolkit import eval_context
 from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DataModule
 from ...misc.internal_ import DLDataModule
-from ...misc.internal_.losses import multi_prefix_mapping
-from ...misc.internal_.losses import AuxLoss
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
