@@ -74,6 +74,7 @@ class ZooBase(ABC):
         *,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
+        no_build: bool = False,
         debug: bool = False,
         **kwargs: Any,
     ):
@@ -115,20 +116,23 @@ class ZooBase(ABC):
         _inject_requires(kwargs, requires)
         # build
         update_dict(kwargs, self.config)
-        self.m = make(self.pipeline_name, config=self.config)
-        if data_info is None:
-            if self.download_name is None:
-                data_info = {}
-            else:
-                try:
-                    with open(download_data_info(self.download_name), "r") as f:
-                        data_info = json.load(f)
-                except ValueError:
+        if no_build:
+            self.m = None
+        else:
+            self.m = make(self.pipeline_name, config=self.config)
+            if data_info is None:
+                if self.download_name is None:
                     data_info = {}
-        try:
-            self.m.build(data_info)
-        except Exception as err:
-            raise ValueError(f"Failed to build '{model}': {err}")
+                else:
+                    try:
+                        with open(download_data_info(self.download_name), "r") as f:
+                            data_info = json.load(f)
+                    except ValueError:
+                        data_info = {}
+            try:
+                self.m.build(data_info)
+            except Exception as err:
+                raise ValueError(f"Failed to build '{model}': {err}")
 
     @classmethod
     def load_pipeline(
@@ -147,6 +151,7 @@ class ZooBase(ABC):
             debug=debug,
             **kwargs,
         )
+        assert zoo.m is not None
         return zoo.m
 
 
