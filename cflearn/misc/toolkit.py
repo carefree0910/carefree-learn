@@ -1240,8 +1240,11 @@ def auto_num_layers(
     img_size: int,
     min_size: int = 4,
     target_layers: Optional[int] = 4,
+    *,
+    use_stride: bool = False,
 ) -> int:
-    max_layers = math.floor(math.log2(img_size / min_size))
+    fn = math.ceil if use_stride else math.floor
+    max_layers = fn(math.log2(img_size / min_size))
     if target_layers is None:
         return max_layers
     return max(2, min(target_layers, max_layers))

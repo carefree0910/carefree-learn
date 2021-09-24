@@ -72,7 +72,8 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
                     "(when `num_downsample` is not provided, it will be inferred "
                     "automatically with `img_size` & `min_size`)"
                 )
-            num_downsample = auto_num_layers(img_size, min_size, target_downsample)
+            args = img_size, min_size, target_downsample
+            num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
         num_upsample = num_upsample or num_downsample
         if latent_resolution is None and img_size is None:
             raise ValueError(

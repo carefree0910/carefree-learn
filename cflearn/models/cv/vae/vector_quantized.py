@@ -40,7 +40,8 @@ class VQVAE(ModelProtocol):
         self.num_classes = num_classes
         self.latent_channels = latent_channels
         if num_downsample is None:
-            num_downsample = auto_num_layers(img_size, min_size, target_downsample)
+            args = img_size, min_size, target_downsample
+            num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
         # encoder
         if encoder_config is None:
             encoder_config = {}

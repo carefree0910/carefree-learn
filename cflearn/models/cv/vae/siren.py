@@ -44,7 +44,8 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         self.latent_dim = latent_dim
         self.num_classes = num_classes
         self.out_channels = out_channels or in_channels
-        num_downsample = auto_num_layers(img_size, min_size, target_downsample)
+        args = img_size, min_size, target_downsample
+        num_downsample = auto_num_layers(*args, use_stride=encoder1d == "vanilla")
         # encoder
         if encoder1d_config is None:
             encoder1d_config = {}
