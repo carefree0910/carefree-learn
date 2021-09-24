@@ -26,6 +26,7 @@ from .types import tensor_dict_type
 from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
+from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
 from .misc.toolkit import to_standard
@@ -516,7 +517,9 @@ class InferenceProtocol:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
                     for k, v in batch.items():
-                        if k == INPUT_KEY or v is None:
+                        if k in (INPUT_KEY, BATCH_INDICES_KEY):
+                            continue
+                        if v is None:
                             continue
                         if k != LABEL_KEY and len(v.shape) > 2:
                             continue
