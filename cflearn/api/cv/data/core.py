@@ -62,6 +62,10 @@ def _default_lmdb_path(folder: str, split: str) -> str:
 
 
 class _PreparationProtocol:
+    @property
+    def extra_labels(self) -> Optional[List[str]]:
+        pass
+
     def prepare_src_folder(self, src_path: str) -> None:
         pass
 
@@ -71,14 +75,28 @@ class _PreparationProtocol:
     def get_label(self, hierarchy: List[str]) -> Any:
         pass
 
+    def get_extra_label(self, label_name: str, hierarchy: List[str]) -> Any:
+        pass
+
     def copy(self, src_path: str, tgt_path: str) -> None:
         pass
 
     def get_new_img_path(self, idx: int, split_folder: str, old_img_path: str) -> str:
         pass
 
+    def get_num_classes(self, tgt_folder: str) -> Dict[str, int]:
+        num_classes = {}
+        for label_name in [LABEL_KEY] + (self.extra_labels or []):
+            with open(os.path.join(tgt_folder, f"idx2{label_name}.json"), "r") as f:
+                num_classes[label_name] = len(json.load(f))
+        return num_classes
+
 
 class DefaultPreparation(_PreparationProtocol):
+    @property
+    def extra_labels(self) -> Optional[List[str]]:
+        return None
+
     def filter(self, hierarchy: List[str]) -> bool:
         return True
 
@@ -101,8 +119,6 @@ def prepare_image_folder(
     prefix: Optional[str] = None,
     preparation: _PreparationProtocol = DefaultPreparation(),
     force_rerun: bool = False,
-    extra_label_names: Optional[List[str]] = None,
-    extra_label_fns: Optional[List[Callable[[List[str]], Any]]] = None,
     extensions: Optional[Set[str]] = None,
     make_labels_in_parallel: bool = False,
     num_jobs: int = 8,
@@ -117,7 +133,7 @@ def prepare_image_folder(
         tgt_folder = os.path.join(prefix, tgt_folder)
 
     if not force_rerun and all(
-        os.path.isfile(os.path.join(tgt_folder, split, "labels.json"))
+        os.path.isfile(os.path.join(tgt_folder, split, f"{LABEL_KEY}.json"))
         for split in ["train", "valid"]
     ):
         return tgt_folder
@@ -145,10 +161,14 @@ def prepare_image_folder(
             hierarchy_list.append(hierarchy)
             all_img_paths.append(os.path.join(folder, file))
 
-    def get_labels(fn: Optional[Callable[[List[str]], Any]] = None) -> List[Any]:
+    def get_labels(
+        label_fn: Callable,
+        label_name: Optional[str] = None,
+    ) -> List[Any]:
         def task(h: List[str]) -> Any:
             try:
-                return (fn or preparation.get_label)(h)
+                args = (h,) if label_name is None else (label_name, h)
+                return label_fn(*args)
             except Exception as err:
                 err_path = "/".join(h)
                 msg = f"error occurred ({err}) when getting label of {err_path}"
@@ -169,19 +189,16 @@ def prepare_image_folder(
         return final_results
 
     print("> making labels")
-    labels = get_labels()
+    labels = get_labels(preparation.get_label)
     excluded_indices = {i for i, label in enumerate(labels) if label is None}
     extra_labels_dict: Optional[Dict[str, List[str]]] = None
-    if extra_label_names is not None:
+    extra_labels = preparation.extra_labels
+    extra_label_fn = preparation.get_extra_label
+    if extra_labels is not None:
         extra_labels_dict = {}
-        if extra_label_fns is None:
-            raise ValueError(
-                "`extra_label_fns` should be provided "
-                "when `extra_label_names` is provided"
-            )
         print("> making extra labels")
-        for el_name, el_fn in zip(extra_label_names, extra_label_fns):
-            extra_labels_dict[el_name] = get_labels(el_fn)
+        for el_name in extra_labels:
+            extra_labels_dict[el_name] = get_labels(extra_label_fn, el_name)
         for extra_labels in extra_labels_dict.values():
             for i, extra_label in enumerate(extra_labels):
                 if extra_label is None:
@@ -191,9 +208,9 @@ def prepare_image_folder(
         labels_dict = {"": labels}
     else:
         label2idx = {label: i for i, label in enumerate(sorted(set(labels)))}
-        with open(os.path.join(tgt_folder, "label2idx.json"), "w") as f:
+        with open(os.path.join(tgt_folder, f"{LABEL_KEY}2idx.json"), "w") as f:
             json.dump(label2idx, f)
-        with open(os.path.join(tgt_folder, "idx2label.json"), "w") as f:
+        with open(os.path.join(tgt_folder, f"idx2{LABEL_KEY}.json"), "w") as f:
             json.dump({v: k for k, v in label2idx.items()}, f)
         labels_dict = {"": [label2idx[label] for label in labels]}
 
@@ -206,6 +223,8 @@ def prepare_image_folder(
                     extra_label: i
                     for i, extra_label in enumerate(sorted(set(label_collection)))
                 }
+                with open(os.path.join(tgt_folder, f"{el_name}2idx.json"), "w") as f:
+                    json.dump(extra2idx, f)
                 with open(os.path.join(tgt_folder, f"idx2{el_name}.json"), "w") as f:
                     json.dump({v: k for k, v in extra2idx.items()}, f)
                 labels_dict[el_name] = [extra2idx[el] for el in label_collection]
@@ -317,7 +336,7 @@ def prepare_image_folder(
             json.dump(path_mapping, f_)
         for label_type, type_labels in merged_labels.items():
             delim = "_" if label_type else ""
-            label_file = f"{label_type}{delim}labels.json"
+            label_file = f"{label_type}{delim}{LABEL_KEY}.json"
             with open(os.path.join(dtype_folder, label_file), "w") as f_:
                 json.dump(type_labels, f_)
         # lmdb
@@ -379,7 +398,7 @@ class ImageFolderDataset(Dataset):
         )
         if lmdb_config is None:
             self.lmdb = self.context = None
-            with open(os.path.join(self.folder, "labels.json"), "r") as f:
+            with open(os.path.join(self.folder, f"{LABEL_KEY}.json"), "r") as f:
                 self.labels = json.load(f)
             self.length = len(self.img_paths)
         else:
