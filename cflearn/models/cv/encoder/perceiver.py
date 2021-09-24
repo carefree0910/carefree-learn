@@ -16,7 +16,8 @@ class PerceiverIOForEncoder1D(PerceiverIO):
         out_queries: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
-        return super().forward(net, mask=mask, out_queries=out_queries)
+        net = super().forward(net, mask=mask, out_queries=out_queries)
+        return net.squeeze(1)
 
 
 @Encoder1DFromPatches.register("perceiver_io")
