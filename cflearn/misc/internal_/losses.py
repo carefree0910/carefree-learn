@@ -236,7 +236,8 @@ class FocalLoss(LossProtocol):
         if self.alpha is not None:
             alpha_target = self.alpha.gather(dim=0, index=labels.view(-1))
             gathered_log_prob_flat = gathered_log_prob_flat * alpha_target
-        return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
+        loss = -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
+        return loss.view_as(labels)
 
 
 @MultiLoss.record_prefix()
