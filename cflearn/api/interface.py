@@ -88,40 +88,46 @@ def fit_ml(
 # clf
 
 
-def cct(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
-    kwargs["img_size"] = img_size
+def _clf(
+    model: str,
+    num_classes: int,
+    pretrained_name: Optional[str],
+    img_size: Optional[int],
+    return_model: bool = False,
+    **kwargs: Any,
+) -> Any:
+    if img_size is not None:
+        kwargs["img_size"] = img_size
     kwargs["num_classes"] = num_classes
-    return DLZoo.load_pipeline("clf/cct", **kwargs)
+    if pretrained_name is not None:
+        model_config = kwargs.setdefault("model_config", {})
+        model_config["encoder1d_pretrained_name"] = pretrained_name
+    fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
+    return fn(f"clf/{model}", **kwargs)  # type: ignore
+
+
+def cct(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
+    return _clf("cct", num_classes, None, img_size, **kwargs)
 
 
 def cct_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
-    kwargs["img_size"] = img_size
-    kwargs["num_classes"] = num_classes
-    return DLZoo.load_model("clf/cct", **kwargs)
+    return _clf("cct", num_classes, None, img_size, True, **kwargs)
 
 
 def cct_lite(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
-    kwargs["img_size"] = img_size
-    kwargs["num_classes"] = num_classes
-    return DLZoo.load_pipeline("clf/cct.lite", **kwargs)
+    return _clf("cct.lite", num_classes, None, img_size, **kwargs)
 
 
 def cct_lite_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
-    kwargs["img_size"] = img_size
-    kwargs["num_classes"] = num_classes
-    return DLZoo.load_model("clf/cct.lite", **kwargs)
+    return _clf("cct.lite", num_classes, None, img_size, True, **kwargs)
 
 
 def cct_large(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
-    kwargs["img_size"] = img_size
-    kwargs["num_classes"] = num_classes
-    return DLZoo.load_pipeline("clf/cct.large", **kwargs)
+    return _clf("cct.large", num_classes, None, img_size, **kwargs)
 
 
 def cct_large_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
-    kwargs["img_size"] = img_size
-    kwargs["num_classes"] = num_classes
-    return DLZoo.load_model("clf/cct.large", **kwargs)
+    return _clf("cct.large", num_classes, None, img_size, True, **kwargs)
 
 
 def cct_large_224(
@@ -130,11 +136,8 @@ def cct_large_224(
     pretrained: bool = True,
     **kwargs: Any,
 ) -> DLPipeline:
-    kwargs["num_classes"] = num_classes
-    if pretrained:
-        model_config = kwargs.setdefault("model_config", {})
-        model_config["encoder1d_pretrained_name"] = "cct_large_224"
-    return DLZoo.load_pipeline("clf/cct.large_224", **kwargs)
+    pretrained_name = "cct_large_224" if pretrained else None
+    return _clf("cct.large_224", num_classes, pretrained_name, None, **kwargs)
 
 
 def cct_large_224_model(
@@ -143,11 +146,8 @@ def cct_large_224_model(
     pretrained: bool = True,
     **kwargs: Any,
 ) -> ModelProtocol:
-    kwargs["num_classes"] = num_classes
-    if pretrained:
-        model_config = kwargs.setdefault("model_config", {})
-        model_config["encoder1d_pretrained_name"] = "cct_large_224"
-    return DLZoo.load_model("clf/cct.large_224", **kwargs)
+    pretrained_name = "cct_large_224" if pretrained else None
+    return _clf("cct.large_224", num_classes, pretrained_name, None, True, **kwargs)
 
 
 def cct_large_384(
@@ -156,11 +156,8 @@ def cct_large_384(
     pretrained: bool = True,
     **kwargs: Any,
 ) -> DLPipeline:
-    kwargs["num_classes"] = num_classes
-    if pretrained:
-        model_config = kwargs.setdefault("model_config", {})
-        model_config["encoder1d_pretrained_name"] = "cct_large_384"
-    return DLZoo.load_pipeline("clf/cct.large_384", **kwargs)
+    pretrained_name = "cct_large_384" if pretrained else None
+    return _clf("cct.large_384", num_classes, pretrained_name, None, **kwargs)
 
 
 def cct_large_384_model(
@@ -169,11 +166,8 @@ def cct_large_384_model(
     pretrained: bool = True,
     **kwargs: Any,
 ) -> ModelProtocol:
-    kwargs["num_classes"] = num_classes
-    if pretrained:
-        model_config = kwargs.setdefault("model_config", {})
-        model_config["encoder1d_pretrained_name"] = "cct_large_384"
-    return DLZoo.load_model("clf/cct.large_384", **kwargs)
+    pretrained_name = "cct_large_384" if pretrained else None
+    return _clf("cct.large_384", num_classes, pretrained_name, None, True, **kwargs)
 
 
 def resnet18(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
