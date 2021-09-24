@@ -256,8 +256,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         for prefix, base in multi_prefix_mapping.items():
             if self.loss_name.startswith(f"{prefix}:"):
                 loss_names = self.loss_name.split(":")[1].split(",")
-                base.register_(loss_names)
-                self.loss_name = f"{prefix}_{'_'.join(loss_names)}"
+                self.loss_name = base.register_(loss_names)
         self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
 
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:

@@ -275,18 +275,20 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
         base_loss_names: Union[str, List[str]],
         *,
         tag: Optional[str] = None,
-    ) -> None:
+    ) -> str:
         if tag is None:
             if isinstance(base_loss_names, str):
                 tag = f"{cls.prefix}_{base_loss_names}"
             else:
                 tag = f"{cls.prefix}_{'_'.join(base_loss_names)}"
         if tag in cls.d:
-            return None
+            return tag
 
         @cls.register(tag)
         class _(cls):  # type: ignore
             names = base_loss_names
+
+        return tag
 
     @classmethod
     def record_prefix(cls) -> Callable[[Type["MultiLoss"]], Type["MultiLoss"]]:
