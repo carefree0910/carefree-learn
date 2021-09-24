@@ -99,6 +99,7 @@ class ImageFolderData(CVDataModule):
         batch_size: int,
         num_workers: int = 0,
         shuffle: bool = True,
+        extra_label_names: Optional[List[str]] = None,
         transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
         test_shuffle: Optional[bool] = None,
@@ -108,6 +109,7 @@ class ImageFolderData(CVDataModule):
     ):
         self.folder = folder
         self.shuffle = shuffle
+        self.extra_label_names = extra_label_names
         self.transform = Transforms.convert(transform, transform_config)
         self.test_shuffle = test_shuffle
         if test_transform is None:
@@ -138,6 +140,7 @@ class ImageFolderData(CVDataModule):
                 self.folder,
                 "train",
                 self.transform,
+                extra_label_names=self.extra_label_names,
                 lmdb_config=self.lmdb_config,
             )
         )
@@ -146,6 +149,7 @@ class ImageFolderData(CVDataModule):
                 self.folder,
                 "valid",
                 self.test_transform,
+                extra_label_names=self.extra_label_names,
                 lmdb_config=self.lmdb_config,
             )
         )

@@ -73,11 +73,19 @@ class StyleTransferDataset(ImageFolderDataset, StyleTransferMixin):  # type: ign
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        extra_label_names: Optional[List[str]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
         *,
         style_folder: str,
     ):
-        super().__init__(folder, split, transform, transform_config, lmdb_config)
+        super().__init__(
+            folder,
+            split,
+            transform,
+            transform_config,
+            extra_label_names,
+            lmdb_config,
+        )
         self._init_style_paths(style_folder)
 
     def __getitem__(self, index: int) -> Dict[str, Any]:
@@ -197,9 +205,17 @@ class UnifiedStyleTransferDataset(ImageFolderDataset):
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        extra_label_names: Optional[List[str]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(folder, split, transform, transform_config, lmdb_config)
+        super().__init__(
+            folder,
+            split,
+            transform,
+            transform_config,
+            extra_label_names,
+            lmdb_config,
+        )
         self.style2paths: Dict[str, List[str]] = {}
         self.style_labels = {}
         self.content_labels = {}
@@ -280,9 +296,17 @@ class SiameseStyleTransferDataset(ImageFolderDataset):
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        extra_label_names: Optional[List[str]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(folder, split, transform, transform_config, lmdb_config)
+        super().__init__(
+            folder,
+            split,
+            transform,
+            transform_config,
+            extra_label_names,
+            lmdb_config,
+        )
         self.style2paths: Dict[str, List[str]] = {}
         self.style_labels = {}
         with open(os.path.join(self.folder, "paths.json"), "r") as f:

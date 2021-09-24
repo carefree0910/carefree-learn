@@ -383,6 +383,7 @@ class ImageFolderDataset(Dataset):
         split: str,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        extra_label_names: Optional[List[str]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = os.path.abspath(os.path.join(folder, split))
@@ -399,7 +400,12 @@ class ImageFolderDataset(Dataset):
         if lmdb_config is None:
             self.lmdb = self.context = None
             with open(os.path.join(self.folder, f"{LABEL_KEY}.json"), "r") as f:
-                self.labels = json.load(f)
+                self.labels = {LABEL_KEY: json.load(f)}
+            if extra_label_names is not None:
+                for name in extra_label_names:
+                    el_file = f"{name}_{LABEL_KEY}.json"
+                    with open(os.path.join(self.folder, el_file), "r") as f:
+                        self.labels[name] = json.load(f)
             self.length = len(self.img_paths)
         else:
             self.lmdb_config = shallow_copy_dict(lmdb_config)
@@ -420,34 +426,41 @@ class ImageFolderDataset(Dataset):
             key = str(index).encode("ascii")
             item: LMDBItem = dill.loads(self.context.get(key))
             img = Image.fromarray(item.image)
-            label = item.labels
-            if len(label) == 1:
-                label = list(label.values())[0]
-            if is_numeric(label):
-                label = np.array([label])
+            labels = item.labels
+            for k, v in labels.items():
+                if is_numeric(v):
+                    labels[k] = np.array([v])
         else:
             file = self.img_paths[index]
             img = Image.open(file)
-            label = self.labels[file]
-            if is_numeric(label):
-                label = np.array([label])
-            elif isinstance(label, str) and label.endswith(".npy"):
-                label = np.load(label)
+            labels = {k: v[file] for k, v in self.labels.items()}
+            for k, v in labels.items():
+                if is_numeric(v):
+                    v = np.array([v])
+                elif isinstance(v, str) and v.endswith(".npy"):
+                    v = np.load(v)
+                labels[k] = v
         if self.transform is None:
             img = to_torch(np.array(img).astype(np.float32))
-            if isinstance(label, np.ndarray):
-                label = to_torch(label)
-            return {INPUT_KEY: img, LABEL_KEY: label}
+            for k, v in labels.items():
+                if isinstance(v, np.ndarray):
+                    labels[k] = to_torch(v)
+            sample = {INPUT_KEY: img}
+            sample.update(labels)
+            return sample
         if not self.transform.need_numpy:
-            inp = {INPUT_KEY: img}
+            sample = {INPUT_KEY: img}
         else:
-            inp = {INPUT_KEY: np.array(img).astype(np.float32) / 255.0}
+            sample = {INPUT_KEY: np.array(img).astype(np.float32) / 255.0}
         if self.transform.need_batch_process:
-            inp[LABEL_KEY] = label
-            return self.transform(inp)
-        if isinstance(label, np.ndarray):
-            label = to_torch(label)
-        return {INPUT_KEY: self.transform(inp[INPUT_KEY]), LABEL_KEY: label}
+            sample.update(labels)
+            return self.transform(sample)
+        for k, v in labels.items():
+            if isinstance(v, np.ndarray):
+                labels[k] = to_torch(v)
+        sample = {INPUT_KEY: self.transform(sample[INPUT_KEY])}
+        sample.update(labels)
+        return sample
 
     def __len__(self) -> int:
         return self.length
