@@ -24,6 +24,7 @@ from .types import losses_type
 from .types import np_dict_type
 from .types import tensor_dict_type
 from .constants import LOSS_KEY
+from .constants import INPUT_KEY
 from .constants import LABEL_KEY
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
@@ -459,7 +460,7 @@ class InferenceProtocol:
             results: Dict[str, Optional[List[np.ndarray]]] = {}
             metric_outputs_list: List[MetricsOutputs] = []
             loss_items: Dict[str, List[float]] = {}
-            labels = []
+            labels: Dict[str, List[np.ndarray]] = {}
             iterator = enumerate(loader)
             if use_tqdm:
                 iterator = tqdm(iterator, "inference", len(loader))
@@ -514,11 +515,14 @@ class InferenceProtocol:
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
-                    local_labels = batch.get(LABEL_KEY)
-                    if local_labels is not None:
-                        if not isinstance(local_labels, np.ndarray):
-                            local_labels = to_numpy(local_labels)
-                        labels.append(local_labels)
+                    for k, v in batch.items():
+                        if k == INPUT_KEY or v is None:
+                            continue
+                        if k != LABEL_KEY and len(v.shape) > 2:
+                            continue
+                        if not isinstance(v, np.ndarray):
+                            v = to_numpy(v)
+                        labels.setdefault(k, []).append(v)
                 # metrics
                 if requires_metrics:
                     sub_outputs = metrics.evaluate(np_batch, np_outputs)  # type: ignore
@@ -549,7 +553,7 @@ class InferenceProtocol:
                 metric_outputs = None
             elif metrics.requires_all:
                 metric_outputs = metrics.evaluate(
-                    {LABEL_KEY: np.vstack(labels)},
+                    {k: np.vstack(v) for k, v in labels.items()},
                     final_results,
                 )
             else:

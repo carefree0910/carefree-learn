@@ -204,6 +204,37 @@ class IOU(MetricProtocol):
         return iou(logits, labels).mean().item()
 
 
+@MetricProtocol.register("aux")
+class Auxiliary(MetricProtocol):
+    def __init__(
+        self,
+        base: str,
+        base_config: Optional[Dict[str, Any]] = None,
+        *,
+        key: str,
+    ):
+        super().__init__()
+        self.key = key
+        self.base = self.make(base, base_config or {})
+        self.__identifier__ = f"{base}_{key}"
+
+    @property
+    def is_positive(self) -> bool:
+        return self.base.is_positive
+
+    def _core(
+        self,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
+        loader: Optional[DataLoaderProtocol],
+    ) -> float:
+        return self.base._core(
+            {LABEL_KEY: np_batch[self.key]},
+            {PREDICTIONS_KEY: np_outputs[self.key]},
+            loader,
+        )
+
+
 class MultipleMetrics(MetricProtocol):
     @property
     def is_positive(self) -> bool:
