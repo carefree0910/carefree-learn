@@ -3,5 +3,6 @@
   "__requires__": [
     {"model_config": ["img_size"]}
   ],
-  "model_name": "vae2d"
+  "model_name": "vae2d",
+  "scheduler_name": "warmup"
 }

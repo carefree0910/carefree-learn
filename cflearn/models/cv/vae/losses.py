@@ -22,12 +22,12 @@ from ....constants import PREDICTIONS_KEY
 @LossProtocol.register("siren_vae")
 @LossProtocol.register("style_vae")
 class VAELoss(LossProtocol):
-    kld_ratio: torch.Tensor
+    kld_w: torch.Tensor
 
     def _init_config(self) -> None:
         self.kld_ema = self.config.setdefault("kld_ema", 0.999)
         self.kld_weight = self.config.setdefault("kld_weight", 2.0e-3)
-        self.register_buffer("kld_ratio", torch.tensor([0.0], dtype=torch.float32))
+        self.register_buffer("kld_w", torch.tensor([0.0], dtype=torch.float32))
 
     def _core(
         self,
@@ -41,7 +41,7 @@ class VAELoss(LossProtocol):
             eta = self.kld_ema
             ratio = (state.step % state.num_step_per_epoch) / state.num_step_per_epoch
             ratio = (1.0 + ratio) * self.kld_weight
-            self.kld_ratio = eta * self.kld_ratio + (1.0 - eta) * ratio
+            self.kld_w = eta * self.kld_w + (1.0 - eta) * ratio
         # reconstruction loss
         original = batch[INPUT_KEY]
         reconstruction = forward_results[PREDICTIONS_KEY]
@@ -55,9 +55,9 @@ class VAELoss(LossProtocol):
         kld_loss = torch.mean(kld_losses, dim=0)
         # gather
         if self.training:
-            kld_loss = self.kld_ratio * kld_loss
+            kld_loss = self.kld_w * kld_loss
         loss = mse + kld_loss
-        return {"mse": mse, "kld": kld_loss, LOSS_KEY: loss}
+        return {"mse": mse, "kld": kld_loss, "kld_w": self.kld_w, LOSS_KEY: loss}
 
 
 @LossProtocol.register("vq_vae")

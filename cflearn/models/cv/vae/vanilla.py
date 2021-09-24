@@ -215,7 +215,7 @@ class VanillaVAE1D(VanillaVAEBase):
         )
         self.to_statistics = Linear(latent_d, 2 * latent_d, bias=False)
         if self.latent_resolution is None:
-            self.latent_resolution = int(img_size / 2 ** self.num_upsample)
+            self.latent_resolution = int(round(img_size / 2 ** self.num_upsample))
         latent_resolution = self.latent_resolution
         latent_area = latent_resolution ** 2
         latent_channels = math.ceil(self.latent_d / latent_area)

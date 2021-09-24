@@ -34,7 +34,7 @@ register_scheduler("cosine_restarts")(CosineAnnealingWarmRestarts)
 
 @register_scheduler("linear_inverse")
 class LinearInverseScheduler(_LRScheduler):
-    def __init__(self, optimizer: Optimizer, decay: float):
+    def __init__(self, optimizer: Optimizer, decay: float = 2.0e-5):
         self.decay = decay
         super().__init__(optimizer)
 

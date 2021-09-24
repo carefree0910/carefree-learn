@@ -7,5 +7,6 @@
   "model_config": {
     "in_channels": 3
   },
+  "scheduler_name": "linear_inverse",
   "loss_metrics_weights": {"kld": 0.001, "mse": 1.0}
 }
