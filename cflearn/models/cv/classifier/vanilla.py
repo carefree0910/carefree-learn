@@ -34,6 +34,7 @@ class VanillaClassifier(ModelProtocol):
         encoder1d_config: Optional[Dict[str, Any]] = None,
         encoder1d_pretrained_name: Optional[str] = None,
         encoder1d_pretrained_path: Optional[str] = None,
+        encoder1d_pretrained_strict: bool = True,
     ):
         super().__init__()
         self.img_size = img_size
@@ -56,7 +57,7 @@ class VanillaClassifier(ModelProtocol):
                 f"from '{encoder1d_pretrained_path}'"
             )
             d = torch.load(encoder1d_pretrained_path)
-            self.encoder1d.load_state_dict(d)
+            self.encoder1d.load_state_dict(d, strict=encoder1d_pretrained_strict)
         # head
         main_head = Linear(latent_dim, num_classes)
         self.head = None
