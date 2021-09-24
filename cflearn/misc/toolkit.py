@@ -51,6 +51,7 @@ from cftool.misc import LoggingMixin
 from ..types import arr_type
 from ..types import data_type
 from ..types import param_type
+from ..types import configs_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import sample_weights_type
@@ -362,15 +363,18 @@ class WithRegister(Generic[T]):
     def make_multiple(
         cls,
         names: Union[str, List[str]],
-        configs: Optional[Dict[str, Any]] = None,
+        configs: configs_type = None,
     ) -> Union[T, List[T]]:
         if configs is None:
             configs = {}
         if isinstance(names, str):
+            assert isinstance(configs, dict)
             return cls.make(names, configs)  # type: ignore
+        if not isinstance(configs, list):
+            configs = [configs.get(name, {}) for name in names]
         return [
-            cls.make(name, shallow_copy_dict(configs.get(name, {})))  # type: ignore
-            for name in names
+            cls.make(name, shallow_copy_dict(config))
+            for name, config in zip(names, configs)
         ]
 
     @classmethod

@@ -4,6 +4,7 @@ from typing import List
 from typing import Union
 from typing import Optional
 
+from ...types import configs_type
 from ...trainer import Trainer
 from ...trainer import TqdmSettings
 from ...trainer import OptimizerPack
@@ -28,15 +29,15 @@ def make_trainer(
     amp: bool = False,
     clip_norm: float = 0.0,
     metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: Optional[Dict[str, Any]] = None,
+    metric_configs: configs_type = None,
     metric_weights: Optional[Dict[str, float]] = None,
     use_losses_as_metrics: Optional[bool] = None,
     loss_metrics_weights: Optional[Dict[str, float]] = None,
     recompute_train_losses_in_eval: bool = True,
     monitor_names: Optional[Union[str, List[str]]] = None,
-    monitor_configs: Optional[Dict[str, Any]] = None,
+    monitor_configs: configs_type = None,
     callback_names: Optional[Union[str, List[str]]] = None,
-    callback_configs: Optional[Dict[str, Any]] = None,
+    callback_configs: configs_type = None,
     lr: Optional[float] = None,
     optimizer_name: Optional[str] = None,
     scheduler_name: Optional[str] = None,
