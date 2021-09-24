@@ -15,9 +15,8 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
-from ...ml.protocol import MERGED_KEY
-from ...ml.protocol import MLCoreProtocol
 from ....misc.toolkit import download_model
+from ....modules.blocks import Linear
 
 
 @ModelProtocol.register("clf")
@@ -28,13 +27,12 @@ class VanillaClassifier(ModelProtocol):
         num_classes: int,
         img_size: Optional[int] = None,
         latent_dim: int = 128,
+        aux_num_classes: Optional[Dict[str, int]] = None,
         *,
         encoder1d: str = "vanilla",
         encoder1d_config: Optional[Dict[str, Any]] = None,
         encoder1d_pretrained_name: Optional[str] = None,
         encoder1d_pretrained_path: Optional[str] = None,
-        head: str = "linear",
-        head_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -57,12 +55,15 @@ class VanillaClassifier(ModelProtocol):
             d = torch.load(encoder1d_pretrained_path)
             self.encoder1d.load_state_dict(d)
         # head
-        if head_config is None:
-            head_config = {}
-        head_config["in_dim"] = latent_dim
-        head_config["out_dim"] = num_classes
-        head_config["num_history"] = 1
-        self.head = MLCoreProtocol.make(head, config=head_config)
+        main_head = Linear(latent_dim, num_classes)
+        self.head = None
+        if aux_num_classes is None:
+            self.head = main_head
+        else:
+            heads = {LATENT_KEY: main_head}
+            for key, n in aux_num_classes.items():
+                heads[key] = Linear(latent_dim, n)
+            self.heads = torch.nn.ModuleDict(heads)
 
     def forward(
         self,
@@ -73,8 +74,13 @@ class VanillaClassifier(ModelProtocol):
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
         encoding = self.encoder1d(batch_idx, batch, state, **kwargs)
-        batch[MERGED_KEY] = encoding[LATENT_KEY]
-        return self.head(batch_idx, batch, state, **kwargs)
+        if self.head is not None:
+            return {PREDICTIONS_KEY: self.head(encoding[LATENT_KEY])}
+        results = {}
+        for key, head in self.heads.items():
+            predictions = head(encoding[key])
+            results[PREDICTIONS_KEY if key == LATENT_KEY else key] = predictions
+        return results
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return self.classify(batch[INPUT_KEY])
