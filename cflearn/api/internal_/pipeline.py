@@ -53,6 +53,7 @@ from ...misc.toolkit import WithRegister
 from ...misc.internal_ import DataModule
 from ...misc.internal_ import DLDataModule
 from ...misc.internal_.losses import multi_prefix_mapping
+from ...misc.internal_.losses import AuxLoss
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
@@ -253,6 +254,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _prepare_loss(self) -> None:
         if self.in_loading:
             return None
+        aux_loss_name = AuxLoss.parse(self.loss_name)
+        if aux_loss_name is not None:
+            self.loss_name = aux_loss_name
         for prefix, base in multi_prefix_mapping.items():
             if self.loss_name.startswith(f"{prefix}:"):
                 loss_names = self.loss_name.split(":")[1].split(",")

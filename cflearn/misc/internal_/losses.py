@@ -244,6 +244,81 @@ class FocalLoss(LossProtocol):
         return -gathered_log_prob_flat * (1 - gathered_prob_flat) ** self._gamma
 
 
+class AuxLoss(LossProtocol):
+    identifier: str = "aux"
+    main_loss_key: str = "main"
+
+    loss: LossProtocol
+    loss_name: str
+    aux_names: List[str]
+
+    def _init_config(self) -> None:
+        self.loss = LossProtocol.make(self.loss_name, self.config)
+
+    @staticmethod
+    def _convert(losses: losses_type) -> torch.Tensor:
+        if isinstance(losses, dict):
+            return losses[LOSS_KEY]
+        return losses
+
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        main_losses = self.loss._core(forward_results, batch, state, **kwargs)
+        losses = {self.main_loss_key: self._convert(main_losses)}
+        for name in self.aux_names:
+            losses[name] = self._convert(
+                self.loss._core(
+                    {PREDICTIONS_KEY: forward_results[name]},
+                    {LABEL_KEY: batch[name]},
+                    state,
+                    **kwargs,
+                )
+            )
+        losses[LOSS_KEY] = sum(losses.values())
+        return losses
+
+    @classmethod
+    def parse(cls, name: str) -> Optional[str]:
+        if ":" not in name:
+            return None
+        split = name.split(":")
+        if len(split) != 3:
+            return None
+        if split[1] != cls.identifier:
+            return None
+        loss_name = split[0]
+        aux_names = split[2].split(",")
+        return cls.register_(loss_name, aux_names)
+
+    @classmethod
+    def register_(
+        cls,
+        base_loss_name: str,
+        aux_loss_names: List[str],
+        *,
+        tag: Optional[str] = None,
+    ) -> str:
+        for name in aux_loss_names:
+            if name == cls.main_loss_key:
+                raise ValueError(f"should not use '{cls.main_loss_key}' as aux name")
+        if tag is None:
+            tag = f"{base_loss_name}_{cls.identifier}_{'_'.join(aux_loss_names)}"
+        if tag in cls.d:
+            return tag
+
+        @cls.register(tag)
+        class _(cls):  # type: ignore
+            loss_name = base_loss_name
+            aux_names = aux_loss_names
+
+        return tag
+
+
 multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
 
 
