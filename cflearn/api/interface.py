@@ -88,6 +88,30 @@ def fit_ml(
 # clf
 
 
+def cct(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
+    kwargs["img_size"] = img_size
+    kwargs["num_classes"] = num_classes
+    return DLZoo.load_pipeline("clf/cct", **kwargs)
+
+
+def cct_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
+    kwargs["img_size"] = img_size
+    kwargs["num_classes"] = num_classes
+    return DLZoo.load_model("clf/cct", **kwargs)
+
+
+def cct_lite(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
+    kwargs["img_size"] = img_size
+    kwargs["num_classes"] = num_classes
+    return DLZoo.load_pipeline("clf/cct.lite", **kwargs)
+
+
+def cct_lite_model(img_size: int, num_classes: int, **kwargs: Any) -> ModelProtocol:
+    kwargs["img_size"] = img_size
+    kwargs["num_classes"] = num_classes
+    return DLZoo.load_model("clf/cct.lite", **kwargs)
+
+
 def cct_large(img_size: int, num_classes: int, **kwargs: Any) -> DLPipeline:
     kwargs["img_size"] = img_size
     kwargs["num_classes"] = num_classes
@@ -394,6 +418,10 @@ __all__ = [
     "pack",
     "load",
     "fit_ml",
+    "cct",
+    "cct_model",
+    "cct_lite",
+    "cct_lite_model",
     "cct_large",
     "cct_large_model",
     "cct_large_224",

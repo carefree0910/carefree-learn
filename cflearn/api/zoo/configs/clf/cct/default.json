@@ -1,0 +1,30 @@
+{
+  "__requires__": [
+    {"model_config": ["img_size", "num_classes"]}
+  ],
+  "pipeline": "cv.carefree",
+  "model_name": "clf",
+  "model_config": {
+    "in_channels": 3,
+    "latent_dim": 256,
+    "encoder1d": "vit",
+    "encoder1d_config": {
+      "patch_size": 3,
+      "to_patches_type": "conv",
+      "num_layers": 6,
+      "dropout": 0.0,
+      "drop_path_rate": 0.1,
+      "feedforward_dim_ratio": 2.0,
+      "attention_kwargs": {"bias": false, "num_heads": 4, "dropout": 0.1},
+      "norm_kwargs": {"eps": 1.0e-5},
+      "residual_after_norm": true,
+      "use_head_token": false,
+      "sequence_pool": true
+    }
+  },
+  "loss_name": "multi_task:focal,cross_entropy",
+  "metric_names": ["acc", "auc"],
+  "lr": 3.0e-4,
+  "optimizer_name": "adam",
+  "optimizer_config": {"betas": [0.9, 0.999], "weight_decay": 5.0e-4}
+}
