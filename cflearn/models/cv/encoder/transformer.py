@@ -2,6 +2,7 @@ import torch
 
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
@@ -36,6 +37,7 @@ class ViTEncoder(Encoder1DFromPatches):
         use_positional_encoding: bool = True,
         norm_after_head: bool = False,
         output_dim: Optional[int] = None,
+        aux_heads: Optional[List[str]] = None,
     ):
         super().__init__(
             img_size,
@@ -49,6 +51,7 @@ class ViTEncoder(Encoder1DFromPatches):
             attention_kwargs = {}
         attention_kwargs.setdefault("bias", True)
         attention_kwargs.setdefault("num_heads", 6)
+        self.aux_heads = aux_heads
         self.encoder = MixedStackedEncoder(
             latent_dim,
             self.num_patches,
@@ -66,6 +69,7 @@ class ViTEncoder(Encoder1DFromPatches):
             use_head_token=use_head_token,
             use_positional_encoding=use_positional_encoding,
             norm_after_head=norm_after_head,
+            aux_heads=aux_heads,
         )
         if output_dim is None:
             self.output_projection = None
@@ -81,8 +85,15 @@ class ViTEncoder(Encoder1DFromPatches):
         **kwargs: Any,
     ) -> tensor_dict_type:
         rs = super().forward(batch_idx, batch, state, **kwargs)
-        if self.output_projection is not None:
-            rs[LATENT_KEY] = rs[LATENT_KEY] @ self.output_projection
+        latent = rs[LATENT_KEY]
+        if self.aux_heads is None:
+            if self.output_projection is not None:
+                rs[LATENT_KEY] = latent @ self.output_projection
+        else:
+            keys = self.aux_heads + [LATENT_KEY]
+            chunked = latent.chunk(len(self.aux_heads) + 1, dim=1)
+            for k, v in zip(keys, chunked):
+                rs[k] = v.squeeze(dim=1)
         return rs
 
 

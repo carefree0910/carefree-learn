@@ -1922,7 +1922,7 @@ class PositionalEncoding(Module):
         num_history: int,
         dropout: float = 0.0,
         *,
-        has_head_token: bool,
+        num_heads: int,
         enable: bool = True,
     ):
         super().__init__()
@@ -1932,7 +1932,7 @@ class PositionalEncoding(Module):
             self.pos_drop = nn.Dropout(p=dropout)
             self.pos_encoding = nn.Parameter(torch.zeros(1, num_history, dim))
             nn.init.trunc_normal_(self.pos_encoding, std=0.02)
-        self.has_head_token = has_head_token
+        self.num_heads = num_heads
 
     def forward(
         self,
@@ -1952,11 +1952,10 @@ class PositionalEncoding(Module):
         net: Tensor,
         hwp: Optional[Tuple[int, int, int]],
     ) -> Tensor:
-        head_dim = int(self.has_head_token)
         pos_encoding = self.pos_encoding
         assert pos_encoding is not None
-        num_current_history = net.shape[1] - head_dim
-        num_history = pos_encoding.shape[1] - head_dim
+        num_current_history = net.shape[1] - self.num_heads
+        num_history = pos_encoding.shape[1] - self.num_heads
         if hwp is None:
             w = h = patch_size = None
         else:
@@ -1966,9 +1965,9 @@ class PositionalEncoding(Module):
         if w is None or h is None or patch_size is None:
             raise ValueError("`hwp` should be provided for `interpolate_pos_encoding`")
         head_encoding = None
-        if self.has_head_token:
-            head_encoding = pos_encoding[:, :1]
-            pos_encoding = pos_encoding[:, 1:]
+        if self.num_heads > 0:
+            head_encoding = pos_encoding[:, : self.num_heads]
+            pos_encoding = pos_encoding[:, self.num_heads :]
         dim = net.shape[-1]
         # This assume that the original input is squared image
         sqrt = math.sqrt(num_history)
@@ -1988,14 +1987,17 @@ class PositionalEncoding(Module):
 
 
 class SequencePooling(Module):
-    def __init__(self, dim: int, bias: bool = True):
+    def __init__(self, dim: int, aux_heads: Optional[List[str]], bias: bool = True):
         super().__init__()
-        self.projection = Linear(dim, 1, bias=bias)
+        self.out_dim = 1 + (0 if aux_heads is None else len(aux_heads))
+        self.projection = Linear(dim, self.out_dim, bias=bias)
 
     def forward(self, net: Tensor) -> Tensor:
         weights = self.projection(net)
         weights = F.softmax(weights, dim=1).transpose(-1, -2)
         net = torch.matmul(weights, net)
+        if self.out_dim > 1:
+            return net
         return net.squeeze(-2)
 
 
@@ -2023,20 +2025,27 @@ class MixedStackedEncoder(Module):
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
         norm_after_head: bool = False,
+        aux_heads: Optional[List[str]] = None,
     ):
         super().__init__()
         # head token
+        self.aux_heads = aux_heads
         if not use_head_token:
+            num_heads = 0
             self.head_token = None
         else:
-            self.head_token = nn.Parameter(torch.zeros(1, 1, dim))
+            num_heads = 1
+            if aux_heads is not None:
+                num_heads += len(aux_heads)
+            self.head_token = nn.Parameter(torch.zeros(1, num_heads, dim))
+        self.num_heads = num_heads
         # positional encoding
-        num_history += int(use_head_token)
+        num_history += num_heads
         self.pos_encoding = PositionalEncoding(
             dim,
             num_history,
             dropout,
-            has_head_token=use_head_token,
+            num_heads=num_heads,
             enable=use_positional_encoding,
         )
         # core
@@ -2065,13 +2074,22 @@ class MixedStackedEncoder(Module):
         )
         # head
         if self.head_token is not None:
-            head = Lambda(lambda x: x[:, 0], name="head_token")
+            if self.aux_heads is None:
+                head = Lambda(lambda x: x[:, 0], name="head_token")
+            else:
+                head = Lambda(lambda x: x[:, : self.num_heads], name="head_token")
         elif sequence_pool:
-            head = SequencePooling(dim)
-        elif not reduce_head:
-            head = nn.Identity()
+            head = SequencePooling(dim, aux_heads)
         else:
-            head = Lambda(lambda x: x.mean(1), name="global_average")
+            if aux_heads is not None:
+                raise ValueError(
+                    "either `head_token` or `sequence_pool` should be used "
+                    f"when `aux_heads` ({aux_heads}) is provided"
+                )
+            if not reduce_head:
+                head = nn.Identity()
+            else:
+                head = Lambda(lambda x: x.mean(1), name="global_average")
         if norm_after_head:
             self.head_norm = NormFactory(norm_type).make(dim, **(norm_kwargs or {}))
             self.head = head

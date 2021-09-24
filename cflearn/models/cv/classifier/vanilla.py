@@ -6,6 +6,7 @@ from typing import Dict
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
+from ..encoder import ViTEncoder
 from ..encoder import Encoder1DBase
 from ..encoder import Encoder1DFromPatches
 from ....types import tensor_dict_type
@@ -41,6 +42,8 @@ class VanillaClassifier(ModelProtocol):
             encoder1d_config = {}
         if Encoder1DFromPatches.check_subclass(encoder1d):
             encoder1d_config["img_size"] = img_size
+        if ViTEncoder.check_subclass(encoder1d) and aux_num_classes is not None:
+            encoder1d_config["aux_heads"] = sorted(aux_num_classes)
         encoder1d_config["in_channels"] = in_channels
         encoder1d_config["latent_dim"] = latent_dim
         self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_config)
