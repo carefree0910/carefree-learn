@@ -1648,8 +1648,8 @@ class ConvPatchEmbed(ImgToPatches):
         in_channels: int,
         latent_channels: int = 64,
         latent_dim: int = 384,
-        padding: int = 3,
-        stride: int = 2,
+        padding: Optional[int] = None,
+        stride: Optional[int] = None,
         bias: bool = False,
         num_layers: int = 2,
         activation: str = "relu",
@@ -1657,6 +1657,10 @@ class ConvPatchEmbed(ImgToPatches):
         super().__init__(img_size, patch_size, in_channels, latent_dim)
         latent_channels_list = [latent_channels] * (num_layers - 1)
         num_channels_list = [in_channels] + latent_channels_list + [latent_dim]
+        if padding is None:
+            padding = max(1, patch_size // 2)
+        if stride is None:
+            stride = max(1, (patch_size // 2) - 1)
         self.conv = nn.Sequential(
             *[
                 nn.Sequential(
