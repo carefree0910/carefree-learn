@@ -83,7 +83,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             )
         # properties
         self.img_size = img_size
-        latent_d = kwargs.get(self.key, 128)
+        latent_d = kwargs.get(self.key, 256)
         self.latent_d = latent_d
         self.latent_padding_channels = latent_padding_channels
         self.num_classes = num_classes
