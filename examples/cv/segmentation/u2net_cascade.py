@@ -2,7 +2,7 @@
 
 import cflearn
 
-from u2net_finetune import prepare
+from u2net_finetune import get_data
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_model
 
@@ -13,13 +13,7 @@ if is_ci:
     finetune_ckpt = download_model("u2net.lite")
 
 if __name__ == "__main__":
-    data = cflearn.cv.ImageFolderData(
-        prepare(is_ci),
-        batch_size=16,
-        num_workers=2 if is_ci else 4,
-        transform=cflearn.cv.ABundleTransform(label_alias="mask"),
-        test_transform=cflearn.cv.ABundleTestTransform(label_alias="mask"),
-    )
+    data = get_data(is_ci)
 
     m = cflearn.api.u2net_lite_refine(
         finetune_ckpt,
