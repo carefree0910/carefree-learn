@@ -28,7 +28,9 @@ from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 @TrainerCallback.register("style_vae")
 @TrainerCallback.register("generator")
 class GeneratorCallback(ImageCallback):
-    num_interpolations = 16
+    def __init__(self, num_keep: int = 25, num_interpolations: int = 16):
+        super().__init__(num_keep)
+        self.num_interpolations = num_interpolations
 
     def log_artifacts(self, trainer: Trainer) -> None:
         if not self.is_rank_0:
