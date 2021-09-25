@@ -119,8 +119,8 @@ class ImageFolderData(CVDataModule):
         self.test_shuffle = test_shuffle
         if test_transform is None:
             test_transform = transform
-            if test_transform_config is None:
-                test_transform_config = transform_config
+        if test_transform_config is None:
+            test_transform_config = transform_config
         self.test_transform = Transforms.convert(test_transform, test_transform_config)
         if self.test_transform is None:
             self.test_transform = self.transform
