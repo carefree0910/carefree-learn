@@ -23,7 +23,7 @@ class VQVAE(ModelProtocol):
         in_channels: int = 3,
         out_channels: Optional[int] = None,
         num_downsample: Optional[int] = None,
-        min_size: int = 4,
+        min_size: int = 8,
         target_downsample: int = 6,
         *,
         encoder: str = "vanilla",
