@@ -28,6 +28,7 @@ from .transforms import Transforms
 from ....types import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....constants import INFO_PREFIX
 from ....constants import ERROR_PREFIX
 from ....constants import WARNING_PREFIX
 from ....constants import ORIGINAL_LABEL_KEY
@@ -148,7 +149,7 @@ def prepare_image_folder(
     os.makedirs(tgt_folder, exist_ok=True)
 
     walked = list(os.walk(src_folder))
-    print("> collecting hierarchies")
+    print(f"{INFO_PREFIX}collecting hierarchies")
     all_img_paths = []
     hierarchy_list = []
     if extensions is None:
@@ -194,7 +195,7 @@ def prepare_image_folder(
             final_results[idx] = rs
         return final_results
 
-    print("> making labels")
+    print(f"{INFO_PREFIX}making labels")
     labels = get_labels(preparation.get_label)
     excluded_indices = {i for i, label in enumerate(labels) if label is None}
     extra_labels_dict: Optional[Dict[str, List[str]]] = None
@@ -202,7 +203,7 @@ def prepare_image_folder(
     extra_label_fn = preparation.get_extra_label
     if extra_labels is not None:
         extra_labels_dict = {}
-        print("> making extra labels")
+        print(f"{INFO_PREFIX}making extra labels")
         for el_name in extra_labels:
             extra_labels_dict[el_name] = get_labels(extra_label_fn, el_name)
         for extra_labels in extra_labels_dict.values():
