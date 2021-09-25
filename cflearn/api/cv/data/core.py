@@ -146,6 +146,9 @@ def prepare_image_folder(
         return tgt_folder
 
     preparation.prepare_src_folder(src_folder)
+    if os.path.isdir(tgt_folder):
+        print(f"{WARNING_PREFIX}'{tgt_folder}' already exists, it will be removed")
+        shutil.rmtree(tgt_folder)
     os.makedirs(tgt_folder, exist_ok=True)
 
     walked = list(os.walk(src_folder))
