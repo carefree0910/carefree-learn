@@ -45,17 +45,22 @@ def export_code_indices() -> None:
 
 
 m_base = cflearn.cv.SimplePipeline
-vq_vae = m_base.load(m_base.pack(log_folder), cuda=cuda).model
+vq_vae: cflearn.VQVAE = m_base.load(m_base.pack(log_folder), cuda=cuda).model
 
 
 # use pixel cnn to generate the codes
 @cflearn.ImageCallback.register("pixel_cnn")
 class PixelCNNCallback(cflearn.ImageCallback):
+    def __init__(self, num_keep: int = 25, num_interpolations: int = 16):
+        super().__init__(num_keep)
+        self.num_interpolations = num_interpolations
+
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
             return None
+        device = trainer.device
         batch = next(iter(trainer.validation_loader))
-        batch = to_device(batch, trainer.device)
+        batch = to_device(batch, device)
         original_indices = batch[cflearn.INPUT_KEY]
         img_size = original_indices.shape[2]
         batch_size = original_indices.shape[0]
@@ -69,12 +74,33 @@ class PixelCNNCallback(cflearn.ImageCallback):
         save_images(original, os.path.join(image_folder, "original.png"))
         save_images(sampled, os.path.join(image_folder, "sampled.png"))
         if num_classes is not None:
+            conditional_folder = os.path.join(image_folder, "conditional")
+            os.makedirs(conditional_folder, exist_ok=True)
             for i in range(num_classes):
                 with eval_context(model):
                     sampled_indices = model.sample(batch_size, img_size, i)
                 with eval_context(vq_vae):
                     sampled = vq_vae.reconstruct_from(sampled_indices, class_idx=i)
-                save_images(sampled, os.path.join(image_folder, f"sampled_{i}.png"))
+                sampled_path = os.path.join(conditional_folder, f"sampled_{i}.png")
+                save_images(sampled, sampled_path)
+                with eval_context(model):
+                    i1 = model.sample(self.num_interpolations, img_size, i)
+                    i2 = model.sample(self.num_interpolations, img_size, i)
+                with eval_context(vq_vae):
+                    z1, z2 = map(vq_vae.get_code, [i1, i2])
+                    ratio = torch.linspace(
+                        0.0,
+                        1.0,
+                        self.num_interpolations,
+                        device=device,
+                    )
+                    ratio = ratio.view(-1, 1, 1, 1)
+                    z_q = ratio * z1 + (1.0 - ratio) * z2
+                    shape = [self.num_interpolations, 1]
+                    labels = torch.full(shape, i, device=device)
+                    interpolations = vq_vae.decode(z_q, labels=labels)
+                interp_path = os.path.join(conditional_folder, f"interpolation_{i}.png")
+                save_images(interpolations, interp_path)
 
 
 if __name__ == "__main__":
