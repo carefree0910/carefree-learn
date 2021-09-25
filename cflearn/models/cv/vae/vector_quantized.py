@@ -96,6 +96,9 @@ class VQVAE(ModelProtocol):
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.generator.get_code_indices(net, **kwargs)
 
+    def get_code(self, code_indices: Tensor) -> Tensor:
+        return self.generator.get_code(code_indices)
+
     def reconstruct_from(
         self,
         code_indices: Tensor,

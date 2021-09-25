@@ -158,6 +158,11 @@ class VQGenerator(ModelProtocol):
         _, indices = self.codebook(z_e)
         return indices
 
+    def get_code(self, code_indices: Tensor) -> Tensor:
+        code_indices = code_indices.squeeze(1)
+        z_q = self.codebook.embedding(code_indices.to(self.device))
+        return z_q.permute(0, 3, 1, 2)
+
     def reconstruct_from(
         self,
         code_indices: Tensor,
@@ -167,8 +172,7 @@ class VQGenerator(ModelProtocol):
         use_one_hot: bool = False,
         **kwargs: Any,
     ) -> Tensor:
-        z_q = self.codebook.embedding(code_indices.to(self.device))
-        z_q = z_q.permute(0, 3, 1, 2)
+        z_q = self.get_code(code_indices)
         if use_one_hot:
             one_hot = torch.zeros_like(z_q)
             i = int(round(0.5 * z_q.shape[2]))
@@ -191,8 +195,9 @@ class VQGenerator(ModelProtocol):
             if num_samples is None:
                 raise ValueError("either `indices` or `num_samples` should be provided")
             code_indices = torch.randint(self.num_code, [num_samples])
-        code_indices = code_indices.view(-1, 1, 1)
-        tiled = code_indices.repeat([1, self.latent_resolution, self.latent_resolution])
+        code_indices = code_indices.view(-1, 1, 1, 1)
+        resolution = self.latent_resolution
+        tiled = code_indices.repeat([1, 1, resolution, resolution])
         if class_idx is not None:
             kwargs["labels"] = torch.full([len(code_indices)], class_idx)
         kwargs.setdefault("use_one_hot", True)

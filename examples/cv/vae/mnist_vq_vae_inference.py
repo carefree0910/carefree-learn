@@ -73,7 +73,6 @@ class PixelCNNCallback(cflearn.ImageCallback):
                 with eval_context(model):
                     sampled_indices = model.sample(batch_size, img_size, i)
                 with eval_context(vq_vae):
-                    sampled_indices = sampled_indices.squeeze(1)
                     sampled = vq_vae.reconstruct_from(sampled_indices, class_idx=i)
                 save_images(sampled, os.path.join(image_folder, f"sampled_{i}.png"))
 
