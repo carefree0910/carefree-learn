@@ -126,7 +126,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     final_results_file = "final_results.json"
     config_bundle_name = "config_bundle"
     onnx_kwargs_file: str = "onnx.json"
-    onnx_keys_file: str = "onnx_keys.json"
 
     config: Dict[str, Any]
     input_dim: Optional[int]
@@ -578,7 +577,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
                     json.dump(kwargs, f)
             m_onnx = ONNXWrapper()
-            input_keys = sorted(input_sample)
             original_states = model.state_dict()
             fixed_states = fix_denormal_states(original_states, verbose=verbose)
             with eval_context(m_onnx):
@@ -617,10 +615,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
                     onnx_model = model_simplified
                 onnx.save(onnx_model, onnx_path)
-                output_keys = sorted(m_onnx(input_sample))
-            if not onnx_only:
-                with open(os.path.join(export_folder, self.onnx_keys_file), "w") as f:
-                    json.dump({"input": input_keys, "output": output_keys}, f)
             if compress or (compress is None and not onnx_only):
                 Saving.compress(abs_folder, remove_original=remove_original)
         self.model.to(self.device)
