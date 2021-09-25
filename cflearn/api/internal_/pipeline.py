@@ -697,12 +697,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     pre_callback,
                     post_callback,
                 )
-                with open(os.path.join(export_folder, cls.onnx_kwargs_file), "r") as f:
-                    onnx_kwargs = json.load(f)
-                m_onnx = ONNX(
-                    onnx_path=os.path.join(export_folder, onnx_file),
-                    output_names=onnx_kwargs["output_names"],
-                )
+                m_onnx = ONNX(os.path.join(export_folder, onnx_file))
                 m.inference = cls.inference_base(onnx=m_onnx)
         return m
 

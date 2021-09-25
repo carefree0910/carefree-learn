@@ -545,14 +545,9 @@ class AuxLoss(LossProtocol):
 
 
 class ONNX:
-    def __init__(
-        self,
-        *,
-        onnx_path: str,
-        output_names: List[str],
-    ):
+    def __init__(self, onnx_path: str):
         self.ort_session = InferenceSession(onnx_path)
-        self.output_names = output_names
+        self.output_names = [node.name for node in self.ort_session.get_outputs()]
 
     def inference(self, new_inputs: np_dict_type) -> np_dict_type:
         if self.ort_session is None:
@@ -776,6 +771,7 @@ __all__ = [
     "LossProtocol",
     "MultiLoss",
     "AuxLoss",
+    "ONNX",
     "InferenceOutputs",
     "InferenceProtocol",
     "MetricsOutputs",
