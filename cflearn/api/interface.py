@@ -1,11 +1,13 @@
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import update_dict
 
 from ..types import data_type
+from ..types import tensor_dict_type
 from ..types import states_callback_type
 from ..protocol import ModelProtocol
 from .ml.data import MLData
@@ -53,6 +55,52 @@ def load(
         states_callback=states_callback,
         pre_callback=pre_callback,
         post_callback=post_callback,
+    )
+
+
+def pack_onnx(
+    workplace: str,
+    export_folder: str,
+    dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
+    *,
+    step: Optional[str] = None,
+    config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
+    pack_folder: Optional[str] = None,
+    states_callback: states_callback_type = None,
+    pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+    onnx_file: str = "model.onnx",
+    opset: int = 11,
+    simplify: bool = True,
+    onnx_only: bool = False,
+    input_sample: Optional[tensor_dict_type] = None,
+    num_samples: Optional[int] = None,
+    compress: Optional[bool] = None,
+    remove_original: bool = True,
+    verbose: bool = True,
+    **kwargs: Any,
+) -> DLPipeline:
+    cls = DLPipeline.get_base(workplace)
+    return cls.pack_onnx(
+        workplace,
+        export_folder,
+        dynamic_axes,
+        step=step,
+        config_bundle_callback=config_bundle_callback,
+        pack_folder=pack_folder,
+        states_callback=states_callback,
+        pre_callback=pre_callback,
+        post_callback=post_callback,
+        onnx_file=onnx_file,
+        opset=opset,
+        simplify=simplify,
+        onnx_only=onnx_only,
+        input_sample=input_sample,
+        num_samples=num_samples,
+        compress=compress,
+        remove_original=remove_original,
+        verbose=verbose,
+        **kwargs,
     )
 
 
@@ -509,6 +557,7 @@ def vq_vae_gray_lite(
 __all__ = [
     "pack",
     "load",
+    "pack_onnx",
     "fit_ml",
     "cct",
     "cct_model",
