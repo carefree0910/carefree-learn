@@ -84,6 +84,15 @@ class _PreparationProtocol:
     def get_new_img_path(self, idx: int, split_folder: str, old_img_path: str) -> str:
         pass
 
+    def is_ready(self, tgt_folder: str) -> bool:
+        for split in ["train", "valid"]:
+            extra_keys = [f"{key}_labels" for key in self.extra_labels or []]
+            for key in [LABEL_KEY] + extra_keys:
+                path = os.path.join(tgt_folder, split, f"{key}.json")
+                if not os.path.isfile(path):
+                    return False
+        return True
+
     def get_num_classes(self, tgt_folder: str) -> Dict[str, int]:
         num_classes = {}
         for label_name in [LABEL_KEY] + (self.extra_labels or []):
@@ -132,10 +141,7 @@ def prepare_image_folder(
         src_folder = os.path.join(prefix, src_folder)
         tgt_folder = os.path.join(prefix, tgt_folder)
 
-    if not force_rerun and all(
-        os.path.isfile(os.path.join(tgt_folder, split, f"{LABEL_KEY}.json"))
-        for split in ["train", "valid"]
-    ):
+    if not force_rerun and preparation.is_ready(tgt_folder):
         return tgt_folder
 
     preparation.prepare_src_folder(src_folder)
