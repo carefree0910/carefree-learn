@@ -90,10 +90,8 @@ class ViTEncoder(Encoder1DFromPatches):
             if self.output_projection is not None:
                 rs[LATENT_KEY] = latent @ self.output_projection
         else:
-            keys = self.aux_heads + [LATENT_KEY]
-            chunked = latent.chunk(len(self.aux_heads) + 1, dim=1)
-            for k, v in zip(keys, chunked):
-                rs[k] = v.squeeze(dim=1)
+            for i, k in enumerate(self.aux_heads + [LATENT_KEY]):
+                rs[k] = latent[:, i]
         return rs
 
 
