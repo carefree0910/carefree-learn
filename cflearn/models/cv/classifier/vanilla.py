@@ -3,6 +3,7 @@ import torch
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
@@ -61,12 +62,15 @@ class VanillaClassifier(ModelProtocol):
         # head
         main_head = Linear(latent_dim, num_classes)
         self.head = None
+        self.aux_keys = None
         if aux_num_classes is None:
             self.head = main_head
         else:
             heads = {LATENT_KEY: main_head}
+            self.aux_keys = []
             for key, n in aux_num_classes.items():
                 heads[key] = Linear(latent_dim, n)
+                self.aux_keys.append(key)
             self.heads = torch.nn.ModuleDict(heads)
 
     def forward(
@@ -89,8 +93,11 @@ class VanillaClassifier(ModelProtocol):
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return self.classify(batch[INPUT_KEY])
 
-    def classify(self, net: Tensor, **kwargs: Any) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
+    def classify(self, net: Tensor, **kwargs: Any) -> Union[Tensor, tensor_dict_type]:
+        rs = self.forward(0, {INPUT_KEY: net}, **kwargs)
+        if self.aux_keys is None:
+            return rs[PREDICTIONS_KEY]
+        return {key: rs[key] for key in [PREDICTIONS_KEY] + self.aux_keys}
 
 
 __all__ = ["VanillaClassifier"]
