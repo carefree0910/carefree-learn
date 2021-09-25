@@ -17,7 +17,7 @@ from cflearn.api.cv.data.interface import ImageFolderData
 is_ci = check_is_ci()
 
 
-class U2NETPreparation(cflearn.cv.DefaultPreparation):
+class U2NetPreparation(cflearn.cv.DefaultPreparation):
     def __init__(self, src_rgba_folder: str, label_folder: str):
         self.rgba_folder = src_rgba_folder
         self.label_folder = label_folder
@@ -52,7 +52,7 @@ def get_data(ci: bool) -> ImageFolderData:
         src_folder,
         tgt_folder,
         to_index=False,
-        preparation=U2NETPreparation(src_rgba_folder, label_folder),
+        preparation=U2NetPreparation(src_rgba_folder, label_folder),
         batch_size=16,
         num_workers=2 if ci else 4,
         transform="a_bundle",
