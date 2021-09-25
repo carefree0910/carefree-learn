@@ -549,7 +549,7 @@ class ONNX:
         self.ort_session = InferenceSession(onnx_path)
         self.output_names = [node.name for node in self.ort_session.get_outputs()]
 
-    def inference(self, new_inputs: np_dict_type) -> np_dict_type:
+    def predict(self, new_inputs: np_dict_type) -> np_dict_type:
         if self.ort_session is None:
             raise ValueError("`onnx_path` is not provided")
         ort_inputs = {
@@ -608,7 +608,7 @@ class InferenceProtocol:
                 if self.model is not None:
                     batch = to_device(batch, self.model.device)
                 if self.onnx is not None:
-                    local_outputs = self.onnx.inference(np_batch)
+                    local_outputs = self.onnx.predict(np_batch)
                 else:
                     assert self.model is not None
                     with eval_context(self.model, use_grad=use_grad):
