@@ -3,18 +3,23 @@ import json
 from abc import ABCMeta
 from torch import Tensor
 from typing import Any
+from typing import Set
 from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from functools import partial
 from cftool.misc import shallow_copy_dict
 from torchvision.datasets import MNIST
 
 from .core import batch_callback
+from .core import prepare_image_folder
+from .core import DefaultPreparation
 from .core import ImageFolderDataset
+from .core import _PreparationProtocol
 from .core import InferenceImageFolderDataset
 from .transforms import Transforms
 from ....types import sample_weights_type
@@ -209,7 +214,70 @@ class InferenceImageFolderData(CVDataModule):
         )
 
 
+class PrepareResults(NamedTuple):
+    data: ImageFolderData
+    tgt_folder: str
+
+
+def prepare_image_folder_data(
+    src_folder: str,
+    tgt_folder: str,
+    *,
+    to_index: bool,
+    batch_size: int,
+    prefix: Optional[str] = None,
+    preparation: _PreparationProtocol = DefaultPreparation(),
+    num_workers: int = 0,
+    shuffle: bool = True,
+    transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
+    transform_config: Optional[Dict[str, Any]] = None,
+    test_shuffle: Optional[bool] = None,
+    test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
+    test_transform_config: Optional[Dict[str, Any]] = None,
+    train_all_data: bool = False,
+    force_rerun: bool = False,
+    extensions: Optional[Set[str]] = None,
+    make_labels_in_parallel: bool = False,
+    num_jobs: int = 8,
+    valid_split: Union[int, float] = 0.1,
+    max_num_valid: int = 10000,
+    lmdb_config: Optional[Dict[str, Any]] = None,
+    use_tqdm: bool = True,
+) -> PrepareResults:
+    tgt_folder = prepare_image_folder(
+        src_folder,
+        tgt_folder,
+        to_index=to_index,
+        prefix=prefix,
+        preparation=preparation,
+        force_rerun=force_rerun,
+        extensions=extensions,
+        make_labels_in_parallel=make_labels_in_parallel,
+        num_jobs=num_jobs,
+        train_all_data=train_all_data,
+        valid_split=valid_split,
+        max_num_valid=max_num_valid,
+        lmdb_config=lmdb_config,
+        use_tqdm=use_tqdm,
+    )
+    data = ImageFolderData(
+        tgt_folder,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        shuffle=shuffle,
+        extra_label_names=preparation.extra_labels,
+        transform=transform,
+        transform_config=transform_config,
+        test_shuffle=test_shuffle,
+        test_transform=test_transform,
+        test_transform_config=test_transform_config,
+        lmdb_config=lmdb_config,
+    )
+    return PrepareResults(data, tgt_folder)
+
+
 __all__ = [
+    "prepare_image_folder_data",
     "CVDataModule",
     "MNISTData",
     "ImageFolderData",

@@ -25,20 +25,16 @@ class Products10kPreparation(cflearn.cv.DefaultPreparation):
 if __name__ == "__main__":
     if is_ci and not os.path.isdir(src_folder):
         download_dataset(dataset, root=data_folder)
-    cflearn.cv.prepare_image_folder(
+    data = cflearn.cv.prepare_image_folder_data(
         src_folder,
         tgt_folder,
         to_index=False,
-        preparation=Products10kPreparation(),
-        make_labels_in_parallel=False,
-        num_jobs=0 if is_ci else 8,
-    )
-    data = cflearn.cv.ImageFolderData(
-        tgt_folder,
         batch_size=16,
+        preparation=Products10kPreparation(),
         num_workers=4,
         transform=["resize", "to_tensor"],
-    )
+        num_jobs=0 if is_ci else 8,
+    ).data
 
     m = cflearn.api.resnet18(
         2,
