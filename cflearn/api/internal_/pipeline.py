@@ -536,10 +536,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if not isinstance(forward_results, dict):
             forward_results = {PREDICTIONS_KEY: forward_results}
         input_names = sorted(input_sample.keys())
+        output_names = sorted(forward_results.keys())
         # setup
         kwargs = shallow_copy_dict(kwargs)
         kwargs["input_names"] = input_names
-        kwargs["output_names"] = sorted(forward_results.keys())
+        kwargs["output_names"] = output_names
         kwargs["opset_version"] = opset
         kwargs["export_params"] = True
         kwargs["do_constant_folding"] = True
@@ -550,7 +551,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if num_samples is None:
             dynamic_axes[0] = "batch_size"
         dynamic_axes_settings = {}
-        for name in input_names + kwargs["output_names"]:
+        for name in input_names + output_names:
             dynamic_axes_settings[name] = dynamic_axes
         kwargs["dynamic_axes"] = dynamic_axes_settings
         kwargs["verbose"] = verbose
@@ -564,7 +565,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.model = model
 
             def forward(self, batch: Dict[str, Any]) -> Any:
-                return self.model.onnx_forward(batch)
+                rs = self.model.onnx_forward(batch)
+                return {k: rs[k] for k in output_names}
 
         with lock_manager(base_folder, []) as lock:
             onnx_path = os.path.join(export_folder, onnx_file)
@@ -583,7 +585,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 model.load_state_dict(fixed_states)
                 torch.onnx.export(
                     m_onnx,
-                    (input_sample, {}),
+                    ({k: input_sample[k] for k in input_names}, {}),
                     onnx_path,
                     **shallow_copy_dict(kwargs),
                 )
