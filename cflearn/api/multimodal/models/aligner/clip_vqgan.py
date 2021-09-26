@@ -3,8 +3,8 @@ from typing import Union
 from typing import Tuple
 from typing import Optional
 
+from .....data import DummyData
 from ....zoo.core import DLZoo
-from .....misc.internal_ import DummyData
 
 
 class CLIPWithVQGANTrainer:

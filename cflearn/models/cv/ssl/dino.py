@@ -15,6 +15,7 @@ from cftool.misc import shallow_copy_dict
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from ..encoder import Encoder1DBase
+from ....data import CVLoader
 from ....types import tensor_dict_type
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
@@ -27,7 +28,6 @@ from ....misc.toolkit import to_device
 from ....misc.toolkit import l2_normalize
 from ....misc.toolkit import get_world_size
 from ....misc.toolkit import has_batch_norms
-from ....misc.internal_ import CVLoader
 
 
 def _get_dino_defaults(name: str) -> Dict[str, Any]:

@@ -4,14 +4,14 @@ from typing import List
 from typing import Union
 from typing import Optional
 
+from ...data import DLLoader
+from ...data import DLDataModule
 from ...trainer import callback_dict
 from ...pipeline import DLPipeline
 from ...protocol import loss_dict
 from ...protocol import ModelProtocol
 from ...protocol import InferenceProtocol
 from ...misc.toolkit import get_arguments
-from ...misc.internal_ import DLLoader
-from ...misc.internal_ import DLDataModule
 
 
 @DLPipeline.register("dl.simple")

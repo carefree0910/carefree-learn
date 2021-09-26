@@ -14,11 +14,11 @@ from typing import NamedTuple
 from collections import defaultdict
 from cfdata.tabular.misc import np_int_type
 
+from ...data import MLLoader
 from ...constants import INPUT_KEY
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import Initializer
 from ...misc.toolkit import LoggingMixinWithRank
-from ...misc.internal_ import MLLoader
 from ...modules.blocks import Lambda
 
 

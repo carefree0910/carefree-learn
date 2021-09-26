@@ -16,6 +16,7 @@ from .losses import GANLoss
 from .losses import GANTarget
 from .discriminators import DiscriminatorBase
 from ..protocol import GaussianGeneratorMixin
+from ....data import CVLoader
 from ....types import tensor_dict_type
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
@@ -28,7 +29,6 @@ from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
 from ....misc.toolkit import toggle_optimizer
-from ....misc.internal_ import CVLoader
 
 
 class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):

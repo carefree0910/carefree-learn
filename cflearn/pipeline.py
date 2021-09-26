@@ -19,6 +19,8 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from onnxsim.onnx_simplifier import get_input_names
 
+from .data import DataModule
+from .data import DLDataModule
 from .types import np_dict_type
 from .types import tensor_dict_type
 from .types import sample_weights_type
@@ -47,8 +49,6 @@ from .misc.toolkit import fix_denormal_states
 from .misc.toolkit import prepare_workplace_from
 from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
-from .misc.internal_ import DataModule
-from .misc.internal_ import DLDataModule
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}

@@ -1,7 +1,7 @@
 from typing import Any
 from typing import Optional
 
-from .data import MLLoader
+from ...data import MLLoader
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...protocol import MetricProtocol

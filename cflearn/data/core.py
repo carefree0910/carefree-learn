@@ -28,18 +28,18 @@ from torch.utils.data import SequentialSampler
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data.distributed import DistributedSampler
 
-from ....types import tensor_dict_type
-from ....types import sample_weights_type
-from ....protocol import DatasetProtocol
-from ....protocol import DataLoaderProtocol
-from ....constants import INPUT_KEY
-from ....constants import LABEL_KEY
-from ....constants import BATCH_INDICES_KEY
-from ....misc.toolkit import walk
-from ....misc.toolkit import to_torch
-from ....misc.toolkit import get_ddp_info
-from ....misc.toolkit import get_world_size
-from ....misc.toolkit import WithRegister
+from ..types import tensor_dict_type
+from ..types import sample_weights_type
+from ..protocol import DatasetProtocol
+from ..protocol import DataLoaderProtocol
+from ..constants import INPUT_KEY
+from ..constants import LABEL_KEY
+from ..constants import BATCH_INDICES_KEY
+from ..misc.toolkit import walk
+from ..misc.toolkit import to_torch
+from ..misc.toolkit import get_ddp_info
+from ..misc.toolkit import get_world_size
+from ..misc.toolkit import WithRegister
 
 
 data_modules: Dict[str, Type["DataModule"]] = {}

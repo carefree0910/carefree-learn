@@ -41,16 +41,16 @@ from .core import Transforms
 from .core import DLDataModule
 from .core import ImageFolderDataset
 from .core import InferenceImageFolderDataset
-from ....types import data_type
-from ....types import tensor_dict_type
-from ....types import sample_weights_type
-from ....constants import INPUT_KEY
-from ....constants import LABEL_KEY
-from ....constants import INFO_PREFIX
-from ....constants import ERROR_PREFIX
-from ....constants import WARNING_PREFIX
-from ....constants import ORIGINAL_LABEL_KEY
-from ....misc.toolkit import walk
+from ..types import data_type
+from ..types import tensor_dict_type
+from ..types import sample_weights_type
+from ..constants import INPUT_KEY
+from ..constants import LABEL_KEY
+from ..constants import INFO_PREFIX
+from ..constants import ERROR_PREFIX
+from ..constants import WARNING_PREFIX
+from ..constants import ORIGINAL_LABEL_KEY
+from ..misc.toolkit import walk
 
 
 # dl

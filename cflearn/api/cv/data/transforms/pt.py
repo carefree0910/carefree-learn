@@ -2,7 +2,7 @@ from typing import Any
 from typing import Tuple
 from torchvision.transforms import transforms
 
-from .....misc.internal_.data import Transforms
+from .....data import Transforms
 
 
 @Transforms.register("to_gray")

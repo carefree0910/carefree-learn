@@ -6,6 +6,7 @@ from typing import Callable
 from typing import Optional
 from cftool.misc import update_dict
 
+from ..data import MLData
 from ..types import data_type
 from ..types import tensor_dict_type
 from ..types import states_callback_type
@@ -15,7 +16,6 @@ from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
 from .zoo.core import DLZoo
 from ..misc.toolkit import download_model
-from ..misc.internal_.data import MLData
 
 
 # dl
