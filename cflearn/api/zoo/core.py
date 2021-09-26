@@ -14,11 +14,11 @@ from cftool.misc import update_dict
 
 from ..basic import make
 from ...types import tensor_dict_type
+from ...pipeline import DLPipeline
+from ...pipeline import PipelineProtocol
+from ...protocol import ModelProtocol
 from ...constants import WARNING_PREFIX
 from ...constants import DEFAULT_ZOO_TAG
-from ..internal_.pipeline import DLPipeline
-from ..internal_.pipeline import ModelProtocol
-from ..internal_.pipeline import PipelineProtocol
 from ...misc.toolkit import download_model
 from ...misc.toolkit import download_data_info
 from ...misc.toolkit import download_tokenizer

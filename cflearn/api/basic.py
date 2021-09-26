@@ -6,8 +6,8 @@ from typing import List
 from typing import Union
 
 from ..types import general_config_type
-from .internal_.pipeline import pipeline_dict
-from .internal_.pipeline import PipelineProtocol
+from ..pipeline import pipeline_dict
+from ..pipeline import PipelineProtocol
 from ..misc.toolkit import _parse_config
 
 

@@ -4,10 +4,10 @@ from cfdata.tabular.processors.base import Processor
 
 from ..modules import register_optimizer
 from ..modules import register_scheduler
+from ..pipeline import PipelineProtocol
 from ..protocol import LossProtocol
 from ..protocol import MetricProtocol
 from ..misc.toolkit import Initializer
-from .internal_.pipeline import PipelineProtocol
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:

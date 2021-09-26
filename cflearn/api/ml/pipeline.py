@@ -20,11 +20,11 @@ from cftool.misc import Saving
 from ...types import np_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
+from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
-from ..internal_.pipeline import DLPipeline
 from ...misc.toolkit import softmax
 from ...misc.toolkit import squeeze
 from ...misc.toolkit import is_float
