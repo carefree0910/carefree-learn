@@ -159,30 +159,9 @@ class StyleTransferCallback(ImageCallback):
         save_images(stylized, os.path.join(image_folder, "stylized.png"))
 
 
-@TrainerCallback.register("style_gan_stylizer")
-@TrainerCallback.register("siamese_style_transfer")
-class SiameseStyleTransferCallback(ImageCallback):
-    def log_artifacts(self, trainer: Trainer) -> None:
-        if not self.is_rank_0:
-            return None
-        batch = next(iter(trainer.validation_loader))
-        batch = to_device(batch, trainer.device)
-        model = trainer.model
-        image_folder = self._prepare_folder(trainer)
-        with eval_context(model):
-            outputs = model._get_outputs(0, batch)
-            save_images(outputs["x1"], os.path.join(image_folder, "a.png"))
-            save_images(outputs["x2"], os.path.join(image_folder, "b.png"))
-            save_images(outputs["y1"], os.path.join(image_folder, "a_recon.png"))
-            save_images(outputs["y2"], os.path.join(image_folder, "b_recon.png"))
-            save_images(outputs["y12"], os.path.join(image_folder, "ab.png"))
-            save_images(outputs["y21"], os.path.join(image_folder, "ba.png"))
-
-
 __all__ = [
     "GeneratorCallback",
     "SizedGeneratorCallback",
     "AlphaSegmentationCallback",
     "StyleTransferCallback",
-    "SiameseStyleTransferCallback",
 ]
