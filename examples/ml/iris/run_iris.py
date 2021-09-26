@@ -17,7 +17,7 @@ sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
 if __name__ == "__main__":
     metrics = ["acc", "auc"]
     m = cflearn.ml.CarefreePipeline()
-    data = cflearn.ml.MLData.with_cf_data(iris_data_file)
+    data = cflearn.MLData.with_cf_data(iris_data_file)
     m.fit(data)
     print(m.cf_data.raw.x[0])
     print(m.cf_data.raw.y[0])
@@ -86,7 +86,7 @@ if __name__ == "__main__":
                 sk_patterns[model] = sk_pattern
 
     cflearn.ml.evaluate(
-        cflearn.ml.MLInferenceData(valid_x, valid_y),
+        cflearn.MLInferenceData(valid_x, valid_y),
         metrics=metrics,
         pipelines=pipelines,
         other_patterns=sk_patterns,

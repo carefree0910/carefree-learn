@@ -27,7 +27,7 @@ lmdb_config: dict = {}
 if __name__ == "__main__":
     if is_ci and not os.path.isdir(style_folder):
         download_dataset(dataset, root=data_root)
-    cflearn.cv.prepare_image_folder(
+    cflearn.prepare_image_folder(
         content_folder,
         gathered_folder,
         to_index=False,

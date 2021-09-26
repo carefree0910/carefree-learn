@@ -24,9 +24,9 @@ y_add = np.sum(x, axis=1)
 y_prod = np.prod(x, axis=1)
 y_mix = np.hstack([y_add, y_prod])
 data_kwargs = dict(num_history=dim, is_classification=False)
-add_data = cflearn.ml.MLData(x, y_add, **data_kwargs)
-prod_data = cflearn.ml.MLData(x, y_prod, **data_kwargs)
-mix_data = cflearn.ml.MLData(x, y_mix, **data_kwargs)
+add_data = cflearn.MLData(x, y_add, **data_kwargs)
+prod_data = cflearn.MLData(x, y_prod, **data_kwargs)
+mix_data = cflearn.MLData(x, y_mix, **data_kwargs)
 
 kwargs = {
     "output_dim": 1,
