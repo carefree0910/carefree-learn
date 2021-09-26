@@ -4,9 +4,9 @@ from torch import nn
 from typing import Any
 from typing import Dict
 from typing import List
-from cflearn.types import tensor_dict_type
 from torchvision.models._utils import IntermediateLayerGetter as ILG
 
+from .....types import tensor_dict_type
 from .....constants import LATENT_KEY
 from .models.register import backbone_dict
 from .....misc.toolkit import set_requires_grad

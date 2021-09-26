@@ -16,14 +16,14 @@ from mlflow.utils.mlflow_tags import MLFLOW_USER
 from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
 from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
-from cflearn.trainer import Trainer
-from cflearn.trainer import TrainerCallback
-from cflearn.protocol import StepOutputs
-from cflearn.protocol import TrainerState
-from cflearn.protocol import MetricsOutputs
-from cflearn.constants import PT_PREFIX
-from cflearn.constants import SCORES_FILE
-from cflearn.constants import WARNING_PREFIX
+from ....trainer import Trainer
+from ....trainer import TrainerCallback
+from ....protocol import StepOutputs
+from ....protocol import TrainerState
+from ....protocol import MetricsOutputs
+from ....constants import PT_PREFIX
+from ....constants import SCORES_FILE
+from ....constants import WARNING_PREFIX
 
 
 def parse_mlflow_uri(path: str) -> str:

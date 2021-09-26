@@ -25,7 +25,6 @@ from .types import np_dict_type
 from .types import tensor_dict_type
 from .types import sample_weights_type
 from .types import states_callback_type
-from .trainer import make_trainer
 from .trainer import get_sorted_checkpoints
 from .trainer import Trainer
 from .trainer import DeviceInfo
@@ -49,6 +48,7 @@ from .misc.toolkit import fix_denormal_states
 from .misc.toolkit import prepare_workplace_from
 from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
+from .misc.internal_.trainer import make_trainer
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}

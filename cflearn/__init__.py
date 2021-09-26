@@ -1,10 +1,10 @@
-from .data import *
 from .misc import *
 from .models import *
 from .modules import *
 from .trainer import *
 from .protocol import *
 from .constants import *
+from .data import *
 
 from .api import cv
 from .api import dl
