@@ -550,7 +550,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 super().__init__()
                 self.model = model
 
-            def forward(self, batch: Dict[str, Any]) -> Any:
+            def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
                 rs = self.model.onnx_forward(batch)
                 return {k: rs[k] for k in output_names}
 
