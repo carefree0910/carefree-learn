@@ -26,6 +26,7 @@ def predict_folder(
     transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
     transform_config: Optional[Dict[str, Any]] = None,
     use_tqdm: bool = True,
+    **predict_kwargs: Any,
 ) -> FolderInferenceResults:
     data = InferenceImageFolderData(
         folder,
@@ -34,7 +35,7 @@ def predict_folder(
         transform=transform,
         transform_config=transform_config,
     )
-    outputs = m.predict(data, use_tqdm=use_tqdm)
+    outputs = m.predict(data, use_tqdm=use_tqdm, **predict_kwargs)
     return FolderInferenceResults(outputs, data.dataset.img_paths)
 
 
