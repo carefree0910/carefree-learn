@@ -10,12 +10,12 @@ from ..types import data_type
 from ..types import tensor_dict_type
 from ..types import states_callback_type
 from ..protocol import ModelProtocol
-from .ml.data import MLData
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
 from .zoo.core import DLZoo
 from .internal_.pipeline import DLPipeline
 from ..misc.toolkit import download_model
+from ..misc.internal_.data import MLData
 
 
 # dl

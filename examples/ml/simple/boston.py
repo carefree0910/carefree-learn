@@ -9,11 +9,11 @@ base = cflearn.ml.SimplePipeline
 metrics = ["mae", "mse"]
 x, y = TabularDataset.boston().xy
 y = (y - y.mean()) / y.std()
-data = cflearn.ml.MLData(x, y, is_classification=False)
+data = cflearn.MLData(x, y, is_classification=False)
 m = cflearn.make("ml.simple", config={"metric_names": metrics}).fit(data)
 assert isinstance(m, cflearn.ml.SimplePipeline)
 
-idata = cflearn.ml.MLInferenceData(x, y)
+idata = cflearn.MLInferenceData(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
 predictions = m.predict(idata)[cflearn.PREDICTIONS_KEY]

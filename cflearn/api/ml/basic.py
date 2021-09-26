@@ -24,8 +24,6 @@ from cftool.ml.utils import patterns_type
 from cftool.ml.utils import Comparer
 from cftool.ml.utils import Estimator
 
-from .data import MLData
-from .data import MLInferenceData
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
 from ..basic import make
@@ -38,6 +36,8 @@ from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
 from ...misc.toolkit import get_latest_workplace
+from ...misc.internal_.data import MLData
+from ...misc.internal_.data import MLInferenceData
 from ...models.ml.protocol import MLCoreProtocol
 
 

@@ -16,10 +16,10 @@ from torchvision.transforms import InterpolationMode
 
 from .A import *
 from .pt import *
-from .protocol import Compose
-from .protocol import Transforms
 from .....misc.toolkit import min_max_normalize
 from .....misc.toolkit import imagenet_normalize
+from .....misc.internal_.data import Compose
+from .....misc.internal_.data import Transforms
 
 
 @Transforms.register("for_generation")

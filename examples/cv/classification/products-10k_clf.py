@@ -17,7 +17,7 @@ src_folder = os.path.join(data_folder, dataset)
 tgt_folder = os.path.join(data_folder, "products-10k_data")
 
 
-class Products10kPreparation(cflearn.cv.DefaultPreparation):
+class Products10kPreparation(cflearn.DefaultPreparation):
     def get_label(self, hierarchy: List[str]) -> int:
         return int(hierarchy[2] == "pos")
 
@@ -25,7 +25,7 @@ class Products10kPreparation(cflearn.cv.DefaultPreparation):
 if __name__ == "__main__":
     if is_ci and not os.path.isdir(src_folder):
         download_dataset(dataset, root=data_folder)
-    data = cflearn.cv.prepare_image_folder_data(
+    data = cflearn.prepare_image_folder_data(
         src_folder,
         tgt_folder,
         to_index=False,

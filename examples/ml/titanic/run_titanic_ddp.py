@@ -2,7 +2,7 @@ import os
 import cflearn
 import argparse
 
-from cflearn.api.ml import MLData
+from cflearn import MLData
 
 
 if __name__ == "__main__":

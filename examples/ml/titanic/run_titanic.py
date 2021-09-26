@@ -10,14 +10,14 @@ base = cflearn.ml.CarefreePipeline
 file_folder = os.path.dirname(__file__)
 train_file = os.path.join(file_folder, "train.csv")
 test_file = os.path.join(file_folder, "test.csv")
-data = cflearn.ml.MLData.with_cf_data(
+data = cflearn.MLData.with_cf_data(
     train_file,
     cf_data_config={"label_name": "Survived"},
 )
 m = base().fit(data)
 assert isinstance(m, base)
 
-idata = cflearn.ml.MLInferenceData(test_file)
+idata = cflearn.MLInferenceData(test_file)
 results = m.predict(idata, make_loader_kwargs={"contains_labels": False})
 predictions = results[cflearn.PREDICTIONS_KEY]
 

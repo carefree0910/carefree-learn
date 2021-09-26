@@ -10,10 +10,10 @@ from typing import Union
 from typing import Optional
 from albumentations.pytorch import ToTensorV2
 
-from .protocol import Transforms
 from .....types import np_dict_type
 from .....constants import INPUT_KEY
 from .....constants import LABEL_KEY
+from .....misc.internal_.data import Transforms
 
 
 class ATransforms(Transforms):

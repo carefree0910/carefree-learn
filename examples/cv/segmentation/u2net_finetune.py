@@ -7,17 +7,17 @@ import cflearn
 import numpy as np
 
 from typing import List
+from cflearn import ImageFolderData
 from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 from cflearn.misc.toolkit import min_max_normalize
-from cflearn.api.cv.data.interface import ImageFolderData
 
 
 is_ci = check_is_ci()
 
 
-class U2NetPreparation(cflearn.cv.DefaultPreparation):
+class U2NetPreparation(cflearn.DefaultPreparation):
     def __init__(self, src_rgba_folder: str, label_folder: str):
         self.rgba_folder = src_rgba_folder
         self.label_folder = label_folder
@@ -48,7 +48,7 @@ def get_data(ci: bool) -> ImageFolderData:
     label_folder = os.path.join(data_folder, "products-10k_labels")
     if ci and not os.path.isdir(src_folder):
         download_dataset(dataset, root=data_root)
-    return cflearn.cv.prepare_image_folder_data(
+    return cflearn.prepare_image_folder_data(
         src_folder,
         tgt_folder,
         to_index=False,

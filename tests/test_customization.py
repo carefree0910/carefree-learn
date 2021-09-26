@@ -37,7 +37,7 @@ class TestCustomization(unittest.TestCase):
             "ml.simple",
             config={"core_name": "foo", "output_dim": 1, "fixed_epoch": 0},
         )
-        data = cflearn.ml.MLData(x, y, is_classification=False)
+        data = cflearn.MLData(x, y, is_classification=False)
         m.fit(data)
         predictions = m.predict(data)[cflearn.PREDICTIONS_KEY]
         self.assertTrue(np.allclose(predictions, np.ones_like(y)))

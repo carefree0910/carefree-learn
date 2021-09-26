@@ -10,11 +10,11 @@ from cflearn.misc.toolkit import get_latest_workplace
 base = cflearn.ml.SimplePipeline
 metrics = ["acc", "auc"]
 x, y = TabularDataset.iris().xy
-data = cflearn.ml.MLData(x, y, is_classification=True)
+data = cflearn.MLData(x, y, is_classification=True)
 m = base(output_dim=3, metric_names=metrics).fit(data)
 assert isinstance(m, base)
 
-idata = cflearn.ml.MLInferenceData(x, y)
+idata = cflearn.MLInferenceData(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
 p = m.predict(idata)[cflearn.PREDICTIONS_KEY]

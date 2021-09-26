@@ -4,15 +4,12 @@ import onnx
 import torch
 import shutil
 
-import numpy as np
-
 from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
-from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -55,25 +52,6 @@ from ...misc.internal_ import DLDataModule
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
-split_sw_type = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
-
-
-def _norm_sw(sample_weights: Optional[np.ndarray]) -> Optional[np.ndarray]:
-    if sample_weights is None:
-        return None
-    return sample_weights / sample_weights.sum()
-
-
-def _split_sw(sample_weights: sample_weights_type) -> split_sw_type:
-    if sample_weights is None:
-        train_weights = valid_weights = None
-    else:
-        if not isinstance(sample_weights, np.ndarray):
-            train_weights, valid_weights = sample_weights
-        else:
-            train_weights, valid_weights = sample_weights, None
-    train_weights, valid_weights = map(_norm_sw, [train_weights, valid_weights])
-    return train_weights, valid_weights
 
 
 class PipelineProtocol(WithRegister, metaclass=ABCMeta):

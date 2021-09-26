@@ -21,7 +21,7 @@ f = lambda inp: (
 x = 2.0 * np.random.random([num_samples, 1]) - 1.0
 y = f(x)
 
-data = cflearn.ml.MLData(
+data = cflearn.MLData(
     x[:num_train],
     y[:num_train],
     x[num_train:-num_test],
