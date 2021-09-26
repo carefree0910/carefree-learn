@@ -32,6 +32,7 @@ from ....constants import INFO_PREFIX
 from ....constants import ERROR_PREFIX
 from ....constants import WARNING_PREFIX
 from ....constants import ORIGINAL_LABEL_KEY
+from ....misc.toolkit import walk
 from ....misc.toolkit import to_torch
 from ....misc.internal_ import CVLoader
 from ....misc.internal_ import DataLoader
@@ -151,8 +152,15 @@ def prepare_image_folder(
         shutil.rmtree(tgt_folder)
     os.makedirs(tgt_folder, exist_ok=True)
 
-    walked = list(os.walk(src_folder))
     print(f"{INFO_PREFIX}collecting hierarchies")
+
+    def hierarchy_callback(hierarchy: List[str], path: str) -> None:
+        hierarchy = hierarchy[prefix_idx:]
+        if not preparation.filter(hierarchy):
+            return None
+        hierarchy_list.append(hierarchy)
+        all_img_paths.append(path)
+
     all_img_paths = []
     hierarchy_list = []
     if extensions is None:
@@ -160,16 +168,7 @@ def prepare_image_folder(
     prefix_idx = 0
     if prefix is not None:
         prefix_idx = len(prefix.split(os.path.sep))
-    for folder, _, files in tqdm(walked, desc="folders", position=0):
-        for file in tqdm(files, desc="files", position=1, leave=False):
-            if not any(file.endswith(ext) for ext in extensions):
-                continue
-            hierarchy = folder.split(os.path.sep) + [file]
-            hierarchy = hierarchy[prefix_idx:]
-            if not preparation.filter(hierarchy):
-                continue
-            hierarchy_list.append(hierarchy)
-            all_img_paths.append(os.path.join(folder, file))
+    walk(src_folder, hierarchy_callback, extensions)
 
     def get_labels(
         label_fn: Callable,

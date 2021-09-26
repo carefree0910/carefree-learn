@@ -70,6 +70,21 @@ except:
 # general
 
 
+def walk(
+    root: str,
+    hierarchy_callback: Callable[[List[str], str], None],
+    filter_extensions: Optional[Set[str]] = None,
+) -> None:
+    walked = list(os.walk(root))
+    for folder, _, files in tqdm(walked, desc="folders", position=0):
+        for file in tqdm(files, desc="files", position=1, leave=False):
+            if filter_extensions is not None:
+                if not any(file.endswith(ext) for ext in filter_extensions):
+                    continue
+            hierarchy = folder.split(os.path.sep) + [file]
+            hierarchy_callback(hierarchy, os.path.join(folder, file))
+
+
 def _parse_config(config: general_config_type) -> Dict[str, Any]:
     if config is None:
         return {}
