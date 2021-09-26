@@ -9,6 +9,7 @@ from typing import Tuple
 from ..data import SSLTestTransform
 from ..data import InferenceImageFolderData
 from ..pipeline import SimplePipeline
+from ..interface import predict_folder
 from ....constants import LATENT_KEY
 from ....misc.toolkit import to_torch
 from ....misc.toolkit import to_device
@@ -45,14 +46,16 @@ class DINOPredictor:
         num_workers: int = 0,
         use_tqdm: bool = True,
     ) -> Tuple[Tensor, List[str]]:
-        data = InferenceImageFolderData(
+        results = predict_folder(
+            self.m,
             src_folder,
             batch_size=batch_size,
             num_workers=num_workers,
             transform=self.transform,
+            use_tqdm=use_tqdm,
         )
-        outputs = self.m.predict(data, use_tqdm=use_tqdm)[LATENT_KEY]
-        return to_torch(outputs), data.dataset.img_paths
+        latent = to_torch(results.outputs[LATENT_KEY])
+        return latent, results.img_paths
 
     def get_folder_logits(
         self,

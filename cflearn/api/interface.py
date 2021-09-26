@@ -4,10 +4,14 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import update_dict
 
 from ..data import MLData
+from ..data import Transforms
+from ..data import InferenceImageFolderData
 from ..types import data_type
+from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
@@ -559,6 +563,7 @@ __all__ = [
     "load",
     "pack_onnx",
     "fit_ml",
+    "predict_folder",
     "cct",
     "cct_model",
     "cct_lite",
