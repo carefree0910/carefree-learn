@@ -78,15 +78,19 @@ class VanillaClassifier(ModelProtocol):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
+        *,
+        return_encodings: bool = False,
         **kwargs: Any,
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
-        encoding = self.encoder1d(batch_idx, batch, state, **kwargs)
+        encodings = self.encoder1d(batch_idx, batch, state, **kwargs)
+        if return_encodings:
+            return encodings
         if self.head is not None:
-            return {PREDICTIONS_KEY: self.head(encoding[LATENT_KEY])}
+            return {PREDICTIONS_KEY: self.head(encodings[LATENT_KEY])}
         results = {}
         for key, head in self.heads.items():
-            predictions = head(encoding[key])
+            predictions = head(encodings[key])
             results[PREDICTIONS_KEY if key == LATENT_KEY else key] = predictions
         return results
 
