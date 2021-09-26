@@ -472,7 +472,15 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     pre_callback,
                     post_callback,
                 )
-                data_info = DataModule.load(export_folder)
+                try:
+                    data_info = DataModule.load(export_folder)
+                except Exception as err:
+                    print(
+                        f"{WARNING_PREFIX}error occurred when trying to load "
+                        f"`DataModule` ({err}), it might cause by BC breaking, "
+                        "empty `data_info` will be used"
+                    )
+                    data_info = {}
                 m._prepare_modules(data_info)
                 m.model.to(m.device)
                 # restore checkpoint
