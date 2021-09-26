@@ -19,11 +19,11 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 from onnxsim.onnx_simplifier import get_input_names
 
-from .trainer import make_trainer
 from ...types import np_dict_type
 from ...types import tensor_dict_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
+from ...trainer import make_trainer
 from ...trainer import get_sorted_checkpoints
 from ...trainer import Trainer
 from ...trainer import DeviceInfo
