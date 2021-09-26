@@ -499,6 +499,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         opset: int = 11,
         simplify: bool = True,
         onnx_only: bool = False,
+        forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+        output_names: Optional[List[str]] = None,
         input_sample: Optional[tensor_dict_type] = None,
         num_samples: Optional[int] = None,
         compress: Optional[bool] = None,
@@ -522,7 +524,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if not isinstance(forward_results, dict):
             forward_results = {PREDICTIONS_KEY: forward_results}
         input_names = sorted(input_sample.keys())
-        output_names = sorted(forward_results.keys())
+        if output_names is None:
+            if forward_fn is not None:
+                msg = "`output_names` should be provided when `forward_fn` is provided"
+                raise ValueError(msg)
+            output_names = sorted(forward_results.keys())
         # setup
         kwargs = shallow_copy_dict(kwargs)
         kwargs["input_names"] = input_names
@@ -551,8 +557,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.model = model
 
             def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-                rs = self.model.onnx_forward(batch)
-                return {k: rs[k] for k in output_names}
+                rs = (forward_fn or self.model.onnx_forward)(batch)
+                return {k: rs[k] for k in output_names}  # type: ignore
 
         with lock_manager(base_folder, []) as lock:
             onnx_path = os.path.join(export_folder, onnx_file)
