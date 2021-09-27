@@ -21,6 +21,7 @@ from ....modules.blocks import ChannelPadding
 
 
 decoders: Dict[str, Type["DecoderBase"]] = {}
+decoders_1d: Dict[str, Type["Decoder1DBase"]] = {}
 
 
 class DecoderProtocol(nn.Module):
@@ -50,6 +51,7 @@ class DecoderProtocol(nn.Module):
         return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
 
 
+# decode from latent feature map
 class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["DecoderBase"]] = decoders
 
@@ -60,9 +62,9 @@ class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
         *,
         img_size: Optional[int] = None,
         num_upsample: Optional[int] = None,
-        cond_channels: int = 16,
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
+        cond_channels: int = 16,
     ):
         super().__init__()
         self.img_size = img_size
@@ -99,6 +101,37 @@ class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
         return batch
 
 
+# decode from 1d latent code
+class Decoder1DBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
+    d: Dict[str, Type["Decoder1DBase"]] = decoders_1d
+
+    def __init__(
+        self,
+        latent_dim: int,
+        out_channels: int,
+        *,
+        img_size: Optional[int] = None,
+        num_upsample: Optional[int] = None,
+        num_classes: Optional[int] = None,
+        latent_resolution: Optional[int] = None,
+    ):
+        super().__init__()
+        self.img_size = img_size
+        self.latent_dim = latent_dim
+        self.out_channels = out_channels
+        self.num_classes = num_classes
+        self.latent_resolution = latent_resolution
+        if num_upsample is None:
+            fmt = "`{}` should be provided when `num_upsample` is not"
+            if img_size is None:
+                raise ValueError(fmt.format("img_size"))
+            if latent_resolution is None:
+                raise ValueError(fmt.format("latent_resolution"))
+            num_upsample = auto_num_layers(img_size, latent_resolution, None)
+        self.num_upsample = num_upsample
+
+
 __all__ = [
     "DecoderBase",
+    "Decoder1DBase",
 ]
