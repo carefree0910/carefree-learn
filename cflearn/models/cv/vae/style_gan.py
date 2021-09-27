@@ -5,10 +5,10 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from ..decoder import StyleGANDecoder
 from ..encoder import Encoder1DBase
 from ..encoder import Encoder1DFromPatches
 from ..protocol import GaussianGeneratorMixin
-from ..generator import StyleGANDecoder
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
