@@ -20,6 +20,7 @@ from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
+from ....modules.blocks import Activations
 from ....modules.blocks import ChannelPadding
 
 
@@ -42,7 +43,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 128,
+        latent: int = 256,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
@@ -52,6 +53,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         decoder: str = "vanilla",
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
+        output_activation: Optional[str] = "tanh",
     ):
         super().__init__()
         self.generator = EncoderDecoder(
@@ -73,6 +75,10 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             decoder_config=decoder_config,
         )
         self.num_classes = num_classes
+        if output_activation is None:
+            self.out = None
+        else:
+            self.out = Activations.make(output_activation)
 
     @property
     def can_reconstruct(self) -> bool:
@@ -83,7 +89,9 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             labels = torch.randint(self.num_classes, [len(z)], device=z.device)
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.generator.decode(batch, **kwargs)
-        return torch.tanh(net)
+        if self.out is not None:
+            net = self.out(net)
+        return net
 
     def forward(
         self,
@@ -112,7 +120,7 @@ class VanillaVAE1D(VanillaVAEBase):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 128,
+        latent: int = 256,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
@@ -156,7 +164,7 @@ class VanillaVAE2D(VanillaVAEBase):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 128,
+        latent: int = 256,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
