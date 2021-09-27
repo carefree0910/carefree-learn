@@ -23,8 +23,23 @@ encoders: Dict[str, Type["EncoderBase"]] = {}
 encoders_1d: Dict[str, Type["Encoder1DBase"]] = {}
 
 
+class EncoderProtocol(nn.Module):
+    @abstractmethod
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        pass
+
+    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
+        return self.forward(0, batch, **kwargs)[LATENT_KEY]
+
+
 # encode to a latent feature map
-class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
+class EncoderBase(EncoderProtocol, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["EncoderBase"]] = encoders
 
     def __init__(
@@ -38,19 +53,6 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
         self.num_downsample = num_downsample
         self.latent_channels = latent_channels
 
-    @abstractmethod
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
-    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
-        return self.forward(0, batch, **kwargs)[LATENT_KEY]
-
     def latent_resolution(self, img_size: int) -> int:
         shape = 1, self.in_channels, img_size, img_size
         params = list(self.parameters())
@@ -61,26 +63,13 @@ class EncoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
 
 
 # encode to a 1d latent code
-class Encoder1DBase(nn.Module, WithRegister, metaclass=ABCMeta):
+class Encoder1DBase(EncoderProtocol, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["Encoder1DBase"]] = encoders_1d
 
     def __init__(self, in_channels: int, latent_dim: int = 128):
         super().__init__()
         self.in_channels = in_channels
         self.latent_dim = latent_dim
-
-    @abstractmethod
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
-    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
-        return self.forward(0, batch, **kwargs)[LATENT_KEY]
 
 
 class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
