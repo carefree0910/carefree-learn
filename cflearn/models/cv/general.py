@@ -63,8 +63,8 @@ class EncoderDecoder(nn.Module):
         self.num_downsample = num_downsample
         self.num_upsample = num_upsample
         self.latent_resolution = latent_resolution
-        self.encoder_base = (Encoder1DBase if is_1d else EncoderBase).get(encoder)
-        self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)
+        self.encoder_base = (Encoder1DBase if is_1d else EncoderBase).get(encoder)  # type: ignore
+        self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)  # type: ignore
         # encoder
         if encoder_config is None:
             encoder_config = {}
@@ -90,10 +90,10 @@ class EncoderDecoder(nn.Module):
     def resize(self, net: Tensor) -> Tensor:
         return self.decoder.resize(net)
 
-    def encode(self, batch: tensor_dict_type, **kwargs) -> Tensor:
+    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         return self.encoder.encode(batch, **kwargs)
 
-    def decode(self, batch: tensor_dict_type, **kwargs) -> Tensor:
+    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         net = self.decoder.decode(batch, **kwargs)
         return self.resize(net)
 
