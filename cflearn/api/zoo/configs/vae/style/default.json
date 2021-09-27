@@ -7,5 +7,12 @@
   "model_config": {
     "in_channels": 3
   },
+  "optimizer_name": "adamw",
+  "optimizer_config": {
+    "lr": 3.0e-4,
+    "betas": [0.5, 0.999]
+  },
+  "scheduler_name": "linear_inverse",
+  "scheduler_config": {"decay": 2.0e-5},
   "loss_metrics_weights": {"kld": 0.001, "mse": 1.0}
 }
