@@ -694,7 +694,8 @@ def prepare_image_folder(
         sorted_indices = np.argsort(src_lengths).tolist()[::-1]
         while True:
             for idx in sorted_indices:
-                tgt[idx].append(src[idx].pop())
+                if len(src[idx]) > 1:
+                    tgt[idx].append(src[idx].pop())
                 resolved += 1
                 if resolved == diff:
                     break
@@ -707,8 +708,8 @@ def prepare_image_folder(
     elif diff < 0:
         diff *= -1
         propagate(train_indices_list, valid_indices_list)
-    merged_train_indices: List[int] = sum(train_indices_list, [])
-    merged_valid_indices: List[int] = sum(valid_indices_list, [])
+    merged_train_indices: List[int] = sorted(set(sum(train_indices_list, [])))
+    merged_valid_indices: List[int] = sorted(set(sum(valid_indices_list, [])))
     if train_all_data:
         merged_train_indices.extend(merged_valid_indices)
     train_indices = np.array(merged_train_indices)
