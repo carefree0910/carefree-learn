@@ -130,6 +130,7 @@ class VanillaVAE1D(VanillaVAEBase):
         decoder: str = "vanilla",
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
+        output_activation: Optional[str] = "tanh",
     ):
         super().__init__(
             True,
@@ -148,6 +149,7 @@ class VanillaVAE1D(VanillaVAEBase):
             decoder=decoder,
             encoder_config=encoder_config,
             decoder_config=decoder_config,
+            output_activation=output_activation,
         )
         self.latent_dim = self.generator.latent
         self.to_statistics = Linear(latent, 2 * latent, bias=False)
@@ -174,6 +176,7 @@ class VanillaVAE2D(VanillaVAEBase):
         decoder: str = "vanilla",
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
+        output_activation: Optional[str] = "tanh",
     ):
         super().__init__(
             False,
@@ -192,6 +195,7 @@ class VanillaVAE2D(VanillaVAEBase):
             decoder=decoder,
             encoder_config=encoder_config,
             decoder_config=decoder_config,
+            output_activation=output_activation,
         )
         latent = self.generator.latent
         latent_resolution = self.generator.latent_resolution
