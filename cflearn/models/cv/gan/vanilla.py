@@ -13,6 +13,7 @@ from .protocol import VanillaGANMixin
 from ..decoder import DecoderBase
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 
@@ -43,7 +44,12 @@ class VanillaGAN(VanillaGANMixin):
             gan_mode=gan_mode,
             gan_loss_config=gan_loss_config,
         )
-        num_upsample = math.ceil(math.log2(img_size / latent_resolution))
+        num_upsample = auto_num_layers(
+            img_size,
+            latent_resolution,
+            None,
+            use_stride=True,
+        )
         # latent
         self.latent_dim = latent_dim
         map_area = latent_resolution ** 2
