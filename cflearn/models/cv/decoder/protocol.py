@@ -23,7 +23,34 @@ from ....modules.blocks import ChannelPadding
 decoders: Dict[str, Type["DecoderBase"]] = {}
 
 
-class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
+class DecoderProtocol(nn.Module):
+    img_size: Optional[int] = None
+    num_classes: Optional[int] = None
+
+    @abstractmethod
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        pass
+
+    @property
+    def is_conditional(self) -> bool:
+        return self.num_classes is not None
+
+    def resize(self, net: Tensor) -> Tensor:
+        if self.img_size is None:
+            return net
+        return interpolate(net, size=self.img_size)
+
+    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
+        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
+
+
+class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["DecoderBase"]] = decoders
 
     def __init__(
@@ -65,33 +92,13 @@ class DecoderBase(nn.Module, WithRegister, metaclass=ABCMeta):
                 num_classes=num_classes,
             )
 
-    @property
-    def is_conditional(self) -> bool:
-        return self.num_classes is not None
-
     def _inject_cond(self, batch: tensor_dict_type) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
         if self.cond is not None:
             batch[INPUT_KEY] = self.cond(batch[INPUT_KEY], batch[LABEL_KEY])
         return batch
 
-    def resize(self, net: Tensor) -> Tensor:
-        if self.img_size is None:
-            return net
-        return interpolate(net, size=self.img_size)
 
-    @abstractmethod
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
-    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
-        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
-
-
-__all__ = ["DecoderBase"]
+__all__ = [
+    "DecoderBase",
+]
