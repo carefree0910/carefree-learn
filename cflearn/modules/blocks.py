@@ -2600,20 +2600,29 @@ class ResidualBlockV2(Module):
 class ChannelPadding(Module):
     def __init__(
         self,
-        dim: int,
+        in_channels: int,
+        latent_channels: int,
         map_dim: Optional[int] = None,
         *,
+        is_1d: bool = False,
         num_classes: Optional[int] = None,
     ):
         super().__init__()
-        self.dim = dim
+        self.in_channels = in_channels
+        self.latent_channels = latent_channels
         self.map_dim = map_dim
         self.is_global = map_dim is None
         self.is_conditional = num_classes is not None
         if self.is_global:
             map_dim = 1
-        token_shape = (num_classes or 1), dim, map_dim, map_dim
+        token_shape = (num_classes or 1), latent_channels, map_dim, map_dim
         self.channel_padding = nn.Parameter(torch.randn(*token_shape))  # type: ignore
+        in_nc = in_channels + latent_channels
+        out_nc = in_channels
+        if is_1d:
+            self.mapping = Linear(in_nc, out_nc, bias=False)
+        else:
+            self.mapping = Conv2d(in_nc, out_nc, kernel_size=1, bias=False)
 
     def forward(self, net: Tensor, labels: Optional[Tensor] = None) -> Tensor:
         if not self.is_conditional:
@@ -2628,8 +2637,11 @@ class ChannelPadding(Module):
                 padding = squeeze(padding)
             else:
                 padding = padding.repeat(1, 1, *net.shape[-2:])
-        return torch.cat([net, padding], dim=1)
+        net = torch.cat([net, padding], dim=1)
+        net = self.mapping(net)
+        return net
 
     def extra_repr(self) -> str:
+        dim_str = f"{self.in_channels}+{self.latent_channels}"
         map_dim_str = "global" if self.is_global else f"{self.map_dim}x{self.map_dim}"
-        return f"{self.dim}, {map_dim_str}"
+        return f"{dim_str}, {map_dim_str}"

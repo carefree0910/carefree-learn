@@ -215,8 +215,12 @@ class ImgSiren(nn.Module):
         # condition
         self.cond_padding = None
         if num_classes is not None:
-            self.cond_padding = ChannelPadding(conditional_dim, num_classes=num_classes)
-            latent_dim += conditional_dim
+            self.cond_padding = ChannelPadding(
+                latent_dim,
+                conditional_dim,
+                is_1d=True,
+                num_classes=num_classes,
+            )
         # siren
         self.siren = Siren(
             img_size,

@@ -122,8 +122,8 @@ class PixelCNN(ModelProtocol):
         # channel padding
         self.channel_padding = None
         if channel_padding is not None:
-            start_channels += channel_padding
             self.channel_padding = ChannelPadding(
+                start_channels,
                 channel_padding,
                 num_classes=num_conditional_classes,
             )

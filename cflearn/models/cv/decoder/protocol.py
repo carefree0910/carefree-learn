@@ -89,15 +89,17 @@ class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
                 msg = "`latent_resolution` should be provided for conditional modeling"
                 raise ValueError(msg)
             self.cond = ChannelPadding(
+                latent_channels,
                 cond_channels,
                 latent_resolution,
                 num_classes=num_classes,
             )
 
     def _inject_cond(self, batch: tensor_dict_type) -> tensor_dict_type:
+        if self.cond is None:
+            return batch
         batch = shallow_copy_dict(batch)
-        if self.cond is not None:
-            batch[INPUT_KEY] = self.cond(batch[INPUT_KEY], batch[LABEL_KEY])
+        batch[INPUT_KEY] = self.cond(batch[INPUT_KEY], batch.get(LABEL_KEY))
         return batch
 
 

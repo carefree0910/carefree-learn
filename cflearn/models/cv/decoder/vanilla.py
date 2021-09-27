@@ -82,12 +82,9 @@ class VanillaDecoder(DecoderBase):
             msg = "length of `num_repeats` is not identical with `num_upsample + 1`"
             raise ValueError(msg)
 
-        in_nc = latent_channels
-        if self.is_conditional:
-            in_nc += cond_channels
-
         if last_kernel_size is None:
             last_kernel_size = kernel_size
+        in_nc = latent_channels
         for i, num_repeat in enumerate(num_repeats):
             is_last = i == self.num_upsample
             if is_last:
@@ -202,8 +199,11 @@ class VanillaDecoder1D(Decoder1DBase):
             Conv2d(latent_channels, latent_dim, kernel_size=1, bias=False),
         ]
         if latent_padding_channels is not None:
-            latent_dim += latent_padding_channels
-            latent_padding = ChannelPadding(latent_padding_channels, latent_resolution)
+            latent_padding = ChannelPadding(
+                latent_dim,
+                latent_padding_channels,
+                latent_resolution,
+            )
             blocks.append(latent_padding)
         self.from_latent = nn.Sequential(*blocks)
         self.decoder = VanillaDecoder(

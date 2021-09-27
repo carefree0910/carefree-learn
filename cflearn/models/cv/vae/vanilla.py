@@ -197,7 +197,18 @@ class VanillaVAE2D(VanillaVAEBase):
             bias=False,
         )
         shape = -1, latent, latent_resolution, latent_resolution
-        self.from_latent = Lambda(lambda net: net.view(shape), f"reshape -> {shape}")
+        blocks = [Lambda(lambda net: net.view(shape), f"reshape -> {shape}")]
+        if latent_padding_channels is None:
+            self.from_latent = blocks[0]
+        else:
+            blocks.append(
+                ChannelPadding(
+                    latent,
+                    latent_padding_channels,
+                    latent_resolution,
+                )
+            )
+            self.from_latent = nn.Sequential(*blocks)
 
 
 __all__ = [

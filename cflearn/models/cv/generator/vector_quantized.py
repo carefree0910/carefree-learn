@@ -99,18 +99,18 @@ class VQGenerator(ModelProtocol):
             decoder_config["img_size"] = img_size
         decoder_config["out_channels"] = out_channels or in_channels
         decoder_config["latent_resolution"] = latent_resolution
-        if latent_padding_channels is None:
-            decoder_in_channels = latent_channels
-        else:
-            decoder_in_channels = latent_channels + latent_padding_channels
-        decoder_config["latent_channels"] = decoder_in_channels
+        decoder_config["latent_channels"] = latent_channels
         decoder_config["num_classes"] = num_classes
         self.decoder = decoder_base(**decoder_config)
         # latent padding
         if latent_padding_channels is None:
             self.latent_padding = None
         else:
-            self.latent_padding = ChannelPadding(decoder_in_channels, latent_resolution)
+            self.latent_padding = ChannelPadding(
+                latent_channels,
+                latent_padding_channels,
+                latent_resolution,
+            )
 
     def to_codebook(self, latent: Tensor) -> Tensor:
         return latent
