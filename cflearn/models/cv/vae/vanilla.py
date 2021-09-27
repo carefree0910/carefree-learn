@@ -198,9 +198,9 @@ class VanillaVAE2D(VanillaVAEBase):
             output_activation=output_activation,
         )
         latent = self.generator.latent
-        latent_resolution = self.generator.latent_resolution
-        assert latent_resolution is not None
-        self.latent_dim = latent * latent_resolution ** 2
+        self.latent_resolution = self.generator.latent_resolution
+        assert self.latent_resolution is not None
+        self.latent_dim = latent * self.latent_resolution ** 2
         self.to_statistics = Conv2d(
             latent,
             latent * 2,
@@ -208,7 +208,7 @@ class VanillaVAE2D(VanillaVAEBase):
             padding=0,
             bias=False,
         )
-        shape = -1, latent, latent_resolution, latent_resolution
+        shape = -1, latent, self.latent_resolution, self.latent_resolution
         blocks = [Lambda(lambda net: net.view(shape), f"reshape -> {shape}")]
         if latent_padding_channels is None:
             self.from_latent = blocks[0]
@@ -217,7 +217,7 @@ class VanillaVAE2D(VanillaVAEBase):
                 ChannelPadding(
                     latent,
                     latent_padding_channels,
-                    latent_resolution,
+                    self.latent_resolution,
                 )
             )
             self.from_latent = nn.Sequential(*blocks)

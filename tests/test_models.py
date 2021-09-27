@@ -213,7 +213,8 @@ class TestModels(unittest.TestCase):
 
         vae2d = cflearn.VanillaVAE2D(in_channels, out_channels, img_size=img_size)
         assert vae2d.latent_resolution is not None
-        latent_d = vae2d.encoder.latent_channels * vae2d.latent_resolution ** 2
+        latent_channels = vae2d.generator.encoder.latent_channels
+        latent_d = latent_channels * vae2d.latent_resolution ** 2
         self.assertSequenceEqual(
             vae2d.decode(torch.randn(batch_size, latent_d), labels=None).shape,
             [batch_size, out_channels, img_size, img_size],
