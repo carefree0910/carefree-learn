@@ -1,4 +1,7 @@
 {
+  "__requires__": [
+    {"model_config": {"encoder1d_config": ["img_size"]}}
+  ],
   "pipeline": "cv.carefree",
   "model_name": "dino",
   "model_config": {
@@ -6,7 +9,6 @@
     "norm_last_layer": false,
     "teacher_temp_epochs": 2000,
     "encoder1d_config": {
-      "img_size": 224,
       "in_channels": 3
     }
   },
