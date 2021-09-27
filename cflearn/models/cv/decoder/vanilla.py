@@ -1,17 +1,25 @@
+import math
+
 import torch.nn as nn
 
 from typing import Any
 from typing import List
 from typing import Union
 from typing import Optional
+from cftool.misc import shallow_copy_dict
 
 from .protocol import DecoderBase
+from .protocol import Decoder1DBase
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import get_conv_blocks
+from ....modules.blocks import Conv2d
+from ....modules.blocks import Lambda
+from ....modules.blocks import Linear
 from ....modules.blocks import ResidualBlock
+from ....modules.blocks import ChannelPadding
 from ....modules.blocks import UpsampleConv2d
 
 
@@ -150,4 +158,89 @@ class VanillaDecoder(DecoderBase):
         return {PREDICTIONS_KEY: net}
 
 
-__all__ = ["VanillaDecoder"]
+@Decoder1DBase.register("vanilla")
+class VanillaDecoder1D(Decoder1DBase):
+    def __init__(
+        self,
+        latent_dim: int,
+        out_channels: int,
+        norm_type: Optional[str] = "instance",
+        res_norm_type: Optional[str] = "instance",
+        activation: Optional[str] = "leaky_relu_0.2",
+        padding: str = "reflection",
+        *,
+        kernel_size: int = 3,
+        last_kernel_size: Optional[int] = None,
+        num_residual_blocks: int = 0,
+        residual_dropout: float = 0.0,
+        num_repeats: Union[str, List[int]] = "default",
+        reduce_channel_on_upsample: bool = False,
+        img_size: Optional[int] = None,
+        num_upsample: Optional[int] = None,
+        cond_channels: int = 16,
+        num_classes: Optional[int] = None,
+        latent_resolution: Optional[int] = None,
+        latent_padding_channels: Optional[int] = 16,
+    ):
+        super().__init__(
+            latent_dim,
+            out_channels,
+            img_size=img_size,
+            num_upsample=num_upsample,
+            num_classes=num_classes,
+            latent_resolution=latent_resolution,
+        )
+        if latent_resolution is None:
+            latent_resolution = int(round(img_size / 2 ** self.num_upsample))
+        self.latent_resolution = latent_resolution
+        latent_area = self.latent_resolution ** 2
+        latent_channels = math.ceil(latent_dim / latent_area)
+        shape = -1, latent_channels, latent_resolution, latent_resolution
+        blocks: List[nn.Module] = [
+            Linear(latent_dim, latent_channels * latent_area),
+            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
+            Conv2d(latent_channels, latent_dim, kernel_size=1, bias=False),
+        ]
+        if latent_padding_channels is not None:
+            latent_dim += latent_padding_channels
+            latent_padding = ChannelPadding(latent_padding_channels, latent_resolution)
+            blocks.append(latent_padding)
+        self.from_latent = nn.Sequential(*blocks)
+        self.decoder = VanillaDecoder(
+            latent_dim,
+            out_channels,
+            norm_type,
+            res_norm_type,
+            activation,
+            padding,
+            kernel_size=kernel_size,
+            last_kernel_size=last_kernel_size,
+            num_residual_blocks=num_residual_blocks,
+            residual_dropout=residual_dropout,
+            num_repeats=num_repeats,
+            reduce_channel_on_upsample=reduce_channel_on_upsample,
+            img_size=img_size,
+            num_upsample=self.num_upsample,
+            cond_channels=cond_channels,
+            num_classes=num_classes,
+            latent_resolution=latent_resolution,
+        )
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        batch = shallow_copy_dict(batch)
+        net = batch[INPUT_KEY]
+        net = self.from_latent(net)
+        batch[INPUT_KEY] = net
+        return self.decoder(batch_idx, batch, state, **kwargs)
+
+
+__all__ = [
+    "VanillaDecoder",
+    "VanillaDecoder1D",
+]
