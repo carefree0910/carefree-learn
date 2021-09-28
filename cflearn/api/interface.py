@@ -428,7 +428,8 @@ def u2net_finetune(ckpt: Optional[str] = None, **kwargs: Any) -> DLPipeline:
 
 def u2net_lite_finetune(ckpt: Optional[str] = None, **kwargs: Any) -> DLPipeline:
     if ckpt is None:
-        kwargs["pretrained_ckpt"] = download_model("u2net.lite")
+        ckpt = download_model("u2net.lite")
+    kwargs["pretrained_ckpt"] = ckpt
     return DLZoo.load_pipeline("segmentor/u2net.finetune_lite", **kwargs)
 
 
