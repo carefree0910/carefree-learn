@@ -37,6 +37,7 @@ class EncoderDecoder(nn.Module):
     ):
         super().__init__()
         # up / down sample stuffs
+        encoder1d_from_patches = Encoder1DFromPatches.check_subclass(encoder)
         if num_downsample is None:
             if img_size is None:
                 raise ValueError(
@@ -47,6 +48,8 @@ class EncoderDecoder(nn.Module):
             args = img_size, min_size, target_downsample
             num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
         num_upsample = num_upsample or num_downsample
+        if encoder1d_from_patches:
+            num_downsample = None
         if latent_resolution is None and img_size is None:
             raise ValueError(
                 "either `img_size` or `latent_resolution` should be provided "
@@ -68,11 +71,12 @@ class EncoderDecoder(nn.Module):
         # encoder
         if encoder_config is None:
             encoder_config = {}
-        if Encoder1DFromPatches.check_subclass(encoder):
+        if encoder1d_from_patches:
             encoder_config["img_size"] = img_size
+        else:
+            encoder_config["num_downsample"] = num_downsample
         encoder_config["in_channels"] = in_channels
         encoder_config[self.latent_key] = latent
-        encoder_config["num_downsample"] = num_downsample
         self.encoder = self.encoder_base.make(encoder, config=encoder_config)
         if not is_1d and img_size is not None:
             self.latent_resolution = self.encoder.latent_resolution(img_size)
