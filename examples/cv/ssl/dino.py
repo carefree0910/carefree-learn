@@ -31,11 +31,10 @@ if __name__ == "__main__":
         transform="ssl",
         transform_config={"img_size": img_size},
         test_transform="ssl_test",
-        test_transform_config={"img_size": img_size},
         make_labels_in_parallel=False,
         num_jobs=0,
         lmdb_config=lmdb_config,
     ).data
 
-    m = cflearn.api.dino(callback_names="mlflow", amp=not is_ci, debug=is_ci)
+    m = cflearn.api.dino(img_size, callback_names="mlflow", amp=not is_ci, debug=is_ci)
     m.fit(data, cuda=None if is_ci else 0)
