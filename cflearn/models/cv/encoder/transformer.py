@@ -50,7 +50,7 @@ class ViTEncoder(Encoder1DFromPatches):
         if attention_kwargs is None:
             attention_kwargs = {}
         attention_kwargs.setdefault("bias", True)
-        attention_kwargs.setdefault("num_heads", 6)
+        attention_kwargs.setdefault("num_heads", latent_dim // 64)
         self.aux_heads = aux_heads
         self.encoder = MixedStackedEncoder(
             latent_dim,
