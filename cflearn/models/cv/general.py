@@ -68,7 +68,6 @@ class EncoderDecoder(nn.Module):
         self.num_classes = num_classes
         self.num_downsample = num_downsample
         self.num_upsample = num_upsample
-        self.latent_resolution = latent_resolution
         self.encoder_base = (Encoder1DBase if is_1d else EncoderBase).get(encoder)  # type: ignore
         self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)  # type: ignore
         # encoder
@@ -82,17 +81,20 @@ class EncoderDecoder(nn.Module):
         encoder_config[self.latent_key] = latent
         self.encoder = self.encoder_base.make(encoder, config=encoder_config)
         if not is_1d and img_size is not None:
-            self.latent_resolution = self.encoder.latent_resolution(img_size)
+            latent_resolution = self.encoder.latent_resolution(img_size)
         # decoder
         if decoder_config is None:
             decoder_config = {}
         decoder_config[self.latent_key] = self.decoder_latent
-        decoder_config["out_channels"] = out_channels or in_channels
         decoder_config["img_size"] = img_size
-        decoder_config["num_upsample"] = self.num_upsample
         decoder_config["num_classes"] = num_classes
-        decoder_config["latent_resolution"] = self.latent_resolution
+        decoder_config["out_channels"] = out_channels or in_channels
+        if num_upsample is not None and not decoder.startswith("style"):
+            decoder_config["num_upsample"] = num_upsample
+        if latent_resolution is not None:
+            decoder_config["latent_resolution"] = latent_resolution
         self.decoder = self.decoder_base.make(decoder, config=decoder_config)
+        self.latent_resolution = self.decoder.latent_resolution
 
     def resize(self, net: Tensor) -> Tensor:
         return self.decoder.resize(net)
