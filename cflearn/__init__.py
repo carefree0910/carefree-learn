@@ -15,3 +15,8 @@ from .api.basic import *
 from .api.register import *
 from . import api
 from . import dist
+
+from pkg_resources import get_distribution
+
+pkg = get_distribution("carefree-learn")
+__version__ = pkg.version
