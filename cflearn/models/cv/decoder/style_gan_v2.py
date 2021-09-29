@@ -308,7 +308,7 @@ class StyleGAN2Decoder(nn.Module):
         out_channels: int = 3,
         *,
         channel_base: int = 32768,
-        channel_max: int = 512,
+        max_channels: int = 512,
         num_classes: Optional[int] = None,
         conv_clamp: Optional[float] = 256.0,
         **block_kwargs: Any,
@@ -321,7 +321,7 @@ class StyleGAN2Decoder(nn.Module):
         self.img_channels = out_channels
         self.block_resolutions = [2 ** i for i in range(2, self.img_size_log2 + 1)]
         channels_dict = {
-            resolution: min(channel_base // resolution, channel_max)
+            resolution: min(channel_base // resolution, max_channels)
             for resolution in self.block_resolutions
         }
         self.out_channels = out_channels
@@ -383,7 +383,7 @@ class StyleDecoder2(Decoder1DBase):
         out_channels: int = 3,
         *,
         channel_base: int = 32768,
-        channel_max: int = 512,
+        max_channels: int = 512,
         num_classes: Optional[int] = None,
         conv_clamp: Optional[float] = 256.0,
         **block_kwargs: Any,
@@ -405,7 +405,7 @@ class StyleDecoder2(Decoder1DBase):
             latent_dim,
             out_channels,
             channel_base=channel_base,
-            channel_max=channel_max,
+            max_channels=max_channels,
             num_classes=num_classes,
             conv_clamp=conv_clamp,
             **block_kwargs,
