@@ -47,6 +47,7 @@ class MNISTData(CVDataModule):
         root: str = DATA_CACHE_DIR,
         shuffle: bool = True,
         batch_size: int = 64,
+        num_workers: int = 0,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
         label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
@@ -54,6 +55,7 @@ class MNISTData(CVDataModule):
         self.root = root
         self.shuffle = shuffle
         self.batch_size = batch_size
+        self.num_workers = num_workers
         self.transform = Transforms.convert(transform, transform_config)
         self.test_transform = self.transform
         self.label_callback = label_callback
@@ -86,6 +88,7 @@ class MNISTData(CVDataModule):
                 self.train_data,
                 batch_size=self.batch_size,
                 shuffle=self.shuffle,
+                num_workers=self.num_workers,
             ),
             partial(batch_callback, self.label_callback),
         )
@@ -94,6 +97,7 @@ class MNISTData(CVDataModule):
                 self.valid_data,
                 batch_size=self.batch_size,
                 shuffle=self.shuffle,
+                num_workers=self.num_workers,
             ),
             partial(batch_callback, self.label_callback),
         )
