@@ -22,9 +22,13 @@ class StyleVAE(VanillaVAE1D):
         num_upsample: Optional[int] = None,
         latent_resolution: Optional[int] = None,
         encoder: str = "vanilla",
+        decoder: str = "style2",
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
+        if decoder not in ("style", "style2"):
+            msg = f"`decoder` should be either 'style' or 'style2', '{decoder}' found"
+            raise ValueError(msg)
         if decoder_config is None:
             decoder_config = {}
         decoder_config.setdefault("channel_base", img_size * 64)
@@ -41,7 +45,7 @@ class StyleVAE(VanillaVAE1D):
             num_upsample=num_upsample,
             latent_resolution=latent_resolution,
             encoder=encoder,
-            decoder="style",
+            decoder=decoder,
             encoder_config=encoder_config,
             decoder_config=decoder_config,
             output_activation=None,

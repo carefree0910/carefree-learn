@@ -137,7 +137,7 @@ class ToRGB(nn.Module):
         return net
 
 
-class StyleGANConv(nn.Module):
+class StyleGAN2Conv(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -217,7 +217,7 @@ class StyleGANConv(nn.Module):
         return net
 
 
-class StyleGANBlock(nn.Module):
+class StyleGAN2Block(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -247,7 +247,7 @@ class StyleGANBlock(nn.Module):
         if in_channels == 0:
             self.conv0 = None
         else:
-            self.conv0 = StyleGANConv(
+            self.conv0 = StyleGAN2Conv(
                 in_channels,
                 out_channels,
                 latent_dim=latent_dim,
@@ -259,7 +259,7 @@ class StyleGANBlock(nn.Module):
             )
             self.num_conv += 1
 
-        self.conv1 = StyleGANConv(
+        self.conv1 = StyleGAN2Conv(
             out_channels,
             out_channels,
             latent_dim=latent_dim,
@@ -300,7 +300,7 @@ class StyleGANBlock(nn.Module):
         return net, rgb
 
 
-class StyleGANDecoder(nn.Module):
+class StyleGAN2Decoder(nn.Module):
     def __init__(
         self,
         img_size: int,
@@ -337,7 +337,7 @@ class StyleGANDecoder(nn.Module):
             in_nc = channels_dict[resolution // 2] if resolution > 4 else 0
             out_nc = channels_dict[resolution]
             is_last = resolution == self.img_size
-            block = StyleGANBlock(
+            block = StyleGAN2Block(
                 in_nc,
                 out_nc,
                 latent_dim=latent_dim,
@@ -374,8 +374,8 @@ class StyleGANDecoder(nn.Module):
         return rgb
 
 
-@Decoder1DBase.register("style")
-class StyleDecoder(Decoder1DBase):
+@Decoder1DBase.register("style2")
+class StyleDecoder2(Decoder1DBase):
     def __init__(
         self,
         img_size: int,
@@ -400,7 +400,7 @@ class StyleDecoder(Decoder1DBase):
         )
         block_kwargs.pop("num_upsample", None)
         block_kwargs.pop("latent_resolution", None)
-        self.decoder = StyleGANDecoder(
+        self.decoder = StyleGAN2Decoder(
             img_size,
             latent_dim,
             out_channels,
@@ -427,6 +427,6 @@ class StyleDecoder(Decoder1DBase):
 
 
 __all__ = [
-    "StyleGANDecoder",
-    "StyleDecoder",
+    "StyleGAN2Decoder",
+    "StyleDecoder2",
 ]

@@ -380,9 +380,9 @@ class TestModels(unittest.TestCase):
             [batch_size, out_channels, img_size, img_size],
         )
 
-        style_gan_generator = cflearn.StyleGANGenerator(32, 123)
+        style_gan2_generator = cflearn.StyleGAN2Generator(32, 123)
         self.assertSequenceEqual(
-            style_gan_generator.generate_from(torch.randn(5, 123)).shape,
+            style_gan2_generator.generate_from(torch.randn(5, 123)).shape,
             [5, 3, 32, 32],
         )
 

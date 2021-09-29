@@ -1,0 +1,4 @@
+{
+  "__bases__": ["generator/style_gan2_generator"],
+  "model_config": {"img_size": 1024}
+}

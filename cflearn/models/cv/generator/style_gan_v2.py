@@ -16,7 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..decoder.style_gan_v2 import FullyConnected
-from ..decoder.style_gan_v2 import StyleGANDecoder
+from ..decoder.style_gan_v2 import StyleGAN2Decoder
 
 
 def normalize_z(net: Tensor, dim: int = 1, eps: float = 1.0e-8) -> Tensor:
@@ -103,8 +103,8 @@ class MappingNetwork(nn.Module):
         return net
 
 
-@ModelProtocol.register("style_gan_generator")
-class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
+@ModelProtocol.register("style_gan2_generator")
+class StyleGAN2Generator(ImageTranslatorMixin, ModelProtocol):
     def __init__(
         self,
         img_size: int,
@@ -127,7 +127,7 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         self.num_layers = num_layers
         self.num_style_classes = num_style_classes
         self.num_content_classes = num_content_classes
-        self.decoder = StyleGANDecoder(
+        self.decoder = StyleGAN2Decoder(
             img_size,
             latent_dim,
             out_channels,
@@ -163,5 +163,5 @@ class StyleGANGenerator(ImageTranslatorMixin, ModelProtocol):
 
 
 __all__ = [
-    "StyleGANGenerator",
+    "StyleGAN2Generator",
 ]
