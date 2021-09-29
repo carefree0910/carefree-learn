@@ -17,9 +17,7 @@ from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
-from ....modules.blocks import Linear
 from ....modules.blocks import Activations
 from ....modules.blocks import ChannelPadding
 
@@ -31,7 +29,6 @@ def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:
 
 
 class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
-    to_statistics: nn.Module
     from_latent: nn.Module
 
     def __init__(
@@ -43,7 +40,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 256,
+        latent: int = 128,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
@@ -63,7 +60,8 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             target_downsample,
             latent_padding_channels,
             num_classes,
-            latent=latent,
+            latent=latent * 2,
+            decoder_latent=latent,
             img_size=img_size,
             min_size=min_size,
             num_downsample=num_downsample,
@@ -74,6 +72,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             encoder_config=encoder_config,
             decoder_config=decoder_config,
         )
+        self.latent_dim = latent
         self.num_classes = num_classes
         if output_activation is None:
             self.out = None
@@ -101,7 +100,6 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = self.generator.encode(batch, **kwargs)
-        net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = reparameterize(mu, log_var)
         labels = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
@@ -120,7 +118,7 @@ class VanillaVAE1D(VanillaVAEBase):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 256,
+        latent: int = 128,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
@@ -132,6 +130,10 @@ class VanillaVAE1D(VanillaVAEBase):
         decoder_config: Optional[Dict[str, Any]] = None,
         output_activation: Optional[str] = "tanh",
     ):
+        if decoder_config is None:
+            decoder_config = {}
+        if decoder == "vanilla":
+            decoder_config["latent_expand_ratio"] = 2
         super().__init__(
             True,
             in_channels,
@@ -151,8 +153,6 @@ class VanillaVAE1D(VanillaVAEBase):
             decoder_config=decoder_config,
             output_activation=output_activation,
         )
-        self.latent_dim = self.generator.latent
-        self.to_statistics = Linear(latent, 2 * latent, bias=False)
         self.from_latent = nn.Identity()
 
 
@@ -166,7 +166,7 @@ class VanillaVAE2D(VanillaVAEBase):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 256,
+        latent: int = 128,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
@@ -197,17 +197,9 @@ class VanillaVAE2D(VanillaVAEBase):
             decoder_config=decoder_config,
             output_activation=output_activation,
         )
-        latent = self.generator.latent
         self.latent_resolution = self.generator.latent_resolution
         assert self.latent_resolution is not None
         self.latent_dim = latent * self.latent_resolution ** 2
-        self.to_statistics = Conv2d(
-            latent,
-            latent * 2,
-            kernel_size=1,
-            padding=0,
-            bias=False,
-        )
         shape = -1, latent, self.latent_resolution, self.latent_resolution
         blocks = [Lambda(lambda net: net.view(shape), f"reshape -> {shape}")]
         if latent_padding_channels is None:
