@@ -26,6 +26,7 @@ class EncoderDecoder(nn.Module):
         num_classes: Optional[int] = None,
         *,
         latent: int = 128,
+        decoder_latent: Optional[int] = None,
         img_size: Optional[int] = None,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
@@ -60,6 +61,7 @@ class EncoderDecoder(nn.Module):
         # properties
         self.is_1d = is_1d
         self.latent = latent
+        self.decoder_latent = decoder_latent or latent
         self.latent_key = "latent_dim" if is_1d else "latent_channels"
         self.img_size = img_size
         self.latent_padding_channels = latent_padding_channels
@@ -84,7 +86,7 @@ class EncoderDecoder(nn.Module):
         # decoder
         if decoder_config is None:
             decoder_config = {}
-        decoder_config[self.latent_key] = latent
+        decoder_config[self.latent_key] = self.decoder_latent
         decoder_config["out_channels"] = out_channels or in_channels
         decoder_config["img_size"] = img_size
         decoder_config["num_upsample"] = self.num_upsample
