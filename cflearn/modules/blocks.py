@@ -2145,6 +2145,20 @@ class MixedStackedEncoder(Module):
 # cv
 
 
+class GaussianBlur3(nn.Module):
+    def __init__(self, in_channels: int):
+        super().__init__()
+        base = torch.tensor([1, 2, 1], dtype=torch.float32)
+        kernel = base[:, None] * base[None, :] / 16.0
+        kernel = kernel.view(1, 1, 3, 3).repeat(in_channels, 1, 1, 1)
+        self.kernel: Tensor
+        self.register_buffer("kernel", kernel)
+        self.in_channels = in_channels
+
+    def forward(self, x: Tensor) -> Tensor:
+        return F.conv2d(x, self.kernel, groups=self.in_channels, padding=1)
+
+
 class Conv2d(Module):
     def __init__(
         self,
