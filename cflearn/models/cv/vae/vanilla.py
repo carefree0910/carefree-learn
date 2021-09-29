@@ -53,6 +53,19 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         output_activation: Optional[str] = "tanh",
     ):
         super().__init__()
+        # encoder defaults
+        if encoder_config is None:
+            encoder_config = {}
+        if encoder == "vanilla":
+            encoder_config.setdefault("norm_type", "instance")
+            encoder_config.setdefault("padding", "reflection")
+        # decoder defaults
+        if decoder_config is None:
+            decoder_config = {}
+        if decoder == "vanilla":
+            decoder_config.setdefault("last_kernel_size", 7)
+            decoder_config.setdefault("reduce_channel_on_upsample", True)
+        # build
         self.generator = EncoderDecoder(
             is_id,
             in_channels,
