@@ -12,8 +12,8 @@ from ....trainer import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
-from ..encoder.protocol import Encoder1DFromPatches
 from ...implicit.siren import ImgSiren
+from ....misc.toolkit import check_requires
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Linear
 
@@ -47,15 +47,16 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         args = img_size, min_size, target_downsample
         num_downsample = auto_num_layers(*args, use_stride=encoder1d == "vanilla")
         # encoder
+        encoder1d_base = Encoder1DBase.get(encoder1d)
         if encoder1d_config is None:
             encoder1d_config = {}
-        if Encoder1DFromPatches.check_subclass(encoder1d):
+        if check_requires(encoder1d_base, "img_size"):
             encoder1d_config["img_size"] = img_size
         encoder1d_config["in_channels"] = in_channels
         encoder1d_config["latent_dim"] = latent_dim
         if encoder1d == "vanilla":
             encoder1d_config["num_downsample"] = num_downsample
-        self.encoder = Encoder1DBase.make(encoder1d, config=encoder1d_config)
+        self.encoder = encoder1d_base(**encoder1d_config)
         self.to_statistics = Linear(latent_dim, 2 * latent_dim, bias=False)
         # siren
         self.siren = ImgSiren(

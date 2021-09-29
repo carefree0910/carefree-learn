@@ -11,6 +11,7 @@ from .encoder import Encoder1DFromPatches
 from .decoder import DecoderBase
 from .decoder import Decoder1DBase
 from ...types import tensor_dict_type
+from ...misc.toolkit import check_requires
 from ...misc.toolkit import auto_num_layers
 
 
@@ -71,9 +72,9 @@ class EncoderDecoder(nn.Module):
         # encoder
         if encoder_config is None:
             encoder_config = {}
-        if encoder1d_from_patches:
+        if check_requires(self.encoder_base, "img_size"):
             encoder_config["img_size"] = img_size
-        else:
+        if not encoder1d_from_patches:
             encoder_config["num_downsample"] = num_downsample
         encoder_config["in_channels"] = in_channels
         encoder_config[self.latent_key] = latent

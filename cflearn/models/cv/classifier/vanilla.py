@@ -9,7 +9,6 @@ from cftool.misc import shallow_copy_dict
 
 from ..encoder import ViTEncoder
 from ..encoder import Encoder1DBase
-from ..encoder import Encoder1DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
@@ -17,6 +16,7 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import check_requires
 from ....misc.toolkit import download_model
 from ....modules.blocks import Linear
 
@@ -40,15 +40,16 @@ class VanillaClassifier(ModelProtocol):
         super().__init__()
         self.img_size = img_size
         # encoder1d
+        encoder1d_base = Encoder1DBase.get(encoder1d)
         if encoder1d_config is None:
             encoder1d_config = {}
-        if Encoder1DFromPatches.check_subclass(encoder1d):
+        if check_requires(encoder1d_base, "img_size"):
             encoder1d_config["img_size"] = img_size
         if ViTEncoder.check_subclass(encoder1d) and aux_num_classes is not None:
             encoder1d_config["aux_heads"] = sorted(aux_num_classes)
         encoder1d_config["in_channels"] = in_channels
         encoder1d_config["latent_dim"] = latent_dim
-        self.encoder1d = Encoder1DBase.make(encoder1d, config=encoder1d_config)
+        self.encoder1d = encoder1d_base(**encoder1d_config)
         if encoder1d_pretrained_path is None:
             if encoder1d_pretrained_name is not None:
                 encoder1d_pretrained_path = download_model(encoder1d_pretrained_name)
