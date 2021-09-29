@@ -94,7 +94,9 @@ class TestExample(unittest.TestCase):
             os.system(f"python {os.path.join(folder, 'mnist_vq_vae.py')} --ci 1"),
             0,
         )
+        cmd = f"python {os.path.join(folder, 'mnist_vq_vae_inference.py')} --ci 1"
+        self.assertEqual(os.system(cmd), 0)
 
 
 if __name__ == "__main__":
-    unittest.main()
+    TestExample().test_mnist_vq_vae()
