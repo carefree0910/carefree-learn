@@ -12,7 +12,7 @@ vqvae_log_folder = get_latest_workplace(workplace) if is_ci else "c_vq_vae_v4"
 inference = cflearn.cv.VQVAEInference(
     workplace,
     num_codes=16,
-    vqvae_log_folder=vqvae_log_folder,
+    vqvae_log_folder=vqvae_log_folder,  # type: ignore
     num_classes=10,
     cuda=None if is_ci else 1,
     debug=is_ci,

@@ -30,6 +30,8 @@ def export_code_indices(vqvae: VQVAE, data: CVDataModule, export_folder: str) ->
     data.prepare(None)
     code_train, code_valid = data.initialize()
     for name, loader in zip(["train", "valid"], [code_train, code_valid]):
+        if loader is None:
+            continue
         labels = []
         code_indices = []
         for batch in tqdm(loader, desc=f"{name} codes", total=len(loader)):
@@ -138,7 +140,7 @@ class VQVAEInference:
         y_train = torch.load(os.path.join(export_folder, "train_labels.pt"))
         x_valid = torch.load(os.path.join(export_folder, "valid.pt"))
         y_valid = torch.load(os.path.join(export_folder, "valid_labels.pt"))
-        data = TensorData(
+        tensor_data = TensorData(
             x_train,
             y_train=x_train,
             x_valid=x_valid,
@@ -146,7 +148,7 @@ class VQVAEInference:
             train_others={ORIGINAL_LABEL_KEY: y_train},
             valid_others={ORIGINAL_LABEL_KEY: y_valid},
         )
-        self.m.fit(data, cuda=self.cuda)
+        self.m.fit(tensor_data, cuda=self.cuda)
         return self
 
 
