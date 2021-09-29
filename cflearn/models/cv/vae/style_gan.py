@@ -16,13 +16,13 @@ class StyleVAE(VanillaVAE1D):
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
-        latent: int = 256,
+        latent: int = 128,
         min_size: int = 2,
         num_downsample: Optional[int] = None,
         num_upsample: Optional[int] = None,
         latent_resolution: Optional[int] = None,
         encoder: str = "vanilla",
-        decoder: str = "style2",
+        decoder: str = "style",
         encoder_config: Optional[Dict[str, Any]] = None,
         decoder_config: Optional[Dict[str, Any]] = None,
     ):
@@ -31,7 +31,9 @@ class StyleVAE(VanillaVAE1D):
             raise ValueError(msg)
         if decoder_config is None:
             decoder_config = {}
-        decoder_config.setdefault("channel_base", img_size * 64)
+        v2 = decoder == "style2"
+        if v2:
+            decoder_config.setdefault("channel_base", img_size * 64)
         super().__init__(
             in_channels,
             out_channels,
@@ -48,7 +50,7 @@ class StyleVAE(VanillaVAE1D):
             decoder=decoder,
             encoder_config=encoder_config,
             decoder_config=decoder_config,
-            output_activation=None,
+            output_activation=None if v2 else "tanh",
         )
 
 
