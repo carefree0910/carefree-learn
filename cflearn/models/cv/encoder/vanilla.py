@@ -12,6 +12,7 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import squeeze
 from ....modules.blocks import get_conv_blocks
+from ....modules.blocks import Linear
 from ....modules.blocks import ResidualBlock
 
 
@@ -118,6 +119,7 @@ class VanillaEncoder1D(Encoder1DBase):
         num_downsample: int,
         latent_dim: int = 128,
         *,
+        img_size: Optional[int] = None,
         kernel_size: int = 3,
         first_kernel_size: int = 7,
         start_channels: Optional[int] = None,
@@ -127,6 +129,7 @@ class VanillaEncoder1D(Encoder1DBase):
         norm_type: Optional[str] = "batch",
         activation: str = "leaky_relu_0.2",
         padding: str = "same",
+        pool: str = "average",
     ):
         super().__init__(in_channels, latent_dim)
         self.encoder = VanillaEncoder(
@@ -143,7 +146,16 @@ class VanillaEncoder1D(Encoder1DBase):
             activation=activation,
             padding=padding,
         )
-        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        if pool == "average":
+            self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        elif pool == "fc":
+            if img_size is None:
+                raise ValueError("`img_size` should be provided if `pool`=fc")
+            res = self.encoder.latent_resolution(img_size)
+            flattened_dim = latent_dim * res ** 2
+            self.pool = nn.Sequential(nn.Flatten(1), Linear(flattened_dim, latent_dim))
+        else:
+            raise ValueError(f"unrecognized `pool` value : '{pool}'")
 
     def forward(
         self,
