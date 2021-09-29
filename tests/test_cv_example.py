@@ -99,4 +99,4 @@ class TestExample(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestExample().test_mnist_vq_vae()
+    unittest.main()
