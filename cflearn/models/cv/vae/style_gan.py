@@ -12,7 +12,7 @@ class StyleVAE(VanillaVAE1D):
         img_size: int,
         in_channels: int = 3,
         out_channels: Optional[int] = None,
-        target_downsample: int = 4,
+        target_downsample: Optional[int] = None,
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,
