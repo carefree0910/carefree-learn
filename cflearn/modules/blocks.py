@@ -2174,6 +2174,7 @@ class Conv2d(Module):
         bias: bool = True,
         demodulate: bool = False,
         weight_scale: Optional[float] = None,
+        gain: Optional[float] = None,
     ):
         super().__init__()
         self.in_c, self.out_c = in_channels, out_channels
@@ -2181,10 +2182,6 @@ class Conv2d(Module):
         self.reflection_pad = None
         if padding == "same":
             padding = kernel_size // 2
-            if transform_kernel:
-                padding = [padding] * 4
-                padding[0] += 1
-                padding[2] += 1
         elif isinstance(padding, str) and padding.startswith("reflection"):
             reflection_padding: Any
             if padding == "reflection":
@@ -2216,7 +2213,11 @@ class Conv2d(Module):
         self.weight_scale = weight_scale
         # initialize
         with torch.no_grad():
-            nn.init.kaiming_uniform_(self.weight, a=math.sqrt(5.0))
+            data = self.weight.data
+            if gain is None:
+                nn.init.kaiming_uniform_(data, a=math.sqrt(5.0))
+            else:
+                nn.init.xavier_normal_(data, gain / math.sqrt(2.0))
             if self.bias is not None:
                 fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
                 bound = 1 / math.sqrt(fan_in)
