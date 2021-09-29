@@ -178,6 +178,7 @@ class VanillaDecoder1D(Decoder1DBase):
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
         latent_padding_channels: Optional[int] = 16,
+        latent_expand_ratio: int = 1,
     ):
         super().__init__(
             latent_dim,
@@ -190,13 +191,15 @@ class VanillaDecoder1D(Decoder1DBase):
         if latent_resolution is None:
             latent_resolution = int(round(img_size / 2 ** self.num_upsample))
         self.latent_resolution = latent_resolution
+        in_dim = latent_dim
+        latent_dim *= latent_expand_ratio
         latent_area = self.latent_resolution ** 2
         latent_channels = math.ceil(latent_dim / latent_area)
         shape = -1, latent_channels, latent_resolution, latent_resolution
         blocks: List[nn.Module] = [
-            Linear(latent_dim, latent_channels * latent_area),
+            Linear(in_dim, latent_channels * latent_area),
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(latent_channels, latent_dim, kernel_size=1, bias=False),
+            Conv2d(latent_channels, latent_dim, kernel_size=1),
         ]
         if latent_padding_channels is not None:
             latent_padding = ChannelPadding(
