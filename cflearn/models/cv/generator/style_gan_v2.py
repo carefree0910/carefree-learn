@@ -15,8 +15,8 @@ from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ..decoder.style_gan import FullyConnected
-from ..decoder.style_gan import StyleGANDecoder
+from ..decoder.style_gan_v2 import FullyConnected
+from ..decoder.style_gan_v2 import StyleGANDecoder
 
 
 def normalize_z(net: Tensor, dim: int = 1, eps: float = 1.0e-8) -> Tensor:
