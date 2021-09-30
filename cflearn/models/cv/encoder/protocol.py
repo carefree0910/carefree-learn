@@ -122,8 +122,13 @@ class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DBase):
     pass
 
 
+class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderBase):
+    pass
+
+
 __all__ = [
     "EncoderBase",
     "Encoder1DBase",
     "Encoder1DFromPatches",
+    "Encoder2DFromPatches",
 ]
