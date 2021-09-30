@@ -123,6 +123,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         valid_portion: float = 1.0,
         amp: bool = False,
         clip_norm: float = 0.0,
+        cudnn_benchmark: bool = False,
         metric_names: Optional[Union[str, List[str]]] = None,
         metric_configs: Optional[Dict[str, Any]] = None,
         use_losses_as_metrics: Optional[bool] = None,
@@ -179,6 +180,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self.in_loading = in_loading
         self.built = False
         self.device_info = DeviceInfo(None, None)
+        if cudnn_benchmark:
+            torch.backends.cudnn.benchmark = True
 
     # properties
 
