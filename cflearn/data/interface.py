@@ -367,6 +367,8 @@ class ImageFolderData(CVDataModule):
         batch_size: int,
         num_workers: int = 0,
         shuffle: bool = True,
+        prefetch_device: Optional[Union[int, str]] = None,
+        pin_memory_device: Optional[Union[int, str]] = None,
         extra_label_names: Optional[List[str]] = None,
         transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
@@ -377,6 +379,26 @@ class ImageFolderData(CVDataModule):
     ):
         self.folder = folder
         self.shuffle = shuffle
+        if not torch.cuda.is_available():
+            fmt = "cuda is not available but {} is provided, which will have no effect"
+            if prefetch_device is not None:
+                print(f"{WARNING_PREFIX}{fmt.format('`prefetch_device`')}")
+                prefetch_device = None
+            if pin_memory_device is not None:
+                print(f"{WARNING_PREFIX}{fmt.format('`pin_memory_device`')}")
+                pin_memory_device = None
+        if prefetch_device is not None:
+            if pin_memory_device is None:
+                pin_memory_device = prefetch_device
+            if pin_memory_device is not None:
+                if str(prefetch_device) != str(pin_memory_device):
+                    print(
+                        f"{WARNING_PREFIX}`prefetch_device` and `pin_memory_device` "
+                        "are both provided but they are not consistent, which may "
+                        "impact the memory usage and performance"
+                    )
+        self.prefetch_device = prefetch_device
+        self.pin_memory_device = pin_memory_device
         self.extra_label_names = extra_label_names
         self.transform = Transforms.convert(transform, transform_config)
         self.test_shuffle = test_shuffle
@@ -388,7 +410,12 @@ class ImageFolderData(CVDataModule):
         if self.test_transform is None:
             self.test_transform = self.transform
         self.lmdb_config = lmdb_config
-        self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+        self.kw = dict(
+            batch_size=batch_size,
+            shuffle=shuffle,
+            num_workers=num_workers,
+            pin_memory=pin_memory_device is not None,
+        )
 
     @property
     def info(self) -> Dict[str, Any]:
@@ -423,10 +450,13 @@ class ImageFolderData(CVDataModule):
         )
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
+        if self.pin_memory_device is not None:
+            torch.cuda.set_device(self.pin_memory_device)
         d = shallow_copy_dict(self.kw)
-        train_loader = CVLoader(DataLoader(self.train_data, **d))  # type: ignore
+        kw = {"prefetch_device": self.prefetch_device}
+        train_loader = CVLoader(DataLoader(self.train_data, **d), **kw)  # type: ignore
         d["shuffle"] = self.test_shuffle or self.shuffle
-        valid_loader = CVLoader(DataLoader(self.valid_data, **d))  # type: ignore
+        valid_loader = CVLoader(DataLoader(self.valid_data, **d), **kw)  # type: ignore
         return train_loader, valid_loader
 
 
@@ -437,12 +467,14 @@ class InferenceImageFolderData(CVDataModule):
         *,
         batch_size: int,
         num_workers: int = 0,
+        prefetch_device: Optional[Union[int, str]] = None,
         transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = folder
         self.batch_size = batch_size
         self.num_workers = num_workers
+        self.prefetch_device = prefetch_device
         self.transform = Transforms.convert(transform, transform_config)
         self.kw: Dict[str, Any] = dict(batch_size=batch_size, num_workers=num_workers)
         self.prepare(None)
@@ -455,7 +487,8 @@ class InferenceImageFolderData(CVDataModule):
         self.dataset = InferenceImageFolderDataset(self.folder, self.transform)
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
-        loader = self.dataset.make_loader(self.batch_size, self.num_workers)
+        args = self.batch_size, self.num_workers, self.prefetch_device
+        loader = self.dataset.make_loader(*args)
         return loader, None
 
     @classmethod
@@ -815,6 +848,8 @@ def prepare_image_folder_data(
     preparation: _PreparationProtocol = DefaultPreparation(),
     num_workers: int = 0,
     shuffle: bool = True,
+    prefetch_device: Optional[Union[int, str]] = None,
+    pin_memory_device: Optional[Union[int, str]] = None,
     transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
     transform_config: Optional[Dict[str, Any]] = None,
     test_shuffle: Optional[bool] = None,
@@ -851,6 +886,8 @@ def prepare_image_folder_data(
         batch_size=batch_size,
         num_workers=num_workers,
         shuffle=shuffle,
+        prefetch_device=prefetch_device,
+        pin_memory_device=pin_memory_device,
         extra_label_names=preparation.extra_labels,
         transform=transform,
         transform_config=transform_config,

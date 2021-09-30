@@ -536,11 +536,15 @@ def to_numpy(tensor: Tensor) -> np.ndarray:
     return tensor.detach().cpu().numpy()
 
 
-def to_device(batch: tensor_dict_type, device: torch.device) -> tensor_dict_type:
+def to_device(
+    batch: tensor_dict_type,
+    device: torch.device,
+    **kwargs: Any,
+) -> tensor_dict_type:
     return {
-        k: v.to(device)
+        k: v.to(device, **kwargs)
         if isinstance(v, Tensor)
-        else [vv.to(device) if isinstance(vv, Tensor) else vv for vv in v]
+        else [vv.to(device, **kwargs) if isinstance(vv, Tensor) else vv for vv in v]
         if isinstance(v, list)
         else v
         for k, v in batch.items()

@@ -2,6 +2,7 @@ import os
 import dill
 import json
 import lmdb
+import torch
 
 import numpy as np
 
@@ -34,9 +35,11 @@ from ..protocol import DatasetProtocol
 from ..protocol import DataLoaderProtocol
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
+from ..constants import WARNING_PREFIX
 from ..constants import BATCH_INDICES_KEY
 from ..misc.toolkit import walk
 from ..misc.toolkit import to_torch
+from ..misc.toolkit import to_device
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
 from ..misc.toolkit import WithRegister
@@ -257,6 +260,7 @@ class DataLoader(TorchDataLoader):
 
 class DLLoader(DataLoaderProtocol):
     data: DLDataset
+    next_batch: tensor_dict_type
 
     def __init__(
         self,
@@ -264,6 +268,7 @@ class DLLoader(DataLoaderProtocol):
         batch_callback: Optional[Callable[[Any], tensor_dict_type]] = None,
         *,
         sample_weights: Optional[np.ndarray] = None,
+        prefetch_device: Optional[Union[int, str]] = None,
     ):
         if sample_weights is not None:
             raise ValueError(
@@ -276,29 +281,65 @@ class DLLoader(DataLoaderProtocol):
         self.batch_callback = batch_callback
         self.sampler_backup = loader.sampler
         self._iterator: Optional[Any] = None
+        # prefetch stuffs
+        if prefetch_device is not None and torch.cuda.is_available():
+            prefetch_device = f"cuda:{prefetch_device}"
+            self.stream = torch.cuda.Stream(prefetch_device)
+        else:
+            if prefetch_device is not None:
+                print(
+                    f"{WARNING_PREFIX}`prefetch_device` is specified but "
+                    "cuda is not available, it will have no effects"
+                )
+            self.stream = None
+        self.device = prefetch_device or torch.device("cpu")
+        self.stop_at_next_batch = False
 
     def __iter__(self) -> "DLLoader":
+        self.stop_at_next_batch = False
         self._iterator = self.loader.__iter__()
+        self.preload()
         return self
 
     def __next__(self) -> tensor_dict_type:
-        batch = self._iterator.__next__()  # type: ignore
-        if self.batch_callback is None:
-            return batch
-        return self.batch_callback(batch)
+        if self.stop_at_next_batch:
+            raise StopIteration
+        if self.stream is not None:
+            torch.cuda.current_stream(self.device).wait_stream(self.stream)
+        batch = self.next_batch
+        self.preload()
+        return batch
 
     def __len__(self) -> int:
         return len(self.loader)
+
+    def preload(self) -> None:
+        try:
+            batch = self._iterator.__next__()  # type: ignore
+        except StopIteration:
+            self.stop_at_next_batch = True
+            return None
+
+        if self.batch_callback is not None:
+            batch = self.batch_callback(batch)
+        if self.stream is not None:
+            with torch.cuda.stream(self.stream):
+                batch = to_device(batch, self.device, non_blocking=True)
+        batch = to_device(batch, self.device, non_blocking=True)
+        self.next_batch = batch
 
     @property
     def batch_size(self) -> int:  # type: ignore
         return self.loader.batch_size * get_world_size()
 
     def copy(self) -> "DLLoader":
+        stream = self.stream
         dataset = self.data.dataset
+        self.__dict__.pop("stream")
         self.data.__dict__.pop("dataset")
         copied = super().copy()
         assert isinstance(copied, DLLoader)
+        self.stream = copied.stream = stream
         self.data.dataset = copied.data.dataset = dataset
         return copied
 
@@ -525,8 +566,16 @@ class InferenceImageFolderDataset(Dataset):
     def __len__(self) -> int:
         return len(self.img_paths)
 
-    def make_loader(self, batch_size: int, num_workers: int = 0) -> CVLoader:
-        return CVLoader(DataLoader(self, batch_size, num_workers=num_workers))
+    def make_loader(
+        self,
+        batch_size: int,
+        num_workers: int = 0,
+        prefetch_device: Optional[Union[int, str]] = None,
+    ) -> CVLoader:
+        return CVLoader(
+            DataLoader(self, batch_size, num_workers=num_workers),
+            prefetch_device=prefetch_device,
+        )
 
 
 __all__ = [
