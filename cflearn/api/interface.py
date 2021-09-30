@@ -397,6 +397,10 @@ def pixel_cnn(num_classes: int, **kwargs: Any) -> DLPipeline:
 # multimodal
 
 
+def clip_model(pretrained: bool = True, **kwargs: Any) -> ModelProtocol:
+    return DLZoo.load_model("multimodal/clip", pretrained=pretrained, **kwargs)
+
+
 def clip_vqgan_aligner(**kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("multimodal/clip_vqgan_aligner", **kwargs)
 
@@ -582,6 +586,7 @@ __all__ = [
     "siren_gan",
     "siren_gan_gray",
     "pixel_cnn",
+    "clip_model",
     "clip_vqgan_aligner",
     "u2net",
     "u2net_model",
