@@ -209,7 +209,7 @@ class TrainerState:
         num_snapshot_per_epoch: int = 2,
         num_step_per_log: int = 350,
         num_step_per_snapshot: Optional[int] = None,
-        max_step_per_snapshot: int = 2000,
+        max_step_per_snapshot: int = 1000,
     ):
         self.step = self.epoch = 0
         self.batch_size = loader.batch_size * get_world_size()
