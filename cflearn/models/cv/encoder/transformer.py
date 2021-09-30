@@ -1,3 +1,4 @@
+import math
 import torch
 
 from typing import Any
@@ -6,6 +7,7 @@ from typing import List
 from typing import Optional
 
 from .protocol import Encoder1DFromPatches
+from .protocol import Encoder2DFromPatches
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import LATENT_KEY
@@ -95,4 +97,77 @@ class ViTEncoder(Encoder1DFromPatches):
         return rs
 
 
-__all__ = ["ViTEncoder"]
+@Encoder2DFromPatches.register("vit")
+class ViTEncoder2D(Encoder2DFromPatches):
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_channels: int = 384,
+        to_patches_type: str = "vanilla",
+        to_patches_config: Optional[Dict[str, Any]] = None,
+        *,
+        num_layers: int = 12,
+        dropout: float = 0.0,
+        drop_path_rate: float = 0.0,
+        norm_type: Optional[str] = "layer",
+        norm_kwargs: Optional[Dict[str, Any]] = None,
+        first_norm: Optional[torch.nn.Module] = None,
+        residual_after_norm: bool = False,
+        feedforward_dim_ratio: float = 4.0,
+        attention_kwargs: Optional[Dict[str, Any]] = None,
+        use_positional_encoding: bool = True,
+        norm_after_head: bool = False,
+    ):
+        super().__init__(
+            img_size,
+            patch_size,
+            in_channels,
+            latent_channels,
+            to_patches_type,
+            to_patches_config,
+        )
+        if attention_kwargs is None:
+            attention_kwargs = {}
+        attention_kwargs.setdefault("bias", True)
+        attention_kwargs.setdefault("num_heads", latent_channels // 64)
+        self.encoder = MixedStackedEncoder(
+            latent_channels,
+            self.num_patches,
+            token_mixing_type="attention",
+            token_mixing_config=attention_kwargs,
+            num_layers=num_layers,
+            dropout=dropout,
+            drop_path_rate=drop_path_rate,
+            norm_type=norm_type,
+            norm_kwargs=norm_kwargs,
+            first_norm=first_norm,
+            residual_after_norm=residual_after_norm,
+            feedforward_dim_ratio=feedforward_dim_ratio,
+            reduce_head=False,
+            sequence_pool=False,
+            use_head_token=False,
+            use_positional_encoding=use_positional_encoding,
+            norm_after_head=norm_after_head,
+        )
+
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        rs = super().forward(batch_idx, batch, state, **kwargs)
+        resolution = int(round(math.sqrt(self.num_patches)))
+        latent = rs[LATENT_KEY]
+        latent = latent.view(latent.shape[0], resolution, resolution, -1)
+        rs[LATENT_KEY] = latent.permute(0, 3, 1, 2).contiguous()
+        return rs
+
+
+__all__ = [
+    "ViTEncoder",
+    "ViTEncoder2D",
+]
