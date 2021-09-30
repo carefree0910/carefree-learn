@@ -72,7 +72,8 @@ class Encoder1DBase(EncoderProtocol, WithRegister, metaclass=ABCMeta):
         self.latent_dim = latent_dim
 
 
-class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
+# from patches
+class EncoderFromPatchesMixin:
     encoder: nn.Module
 
     def __init__(
@@ -115,6 +116,10 @@ class Encoder1DFromPatches(Encoder1DBase, metaclass=ABCMeta):
         kwargs["hw"] = hw
         kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size
         return {LATENT_KEY: self.encoder(batch[INPUT_KEY], **kwargs)}
+
+
+class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DBase):
+    pass
 
 
 __all__ = [
