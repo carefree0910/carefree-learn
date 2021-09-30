@@ -85,7 +85,6 @@ class EncoderFromPatchesMixin:
         to_patches_type: str = "vanilla",
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(in_channels, latent_dim)
         if to_patches_config is None:
             to_patches_config = {}
         to_patches_config.update(
@@ -119,11 +118,47 @@ class EncoderFromPatchesMixin:
 
 
 class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DBase):
-    pass
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_dim: int = 128,
+        to_patches_type: str = "vanilla",
+        to_patches_config: Optional[Dict[str, Any]] = None,
+    ):
+        Encoder1DBase.__init__(self, in_channels, latent_dim)
+        EncoderFromPatchesMixin.__init__(
+            self,
+            img_size,
+            patch_size,
+            in_channels,
+            latent_dim,
+            to_patches_type,
+            to_patches_config,
+        )
 
 
 class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderBase):
-    pass
+    def __init__(
+        self,
+        img_size: int,
+        patch_size: int,
+        in_channels: int,
+        latent_channels: int = 128,
+        to_patches_type: str = "vanilla",
+        to_patches_config: Optional[Dict[str, Any]] = None,
+    ):
+        EncoderBase.__init__(self, in_channels, -1, latent_channels)
+        EncoderFromPatchesMixin.__init__(
+            self,
+            img_size,
+            patch_size,
+            in_channels,
+            latent_channels,
+            to_patches_type,
+            to_patches_config,
+        )
 
 
 __all__ = [
