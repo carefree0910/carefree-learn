@@ -39,7 +39,6 @@ class EncoderDecoder(nn.Module):
     ):
         super().__init__()
         # up / down sample stuffs
-        encoder1d_from_patches = Encoder1DFromPatches.check_subclass(encoder)
         if num_downsample is None:
             if img_size is None:
                 raise ValueError(
@@ -50,14 +49,18 @@ class EncoderDecoder(nn.Module):
             args = img_size, min_size, target_downsample
             num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
         num_upsample = num_upsample or num_downsample
-        if encoder1d_from_patches:
-            num_downsample = None
         if latent_resolution is None and img_size is None:
             raise ValueError(
                 "either `img_size` or `latent_resolution` should be provided "
                 "in `VanillaVAEBase` (when `latent_resolution` is not provided, "
                 "it will be inferred automatically with `img_size`)"
             )
+        # check num_downsample requirement
+        self.encoder_base = (Encoder1DBase if is_1d else EncoderBase).get(encoder)  # type: ignore
+        self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)  # type: ignore
+        requires_num_downsample = check_requires(self.encoder_base, "num_downsample")
+        if not requires_num_downsample:
+            num_downsample = None
         # properties
         self.is_1d = is_1d
         self.latent = latent
@@ -68,14 +71,12 @@ class EncoderDecoder(nn.Module):
         self.num_classes = num_classes
         self.num_downsample = num_downsample
         self.num_upsample = num_upsample
-        self.encoder_base = (Encoder1DBase if is_1d else EncoderBase).get(encoder)  # type: ignore
-        self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)  # type: ignore
         # encoder
         if encoder_config is None:
             encoder_config = {}
         if check_requires(self.encoder_base, "img_size"):
             encoder_config["img_size"] = img_size
-        if not encoder1d_from_patches:
+        if requires_num_downsample:
             encoder_config["num_downsample"] = num_downsample
         encoder_config["in_channels"] = in_channels
         encoder_config[self.latent_key] = latent
