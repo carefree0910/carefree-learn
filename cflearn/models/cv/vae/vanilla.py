@@ -98,7 +98,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
 
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         if labels is None and self.num_classes is not None:
-            labels = torch.randint(self.num_classes, [len(z)], device=z.device)
+            labels = torch.randint(self.num_classes, [len(z), 1], device=z.device)
         batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
         net = self.generator.decode(batch, **kwargs)
         if self.out is not None:
@@ -115,7 +115,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         net = self.generator.encode(batch, **kwargs)
         mu, log_var = net.chunk(2, dim=1)
         net = reparameterize(mu, log_var)
-        labels = None if self.num_classes is None else batch[LABEL_KEY].view(-1)
+        labels = None if self.num_classes is None else batch[LABEL_KEY]
         net = self.decode(net, labels=labels, **kwargs)
         return {PREDICTIONS_KEY: net, MU_KEY: mu, LOG_VAR_KEY: log_var}
 
