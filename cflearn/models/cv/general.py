@@ -7,7 +7,6 @@ from typing import Optional
 
 from .encoder import EncoderBase
 from .encoder import Encoder1DBase
-from .encoder import Encoder1DFromPatches
 from .decoder import DecoderBase
 from .decoder import Decoder1DBase
 from ...types import tensor_dict_type
