@@ -8,7 +8,5 @@
     "num_code": 128,
     "in_channels": 3
   },
-  "lr": 1.0e-3,
-  "scheduler_name": "linear_inverse",
-  "scheduler_config": {"decay": 2.0e-5}
+  "scheduler_name": "plateau"
 }

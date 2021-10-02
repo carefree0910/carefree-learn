@@ -5,6 +5,5 @@
   ],
   "model_config": {
     "num_code": 16
-  },
-  "scheduler_config": {"decay": 1.0e-4}
+  }
 }

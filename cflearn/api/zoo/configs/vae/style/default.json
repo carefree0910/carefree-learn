@@ -7,7 +7,6 @@
   "model_config": {
     "in_channels": 3
   },
-  "scheduler_name": "linear_inverse",
-  "scheduler_config": {"decay": 2.0e-5},
+  "scheduler_name": "plateau",
   "loss_metrics_weights": {"kld": 0.001, "mse": 1.0}
 }
