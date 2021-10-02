@@ -2,6 +2,7 @@ from typing import Any
 from typing import Tuple
 from typing import Union
 from torchvision.transforms import transforms
+from torchvision.transforms import InterpolationMode
 
 from .....data import Transforms
 
@@ -20,6 +21,19 @@ class ToGray(NoBatchBase):
 @Transforms.register("to_tensor")
 class ToTensor(NoBatchBase):
     fn = transforms.ToTensor()
+
+
+@Transforms.register("resize")
+class Resize(NoBatchBase):
+    def __init__(
+        self,
+        size: Union[int, tuple],
+        interpolation: InterpolationMode = InterpolationMode.BICUBIC,
+    ):
+        super().__init__()
+        if isinstance(size, int):
+            size = size, size
+        self.fn = transforms.Resize(size, interpolation)
 
 
 @Transforms.register("random_erase")

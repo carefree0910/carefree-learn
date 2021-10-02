@@ -34,7 +34,7 @@ class TransformForGeneration(Compose):
     ):
         transform_list: List[Transforms] = []
         if img_size is not None:
-            transform_list.append(AResize(img_size))
+            transform_list.extend([Resize(img_size), ToArray()])
         if to_rgb:
             if to_gray:
                 msg = "should not use `to_rgb` and `to_gray` at the same time"
