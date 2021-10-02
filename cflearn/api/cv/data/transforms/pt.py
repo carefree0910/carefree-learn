@@ -1,30 +1,29 @@
 from typing import Any
 from typing import Tuple
+from typing import Union
 from torchvision.transforms import transforms
 
 from .....data import Transforms
 
 
-@Transforms.register("to_gray")
-class ToGray(Transforms):
-    fn = transforms.Grayscale()
-
+class NoBatchBase(Transforms):
     @property
     def need_batch_process(self) -> bool:
         return False
+
+
+@Transforms.register("to_gray")
+class ToGray(NoBatchBase):
+    fn = transforms.Grayscale()
 
 
 @Transforms.register("to_tensor")
-class ToTensor(Transforms):
+class ToTensor(NoBatchBase):
     fn = transforms.ToTensor()
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
 
 
 @Transforms.register("random_erase")
-class RandomErase(Transforms):
+class RandomErase(NoBatchBase):
     def __init__(
         self,
         *,
@@ -37,24 +36,16 @@ class RandomErase(Transforms):
         super().__init__()
         self.fn = transforms.RandomErasing(p, scale, ratio, value, inplace)
 
-    @property
-    def need_batch_process(self) -> bool:
-        return False
-
 
 @Transforms.register("random_resized_crop")
-class RandomResizedCrop(Transforms):
+class RandomResizedCrop(NoBatchBase):
     def __init__(self, *, size: int = 224):
         super().__init__()
         self.fn = transforms.RandomResizedCrop(size)
 
-    @property
-    def need_batch_process(self) -> bool:
-        return False
-
 
 @Transforms.register("color_jitter")
-class ColorJitter(Transforms):
+class ColorJitter(NoBatchBase):
     def __init__(
         self,
         *,
@@ -77,13 +68,9 @@ class ColorJitter(Transforms):
             p=p,
         )
 
-    @property
-    def need_batch_process(self) -> bool:
-        return False
-
 
 @Transforms.register("normalize")
-class Normalize(Transforms):
+class Normalize(NoBatchBase):
     def __init__(
         self,
         mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
@@ -92,41 +79,26 @@ class Normalize(Transforms):
         super().__init__()
         self.fn = transforms.Normalize(mean, std)
 
-    @property
-    def need_batch_process(self) -> bool:
-        return False
-
 
 @Transforms.register("-1~1")
-class N1To1(Transforms):
+class N1To1(NoBatchBase):
     fn = transforms.Lambda(lambda t: t * 2.0 - 1.0)
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
 
 
 @Transforms.register("inverse_0~1")
-class Inverse0To1(Transforms):
+class Inverse0To1(NoBatchBase):
     fn = transforms.Lambda(lambda t: 1.0 - t)
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
 
 
 @Transforms.register("inverse_-1~1")
-class InverseN1To1(Transforms):
+class InverseN1To1(NoBatchBase):
     fn = transforms.Lambda(lambda t: -t)
-
-    @property
-    def need_batch_process(self) -> bool:
-        return False
 
 
 __all__ = [
     "ToGray",
     "ToTensor",
+    "Resize",
     "RandomErase",
     "RandomResizedCrop",
     "ColorJitter",
