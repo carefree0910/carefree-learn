@@ -92,8 +92,8 @@ class AToGray(ATransforms):
         return {k: self._to_gray(k, v) for k, v in inp.items()}
 
 
-@Transforms.register("resize")
-class Resize(ATransforms):
+@Transforms.register("a_resize")
+class AResize(ATransforms):
     def __init__(
         self,
         size: Union[int, tuple] = 224,
@@ -255,7 +255,7 @@ __all__ = [
     "ToArray",
     "ToRGB",
     "AToGray",
-    "Resize",
+    "AResize",
     "RandomCrop",
     "ShiftScaleRotate",
     "HFlip",

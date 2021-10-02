@@ -34,7 +34,7 @@ class TransformForGeneration(Compose):
     ):
         transform_list: List[Transforms] = []
         if img_size is not None:
-            transform_list.append(Resize(img_size))
+            transform_list.append(AResize(img_size))
         if to_rgb:
             if to_gray:
                 msg = "should not use `to_rgb` and `to_gray` at the same time"
@@ -51,7 +51,7 @@ class TransformForGeneration(Compose):
 @Transforms.register("for_imagenet")
 class TransformForImagenet(Compose):
     def __init__(self, img_size: int = 224):  # type: ignore
-        super().__init__([Resize(img_size), ANormalize(), ToTensor()])
+        super().__init__([AResize(img_size), ANormalize(), ToTensor()])
 
 
 @Transforms.register("ssl")
@@ -207,7 +207,7 @@ class ABundleTransform(Compose):
     ):
         super().__init__(
             [
-                Resize(resize_size, label_alias=label_alias),
+                AResize(resize_size, label_alias=label_alias),
                 RandomCrop(crop_size, label_alias=label_alias),
                 HFlip(p, label_alias=label_alias),
                 VFlip(p, label_alias=label_alias),
@@ -228,7 +228,7 @@ class ABundleTestTransform(Compose):
     def __init__(self, *, resize_size: int = 320, label_alias: Optional[str] = None):
         super().__init__(
             [
-                Resize(resize_size, label_alias=label_alias),
+                AResize(resize_size, label_alias=label_alias),
                 ANormalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
@@ -246,7 +246,7 @@ class StyleTransferTransform(Compose):
     ):
         super().__init__(
             [
-                Resize(resize_size, label_alias=label_alias),
+                AResize(resize_size, label_alias=label_alias),
                 RandomCrop(crop_size, label_alias=label_alias),
                 ToRGB(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
@@ -259,7 +259,7 @@ class StyleTransferTestTransform(Compose):
     def __init__(self, *, resize_size: int = 256, label_alias: Optional[str] = None):
         super().__init__(
             [
-                Resize(resize_size, label_alias=label_alias),
+                AResize(resize_size, label_alias=label_alias),
                 ToRGB(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
@@ -279,7 +279,7 @@ class ClassificationTransform(Compose):
             raise ValueError("`label_alias` should not be provided in `Classification`")
         super().__init__(
             [
-                Resize(int(resize_size * 1.2)),
+                AResize(int(resize_size * 1.2)),
                 ToRGB(),
                 RandomCrop(resize_size),
                 HFlip(p),
@@ -296,7 +296,7 @@ class ClassificationTestTransform(Compose):
     def __init__(self, *, resize_size: int = 512, label_alias: Optional[str] = None):
         if label_alias is not None:
             raise ValueError("`label_alias` should not be provided in `Classification`")
-        super().__init__([Resize(resize_size), ToRGB(), ANormalize(), AToTensor()])
+        super().__init__([AResize(resize_size), ToRGB(), ANormalize(), AToTensor()])
 
 
 __all__ = [
