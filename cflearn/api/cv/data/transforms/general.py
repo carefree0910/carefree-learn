@@ -4,7 +4,6 @@ from typing import Any
 from typing import Dict
 
 from .....data import Transforms
-from .....types import np_dict_type
 
 
 class NoBatchTransforms(Transforms):
@@ -36,9 +35,18 @@ class BatchWrapper(Transforms):
 
 @Transforms.register("to_array")
 class ToArray(Transforms):
+    def __init__(self, need_batch_process: bool = False):
+        super().__init__()
+        self._batch = need_batch_process
+
     @staticmethod
-    def fn(**inp: Any) -> np_dict_type:
-        return {k: np.asarray(v).astype(np.float32) / 255.0 for k, v in inp.items()}
+    def to_array(v: Any) -> np.ndarray:
+        return np.asarray(v).astype(np.float32) / 255.0
+
+    def fn(self, *args: Any, **kwargs: Any) -> Any:
+        if not self._batch:
+            return self.to_array(args[0])
+        return {k: self.to_array(v) for k, v in kwargs.items()}
 
     @property
     def need_numpy(self) -> bool:
@@ -46,7 +54,7 @@ class ToArray(Transforms):
 
     @property
     def need_batch_process(self) -> bool:
-        return True
+        return self._batch
 
 
 @Transforms.register("to_rgb")
