@@ -78,8 +78,8 @@ class AResize(ATransforms):
         self.fn = A.Resize(*size)
 
 
-@Transforms.register("random_crop")
-class RandomCrop(ATransforms):
+@Transforms.register("a_random_crop")
+class ARandomCrop(ATransforms):
     def __init__(self, size: Union[int, tuple], *, label_alias: Optional[str] = None):
         super().__init__(label_alias=label_alias)
         if isinstance(size, int):
@@ -87,8 +87,8 @@ class RandomCrop(ATransforms):
         self.fn = A.RandomCrop(*size)
 
 
-@Transforms.register("shift_scale_rotate")
-class ShiftScaleRotate(ATransforms):
+@Transforms.register("a_shift_scale_rotate")
+class AShiftScaleRotate(ATransforms):
     def __init__(
         self,
         p: float = 0.5,
@@ -100,15 +100,15 @@ class ShiftScaleRotate(ATransforms):
         self.fn = A.ShiftScaleRotate(border_mode=border_mode, p=p)
 
 
-@Transforms.register("hflip")
-class HFlip(ATransforms):
+@Transforms.register("a_hflip")
+class AHFlip(ATransforms):
     def __init__(self, p: float = 0.5, *, label_alias: Optional[str] = None):
         super().__init__(label_alias=label_alias)
         self.fn = A.HorizontalFlip(p=p)
 
 
-@Transforms.register("vflip")
-class VFlip(ATransforms):
+@Transforms.register("a_vflip")
+class AVFlip(ATransforms):
     def __init__(self, p: float = 0.5, *, label_alias: Optional[str] = None):
         super().__init__(label_alias=label_alias)
         self.fn = A.VerticalFlip(p=p)
@@ -129,8 +129,8 @@ class ANormalize(ATransforms):
         self.fn = A.Normalize(mean, std, max_pixel_value, p=p)
 
 
-@Transforms.register("rgb_shift")
-class RGBShift(ATransforms):
+@Transforms.register("a_rgb_shift")
+class ARGBShift(ATransforms):
     def __init__(
         self,
         r_shift_limit: float = 0.08,
@@ -144,8 +144,8 @@ class RGBShift(ATransforms):
         self.fn = A.RGBShift(r_shift_limit, g_shift_limit, b_shift_limit, p=p)
 
 
-@Transforms.register("solarize")
-class Solarize(ATransforms):
+@Transforms.register("a_solarize")
+class ASolarize(ATransforms):
     def __init__(
         self,
         threshold: float = 0.5,
@@ -157,8 +157,8 @@ class Solarize(ATransforms):
         self.fn = A.Solarize(threshold, p=p)
 
 
-@Transforms.register("gaussian_blur")
-class GaussianBlur(ATransforms):
+@Transforms.register("a_gaussian_blur")
+class AGaussianBlur(ATransforms):
     def __init__(
         self,
         blur_limit: Tuple[int, int] = (3, 7),
@@ -171,8 +171,8 @@ class GaussianBlur(ATransforms):
         self.fn = A.GaussianBlur(blur_limit, sigma_limit, p=p)
 
 
-@Transforms.register("hue_saturation")
-class HueSaturationValue(ATransforms):
+@Transforms.register("a_hue_saturation")
+class AHueSaturationValue(ATransforms):
     def __init__(
         self,
         hue_shift_limit: float = 0.08,
@@ -191,8 +191,8 @@ class HueSaturationValue(ATransforms):
         )
 
 
-@Transforms.register("brightness_contrast")
-class RandomBrightnessContrast(ATransforms):
+@Transforms.register("a_brightness_contrast")
+class ARandomBrightnessContrast(ATransforms):
     def __init__(
         self,
         brightness_limit: float = 0.2,
@@ -226,15 +226,15 @@ class AToTensor(ATransforms):
 __all__ = [
     "AToGray",
     "AResize",
-    "RandomCrop",
-    "ShiftScaleRotate",
-    "HFlip",
-    "VFlip",
+    "ARandomCrop",
+    "AShiftScaleRotate",
+    "AHFlip",
+    "AVFlip",
     "ANormalize",
-    "RGBShift",
-    "Solarize",
-    "GaussianBlur",
-    "HueSaturationValue",
-    "RandomBrightnessContrast",
+    "ARGBShift",
+    "ASolarize",
+    "AGaussianBlur",
+    "AHueSaturationValue",
+    "ARandomBrightnessContrast",
     "AToTensor",
 ]

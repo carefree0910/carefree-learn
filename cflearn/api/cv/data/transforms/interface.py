@@ -209,15 +209,15 @@ class ABundleTransform(Compose):
         super().__init__(
             [
                 AResize(resize_size, label_alias=label_alias),
-                RandomCrop(crop_size, label_alias=label_alias),
-                HFlip(p, label_alias=label_alias),
-                VFlip(p, label_alias=label_alias),
-                ShiftScaleRotate(p, cv2.BORDER_CONSTANT, label_alias=label_alias),
-                RGBShift(p=p, label_alias=label_alias),
-                Solarize(p=p, label_alias=label_alias),
-                GaussianBlur(p=p, label_alias=label_alias),
-                HueSaturationValue(p=p, label_alias=label_alias),
-                RandomBrightnessContrast(p=p, label_alias=label_alias),
+                ARandomCrop(crop_size, label_alias=label_alias),
+                AHFlip(p, label_alias=label_alias),
+                AVFlip(p, label_alias=label_alias),
+                AShiftScaleRotate(p, cv2.BORDER_CONSTANT, label_alias=label_alias),
+                ARGBShift(p=p, label_alias=label_alias),
+                ASolarize(p=p, label_alias=label_alias),
+                AGaussianBlur(p=p, label_alias=label_alias),
+                AHueSaturationValue(p=p, label_alias=label_alias),
+                ARandomBrightnessContrast(p=p, label_alias=label_alias),
                 ANormalize(label_alias=label_alias),
                 AToTensor(label_alias=label_alias),
             ]
@@ -248,7 +248,7 @@ class StyleTransferTransform(Compose):
         super().__init__(
             [
                 AResize(resize_size, label_alias=label_alias),
-                RandomCrop(crop_size, label_alias=label_alias),
+                ARandomCrop(crop_size, label_alias=label_alias),
                 ToRGB(),
                 AToTensor(label_alias=label_alias),
             ]
@@ -282,8 +282,8 @@ class ClassificationTransform(Compose):
             [
                 AResize(int(resize_size * 1.2)),
                 ToRGB(),
-                RandomCrop(resize_size),
-                HFlip(p),
+                ARandomCrop(resize_size),
+                AHFlip(p),
                 AToTensor(),
                 ColorJitter(p=min(1.0, p * 1.6)),
                 RandomErase(p=p),
