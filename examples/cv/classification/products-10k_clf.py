@@ -32,6 +32,7 @@ if __name__ == "__main__":
         batch_size=16,
         preparation=Products10kPreparation(),
         num_workers=4,
+        drop_train_last=not is_ci,
         transform=["a_resize", "to_tensor"],
         num_jobs=0 if is_ci else 8,
     ).data

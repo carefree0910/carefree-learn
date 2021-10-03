@@ -55,6 +55,7 @@ def get_data(ci: bool) -> ImageFolderData:
         preparation=U2NetPreparation(src_rgba_folder, label_folder),
         batch_size=16,
         num_workers=2 if ci else 4,
+        drop_train_last=not is_ci,
         transform="a_bundle",
         transform_config={"label_alias": "mask"},
         test_transform="a_bundle_test",

@@ -10,7 +10,7 @@ from cflearn.misc.toolkit import download_dataset
 from cflearn.models.cv.stylizer.constants import STYLE_KEY
 
 
-is_ci = check_is_ci()
+is_ci = check_is_ci() or True
 Image.MAX_IMAGE_PIXELS = None
 
 data_root = DATA_CACHE_DIR if is_ci else "data"
@@ -39,6 +39,7 @@ if __name__ == "__main__":
         style_folder,
         batch_size=8,
         num_workers=2 if is_ci else 4,
+        drop_train_last=not is_ci,
         transform=cflearn.cv.StyleTransferTransform(label_alias=STYLE_KEY),
         test_transform=cflearn.cv.StyleTransferTestTransform(label_alias=STYLE_KEY),
         lmdb_config=lmdb_config,
