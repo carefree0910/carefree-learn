@@ -27,7 +27,27 @@ class ToArray(Transforms):
         return True
 
 
+@Transforms.register("to_rgb")
+class ToRGB(NoBatchTransforms):
+    @staticmethod
+    def fn(img: np.ndarray) -> np.ndarray:
+        if len(img.shape) == 2:
+            img = img[..., None]
+        if img.shape[2] == 3:
+            return img
+        if img.shape[2] == 4:
+            return img[..., :3] * img[..., 3:]
+        if img.shape[2] == 1:
+            return img.repeat(3, axis=2)
+        raise ValueError(f"invalid shape occurred ({img.shape})")
+
+    @property
+    def need_numpy(self) -> bool:
+        return True
+
+
 __all__ = [
+    "ToRGB",
     "ToArray",
     "NoBatchTransforms",
 ]

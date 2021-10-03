@@ -249,7 +249,7 @@ class StyleTransferTransform(Compose):
             [
                 AResize(resize_size, label_alias=label_alias),
                 RandomCrop(crop_size, label_alias=label_alias),
-                ToRGB(label_alias=label_alias),
+                ToRGB(),
                 AToTensor(label_alias=label_alias),
             ]
         )
@@ -261,7 +261,7 @@ class StyleTransferTestTransform(Compose):
         super().__init__(
             [
                 AResize(resize_size, label_alias=label_alias),
-                ToRGB(label_alias=label_alias),
+                ToRGB(),
                 AToTensor(label_alias=label_alias),
             ]
         )

@@ -45,25 +45,6 @@ class ATransforms(Transforms):
         return True
 
 
-@Transforms.register("to_rgb")
-class ToRGB(ATransforms):
-    def _to_rgb(self, k: str, v: Any) -> Any:
-        if k != self.input_alias:
-            return v
-        if len(v.shape) == 2:
-            v = v[..., None]
-        if v.shape[2] == 3:
-            return v
-        if v.shape[2] == 4:
-            return v[..., :3] * v[..., 3:]
-        if v.shape[2] == 1:
-            return v.repeat(3, axis=2)
-        raise ValueError(f"invalid shape ({v.shape}) occurred with '{k}'")
-
-    def fn(self, **inp: Any) -> Dict[str, Any]:
-        return {k: self._to_rgb(k, v) for k, v in inp.items()}
-
-
 @Transforms.register("a_to_gray")
 class AToGray(ATransforms):
     def _to_gray(self, k: str, v: Any) -> Any:
@@ -243,7 +224,6 @@ class AToTensor(ATransforms):
 
 
 __all__ = [
-    "ToRGB",
     "AToGray",
     "AResize",
     "RandomCrop",
