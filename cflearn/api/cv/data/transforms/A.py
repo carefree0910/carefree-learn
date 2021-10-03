@@ -9,6 +9,7 @@ from typing import Optional
 from albumentations.pytorch import ToTensorV2
 
 from .general import ToRGB
+from .general import ToGray
 from .general import BatchWrapper
 from .....data import Transforms
 from .....constants import INPUT_KEY
@@ -47,6 +48,7 @@ class ATransforms(Transforms):
 
 
 AToRGB = lambda: BatchWrapper(ToRGB(), ATransforms.input_alias)
+AToGray = lambda: BatchWrapper(ToGray(), ATransforms.input_alias)
 
 
 @Transforms.register("a_resize")
@@ -210,6 +212,7 @@ class AToTensor(ATransforms):
 
 __all__ = [
     "AToRGB",
+    "AToGray",
     "AResize",
     "ARandomCrop",
     "AShiftScaleRotate",
