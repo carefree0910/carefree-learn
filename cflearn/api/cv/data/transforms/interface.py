@@ -42,7 +42,7 @@ class TransformForGeneration(Compose):
                 raise ValueError(msg)
             transform_list.append(ToRGB())
         elif to_gray:
-            transform_list.append(AToGray())
+            transform_list.append(ToGray())
         transform_list.extend([ToTensor(), N1To1()])
         if inverse:
             transform_list.append(InverseN1To1())
