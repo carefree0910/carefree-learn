@@ -1,6 +1,5 @@
 import os
 import json
-import random
 
 import numpy as np
 
@@ -20,13 +19,10 @@ from .....data import ImageFolderData
 from .....data import InferenceImageFolderData
 from .....types import sample_weights_type
 from .....constants import INPUT_KEY
-from .....constants import LABEL_KEY
 from .....constants import WARNING_PREFIX
 from .....data.core import ImageFolderDataset
 from .....data.core import InferenceImageFolderDataset
 from .....models.cv.stylizer.constants import STYLE_KEY
-from .....models.cv.stylizer.constants import INPUT_B_KEY
-from .....models.cv.stylizer.constants import LABEL_B_KEY
 
 
 class StyleTransferMixin:
