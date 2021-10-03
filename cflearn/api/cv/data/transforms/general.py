@@ -1,6 +1,7 @@
 import numpy as np
 
 from typing import Any
+from typing import Dict
 
 from .....data import Transforms
 from .....types import np_dict_type
@@ -10,6 +11,27 @@ class NoBatchTransforms(Transforms):
     @property
     def need_batch_process(self) -> bool:
         return False
+
+
+class BatchWrapper(Transforms):
+    def __init__(self, transform: Transforms, input_alias: str):
+        super().__init__()
+        self.transform = transform
+        self.input_alias = input_alias
+
+    def fn(self, **inp: Any) -> Dict[str, Any]:
+        return {
+            key: value if key != self.input_alias else self.transform(value)
+            for key, value in inp.items()
+        }
+
+    @property
+    def need_numpy(self) -> bool:
+        return self.transform.need_numpy
+
+    @property
+    def need_batch_process(self) -> bool:
+        return True
 
 
 @Transforms.register("to_array")
@@ -49,5 +71,6 @@ class ToRGB(NoBatchTransforms):
 __all__ = [
     "ToRGB",
     "ToArray",
+    "BatchWrapper",
     "NoBatchTransforms",
 ]

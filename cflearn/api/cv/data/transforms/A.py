@@ -9,6 +9,8 @@ from typing import Union
 from typing import Optional
 from albumentations.pytorch import ToTensorV2
 
+from .general import ToRGB
+from .general import BatchWrapper
 from .....data import Transforms
 from .....constants import INPUT_KEY
 from .....constants import LABEL_KEY
@@ -43,6 +45,9 @@ class ATransforms(Transforms):
     @property
     def need_numpy(self) -> bool:
         return True
+
+
+AToRGB = lambda: BatchWrapper(ToRGB(), ATransforms.input_alias)
 
 
 @Transforms.register("a_to_gray")
@@ -224,6 +229,7 @@ class AToTensor(ATransforms):
 
 
 __all__ = [
+    "AToRGB",
     "AToGray",
     "AResize",
     "ARandomCrop",
@@ -237,4 +243,5 @@ __all__ = [
     "AHueSaturationValue",
     "ARandomBrightnessContrast",
     "AToTensor",
+    "ATransforms",
 ]
