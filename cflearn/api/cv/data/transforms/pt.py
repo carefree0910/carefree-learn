@@ -4,13 +4,8 @@ from typing import Union
 from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
 
+from .general import NoBatchBase
 from .....data import Transforms
-
-
-class NoBatchBase(Transforms):
-    @property
-    def need_batch_process(self) -> bool:
-        return False
 
 
 @Transforms.register("to_gray")
