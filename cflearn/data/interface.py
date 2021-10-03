@@ -367,6 +367,7 @@ class ImageFolderData(CVDataModule):
         batch_size: int,
         num_workers: int = 0,
         shuffle: bool = True,
+        drop_train_last: bool = True,
         prefetch_device: Optional[Union[int, str]] = None,
         pin_memory_device: Optional[Union[int, str]] = None,
         extra_label_names: Optional[List[str]] = None,
@@ -379,6 +380,7 @@ class ImageFolderData(CVDataModule):
     ):
         self.folder = folder
         self.shuffle = shuffle
+        self.drop_train_last = drop_train_last
         if not torch.cuda.is_available():
             fmt = "cuda is not available but {} is provided, which will have no effect"
             if prefetch_device is not None:
@@ -453,8 +455,10 @@ class ImageFolderData(CVDataModule):
         if self.pin_memory_device is not None:
             torch.cuda.set_device(self.pin_memory_device)
         d = shallow_copy_dict(self.kw)
+        trd = shallow_copy_dict(d)
+        trd["drop_last"] = self.drop_train_last
         kw = {"prefetch_device": self.prefetch_device}
-        train_loader = CVLoader(DataLoader(self.train_data, **d), **kw)  # type: ignore
+        train_loader = CVLoader(DataLoader(self.train_data, **trd), **kw)  # type: ignore
         d["shuffle"] = self.test_shuffle or self.shuffle
         valid_loader = CVLoader(DataLoader(self.valid_data, **d), **kw)  # type: ignore
         return train_loader, valid_loader
