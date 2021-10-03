@@ -4,22 +4,22 @@ from typing import Union
 from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
 
-from .general import NoBatchBase
+from .general import NoBatchTransforms
 from .....data import Transforms
 
 
 @Transforms.register("to_gray")
-class ToGray(NoBatchBase):
+class ToGray(NoBatchTransforms):
     fn = transforms.Grayscale()
 
 
 @Transforms.register("to_tensor")
-class ToTensor(NoBatchBase):
+class ToTensor(NoBatchTransforms):
     fn = transforms.ToTensor()
 
 
 @Transforms.register("resize")
-class Resize(NoBatchBase):
+class Resize(NoBatchTransforms):
     def __init__(
         self,
         size: Union[int, tuple],
@@ -32,7 +32,7 @@ class Resize(NoBatchBase):
 
 
 @Transforms.register("random_erase")
-class RandomErase(NoBatchBase):
+class RandomErase(NoBatchTransforms):
     def __init__(
         self,
         *,
@@ -47,14 +47,14 @@ class RandomErase(NoBatchBase):
 
 
 @Transforms.register("random_resized_crop")
-class RandomResizedCrop(NoBatchBase):
+class RandomResizedCrop(NoBatchTransforms):
     def __init__(self, *, size: int = 224):
         super().__init__()
         self.fn = transforms.RandomResizedCrop(size)
 
 
 @Transforms.register("color_jitter")
-class ColorJitter(NoBatchBase):
+class ColorJitter(NoBatchTransforms):
     def __init__(
         self,
         *,
@@ -79,7 +79,7 @@ class ColorJitter(NoBatchBase):
 
 
 @Transforms.register("normalize")
-class Normalize(NoBatchBase):
+class Normalize(NoBatchTransforms):
     def __init__(
         self,
         mean: Tuple[float, float, float] = (0.485, 0.456, 0.406),
@@ -90,17 +90,17 @@ class Normalize(NoBatchBase):
 
 
 @Transforms.register("-1~1")
-class N1To1(NoBatchBase):
+class N1To1(NoBatchTransforms):
     fn = transforms.Lambda(lambda t: t * 2.0 - 1.0)
 
 
 @Transforms.register("inverse_0~1")
-class Inverse0To1(NoBatchBase):
+class Inverse0To1(NoBatchTransforms):
     fn = transforms.Lambda(lambda t: 1.0 - t)
 
 
 @Transforms.register("inverse_-1~1")
-class InverseN1To1(NoBatchBase):
+class InverseN1To1(NoBatchTransforms):
     fn = transforms.Lambda(lambda t: -t)
 
 
