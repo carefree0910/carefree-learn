@@ -19,7 +19,7 @@ class BatchWrapper(Transforms):
         self.transform = transform
         self.input_alias = input_alias
 
-    def fn(self, **inp: Any) -> Dict[str, Any]:
+    def fn(self, inp: Dict[str, Any]) -> Dict[str, Any]:
         return {
             key: value if key != self.input_alias else self.transform(value)
             for key, value in inp.items()
@@ -44,10 +44,10 @@ class ToArray(Transforms):
     def to_array(v: Any) -> np.ndarray:
         return np.asarray(v).astype(np.float32) / 255.0
 
-    def fn(self, *args: Any, **kwargs: Any) -> Any:
+    def fn(self, inp: Any) -> Any:
         if not self._batch:
-            return self.to_array(args[0])
-        return {k: self.to_array(v) for k, v in kwargs.items()}
+            return self.to_array(inp)
+        return {k: self.to_array(v) for k, v in inp.items()}
 
     @property
     def need_numpy(self) -> bool:
