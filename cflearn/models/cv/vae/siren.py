@@ -1,3 +1,5 @@
+import torch
+
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -10,6 +12,7 @@ from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....trainer import TrainerState
 from ....protocol import ModelProtocol
+from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
 from ...implicit.siren import ImgSiren
@@ -25,12 +28,12 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         img_size: int,
         in_channels: int,
         out_channels: Optional[int] = None,
+        *,
         min_size: int = 2,
-        target_downsample: int = 4,
         latent_dim: int = 256,
+        target_downsample: Optional[int] = None,
         num_classes: Optional[int] = None,
         conditional_dim: int = 16,
-        *,
         num_layers: int = 4,
         w_sin: float = 1.0,
         w_sin_initial: float = 30.0,
@@ -84,7 +87,9 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         size: Optional[int] = None,
         **kwargs: Any,
     ) -> Tensor:
-        return self.siren.decode(z, labels=labels, size=size)
+        net = self.siren.decode(z, labels=labels, size=size)
+        net = torch.tanh(net)
+        return net
 
     def forward(
         self,
@@ -97,7 +102,7 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)
         net = reparameterize(mu, log_var)
-        net = self.siren(net, batch)
+        net = self.siren.decode(net, labels=batch.get(LABEL_KEY))
         return {PREDICTIONS_KEY: net, MU_KEY: mu, LOG_VAR_KEY: log_var}
 
 
