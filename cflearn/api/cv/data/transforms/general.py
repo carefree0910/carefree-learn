@@ -79,7 +79,7 @@ class ToRGB(NoBatchTransforms):
 
 @Transforms.register("to_gray")
 class ToGray(NoBatchTransforms):
-    def __init__(self):
+    def __init__(self):  # type: ignore
         super().__init__()
         self.pil_fn = transforms.Grayscale()
 
