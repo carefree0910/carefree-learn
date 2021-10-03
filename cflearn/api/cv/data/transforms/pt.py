@@ -8,11 +8,6 @@ from .general import NoBatchTransforms
 from .....data import Transforms
 
 
-@Transforms.register("to_gray")
-class ToGray(NoBatchTransforms):
-    fn = transforms.Grayscale()
-
-
 @Transforms.register("to_tensor")
 class ToTensor(NoBatchTransforms):
     fn = transforms.ToTensor()
@@ -105,7 +100,6 @@ class InverseN1To1(NoBatchTransforms):
 
 
 __all__ = [
-    "ToGray",
     "ToTensor",
     "Resize",
     "RandomErase",

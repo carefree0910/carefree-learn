@@ -2,6 +2,7 @@ import numpy as np
 
 from typing import Any
 from typing import Dict
+from torchvision.transforms import transforms
 
 from .....data import Transforms
 
@@ -78,8 +79,12 @@ class ToRGB(NoBatchTransforms):
 
 @Transforms.register("to_gray")
 class ToGray(NoBatchTransforms):
+    def __init__(self):
+        super().__init__()
+        self.pil_fn = transforms.Grayscale()
+
     @staticmethod
-    def fn(img: np.ndarray) -> np.ndarray:
+    def np_fn(img: np.ndarray) -> np.ndarray:
         if len(img.shape) == 2:
             return img[..., None]
         if img.shape[2] == 3:
@@ -90,9 +95,14 @@ class ToGray(NoBatchTransforms):
             return img
         raise ValueError(f"invalid shape occurred ({img.shape})")
 
+    def fn(self, inp: Any) -> Any:
+        if isinstance(inp, np.ndarray):
+            return self.np_fn(inp)
+        return self.pil_fn(inp)
+
     @property
     def need_numpy(self) -> bool:
-        return True
+        return False
 
 
 __all__ = [
