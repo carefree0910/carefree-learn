@@ -1,6 +1,5 @@
 import cv2
 
-import numpy as np
 import albumentations as A
 
 from typing import Any
@@ -11,7 +10,6 @@ from typing import Optional
 from albumentations.pytorch import ToTensorV2
 
 from .....data import Transforms
-from .....types import np_dict_type
 from .....constants import INPUT_KEY
 from .....constants import LABEL_KEY
 
@@ -45,13 +43,6 @@ class ATransforms(Transforms):
     @property
     def need_numpy(self) -> bool:
         return True
-
-
-@Transforms.register("to_array")
-class ToArray(ATransforms):
-    @staticmethod
-    def fn(**inp: Any) -> np_dict_type:
-        return {k: np.array(v).astype(np.float32) / 255.0 for k, v in inp.items()}
 
 
 @Transforms.register("to_rgb")
@@ -252,7 +243,6 @@ class AToTensor(ATransforms):
 
 
 __all__ = [
-    "ToArray",
     "ToRGB",
     "AToGray",
     "AResize",

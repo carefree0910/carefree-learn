@@ -16,6 +16,7 @@ from torchvision.transforms import InterpolationMode
 
 from .A import *
 from .pt import *
+from .general import *
 from .....data import Compose
 from .....data import Transforms
 from .....misc.toolkit import min_max_normalize
