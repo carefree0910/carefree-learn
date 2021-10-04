@@ -20,7 +20,7 @@ class EncoderDecoder(nn.Module):
         is_1d: int,
         in_channels: int,
         out_channels: Optional[int] = None,
-        target_downsample: Optional[int] = 4,
+        target_downsample: Optional[int] = None,
         latent_padding_channels: Optional[int] = 16,
         num_classes: Optional[int] = None,
         *,

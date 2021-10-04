@@ -24,7 +24,7 @@ class VQVAE(ModelProtocol):
         out_channels: Optional[int] = None,
         num_downsample: Optional[int] = None,
         min_size: int = 8,
-        target_downsample: int = 6,
+        target_downsample: int = None,
         *,
         encoder: str = "vanilla",
         decoder: str = "vanilla",
