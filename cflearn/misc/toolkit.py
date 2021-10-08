@@ -296,6 +296,24 @@ def download_model(
     )
 
 
+def download_reference(
+    name: str,
+    *,
+    root: str = os.path.join(CACHE_DIR, "reference"),
+    force_download: bool = False,
+) -> str:
+    return download(
+        "reference",
+        "pretrained-models",
+        name,
+        root,
+        "pt",
+        force_download,
+        None,
+        False,
+    )
+
+
 def download_dataset(
     name: str,
     *,
