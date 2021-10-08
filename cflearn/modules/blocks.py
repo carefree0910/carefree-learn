@@ -1318,6 +1318,10 @@ class Linear(Module):
         else:
             pruner = Pruner(pruner_config, [out_dim, in_dim])
         self.config, self.pruner = shallow_copy_dict(kwargs), pruner
+        with torch.no_grad():
+            gain = 1.0 / math.sqrt(2.0)
+            nn.init.xavier_normal_(self.linear.weight.data, gain)
+            self.linear.bias.data.zero_()
 
     @property
     def weight(self) -> Tensor:
@@ -2174,7 +2178,7 @@ class Conv2d(Module):
         bias: bool = True,
         demodulate: bool = False,
         weight_scale: Optional[float] = None,
-        gain: Optional[float] = None,
+        gain: float = math.sqrt(2.0),
     ):
         super().__init__()
         self.in_c, self.out_c = in_channels, out_channels
@@ -2213,15 +2217,9 @@ class Conv2d(Module):
         self.weight_scale = weight_scale
         # initialize
         with torch.no_grad():
-            data = self.weight.data
-            if gain is None:
-                nn.init.kaiming_uniform_(data, a=math.sqrt(5.0))
-            else:
-                nn.init.xavier_normal_(data, gain / math.sqrt(2.0))
+            nn.init.xavier_normal_(self.weight.data, gain / math.sqrt(2.0))
             if self.bias is not None:
-                fan_in, _ = nn.init._calculate_fan_in_and_fan_out(self.weight)
-                bound = 1 / math.sqrt(fan_in)
-                nn.init.uniform_(self.bias, -bound, bound)
+                self.bias.zero_()
 
     def _same_padding(self, size: int) -> int:
         stride = self.stride

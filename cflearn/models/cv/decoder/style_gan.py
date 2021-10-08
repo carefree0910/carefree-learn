@@ -83,13 +83,7 @@ class DecodeBlock(nn.Module):
             self.instance_norm_1 = None
         else:
             self.instance_norm_1 = norm_factory.make(out_channels, **norm_kwargs)
-        linear_initialize_config = {"gain": 1.0 / math.sqrt(2.0)}
-        self.style_1 = Linear(
-            latent_dim,
-            2 * out_channels,
-            init_method="xavier_normal",
-            initialize_config=linear_initialize_config,
-        )
+        self.style_1 = Linear(latent_dim, 2 * out_channels)
 
         self.conv_2 = Conv2d(
             out_channels,
@@ -106,12 +100,7 @@ class DecodeBlock(nn.Module):
             self.instance_norm_2 = None
         else:
             self.instance_norm_2 = norm_factory.make(out_channels, **norm_kwargs)
-        self.style_2 = Linear(
-            latent_dim,
-            2 * out_channels,
-            init_method="xavier_normal",
-            initialize_config=linear_initialize_config,
-        )
+        self.style_2 = Linear(latent_dim, 2 * out_channels)
 
         with torch.no_grad():
             self.bias_1.zero_()
