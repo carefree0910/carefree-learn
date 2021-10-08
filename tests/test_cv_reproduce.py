@@ -20,6 +20,9 @@ class TestReproduce(unittest.TestCase):
     def test_stylegan2(self) -> None:
         self._core("stylegan2")
 
+    def test_clip(self) -> None:
+        self._core("clip")
+
 
 if __name__ == "__main__":
     unittest.main()
