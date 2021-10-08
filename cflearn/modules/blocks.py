@@ -448,7 +448,7 @@ class Activations:
     @property
     def quick_gelu(self) -> Module:
         class QuickGELU(nn.Module):
-            def forward(self, net: Tensor):
+            def forward(self, net: Tensor) -> Tensor:
                 return net * torch.sigmoid(1.702 * net)
 
         return QuickGELU()
