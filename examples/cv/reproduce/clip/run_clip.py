@@ -21,7 +21,7 @@ import clip
 device = "cpu"
 model, preprocess = clip.load("ViT-B/32", device=device)
 cf_clip = cflearn.DLZoo.load_model("multimodal/clip", pretrained=True)
-cf_tokenizer = cflearn.load_tokenizer("clip")
+cf_tokenizer = cflearn.TokenizerProtocol.make("clip", {})
 
 torch.manual_seed(142857)
 img = torch.randn(1, 3, 224, 224)

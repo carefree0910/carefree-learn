@@ -28,17 +28,6 @@ root = os.path.dirname(__file__)
 configs_root = os.path.join(root, "configs")
 
 
-# tokenizers
-
-
-def load_tokenizer(name: str) -> Any:
-    with open(download_tokenizer(name), "rb") as f:
-        return dill.load(f)
-
-
-# models
-
-
 class ParsedModel(NamedTuple):
     json_path: str
     download_name: str
@@ -250,7 +239,4 @@ class DLZoo(ZooBase):
         return zoo.m
 
 
-__all__ = [
-    "load_tokenizer",
-    "DLZoo",
-]
+__all__ = ["DLZoo"]
