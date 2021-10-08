@@ -25,6 +25,12 @@
   ],
   "reference": [
     "u2net",
-    "u2netp"
+    "u2netp",
+    "afhqcat",
+    "afhqdog",
+    "afhqwild",
+    "brecahad",
+    "ffhq",
+    "metfaces"
   ]
 }

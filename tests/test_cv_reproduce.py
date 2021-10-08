@@ -17,6 +17,9 @@ class TestReproduce(unittest.TestCase):
     def test_u2net(self) -> None:
         self._core("u2net")
 
+    def test_stylegan2(self) -> None:
+        self._core("stylegan2")
+
 
 if __name__ == "__main__":
     unittest.main()
