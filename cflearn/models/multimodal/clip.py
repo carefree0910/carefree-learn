@@ -1,7 +1,14 @@
 import torch
 
+from PIL import Image
 from torch import nn
 from torch import Tensor
+from torchvision.transforms import Resize
+from torchvision.transforms import Compose
+from torchvision.transforms import ToTensor
+from torchvision.transforms import Normalize
+from torchvision.transforms import CenterCrop
+from torchvision.transforms import InterpolationMode
 
 from .protocol import PerceptorProtocol
 from ...constants import INPUT_KEY
@@ -9,6 +16,10 @@ from ...constants import LATENT_KEY
 from ...misc.toolkit import l2_normalize
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
+
+
+def to_rgb(image: Image.Image) -> Image.Image:
+    return image.convert("RGB")
 
 
 @PerceptorProtocol.register("clip")
@@ -95,6 +106,20 @@ class CLIP(PerceptorProtocol):
             net = net[:, torch.nonzero(text)[:, 1][-1]]
         net = net @ self.text_projection
         return l2_normalize(net)
+
+    def get_transform(self) -> Compose:
+        return Compose(
+            [
+                Resize(self.img_size, interpolation=InterpolationMode.BICUBIC),
+                CenterCrop(self.img_size),
+                to_rgb,
+                ToTensor(),
+                Normalize(
+                    (0.48145466, 0.4578275, 0.40821073),
+                    (0.26862954, 0.26130258, 0.27577711),
+                ),
+            ]
+        )
 
 
 __all__ = ["CLIP"]

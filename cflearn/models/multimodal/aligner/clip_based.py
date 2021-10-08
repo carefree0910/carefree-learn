@@ -3,7 +3,6 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
-from torchvision.transforms import Normalize
 
 from .core import Text2ImageAligner
 from ..clip import CLIP
@@ -71,10 +70,7 @@ class CLIPWithVQGANAligner(Text2ImageAligner):
             perceptor_pretrained_path=perceptor_pretrained_path,
             generator_pretrained_path=generator_pretrained_path,
         )
-        self.normalize = Normalize(
-            (0.48145466, 0.4578275, 0.40821073),
-            (0.26862954, 0.26130258, 0.27577711),
-        )
+        self.normalize = self.perceptor.get_transform().transforms[-1]
 
     def generate_raw(self) -> Tensor:
         z_q = self.generator.codebook(self.z)[0]
