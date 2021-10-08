@@ -671,28 +671,30 @@ def prepare_image_folder(
 
     if not to_index:
         labels_dict = {"": labels}
+        label2idx = {v: v for v in sorted(set(labels))}
     else:
         label2idx = {label: i for i, label in enumerate(sorted(set(labels)))}
-        with open(os.path.join(tgt_folder, f"{LABEL_KEY}2idx.json"), "w") as f:
-            json.dump(label2idx, f)
-        with open(os.path.join(tgt_folder, f"idx2{LABEL_KEY}.json"), "w") as f:
-            json.dump({v: k for k, v in label2idx.items()}, f)
         labels_dict = {"": [label2idx[label] for label in labels]}
+    with open(os.path.join(tgt_folder, f"{LABEL_KEY}2idx.json"), "w") as f:
+        json.dump(label2idx, f)
+    with open(os.path.join(tgt_folder, f"idx2{LABEL_KEY}.json"), "w") as f:
+        json.dump({v: k for k, v in label2idx.items()}, f)
 
     if extra_labels_dict is not None:
         for el_name, label_collection in extra_labels_dict.items():
             if not to_index:
                 labels_dict[el_name] = label_collection
+                extra2idx = {v: v for v in sorted(set(label_collection))}
             else:
                 extra2idx = {
                     extra_label: i
                     for i, extra_label in enumerate(sorted(set(label_collection)))
                 }
-                with open(os.path.join(tgt_folder, f"{el_name}2idx.json"), "w") as f:
-                    json.dump(extra2idx, f)
-                with open(os.path.join(tgt_folder, f"idx2{el_name}.json"), "w") as f:
-                    json.dump({v: k for k, v in extra2idx.items()}, f)
                 labels_dict[el_name] = [extra2idx[el] for el in label_collection]
+            with open(os.path.join(tgt_folder, f"{el_name}2idx.json"), "w") as f:
+                json.dump(extra2idx, f)
+            with open(os.path.join(tgt_folder, f"idx2{el_name}.json"), "w") as f:
+                json.dump({v: k for k, v in extra2idx.items()}, f)
 
     # exclude samples
     if excluded_indices:
