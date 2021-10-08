@@ -9,9 +9,10 @@ from cflearn.misc.toolkit import download_reference
 
 # prepare
 folder = os.path.dirname(__file__)
-repo_path = os.path.join(folder, "U-2-Net-master")
+repo_name = "U-2-Net-master"
+repo_path = os.path.join(folder, repo_name)
 os.system("wget https://github.com/xuebinqin/U-2-Net/archive/refs/heads/master.zip")
-os.system(f"unzip {repo_path}.zip -d {folder}")
+os.system(f"unzip {repo_name}.zip -d {folder}")
 sys.path.insert(0, repo_path)
 
 from model import U2NET
