@@ -1790,11 +1790,17 @@ class FFN(Module, WithRegister):
 
 @FFN.register("ff")
 class FeedForward(FFN):
-    def __init__(self, in_dim: int, latent_dim: int, dropout: float):
+    def __init__(
+        self,
+        in_dim: int,
+        latent_dim: int,
+        dropout: float,
+        activation: str = "GELU",
+    ):
         super().__init__(in_dim, latent_dim, dropout)
         self.net = nn.Sequential(
             Linear(in_dim, latent_dim),
-            nn.GELU(),
+            Activations.make(activation),
             nn.Dropout(dropout),
             Linear(latent_dim, in_dim),
             nn.Dropout(dropout),
