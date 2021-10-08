@@ -206,6 +206,7 @@ class ABundleTransform(Compose):
         p: float = 0.5,
         label_alias: Optional[str] = None,
     ):
+        transform_list: List[Transforms]
         transform_list = [AResize(resize_size, label_alias=label_alias)]
         if crop_size is not None:
             transform_list.append(ARandomCrop(crop_size, label_alias=label_alias))
