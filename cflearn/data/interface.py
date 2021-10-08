@@ -687,7 +687,7 @@ def prepare_image_folder(
                 extra2idx = {v: v for v in sorted(set(label_collection))}
             else:
                 extra2idx = {
-                    extra_label: i
+                    extra_label: i  # type: ignore
                     for i, extra_label in enumerate(sorted(set(label_collection)))
                 }
                 labels_dict[el_name] = [extra2idx[el] for el in label_collection]
