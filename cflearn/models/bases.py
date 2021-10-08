@@ -1,3 +1,4 @@
+import os
 import torch
 
 import torch.nn.functional as F
@@ -20,6 +21,7 @@ from ..protocol import ModelWithCustomSteps
 from ..constants import LOSS_KEY
 from ..constants import LABEL_KEY
 from ..constants import LATENT_KEY
+from ..constants import WARNING_PREFIX
 from ..constants import PREDICTIONS_KEY
 from ..misc.toolkit import to_device
 from ..misc.toolkit import set_requires_grad
@@ -192,8 +194,11 @@ class CascadeBase(ModelProtocol, metaclass=ABCMeta):
     ) -> None:
         self.lv1_net = self.make(lv1_model_name, lv1_model_config)
         if lv1_model_ckpt_path is not None:
-            state_dict = torch.load(lv1_model_ckpt_path, map_location="cpu")
-            self.lv1_net.load_state_dict(state_dict)
+            if not os.path.isfile(lv1_model_ckpt_path):
+                print(f"{WARNING_PREFIX}'{lv1_model_ckpt_path}' does not exist")
+            else:
+                state_dict = torch.load(lv1_model_ckpt_path, map_location="cpu")
+                self.lv1_net.load_state_dict(state_dict)
         if not lv1_model_trainable:
             set_requires_grad(self.lv1_net, False)
         self.lv2_net = self.make(lv2_model_name, lv2_model_config)
