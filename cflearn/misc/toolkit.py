@@ -1255,6 +1255,12 @@ class SharedArrayWrapper:
 # cv
 
 
+def to_uint8(normalized_img: arr_type) -> arr_type:
+    if isinstance(normalized_img, np.ndarray):
+        return (np.clip(normalized_img * 255.0, 0.0, 255.0)).astype(np.uint8)
+    return torch.clamp(normalized_img * 255.0, 0.0, 255.0).to(torch.uint8)
+
+
 def auto_num_layers(
     img_size: int,
     min_size: int = 4,
