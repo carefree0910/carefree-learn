@@ -445,6 +445,14 @@ class Activations:
 
         return HSwish(**self.configs.setdefault("h_swish", {}))
 
+    @property
+    def quick_gelu(self) -> Module:
+        class QuickGELU(nn.Module):
+            def forward(self, net: Tensor):
+                return net * torch.sigmoid(1.702 * net)
+
+        return QuickGELU()
+
     @classmethod
     def make(
         cls,
