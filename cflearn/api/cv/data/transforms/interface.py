@@ -202,14 +202,15 @@ class ABundleTransform(Compose):
         self,
         *,
         resize_size: int = 320,
-        crop_size: int = 288,
+        crop_size: Optional[int] = 288,
         p: float = 0.5,
         label_alias: Optional[str] = None,
     ):
-        super().__init__(
+        transform_list = [AResize(resize_size, label_alias=label_alias)]
+        if crop_size is not None:
+            transform_list.append(ARandomCrop(crop_size, label_alias=label_alias))
+        transform_list.extend(
             [
-                AResize(resize_size, label_alias=label_alias),
-                ARandomCrop(crop_size, label_alias=label_alias),
                 AHFlip(p, label_alias=label_alias),
                 AVFlip(p, label_alias=label_alias),
                 AShiftScaleRotate(p, cv2.BORDER_CONSTANT, label_alias=label_alias),
@@ -222,6 +223,7 @@ class ABundleTransform(Compose):
                 AToTensor(label_alias=label_alias),
             ]
         )
+        super().__init__(transform_list)
 
 
 @Transforms.register("a_bundle_test")
