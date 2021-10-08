@@ -9,7 +9,7 @@ from typing import Optional
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY

@@ -10,7 +10,7 @@ from .constants import MU_KEY
 from .constants import LOG_VAR_KEY
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY

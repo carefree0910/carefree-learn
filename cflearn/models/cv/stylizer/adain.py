@@ -13,7 +13,7 @@ from ..decoder import VanillaDecoder
 from ..encoder import BackboneEncoder
 from ....types import losses_type
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....protocol import LossProtocol
 from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY

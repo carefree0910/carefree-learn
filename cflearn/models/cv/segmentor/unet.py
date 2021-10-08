@@ -10,7 +10,7 @@ from typing import Optional
 
 from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY

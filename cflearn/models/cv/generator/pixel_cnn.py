@@ -10,7 +10,7 @@ from typing import List
 from typing import Optional
 
 from ....types import tensor_dict_type
-from ....trainer import TrainerState
+from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
