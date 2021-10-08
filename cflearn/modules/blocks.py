@@ -1321,7 +1321,8 @@ class Linear(Module):
         with torch.no_grad():
             gain = 1.0 / math.sqrt(2.0)
             nn.init.xavier_normal_(self.linear.weight.data, gain)
-            self.linear.bias.data.zero_()
+            if bias:
+                self.linear.bias.data.zero_()
 
     @property
     def weight(self) -> Tensor:
