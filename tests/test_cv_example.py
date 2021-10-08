@@ -7,6 +7,13 @@ examples_folder = os.path.join(file_folder, os.pardir, "examples", "cv")
 
 
 class TestExample(unittest.TestCase):
+    def test_aux_clf(self) -> None:
+        folder = os.path.join(examples_folder, "classification")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'aux_clf.py')}"),
+            0,
+        )
+
     def test_mnist_clf(self) -> None:
         folder = os.path.join(examples_folder, "classification")
         self.assertEqual(
