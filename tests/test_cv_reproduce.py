@@ -10,7 +10,7 @@ class TestReproduce(unittest.TestCase):
     def _core(self, sub_folder: str) -> None:
         folder = os.path.join(scripts_folder, sub_folder)
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run.py')}"),
+            os.system(f"python {os.path.join(folder, f'run_{sub_folder}.py')}"),
             0,
         )
 
