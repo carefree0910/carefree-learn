@@ -7,6 +7,7 @@ from ...toolkit import eval_context
 from ...toolkit import make_indices_visualization_map
 from ....trainer import Trainer
 from ....constants import INPUT_KEY
+from ....constants import PREDICTIONS_KEY
 
 
 @ImageCallback.register("clf")
@@ -19,6 +20,8 @@ class ClassificationCallback(ImageCallback):
         original = batch[INPUT_KEY]
         with eval_context(trainer.model):
             logits = trainer.model.classify(original)
+            if isinstance(logits, dict):
+                logits = logits[PREDICTIONS_KEY]
             labels_map = make_indices_visualization_map(logits.argmax(1))
         image_folder = self._prepare_folder(trainer)
         save_images(original, os.path.join(image_folder, "original.png"))
