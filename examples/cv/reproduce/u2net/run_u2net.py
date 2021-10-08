@@ -12,6 +12,7 @@ folder = os.path.dirname(__file__)
 repo_name = "U-2-Net-master"
 repo_path = os.path.join(folder, repo_name)
 os.system("wget https://github.com/xuebinqin/U-2-Net/archive/refs/heads/master.zip")
+os.system(f"mv master.zip {repo_name}.zip")
 os.system(f"unzip {repo_name}.zip -d {folder}")
 sys.path.insert(0, repo_path)
 

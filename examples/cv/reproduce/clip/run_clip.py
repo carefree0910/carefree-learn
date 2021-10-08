@@ -12,6 +12,7 @@ repo_name = "CLIP-main"
 repo_path = os.path.join(folder, repo_name)
 url = "https://github.com/openai/CLIP/archive/refs/heads/main.zip"
 os.system(f"wget {url}")
+os.system(f"mv main.zip {repo_name}.zip")
 os.system(f"unzip {repo_name}.zip -d {folder}")
 sys.path.insert(0, repo_path)
 
