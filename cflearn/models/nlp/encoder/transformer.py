@@ -32,6 +32,7 @@ class TeTEncoder(ModelProtocol):
         residual_after_norm: bool = False,
         feedforward_dim_ratio: float = 4.0,
         attention_kwargs: Optional[Dict[str, Any]] = None,
+        feedforward_kwargs: Optional[Dict[str, Any]] = None,
         use_positional_encoding: bool = True,
         norm_after_head: bool = False,
     ):
@@ -52,6 +53,7 @@ class TeTEncoder(ModelProtocol):
             context_length,
             token_mixing_type="attention",
             token_mixing_config=attention_kwargs,
+            channel_mixing_config=feedforward_kwargs,
             num_layers=num_layers,
             dropout=dropout,
             drop_path_rate=drop_path_rate,
