@@ -561,6 +561,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
             def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
                 rs = (forward_fn or self.model.onnx_forward)(batch)
+                if isinstance(rs, torch.Tensor):
+                    rs = {k: rs for k in output_names}  # type: ignore
                 return {k: rs[k] for k in output_names}  # type: ignore
 
         with lock_manager(base_folder, []) as lock:
