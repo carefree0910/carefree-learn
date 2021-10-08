@@ -41,4 +41,4 @@ for src in [
         o = g(z, None, force_fp32=True, noise_mode="const")
     with eval_context(cfg):
         cfo = cfg(0, {"input": z}, noise_mode="const")["predictions"]
-    assert torch.allclose(o, cfo, atol=1.0e-5)
+    assert torch.allclose(o, cfo, atol=1.0e-4)
