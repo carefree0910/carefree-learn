@@ -33,6 +33,7 @@ class CLIP(PerceptorProtocol):
     ):
         super().__init__(img_size, context_length)
         self.vision_latent_dim = int(round(latent_dim * vision_latent_expand))
+        feedforward_kwargs = {"activation": "quick_gelu"}
         self.vit = ViTEncoder(
             img_size,
             patch_size=vision_patch_size,
@@ -43,6 +44,7 @@ class CLIP(PerceptorProtocol):
             norm_kwargs={"eps": 1.0e-5},
             first_norm=nn.LayerNorm(self.vision_latent_dim),
             attention_kwargs={"num_heads": vision_num_heads},
+            feedforward_kwargs=feedforward_kwargs,
             norm_after_head=True,
             output_dim=latent_dim,
         )
@@ -55,6 +57,7 @@ class CLIP(PerceptorProtocol):
             num_layers=text_num_layers,
             norm_kwargs={"eps": 1.0e-5},
             attention_kwargs={"num_heads": text_num_heads},
+            feedforward_kwargs=feedforward_kwargs,
         )
         projection_shape = self.text_latent_dim, latent_dim
         self.text_projection = nn.Parameter(torch.empty(*projection_shape))
