@@ -2,9 +2,9 @@ name: Test and Deploy
 
 on:
   push:
-    branches: [ v0.2.x ]
+    branches: [ dev ]
   pull_request:
-    branches: [ v0.2.x ]
+    branches: [ dev ]
 
 jobs:
   test:
