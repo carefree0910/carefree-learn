@@ -48,7 +48,8 @@ class _LogMetricsMsgCallback(TrainerCallback):
             current_step = state.step % total_step
             if current_step == 0:
                 current_step = total_step if state.step > 0 else 0
-        return f"[{current_step} / {total_step}]"
+        length = len(str(total_step))
+        return f"[{current_step:{length}d} / {total_step}]"
 
     def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
         if self.metrics_log_path is None:
