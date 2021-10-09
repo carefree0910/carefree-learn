@@ -19,31 +19,16 @@ import numpy as np
 
 x = np.random.random([1000, 10])
 y = np.random.random([1000, 1])
-m = cflearn.ml.CarefreePipeline().fit(x, y)
+m = cflearn.api.fit_ml(x, y, carefree=True)
 ```
 
 #### Computer Vision 🖼️
 
 ```python
-# MNIST classification task with resnet18
-
 import cflearn
 
-data = cflearn.cv.MNISTData(transform="to_tensor")
-
-m = cflearn.cv.CarefreePipeline(
-    "clf",
-    {
-        "in_channels": 1,
-        "num_classes": 10,
-        "latent_dim": 512,
-        "encoder1d": "backbone",
-        "encoder1d_configs": {"name": "resnet18"},
-    },
-    loss_name="cross_entropy",
-    metric_names="acc",
-)
-m.fit(data)
+data = cflearn.cv.MNISTData(batch_size=16, transform="to_tensor")
+m = cflearn.api.resnet18_gray(10).fit(data)
 ```
 
 ### Developer Side
@@ -117,19 +102,19 @@ pip install carefree-learn
 `carefree-learn` has already been published on DockerHub, so it can be pulled directly:
 
 ```bash
-docker pull carefree0910/carefree-learn:v0.2.x
+docker pull carefree0910/carefree-learn:dev
 ```
 
 or can be built locally:
 
 ```bash
-docker build -t carefree-learn:v0.2.x .
+docker build -t carefree-learn:dev .
 ```
 
 ### Run
 
 ```bash
-docker run --rm -it --gpus all carefree-learn:v0.2.x
+docker run --rm -it --gpus all carefree-learn:dev
 ```
 
 
