@@ -73,7 +73,8 @@ From the above, it comes out that `carefree-learn` could be treated as a minimal
 ### Computer Vision 🖼️
 
 + Also provides a [scikit-learn](https://scikit-learn.org/stable/)-like interface with much more 'carefree' usages.
-+ Seamlessly supported `ddp` (simply switch `m.fit(...)` to `m.ddp(...)`)
++ Provides many out-of-the-box pre-trained models and well hand-crafted training defaults for reproduction & finetuning.
++ Seamlessly supports efficient `ddp` (simply call `cflearn.run_ddp("run.py")`, where `run.py` is your normal training script).
 + Bunch of utility functions for research and production.
 
 
@@ -108,13 +109,13 @@ docker pull carefree0910/carefree-learn:dev
 or can be built locally:
 
 ```bash
-docker build -t carefree-learn:dev .
+docker build -t carefree0910/carefree-learn:dev .
 ```
 
 ### Run
 
 ```bash
-docker run --rm -it --gpus all carefree-learn:dev
+docker run --rm -it --gpus all carefree0910/carefree-learn:dev
 ```
 
 
