@@ -11,7 +11,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
 
-from ..basic import make
+from ..interface import make
 from ...types import tensor_dict_type
 from ...pipeline import DLPipeline
 from ...pipeline import PipelineProtocol

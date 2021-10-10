@@ -1,3 +1,6 @@
+import os
+import sys
+
 from typing import Any
 from typing import Dict
 from typing import List
@@ -9,16 +12,35 @@ from cftool.misc import update_dict
 from ..data import MLData
 from ..types import data_type
 from ..types import tensor_dict_type
+from ..types import general_config_type
 from ..types import states_callback_type
+from ..pipeline import pipeline_dict
 from ..pipeline import DLPipeline
+from ..pipeline import PipelineProtocol
 from ..protocol import ModelProtocol
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
 from .zoo.core import DLZoo
+from ..misc.toolkit import _parse_config
 from ..misc.toolkit import download_model
 
 
 # dl
+
+
+def make(name: str, *, config: general_config_type = None) -> PipelineProtocol:
+    config = _parse_config(config)
+    return pipeline_dict[name](**config)
+
+
+def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:
+    def _convert_config() -> str:
+        return " ".join([f"--{k}={v}" for k, v in kwargs.items()])
+
+    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, cuda_list))
+    kwargs["nproc_per_node"] = len(cuda_list)
+    prefix = f"{sys.executable} -m torch.distributed.run "
+    os.system(f"{prefix}{_convert_config()} {path}")
 
 
 def pack(
@@ -563,6 +585,8 @@ def vq_vae_gray_lite(
 
 
 __all__ = [
+    "make",
+    "run_ddp",
     "pack",
     "load",
     "pack_onnx",

@@ -74,7 +74,7 @@ From the above, it comes out that `carefree-learn` could be treated as a minimal
 
 + Also provides a [scikit-learn](https://scikit-learn.org/stable/)-like interface with much more 'carefree' usages.
 + Provides many out-of-the-box pre-trained models and well hand-crafted training defaults for reproduction & finetuning.
-+ Seamlessly supports efficient `ddp` (simply call `cflearn.run_ddp("run.py")`, where `run.py` is your normal training script).
++ Seamlessly supports efficient `ddp` (simply call `cflearn.api.run_ddp("run.py")`, where `run.py` is your normal training script).
 + Bunch of utility functions for research and production.
 
 

@@ -10,7 +10,7 @@ metrics = ["mae", "mse"]
 x, y = TabularDataset.boston().xy
 y = (y - y.mean()) / y.std()
 data = cflearn.MLData(x, y, is_classification=False)
-m = cflearn.make("ml.simple", config={"metric_names": metrics}).fit(data)
+m = cflearn.api.make("ml.simple", config={"metric_names": metrics}).fit(data)
 assert isinstance(m, cflearn.ml.SimplePipeline)
 
 idata = cflearn.MLInferenceData(x, y)

@@ -26,7 +26,7 @@ from cftool.ml.utils import Estimator
 
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
-from ..basic import make
+from ..interface import make
 from ...data import MLData
 from ...data import MLInferenceData
 from ...trainer import get_sorted_checkpoints
