@@ -1,5 +1,4 @@
 import os
-import dill
 import json
 import torch
 
@@ -21,7 +20,6 @@ from ...constants import WARNING_PREFIX
 from ...constants import DEFAULT_ZOO_TAG
 from ...misc.toolkit import download_model
 from ...misc.toolkit import download_data_info
-from ...misc.toolkit import download_tokenizer
 
 
 root = os.path.dirname(__file__)
