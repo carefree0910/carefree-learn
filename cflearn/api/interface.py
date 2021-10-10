@@ -14,9 +14,7 @@ from ..types import data_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import states_callback_type
-from ..pipeline import pipeline_dict
 from ..pipeline import DLPipeline
-from ..pipeline import PipelineProtocol
 from ..protocol import ModelProtocol
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
@@ -28,9 +26,8 @@ from ..misc.toolkit import download_model
 # dl
 
 
-def make(name: str, *, config: general_config_type = None) -> PipelineProtocol:
-    config = _parse_config(config)
-    return pipeline_dict[name](**config)
+def make(name: str, *, config: general_config_type = None) -> DLPipeline:
+    return DLPipeline.make(name, _parse_config(config))
 
 
 def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:
