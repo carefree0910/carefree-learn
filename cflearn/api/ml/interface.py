@@ -26,7 +26,6 @@ from cftool.ml.utils import Estimator
 
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
-from ..interface import make
 from ...data import MLData
 from ...data import MLInferenceData
 from ...trainer import get_sorted_checkpoints
@@ -407,7 +406,7 @@ def make_toy_model(
         "max_epoch": 4,
     }
     updated = update_dict(config, base_config)
-    m = make(pipeline_type, config=updated)
+    m = SimplePipeline.make(pipeline_type, updated)
     assert isinstance(m, SimplePipeline)
     if cf_data_config is None:
         cf_data_config = {}

@@ -11,7 +11,6 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
 
-from ..interface import make
 from ...types import tensor_dict_type
 from ...pipeline import DLPipeline
 from ...pipeline import PipelineProtocol
@@ -106,7 +105,7 @@ class ZooBase(ABC):
         if no_build:
             self.m = None
         else:
-            self.m = make(self.pipeline_name, config=self.config)
+            self.m = DLPipeline.make(self.pipeline_name, self.config)
             if data_info is None:
                 if self.download_name is None:
                     data_info = {}
