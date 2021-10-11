@@ -1,5 +1,6 @@
 import numpy as np
 
+from PIL import Image
 from typing import Any
 from typing import Dict
 from torchvision.transforms import transforms
@@ -61,7 +62,7 @@ class ToArray(Transforms):
 @Transforms.register("to_rgb")
 class ToRGB(NoBatchTransforms):
     @staticmethod
-    def fn(img: np.ndarray) -> np.ndarray:
+    def np_fn(img: np.ndarray) -> np.ndarray:
         if len(img.shape) == 2:
             img = img[..., None]
         if img.shape[2] == 3:
@@ -72,9 +73,18 @@ class ToRGB(NoBatchTransforms):
             return img.repeat(3, axis=2)
         raise ValueError(f"invalid shape occurred ({img.shape})")
 
+    @staticmethod
+    def pil_fn(img: Image.Image) -> Image.Image:
+        return img.convert("RGB")
+
+    def fn(self, inp: Any) -> Any:
+        if isinstance(inp, np.ndarray):
+            return self.np_fn(inp)
+        return self.pil_fn(inp)
+
     @property
     def need_numpy(self) -> bool:
-        return True
+        return False
 
 
 @Transforms.register("to_gray")
