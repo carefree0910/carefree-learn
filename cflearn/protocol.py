@@ -17,7 +17,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from onnxruntime import InferenceSession
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 
@@ -31,9 +30,9 @@ from .constants import PREDICTIONS_KEY
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
-from .misc.toolkit import to_standard
 from .misc.toolkit import eval_context
 from .misc.toolkit import get_world_size
+from .misc.toolkit import ONNX
 from .misc.toolkit import WithRegister
 
 
@@ -542,21 +541,6 @@ class AuxLoss(LossProtocol):
 
 
 # inference
-
-
-class ONNX:
-    def __init__(self, onnx_path: str):
-        self.ort_session = InferenceSession(onnx_path)
-        self.output_names = [node.name for node in self.ort_session.get_outputs()]
-
-    def predict(self, new_inputs: np_dict_type) -> np_dict_type:
-        if self.ort_session is None:
-            raise ValueError("`onnx_path` is not provided")
-        ort_inputs = {
-            node.name: to_standard(new_inputs[node.name])
-            for node in self.ort_session.get_inputs()
-        }
-        return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
 
 
 class InferenceProtocol:

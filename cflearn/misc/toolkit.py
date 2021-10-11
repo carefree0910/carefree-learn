@@ -39,6 +39,7 @@ from datetime import datetime
 from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
+from onnxruntime import InferenceSession
 from torch.optim import Optimizer
 from cftool.misc import prod
 from cftool.misc import hash_code
@@ -52,6 +53,7 @@ from ..types import arr_type
 from ..types import data_type
 from ..types import param_type
 from ..types import configs_type
+from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import sample_weights_type
@@ -1104,6 +1106,21 @@ class DropNoGradStatesMixin:
                     if strict and loaded_value is None:
                         raise ValueError(f"value for '{key}' is missing")
                     value.data.copy_(loaded_value)
+
+
+class ONNX:
+    def __init__(self, onnx_path: str):
+        self.ort_session = InferenceSession(onnx_path)
+        self.output_names = [node.name for node in self.ort_session.get_outputs()]
+
+    def predict(self, new_inputs: np_dict_type) -> np_dict_type:
+        if self.ort_session is None:
+            raise ValueError("`onnx_path` is not provided")
+        ort_inputs = {
+            node.name: to_standard(new_inputs[node.name])
+            for node in self.ort_session.get_inputs()
+        }
+        return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
 
 
 # ml
