@@ -518,7 +518,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 msg = "either `input_sample` or `trainer` should be provided"
                 raise ValueError(msg)
             input_sample = self.trainer.input_sample
-            input_sample.pop(BATCH_INDICES_KEY)
+            input_sample.pop(BATCH_INDICES_KEY, None)
         assert isinstance(input_sample, dict)
         if num_samples is not None:
             input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
