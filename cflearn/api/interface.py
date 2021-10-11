@@ -194,7 +194,7 @@ def _clf(
 def cct(
     img_size: int,
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
 ) -> DLPipeline:
     return _clf("cct", num_classes, aux_num_classes, None, img_size, **kwargs)
@@ -203,7 +203,7 @@ def cct(
 def cct_model(
     img_size: int,
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
 ) -> ModelProtocol:
     return _clf("cct", num_classes, aux_num_classes, None, img_size, True, **kwargs)
@@ -212,7 +212,7 @@ def cct_model(
 def cct_lite(
     img_size: int,
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
 ) -> DLPipeline:
     return _clf("cct.lite", num_classes, aux_num_classes, None, img_size, **kwargs)
@@ -221,7 +221,7 @@ def cct_lite(
 def cct_lite_model(
     img_size: int,
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
 ) -> ModelProtocol:
     return _clf(
@@ -238,7 +238,7 @@ def cct_lite_model(
 def cct_large(
     img_size: int,
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
 ) -> DLPipeline:
     return _clf("cct.large", num_classes, aux_num_classes, None, img_size, **kwargs)
@@ -247,7 +247,7 @@ def cct_large(
 def cct_large_model(
     img_size: int,
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
 ) -> ModelProtocol:
     return _clf(
@@ -263,7 +263,7 @@ def cct_large_model(
 
 def cct_large_224(
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     *,
     pretrained: bool = True,
     **kwargs: Any,
@@ -281,7 +281,7 @@ def cct_large_224(
 
 def cct_large_224_model(
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     *,
     pretrained: bool = True,
     **kwargs: Any,
@@ -300,7 +300,7 @@ def cct_large_224_model(
 
 def cct_large_384(
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     *,
     pretrained: bool = True,
     **kwargs: Any,
@@ -318,7 +318,7 @@ def cct_large_384(
 
 def cct_large_384_model(
     num_classes: int,
-    aux_num_classes: Optional[Dict[str, int]],
+    aux_num_classes: Optional[Dict[str, int]] = None,
     *,
     pretrained: bool = True,
     **kwargs: Any,
