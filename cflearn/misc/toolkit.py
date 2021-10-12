@@ -1334,35 +1334,47 @@ def interpolate(
     factor: Optional[Union[float, Tuple[float, float]]] = None,
     size: Optional[Union[int, Tuple[int, int]]] = None,
     anchor: Optional[Tensor] = None,
+    determinate: bool = False,
     **kwargs: Any,
 ) -> Tensor:
     if "linear" in mode or mode == "bicubic":
         kwargs.setdefault("align_corners", False)
-    if factor is None:
-        if size is None:
-            if anchor is None:
-                raise ValueError("either `size` or `anchor` should be provided")
-            size = (anchor.shape[2], anchor.shape[3])
-        if isinstance(size, int):
-            if src.shape[2] == src.shape[3] == size:
-                return src
-        elif src.shape[2] == size[0] and src.shape[3] == size[1]:
+    c, h, w = src.shape[1:]
+    if determinate:
+        c, h, w = map(int, [c, h, w])
+    if factor is not None:
+        template = "`{}` will take no affect because `factor` is provided"
+        if size is not None:
+            print(f"{WARNING_PREFIX}{template.format('size')}")
+        if anchor is not None:
+            print(f"{WARNING_PREFIX}{template.format('anchor')}")
+        if factor == 1.0 or factor == (1.0, 1.0):
             return src
-        return F.interpolate(src, size=size, mode=mode, **kwargs)
-    template = "`{}` will take no affect because `factor` is provided"
-    if size is not None:
-        print(f"{WARNING_PREFIX}{template.format('size')}")
-    if anchor is not None:
-        print(f"{WARNING_PREFIX}{template.format('anchor')}")
-    if factor == 1.0 or factor == (1.0, 1.0):
+        if not determinate:
+            return F.interpolate(
+                src,
+                mode=mode,
+                scale_factor=factor,
+                recompute_scale_factor=True,
+                **kwargs,
+            )
+        if not isinstance(factor, tuple):
+            factor = factor, factor
+        size = tuple(map(int, map(round, [h * factor[0], w * factor[1]])))
+    if size is None:
+        if anchor is None:
+            raise ValueError("either `size` or `anchor` should be provided")
+        size = anchor.shape[2:]
+        if determinate:
+            size = tuple(map(int, size))
+    if not isinstance(size, tuple):
+        size = size, size
+    if h == size[0] and w == size[1]:
         return src
-    return F.interpolate(
-        src,
-        mode=mode,
-        scale_factor=factor,
-        recompute_scale_factor=True,
-        **kwargs,
-    )
+    net = F.interpolate(src, size=size, mode=mode, **kwargs)
+    if not determinate:
+        return net
+    return net.view(-1, c, *size)
 
 
 def mean_std(latent_map: Tensor, eps: float = 1.0e-5) -> Tuple[Tensor, Tensor]:
