@@ -54,7 +54,12 @@ class UNetBase(nn.Module):
         up_nets = [inner]
         for down_net, up_block in zip(down_nets[::-1], self.up_blocks):
             if inner.shape != down_net.shape:
-                inner = interpolate(inner, anchor=down_net, mode="bilinear")
+                inner = interpolate(
+                    inner,
+                    anchor=down_net,
+                    mode="bilinear",
+                    determinate=True,
+                )
             inner = up_block(torch.cat([inner, down_net], dim=1))
             up_nets.append(inner)
         if self.return_up_nets:
@@ -90,7 +95,7 @@ class UNetRS(UNetBase):
         if inner_upsample_factor is not None:
             basic_block = nn.Sequential(
                 basic_block,
-                Interpolate(inner_upsample_factor, inner_upsample_mode),
+                Interpolate(inner_upsample_factor, inner_upsample_mode, True),
             )
         blocks = _get_clones(basic_block, num_layers - 2, return_list=True)
         blocks.append(ConvSeq(mid_channels * 2, out_channels, dilation=1))
@@ -242,7 +247,12 @@ class U2NetCore(UNetBase):
         for up_net, side_block in zip(up_nets[::-1], self.side_blocks):
             side_net = side_block(up_net)
             if side_nets and side_net.shape != side_nets[0].shape:
-                side_net = interpolate(side_net, anchor=side_nets[0], mode="bilinear")
+                side_net = interpolate(
+                    side_net,
+                    anchor=side_nets[0],
+                    mode="bilinear",
+                    determinate=True,
+                )
             side_nets.append(side_net)
         side_nets.insert(0, self.out(torch.cat(side_nets, dim=1)))
         return side_nets
