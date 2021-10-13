@@ -2448,11 +2448,12 @@ class UpsampleConv2d(Conv2d):
         style: Optional[Tensor] = None,
         *,
         transpose: bool = False,
+        determinate: bool = False,
     ) -> Tensor:
         if self.upsample is None:
             transpose = True
         else:
-            net = self.upsample(net)
+            net = self.upsample(net, determinate=determinate)
             if transpose:
                 raise ValueError("should not use transpose when `upsample` is used")
         return super().forward(net, style, transpose=transpose)

@@ -42,10 +42,10 @@ class DecoderProtocol(nn.Module):
     def is_conditional(self) -> bool:
         return self.num_classes is not None
 
-    def resize(self, net: Tensor) -> Tensor:
+    def resize(self, net: Tensor, *, determinate: bool = False) -> Tensor:
         if self.img_size is None:
             return net
-        return interpolate(net, size=self.img_size)
+        return interpolate(net, size=self.img_size, determinate=determinate)
 
     def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]

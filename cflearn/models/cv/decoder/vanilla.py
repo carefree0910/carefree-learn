@@ -140,7 +140,7 @@ class VanillaDecoder(DecoderBase):
                 in_nc = repeat_channels
             in_nc = out_nc
 
-        self.decoder = nn.Sequential(*blocks)
+        self.decoder = nn.ModuleList(blocks)
 
     def forward(
         self,
@@ -149,9 +149,14 @@ class VanillaDecoder(DecoderBase):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        batch = self._inject_cond(batch)
-        net = self.decoder(batch[INPUT_KEY])
-        net = self.resize(net)
+        net = self._inject_cond(batch)[INPUT_KEY]
+        determinate = kwargs.pop("determinate", False)
+        for block in self.decoder:
+            kw = {}
+            if isinstance(block, UpsampleConv2d):
+                kw["determinate"] = determinate
+            net = block(net, **kw)
+        net = self.resize(net, determinate=determinate)
         return {PREDICTIONS_KEY: net}
 
 
