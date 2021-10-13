@@ -6,6 +6,7 @@ from typing import Dict
 from torchvision.transforms import transforms
 
 from .....data import Transforms
+from .....types import arr_type
 from .....misc.toolkit import to_torch
 
 
@@ -63,25 +64,27 @@ class ToArray(Transforms):
 @Transforms.register("to_rgb")
 class ToRGB(NoBatchTransforms):
     @staticmethod
-    def np_fn(img: np.ndarray) -> np.ndarray:
+    def arr_fn(img: arr_type) -> arr_type:
+        is_numpy = isinstance(img, np.ndarray)
         if len(img.shape) == 2:
-            img = img[..., None]
-        if img.shape[2] == 3:
+            img = img[..., None] if is_numpy else img[None, ...]
+        c = img.shape[2 if is_numpy else 0]
+        if c == 3:
             return img
-        if img.shape[2] == 4:
-            return img[..., :3] * img[..., 3:]
-        if img.shape[2] == 1:
-            return img.repeat(3, axis=2)
+        if c == 4:
+            if is_numpy:
+                return img[..., :3] * img[..., 3:]
+            return img[:3] * img[3:]
+        if c == 1:
+            if is_numpy:
+                return img.repeat(3, axis=2)
+            return img.repeat([3, 1, 1])
         raise ValueError(f"invalid shape occurred ({img.shape})")
 
-    @staticmethod
-    def pil_fn(img: Image.Image) -> Image.Image:
-        return img.convert("RGB")
-
     def fn(self, inp: Any) -> Any:
-        if isinstance(inp, np.ndarray):
-            return self.np_fn(inp)
-        return self.pil_fn(inp)
+        if isinstance(inp, Image.Image):
+            inp = np.array(inp)
+        return self.arr_fn(inp)
 
     @property
     def need_numpy(self) -> bool:
