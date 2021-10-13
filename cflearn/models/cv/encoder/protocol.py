@@ -13,6 +13,7 @@ from cftool.misc import shallow_copy_dict
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....misc.toolkit import eval_context
+from ....misc.toolkit import check_requires
 from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
@@ -115,6 +116,8 @@ class EncoderFromPatchesMixin:
         batch[INPUT_KEY] = patches
         kwargs["hw"] = hw
         kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size
+        if check_requires(self.encoder.forward, "determinate", strict=False):
+            kwargs["determinate"] = determinate
         return {LATENT_KEY: self.encoder(batch[INPUT_KEY], **kwargs)}
 
 

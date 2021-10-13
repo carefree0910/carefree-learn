@@ -1724,7 +1724,13 @@ class TokenMixerBase(Module, WithRegister):
         self.latent_dim = latent_dim
 
     @abstractmethod
-    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
+    ) -> Tensor:
         pass
 
 
@@ -1738,7 +1744,13 @@ class MLPTokenMixer(TokenMixerBase):
             Lambda(lambda x: x.transpose(1, 2), name="to_channel_mixing"),
         )
 
-    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
+    ) -> Tensor:
         return self.net(net)
 
 
@@ -1748,7 +1760,13 @@ class FourierTokenMixer(TokenMixerBase):
         super().__init__(num_tokens, latent_dim)
         self.net = Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
 
-    def forward(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
+    ) -> Tensor:
         return self.net(net)
 
 
@@ -1774,9 +1792,11 @@ class AttentionTokenMixer(TokenMixerBase):
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
         *,
+        determinate: bool = False,
         mask: Optional[Tensor] = None,
     ) -> Tensor:
-        return self.net(net, net, net, hw=hw, mask=mask).output
+        kw = dict(hw=hw, mask=mask, determinate=determinate)
+        return self.net(net, net, net, **kw).output
 
 
 ffn_dict: Dict[str, Type["FFN"]] = {}
@@ -1927,11 +1947,15 @@ class MixingBlock(Module):
         self,
         net: Tensor,
         hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
         **kwargs: Any,
     ) -> Tensor:
         if self.first_norm is not None:
             net = self.first_norm(net)
-        net = net + self.drop_path(self.token_mixing(net, hw=hw, **kwargs))
+        token_mixing_kw = dict(hw=hw, determinate=determinate)
+        token_mixing_kw.update(kwargs)
+        net = net + self.drop_path(self.token_mixing(net, **token_mixing_kw))
         if self.channel_norm is None:
             need_2d = self.channel_mixing.module.need_2d
         else:
@@ -2147,11 +2171,14 @@ class MixedStackedEncoder(Module):
             nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)
 
-    def pre_process(self, net: Tensor, **kwargs: Any) -> Tensor:
-        batch_size = net.shape[0]
+    def pre_process(self, net: Tensor, determinate: bool, **kwargs: Any) -> Tensor:
+        n, t, d = net.shape
         if self.head_token is not None:
-            head_tokens = self.head_token.repeat([batch_size, 1, 1])
+            head_tokens = self.head_token.repeat([n, 1, 1])
             net = torch.cat([head_tokens, net], dim=1)
+            t += 1
+        if determinate:
+            net = net.view(-1, *map(int, [t, d]))
         net = self.pos_encoding(net, **kwargs)
         return net
 
@@ -2167,9 +2194,10 @@ class MixedStackedEncoder(Module):
         hw: Optional[Tuple[int, int]] = None,
         **kwargs: Any,
     ) -> Tensor:
-        net = self.pre_process(net, **kwargs)
+        determinate = kwargs.pop("determinate", False)
+        net = self.pre_process(net, determinate, **kwargs)
         for block in self.mixing_blocks:
-            net = block(net, hw)
+            net = block(net, hw, determinate=determinate)
         net = self.post_process(net)
         return net
 
