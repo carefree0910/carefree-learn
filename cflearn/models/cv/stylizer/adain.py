@@ -65,14 +65,22 @@ class AdaINStylizer(ModelProtocol):
     ) -> tensor_dict_type:
         style = batch[STYLE_KEY]
         content = batch[INPUT_KEY]
+        determinate = kwargs.pop("determinate", False)
         style_feats = self.backbone(batch_idx, {INPUT_KEY: style}, state, **kwargs)
         style_latent = style_feats.pop(LATENT_KEY)
         content_feats = self.backbone(batch_idx, {INPUT_KEY: content}, state, **kwargs)
         content_latent = content_feats[LATENT_KEY]
-        encoded = adain_with_tensor(content_latent, style_latent)
+        args = content_latent, style_latent
+        encoded = adain_with_tensor(*args, determinate=determinate)
         style_weight = kwargs.get("style_weight", 1.0)
         encoded = style_weight * encoded + (1.0 - style_weight) * content_latent
-        rs = self.decoder(batch_idx, {INPUT_KEY: encoded}, state, **kwargs)
+        rs = self.decoder(
+            batch_idx,
+            {INPUT_KEY: encoded},
+            state,
+            determinate=determinate,
+            **kwargs,
+        )
         decoded = interpolate(rs[PREDICTIONS_KEY], anchor=content)
         if not kwargs.get("need_stylized_features", True):
             decoded_feats = decoded_content_latent = None
@@ -89,7 +97,7 @@ class AdaINStylizer(ModelProtocol):
         }
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.stylize(batch[INPUT_KEY], batch[STYLE_KEY])
+        return self.stylize(batch[INPUT_KEY], batch[STYLE_KEY], determinate=True)
 
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
         inp = {INPUT_KEY: net, STYLE_KEY: style}
