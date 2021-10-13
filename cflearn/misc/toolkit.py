@@ -1377,23 +1377,37 @@ def interpolate(
     return net.view(-1, c, *size)
 
 
-def mean_std(latent_map: Tensor, eps: float = 1.0e-5) -> Tuple[Tensor, Tensor]:
-    n, c = latent_map.shape[:2]
-    latent_var = latent_map.view(n, c, -1).var(dim=2) + eps
-    latent_std = latent_var.sqrt().view(n, c, 1, 1)
-    latent_mean = latent_map.view(n, c, -1).mean(dim=2).view(n, c, 1, 1)
+def mean_std(
+    latent_map: Tensor,
+    eps: float = 1.0e-5,
+    *,
+    determinate: bool = False,
+) -> Tuple[Tensor, Tensor]:
+    c, h, w = latent_map.shape[1:]
+    if determinate:
+        c, h, w = map(int, [c, h, w])
+    spatial_dim = h * w
+    latent_var = latent_map.view(-1, c, spatial_dim).var(dim=2) + eps
+    latent_std = latent_var.sqrt().view(-1, c, 1, 1)
+    latent_mean = latent_map.view(-1, c, spatial_dim).mean(dim=2).view(-1, c, 1, 1)
     return latent_mean, latent_std
 
 
-def adain_with_params(src: Tensor, mean: Tensor, std: Tensor) -> Tensor:
-    src_mean, src_std = mean_std(src)
+def adain_with_params(
+    src: Tensor,
+    mean: Tensor,
+    std: Tensor,
+    *,
+    determinate: bool = False,
+) -> Tensor:
+    src_mean, src_std = mean_std(src, determinate=determinate)
     src_normalized = (src - src_mean) / src_std
     return src_normalized * std + mean
 
 
-def adain_with_tensor(src: Tensor, tgt: Tensor) -> Tensor:
-    tgt_mean, tgt_std = mean_std(tgt)
-    return adain_with_params(src, tgt_mean, tgt_std)
+def adain_with_tensor(src: Tensor, tgt: Tensor, *, determinate: bool = False) -> Tensor:
+    tgt_mean, tgt_std = mean_std(tgt, determinate=determinate)
+    return adain_with_params(src, tgt_mean, tgt_std, determinate=determinate)
 
 
 def make_grid(arr: arr_type, n_row: Optional[int] = None) -> Tensor:
