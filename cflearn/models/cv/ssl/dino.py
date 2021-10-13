@@ -331,10 +331,12 @@ class DINO(ModelWithCustomSteps):
         return {LATENT_KEY: net}
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.get_latent(batch[INPUT_KEY])
+        inp = batch[INPUT_KEY]
+        net = self.get_latent(inp, determinate=True)
+        return net.view(inp.shape[0], self.student.backbone.latent_dim)
 
-    def get_latent(self, net: Tensor) -> Tensor:
-        return self.forward(0, {INPUT_KEY: net})[LATENT_KEY]
+    def get_latent(self, net: Tensor, **kwargs: Any) -> Tensor:
+        return self.forward(0, {INPUT_KEY: net}, **kwargs)[LATENT_KEY]
 
     def get_logits(self, net: Tensor) -> Tensor:
         return self.student(0, {INPUT_KEY: net})
