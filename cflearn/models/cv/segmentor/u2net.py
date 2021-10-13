@@ -60,7 +60,15 @@ class UNetBase(nn.Module):
                     mode="bilinear",
                     determinate=True,
                 )
-            inner = up_block(torch.cat([inner, down_net], dim=1))
+            inner = torch.cat([inner, down_net], dim=1)
+            if not isinstance(up_block, nn.ModuleList):
+                inner = up_block(inner)
+            else:
+                for block in up_block:
+                    kw = {}
+                    if isinstance(block, Interpolate):
+                        kw["determinate"] = True
+                    inner = block(inner, **kw)
             up_nets.append(inner)
         if self.return_up_nets:
             return up_nets
@@ -93,9 +101,11 @@ class UNetRS(UNetBase):
         self.last_down = ConvSeq(mid_channels, mid_channels, dilation=2)
         basic_block = ConvSeq(mid_channels * 2, mid_channels, dilation=1)
         if inner_upsample_factor is not None:
-            basic_block = nn.Sequential(
-                basic_block,
-                Interpolate(inner_upsample_factor, inner_upsample_mode, True),
+            basic_block = nn.ModuleList(
+                [
+                    basic_block,
+                    Interpolate(inner_upsample_factor, inner_upsample_mode),
+                ]
             )
         blocks = _get_clones(basic_block, num_layers - 2, return_list=True)
         blocks.append(ConvSeq(mid_channels * 2, out_channels, dilation=1))

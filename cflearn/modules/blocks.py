@@ -2383,21 +2383,15 @@ class DepthWiseConv2d(Module):
 
 
 class Interpolate(Module):
-    def __init__(
-        self,
-        factor: Optional[float] = None,
-        mode: str = "nearest",
-        determinate: bool = False,
-    ):
+    def __init__(self, factor: Optional[float] = None, mode: str = "nearest"):
         super().__init__()
         self.factor = factor
         self.mode = mode
-        self.determinate = determinate
-        self.kw = dict(mode=mode, factor=factor, determinate=determinate)
+        self.kw = dict(mode=mode, factor=factor)
 
-    def forward(self, net: Tensor) -> Tensor:
+    def forward(self, net: Tensor, *, determinate: bool = False) -> Tensor:
         if self.factor is not None:
-            net = interpolate(net, **self.kw)  # type: ignore
+            net = interpolate(net, determinate=determinate, **self.kw)  # type: ignore
         return net
 
     def extra_repr(self) -> str:
