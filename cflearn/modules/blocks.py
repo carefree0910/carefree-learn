@@ -2171,7 +2171,13 @@ class MixedStackedEncoder(Module):
             nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)
 
-    def pre_process(self, net: Tensor, determinate: bool, **kwargs: Any) -> Tensor:
+    def pre_process(
+        self,
+        net: Tensor,
+        *,
+        determinate: bool = False,
+        **kwargs: Any,
+    ) -> Tensor:
         n, t, d = net.shape
         if self.head_token is not None:
             head_tokens = self.head_token.repeat([n, 1, 1])
@@ -2195,7 +2201,7 @@ class MixedStackedEncoder(Module):
         **kwargs: Any,
     ) -> Tensor:
         determinate = kwargs.pop("determinate", False)
-        net = self.pre_process(net, determinate, **kwargs)
+        net = self.pre_process(net, determinate=determinate, **kwargs)
         for block in self.mixing_blocks:
             net = block(net, hw, determinate=determinate)
         net = self.post_process(net)
