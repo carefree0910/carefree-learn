@@ -903,9 +903,11 @@ class Attention(Module, WithRegister):
                 nn.LayerNorm(self.embed_dim),
             )
 
-    def _to_heads(self, tensor: Tensor) -> Tensor:
-        batch_size, seq_len, _ = tensor.shape
-        tensor = tensor.view(batch_size, seq_len, self.num_heads, self.head_dim)
+    def _to_heads(self, tensor: Tensor, determinate: bool) -> Tensor:
+        seq_len = tensor.shape[1]
+        if determinate:
+            seq_len = int(seq_len)
+        tensor = tensor.view(-1, seq_len, self.num_heads, self.head_dim)
         return tensor.permute(0, 2, 1, 3)
 
     def _get_weights(self, raw_weights: Tensor) -> Tensor:
@@ -934,11 +936,16 @@ class Attention(Module, WithRegister):
         *,
         hw: Optional[Tuple[int, int]] = None,
         mask: Optional[Tensor] = None,
+        determinate: bool = False,
     ) -> AttentionOutput:
         # `mask` represents slots which will be zeroed
         if self.qkv_same:
             qkv = F.linear(q, self.in_w, self.qkv_bias)
-            q, k, v = qkv.chunk(3, dim=-1)
+            if not determinate:
+                q, k, v = qkv.chunk(3, dim=-1)
+            else:
+                qkv = qkv.view(-1, int(q.shape[1]), 3, self.embed_dim)
+                q, k, v = map(partial(torch.squeeze, dim=2), qkv.split(1, dim=2))
         elif self.kv_same:
             # B, Nq, Din -> B, Nq, D
             q = F.linear(q, self.q_w, self.q_bias)
@@ -964,7 +971,7 @@ class Attention(Module, WithRegister):
             v = F.linear(self._reduce(v, hw), self.v_w, v_bias)
         q, k, v = map(self.activation, [q, k, v])
         # B, N*, D -> B * N_head, N*, D_head
-        q, k, v = map(self._to_heads, [q, k, v])
+        q, k, v = map(self._to_heads, [q, k, v], [determinate] * 3)
         if mask is not None:
             # B, Nq, Nk -> B, N_head, Nq, Nk
             mask = mask.repeat(self.num_heads, 1, 1)
@@ -985,7 +992,10 @@ class Attention(Module, WithRegister):
         # B, N_head, Nq, D_head -> B, Nq, N_head, D_head
         output = output.transpose(1, 2).contiguous()
         # B, Nq, N_head, D_head -> B, Nq, D
-        output = output.view(*output.shape[:2], self.embed_dim)
+        seq_len = output.shape[1]
+        if determinate:
+            seq_len = int(seq_len)
+        output = output.view(-1, seq_len, self.embed_dim)
         # B, Nq, D -> B, Nq, Din
         output = self.activation(self.out_linear(output))
         return AttentionOutput(output, weights)
