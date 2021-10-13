@@ -110,7 +110,8 @@ class EncoderFromPatchesMixin:
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
         inp = batch[INPUT_KEY]
-        patches, hw = self.to_patches(inp)
+        determinate = kwargs.pop("determinate", False)
+        patches, hw = self.to_patches(inp, determinate=determinate)
         batch[INPUT_KEY] = patches
         kwargs["hw"] = hw
         kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size

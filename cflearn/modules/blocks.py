@@ -1573,7 +1573,7 @@ class ImgToPatches(Module, WithRegister):
         self.latent_dim = latent_dim
 
     @abstractmethod
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
         """should return patches and its hw"""
 
     @property
@@ -1584,6 +1584,14 @@ class ImgToPatches(Module, WithRegister):
         with eval_context(self):
             net = self.forward(torch.zeros(*shape, device=device))[0]
         return net.shape[1]
+
+    @staticmethod
+    def _flatten(net: Tensor, determinate: bool) -> Tuple[Tensor, Any]:
+        c, h, w = net.shape[1:]
+        if determinate:
+            c, h, w = map(int, [c, h, w])
+        net = net.view(-1, c, h * w).transpose(1, 2).contiguous()
+        return net, (h, w)
 
 
 @ImgToPatches.register("vanilla")
@@ -1615,11 +1623,9 @@ class VanillaPatchEmbed(ImgToPatches):
             **conv_kwargs,
         )
 
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
         net = self.projection(net)
-        hw = net.shape[-2:]
-        net = net.flatten(2).transpose(1, 2).contiguous()
-        return net, hw
+        return self._flatten(net, determinate)
 
 
 @ImgToPatches.register("overlap")
@@ -1644,10 +1650,9 @@ class OverlapPatchEmbed(ImgToPatches):
         )
         self.norm = nn.LayerNorm(latent_dim)
 
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
         net = self.conv(net)
-        hw = net.shape[-2:]
-        net = net.flatten(2).transpose(1, 2).contiguous()
+        net, hw = self._flatten(net, determinate)
         net = self.norm(net)
         return net, hw
 
@@ -1692,11 +1697,9 @@ class ConvPatchEmbed(ImgToPatches):
             ]
         )
 
-    def forward(self, net: Tensor) -> Tuple[Tensor, Any]:
+    def forward(self, net: Tensor, *, determinate: bool = False) -> Tuple[Tensor, Any]:
         net = self.conv(net)
-        hw = net.shape[-2:]
-        net = net.flatten(2).transpose(1, 2).contiguous()
-        return net, hw
+        return self._flatten(net, determinate)
 
 
 token_mixers: Dict[str, Type["TokenMixerBase"]] = {}
