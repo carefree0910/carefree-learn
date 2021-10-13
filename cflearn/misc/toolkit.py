@@ -1360,13 +1360,13 @@ def interpolate(
             )
         if not isinstance(factor, tuple):
             factor = factor, factor
-        size = tuple(map(int, map(round, [h * factor[0], w * factor[1]])))
+        size = tuple(map(int, map(round, [h * factor[0], w * factor[1]])))  # type: ignore
     if size is None:
         if anchor is None:
             raise ValueError("either `size` or `anchor` should be provided")
         size = anchor.shape[2:]
         if determinate:
-            size = tuple(map(int, size))
+            size = tuple(map(int, size))  # type: ignore
     if not isinstance(size, tuple):
         size = size, size
     if h == size[0] and w == size[1]:

@@ -2397,7 +2397,7 @@ class Interpolate(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         if self.factor is not None:
-            net = interpolate(net, **self.kw)
+            net = interpolate(net, **self.kw)  # type: ignore
         return net
 
     def extra_repr(self) -> str:
