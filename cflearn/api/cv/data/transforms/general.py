@@ -103,7 +103,7 @@ class ToGray(NoBatchTransforms):
         if img.shape[2] == 1:
             return img
         tensor = to_torch(img.transpose([2, 0, 1]))
-        return self.pt_fn(tensor).contiguous().numpy()[..., None]
+        return self.pt_fn(tensor).contiguous().numpy().transpose([1, 2, 0])
 
     def fn(self, inp: Any) -> Any:
         if isinstance(inp, np.ndarray):
