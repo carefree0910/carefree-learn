@@ -87,10 +87,12 @@ class SSLTransform(Transforms):
         def __init__(
             self,
             img_size: int,
+            to_gray: bool,
             local_crops_number: int,
             local_crops_scale: Tuple[float, float],
             global_crops_scale: Tuple[float, float],
         ):
+            self.to_gray = ToGray().fn if to_gray else None
             flip_and_color_jitter = transforms.Compose(
                 [
                     transforms.RandomHorizontalFlip(p=0.5),
@@ -152,11 +154,14 @@ class SSLTransform(Transforms):
             crops = [self.global_transform1(image), self.global_transform2(image)]
             for _ in range(self.local_crops_number):
                 crops.append(self.local_transform(image))
+            if self.to_gray is not None:
+                crops = [self.to_gray(crop) for crop in crops]
             return crops
 
     def __init__(
         self,
         img_size: int,
+        to_gray: bool = False,
         local_crops_number: int = 8,
         local_crops_scale: Tuple[float, float] = (0.05, 0.4),
         global_crops_scale: Tuple[float, float] = (0.4, 1.0),
@@ -164,6 +169,7 @@ class SSLTransform(Transforms):
         super().__init__()
         self.fn = self.Augmentation(
             img_size,
+            to_gray,
             local_crops_number,
             local_crops_scale,
             global_crops_scale,
@@ -176,9 +182,10 @@ class SSLTransform(Transforms):
 
 @Transforms.register("ssl_test")
 class SSLTestTransform(Transforms):
-    def __init__(self, img_size: int):
+    def __init__(self, img_size: int, to_gray: bool = False):
         super().__init__()
         self.img_size = img_size
+        self.to_gray = ToGray().fn if to_gray else None
         self.larger_size = int(round(img_size * 8.0 / 7.0))
 
     def fn(self, img: Image.Image) -> Tensor:
@@ -189,6 +196,8 @@ class SSLTestTransform(Transforms):
         resized_img = resized_img.astype(np.float32)
         img_arr = min_max_normalize(resized_img)
         img_arr = imagenet_normalize(img_arr)
+        if self.to_gray is not None:
+            img_arr = self.to_gray(img_arr)
         return img_arr.transpose([2, 0, 1])
 
     @property

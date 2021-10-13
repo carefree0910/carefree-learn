@@ -475,6 +475,13 @@ def dino(img_size: int, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("ssl/dino", **kwargs)
 
 
+def dino_gray(img_size: int, **kwargs: Any) -> DLPipeline:
+    model_config = kwargs.setdefault("model_config", {})
+    encoder1d_config = model_config.setdefault("encoder1d_config", {})
+    encoder1d_config["in_channels"] = 1
+    return dino(img_size, **kwargs)
+
+
 # style transfer
 
 
@@ -617,6 +624,7 @@ __all__ = [
     "u2net_refine",
     "u2net_lite_refine",
     "dino",
+    "dino_gray",
     "adain",
     "vanilla_vae",
     "vanilla_vae_gray",
