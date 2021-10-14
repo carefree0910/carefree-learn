@@ -17,10 +17,10 @@ from ....misc.toolkit import eval_context
 
 
 class DINOPredictor:
-    def __init__(self, m: SimplePipeline, img_size: int):
+    def __init__(self, m: SimplePipeline, img_size: int, *, to_gray: bool = False):
         self.m = m
         self.dino = m.model
-        self.transform = SSLTestTransform(img_size)
+        self.transform = SSLTestTransform(img_size, to_gray)
 
     @property
     def device(self) -> torch.device:
