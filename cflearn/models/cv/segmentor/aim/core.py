@@ -19,7 +19,7 @@ from .....modules.blocks import MaxUnpool2d
 from .....modules.blocks import AdaptiveAvgPool2d
 
 
-def psp_stage(num_channels, size: int) -> nn.Sequential:
+def psp_stage(num_channels: int, size: int) -> nn.Sequential:
     prior = AdaptiveAvgPool2d(output_size=size)
     conv = Conv2d(num_channels, num_channels, kernel_size=1, bias=False)
     return nn.Sequential(prior, conv)
@@ -138,7 +138,7 @@ class DecoderStage(nn.Module):
 
 @register_module("aim", pre_bases=[ImageTranslatorMixin])
 class AIMNet(nn.Module):
-    def __init__(self):
+    def __init__(self):  # type: ignore
         super().__init__()
         # encoder
         resnet = resnet34_mp()

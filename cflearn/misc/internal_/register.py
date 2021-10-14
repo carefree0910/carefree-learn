@@ -21,7 +21,7 @@ def register_module(
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
         @ModelProtocol.register(name)
-        class _(*bases):
+        class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
                 self.core = m(*args, **kwargs)

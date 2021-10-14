@@ -2503,7 +2503,7 @@ class MaxUnpool2d(_MaxUnpoolNd):
         self.stride = _pair(stride or kernel_size)
         self.padding = _pair(padding)
 
-    def forward(self, net: Tensor, indices: Tensor, output_size: Any = None):
+    def forward(self, net: Tensor, indices: Tensor, output_size: Any = None) -> Tensor:
         return MaxUnpool2d_op.apply(
             net,
             indices,
@@ -2667,8 +2667,8 @@ class SEBlock(Module):
         super().__init__()
         self.in_channels = in_channels
         self.avg_pool = AdaptiveAvgPool2d(1)
+        self.fc = self.up = self.down = None
         if impl == "conv":
-            self.fc = None
             self.down = Conv2d(
                 in_channels,
                 latent_channels,
@@ -2690,7 +2690,6 @@ class SEBlock(Module):
                 nn.Linear(latent_channels, in_channels, bias=False),
                 nn.Sigmoid(),
             )
-            self.up = self.down = None
         else:
             raise ValueError(f"implementation '{impl}' is not recognized")
 
@@ -2699,7 +2698,7 @@ class SEBlock(Module):
         net = self.avg_pool(net)
         if self.fc is not None:
             net = self.fc(net.view(-1, self.in_channels))
-        else:
+        elif self.up is not None and self.down is not None:
             net = self.down(net)
             net = F.relu(net)
             net = self.up(net)
