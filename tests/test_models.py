@@ -281,14 +281,14 @@ class TestModels(unittest.TestCase):
             num_inner_layers=3,
         )
         self.assertSequenceEqual(
-            u2net.generate_from(
+            u2net(
                 torch.randn(
                     batch_size,
                     in_channels,
                     img_size,
                     img_size,
                 )
-            ).shape,
+            )[0].shape,
             [batch_size, out_channels, img_size, img_size],
         )
 
