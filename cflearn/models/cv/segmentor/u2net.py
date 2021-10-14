@@ -39,7 +39,12 @@ class UNetBase(nn.Module):
     up_blocks: nn.ModuleList
     return_up_nets: bool = False
 
-    def forward(self, net: Tensor) -> Union[Tensor, List[Tensor]]:
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        determinate: bool = False,
+    ) -> Union[Tensor, List[Tensor]]:
         net = in_net = self.in_block(net)
         down_nets = []
         for down_block in self.down_blocks:
@@ -53,7 +58,7 @@ class UNetBase(nn.Module):
                     inner,
                     anchor=down_net,
                     mode="bilinear",
-                    determinate=True,
+                    determinate=determinate,
                 )
             inner = torch.cat([inner, down_net], dim=1)
             if not isinstance(up_block, nn.ModuleList):
@@ -62,7 +67,7 @@ class UNetBase(nn.Module):
                 for block in up_block:
                     kw = {}
                     if isinstance(block, Interpolate):
-                        kw["determinate"] = True
+                        kw["determinate"] = determinate
                     inner = block(inner, **kw)
             up_nets.append(inner)
         if self.return_up_nets:
@@ -247,7 +252,8 @@ class U2Net(UNetBase):
         self.side_blocks = nn.ModuleList(blocks)
         self.out = Conv2d((len(ncs)) * out_channels, out_channels, kernel_size=1)
 
-    def forward(self, net: Tensor) -> List[Tensor]:
+    def forward(self, net: Tensor, *, determinate: bool = False) -> List[Tensor]:
+        print(determinate)
         up_nets = super().forward(net)
         side_nets: List[Tensor] = []
         for up_net, side_block in zip(up_nets[::-1], self.side_blocks):
@@ -257,7 +263,7 @@ class U2Net(UNetBase):
                     side_net,
                     anchor=side_nets[0],
                     mode="bilinear",
-                    determinate=True,
+                    determinate=determinate,
                 )
             side_nets.append(side_net)
         side_nets.insert(0, self.out(torch.cat(side_nets, dim=1)))
