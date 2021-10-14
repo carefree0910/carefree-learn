@@ -524,13 +524,14 @@ class DownloadProgressBar(tqdm):
 def fix_denormal_states(
     states: tensor_dict_type,
     *,
+    eps: float = 1.0e-32,
     verbose: bool = False,
 ) -> tensor_dict_type:
     new_states = shallow_copy_dict(states)
     num_total = num_denormal_total = 0
     for k, v in states.items():
         num_total += v.numel()
-        denormal = (v != 0) & (v.abs() < 1.0e-32)
+        denormal = (v != 0) & (v.abs() < eps)
         num_denormal = denormal.sum().item()
         num_denormal_total += num_denormal
         if num_denormal > 0:
