@@ -9,6 +9,7 @@ from typing import Callable
 from typing import Optional
 from cftool.misc import update_dict
 
+from ..models import *
 from ..data import MLData
 from ..types import data_type
 from ..types import tensor_dict_type
@@ -204,7 +205,7 @@ def cct_model(
     num_classes: int,
     aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     return _clf("cct", num_classes, aux_num_classes, None, img_size, True, **kwargs)
 
 
@@ -222,7 +223,7 @@ def cct_lite_model(
     num_classes: int,
     aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     return _clf(
         "cct.lite",
         num_classes,
@@ -248,7 +249,7 @@ def cct_large_model(
     num_classes: int,
     aux_num_classes: Optional[Dict[str, int]] = None,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     return _clf(
         "cct.large",
         num_classes,
@@ -284,7 +285,7 @@ def cct_large_224_model(
     *,
     pretrained: bool = True,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     pretrained_name = "cct_large_224" if pretrained else None
     return _clf(
         "cct.large_224",
@@ -321,7 +322,7 @@ def cct_large_384_model(
     *,
     pretrained: bool = True,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     pretrained_name = "cct_large_384" if pretrained else None
     return _clf(
         "cct.large_384",
@@ -347,7 +348,7 @@ def resnet18_model(
     *,
     pretrained: bool = False,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     kwargs["num_classes"] = num_classes
     model_config = kwargs.setdefault("model_config", {})
     encoder1d_config = model_config.setdefault("encoder1d_config", {})
@@ -373,7 +374,7 @@ def resnet101_model(
     *,
     pretrained: bool = False,
     **kwargs: Any,
-) -> ModelProtocol:
+) -> VanillaClassifier:
     kwargs["num_classes"] = num_classes
     model_config = kwargs.setdefault("model_config", {})
     encoder1d_config = model_config.setdefault("encoder1d_config", {})
@@ -415,7 +416,7 @@ def pixel_cnn(num_classes: int, **kwargs: Any) -> DLPipeline:
 # multimodal
 
 
-def clip_model(pretrained: bool = True, **kwargs: Any) -> ModelProtocol:
+def clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
     return DLZoo.load_model("multimodal/clip", pretrained=pretrained, **kwargs)
 
 
