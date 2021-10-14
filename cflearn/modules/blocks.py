@@ -2388,6 +2388,21 @@ class DepthWiseConv2d(Module):
         return self.net(net)
 
 
+class AdaptiveAvgPool2d(Module):
+    def __init__(self, output_size: Union[int, Tuple[int, int]]):
+        super().__init__()
+        if isinstance(output_size, int):
+            output_size = output_size, output_size
+        self.h, self.w = output_size
+
+    def forward(self, net: Tensor) -> Tensor:
+        h, w = map(int, net.shape[2:])
+        sh, sw = map(math.floor, [h / self.h, w / self.w])
+        kh = h - (self.h - 1) * sh
+        kw = w - (self.w - 1) * sw
+        return F.avg_pool2d(net, kernel_size=(kh, kw), stride=(sh, sw))
+
+
 class Interpolate(Module):
     def __init__(self, factor: Optional[float] = None, mode: str = "nearest"):
         super().__init__()
@@ -2540,6 +2555,7 @@ class SEBlock(Module):
     def __init__(self, in_channels: int, latent_channels: int, *, impl: str = "conv"):
         super().__init__()
         self.in_channels = in_channels
+        self.avg_pool = AdaptiveAvgPool2d(1)
         if impl == "conv":
             self.fc = None
             self.down = Conv2d(
@@ -2569,7 +2585,7 @@ class SEBlock(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         inp = net
-        net = F.avg_pool2d(net, kernel_size=net.shape[3])
+        net = self.avg_pool(net)
         if self.fc is not None:
             net = self.fc(net.view(-1, self.in_channels))
         else:
