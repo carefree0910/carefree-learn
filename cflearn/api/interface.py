@@ -426,6 +426,14 @@ def clip_vqgan_aligner(**kwargs: Any) -> DLPipeline:
 # segmentor
 
 
+def aim() -> DLPipeline:
+    return DLZoo.load_pipeline("segmentor/aim")
+
+
+def aim_model() -> ModelProtocol:
+    return DLZoo.load_model("segmentor/aim")
+
+
 def u2net(pretrained: bool = False, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("segmentor/u2net", pretrained=pretrained, **kwargs)
 
@@ -615,6 +623,8 @@ __all__ = [
     "pixel_cnn",
     "clip_model",
     "clip_vqgan_aligner",
+    "aim",
+    "aim_model",
     "u2net",
     "u2net_model",
     "u2net_lite",

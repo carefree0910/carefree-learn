@@ -1,0 +1,8 @@
+{
+  "pipeline": "cv.carefree",
+  "model_name": "aim",
+  "model_config": {},
+  "loss_name": "multi_stage:bce,iou",
+  "loss_metrics_weights": {"bce0": 0.2, "iou0": 0.8},
+  "scheduler_name": "none"
+}
