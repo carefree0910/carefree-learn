@@ -3,18 +3,13 @@ import torch
 import torch.nn as nn
 
 from torch import Tensor
-from typing import Any
 from typing import List
 from typing import Union
 from typing import Optional
 
 from ..protocol import ImageTranslatorMixin
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
-from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import interpolate
+from ....misc.internal_ import register_module
 from ....modules.blocks import _get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
@@ -143,7 +138,8 @@ class UNetFRS(UNetBase):
         return self.msg
 
 
-class U2NetCore(UNetBase):
+@register_module("u2net", pre_bases=[ImageTranslatorMixin])
+class U2Net(UNetBase):
     def __init__(
         self,
         in_channels: int,
@@ -266,40 +262,6 @@ class U2NetCore(UNetBase):
             side_nets.append(side_net)
         side_nets.insert(0, self.out(torch.cat(side_nets, dim=1)))
         return side_nets
-
-
-@ModelProtocol.register("u2net")
-class U2Net(ImageTranslatorMixin, ModelProtocol):
-    def __init__(
-        self,
-        in_channels: int,
-        out_channels: int,
-        *,
-        upsample_mode: str = "bilinear",
-        latent_channels: int = 32,
-        num_layers: int = 5,
-        num_inner_layers: int = 7,
-        lite: bool = False,
-    ):
-        super().__init__()
-        self.core = U2NetCore(
-            in_channels,
-            out_channels,
-            upsample_mode=upsample_mode,
-            latent_channels=latent_channels,
-            num_layers=num_layers,
-            num_inner_layers=num_inner_layers,
-            lite=lite,
-        )
-
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.core(batch[INPUT_KEY])}
 
 
 __all__ = ["U2Net"]
