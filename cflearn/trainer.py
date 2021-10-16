@@ -721,7 +721,10 @@ class Trainer:
             return -loss_items[LOSS_KEY]
         score = 0.0
         for k, w in self.loss_metrics_weights.items():
-            score -= loss_items[k] * w
+            v = loss_items.get(k)
+            if v is None:
+                continue
+            score -= v * w
         return score
 
     # api
