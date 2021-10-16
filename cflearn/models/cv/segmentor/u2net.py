@@ -253,7 +253,6 @@ class U2Net(UNetBase):
         self.out = Conv2d((len(ncs)) * out_channels, out_channels, kernel_size=1)
 
     def forward(self, net: Tensor, *, determinate: bool = False) -> List[Tensor]:
-        print(determinate)
         up_nets = super().forward(net)
         side_nets: List[Tensor] = []
         for up_net, side_block in zip(up_nets[::-1], self.side_blocks):
