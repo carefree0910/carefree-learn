@@ -92,12 +92,12 @@ class CLIP(PerceptorProtocol):
         nn.init.normal_(self.text_projection, std=self.text_latent_dim ** -0.5)
 
     def encode_image(self, image: Tensor) -> Tensor:
-        net = self.vit(0, {INPUT_KEY: image})[LATENT_KEY]
+        net = self.vit(0, {INPUT_KEY: image}, determinate=True)[LATENT_KEY]
         return l2_normalize(net)
 
     def encode_text(self, text: Tensor) -> Tensor:
         net = self.token_embedding(text)
-        net = self.text_transformer(0, {INPUT_KEY: net})[LATENT_KEY]
+        net = self.text_transformer(0, {INPUT_KEY: net}, determinate=True)[LATENT_KEY]
         batch_size = net.shape[0]
         if self.training or batch_size > 1:
             net = net[torch.arange(batch_size), text.argmax(dim=-1)]
