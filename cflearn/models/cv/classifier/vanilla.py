@@ -96,7 +96,7 @@ class VanillaClassifier(ModelProtocol):
         return results
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.classify(batch[INPUT_KEY])
+        return self.classify(batch[INPUT_KEY], determinate=True)
 
     def classify(self, net: Tensor, **kwargs: Any) -> Union[Tensor, tensor_dict_type]:
         rs = self.forward(0, {INPUT_KEY: net}, **kwargs)
