@@ -285,9 +285,13 @@ class StyleGAN2Block(nn.Module):
         net: Optional[Tensor],
         rgb: Optional[Tensor],
         ws: Tensor,
+        *,
+        determinate: bool = False,
         **conv_kwargs: Any,
     ) -> Tuple[Tensor, Tensor]:
         w_iter = iter(ws.unbind(dim=1))
+        if determinate:
+            conv_kwargs.setdefault("noise_mode", "const")
         if self.conv0 is not None:
             net = self.conv0(net, next(w_iter), **conv_kwargs)
         net = self.conv1(net, next(w_iter), **conv_kwargs)
