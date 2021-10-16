@@ -58,11 +58,11 @@ def resample(
     padding: List[int],
     gain: float,
 ) -> Tensor:
-    b, c, h, w = net.shape
+    c, h, w = map(int, net.shape[1:])
     upscale = int(upscale)
-    net = net.reshape([b, c, h, 1, w, 1])
+    net = net.reshape([-1, c, h, 1, w, 1])
     net = F.pad(net, [0, upscale - 1, 0, 0, 0, upscale - 1])
-    net = net.reshape([b, c, h * upscale, w * upscale])
+    net = net.reshape([-1, c, h * upscale, w * upscale])
     net = F.pad(net, padding)
     f = f * (gain ** (f.ndim / 2))
     f = f[None, None, ...]
