@@ -3,7 +3,6 @@ import torch
 from torch import Tensor
 from typing import Any
 from typing import Dict
-from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
@@ -16,6 +15,7 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import softmax
 from ....misc.toolkit import check_requires
 from ....misc.toolkit import download_model
 from ....modules.blocks import Linear
@@ -96,12 +96,13 @@ class VanillaClassifier(ModelProtocol):
         return results
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.classify(batch[INPUT_KEY], determinate=True)
+        results = self.classify(batch[INPUT_KEY], determinate=True)
+        return {k: softmax(v) for k, v in results.items()}
 
-    def classify(self, net: Tensor, **kwargs: Any) -> Union[Tensor, tensor_dict_type]:
+    def classify(self, net: Tensor, **kwargs: Any) -> tensor_dict_type:
         rs = self.forward(0, {INPUT_KEY: net}, **kwargs)
         if self.aux_keys is None:
-            return rs[PREDICTIONS_KEY]
+            return {PREDICTIONS_KEY: rs[PREDICTIONS_KEY]}
         return {key: rs[key] for key in [PREDICTIONS_KEY] + self.aux_keys}
 
 
