@@ -8,6 +8,7 @@ from typing import List
 from typing import Tuple
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import LATENT_KEY
+from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import inject_parameters
 from cflearn.modules.blocks import BN
 from cflearn.modules.blocks import EMA
@@ -52,6 +53,9 @@ class TestBlocks(unittest.TestCase):
         ema.eval()
         self.assertTrue(torch.allclose(p1.data, gt.data))
         ema.train()
+        self.assertTrue(torch.allclose(p1.data, p3.data))
+        with eval_context(ema):
+            self.assertTrue(torch.allclose(p1.data, gt.data))
         self.assertTrue(torch.allclose(p1.data, p3.data))
 
     def test_dndf(self) -> None:
