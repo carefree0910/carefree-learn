@@ -94,7 +94,7 @@ class TestModels(unittest.TestCase):
             encoder1d_config={"num_downsample": num_downsample},
         )
         self.assertSequenceEqual(
-            vanilla_clf.classify(inp).shape,
+            vanilla_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -108,7 +108,7 @@ class TestModels(unittest.TestCase):
                 encoder1d_config={"name": f"vgg19_{model_type}"},
             )
             self.assertSequenceEqual(
-                vgg_clf.classify(inp).shape,
+                vgg_clf.classify(inp)[PREDICTIONS_KEY].shape,
                 [batch_size, num_classes],
             )
 
@@ -121,7 +121,7 @@ class TestModels(unittest.TestCase):
             encoder1d_config={"name": "resnet18"},
         )
         self.assertSequenceEqual(
-            resnet_clf.classify(inp).shape,
+            resnet_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -134,7 +134,7 @@ class TestModels(unittest.TestCase):
             ),
         )
         self.assertSequenceEqual(
-            resnet_zoo_clf.classify(inp).shape,
+            resnet_zoo_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -147,7 +147,7 @@ class TestModels(unittest.TestCase):
             encoder1d_config={"name": "mobilenet_v2"},
         )
         self.assertSequenceEqual(
-            mobilenet_clf.classify(inp).shape,
+            mobilenet_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -163,7 +163,10 @@ class TestModels(unittest.TestCase):
                 "attention_kwargs": {"embed_dim": 18},
             },
         )
-        self.assertSequenceEqual(vit_clf.classify(inp).shape, [batch_size, num_classes])
+        self.assertSequenceEqual(
+            vit_clf.classify(inp)[PREDICTIONS_KEY].shape,
+            [batch_size, num_classes],
+        )
 
         cct_zoo_clf = cflearn.DLZoo.load_model(
             "clf/cct.large",
@@ -174,7 +177,7 @@ class TestModels(unittest.TestCase):
             ),
         )
         self.assertSequenceEqual(
-            cct_zoo_clf.classify(inp).shape,
+            cct_zoo_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -187,7 +190,7 @@ class TestModels(unittest.TestCase):
             encoder1d_config={"patch_size": patch_size},
         )
         self.assertSequenceEqual(
-            mixer_clf.classify(inp).shape,
+            mixer_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -200,7 +203,7 @@ class TestModels(unittest.TestCase):
             encoder1d_config={"patch_size": patch_size},
         )
         self.assertSequenceEqual(
-            fnet_clf.classify(inp).shape,
+            fnet_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -402,7 +405,7 @@ class TestModels(unittest.TestCase):
             encoder1d_config={"patch_size": patch_size},
         )
         self.assertSequenceEqual(
-            perceiver_clf.classify(inp).shape,
+            perceiver_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
