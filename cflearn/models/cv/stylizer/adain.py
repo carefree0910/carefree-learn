@@ -66,6 +66,7 @@ class AdaINStylizer(ModelProtocol):
         style = batch[STYLE_KEY]
         content = batch[INPUT_KEY]
         determinate = kwargs.pop("determinate", False)
+        need_stylized_features = kwargs.pop("need_stylized_features", True)
         style_feats = self.backbone(batch_idx, {INPUT_KEY: style}, state, **kwargs)
         style_latent = style_feats.pop(LATENT_KEY)
         content_feats = self.backbone(batch_idx, {INPUT_KEY: content}, state, **kwargs)
@@ -82,7 +83,7 @@ class AdaINStylizer(ModelProtocol):
             **kwargs,
         )
         decoded = interpolate(rs[PREDICTIONS_KEY], anchor=content)
-        if not kwargs.get("need_stylized_features", True):
+        if not need_stylized_features:
             decoded_feats = decoded_content_latent = None
         else:
             decoded_inp = {INPUT_KEY: decoded}
