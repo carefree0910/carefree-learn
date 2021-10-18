@@ -1,7 +1,7 @@
 {
-  "__requires__": [
-    {"model_config": ["img_size", "num_classes"]}
-  ],
+  "__requires__": {
+    "model_config": ["img_size", "num_classes"]
+  },
   "pipeline": "cv.carefree",
   "model_name": "clf",
   "model_config": {

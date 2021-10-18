@@ -1,7 +1,7 @@
 {
-  "__requires__": [
-    {"model_config": ["img_size"]}
-  ],
+  "__requires__": {
+    "model_config": ["img_size"]
+  },
   "pipeline": "cv.carefree",
   "model_name": "style_vae",
   "model_config": {

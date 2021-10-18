@@ -1,6 +1,6 @@
 {
   "__bases__": ["segmentor/u2net.lite"],
-  "__requires__": [
-    {"finetune_config": ["pretrained_ckpt"]}
-  ]
+  "__requires__": {
+    "finetune_config": ["pretrained_ckpt"]
+  }
 }

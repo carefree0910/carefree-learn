@@ -1,7 +1,7 @@
 {
-  "__requires__": [
-    {"model_config": ["lv1_model_ckpt_path"]}
-  ],
+  "__requires__": {
+    "model_config": ["lv1_model_ckpt_path"]
+  },
   "pipeline": "cv.carefree",
   "model_name": "cascade_u2net",
   "model_config": {

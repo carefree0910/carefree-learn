@@ -1,8 +1,8 @@
 {
   "__bases__": ["gan/siren"],
-  "__requires__": [
-    {"model_config": ["img_size"]}
-  ],
+  "__requires__": {
+    "model_config": ["img_size"]
+  },
   "model_config": {
     "in_channels": 1
   }

@@ -1,8 +1,8 @@
 {
   "__bases__": ["segmentor/u2net.refine"],
-  "__requires__": [
-    {"model_config": ["lv1_model_ckpt_path"]}
-  ],
+  "__requires__": {
+    "model_config": ["lv1_model_ckpt_path"]
+  },
   "model_config": {
     "lite": true
   }

@@ -1,8 +1,8 @@
 {
   "__bases__": ["clf/cct"],
-  "__requires__": [
-    {"model_config": ["img_size", "num_classes"]}
-  ],
+  "__requires__": {
+    "model_config": ["img_size", "num_classes"]
+  },
   "model_config": {
     "latent_dim": 384,
     "encoder1d_config": {

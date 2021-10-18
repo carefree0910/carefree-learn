@@ -1,7 +1,9 @@
 {
-  "__requires__": [
-    {"model_config": {"encoder1d_config": ["img_size"]}}
-  ],
+  "__requires__": {
+    "model_config": {
+      "encoder1d_config": ["img_size"]
+    }
+  },
   "pipeline": "cv.carefree",
   "model_name": "dino",
   "model_config": {

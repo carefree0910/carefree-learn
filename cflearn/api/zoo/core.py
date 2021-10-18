@@ -87,18 +87,20 @@ class ZooBase(ABC):
             kwargs.setdefault("valid_portion", 1.0e-4)
         # handle requires
 
-        def _inject_requires(d: Dict[str, Any], local_requires: List[Any]) -> None:
-            for k in local_requires:
-                if isinstance(k, dict):
-                    for kk, kv in k.items():
-                        _inject_requires(d.setdefault(kk, {}), kv)
-                elif k not in d:
-                    required = kwargs.pop(k, None)
+        def _inject_requires(d: Dict[str, Any], local_requires: Dict[str, Any]) -> None:
+            for k, v in local_requires.items():
+                kd = d.setdefault(k, {})
+                if isinstance(v, dict):
+                    _inject_requires(kd, v)
+                    continue
+                assert isinstance(v, list), "requirements should be a list"
+                for vv in v:
+                    required = kwargs.pop(vv, None)
                     if required is None:
-                        raise ValueError(f"'{k}' should be provided in `kwargs`")
-                    d[k] = required
+                        raise ValueError(f"'{vv}' should be provided in `kwargs`")
+                    kd[vv] = required
 
-        requires = self.config.pop("__requires__", [])
+        requires = self.config.pop("__requires__", {})
         _inject_requires(kwargs, requires)
         # build
         update_dict(kwargs, self.config)
