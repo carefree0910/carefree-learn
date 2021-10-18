@@ -478,9 +478,7 @@ def u2net_lite_refine(lv1_model_ckpt_path: str, **kwargs: Any) -> DLPipeline:
 
 
 def dino(img_size: int, **kwargs: Any) -> DLPipeline:
-    model_config = kwargs.setdefault("model_config", {})
-    encoder1d_config = model_config.setdefault("encoder1d_config", {})
-    encoder1d_config["img_size"] = img_size
+    kwargs["img_size"] = img_size
     return DLZoo.load_pipeline("ssl/dino", **kwargs)
 
 
