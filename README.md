@@ -41,7 +41,7 @@ m = cflearn.api.resnet18_gray(10).fit(data)
 + It could be exported to `onnx` format with one line of code (`m.to_onnx(...)`)
 + A native repo called [`carefree-learn-deploy`](https://github.com/carefree0910/carefree-learn-deploy) could do the rest of the jobs, which uses `FastAPI`, `uvicorn` and `docker` as its backend.
 
-> Please refer to [Quick Start](https://carefree0910.me/carefree-learn-doc/docs/getting-started/quick-start) and [Build Your Own Models](https://carefree0910.me/carefree-learn-doc/docs/developer-guides/customization) for detailed information.
+> Please refer to [Quick Start](https://carefree0910.me/carefree-learn-doc/docs/getting-started/quick-start) and [Developer Guides](https://carefree0910.me/carefree-learn-doc/docs/developer-guides/general-customization) for detailed information.
 
 
 ## Why carefree-learn?
@@ -55,7 +55,7 @@ Here are some main advantages that `carefree-learn` holds:
 + Provides a [scikit-learn](https://scikit-learn.org/stable/)-like interface with much more 'carefree' usages, including:
     + Automatically deals with data pre-processing.
     + Automatically handles datasets saved in files (.txt, .csv).
-    + Supports [Distributed Training](https://carefree0910.me/carefree-learn-doc/docs/user-guides/distributed#distributed-training), which means hyper-parameter tuning can be very efficient in `carefree-learn`.
+    + Supports Distributed Training, which means hyper-parameter tuning can be very efficient in `carefree-learn`.
 + Includes some brand new techniques which may boost vanilla Neural Network (NN) performances on tabular datasets, including:
     + [`TreeDNN` with `Dynamic Soft Pruning`](https://arxiv.org/pdf/1911.05443.pdf), which makes NN less sensitive to hyper-parameters. 
     + [`Deep Distribution Regression (DDR)`](https://arxiv.org/pdf/1911.05441.pdf), which is capable of modeling the entire conditional distribution with one single NN model.
