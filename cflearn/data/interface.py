@@ -680,7 +680,7 @@ def prepare_image_folder(
         }
 
     def check_dump_mappings(l2i: Dict[Any, Any]) -> bool:
-        all_indices = set(label2idx.values())
+        all_indices = set(l2i.values())
         if len(all_indices) > 1:
             return True
         return list(all_indices)[0] != numpy_token
