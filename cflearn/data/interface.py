@@ -554,7 +554,11 @@ class _PreparationProtocol:
     def get_num_classes(self, tgt_folder: str) -> Dict[str, int]:
         num_classes = {}
         for label_name in [LABEL_KEY] + (self.extra_labels or []):
-            with open(os.path.join(tgt_folder, f"idx2{label_name}.json"), "r") as f:
+            path = os.path.join(tgt_folder, f"idx2{label_name}.json")
+            if not os.path.isfile(path):
+                num_classes[label_name] = 0
+                continue
+            with open(path, "r") as f:
                 num_classes[label_name] = len(json.load(f))
         return num_classes
 
@@ -669,32 +673,51 @@ def prepare_image_folder(
                 if extra_label is None:
                     excluded_indices.add(i)
 
-    if not to_index:
-        labels_dict = {"": labels}
-        label2idx = {v: v for v in sorted(set(labels))}
-    else:
+    def get_raw_2idx(raw_labels: List[Any]) -> Dict[Any, Any]:
+        return {
+            v: numpy_token if isinstance(v, str) and v.endswith(".npy") else v
+            for v in raw_labels
+        }
+
+    def check_dump_mappings(l2i: Dict[Any, Any]) -> bool:
+        all_indices = set(label2idx.values())
+        if len(all_indices) > 1:
+            return True
+        return list(all_indices)[0] != numpy_token
+
+    numpy_token = "[NUMPY]"
+    if to_index:
         label2idx = {label: i for i, label in enumerate(sorted(set(labels)))}
         labels_dict = {"": [label2idx[label] for label in labels]}
-    with open(os.path.join(tgt_folder, f"{LABEL_KEY}2idx.json"), "w") as f:
-        json.dump(label2idx, f)
-    with open(os.path.join(tgt_folder, f"idx2{LABEL_KEY}.json"), "w") as f:
-        json.dump({v: k for k, v in label2idx.items()}, f)
+        dump_mappings = True
+    else:
+        labels_dict = {"": labels}
+        label2idx = get_raw_2idx(sorted(set(labels)))
+        dump_mappings = check_dump_mappings(label2idx)
+    if dump_mappings:
+        with open(os.path.join(tgt_folder, f"{LABEL_KEY}2idx.json"), "w") as f:
+            json.dump(label2idx, f)
+        with open(os.path.join(tgt_folder, f"idx2{LABEL_KEY}.json"), "w") as f:
+            json.dump({v: k for k, v in label2idx.items()}, f)
 
     if extra_labels_dict is not None:
         for el_name, label_collection in extra_labels_dict.items():
             if not to_index:
                 labels_dict[el_name] = label_collection
-                extra2idx = {v: v for v in sorted(set(label_collection))}
+                extra2idx = get_raw_2idx(sorted(set(label_collection)))
+                dump_mappings = check_dump_mappings(extra2idx)
             else:
                 extra2idx = {
                     extra_label: i  # type: ignore
                     for i, extra_label in enumerate(sorted(set(label_collection)))
                 }
                 labels_dict[el_name] = [extra2idx[el] for el in label_collection]
-            with open(os.path.join(tgt_folder, f"{el_name}2idx.json"), "w") as f:
-                json.dump(extra2idx, f)
-            with open(os.path.join(tgt_folder, f"idx2{el_name}.json"), "w") as f:
-                json.dump({v: k for k, v in extra2idx.items()}, f)
+                dump_mappings = True
+            if dump_mappings:
+                with open(os.path.join(tgt_folder, f"{el_name}2idx.json"), "w") as f:
+                    json.dump(extra2idx, f)
+                with open(os.path.join(tgt_folder, f"idx2{el_name}.json"), "w") as f:
+                    json.dump({v: k for k, v in extra2idx.items()}, f)
 
     # exclude samples
     if excluded_indices:
@@ -713,6 +736,8 @@ def prepare_image_folder(
     train_portion = (num_sample - valid_split) / num_sample
     label_indices_mapping: Dict[Any, List[int]] = {}
     for i, label in enumerate(labels):
+        if isinstance(label, str) and label.endswith(".npy"):
+            label = numpy_token
         label_indices_mapping.setdefault(label, []).append(i)
     tuple(map(random.shuffle, label_indices_mapping.values()))
     train_indices_list: List[List[int]] = []
