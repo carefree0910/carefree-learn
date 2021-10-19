@@ -85,8 +85,8 @@ class ZooBase(ABC):
         if debug:
             kwargs.setdefault("fixed_steps", 1)
             kwargs.setdefault("valid_portion", 1.0e-4)
-        # handle requires
 
+        # handle requires
         def _inject_requires(d: Dict[str, Any], local_requires: Dict[str, Any]) -> None:
             for k, v in local_requires.items():
                 kd = d.setdefault(k, {})
@@ -95,6 +95,8 @@ class ZooBase(ABC):
                     continue
                 assert isinstance(v, list), "requirements should be a list"
                 for vv in v:
+                    if vv in kd:
+                        continue
                     required = kwargs.pop(vv, None)
                     if required is None:
                         raise ValueError(f"'{vv}' should be provided in `kwargs`")
