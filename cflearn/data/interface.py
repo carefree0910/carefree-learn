@@ -703,7 +703,7 @@ def prepare_image_folder(
     if extra_labels_dict is not None:
         for el_name, label_collection in extra_labels_dict.items():
             if not to_index:
-                labels_dict[el_name] = label_collection
+                labels_dict[el_name] = label_collection  # type: ignore
                 extra2idx = get_raw_2idx(sorted(set(label_collection)))
                 dump_mappings = check_dump_mappings(extra2idx)
             else:
