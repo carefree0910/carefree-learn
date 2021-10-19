@@ -111,7 +111,7 @@ def check_requires(fn: Any, name: str, strict: bool = True) -> bool:
     return False
 
 
-def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(7)) -> str:
+def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(30)) -> str:
     current_time = datetime.now()
     if os.path.isdir(workplace):
         for stuff in os.listdir(workplace):
