@@ -10,7 +10,7 @@ class TestExample(unittest.TestCase):
     def test_ddr(self) -> None:
         folder = os.path.join(examples_folder, "ddr")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_ddr.py')}"),
+            os.system(f"python {os.path.join(folder, 'run_ddr.py')} --ci 1"),
             0,
         )
 

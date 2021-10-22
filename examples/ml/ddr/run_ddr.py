@@ -3,6 +3,7 @@ import cflearn
 
 import numpy as np
 
+from cflearn.misc.toolkit import check_is_ci
 
 power = 4
 padding = 1.0
@@ -21,20 +22,23 @@ f = lambda inp: (
 x = 2.0 * np.random.random([num_samples, 1]) - 1.0
 y = f(x)
 
-data = cflearn.MLData(
+m = cflearn.api.fit_ml(
     x[:num_train],
     y[:num_train],
     x[num_train:-num_test],
     y[num_train:-num_test],
     is_classification=False,
+    pipeline_config=dict(
+        core_name="ddr",
+        output_dim=1,
+        loss_name="ddr",
+    ),
+    debug=check_is_ci(),
 )
-x_test, y_test = x[-num_test:], y[-num_test:]
-
-m = cflearn.ml.SimplePipeline("ddr", output_dim=1, loss_name="ddr")
-m.fit(data)
 
 os.makedirs(output_folder, exist_ok=True)
 visualizer = cflearn.ml.DDRVisualizer(m.model.core)  # type: ignore
+x_test, y_test = x[-num_test:], y[-num_test:]
 visualizer.visualize(
     x_test,
     y_test,
