@@ -139,7 +139,7 @@ def fit_ml(
     pipeline_config: Optional[Dict[str, Any]] = None,
     debug: bool = False,
     **fit_kwargs: Any,
-) -> DLPipeline:
+) -> MLSimple:
     data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
     if carefree:
         data_kwargs["cf_data_config"] = cf_data_config
