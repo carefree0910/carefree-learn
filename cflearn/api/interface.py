@@ -137,6 +137,7 @@ def fit_ml(
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
     pipeline_config: Optional[Dict[str, Any]] = None,
+    debug: bool = False,
     **fit_kwargs: Any,
 ) -> DLPipeline:
     data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
@@ -147,6 +148,11 @@ def fit_ml(
     data_base = MLData.with_cf_data if carefree else MLData
     data = data_base(*args, **data_kwargs)  # type: ignore
     m_base = MLCarefree if carefree else MLSimple
+    if pipeline_config is None:
+        pipeline_config = {}
+    if debug:
+        pipeline_config.setdefault("fixed_steps", 1)
+        pipeline_config.setdefault("valid_portion", 1.0e-4)
     return m_base(**(pipeline_config or {})).fit(data, **fit_kwargs)
 
 
