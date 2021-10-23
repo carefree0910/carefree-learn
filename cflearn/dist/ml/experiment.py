@@ -42,6 +42,8 @@ def inject_distributed_tqdm_kwargs(
     kwargs: Dict[str, Any],
 ) -> None:
     tqdm_settings = kwargs.setdefault("tqdm_settings", {})
+    if tqdm_settings is None:
+        kwargs["tqdm_settings"] = tqdm_settings = {}
     tqdm_settings.setdefault("use_tqdm", True)
     tqdm_settings.setdefault("use_step_tqdm", False)
     tqdm_settings.setdefault("in_distributed", True)

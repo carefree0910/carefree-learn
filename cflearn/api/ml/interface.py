@@ -240,6 +240,8 @@ def repeat_with(
         cuda = kwargs.pop("cuda", None)
         experiment = None
         tqdm_settings = kwargs.setdefault("tqdm_settings", {})
+        if tqdm_settings is None:
+            kwargs["tqdm_settings"] = tqdm_settings = {}
         tqdm_settings["tqdm_position"] = 2
         if not return_patterns:
             print(
