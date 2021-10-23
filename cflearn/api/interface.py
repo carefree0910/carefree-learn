@@ -243,7 +243,7 @@ def fit_ml(
         pipeline_config["fixed_steps"] = 1
         pipeline_config["valid_portion"] = 1.0e-4
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
-    return m_base(**pipeline_config).fit(data, **fit_kwargs)
+    return m_base(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
 
 
 # cv
