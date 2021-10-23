@@ -521,6 +521,11 @@ class DownloadProgressBar(tqdm):
 # dl
 
 
+def inject_debug(config: Dict[str, Any]) -> None:
+    config["fixed_steps"] = 1
+    config["valid_portion"] = 1.0e-4
+
+
 def fix_denormal_states(
     states: tensor_dict_type,
     *,

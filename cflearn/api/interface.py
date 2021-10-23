@@ -21,6 +21,7 @@ from ..protocol import ModelProtocol
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
 from .zoo.core import DLZoo
+from ..misc.toolkit import inject_debug
 from ..misc.toolkit import _parse_config
 from ..misc.toolkit import download_model
 
@@ -240,8 +241,7 @@ def fit_ml(
         pre_process_batch=pre_process_batch,
     )
     if debug:
-        pipeline_config["fixed_steps"] = 1
-        pipeline_config["valid_portion"] = 1.0e-4
+        inject_debug(pipeline_config)
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
     return m_base(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
 

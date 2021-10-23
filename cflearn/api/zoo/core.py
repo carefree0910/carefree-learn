@@ -17,6 +17,7 @@ from ...pipeline import PipelineProtocol
 from ...protocol import ModelProtocol
 from ...constants import WARNING_PREFIX
 from ...constants import DEFAULT_ZOO_TAG
+from ...misc.toolkit import inject_debug
 from ...misc.toolkit import download_model
 from ...misc.toolkit import download_data_info
 
@@ -83,8 +84,7 @@ class ZooBase(ABC):
             raise ValueError(self.err_msg_fmt.format("pipeline"))
         # handle debug
         if debug:
-            kwargs.setdefault("fixed_steps", 1)
-            kwargs.setdefault("valid_portion", 1.0e-4)
+            inject_debug(kwargs)
 
         # handle requires
         def _inject_requires(d: Dict[str, Any], local_requires: Dict[str, Any]) -> None:
