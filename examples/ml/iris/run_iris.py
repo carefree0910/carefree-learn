@@ -7,8 +7,11 @@ import cflearn
 import numpy as np
 
 from cflearn.misc.toolkit import _rmtree
+from cflearn.misc.toolkit import check_is_ci
+from cflearn.misc.toolkit import inject_debug
 
 
+is_ci = check_is_ci()
 file_folder = os.path.dirname(__file__)
 iris_data_file = os.path.join(file_folder, "iris.data")
 sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
@@ -16,44 +19,40 @@ sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
 
 if __name__ == "__main__":
     metrics = ["acc", "auc"]
-    m = cflearn.api.fit_ml(iris_data_file, carefree=True)
+    m = cflearn.api.fit_ml(iris_data_file, carefree=True, debug=is_ci)
     print(m.cf_data.raw.x[0])
     print(m.cf_data.raw.y[0])
     print(m.cf_data.processed.x[0])
     print(m.cf_data.processed.y[0])
 
     data = m.data
-    train_x, train_y = data.train_cf_data.processed.xy
-    valid_x, valid_y = data.valid_cf_data.processed.xy
-    stacked = np.vstack([train_x, valid_x])
+    x_train, y_train = data.train_cf_data.processed.xy
+    x_valid, y_valid = data.valid_cf_data.processed.xy
+    stacked = np.vstack([x_train, x_valid])
     print(stacked.mean(0))
     print(stacked.std(0))
 
-    predictions = m.predict(data, contains_labels=True)
-    cflearn.ml.evaluate(data, metrics=metrics, pipelines=m)
+    idata = cflearn.MLInferenceData(iris_data_file)
+    predictions = m.predict(idata, contains_labels=True)
+    cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
-    result = cflearn.ml.repeat_with(
-        data,
-        pipeline_base=cflearn.ml.CarefreePipeline,
-        num_repeat=2,
-    )
+    kwargs = dict(carefree=True, num_repeat=2)
+    result = cflearn.api.repeat_ml("iris.data", debug=is_ci, **kwargs)
     cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     models = ["linear", "fcnn"]
-    result = cflearn.ml.repeat_with(
-        data,
-        pipeline_base=cflearn.ml.CarefreePipeline,
-        models=models,
-        num_repeat=2,
-        num_jobs=2,
-    )
+    kwargs = dict(carefree=True, models=models, num_repeat=2, num_jobs=2)
+    result = cflearn.api.repeat_ml("iris.data", debug=is_ci, **kwargs)
     cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     experiment = cflearn.dist.ml.Experiment()
-    data_folder = experiment.dump_data_bundle(train_x, train_y, valid_x, valid_y)
+    data_folder = experiment.dump_data_bundle(x_train, y_train, x_valid, y_valid)
 
-    experiment.add_task(model="fcnn", data_folder=data_folder)
-    experiment.add_task(model="linear", data_folder=data_folder)
+    config = {}
+    if is_ci:
+        inject_debug(config)
+    experiment.add_task(model="fcnn", config=config, data_folder=data_folder)
+    experiment.add_task(model="linear", config=config, data_folder=data_folder)
     run_command = f"python {sklearn_runner_file}"
     common_kwargs = {"run_command": run_command, "data_folder": data_folder}
     experiment.add_task(model="decision_tree", **common_kwargs)  # type: ignore
@@ -85,7 +84,7 @@ if __name__ == "__main__":
                 sk_patterns[model] = sk_pattern
 
     cflearn.ml.evaluate(
-        cflearn.MLInferenceData(valid_x, valid_y),
+        cflearn.MLInferenceData(x_valid, y_valid),
         metrics=metrics,
         pipelines=pipelines,
         other_patterns=sk_patterns,

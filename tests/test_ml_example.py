@@ -17,7 +17,7 @@ class TestExample(unittest.TestCase):
     def test_iris(self) -> None:
         folder = os.path.join(examples_folder, "iris")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_iris.py')}"),
+            os.system(f"python {os.path.join(folder, 'run_iris.py')} --ci 1"),
             0,
         )
 
