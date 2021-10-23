@@ -10,9 +10,9 @@ from .api import cv
 from .api import dl
 from .api import ml
 from .api import multimodal
+from .api import interface as api
 from .api.zoo import *
 from .api.register import *
-from . import api
 from . import dist
 
 from pkg_resources import get_distribution
