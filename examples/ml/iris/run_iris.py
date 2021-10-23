@@ -37,12 +37,12 @@ if __name__ == "__main__":
     cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
     kwargs = dict(carefree=True, num_repeat=2)
-    result = cflearn.api.repeat_ml("iris.data", debug=is_ci, **kwargs)
+    result = cflearn.api.repeat_ml(iris_data_file, debug=is_ci, **kwargs)
     cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     models = ["linear", "fcnn"]
     kwargs = dict(carefree=True, models=models, num_repeat=2, num_jobs=2)
-    result = cflearn.api.repeat_ml("iris.data", debug=is_ci, **kwargs)
+    result = cflearn.api.repeat_ml(iris_data_file, debug=is_ci, **kwargs)
     cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     experiment = cflearn.dist.ml.Experiment()
