@@ -70,7 +70,7 @@ def load(
     compress: bool = True,
     states_callback: states_callback_type = None,
     pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-    post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+    post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
 ) -> DLPipeline:
     return DLPipeline.load(
         export_folder,
@@ -93,7 +93,7 @@ def pack_onnx(
     pack_folder: Optional[str] = None,
     states_callback: states_callback_type = None,
     pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-    post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+    post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
     onnx_file: str = "model.onnx",
     opset: int = 11,
     simplify: bool = True,
