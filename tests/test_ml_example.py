@@ -45,6 +45,10 @@ class TestExample(unittest.TestCase):
             os.system(f"python {os.path.join(folder, 'run_titanic.py')}"),
             0,
         )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'run_titanic_ddp.py')}"),
+            0,
+        )
 
 
 if __name__ == "__main__":
