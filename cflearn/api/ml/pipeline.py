@@ -306,6 +306,7 @@ class CarefreePipeline(SimplePipeline):
         core_name: str = "fcnn",
         core_config: Optional[Dict[str, Any]] = None,
         *,
+        input_dim: Optional[int] = None,
         output_dim: Optional[int] = None,
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
@@ -347,13 +348,15 @@ class CarefreePipeline(SimplePipeline):
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
+        pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
         config = get_arguments()
         super().__init__(
             core_name,
             core_config,
-            output_dim=output_dim,  # type: ignore
+            input_dim=input_dim,
+            output_dim=output_dim,
             loss_name=loss_name,
             loss_config=loss_config,
             only_categorical=only_categorical,
@@ -391,6 +394,7 @@ class CarefreePipeline(SimplePipeline):
             finetune_config=finetune_config,
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
+            pre_process_batch=pre_process_batch,
             num_repeat=num_repeat,
         )
         self.config = config
