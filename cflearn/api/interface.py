@@ -128,6 +128,25 @@ def pack_onnx(
 # ml
 
 
+def _make_ml_data(
+    x_train: data_type,
+    y_train: data_type = None,
+    x_valid: data_type = None,
+    y_valid: data_type = None,
+    carefree: bool = False,
+    is_classification: Optional[bool] = None,
+    data_config: Optional[Dict[str, Any]] = None,
+    cf_data_config: Optional[Dict[str, Any]] = None,
+) -> MLData:
+    data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
+    if carefree:
+        data_kwargs["cf_data_config"] = cf_data_config
+    update_dict(data_config or {}, data_kwargs)
+    args = x_train, y_train, x_valid, y_valid
+    data_base = MLData.with_cf_data if carefree else MLData
+    return data_base(*args, **data_kwargs)  # type: ignore
+
+
 def fit_ml(
     x_train: data_type,
     y_train: data_type = None,
@@ -189,14 +208,6 @@ def fit_ml(
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
 ) -> MLSimple:
-    data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
-    if carefree:
-        data_kwargs["cf_data_config"] = cf_data_config
-    update_dict(data_config or {}, data_kwargs)
-    args = x_train, y_train, x_valid, y_valid
-    data_base = MLData.with_cf_data if carefree else MLData
-    data = data_base(*args, **data_kwargs)  # type: ignore
-    m_base = MLCarefree if carefree else MLSimple
     pipeline_config = dict(
         core_name=core_name,
         core_config=core_config,
@@ -243,6 +254,17 @@ def fit_ml(
     if debug:
         inject_debug(pipeline_config)
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
+    m_base = MLCarefree if carefree else MLSimple
+    data = _make_ml_data(
+        x_train,
+        y_train,
+        x_valid,
+        y_valid,
+        carefree,
+        is_classification,
+        data_config,
+        cf_data_config,
+    )
     return m_base(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
 
 
