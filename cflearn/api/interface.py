@@ -14,6 +14,7 @@ from ..data import MLData
 from ..types import data_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
+from ..types import sample_weights_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
 from ..protocol import ModelProtocol
@@ -132,13 +133,60 @@ def fit_ml(
     x_valid: data_type = None,
     y_valid: data_type = None,
     *,
+    # data
     carefree: bool = False,
     is_classification: Optional[bool] = None,
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
-    pipeline_config: Optional[Dict[str, Any]] = None,
+    # pipeline
+    core_name: str = "fcnn",
+    core_config: Optional[Dict[str, Any]] = None,
+    input_dim: Optional[int] = None,
+    output_dim: Optional[int] = None,
+    loss_name: str = "auto",
+    loss_config: Optional[Dict[str, Any]] = None,
+    # encoder
+    only_categorical: bool = False,
+    encoder_config: Optional[Dict[str, Any]] = None,
+    encoding_methods: Optional[Dict[str, List[str]]] = None,
+    encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+    default_encoding_methods: Optional[List[str]] = None,
+    default_encoding_configs: Optional[Dict[str, Any]] = None,
+    # trainer
+    state_config: Optional[Dict[str, Any]] = None,
+    num_epoch: int = 40,
+    max_epoch: int = 1000,
+    fixed_epoch: Optional[int] = None,
+    fixed_steps: Optional[int] = None,
+    log_steps: Optional[int] = None,
+    valid_portion: float = 1.0,
+    amp: bool = False,
+    clip_norm: float = 0.0,
+    cudnn_benchmark: bool = False,
+    metric_names: Optional[Union[str, List[str]]] = None,
+    metric_configs: Optional[Dict[str, Any]] = None,
+    use_losses_as_metrics: Optional[bool] = None,
+    loss_metrics_weights: Optional[Dict[str, float]] = None,
+    recompute_train_losses_in_eval: bool = True,
+    monitor_names: Optional[Union[str, List[str]]] = None,
+    monitor_configs: Optional[Dict[str, Any]] = None,
+    callback_names: Optional[Union[str, List[str]]] = None,
+    callback_configs: Optional[Dict[str, Any]] = None,
+    lr: Optional[float] = None,
+    optimizer_name: Optional[str] = None,
+    scheduler_name: Optional[str] = None,
+    optimizer_config: Optional[Dict[str, Any]] = None,
+    scheduler_config: Optional[Dict[str, Any]] = None,
+    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
+    workplace: str = "_logs",
+    finetune_config: Optional[Dict[str, Any]] = None,
+    tqdm_settings: Optional[Dict[str, Any]] = None,
+    # misc
+    pre_process_batch: bool = True,
     debug: bool = False,
-    **fit_kwargs: Any,
+    # fit
+    sample_weights: sample_weights_type = None,
+    cuda: Optional[Union[int, str]] = None,
 ) -> MLSimple:
     data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
     if carefree:
@@ -148,12 +196,54 @@ def fit_ml(
     data_base = MLData.with_cf_data if carefree else MLData
     data = data_base(*args, **data_kwargs)  # type: ignore
     m_base = MLCarefree if carefree else MLSimple
-    if pipeline_config is None:
-        pipeline_config = {}
+    pipeline_config = dict(
+        core_name=core_name,
+        core_config=core_config,
+        input_dim=input_dim,
+        output_dim=output_dim,
+        loss_name=loss_name,
+        loss_config=loss_config,
+        only_categorical=only_categorical,
+        encoder_config=encoder_config,
+        encoding_methods=encoding_methods,
+        encoding_configs=encoding_configs,
+        default_encoding_methods=default_encoding_methods,
+        default_encoding_configs=default_encoding_configs,
+        state_config=state_config,
+        num_epoch=num_epoch,
+        max_epoch=max_epoch,
+        fixed_epoch=fixed_epoch,
+        fixed_steps=fixed_steps,
+        log_steps=log_steps,
+        valid_portion=valid_portion,
+        amp=amp,
+        clip_norm=clip_norm,
+        cudnn_benchmark=cudnn_benchmark,
+        metric_names=metric_names,
+        metric_configs=metric_configs,
+        use_losses_as_metrics=use_losses_as_metrics,
+        loss_metrics_weights=loss_metrics_weights,
+        recompute_train_losses_in_eval=recompute_train_losses_in_eval,
+        monitor_names=monitor_names,
+        monitor_configs=monitor_configs,
+        callback_names=callback_names,
+        callback_configs=callback_configs,
+        lr=lr,
+        optimizer_name=optimizer_name,
+        scheduler_name=scheduler_name,
+        optimizer_config=optimizer_config,
+        scheduler_config=scheduler_config,
+        optimizer_settings=optimizer_settings,
+        workplace=workplace,
+        finetune_config=finetune_config,
+        tqdm_settings=tqdm_settings,
+        pre_process_batch=pre_process_batch,
+    )
     if debug:
-        pipeline_config.setdefault("fixed_steps", 1)
-        pipeline_config.setdefault("valid_portion", 1.0e-4)
-    return m_base(**(pipeline_config or {})).fit(data, **fit_kwargs)
+        pipeline_config["fixed_steps"] = 1
+        pipeline_config["valid_portion"] = 1.0e-4
+    fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
+    return m_base(**pipeline_config).fit(data, **fit_kwargs)
 
 
 # cv
