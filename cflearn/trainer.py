@@ -422,7 +422,9 @@ class Trainer:
             return None
         assert self.rank is not None
         # monitor
-        self.monitors = [] if not self.is_rank_0 else [ConservativeMonitor()]
+        for monitor in self.monitors:
+            if not isinstance(monitor, ConservativeMonitor):
+                raise ValueError("Only `ConservativeMonitor` could be used in ddp mode")
         # ddp setup
         _setup_ddp()
         if self.model_has_custom_steps and self.model.custom_ddp_initialization:

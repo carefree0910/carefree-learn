@@ -237,6 +237,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
+        if get_ddp_info() is not None:
+            if self.trainer_config["monitor_names"] is not None:
+                print(
+                    f"{WARNING_PREFIX}only `conservative` monitor is available "
+                    "in Distributed Data Parallel (DDP) mode"
+                )
+            self.trainer_config["monitor_names"] = "conservative"
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
         tqdm_settings = self.trainer_config["tqdm_settings"]
