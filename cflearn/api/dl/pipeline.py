@@ -10,6 +10,7 @@ from ...trainer import callback_dict
 from ...pipeline import DLPipeline
 from ...protocol import loss_dict
 from ...protocol import ModelProtocol
+from ...protocol import ModelWithCustomSteps
 from ...protocol import InferenceProtocol
 from ...misc.toolkit import get_arguments
 
@@ -160,10 +161,14 @@ class CarefreePipeline(SimplePipeline):
             if model_name in loss_dict:
                 loss_name = model_name
             else:
-                raise ValueError(
-                    "`loss_name` should be provided when "
-                    "`model_name` has not implemented its own loss"
-                )
+                model_base = ModelProtocol.get(model_name)
+                if issubclass(model_base, ModelWithCustomSteps):
+                    loss_name = "mse"  # this is just a placeholder
+                else:
+                    raise ValueError(
+                        "`loss_name` should be provided when "
+                        "`model_name` has not implemented its own loss"
+                    )
         if state_config is None:
             state_config = {}
         state_config.setdefault("max_snapshot_file", 25)
