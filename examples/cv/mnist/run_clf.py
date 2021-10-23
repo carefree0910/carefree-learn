@@ -52,5 +52,5 @@ cflearn.api.fit_cv(
     data,
     "simple_conv",
     {"in_channels": 1, "num_classes": 10},
-    **kwargs,
+    **kwargs,  # type: ignore
 )
