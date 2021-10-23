@@ -16,16 +16,15 @@ sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
 
 if __name__ == "__main__":
     metrics = ["acc", "auc"]
-    m = cflearn.ml.CarefreePipeline()
-    data = cflearn.MLData.with_cf_data(iris_data_file)
-    m.fit(data)
+    m = cflearn.api.fit_ml(iris_data_file, carefree=True)
     print(m.cf_data.raw.x[0])
     print(m.cf_data.raw.y[0])
     print(m.cf_data.processed.x[0])
     print(m.cf_data.processed.y[0])
 
-    train_x, train_y = m.data.train_cf_data.processed.xy
-    valid_x, valid_y = m.data.valid_cf_data.processed.xy
+    data = m.data
+    train_x, train_y = data.train_cf_data.processed.xy
+    valid_x, valid_y = data.valid_cf_data.processed.xy
     stacked = np.vstack([train_x, valid_x])
     print(stacked.mean(0))
     print(stacked.std(0))
