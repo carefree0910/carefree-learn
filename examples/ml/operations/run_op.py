@@ -23,28 +23,21 @@ x = np.random.random([num_data, dim, 1]) * 2.0
 y_add = np.sum(x, axis=1)
 y_prod = np.prod(x, axis=1)
 y_mix = np.hstack([y_add, y_prod])
-data_kwargs = dict(num_history=dim, is_classification=False)
-add_data = cflearn.MLData(x, y_add, **data_kwargs)
-prod_data = cflearn.MLData(x, y_prod, **data_kwargs)
-mix_data = cflearn.MLData(x, y_mix, **data_kwargs)
 
 kwargs = {
+    "data_config": dict(num_history=dim, is_classification=False),
     "output_dim": 1,
     "metric_names": metrics,
     "tqdm_settings": {"use_tqdm": True},
 }
 if is_ci:
-    kwargs["num_epoch"] = 3
-    kwargs["max_epoch"] = 3
+    kwargs["fixed_steps"] = 1
 
 # add
-linear = cflearn.ml.SimplePipeline("linear", **kwargs)  # type: ignore
-fcnn = cflearn.ml.SimplePipeline("fcnn", **kwargs)  # type: ignore
-rnn = cflearn.ml.SimplePipeline("rnn", **kwargs)  # type: ignore
-linear.fit(add_data)
-fcnn.fit(add_data)
-rnn.fit(add_data)
-cflearn.ml.evaluate(add_data, metrics=metrics, pipelines=[linear, fcnn, rnn])
+linear = cflearn.api.fit_ml(x, y_add, core_name="linear", **kwargs)
+fcnn = cflearn.api.fit_ml(x, y_add, core_name="fcnn", **kwargs)
+rnn = cflearn.api.fit_ml(x, y_add, core_name="rnn", **kwargs)
+cflearn.ml.evaluate(linear.data, metrics=metrics, pipelines=[linear, fcnn, rnn])
 
 linear_core = linear.model.core.net
 print(f"w: {linear_core.weight.data}, b: {linear_core.bias.data}")  # type: ignore
