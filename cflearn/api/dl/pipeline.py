@@ -157,7 +157,13 @@ class CarefreePipeline(SimplePipeline):
         in_loading: bool = False,
     ):
         if loss_name is None:
-            loss_name = model_name if model_name in loss_dict else "mse"
+            if model_name in loss_dict:
+                loss_name = model_name
+            else:
+                raise ValueError(
+                    "`loss_name` should be provided when "
+                    "`model_name` has not implemented its own loss"
+                )
         if state_config is None:
             state_config = {}
         state_config.setdefault("max_snapshot_file", 25)
