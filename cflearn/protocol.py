@@ -364,6 +364,7 @@ class MonitorResults(NamedTuple):
 
 class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
     d: Dict[str, Type["LossProtocol"]] = loss_dict
+    placeholder_key = "[PLACEHOLDER]"
 
     def __init__(self, reduction: str = "mean", **kwargs: Any):
         super().__init__()
@@ -538,6 +539,18 @@ class AuxLoss(LossProtocol):
             aux_names = aux_loss_names
 
         return tag
+
+
+@LossProtocol.register(LossProtocol.placeholder_key)
+class PlaceholderLoss(LossProtocol):
+    def _core(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> losses_type:
+        raise ValueError("`forward` should not be called in `PlaceholderLoss`")
 
 
 # inference
