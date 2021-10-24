@@ -9,7 +9,7 @@ examples_folder = os.path.join(file_folder, os.pardir, "examples", "cv", "mnist"
 class TestMNIST(unittest.TestCase):
     def test_clf(self) -> None:
         self.assertEqual(
-            os.system(f"python {os.path.join(examples_folder, 'run_clf.py')}"),
+            os.system(f"python {os.path.join(examples_folder, 'run_clf.py')} --ci 1"),
             0,
         )
 
