@@ -9,6 +9,7 @@ from ...data import DLDataModule
 from ...trainer import callback_dict
 from ...pipeline import DLPipeline
 from ...protocol import loss_dict
+from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
 from ...protocol import ModelWithCustomSteps
 from ...protocol import InferenceProtocol
@@ -156,14 +157,15 @@ class CarefreePipeline(SimplePipeline):
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
+        allow_no_loss: bool = False,
     ):
         if loss_name is None:
             if model_name in loss_dict:
                 loss_name = model_name
             else:
                 model_base = ModelProtocol.get(model_name)
-                if issubclass(model_base, ModelWithCustomSteps):
-                    loss_name = "mse"  # this is just a placeholder
+                if allow_no_loss or issubclass(model_base, ModelWithCustomSteps):
+                    loss_name = LossProtocol.placeholder_key
                 else:
                     raise ValueError(
                         "`loss_name` should be provided when "
