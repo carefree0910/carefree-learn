@@ -238,10 +238,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
         if get_ddp_info() is not None:
-            if self.trainer_config["monitor_names"] is not None:
+            mns = self.trainer_config["monitor_names"]
+            if mns is not None and mns != "conservative" and mns != ["conservative"]:
                 print(
                     f"{WARNING_PREFIX}only `conservative` monitor is available "
-                    "in Distributed Data Parallel (DDP) mode"
+                    f"in DDP mode, {mns} found"
                 )
             self.trainer_config["monitor_names"] = "conservative"
         if self.trainer_config["monitor_names"] is None:
