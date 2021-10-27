@@ -40,7 +40,7 @@ def register_module(
                 **kwargs: Any,
             ) -> tensor_dict_type:
                 rs = self.core(batch[INPUT_KEY], **kwargs)
-                if isinstance(rs, Tensor):
+                if not isinstance(rs, dict):
                     rs = {PREDICTIONS_KEY: rs}
                 return rs
 
