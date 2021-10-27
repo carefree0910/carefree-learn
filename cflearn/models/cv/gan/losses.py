@@ -10,7 +10,7 @@ from ....misc.toolkit import get_gradient
 
 
 class GANTarget(NamedTuple):
-    is_real: bool
+    use_real_label: bool
     labels: Optional[Tensor] = None
 
 
@@ -43,20 +43,20 @@ class GANLoss(nn.Module):
             raise NotImplementedError(f"gan mode {gan_mode} not implemented")
         self.ce = nn.CrossEntropyLoss()
 
-    def expand_target(self, tensor: Tensor, is_real: bool) -> Tensor:
-        target = self.real_label if is_real else self.fake_label
+    def expand_target(self, tensor: Tensor, use_real_label: bool) -> Tensor:
+        target = self.real_label if use_real_label else self.fake_label
         return target.expand_as(tensor)  # type: ignore
 
     def forward(self, output: DiscriminatorOutput, target: GANTarget) -> Tensor:
-        prediction, is_real = output.output, target.is_real
+        predictions, use_real_label = output.output, target.use_real_label
         if self.gan_mode in ["lsgan", "vanilla"]:
-            target_tensor = self.expand_target(prediction, is_real)
-            loss = self.loss(prediction, target_tensor)
+            target_tensor = self.expand_target(predictions, use_real_label)
+            loss = self.loss(predictions, target_tensor)
         elif self.gan_mode == "wgangp":
-            loss = -prediction.mean() if is_real else prediction.mean()
+            loss = -predictions.mean() if use_real_label else predictions.mean()
         else:
             raise NotImplementedError(f"gan_mode '{self.gan_mode}' is not implemented")
-        if output.cond_logits is not None and target.is_real:
+        if output.cond_logits is not None and target.use_real_label:
             cond_loss = self.ce(output.cond_logits, target.labels)
             loss = loss + cond_loss
         return loss
