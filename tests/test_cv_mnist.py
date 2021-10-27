@@ -19,6 +19,12 @@ class TestMNIST(unittest.TestCase):
             0,
         )
 
+    def test_gan(self) -> None:
+        self.assertEqual(
+            os.system(f"python {os.path.join(examples_folder, 'run_gan.py')} --ci 1"),
+            0,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
