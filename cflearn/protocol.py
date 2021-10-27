@@ -178,8 +178,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
     ) -> MetricsOutputs:
         pass
 
-    @staticmethod
-    def params_groups(m: nn.Module) -> Any:
+    def params_groups(self, m: nn.Module) -> Any:
         pass
 
     def init_ddp(self, trainer: Any) -> None:

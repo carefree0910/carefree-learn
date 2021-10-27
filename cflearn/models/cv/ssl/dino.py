@@ -492,8 +492,7 @@ class DINO(ModelWithCustomSteps):
             },
         )
 
-    @staticmethod
-    def params_groups(m: nn.Module) -> Any:
+    def params_groups(self, m: nn.Module) -> Any:
         regularized = []
         bias_and_norm = []
         for name, param in m.named_parameters():
