@@ -86,7 +86,7 @@ def make_trainer(
         for key, settings in optimizer_settings.items():
             optimizer = settings.get("optimizer")
             if optimizer is None:
-                raise ValueError(f"optimizer must be provided (key={key}")
+                raise ValueError(f"optimizer must be provided (key={key})")
             optimizer_packs.append(
                 OptimizerPack(
                     key,
