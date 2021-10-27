@@ -22,6 +22,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.distributed.optim import ZeroRedundancyOptimizer as ZeRO
 from torch.utils.data.distributed import DistributedSampler
 
 from .data import DLLoader
@@ -259,6 +260,7 @@ class Trainer:
         optimizer_config: Optional[Dict[str, Any]] = None,
         scheduler_config: Optional[Dict[str, Any]] = None,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
+        use_zero: bool = False,
         data_info_name: str = "data_info",
         metrics_log_file: str = "metrics.txt",
         finetune_config: Optional[Dict[str, Any]] = None,
@@ -273,6 +275,7 @@ class Trainer:
         self.use_amp = amp
         self.grad_scaler = torch.cuda.amp.GradScaler(enabled=amp)
         self.clip_norm = clip_norm
+        self.use_zero = use_zero
         if monitors is None:
             self.monitors = []
         else:
@@ -523,6 +526,12 @@ class Trainer:
     def _define_optimizer(self, pack: OptimizerPack) -> Optimizer:
         if pack.scope == "all":
             if self.model_has_custom_steps and self.model.custom_params_groups:
+                if self.use_zero:
+                    print(
+                        f"{WARNING_PREFIX}currently PyTorch does not support "
+                        "using ZeRO with parameter groups, so ZeRO will be disabled"
+                    )
+                    self.use_zero = False
                 parameters = self.model.params_groups(self.model_for_training)
             else:
                 parameters = [
@@ -537,7 +546,11 @@ class Trainer:
             else:
                 parameters = attr.parameters()
         optimizer_base = optimizer_dict[pack.optimizer_name]
-        opt = optimizer_base(parameters, **(pack.optimizer_config or {}))
+        opt_config = pack.optimizer_config or {}
+        if not self.ddp or not self.use_zero:
+            opt = optimizer_base(parameters, **opt_config)
+        else:
+            opt = ZeRO(parameters, optimizer_base, **opt_config)
         self.optimizers[pack.scope] = opt
         return opt
 
