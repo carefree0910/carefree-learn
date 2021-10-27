@@ -1,6 +1,7 @@
 import torch
 
 from torch import nn
+from torch import Tensor
 from typing import Optional
 from typing import NamedTuple
 
@@ -10,7 +11,7 @@ from ....misc.toolkit import get_gradient
 
 class GANTarget(NamedTuple):
     is_real: bool
-    labels: Optional[torch.Tensor] = None
+    labels: Optional[Tensor] = None
 
 
 class GradientNormLoss(nn.Module):
@@ -18,7 +19,7 @@ class GradientNormLoss(nn.Module):
         super().__init__()
         self.k = k
 
-    def forward(self, net_input: torch.Tensor, output: torch.Tensor) -> torch.Tensor:
+    def forward(self, net_input: Tensor, output: Tensor) -> Tensor:
         gradients = get_gradient(output, net_input, True, True)
         gradients = gradients.view(net_input.shape[0], -1)  # type: ignore
         gradients_norm = gradients.norm(2, dim=1)
@@ -42,11 +43,11 @@ class GANLoss(nn.Module):
             raise NotImplementedError(f"gan mode {gan_mode} not implemented")
         self.ce = nn.CrossEntropyLoss()
 
-    def expand_target(self, tensor: torch.Tensor, is_real: bool) -> torch.Tensor:
+    def expand_target(self, tensor: Tensor, is_real: bool) -> Tensor:
         target = self.real_label if is_real else self.fake_label
         return target.expand_as(tensor)  # type: ignore
 
-    def forward(self, output: DiscriminatorOutput, target: GANTarget) -> torch.Tensor:
+    def forward(self, output: DiscriminatorOutput, target: GANTarget) -> Tensor:
         prediction, is_real = output.output, target.is_real
         if self.gan_mode in ["lsgan", "vanilla"]:
             target_tensor = self.expand_target(prediction, is_real)
