@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import List
 from typing import Type
@@ -33,7 +34,10 @@ def register_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                return {PREDICTIONS_KEY: self.core(batch[INPUT_KEY], **kwargs)}
+                rs = self.core(batch[INPUT_KEY], **kwargs)
+                if isinstance(rs, Tensor):
+                    rs = {PREDICTIONS_KEY: rs}
+                return rs
 
         return m
 
