@@ -540,7 +540,13 @@ class Trainer:
                     if param.requires_grad
                 ]
         else:
-            attr = getattr(self.model_for_training, pack.scope)
+            attr = self.model_for_training
+            scopes = pack.scope.split(".")
+            for scope in scopes:
+                new_attr = getattr(attr, scope, None)
+                if new_attr is None:
+                    raise ValueError(f"'{attr}' has no scope '{scope}'")
+                attr = new_attr
             if not isinstance(attr, nn.Module):
                 parameters = attr
             else:
