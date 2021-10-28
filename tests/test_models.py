@@ -366,11 +366,9 @@ class TestModels(unittest.TestCase):
         )
 
     def test_cv_generator(self) -> None:
+        size = 3
         pixel_cnn = cflearn.PixelCNN(1, num_classes)
-        self.assertSequenceEqual(
-            pixel_cnn.sample(5, img_size).shape,
-            [5, 1, img_size, img_size],
-        )
+        self.assertSequenceEqual(pixel_cnn.sample(5, size).shape, [5, 1, size, size])
 
         vqgan_generator = cflearn.VQGANGenerator(
             img_size,
