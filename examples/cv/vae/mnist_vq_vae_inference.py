@@ -17,6 +17,6 @@ config = dict(
     debug=is_ci,
 )
 if is_ci:
-    config["callback_names"] = []
-inference = cflearn.cv.VQVAEInference(workplace, **config)
+    config["callback_names"] = []  # type: ignore
+inference = cflearn.cv.VQVAEInference(workplace, **config)  # type: ignore
 inference.fit(data)
