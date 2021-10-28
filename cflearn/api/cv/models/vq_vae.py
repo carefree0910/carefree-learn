@@ -22,34 +22,6 @@ from ....misc.internal_ import ImageCallback
 from ....models.cv.vae.vector_quantized import VQVAE
 
 
-def export_code_indices(vqvae: VQVAE, data: CVDataModule, export_folder: str) -> None:
-    os.makedirs(export_folder, exist_ok=True)
-    finished_path = os.path.join(export_folder, "__finished__")
-    if os.path.isfile(finished_path):
-        return None
-    data.prepare(None)
-    code_train, code_valid = data.initialize()
-    for name, loader in zip(["train", "valid"], [code_train, code_valid]):
-        if loader is None:
-            continue
-        labels = []
-        code_indices = []
-        for batch in tqdm(loader, desc=f"{name} codes", total=len(loader)):
-            labels.append(batch[LABEL_KEY])
-            net = batch[INPUT_KEY].to(vqvae.device)
-            code_indices.append(vqvae.get_code_indices(net).unsqueeze(1))
-        all_codes = torch.cat(code_indices, dim=0)
-        path = os.path.join(export_folder, f"{name}.pt")
-        print(f"{INFO_PREFIX}saving {name} codes ({all_codes.shape})")
-        torch.save(all_codes, path)
-        all_labels = torch.cat(labels, dim=0)
-        label_path = os.path.join(export_folder, f"{name}_labels.pt")
-        print(f"{INFO_PREFIX}saving {name} labels ({all_labels.shape})")
-        torch.save(all_labels, label_path)
-    with open(finished_path, "w"):
-        pass
-
-
 def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> None:
     @ImageCallback.register("pixel_cnn")
     class _(ImageCallback):
@@ -120,6 +92,7 @@ class VQVAEInference:
         **kwargs: Any,
     ):
         self.cuda = cuda
+        self.debug = kwargs.get("debug", False)
         self.vqvae = load(pack(vqvae_log_folder), cuda=cuda).model
         self.code_export_folder = os.path.join(workplace, "codes")
         register_callback(self.vqvae, num_classes)
@@ -133,9 +106,39 @@ class VQVAEInference:
             msg = f"inference model '{inference_model}' is not implemented"
             raise NotImplementedError(msg)
 
+    def export_code_indices(self, data: CVDataModule, export_folder: str) -> None:
+        os.makedirs(export_folder, exist_ok=True)
+        finished_path = os.path.join(export_folder, "__finished__")
+        if os.path.isfile(finished_path):
+            return None
+        data.prepare(None)
+        code_train, code_valid = data.initialize()
+        for name, loader in zip(["train", "valid"], [code_train, code_valid]):
+            if loader is None:
+                continue
+            labels = []
+            code_indices = []
+            for batch in tqdm(loader, desc=f"{name} codes", total=len(loader)):
+                labels.append(batch[LABEL_KEY])
+                net = batch[INPUT_KEY].to(self.vqvae.device)
+                code_indices.append(self.vqvae.get_code_indices(net).unsqueeze(1))
+                if self.debug:
+                    break
+            all_codes = torch.cat(code_indices, dim=0)
+            path = os.path.join(export_folder, f"{name}.pt")
+            print(f"{INFO_PREFIX}saving {name} codes ({all_codes.shape})")
+            torch.save(all_codes, path)
+            all_labels = torch.cat(labels, dim=0)
+            label_path = os.path.join(export_folder, f"{name}_labels.pt")
+            print(f"{INFO_PREFIX}saving {name} labels ({all_labels.shape})")
+            torch.save(all_labels, label_path)
+        if not self.debug:
+            with open(finished_path, "w"):
+                pass
+
     def fit(self, data: CVDataModule) -> "VQVAEInference":
         export_folder = self.code_export_folder
-        export_code_indices(self.vqvae, data, export_folder)
+        self.export_code_indices(data, export_folder)
         x_train = torch.load(os.path.join(export_folder, "train.pt"))
         y_train = torch.load(os.path.join(export_folder, "train_labels.pt"))
         x_valid = torch.load(os.path.join(export_folder, "valid.pt"))
