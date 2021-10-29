@@ -1,2 +1,2 @@
 include cflearn/misc/available.json
-include cflearn/api/zoo/configs/*/*.json
+include cflearn/api/zoo/configs/*/*/*.json
