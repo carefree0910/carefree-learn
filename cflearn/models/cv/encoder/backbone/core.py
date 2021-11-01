@@ -34,6 +34,11 @@ class Backbone(nn.Module):
         except:
             self.core = IntermediateLayerGetter(core, self.return_nodes)
         set_requires_grad(self.core, requires_grad)
+        stage_idx = set()
+        for layer in self.return_nodes.values():
+            if layer.startswith("stage"):
+                stage_idx.add(int(layer.split("_")[0][-1]))
+        self.num_downsample = len(stage_idx) - int(bool(0 in stage_idx))
 
     @property
     def original(self) -> nn.Module:

@@ -57,6 +57,7 @@ class BackboneEncoder(EncoderBase):
             requires_grad=finetune,
             **(backbone_config or {}),
         )
+        self.num_downsample = self.net.num_downsample
 
     def forward(
         self,
