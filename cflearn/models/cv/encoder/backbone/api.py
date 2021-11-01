@@ -58,6 +58,19 @@ class BackboneEncoder(EncoderBase):
             **(backbone_config or {}),
         )
         self.num_downsample = self.net.num_downsample
+        self.latent_channels = self.net.latent_channels
+        if num_downsample is not None and num_downsample != self.num_downsample:
+            raise ValueError(
+                f"provided `num_downsample` ({num_downsample}) is not "
+                f"identical with `target_downsample` ({self.num_downsample}), "
+                f"please consider set `num_downsample` to {self.num_downsample}"
+            )
+        if latent_channels is not None and latent_channels != self.latent_channels:
+            raise ValueError(
+                f"provided `latent_channels` ({latent_channels}) is not "
+                f"identical with `preset_latent_channels` ({self.latent_channels}), "
+                f"please consider set `latent_channels` to {self.latent_channels}"
+            )
 
     def forward(
         self,
