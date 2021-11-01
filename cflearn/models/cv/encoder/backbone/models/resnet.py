@@ -58,4 +58,4 @@ register_backbone(
 )(resnet152)
 
 
-__all__ = []
+__all__ = []  # type: ignore

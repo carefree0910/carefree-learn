@@ -16,4 +16,4 @@ register_backbone(
 )(mobilenet_v2)
 
 
-__all__ = []
+__all__ = []  # type: ignore
