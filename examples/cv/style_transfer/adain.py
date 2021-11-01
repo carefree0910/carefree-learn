@@ -10,7 +10,7 @@ from cflearn.misc.toolkit import download_dataset
 from cflearn.models.cv.stylizer.constants import STYLE_KEY
 
 
-is_ci = check_is_ci() or True
+is_ci = check_is_ci()
 Image.MAX_IMAGE_PIXELS = None
 
 data_root = DATA_CACHE_DIR if is_ci else "data"
