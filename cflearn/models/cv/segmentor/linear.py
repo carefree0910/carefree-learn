@@ -41,8 +41,7 @@ class LinearSegmentation(ImageTranslatorMixin, ModelProtocol):
             backbone_config=backbone_config,
         )
         linear_blocks: List[nn.Module] = []
-        increment_config = self.backbone.net.increment_config
-        backbone_channels = increment_config["out_channels"]
+        backbone_channels = self.backbone.net.out_channels
         for num_channel in backbone_channels:
             linear_blocks.append(
                 nn.Sequential(
