@@ -11,40 +11,75 @@ from typing import Optional
 from torchvision.models import vgg16
 from torchvision.models import vgg19
 
-from .register import register_backbone
+from ..register import register_backbone
 from ......misc.toolkit import download_model
-from ......modules.blocks import get_conv_blocks
-from ......modules.blocks import Conv2d
 from ......modules.blocks import SEBlock
 
 
-class VGG(nn.Module):
-    def __init__(self, base: Any, slices: List[int], pretrained: bool = True):
-        super().__init__()
-        vgg_layers = base(pretrained=pretrained).features
-        start_idx = 0
-        sliced_modules = []
-        for slice_idx in slices:
-            local_module = nn.Sequential()
-            for i in range(start_idx, slice_idx):
-                local_module.add_module(str(i), vgg_layers[i])
-            sliced_modules.append(local_module)
-            start_idx = slice_idx
-        self.num_slices = len(sliced_modules)
-        for i, sliced_m in enumerate(sliced_modules):
-            setattr(self, f"slice{i}", sliced_m)
-
-    def forward(self, net: torch.Tensor) -> torch.Tensor:
-        for i in range(self.num_slices):
-            net = getattr(self, f"slice{i}")(net)
-        return net
+register_backbone(
+    "vgg16",
+    [64, 128, 256, 512],
+    {
+        "features.3": "stage0",
+        "features.8": "stage1",
+        "features.15": "stage2",
+        "features.22": "stage3",
+    },
+)(vgg16)
 
 
+register_backbone(
+    "vgg19",
+    [64, 128, 256, 512],
+    {
+        "features.3": "stage0",
+        "features.8": "stage1",
+        "features.17": "stage2",
+        "features.26": "stage3",
+    },
+)(vgg19)
+
+
+register_backbone(
+    "vgg19_lite",
+    [64, 128, 256, 512],
+    {
+        "features.1": "stage0",
+        "features.6": "stage1",
+        "features.11": "stage2",
+        "features.20": "stage3",
+    },
+)(vgg19)
+
+
+register_backbone(
+    "vgg19_large",
+    [64, 128, 256, 512, 512, 512],
+    {
+        "features.3": "stage0",
+        "features.8": "stage1",
+        "features.17": "stage2",
+        "features.22": "stage3_first",
+        "features.26": "stage3_second",
+        "features.35": "stage4",
+    },
+)(vgg19)
+
+
+@register_backbone(
+    "vgg_style",
+    [64, 128, 256, 512],
+    {
+        "net.3": "stage0",
+        "net.10": "stage1",
+        "net.17": "stage2",
+        "net.30": "stage3",
+    },
+)
 class VGGStyle(nn.Module):
-    def __init__(self, slices: List[int], pretrained: bool = True):
+    def __init__(self, pretrained: bool = True):
         super().__init__()
-        start_idx = 0
-        blocks = [
+        self.net = nn.Sequential(
             nn.Conv2d(3, 3, (1, 1)),
             nn.ReflectionPad2d((1, 1, 1, 1)),
             nn.Conv2d(3, 64, (3, 3)),
@@ -76,50 +111,13 @@ class VGGStyle(nn.Module):
             nn.ReflectionPad2d((1, 1, 1, 1)),
             nn.Conv2d(256, 512, (3, 3)),
             nn.ReLU(),
-        ]
-        sliced_modules: List[nn.Module] = []
-        for slice_idx in slices:
-            local_module = nn.Sequential()
-            for i in range(start_idx, slice_idx):
-                local_module.add_module(str(i), blocks[i])
-            sliced_modules.append(local_module)
-            start_idx = slice_idx
-        self.num_slices = len(sliced_modules)
-        for i, sliced_m in enumerate(sliced_modules):
-            setattr(self, f"slice{i}", sliced_m)
+        )
         if pretrained:
             pt_path = download_model("vgg_style")
             self.load_state_dict(torch.load(pt_path))
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
-        for i in range(self.num_slices):
-            net = getattr(self, f"slice{i}")(net)
-        return net
-
-
-@register_backbone("vgg16")
-def sliced_vgg16(pretrained: bool = True) -> VGG:
-    return VGG(vgg16, [4, 9, 16, 23], pretrained=pretrained)
-
-
-@register_backbone("vgg19")
-def sliced_vgg19(pretrained: bool = True) -> VGG:
-    return VGG(vgg19, [4, 9, 18, 27], pretrained=pretrained)
-
-
-@register_backbone("vgg19_lite")
-def sliced_vgg19_lite(pretrained: bool = True) -> VGG:
-    return VGG(vgg19, [2, 7, 12, 21], pretrained=pretrained)
-
-
-@register_backbone("vgg19_large")
-def sliced_vgg19_large(pretrained: bool = True) -> VGG:
-    return VGG(vgg19, [4, 9, 18, 23, 27, 36], pretrained=pretrained)
-
-
-@register_backbone("vgg_style")
-def vgg_style(pretrained: bool = True) -> VGGStyle:
-    return VGGStyle([4, 11, 18, 31], pretrained=pretrained)
+        return self.net(net)
 
 
 class RepVGGBlock(nn.Module):
@@ -150,10 +148,10 @@ class RepVGGBlock(nn.Module):
         if not use_post_se:
             self.post_se = nn.Identity()
         else:
-            self.post_se = SEBlock(out_channels, out_channels // 4)
+            self.post_se = SEBlock(out_channels, out_channels // 4, block_impl="torch")
 
         if deploy:
-            self.conv_fused = Conv2d(
+            self.conv_fused = nn.Conv2d(
                 in_channels,
                 out_channels,
                 kernel_size=kernel_size,
@@ -169,28 +167,28 @@ class RepVGGBlock(nn.Module):
             else:
                 self.identity = None
             self.dense = nn.Sequential(
-                *get_conv_blocks(
+                nn.Conv2d(
                     in_channels,
                     out_channels,
                     kernel_size,
                     stride,
-                    bias=False,
-                    norm_type="batch",
-                    padding=padding,
+                    padding,
                     groups=groups,
-                )
+                    bias=False,
+                ),
+                nn.BatchNorm2d(out_channels),
             )
             self.side = nn.Sequential(
-                *get_conv_blocks(
+                nn.Conv2d(
                     in_channels,
                     out_channels,
                     1,
                     stride,
-                    bias=False,
-                    norm_type="batch",
-                    padding=padding - kernel_size // 2,
+                    padding - kernel_size // 2,
                     groups=groups,
-                )
+                    bias=False,
+                ),
+                nn.BatchNorm2d(out_channels),
             )
 
     def forward(self, net: Tensor) -> Tensor:
@@ -390,21 +388,54 @@ class RepVGG(nn.Module):
         self.stage5.switch_to_deploy()
 
 
-@register_backbone("rep_vgg")
+@register_backbone(
+    "rep_vgg",
+    [64, 128, 256, 512, 512, 2048],
+    dict(
+        stage1="stage1",
+        stage2="stage2",
+        stage3="stage3",
+        stage4_first="stage4_first",
+        stage4_second="stage4_second",
+        stage5="stage5",
+    ),
+)
 def rep_vgg(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")
     return RepVGG([4, 6, 16, 1], [2.0, 2.0, 2.0, 4.0])
 
 
-@register_backbone("rep_vgg_lite")
+@register_backbone(
+    "rep_vgg_lite",
+    [48, 48, 96, 192, 192, 1280],
+    dict(
+        stage1="stage1",
+        stage2="stage2",
+        stage3="stage3",
+        stage4_first="stage4_first",
+        stage4_second="stage4_second",
+        stage5="stage5",
+    ),
+)
 def rep_vgg_lite(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")
     return RepVGG([2, 4, 14, 1], [0.75, 0.75, 0.75, 2.5])
 
 
-@register_backbone("rep_vgg_large")
+@register_backbone(
+    "rep_vgg_large",
+    [64, 160, 320, 640, 640, 2560],
+    dict(
+        stage1="stage1",
+        stage2="stage2",
+        stage3="stage3",
+        stage4_first="stage4_first",
+        stage4_second="stage4_second",
+        stage5="stage5",
+    ),
+)
 def rep_vgg_large(pretrained: bool = False) -> RepVGG:
     if pretrained:
         raise ValueError("`RepVGG` does not support `pretrained`")
@@ -412,10 +443,6 @@ def rep_vgg_large(pretrained: bool = False) -> RepVGG:
 
 
 __all__ = [
-    "sliced_vgg16",
-    "sliced_vgg19",
-    "sliced_vgg19_lite",
-    "sliced_vgg19_large",
     "rep_vgg",
     "rep_vgg_lite",
     "rep_vgg_large",

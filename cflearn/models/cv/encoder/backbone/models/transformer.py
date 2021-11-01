@@ -6,7 +6,7 @@ from typing import List
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
-from .register import register_backbone
+from ..register import register_backbone
 from ......modules.blocks import ImgToPatches
 from ......modules.blocks import MixedStackedEncoder
 
@@ -96,7 +96,16 @@ class MixViT(nn.Module):
         return net
 
 
-@register_backbone("mix_vit")
+@register_backbone(
+    "mix_vit",
+    [64, 128, 320, 512],
+    dict(
+        stage1="stage1",
+        stage2="stage2",
+        stage3="stage3",
+        stage4="stage4",
+    ),
+)
 def mix_vit(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
@@ -110,7 +119,16 @@ def mix_vit(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     )
 
 
-@register_backbone("mix_vit_lite")
+@register_backbone(
+    "mix_vit_lite",
+    [32, 64, 160, 256],
+    dict(
+        stage1="stage1",
+        stage2="stage2",
+        stage3="stage3",
+        stage4="stage4",
+    ),
+)
 def mix_vit_lite(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")
@@ -124,7 +142,16 @@ def mix_vit_lite(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     )
 
 
-@register_backbone("mix_vit_large")
+@register_backbone(
+    "mix_vit_large",
+    [64, 128, 320, 512],
+    dict(
+        stage1="stage1",
+        stage2="stage2",
+        stage3="stage3",
+        stage4="stage4",
+    ),
+)
 def mix_vit_large(pretrained: bool = False, *, in_channels: int = 3) -> MixViT:
     if pretrained:
         raise ValueError("`MixViT` does not support `pretrained`")

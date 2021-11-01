@@ -44,52 +44,8 @@ class BackboneEncoder(EncoderBase):
         pretrained: bool = False,
         use_to_rgb: bool = False,
         to_rgb_bias: bool = False,
-        remove_layers: Optional[List[str]] = None,
-        target_layers: Optional[Dict[str, str]] = None,
-        increment_config: Optional[Dict[str, Any]] = None,
         backbone_config: Optional[Dict[str, Any]] = None,
     ):
-        # preset stuffs
-        if remove_layers is None:
-            remove_layers = Preset.remove_layers.get(name)
-        if remove_layers is None:
-            msg = f"`remove_layers` should be provided for `{name}`"
-            raise ValueError(msg)
-        if target_layers is None:
-            target_layers = Preset.target_layers.get(name)
-        if target_layers is None:
-            msg = f"`target_layers` should be provided for `{name}`"
-            raise ValueError(msg)
-        if increment_config is None:
-            increment_config = Preset.increment_configs.get(name)
-        if increment_config is None:
-            msg = f"`increment_config` should be provided for `{name}`"
-            raise ValueError(msg)
-        out_channels = increment_config.get("out_channels")
-        if out_channels is None:
-            raise ValueError("`out_channels` should be provided in `increment_config`")
-        preset_latent_channels = out_channels[-1]
-        if latent_channels is not None and latent_channels != preset_latent_channels:
-            raise ValueError(
-                f"provided `latent_channels` ({latent_channels}) is not "
-                f"identical with `preset_latent_channels` ({preset_latent_channels}), "
-                f"please consider set `latent_channels` to {preset_latent_channels}"
-            )
-        latent_channels = preset_latent_channels
-        stage_idx = set()
-        for layer in target_layers.values():
-            if layer.startswith("stage"):
-                stage_idx.add(int(layer.split("_")[0][-1]))
-        target_downsample = len(stage_idx) - int(bool(0 in stage_idx))
-        if num_downsample is None:
-            num_downsample = target_downsample
-        elif num_downsample != target_downsample:
-            raise ValueError(
-                f"provided `num_downsample` ({num_downsample}) is not "
-                f"identical with `target_downsample` ({target_downsample}), "
-                f"please consider set `num_downsample` to {target_downsample}"
-            )
-        # initialization
         super().__init__(in_channels, num_downsample, latent_channels)  # type: ignore
         if in_channels == 3 and not use_to_rgb:
             self.to_rgb = None
@@ -97,12 +53,8 @@ class BackboneEncoder(EncoderBase):
             self.to_rgb = Conv2d(in_channels, 3, kernel_size=1, bias=to_rgb_bias)
         self.net = Backbone(
             name,
-            latent_channels=latent_channels,  # type: ignore
             pretrained=pretrained,
             requires_grad=finetune,
-            remove_layers=remove_layers,
-            target_layers=target_layers,
-            increment_config=increment_config,
             **(backbone_config or {}),
         )
 
@@ -129,9 +81,6 @@ class BackboneEncoder1D(Encoder1DBase):
         *,
         finetune: bool = True,
         pretrained: bool = False,
-        remove_layers: Optional[List[str]] = None,
-        target_layers: Optional[Dict[str, str]] = None,
-        increment_config: Optional[Dict[str, Any]] = None,
         backbone_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(in_channels, -1)
@@ -141,9 +90,6 @@ class BackboneEncoder1D(Encoder1DBase):
             latent_dim,
             finetune=finetune,
             pretrained=pretrained,
-            remove_layers=remove_layers,
-            target_layers=target_layers,
-            increment_config=increment_config,
             backbone_config=backbone_config,
         )
         self.latent_dim = self.encoder.latent_channels

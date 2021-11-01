@@ -19,7 +19,6 @@ from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
 from cflearn.models.cv.encoder import BackboneEncoder
 from cflearn.models.ml.encoders import Encoder
-from cflearn.models.cv.encoder.backbone.core import IntermediateLayerGetter
 
 
 class TestBlocks(unittest.TestCase):
@@ -267,23 +266,17 @@ class TestBlocks(unittest.TestCase):
             encoder = BackboneEncoder(key, in_channels)
             results = encoder(0, {INPUT_KEY: inp})
             backbone = encoder.net
-            core = backbone.core
-            if isinstance(core, IntermediateLayerGetter):
-                core = core.original_model
             if check_rep_vgg_deploy:
-                core.switch_to_deploy()
-            for layer in backbone.remove_layers:
-                self.assertTrue(not hasattr(core, layer))
-            target_layers = list(backbone.target_layers.values())
+                backbone.original.switch_to_deploy()
+            return_nodes = list(backbone.return_nodes.values())
             latent_resolution = encoder.latent_resolution(img_size)
-            out_channels = backbone.increment_config["out_channels"]
             for i, (k, v) in enumerate(results.items()):
                 if k == LATENT_KEY:
                     self.assertEqual(v.shape[1], backbone.latent_channels)
                     self.assertEqual(v.shape[-1], latent_resolution)
                 else:
-                    self.assertEqual(k, target_layers[i])
-                    self.assertEqual(v.shape[1], out_channels[i])
+                    self.assertEqual(k, return_nodes[i])
+                    self.assertEqual(v.shape[1], backbone.out_channels[i])
 
         img_size = 37
         batch_size = 11
@@ -299,6 +292,7 @@ class TestBlocks(unittest.TestCase):
                     "vgg19",
                     "vgg19_lite",
                     "vgg19_large",
+                    "vgg_style",
                     "rep_vgg",
                     "rep_vgg_deploy",
                     "rep_vgg_lite",
@@ -311,6 +305,7 @@ class TestBlocks(unittest.TestCase):
                     "resnet18",
                     "resnet50",
                     "resnet101",
+                    "resnet152",
                 ],
             )
         )

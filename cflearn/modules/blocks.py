@@ -2663,20 +2663,34 @@ class ECABlock(Module):
 
 
 class SEBlock(Module):
-    def __init__(self, in_channels: int, latent_channels: int, *, impl: str = "conv"):
+    def __init__(
+        self,
+        in_channels: int,
+        latent_channels: int,
+        *,
+        impl: str = "conv",
+        block_impl: str = "cflearn",
+    ):
         super().__init__()
         self.in_channels = in_channels
-        self.avg_pool = AdaptiveAvgPool2d(1)
+        if block_impl == "cflearn":
+            conv_base = Conv2d
+            self.avg_pool = AdaptiveAvgPool2d(1)
+        elif block_impl == "torch":
+            conv_base = nn.Conv2d
+            self.avg_pool = nn.AdaptiveAvgPool2d(1)
+        else:
+            raise ValueError(f"unrecognized `block_impl` ({block_impl}) found")
         self.fc = self.up = self.down = None
         if impl == "conv":
-            self.down = Conv2d(
+            self.down = conv_base(
                 in_channels,
                 latent_channels,
                 kernel_size=1,
                 stride=1,
                 bias=True,
             )
-            self.up = Conv2d(
+            self.up = conv_base(
                 latent_channels,
                 in_channels,
                 kernel_size=1,
