@@ -102,8 +102,7 @@ class UNet(ImageTranslatorMixin, ModelProtocol):
             in_channels,
             backbone_config=backbone_config,
         )
-        increment_config = self.backbone.net.increment_config
-        backbone_channels = increment_config["out_channels"]
+        backbone_channels = self.backbone.net.out_channels
         self.decoder = UNetDecoder(backbone_channels, **(decoder_config or {}))
         self.head = Conv2d(backbone_channels[0], out_channels, kernel_size=3)
 
