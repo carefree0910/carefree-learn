@@ -66,13 +66,13 @@ class IntermediateLayerGetter(nn.ModuleDict):
         super().__init__(layers)
         self.return_layers = orig_return_layers
 
-    def forward(self, x):
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         out = OrderedDict()
         for name, module in self.items():
-            x = module(x)
+            net = module(net)
             if name in self.return_layers:
                 out_name = self.return_layers[name]
-                out[out_name] = x
+                out[out_name] = net
         return out
 
 
