@@ -3,7 +3,6 @@ import torch
 from torch import nn
 from typing import Any
 from torchvision.models._utils import IntermediateLayerGetter
-from torchvision.models.feature_extraction import create_feature_extractor
 
 from .register import backbone_info_dict
 from .....types import tensor_dict_type
@@ -29,10 +28,7 @@ class Backbone(nn.Module):
         core = backbone_info.fn(pretrained, **kwargs)
         self._original = [core]
         self.return_nodes = backbone_info.return_nodes
-        try:
-            self.core = create_feature_extractor(core, return_nodes=self.return_nodes)
-        except:
-            self.core = IntermediateLayerGetter(core, self.return_nodes)
+        self.core = IntermediateLayerGetter(core, self.return_nodes)
         set_requires_grad(self.core, requires_grad)
         stage_idx = set()
         for layer in self.return_nodes.values():
