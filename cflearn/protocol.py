@@ -181,7 +181,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
     def params_groups(self, m: nn.Module) -> Any:
         pass
 
-    def init_ddp(self, trainer: Any) -> None:
+    def init_ddp(self) -> None:
         pass
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:

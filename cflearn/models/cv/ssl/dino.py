@@ -507,12 +507,12 @@ class DINO(ModelWithCustomSteps):
     def _init_with_trainer(self, trainer: Any) -> None:
         self.teacher_for_training.requires_grad_(False)
 
-    def init_ddp(self, trainer: Any) -> None:
+    def init_ddp(self) -> None:
         if has_batch_norms(self.student):
             self.student = nn.SyncBatchNorm.convert_sync_batchnorm(self.student)
             self.teacher = nn.SyncBatchNorm.convert_sync_batchnorm(self.teacher)
-        self.ddp_student = DDP(self.student, device_ids=[trainer.rank])
-        self.ddp_teacher = DDP(self.teacher, device_ids=[trainer.rank])
+        self.ddp_student = DDP(self.student)
+        self.ddp_teacher = DDP(self.teacher)
         self.ddp_teacher.requires_grad_(False)  # type: ignore
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:

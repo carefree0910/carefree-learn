@@ -112,7 +112,7 @@ class CustomModule(nn.Module, metaclass=ABCMeta):
     def params_groups(m: nn.Module) -> Any:
         pass
 
-    def init_ddp(self, trainer: Any) -> None:
+    def init_ddp(self) -> None:
         pass
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
@@ -182,8 +182,8 @@ def register_custom_module(
             def params_groups(self, m_: nn.Module) -> Any:
                 return self.core.params_groups(m_)
 
-            def init_ddp(self, trainer: Any) -> None:
-                self.core.init_ddp(trainer)
+            def init_ddp(self) -> None:
+                self.core.init_ddp()
 
             def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
                 self.core.permute_trainer_config(trainer_config)

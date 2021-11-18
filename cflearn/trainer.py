@@ -430,12 +430,14 @@ class Trainer:
                 raise ValueError("Only `ConservativeMonitor` could be used in ddp mode")
         # ddp setup
         _setup_ddp()
+        torch.cuda.empty_cache()
+        torch.cuda.set_device(self.rank)
         if self.model_has_custom_steps and self.model.custom_ddp_initialization:
-            self.model.init_ddp(self)
+            self.model.init_ddp()
             return None
         if has_batch_norms(self.model):
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
-        self.ddp_model = DDP(self.model.to(self.rank), device_ids=[self.rank])
+        self.ddp_model = DDP(self.model)
 
     def _init_finetune(self) -> None:
         if self.finetune_config is None:
