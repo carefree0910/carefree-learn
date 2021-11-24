@@ -96,7 +96,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     device_info: DeviceInfo
 
     pipeline_file: str = "pipeline.txt"
-    config_file: str = "config.json"
+    config_name: str = "config"
     trainer_config_file: str = "trainer_config.json"
     data_info_name: str = "data_info"
     metrics_log_file: str = "metrics.txt"
@@ -228,8 +228,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             self.trainer_config["data_info_name"] = self.data_info_name
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
             self._write_pipeline_info(workplace)
-            with open(os.path.join(workplace, self.config_file), "w") as f:
-                json.dump(self.config, f)
+            Saving.save_dict(self.config, self.config_name, workplace)
 
     def _prepare_loss(self) -> None:
         if self.in_loading:
@@ -442,8 +441,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 scores = json.load(rf)
             with open(os.path.join(pack_folder, SCORES_FILE), "w") as wf:
                 json.dump({new_file: scores[best_file]}, wf)
-            with open(os.path.join(workplace, cls.config_file), "r") as rf:
-                config = json.load(rf)
+            config = Saving.load_dict(cls.config_name, workplace)
             config_bundle = {
                 "config": config,
                 "device_info": DeviceInfo(cuda, None),
