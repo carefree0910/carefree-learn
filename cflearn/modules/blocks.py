@@ -367,6 +367,12 @@ class QuickGELU(Activation):
         return net * torch.sigmoid(1.702 * net)
 
 
+@Activation.register("diff_relu")
+class DiffReLU(Activation):
+    def forward(self, net: Tensor) -> Tensor:
+        return net + (torch.relu(net) - net).detach()
+
+
 # custom blocks
 
 
