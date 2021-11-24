@@ -17,6 +17,6 @@ predictions = m.predict(idata)[cflearn.PREDICTIONS_KEY]
 m.save("boston")
 m2 = cflearn.api.load("boston")
 assert np.allclose(predictions, m2.predict(idata)[cflearn.PREDICTIONS_KEY])
-m.to_onnx("boston_onnx")
+m.to_onnx("boston_onnx", onnx_only=False)
 m3 = cflearn.ml.SimplePipeline.from_onnx("boston_onnx")
 assert np.allclose(predictions, m3.predict(idata)[cflearn.PREDICTIONS_KEY], atol=1.0e-4)

@@ -38,7 +38,7 @@ class TestPipeline(unittest.TestCase):
         name = "test_serialization"
         m.fit(data).save(name)
         cflearn.api.load(name)
-        m.to_onnx(".onnx")
+        m.to_onnx(".onnx", onnx_only=False)
         cflearn.cv.CarefreePipeline.from_onnx(".onnx")
         workplace = get_latest_workplace("_logs")
         assert workplace is not None

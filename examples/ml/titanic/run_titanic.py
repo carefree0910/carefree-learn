@@ -29,7 +29,7 @@ results = m3.predict(idata, make_loader_kwargs={"contains_labels": False})
 assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY])
 
 onnx_folder = "titanic_onnx"
-m.to_onnx(onnx_folder)
+m.to_onnx(onnx_folder, onnx_only=False)
 m4 = cflearn.ml.CarefreePipeline.from_onnx(onnx_folder)
 results = m4.predict(idata, make_loader_kwargs={"contains_labels": False})
 assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY], atol=1.0e-4)
