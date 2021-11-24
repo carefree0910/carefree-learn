@@ -6,8 +6,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABCMeta
+from abc import abstractmethod, ABCMeta
 from torch import Tensor
 from einops import repeat
 from typing import Any
@@ -225,236 +224,17 @@ class MTL(Module):
         return f"n_task={self._n_task}, method='{method}'"
 
 
-class _multiplied_activation(Module, metaclass=ABCMeta):
-    def __init__(
-        self,
-        ratio: float,
-        trainable: bool = True,
-    ):
+# activations
+
+
+activations: Dict[str, Type["Activation"]] = {}
+
+
+class Activation(WithRegister, Module, metaclass=ABCMeta):
+    d = activations
+
+    def __init__(self, **kwargs: Any):
         super().__init__()
-        self.trainable = trainable
-        ratio_ = torch.tensor([ratio], dtype=torch.float32)
-        self.ratio = ratio_ if not trainable else nn.Parameter(ratio_)
-
-    @abstractmethod
-    def _core(self, multiplied: Tensor) -> Tensor:
-        pass
-
-    def forward(self, net: Tensor) -> Tensor:
-        return self._core(net * self.ratio)
-
-    def extra_repr(self) -> str:
-        return f"ratio={self.ratio.item()}, trainable={self.trainable}"
-
-
-class Activations:
-    """
-    Wrapper class for pytorch activations
-    * when pytorch implemented corresponding activation, it will be returned
-    * otherwise, custom implementation will be returned
-
-    Parameters
-    ----------
-    configs : {None, dict}, configuration for the activation
-
-    Examples
-    --------
-    >>> act = Activations()
-    >>> print(type(act.ReLU))  # <class 'nn.modules.activation.ReLU'>
-    >>> print(type(act.module("ReLU")))  # <class 'nn.modules.activation.ReLU'>
-    >>> print(type(act.Tanh))  # <class 'nn.modules.activation.Tanh'>
-    >>> print(type(act.one_hot))  # <class '__main__.Activations.one_hot.<locals>.OneHot'>
-
-    """
-
-    def __init__(self, configs: Optional[Dict[str, Any]] = None):
-        self.configs = configs or {}
-
-    def __getattr__(self, item: str) -> Module:
-        kwargs = self.configs.setdefault(item, {})
-        try:
-            return getattr(nn, item)(**kwargs)
-        except AttributeError:
-            func = getattr(torch, item, getattr(F, item, None))
-            if func is None:
-                raise NotImplementedError(
-                    "neither pytorch nor custom Activations "
-                    f"implemented activation '{item}'"
-                )
-            return Lambda(partial(func, **kwargs), item)
-
-    def module(self, name: Optional[str]) -> Module:
-        if name is None:
-            return nn.Identity()
-        return getattr(self, name)
-
-    # publications
-
-    @property
-    def glu(self) -> Module:
-        config = self.configs.setdefault("glu", {})
-        in_dim = config.get("in_dim")
-        if in_dim is None:
-            raise ValueError("`in_dim` should be provided in glu")
-        bias = config.setdefault("bias", True)
-
-        class GLU(Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
-
-            def forward(self, net: Tensor) -> Tensor:
-                projection, gate = self.linear(net).chunk(2, dim=1)
-                return projection * torch.sigmoid(gate)
-
-        return GLU()
-
-    @property
-    def mish(self) -> Module:
-        class Mish(Module):
-            def forward(self, net: Tensor) -> Tensor:
-                return net * (torch.tanh(F.softplus(net)))
-
-        return Mish()
-
-    # custom
-
-    @property
-    def atanh(self) -> Module:
-        kwargs = self.configs.setdefault("atanh", {})
-        eps = kwargs.setdefault("eps", 1.0e-6)
-
-        def _atanh(net: Tensor) -> Tensor:
-            return torch.atanh(torch.clamp(net, -1.0 + eps, 1.0 - eps))
-
-        return Lambda(_atanh, f"atanh_{eps:.2e}")
-
-    @property
-    def isoftplus(self) -> Module:
-        kwargs = self.configs.setdefault("isoftplus", {})
-        eps = kwargs.setdefault("eps", 1.0e-6)
-
-        def _isoftplus(net: Tensor) -> Tensor:
-            return torch.log(net.clamp_min(eps).exp() - 1.0)
-
-        return Lambda(_isoftplus, f"isoftplus_{eps:.2e}")
-
-    @property
-    def sign(self) -> Module:
-        config = self.configs.setdefault("sign", {})
-        randomize_at_zero = config.setdefault("randomize_at_zero", False)
-        eps = config.setdefault("eps", 1e-12)
-        suffix = "_randomized" if randomize_at_zero else ""
-
-        def _core(net: Tensor) -> Tensor:
-            if randomize_at_zero:
-                net = net + (2 * torch.empty_like(net).uniform_() - 1.0) * eps
-            return torch.sign(net)
-
-        return Lambda(_core, f"sign{suffix}")
-
-    @property
-    def one_hot(self) -> Module:
-        f = lambda x: x * (x == torch.max(x, dim=1, keepdim=True)[0]).to(torch.float32)
-        return Lambda(f, "one_hot")
-
-    @property
-    def sine(self) -> Module:
-        return Lambda(lambda x: torch.sin(x), "sine")
-
-    @property
-    def multiplied_sine(self) -> Module:
-        class MultipliedSine(_multiplied_activation):
-            def _core(self, multiplied: Tensor) -> Tensor:
-                return torch.sin(multiplied)
-
-        config = self.configs.setdefault("multiplied_sine", {})
-        config.setdefault("ratio", 10.0)
-        return MultipliedSine(**config)
-
-    @property
-    def multiplied_tanh(self) -> Module:
-        class MultipliedTanh(_multiplied_activation):
-            def _core(self, multiplied: Tensor) -> Tensor:
-                return torch.tanh(multiplied)
-
-        return MultipliedTanh(**self.configs.setdefault("multiplied_tanh", {}))
-
-    @property
-    def multiplied_sigmoid(self) -> Module:
-        class MultipliedSigmoid(_multiplied_activation):
-            def _core(self, multiplied: Tensor) -> Tensor:
-                return torch.sigmoid(multiplied)
-
-        return MultipliedSigmoid(**self.configs.setdefault("multiplied_sigmoid", {}))
-
-    @property
-    def multiplied_softmax(self) -> Module:
-        class MultipliedSoftmax(_multiplied_activation):
-            def __init__(self, ratio: float, dim: int = 1, trainable: bool = True):
-                super().__init__(ratio, trainable)
-                self.dim = dim
-
-            def _core(self, multiplied: Tensor) -> Tensor:
-                return F.softmax(multiplied, dim=self.dim)
-
-        return MultipliedSoftmax(**self.configs.setdefault("multiplied_softmax", {}))
-
-    @property
-    def cup_masked(self) -> Module:
-        class CupMasked(Module):
-            def __init__(
-                self,
-                bias: float = 2.0,
-                ratio: float = 2.0,
-                retain_sign: bool = False,
-                trainable: bool = True,
-            ):
-                super().__init__()
-                sigmoid_kwargs = {"ratio": ratio, "trainable": trainable}
-                self.sigmoid = Activations.make("multiplied_sigmoid", sigmoid_kwargs)
-                bias = math.log(math.exp(bias) - 1.0)
-                bias_ = torch.tensor([bias], dtype=torch.float32)
-                self.bias = bias_ if not trainable else nn.Parameter(bias_)
-                self.retain_sign = retain_sign
-                self.trainable = trainable
-
-            def forward(self, net: Tensor) -> Tensor:
-                net_abs = net.abs()
-                bias = F.softplus(self.bias)
-                cup_mask = self.sigmoid(net_abs - bias)
-                masked = net_abs * cup_mask
-                if not self.retain_sign:
-                    return masked
-                return masked * torch.sign(net)
-
-            def extra_repr(self) -> str:
-                bias_str = f"(bias): {self.bias.item()}"
-                positive_str = f"(positive): {not self.retain_sign}"
-                trainable_str = f"(trainable): {self.trainable}"
-                return f"{bias_str}\n{positive_str}\n{trainable_str}"
-
-        return CupMasked(**self.configs.setdefault("cup_masked", {}))
-
-    @property
-    def h_swish(self) -> Module:
-        class HSwish(Module):
-            def __init__(self, inplace: bool = True):
-                super().__init__()
-                self.relu = nn.ReLU6(inplace=inplace)
-
-            def forward(self, net: Tensor) -> Tensor:
-                return net * (self.relu(net + 3.0) / 6.0)
-
-        return HSwish(**self.configs.setdefault("h_swish", {}))
-
-    @property
-    def quick_gelu(self) -> Module:
-        class QuickGELU(nn.Module):
-            def forward(self, net: Tensor) -> Tensor:
-                return net * torch.sigmoid(1.702 * net)
-
-        return QuickGELU()
 
     @classmethod
     def make(
@@ -475,7 +255,116 @@ class Activations:
         if name.lower() == "relu":
             name = "ReLU"
             config.setdefault("inplace", True)
-        return cls({name: config}).module(name)
+        base = cls.d.get(name, getattr(nn, name, None))
+        if base is not None:
+            return base(**config)
+        func = getattr(torch, name, getattr(F, name, None))
+        if func is None:
+            raise NotImplementedError(
+                "neither pytorch nor custom Activation "
+                f"implemented activation '{name}'"
+            )
+        return Lambda(partial(func, **config), name)
+
+
+@Activation.register("glu")
+class GLU(Activation):
+    def __init__(self, *, in_dim: int, bias: bool = True):
+        super().__init__()
+        self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
+
+    def forward(self, net: Tensor) -> Tensor:
+        projection, gate = self.linear(net).chunk(2, dim=1)
+        return projection * torch.sigmoid(gate)
+
+
+@Activation.register("mish")
+class Mish(Activation):
+    def forward(self, net: Tensor) -> Tensor:
+        return net * (torch.tanh(F.softplus(net)))
+
+
+@Activation.register("atanh")
+class ATanh(Activation):
+    def __init__(self, *, eps: float = 1.0e-6):
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, net: Tensor) -> Tensor:
+        return torch.atanh(torch.clamp(net, -1.0 + self.eps, 1.0 - self.eps))
+
+
+@Activation.register("isoftplus")
+class InverseSoftplus(Activation):
+    def __init__(self, *, eps: float = 1.0e-6):
+        super().__init__()
+        self.eps = eps
+
+    def forward(self, net: Tensor) -> Tensor:
+        return torch.log(net.clamp_min(self.eps).exp() - 1.0)
+
+
+@Activation.register("sign")
+class Sign(Activation):
+    def __init__(
+        self,
+        *,
+        eps: float = 1.0e-12,
+        randomize_at_zero: bool = False,
+        differentiable: bool = True,
+    ):
+        super().__init__()
+        self.eps = eps
+        self.differentiable = differentiable
+        self.randomize_at_zero = randomize_at_zero
+
+    def forward(self, net: Tensor) -> Tensor:
+        if self.randomize_at_zero:
+            net = net + (2 * torch.empty_like(net).uniform_() - 1.0) * self.eps
+        sign = torch.sign(net)
+        if not self.differentiable:
+            return sign
+        return net + (sign - net).detach()
+
+
+@Activation.register("one_hot")
+class OneHot(Activation):
+    def __init__(self, *, differentiable: bool = True):
+        super().__init__()
+        self.differentiable = differentiable
+
+    def forward(self, net: Tensor) -> Tensor:
+        maxed = torch.max(net, dim=1, keepdim=True)[0]
+        one_hot = net * (net == maxed).to(torch.float32)
+        if not self.differentiable:
+            return one_hot
+        return net + (one_hot - net).detach()
+
+
+@Activation.register("sine")
+class Sine(Activation):
+    def __init__(self, *, w: float = 1.0):
+        super().__init__()
+        self.w = w
+
+    def forward(self, net: Tensor) -> Tensor:
+        return torch.sin(self.w * net)
+
+
+@Activation.register("h_swish")
+class HSwish(Activation):
+    def __init__(self, *, inplace: bool = True):
+        super().__init__()
+        self.relu = nn.ReLU6(inplace=inplace)
+
+    def forward(self, net: Tensor) -> Tensor:
+        return net * (self.relu(net + 3.0) / 6.0)
+
+
+@Activation.register("quick_gelu")
+class QuickGELU(Activation):
+    def forward(self, net: Tensor) -> Tensor:
+        return net * torch.sigmoid(1.702 * net)
 
 
 # custom blocks
@@ -889,7 +778,7 @@ class Attention(Module, WithRegister):
         self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
 
         self.dropout = dropout
-        self.activation = Activations.make(activation, activation_config)
+        self.activation = Activation.make(activation, activation_config)
 
         if not has_reduction:
             self.reduction = None
@@ -1399,7 +1288,7 @@ class Mapping(MappingBase):
             self.activation: Optional[Module] = None
         else:
             activation_config = self.config.setdefault("activation_config", None)
-            self.activation = Activations.make(activation, activation_config)
+            self.activation = Activation.make(activation, activation_config)
         use_dropout = 0.0 < dropout < 1.0
         self.dropout = None if not use_dropout else nn.Dropout(dropout)
 
@@ -1482,7 +1371,7 @@ class ResBlock(MappingBase):
         # residual unit
         self.residual_unit = nn.Sequential(
             BN(latent_dim),
-            Activations.make(activation, kwargs.setdefault("activation_config", None)),
+            Activation.make(activation, kwargs.setdefault("activation_config", None)),
             nn.Identity() if not 0.0 < dropout < 1.0 else nn.Dropout(dropout),
             Mapping(
                 latent_dim,
@@ -1836,7 +1725,7 @@ class FeedForward(FFN):
         super().__init__(in_dim, latent_dim, dropout)
         self.net = nn.Sequential(
             Linear(in_dim, latent_dim),
-            Activations.make(activation),
+            Activation.make(activation),
             nn.Dropout(dropout),
             Linear(latent_dim, in_dim),
             nn.Dropout(dropout),
@@ -2606,7 +2495,7 @@ class CABlock(Module):
                 kernel_size=1,
                 stride=1,
                 norm_type="batch",
-                activation=Activations.make("h_swish"),
+                activation=Activation.make("h_swish"),
                 padding=0,
             )
         )
@@ -2757,7 +2646,7 @@ def get_conv_blocks(
         blocks.append(ECABlock(kernel_size))
     if activation is not None:
         if isinstance(activation, str):
-            activation = Activations.make(activation)
+            activation = Activation.make(activation)
         blocks.append(activation)
     if ca_reduction is not None:
         blocks.append(CABlock(out_channels, ca_reduction))

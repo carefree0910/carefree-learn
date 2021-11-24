@@ -13,17 +13,8 @@ from typing import Optional
 from ...types import tensor_dict_type
 from ...constants import LABEL_KEY
 from ...modules.blocks import Lambda
-from ...modules.blocks import Activations
+from ...modules.blocks import Activation
 from ...modules.blocks import ChannelPadding
-
-
-class Sine(nn.Module):
-    def __init__(self, w: float = 1.0):
-        super().__init__()
-        self.w = w
-
-    def forward(self, net: Tensor) -> Tensor:
-        return torch.sin(self.w * net)
 
 
 class SirenLayer(nn.Module):
@@ -52,7 +43,10 @@ class SirenLayer(nn.Module):
             bias_value = torch.zeros(out_dim).uniform_(-w_std, w_std)
             self.bias = nn.Parameter(bias_value)
         # siren activation
-        self.activation = Sine(w_sin) if activation is None else activation
+        if activation is not None:
+            self.activation = activation
+        else:
+            self.activation = Activation.make("sine", {"w": w_sin})
 
     def forward(self, net: Tensor) -> Tensor:
         net = F.linear(net, self.weight, self.bias)
@@ -146,7 +140,7 @@ class Siren(nn.Module):
             out_dim=out_dim,
             w_sin=w_sin,
             bias=bias,
-            activation=Activations.make(final_activation),
+            activation=Activation.make(final_activation),
         )
 
     def forward(

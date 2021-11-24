@@ -18,7 +18,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
-from ....modules.blocks import Activations
+from ....modules.blocks import Activation
 from ....modules.blocks import UpsampleConv2d
 
 
@@ -90,7 +90,7 @@ class FullyConnected(nn.Module):
         if activation is None:
             self.activation = None
         else:
-            self.activation = Activations.make(activation)
+            self.activation = Activation.make(activation)
         self.activation_gain = activation_gain
 
     def forward(self, net: Tensor) -> Tensor:
@@ -160,7 +160,7 @@ class StyleGAN2Conv(nn.Module):
         self.resolution = resolution
         self.upscale_factor = upscale_factor
         self.use_noise = use_noise
-        self.activation = Activations.make(activation)
+        self.activation = Activation.make(activation)
         self.activation_gain = activation_gain
         self.conv_clamp = conv_clamp
         self.register_buffer("resample_filter", setup_filter(resample_filter))

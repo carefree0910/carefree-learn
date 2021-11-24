@@ -17,7 +17,7 @@ from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
 from ....modules.blocks import GaussianBlur3
-from ....modules.blocks import Activations
+from ....modules.blocks import Activation
 from ....modules.blocks import NormFactory
 from ....modules.blocks import UpsampleConv2d
 
@@ -212,7 +212,7 @@ class StyleDecoder(Decoder1DBase):
             has_first_conv = i != 0
             upscale = resolution < img_size
             out_nc = min(max_channels, start_channels * mul)
-            activation = Activations.make("leaky_relu_0.2" if upscale else "relu")
+            activation = Activation.make("leaky_relu_0.2" if upscale else "relu")
             blocks.append(
                 DecodeBlock(
                     in_nc,

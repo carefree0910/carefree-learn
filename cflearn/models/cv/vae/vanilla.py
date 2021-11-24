@@ -18,7 +18,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Lambda
-from ....modules.blocks import Activations
+from ....modules.blocks import Activation
 from ....modules.blocks import ChannelPadding
 
 
@@ -90,7 +90,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         if output_activation is None:
             self.out = None
         else:
-            self.out = Activations.make(output_activation)
+            self.out = Activation.make(output_activation)
 
     @property
     def can_reconstruct(self) -> bool:
