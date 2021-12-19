@@ -463,6 +463,27 @@ class ImageFolderData(CVDataModule):
         valid_loader = CVLoader(DataLoader(self.valid_data, **d), **kw)  # type: ignore
         return train_loader, valid_loader
 
+    @staticmethod
+    def switch_prefix(src: str, previous: str, now: str) -> None:
+        for split in ["train", "valid"]:
+            split_folder = os.path.join(src, split)
+            for file in os.listdir(split_folder):
+                if not file.endswith(".json"):
+                    continue
+                path = os.path.join(split_folder, file)
+                print(f"switching prefix for '{path}'")
+                with open(path, "r") as f:
+                    rs = json.load(f)
+                new_rs: Union[List, Dict[str, Any]]
+                if isinstance(rs, list):
+                    new_rs = [item.replace(previous, now) for item in rs]
+                else:
+                    new_rs = {}
+                    for k, v in rs.items():
+                        new_rs[k.replace(previous, now)] = v.replace(previous, now)
+                with open(path, "w") as f:
+                    json.dump(new_rs, f)
+
 
 class InferenceImageFolderData(CVDataModule):
     def __init__(
