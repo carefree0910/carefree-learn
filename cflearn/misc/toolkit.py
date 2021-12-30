@@ -399,7 +399,7 @@ class WithRegister(Generic[T]):
         cls,
         names: Union[str, List[str]],
         configs: configs_type = None,
-    ) -> Union[T, List[T]]:
+    ) -> List[T]:
         if configs is None:
             configs = {}
         if isinstance(names, str):
@@ -413,8 +413,8 @@ class WithRegister(Generic[T]):
         ]
 
     @classmethod
-    def register(cls, name: str) -> Callable[[T], T]:
-        def before(cls_: T) -> None:
+    def register(cls, name: str) -> Callable[[Type[T]], Type[T]]:
+        def before(cls_: Type[T]) -> None:
             cls_.__identifier__ = name
 
         return register_core(name, cls.d, before_register=before)
