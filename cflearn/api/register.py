@@ -1,4 +1,5 @@
 from typing import Type
+from typing import TypeVar
 from typing import Callable
 from cfdata.tabular.processors.base import Processor
 
@@ -20,7 +21,7 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
 
 loss_type = Type[LossProtocol]
 metric_type = Type[MetricProtocol]
-pipeline_type = Type[PipelineProtocol]
+PipelineType = TypeVar("PipelineType", bound="PipelineProtocol")
 processor_type = Type[Processor]
 
 
@@ -36,8 +37,8 @@ def register_metric(name: str) -> Callable[[metric_type], metric_type]:
     return MetricProtocol.register(name)
 
 
-def register_pipeline(name: str) -> Callable[[pipeline_type], pipeline_type]:
-    return PipelineProtocol.register(name)
+def register_pipeline(name: str) -> Callable[[PipelineType], PipelineType]:
+    return PipelineProtocol.register(name)  # type: ignore
 
 
 __all__ = [

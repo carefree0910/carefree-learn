@@ -16,6 +16,7 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -46,10 +47,11 @@ from ..misc.toolkit import WithRegister
 
 
 data_modules: Dict[str, Type["DataModule"]] = {}
+DataModuleType = TypeVar("DataModuleType", bound="DataModule", covariant=True)
 
 
-class DataModule(WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["DataModule"]] = data_modules
+class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
+    d = data_modules  # type: ignore
 
     id_file = "id.txt"
     info_name = "info"
@@ -94,7 +96,7 @@ class DataModule(WithRegister, metaclass=ABCMeta):
         return base.load_info(folder)
 
 
-@DataModule.register("dl")
+@DataModule.register("dl")  # type: ignore
 class DLDataModule(DataModule, metaclass=ABCMeta):
     test_transform: Optional[Callable]
     transform_file = "transform.pkl"
@@ -369,8 +371,8 @@ class CVLoader(DLLoader):
 cf_transforms: Dict[str, Type["Transforms"]] = {}
 
 
-class Transforms(WithRegister):
-    d: Dict[str, Type["Transforms"]] = cf_transforms
+class Transforms(WithRegister["Transforms"]):
+    d = cf_transforms
 
     fn: Any
 

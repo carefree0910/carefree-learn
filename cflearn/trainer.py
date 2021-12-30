@@ -13,6 +13,7 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -135,8 +136,8 @@ class DeviceInfo(NamedTuple):
         return torch.device("cpu" if self.cuda is None else f"cuda:{self.cuda}")
 
 
-class TrainerCallback(WithRegister):
-    d: Dict[str, Type["TrainerCallback"]] = callback_dict
+class TrainerCallback(WithRegister["TrainerCallback"]):
+    d = callback_dict
     is_rank_0: bool = True
 
     def __init__(self, *args: Any, **kwargs: Any):

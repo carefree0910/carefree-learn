@@ -230,7 +230,7 @@ class MTL(Module):
 activations: Dict[str, Type["Activation"]] = {}
 
 
-class Activation(WithRegister, Module, metaclass=ABCMeta):
+class Activation(WithRegister["Activation"], Module, metaclass=ABCMeta):
     d = activations
 
     def __init__(self, **kwargs: Any):
@@ -696,8 +696,8 @@ class AttentionOutput(NamedTuple):
 attentions: Dict[str, Type["Attention"]] = {}
 
 
-class Attention(Module, WithRegister):
-    d: Dict[str, Type["Attention"]] = attentions
+class Attention(Module, WithRegister["Attention"]):
+    d = attentions
 
     def __init__(
         self,
@@ -1255,8 +1255,8 @@ class Linear(Module):
         return F.linear(net, weight, self.linear.bias)
 
 
-class MappingBase(Module, WithRegister):
-    d: Dict[str, Type["MappingBase"]] = mapping_dict
+class MappingBase(Module, WithRegister["MappingBase"]):
+    d = mapping_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
@@ -1464,8 +1464,8 @@ class HighwayBlock(MappingBase):
 to_patches: Dict[str, Type["ImgToPatches"]] = {}
 
 
-class ImgToPatches(Module, WithRegister):
-    d: Dict[str, Type["ImgToPatches"]] = to_patches
+class ImgToPatches(Module, WithRegister["ImgToPatches"]):
+    d = to_patches
 
     def __init__(
         self,
@@ -1613,8 +1613,8 @@ class ConvPatchEmbed(ImgToPatches):
 token_mixers: Dict[str, Type["TokenMixerBase"]] = {}
 
 
-class TokenMixerBase(Module, WithRegister):
-    d: Dict[str, Type["TokenMixerBase"]] = token_mixers
+class TokenMixerBase(Module, WithRegister["TokenMixerBase"]):
+    d = token_mixers
 
     def __init__(self, num_tokens: int, latent_dim: int):
         super().__init__()
@@ -1700,8 +1700,8 @@ class AttentionTokenMixer(TokenMixerBase):
 ffn_dict: Dict[str, Type["FFN"]] = {}
 
 
-class FFN(Module, WithRegister):
-    d: Dict[str, Type["FFN"]] = ffn_dict
+class FFN(Module, WithRegister["FFN"]):
+    d = ffn_dict
 
     def __init__(self, in_dim: int, latent_dim: int, dropout: float):
         super().__init__()

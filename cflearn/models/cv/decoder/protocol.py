@@ -52,8 +52,8 @@ class DecoderProtocol(nn.Module):
 
 
 # decode from latent feature map
-class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["DecoderBase"]] = decoders
+class DecoderBase(DecoderProtocol, WithRegister["DecoderBase"], metaclass=ABCMeta):
+    d = decoders
 
     def __init__(
         self,
@@ -104,8 +104,8 @@ class DecoderBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
 
 
 # decode from 1d latent code
-class Decoder1DBase(DecoderProtocol, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["Decoder1DBase"]] = decoders_1d
+class Decoder1DBase(DecoderProtocol, WithRegister["Decoder1DBase"], metaclass=ABCMeta):
+    d = decoders_1d
 
     def __init__(
         self,

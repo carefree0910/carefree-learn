@@ -5,7 +5,6 @@ import numpy as np
 import torch.nn as nn
 
 from abc import abstractmethod
-from abc import ABC
 from abc import ABCMeta
 from copy import deepcopy
 from tqdm import tqdm
@@ -14,6 +13,7 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -47,8 +47,8 @@ metric_dict: Dict[str, Type["MetricProtocol"]] = {}
 # data
 
 
-class DatasetProtocol(ABC, WithRegister):
-    d: Dict[str, Type["DatasetProtocol"]] = dataset_dict
+class DatasetProtocol(WithRegister["DatasetProtocol"], metaclass=ABCMeta):
+    d = dataset_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -58,8 +58,8 @@ class DatasetProtocol(ABC, WithRegister):
         pass
 
 
-class DataLoaderProtocol(ABC, WithRegister):
-    d: Dict[str, Type["DataLoaderProtocol"]] = loader_dict
+class DataLoaderProtocol(WithRegister["DataLoaderProtocol"], metaclass=ABCMeta):
+    d = loader_dict
     data: DatasetProtocol
     batch_size: int
 
@@ -105,8 +105,8 @@ class DataLoaderProtocol(ABC, WithRegister):
 # model
 
 
-class ModelProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["ModelProtocol"]] = model_dict
+class ModelProtocol(nn.Module, WithRegister["ModelProtocol"], metaclass=ABCMeta):
+    d = model_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
@@ -327,8 +327,8 @@ class TrainerState:
         return _(self)
 
 
-class TrainerMonitor(ABC, WithRegister):
-    d: Dict[str, Type["TrainerMonitor"]] = monitor_dict
+class TrainerMonitor(WithRegister["TrainerMonitor"], metaclass=ABCMeta):
+    d = monitor_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -361,8 +361,11 @@ class MonitorResults(NamedTuple):
 # loss
 
 
-class LossProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["LossProtocol"]] = loss_dict
+LossType = TypeVar("LossType", bound="LossProtocol", covariant=True)
+
+
+class LossProtocol(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
+    d = loss_dict
     placeholder_key = "[PLACEHOLDER]"
 
     def __init__(self, reduction: str = "mean", **kwargs: Any):
@@ -432,6 +435,7 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
     base_losses: nn.ModuleList
 
     def _init_config(self) -> None:
+        base_losses: List[LossProtocol]
         if isinstance(self.names, str):
             base_losses = [LossProtocol.make(self.names, self.config)]
         else:
@@ -717,8 +721,8 @@ class InferenceProtocol:
 # metrics
 
 
-class MetricProtocol(ABC, WithRegister):
-    d: Dict[str, Type["MetricProtocol"]] = metric_dict
+class MetricProtocol(WithRegister["MetricProtocol"], metaclass=ABCMeta):
+    d = metric_dict
 
     trainer: Any
 

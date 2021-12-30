@@ -4,6 +4,7 @@ import unittest
 
 from typing import Any
 from cflearn.pipeline import DLPipeline
+from cflearn.protocol import LossProtocol
 
 
 def _get_m(**kwargs: Any) -> DLPipeline:
@@ -27,7 +28,7 @@ class TestProtocol(unittest.TestCase):
         self.assertTrue(state.enable_logging)
 
     def test_loss_protocol(self) -> None:
-        def _get_loss(loss_ins: cflearn.LossProtocol) -> float:
+        def _get_loss(loss_ins: LossProtocol) -> float:
             return loss_ins(forward_results, batch)[cflearn.LOSS_KEY].item()
 
         forward_results = {cflearn.PREDICTIONS_KEY: torch.full([10, 1], 2.0)}
@@ -35,16 +36,16 @@ class TestProtocol(unittest.TestCase):
         self.assertEqual(_get_loss(cflearn.MAELoss()), 2.0)
         self.assertEqual(_get_loss(cflearn.MAELoss(reduction="sum")), 20.0)
         # multi task
-        multi_task_name = cflearn.LossProtocol.parse("multi_task:mae,mse")
-        multi_task_loss = cflearn.LossProtocol.make(multi_task_name, {})
+        multi_task_name = LossProtocol.parse("multi_task:mae,mse")
+        multi_task_loss: LossProtocol = LossProtocol.make(multi_task_name, {})
         losses = multi_task_loss(forward_results, batch)
         self.assertEqual(losses[cflearn.LOSS_KEY].item(), 6.0)
         self.assertEqual(losses["mae"].item(), 2.0)
         self.assertEqual(losses["mse"].item(), 4.0)
         # with auxiliary key
         another_key = "another_key"
-        with_aux_name = cflearn.LossProtocol.parse(f"mae:aux:{another_key}")
-        with_aux = cflearn.LossProtocol.make(with_aux_name, {})
+        with_aux_name = LossProtocol.parse(f"mae:aux:{another_key}")
+        with_aux: LossProtocol = LossProtocol.make(with_aux_name, {})
         forward_results[another_key] = forward_results[cflearn.PREDICTIONS_KEY]
         batch[another_key] = batch[cflearn.LABEL_KEY]
         losses = with_aux(forward_results, batch)

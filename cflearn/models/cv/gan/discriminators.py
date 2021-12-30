@@ -22,8 +22,8 @@ class DiscriminatorOutput(NamedTuple):
     cond_logits: Optional[torch.Tensor] = None
 
 
-class DiscriminatorBase(nn.Module, WithRegister):
-    d: Dict[str, Type["DiscriminatorBase"]] = discriminator_dict
+class DiscriminatorBase(nn.Module, WithRegister["DiscriminatorBase"]):
+    d = discriminator_dict
 
     clf: nn.Module
     net: nn.Module

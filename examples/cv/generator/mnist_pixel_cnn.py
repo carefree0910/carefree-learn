@@ -14,7 +14,7 @@ is_ci = check_is_ci()
 
 
 @cflearn.ImageCallback.register("pixel_cnn")
-class PixelCNNCallback(cflearn.ImageCallback):
+class PixelCNNCallback(cflearn.ImageCallback["PixelCNNCallback"]):
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
             return None

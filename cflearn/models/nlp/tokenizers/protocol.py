@@ -19,7 +19,7 @@ from ....misc.toolkit import get_compatible_name
 tokenizers: Dict[str, Type["TokenizerProtocol"]] = {}
 
 
-class TokenizerProtocol(WithRegister, metaclass=ABCMeta):
+class TokenizerProtocol(WithRegister["TokenizerProtocol"], metaclass=ABCMeta):
     d = tokenizers
 
     @abstractmethod

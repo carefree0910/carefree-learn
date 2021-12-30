@@ -192,8 +192,8 @@ class Transform(nn.Module):
         return f"{one_hot_str}\n{embedding_str}\n{only_str}"
 
 
-class MLCoreProtocol(nn.Module, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["MLCoreProtocol"]] = ml_core_dict
+class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMeta):
+    d = ml_core_dict
 
     custom_train_step: bool = False
     custom_evaluate_step: bool = False

@@ -54,8 +54,8 @@ from .misc.internal_.trainer import make_trainer
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
 
 
-class PipelineProtocol(WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["PipelineProtocol"]] = pipeline_dict
+class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
+    d = pipeline_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -459,7 +459,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     @staticmethod
     def get_base(workplace: str) -> Type["DLPipeline"]:
         with open(os.path.join(workplace, DLPipeline.pipeline_file), "r") as f:
-            return DLPipeline.get(f.read())
+            return DLPipeline.get(f.read())  # type: ignore
 
     @staticmethod
     def load(

@@ -40,8 +40,8 @@ class EncoderProtocol(nn.Module):
 
 
 # encode to a latent feature map
-class EncoderBase(EncoderProtocol, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["EncoderBase"]] = encoders
+class EncoderBase(EncoderProtocol, WithRegister["EncoderBase"], metaclass=ABCMeta):
+    d = encoders
 
     def __init__(
         self,
@@ -64,8 +64,8 @@ class EncoderBase(EncoderProtocol, WithRegister, metaclass=ABCMeta):
 
 
 # encode to a 1d latent code
-class Encoder1DBase(EncoderProtocol, WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["Encoder1DBase"]] = encoders_1d
+class Encoder1DBase(EncoderProtocol, WithRegister["Encoder1DBase"], metaclass=ABCMeta):
+    d = encoders_1d
 
     def __init__(self, in_channels: int, latent_dim: int = 128):
         super().__init__()

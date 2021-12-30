@@ -379,7 +379,7 @@ def _rmtree(folder: str, patience: float = 10.0) -> None:
             time.sleep(1)
 
 
-T = TypeVar("T", bound="WithRegister")
+T = TypeVar("T", bound="WithRegister", covariant=True)
 
 
 class WithRegister(Generic[T]):

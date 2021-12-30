@@ -34,7 +34,9 @@ from ..misc.toolkit import download_model
 
 
 def make(name: str, *, config: general_config_type = None) -> DLPipeline:
-    return DLPipeline.make(name, parse_config(config))
+    m = DLPipeline.make(name, parse_config(config))
+    assert isinstance(m, DLPipeline)
+    return m
 
 
 def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:

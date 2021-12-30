@@ -177,6 +177,8 @@ class SimplePipeline(DLPipeline):
         self._setup_defaults(data_info)
         self._prepare_workplace()
         self._prepare_loss()
+        assert isinstance(self.input_dim, int)
+        assert isinstance(self.output_dim, int)
         self.model = MLModel(
             self.input_dim,
             self.output_dim,

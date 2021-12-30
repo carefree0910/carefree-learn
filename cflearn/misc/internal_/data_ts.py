@@ -65,8 +65,8 @@ filter_fns: Dict[str, Type["FilterFunctions"]] = {}
 data_callbacks: Dict[str, Type["DataCallback"]] = {}
 
 
-class DataCallback(WithRegister, metaclass=ABCMeta):
-    d: Dict[str, Type["DataCallback"]] = data_callbacks
+class DataCallback(WithRegister["DataCallback"], metaclass=ABCMeta):
+    d = data_callbacks
 
     def __init__(self, cfg: DataConfig, is_clf: bool):
         self.cfg = cfg
@@ -124,8 +124,8 @@ class BatchFirstCumProd(BatchFirstAggregate):
         return np.cumprod(labels + 1.0, axis=-1) - 1.0
 
 
-class FilterFunctions(WithRegister):
-    d: Dict[str, Type["FilterFunctions"]] = filter_fns
+class FilterFunctions(WithRegister["FilterFunctions"]):
+    d = filter_fns
 
     def __init__(self, key: str, cfg: DataConfig, is_clf: bool):
         self.key = key

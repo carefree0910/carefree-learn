@@ -100,6 +100,8 @@ class MSELoss(LossProtocol):
 
 @LossProtocol.register("recon")
 class ReconstructionLoss(LossProtocol):
+    base_loss: LossProtocol
+
     def _init_config(self) -> None:
         base_loss_name = self.config.pop("base_loss", None)
         if base_loss_name is None:
