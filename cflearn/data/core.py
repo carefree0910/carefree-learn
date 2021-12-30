@@ -121,10 +121,16 @@ class DLDataModule(DataModule, metaclass=ABCMeta):
         return info
 
 
-def get_weighted_indices(n: int, weights: Optional[np.ndarray]) -> np.ndarray:
+def get_weighted_indices(
+    n: int,
+    weights: Optional[np.ndarray],
+    ensure_all_occurr: bool = False,
+) -> np.ndarray:
     indices = np.arange(n)
     if weights is not None:
         numbers = np.random.multinomial(n, weights)
+        if ensure_all_occurr:
+            numbers += 1
         indices = indices.repeat(numbers)
     return indices
 
