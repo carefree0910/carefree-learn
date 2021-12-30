@@ -152,7 +152,7 @@ class SimplePipeline(DLPipeline):
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
-    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
+    def _setup_defaults(self, data_info: Dict[str, Any]) -> None:
         self.is_classification = data_info["is_classification"]
         is_reg = not self.is_classification
         if self.input_dim is None:
@@ -172,6 +172,9 @@ class SimplePipeline(DLPipeline):
             self.categorical_columns_mapping = {}
             self.use_one_hot = False
             self.use_embedding = False
+
+    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
+        self._setup_defaults(data_info)
         self._prepare_workplace()
         self._prepare_loss()
         self.model = MLModel(
