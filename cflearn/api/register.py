@@ -18,19 +18,25 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
     return _register
 
 
-def register_processor(name: str) -> Callable[[Type], Type]:
-    return Processor.register(name)
+loss_type = Type[LossProtocol]
+metric_type = Type[MetricProtocol]
+pipeline_type = Type[PipelineProtocol]
+processor_type = Type[Processor]
 
 
-def register_loss(name: str) -> Callable[[Type], Type]:
+def register_processor(name: str) -> Callable[[processor_type], processor_type]:
+    return Processor.register(name)  # type: ignore
+
+
+def register_loss(name: str) -> Callable[[loss_type], loss_type]:
     return LossProtocol.register(name)
 
 
-def register_metric(name: str) -> Callable[[Type], Type]:
+def register_metric(name: str) -> Callable[[metric_type], metric_type]:
     return MetricProtocol.register(name)
 
 
-def register_pipeline(name: str) -> Callable[[Type], Type]:
+def register_pipeline(name: str) -> Callable[[pipeline_type], pipeline_type]:
     return PipelineProtocol.register(name)
 
 

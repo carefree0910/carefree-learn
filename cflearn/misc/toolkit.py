@@ -413,8 +413,8 @@ class WithRegister(Generic[T]):
         ]
 
     @classmethod
-    def register(cls, name: str) -> Callable[[Type], Type]:
-        def before(cls_: Type) -> None:
+    def register(cls, name: str) -> Callable[[T], T]:
+        def before(cls_: T) -> None:
             cls_.__identifier__ = name
 
         return register_core(name, cls.d, before_register=before)
