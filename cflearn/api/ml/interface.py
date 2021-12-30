@@ -439,6 +439,7 @@ __all__ = [
     "pack_repeat",
     "pick_from_repeat_and_pack",
     "make_toy_model",
+    "RepeatResult",
     "ModelPattern",
     "EnsemblePattern",
 ]

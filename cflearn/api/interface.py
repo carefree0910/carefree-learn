@@ -26,7 +26,7 @@ from .zoo.core import DLZoo
 from ..data.interface import MLData
 from ..data.interface import CVDataModule
 from ..misc.toolkit import inject_debug
-from ..misc.toolkit import _parse_config
+from ..misc.toolkit import parse_config
 from ..misc.toolkit import download_model
 
 
@@ -34,7 +34,7 @@ from ..misc.toolkit import download_model
 
 
 def make(name: str, *, config: general_config_type = None) -> DLPipeline:
-    return DLPipeline.make(name, _parse_config(config))
+    return DLPipeline.make(name, parse_config(config))
 
 
 def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:

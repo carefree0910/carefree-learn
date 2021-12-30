@@ -761,6 +761,8 @@ __all__ = [
     "DatasetProtocol",
     "DataLoaderProtocol",
     "ModelProtocol",
+    "ModelWithCustomSteps",
+    "StepOutputs",
     "TrainerState",
     "TrainerMonitor",
     "MonitorResults",

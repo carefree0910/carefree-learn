@@ -175,5 +175,9 @@ class VQGANEncoder(EncoderBase):
 
 
 __all__ = [
+    "normalize",
+    "Swish",
+    "AttnBlock",
+    "ResidualBlock",
     "VQGANEncoder",
 ]

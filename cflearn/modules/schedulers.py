@@ -157,4 +157,12 @@ class WarmupScheduler(_LRScheduler):
             self.scheduler_afterwards.step(metrics)  # type: ignore
 
 
-__all__ = ["scheduler_dict", "register_scheduler"]
+__all__ = [
+    "scheduler_dict",
+    "register_scheduler",
+    "LinearInverseScheduler",
+    "StepLRWithFloor",
+    "ExponentialLRWithFloor",
+    "ReduceLROnPlateauWithGet",
+    "WarmupScheduler",
+]

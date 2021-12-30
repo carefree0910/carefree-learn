@@ -62,7 +62,7 @@ def register_module(
 def _get_clip_norm_fn(trainer: Any) -> Callable[[], None]:
     def _core() -> None:
         if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
+            trainer.clip_norm_step()
 
     return _core
 
@@ -160,7 +160,7 @@ def register_custom_module(
                     trainer.use_amp,
                     trainer.grad_scaler,
                     _get_clip_norm_fn(trainer),
-                    trainer._scheduler_step,
+                    trainer.scheduler_step,
                     trainer,
                     forward_kwargs,
                     loss_kwargs,
@@ -175,7 +175,7 @@ def register_custom_module(
                 return self.core.evaluate_step(
                     loader,
                     portion,
-                    trainer._weighted_loss_score,
+                    trainer.weighted_loss_score,
                     trainer,
                 )
 

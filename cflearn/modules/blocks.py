@@ -41,7 +41,7 @@ from ..misc.toolkit import WithRegister
 # auxiliary
 
 
-def _get_clones(
+def get_clones(
     module: Module,
     n: int,
     *,

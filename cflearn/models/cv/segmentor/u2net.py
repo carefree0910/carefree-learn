@@ -10,7 +10,7 @@ from typing import Optional
 from ..protocol import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....misc.internal_ import register_module
-from ....modules.blocks import _get_clones
+from ....modules.blocks import get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Interpolate
@@ -107,7 +107,7 @@ class UNetRS(UNetBase):
                     Interpolate(inner_upsample_factor, inner_upsample_mode),
                 ]
             )
-        blocks = _get_clones(basic_block, num_layers - 2, return_list=True)
+        blocks = get_clones(basic_block, num_layers - 2, return_list=True)
         blocks.append(ConvSeq(mid_channels * 2, out_channels, dilation=1))
         self.up_blocks = nn.ModuleList(blocks)
 

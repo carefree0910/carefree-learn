@@ -14,15 +14,15 @@ from typing import Optional
 from .fcnn import FCNN
 from .protocol import MLCoreProtocol
 from ..bases import CustomLossBase
+from ...types import losses_type
 from ...types import tensor_dict_type
-from ...protocol import losses_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...constants import LOSS_KEY
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
-from ..implicit.siren import _make_grid
+from ..implicit.siren import make_grid
 from ..implicit.siren import Siren
 from ...misc.toolkit import get_gradient
 
@@ -53,7 +53,7 @@ def _expand_element(
 
 
 def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
-    return _make_grid(num_samples + 2, 1, device)[:, 1:-1]
+    return make_grid(num_samples + 2, 1, device)[:, 1:-1]
 
 
 @MLCoreProtocol.register("ddr")

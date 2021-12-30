@@ -314,4 +314,5 @@ class Experiment(LoggingMixin):
 __all__ = [
     "inject_distributed_tqdm_kwargs",
     "Experiment",
+    "ExperimentResults",
 ]

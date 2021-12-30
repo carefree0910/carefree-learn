@@ -74,7 +74,7 @@ class DataModule(WithRegister, metaclass=ABCMeta):
         Saving.save_dict(self.info, self.info_name, folder)
 
     @classmethod
-    def _load_info(cls, folder: str) -> Dict[str, Any]:
+    def load_info(cls, folder: str) -> Dict[str, Any]:
         return Saving.load_dict(cls.info_name, folder)
 
     # api
@@ -91,7 +91,7 @@ class DataModule(WithRegister, metaclass=ABCMeta):
         folder = os.path.join(folder, cls.package_folder)
         with open(os.path.join(folder, cls.id_file), "r") as f:
             base = cls.get(f.read())
-        return base._load_info(folder)
+        return base.load_info(folder)
 
 
 @DataModule.register("dl")
@@ -109,8 +109,8 @@ class DLDataModule(DataModule, metaclass=ABCMeta):
             dill.dump(self.test_transform, f)
 
     @classmethod
-    def _load_info(cls, folder: str) -> Dict[str, Any]:
-        info = super()._load_info(folder)
+    def load_info(cls, folder: str) -> Dict[str, Any]:
+        info = super().load_info(folder)
         transform_path = os.path.join(folder, cls.transform_file)
         if not os.path.isfile(transform_path):
             test_transform = None
@@ -452,7 +452,7 @@ class Compose(Transforms):
         return self.transform_list[0].need_numpy
 
 
-def _default_lmdb_path(folder: str, split: str) -> str:
+def default_lmdb_path(folder: str, split: str) -> str:
     return f"{folder}.{split}"
 
 
@@ -494,7 +494,7 @@ class ImageFolderDataset(Dataset):
             self.length = len(self.img_paths)
         else:
             self.lmdb_config = shallow_copy_dict(lmdb_config)
-            self.lmdb_config.setdefault("path", _default_lmdb_path(folder, split))
+            self.lmdb_config.setdefault("path", default_lmdb_path(folder, split))
             self.lmdb_config.setdefault("lock", False)
             self.lmdb_config.setdefault("meminit", False)
             self.lmdb_config.setdefault("readonly", True)
@@ -590,12 +590,16 @@ __all__ = [
     "MLDataset",
     "MLLoader",
     "DLDataset",
+    "LMDBItem",
     "CVDataset",
+    "ImageFolderDataset",
+    "InferenceImageFolderDataset",
     "DataLoader",
     "DLLoader",
     "CVLoader",
     "Transforms",
     "Function",
     "Compose",
+    "default_lmdb_path",
     "get_weighted_indices",
 ]

@@ -229,6 +229,7 @@ class VanillaVAE2D(VanillaVAEBase):
 
 
 __all__ = [
+    "reparameterize",
     "VanillaVAE1D",
     "VanillaVAE2D",
 ]

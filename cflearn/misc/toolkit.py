@@ -87,7 +87,7 @@ def walk(
             hierarchy_callback(hierarchy, os.path.join(folder, file))
 
 
-def _parse_config(config: general_config_type) -> Dict[str, Any]:
+def parse_config(config: general_config_type) -> Dict[str, Any]:
     if config is None:
         return {}
     if isinstance(config, str):
@@ -379,7 +379,7 @@ def _rmtree(folder: str, patience: float = 10.0) -> None:
             time.sleep(1)
 
 
-T = TypeVar("T")
+T = TypeVar("T", bound="WithRegister")
 
 
 class WithRegister(Generic[T]):

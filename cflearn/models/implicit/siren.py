@@ -78,7 +78,7 @@ class Modulator(nn.Module):
         return tuple(nets)
 
 
-def _make_grid(size: int, in_dim: int, device: Optional[torch.device] = None) -> Tensor:
+def make_grid(size: int, in_dim: int, device: Optional[torch.device] = None) -> Tensor:
     tensors = [torch.linspace(-1.0, 1.0, steps=size, device=device)] * in_dim
     grid = torch.stack(torch.meshgrid(*tensors), dim=-1)
     return grid.view(1, -1, grid.shape[-1])
@@ -127,7 +127,7 @@ class Siren(nn.Module):
         if size is None:
             self.grid = None
         else:
-            grid = _make_grid(size, in_dim)
+            grid = make_grid(size, in_dim)
             self.register_buffer("grid", grid)
         # latent modulator
         if not use_modulator:
@@ -167,7 +167,7 @@ class Siren(nn.Module):
                 if size is None:
                     grid = self.grid
                 else:
-                    grid = _make_grid(size, self.in_dim, device)
+                    grid = make_grid(size, self.in_dim, device)
                     if not self.keep_edge:
                         grid = grid[1:-1]
                 net = grid.repeat(len(inp), 1, 1)  # type: ignore
@@ -257,5 +257,6 @@ class ImgSiren(nn.Module):
 __all__ = [
     "Siren",
     "ImgSiren",
+    "make_grid",
     "img_siren_head",
 ]

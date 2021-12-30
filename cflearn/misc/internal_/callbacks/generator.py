@@ -4,7 +4,6 @@ import torch
 import numpy as np
 
 from .general import ImageCallback
-from .general import TrainerCallback
 from ...toolkit import to_numpy
 from ...toolkit import to_torch
 from ...toolkit import to_device
@@ -12,13 +11,12 @@ from ...toolkit import save_images
 from ...toolkit import eval_context
 from ...toolkit import min_max_normalize
 from ....trainer import Trainer
+from ....trainer import TrainerCallback
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
 from ....models.cv.stylizer.constants import STYLE_KEY
-from ....models.cv.stylizer.constants import INPUT_B_KEY
-from ....models.cv.stylizer.constants import LABEL_B_KEY
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 

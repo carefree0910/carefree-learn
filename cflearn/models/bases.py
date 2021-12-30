@@ -55,7 +55,7 @@ class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
                 forward_kwargs,
                 loss_kwargs,
             )
-        trainer._post_loss_step(loss_dict)
+        trainer.post_loss_step(loss_dict)
         return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
 
     def evaluate_step(
@@ -84,7 +84,7 @@ class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
                 loss_items.setdefault(k, []).append(v.item())
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        score = trainer._weighted_loss_score(mean_loss_items)
+        score = trainer.weighted_loss_score(mean_loss_items)
         return MetricsOutputs(score, mean_loss_items)
 
 

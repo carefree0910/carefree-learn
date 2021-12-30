@@ -608,7 +608,29 @@ class Trainer:
 
     # core
 
-    def _clip_norm_step(self) -> None:
+    def post_loss_step(self, loss_dict: tensor_dict_type) -> None:
+        # backward
+        loss = loss_dict[LOSS_KEY]
+        self.grad_scaler.scale(loss).backward()
+        # clip norm
+        if self.clip_norm > 0.0:
+            self.clip_norm_step()
+        # optimize
+        self.optimizer_step()
+        self.scheduler_step()
+
+    def weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
+        if not self.loss_metrics_weights:
+            return -loss_items[LOSS_KEY]
+        score = 0.0
+        for k, w in self.loss_metrics_weights.items():
+            v = loss_items.get(k)
+            if v is None:
+                continue
+            score -= v * w
+        return score
+
+    def clip_norm_step(self) -> None:
         for opt in self.optimizers.values():
             self.grad_scaler.unscale_(opt)
         self._gradient_norm = nn.utils.clip_grad_norm_(
@@ -616,12 +638,29 @@ class Trainer:
             max_norm=self.clip_norm,
         )
 
-    def _optimizer_step(self) -> None:
+    def optimizer_step(self) -> None:
         for opt in self.optimizers.values():
             self.grad_scaler.step(opt)
             self.grad_scaler.update()
         for param in self.model_for_training.parameters():
             param.grad = None
+
+    def scheduler_step(self) -> None:
+        lr_metric_logged = False
+        for key, scheduler in self.schedulers.items():
+            if scheduler is not None:
+                should_log_lr, kwargs = self._get_scheduler_settings(key, scheduler)
+                if should_log_lr:
+                    lr_metric_logged = True
+                    for callback in self.callbacks:
+                        callback.log_lr(
+                            f"lr-{key}",
+                            scheduler.get_last_lr()[0],
+                            self.state,
+                        )
+                scheduler.step(**shallow_copy_dict(kwargs))
+        if lr_metric_logged:
+            self.lr_metrics_updated = False
 
     def _get_scheduler_settings(
         self,
@@ -639,23 +678,6 @@ class Trainer:
                 kwargs["metrics"] = self.intermediate.final_score
             should_log_lr &= self.lr_metrics_updated
         return should_log_lr, kwargs
-
-    def _scheduler_step(self) -> None:
-        lr_metric_logged = False
-        for key, scheduler in self.schedulers.items():
-            if scheduler is not None:
-                should_log_lr, kwargs = self._get_scheduler_settings(key, scheduler)
-                if should_log_lr:
-                    lr_metric_logged = True
-                    for callback in self.callbacks:
-                        callback.log_lr(
-                            f"lr-{key}",
-                            scheduler.get_last_lr()[0],
-                            self.state,
-                        )
-                scheduler.step(**shallow_copy_dict(kwargs))
-        if lr_metric_logged:
-            self.lr_metrics_updated = False
 
     def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
         if not self.is_rank_0:
@@ -688,7 +710,7 @@ class Trainer:
                 self.intermediate = self.get_metrics(portion=self.valid_portion)
             else:
                 loss_dict = step_outputs.loss_dict
-                loss_score = self._weighted_loss_score(loss_dict)
+                loss_score = self.weighted_loss_score(loss_dict)
                 self.intermediate = MetricsOutputs(loss_score, loss_dict)
             self.lr_metrics_updated = True
             # logging
@@ -701,17 +723,6 @@ class Trainer:
                 if any(monitor.check_terminate(score) for monitor in self.monitors):
                     terminate = True
         return MonitorResults(terminate, save_checkpoint, self.intermediate)
-
-    def _post_loss_step(self, loss_dict: tensor_dict_type) -> None:
-        # backward
-        loss = loss_dict[LOSS_KEY]
-        self.grad_scaler.scale(loss).backward()
-        # clip norm
-        if self.clip_norm > 0.0:
-            self._clip_norm_step()
-        # optimize
-        self._optimizer_step()
-        self._scheduler_step()
 
     def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
         batch = to_device(batch, self.device)
@@ -736,19 +747,8 @@ class Trainer:
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
             loss_dict = self.loss(forward_results, batch, self.state, **loss_kwargs)
         # post loss step
-        self._post_loss_step(loss_dict)
+        self.post_loss_step(loss_dict)
         return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
-
-    def _weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
-        if not self.loss_metrics_weights:
-            return -loss_items[LOSS_KEY]
-        score = 0.0
-        for k, w in self.loss_metrics_weights.items():
-            v = loss_items.get(k)
-            if v is None:
-                continue
-            score -= v * w
-        return score
 
     # api
 
@@ -948,7 +948,7 @@ class Trainer:
         metric_outputs = outputs.metric_outputs
         if loss_items is not None:
             metrics.update(loss_items)
-            final_scores.append(self._weighted_loss_score(loss_items))
+            final_scores.append(self.weighted_loss_score(loss_items))
         if metric_outputs is not None:
             metrics.update(metric_outputs.metric_values)
             final_scores.append(metric_outputs.final_score)
@@ -1021,6 +1021,9 @@ class Trainer:
 __all__ = [
     "get_sorted_checkpoints",
     "Trainer",
+    "DeviceInfo",
+    "TqdmSettings",
+    "callback_dict",
     "TrainerCallback",
     "StepOutputs",
     "OptimizerPack",

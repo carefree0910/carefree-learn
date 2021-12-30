@@ -245,6 +245,7 @@ class ImageCallback(ArtifactCallback):
 
 
 __all__ = [
+    "_LogMetricsMsgCallback",
     "MLFlowCallback",
     "ArtifactCallback",
     "ImageCallback",

@@ -28,7 +28,7 @@ from cftool.misc import Saving
 from torch.utils.data import Dataset
 from cfdata.tabular.api import TabularData
 
-from .core import _default_lmdb_path
+from .core import default_lmdb_path
 from .core import CVLoader
 from .core import DLLoader
 from .core import LMDBItem
@@ -314,8 +314,8 @@ class MLData(DLDataModule):
         Saving.save_dict(info, self.info_name, folder)
 
     @classmethod
-    def _load_info(cls, folder: str) -> Dict[str, Any]:
-        d = super()._load_info(folder)
+    def load_info(cls, folder: str) -> Dict[str, Any]:
+        d = super().load_info(folder)
         cf_data = d["cf_data"]
         if cf_data is None:
             return d
@@ -839,7 +839,7 @@ def prepare_image_folder(
         if lmdb_config is None:
             return None
         local_lmdb_config = shallow_copy_dict(lmdb_config)
-        local_lmdb_config.setdefault("path", _default_lmdb_path(tgt_folder, dtype))
+        local_lmdb_config.setdefault("path", default_lmdb_path(tgt_folder, dtype))
         local_lmdb_config.setdefault("map_size", 1099511627776 * 2)
         db = lmdb.open(**local_lmdb_config)
         context = db.begin(write=True)
@@ -940,6 +940,7 @@ __all__ = [
     "DummyData",
     "MLData",
     "MLInferenceData",
+    "CVDataModule",
     "ImageFolderData",
     "InferenceImageFolderData",
     "DefaultPreparation",

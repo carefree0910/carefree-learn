@@ -114,7 +114,7 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
         g_loss = g_losses.pop(LOSS_KEY)
         trainer.grad_scaler.scale(g_loss).backward()
         if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
+            trainer.clip_norm_step()
         trainer.grad_scaler.step(opt_g)
         trainer.grad_scaler.update()
         opt_g.zero_grad()
@@ -127,12 +127,12 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
         d_loss = d_losses.pop(LOSS_KEY)
         trainer.grad_scaler.scale(d_loss).backward()
         if trainer.clip_norm > 0.0:
-            trainer._clip_norm_step()
+            trainer.clip_norm_step()
         trainer.grad_scaler.step(opt_d)
         trainer.grad_scaler.update()
         opt_d.zero_grad()
         # finalize
-        trainer._scheduler_step()
+        trainer.scheduler_step()
         forward_results = {PREDICTIONS_KEY: sampled}
         loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
         loss_dict.update({k: v.item() for k, v in g_losses.items()})
@@ -162,7 +162,7 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
         mean_loss_items[LOSS_KEY] = sum(mean_loss_items.values())
-        score = trainer._weighted_loss_score(mean_loss_items)
+        score = trainer.weighted_loss_score(mean_loss_items)
         return MetricsOutputs(score, mean_loss_items)
 
 

@@ -431,6 +431,7 @@ class StyleDecoder2(Decoder1DBase):
 
 
 __all__ = [
+    "FullyConnected",
     "StyleGAN2Decoder",
     "StyleDecoder2",
 ]

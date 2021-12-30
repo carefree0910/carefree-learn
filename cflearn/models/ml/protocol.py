@@ -29,7 +29,7 @@ from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
 from ...misc.toolkit import WithRegister
 from ...misc.toolkit import LoggingMixinWithRank
-from ...modules.blocks import _get_clones
+from ...modules.blocks import get_clones
 from ...modules.blocks import Linear
 from ...modules.blocks import MixedStackedEncoder
 
@@ -333,7 +333,7 @@ class MLModel(ModelWithCustomSteps):
         if num_repeat is None:
             self.core = core
         else:
-            self.core = _get_clones(core, num_repeat)  # type: ignore
+            self.core = get_clones(core, num_repeat)  # type: ignore
         self.__identifier__ = core_name
         self._num_repeat = num_repeat
         # custom steps
@@ -413,6 +413,10 @@ class MLModel(ModelWithCustomSteps):
 
 
 __all__ = [
+    "MERGED_KEY",
+    "ONE_HOT_KEY",
+    "EMBEDDING_KEY",
+    "NUMERICAL_KEY",
     "SplitFeatures",
     "Dimensions",
     "Transform",
