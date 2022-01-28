@@ -13,7 +13,6 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
-from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -21,6 +20,7 @@ from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from cftool.misc import context_error_handler
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.optim import ZeroRedundancyOptimizer as ZeRO
@@ -71,6 +71,22 @@ class OptimizerPack(NamedTuple):
     scheduler_name: Optional[str] = None
     optimizer_config: Optional[Dict[str, Any]] = None
     scheduler_config: Optional[Dict[str, Any]] = None
+
+
+class amp_context(context_error_handler):
+    def __init__(self, enabled: bool):
+        if not enabled:
+            self.ctx = None
+        else:
+            self.ctx = torch.cuda.amp.autocast(enabled=True)
+
+    def __enter__(self) -> None:
+        if self.ctx is not None:
+            self.ctx.__enter__()
+
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self.ctx is not None:
+            self.ctx.__exit__(exc_type, exc_val, exc_tb)
 
 
 class DefaultOptimizerSettings(NamedTuple):
@@ -744,7 +760,7 @@ class Trainer:
                 loss_kwargs,
             )
         # forward & loss
-        with torch.cuda.amp.autocast(enabled=self.use_amp):
+        with amp_context(enabled=self.use_amp):
             forward_results = self.model(batch_idx, batch, self.state, **forward_kwargs)
             loss_dict = self.loss(forward_results, batch, self.state, **loss_kwargs)
         # post loss step
