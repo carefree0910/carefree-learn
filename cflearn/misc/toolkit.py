@@ -391,6 +391,10 @@ class WithRegister(Generic[T]):
         return cls.d[name]
 
     @classmethod
+    def has(cls, name: str) -> bool:
+        return name in cls.d
+
+    @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> T:
         return cls.get(name)(**config)  # type: ignore
 
