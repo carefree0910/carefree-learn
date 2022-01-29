@@ -647,7 +647,7 @@ class InferenceProtocol:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
                     for k, v in batch.items():
-                        if k in (INPUT_KEY, BATCH_INDICES_KEY):
+                        if k == INPUT_KEY or k.endswith(BATCH_INDICES_KEY):
                             continue
                         if v is None:
                             continue
@@ -700,9 +700,11 @@ class InferenceProtocol:
                     sum(scores) / len(scores),
                     {k: sum(vl) / len(vl) for k, vl in metric_values.items()},
                 )
+
+            target_labels = labels.get(LABEL_KEY, [])
             return InferenceOutputs(
                 final_results,
-                None if not labels else np.vstack(labels),
+                None if not target_labels else np.vstack(target_labels),
                 metric_outputs,
                 None
                 if not loss_items
