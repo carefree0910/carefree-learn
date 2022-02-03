@@ -481,8 +481,8 @@ class ImageFolderData(CVDataModule):
                     new_rs = {}
                     for k, v in rs.items():
                         new_rs[k.replace(previous, now)] = v.replace(previous, now)
-                with open(path, "w") as f:
-                    json.dump(new_rs, f)
+                with open(path, "w", encoding="utf-8") as f:
+                    json.dump(new_rs, f, ensure_ascii=False)
 
 
 class InferenceImageFolderData(CVDataModule):
@@ -697,11 +697,17 @@ def prepare_image_folder(
         labels_dict = {"": labels}
         label2idx = get_raw_2idx(sorted(set(labels)))
         dump_mappings = check_dump_mappings(label2idx)
+
+    open_file_from = lambda folder: lambda file: open(
+        os.path.join(folder, file), "w", encoding="utf-8"
+    )
+    open_tgt_file = open_file_from(tgt_folder)
+
     if dump_mappings:
-        with open(os.path.join(tgt_folder, f"{LABEL_KEY}2idx.json"), "w") as f:
-            json.dump(label2idx, f)
-        with open(os.path.join(tgt_folder, f"idx2{LABEL_KEY}.json"), "w") as f:
-            json.dump({v: k for k, v in label2idx.items()}, f)
+        with open_tgt_file(f"{LABEL_KEY}2idx.json") as f:
+            json.dump(label2idx, f, ensure_ascii=False)
+        with open_tgt_file(f"idx2{LABEL_KEY}.json") as f:
+            json.dump({v: k for k, v in label2idx.items()}, f, ensure_ascii=False)
 
     if extra_labels_dict is not None:
         for el_name, label_collection in extra_labels_dict.items():
@@ -717,10 +723,11 @@ def prepare_image_folder(
                 labels_dict[el_name] = [extra2idx[el] for el in label_collection]
                 dump_mappings = True
             if dump_mappings:
-                with open(os.path.join(tgt_folder, f"{el_name}2idx.json"), "w") as f:
-                    json.dump(extra2idx, f)
-                with open(os.path.join(tgt_folder, f"idx2{el_name}.json"), "w") as f:
-                    json.dump({v: k for k, v in extra2idx.items()}, f)
+                with open_tgt_file(f"{el_name}2idx.json") as f:
+                    json.dump(extra2idx, f, ensure_ascii=False)
+                with open_tgt_file(f"idx2{el_name}.json") as f:
+                    eld = {v: k for k, v in extra2idx.items()}
+                    json.dump(eld, f, ensure_ascii=False)
 
     # exclude samples
     if excluded_indices:
@@ -824,17 +831,18 @@ def prepare_image_folder(
                 ]
             )
         )
-        dtype_folder = os.path.join(tgt_folder, dtype)
-        with open(os.path.join(dtype_folder, "paths.json"), "w") as f_:
-            json.dump(new_paths, f_)
+        open_dtype_file = open_file_from(os.path.join(tgt_folder, dtype))
+
+        with open_dtype_file("paths.json") as f_:
+            json.dump(new_paths, f_, ensure_ascii=False)
         path_mapping = dict(zip(new_paths, valid_paths))
-        with open(os.path.join(dtype_folder, "path_mapping.json"), "w") as f_:
-            json.dump(path_mapping, f_)
+        with open_dtype_file("path_mapping.json") as f_:
+            json.dump(path_mapping, f_, ensure_ascii=False)
         for label_type, type_labels in merged_labels.items():
             delim = "_" if label_type else ""
             label_file = f"{label_type}{delim}{LABEL_KEY}.json"
-            with open(os.path.join(dtype_folder, label_file), "w") as f_:
-                json.dump(type_labels, f_)
+            with open_dtype_file(label_file) as f_:
+                json.dump(type_labels, f_, ensure_ascii=False)
         # lmdb
         if lmdb_config is None:
             return None
