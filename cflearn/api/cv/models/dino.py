@@ -28,7 +28,7 @@ class DINOPredictor:
 
     def get_latent(self, src_path: str) -> Tensor:
         src = Image.open(src_path).convert("RGB")
-        net = self.transform(src)[None, ...].to(self.device)
+        net = to_torch(self.transform(src)[None, ...]).to(self.device)
         with eval_context(self.dino):
             return self.dino.get_latent(net)
 

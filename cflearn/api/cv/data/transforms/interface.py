@@ -6,7 +6,6 @@ import numpy as np
 from PIL import Image
 from PIL import ImageOps
 from PIL import ImageFilter
-from torch import Tensor
 from typing import List
 from typing import Tuple
 from typing import Optional
@@ -188,7 +187,7 @@ class SSLTestTransform(Transforms):
         self.to_gray = ToGray().fn if to_gray else None
         self.larger_size = int(round(img_size * 8.0 / 7.0))
 
-    def fn(self, img: Image.Image) -> Tensor:
+    def fn(self, img: Image.Image) -> np.ndarray:
         img = img.convert("RGB")
         img.thumbnail((self.larger_size, self.larger_size), Image.ANTIALIAS)
         img_arr = np.array(img)
