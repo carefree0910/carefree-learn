@@ -80,7 +80,7 @@ class ViTEncoder(Encoder1DFromPatches):
         if output_dim is None:
             self.output_projection = None
         else:
-            init = (latent_dim ** -0.5) * torch.randn(latent_dim, output_dim)
+            init = (latent_dim**-0.5) * torch.randn(latent_dim, output_dim)
             self.output_projection = torch.nn.Parameter(init)
 
     def forward(

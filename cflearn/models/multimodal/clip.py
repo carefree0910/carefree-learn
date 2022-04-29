@@ -79,8 +79,8 @@ class CLIP(PerceptorProtocol):
         nn.init.normal_(self.token_embedding.weight, std=0.02)
         text_encoder = self.text_transformer.encoder
         nn.init.normal_(text_encoder.pos_encoding.pos_encoding, std=0.01)
-        proj_std = (self.text_latent_dim ** -0.5) * ((2 * self.text_num_layers) ** -0.5)
-        attn_std = self.text_latent_dim ** -0.5
+        proj_std = (self.text_latent_dim**-0.5) * ((2 * self.text_num_layers) ** -0.5)
+        attn_std = self.text_latent_dim**-0.5
         fc_std = (2 * self.text_latent_dim) ** -0.5
         for block in text_encoder.mixing_blocks:
             attn = block.token_mixing.module.net
@@ -89,7 +89,7 @@ class CLIP(PerceptorProtocol):
             nn.init.normal_(attn.out_linear.weight, std=proj_std)
             nn.init.normal_(mlp[0].weight, std=fc_std)
             nn.init.normal_(mlp[3].weight, std=proj_std)
-        nn.init.normal_(self.text_projection, std=self.text_latent_dim ** -0.5)
+        nn.init.normal_(self.text_projection, std=self.text_latent_dim**-0.5)
 
     def encode_image(self, image: Tensor) -> Tensor:
         net = self.vit(0, {INPUT_KEY: image}, determinate=True)[LATENT_KEY]

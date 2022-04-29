@@ -515,7 +515,7 @@ class DNDF(Module):
             num_local_internals *= 2
             arange = np.arange(num_local_internals - 1, 2 * num_local_internals - 1)
             ones_np = np.repeat([1, -1], num_repeat)
-            ones_np = np.tile(ones_np, 2 ** i)
+            ones_np = np.tile(ones_np, 2**i)
             ones_list.append(torch.from_numpy(ones_np.astype(np.float32)))
             increment_mask = np.repeat(arange, 2)
             increment_mask += np.tile([0, self._num_internals], num_local_internals)
@@ -933,7 +933,7 @@ class DecayedAttention(Attention):
         )
         mask = np.zeros([seq_len, seq_len], dtype=np.float32)
         for i in range(1, seq_len):
-            np.fill_diagonal(mask[i:], i ** 2)
+            np.fill_diagonal(mask[i:], i**2)
         mask_ = torch.from_numpy(mask)
         decayed_mask = torch.empty(num_heads, seq_len, seq_len)
         for i in range(num_heads):

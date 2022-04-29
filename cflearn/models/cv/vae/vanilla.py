@@ -212,7 +212,7 @@ class VanillaVAE2D(VanillaVAEBase):
         )
         self.latent_resolution = self.generator.latent_resolution
         assert self.latent_resolution is not None
-        self.latent_dim = latent * self.latent_resolution ** 2
+        self.latent_dim = latent * self.latent_resolution**2
         shape = -1, latent, self.latent_resolution, self.latent_resolution
         blocks = [Lambda(lambda net: net.view(shape), f"reshape -> {shape}")]
         if latent_padding_channels is None:

@@ -91,7 +91,7 @@ class SizedGeneratorCallback(GeneratorCallback):
         resolution = getattr(model, "img_size", 32)
         with eval_context(model):
             for i in range(1, 4):
-                size = resolution * 2 ** i
+                size = resolution * 2**i
                 batch_size = 1 if size > 256 else 4
                 sampled = sample_method(batch_size, size=size).cpu()
                 path = os.path.join(image_folder, f"sampled_{size}x{size}.png")

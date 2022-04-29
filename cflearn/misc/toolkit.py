@@ -863,13 +863,13 @@ def summary(
     total_params, trainable_params = _get_param_counts(model)
     # assume 4 bytes/number (float on cuda).
     x_batch = sample_batch[INPUT_KEY]
-    get_size = lambda t: abs(prod(t.shape[1:]) * 4.0 / (1024 ** 2.0))
+    get_size = lambda t: abs(prod(t.shape[1:]) * 4.0 / (1024**2.0))
     if not isinstance(x_batch, list):
         x_batch = [x_batch]
     total_input_size = sum(map(get_size, x_batch))
     # x2 for gradients
-    total_output_size = abs(2.0 * total_output * 4.0 / (1024 ** 2.0))
-    total_params_size = abs(total_params * 4.0 / (1024 ** 2.0))
+    total_output_size = abs(2.0 * total_output * 4.0 / (1024**2.0))
+    total_params_size = abs(total_params * 4.0 / (1024**2.0))
     total_size = total_params_size + total_output_size + total_input_size
 
     non_trainable_params = total_params - trainable_params
@@ -1170,7 +1170,7 @@ def corr(
     if weights is None:
         vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
     else:
-        vp_norm = (weights * (vp ** 2)).sum(0, keepdim=True).sqrt()
+        vp_norm = (weights * (vp**2)).sum(0, keepdim=True).sqrt()
     if predictions is target:
         mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
     else:
@@ -1182,7 +1182,7 @@ def corr(
         if weights is None:
             vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
         else:
-            vt_norm = (weights.t() * (vt ** 2)).sum(1, keepdim=True).sqrt()
+            vt_norm = (weights.t() * (vt**2)).sum(1, keepdim=True).sqrt()
         mat = vt.matmul(vp) / (vp_norm * vt_norm)
     if not get_diagonal:
         return mat
@@ -1603,6 +1603,6 @@ def fractal_noise_2d(
 def contrast_noise(arr: arr_type) -> arr_type:
     arr = 0.9998 * arr + 0.0001
     arr = arr / (1.0 - arr)
-    arr = arr ** -2
+    arr = arr**-2
     arr = 1.0 / (1.0 + arr)
     return arr

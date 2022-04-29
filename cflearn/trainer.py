@@ -502,7 +502,7 @@ class Trainer:
         # step
         step_default_cfg = {"step_size": 10 * self.state.num_step_per_epoch}
         # exponential
-        exp_gamma = (0.1 ** 0.1) ** (1.0 / self.state.num_step_per_epoch)
+        exp_gamma = (0.1**0.1) ** (1.0 / self.state.num_step_per_epoch)
         exp_default_cfg = {"gamma": exp_gamma}
         # cyclic
         cyclic_default_cfg = {

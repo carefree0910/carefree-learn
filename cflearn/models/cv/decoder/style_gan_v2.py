@@ -127,7 +127,7 @@ class ToRGB(nn.Module):
             bias=False,
         )
         self.bias = nn.Parameter(torch.zeros([1, out_channels, 1, 1]))
-        self.weight_gain = 1.0 / np.sqrt(in_channels * (kernel_size ** 2))
+        self.weight_gain = 1.0 / np.sqrt(in_channels * (kernel_size**2))
 
     def forward(self, net: Tensor, w: Tensor) -> Tensor:
         styles = self.affine(w) * self.weight_gain
@@ -194,7 +194,7 @@ class StyleGAN2Conv(nn.Module):
                 self.resample_filter,
                 1.0,
                 [1] * 4,
-                self.upscale_factor ** 2,
+                self.upscale_factor**2,
             )
         if self.use_noise:
             if noise_mode == "const":
@@ -323,7 +323,7 @@ class StyleGAN2Decoder(nn.Module):
         self.img_size = img_size
         self.img_size_log2 = int(round(math.log2(img_size)))
         self.img_channels = out_channels
-        self.block_resolutions = [2 ** i for i in range(2, self.img_size_log2 + 1)]
+        self.block_resolutions = [2**i for i in range(2, self.img_size_log2 + 1)]
         channels_dict = {
             resolution: min(channel_base // resolution, max_channels)
             for resolution in self.block_resolutions

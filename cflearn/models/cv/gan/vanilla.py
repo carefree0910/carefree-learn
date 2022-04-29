@@ -52,7 +52,7 @@ class VanillaGAN(VanillaGANMixin):
         )
         # latent
         self.latent_dim = latent_dim
-        map_area = latent_resolution ** 2
+        map_area = latent_resolution**2
         if latent_dim % map_area != 0:
             msg = f"`latent_dim` should be divisible by `map_area` ({map_area})"
             raise ValueError(msg)

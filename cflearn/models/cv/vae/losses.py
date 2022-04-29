@@ -51,7 +51,7 @@ class VAELoss(LossProtocol):
         assert mu is not None and log_var is not None
         var = log_var.exp()
         dim = tuple(i for i in range(1, len(mu.shape)))
-        kld_losses = -0.5 * torch.sum(1 + log_var - mu ** 2 - var, dim=dim)
+        kld_losses = -0.5 * torch.sum(1 + log_var - mu**2 - var, dim=dim)
         kld_loss = torch.mean(kld_losses, dim=0)
         # gather
         if self.training:

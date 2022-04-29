@@ -36,7 +36,7 @@ class CycleGANGenerator(ImageTranslatorMixin, ModelProtocol):
         self.out_channels = out_channels or in_channels
         self.num_downsample = num_downsample
         self.start_channels = start_channels
-        self.latent_channels = start_channels * 2 ** num_downsample
+        self.latent_channels = start_channels * 2**num_downsample
         self.encoder = VanillaEncoder(
             in_channels,
             num_downsample,

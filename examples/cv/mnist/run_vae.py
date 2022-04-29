@@ -90,7 +90,7 @@ class SimpleVAELoss(cflearn.LossModule):
         # kld loss
         mu = forward_results["mu"]
         log_var = forward_results["log_var"]
-        kld_losses = -0.5 * torch.sum(1 + log_var - mu ** 2 - log_var.exp(), dim=1)
+        kld_losses = -0.5 * torch.sum(1 + log_var - mu**2 - log_var.exp(), dim=1)
         kld_loss = torch.mean(kld_losses, dim=0)
         # gather
         loss = mse + 0.001 * kld_loss

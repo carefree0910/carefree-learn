@@ -194,11 +194,11 @@ class VanillaDecoder1D(Decoder1DBase):
             latent_resolution=latent_resolution,
         )
         if latent_resolution is None:
-            latent_resolution = int(round(img_size / 2 ** self.num_upsample))
+            latent_resolution = int(round(img_size / 2**self.num_upsample))
         self.latent_resolution = latent_resolution
         in_dim = latent_dim
         latent_dim *= latent_expand_ratio
-        latent_area = self.latent_resolution ** 2
+        latent_area = self.latent_resolution**2
         latent_channels = math.ceil(latent_dim / latent_area)
         shape = -1, latent_channels, latent_resolution, latent_resolution
         blocks: List[nn.Module] = [

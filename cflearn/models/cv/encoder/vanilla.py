@@ -41,7 +41,7 @@ class VanillaEncoder(EncoderBase):
         super().__init__(in_channels, num_downsample, latent_channels)
         self.first_kernel_size = first_kernel_size
         if start_channels is None:
-            start_channels = int(round(latent_channels / (2 ** self.num_downsample)))
+            start_channels = int(round(latent_channels / (2**self.num_downsample)))
         if start_channels <= 0:
             raise ValueError(
                 f"latent_channels ({latent_channels}) is too small "
@@ -152,7 +152,7 @@ class VanillaEncoder1D(Encoder1DBase):
             if img_size is None:
                 raise ValueError("`img_size` should be provided if `pool`=fc")
             res = self.encoder.latent_resolution(img_size)
-            flattened_dim = latent_dim * res ** 2
+            flattened_dim = latent_dim * res**2
             self.pool = nn.Sequential(nn.Flatten(1), Linear(flattened_dim, latent_dim))
         else:
             raise ValueError(f"unrecognized `pool` value : '{pool}'")

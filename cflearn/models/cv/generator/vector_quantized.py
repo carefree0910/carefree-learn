@@ -37,8 +37,8 @@ class VQCodebook(nn.Module):
         with torch.no_grad():
             z_e_flattened = z_e.view(-1, self.code_dimension)
             distances = (
-                torch.sum(z_e_flattened ** 2, dim=1, keepdim=True)
-                + torch.sum(codebook ** 2, dim=1)
+                torch.sum(z_e_flattened**2, dim=1, keepdim=True)
+                + torch.sum(codebook**2, dim=1)
                 - 2.0 * torch.einsum("bd,dn->bn", z_e_flattened, codebook.t())
             )
             indices = torch.argmin(distances, dim=1)

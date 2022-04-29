@@ -90,7 +90,7 @@ class NLayerDiscriminator(DiscriminatorBase):
         nc_multiplier = 1
         for i in range(1, num_layers):
             nc_multiplier_prev = nc_multiplier
-            nc_multiplier = min(2 ** i, 8)
+            nc_multiplier = min(2**i, 8)
             blocks.extend(
                 get_conv_blocks(
                     start_channels * nc_multiplier_prev,

@@ -10,7 +10,7 @@ padding = 1.0
 output_folder = "fig"
 ratios = [0.1, 0.3, 0.5, 0.7, 0.9]
 
-num_samples = 10 ** power
+num_samples = 10**power
 num_validation = num_test = int(min(10000, num_samples * 0.1))
 num_samples = max(num_samples, 3 * num_validation)
 num_train = num_samples - num_validation - num_test
