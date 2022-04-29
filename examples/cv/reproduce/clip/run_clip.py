@@ -26,7 +26,7 @@ cf_tokenizer = cflearn.TokenizerProtocol.make("clip", {})
 torch.manual_seed(142857)
 img = torch.randn(1, 3, 224, 224)
 texts = ["a diagram", "a dog", "a cat"]
-text = clip.tokenize(texts)
+text = clip.tokenize(texts).to(torch.long)
 assert torch.allclose(text, torch.from_numpy(cf_tokenizer.tokenize(texts)))
 
 with eval_context(model):
