@@ -333,7 +333,7 @@ class TimeSeriesDataManager(LoggingMixin):
             valid_mask = x_mask & y_mask
         else:
             offset = x_window + self.cfg.y_span - 1
-            offset_valid = np.zeros_like(y_mask, np.bool_)
+            offset_valid = np.zeros_like(y_mask, bool)
             offset_valid[x_window - 1 : -self.cfg.y_span] = y_mask[offset:]
             valid_mask = x_mask & offset_valid
         # sanity check
@@ -425,7 +425,7 @@ class TimeSeriesDataManager(LoggingMixin):
             padding = self.cfg.xy_padding + 1
             offset = offset_start + padding
             for mask in masks:
-                local_valid = np.zeros_like(mask, np.bool_)
+                local_valid = np.zeros_like(mask, bool)
                 local_valid[offset_start:-padding] = mask[offset:]
                 valid_mask &= local_valid
         valid_mask[begin : begin + self.cfg.x_window - 1] = False
