@@ -28,6 +28,7 @@ from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
 from ...data import MLData
 from ...data import MLInferenceData
+from ...types import configs_type
 from ...trainer import get_sorted_checkpoints
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
@@ -76,7 +77,7 @@ def evaluate(
     data: Union[MLData, MLInferenceData],
     *,
     metrics: Union[str, List[str]],
-    metric_configs: Optional[Union[Dict[str, Any], List[Dict[str, Any]]]] = None,
+    metric_configs: configs_type = None,
     contains_labels: bool = True,
     pipelines: Optional[various_pipelines_type] = None,
     predict_config: Optional[Dict[str, Any]] = None,

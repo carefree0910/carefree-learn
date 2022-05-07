@@ -11,6 +11,7 @@ from cftool.misc import update_dict
 
 from ..models import *
 from ..types import data_type
+from ..types import configs_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import sample_weights_type
@@ -190,7 +191,8 @@ def fit_ml(
     clip_norm: float = 0.0,
     cudnn_benchmark: bool = False,
     metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: Optional[Dict[str, Any]] = None,
+    metric_configs: configs_type = None,
+    metric_weights: Optional[Dict[str, float]] = None,
     use_losses_as_metrics: Optional[bool] = None,
     loss_metrics_weights: Optional[Dict[str, float]] = None,
     recompute_train_losses_in_eval: bool = True,
@@ -240,6 +242,7 @@ def fit_ml(
         cudnn_benchmark=cudnn_benchmark,
         metric_names=metric_names,
         metric_configs=metric_configs,
+        metric_weights=metric_weights,
         use_losses_as_metrics=use_losses_as_metrics,
         loss_metrics_weights=loss_metrics_weights,
         recompute_train_losses_in_eval=recompute_train_losses_in_eval,
@@ -328,7 +331,8 @@ def repeat_ml(
     clip_norm: float = 0.0,
     cudnn_benchmark: bool = False,
     metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: Optional[Dict[str, Any]] = None,
+    metric_configs: configs_type = None,
+    metric_weights: Optional[Dict[str, float]] = None,
     use_losses_as_metrics: Optional[bool] = None,
     loss_metrics_weights: Optional[Dict[str, float]] = None,
     recompute_train_losses_in_eval: bool = True,
@@ -373,6 +377,7 @@ def repeat_ml(
         cudnn_benchmark=cudnn_benchmark,
         metric_names=metric_names,
         metric_configs=metric_configs,
+        metric_weights=metric_weights,
         use_losses_as_metrics=use_losses_as_metrics,
         loss_metrics_weights=loss_metrics_weights,
         recompute_train_losses_in_eval=recompute_train_losses_in_eval,
@@ -444,7 +449,8 @@ def fit_cv(
     clip_norm: float = 0.0,
     cudnn_benchmark: bool = False,
     metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: Optional[Dict[str, Any]] = None,
+    metric_configs: configs_type = None,
+    metric_weights: Optional[Dict[str, float]] = None,
     use_losses_as_metrics: Optional[bool] = None,
     loss_metrics_weights: Optional[Dict[str, float]] = None,
     recompute_train_losses_in_eval: bool = True,
@@ -485,6 +491,7 @@ def fit_cv(
         cudnn_benchmark=cudnn_benchmark,
         metric_names=metric_names,
         metric_configs=metric_configs,
+        metric_weights=metric_weights,
         use_losses_as_metrics=use_losses_as_metrics,
         loss_metrics_weights=loss_metrics_weights,
         recompute_train_losses_in_eval=recompute_train_losses_in_eval,
