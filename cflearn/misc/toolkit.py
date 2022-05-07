@@ -78,8 +78,8 @@ def walk(
     filter_extensions: Optional[Set[str]] = None,
 ) -> None:
     walked = list(os.walk(root))
-    for folder, _, files in tqdm(walked, desc="folders", position=0):
-        for file in tqdm(files, desc="files", position=1, leave=False):
+    for folder, _, files in tqdm(walked, desc="folders", position=0, mininterval=1):
+        for file in tqdm(files, desc="files", position=1, leave=False, mininterval=1):
             if filter_extensions is not None:
                 if not any(file.endswith(ext) for ext in filter_extensions):
                     continue
