@@ -22,6 +22,15 @@ from .....misc.toolkit import min_max_normalize
 from .....misc.toolkit import imagenet_normalize
 
 
+def to_rgb(image: Image, color: Tuple[int, int, int] = (255, 255, 255)) -> Image:
+    split = image.split()
+    if len(split) < 4:
+        return image.convert("RGB")
+    background = Image.new("RGB", image.size, color)
+    background.paste(image, mask=split[3])
+    return background
+
+
 @Transforms.register("for_generation")
 class TransformForGeneration(Compose):
     def __init__(
@@ -149,7 +158,7 @@ class SSLTransform(Transforms):
             )
 
         def __call__(self, image: Image) -> Image:
-            image = image.convert("RGB")
+            image = to_rgb(image)
             crops = [self.global_transform1(image), self.global_transform2(image)]
             for _ in range(self.local_crops_number):
                 crops.append(self.local_transform(image))
@@ -188,7 +197,7 @@ class SSLTestTransform(Transforms):
         self.larger_size = int(round(img_size * 8.0 / 7.0))
 
     def fn(self, img: Image.Image) -> np.ndarray:
-        img = img.convert("RGB")
+        img = to_rgb(img)
         img.thumbnail((self.larger_size, self.larger_size), Image.ANTIALIAS)
         img_arr = np.array(img)
         resized_img = resize(img_arr, (self.img_size, self.img_size), mode="constant")
