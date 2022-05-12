@@ -4,7 +4,8 @@
   ],
   "tokenizers": [
     "clip",
-    "clip_3.8"
+    "clip_3.8",
+    "clip_3.9"
   ],
   "checkpoints": [
     "vgg_style",
