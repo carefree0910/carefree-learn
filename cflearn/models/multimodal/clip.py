@@ -1,6 +1,5 @@
 import torch
 
-from PIL import Image
 from torch import nn
 from torch import Tensor
 from torchvision.transforms import Resize
@@ -13,13 +12,10 @@ from torchvision.transforms import InterpolationMode
 from .protocol import PerceptorProtocol
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
+from ...misc.toolkit import to_rgb
 from ...misc.toolkit import l2_normalize
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
-
-
-def to_rgb(image: Image.Image) -> Image.Image:
-    return image.convert("RGB")
 
 
 @PerceptorProtocol.register("clip")
