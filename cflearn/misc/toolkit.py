@@ -340,17 +340,31 @@ def get_compatible_name(
     tag: str,
     repo: str,
     name: str,
-    version: Tuple[int, int],
+    versions: List[Tuple[int, int]],
     *,
     bc: bool = False,
 ) -> str:
     version_info = sys.version_info
-    need_compatible = False
-    if bc and (version_info.major < version[0] or version_info.minor < version[1]):
-        need_compatible = True
-    if not bc and (version_info.major > version[0] or version_info.minor >= version[1]):
-        need_compatible = True
-    if need_compatible:
+    version = None
+    if bc:
+        tgt_versions = list(
+            filter(
+                lambda ver: version_info.major < ver[0] or version_info.minor < ver[1],
+                versions,
+            )
+        )
+        if tgt_versions is not None:
+            version = max(tgt_versions)
+    if not bc:
+        tgt_versions = list(
+            filter(
+                lambda ver: version_info.major > ver[0] or version_info.minor >= ver[1],
+                versions,
+            )
+        )
+        if tgt_versions is not None:
+            version = max(tgt_versions)
+    if version is not None:
         compatible_name = f"{name}_{version[0]}.{version[1]}"
         if check_available(tag, repo, compatible_name):
             name = compatible_name

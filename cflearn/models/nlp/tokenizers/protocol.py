@@ -30,7 +30,7 @@ class TokenizerProtocol(WithRegister["TokenizerProtocol"], metaclass=ABCMeta):
     def make(cls, name: str, config: Dict[str, Any]) -> "TokenizerProtocol":
         tag = "tokenizers"
         repo = "pretrained-models"
-        name = get_compatible_name(tag, repo, name, (3, 8))
+        name = get_compatible_name(tag, repo, name, [(3, 8), (3, 9)])
         if check_available(tag, repo, name):
             with open(download_tokenizer(name), "rb") as f:
                 return dill.load(f)
