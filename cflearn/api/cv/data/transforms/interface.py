@@ -18,17 +18,9 @@ from .pt import *
 from .general import *
 from .....data import Compose
 from .....data import Transforms
+from .....misc.toolkit import to_rgb
 from .....misc.toolkit import min_max_normalize
 from .....misc.toolkit import imagenet_normalize
-
-
-def to_rgb(image: Image, color: Tuple[int, int, int] = (255, 255, 255)) -> Image:
-    split = image.split()
-    if len(split) < 4:
-        return image.convert("RGB")
-    background = Image.new("RGB", image.size, color)
-    background.paste(image, mask=split[3])
-    return background
 
 
 @Transforms.register("for_generation")
