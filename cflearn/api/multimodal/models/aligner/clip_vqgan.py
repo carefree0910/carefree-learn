@@ -7,7 +7,7 @@ from .....data import DummyData
 from ....zoo.core import DLZoo
 
 
-class CLIPWithVQGANTrainer:
+class CLIPWithVQGANAligner:
     def __init__(
         self,
         text: str,
@@ -28,5 +28,5 @@ class CLIPWithVQGANTrainer:
 
 
 __all__ = [
-    "CLIPWithVQGANTrainer",
+    "CLIPWithVQGANAligner",
 ]
