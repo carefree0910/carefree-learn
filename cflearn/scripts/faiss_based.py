@@ -18,7 +18,9 @@ from ..api.cv.models.interface import IImageExtractor
 try:
     import faiss
 except ImportError:
-    raise ImportError("`faiss` need to be installed to use faiss based scripts")
+    from ..constants import WARNING_PREFIX
+
+    print(f"{WARNING_PREFIX}`faiss` need to be installed to use faiss based scripts")
 
 
 def run_faiss(
