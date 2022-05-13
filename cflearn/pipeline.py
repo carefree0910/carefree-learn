@@ -411,6 +411,8 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             score = self._save_misc(export_folder)
+            if getattr(self.trainer, "model", None) is None:
+                self.trainer.model = self.model
             self.trainer.save_checkpoint(score, export_folder, no_history=True)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
