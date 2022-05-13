@@ -25,6 +25,7 @@ from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...cv.encoder import EncoderBase
 from ...nlp.tokenizers import TokenizerProtocol
+from ....misc.toolkit import to_rgb
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import check_requires
 from ....misc.toolkit import download_model
@@ -222,11 +223,11 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         )
         # initialize latent map
         if condition_path is not None:
-            img = Image.open(condition_path).convert("RGB")
+            img = to_rgb(Image.open(condition_path))
             img = img.resize(resolution, Image.LANCZOS)
         else:
             noise_arr = noises[noise](*resolution)
-            img = Image.fromarray(noise_arr).convert("RGB")
+            img = to_rgb(Image.fromarray(noise_arr))
         img_arr = np.array(img.resize(resolution, Image.LANCZOS))
         img_tensor = torch.from_numpy(img_arr.transpose([2, 0, 1])[None, ...])
         self.initial_img = img_tensor.to(torch.float32) / 255.0

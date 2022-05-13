@@ -11,6 +11,7 @@ from ..data import InferenceImageFolderData
 from ..pipeline import SimplePipeline
 from ..interface import predict_folder
 from ....constants import LATENT_KEY
+from ....misc.toolkit import to_rgb
 from ....misc.toolkit import to_torch
 from ....misc.toolkit import to_device
 from ....misc.toolkit import eval_context
@@ -27,13 +28,13 @@ class DINOPredictor:
         return self.dino.device
 
     def get_latent(self, src_path: str) -> Tensor:
-        src = Image.open(src_path).convert("RGB")
+        src = to_rgb(Image.open(src_path))
         net = to_torch(self.transform(src)[None, ...]).to(self.device)
         with eval_context(self.dino):
             return self.dino.get_latent(net)
 
     def get_logits(self, src_path: str) -> Tensor:
-        src = Image.open(src_path).convert("RGB")
+        src = to_rgb(Image.open(src_path))
         net = self.transform(src)[None, ...].to(self.device)
         with eval_context(self.dino):
             return self.dino.get_logits(net)

@@ -22,6 +22,7 @@ from .....constants import INPUT_KEY
 from .....constants import WARNING_PREFIX
 from .....data.core import ImageFolderDataset
 from .....data.core import InferenceImageFolderDataset
+from .....misc.toolkit import to_rgb
 from .....models.cv.stylizer.constants import STYLE_KEY
 
 
@@ -45,7 +46,7 @@ class StyleTransferMixin:
                     continue
                 path = os.path.join(folder, file)
                 try:
-                    Image.open(path).convert("RGB").verify()
+                    to_rgb(Image.open(path)).verify()
                     self.style_paths.append(path)
                 except Exception as err:
                     msg = f"error occurred ({err}) when reading '{path}'"
@@ -56,7 +57,7 @@ class StyleTransferMixin:
 
     def _inject_style(self, index: int, sample: Dict[str, Any]) -> None:
         style_path = self.style_paths[index % len(self.style_paths)]
-        style_img = Image.open(style_path).convert("RGB")
+        style_img = to_rgb(Image.open(style_path))
         style_arr = np.array(style_img).astype(np.float32) / 255.0
         style_tensor = self.transform({INPUT_KEY: style_arr})[INPUT_KEY]
         sample[STYLE_KEY] = style_tensor
