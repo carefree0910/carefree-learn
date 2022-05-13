@@ -986,19 +986,27 @@ class Trainer:
                 msg = "`save_checkpoint` should not be called when not `is_rank_0`"
                 raise ValueError(msg)
             folder = self.checkpoint_folder
+        state = getattr(self, "state", None)
+        pt_file = f"{PT_PREFIX}{-1 if state is None else state.step}.pt"
+        if state is None:
+            print(
+                f"{WARNING_PREFIX}`state` is not initialized, "
+                "latest model will be saved and no scores will be recorded"
+            )
+            torch.save(self.model.state_dict(), os.path.join(folder, pt_file))
+            return
         # leave top_k snapshots only
-        if self.state.max_snapshot_file > 0:
+        if state.max_snapshot_file > 0:
             checkpoints = get_sorted_checkpoints(folder)
-            if len(checkpoints) >= self.state.max_snapshot_file:
-                for file in checkpoints[self.state.max_snapshot_file - 1 :]:
+            if len(checkpoints) >= state.max_snapshot_file:
+                for file in checkpoints[state.max_snapshot_file - 1 :]:
                     self.checkpoint_scores.pop(file)
                     os.remove(os.path.join(folder, file))
         # pt
-        file = f"{PT_PREFIX}{self.state.step}.pt"
-        torch.save(self.model.state_dict(), os.path.join(folder, file))
+        torch.save(self.model.state_dict(), os.path.join(folder, pt_file))
         # scores
         scores = {} if no_history else self.checkpoint_scores
-        scores[file] = score
+        scores[pt_file] = score
         with open(os.path.join(folder, SCORES_FILE), "w") as f:
             json.dump(sort_dict_by_value(scores, reverse=True), f)
 
