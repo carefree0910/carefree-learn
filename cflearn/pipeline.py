@@ -533,8 +533,9 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         assert isinstance(input_sample, dict)
         if num_samples is not None:
             input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
+        onnx_forward = forward_fn or model.onnx_forward
         with eval_context(model):
-            forward_results = model.onnx_forward(shallow_copy_dict(input_sample))
+            forward_results = onnx_forward(shallow_copy_dict(input_sample))
         if not isinstance(forward_results, dict):
             forward_results = {PREDICTIONS_KEY: forward_results}
         input_names = sorted(input_sample.keys())
@@ -571,7 +572,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 self.model = model
 
             def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-                rs = (forward_fn or self.model.onnx_forward)(batch)
+                rs = onnx_forward(batch)
                 if isinstance(rs, torch.Tensor):
                     rs = {k: rs for k in output_names}  # type: ignore
                 return {k: rs[k] for k in output_names}  # type: ignore
