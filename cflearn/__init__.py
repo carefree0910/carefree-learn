@@ -14,6 +14,7 @@ from .api import interface as api
 from .api.zoo import *
 from .api.register import *
 from . import dist
+from . import scripts
 
 from pkg_resources import get_distribution
 
