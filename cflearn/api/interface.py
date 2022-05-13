@@ -780,6 +780,10 @@ def pixel_cnn(num_classes: int, **kwargs: Any) -> DLPipeline:
 # multimodal
 
 
+def clip(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    return DLZoo.load_pipeline("multimodal/clip", pretrained=pretrained, **kwargs)
+
+
 def clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
     return DLZoo.load_model("multimodal/clip", pretrained=pretrained, **kwargs)
 
