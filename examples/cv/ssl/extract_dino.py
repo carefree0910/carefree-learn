@@ -9,7 +9,7 @@ from PIL import Image
 
 base = cflearn.cv.CarefreePipeline
 packed = base.pack(".versions/512_2000")
-dino_api = cflearn.cv.DINOPredictor(base.load(packed, cuda=0), 224)  # type: ignore
+dino_api = cflearn.cv.DINOExtractor(base.load(packed, cuda=0), 224)  # type: ignore
 
 data_folder = "data/poster_data"
 features_folder = ".features"

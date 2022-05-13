@@ -17,7 +17,7 @@ from ....misc.toolkit import to_device
 from ....misc.toolkit import eval_context
 
 
-class DINOPredictor:
+class DINOExtractor:
     def __init__(self, m: SimplePipeline, img_size: int, *, to_gray: bool = False):
         self.m = m
         self.dino = m.model
@@ -84,5 +84,5 @@ class DINOPredictor:
 
 
 __all__ = [
-    "DINOPredictor",
+    "DINOExtractor",
 ]
