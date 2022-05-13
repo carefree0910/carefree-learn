@@ -11,6 +11,7 @@ from typing import Callable
 from typing import Optional
 
 from ..types import tensor_dict_type
+from ..trainer import DeviceInfo
 from ..api.cv.pipeline import SimplePipeline
 from ..api.cv.models.interface import IImageExtractor
 
@@ -66,6 +67,7 @@ def image_retrieval(
     if os.path.isdir(version_folder):
         print(f"> Warning : '{version_folder}' already exists, it will be removed")
         shutil.rmtree(version_folder)
+    m.device_info = DeviceInfo(str(cuda), None)
     m.model.to(f"cuda:{cuda}")
     m.to_onnx(
         version_folder,
