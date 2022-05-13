@@ -553,6 +553,8 @@ def fix_denormal_states(
     new_states = shallow_copy_dict(states)
     num_total = num_denormal_total = 0
     for k, v in states.items():
+        if not v.is_floating_point():
+            continue
         num_total += v.numel()
         denormal = (v != 0) & (v.abs() < eps)
         num_denormal = denormal.sum().item()
