@@ -15,7 +15,7 @@ class CLIPImageExtractor:
         clip = m.model
         self.img_size = clip.img_size
         self.transform = clip.get_transform()
-        clip.forward = lambda _, batch, *args, **kwargs: {
+        clip.forward = lambda _, batch, *args, **kwargs: {  # type: ignore
             LATENT_KEY: clip.encode_image(batch[INPUT_KEY]),
         }
 

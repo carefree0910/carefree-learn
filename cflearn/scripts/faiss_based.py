@@ -12,7 +12,7 @@ from typing import Callable
 from typing import Optional
 
 from ..types import tensor_dict_type
-from ..pipeline import DLPipeline
+from ..api.cv.pipeline import SimplePipeline
 from ..api.cv.models.interface import IImageExtractor
 
 try:
@@ -39,7 +39,7 @@ def run_faiss(
 
 
 def image_retrieval(
-    m: DLPipeline,
+    m: SimplePipeline,
     packed: str,
     extractor_base: Type[IImageExtractor],
     *,
@@ -85,7 +85,7 @@ def image_retrieval(
         split_folder = os.path.join(data_folder, split)
         with open(os.path.join(split_folder, "path_mapping.json"), "r") as f:
             mapping = json.load(f)
-        rs = extractor.get_folder_latent(split_folder, **kw)
+        rs = extractor.get_folder_latent(split_folder, **kw)  # type: ignore
         files.extend([mapping[file] for file in rs[1]])
         features.append(rs[0])
 
