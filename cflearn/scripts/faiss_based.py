@@ -7,7 +7,6 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Type
 from typing import Callable
 from typing import Optional
 
@@ -41,7 +40,7 @@ def run_faiss(
 def image_retrieval(
     m: SimplePipeline,
     packed: str,
-    extractor_base: Type[IImageExtractor],
+    extractor: IImageExtractor,
     *,
     tag: str,
     task: str,
@@ -75,7 +74,6 @@ def image_retrieval(
         input_sample=input_sample,
         output_names=output_names,
     )
-    extractor = extractor_base(m)
 
     os.makedirs(features_folder, exist_ok=True)
     kw = dict(batch_size=batch_size, num_workers=num_workers)

@@ -2,13 +2,8 @@ from torch import Tensor
 from typing import List
 from typing import Tuple
 
-from ..pipeline import SimplePipeline
-
 
 class IImageExtractor:
-    def __init__(self, m: SimplePipeline):
-        pass
-
     def get_folder_latent(
         self,
         src_folder: str,
