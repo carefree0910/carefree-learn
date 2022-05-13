@@ -534,15 +534,15 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         if num_samples is not None:
             input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
         onnx_forward = forward_fn or model.onnx_forward
-        with eval_context(model):
-            forward_results = onnx_forward(shallow_copy_dict(input_sample))
-        if not isinstance(forward_results, dict):
-            forward_results = {PREDICTIONS_KEY: forward_results}
         input_names = sorted(input_sample.keys())
         if output_names is None:
             if forward_fn is not None:
                 msg = "`output_names` should be provided when `forward_fn` is provided"
                 raise ValueError(msg)
+            with eval_context(model):
+                forward_results = onnx_forward(shallow_copy_dict(input_sample))
+            if not isinstance(forward_results, dict):
+                forward_results = {PREDICTIONS_KEY: forward_results}
             output_names = sorted(forward_results.keys())
         # setup
         kwargs = shallow_copy_dict(kwargs)
