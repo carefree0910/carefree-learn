@@ -280,14 +280,24 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
     def _save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
         self._write_pipeline_info(export_folder)
-        self.data.save(export_folder)
+        data = getattr(self, "data", None)
+        if data is not None:
+            self.data.save(export_folder)
         # final results
+        final_results = None
         try:
             final_results = self.trainer.final_results
             if final_results is None:
-                raise ValueError("`final_results` are not generated yet")
+                print(
+                    f"{WARNING_PREFIX}`final_results` are not generated yet, "
+                    "'unknown' results will be saved"
+                )
         except AttributeError as e:
-            print(f"{WARNING_PREFIX}{e}, so `final_results` cannot be accessed")
+            print(
+                f"{WARNING_PREFIX}{e}, so `final_results` cannot be accessed, "
+                "and 'unknown' results will be saved"
+            )
+        if final_results is None:
             final_results = MetricsOutputs(0.0, {"unknown": 0.0})
         with open(os.path.join(export_folder, self.final_results_file), "w") as f:
             json.dump(final_results, f)
