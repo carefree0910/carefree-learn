@@ -103,8 +103,6 @@ def pack_onnx(
     opset: int = 11,
     simplify: bool = True,
     num_samples: Optional[int] = None,
-    compress: Optional[bool] = None,
-    remove_original: bool = True,
     verbose: bool = True,
     **kwargs: Any,
 ) -> DLPipeline:
@@ -124,8 +122,6 @@ def pack_onnx(
         simplify=simplify,
         input_sample=input_sample,
         num_samples=num_samples,
-        compress=compress,
-        remove_original=remove_original,
         verbose=verbose,
         **kwargs,
     )
