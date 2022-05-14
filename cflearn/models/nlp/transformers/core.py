@@ -53,6 +53,7 @@ class HuggingFaceModel(ModelProtocol):
         sample_text: str,
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
+        max_length: Optional[int] = None,
         onnx_file: str = "model.onnx",
         opset: int = 11,
         simplify: bool = True,
@@ -62,9 +63,19 @@ class HuggingFaceModel(ModelProtocol):
         verbose: bool = True,
         **kwargs: Any,
     ) -> "ModelProtocol":
+        if max_length is None:
+            input_sample = self.tokenizer(sample_text, return_tensors="pt")
+        else:
+            input_sample = self.tokenizer(
+                sample_text,
+                padding="max_length",
+                truncation=True,
+                max_length=max_length,
+                return_tensors="pt",
+            )
         return super().to_onnx(
             export_folder,
-            self.tokenizer(sample_text, return_tensors="pt"),
+            input_sample,
             dynamic_axes,
             onnx_file=onnx_file,
             opset=opset,
