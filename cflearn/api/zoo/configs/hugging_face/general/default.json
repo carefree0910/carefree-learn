@@ -1,0 +1,5 @@
+{
+  "pipeline": "nlp.carefree",
+  "model_name": "hugging_face",
+  "allow_no_loss": true
+}

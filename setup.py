@@ -10,6 +10,7 @@ setup(
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "transformers",
         "ftfy",
         "regex",
         "lmdb",

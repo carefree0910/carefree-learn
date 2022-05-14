@@ -39,7 +39,12 @@ class CVInference(InferenceProtocol):
     pass
 
 
+class NLPInference(InferenceProtocol):
+    pass
+
+
 __all__ = [
     "MLInference",
     "CVInference",
+    "NLPInference",
 ]

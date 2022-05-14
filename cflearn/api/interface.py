@@ -962,6 +962,17 @@ def vq_vae_gray_lite(
     return _vq_vae("vq.gray_lite", img_size, num_classes, **kwargs)
 
 
+# nlp
+
+
+def hugging_face(model: str) -> DLPipeline:
+    return DLZoo.load_pipeline("hugging_face/general", model_config={"model": model})
+
+
+def hugging_face_model(model: str) -> HuggingFaceModel:
+    return DLZoo.load_model("hugging_face/general", model_config={"model": model})
+
+
 __all__ = [
     "make",
     "run_ddp",
@@ -1017,4 +1028,6 @@ __all__ = [
     "vq_vae_gray",
     "vq_vae_lite",
     "vq_vae_gray_lite",
+    "hugging_face",
+    "hugging_face_model",
 ]
