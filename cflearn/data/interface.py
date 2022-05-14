@@ -83,6 +83,29 @@ class TensorDataset(Dataset):
         return self.x.shape[0]
 
 
+class TensorDictDataset(Dataset):
+    def __init__(
+        self,
+        x: tensor_dict_type,
+        y: Optional[Tensor],
+    ):
+        self.x = x
+        self.y = y
+        self.x_keys = sorted(self.x)
+
+    def __getitem__(self, index: int) -> tensor_dict_type:
+        label = 0 if self.y is None else self.y[index]
+        item = {
+            LABEL_KEY: label,
+            ORIGINAL_LABEL_KEY: label,
+        }
+        item.update({k: self.x[k][index] for k in self.x_keys})
+        return item
+
+    def __len__(self) -> int:
+        return self.x[self.x_keys[0]].shape[0]
+
+
 @DLDataModule.register("tensor")
 class TensorData(DLDataModule):
     def __init__(
@@ -121,6 +144,50 @@ class TensorData(DLDataModule):
             self.valid_data = None
         else:
             self.valid_data = _get_data(self.x_valid, self.y_valid, self.valid_others)
+
+    def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
+        train_loader = DLLoader(DataLoader(self.train_data, **self.kw))  # type: ignore
+        if self.valid_data is None:
+            valid_loader = None
+        else:
+            valid_loader = DLLoader(DataLoader(self.valid_data, **self.kw))  # type: ignore
+        return train_loader, valid_loader
+
+
+@DLDataModule.register("tensor_dict")
+class TensorDictData(DLDataModule):
+    def __init__(
+        self,
+        x_train: tensor_dict_type,
+        y_train: Optional[Tensor] = None,
+        x_valid: Optional[tensor_dict_type] = None,
+        y_valid: Optional[Tensor] = None,
+        *,
+        shuffle: bool = True,
+        batch_size: int = 64,
+        num_workers: int = 0,
+    ):
+        self.x_train = x_train
+        self.y_train = y_train
+        self.x_valid = x_valid
+        self.y_valid = y_valid
+        self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
+        self.test_transform = None
+
+    @property
+    def info(self) -> Dict[str, Any]:
+        return self.kw
+
+    # TODO : support sample weights
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        def _get_data(x: Any, y: Any) -> DLDataset:
+            return DLDataset(TensorDictDataset(x, y))
+
+        self.train_data = _get_data(self.x_train, self.y_train)
+        if self.x_valid is None:
+            self.valid_data = None
+        else:
+            self.valid_data = _get_data(self.x_valid, self.y_valid)
 
     def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
         train_loader = DLLoader(DataLoader(self.train_data, **self.kw))  # type: ignore
@@ -945,6 +1012,7 @@ def prepare_image_folder_data(
 
 __all__ = [
     "TensorData",
+    "TensorDictData",
     "DummyData",
     "MLData",
     "MLInferenceData",
