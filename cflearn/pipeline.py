@@ -1,6 +1,5 @@
 import os
 import json
-import onnx
 import torch
 import shutil
 
@@ -13,11 +12,9 @@ from typing import Type
 from typing import Union
 from typing import Callable
 from typing import Optional
-from onnxsim import simplify as onnx_simplify
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
-from onnxsim.onnx_simplifier import get_input_names
 
 from .data import DataModule
 from .data import DLDataModule
@@ -37,17 +34,12 @@ from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
 from .constants import PT_PREFIX
-from .constants import INFO_PREFIX
 from .constants import SCORES_FILE
 from .constants import WARNING_PREFIX
-from .constants import PREDICTIONS_KEY
 from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
-from .misc.toolkit import to_numpy
 from .misc.toolkit import get_ddp_info
-from .misc.toolkit import fix_denormal_states
 from .misc.toolkit import prepare_workplace_from
-from .misc.toolkit import eval_context
 from .misc.toolkit import WithRegister
 from .misc.internal_.trainer import make_trainer
 
@@ -104,7 +96,6 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     final_results_file = "final_results.json"
     config_bundle_name = "config_bundle"
-    onnx_kwargs_file: str = "onnx.json"
 
     config: Dict[str, Any]
     input_dim: Optional[int]
@@ -524,18 +515,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         onnx_file: str = "model.onnx",
         opset: int = 11,
         simplify: bool = True,
-        onnx_only: bool = True,
         forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
         output_names: Optional[List[str]] = None,
         input_sample: Optional[tensor_dict_type] = None,
         num_samples: Optional[int] = None,
-        compress: Optional[bool] = None,
-        remove_original: bool = True,
         verbose: bool = True,
         **kwargs: Any,
     ) -> "DLPipeline":
-        # prepare
-        model = self.model.cpu()
         if input_sample is None:
             if getattr(self, "trainer", None) is None:
                 msg = "either `input_sample` or `trainer` should be provided"
@@ -543,104 +529,19 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             input_sample = self.trainer.input_sample
             input_sample.pop(BATCH_INDICES_KEY, None)
         assert isinstance(input_sample, dict)
-        if num_samples is not None:
-            input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
-        onnx_forward = forward_fn or model.onnx_forward
-        input_names = sorted(input_sample.keys())
-        if output_names is None:
-            if forward_fn is not None:
-                msg = "`output_names` should be provided when `forward_fn` is provided"
-                raise ValueError(msg)
-            with eval_context(model):
-                forward_results = onnx_forward(shallow_copy_dict(input_sample))
-            if not isinstance(forward_results, dict):
-                forward_results = {PREDICTIONS_KEY: forward_results}
-            output_names = sorted(forward_results.keys())
-        # setup
-        kwargs = shallow_copy_dict(kwargs)
-        kwargs["input_names"] = input_names
-        kwargs["output_names"] = output_names
-        kwargs["opset_version"] = opset
-        kwargs["export_params"] = True
-        kwargs["do_constant_folding"] = True
-        if dynamic_axes is None:
-            dynamic_axes = {}
-        elif isinstance(dynamic_axes, list):
-            dynamic_axes = {axis: f"axis.{axis}" for axis in dynamic_axes}
-        if num_samples is None:
-            dynamic_axes[0] = "batch_size"
-        dynamic_axes_settings = {}
-        for name in input_names + output_names:
-            dynamic_axes_settings[name] = dynamic_axes
-        kwargs["dynamic_axes"] = dynamic_axes_settings
-        kwargs["verbose"] = verbose
-        # export
-        abs_folder = os.path.abspath(export_folder)
-        base_folder = os.path.dirname(abs_folder)
-
-        class ONNXWrapper(torch.nn.Module):
-            def __init__(self) -> None:
-                super().__init__()
-                self.model = model
-
-            def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
-                rs = onnx_forward(batch)
-                if isinstance(rs, torch.Tensor):
-                    return {k: rs for k in output_names}  # type: ignore
-                return {k: rs[k] for k in output_names}  # type: ignore
-
-        with lock_manager(base_folder, []) as lock:
-            onnx_path = os.path.join(export_folder, onnx_file)
-            if onnx_only:
-                lock._stuffs = [onnx_path]
-                os.makedirs(export_folder, exist_ok=True)
-            else:
-                lock._stuffs = [export_folder]
-                self._save_misc(export_folder)
-                with open(os.path.join(export_folder, self.onnx_kwargs_file), "w") as f:
-                    json.dump(kwargs, f)
-            m_onnx = ONNXWrapper()
-            original_states = model.state_dict()
-            fixed_states = fix_denormal_states(original_states, verbose=verbose)
-            with eval_context(m_onnx):
-                model.load_state_dict(fixed_states)
-                torch.onnx.export(
-                    m_onnx,
-                    ({k: input_sample[k] for k in input_names}, {}),
-                    onnx_path,
-                    **shallow_copy_dict(kwargs),
-                )
-                model.load_state_dict(original_states)
-                onnx_model = onnx.load(onnx_path)
-                input_names = get_input_names(onnx_model)
-                np_sample = {
-                    name: to_numpy(tensor)
-                    for name, tensor in input_sample.items()
-                    if name in input_names
-                }
-                try:
-                    if not simplify:
-                        model_simplified = onnx_model
-                        check = True
-                    else:
-                        model_simplified, check = onnx_simplify(
-                            onnx_model,
-                            input_data=np_sample,
-                            dynamic_input_shape=bool(dynamic_axes),
-                        )
-                except Exception as err:
-                    if verbose:
-                        print(f"{WARNING_PREFIX}Failed to simplify ONNX model ({err})")
-                    check = False
-                if not check and verbose:
-                    print(f"{INFO_PREFIX}Simplified ONNX model is not validated!")
-                elif check and verbose and simplify:
-                    print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
-                    onnx_model = model_simplified
-                onnx.save(onnx_model, onnx_path)
-            if compress or (compress is None and not onnx_only):
-                Saving.compress(abs_folder, remove_original=remove_original)
-        self.model.to(self.device)
+        self.model.to_onnx(
+            export_folder,
+            input_sample,
+            dynamic_axes,
+            onnx_file=onnx_file,
+            opset=opset,
+            simplify=simplify,
+            forward_fn=forward_fn,
+            output_names=output_names,
+            num_samples=num_samples,
+            verbose=verbose,
+            **kwargs,
+        )
         return self
 
     @classmethod
@@ -660,10 +561,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         onnx_file: str = "model.onnx",
         opset: int = 11,
         simplify: bool = True,
-        onnx_only: bool = True,
         num_samples: Optional[int] = None,
-        compress: Optional[bool] = None,
-        remove_original: bool = True,
         verbose: bool = True,
         **kwargs: Any,
     ) -> "DLPipeline":
@@ -685,37 +583,11 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             onnx_file=onnx_file,
             opset=opset,
             simplify=simplify,
-            onnx_only=onnx_only,
             input_sample=input_sample,
             num_samples=num_samples,
-            compress=compress,
-            remove_original=remove_original,
             verbose=verbose,
             **kwargs,
         )
-        return m
-
-    @classmethod
-    def from_onnx(
-        cls,
-        export_folder: str,
-        *,
-        onnx_file: str = "model.onnx",
-        compress: bool = True,
-        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "DLPipeline":
-        base_folder = os.path.dirname(os.path.abspath(export_folder))
-        with lock_manager(base_folder, [export_folder]):
-            with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(
-                    export_folder,
-                    None,
-                    pre_callback,
-                    post_callback,
-                )
-                m_onnx = ONNX(os.path.join(export_folder, onnx_file))
-                m.inference = cls.inference_base(onnx=m_onnx)
         return m
 
 

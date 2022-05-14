@@ -18,14 +18,11 @@ p = m.predict(idata)[cflearn.PREDICTIONS_KEY]
 m.save("iris")
 m2 = cflearn.api.load("iris")
 assert np.allclose(p, m2.predict(idata)[cflearn.PREDICTIONS_KEY])
-m.to_onnx("iris_onnx", onnx_only=False)
-m3 = cflearn.ml.SimplePipeline.from_onnx("iris_onnx")
-assert np.allclose(p, m3.predict(idata)[cflearn.PREDICTIONS_KEY], atol=1.0e-4)
 workplace = get_latest_workplace("_logs")
 assert workplace is not None
 packed_path = cflearn.api.pack(workplace)
-m4 = cflearn.api.load(packed_path)
-assert np.allclose(p, m4.predict(idata)[cflearn.PREDICTIONS_KEY])
+m3 = cflearn.api.load(packed_path)
+assert np.allclose(p, m3.predict(idata)[cflearn.PREDICTIONS_KEY])
 
 m = cflearn.api.fit_ml(x, y, is_classification=True, output_dim=3, metric_names=metrics)
 p2 = m.predict(idata)[cflearn.PREDICTIONS_KEY]
