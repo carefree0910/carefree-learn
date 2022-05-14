@@ -122,7 +122,6 @@ def pack_onnx(
         onnx_file=onnx_file,
         opset=opset,
         simplify=simplify,
-        onnx_only=True,
         input_sample=input_sample,
         num_samples=num_samples,
         compress=compress,

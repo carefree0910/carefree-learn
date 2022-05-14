@@ -206,11 +206,8 @@ class DLZoo(ZooBase):
         onnx_file: str = "model.onnx",
         opset: int = 11,
         simplify: bool = True,
-        onnx_only: bool = False,
         input_sample: Optional[tensor_dict_type] = None,
         num_samples: Optional[int] = None,
-        compress: Optional[bool] = None,
-        remove_original: bool = True,
         verbose: bool = True,
         **kwargs: Any,
     ) -> DLPipeline:
@@ -230,11 +227,8 @@ class DLZoo(ZooBase):
             onnx_file=onnx_file,
             opset=opset,
             simplify=simplify,
-            onnx_only=onnx_only,
             input_sample=input_sample,
             num_samples=num_samples,
-            compress=compress,
-            remove_original=remove_original,
             verbose=verbose,
         )
         return zoo.m
