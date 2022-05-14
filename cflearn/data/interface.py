@@ -68,12 +68,10 @@ class TensorDataset(Dataset):
         self.others = others
 
     def __getitem__(self, index: int) -> tensor_dict_type:
-        label = 0 if self.y is None else self.y[index]
-        item = {
-            INPUT_KEY: self.x[index],
-            LABEL_KEY: label,
-            ORIGINAL_LABEL_KEY: label,
-        }
+        item = {INPUT_KEY: self.x[index]}
+        if self.y is not None:
+            label = self.y[index]
+            item.update({LABEL_KEY: label, ORIGINAL_LABEL_KEY: label})
         if self.others is not None:
             for k, v in self.others.items():
                 item[k] = v[index]
@@ -94,12 +92,10 @@ class TensorDictDataset(Dataset):
         self.x_keys = sorted(self.x)
 
     def __getitem__(self, index: int) -> tensor_dict_type:
-        label = 0 if self.y is None else self.y[index]
-        item = {
-            LABEL_KEY: label,
-            ORIGINAL_LABEL_KEY: label,
-        }
-        item.update({k: self.x[k][index] for k in self.x_keys})
+        item = {k: self.x[k][index] for k in self.x_keys}
+        if self.y is not None:
+            label = self.y[index]
+            item.update({LABEL_KEY: label, ORIGINAL_LABEL_KEY: label})
         return item
 
     def __len__(self) -> int:
