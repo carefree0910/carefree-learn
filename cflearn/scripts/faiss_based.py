@@ -124,5 +124,6 @@ def image_retrieval(
 
 
 __all__ = [
+    "run_faiss",
     "image_retrieval",
 ]
