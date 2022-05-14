@@ -1,0 +1,6 @@
+{
+  "pipeline": "nlp.carefree",
+  "model_name": "simbert",
+  "model_config": {},
+  "allow_no_loss": true
+}

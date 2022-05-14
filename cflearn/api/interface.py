@@ -972,6 +972,10 @@ def hugging_face_model(model: str) -> HuggingFaceModel:
     return DLZoo.load_model("hugging_face/general", model_config={"model": model})
 
 
+def simbert_model() -> SimBERT:
+    return DLZoo.load_model("hugging_face/simbert")
+
+
 __all__ = [
     "make",
     "run_ddp",
@@ -1029,4 +1033,5 @@ __all__ = [
     "vq_vae_gray_lite",
     "hugging_face",
     "hugging_face_model",
+    "simbert_model",
 ]
