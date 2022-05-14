@@ -1,4 +1,8 @@
 from typing import Any
+from typing import Dict
+from typing import List
+from typing import Union
+from typing import Callable
 from typing import Optional
 from transformers import AutoModel
 from transformers import AutoTokenizer
@@ -42,6 +46,35 @@ class HuggingFaceModel(ModelProtocol):
         loader = data.initialize()[0]
         inference = InferenceProtocol(model=self)
         return inference.get_outputs(loader, use_tqdm=use_tqdm).forward_results
+
+    def to_onnx(  # type: ignore
+        self,
+        export_folder: str,
+        sample_text: str,
+        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
+        *,
+        onnx_file: str = "model.onnx",
+        opset: int = 11,
+        simplify: bool = True,
+        forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
+        output_names: Optional[List[str]] = None,
+        num_samples: Optional[int] = None,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> "ModelProtocol":
+        return super().to_onnx(
+            export_folder,
+            self.tokenizer(sample_text, return_tensors="pt"),
+            dynamic_axes,
+            onnx_file=onnx_file,
+            opset=opset,
+            simplify=simplify,
+            forward_fn=forward_fn,
+            output_names=output_names,
+            num_samples=num_samples,
+            verbose=verbose,
+            **kwargs,
+        )
 
 
 __all__ = [
