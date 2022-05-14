@@ -6,10 +6,10 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 
-from ...data import Transforms
-from ...data import InferenceImageFolderData
-from ...types import np_dict_type
-from ...pipeline import DLPipeline
+from ....data import Transforms
+from ....data import InferenceImageFolderData
+from ....types import np_dict_type
+from ....pipeline import DLPipeline
 
 
 class FolderInferenceResults(NamedTuple):

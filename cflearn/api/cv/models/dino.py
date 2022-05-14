@@ -6,10 +6,10 @@ from torch import Tensor
 from typing import List
 from typing import Tuple
 
+from .utils import predict_folder
 from ..data import SSLTestTransform
 from ..data import InferenceImageFolderData
 from ..pipeline import SimplePipeline
-from ..interface import predict_folder
 from ....constants import LATENT_KEY
 from ....misc.toolkit import to_rgb
 from ....misc.toolkit import to_torch

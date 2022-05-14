@@ -2,8 +2,8 @@ from torch import Tensor
 from typing import List
 from typing import Tuple
 
+from .utils import predict_folder
 from ..pipeline import SimplePipeline
-from ..interface import predict_folder
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import to_torch
