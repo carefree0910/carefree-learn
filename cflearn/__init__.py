@@ -1,4 +1,5 @@
 from .misc import *
+from .losses import *
 from .models import *
 from .modules import *
 from .trainer import *

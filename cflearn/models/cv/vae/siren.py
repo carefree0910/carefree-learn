@@ -6,8 +6,6 @@ from typing import Dict
 from typing import Optional
 
 from .vanilla import reparameterize
-from .constants import MU_KEY
-from .constants import LOG_VAR_KEY
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
@@ -18,6 +16,8 @@ from ..encoder.protocol import Encoder1DBase
 from ...implicit.siren import ImgSiren
 from ....misc.toolkit import check_requires
 from ....misc.toolkit import auto_num_layers
+from ....losses.vae import MU_KEY
+from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Linear
 
 

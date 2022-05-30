@@ -5,15 +5,17 @@ import torch.nn.functional as F
 from typing import Any
 from typing import Optional
 
-from .constants import MU_KEY
-from .constants import LOG_VAR_KEY
-from ....types import losses_type
-from ....types import tensor_dict_type
-from ....protocol import LossProtocol
-from ....protocol import TrainerState
-from ....constants import LOSS_KEY
-from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
+from ..types import losses_type
+from ..types import tensor_dict_type
+from ..protocol import LossProtocol
+from ..protocol import TrainerState
+from ..constants import LOSS_KEY
+from ..constants import INPUT_KEY
+from ..constants import PREDICTIONS_KEY
+
+
+MU_KEY = "mu"
+LOG_VAR_KEY = "log_var"
 
 
 @LossProtocol.register("vae")
@@ -89,6 +91,8 @@ class VQVAELoss(LossProtocol):
 
 
 __all__ = [
+    "MU_KEY",
+    "LOG_VAR_KEY",
     "VAELoss",
     "VQVAELoss",
 ]

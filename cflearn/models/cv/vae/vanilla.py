@@ -7,8 +7,6 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .constants import MU_KEY
-from .constants import LOG_VAR_KEY
 from ..general import EncoderDecoder
 from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
@@ -17,6 +15,8 @@ from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
+from ....losses.vae import MU_KEY
+from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Lambda
 from ....modules.blocks import Activation
 from ....modules.blocks import ChannelPadding
