@@ -4,8 +4,8 @@ from torch import Tensor
 from typing import List
 from typing import Tuple
 
-from .utils import predict_folder
-from ..pipeline import SimplePipeline
+from ...cv.models.utils import predict_folder
+from ...cv.pipeline import SimplePipeline
 from ....types import texts_type
 from ....protocol import InferenceProtocol
 from ....constants import INPUT_KEY
