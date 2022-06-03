@@ -973,6 +973,14 @@ def simbert_model() -> SimBERT:
     return DLZoo.load_model("hugging_face/simbert")
 
 
+def opus_model(src: str, tgt: str) -> OPUSBase:
+    return DLZoo.load_model("hugging_face/opus", model_config={"src": src, "tgt": tgt})
+
+
+def opus_zh_en_model() -> OPUS_ZH_EN:
+    return opus_model("zh", "en")
+
+
 __all__ = [
     "make",
     "run_ddp",
@@ -1031,4 +1039,6 @@ __all__ = [
     "hugging_face",
     "hugging_face_model",
     "simbert_model",
+    "opus_model",
+    "opus_zh_en_model",
 ]

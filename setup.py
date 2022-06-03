@@ -10,6 +10,8 @@ setup(
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
     install_requires=[
+        "sacremoses",
+        "sentencepiece",
         "protobuf==3.16.0",
         "transformers",
         "ftfy",

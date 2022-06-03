@@ -1,6 +1,7 @@
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -20,10 +21,22 @@ from ....misc.toolkit import shallow_copy_dict
 
 @ModelProtocol.register("hugging_face")
 class HuggingFaceModel(ModelProtocol):
+    tokenizer_base: Type = AutoTokenizer
+    model_base: Type = AutoModel
+    forward_fn_name: str = "forward"
+
     def __init__(self, model: str):
         super().__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(model)
-        self.model = AutoModel.from_pretrained(model)
+        self.tokenizer = self.tokenizer_base.from_pretrained(model)
+        self.model = self.model_base.from_pretrained(model)
+
+    def model_forward(self, batch: tensor_dict_type) -> Any:
+        fn = getattr(self.model, self.forward_fn_name)
+        batch = shallow_copy_dict(batch)
+        pop_keys = [k for k in batch.keys() if not check_requires(fn, k, False)]
+        for k in pop_keys:
+            batch.pop(k)
+        return fn(**batch)
 
     def forward(
         self,
@@ -32,12 +45,7 @@ class HuggingFaceModel(ModelProtocol):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        fn = self.model.forward
-        batch = shallow_copy_dict(batch)
-        pop_keys = [k for k in batch.keys() if not check_requires(fn, k, False)]
-        for k in pop_keys:
-            batch.pop(k)
-        return self.model(**batch)
+        return self.model_forward(batch)
 
     def inference(self, texts: texts_type, use_tqdm: bool = True) -> np_dict_type:
         x = self.tokenizer(texts, padding=True, return_tensors="pt")

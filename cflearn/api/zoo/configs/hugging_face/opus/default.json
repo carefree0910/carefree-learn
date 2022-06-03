@@ -1,0 +1,9 @@
+{
+  "__requires__": {
+    "model_config": ["src", "tgt"]
+  },
+  "pipeline": "nlp.carefree",
+  "model_name": "opus-base",
+  "model_config": {},
+  "allow_no_loss": true
+}
