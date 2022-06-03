@@ -1,7 +1,4 @@
 {
-  "data_info": [
-    "adain"
-  ],
   "tokenizers": [
     "clip",
     "clip_3.8",
