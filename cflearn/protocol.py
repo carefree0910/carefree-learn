@@ -701,6 +701,7 @@ class InferenceProtocol:
         metrics: Optional["MetricProtocol"] = None,
         loss: Optional[LossProtocol] = None,
         return_outputs: bool = True,
+        stack_outputs: bool = True,
         use_tqdm: bool = False,
         **kwargs: Any,
     ) -> InferenceOutputs:
@@ -789,7 +790,9 @@ class InferenceProtocol:
                 final_results = {k: None for k in results}
             else:
                 final_results = {
-                    batch_key: np.vstack(batch_results)
+                    batch_key: batch_results
+                    if not stack_outputs
+                    else np.vstack(batch_results)
                     if isinstance(batch_results[0], np.ndarray)
                     else [
                         np.vstack([batch[i] for batch in batch_results])
