@@ -47,13 +47,19 @@ class HuggingFaceModel(ModelProtocol):
     ) -> tensor_dict_type:
         return self.model_forward(batch)
 
-    def inference(self, texts: texts_type, use_tqdm: bool = True) -> np_dict_type:
+    def inference(
+        self,
+        texts: texts_type,
+        use_tqdm: bool = True,
+        **kwargs: Any,
+    ) -> np_dict_type:
         x = self.tokenizer(texts, padding=True, return_tensors="pt")
         data = TensorDictData(x)
         data.prepare(None)
         loader = data.initialize()[0]
         inference = InferenceProtocol(model=self)
-        return inference.get_outputs(loader, use_tqdm=use_tqdm).forward_results
+        outputs = inference.get_outputs(loader, use_tqdm=use_tqdm, **kwargs)
+        return outputs.forward_results
 
     def to_onnx(  # type: ignore
         self,

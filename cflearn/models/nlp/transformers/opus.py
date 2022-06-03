@@ -4,6 +4,8 @@ from transformers import MarianMTModel
 from transformers import MarianTokenizer
 
 from .core import HuggingFaceModel
+from ....types import texts_type
+from ....types import np_dict_type
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import PREDICTIONS_KEY
@@ -27,6 +29,14 @@ class OPUSBase(HuggingFaceModel):
     ) -> tensor_dict_type:
         generated_ids = super().model_forward(batch)
         return {PREDICTIONS_KEY: generated_ids}
+
+    def inference(
+        self,
+        texts: texts_type,
+        use_tqdm: bool = True,
+        **kwargs: Any,
+    ) -> np_dict_type:
+        return super().inference(texts, use_tqdm, stack_outputs=False, **kwargs)
 
 
 @HuggingFaceModel.register("opus-zh-en")
