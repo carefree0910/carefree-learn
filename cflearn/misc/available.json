@@ -1,4 +1,5 @@
 {
+  "data_info": [],
   "tokenizers": [
     "clip",
     "clip_3.8",
