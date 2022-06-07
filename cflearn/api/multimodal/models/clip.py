@@ -81,6 +81,26 @@ class CLIPExtractor:
         latent = to_torch(results.outputs[LATENT_KEY])
         return latent, results.img_paths
 
+    def to_text_onnx(self, export_folder: str, onnx_file: str = "text.onnx") -> None:
+        inp = to_torch(self.tokenizer.tokenize("Test."))
+        self.clip.to_onnx(
+            export_folder,
+            {INPUT_KEY: inp},
+            onnx_file=onnx_file,
+            forward_fn=self.text_forward_fn,
+            output_names=[LATENT_KEY],
+        )
+
+    def to_image_onnx(self, export_folder: str, onnx_file: str = "image.onnx") -> None:
+        inp = torch.randn(1, 3, self.img_size, self.img_size)
+        self.clip.to_onnx(
+            export_folder,
+            {INPUT_KEY: inp},
+            onnx_file=onnx_file,
+            forward_fn=self.image_forward_fn,
+            output_names=[LATENT_KEY],
+        )
+
 
 __all__ = [
     "CLIPExtractor",
