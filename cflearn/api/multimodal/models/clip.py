@@ -1,8 +1,11 @@
+import torch
+
 import numpy as np
 
 from torch import Tensor
 from typing import List
 from typing import Tuple
+from typing import Callable
 
 from ...cv.models.utils import predict_folder
 from ...cv.pipeline import SimplePipeline
@@ -13,16 +16,27 @@ from ....constants import LATENT_KEY
 from ....misc.toolkit import to_torch
 from ....data.interface import TensorData
 from ....models.nlp.tokenizers import TokenizerProtocol
+from ....models.multimodal.clip import CLIP
 
 
-class CLIPTextExtractor:
+class CLIPExtractor:
+    clip: CLIP
+
     def __init__(self, m: SimplePipeline):
         self.m = m
         clip = m.model
+        self.clip = clip
+        self.img_size = clip.img_size
+        self.transform = clip.get_transform()
         self.tokenizer = TokenizerProtocol.make("clip", {})
-        clip.forward = lambda _, batch, *args, **kwargs: {  # type: ignore
-            LATENT_KEY: clip.encode_text(batch[INPUT_KEY]),
-        }
+
+    @property
+    def text_forward_fn(self) -> Callable:
+        return lambda batch: {LATENT_KEY: self.clip.encode_text(batch[INPUT_KEY])}
+
+    @property
+    def image_forward_fn(self) -> Callable:
+        return lambda batch: {LATENT_KEY: self.clip.encode_image(batch[INPUT_KEY])}
 
     def get_texts_latent(
         self,
@@ -38,20 +52,12 @@ class CLIPTextExtractor:
         data = TensorData(texts_tensor, batch_size=batch_size)
         data.prepare(None)
         loader = data.initialize()[0]
-        inference = InferenceProtocol(model=self.m.model)
+        original_forward = self.clip.forward
+        self.clip.forward = lambda _, batch, *s, **kws: self.text_forward_fn(batch)  # type: ignore
+        inference = InferenceProtocol(model=self.clip)
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm)
+        self.clip.forward = original_forward  # type: ignore
         return outputs.forward_results
-
-
-class CLIPImageExtractor:
-    def __init__(self, m: SimplePipeline):
-        self.m = m
-        clip = m.model
-        self.img_size = clip.img_size
-        self.transform = clip.get_transform()
-        clip.forward = lambda _, batch, *args, **kwargs: {  # type: ignore
-            LATENT_KEY: clip.encode_image(batch[INPUT_KEY]),
-        }
 
     def get_folder_latent(
         self,
@@ -61,6 +67,8 @@ class CLIPImageExtractor:
         num_workers: int = 0,
         use_tqdm: bool = True,
     ) -> Tuple[Tensor, List[str]]:
+        original_forward = self.clip.forward
+        self.clip.forward = lambda _, batch, *s, **kws: self.image_forward_fn(batch)  # type: ignore
         results = predict_folder(
             self.m,
             src_folder,
@@ -69,11 +77,11 @@ class CLIPImageExtractor:
             transform=self.transform,
             use_tqdm=use_tqdm,
         )
+        self.clip.forward = original_forward  # type: ignore
         latent = to_torch(results.outputs[LATENT_KEY])
         return latent, results.img_paths
 
 
 __all__ = [
-    "CLIPTextExtractor",
-    "CLIPImageExtractor",
+    "CLIPExtractor",
 ]
