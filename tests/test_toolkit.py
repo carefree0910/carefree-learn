@@ -1,9 +1,11 @@
+import torch
 import unittest
 
 import numpy as np
 
 from typing import Any
 from typing import Dict
+from cflearn.misc.toolkit import corr
 from cflearn.misc.toolkit import to_standard
 from cflearn.misc.toolkit import get_arguments
 from cflearn.misc.toolkit import auto_num_layers
@@ -46,6 +48,25 @@ class TestToolkit(unittest.TestCase):
                 num_layers = auto_num_layers(img_size, min_size, None)
                 if num_layers == 0:
                     self.assertTrue(img_size < 2 * min_size)
+
+    def test_corr(self) -> None:
+        pred = torch.randn(100, 5)
+        target = torch.randn(100, 5)
+        weights = torch.zeros(100, 1)
+        weights[:30] = weights[-30:] = 1.0
+        corr00 = corr(pred, pred, weights)
+        corr01 = corr(pred, target, weights)
+        corr02 = corr(target, pred, weights)
+        w_pred = pred[list(range(30)) + list(range(70, 100))]
+        w_target = target[list(range(30)) + list(range(70, 100))]
+        corr10 = corr(w_pred, w_pred)
+        corr11 = corr(w_pred, w_target)
+        corr12 = corr(w_target, w_pred)
+        self.assertTrue(torch.allclose(corr00, corr10))
+        self.assertTrue(torch.allclose(corr01, corr11))
+        self.assertTrue(torch.allclose(corr01, corr02))
+        self.assertTrue(torch.allclose(corr11, corr12))
+        self.assertTrue(torch.allclose(corr02, corr12))
 
 
 if __name__ == "__main__":
