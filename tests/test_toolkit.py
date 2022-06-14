@@ -64,8 +64,8 @@ class TestToolkit(unittest.TestCase):
         corr12 = corr(w_target, w_pred)
         self.assertTrue(torch.allclose(corr00, corr10))
         self.assertTrue(torch.allclose(corr01, corr11))
-        self.assertTrue(torch.allclose(corr01, corr02))
-        self.assertTrue(torch.allclose(corr11, corr12))
+        self.assertTrue(torch.allclose(corr01, corr02.t()))
+        self.assertTrue(torch.allclose(corr11, corr12.t()))
         self.assertTrue(torch.allclose(corr02, corr12))
 
 
