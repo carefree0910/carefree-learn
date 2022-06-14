@@ -1188,7 +1188,10 @@ def corr(
     else:
         vp_norm = (weights * (vp**2)).sum(0, keepdim=True).sqrt()
     if predictions is target:
-        mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
+        if weights is None:
+            mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
+        else:
+            mat = (weights * vp).t().matmul(vp) / (vp_norm * vp_norm.t())
     else:
         if weights is None:
             target_mean = target.mean(0, keepdim=True)
@@ -1199,7 +1202,10 @@ def corr(
             vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
         else:
             vt_norm = (weights.t() * (vt**2)).sum(1, keepdim=True).sqrt()
-        mat = vt.matmul(vp) / (vp_norm * vt_norm)
+        if weights is None:
+            mat = vt.matmul(vp) / (vp_norm * vt_norm)
+        else:
+            mat = vt.matmul(weights * vp) / (vp_norm * vt_norm)
     if not get_diagonal:
         return mat
     if mat.shape[0] != mat.shape[1]:
