@@ -1108,11 +1108,12 @@ class Initializer(LoggingMixinWithRank):
 class DropNoGradStatesMixin:
     def state_dict(
         self,
+        *,
         destination: Any = None,
         prefix: str = "",
         keep_vars: bool = False,
     ) -> tensor_dict_type:
-        states = super().state_dict(destination, prefix, keep_vars)  # type: ignore
+        states = super().state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)  # type: ignore
         for key, _ in self.named_buffers():  # type: ignore
             states.pop(key)
         for key, value in self.named_parameters():  # type: ignore
