@@ -58,7 +58,6 @@ from tqdm.autonotebook import tqdm
 from cftool.misc import shallow_copy_dict
 from cftool.misc import lock_manager
 from cftool.misc import Saving
-from cftool.ml.utils import scoring_fn_type
 from cfdata.tabular import task_type_type
 from cfdata.tabular import parse_task_type
 from cfdata.tabular import TabularData

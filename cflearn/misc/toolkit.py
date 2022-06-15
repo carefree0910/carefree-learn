@@ -44,10 +44,10 @@ from torch.optim import Optimizer
 from cftool.misc import prod
 from cftool.misc import hash_code
 from cftool.misc import register_core
-from cftool.misc import show_or_save
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
+from cfml.misc.toolkit import show_or_save
 
 from ..types import arr_type
 from ..types import data_type

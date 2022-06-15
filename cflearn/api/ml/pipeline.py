@@ -13,9 +13,9 @@ from typing import Optional
 from functools import partial
 from collections import OrderedDict
 from cfdata.tabular import ColumnTypes
-from cftool.ml import ModelPattern
 from cftool.misc import lock_manager
 from cftool.misc import Saving
+from cfml.misc.toolkit import ModelPattern
 
 from ...data import MLData
 from ...data import MLLoader

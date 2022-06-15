@@ -9,7 +9,7 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
-from cftool.misc import show_or_save
+from cfml.misc.toolkit import show_or_save
 
 from ....types import tensor_dict_type
 from ....constants import INPUT_KEY

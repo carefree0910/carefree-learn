@@ -16,11 +16,11 @@ from typing import Tuple
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
+from cfc.stat import RollingStat
 from cftool.misc import hash_code
 from cftool.misc import fix_float_to_length
 from cftool.misc import StrideArray
 from cftool.misc import LoggingMixin
-from cftool.stat import RollingStat
 
 from ..toolkit import squeeze
 from ..toolkit import to_torch

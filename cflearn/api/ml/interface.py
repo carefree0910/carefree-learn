@@ -15,14 +15,14 @@ from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
 from cfdata.tabular import TabularData
-from cftool.ml import ModelPattern
-from cftool.ml import EnsemblePattern
 from cftool.dist import Parallel
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
-from cftool.ml.utils import patterns_type
-from cftool.ml.utils import Comparer
-from cftool.ml.utils import Estimator
+from cfml.misc.toolkit import patterns_type
+from cfml.misc.toolkit import Comparer
+from cfml.misc.toolkit import Estimator
+from cfml.misc.toolkit import ModelPattern
+from cfml.misc.toolkit import EnsemblePattern
 
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline

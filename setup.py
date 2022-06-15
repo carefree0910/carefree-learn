@@ -1,4 +1,6 @@
-from setuptools import setup, find_packages
+from setuptools import setup
+from setuptools import find_packages
+
 
 VERSION = "0.2.1"
 DESCRIPTION = "Deep Learning with PyTorch made easy"
@@ -26,16 +28,9 @@ setup(
         "onnx-simplifier",
         "onnxruntime",
         "plotly",
-        "carefree-data>=0.2.6",
-        "carefree-toolkit>=0.2.9",
-        "dill",
-        "future",
-        "psutil",
-        "cython>=0.29.28",
-        "numpy>=1.22.3",
-        "scipy>=1.8.0",
-        "scikit-learn>=1.0.2",
-        "matplotlib>=3.5.1",
+        "carefree-data>=0.2.7",
+        "carefree-toolkit>=0.2.10",
+        "carefree-ml>=0.1.2",
     ],
     author="carefree0910",
     author_email="syameimaru.saki@gmail.com",
