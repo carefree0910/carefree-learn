@@ -39,5 +39,5 @@ fcnn = cflearn.api.fit_ml(x, y_add, core_name="fcnn", **kwargs)
 rnn = cflearn.api.fit_ml(x, y_add, core_name="rnn", **kwargs)
 cflearn.ml.evaluate(linear.data, metrics=metrics, pipelines=[linear, fcnn, rnn])
 
-linear_core = linear.model.core.net
+linear_core = linear.model.core.core.net
 print(f"w: {linear_core.weight.data}, b: {linear_core.bias.data}")  # type: ignore

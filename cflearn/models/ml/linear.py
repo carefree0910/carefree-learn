@@ -14,7 +14,6 @@ class Linear(torch.nn.Module):
         bias: bool = True,
     ):
         super().__init__()
-        in_dim *= num_history
         self.net = torch.nn.Linear(in_dim * num_history, out_dim, bias)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
