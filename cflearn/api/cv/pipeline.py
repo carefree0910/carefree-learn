@@ -1,6 +1,6 @@
 from ..dl.pipeline import SimplePipeline as SimpleBase
 from ..dl.pipeline import CarefreePipeline as CarefreeBase
-from ...misc.internal_ import CVInference
+from ...misc.internal_.inference import CVInference
 
 
 @SimpleBase.register("cv.simple")

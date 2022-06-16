@@ -34,9 +34,9 @@ from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
-from ...misc.internal_ import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
+from ...misc.internal_.inference import MLInference
 
 
 @DLPipeline.register("ml.simple")

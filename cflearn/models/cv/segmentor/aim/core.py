@@ -10,13 +10,13 @@ from typing import Tuple
 from .backbone import resnet34_mp
 from ...protocol import ImageTranslatorMixin
 from .....misc.toolkit import interpolate
-from .....misc.internal_ import register_module
 from .....modules.blocks import get_conv_blocks
 from .....modules.blocks import Conv2d
 from .....modules.blocks import SEBlock
 from .....modules.blocks import Interpolate
 from .....modules.blocks import MaxUnpool2d
 from .....modules.blocks import AdaptiveAvgPool2d
+from .....misc.internal_.register import register_module
 
 
 def psp_stage(num_channels: int, size: int) -> nn.Sequential:

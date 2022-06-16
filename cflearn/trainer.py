@@ -55,11 +55,11 @@ from .misc.toolkit import get_ddp_info
 from .misc.toolkit import has_batch_norms
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
-from .misc.internal_ import MultipleMetrics
-from .misc.internal_ import ConservativeMonitor
 from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
 from .modules.schedulers import WarmupScheduler
+from .misc.internal_.metrics import MultipleMetrics
+from .misc.internal_.monitors import ConservativeMonitor
 
 
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}

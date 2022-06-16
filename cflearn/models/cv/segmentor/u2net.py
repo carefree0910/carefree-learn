@@ -9,11 +9,11 @@ from typing import Optional
 
 from ..protocol import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
-from ....misc.internal_ import register_module
 from ....modules.blocks import get_clones
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Interpolate
+from ....misc.internal_.register import register_module
 
 
 class ConvSeq(nn.Sequential):

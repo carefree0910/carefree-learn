@@ -18,7 +18,7 @@ from ....data.interface import CVDataModule
 from ....misc.toolkit import to_device
 from ....misc.toolkit import save_images
 from ....misc.toolkit import eval_context
-from ....misc.internal_ import ImageCallback
+from ....misc.internal_.callbacks import ImageCallback
 from ....models.cv.vae.vector_quantized import VQVAE
 
 
