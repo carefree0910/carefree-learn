@@ -3,22 +3,20 @@ import torch
 from typing import Any
 from typing import List
 from typing import Optional
-from cftool.misc import shallow_copy_dict
 
 from .fcnn import FCNN
 from .linear import Linear
 from .protocol import ONE_HOT_KEY
 from .protocol import EMBEDDING_KEY
 from .protocol import NUMERICAL_KEY
-from .protocol import MLCoreProtocol
+from .protocol import register_ml_module
+from .protocol import Dimensions
 from ...types import tensor_dict_type
 from ...protocol import TrainerState
-from ...constants import INPUT_KEY
-from ...constants import PREDICTIONS_KEY
 
 
-@MLCoreProtocol.register("wnd")
-class WideAndDeep(MLCoreProtocol):
+@register_ml_module("wnd", use_full_input=True)
+class WideAndDeep(torch.nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -32,7 +30,7 @@ class WideAndDeep(MLCoreProtocol):
         batch_norm: bool = False,
         dropout: float = 0.0,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
         self.fcnn = FCNN(
             in_dim,
             out_dim,
@@ -57,21 +55,19 @@ class WideAndDeep(MLCoreProtocol):
         embedding = batch[EMBEDDING_KEY]
         numerical = batch[NUMERICAL_KEY]
         # wide
-        wide_batch = shallow_copy_dict(batch)
         if one_hot is None or embedding is None:
-            wide_batch[INPUT_KEY] = numerical
+            wide_inp = numerical
         else:
-            wide_batch[INPUT_KEY] = torch.cat([one_hot, embedding], dim=-1)
-        wide_net = self.linear(batch_idx, wide_batch, state, **kwargs)[PREDICTIONS_KEY]
+            wide_inp = torch.cat([one_hot, embedding], dim=-1)
+        wide_net = self.linear(wide_inp)
         # deep
-        deep_batch = shallow_copy_dict(batch)
         if embedding is None:
-            deep_batch[INPUT_KEY] = numerical
+            deep_inp = numerical
         else:
-            deep_batch[INPUT_KEY] = torch.cat([numerical, embedding], dim=-1)
-        deep_net = self.fcnn(batch_idx, deep_batch, state, **kwargs)[PREDICTIONS_KEY]
+            deep_inp = torch.cat([numerical, embedding], dim=-1)
+        deep_net = self.fcnn(deep_inp)
         # merge
-        return {PREDICTIONS_KEY: wide_net + deep_net}
+        return wide_net + deep_net
 
 
 __all__ = ["WideAndDeep"]

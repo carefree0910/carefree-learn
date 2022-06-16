@@ -3,18 +3,12 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
-from typing import Any
 from typing import List
 from typing import Iterator
-from typing import Optional
 from sklearn.tree import _tree
 from sklearn.tree import DecisionTreeClassifier
 
-from .protocol import MERGED_KEY
-from .protocol import MLCoreProtocol
-from ...types import tensor_dict_type
-from ...protocol import TrainerState
-from ...constants import PREDICTIONS_KEY
+from .protocol import register_ml_module
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import to_numpy
 from ...modules.blocks import Linear
@@ -38,8 +32,8 @@ def export_structure(tree: DecisionTreeClassifier) -> tuple:
     return tuple(recurse(0, 0))
 
 
-@MLCoreProtocol.register("ndt")
-class NDT(MLCoreProtocol):
+@register_ml_module("ndt")
+class NDT(torch.nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -48,7 +42,7 @@ class NDT(MLCoreProtocol):
         *,
         dt: DecisionTreeClassifier,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
         tree_structure = export_structure(dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
@@ -117,20 +111,13 @@ class NDT(MLCoreProtocol):
     def class_prior(self) -> np.ndarray:
         return np.exp(self.class_log_prior)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[MERGED_KEY]
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
         net = self.planes_activation(self.to_planes(net))
         net = self.routes_activation(self.to_routes(net))
         net = self.to_leaves(net)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = ["NDT"]

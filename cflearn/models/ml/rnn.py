@@ -2,19 +2,18 @@ import torch.nn as nn
 import torch.nn.init as init
 
 from torch import no_grad
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 
 from .fcnn import FCNN
-from .protocol import MERGED_KEY
-from .protocol import MLCoreProtocol
+from .protocol import register_ml_module
 from ..bases import BAKEBase
 from ...types import tensor_dict_type
-from ...protocol import TrainerState
-from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
+from ...constants import PREDICTIONS_KEY
 
 
 rnn_dict = {
@@ -24,8 +23,8 @@ rnn_dict = {
 }
 
 
-@MLCoreProtocol.register("rnn")
-class RNN(MLCoreProtocol):
+@register_ml_module("rnn")
+class RNN(nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -43,7 +42,10 @@ class RNN(MLCoreProtocol):
         batch_norm: bool = False,
         dropout: float = 0.0,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.num_history = num_history
         rnn_dim = self._init_rnn(cell, num_layers, hidden_size, bidirectional)
         self.head = FCNN(
             rnn_dim,
@@ -86,21 +88,13 @@ class RNN(MLCoreProtocol):
         self.rnn_list = nn.ModuleList(rnn_list)
         return rnn_dim
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[MERGED_KEY]
+    def forward(self, net: Tensor) -> Tensor:
         for rnn in self.rnn_list:
             net, final_state = rnn(net, None)
-        batch[MERGED_KEY] = net[:, -1]
-        return self.head(batch_idx, batch, state, **kwargs)
+        return self.head(net[:, -1])
 
 
-@MLCoreProtocol.register("rnn_bake")
+@register_ml_module("rnn_bake")
 class RNNWithBAKE(BAKEBase):
     def __init__(
         self,
@@ -142,21 +136,12 @@ class RNNWithBAKE(BAKEBase):
         )
         self._init_bake(lb, bake_loss, bake_loss_config, w_ensemble, is_classification)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
+    def forward(self, net: Tensor) -> tensor_dict_type:
         for rnn in self.rnn.rnn_list:
             net, final_state = rnn(net, None)
         latent = net[:, -1]
-        batch[MERGED_KEY] = latent
-        results = self.rnn.head(batch_idx, batch, state, **kwargs)
-        results[LATENT_KEY] = latent
-        return results
+        net = self.rnn.head(latent)
+        return {LATENT_KEY: latent, PREDICTIONS_KEY: net}
 
 
 __all__ = [

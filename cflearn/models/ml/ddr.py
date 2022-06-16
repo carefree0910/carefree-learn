@@ -12,14 +12,13 @@ from typing import Union
 from typing import Optional
 
 from .fcnn import FCNN
-from .protocol import MLCoreProtocol
+from .protocol import register_ml_module
 from ..bases import CustomLossBase
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...constants import LOSS_KEY
-from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ..implicit.siren import make_grid
@@ -56,7 +55,7 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
     return make_grid(num_samples + 2, 1, device)[:, 1:-1]
 
 
-@MLCoreProtocol.register("ddr")
+@register_ml_module("ddr")
 class DDR(CustomLossBase):
     def __init__(
         self,
@@ -77,7 +76,7 @@ class DDR(CustomLossBase):
         predict_cdf: bool = True,
         y_min_max: Optional[Tuple[float, float]] = None,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
         self.fcnn = FCNN(
             in_dim,
             out_dim,
@@ -146,19 +145,20 @@ class DDR(CustomLossBase):
 
     def forward(
         self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
+        net: Tensor,
+        *,
+        get_cdf: bool = True,
+        get_quantiles: bool = True,
+        tau: Optional[float] = None,
+        y_anchor: Optional[float] = None,
     ) -> tensor_dict_type:
         # prepare
-        net = batch[INPUT_KEY]
         device = net.device
         num_samples = len(net)
         if len(net.shape) > 2:
             net = net.contiguous().view(num_samples, -1)
-        get_quantiles = kwargs.get("get_quantiles", True) and self.predict_quantiles
-        get_cdf = kwargs.get("get_cdf", True) and self.predict_cdf
+        get_quantiles = get_quantiles and self.predict_quantiles
+        get_cdf = get_cdf and self.predict_cdf
         # median forward
         mods = []
         for block in self.fcnn.net:
@@ -172,7 +172,6 @@ class DDR(CustomLossBase):
         y_span = y_max - y_min
         # quantile forward
         if get_quantiles:
-            tau = kwargs.get("tau", None)
             if tau is not None:
                 tau = _expand_element(num_samples, tau, device) * 2.0 - 1.0
             else:
@@ -193,7 +192,6 @@ class DDR(CustomLossBase):
             )
         # cdf forward
         if get_cdf:
-            y_anchor = kwargs.get("y_anchor", None)
             if y_anchor is not None:
                 y_anchor = _expand_element(num_samples, y_anchor, device)
             else:

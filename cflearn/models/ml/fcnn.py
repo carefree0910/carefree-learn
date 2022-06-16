@@ -1,19 +1,15 @@
 import torch.nn as nn
 
-from typing import Any
+from torch import Tensor
 from typing import List
 from typing import Optional
 
-from .protocol import MERGED_KEY
-from .protocol import MLCoreProtocol
-from ...types import tensor_dict_type
-from ...protocol import TrainerState
-from ...constants import PREDICTIONS_KEY
+from .protocol import register_ml_module
 from ...modules.blocks import mapping_dict
 
 
-@MLCoreProtocol.register("fcnn")
-class FCNN(MLCoreProtocol):
+@register_ml_module("fcnn")
+class FCNN(nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -27,7 +23,7 @@ class FCNN(MLCoreProtocol):
         batch_norm: bool = False,
         dropout: float = 0.0,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
         in_dim *= num_history
         if hidden_units is None:
             dim = max(32, min(1024, 2 * in_dim))
@@ -49,17 +45,10 @@ class FCNN(MLCoreProtocol):
         self.hidden_units = hidden_units
         self.net = nn.Sequential(*blocks)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[MERGED_KEY]
+    def forward(self, net: Tensor) -> Tensor:
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
-        return {PREDICTIONS_KEY: self.net(net)}
+        return self.net(net)
 
 
 __all__ = ["FCNN"]

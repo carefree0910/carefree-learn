@@ -1,9 +1,10 @@
 from typing import Optional
 
 from .protocol import MixedStackedModel
+from .protocol import register_ml_module
 
 
-@MixedStackedModel.register("fnet")
+@register_ml_module("fnet")
 class FNet(MixedStackedModel):
     def __init__(
         self,

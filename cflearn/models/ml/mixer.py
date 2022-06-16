@@ -1,19 +1,18 @@
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .protocol import MERGED_KEY
+from .protocol import register_ml_module
 from .protocol import MixedStackedModel
 from ..bases import BAKEBase
 from ..bases import RDropoutBase
 from ...types import tensor_dict_type
-from ...protocol import TrainerState
-from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
 
 
-@MixedStackedModel.register("mixer")
+@register_ml_module("mixer")
 class Mixer(MixedStackedModel):
     def __init__(
         self,
@@ -41,7 +40,7 @@ class Mixer(MixedStackedModel):
         )
 
 
-@MixedStackedModel.register("mixer_bake")
+@register_ml_module("mixer_bake")
 class MixerWithBAKE(BAKEBase):
     def __init__(
         self,
@@ -71,21 +70,14 @@ class MixerWithBAKE(BAKEBase):
         )
         self._init_bake(lb, bake_loss, bake_loss_config, w_ensemble, is_classification)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
+    def forward(self, net: Tensor) -> tensor_dict_type:
         net = self.mixer.to_encoder(net)
         latent = self.mixer.encoder(net)
         net = self.mixer.head(latent)
         return {LATENT_KEY: latent, PREDICTIONS_KEY: net}
 
 
-@MixedStackedModel.register("mixer_r_dropout")
+@register_ml_module("mixer_r_dropout")
 class MixerWithRDropout(RDropoutBase):
     def __init__(
         self,
@@ -114,15 +106,8 @@ class MixerWithRDropout(RDropoutBase):
         self.lb = lb
         self.is_classification = is_classification
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        batch[MERGED_KEY] = batch[INPUT_KEY]
-        return self.mixer(batch_idx, batch, state, **kwargs)
+    def forward(self, net: Tensor) -> tensor_dict_type:
+        return self.mixer(net)
 
 
 __all__ = [

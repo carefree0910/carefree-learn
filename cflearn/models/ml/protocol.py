@@ -238,7 +238,7 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
         pass
 
 
-class MixedStackedModel(MLCoreProtocol):
+class MixedStackedModel(nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -258,7 +258,7 @@ class MixedStackedModel(MLCoreProtocol):
         use_head_token: bool = False,
         use_positional_encoding: bool = False,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
         self.to_encoder = Linear(in_dim, latent_dim)
         self.encoder = MixedStackedEncoder(
             latent_dim,
@@ -277,18 +277,11 @@ class MixedStackedModel(MLCoreProtocol):
         )
         self.head = Linear(latent_dim, out_dim)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[MERGED_KEY]
+    def forward(self, net: Tensor) -> Tensor:
         net = self.to_encoder(net)
         net = self.encoder(net)
         net = self.head(net)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 class MLModel(ModelWithCustomSteps):

@@ -1,17 +1,10 @@
-import torch.nn as nn
+import torch
 
-from typing import Any
-from typing import Optional
-
-from .protocol import MERGED_KEY
-from .protocol import MLCoreProtocol
-from ...types import tensor_dict_type
-from ...protocol import TrainerState
-from ...constants import PREDICTIONS_KEY
+from .protocol import register_ml_module
 
 
-@MLCoreProtocol.register("linear")
-class Linear(MLCoreProtocol):
+@register_ml_module("linear")
+class Linear(torch.nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -20,21 +13,14 @@ class Linear(MLCoreProtocol):
         *,
         bias: bool = True,
     ):
-        super().__init__(in_dim, out_dim, num_history)
+        super().__init__()
         in_dim *= num_history
-        self.net = nn.Linear(in_dim, out_dim, bias)
+        self.net = torch.nn.Linear(in_dim * num_history, out_dim, bias)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = batch[MERGED_KEY]
+    def forward(self, net: torch.Tensor) -> torch.Tensor:
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
-        return {PREDICTIONS_KEY: self.net(net)}
+        return self.net(net)
 
 
 __all__ = ["Linear"]

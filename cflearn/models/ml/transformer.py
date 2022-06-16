@@ -2,9 +2,10 @@ from typing import Any
 from typing import Optional
 
 from .protocol import MixedStackedModel
+from .protocol import register_ml_module
 
 
-@MixedStackedModel.register("transformer")
+@register_ml_module("transformer")
 class Transformer(MixedStackedModel):
     def __init__(
         self,
