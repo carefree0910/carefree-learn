@@ -136,7 +136,7 @@ class RNNWithBAKE(BAKEBase):
         )
         self._init_bake(lb, bake_loss, bake_loss_config, w_ensemble, is_classification)
 
-    def forward(self, net: Tensor) -> tensor_dict_type:
+    def forward(self, net: Tensor) -> tensor_dict_type:  # type: ignore
         for rnn in self.rnn.rnn_list:
             net, final_state = rnn(net, None)
         latent = net[:, -1]

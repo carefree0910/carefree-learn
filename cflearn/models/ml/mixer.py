@@ -70,7 +70,7 @@ class MixerWithBAKE(BAKEBase):
         )
         self._init_bake(lb, bake_loss, bake_loss_config, w_ensemble, is_classification)
 
-    def forward(self, net: Tensor) -> tensor_dict_type:
+    def forward(self, net: Tensor) -> tensor_dict_type:  # type: ignore
         net = self.mixer.to_encoder(net)
         latent = self.mixer.encoder(net)
         net = self.mixer.head(latent)
@@ -106,7 +106,7 @@ class MixerWithRDropout(RDropoutBase):
         self.lb = lb
         self.is_classification = is_classification
 
-    def forward(self, net: Tensor) -> tensor_dict_type:
+    def forward(self, net: Tensor) -> tensor_dict_type:  # type: ignore
         return self.mixer(net)
 
 

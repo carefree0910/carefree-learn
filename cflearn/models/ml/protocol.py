@@ -213,7 +213,13 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
     custom_train_step: bool = False
     custom_evaluate_step: bool = False
 
-    def __init__(self, in_dim: int, out_dim: int, num_history: int, dimensions: Dimensions):
+    def __init__(
+        self,
+        in_dim: int,
+        out_dim: int,
+        num_history: int,
+        dimensions: Dimensions,
+    ):
         super().__init__()
         self.in_dim = in_dim
         self.out_dim = out_dim

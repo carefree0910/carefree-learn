@@ -9,7 +9,7 @@ class TestCustomization(unittest.TestCase):
     def test_customize_model(self) -> None:
         @cflearn.register_ml_module("foo")
         class _(torch.nn.Module):
-            def __init__(self):
+            def __init__(self) -> None:
                 super().__init__()
                 self.dummy = torch.nn.Parameter(torch.tensor([1.0]))
 

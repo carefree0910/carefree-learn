@@ -143,7 +143,7 @@ class DDR(CustomLossBase):
         cdf = torch.sigmoid(logit)
         return y_ratio, logit, cdf
 
-    def forward(
+    def forward(  # type: ignore
         self,
         net: Tensor,
         *,
@@ -173,19 +173,19 @@ class DDR(CustomLossBase):
         # quantile forward
         if get_quantiles:
             if tau is not None:
-                tau = _expand_element(num_samples, tau, device) * 2.0 - 1.0
+                tau_tensor = _expand_element(num_samples, tau, device) * 2.0 - 1.0
             else:
                 shape = num_samples, self.num_random_samples, 1
                 if self.training:
                     tau = torch.rand(*shape, device=device) * 2.0 - 1.0
                 else:
-                    tau = _make_ddr_grid(self.num_random_samples, device)
-                    tau = tau.repeat(num_samples, 1, 1)
-            tau.requires_grad_(True)
-            q_increment, quantiles = self._get_quantiles(tau, mods, median)
+                    tau_tensor = _make_ddr_grid(self.num_random_samples, device)
+                    tau_tensor = tau_tensor.repeat(num_samples, 1, 1)
+            tau_tensor.requires_grad_(True)
+            q_increment, quantiles = self._get_quantiles(tau_tensor, mods, median)
             results.update(
                 {
-                    "tau": tau,
+                    "tau": tau_tensor,
                     "q_increment": q_increment,
                     "quantiles": quantiles,
                 }
@@ -193,21 +193,21 @@ class DDR(CustomLossBase):
         # cdf forward
         if get_cdf:
             if y_anchor is not None:
-                y_anchor = _expand_element(num_samples, y_anchor, device)
+                ya_tensor = _expand_element(num_samples, y_anchor, device)
             else:
                 shape = num_samples, self.num_random_samples, 1
                 if self.training:
-                    y_anchor = torch.rand(*shape, device=device) * y_span + y_min
+                    ya_tensor = torch.rand(*shape, device=device) * y_span + y_min
                 else:
                     y_raw_ratio = _make_ddr_grid(self.num_random_samples, device)
                     y_raw_ratio = 0.5 * (y_raw_ratio + 1.0)
-                    y_anchor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
-            y_anchor.requires_grad_(True)
+                    ya_tensor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
+            ya_tensor.requires_grad_(True)
             y_ratio, logit, cdf = self._get_cdf(y_anchor, median, y_span, mods)
             pdf = get_gradient(cdf, y_anchor, True, True)  # type: ignore
             results.update(
                 {
-                    "y_anchor": y_anchor,
+                    "y_anchor": ya_tensor,
                     "logit": logit,
                     "cdf": cdf,
                     "pdf": pdf,
