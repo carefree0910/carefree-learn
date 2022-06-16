@@ -471,8 +471,8 @@ def register_ml_module(
                 if not isinstance(rs, dict):
                     rs = {PREDICTIONS_KEY: rs}
                 return rs
-            
-            def train_step(
+
+            def train_step(  # type: ignore
                 self,
                 batch_idx: int,
                 batch: tensor_dict_type,
@@ -490,7 +490,7 @@ def register_ml_module(
                         loss_kwargs,
                     )
 
-            def evaluate_step(
+            def evaluate_step(  # type: ignore
                 self,
                 loader: DataLoaderProtocol,
                 portion: float,
