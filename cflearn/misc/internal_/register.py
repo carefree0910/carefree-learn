@@ -33,6 +33,7 @@ def register_module(
     *,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
+    use_full_input: bool = False,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
         @ModelProtocol.register(name)
@@ -48,7 +49,10 @@ def register_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                rs = self.net(batch[INPUT_KEY], **kwargs)
+                if use_full_input:
+                    rs = self.net(batch_idx, batch, state, **kwargs)
+                else:
+                    rs = self.net(batch[INPUT_KEY], **kwargs)
                 if not isinstance(rs, dict):
                     rs = {PREDICTIONS_KEY: rs}
                 return rs
