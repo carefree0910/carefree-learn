@@ -177,7 +177,7 @@ class DDR(CustomLossBase):
             else:
                 shape = num_samples, self.num_random_samples, 1
                 if self.training:
-                    tau = torch.rand(*shape, device=device) * 2.0 - 1.0
+                    tau_tensor = torch.rand(*shape, device=device) * 2.0 - 1.0
                 else:
                     tau_tensor = _make_ddr_grid(self.num_random_samples, device)
                     tau_tensor = tau_tensor.repeat(num_samples, 1, 1)
@@ -203,8 +203,8 @@ class DDR(CustomLossBase):
                     y_raw_ratio = 0.5 * (y_raw_ratio + 1.0)
                     ya_tensor = (y_raw_ratio * y_span + y_min).repeat(num_samples, 1, 1)
             ya_tensor.requires_grad_(True)
-            y_ratio, logit, cdf = self._get_cdf(y_anchor, median, y_span, mods)
-            pdf = get_gradient(cdf, y_anchor, True, True)  # type: ignore
+            y_ratio, logit, cdf = self._get_cdf(ya_tensor, median, y_span, mods)
+            pdf = get_gradient(cdf, ya_tensor, True, True)  # type: ignore
             results.update(
                 {
                     "y_anchor": ya_tensor,
