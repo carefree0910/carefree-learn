@@ -13,19 +13,53 @@ from typing import Callable
 from typing import Optional
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
+from cfdata.tabular.processors.base import Processor
 
+from ..toolkit import Initializer
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...protocol import StepOutputs
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...protocol import ModelProtocol
+from ...protocol import MetricProtocol
 from ...protocol import MetricsOutputs
 from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
 from ...constants import LOSS_KEY
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
+
+
+# shortcuts
+
+
+def register_initializer(name: str) -> Callable[[Callable], Callable]:
+    def _register(f: Callable) -> Callable:
+        Initializer.add_initializer(f, name)
+        return f
+
+    return _register
+
+
+loss_type = Type[LossProtocol]
+metric_type = Type[MetricProtocol]
+processor_type = Type[Processor]
+
+
+def register_processor(name: str) -> Callable[[processor_type], processor_type]:
+    return Processor.register(name)  # type: ignore
+
+
+def register_loss(name: str) -> Callable[[loss_type], loss_type]:
+    return LossProtocol.register(name)
+
+
+def register_metric(name: str) -> Callable[[metric_type], metric_type]:
+    return MetricProtocol.register(name)
+
+
+# accessibility
 
 
 def register_module(
@@ -240,6 +274,12 @@ def register_loss_module(name: str) -> Callable[[Type[LossModule]], Type[LossMod
 
 
 __all__ = [
+    "register_initializer",
+    "register_processor",
+    "register_loss",
+    "register_metric",
+    "Initializer",
+    "Processor",
     "register_module",
     "register_custom_module",
     "register_loss_module",

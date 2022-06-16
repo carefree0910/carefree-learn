@@ -14,7 +14,6 @@ from .api import nlp
 from .api import multimodal
 from .api import interface as api
 from .api.zoo import *
-from .api.register import *
 from . import dist
 from . import scripts
 
