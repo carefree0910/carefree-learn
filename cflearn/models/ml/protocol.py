@@ -98,13 +98,22 @@ class SplitFeatures(NamedTuple):
 class Dimensions(LoggingMixinWithRank):
     def __init__(
         self,
-        encoder: Optional[Encoder],
+        *,
+        num_history: int,
+        encoder: Optional[Encoder] = None,
+        one_hot_dim: Optional[int] = None,
+        embedding_dim: Optional[int] = None,
+        categorical_dim: Optional[int] = None,
         numerical_columns_mapping: Dict[int, int],
         categorical_columns_mapping: Dict[int, int],
-        num_history: int,
     ):
         self.encoder = encoder
-        self._categorical_dim = 0 if encoder is None else encoder.merged_dim
+        if encoder is not None:
+            self._categorical_dim = encoder.merged_dim
+        else:
+            self._categorical_dim = categorical_dim or 0
+        self._one_hot_dim = one_hot_dim
+        self._embedding_dim = embedding_dim
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
         self._numerical_columns = sorted(numerical_columns_mapping.values())
@@ -117,13 +126,13 @@ class Dimensions(LoggingMixinWithRank):
     @property
     def one_hot_dim(self) -> int:
         if self.encoder is None:
-            return 0
+            return self._one_hot_dim or 0
         return self.encoder.one_hot_dim
 
     @property
     def embedding_dim(self) -> int:
         if self.encoder is None:
-            return 0
+            return self._embedding_dim or 0
         return self.encoder.embedding_dim
 
     @property
@@ -132,6 +141,10 @@ class Dimensions(LoggingMixinWithRank):
         if self.encoder is None:
             return dims
         return self.encoder.merged_dims
+
+    @property
+    def categorical_dim(self) -> int:
+        return self._categorical_dim
 
     @property
     def numerical_dim(self) -> int:
@@ -309,10 +322,10 @@ class MLModel(ModelWithCustomSteps):
         self.out_dim = out_dim
         self.encoder = encoder
         self.dimensions = Dimensions(
-            self.encoder,
-            numerical_columns_mapping,
-            categorical_columns_mapping,
-            num_history,
+            num_history=num_history,
+            encoder=self.encoder,
+            numerical_columns_mapping=numerical_columns_mapping,
+            categorical_columns_mapping=categorical_columns_mapping,
         )
         self.transform = Transform(
             self.dimensions,
