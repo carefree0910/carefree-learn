@@ -19,9 +19,9 @@ from ...protocol import TrainerState
 class WideAndDeep(torch.nn.Module):
     def __init__(
         self,
-        in_dim: int,
         out_dim: int,
         num_history: int,
+        dimensions: Dimensions,
         hidden_units: Optional[List[int]] = None,
         *,
         mapping_type: str = "basic",
@@ -31,8 +31,10 @@ class WideAndDeep(torch.nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
+        wide_dim = dimensions.categorical_dim or dimensions.numerical_dim
+        deep_dim = dimensions.numerical_dim + dimensions.embedding_dim
         self.fcnn = FCNN(
-            in_dim,
+            deep_dim,
             out_dim,
             num_history,
             hidden_units,
@@ -42,7 +44,7 @@ class WideAndDeep(torch.nn.Module):
             batch_norm=batch_norm,
             dropout=dropout,
         )
-        self.linear = Linear(in_dim, out_dim, num_history, bias=bias)
+        self.linear = Linear(wide_dim, out_dim, num_history, bias=bias)
 
     def forward(
         self,
@@ -55,14 +57,21 @@ class WideAndDeep(torch.nn.Module):
         embedding = batch[EMBEDDING_KEY]
         numerical = batch[NUMERICAL_KEY]
         # wide
-        if one_hot is None or embedding is None:
+        if one_hot is None and embedding is None:
             wide_inp = numerical
         else:
-            wide_inp = torch.cat([one_hot, embedding], dim=-1)
+            if one_hot is None:
+                wide_inp = embedding
+            elif embedding is None:
+                wide_inp = one_hot
+            else:
+                wide_inp = torch.cat([one_hot, embedding], dim=-1)
         wide_net = self.linear(wide_inp)
         # deep
         if embedding is None:
             deep_inp = numerical
+        elif numerical is None:
+            deep_inp = embedding
         else:
             deep_inp = torch.cat([numerical, embedding], dim=-1)
         deep_net = self.fcnn(deep_inp)
