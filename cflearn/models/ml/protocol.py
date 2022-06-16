@@ -449,7 +449,7 @@ def register_ml_module(
         class _(*bases):  # type: ignore
             def __init__(self, **kwargs: Any):
                 super().__init__(**filter_kw(super.__init__, kwargs))
-                self.net = m(**filter_kw(m, kwargs))
+                self.core = m(**filter_kw(m, kwargs))
 
             def forward(
                 self,
@@ -459,10 +459,10 @@ def register_ml_module(
                 **kwargs: Any,
             ) -> tensor_dict_type:
                 if use_full_input:
-                    rs = self.net(batch_idx, batch, state, **kwargs)
+                    rs = self.core(batch_idx, batch, state, **kwargs)
                 else:
-                    kw = filter_kw(self.net.forward, kwargs)
-                    rs = self.net(batch[MERGED_KEY], **kw)
+                    kw = filter_kw(self.core.forward, kwargs)
+                    rs = self.core(batch[MERGED_KEY], **kw)
                 if not isinstance(rs, dict):
                     rs = {PREDICTIONS_KEY: rs}
                 return rs

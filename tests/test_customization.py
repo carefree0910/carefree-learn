@@ -27,7 +27,7 @@ class TestCustomization(unittest.TestCase):
         m.fit(data)
         predictions = m.predict(data)[cflearn.PREDICTIONS_KEY]
         self.assertTrue(np.allclose(predictions, np.ones_like(y)))
-        self.assertTrue(list(m.model.parameters())[0] is m.model.core.net.dummy)  # type: ignore
+        self.assertTrue(list(m.model.parameters())[0] is m.model.core.core.dummy)  # type: ignore
 
 
 if __name__ == "__main__":

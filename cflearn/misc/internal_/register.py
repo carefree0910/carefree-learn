@@ -74,7 +74,7 @@ def register_module(
         class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
-                self.net = m(*args, **kwargs)
+                self.core = m(*args, **kwargs)
 
             def forward(
                 self,
@@ -84,9 +84,9 @@ def register_module(
                 **kwargs: Any,
             ) -> tensor_dict_type:
                 if use_full_input:
-                    rs = self.net(batch_idx, batch, state, **kwargs)
+                    rs = self.core(batch_idx, batch, state, **kwargs)
                 else:
-                    rs = self.net(batch[INPUT_KEY], **kwargs)
+                    rs = self.core(batch[INPUT_KEY], **kwargs)
                 if not isinstance(rs, dict):
                     rs = {PREDICTIONS_KEY: rs}
                 return rs
