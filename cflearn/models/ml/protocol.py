@@ -429,10 +429,14 @@ class MLModel(ModelWithCustomSteps):
         return self.core.evaluate_step(loader, portion, trainer)
 
 
-def filter_kw(fn: Callable, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def filter_kw(
+    fn: Callable,
+    kwargs: Dict[str, Any],
+    strict: bool = True,
+) -> Dict[str, Any]:
     kw = {}
     for k, v in kwargs.items():
-        if check_requires(fn, k, False):
+        if check_requires(fn, k, strict):
             kw[k] = v
     return kw
 
