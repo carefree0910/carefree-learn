@@ -1,11 +1,11 @@
 from typing import Any
 from typing import Optional
+from cftool.array import l2_normalize
 
 from .core import HuggingFaceModel
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import LATENT_KEY
-from ....misc.toolkit import l2_normalize
 
 
 @HuggingFaceModel.register("simbert")

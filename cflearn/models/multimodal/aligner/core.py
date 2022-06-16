@@ -13,6 +13,8 @@ from typing import Dict
 from typing import Tuple
 from typing import Optional
 from torchvision import transforms
+from cftool.misc import check_requires
+from cfcv.misc.toolkit import to_rgb
 
 from .noises import noises
 from ..protocol import PerceptorProtocol
@@ -25,9 +27,7 @@ from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...cv.encoder import EncoderBase
 from ...nlp.tokenizers import TokenizerProtocol
-from ....misc.toolkit import to_rgb
 from ....misc.toolkit import interpolate
-from ....misc.toolkit import check_requires
 from ....misc.toolkit import download_model
 from ....misc.toolkit import DropNoGradStatesMixin
 

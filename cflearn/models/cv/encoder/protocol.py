@@ -8,13 +8,13 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
+from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
+from cftool.misc import WithRegister
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....misc.toolkit import eval_context
-from ....misc.toolkit import check_requires
-from ....misc.toolkit import WithRegister
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....modules.blocks import ImgToPatches

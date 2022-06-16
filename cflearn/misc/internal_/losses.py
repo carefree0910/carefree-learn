@@ -8,6 +8,8 @@ from typing import Any
 from typing import Tuple
 from typing import Optional
 from cftool.misc import shallow_copy_dict
+from cftool.array import iou
+from cftool.array import corr
 
 from ...types import losses_type
 from ...types import tensor_dict_type
@@ -18,8 +20,6 @@ from ...constants import LOSS_KEY
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
-from ...misc.toolkit import iou
-from ...misc.toolkit import corr
 from ...misc.toolkit import to_torch
 
 

@@ -8,6 +8,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import update_dict
+from cftool.misc import parse_config
 
 from ..models import *
 from ..types import data_type
@@ -27,7 +28,6 @@ from .zoo.core import DLZoo
 from ..data.interface import MLData
 from ..data.interface import CVDataModule
 from ..misc.toolkit import inject_debug
-from ..misc.toolkit import parse_config
 from ..misc.toolkit import download_model
 
 

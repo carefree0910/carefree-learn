@@ -8,10 +8,10 @@ import numpy as np
 
 from typing import List
 from cflearn import ImageFolderData
+from cfcv.misc.toolkit import min_max_normalize
 from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
-from cflearn.misc.toolkit import min_max_normalize
 
 
 is_ci = check_is_ci()

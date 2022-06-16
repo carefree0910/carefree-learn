@@ -4,13 +4,13 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import check_requires
 
 from .encoder import EncoderBase
 from .encoder import Encoder1DBase
 from .decoder import DecoderBase
 from .decoder import Decoder1DBase
 from ...types import tensor_dict_type
-from ...misc.toolkit import check_requires
 from ...misc.toolkit import auto_num_layers
 
 

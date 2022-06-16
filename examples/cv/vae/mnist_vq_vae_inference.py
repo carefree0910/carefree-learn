@@ -1,7 +1,7 @@
 import cflearn
 
+from cftool.misc import get_latest_workplace
 from cflearn.misc.toolkit import check_is_ci
-from cflearn.misc.toolkit import get_latest_workplace
 
 
 is_ci = check_is_ci()

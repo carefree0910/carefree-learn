@@ -5,6 +5,8 @@ from typing import Dict
 from typing import List
 from typing import Optional
 from sklearn import metrics
+from cftool.array import iou
+from cftool.array import softmax
 from scipy import stats as ss
 
 from ...types import np_dict_type
@@ -13,8 +15,6 @@ from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
-from ...misc.toolkit import iou
-from ...misc.toolkit import softmax
 
 
 @MetricProtocol.register("acc")

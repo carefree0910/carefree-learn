@@ -9,8 +9,8 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from cftool.misc import WithRegister
 
-from ....misc.toolkit import WithRegister
 from ....misc.toolkit import check_available
 from ....misc.toolkit import download_tokenizer
 from ....misc.toolkit import get_compatible_name

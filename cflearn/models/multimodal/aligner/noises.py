@@ -3,9 +3,10 @@ import numpy as np
 from typing import Dict
 from typing import Callable
 
-from ....misc.toolkit import contrast_noise
-from ....misc.toolkit import fractal_noise_2d
-from ....misc.toolkit import min_max_normalize
+from cftool.array import contrast_noise
+from cftool.array import fractal_noise_2d
+from cfcv.misc.toolkit import min_max_normalize
+
 
 noise_fn_type = Callable[[int, int], np.ndarray]
 noises: Dict[str, noise_fn_type] = {}

@@ -3,7 +3,7 @@ import torch
 import cflearn
 import unittest
 
-from cflearn.misc.toolkit import get_latest_workplace
+from cftool.misc import get_latest_workplace
 
 
 class TestPipeline(unittest.TestCase):

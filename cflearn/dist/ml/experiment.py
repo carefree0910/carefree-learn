@@ -14,6 +14,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.dist import Parallel
 from cftool.misc import shallow_copy_dict
+from cftool.misc import get_latest_workplace
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import LoggingMixin
@@ -23,7 +24,6 @@ from ...types import data_type
 from ...constants import DATA_CONFIG_FILE
 from ...constants import META_CONFIG_NAME
 from ...constants import CHECKPOINTS_FOLDER
-from ...misc.toolkit import get_latest_workplace
 from ...api.ml.pipeline import CarefreePipeline
 
 

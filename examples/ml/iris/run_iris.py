@@ -6,7 +6,7 @@ import cflearn
 
 import numpy as np
 
-from cflearn.misc.toolkit import _rmtree
+from cftool.misc import _rmtree
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import inject_debug
 

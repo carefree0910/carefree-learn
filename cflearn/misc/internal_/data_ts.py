@@ -19,13 +19,13 @@ from typing import NamedTuple
 from cfc.stat import RollingStat
 from cftool.misc import hash_code
 from cftool.misc import fix_float_to_length
-from cftool.misc import StrideArray
 from cftool.misc import LoggingMixin
+from cftool.misc import WithRegister
+from cftool.array import squeeze
+from cftool.array import StrideArray
+from cftool.array import SharedArrayWrapper
 
-from ..toolkit import squeeze
 from ..toolkit import to_torch
-from ..toolkit import WithRegister
-from ..toolkit import SharedArrayWrapper
 from ...data import get_weighted_indices
 from ...data import MLDataset
 from ...types import tensor_dict_type

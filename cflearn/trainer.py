@@ -20,7 +20,9 @@ from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from cftool.misc import sort_dict_by_value
 from cftool.misc import context_error_handler
+from cftool.misc import WithRegister
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.optim import ZeroRedundancyOptimizer as ZeRO
@@ -51,10 +53,8 @@ from .misc.toolkit import summary
 from .misc.toolkit import to_device
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import has_batch_norms
-from .misc.toolkit import sort_dict_by_value
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
-from .misc.toolkit import WithRegister
 from .misc.internal_ import MultipleMetrics
 from .misc.internal_ import ConservativeMonitor
 from .modules.optimizers import optimizer_dict

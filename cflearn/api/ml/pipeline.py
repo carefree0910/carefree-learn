@@ -13,8 +13,12 @@ from typing import Optional
 from functools import partial
 from collections import OrderedDict
 from cfdata.tabular import ColumnTypes
+from cftool.misc import get_arguments
 from cftool.misc import lock_manager
 from cftool.misc import Saving
+from cftool.array import softmax
+from cftool.array import squeeze
+from cftool.array import is_float
 from cfml.misc.toolkit import ModelPattern
 
 from ...data import MLData
@@ -30,10 +34,6 @@ from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
-from ...misc.toolkit import softmax
-from ...misc.toolkit import squeeze
-from ...misc.toolkit import is_float
-from ...misc.toolkit import get_arguments
 from ...misc.internal_ import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel

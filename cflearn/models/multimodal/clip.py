@@ -2,18 +2,18 @@ import torch
 
 from torch import nn
 from torch import Tensor
+from cftool.array import l2_normalize
 from torchvision.transforms import Resize
 from torchvision.transforms import Compose
 from torchvision.transforms import ToTensor
 from torchvision.transforms import Normalize
 from torchvision.transforms import CenterCrop
 from torchvision.transforms import InterpolationMode
+from cfcv.misc.toolkit import to_rgb
 
 from .protocol import PerceptorProtocol
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
-from ...misc.toolkit import to_rgb
-from ...misc.toolkit import l2_normalize
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
 

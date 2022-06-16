@@ -23,6 +23,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.dist import Parallel
+from cftool.misc import walk
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from torch.utils.data import Dataset
@@ -50,7 +51,6 @@ from ..constants import INFO_PREFIX
 from ..constants import ERROR_PREFIX
 from ..constants import WARNING_PREFIX
 from ..constants import ORIGINAL_LABEL_KEY
-from ..misc.toolkit import walk
 
 
 # dl

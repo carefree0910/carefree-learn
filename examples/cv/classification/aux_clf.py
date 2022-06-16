@@ -8,7 +8,7 @@ from PIL import Image
 from typing import Any
 from typing import List
 from typing import Optional
-from cflearn.misc.toolkit import to_uint8
+from cfcv.misc.toolkit import to_uint8
 from cflearn.misc.toolkit import download_model
 
 

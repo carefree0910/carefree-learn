@@ -2,10 +2,7 @@ import os
 import sys
 import json
 import math
-import time
 import torch
-import shutil
-import inspect
 import logging
 import argparse
 import torchvision
@@ -18,32 +15,23 @@ import torch.nn.functional as F
 
 from PIL import Image
 from PIL import ImageDraw
-from tqdm import tqdm
 from torch import Tensor
 from typing import Any
 from typing import Set
 from typing import Dict
 from typing import List
-from typing import Type
 from typing import Tuple
 from typing import Union
-from typing import Generic
-from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from typing import ContextManager
 from zipfile import ZipFile
-from argparse import Namespace
-from datetime import datetime
-from datetime import timedelta
 from collections import defaultdict
 from collections import OrderedDict
 from onnxruntime import InferenceSession
 from torch.optim import Optimizer
 from cftool.misc import prod
-from cftool.misc import hash_code
-from cftool.misc import register_core
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import LoggingMixin
@@ -52,136 +40,16 @@ from cfml.misc.toolkit import show_or_save
 from ..types import arr_type
 from ..types import data_type
 from ..types import param_type
-from ..types import configs_type
 from ..types import np_dict_type
 from ..types import tensor_dict_type
-from ..types import general_config_type
 from ..types import sample_weights_type
 from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
-from ..constants import TIME_FORMAT
 from ..constants import INFO_PREFIX
 from ..constants import WARNING_PREFIX
 
-try:
-    import SharedArray as sa
-except:
-    sa = None
-
 
 # general
-
-
-def walk(
-    root: str,
-    hierarchy_callback: Callable[[List[str], str], None],
-    filter_extensions: Optional[Set[str]] = None,
-) -> None:
-    walked = list(os.walk(root))
-    for folder, _, files in tqdm(walked, desc="folders", position=0, mininterval=1):
-        for file in tqdm(files, desc="files", position=1, leave=False, mininterval=1):
-            if filter_extensions is not None:
-                if not any(file.endswith(ext) for ext in filter_extensions):
-                    continue
-            hierarchy = folder.split(os.path.sep) + [file]
-            hierarchy_callback(hierarchy, os.path.join(folder, file))
-
-
-def parse_config(config: general_config_type) -> Dict[str, Any]:
-    if config is None:
-        return {}
-    if isinstance(config, str):
-        with open(config, "r") as f:
-            return json.load(f)
-    return shallow_copy_dict(config)
-
-
-def check_requires(fn: Any, name: str, strict: bool = True) -> bool:
-    if isinstance(fn, type):
-        fn = fn.__init__  # type: ignore
-    signature = inspect.signature(fn)
-    for k, param in signature.parameters.items():
-        if not strict and param.kind is inspect.Parameter.VAR_KEYWORD:
-            return True
-        if k == name:
-            if param.kind is inspect.Parameter.KEYWORD_ONLY:
-                return True
-            if param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-                return True
-    return False
-
-
-def prepare_workplace_from(workplace: str, timeout: timedelta = timedelta(30)) -> str:
-    current_time = datetime.now()
-    if os.path.isdir(workplace):
-        for stuff in os.listdir(workplace):
-            if not os.path.isdir(os.path.join(workplace, stuff)):
-                continue
-            try:
-                stuff_time = datetime.strptime(stuff, TIME_FORMAT)
-                stuff_delta = current_time - stuff_time
-                if stuff_delta > timeout:
-                    print(
-                        f"{WARNING_PREFIX}{stuff} will be removed "
-                        f"(already {stuff_delta} ago)"
-                    )
-                    shutil.rmtree(os.path.join(workplace, stuff))
-            except:
-                pass
-    workplace = os.path.join(workplace, current_time.strftime(TIME_FORMAT))
-    os.makedirs(workplace)
-    return workplace
-
-
-def get_latest_workplace(root: str) -> Optional[str]:
-    all_workplaces = []
-    for stuff in os.listdir(root):
-        if not os.path.isdir(os.path.join(root, stuff)):
-            continue
-        try:
-            datetime.strptime(stuff, TIME_FORMAT)
-            all_workplaces.append(stuff)
-        except:
-            pass
-    if not all_workplaces:
-        return None
-    return os.path.join(root, sorted(all_workplaces)[-1])
-
-
-def sort_dict_by_value(d: Dict[Any, Any], *, reverse: bool = False) -> OrderedDict:
-    sorted_items = sorted([(v, k) for k, v in d.items()], reverse=reverse)
-    return OrderedDict({item[1]: item[0] for item in sorted_items})
-
-
-def to_standard(arr: np.ndarray) -> np.ndarray:
-    if is_int(arr):
-        arr = arr.astype(np.int64)
-    elif is_float(arr):
-        arr = arr.astype(np.float32)
-    return arr
-
-
-def parse_args(args: Any) -> Namespace:
-    return Namespace(**{k: None if not v else v for k, v in args.__dict__.items()})
-
-
-def parse_path(path: Optional[str], root_dir: Optional[str]) -> Optional[str]:
-    if path is None:
-        return None
-    if root_dir is None:
-        return path
-    return os.path.abspath(os.path.join(root_dir, path))
-
-
-def get_arguments(*, pop_class_attributes: bool = True) -> Dict[str, Any]:
-    frame = inspect.currentframe().f_back  # type: ignore
-    if frame is None:
-        raise ValueError("`get_arguments` should be called inside a frame")
-    arguments = inspect.getargvalues(frame)[-1]
-    if pop_class_attributes:
-        arguments.pop("self", None)
-        arguments.pop("__class__", None)
-    return arguments
 
 
 def check_is_ci() -> bool:
@@ -376,72 +244,6 @@ def get_compatible_name(
     return name
 
 
-def _rmtree(folder: str, patience: float = 10.0) -> None:
-    if not os.path.isdir(folder):
-        return None
-    t = time.time()
-    while True:
-        try:
-            if time.time() - t >= patience:
-                prefix = LoggingMixin.warning_prefix
-                print(f"\n{prefix}failed to rmtree: {folder}")
-                break
-            shutil.rmtree(folder)
-            break
-        except:
-            print("", end=".", flush=True)
-            time.sleep(1)
-
-
-T = TypeVar("T", bound="WithRegister", covariant=True)
-
-
-class WithRegister(Generic[T]):
-    d: Dict[str, Type[T]]
-    __identifier__: str
-
-    @classmethod
-    def get(cls, name: str) -> Type[T]:
-        return cls.d[name]
-
-    @classmethod
-    def has(cls, name: str) -> bool:
-        return name in cls.d
-
-    @classmethod
-    def make(cls, name: str, config: Dict[str, Any]) -> T:
-        return cls.get(name)(**config)  # type: ignore
-
-    @classmethod
-    def make_multiple(
-        cls,
-        names: Union[str, List[str]],
-        configs: configs_type = None,
-    ) -> List[T]:
-        if configs is None:
-            configs = {}
-        if isinstance(names, str):
-            assert isinstance(configs, dict)
-            return cls.make(names, configs)  # type: ignore
-        if not isinstance(configs, list):
-            configs = [configs.get(name, {}) for name in names]
-        return [
-            cls.make(name, shallow_copy_dict(config))
-            for name, config in zip(names, configs)
-        ]
-
-    @classmethod
-    def register(cls, name: str) -> Callable[[Type[T]], Type[T]]:
-        def before(cls_: Type[T]) -> None:
-            cls_.__identifier__ = name
-
-        return register_core(name, cls.d, before_register=before)
-
-    @classmethod
-    def check_subclass(cls, name: str) -> bool:
-        return issubclass(cls.d[name], cls)
-
-
 class WeightsStrategy:
     def __init__(self, strategy: Optional[str]):
         self.strategy = strategy
@@ -524,18 +326,6 @@ class LoggingMixinWithRank(LoggingMixin):
         return super().log_timing()
 
 
-class DownloadProgressBar(tqdm):
-    def update_to(
-        self,
-        b: int = 1,
-        bsize: int = 1,
-        tsize: Optional[int] = None,
-    ) -> None:
-        if tsize is not None:
-            self.total = tsize
-        self.update(b * bsize - self.n)
-
-
 # dl
 
 
@@ -595,28 +385,6 @@ def to_device(
         else v
         for k, v in batch.items()
     }
-
-
-def squeeze(arr: arr_type) -> arr_type:
-    n = arr.shape[0]
-    arr = arr.squeeze()
-    if n == 1:
-        arr = arr[None, ...]
-    return arr
-
-
-def softmax(arr: arr_type) -> arr_type:
-    if isinstance(arr, Tensor):
-        return F.softmax(arr, dim=1)
-    logits = arr - np.max(arr, axis=1, keepdims=True)
-    exp = np.exp(logits)
-    return exp / exp.sum(1, keepdims=True)
-
-
-def l2_normalize(arr: arr_type) -> arr_type:
-    if isinstance(arr, Tensor):
-        return arr / arr.norm(dim=-1, keepdim=True)
-    return arr / np.linalg.norm(arr, axis=-1, keepdims=True)
 
 
 def has_batch_norms(m: nn.Module) -> bool:
@@ -1153,14 +921,6 @@ class ONNX:
 # ml
 
 
-def is_int(arr: np.ndarray) -> bool:
-    return np.issubdtype(arr.dtype, np.integer)
-
-
-def is_float(arr: np.ndarray) -> bool:
-    return np.issubdtype(arr.dtype, np.floating)
-
-
 def to_2d(arr: data_type) -> data_type:
     if arr is None or isinstance(arr, str):
         return None
@@ -1171,174 +931,7 @@ def to_2d(arr: data_type) -> data_type:
     return [[elem] for elem in arr]  # type: ignore
 
 
-def corr(
-    predictions: Tensor,
-    target: Tensor,
-    weights: Optional[Tensor] = None,
-    *,
-    get_diagonal: bool = False,
-) -> Tensor:
-    w_sum = 0.0 if weights is None else weights.sum().item()
-    if weights is None:
-        mean = predictions.mean(0, keepdim=True)
-    else:
-        mean = (predictions * weights).sum(0, keepdim=True) / w_sum
-    vp = predictions - mean
-    if weights is None:
-        vp_norm = torch.norm(vp, 2, dim=0, keepdim=True)
-    else:
-        vp_norm = (weights * (vp**2)).sum(0, keepdim=True).sqrt()
-    if predictions is target:
-        if weights is None:
-            mat = vp.t().matmul(vp) / (vp_norm * vp_norm.t())
-        else:
-            mat = (weights * vp).t().matmul(vp) / (vp_norm * vp_norm.t())
-    else:
-        if weights is None:
-            target_mean = target.mean(0, keepdim=True)
-        else:
-            target_mean = (target * weights).sum(0, keepdim=True) / w_sum
-        vt = (target - target_mean).t()
-        if weights is None:
-            vt_norm = torch.norm(vt, 2, dim=1, keepdim=True)
-        else:
-            vt_norm = (weights.t() * (vt**2)).sum(1, keepdim=True).sqrt()
-        if weights is None:
-            mat = vt.matmul(vp) / (vp_norm * vt_norm)
-        else:
-            mat = vt.matmul(weights * vp) / (vp_norm * vt_norm)
-    if not get_diagonal:
-        return mat
-    if mat.shape[0] != mat.shape[1]:
-        raise ValueError(
-            "`get_diagonal` is set to True but the correlation matrix "
-            "is not a squared matrix, which is an invalid condition"
-        )
-    return mat.diag()
-
-
-def _to_address(path: str) -> str:
-    return f"shared_{hash_code(path)}"
-
-
-def _check_sa(address: str) -> bool:
-    if sa is None:
-        return False
-    try:
-        sa.attach(address)
-        return True
-    except FileNotFoundError:
-        return False
-
-
-def _write_shared(address: str, array: np.ndarray) -> None:
-    try:
-        shared = sa.attach(address)
-    except FileNotFoundError:
-        shared = sa.create(address, array.shape, array.dtype)
-    shared[:] = array
-
-
-class SharedArrayWrapper:
-    def __init__(self, root: str, path: str, *, to_memory: bool):
-        self.path = os.path.join(root, path)
-        self.folder, file = os.path.split(self.path)
-        os.makedirs(self.folder, exist_ok=True)
-        self.flag_path = os.path.join(self.folder, f"flag_of_{file}")
-        self.address, self.flag_address = map(_to_address, [self.path, self.flag_path])
-        if to_memory and sa is None:
-            print(
-                f"{WARNING_PREFIX}`to_memory` is set to True but `SharedArray` lib "
-                f"is not available, therefore `to_memory` will be set to False"
-            )
-            to_memory = False
-        self.to_memory = to_memory
-
-    @property
-    def is_ready(self) -> bool:
-        if self.to_memory:
-            if not _check_sa(self.address):
-                return False
-            if not _check_sa(self.flag_address):
-                return False
-            return sa.attach(self.flag_address).item()
-        if not os.path.isfile(self.path):
-            return False
-        if not os.path.isfile(self.flag_path):
-            return False
-        return bool(np.load(self.flag_path, mmap_mode="r").item())
-
-    def read(self, *, writable: bool = False) -> np.ndarray:
-        if self.to_memory:
-            arr = sa.attach(self.address)
-            arr.flags.writeable = writable
-            return arr
-        return np.load(self.path, mmap_mode="r+" if writable else "r")
-
-    def write(self, arr: np.ndarray) -> None:
-        self._write(arr, overwrite=True, is_finished=True)
-
-    def prepare(self, arr: np.ndarray) -> None:
-        # prepare an empty array at certain path / address
-        # this is mainly for multiprocessing
-        self._write(arr, overwrite=False, is_finished=False)
-
-    def mark_finished(self) -> None:
-        flag = self.read(writable=True)
-        flag[0] = True
-
-    def delete(self) -> None:
-        if self.is_ready:
-            print(f"> removing {self.path} & {self.flag_path}")
-            if self.to_memory:
-                sa.delete(self.address)
-                sa.delete(self.flag_address)
-                return None
-            os.remove(self.path)
-            os.remove(self.flag_path)
-
-    def _give_permission(self) -> None:
-        os.system(f"chmod -R 777 {self.folder}")
-
-    def _write(
-        self,
-        arr: np.ndarray,
-        *,
-        is_finished: bool,
-        overwrite: bool = True,
-    ) -> None:
-        if self.is_ready and overwrite:
-            path = self.address if self.to_memory else self.path
-            print(f"> there's already an array at '{path}', " "it will be overwritten")
-            self.delete()
-        if self.to_memory:
-            _write_shared(self.address, arr)
-            _write_shared(self.flag_address, np.array([is_finished]))
-            return None
-        np.save(self.path, arr)
-        np.save(self.flag_path, np.array([is_finished]))
-        self._give_permission()
-
-
 # cv
-
-
-def to_rgb(
-    image: Image.Image,
-    color: Tuple[int, int, int] = (255, 255, 255),
-) -> Image.Image:
-    split = image.split()
-    if len(split) < 4:
-        return image.convert("RGB")
-    background = Image.new("RGB", image.size, color)
-    background.paste(image, mask=split[3])
-    return background
-
-
-def to_uint8(normalized_img: arr_type) -> arr_type:
-    if isinstance(normalized_img, np.ndarray):
-        return (np.clip(normalized_img * 255.0, 0.0, 255.0)).astype(np.uint8)
-    return torch.clamp(normalized_img * 255.0, 0.0, 255.0).to(torch.uint8)
 
 
 def auto_num_layers(
@@ -1471,98 +1064,6 @@ def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
     torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
-def iou(logits: arr_type, labels: arr_type) -> arr_type:
-    is_torch = isinstance(logits, Tensor)
-    num_classes = logits.shape[1]
-    if num_classes == 1:
-        if is_torch:
-            heat_map = torch.sigmoid(logits)
-        else:
-            heat_map = 1.0 / (1.0 + np.exp(-logits))
-    elif num_classes == 2:
-        heat_map = softmax(logits)[:, [1]]
-    else:
-        raise ValueError("`IOU` only supports binary situations")
-    intersect = heat_map * labels
-    union = heat_map + labels - intersect
-    kwargs = {"dim" if is_torch else "axis": tuple(range(1, len(intersect.shape)))}
-    return intersect.sum(**kwargs) / union.sum(**kwargs)
-
-
-def is_gray(arr: arr_type) -> bool:
-    if isinstance(arr, np.ndarray):
-        return arr.shape[-1] == 1
-    if len(arr.shape) == 3:
-        return arr.shape[0] == 1
-    return arr.shape[1] == 1
-
-
-def clip_normalize(arr: arr_type) -> arr_type:
-    fn = np if isinstance(arr, np.ndarray) else torch
-    if arr.dtype == fn.uint8:
-        return arr
-    return fn.clip(arr, 0.0, 1.0)
-
-
-def min_max_normalize(arr: arr_type, *, global_norm: bool = True) -> arr_type:
-    eps = 1.0e-8
-    if global_norm:
-        arr_min, arr_max = arr.min(), arr.max()
-        return (arr - arr_min) / max(eps, arr_max - arr_min)
-    if isinstance(arr, np.ndarray):
-        arr_min, arr_max = arr.min(axis=0), arr.max(axis=0)
-        diff = np.maximum(eps, arr_max - arr_min)
-    else:
-        arr_min, arr_max = arr.min(dim=0).values, arr.max(dim=0).values
-        diff = torch.clip(arr_max - arr_min, max=eps)
-    return (arr - arr_min) / diff
-
-
-def quantile_normalize(
-    arr: arr_type,
-    *,
-    q: float = 0.01,
-    global_norm: bool = True,
-) -> arr_type:
-    eps = 1.0e-8
-    # quantiles
-    if isinstance(arr, Tensor):
-        kw = {"dim": 0}
-        quantile_fn = torch.quantile
-    else:
-        kw = {"axis": 0}
-        quantile_fn = np.quantile
-    if global_norm:
-        arr_min = quantile_fn(arr, q)
-        arr_max = quantile_fn(arr, 1.0 - q)
-    else:
-        arr_min = quantile_fn(arr, q, **kw)
-        arr_max = quantile_fn(arr, 1.0 - q, **kw)
-    # diff
-    if global_norm:
-        diff = max(eps, arr_max - arr_min)
-    else:
-        if isinstance(arr, Tensor):
-            diff = torch.clamp(arr_max - arr_min, min=eps)
-        else:
-            diff = np.maximum(eps, arr_max - arr_min)
-    arr = arr.clip(arr_min, arr_max)
-    return (arr - arr_min) / diff
-
-
-def imagenet_normalize(arr: arr_type) -> arr_type:
-    mean_gray, std_gray = [0.485], [0.229]
-    mean_rgb, std_rgb = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-    np_constructor = lambda inp: np.array(inp, dtype=np.float32).reshape([1, 1, -1])
-    torch_constructor = lambda inp: torch.tensor(inp, device=arr.device).view(-1, 1, 1)
-    constructor = np_constructor if isinstance(arr, np.ndarray) else torch_constructor
-    if is_gray(arr):
-        mean, std = map(constructor, [mean_gray, std_gray])
-    else:
-        mean, std = map(constructor, [mean_rgb, std_rgb])
-    return (arr - mean) / std
-
-
 def make_indices_visualization_map(indices: Tensor) -> Tensor:
     images = []
     for idx in indices.view(-1).tolist():
@@ -1571,73 +1072,3 @@ def make_indices_visualization_map(indices: Tensor) -> Tensor:
         draw.text((12, 9), str(idx), (0, 0, 0))
         images.append(to_torch(np.array(img).transpose([2, 0, 1])))
     return torch.stack(images).float()
-
-
-def interpolant(arr: arr_type) -> arr_type:
-    return arr * arr * arr * (arr * (arr * 6.0 - 15.0) + 10.0)
-
-
-def perlin_noise_2d(
-    shape: Tuple[int, int],
-    periods: Tuple[int, int],
-    should_tile: Tuple[bool, bool] = (False, False),
-    interpolant_fn: Callable[[np.ndarray], np.ndarray] = interpolant,
-) -> np.ndarray:
-    delta = periods[0] / shape[0], periods[1] / shape[1]
-    d = (shape[0] // periods[0], shape[1] // periods[1])
-    grid = np.mgrid[: periods[0] : delta[0], : periods[1] : delta[1]] % 1  # type: ignore
-    grid = grid.transpose(1, 2, 0)
-    # gradients
-    angles = 2 * np.pi * np.random.rand(periods[0] + 1, periods[1] + 1)
-    gradients = np.dstack((np.cos(angles), np.sin(angles)))
-    if should_tile[0]:
-        gradients[-1, :] = gradients[0, :]
-    if should_tile[1]:
-        gradients[:, -1] = gradients[:, 0]
-    gradients = gradients.repeat(d[0], 0).repeat(d[1], 1)
-    g00 = gradients[: -d[0], : -d[1]]
-    g10 = gradients[d[0] :, : -d[1]]
-    g01 = gradients[: -d[0], d[1] :]
-    g11 = gradients[d[0] :, d[1] :]
-    # ramps
-    n00 = np.sum(np.dstack((grid[:, :, 0], grid[:, :, 1])) * g00, 2)
-    n10 = np.sum(np.dstack((grid[:, :, 0] - 1, grid[:, :, 1])) * g10, 2)
-    n01 = np.sum(np.dstack((grid[:, :, 0], grid[:, :, 1] - 1)) * g01, 2)
-    n11 = np.sum(np.dstack((grid[:, :, 0] - 1, grid[:, :, 1] - 1)) * g11, 2)
-    # interpolation
-    arr = interpolant_fn(grid)
-    n0 = n00 * (1 - arr[:, :, 0]) + arr[:, :, 0] * n10
-    n1 = n01 * (1 - arr[:, :, 0]) + arr[:, :, 0] * n11
-    return np.sqrt(2) * ((1 - arr[:, :, 1]) * n0 + arr[:, :, 1] * n1)
-
-
-def fractal_noise_2d(
-    shape: Tuple[int, int],
-    periods: Tuple[int, int],
-    octaves: int = 1,
-    persistence: float = 0.5,
-    lacunarity: int = 2,
-    should_tile: Tuple[bool, bool] = (False, False),
-    interpolant_fn: Callable[[np.ndarray], np.ndarray] = interpolant,
-) -> np.ndarray:
-    noise = np.zeros(shape)
-    frequency = 1
-    amplitude = 1.0
-    for _ in range(octaves):
-        noise += amplitude * perlin_noise_2d(
-            shape,
-            (frequency * periods[0], frequency * periods[1]),
-            should_tile,
-            interpolant_fn,
-        )
-        frequency *= lacunarity
-        amplitude *= persistence
-    return noise
-
-
-def contrast_noise(arr: arr_type) -> arr_type:
-    arr = 0.9998 * arr + 0.0001
-    arr = arr / (1.0 - arr)
-    arr = arr**-2
-    arr = 1.0 / (1.0 + arr)
-    return arr

@@ -4,7 +4,9 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
+from cftool.array import softmax
 
 from ..encoder import ViTEncoder
 from ..encoder import Encoder1DBase
@@ -15,8 +17,6 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import softmax
-from ....misc.toolkit import check_requires
 from ....misc.toolkit import download_model
 from ....modules.blocks import Linear
 

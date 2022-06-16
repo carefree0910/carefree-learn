@@ -7,7 +7,7 @@ import cflearn
 import numpy as np
 
 from typing import List
-from cflearn.misc.toolkit import min_max_normalize
+from cfcv.misc.toolkit import min_max_normalize
 
 
 src_folder = "data/human_matting"

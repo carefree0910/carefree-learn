@@ -20,9 +20,11 @@ from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import walk
 from cftool.misc import is_numeric
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
+from cftool.misc import WithRegister
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
 from torch.utils.data import Sampler
@@ -38,12 +40,10 @@ from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import WARNING_PREFIX
 from ..constants import BATCH_INDICES_KEY
-from ..misc.toolkit import walk
 from ..misc.toolkit import to_torch
 from ..misc.toolkit import to_device
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
-from ..misc.toolkit import WithRegister
 
 
 data_modules: Dict[str, Type["DataModule"]] = {}

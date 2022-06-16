@@ -12,15 +12,15 @@ from typing import Optional
 from skimage.transform import resize
 from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
+from cfcv.misc.toolkit import to_rgb
+from cfcv.misc.toolkit import min_max_normalize
+from cfcv.misc.toolkit import imagenet_normalize
 
 from .A import *
 from .pt import *
 from .general import *
 from .....data import Compose
 from .....data import Transforms
-from .....misc.toolkit import to_rgb
-from .....misc.toolkit import min_max_normalize
-from .....misc.toolkit import imagenet_normalize
 
 
 @Transforms.register("for_generation")

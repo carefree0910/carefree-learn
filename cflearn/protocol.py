@@ -23,6 +23,7 @@ from onnxsim import simplify as onnx_simplify
 from cftool.misc import lock_manager
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
+from cftool.misc import WithRegister
 from onnxsim.onnx_simplifier import get_input_names
 
 from .types import losses_type
@@ -41,7 +42,6 @@ from .misc.toolkit import eval_context
 from .misc.toolkit import get_world_size
 from .misc.toolkit import fix_denormal_states
 from .misc.toolkit import ONNX
-from .misc.toolkit import WithRegister
 
 
 dataset_dict: Dict[str, Type["DatasetProtocol"]] = {}

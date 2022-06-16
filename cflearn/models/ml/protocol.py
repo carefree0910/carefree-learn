@@ -14,6 +14,7 @@ from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import shallow_copy_dict
+from cftool.misc import WithRegister
 
 from .encoders import Encoder
 from .encoders import EncodingResult
@@ -27,7 +28,6 @@ from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
-from ...misc.toolkit import WithRegister
 from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import get_clones
 from ...modules.blocks import Linear

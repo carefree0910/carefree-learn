@@ -4,6 +4,7 @@ from typing import Dict
 from typing import List
 from typing import Callable
 from typing import Optional
+from cftool.array import squeeze
 
 from .core import Backbone
 from ..protocol import EncoderBase
@@ -12,7 +13,6 @@ from .....types import tensor_dict_type
 from .....protocol import TrainerState
 from .....constants import INPUT_KEY
 from .....constants import LATENT_KEY
-from .....misc.toolkit import squeeze
 from .....modules.blocks import Conv2d
 
 

@@ -13,8 +13,10 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import shallow_copy_dict
+from cftool.misc import prepare_workplace_from
 from cftool.misc import lock_manager
 from cftool.misc import Saving
+from cftool.misc import WithRegister
 
 from .data import DataModule
 from .data import DLDataModule
@@ -26,7 +28,6 @@ from .types import states_callback_type
 from .trainer import get_sorted_checkpoints
 from .trainer import Trainer
 from .trainer import DeviceInfo
-from .protocol import ONNX
 from .protocol import LossProtocol
 from .protocol import ModelProtocol
 from .protocol import MetricsOutputs
@@ -39,8 +40,6 @@ from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import get_ddp_info
-from .misc.toolkit import prepare_workplace_from
-from .misc.toolkit import WithRegister
 from .misc.internal_.trainer import make_trainer
 
 

@@ -3,6 +3,7 @@ import torch.nn as nn
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.array import squeeze
 
 from .protocol import EncoderBase
 from .protocol import Encoder1DBase
@@ -10,7 +11,6 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....misc.toolkit import squeeze
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Linear
 from ....modules.blocks import ResidualBlock

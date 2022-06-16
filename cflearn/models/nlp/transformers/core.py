@@ -7,6 +7,8 @@ from typing import Callable
 from typing import Optional
 from transformers import AutoModel
 from transformers import AutoTokenizer
+from cftool.misc import check_requires
+from cftool.misc import shallow_copy_dict
 
 from ...bases import ModelProtocol
 from ....types import texts_type
@@ -15,8 +17,6 @@ from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import InferenceProtocol
 from ....data.interface import TensorDictData
-from ....misc.toolkit import check_requires
-from ....misc.toolkit import shallow_copy_dict
 
 
 @ModelProtocol.register("hugging_face")

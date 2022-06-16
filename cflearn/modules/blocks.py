@@ -6,7 +6,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod
+from abc import ABCMeta
 from torch import Tensor
 from einops import repeat
 from typing import Any
@@ -27,15 +28,15 @@ from torch.fft import fft
 from torch.autograd import Function
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from cftool.misc import WithRegister
+from cftool.array import squeeze
 from torch.nn.modules.utils import _pair
 from torch.nn.modules.pooling import _MaxUnpoolNd
 
 from ..types import tensor_dict_type
 from ..misc.toolkit import adain_with_params
-from ..misc.toolkit import squeeze
 from ..misc.toolkit import interpolate
 from ..misc.toolkit import eval_context
-from ..misc.toolkit import WithRegister
 
 
 # auxiliary

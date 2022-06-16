@@ -4,6 +4,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import check_requires
 
 from .vanilla import reparameterize
 from ..protocol import GaussianGeneratorMixin
@@ -14,7 +15,6 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
 from ...implicit.siren import ImgSiren
-from ....misc.toolkit import check_requires
 from ....misc.toolkit import auto_num_layers
 from ....losses.vae import MU_KEY
 from ....losses.vae import LOG_VAR_KEY

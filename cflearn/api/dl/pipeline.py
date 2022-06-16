@@ -3,6 +3,7 @@ from typing import Dict
 from typing import List
 from typing import Union
 from typing import Optional
+from cftool.misc import get_arguments
 
 from ...data import DLLoader
 from ...data import DLDataModule
@@ -14,7 +15,6 @@ from ...protocol import LossProtocol
 from ...protocol import ModelProtocol
 from ...protocol import ModelWithCustomSteps
 from ...protocol import InferenceProtocol
-from ...misc.toolkit import get_arguments
 
 
 @DLPipeline.register("dl.simple")

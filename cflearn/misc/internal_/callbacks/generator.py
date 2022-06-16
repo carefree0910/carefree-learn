@@ -3,13 +3,14 @@ import torch
 
 import numpy as np
 
+from cfcv.misc.toolkit import min_max_normalize
+
 from .general import ImageCallback
 from ...toolkit import to_numpy
 from ...toolkit import to_torch
 from ...toolkit import to_device
 from ...toolkit import save_images
 from ...toolkit import eval_context
-from ...toolkit import min_max_normalize
 from ....trainer import Trainer
 from ....trainer import TrainerCallback
 from ....constants import INPUT_KEY

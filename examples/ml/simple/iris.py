@@ -4,7 +4,7 @@ import cflearn
 import numpy as np
 
 from cfdata.tabular import TabularDataset
-from cflearn.misc.toolkit import get_latest_workplace
+from cftool.misc import get_latest_workplace
 
 
 metrics = ["acc", "auc"]

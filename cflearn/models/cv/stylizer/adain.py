@@ -3,6 +3,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cfcv.misc.toolkit import clip_normalize
 
 from .constants import STYLE_KEY
 from .constants import STYLE_LATENTS_KEY
@@ -23,7 +24,6 @@ from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
-from ....misc.toolkit import clip_normalize
 
 
 @ModelProtocol.register("adain")

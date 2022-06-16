@@ -3,7 +3,7 @@ import cflearn
 
 import numpy as np
 
-from cflearn.misc.toolkit import get_latest_workplace
+from cftool.misc import get_latest_workplace
 
 
 file_folder = os.path.dirname(__file__)

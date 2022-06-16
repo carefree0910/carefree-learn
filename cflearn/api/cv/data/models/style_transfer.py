@@ -12,6 +12,7 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
+from cfcv.misc.toolkit import to_rgb
 
 from .....data import CVDataset
 from .....data import Transforms
@@ -22,7 +23,6 @@ from .....constants import INPUT_KEY
 from .....constants import WARNING_PREFIX
 from .....data.core import ImageFolderDataset
 from .....data.core import InferenceImageFolderDataset
-from .....misc.toolkit import to_rgb
 from .....models.cv.stylizer.constants import STYLE_KEY
 
 

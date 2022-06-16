@@ -18,6 +18,7 @@ from cfdata.tabular import TabularData
 from cftool.dist import Parallel
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from cftool.misc import get_latest_workplace
 from cfml.misc.toolkit import patterns_type
 from cfml.misc.toolkit import Comparer
 from cfml.misc.toolkit import Estimator
@@ -37,7 +38,6 @@ from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
-from ...misc.toolkit import get_latest_workplace
 from ...models.ml.protocol import MLCoreProtocol
 
 

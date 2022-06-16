@@ -6,6 +6,7 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from cftool.misc import check_requires
 
 from ..decoder import DecoderBase
 from ..encoder import EncoderBase
@@ -16,7 +17,6 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import check_requires
 from ....modules.blocks import Conv2d
 from ....modules.blocks import ChannelPadding
 
