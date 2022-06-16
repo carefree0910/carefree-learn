@@ -448,7 +448,7 @@ def register_ml_module(
         @MLCoreProtocol.register(name)
         class _(*bases):  # type: ignore
             def __init__(self, **kwargs: Any):
-                super().__init__(**filter_kw(super.__init__, kwargs))
+                super().__init__(**filter_kw(MLCoreProtocol.__init__, kwargs))
                 self.core = m(**filter_kw(m, kwargs))
 
             def _init_with_trainer(self, trainer: Any) -> None:
