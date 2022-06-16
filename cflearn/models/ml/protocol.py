@@ -451,6 +451,11 @@ def register_ml_module(
                 super().__init__(**filter_kw(super.__init__, kwargs))
                 self.core = m(**filter_kw(m, kwargs))
 
+            def _init_with_trainer(self, trainer: Any) -> None:
+                init_fn = getattr(self.core, "_init_with_trainer", None)
+                if init_fn is not None:
+                    init_fn(trainer)
+
             def forward(
                 self,
                 batch_idx: int,
@@ -466,6 +471,34 @@ def register_ml_module(
                 if not isinstance(rs, dict):
                     rs = {PREDICTIONS_KEY: rs}
                 return rs
+            
+            def train_step(
+                self,
+                batch_idx: int,
+                batch: tensor_dict_type,
+                trainer: Any,
+                forward_kwargs: Dict[str, Any],
+                loss_kwargs: Dict[str, Any],
+            ) -> StepOutputs:
+                train_step = getattr(self.core, "train_step", None)
+                if train_step is not None:
+                    return train_step(
+                        batch_idx,
+                        batch,
+                        trainer,
+                        forward_kwargs,
+                        loss_kwargs,
+                    )
+
+            def evaluate_step(
+                self,
+                loader: DataLoaderProtocol,
+                portion: float,
+                trainer: Any,
+            ) -> MetricsOutputs:
+                evaluate_step = getattr(self.core, "evaluate_step", None)
+                if evaluate_step is not None:
+                    return evaluate_step(loader, portion, trainer)
 
         return m
 
