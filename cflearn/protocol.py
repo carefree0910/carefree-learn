@@ -583,7 +583,7 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
         if tag in cls.d:
             return tag
 
-        @cls.register(tag)
+        @cls.register(tag)  # type: ignore
         class _(cls):  # type: ignore
             names = base_loss_names
 
@@ -653,7 +653,7 @@ class AuxLoss(LossProtocol):
         if tag in cls.d:
             return tag
 
-        @cls.register(tag)
+        @cls.register(tag)  # type: ignore
         class _(cls):  # type: ignore
             loss_name = base_loss_name
             aux_names = aux_loss_names
