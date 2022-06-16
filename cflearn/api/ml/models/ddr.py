@@ -12,7 +12,6 @@ from typing import Optional
 from cfml.misc.toolkit import show_or_save
 
 from ....types import tensor_dict_type
-from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_numpy
 from ....misc.toolkit import to_torch
@@ -24,8 +23,8 @@ class DDRPredictor:
         self.m = ddr
 
     def _fetch(self, x: np.ndarray, **kwargs: Any) -> tensor_dict_type:
-        x_tensor = to_torch(x).to(self.m.device)
-        return self.m(0, {INPUT_KEY: x_tensor}, **kwargs)
+        net = to_torch(x).to(self.m.device)
+        return self.m(net, **kwargs)
 
     def median(self, x: np.ndarray) -> np.ndarray:
         results = self._fetch(x, get_quantiles=False)
