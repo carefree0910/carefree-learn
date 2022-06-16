@@ -10,7 +10,6 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
-from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
@@ -38,11 +37,6 @@ from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
-from ...models.ml.protocol import MLCoreProtocol
-
-
-def register_core(name: str) -> Callable[[Type], Type]:
-    return MLCoreProtocol.register(name)
 
 
 pipelines_type = Dict[str, List[SimplePipeline]]
@@ -432,7 +426,6 @@ def make_toy_model(
 
 
 __all__ = [
-    "register_core",
     "evaluate",
     "task_loader",
     "load_experiment_results",

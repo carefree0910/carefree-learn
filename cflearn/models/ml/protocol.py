@@ -11,8 +11,10 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
@@ -412,6 +414,50 @@ class MLModel(ModelWithCustomSteps):
         return self.core.evaluate_step(loader, portion, trainer)
 
 
+def filter_kw(fn: Callable, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    kw = {}
+    for k, v in kwargs.items():
+        if check_requires(fn, k, False):
+            kw[k] = v
+    return kw
+
+
+def register_ml_module(
+    name: str,
+    *,
+    pre_bases: Optional[List[type]] = None,
+    post_bases: Optional[List[type]] = None,
+    use_full_input: bool = False,
+) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
+    def _core(m: Type[nn.Module]) -> Type[nn.Module]:
+        @MLCoreProtocol.register(name)
+        class _(*bases):  # type: ignore
+            def __init__(self, **kwargs: Any):
+                super().__init__(**filter_kw(super.__init__, kwargs))
+                self.net = m(**filter_kw(m, kwargs))
+
+            def forward(
+                self,
+                batch_idx: int,
+                batch: tensor_dict_type,
+                state: Optional[TrainerState] = None,
+                **kwargs: Any,
+            ) -> tensor_dict_type:
+                if use_full_input:
+                    rs = self.net(batch_idx, batch, state, **kwargs)
+                else:
+                    kw = filter_kw(self.net.forward, kwargs)
+                    rs = self.net(batch[MERGED_KEY], **kw)
+                if not isinstance(rs, dict):
+                    rs = {PREDICTIONS_KEY: rs}
+                return rs
+
+        return m
+
+    bases = (pre_bases or []) + [MLCoreProtocol] + (post_bases or [])
+    return _core
+
+
 __all__ = [
     "MERGED_KEY",
     "ONE_HOT_KEY",
@@ -423,4 +469,5 @@ __all__ = [
     "MLCoreProtocol",
     "MixedStackedModel",
     "MLModel",
+    "register_ml_module",
 ]
