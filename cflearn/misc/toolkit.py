@@ -3,7 +3,6 @@ import sys
 import json
 import math
 import torch
-import logging
 import argparse
 import torchvision
 import urllib.request
@@ -35,7 +34,6 @@ from cftool.misc import prod
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
-from cftool.misc import LoggingMixin
 from cftool.misc import DownloadProgressBar
 from cftool.array import to_standard
 from cfml.misc.toolkit import show_or_save
@@ -278,55 +276,6 @@ class WeightsStrategy:
         plt.figure()
         plt.plot(x, y)
         show_or_save(export_path)
-
-
-class LoggingMixinWithRank(LoggingMixin):
-    is_rank_0: bool = True
-
-    def set_rank_0(self, value: bool) -> None:
-        self.is_rank_0 = value
-        for v in self.__dict__.values():
-            if isinstance(v, LoggingMixinWithRank):
-                v.set_rank_0(value)
-
-    def _init_logging(
-        self,
-        verbose_level: Optional[int] = 2,
-        trigger: bool = True,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        super()._init_logging(verbose_level, trigger)
-
-    def log_msg(
-        self,
-        body: str,
-        prefix: str = "",
-        verbose_level: Optional[int] = 1,
-        msg_level: int = logging.INFO,
-        frame: Any = None,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        super().log_msg(body, prefix, verbose_level, msg_level, frame)
-
-    def log_block_msg(
-        self,
-        body: str,
-        prefix: str = "",
-        title: str = "",
-        verbose_level: Optional[int] = 1,
-        msg_level: int = logging.INFO,
-        frame: Any = None,
-    ) -> None:
-        if not self.is_rank_0:
-            return None
-        super().log_block_msg(body, prefix, title, verbose_level, msg_level, frame)
-
-    def log_timing(self) -> None:
-        if not self.is_rank_0:
-            return None
-        return super().log_timing()
 
 
 # dl
@@ -788,7 +737,7 @@ class eval_context(mode_context):
         )
 
 
-class Initializer(LoggingMixinWithRank):
+class Initializer:
     """
     Initializer for neural network weights
 
@@ -860,12 +809,10 @@ class Initializer(LoggingMixinWithRank):
                 weight_base[invalid] = param.new_empty(num_invalid).normal_()
                 invalid = get_invalid(weight_base)
         if not success:
-            self.log_msg(
-                f"invalid ratio for truncated normal : {invalid.to(torch.float32).mean():8.6f}, "
-                f"it might cause by too little epoch ({epoch}) or too small tolerance ({tol})",
-                prefix=self.warning_prefix,
-                verbose_level=2,
-                msg_level=logging.WARNING,
+            print(
+                f"{WARNING_PREFIX}invalid ratio for truncated normal : "
+                f"{invalid.to(torch.float32).mean():8.6f}, it might cause by "
+                f"too little epoch ({epoch}) or too small tolerance ({tol})",
             )
         with torch.no_grad():
             param.data.copy_(weight_base.reshape(param.shape))

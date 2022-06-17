@@ -1,6 +1,5 @@
 import os
 import math
-import logging
 import warnings
 
 import numba as nb
@@ -19,7 +18,6 @@ from typing import NamedTuple
 from cfc.stat import RollingStat
 from cftool.misc import hash_code
 from cftool.misc import fix_float_to_length
-from cftool.misc import LoggingMixin
 from cftool.misc import WithRegister
 from cftool.array import squeeze
 from cftool.array import StrideArray
@@ -33,6 +31,7 @@ from ...protocol import DataLoaderProtocol
 from ...constants import CACHE_DIR
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
+from ...constants import WARNING_PREFIX
 from ...constants import BATCH_INDICES_KEY
 
 
@@ -213,7 +212,7 @@ class SpanSplit(NamedTuple):
     test_span: Optional[np.ndarray] = None
 
 
-class TimeSeriesDataManager(LoggingMixin):
+class TimeSeriesDataManager:
     data: MLDataset
 
     def __init__(
@@ -341,12 +340,10 @@ class TimeSeriesDataManager(LoggingMixin):
         if self.cfg.y_window > 0:
             invalid_indices = invalid_indices[: -self.cfg.y_span]
         if invalid_indices.shape[0] != 0 and self.cfg.filter_fns is None:
-            self.log_msg(
-                "invalid data occurred\n"
+            print(
+                f"{WARNING_PREFIX}invalid data occurred\n"
                 f"* ticks   : {ticks[invalid_indices].tolist()}\n"
                 f"* indices : {invalid_indices.tolist()}",
-                self.warning_prefix,
-                msg_level=logging.WARNING,
             )
         # finalize
         self.x_saw.write(x)

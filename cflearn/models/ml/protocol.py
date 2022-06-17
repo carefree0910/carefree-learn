@@ -30,7 +30,6 @@ from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
-from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import get_clones
 from ...modules.blocks import Linear
 from ...modules.blocks import MixedStackedEncoder
@@ -95,7 +94,7 @@ class SplitFeatures(NamedTuple):
         return torch.cat([self.numerical, merged], dim=1)
 
 
-class Dimensions(LoggingMixinWithRank):
+class Dimensions:
     def __init__(
         self,
         *,

@@ -18,7 +18,6 @@ from ...data import MLLoader
 from ...constants import INPUT_KEY
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import Initializer
-from ...misc.toolkit import LoggingMixinWithRank
 from ...modules.blocks import Lambda
 
 
@@ -73,7 +72,7 @@ class Embedding(nn.Module):
         return self.core(tensor)
 
 
-class Encoder(nn.Module, LoggingMixinWithRank):
+class Encoder(nn.Module):
     def __init__(
         self,
         config: Dict[str, Any],
