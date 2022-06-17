@@ -11,6 +11,7 @@ from typing import Callable
 from typing import Optional
 from cfml.misc.toolkit import show_or_save
 
+from ..pipeline import SimplePipeline
 from ....types import tensor_dict_type
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_numpy
@@ -45,6 +46,10 @@ class DDRPredictor:
         y_anchor = np.repeat(y_anchor, len(x), axis=0)
         results = self._fetch(x, y_anchor=y_anchor, get_quantiles=False)
         return to_numpy(results["cdf"]), to_numpy(results["pdf"])
+
+    @classmethod
+    def from_pipeline(cls, m: SimplePipeline) -> "DDRPredictor":
+        return cls(m.model.core.core)
 
 
 class DDRVisualizer:
@@ -204,6 +209,15 @@ class DDRVisualizer:
                 cdf = cdf * y_diff + y_min
                 _plot("cdf", anchor, yd, cdf, anchor_line)
                 _plot("pdf", anchor, None, pdf, anchor_line)
+
+    @classmethod
+    def from_pipeline(
+        cls,
+        m: SimplePipeline,
+        dpi: int = 200,
+        figsize: Tuple[int, int] = (8, 6),
+    ) -> "DDRVisualizer":
+        return cls(m.model.core.core, dpi, figsize)
 
 
 __all__ = [

@@ -35,7 +35,7 @@ m = cflearn.api.fit_ml(
 )
 
 os.makedirs(output_folder, exist_ok=True)
-visualizer = cflearn.ml.DDRVisualizer(m.model.core.core)  # type: ignore
+visualizer = cflearn.ml.DDRVisualizer.from_pipeline(m)
 x_test, y_test = x[-num_test:], y[-num_test:]
 visualizer.visualize(
     x_test,
