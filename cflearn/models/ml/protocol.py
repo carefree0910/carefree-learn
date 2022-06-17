@@ -103,6 +103,7 @@ class Dimensions:
         one_hot_dim: Optional[int] = None,
         embedding_dim: Optional[int] = None,
         categorical_dim: Optional[int] = None,
+        categorical_dims: Optional[Dict[int, int]] = None,
         numerical_columns_mapping: Dict[int, int],
         categorical_columns_mapping: Dict[int, int],
     ):
@@ -113,6 +114,7 @@ class Dimensions:
             self._categorical_dim = categorical_dim or 0
         self._one_hot_dim = one_hot_dim
         self._embedding_dim = embedding_dim
+        self._categorical_dims = categorical_dims
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
         self._numerical_columns = sorted(numerical_columns_mapping.values())
@@ -136,9 +138,8 @@ class Dimensions:
 
     @property
     def categorical_dims(self) -> Dict[int, int]:
-        dims: Dict[int, int] = {}
         if self.encoder is None:
-            return dims
+            return self._categorical_dims or {}
         return self.encoder.merged_dims
 
     @property
@@ -148,6 +149,10 @@ class Dimensions:
     @property
     def numerical_dim(self) -> int:
         return len(self._numerical_columns)
+
+    @property
+    def has_categorical(self) -> bool:
+        return self.categorical_dim > 0
 
     @property
     def has_numerical(self) -> bool:
