@@ -63,6 +63,7 @@ class SimplePipeline(DLPipeline):
         # encoder
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
+        categorical_dims: Optional[Dict[str, int]] = None,
         encoding_methods: Optional[Dict[str, List[str]]] = None,
         encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
         default_encoding_methods: Optional[List[str]] = None,
@@ -146,6 +147,7 @@ class SimplePipeline(DLPipeline):
         self.only_categorical = only_categorical
         self.encoder = None
         self.encoder_config = encoder_config or {}
+        self.categorical_dims = categorical_dims or {}
         self.encoding_methods = encoding_methods or {}
         self.encoding_configs = encoding_configs or {}
         if default_encoding_methods is None:
@@ -170,14 +172,84 @@ class SimplePipeline(DLPipeline):
         self.use_auto_loss = self.loss_name == "auto"
         if self.use_auto_loss:
             self.loss_name = "mae" if is_reg else "focal"
-        if self.encoder is None:
-            self.numerical_columns_mapping = {i: i for i in range(self.input_dim)}
+
+    def _instantiate_encoder(
+        self,
+        categorical_dims: List[int],
+        encoding_methods: List[List[str]],
+        encoding_configs: List[Dict[str, Any]],
+        categorical_columns: List[int],
+    ) -> Encoder:
+        if self.in_loading:
+            loaders = []
+        else:
+            train_loader, valid_loader = self.data.initialize()
+            assert isinstance(train_loader, MLLoader)
+            train_loader_copy = train_loader.copy()
+            train_loader_copy.disable_shuffle()
+            loaders = [train_loader_copy]
+            if valid_loader is not None:
+                assert isinstance(valid_loader, MLLoader)
+                loaders.append(valid_loader)
+        return Encoder(
+            self.encoder_config,
+            categorical_dims,
+            encoding_methods,  # type: ignore
+            encoding_configs,
+            categorical_columns,
+            loaders,
+        )
+
+    def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
+        categorical_dims = []
+        encoding_methods = []
+        encoding_configs = []
+        categorical_columns = []
+        use_one_hot = False
+        use_embedding = False
+        for str_idx, categorical_dim in self.categorical_dims.items():
+            idx_encoding_methods = self.encoding_methods.setdefault(
+                str_idx,
+                self.default_encoding_methods,
+            )
+            idx_encoding_configs = self.encoding_configs.setdefault(
+                str_idx,
+                self.default_encoding_configs,
+            )
+            if isinstance(idx_encoding_methods, str):
+                idx_encoding_methods = [idx_encoding_methods]
+            use_one_hot = use_one_hot or "one_hot" in idx_encoding_methods
+            use_embedding = use_embedding or "embedding" in idx_encoding_methods
+            categorical_dims.append(categorical_dim)
+            encoding_methods.append(idx_encoding_methods)
+            encoding_configs.append(idx_encoding_configs)
+            categorical_columns.append(int(str_idx))
+
+        assert isinstance(self.input_dim, int)
+        all_indices = list(range(self.input_dim))
+        if not categorical_columns:
+            self.encoder = None
+            self.numerical_columns_mapping = {i: i for i in all_indices}
             self.categorical_columns_mapping = {}
             self.use_one_hot = False
             self.use_embedding = False
+        else:
+            self.encoder = self._instantiate_encoder(
+                categorical_dims,
+                encoding_methods,
+                encoding_configs,
+                categorical_columns,
+            )
+            self.use_one_hot = use_one_hot
+            self.use_embedding = use_embedding
+            categorical_set = set(categorical_columns)
+            numerical_columns = [i for i in all_indices if i not in categorical_set]
+            self.numerical_columns_mapping = {i: i for i in numerical_columns}
+            self.categorical_columns_mapping = {i: i for i in categorical_columns}
 
     def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
         self._setup_defaults(data_info)
+        self._setup_encoder(data_info)
         self._prepare_workplace()
         self._prepare_loss()
         assert isinstance(self.input_dim, int)
@@ -308,6 +380,17 @@ class SimplePipeline(DLPipeline):
                 Saving.compress(abs_folder, remove_original=True)
         return self
 
+    @classmethod
+    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
+        if m.encoder is not None:
+            encoder_cache_keys = []
+            for key in states:
+                if key.startswith("encoder") and key.endswith("cache"):
+                    encoder_cache_keys.append(key)
+            for key in encoder_cache_keys:
+                states.pop(key)
+        return states
+
 
 @DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):
@@ -323,6 +406,7 @@ class CarefreePipeline(SimplePipeline):
         # encoder
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
+        categorical_dims: Optional[Dict[str, int]] = None,
         encoding_methods: Optional[Dict[str, List[str]]] = None,
         encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
         default_encoding_methods: Optional[List[str]] = None,
@@ -373,6 +457,7 @@ class CarefreePipeline(SimplePipeline):
             loss_config=loss_config,
             only_categorical=only_categorical,
             encoder_config=encoder_config,
+            categorical_dims=categorical_dims,
             encoding_methods=encoding_methods,
             encoding_configs=encoding_configs,
             default_encoding_methods=default_encoding_methods,
@@ -413,7 +498,7 @@ class CarefreePipeline(SimplePipeline):
         )
         self.config = config
 
-    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
+    def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
         self.cf_data = data_info["cf_data"]
         # encoder
         excluded = 0
@@ -422,7 +507,7 @@ class CarefreePipeline(SimplePipeline):
         categorical_dims = []
         encoding_methods = []
         encoding_configs = []
-        true_categorical_columns = []
+        categorical_columns = []
         use_one_hot = False
         use_embedding = False
         if self.cf_data.is_simplify:
@@ -441,7 +526,11 @@ class CarefreePipeline(SimplePipeline):
                     numerical_columns_mapping[idx] = idx - excluded
                 else:
                     str_idx = str(idx)
-                    categorical_dims.append(recognizer.num_unique_values)
+                    categorical_dim = self.categorical_dims.setdefault(
+                        str_idx,
+                        recognizer.num_unique_values,
+                    )
+                    categorical_dims.append(categorical_dim)
                     idx_encoding_methods = self.encoding_methods.setdefault(
                         str_idx,
                         self.default_encoding_methods,
@@ -458,36 +547,22 @@ class CarefreePipeline(SimplePipeline):
                         )
                     )
                     true_idx = idx - excluded
-                    true_categorical_columns.append(true_idx)
+                    categorical_columns.append(true_idx)
                     categorical_columns_mapping[idx] = true_idx
-        if not true_categorical_columns:
+        if not categorical_columns:
             encoder = None
         else:
-            if self.in_loading:
-                loaders = []
-            else:
-                train_loader, valid_loader = self.data.initialize()
-                assert isinstance(train_loader, MLLoader)
-                train_loader_copy = train_loader.copy()
-                train_loader_copy.disable_shuffle()
-                loaders = [train_loader_copy]
-                if valid_loader is not None:
-                    assert isinstance(valid_loader, MLLoader)
-                    loaders.append(valid_loader)
-            encoder = Encoder(
-                self.encoder_config,
+            encoder = self._instantiate_encoder(
                 categorical_dims,
-                encoding_methods,  # type: ignore
+                encoding_methods,
                 encoding_configs,
-                true_categorical_columns,
-                loaders,
+                categorical_columns,
             )
         self.encoder = encoder
         self.use_one_hot = use_one_hot
         self.use_embedding = use_embedding
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
-        super()._prepare_modules(data_info)
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
         assert self.cf_data is not None
@@ -535,17 +610,6 @@ class CarefreePipeline(SimplePipeline):
         assert isinstance(m, CarefreePipeline)
         m.cf_data = DLDataModule.load(export_folder)["cf_data"]
         return m
-
-    @classmethod
-    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
-        if m.encoder is not None:
-            encoder_cache_keys = []
-            for key in states:
-                if key.startswith("encoder") and key.endswith("cache"):
-                    encoder_cache_keys.append(key)
-            for key in encoder_cache_keys:
-                states.pop(key)
-        return states
 
 
 __all__ = [

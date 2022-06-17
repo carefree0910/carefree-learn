@@ -170,6 +170,7 @@ def fit_ml(
     # encoder
     only_categorical: bool = False,
     encoder_config: Optional[Dict[str, Any]] = None,
+    categorical_dims: Optional[Dict[str, int]] = None,
     encoding_methods: Optional[Dict[str, List[str]]] = None,
     encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     default_encoding_methods: Optional[List[str]] = None,
@@ -221,6 +222,7 @@ def fit_ml(
         loss_config=loss_config,
         only_categorical=only_categorical,
         encoder_config=encoder_config,
+        categorical_dims=categorical_dims,
         encoding_methods=encoding_methods,
         encoding_configs=encoding_configs,
         default_encoding_methods=default_encoding_methods,
