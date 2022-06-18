@@ -12,6 +12,7 @@ from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from collections import defaultdict
+from cftool.array import arr_type
 from cfdata.tabular.misc import np_int_type
 
 from ...data import MLLoader
@@ -94,7 +95,8 @@ class Encoder(nn.Module):
         self.embedding_dim = 0
         dims_tensor = torch.tensor(input_dims, dtype=torch.float32)
         self.register_buffer("input_dims", dims_tensor)
-        self.tgt_columns = np.array(sorted(categorical_columns), np_int_type)
+        self.sorted_categorical_columns = sorted(categorical_columns)
+        self.tgt_columns = np.array(self.sorted_categorical_columns, np_int_type)
         self.merged_dims: Dict[int, int] = defaultdict(int)
         self.embeddings = nn.ModuleList()
         self.one_hot_encoders = nn.ModuleList()
@@ -237,6 +239,45 @@ class Encoder(nn.Module):
             if not use_cache and self._use_fast_embed:
                 indices[..., 1:] += self.embed_dims_cumsum
             embedding = self._embedding(indices.to(torch.long))
+            if self.embedding_dropout is not None:
+                embedding = self.embedding_dropout(embedding)
+        return EncodingResult(one_hot, embedding)
+
+    def encode(self, column: arr_type, column_idx: int) -> EncodingResult:
+        try:
+            idx = self.sorted_categorical_columns.index(column_idx)
+        except ValueError:
+            return EncodingResult(None, None)
+        if isinstance(column, np.ndarray):
+            column = to_torch(column)
+        column = column.to(torch.long).view(-1)
+        # one hot
+        if not self.use_one_hot:
+            one_hot = None
+        else:
+            if self._all_one_hot:
+                one_hot_idx = idx
+            else:
+                one_hot_idx = self._one_hot_indices[idx]
+            one_hot = self.one_hot_encoders[one_hot_idx](column)
+        # embedding
+        if not self.use_embedding:
+            embedding = None
+        else:
+            if self._all_embedding:
+                embedding_idx = idx
+            else:
+                embedding_idx = self._embed_indices.index(idx)
+            indices = column.clone()
+            if not self._use_fast_embed:
+                embedding = self.embeddings[embedding_idx](indices)
+            else:
+                if embedding_idx > 0:
+                    indices += self.embed_dims_cumsum[embedding_idx - 1]
+                embedding = self.embeddings[0](indices)
+                if self._recover_dim:
+                    dim = self._embed_dims[idx]
+                    embedding = embedding[..., list(range(dim))]
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
         return EncodingResult(one_hot, embedding)
