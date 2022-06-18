@@ -227,6 +227,7 @@ class Encoder(nn.Module):
         if not self.use_embedding:
             embedding = None
         else:
+            use_cache = use_cache and self._use_fast_embed
             if not use_cache:
                 indices = categorical_columns
             else:
