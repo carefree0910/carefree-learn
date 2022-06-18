@@ -7,19 +7,14 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Optional
-from typing import NamedTuple
 from cftool.misc import WithRegister
 
+from ....losses.gan import DiscriminatorOutput
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 
 
 discriminator_dict: Dict[str, Type["DiscriminatorBase"]] = {}
-
-
-class DiscriminatorOutput(NamedTuple):
-    output: torch.Tensor
-    cond_logits: Optional[torch.Tensor] = None
 
 
 class DiscriminatorBase(nn.Module, WithRegister["DiscriminatorBase"]):

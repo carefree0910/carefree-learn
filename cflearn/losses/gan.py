@@ -5,8 +5,12 @@ from torch import Tensor
 from typing import Optional
 from typing import NamedTuple
 
-from .discriminators import DiscriminatorOutput
-from ....misc.toolkit import get_gradient
+from ..misc.toolkit import get_gradient
+
+
+class DiscriminatorOutput(NamedTuple):
+    output: Tensor
+    cond_logits: Optional[Tensor] = None
 
 
 class GANTarget(NamedTuple):
