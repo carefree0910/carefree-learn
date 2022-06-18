@@ -31,10 +31,15 @@ class TestProtocol(unittest.TestCase):
         def _get_loss(loss_ins: LossProtocol) -> float:
             return loss_ins(forward_results, batch)[cflearn.LOSS_KEY].item()
 
-        forward_results = {cflearn.PREDICTIONS_KEY: torch.full([10, 1], 2.0)}
-        batch = {cflearn.LABEL_KEY: torch.zeros([10, 1])}
-        self.assertEqual(_get_loss(cflearn.MAELoss()), 2.0)
-        self.assertEqual(_get_loss(cflearn.MAELoss(reduction="sum")), 20.0)
+        predictions = torch.full([10, 1], 2.0)
+        labels = torch.zeros([10, 1])
+        forward_results = {cflearn.PREDICTIONS_KEY: predictions}
+        batch = {cflearn.LABEL_KEY: labels}
+        self.assertEqual(_get_loss(LossProtocol.make("mae", {})), 2.0)
+        self.assertEqual(_get_loss(LossProtocol.make("mae", dict(reduction="sum"))), 20.0)
+        mae = cflearn.MAELoss()
+        self.assertEqual(mae(predictions, labels).mean().item(), 2.0)
+        self.assertEqual(mae(predictions, labels).sum().item(), 20.0)
         # multi task
         multi_task_name = LossProtocol.parse("multi_task:mae,mse")
         multi_task_loss: LossProtocol = LossProtocol.make(multi_task_name, {})
