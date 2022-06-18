@@ -4,10 +4,16 @@ import torch
 import cflearn
 import unittest
 
+import numpy as np
+
 from typing import Any
 from torch.nn import Module
+from cftool.array import allclose
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import PREDICTIONS_KEY
+from cflearn.misc.toolkit import to_numpy
+from cflearn.misc.toolkit import to_torch
+from cflearn.misc.toolkit import eval_context
 from cflearn.models.ml.protocol import MERGED_KEY
 from cflearn.models.ml.protocol import ONE_HOT_KEY
 from cflearn.models.ml.protocol import EMBEDDING_KEY
@@ -84,6 +90,28 @@ class TestModels(unittest.TestCase):
         self.assertSequenceEqual(_ts("transformer")(ts).shape, [batch_size, out_dim])
         self.assertSequenceEqual(_ts("mixer")(ts).shape, [batch_size, out_dim])
         self.assertSequenceEqual(_ts("fnet")(ts).shape, [batch_size, out_dim])
+
+    def test_nbm(self) -> None:
+        shape = [3, 10]
+        x = np.random.random(shape)
+        y = np.random.random(shape)
+        m = cflearn.ml.make_toy_model(model="nbm", data_tuple=(x, y))
+        nbm = m.model.core.core
+        net = to_torch(x)
+        x_dims = (3,)
+        y_dim = 7
+        net1 = net
+        res1 = to_numpy(nbm.inspect(net1, x_dims, y_dim))
+        net2 = net[..., x_dims]
+        res2 = to_numpy(nbm.inspect(net2, x_dims, y_dim, already_extracted=True))
+        net3 = to_torch(np.random.random(shape))
+        net3[..., x_dims] = net2
+        net3 = net
+        with eval_context(nbm):
+            net3 = nbm(net3, return_features=True)
+        net3 = net3[..., x_dims] * nbm.head.weight[..., x_dims][[y_dim]]
+        res3 = to_numpy(net3)
+        self.assertTrue(allclose(res1, res2, res3))
 
     def test_cv_clf_cnn(self) -> None:
         vanilla_clf = cflearn.VanillaClassifier(
