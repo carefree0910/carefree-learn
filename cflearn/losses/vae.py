@@ -1,5 +1,6 @@
 import torch
 
+import torch.nn as nn
 import torch.nn.functional as F
 
 from typing import Any
@@ -12,31 +13,36 @@ from ..protocol import TrainerState
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import PREDICTIONS_KEY
+from ..misc.internal_ import register_loss_module
 
 
 MU_KEY = "mu"
 LOG_VAR_KEY = "log_var"
 
 
-@LossProtocol.register("vae")
-@LossProtocol.register("vae1d")
-@LossProtocol.register("vae2d")
-@LossProtocol.register("siren_vae")
-@LossProtocol.register("style_vae")
-class VAELoss(LossProtocol):
+@register_loss_module("vae")
+@register_loss_module("vae1d")
+@register_loss_module("vae2d")
+@register_loss_module("siren_vae")
+@register_loss_module("style_vae")
+class VAELoss(nn.Module):
     kld_w: torch.Tensor
 
-    def _init_config(self) -> None:
-        self.kld_ema = self.config.setdefault("kld_ema", 0.999)
-        self.kld_weight = self.config.setdefault("kld_weight", 1.0e-3)
+    def __init__(
+        self,
+        *,
+        kld_ema: float = 0.999,
+        kld_weight: float = 1.0e-3,
+    ):
+        self.kld_ema = kld_ema
+        self.kld_weight = kld_weight
         self.register_buffer("kld_w", torch.tensor([0.0], dtype=torch.float32))
 
-    def _core(
+    def forward(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
-        **kwargs: Any,
     ) -> losses_type:
         # kld ratio
         if state is not None and not state.is_terminate and self.training:
@@ -62,19 +68,23 @@ class VAELoss(LossProtocol):
         return {"mse": mse, "kld": kld_loss, "kld_w": self.kld_w, LOSS_KEY: loss}
 
 
-@LossProtocol.register("vq_vae")
-class VQVAELoss(LossProtocol):
-    def _init_config(self) -> None:
-        self.lb_vq = self.config.setdefault("lb_vq", 1.0)
-        self.lb_recon = self.config.setdefault("lb_recon", 1.0)
-        self.lb_commit = self.config.setdefault("lb_commit", 1.0)
+@register_loss_module("vq_vae")
+class VQVAELoss(nn.Module):
+    def __init__(
+        self,
+        *,
+        lb_vq: float = 1.0,
+        lb_recon: float = 1.0,
+        lb_commit: float = 1.0,
+    ):
+        self.lb_vq = lb_vq
+        self.lb_recon = lb_recon
+        self.lb_commit = lb_commit
 
-    def _core(
+    def forward(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
     ) -> losses_type:
         # reconstruction loss
         original = batch[INPUT_KEY]
