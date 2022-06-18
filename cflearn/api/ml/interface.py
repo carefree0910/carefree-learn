@@ -383,7 +383,7 @@ def make_toy_model(
     if data_tuple is not None:
         x_np, y_np = data_tuple
         if is_classification:
-            output_dim = y_np.max() + 1
+            output_dim = len(np.unique(y_np))
         else:
             output_dim = y_np.shape[1]
     else:
