@@ -34,6 +34,7 @@ class VAELoss(nn.Module):
         kld_ema: float = 0.999,
         kld_weight: float = 1.0e-3,
     ):
+        super().__init__()
         self.kld_ema = kld_ema
         self.kld_weight = kld_weight
         self.register_buffer("kld_w", torch.tensor([0.0], dtype=torch.float32))
@@ -77,6 +78,7 @@ class VQVAELoss(nn.Module):
         lb_recon: float = 1.0,
         lb_commit: float = 1.0,
     ):
+        super().__init__()
         self.lb_vq = lb_vq
         self.lb_recon = lb_recon
         self.lb_commit = lb_commit
