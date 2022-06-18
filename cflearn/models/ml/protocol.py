@@ -10,6 +10,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -94,6 +95,11 @@ class SplitFeatures(NamedTuple):
         return torch.cat([self.numerical, merged], dim=1)
 
 
+class IndicesResponse(NamedTuple):
+    indices: Tuple[int, ...]
+    is_categorical: bool
+
+
 class Dimensions:
     def __init__(
         self,
@@ -173,6 +179,25 @@ class Dimensions:
         else:
             numerical = x_batch[..., numerical_columns]
         return SplitFeatures(encoding_result, numerical)
+
+    def get_indices_in_merged(self, idx: int) -> Optional[IndicesResponse]:
+        numerical_mapping = self.numerical_columns_mapping
+        categorical_mapping = self.categorical_columns_mapping
+        numerical_idx = numerical_mapping.get(idx)
+        categorical_idx = categorical_mapping.get(idx)
+        if numerical_idx is not None:
+            categorical_dim = self.categorical_dim
+            all_numerical_indices = sorted(numerical_mapping.values())
+            true_idx = categorical_dim + all_numerical_indices.index(numerical_idx)
+            return IndicesResponse((true_idx,), False)
+        if categorical_idx is not None:
+            categorical_dims = self.categorical_dims
+            all_categorical_indices = sorted(categorical_mapping.values())
+            start_idx = all_categorical_indices.index(categorical_idx)
+            start = sum(categorical_dims[i] for i in range(start_idx))
+            indices = tuple(range(start, start + categorical_dims[start_idx]))
+            return IndicesResponse(indices, True)
+        return None
 
 
 class Transform(nn.Module):
