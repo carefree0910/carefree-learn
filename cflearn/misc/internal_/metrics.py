@@ -38,7 +38,6 @@ class Accuracy(MetricProtocol):
         logits = np_outputs[PREDICTIONS_KEY]
         labels = np_batch[LABEL_KEY]
         predictions = get_label_predictions(logits, self.threshold)
-        labels = labels.reshape(predictions.shape)
         return (predictions == labels).mean().item()
 
 
@@ -80,10 +79,10 @@ class F1Score(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
-        logits = np_outputs[PREDICTIONS_KEY].ravel()
+        labels = np_batch[LABEL_KEY]
+        logits = np_outputs[PREDICTIONS_KEY]
         predictions = get_label_predictions(logits, self.threshold)
-        return metrics.f1_score(labels, predictions)
+        return metrics.f1_score(labels.ravel(), predictions.ravel())
 
 
 @MetricProtocol.register("r2")

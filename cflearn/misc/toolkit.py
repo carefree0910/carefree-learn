@@ -286,7 +286,7 @@ def get_label_predictions(logits: np.ndarray, threshold: float) -> np.ndarray:
     if logits.shape[-1] == 1:
         logit_threshold = math.log(threshold / (1.0 - threshold))
         return (logits > logit_threshold).astype(int)
-    return logits.argmax(1)
+    return logits.argmax(1)[..., None]
 
 
 def get_full_logits(logits: np.ndarray) -> np.ndarray:
