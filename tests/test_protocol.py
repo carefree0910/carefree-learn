@@ -36,7 +36,7 @@ class TestProtocol(unittest.TestCase):
         forward_results = {cflearn.PREDICTIONS_KEY: predictions}
         batch = {cflearn.LABEL_KEY: labels}
         self.assertEqual(_get_loss(LossProtocol.make("mae", {})), 2.0)
-        self.assertEqual(_get_loss(LossProtocol.make("mae", dict(reduction="sum"))), 20.0)
+        self.assertEqual(_get_loss(LossProtocol.make("mae", dict(reduction="sum"))), 20)
         mae = cflearn.MAELoss()
         self.assertEqual(mae(predictions, labels).mean().item(), 2.0)
         self.assertEqual(mae(predictions, labels).sum().item(), 20.0)
