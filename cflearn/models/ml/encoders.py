@@ -83,6 +83,57 @@ class Encoder(nn.Module):
         categorical_columns: List[int],
         loaders: List[MLLoader],
     ):
+        """
+        Encoder to perform differentiable categorical encodings.
+
+        Parameters
+        ----------
+        config (Dict[str, Any]) : configs of the encoder.
+            * embedding_dropout (float) : dropout rate for embedding.
+                * default : 0.2
+            * default_embedding_init_method (str) : default init method for embedding.
+                * default : "truncated_normal"
+            * default_embedding_init_config (Dict[str, Any]) : default init config for embedding.
+                * default : {"mean": 0, "std": 0.02}
+            * use_fast_embedding (bool) : whether to use fast embedding.
+                * default : True
+            * recover_original_dim (bool) : whether to recover original dim when fast embedding is applied.
+                * default : False
+            * unified_embedding_dim (str | int) : unified embedding dim used in fast embedding.
+                * default : "max"
+            * fast_embedding_init_method (str | None) : init method for fast embedding.
+                * default : None
+            * fast_embedding_init_config (Dict[str, Any] | None) : init config for fast embedding.
+                * default : None
+        input_dims (List[int]) : number of different values of each categorical column.
+            * Note that len(input_dims) should be = len(categorical_columns)
+        methods_list (List[Union[str, List[str]]]): list of encoding methods to use
+            for each categorical column.
+            * if List[str] is provided, then multiple encoding methods will be used.
+        method_configs (List[Dict[str, Any]]): configs of the corresponding encoding methods.
+        categorical_columns (List[int]): indices of categorical columns.
+            * Note that len(categorical_columns) should be = len(input_dims)
+
+        Properties
+        ----------
+        _one_hot_indices (List[int]) : indices of categorical columns that are encoded with one-hot.
+            * notice that these indices are indices of `categorical_columns`
+        _embed_indices (List[int]) : indices of categorical columns that are encoded with embedding.
+            * notice that these indices are indices of `categorical_columns`.
+        _embed_dims (Dict[int, int]) : dims of embedding used for each categorical column.
+            * key : index of `categorical_columns`.
+            * value : dimension of the embedding module (self.embeddings[self._embed_indices.index(key)]).
+            * len(_embed_dims) should be = len(_embed_indices).
+        merged_dims (Dict[int, int])
+            * key : index of `categorical_columns`.
+            * value : final encoded dim of the {categorical_columns[key]}th column.
+        embeddings (nn.ModuleList) : list of embedding modules.
+            * ith embedding correspond to the {categorical_columns[self._embed_indices[i]]}th column.
+        one_hot_encoders (nn.ModuleList) : list of one-hot encoder modules.
+            * ith one-hot encoder correspond to the {categorical_columns[self._one_hot_indices[i]]}th column.
+        input_dims (tensor) : same as `input_dims` above, but in torch.tensor format.
+
+        """
         super().__init__()
         self._fe_init_method: Optional[str]
         self._fe_init_config: Optional[Dict[str, Any]]
