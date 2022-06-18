@@ -75,13 +75,11 @@ class SimpleVAE(nn.Module):
 
 @cflearn.register_loss_module("simple_vae")
 @cflearn.register_loss_module("simple_vae_foo")
-class SimpleVAELoss(cflearn.LossModule):
+class SimpleVAELoss(nn.Module):
     def forward(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
     ) -> losses_type:
         # reconstruction loss
         original = batch[cflearn.INPUT_KEY]

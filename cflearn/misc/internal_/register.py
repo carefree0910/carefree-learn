@@ -4,13 +4,13 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABCMeta
-from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
 from typing import Callable
 from typing import Optional
+from cftool.misc import check_requires
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
 from cfdata.tabular.processors.base import Processor
@@ -26,8 +26,8 @@ from ...protocol import MetricProtocol
 from ...protocol import MetricsOutputs
 from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
-from ...constants import LOSS_KEY
 from ...constants import INPUT_KEY
+from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 
 
@@ -236,20 +236,29 @@ def register_custom_module(
     return _core
 
 
-class LossModule(nn.Module, metaclass=ABCMeta):
-    @abstractmethod
-    def forward(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> losses_type:
-        pass
+def register_loss_module(name: str) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
+    """
+    Registered module should have forwaard method with one of the following formats:
 
+    * forward(self, predictions, labels, **kwargs)
+        * `predictions` / `labels` could have a different name
+    * forward(self, predictions, labels, state, **kwargs)
+        * `predictions` / `labels` could have a different name
+        * `state` should be exactly the same name
+    * forward(self, forward_results, batch, **kwargs)
+        * `forward_results` / `batch` should all be exactly the same name
+    * forward(self, forward_results, batch, state, **kwargs)
+        * `forward_results` / `batch` / `state` should all be exactly the same name
 
-def register_loss_module(name: str) -> Callable[[Type[LossModule]], Type[LossModule]]:
-    def _core(loss_base: Type[LossModule]) -> Type[LossModule]:
+    Types:
+    * predictions / labels: Tensor
+    * forward_results / batch: tensor_dict_type
+    * state: Optional[TrainerState]
+
+    Note that the order of the arguments should always keep the same
+    """
+
+    def _core(loss_base: Type[nn.Module]) -> Type[nn.Module]:
         @LossProtocol.register(name)
         class _(LossProtocol):  # type: ignore
             def __init__(self, reduction: str = "mean", **kwargs: Any):
@@ -263,10 +272,19 @@ def register_loss_module(name: str) -> Callable[[Type[LossModule]], Type[LossMod
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> losses_type:
-                rs = self.core(forward_results, batch, state, **kwargs)
-                if isinstance(rs, Tensor):
-                    rs = {LOSS_KEY: rs}
-                return rs
+                args: List[Any] = []
+                fn = self.core.forward
+                if check_requires(fn, "forward_results"):
+                    args.append(forward_results)
+                else:
+                    args.append(forward_results[PREDICTIONS_KEY])
+                if check_requires(fn, "batch"):
+                    args.append(batch)
+                else:
+                    args.append(batch[LABEL_KEY])
+                if check_requires(fn, "state"):
+                    args.append(state)
+                return self.core(*args, **kwargs)
 
         return loss_base
 
@@ -284,5 +302,4 @@ __all__ = [
     "register_custom_module",
     "register_loss_module",
     "CustomModule",
-    "LossModule",
 ]
