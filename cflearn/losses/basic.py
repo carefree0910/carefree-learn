@@ -50,7 +50,7 @@ class BCELoss(LossProtocol):
         **kwargs: Any,
     ) -> losses_type:
         predictions = forward_results[PREDICTIONS_KEY]
-        labels = batch[LABEL_KEY]
+        labels = batch[LABEL_KEY].to(predictions.dtype)
         losses = self.bce(predictions, labels)
         return losses.mean(tuple(range(1, len(losses.shape))))
 
