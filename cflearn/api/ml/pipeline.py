@@ -34,6 +34,8 @@ from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import get_full_logits
+from ...misc.toolkit import get_label_predictions
 from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
 from ...misc.internal_.inference import MLInference
@@ -171,7 +173,10 @@ class SimplePipeline(DLPipeline):
                 )
         self.use_auto_loss = self.loss_name == "auto"
         if self.use_auto_loss:
-            self.loss_name = "mae" if is_reg else "focal"
+            if is_reg:
+                self.loss_name = "mae"
+            else:
+                self.loss_name = "bce" if self.output_dim == 1 else "focal"
 
     def _instantiate_encoder(
         self,
@@ -294,6 +299,7 @@ class SimplePipeline(DLPipeline):
     def to_pattern(
         self,
         *,
+        binary_threshold: float = 0.5,
         pre_process: Optional[Callable] = None,
         **predict_kwargs: Any,
     ) -> ModelPattern:
@@ -302,7 +308,7 @@ class SimplePipeline(DLPipeline):
                 x = pre_process(x)
             predictions = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
             if self.is_classification:
-                return np.argmax(predictions, axis=1)[..., None]
+                return get_label_predictions(predictions, binary_threshold)
             return predictions
 
         def _predict_prob(x: np.ndarray) -> np.ndarray:
@@ -312,6 +318,7 @@ class SimplePipeline(DLPipeline):
             if pre_process is not None:
                 x = pre_process(x)
             logits = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
+            logits = get_full_logits(logits)
             return softmax(logits)
 
         return ModelPattern(

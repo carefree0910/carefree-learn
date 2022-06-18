@@ -281,6 +281,21 @@ class WeightsStrategy:
 # dl
 
 
+def get_label_predictions(logits: np.ndarray, threshold: float) -> np.ndarray:
+    # binary classification
+    if logits.shape[-1] == 1:
+        logit_threshold = math.log(threshold / (1.0 - threshold))
+        return (logits > logit_threshold).astype(int)
+    return logits.argmax(1)
+
+
+def get_full_logits(logits: np.ndarray) -> np.ndarray:
+    # binary classification
+    if logits.shape[-1] == 1:
+        logits = np.concatenate([-logits, logits], axis=-1)
+    return logits
+
+
 def inject_debug(config: Dict[str, Any]) -> None:
     config["fixed_steps"] = 1
     config["valid_portion"] = 1.0e-4

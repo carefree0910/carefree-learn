@@ -9,6 +9,8 @@ from cftool.array import iou
 from cftool.array import softmax
 from scipy import stats as ss
 
+from ..toolkit import get_full_logits
+from ..toolkit import get_label_predictions
 from ...types import np_dict_type
 from ...protocol import MetricsOutputs
 from ...protocol import MetricProtocol
@@ -19,6 +21,10 @@ from ...constants import PREDICTIONS_KEY
 
 @MetricProtocol.register("acc")
 class Accuracy(MetricProtocol):
+    def __init__(self, threshold: float = 0.5):
+        super().__init__()
+        self.threshold = threshold
+
     @property
     def is_positive(self) -> bool:
         return True
@@ -30,8 +36,9 @@ class Accuracy(MetricProtocol):
         loader: Optional[DataLoaderProtocol],
     ) -> float:
         logits = np_outputs[PREDICTIONS_KEY]
-        predictions = logits.argmax(1)
-        labels = np_batch[LABEL_KEY].reshape(predictions.shape)  # type: ignore
+        labels = np_batch[LABEL_KEY]
+        predictions = get_label_predictions(logits, self.threshold)
+        labels = labels.reshape(predictions.shape)
         return (predictions == labels).mean().item()
 
 
@@ -59,6 +66,10 @@ class Quantile(MetricProtocol):
 
 @MetricProtocol.register("f1")
 class F1Score(MetricProtocol):
+    def __init__(self, threshold: float = 0.5):
+        super().__init__()
+        self.threshold = threshold
+
     @property
     def is_positive(self) -> bool:
         return True
@@ -70,7 +81,8 @@ class F1Score(MetricProtocol):
         loader: Optional[DataLoaderProtocol],
     ) -> float:
         labels = np_batch[LABEL_KEY].ravel()  # type: ignore
-        predictions = np_outputs[PREDICTIONS_KEY].ravel()
+        logits = np_outputs[PREDICTIONS_KEY].ravel()
+        predictions = get_label_predictions(logits, self.threshold)
         return metrics.f1_score(labels, predictions)
 
 
@@ -107,7 +119,7 @@ class AUC(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        logits = np_outputs[PREDICTIONS_KEY]
+        logits = get_full_logits(np_outputs[PREDICTIONS_KEY])
         num_classes = logits.shape[1]
         probabilities = softmax(logits)
         labels = np_batch[LABEL_KEY].ravel()  # type: ignore
