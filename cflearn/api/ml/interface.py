@@ -382,11 +382,17 @@ def make_toy_model(
         config = {}
     if data_tuple is not None:
         x_np, y_np = data_tuple
+        if is_classification:
+            output_dim = y_np.max() + 1
+        else:
+            output_dim = y_np.shape[1]
     else:
         if not is_classification:
             x, y = [[0]], [[1.0]]
+            output_dim = 1
         else:
             x, y = [[0], [1]], [[1], [0]]
+            output_dim = 2
         x_np, y_np = map(np.array, [x, y])
     model_config = {}
     if model in ("fcnn", "tree_dnn"):
@@ -398,7 +404,7 @@ def make_toy_model(
     base_config = {
         "core_name": model,
         "core_config": model_config,
-        "output_dim": 1 + int(is_classification),
+        "output_dim": output_dim,
         "num_epoch": 2,
         "max_epoch": 4,
     }
