@@ -11,7 +11,7 @@ from cfdata.tabular import TabularDataset
 
 num_jobs = 0 if platform.system() == "Linux" else 2
 logging_folder = "__test_dist__"
-kwargs = {"fixed_epoch": 3}
+kwargs = {"output_dim": 3, "fixed_epoch": 3}
 
 
 class TestDist(unittest.TestCase):
@@ -19,7 +19,8 @@ class TestDist(unittest.TestCase):
         x, y = TabularDataset.iris().xy
         exp_folder = os.path.join(logging_folder, "__test_experiment__")
         experiment = cflearn.dist.ml.Experiment(num_jobs=num_jobs)
-        data = cflearn.MLData(x, y)
+        data = cflearn.MLData(x, y, is_classification=True)
+        data.prepare(None)
         data_folder = experiment.dump_data(data, workplace=exp_folder)
         common_kwargs = {
             "root_workplace": exp_folder,
@@ -32,12 +33,12 @@ class TestDist(unittest.TestCase):
         experiment.add_task(model="linear", **shallow_copy_dict(common_kwargs))
         results = experiment.run_tasks()
         load_results = cflearn.ml.load_experiment_results
-        ms = load_results(results, cflearn.ml.CarefreePipeline)
+        ms = load_results(results, cflearn.ml.SimplePipeline)
         saving_folder = os.path.join(logging_folder, "__test_experiment_save__")
         experiment.save(saving_folder)
         loaded = cflearn.dist.ml.Experiment.load(saving_folder)
         assert loaded.results is not None
-        ms_loaded = load_results(loaded.results, cflearn.ml.CarefreePipeline)
+        ms_loaded = load_results(loaded.results, cflearn.ml.SimplePipeline)
         idata = cflearn.MLInferenceData(x)
         self.assertTrue(
             np.allclose(
