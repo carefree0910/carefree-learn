@@ -347,8 +347,8 @@ def repeat_ml(
     finetune_config: Optional[Dict[str, Any]] = None,
     tqdm_settings: Optional[Dict[str, Any]] = None,
     # misc
-    pre_process_batch: bool = True,
     sample_weights: sample_weights_type = None,
+    pre_process_batch: bool = True,
     debug: bool = False,
 ) -> RepeatResult:
     pipeline_config = dict(
@@ -407,7 +407,7 @@ def repeat_ml(
             data_config,
             cf_data_config,
         ),
-        pipeline_base=MLCarefree,
+        carefree=carefree,
         workplace=workplace,
         models=models,
         model_configs=model_configs,

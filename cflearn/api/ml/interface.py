@@ -194,7 +194,7 @@ class RepeatResult(NamedTuple):
 def repeat_with(
     data: MLData,
     *,
-    pipeline_base: Type[SimplePipeline] = CarefreePipeline,
+    carefree: bool = True,
     workplace: str = "_repeat",
     models: Union[str, List[str]] = "fcnn",
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -244,6 +244,7 @@ def repeat_with(
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
 
+    pipeline_base = CarefreePipeline if carefree else SimplePipeline
     pipelines_dict: Optional[Dict[str, List[SimplePipeline]]] = None
     if sequential:
         cuda = kwargs.pop("cuda", None)
@@ -299,6 +300,10 @@ def repeat_with(
             available_cuda_list=available_cuda_list,
             resource_config=resource_config,
         )
+        # meta
+        meta = shallow_copy_dict(task_meta_kwargs or {})
+        meta["carefree"] = carefree
+        # add tasks
         for model in models:
             for i in range(num_repeat):
                 if is_fix and not is_buggy(i, model):
@@ -311,7 +316,7 @@ def repeat_with(
                     workplace_key=(model, str(i)),
                     config=local_config,
                     data_folder=data_folder,
-                    **(task_meta_kwargs or {}),
+                    **shallow_copy_dict(meta),
                 )
         # finalize
         results = experiment.run_tasks(use_tqdm=use_tqdm)

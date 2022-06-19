@@ -10,5 +10,7 @@ if __name__ == "__main__":
     data = info.data
     assert data is not None
     cuda = info.meta["cuda"]
-    m = cflearn.ml.CarefreePipeline(**kwargs).fit(data, cuda=cuda)
+    carefree = info.meta.get("carefree", True)
+    m_base = cflearn.ml.CarefreePipeline if carefree else cflearn.ml.SimplePipeline
+    m = m_base(**kwargs).fit(data, cuda=cuda)
     m.save(os.path.join(info.workplace, cflearn.ML_PIPELINE_SAVE_NAME))
