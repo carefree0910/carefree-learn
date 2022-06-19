@@ -299,6 +299,7 @@ class MLData(DLDataModule):
     ]
     arguments_file = "arguments.json"
     tmp_cf_data_name = ".tmp_cf_data"
+    full_cf_data_name = "cf_data"
 
     def __init__(
         self,
@@ -487,6 +488,9 @@ class MLData(DLDataModule):
         for data, file in zip(all_data, self.data_files):
             if data is not None:
                 np.save(os.path.join(data_folder, file), data)
+        if self.cf_data is not None:
+            full_cf_data_folder = os.path.join(data_folder, self.full_cf_data_name)
+            self.cf_data.save(full_cf_data_folder, retain_data=True)
 
     @classmethod
     def _load(
@@ -501,7 +505,9 @@ class MLData(DLDataModule):
             args.append(None if not os.path.isfile(path) else np.load(path))
         with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
             kwargs = json.load(f)
-        kwargs["cf_data"] = info["cf_data"]
+        if info["cf_data"] is not None:
+            full_cf_data_folder = os.path.join(data_folder, cls.full_cf_data_name)
+            kwargs["cf_data"] = TabularData.load(full_cf_data_folder)
         data = cls(*args, **kwargs)
         data.loaded = True
         data.prepare(sample_weights)
