@@ -29,6 +29,7 @@ from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import filter_kw
 
 
 # shortcuts
@@ -62,12 +63,33 @@ def register_metric(name: str) -> Callable[[metric_type], metric_type]:
 # accessibility
 
 
+def _forward(
+    self: Any,
+    batch_idx: int,
+    batch: tensor_dict_type,
+    general_input_key: str,
+    state: Optional[TrainerState] = None,
+    **kwargs: Any,
+) -> tensor_dict_type:
+    fn = self.core.forward
+    kw = filter_kw(fn, kwargs)
+    args: List[Any] = []
+    if check_requires(fn, "batch_idx"):
+        args.append(batch_idx)
+    args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
+    if check_requires(fn, "state"):
+        args.append(state)
+    rs = self.core(*args, **kw)
+    if not isinstance(rs, dict):
+        rs = {PREDICTIONS_KEY: rs}
+    return rs
+
+
 def register_module(
     name: str,
     *,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
-    use_full_input: bool = False,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
         @ModelProtocol.register(name)
@@ -83,13 +105,7 @@ def register_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                if use_full_input:
-                    rs = self.core(batch_idx, batch, state, **kwargs)
-                else:
-                    rs = self.core(batch[INPUT_KEY], **kwargs)
-                if not isinstance(rs, dict):
-                    rs = {PREDICTIONS_KEY: rs}
-                return rs
+                return _forward(self, batch_idx, batch, INPUT_KEY, state, **kwargs)
 
         return m
 

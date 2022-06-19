@@ -1,6 +1,5 @@
 import torch
 
-from typing import Any
 from typing import List
 from typing import Optional
 
@@ -12,10 +11,9 @@ from .protocol import NUMERICAL_KEY
 from .protocol import register_ml_module
 from .protocol import Dimensions
 from ...types import tensor_dict_type
-from ...protocol import TrainerState
 
 
-@register_ml_module("wnd", use_full_input=True)
+@register_ml_module("wnd")
 class WideAndDeep(torch.nn.Module):
     def __init__(
         self,
@@ -46,13 +44,7 @@ class WideAndDeep(torch.nn.Module):
         )
         self.linear = Linear(wide_dim, out_dim, num_history, bias=bias)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type) -> tensor_dict_type:
         one_hot = batch[ONE_HOT_KEY]
         embedding = batch[EMBEDDING_KEY]
         numerical = batch[NUMERICAL_KEY]

@@ -15,7 +15,6 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
@@ -28,12 +27,13 @@ from ...protocol import MetricsOutputs
 from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
-from ...constants import PREDICTIONS_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
+from ...misc.toolkit import filter_kw
 from ...modules.blocks import get_clones
 from ...modules.blocks import Linear
 from ...modules.blocks import MixedStackedEncoder
+from ...misc.internal_.register import _forward
 
 
 NUMERICAL_KEY = "_numerical"
@@ -458,24 +458,11 @@ class MLModel(ModelWithCustomSteps):
         return self.core.evaluate_step(loader, portion, trainer)
 
 
-def filter_kw(
-    fn: Callable,
-    kwargs: Dict[str, Any],
-    strict: bool = True,
-) -> Dict[str, Any]:
-    kw = {}
-    for k, v in kwargs.items():
-        if check_requires(fn, k, strict):
-            kw[k] = v
-    return kw
-
-
 def register_ml_module(
     name: str,
     *,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
-    use_full_input: bool = False,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
         @MLCoreProtocol.register(name)
@@ -496,14 +483,7 @@ def register_ml_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                if use_full_input:
-                    rs = self.core(batch_idx, batch, state, **kwargs)
-                else:
-                    kw = filter_kw(self.core.forward, kwargs)
-                    rs = self.core(batch[MERGED_KEY], **kw)
-                if not isinstance(rs, dict):
-                    rs = {PREDICTIONS_KEY: rs}
-                return rs
+                return _forward(self, batch_idx, batch, MERGED_KEY, state, **kwargs)
 
             def train_step(  # type: ignore
                 self,

@@ -53,6 +53,18 @@ from ..constants import WARNING_PREFIX
 # general
 
 
+def filter_kw(
+    fn: Callable,
+    kwargs: Dict[str, Any],
+    strict: bool = True,
+) -> Dict[str, Any]:
+    kw = {}
+    for k, v in kwargs.items():
+        if check_requires(fn, k, strict):
+            kw[k] = v
+    return kw
+
+
 def check_is_ci() -> bool:
     parser = argparse.ArgumentParser()
     parser.add_argument("--ci", type=int, default=0)
