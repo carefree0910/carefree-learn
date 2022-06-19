@@ -98,29 +98,9 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
 
 @DataModule.register("dl")  # type: ignore
 class DLDataModule(DataModule, metaclass=ABCMeta):
-    test_transform: Optional[Callable]
-    transform_file = "transform.pkl"
-
     @abstractmethod
     def initialize(self) -> Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]:
         pass
-
-    def _save_info(self, folder: str) -> None:
-        super()._save_info(folder)
-        with open(os.path.join(folder, self.transform_file), "wb") as f:
-            dill.dump(self.test_transform, f)
-
-    @classmethod
-    def _load_info(cls, folder: str) -> Dict[str, Any]:
-        info = super()._load_info(folder)
-        transform_path = os.path.join(folder, cls.transform_file)
-        if not os.path.isfile(transform_path):
-            test_transform = None
-        else:
-            with open(transform_path, "rb") as f:
-                test_transform = dill.load(f)
-        info["test_transform"] = test_transform
-        return info
 
 
 def get_weighted_indices(

@@ -124,7 +124,6 @@ class TensorData(DLDataModule):
         self.train_others = train_others
         self.valid_others = valid_others
         self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-        self.test_transform = None
 
     @property
     def info(self) -> Dict[str, Any]:
@@ -168,7 +167,6 @@ class TensorDictData(DLDataModule):
         self.x_valid = x_valid
         self.y_valid = y_valid
         self.kw = dict(batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
-        self.test_transform = None
 
     @property
     def info(self) -> Dict[str, Any]:
@@ -419,6 +417,24 @@ class MLInferenceData(MLData):
 
 class CVDataModule(DLDataModule, metaclass=ABCMeta):
     test_transform: Optional[Transforms]
+    transform_file = "transform.pkl"
+
+    def _save_info(self, folder: str) -> None:
+        super()._save_info(folder)
+        with open(os.path.join(folder, self.transform_file), "wb") as f:
+            dill.dump(self.test_transform, f)
+
+    @classmethod
+    def _load_info(cls, folder: str) -> Dict[str, Any]:
+        info = super()._load_info(folder)
+        transform_path = os.path.join(folder, cls.transform_file)
+        if not os.path.isfile(transform_path):
+            test_transform = None
+        else:
+            with open(transform_path, "rb") as f:
+                test_transform = dill.load(f)
+        info["test_transform"] = test_transform
+        return info
 
 
 @DLDataModule.register("image_folder")
