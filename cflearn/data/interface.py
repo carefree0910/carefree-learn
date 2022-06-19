@@ -22,8 +22,10 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cfdata.tabular import DataTuple
 from cftool.dist import Parallel
 from cftool.misc import walk
+from cftool.misc import get_arguments
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from torch.utils.data import Dataset
@@ -104,6 +106,15 @@ class TensorDictDataset(Dataset):
 
 @DLDataModule.register("tensor")
 class TensorData(DLDataModule):
+    files = [
+        "x_train.pt",
+        "y_train.pt",
+        "x_valid.pt",
+        "y_valid.pt",
+        "train_others.pt",
+        "valid_others.pt",
+    ]
+
     def __init__(
         self,
         x_train: Tensor,
@@ -148,9 +159,33 @@ class TensorData(DLDataModule):
             valid_loader = DLLoader(DataLoader(self.valid_data, **self.kw))  # type: ignore
         return train_loader, valid_loader
 
+    def _save_data(self, data_folder: str) -> None:
+        all_data = [self.x_train, self.y_train, self.x_valid, self.y_valid]
+        all_data += [self.train_others, self.valid_others]
+        for data, file in zip(all_data, self.files):
+            if data is not None:
+                torch.save(data, os.path.join(data_folder, file))
+
+    @classmethod
+    def _load(
+        cls,
+        data_folder: str,
+        info: Dict[str, Any],
+        sample_weights: sample_weights_type,
+    ) -> "TensorData":
+        args = []
+        for file in cls.files:
+            path = os.path.join(data_folder, file)
+            args.append(None if not os.path.isfile(path) else torch.load(path))
+        data = cls(*args, **info)
+        data.prepare(sample_weights)
+        return data
+
 
 @DLDataModule.register("tensor_dict")
 class TensorDictData(DLDataModule):
+    files = ["x_train.pt", "y_train.pt", "x_valid.pt", "y_valid.pt"]
+
     def __init__(
         self,
         x_train: tensor_dict_type,
@@ -190,6 +225,27 @@ class TensorDictData(DLDataModule):
         else:
             valid_loader = DLLoader(DataLoader(self.valid_data, **self.kw))  # type: ignore
         return train_loader, valid_loader
+
+    def _save_data(self, data_folder: str) -> None:
+        all_data = [self.x_train, self.y_train, self.x_valid, self.y_valid]
+        for data, file in zip(all_data, self.files):
+            if data is not None:
+                torch.save(data, os.path.join(data_folder, file))
+
+    @classmethod
+    def _load(
+        cls,
+        data_folder: str,
+        info: Dict[str, Any],
+        sample_weights: sample_weights_type,
+    ) -> "TensorData":
+        args = []
+        for file in cls.files:
+            path = os.path.join(data_folder, file)
+            args.append(None if not os.path.isfile(path) else torch.load(path))
+        data = cls(*args, **info)  # type: ignore
+        data.prepare(sample_weights)
+        return data
 
 
 @DLDataModule.register("dummy")
@@ -235,6 +291,13 @@ class MLData(DLDataModule):
     train_data: MLDataset
     valid_data: Optional[MLDataset]
 
+    data_files = [
+        "x_train.npy",
+        "y_train.npy",
+        "x_valid.npy",
+        "y_valid.npy",
+    ]
+    arguments_file = "arguments.json"
     tmp_cf_data_name = ".tmp_cf_data"
 
     def __init__(
@@ -262,6 +325,10 @@ class MLData(DLDataModule):
         # inference
         for_inference: bool = False,
     ):
+        self.arguments = shallow_copy_dict(get_arguments())
+        pop_keys = ["x_train", "y_train", "x_valid", "y_valid", "cf_data"]
+        for key in pop_keys:
+            self.arguments.pop(key)
         assert x_train is not None
         self.x_train = x_train
         self.y_train = y_train
@@ -283,6 +350,7 @@ class MLData(DLDataModule):
         self.shuffle_valid = shuffle_valid
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
+        self.loaded = False
 
     @property
     def info(self) -> Dict[str, Any]:
@@ -297,7 +365,13 @@ class MLData(DLDataModule):
     def prepare(self, sample_weights: sample_weights_type) -> None:
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
         if self.cf_data is not None:
-            self.cf_data.read(self.x_train, self.y_train, **self.read_config)
+            if not self.loaded:
+                self.cf_data.read(self.x_train, self.y_train, **self.read_config)
+            else:
+                dummy = DataTuple(None, None)
+                self.cf_data._raw = self.cf_data._converted = dummy
+                transformed = self.cf_data.transform(self.x_train, self.y_train)
+                self.cf_data._processed = transformed
             if self.is_classification is None:
                 self.is_classification = self.cf_data.is_clf
             if self.x_valid is not None:
@@ -362,6 +436,23 @@ class MLData(DLDataModule):
             )
         return train_loader, valid_loader
 
+    @classmethod
+    def with_cf_data(
+        cls,
+        *args: Any,
+        is_classification: Optional[bool] = None,
+        cf_data_config: Optional[Dict[str, Any]] = None,
+        **kwargs: Any,
+    ) -> "MLData":
+        if cf_data_config is None:
+            cf_data_config = {}
+        cf_data_config["default_categorical_process"] = "identical"
+        if is_classification is not None:
+            cf_data_config["task_type"] = "clf" if is_classification else "reg"
+        kwargs["is_classification"] = is_classification
+        kwargs["cf_data"] = TabularData(**(cf_data_config or {}))
+        return cls(*args, **kwargs)
+
     def _save_info(self, folder: str) -> None:
         info = self.info
         if info["cf_data"] is not None:
@@ -389,22 +480,32 @@ class MLData(DLDataModule):
             os.remove(zip_file)
         return d
 
+    def _save_data(self, data_folder: str) -> None:
+        with open(os.path.join(data_folder, self.arguments_file), "w") as f:
+            json.dump(self.arguments, f)
+        all_data = [self.x_train, self.y_train, self.x_valid, self.y_valid]
+        for data, file in zip(all_data, self.data_files):
+            if data is not None:
+                np.save(os.path.join(data_folder, file), data)
+
     @classmethod
-    def with_cf_data(
+    def _load(
         cls,
-        *args: Any,
-        is_classification: Optional[bool] = None,
-        cf_data_config: Optional[Dict[str, Any]] = None,
-        **kwargs: Any,
+        data_folder: str,
+        info: Dict[str, Any],
+        sample_weights: sample_weights_type,
     ) -> "MLData":
-        if cf_data_config is None:
-            cf_data_config = {}
-        cf_data_config["default_categorical_process"] = "identical"
-        if is_classification is not None:
-            cf_data_config["task_type"] = "clf" if is_classification else "reg"
-        kwargs["is_classification"] = is_classification
-        kwargs["cf_data"] = TabularData(**(cf_data_config or {}))
-        return cls(*args, **kwargs)
+        args = []
+        for file in cls.data_files:
+            path = os.path.join(data_folder, file)
+            args.append(None if not os.path.isfile(path) else np.load(path))
+        with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
+            kwargs = json.load(f)
+        kwargs["cf_data"] = info["cf_data"]
+        data = cls(*args, **kwargs)
+        data.loaded = True
+        data.prepare(sample_weights)
+        return data
 
 
 class MLInferenceData(MLData):
@@ -416,8 +517,10 @@ class MLInferenceData(MLData):
 
 
 class CVDataModule(DLDataModule, metaclass=ABCMeta):
+    arguments: Dict[str, Any]
     test_transform: Optional[Transforms]
     transform_file = "transform.pkl"
+    arguments_file = "arguments.json"
 
     def _save_info(self, folder: str) -> None:
         super()._save_info(folder)
@@ -435,6 +538,24 @@ class CVDataModule(DLDataModule, metaclass=ABCMeta):
                 test_transform = dill.load(f)
         info["test_transform"] = test_transform
         return info
+
+    def _save_data(self, data_folder: str) -> None:
+        with open(os.path.join(data_folder, self.arguments_file), "w") as f:
+            json.dump(self.arguments, f)
+
+    @classmethod
+    def _load(
+        cls,
+        data_folder: str,
+        info: Dict[str, Any],
+        sample_weights: sample_weights_type,
+    ) -> "CVDataModule":
+        with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
+            kwargs = json.load(f)
+        data = cls(**kwargs)
+        data.test_transform = info["test_transform"]
+        data.prepare(sample_weights)
+        return data
 
 
 @DLDataModule.register("image_folder")
@@ -457,6 +578,7 @@ class ImageFolderData(CVDataModule):
         test_transform_config: Optional[Dict[str, Any]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
     ):
+        self.arguments = shallow_copy_dict(get_arguments())
         self.folder = folder
         self.shuffle = shuffle
         self.drop_train_last = drop_train_last
@@ -575,6 +697,7 @@ class InferenceImageFolderData(CVDataModule):
         transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
     ):
+        self.arguments = shallow_copy_dict(get_arguments())
         self.folder = folder
         self.batch_size = batch_size
         self.num_workers = num_workers

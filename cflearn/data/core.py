@@ -50,11 +50,17 @@ data_modules: Dict[str, Type["DataModule"]] = {}
 DataModuleType = TypeVar("DataModuleType", bound="DataModule", covariant=True)
 
 
+class BaseResponse(NamedTuple):
+    folder: str
+    base: Type["DataModule"]
+
+
 class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
     d = data_modules  # type: ignore
 
     id_file = "id.txt"
     info_name = "info"
+    data_folder = "data"
     package_folder = "data_module"
 
     # inherit
@@ -72,12 +78,33 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
 
     # internal
 
+    @abstractmethod
+    def _save_data(self, data_folder: str) -> None:
+        pass
+
+    @classmethod
+    @abstractmethod
+    def _load(
+        cls,
+        data_folder: str,
+        info: Dict[str, Any],
+        sample_weights: sample_weights_type,
+    ) -> "DataModule":
+        pass
+
     def _save_info(self, folder: str) -> None:
         Saving.save_dict(self.info, self.info_name, folder)
 
     @classmethod
     def _load_info(cls, folder: str) -> Dict[str, Any]:
         return Saving.load_dict(cls.info_name, folder)
+
+    @classmethod
+    def _get_base(cls, folder: str) -> BaseResponse:
+        folder = os.path.join(folder, cls.package_folder)
+        with open(os.path.join(folder, cls.id_file), "r") as f:
+            base = cls.get(f.read())
+        return BaseResponse(folder, base)
 
     # api
 
@@ -90,10 +117,26 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
 
     @classmethod
     def load_info(cls, folder: str) -> Dict[str, Any]:
-        folder = os.path.join(folder, cls.package_folder)
-        with open(os.path.join(folder, cls.id_file), "r") as f:
-            base = cls.get(f.read())
+        folder, base = cls._get_base(folder)
         return base._load_info(folder)
+
+    def save(self, folder: str) -> None:
+        self.save_info(folder)
+        data_folder = os.path.join(folder, self.package_folder, self.data_folder)
+        os.makedirs(data_folder, exist_ok=True)
+        self._save_data(data_folder)
+
+    @classmethod
+    def load(
+        cls,
+        folder: str,
+        *,
+        sample_weights: sample_weights_type = None,
+    ) -> "DataModule":
+        folder, base = cls._get_base(folder)
+        info = base._load_info(folder)
+        data_folder = os.path.join(folder, cls.data_folder)
+        return base._load(data_folder, info, sample_weights)
 
 
 @DataModule.register("dl")  # type: ignore
