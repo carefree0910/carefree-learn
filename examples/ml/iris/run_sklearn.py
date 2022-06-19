@@ -14,7 +14,8 @@ if __name__ == "__main__":
     # data
     data = info.data
     assert data is not None
-    x, y = data.x_train, data.y_train
+    dataset = data.train_data
+    x, y = dataset.x, dataset.y
     assert isinstance(x, np.ndarray)
     assert isinstance(y, np.ndarray)
     # model
