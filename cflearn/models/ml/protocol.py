@@ -483,7 +483,8 @@ def register_ml_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                return _forward(self, batch_idx, batch, MERGED_KEY, state, **kwargs)
+                key = MERGED_KEY if MERGED_KEY in batch else INPUT_KEY
+                return _forward(self, batch_idx, batch, key, state, **kwargs)
 
             def train_step(  # type: ignore
                 self,
