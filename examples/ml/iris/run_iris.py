@@ -46,7 +46,7 @@ if __name__ == "__main__":
     cflearn.ml.evaluate(data, metrics=metrics, pipelines=result.pipelines)
 
     experiment = cflearn.dist.ml.Experiment()
-    data_folder = experiment.dump_data_bundle(x_train, y_train, x_valid, y_valid)
+    data_folder = experiment.dump_data(data)
 
     config = {}
     if is_ci:

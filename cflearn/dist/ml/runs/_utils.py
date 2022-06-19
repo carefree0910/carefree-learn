@@ -1,18 +1,13 @@
-import os
-import json
 import argparse
-
-import numpy as np
 
 from typing import Any
 from typing import Dict
-from typing import List
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import Saving
-from cfdata.tabular import data_type
 
-from cflearn.constants import DATA_CONFIG_FILE
+from cflearn.data import MLData
+from cflearn.data import DataModule
 from cflearn.constants import META_CONFIG_NAME
 
 
@@ -20,7 +15,7 @@ class Info(NamedTuple):
     workplace: str
     meta: Dict[str, Any]
     kwargs: Dict[str, Any]
-    data_list: Optional[List[data_type]]
+    data: Optional[MLData]
 
 
 def get_info(*, requires_data: bool = True) -> Info:
@@ -34,26 +29,13 @@ def get_info(*, requires_data: bool = True) -> Info:
     kwargs["workplace"] = workplace
     # data
     if not requires_data:
-        data_list = None
+        data = None
     else:
         data_folder = kwargs.pop("data_folder", None)
         if data_folder is None:
             raise ValueError("`data_folder` should be provided")
-        data_config_path = os.path.join(data_folder, DATA_CONFIG_FILE)
-        keys = ["x", "y", "x_valid", "y_valid"]
-        if os.path.isfile(data_config_path):
-            with open(data_config_path, "r") as f:
-                data_config = json.load(f)
-            data_list = list(map(data_config.get, keys))
-        else:
-            data_list = []
-            for key in keys:
-                data_file = os.path.join(data_folder, f"{key}.npy")
-                if not os.path.isfile(data_file):
-                    data_list.append(None)
-                else:
-                    data_list.append(np.load(data_file))
-    return Info(workplace, meta_config, kwargs, data_list)
+        data = DataModule.load(data_folder)
+    return Info(workplace, meta_config, kwargs, data)
 
 
 __all__ = [

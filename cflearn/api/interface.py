@@ -348,6 +348,7 @@ def repeat_ml(
     tqdm_settings: Optional[Dict[str, Any]] = None,
     # misc
     pre_process_batch: bool = True,
+    sample_weights: sample_weights_type = None,
     debug: bool = False,
 ) -> RepeatResult:
     pipeline_config = dict(
@@ -411,6 +412,7 @@ def repeat_ml(
         models=models,
         model_configs=model_configs,
         predict_config=predict_config,
+        sample_weights=sample_weights,
         sequential=sequential,
         num_jobs=num_jobs,
         num_repeat=num_repeat,

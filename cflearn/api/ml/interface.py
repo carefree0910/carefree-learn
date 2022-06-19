@@ -29,6 +29,7 @@ from .pipeline import CarefreePipeline
 from ...data import MLData
 from ...data import MLInferenceData
 from ...types import configs_type
+from ...types import sample_weights_type
 from ...trainer import get_sorted_checkpoints
 from ...constants import SCORES_FILE
 from ...constants import WARNING_PREFIX
@@ -198,6 +199,7 @@ def repeat_with(
     models: Union[str, List[str]] = "fcnn",
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
+    sample_weights: sample_weights_type = None,
     sequential: Optional[bool] = None,
     num_jobs: int = 1,
     num_repeat: int = 5,
@@ -279,7 +281,7 @@ def repeat_with(
                 local_workplace = os.path.join(workplace, model, str(i))
                 local_config.setdefault("workplace", local_workplace)
                 m = pipeline_base(**local_config)
-                m.fit(data, cuda=cuda)
+                m.fit(data, sample_weights=sample_weights, cuda=cuda)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
     else:
@@ -289,13 +291,8 @@ def repeat_with(
                 f"to True when `num_jobs` is {num_jobs}"
             )
         # data
-        data_folder = Experiment.dump_data_bundle(
-            data.x_train,
-            data.y_train,
-            data.x_valid,
-            data.y_valid,
-            workplace=workplace,
-        )
+        data.prepare(sample_weights)
+        data_folder = Experiment.dump_data(data, workplace=workplace)
         # experiment
         experiment = Experiment(
             num_jobs=num_jobs,

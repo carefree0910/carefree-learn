@@ -19,7 +19,8 @@ class TestDist(unittest.TestCase):
         x, y = TabularDataset.iris().xy
         exp_folder = os.path.join(logging_folder, "__test_experiment__")
         experiment = cflearn.dist.ml.Experiment(num_jobs=num_jobs)
-        data_folder = experiment.dump_data_bundle(x, y, workplace=exp_folder)
+        data = cflearn.MLData(x, y)
+        data_folder = experiment.dump_data(data, workplace=exp_folder)
         common_kwargs = {
             "root_workplace": exp_folder,
             "data_folder": data_folder,

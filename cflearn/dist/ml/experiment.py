@@ -1,8 +1,5 @@
 import os
-import json
 import torch
-
-import numpy as np
 
 from typing import Any
 from typing import Dict
@@ -19,10 +16,9 @@ from cftool.misc import lock_manager
 from cftool.misc import Saving
 
 from .task import Task
-from ...types import data_type
-from ...constants import DATA_CONFIG_FILE
 from ...constants import META_CONFIG_NAME
 from ...constants import CHECKPOINTS_FOLDER
+from ...data.core import DataModule
 from ...api.ml.pipeline import CarefreePipeline
 
 
@@ -105,22 +101,7 @@ class Experiment:
 
     @staticmethod
     def dump_data(
-        data_folder: str,
-        x: data_type,
-        y: data_type = None,
-        postfix: str = "",
-    ) -> None:
-        for key, value in zip([f"x{postfix}", f"y{postfix}"], [x, y]):
-            if value is None:
-                continue
-            np.save(os.path.join(data_folder, f"{key}.npy"), value)
-
-    @staticmethod
-    def dump_data_bundle(
-        x: data_type,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
+        data: DataModule,
         *,
         workplace: Optional[str] = None,
         data_folder: Optional[str] = None,
@@ -128,33 +109,18 @@ class Experiment:
         if data_folder is None:
             data_folder = Experiment.data_folder(workplace)
         os.makedirs(data_folder, exist_ok=True)
-        if not isinstance(x, np.ndarray):
-            data_config = {"x": x, "y": y, "x_valid": x_valid, "y_valid": y_valid}
-            for k, v in data_config.items():
-                if v is not None:
-                    assert isinstance(v, str)
-                    data_config[k] = os.path.abspath(v)
-            with open(os.path.join(data_folder, DATA_CONFIG_FILE), "w") as f:
-                json.dump(data_config, f)
-        else:
-            Experiment.dump_data(data_folder, x, y)
-            Experiment.dump_data(data_folder, x_valid, y_valid, "_valid")
+        data.save(data_folder)
         return data_folder
 
     @staticmethod
     def fetch_data(
-        postfix: str = "",
         *,
         workplace: Optional[str] = None,
         data_folder: Optional[str] = None,
-    ) -> Tuple[data_type, data_type]:
+    ) -> DataModule:
         if data_folder is None:
             data_folder = Experiment.data_folder(workplace)
-        data = []
-        for key in [f"x{postfix}", f"y{postfix}"]:
-            file = os.path.join(data_folder, f"{key}.npy")
-            data.append(None if not os.path.isfile(file) else np.load(file))
-        return data[0], data[1]
+        return DataModule.load(data_folder)
 
     @staticmethod
     def workplace(workplace_key: Tuple[str, str], root_workplace: str) -> str:
@@ -167,10 +133,7 @@ class Experiment:
 
     def add_task(
         self,
-        x: data_type = None,
-        y: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
+        data: Optional[DataModule] = None,
         *,
         model: str = "fcnn",
         execute: str = "basic",
@@ -195,8 +158,8 @@ class Experiment:
         copied_config["core_name"] = model
         new_idx = len(self.tasks)
         inject_distributed_tqdm_kwargs(new_idx, self.num_jobs, copied_config)
-        if data_folder is None and x is not None:
-            data_folder = self.dump_data_bundle(x, y, x_valid, y_valid, workplace=workplace)
+        if data_folder is None and data is not None:
+            data_folder = self.dump_data(data, workplace=workplace)
         if data_folder is not None:
             copied_config["data_folder"] = os.path.abspath(data_folder)
         new_task = Task(
