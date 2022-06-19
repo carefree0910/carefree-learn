@@ -368,11 +368,6 @@ class MLData(DLDataModule):
         if self.cf_data is not None:
             if not self.loaded:
                 self.cf_data.read(self.x_train, self.y_train, **self.read_config)
-            else:
-                dummy = DataTuple(None, None)
-                self.cf_data._raw = self.cf_data._converted = dummy
-                transformed = self.cf_data.transform(self.x_train, self.y_train)
-                self.cf_data._processed = transformed
             if self.is_classification is None:
                 self.is_classification = self.cf_data.is_clf
             if self.x_valid is not None:
