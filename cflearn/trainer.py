@@ -813,7 +813,7 @@ class Trainer:
         self.data_info = data.info
         self.device_info = DeviceInfo(cuda, self.rank)
         if self.is_rank_0:
-            data.save(self.workplace)
+            data.save_info(self.workplace)
             with open(os.path.join(self.workplace, "model.txt"), "w") as f:
                 f.write(str(model))
         self.loss = loss.to(self.device)

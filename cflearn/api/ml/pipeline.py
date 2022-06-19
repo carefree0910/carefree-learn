@@ -350,7 +350,7 @@ class SimplePipeline(DLPipeline):
                     post_callback,
                 )
                 assert isinstance(m, SimplePipeline)
-                data_info = DLDataModule.load(export_folder)
+                data_info = DLDataModule.load_info(export_folder)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
         m._prepare_modules(data_info)
         m.model.to(m.device)
@@ -618,7 +618,7 @@ class CarefreePipeline(SimplePipeline):
             post_callback,
         )
         assert isinstance(m, CarefreePipeline)
-        m.cf_data = DLDataModule.load(export_folder)["cf_data"]
+        m.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
         return m
 
 

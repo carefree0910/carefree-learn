@@ -377,8 +377,8 @@ class MLData(DLDataModule):
         Saving.save_dict(info, self.info_name, folder)
 
     @classmethod
-    def load_info(cls, folder: str) -> Dict[str, Any]:
-        d = super().load_info(folder)
+    def _load_info(cls, folder: str) -> Dict[str, Any]:
+        d = super()._load_info(folder)
         cf_data = d["cf_data"]
         if cf_data is None:
             return d

@@ -76,12 +76,12 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
         Saving.save_dict(self.info, self.info_name, folder)
 
     @classmethod
-    def load_info(cls, folder: str) -> Dict[str, Any]:
+    def _load_info(cls, folder: str) -> Dict[str, Any]:
         return Saving.load_dict(cls.info_name, folder)
 
     # api
 
-    def save(self, folder: str) -> None:
+    def save_info(self, folder: str) -> None:
         folder = os.path.join(folder, self.package_folder)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, self.id_file), "w") as f:
@@ -89,11 +89,11 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
         self._save_info(folder)
 
     @classmethod
-    def load(cls, folder: str) -> Dict[str, Any]:
+    def load_info(cls, folder: str) -> Dict[str, Any]:
         folder = os.path.join(folder, cls.package_folder)
         with open(os.path.join(folder, cls.id_file), "r") as f:
             base = cls.get(f.read())
-        return base.load_info(folder)
+        return base._load_info(folder)
 
 
 @DataModule.register("dl")  # type: ignore
@@ -111,8 +111,8 @@ class DLDataModule(DataModule, metaclass=ABCMeta):
             dill.dump(self.test_transform, f)
 
     @classmethod
-    def load_info(cls, folder: str) -> Dict[str, Any]:
-        info = super().load_info(folder)
+    def _load_info(cls, folder: str) -> Dict[str, Any]:
+        info = super()._load_info(folder)
         transform_path = os.path.join(folder, cls.transform_file)
         if not os.path.isfile(transform_path):
             test_transform = None

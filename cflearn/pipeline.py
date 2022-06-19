@@ -272,7 +272,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         self._write_pipeline_info(export_folder)
         data = getattr(self, "data", None)
         if data is not None:
-            self.data.save(export_folder)
+            self.data.save_info(export_folder)
         # final results
         final_results = None
         try:
@@ -498,7 +498,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                     post_callback,
                 )
                 try:
-                    data_info = DataModule.load(export_folder)
+                    data_info = DataModule.load_info(export_folder)
                 except Exception as err:
                     print(
                         f"{WARNING_PREFIX}error occurred when trying to load "
