@@ -345,6 +345,7 @@ class SimplePipeline(DLPipeline):
                 m = cls._load_infrastructure(
                     export_folder,
                     cuda,
+                    False,
                     pre_callback,
                     post_callback,
                 )
@@ -605,12 +606,14 @@ class CarefreePipeline(SimplePipeline):
         cls,
         export_folder: str,
         cuda: Optional[str],
+        to_original_device: bool,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
     ) -> "CarefreePipeline":
         m = super()._load_infrastructure(
             export_folder,
             cuda,
+            to_original_device,
             pre_callback,
             post_callback,
         )

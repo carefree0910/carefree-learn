@@ -151,10 +151,16 @@ def evaluate(
 def task_loader(
     workplace: str,
     pipeline_base: Type[SimplePipeline] = CarefreePipeline,
+    *,
+    to_original_device: bool = False,
     compress: bool = True,
 ) -> SimplePipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
-    m = pipeline_base.load(export_folder=export_folder, compress=compress)
+    m = pipeline_base.load(
+        export_folder=export_folder,
+        to_original_device=to_original_device,
+        compress=compress,
+    )
     assert isinstance(m, SimplePipeline)
     return m
 
@@ -162,11 +168,16 @@ def task_loader(
 def load_experiment_results(
     results: ExperimentResults,
     pipeline_base: Type[SimplePipeline],
+    to_original_device: bool = False,
 ) -> pipelines_type:
     pipelines_dict: Dict[str, Dict[int, SimplePipeline]] = {}
     iterator = list(zip(results.workplaces, results.workplace_keys))
     for workplace, workplace_key in tqdm(iterator, desc="load"):
-        pipeline = task_loader(workplace, pipeline_base)
+        pipeline = task_loader(
+            workplace,
+            pipeline_base,
+            to_original_device=to_original_device,
+        )
         model, str_i = workplace_key
         pipelines_dict.setdefault(model, {})[int(str_i)] = pipeline
     return {k: [v[i] for i in sorted(v)] for k, v in pipelines_dict.items()}
@@ -196,6 +207,7 @@ def repeat_with(
     available_cuda_list: Optional[List[int]] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     task_meta_kwargs: Optional[Dict[str, Any]] = None,
+    to_original_device: bool = False,
     is_fix: bool = False,
     **kwargs: Any,
 ) -> RepeatResult:
@@ -307,7 +319,11 @@ def repeat_with(
         # finalize
         results = experiment.run_tasks(use_tqdm=use_tqdm)
         if return_patterns:
-            pipelines_dict = load_experiment_results(results, pipeline_base)
+            pipelines_dict = load_experiment_results(
+                results,
+                pipeline_base,
+                to_original_device,
+            )
 
     patterns = None
     if return_patterns:

@@ -296,6 +296,7 @@ def repeat_ml(
     available_cuda_list: Optional[List[int]] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     task_meta_kwargs: Optional[Dict[str, Any]] = None,
+    to_original_device: bool = False,
     is_fix: bool = False,
     # data
     carefree: bool = False,
@@ -419,6 +420,7 @@ def repeat_ml(
         available_cuda_list=available_cuda_list,
         resource_config=resource_config,
         task_meta_kwargs=task_meta_kwargs,
+        to_original_device=to_original_device,
         is_fix=is_fix,
         **pipeline_config,
     )

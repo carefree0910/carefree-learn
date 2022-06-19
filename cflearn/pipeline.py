@@ -304,6 +304,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         cls,
         export_folder: str,
         cuda: Optional[str],
+        to_original_device: bool,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
     ) -> "DLPipeline":
@@ -314,7 +315,13 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         config["in_loading"] = True
         m = cls(**config)
         device_info = DeviceInfo(*config_bundle["device_info"])
-        device_info = device_info._replace(cuda=cuda)
+        if not to_original_device:
+            device_info = device_info._replace(cuda=cuda)
+        elif cuda is not None:
+            print(
+                f"{WARNING_PREFIX}`to_original_device` is set to True, so "
+                f"`cuda={cuda}` will be ignored"
+            )
         m.device_info = device_info
         if post_callback is not None:
             post_callback(m, config_bundle)
@@ -471,6 +478,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         export_folder: str,
         *,
         cuda: Optional[Union[int, str]] = None,
+        to_original_device: bool = False,
         compress: bool = True,
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
@@ -485,6 +493,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 m = cls._load_infrastructure(
                     export_folder,
                     None if cuda is None else str(cuda),
+                    to_original_device,
                     pre_callback,
                     post_callback,
                 )
