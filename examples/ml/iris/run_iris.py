@@ -7,6 +7,7 @@ import cflearn
 import numpy as np
 
 from cftool.misc import _rmtree
+from cfml.misc.toolkit import ModelPattern
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import inject_debug
 
@@ -77,7 +78,7 @@ if __name__ == "__main__":
                 # So we need to reshape the outputs from the scikit-learn models.
                 sk_predict = lambda d: sk_model.predict(d.x_train).reshape([-1, 1])
                 sk_predict_prob = lambda d: sk_model.predict_proba(d.x_train)
-                sk_pattern = cflearn.ml.ModelPattern(
+                sk_pattern = ModelPattern(
                     predict_method=sk_predict,
                     predict_prob_method=sk_predict_prob,
                 )
