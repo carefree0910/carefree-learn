@@ -438,8 +438,8 @@ def make_toy_model(
         "max_epoch": 4,
     }
     updated = update_dict(config, base_config)
-    m = SimplePipeline.make("ml.simple", updated)
-    assert isinstance(m, SimplePipeline)
+    pipelines_type = "ml.simple" if cf_data_config is None else "ml.carefree"
+    m = SimplePipeline.make(pipelines_type, updated)
     if cf_data_config is None:
         data = MLData(
             x_np,

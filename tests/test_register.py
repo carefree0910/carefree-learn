@@ -58,7 +58,7 @@ class TestRegister(unittest.TestCase):
                 return processed_columns - 1
 
         cf_data_config = {"label_process_method": "plus_one"}
-        m = cflearn.ml.make_toy_model()
+        m = cflearn.ml.make_toy_model(cf_data_config=cf_data_config)
         assert isinstance(m, cflearn.ml.CarefreePipeline)
         y = m.cf_data.converted.y  # type: ignore
         processed_y = m.cf_data.processed.y  # type: ignore
