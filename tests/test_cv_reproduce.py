@@ -18,9 +18,17 @@ class TestReproduce(unittest.TestCase):
         self._core("u2net")
 
     def test_stylegan2(self) -> None:
+        try:
+            import cfml
+        except:
+            return
         self._core("stylegan2")
 
     def test_clip(self) -> None:
+        try:
+            import cfml
+        except:
+            return
         self._core("clip")
 
 
