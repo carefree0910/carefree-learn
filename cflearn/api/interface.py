@@ -19,6 +19,7 @@ from ..types import sample_weights_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
 from ..protocol import ModelProtocol
+from ..protocol import MetricProtocol
 from .cv.pipeline import CarefreePipeline as CVCarefree
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
@@ -125,6 +126,10 @@ def pack_onnx(
         verbose=verbose,
         **kwargs,
     )
+
+
+def make_metric(name: str, **kwargs: Any) -> MetricProtocol:
+    return MetricProtocol.make(name, kwargs)
 
 
 # ml
@@ -993,6 +998,7 @@ __all__ = [
     "pack",
     "load",
     "pack_onnx",
+    "make_metric",
     "fit_ml",
     "repeat_ml",
     "fit_cv",
