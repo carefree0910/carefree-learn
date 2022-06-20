@@ -37,6 +37,7 @@ jobs:
         shell: bash -l {0}
         run: |
           pip install -e .[full]
+          export MKL_SERVICE_FORCE_INTEL=1
       - name: Test with pytest
         shell: bash -l {0}
         run: |
