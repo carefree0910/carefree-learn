@@ -42,12 +42,9 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
     return _register
 
 
-loss_type = Type[LossProtocol]
 metric_type = Type[MetricProtocol]
 
 
-def register_loss(name: str) -> Callable[[loss_type], loss_type]:
-    return LossProtocol.register(name)
 
 
 def register_metric(name: str) -> Callable[[metric_type], metric_type]:
@@ -303,7 +300,6 @@ def register_loss_module(name: str) -> Callable[[Type[nn.Module]], Type[nn.Modul
 
 __all__ = [
     "register_initializer",
-    "register_loss",
     "register_metric",
     "Initializer",
     "register_module",
