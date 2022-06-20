@@ -8,6 +8,8 @@ from cftool.array import iou
 from cftool.array import corr
 from cftool.array import softmax
 
+from .register import register_metric
+from .register import MetricInterface
 from ..toolkit import get_full_logits
 from ..toolkit import get_label_predictions
 from ...types import np_dict_type
@@ -24,8 +26,8 @@ except:
     metrics = None
 
 
-@MetricProtocol.register("acc")
-class Accuracy(MetricProtocol):
+@register_metric("acc")
+class Accuracy(MetricInterface):
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
@@ -34,20 +36,13 @@ class Accuracy(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        logits = np_outputs[PREDICTIONS_KEY]
-        labels = np_batch[LABEL_KEY]
+    def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         predictions = get_label_predictions(logits, self.threshold)
         return (predictions == labels).mean().item()
 
 
-@MetricProtocol.register("quantile")
-class Quantile(MetricProtocol):
+@register_metric("quantile")
+class Quantile(MetricInterface):
     def __init__(self, q: Any):
         super().__init__()
         if not isinstance(q, float):
@@ -58,18 +53,13 @@ class Quantile(MetricProtocol):
     def is_positive(self) -> bool:
         return False
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        diff = np_batch[LABEL_KEY] - np_outputs[PREDICTIONS_KEY]  # type: ignore
+    def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
+        diff = labels - predictions
         return np.maximum(self.q * diff, (self.q - 1.0) * diff).mean(0).sum().item()
 
 
-@MetricProtocol.register("f1")
-class F1Score(MetricProtocol):
+@register_metric("f1")
+class F1Score(MetricInterface):
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
@@ -80,22 +70,15 @@ class F1Score(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
+    def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         if metrics is None:
             return 0.0
-        labels = np_batch[LABEL_KEY]
-        logits = np_outputs[PREDICTIONS_KEY]
         predictions = get_label_predictions(logits, self.threshold)
         return metrics.f1_score(labels.ravel(), predictions.ravel())
 
 
-@MetricProtocol.register("r2")
-class R2Score(MetricProtocol):
+@register_metric("r2")
+class R2Score(MetricInterface):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
@@ -105,21 +88,14 @@ class R2Score(MetricProtocol):
     def is_positive(self) -> bool:
         return True
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
+    def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         if metrics is None:
             return 0.0
-        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
-        predictions = np_outputs[PREDICTIONS_KEY].ravel()
         return metrics.r2_score(labels, predictions)
 
 
-@MetricProtocol.register("auc")
-class AUC(MetricProtocol):
+@register_metric("auc")
+class AUC(MetricInterface):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
@@ -133,57 +109,40 @@ class AUC(MetricProtocol):
     def requires_all(self) -> bool:
         return True
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
+    def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         if metrics is None:
             return 0.0
-        logits = get_full_logits(np_outputs[PREDICTIONS_KEY])
+        logits = get_full_logits(logits)
         num_classes = logits.shape[1]
         probabilities = softmax(logits)
-        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
+        labels = labels.ravel()
         if num_classes == 2:
             return metrics.roc_auc_score(labels, probabilities[..., 1])
         return metrics.roc_auc_score(labels, probabilities, multi_class="ovr")
 
 
-@MetricProtocol.register("mae")
-class MAE(MetricProtocol):
+@register_metric("mae")
+class MAE(MetricInterface):
     @property
     def is_positive(self) -> bool:
         return False
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        predictions = np_outputs[PREDICTIONS_KEY]
-        return np.mean(np.abs(np_batch[LABEL_KEY] - predictions)).item()  # type: ignore
+    def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
+        return np.mean(np.abs(labels - predictions)).item()
 
 
-@MetricProtocol.register("mse")
-class MSE(MetricProtocol):
+@register_metric("mse")
+class MSE(MetricInterface):
     @property
     def is_positive(self) -> bool:
         return False
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        predictions = np_outputs[PREDICTIONS_KEY]
-        return np.mean(np.square(np_batch[LABEL_KEY] - predictions)).item()  # type: ignore
+    def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
+        return np.mean(np.square(labels - predictions)).item()
 
 
-@MetricProtocol.register("ber")
-class BER(MetricProtocol):
+@register_metric("ber")
+class BER(MetricInterface):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
@@ -193,17 +152,10 @@ class BER(MetricProtocol):
     def is_positive(self) -> bool:
         return False
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
+    def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         if metrics is None:
             return 0.0
-        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
-        predictions = np_outputs[PREDICTIONS_KEY].ravel()
-        mat = metrics.confusion_matrix(labels, predictions)
+        mat = metrics.confusion_matrix(labels.ravel(), predictions.ravel())
         tp = np.diag(mat)
         fp = mat.sum(axis=0) - tp
         fn = mat.sum(axis=1) - tp
@@ -211,42 +163,28 @@ class BER(MetricProtocol):
         return (0.5 * np.mean((fn / (tp + fn) + fp / (tn + fp)))).item()
 
 
-@MetricProtocol.register("corr")
-class Correlation(MetricProtocol):
+@register_metric("corr")
+class Correlation(MetricInterface):
     @property
     def is_positive(self) -> bool:
         return True
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        labels = np_batch[LABEL_KEY]
-        predictions = np_outputs[PREDICTIONS_KEY]
+    def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         return corr(predictions, labels).mean().item()
 
 
-@MetricProtocol.register("iou")
-class IOU(MetricProtocol):
+@register_metric("iou")
+class IOU(MetricInterface):
     @property
     def is_positive(self) -> bool:
         return True
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        logits = np_outputs[PREDICTIONS_KEY]
-        labels = np_batch[LABEL_KEY]
+    def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         return iou(logits, labels).mean().item()
 
 
-@MetricProtocol.register("aux")
-class Auxiliary(MetricProtocol):
+@register_metric("aux")
+class Auxiliary(MetricInterface):
     def __init__(
         self,
         base: str,
@@ -256,14 +194,14 @@ class Auxiliary(MetricProtocol):
     ):
         super().__init__()
         self.key = key
-        self.base = self.make(base, base_config or {})
+        self.base = MetricProtocol.make(base, base_config or {})
         self.__identifier__ = f"{base}_{key}"
 
     @property
     def is_positive(self) -> bool:
         return self.base.is_positive
 
-    def _core(
+    def forward(  # type: ignore
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
