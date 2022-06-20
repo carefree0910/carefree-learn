@@ -14,6 +14,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import get_latest_workplace
 from cftool.misc import lock_manager
 from cftool.misc import Saving
+from cftool.misc import LoggingMixin
 
 from .task import Task
 from ...constants import META_CONFIG_NAME
@@ -69,7 +70,7 @@ class ExperimentResults(NamedTuple):
         return {k: [v[i] for i in range(len(v))] for k, v in folders.items()}
 
 
-class Experiment:
+class Experiment(LoggingMixin):
     tasks_folder = "__tasks__"
     default_root_workplace = "__experiment__"
 
