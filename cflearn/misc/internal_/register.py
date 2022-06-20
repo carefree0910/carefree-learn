@@ -16,6 +16,7 @@ from torch.optim.optimizer import Optimizer
 
 from ..toolkit import Initializer
 from ...types import losses_type
+from ...types import np_dict_type
 from ...types import tensor_dict_type
 from ...protocol import StepOutputs
 from ...protocol import LossProtocol
@@ -31,9 +32,6 @@ from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import filter_kw
 
 
-# shortcuts
-
-
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
     def _register(f: Callable) -> Callable:
         Initializer.add_initializer(f, name)
@@ -42,16 +40,75 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
     return _register
 
 
-metric_type = Type[MetricProtocol]
+class MetricInterface:
+    @property
+    @abstractmethod
+    def is_positive(self) -> bool:
+        pass
+
+    @abstractmethod
+    def forward(self, *args: Any) -> float:
+        """
+        Possible argument patterns:
+        * predictions, labels
+        * predictions, labels, loader
+            * The above two patterns could have different namings, e.g.
+                * outputs, targets
+                * y_preds, y_true, loader
+                * ...
+            * Notice that they should not be `np_outputs` & `np_batch`
+        * np_outputs, np_batch
+        * np_outputs, np_batch, loader
+            * The above two patterns should have the exact namings
+        """
+
+    @property
+    def requires_all(self) -> bool:
+        return False
 
 
+metric_type = Type[MetricInterface]
 
 
 def register_metric(name: str) -> Callable[[metric_type], metric_type]:
-    return MetricProtocol.register(name)
+    def _core(metric_base: metric_type) -> metric_type:
+        @MetricProtocol.register(name)
+        class _(MetricProtocol):
+            def __init__(self, *args: Any, **kwargs: Any):
+                super().__init__()
+                self.core = metric_base(*args, **kwargs)
 
+            @property
+            def is_positive(self) -> bool:
+                return self.core.is_positive
 
-# accessibility
+            @property
+            def requires_all(self) -> bool:
+                return self.core.requires_all
+
+            def _core(
+                self,
+                np_batch: np_dict_type,
+                np_outputs: np_dict_type,
+                loader: Optional[DataLoaderProtocol],
+            ) -> float:
+                args: List[Any] = []
+                fn = self.core.forward
+                if check_requires(fn, "np_outputs"):
+                    args.append(np_outputs)
+                else:
+                    args.append(np_outputs[PREDICTIONS_KEY])
+                if check_requires(fn, "np_batch"):
+                    args.append(np_batch)
+                else:
+                    args.append(np_batch[LABEL_KEY])
+                if check_requires(fn, "loader"):
+                    args.append(loader)
+                return self.core.forward(*args)
+
+        return metric_base
+
+    return _core
 
 
 def _forward(
