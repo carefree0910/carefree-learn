@@ -13,7 +13,6 @@ from typing import Optional
 from typing import NamedTuple
 from collections import defaultdict
 from cftool.array import arr_type
-from cfdata.tabular.misc import np_int_type
 
 from ...data import MLLoader
 from ...constants import INPUT_KEY
@@ -147,7 +146,7 @@ class Encoder(nn.Module):
         dims_tensor = torch.tensor(input_dims, dtype=torch.float32)
         self.register_buffer("input_dims", dims_tensor)
         self.sorted_categorical_columns = sorted(categorical_columns)
-        self.tgt_columns = np.array(self.sorted_categorical_columns, np_int_type)
+        self.tgt_columns = np.array(self.sorted_categorical_columns, np.int64)
         self.merged_dims: Dict[int, int] = defaultdict(int)
         self.embeddings = nn.ModuleList()
         self.one_hot_encoders = nn.ModuleList()

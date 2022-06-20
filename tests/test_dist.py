@@ -6,7 +6,6 @@ import unittest
 import numpy as np
 
 from cftool.misc import shallow_copy_dict
-from cfdata.tabular import TabularDataset
 
 
 num_jobs = 0 if platform.system() == "Linux" else 2
@@ -16,7 +15,8 @@ kwargs = {"output_dim": 3, "fixed_epoch": 3}
 
 class TestDist(unittest.TestCase):
     def test_experiment(self) -> None:
-        x, y = TabularDataset.iris().xy
+        x = np.random.randn(100, 10)
+        y = np.random.randint(0, 3, [100, 1])
         exp_folder = os.path.join(logging_folder, "__test_experiment__")
         experiment = cflearn.dist.ml.Experiment(num_jobs=num_jobs)
         data = cflearn.MLData(x, y, is_classification=True)

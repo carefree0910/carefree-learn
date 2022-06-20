@@ -1,7 +1,6 @@
 import os
 import dill
 import json
-import lmdb
 import torch
 
 import numpy as np
@@ -44,6 +43,11 @@ from ..misc.toolkit import to_torch
 from ..misc.toolkit import to_device
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
+
+try:
+    import lmdb
+except:
+    lmdb = None
 
 
 data_modules: Dict[str, Type["DataModule"]] = {}
@@ -507,7 +511,12 @@ class ImageFolderDataset(Dataset):
                 ),
             )
         )
-        if lmdb_config is None:
+        if lmdb_config is None or lmdb is None:
+            if lmdb_config is not None:
+                print(
+                    f"{WARNING_PREFIX}`lmdb` is not installed, "
+                    "so `lmdb_config` will be ignored"
+                )
             self.lmdb = self.context = None
             with open(os.path.join(self.folder, f"{LABEL_KEY}.json"), "r") as f:
                 self.labels = {LABEL_KEY: json.load(f)}

@@ -1,5 +1,4 @@
 import os
-import cv2
 import torch
 
 from PIL import Image
@@ -7,7 +6,13 @@ from tqdm import tqdm
 
 from .....trainer import Trainer
 from .....trainer import TrainerCallback
+from .....constants import WARNING_PREFIX
 from .....misc.toolkit import eval_context
+
+try:
+    import cv2
+except:
+    cv2 = None
 
 
 @TrainerCallback.register("clip_vqgan_aligner")
@@ -36,6 +41,12 @@ class CLIPWithVQGANAlignerCallback(TrainerCallback):
         img.save(os.path.join(outputs_folder, f"{state.step:06d}.png"))
 
     def finalize(self, trainer: Trainer) -> None:
+        if cv2 is None:
+            print(
+                f"{WARNING_PREFIX}`opencv-python` is not installed, "
+                "so the video file cannot be generated."
+            )
+            return
         workplace = trainer.workplace
         src = os.path.join(workplace, self.outputs_folder)
         video_path = os.path.join(src, self.video_file)

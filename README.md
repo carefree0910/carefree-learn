@@ -19,7 +19,7 @@ import numpy as np
 
 x = np.random.random([1000, 10])
 y = np.random.random([1000, 1])
-m = cflearn.api.fit_ml(x, y, carefree=True)
+m = cflearn.api.fit_ml(x, y, is_classification=False, output_dim=1)
 ```
 
 #### Computer Vision 🖼️
@@ -96,6 +96,13 @@ After installing PyTorch, installation of `carefree-learn` would be rather easy:
 pip install carefree-learn
 ```
 
+or install the full version of `carefree-learn`, with various useful functions and utilities:
+
+```bash
+pip install carefree-learn[full]
+```
+
+
 ## Docker
 
 ### Prepare
@@ -111,6 +118,8 @@ or can be built locally:
 ```bash
 docker build -t carefree0910/carefree-learn:dev .
 ```
+
+> Notice that the image is built with the `full` version of `carefree-learn`.
 
 ### Run
 

@@ -3,8 +3,6 @@ import torch
 
 import numpy as np
 
-from cfcv.misc.toolkit import min_max_normalize
-
 from .general import ImageCallback
 from ...toolkit import to_numpy
 from ...toolkit import to_torch
@@ -19,6 +17,11 @@ from ....constants import PREDICTIONS_KEY
 from ....models.cv.protocol import GeneratorMixin
 from ....models.cv.stylizer.constants import STYLE_KEY
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
+
+try:
+    from cfcv.misc.toolkit import min_max_normalize
+except:
+    min_max_normalize = None
 
 
 @TrainerCallback.register("gan")
@@ -117,7 +120,9 @@ class AlphaSegmentationCallback(ImageCallback):
             logits = logits[0]
         if logits.shape[1] != 1:
             logits = logits[:, [-1]]
-        seg_map = min_max_normalize(torch.sigmoid(logits))
+        seg_map = torch.sigmoid(logits)
+        if min_max_normalize is not None:
+            seg_map = min_max_normalize(seg_map)
         sharp_map = (seg_map > 0.5).to(torch.float32)
         image_folder = self._prepare_folder(trainer)
         save_images(original, os.path.join(image_folder, "original.png"))
@@ -127,7 +132,9 @@ class AlphaSegmentationCallback(ImageCallback):
         lv1_alpha = results.get(LV1_ALPHA_KEY)
         if lv1_alpha is not None:
             save_images(lv1_alpha, os.path.join(image_folder, "lv1_mask.png"))
-        np_original = min_max_normalize(to_numpy(original))
+        np_original = to_numpy(original)
+        if min_max_normalize is not None:
+            np_original = min_max_normalize(np_original)
         np_label, np_mask, np_sharp = map(to_numpy, [label, seg_map, sharp_map])
         rgba = np.concatenate([np_original, np_label], axis=1)
         rgba_pred = np.concatenate([np_original, np_mask], axis=1)

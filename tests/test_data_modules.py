@@ -6,7 +6,11 @@ import unittest
 import numpy as np
 
 from typing import Set
-from cfdata.tabular import TabularData
+
+try:
+    from cfdata.tabular import TabularData
+except:
+    TabularData = None
 
 
 class TestDataModules(unittest.TestCase):
@@ -69,6 +73,8 @@ class TestDataModules(unittest.TestCase):
         self._test_data("ml", data, {"input", "labels"})
 
     def test_ml_cf_data(self) -> None:
+        if TabularData is None:
+            return
         x_train = np.random.randn(10, 13)
         y_train = np.random.randn(10, 1)
         data = cflearn.MLData(

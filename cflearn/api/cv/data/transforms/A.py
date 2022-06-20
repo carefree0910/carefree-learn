@@ -1,12 +1,7 @@
-import cv2
-
-import albumentations as A
-
 from typing import Any
 from typing import Tuple
 from typing import Union
 from typing import Optional
-from albumentations.pytorch import ToTensorV2
 
 from .general import ToRGB
 from .general import ToGray
@@ -15,6 +10,16 @@ from .....data import Transforms
 from .....constants import INPUT_KEY
 from .....constants import LABEL_KEY
 
+try:
+    import cv2
+except:
+    cv2 = None
+try:
+    import albumentations as A
+    from albumentations.pytorch import ToTensorV2
+except:
+    A = ToTensorV2 = None
+
 
 class ATransforms(Transforms):
     input_alias = "image"
@@ -22,6 +27,9 @@ class ATransforms(Transforms):
     def __init__(self, *, label_alias: Optional[str] = None):
         super().__init__()
         self.label_alias = label_alias
+        if A is None:
+            msg = f"`albumentations` is needed for `{self.__class__.__name__}`"
+            raise ValueError(msg)
 
     def __call__(self, inp: Any, **kwargs: Any) -> Any:  # type: ignore
         if not self.need_batch_process:
@@ -79,11 +87,15 @@ class AShiftScaleRotate(ATransforms):
     def __init__(
         self,
         p: float = 0.5,
-        border_mode: int = cv2.BORDER_REFLECT_101,
+        border_mode: Optional[int] = None,
         *,
         label_alias: Optional[str] = None,
     ):
         super().__init__(label_alias=label_alias)
+        if border_mode is None:
+            if cv2 is None:
+                raise ValueError("`cv2` is needed for `AShiftScaleRotate`")
+            border_mode = cv2.BORDER_REFLECT_101
         self.fn = A.ShiftScaleRotate(border_mode=border_mode, p=p)
 
 

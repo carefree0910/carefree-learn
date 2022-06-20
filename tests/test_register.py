@@ -9,6 +9,11 @@ import numpy as np
 from typing import Any
 from torch.nn import Parameter
 
+try:
+    from cfdata.tabular.processors import Processor
+except:
+    Processor = None
+
 
 IS_LINUX = platform.system() == "Linux"
 file_folder = os.path.dirname(__file__)
@@ -30,8 +35,11 @@ class TestRegister(unittest.TestCase):
         self.assertTrue(np.allclose(param.data.numpy(), np.ones(n, np.float32)))
 
     def test_processor(self) -> None:
-        @cflearn.register_processor("plus_one")
-        class _(cflearn.Processor):
+        if Processor is None:
+            return
+
+        @Processor.register("plus_one")
+        class _(Processor):
             @property
             def input_dim(self) -> int:
                 return 1
@@ -40,7 +48,7 @@ class TestRegister(unittest.TestCase):
             def output_dim(self) -> int:
                 return 1
 
-            def fit(self, columns: np.ndarray) -> cflearn.Processor:
+            def fit(self, columns: np.ndarray) -> Processor:
                 return self
 
             def _process(self, columns: np.ndarray) -> np.ndarray:
@@ -50,7 +58,7 @@ class TestRegister(unittest.TestCase):
                 return processed_columns - 1
 
         cf_data_config = {"label_process_method": "plus_one"}
-        m = cflearn.ml.make_toy_model(cf_data_config=cf_data_config)
+        m = cflearn.ml.make_toy_model()
         assert isinstance(m, cflearn.ml.CarefreePipeline)
         y = m.cf_data.converted.y  # type: ignore
         processed_y = m.cf_data.processed.y  # type: ignore
@@ -58,4 +66,4 @@ class TestRegister(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestRegister().test_processor()
+    unittest.main()

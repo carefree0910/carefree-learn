@@ -9,13 +9,17 @@ from torchvision.transforms import ToTensor
 from torchvision.transforms import Normalize
 from torchvision.transforms import CenterCrop
 from torchvision.transforms import InterpolationMode
-from cfcv.misc.toolkit import to_rgb
 
 from .protocol import PerceptorProtocol
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
+
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
 
 
 @PerceptorProtocol.register("clip")
@@ -104,6 +108,8 @@ class CLIP(PerceptorProtocol):
         return l2_normalize(net)
 
     def get_transform(self) -> Compose:
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed to use `get_transform`")
         return Compose(
             [
                 Resize(self.img_size, interpolation=InterpolationMode.BICUBIC),

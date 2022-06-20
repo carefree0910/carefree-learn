@@ -37,7 +37,16 @@ if is_ci:
 linear = cflearn.api.fit_ml(x, y_add, core_name="linear", **kwargs)
 fcnn = cflearn.api.fit_ml(x, y_add, core_name="fcnn", **kwargs)
 rnn = cflearn.api.fit_ml(x, y_add, core_name="rnn", **kwargs)
-cflearn.ml.evaluate(linear.data, metrics=metrics, pipelines=[linear, fcnn, rnn])
+
+try:
+    import cfml
+
+    cflearn.ml.evaluate(linear.data, metrics=metrics, pipelines=[linear, fcnn, rnn])
+except:
+    print(
+        f"{cflearn.WARNING_PREFIX}`carefree-ml` is not installed, "
+        "so the evaluation process will not be executed"
+    )
 
 linear_core = linear.model.core.core.net
 print(f"w: {linear_core.weight.data}, b: {linear_core.bias.data}")  # type: ignore

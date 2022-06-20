@@ -12,14 +12,12 @@ from typing import Callable
 from typing import Optional
 from functools import partial
 from collections import OrderedDict
-from cfdata.tabular import ColumnTypes
 from cftool.misc import get_arguments
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.array import softmax
 from cftool.array import squeeze
 from cftool.array import is_float
-from cfml.misc.toolkit import ModelPattern
 
 from ...data import MLData
 from ...data import MLLoader
@@ -33,12 +31,19 @@ from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
+from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import get_full_logits
 from ...misc.toolkit import get_label_predictions
 from ...models.ml.encoders import Encoder
 from ...models.ml.protocol import MLModel
 from ...misc.internal_.inference import MLInference
+
+try:
+    from cfdata.tabular import ColumnTypes
+    from cfml.misc.toolkit import ModelPattern
+except:
+    ColumnTypes = ModelPattern = None
 
 
 @DLPipeline.register("ml.simple")
@@ -303,6 +308,9 @@ class SimplePipeline(DLPipeline):
         pre_process: Optional[Callable] = None,
         **predict_kwargs: Any,
     ) -> ModelPattern:
+        if ModelPattern is None:
+            raise ValueError("`carefree-ml` need to be installed to use `to_pattern`")
+
         def _predict(x: np.ndarray) -> np.ndarray:
             if pre_process is not None:
                 x = pre_process(x)
@@ -455,6 +463,11 @@ class CarefreePipeline(SimplePipeline):
         pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
+        if ColumnTypes is None:
+            raise ValueError(
+                "`carefree-data` need to be installed for `ml.CarefreePipeline`, "
+                "please use `ml.SimplePipeline` instead."
+            )
         config = get_arguments()
         super().__init__(
             core_name,
@@ -508,6 +521,9 @@ class CarefreePipeline(SimplePipeline):
 
     def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
         self.cf_data = data_info["cf_data"]
+        if self.cf_data is None:
+            msg = "cf_data` is not provided, please use `ml.SimplePipeline` instead"
+            raise ValueError(msg)
         # encoder
         excluded = 0
         numerical_columns_mapping = {}

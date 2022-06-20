@@ -1,6 +1,5 @@
 import os
 import torch
-import cflearn
 
 from tqdm import tqdm
 from typing import Any
@@ -9,6 +8,7 @@ from typing import Optional
 from ...interface import load
 from ...interface import pack
 from ...interface import pixel_cnn
+from ....trainer import Trainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import INFO_PREFIX
@@ -29,13 +29,13 @@ def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> None:
             super().__init__(num_keep)
             self.num_interpolations = num_interpolations
 
-        def log_artifacts(self, trainer: cflearn.Trainer) -> None:
+        def log_artifacts(self, trainer: Trainer) -> None:
             if not self.is_rank_0:
                 return None
             device = trainer.device
             batch = next(iter(trainer.validation_loader))
             batch = to_device(batch, device)
-            original_indices = batch[cflearn.INPUT_KEY]
+            original_indices = batch[INPUT_KEY]
             img_size = original_indices.shape[2]
             batch_size = original_indices.shape[0]
             model = trainer.model

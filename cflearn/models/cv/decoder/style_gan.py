@@ -5,7 +5,6 @@ from typing import *
 from torch import nn
 from torch import Tensor
 from torch.nn import init
-from cflearn.modules.blocks import Linear
 
 from .protocol import Decoder1DBase
 from ....types import tensor_dict_type
@@ -16,6 +15,7 @@ from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
+from ....modules.blocks import Linear
 from ....modules.blocks import GaussianBlur3
 from ....modules.blocks import Activation
 from ....modules.blocks import NormFactory

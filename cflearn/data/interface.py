@@ -1,7 +1,6 @@
 import os
 import dill
 import json
-import lmdb
 import torch
 import random
 import shutil
@@ -22,14 +21,12 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from cfdata.tabular import DataTuple
 from cftool.dist import Parallel
 from cftool.misc import walk
 from cftool.misc import get_arguments
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from torch.utils.data import Dataset
-from cfdata.tabular.api import TabularData
 
 from .core import default_lmdb_path
 from .core import CVLoader
@@ -53,6 +50,15 @@ from ..constants import INFO_PREFIX
 from ..constants import ERROR_PREFIX
 from ..constants import WARNING_PREFIX
 from ..constants import ORIGINAL_LABEL_KEY
+
+try:
+    import lmdb
+except:
+    lmdb = None
+try:
+    from cfdata.tabular.api import TabularData
+except:
+    TabularData = None
 
 
 # dl
@@ -440,6 +446,8 @@ class MLData(DLDataModule):
         cf_data_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
     ) -> "MLData":
+        if TabularData is None:
+            raise ValueError("`carefree-data` needs to be installed for `with_cf_data`")
         if cf_data_config is None:
             cf_data_config = {}
         cf_data_config["default_categorical_process"] = "identical"
@@ -467,6 +475,11 @@ class MLData(DLDataModule):
         cf_data = d["cf_data"]
         if cf_data is None:
             return d
+        if TabularData is None:
+            raise ValueError(
+                "`carefree-data` needs to be installed "
+                "to load `MLData` with `cf_data` defined"
+            )
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_name = os.path.join(tmp_dir, cls.tmp_cf_data_name)
             zip_file = f"{tmp_name}.zip"
@@ -501,6 +514,11 @@ class MLData(DLDataModule):
         with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
             kwargs = json.load(f)
         if info["cf_data"] is not None:
+            if TabularData is None:
+                raise ValueError(
+                    "`carefree-data` needs to be installed "
+                    "to load `MLData` with `cf_data` defined"
+                )
             full_cf_data_folder = os.path.join(data_folder, cls.full_cf_data_name)
             kwargs["cf_data"] = TabularData.load(full_cf_data_folder)
         data = cls(*args, **kwargs)
@@ -1047,7 +1065,12 @@ def prepare_image_folder(
             with open_dtype_file(label_file) as f_:
                 json.dump(type_labels, f_, ensure_ascii=False)
         # lmdb
-        if lmdb_config is None:
+        if lmdb_config is None or lmdb is None:
+            if lmdb_config is not None:
+                print(
+                    f"{WARNING_PREFIX}`lmdb` is not installed, "
+                    "so `lmdb_config` will be ignored"
+                )
             return None
         local_lmdb_config = shallow_copy_dict(lmdb_config)
         local_lmdb_config.setdefault("path", default_lmdb_path(tgt_folder, dtype))

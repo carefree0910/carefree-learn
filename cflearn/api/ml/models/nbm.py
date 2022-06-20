@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from typing import List
 from typing import Tuple
@@ -16,6 +15,11 @@ from ....misc.toolkit import eval_context
 from ....models.ml.nbm import NBM
 from ....models.ml.encoders import Encoder
 from ....models.ml.protocol import Dimensions
+
+try:
+    import matplotlib.pyplot as plt
+except:
+    plt = None
 
 
 @dataclass
@@ -49,6 +53,8 @@ class NBMInspector:
         dense: int = 400,
         device: str = "cpu",
     ) -> None:
+        if plt is None:
+            raise ValueError("`matplotlib` is needed for `visualize`")
         if self.boundings is None:
             msg = "`boundings` is not defined, did you forget to call `fit`?"
             raise ValueError(msg)

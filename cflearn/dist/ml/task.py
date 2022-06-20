@@ -6,7 +6,7 @@ from typing import Union
 from typing import Optional
 from cftool.misc import Saving, shallow_copy_dict
 
-from cflearn.constants import META_CONFIG_NAME
+from ...constants import META_CONFIG_NAME
 
 
 class Task:

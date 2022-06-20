@@ -4,10 +4,9 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from sklearn import metrics
 from cftool.array import iou
+from cftool.array import corr
 from cftool.array import softmax
-from scipy import stats as ss
 
 from ..toolkit import get_full_logits
 from ..toolkit import get_label_predictions
@@ -16,7 +15,13 @@ from ...protocol import MetricsOutputs
 from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY
+from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
+
+try:
+    from sklearn import metrics
+except:
+    metrics = None
 
 
 @MetricProtocol.register("acc")
@@ -68,6 +73,8 @@ class F1Score(MetricProtocol):
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
+        if metrics is None:
+            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `F1Score`")
 
     @property
     def is_positive(self) -> bool:
@@ -79,6 +86,8 @@ class F1Score(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
+        if metrics is None:
+            return 0.0
         labels = np_batch[LABEL_KEY]
         logits = np_outputs[PREDICTIONS_KEY]
         predictions = get_label_predictions(logits, self.threshold)
@@ -87,6 +96,11 @@ class F1Score(MetricProtocol):
 
 @MetricProtocol.register("r2")
 class R2Score(MetricProtocol):
+    def __init__(self) -> None:
+        super().__init__()
+        if metrics is None:
+            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `R2Score`")
+
     @property
     def is_positive(self) -> bool:
         return True
@@ -97,6 +111,8 @@ class R2Score(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
+        if metrics is None:
+            return 0.0
         labels = np_batch[LABEL_KEY].ravel()  # type: ignore
         predictions = np_outputs[PREDICTIONS_KEY].ravel()
         return metrics.r2_score(labels, predictions)
@@ -104,6 +120,11 @@ class R2Score(MetricProtocol):
 
 @MetricProtocol.register("auc")
 class AUC(MetricProtocol):
+    def __init__(self) -> None:
+        super().__init__()
+        if metrics is None:
+            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `AUC`")
+
     @property
     def is_positive(self) -> bool:
         return True
@@ -118,6 +139,8 @@ class AUC(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
+        if metrics is None:
+            return 0.0
         logits = get_full_logits(np_outputs[PREDICTIONS_KEY])
         num_classes = logits.shape[1]
         probabilities = softmax(logits)
@@ -161,6 +184,11 @@ class MSE(MetricProtocol):
 
 @MetricProtocol.register("ber")
 class BER(MetricProtocol):
+    def __init__(self) -> None:
+        super().__init__()
+        if metrics is None:
+            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `AUC`")
+
     @property
     def is_positive(self) -> bool:
         return False
@@ -171,6 +199,8 @@ class BER(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
+        if metrics is None:
+            return 0.0
         labels = np_batch[LABEL_KEY].ravel()  # type: ignore
         predictions = np_outputs[PREDICTIONS_KEY].ravel()
         mat = metrics.confusion_matrix(labels, predictions)
@@ -193,9 +223,9 @@ class Correlation(MetricProtocol):
         np_outputs: np_dict_type,
         loader: Optional[DataLoaderProtocol],
     ) -> float:
-        labels = np_batch[LABEL_KEY].ravel()  # type: ignore
-        predictions = np_outputs[PREDICTIONS_KEY].ravel()
-        return float(ss.pearsonr(labels, predictions)[0])
+        labels = np_batch[LABEL_KEY]
+        predictions = np_outputs[PREDICTIONS_KEY]
+        return corr(predictions, labels).mean().item()
 
 
 @MetricProtocol.register("iou")

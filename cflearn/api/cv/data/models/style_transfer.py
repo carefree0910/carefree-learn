@@ -12,7 +12,6 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
-from cfcv.misc.toolkit import to_rgb
 
 from .....data import CVDataset
 from .....data import Transforms
@@ -24,6 +23,11 @@ from .....constants import WARNING_PREFIX
 from .....data.core import ImageFolderDataset
 from .....data.core import InferenceImageFolderDataset
 from .....models.cv.stylizer.constants import STYLE_KEY
+
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
 
 
 class StyleTransferMixin:
@@ -75,6 +79,8 @@ class StyleTransferDataset(ImageFolderDataset, StyleTransferMixin):  # type: ign
         *,
         style_folder: str,
     ):
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `StyleTransferDataset`")
         super().__init__(
             folder,
             split,
@@ -99,6 +105,9 @@ class InferenceStyleTransferDataset(InferenceImageFolderDataset, StyleTransferMi
         *,
         style_folder: str,
     ):
+        if to_rgb is None:
+            msg = "`carefree-cv` is needed for `InferenceStyleTransferDataset`"
+            raise ValueError(msg)
         super().__init__(folder, transform)
         self._init_style_paths(style_folder)
 

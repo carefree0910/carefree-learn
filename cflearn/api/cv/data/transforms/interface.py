@@ -1,26 +1,35 @@
-import cv2
 import random
 
 import numpy as np
 
-from PIL import Image
 from PIL import ImageOps
 from PIL import ImageFilter
 from typing import List
 from typing import Tuple
 from typing import Optional
-from skimage.transform import resize
+from PIL.Image import Image
+from PIL.Image import ANTIALIAS
 from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
-from cfcv.misc.toolkit import to_rgb
-from cfcv.misc.toolkit import min_max_normalize
-from cfcv.misc.toolkit import imagenet_normalize
 
 from .A import *
 from .pt import *
 from .general import *
 from .....data import Compose
 from .....data import Transforms
+
+try:
+    import cv2
+    from skimage.transform import resize
+    from cfcv.misc.toolkit import to_rgb
+    from cfcv.misc.toolkit import min_max_normalize
+    from cfcv.misc.toolkit import imagenet_normalize
+except:
+    cv2 = None
+    resize = None
+    to_rgb = None
+    min_max_normalize = None
+    imagenet_normalize = None
 
 
 @Transforms.register("for_generation")
@@ -166,6 +175,8 @@ class SSLTransform(Transforms):
         local_crops_scale: Tuple[float, float] = (0.05, 0.4),
         global_crops_scale: Tuple[float, float] = (0.4, 1.0),
     ):
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `SSLTransform`")
         super().__init__()
         self.fn = self.Augmentation(
             img_size,
@@ -183,14 +194,16 @@ class SSLTransform(Transforms):
 @Transforms.register("ssl_test")
 class SSLTestTransform(Transforms):
     def __init__(self, img_size: int, to_gray: bool = False):
+        if resize is None or min_max_normalize is None or imagenet_normalize is None:
+            raise ValueError("`carefree-cv` is needed for `SSLTestTransform`")
         super().__init__()
         self.img_size = img_size
         self.to_gray = ToGray().fn if to_gray else None
         self.larger_size = int(round(img_size * 8.0 / 7.0))
 
-    def fn(self, img: Image.Image) -> np.ndarray:
+    def fn(self, img: Image) -> np.ndarray:
         img = to_rgb(img)
-        img.thumbnail((self.larger_size, self.larger_size), Image.ANTIALIAS)
+        img.thumbnail((self.larger_size, self.larger_size), ANTIALIAS)
         img_arr = np.array(img)
         resized_img = resize(img_arr, (self.img_size, self.img_size), mode="constant")
         resized_img = resized_img.astype(np.float32)
@@ -215,6 +228,8 @@ class ABundleTransform(Compose):
         p: float = 0.5,
         label_alias: Optional[str] = None,
     ):
+        if cv2 is None:
+            raise ValueError("`cv2` is needed for `ABundleTransform`")
         transform_list: List[Transforms]
         transform_list = [AResize(resize_size, label_alias=label_alias)]
         if crop_size is not None:

@@ -14,7 +14,6 @@ from typing import Tuple
 from typing import Optional
 from torchvision import transforms
 from cftool.misc import check_requires
-from cfcv.misc.toolkit import to_rgb
 
 from .noises import noises
 from ..protocol import PerceptorProtocol
@@ -30,6 +29,11 @@ from ...nlp.tokenizers import TokenizerProtocol
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import download_model
 from ....misc.toolkit import DropNoGradStatesMixin
+
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
 
 
 class CutOuts(nn.Module):
@@ -209,6 +213,8 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         perceptor_pretrained_path: Optional[str] = None,
         generator_pretrained_path: Optional[str] = None,
     ):
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `Text2ImageAligner`")
         super().__init__(
             perceptor,
             generator,

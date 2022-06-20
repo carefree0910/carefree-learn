@@ -1,6 +1,7 @@
 import os
 import torch
 import cflearn
+import platform
 
 import numpy as np
 
@@ -8,8 +9,10 @@ from PIL import Image
 from typing import Any
 from typing import List
 from typing import Optional
-from cfcv.misc.toolkit import to_uint8
 from cflearn.misc.toolkit import download_model
+
+
+IS_LINUX = platform.system() == "Linux"
 
 
 num_samples = 100
@@ -43,15 +46,14 @@ aux_labels_folder = os.path.join(data_folder, "aux_labels")
 for folder in (input_folder, labels_folder, aux_labels_folder):
     os.makedirs(folder, exist_ok=True)
 for i in range(num_samples):
-    img = Image.fromarray(to_uint8(x[i]).numpy().transpose([1, 2, 0]))
+    uint8 = torch.clamp(x[i] * 255.0, 0.0, 255.0).to(torch.uint8)
+    img = Image.fromarray(uint8.numpy().transpose([1, 2, 0]))
     img.save(os.path.join(input_folder, f"{i}.png"))
     np.save(os.path.join(labels_folder, f"{i}.npy"), y1[i])
     np.save(os.path.join(aux_labels_folder, f"{i}.npy"), y2[i])
 
 preparation = AuxPreparation()
-rs = cflearn.prepare_image_folder_data(
-    data_folder,
-    "static/processed",
+kw = dict(
     to_index=False,
     batch_size=16,
     preparation=preparation,
@@ -59,6 +61,9 @@ rs = cflearn.prepare_image_folder_data(
     transform_config={"resize_size": 224},
     test_transform="clf_test",
 )
+if not IS_LINUX:
+    kw["num_jobs"] = 0
+rs = cflearn.prepare_image_folder_data(data_folder, "static/processed", **kw)  # type: ignore
 
 
 # load pretrain

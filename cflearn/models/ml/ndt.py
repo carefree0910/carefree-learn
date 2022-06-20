@@ -5,14 +5,18 @@ import torch.nn.functional as F
 
 from typing import List
 from typing import Iterator
-from sklearn.tree import _tree
-from sklearn.tree import DecisionTreeClassifier
 
 from .protocol import register_ml_module
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import to_numpy
 from ...modules.blocks import Linear
 from ...modules.blocks import Activation
+
+try:
+    from sklearn.tree import _tree
+    from sklearn.tree import DecisionTreeClassifier
+except:
+    _tree = DecisionTreeClassifier = None
 
 
 def export_structure(tree: DecisionTreeClassifier) -> tuple:
@@ -42,7 +46,10 @@ class NDT(torch.nn.Module):
         *,
         dt: DecisionTreeClassifier,
     ):
+        if DecisionTreeClassifier is None:
+            raise ValueError("`scikit-learn` is needed for `NDT`")
         super().__init__()
+        in_dim *= num_history
         tree_structure = export_structure(dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])

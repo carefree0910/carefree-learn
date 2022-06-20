@@ -9,7 +9,6 @@ import urllib.request
 
 import numpy as np
 import torch.nn as nn
-import matplotlib.pyplot as plt
 import torch.nn.functional as F
 
 from PIL import Image
@@ -28,17 +27,15 @@ from typing import ContextManager
 from zipfile import ZipFile
 from collections import defaultdict
 from collections import OrderedDict
-from onnxruntime import InferenceSession
 from torch.optim import Optimizer
 from cftool.misc import prod
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import DownloadProgressBar
+from cftool.array import arr_type
 from cftool.array import to_standard
-from cfml.misc.toolkit import show_or_save
 
-from ..types import arr_type
 from ..types import data_type
 from ..types import param_type
 from ..types import np_dict_type
@@ -48,6 +45,19 @@ from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
 from ..constants import INFO_PREFIX
 from ..constants import WARNING_PREFIX
+
+try:
+    import matplotlib.pyplot as plt
+except:
+    plt = None
+try:
+    from onnxruntime import InferenceSession
+except:
+    InferenceSession = None
+try:
+    from cfml.misc.toolkit import show_or_save
+except:
+    show_or_save = None
 
 
 # general
@@ -280,6 +290,10 @@ class WeightsStrategy:
         return 1.0 / (1.0 + np.exp(-x))
 
     def visualize(self, export_path: str = "weights_strategy.png") -> None:
+        if plt is None:
+            raise ValueError(f"{WARNING_PREFIX}`matplotlib` is needed for `visualize`")
+        if show_or_save is None:
+            raise ValueError(f"{WARNING_PREFIX}`carefree-ml` is needed for `visualize`")
         n = 1000
         x = np.linspace(0, 1, n)
         y = self(n, 0)
@@ -882,6 +896,9 @@ class DropNoGradStatesMixin:
 
 class ONNX:
     def __init__(self, onnx_path: str):
+        if InferenceSession is None:
+            msg = "`ONNX` is not available when `onnxruntime` is not installed"
+            raise ValueError(msg)
         self.ort_session = InferenceSession(onnx_path)
         self.output_names = [node.name for node in self.ort_session.get_outputs()]
 

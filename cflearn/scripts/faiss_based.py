@@ -12,15 +12,20 @@ from typing import Optional
 
 from ..types import tensor_dict_type
 from ..trainer import DeviceInfo
+from ..constants import WARNING_PREFIX
 from ..api.cv.pipeline import SimplePipeline
 from ..api.cv.models.interface import IImageExtractor
 
 try:
     import faiss
 except ImportError:
-    from ..constants import WARNING_PREFIX
+    faiss = None
 
-    print(f"{WARNING_PREFIX}`faiss` need to be installed to use faiss based scripts")
+
+def _check() -> None:
+    if faiss is None:
+        msg = f"{WARNING_PREFIX}`faiss` is needed for faiss based scripts"
+        raise ValueError(msg)
 
 
 def run_faiss(
@@ -30,6 +35,7 @@ def run_faiss(
     dimension: int,
     factory: str = "IVF128,Flat",
 ) -> Any:
+    _check()
     index = faiss.index_factory(dimension, factory)
     print(">> training index")
     index.train(x)
@@ -58,6 +64,7 @@ def image_retrieval(
     output_names: Optional[List[str]] = None,
     cuda: int = 7,
 ) -> None:
+    _check()
     version_folder = os.path.join(".versions", task, tag)
     features_folder = os.path.join(version_folder, "features")
     dist_folder = os.path.join(version_folder, "dist")

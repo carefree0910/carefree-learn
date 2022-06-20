@@ -11,7 +11,6 @@ from typing import Callable
 from typing import Optional
 
 
-arr_type = Union[np.ndarray, torch.Tensor]
 data_type = Optional[Union[np.ndarray, str]]
 texts_type = Union[str, List[str]]
 param_type = Union[torch.Tensor, torch.nn.Parameter]
@@ -25,7 +24,6 @@ sample_weights_type = Optional[Union[np.ndarray, Tuple[np.ndarray, np.ndarray]]]
 
 
 __all__ = [
-    "arr_type",
     "data_type",
     "texts_type",
     "param_type",

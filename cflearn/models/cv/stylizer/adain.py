@@ -3,7 +3,6 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cfcv.misc.toolkit import clip_normalize
 
 from .constants import STYLE_KEY
 from .constants import STYLE_LATENTS_KEY
@@ -20,10 +19,16 @@ from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
+from ....constants import WARNING_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
+
+try:
+    from cfcv.misc.toolkit import clip_normalize
+except:
+    clip_normalize = None
 
 
 @ModelProtocol.register("adain")
@@ -104,7 +109,13 @@ class AdaINStylizer(ModelProtocol):
         inp = {INPUT_KEY: net, STYLE_KEY: style}
         kwargs["need_stylized_features"] = False
         decoded = self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
-        return clip_normalize(decoded)
+        if clip_normalize is not None:
+            return clip_normalize(decoded)
+        print(
+            f"{WARNING_PREFIX}`carefree-cv` is not installed, "
+            "so the stylized image is not normalized, which might harm the quality"
+        )
+        return decoded
 
 
 @LossProtocol.register("adain")

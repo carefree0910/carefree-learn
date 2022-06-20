@@ -13,16 +13,10 @@ from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
-from cfdata.tabular import TabularData
 from cftool.dist import Parallel
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import get_latest_workplace
-from cfml.misc.toolkit import patterns_type
-from cfml.misc.toolkit import Comparer
-from cfml.misc.toolkit import Estimator
-from cfml.misc.toolkit import ModelPattern
-from cfml.misc.toolkit import EnsemblePattern
 
 from .pipeline import SimplePipeline
 from .pipeline import CarefreePipeline
@@ -38,6 +32,21 @@ from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
 from ...dist.ml import ExperimentResults
 from ...misc.toolkit import to_2d
+
+try:
+    from cfdata.tabular import TabularData
+except:
+    TabularData = None
+try:
+    from cfml.misc.toolkit import patterns_type
+    from cfml.misc.toolkit import Comparer
+    from cfml.misc.toolkit import Estimator
+    from cfml.misc.toolkit import ModelPattern
+except:
+    patterns_type = None
+    Comparer = None
+    Estimator = None
+    ModelPattern = None
 
 
 pipelines_type = Dict[str, List[SimplePipeline]]
@@ -79,6 +88,9 @@ def evaluate(
     other_patterns: Optional[Dict[str, patterns_type]] = None,
     comparer_verbose_level: Optional[int] = 1,
 ) -> Comparer:
+    if Comparer is None:
+        raise ValueError("`carefree-ml` is needed for `evaluate`")
+
     if not contains_labels:
         err_msg = "`cflearn.evaluate` must be called with `contains_labels = True`"
         raise ValueError(err_msg)
@@ -390,7 +402,6 @@ def make_toy_model(
     model: str = "fcnn",
     config: Optional[Dict[str, Any]] = None,
     *,
-    pipeline_type: str = "ml.carefree",
     is_classification: bool = False,
     cf_data_config: Optional[Dict[str, Any]] = None,
     data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
@@ -427,24 +438,30 @@ def make_toy_model(
         "max_epoch": 4,
     }
     updated = update_dict(config, base_config)
-    m = SimplePipeline.make(pipeline_type, updated)
+    m = SimplePipeline.make("ml.simple", updated)
     assert isinstance(m, SimplePipeline)
     if cf_data_config is None:
-        cf_data_config = {}
-    cf_data_config = update_dict(
-        cf_data_config,
-        dict(
-            valid_columns=list(range(x_np.shape[1])),
-            label_process_method="identical",
-        ),
-    )
-    data = MLData.with_cf_data(
-        x_np,
-        y_np,
-        is_classification=is_classification,
-        cf_data_config=cf_data_config,
-        valid_split=0.0,
-    )
+        data = MLData(
+            x_np,
+            y_np,
+            is_classification=is_classification,
+            valid_split=0.0,
+        )
+    else:
+        cf_data_config = update_dict(
+            cf_data_config,
+            dict(
+                valid_columns=list(range(x_np.shape[1])),
+                label_process_method="identical",
+            ),
+        )
+        data = MLData.with_cf_data(
+            x_np,
+            y_np,
+            is_classification=is_classification,
+            cf_data_config=cf_data_config,
+            valid_split=0.0,
+        )
     m.fit(data, cuda=cuda)
     return m
 
@@ -458,6 +475,4 @@ __all__ = [
     "pick_from_repeat_and_pack",
     "make_toy_model",
     "RepeatResult",
-    "ModelPattern",
-    "EnsemblePattern",
 ]

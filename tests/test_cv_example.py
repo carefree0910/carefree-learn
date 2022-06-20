@@ -8,6 +8,10 @@ examples_folder = os.path.join(file_folder, os.pardir, "examples", "cv")
 
 class TestExample(unittest.TestCase):
     def test_aux_clf(self) -> None:
+        try:
+            import albumentations
+        except:
+            return
         folder = os.path.join(examples_folder, "classification")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'aux_clf.py')}"),
@@ -22,6 +26,10 @@ class TestExample(unittest.TestCase):
         )
 
     def test_products_10k_clf(self) -> None:
+        try:
+            import albumentations
+        except:
+            return
         folder = os.path.join(examples_folder, "classification")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'products-10k_clf.py')} --ci 1"),
@@ -50,6 +58,10 @@ class TestExample(unittest.TestCase):
         )
 
     def test_products_10k_seg(self) -> None:
+        try:
+            import cv2
+        except:
+            return
         folder = os.path.join(examples_folder, "segmentation")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'u2net_finetune.py')} --ci 1"),
@@ -61,6 +73,10 @@ class TestExample(unittest.TestCase):
         )
 
     def test_dino(self) -> None:
+        try:
+            import cfcv
+        except:
+            return
         folder = os.path.join(examples_folder, "ssl")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'dino.py')} --ci 1"),
@@ -68,6 +84,10 @@ class TestExample(unittest.TestCase):
         )
 
     def test_adain(self) -> None:
+        try:
+            import albumentations
+        except:
+            return
         folder = os.path.join(examples_folder, "style_transfer")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'adain.py')} --ci 1"),

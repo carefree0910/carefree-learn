@@ -13,7 +13,6 @@ from typing import Optional
 from cftool.misc import check_requires
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
-from cfdata.tabular.processors.base import Processor
 
 from ..toolkit import Initializer
 from ...types import losses_type
@@ -45,11 +44,6 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
 
 loss_type = Type[LossProtocol]
 metric_type = Type[MetricProtocol]
-processor_type = Type[Processor]
-
-
-def register_processor(name: str) -> Callable[[processor_type], processor_type]:
-    return Processor.register(name)  # type: ignore
 
 
 def register_loss(name: str) -> Callable[[loss_type], loss_type]:
@@ -309,11 +303,9 @@ def register_loss_module(name: str) -> Callable[[Type[nn.Module]], Type[nn.Modul
 
 __all__ = [
     "register_initializer",
-    "register_processor",
     "register_loss",
     "register_metric",
     "Initializer",
-    "Processor",
     "register_module",
     "register_custom_module",
     "register_loss_module",

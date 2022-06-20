@@ -3,12 +3,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import Any
 from typing import Optional
 
 from ..types import losses_type
 from ..types import tensor_dict_type
-from ..protocol import LossProtocol
 from ..protocol import TrainerState
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY

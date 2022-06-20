@@ -5,8 +5,6 @@ from typing import Type
 from typing import Union
 from typing import Callable
 from typing import Optional
-from transformers import AutoModel
-from transformers import AutoTokenizer
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 
@@ -18,6 +16,12 @@ from ....protocol import TrainerState
 from ....protocol import InferenceProtocol
 from ....data.interface import TensorDictData
 
+try:
+    from transformers import AutoModel
+    from transformers import AutoTokenizer
+except:
+    AutoModel = AutoTokenizer = None
+
 
 @ModelProtocol.register("hugging_face")
 class HuggingFaceModel(ModelProtocol):
@@ -26,6 +30,8 @@ class HuggingFaceModel(ModelProtocol):
     forward_fn_name: str = "forward"
 
     def __init__(self, model: str):
+        if AutoModel is None:
+            raise ValueError("`transformers` is needed for `HuggingFaceModel`")
         super().__init__()
         self.tokenizer = self.tokenizer_base.from_pretrained(model)
         self.model = self.model_base.from_pretrained(model)

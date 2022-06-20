@@ -5,7 +5,6 @@ from tqdm import tqdm
 from torch import Tensor
 from typing import List
 from typing import Tuple
-from cfcv.misc.toolkit import to_rgb
 
 from .utils import predict_folder
 from ..data import SSLTestTransform
@@ -16,9 +15,16 @@ from ....misc.toolkit import to_torch
 from ....misc.toolkit import to_device
 from ....misc.toolkit import eval_context
 
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
+
 
 class DINOExtractor:
     def __init__(self, m: SimplePipeline, img_size: int, *, to_gray: bool = False):
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `DINOExtractor`")
         self.m = m
         self.dino = m.model
         self.transform = SSLTestTransform(img_size, to_gray)

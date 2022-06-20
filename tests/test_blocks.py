@@ -83,29 +83,38 @@ class TestBlocks(unittest.TestCase):
             inp = torch.randn(batch_size, d, requires_grad=True)
             labels = torch.randint(k, [batch_size])
 
-            dndf = DNDF(d, k, use_fast_dndf=False)
-            net = torch.empty_like(inp).requires_grad_(True)
-            net.data = inp.data
+            def _run() -> Tuple[float, float]:
+                dndf = DNDF(d, k, use_fast_dndf=False)
+                net = torch.empty_like(inp).requires_grad_(True)
+                net.data = inp.data
 
-            t1 = time.time()
-            loss = loss_function(dndf(net))
-            loss.backward()
-            g1 = net.grad
-            t2 = time.time()
+                t1 = time.time()
+                loss = loss_function(dndf(net))
+                loss.backward()
+                g1 = net.grad
+                t2 = time.time()
 
-            dndf_fast = DNDF(d, k, use_fast_dndf=True)
-            inject_parameters(dndf, dndf_fast)
-            net = torch.empty_like(inp).requires_grad_(True)
-            net.data = inp.data
+                dndf_fast = DNDF(d, k, use_fast_dndf=True)
+                inject_parameters(dndf, dndf_fast)
+                net = torch.empty_like(inp).requires_grad_(True)
+                net.data = inp.data
 
-            t3 = time.time()
-            loss = loss_function(dndf_fast(net))
-            loss.backward()
-            g2 = net.grad
-            t4 = time.time()
+                t3 = time.time()
+                loss = loss_function(dndf_fast(net))
+                loss.backward()
+                g2 = net.grad
+                t4 = time.time()
 
-            self.assertTrue(torch.allclose(g1, g2))
-            slow_t, fast_t = t2 - t1, t4 - t3
+                self.assertTrue(torch.allclose(g1, g2))
+                return t2 - t1, t4 - t3
+
+            slow_ts, fast_ts = [], []
+            for _ in range(10):
+                slow_t, fast_t = _run()
+                slow_ts.append(slow_t)
+                fast_ts.append(fast_t)
+            slow_t = sum(slow_ts) / len(slow_ts)
+            fast_t = sum(fast_ts) / len(fast_ts)
             print(f"slow : {slow_t} ; fast : {fast_t}")
             self.assertTrue(fast_t < slow_t)
 

@@ -1,7 +1,5 @@
 from typing import Any
 from typing import Optional
-from transformers import MarianMTModel
-from transformers import MarianTokenizer
 
 from .core import HuggingFaceModel
 from ....types import texts_type
@@ -9,6 +7,12 @@ from ....types import np_dict_type
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import PREDICTIONS_KEY
+
+try:
+    from transformers import MarianMTModel
+    from transformers import MarianTokenizer
+except:
+    MarianMTModel = MarianTokenizer = None
 
 
 @HuggingFaceModel.register("opus-base")
@@ -18,6 +22,8 @@ class OPUSBase(HuggingFaceModel):
     forward_fn_name = "generate"
 
     def __init__(self, src: str, tgt: str) -> None:
+        if MarianMTModel is None:
+            raise ValueError("`transformers` is needed for `OPUSBase`")
         super().__init__(f"Helsinki-NLP/opus-mt-{src}-{tgt}")
 
     def forward(

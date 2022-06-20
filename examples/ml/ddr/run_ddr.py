@@ -34,6 +34,15 @@ m = cflearn.api.fit_ml(
     debug=check_is_ci(),
 )
 
+try:
+    import cfml
+except:
+    print(
+        f"{cflearn.WARNING_PREFIX}`carefre-ml` is not installed, "
+        "so the visualization process will not be executed"
+    )
+    exit(0)
+
 os.makedirs(output_folder, exist_ok=True)
 visualizer = cflearn.ml.DDRVisualizer.from_pipeline(m)
 x_test, y_test = x[-num_test:], y[-num_test:]

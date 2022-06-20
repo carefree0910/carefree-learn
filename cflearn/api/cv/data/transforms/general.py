@@ -3,10 +3,10 @@ import numpy as np
 from PIL import Image
 from typing import Any
 from typing import Dict
+from cftool.array import arr_type
 from torchvision.transforms import transforms
 
 from .....data import Transforms
-from .....types import arr_type
 from .....misc.toolkit import to_torch
 
 

@@ -1,7 +1,6 @@
 import os
 
 import numpy as np
-import matplotlib.pyplot as plt
 
 from typing import Any
 from typing import List
@@ -9,7 +8,6 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
-from cfml.misc.toolkit import show_or_save
 
 from ..pipeline import SimplePipeline
 from ....types import tensor_dict_type
@@ -17,6 +15,14 @@ from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_numpy
 from ....misc.toolkit import to_torch
 from ....models.ml import DDR
+
+try:
+    import matplotlib.pyplot as plt
+    from cfml.misc.toolkit import show_or_save
+
+    Figure = plt.Figure
+except:
+    plt = show_or_save = Figure = None
 
 
 class DDRPredictor:
@@ -59,6 +65,8 @@ class DDRVisualizer:
         dpi: int = 200,
         figsize: Tuple[int, int] = (8, 6),
     ):
+        if show_or_save is None:
+            raise ValueError("`carefree-ml` is needed for `DDRVisualizer`")
         self.m = ddr
         self.dpi = dpi
         self.figsize = figsize
@@ -73,7 +81,7 @@ class DDRVisualizer:
         median: Optional[np.ndarray],
         indices: np.ndarray,
         title: str,
-    ) -> plt.Figure:
+    ) -> Figure:  # type: ignore
         figure = plt.figure(figsize=self.figsize, dpi=self.dpi)
         plt.title(title)
         plt.scatter(x[indices], y[indices], color="gray", s=15)

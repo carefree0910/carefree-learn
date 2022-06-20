@@ -15,6 +15,10 @@ class TestExample(unittest.TestCase):
         )
 
     def test_iris(self) -> None:
+        try:
+            import cfdata
+        except:
+            return
         folder = os.path.join(examples_folder, "iris")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'run_iris.py')} --ci 1"),
@@ -29,6 +33,11 @@ class TestExample(unittest.TestCase):
         )
 
     def test_simple(self) -> None:
+        try:
+            import cfdata
+        except:
+            return
+        folder = os.path.join(examples_folder, "iris")
         folder = os.path.join(examples_folder, "simple")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'iris.py')}"),
@@ -40,6 +49,10 @@ class TestExample(unittest.TestCase):
         )
 
     def test_titanic(self) -> None:
+        try:
+            import cfdata
+        except:
+            return
         folder = os.path.join(examples_folder, "titanic")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'run_titanic.py')}"),

@@ -1,6 +1,5 @@
 import os
 import math
-import onnx
 import torch
 
 import numpy as np
@@ -19,12 +18,10 @@ from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from onnxsim import simplify as onnx_simplify
 from cftool.misc import lock_manager
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import WithRegister
-from onnxsim.onnx_simplifier import get_input_names
 
 from .types import losses_type
 from .types import np_dict_type
@@ -42,6 +39,16 @@ from .misc.toolkit import eval_context
 from .misc.toolkit import get_world_size
 from .misc.toolkit import fix_denormal_states
 from .misc.toolkit import ONNX
+
+try:
+    import onnx
+except:
+    onnx = None
+try:
+    from onnxsim import simplify as onnx_simplify
+    from onnxsim.onnx_simplifier import get_input_names
+except:
+    onnx_simplify = get_input_names = None
 
 
 dataset_dict: Dict[str, Type["DatasetProtocol"]] = {}
@@ -222,33 +229,43 @@ class ModelProtocol(nn.Module, WithRegister["ModelProtocol"], metaclass=ABCMeta)
                     **shallow_copy_dict(kwargs),
                 )
                 model.load_state_dict(original_states)
-                onnx_model = onnx.load(onnx_path)
-                input_names = get_input_names(onnx_model)
-                np_sample = {
-                    name: to_numpy(tensor)
-                    for name, tensor in input_sample.items()
-                    if name in input_names
-                }
+                if not simplify:
+                    return self.to(device)
+                if onnx is None:
+                    print(
+                        f"{WARNING_PREFIX}`onnx` is not installed, "
+                        f"so the exported onnx model will not be simplified"
+                    )
+                    return self.to(device)
+                if onnx_simplify is None or get_input_names is None:
+                    print(
+                        f"{WARNING_PREFIX}`onnx-simplifier` is not installed, "
+                        f"so the exported onnx model will not be simplified"
+                    )
+                    return self.to(device)
                 try:
-                    if not simplify:
-                        model_simplified = onnx_model
-                        check = True
-                    else:
-                        model_simplified, check = onnx_simplify(
-                            onnx_model,
-                            input_data=np_sample,
-                            dynamic_input_shape=bool(dynamic_axes),
-                        )
+                    onnx_model = onnx.load(onnx_path)
+                    final_input_names = get_input_names(onnx_model)
+                    np_sample = {
+                        name: to_numpy(tensor)
+                        for name, tensor in input_sample.items()
+                        if name in final_input_names
+                    }
+                    model_simplified, check = onnx_simplify(
+                        onnx_model,
+                        input_data=np_sample,
+                        dynamic_input_shape=bool(dynamic_axes),
+                    )
                 except Exception as err:
                     if verbose:
                         print(f"{WARNING_PREFIX}Failed to simplify ONNX model ({err})")
+                    model_simplified = None
                     check = False
-                if not check and verbose:
-                    print(f"{INFO_PREFIX}Simplified ONNX model is not validated!")
-                elif check and verbose and simplify:
-                    print(f"{INFO_PREFIX}Simplified ONNX model is validated!")
-                    onnx_model = model_simplified
-                onnx.save(onnx_model, onnx_path)
+                if verbose:
+                    tag = " " if check else " not "
+                    print(f"{INFO_PREFIX}Simplified ONNX model is{tag}validated!")
+                if check and model_simplified is not None:
+                    onnx.save(model_simplified, onnx_path)
         return self.to(device)
 
 

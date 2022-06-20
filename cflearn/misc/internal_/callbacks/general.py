@@ -1,7 +1,6 @@
 import os
 import json
 import time
-import mlflow
 import shutil
 import getpass
 import platform
@@ -11,10 +10,6 @@ from typing import Dict
 from typing import Optional
 from cftool.misc import lock_manager
 from cftool.misc import fix_float_to_length
-from mlflow.exceptions import MlflowException
-from mlflow.utils.mlflow_tags import MLFLOW_USER
-from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
-from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
 
 from ....trainer import Trainer
 from ....trainer import TrainerCallback
@@ -24,6 +19,19 @@ from ....protocol import MetricsOutputs
 from ....constants import PT_PREFIX
 from ....constants import SCORES_FILE
 from ....constants import WARNING_PREFIX
+
+try:
+    import mlflow
+    from mlflow.exceptions import MlflowException
+    from mlflow.utils.mlflow_tags import MLFLOW_USER
+    from mlflow.utils.mlflow_tags import MLFLOW_RUN_NAME
+    from mlflow.tracking.fluent import _RUN_ID_ENV_VAR
+except:
+    mlflow = None
+    MlflowException = None
+    MLFLOW_USER = None
+    MLFLOW_RUN_NAME = None
+    _RUN_ID_ENV_VAR = None
 
 
 def parse_mlflow_uri(path: str) -> str:
@@ -122,9 +130,19 @@ class MLFlowCallback(TrainerCallback):
         self.tracking_folder = tracking_folder
         self._log_artifacts = log_artifacts
 
+    @property
+    def enabled(self) -> bool:
+        return self.is_rank_0 and mlflow is not None
+
     def initialize(self) -> None:
         if not self.is_rank_0:
             return None
+        if mlflow is None:
+            print(
+                f"{WARNING_PREFIX}`mlflow` is not installed, "
+                "so `MLFlowCallback` will have no effect."
+            )
+            return
         tracking_folder = os.path.abspath(self.tracking_folder)
         tracking_dir = os.path.join(tracking_folder, "mlruns")
         with lock_manager(tracking_folder, []) as lock:
@@ -170,12 +188,12 @@ class MLFlowCallback(TrainerCallback):
                 self.mlflow_client.log_param(self.run_id, key, value)
 
     def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
-        if not self.is_rank_0:
+        if not self.enabled:
             return None
         self.mlflow_client.log_metric(self.run_id, key, lr, step=state.step)
 
     def log_metrics(self, metric_outputs: MetricsOutputs, state: TrainerState) -> None:
-        if not self.is_rank_0:
+        if not self.enabled:
             return None
         for key, value in metric_outputs.metric_values.items():
             self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
@@ -183,12 +201,12 @@ class MLFlowCallback(TrainerCallback):
         self.mlflow_client.log_metric(self.run_id, "score", score, step=state.step)
 
     def log_artifacts(self, trainer: Trainer) -> None:
-        if not self.is_rank_0 or not self._log_artifacts:
+        if not self.enabled or not self._log_artifacts:
             return None
         self.mlflow_client.log_artifacts(self.run_id, trainer.workplace)
 
     def after_step(self, step_outputs: StepOutputs, state: TrainerState) -> None:
-        if not self.is_rank_0:
+        if not self.enabled:
             return None
         if state.should_log_losses:
             for key, value in step_outputs.loss_dict.items():
@@ -196,7 +214,7 @@ class MLFlowCallback(TrainerCallback):
                 self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
 
     def finalize(self, trainer: Trainer) -> None:
-        if not self.is_rank_0:
+        if not self.enabled:
             return None
         self.log_artifacts(trainer)
         self.mlflow_client.set_terminated(self.run_id)

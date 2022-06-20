@@ -5,7 +5,11 @@ from typing import Callable
 
 from cftool.array import contrast_noise
 from cftool.array import fractal_noise_2d
-from cfcv.misc.toolkit import min_max_normalize
+
+try:
+    from cfcv.misc.toolkit import min_max_normalize
+except:
+    min_max_normalize = None
 
 
 noise_fn_type = Callable[[int, int], np.ndarray]
@@ -22,6 +26,9 @@ def register_noise(name: str) -> Callable[[noise_fn_type], noise_fn_type]:
 
 @register_noise("fractal")
 def fractal_noise(w: int, h: int) -> np.ndarray:
+    if min_max_normalize is None:
+        raise ValueError("`carefree-cv` is needed for `fractal_noise`")
+
     if w > 1024 or h > 1024:
         side, octaves = 2048, 7
     elif w > 512 or h > 512:
