@@ -5,4 +5,5 @@ from .vanilla import *
 from .backbone import *
 from .protocol import *
 from .perceiver import *
+from .pool_former import *
 from .transformer import *

@@ -8,4 +8,5 @@ from .fnet import *
 from .mixer import *
 from .linear import *
 from .protocol import *
+from .pool_former import *
 from .transformer import *

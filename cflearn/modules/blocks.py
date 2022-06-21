@@ -1698,6 +1698,27 @@ class AttentionTokenMixer(TokenMixerBase):
         return self.net(net, net, net, **kw).output
 
 
+@TokenMixerBase.register("pool")
+class PoolTokenMixer(TokenMixerBase):
+    def __init__(self, num_tokens: int, latent_dim: int, *, pool_size: int = 3):
+        super().__init__(num_tokens, latent_dim)
+        self.pool = nn.AvgPool2d(
+            pool_size,
+            stride=1,
+            padding=pool_size // 2,
+            count_include_pad=False,
+        )
+
+    def forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
+    ) -> Tensor:
+        return self.pool(net) - net
+
+
 ffn_dict: Dict[str, Type["FFN"]] = {}
 
 
