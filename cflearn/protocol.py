@@ -33,6 +33,7 @@ from .constants import INFO_PREFIX
 from .constants import WARNING_PREFIX
 from .constants import PREDICTIONS_KEY
 from .constants import BATCH_INDICES_KEY
+from .constants import ORIGINAL_LABEL_KEY
 from .misc.toolkit import to_numpy
 from .misc.toolkit import to_device
 from .misc.toolkit import eval_context
@@ -782,7 +783,11 @@ class InferenceProtocol:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
                     for k, v in batch.items():
-                        if k == INPUT_KEY or k.endswith(BATCH_INDICES_KEY):
+                        if (
+                            k == INPUT_KEY
+                            or k == ORIGINAL_LABEL_KEY
+                            or k.endswith(BATCH_INDICES_KEY)
+                        ):
                             continue
                         if v is None:
                             continue
