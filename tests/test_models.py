@@ -90,6 +90,7 @@ class TestModels(unittest.TestCase):
         self.assertSequenceEqual(_ts("transformer")(ts).shape, [batch_size, out_dim])
         self.assertSequenceEqual(_ts("mixer")(ts).shape, [batch_size, out_dim])
         self.assertSequenceEqual(_ts("fnet")(ts).shape, [batch_size, out_dim])
+        self.assertSequenceEqual(_ts("pool_former")(ts).shape, [batch_size, out_dim])
 
     def test_nbm(self) -> None:
         shape = [3, 10]
@@ -232,6 +233,19 @@ class TestModels(unittest.TestCase):
         )
         self.assertSequenceEqual(
             fnet_clf.classify(inp)[PREDICTIONS_KEY].shape,
+            [batch_size, num_classes],
+        )
+
+        pool_former_clf = cflearn.VanillaClassifier(
+            in_channels,
+            num_classes,
+            img_size,
+            latent_dim,
+            encoder1d="pool_former",
+            encoder1d_config={"patch_size": patch_size},
+        )
+        self.assertSequenceEqual(
+            pool_former_clf.classify(inp)[PREDICTIONS_KEY].shape,
             [batch_size, num_classes],
         )
 
@@ -450,4 +464,4 @@ class TestModels(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    TestModels().test_cv_clf_mixed_stack()
