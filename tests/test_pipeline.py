@@ -1,4 +1,5 @@
 import os
+import json
 import torch
 import cflearn
 import unittest
@@ -45,6 +46,36 @@ class TestPipeline(unittest.TestCase):
             ".onnx",
             input_sample={cflearn.INPUT_KEY: torch.randn(1, 3, 28, 28)},
         )
+
+    def test_model_soup(self) -> None:
+        portion = 0.01
+        m = cflearn.api.cct_lite(
+            28,
+            10,
+            valid_portion=portion,
+            fixed_steps=10,
+            log_steps=1,
+        )
+        data = cflearn.cv.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
+        m.fit(data)
+        valid_loader = m.trainer.valid_loader
+        workplace = get_latest_workplace("_logs")
+        packed = cflearn.api.pack(
+            workplace,
+            compress=False,
+            model_soup_loader=valid_loader,
+            model_soup_metric_names=["acc", "auc"],
+            model_soup_valid_portion=portion,
+        )
+        m = cflearn.api.load(packed, compress=False)
+        res = m.inference.get_outputs(
+            valid_loader,  # type: ignore
+            portion=portion,
+            metrics=cflearn.MetricProtocol.fuse(["acc", "auc"]),
+        )
+        with open(os.path.join(packed, cflearn.SCORES_FILE), "r") as f:
+            score = list(json.load(f).values())[0]
+        self.assertAlmostEqual(res.metric_outputs.final_score, score)  # type: ignore
 
 
 if __name__ == "__main__":
