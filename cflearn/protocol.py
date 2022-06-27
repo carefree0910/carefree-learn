@@ -942,6 +942,7 @@ class MultipleMetrics(MetricProtocol):
         super().__init__()
         self.metrics = metric_list
         self.weights = weights or {}
+        self.__identifier__ = " | ".join(m.__identifier__ for m in metric_list)
 
     def evaluate(
         self,
