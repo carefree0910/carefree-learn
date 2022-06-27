@@ -4,7 +4,6 @@ from typing import List
 from typing import Union
 from typing import Optional
 
-from .metrics import MultipleMetrics
 from .monitors import BasicMonitor
 from ...types import configs_type
 from ...trainer import Trainer
@@ -13,6 +12,7 @@ from ...trainer import OptimizerPack
 from ...trainer import TrainerCallback
 from ...protocol import TrainerMonitor
 from ...protocol import MetricProtocol
+from ...protocol import MultipleMetrics
 from .callbacks.general import _LogMetricsMsgCallback
 
 

@@ -39,6 +39,7 @@ from .protocol import MetricsOutputs
 from .protocol import MonitorResults
 from .protocol import TrainerMonitor
 from .protocol import MetricProtocol
+from .protocol import MultipleMetrics
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
@@ -58,7 +59,6 @@ from .misc.toolkit import eval_context
 from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
 from .modules.schedulers import WarmupScheduler
-from .misc.internal_.metrics import MultipleMetrics
 from .misc.internal_.monitors import ConservativeMonitor
 
 

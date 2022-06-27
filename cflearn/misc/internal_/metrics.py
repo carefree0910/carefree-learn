@@ -214,51 +214,6 @@ class Auxiliary(MetricInterface):
         )
 
 
-class MultipleMetrics(MetricProtocol):
-    @property
-    def is_positive(self) -> bool:
-        raise NotImplementedError
-
-    @property
-    def requires_all(self) -> bool:
-        return any(metric.requires_all for metric in self.metrics)
-
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
-    ) -> float:
-        raise NotImplementedError
-
-    def __init__(
-        self,
-        metric_list: List[MetricProtocol],
-        *,
-        weights: Optional[Dict[str, float]] = None,
-    ):
-        super().__init__()
-        self.metrics = metric_list
-        self.weights = weights or {}
-
-    def evaluate(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol] = None,
-    ) -> MetricsOutputs:
-        scores: List[float] = []
-        weights: List[float] = []
-        metrics_values: Dict[str, float] = {}
-        for metric in self.metrics:
-            metric_outputs = metric.evaluate(np_batch, np_outputs, loader)
-            w = self.weights.get(metric.__identifier__, 1.0)
-            weights.append(w)
-            scores.append(metric_outputs.final_score * w)
-            metrics_values.update(metric_outputs.metric_values)
-        return MetricsOutputs(sum(scores) / sum(weights), metrics_values)
-
-
 __all__ = [
     "AUC",
     "BER",
@@ -270,5 +225,4 @@ __all__ = [
     "Accuracy",
     "Quantile",
     "Correlation",
-    "MultipleMetrics",
 ]
