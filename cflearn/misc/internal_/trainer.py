@@ -61,11 +61,11 @@ def make_trainer(
     if metric_names is None:
         metrics = None
     else:
-        _metrics = MetricProtocol.make_multiple(metric_names, metric_configs)
-        if isinstance(_metrics, MetricProtocol):
-            metrics = _metrics
-        else:
-            metrics = MultipleMetrics(_metrics, weights=metric_weights)
+        metrics = MetricProtocol.fuse(
+            metric_names,
+            metric_configs,
+            metric_weights=metric_weights,
+        )
     # monitor
     monitors: Optional[List[TrainerMonitor]]
     if monitor_names is None:

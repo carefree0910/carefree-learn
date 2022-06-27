@@ -24,6 +24,7 @@ from cftool.misc import context_error_handler
 from cftool.misc import WithRegister
 
 from .types import losses_type
+from .types import configs_type
 from .types import np_dict_type
 from .types import tensor_dict_type
 from .constants import LOSS_KEY
@@ -890,6 +891,19 @@ class MetricProtocol(WithRegister["MetricProtocol"], metaclass=ABCMeta):
     @property
     def requires_all(self) -> bool:
         return False
+
+    @classmethod
+    def fuse(
+        cls,
+        names: Union[str, List[str]],
+        configs: configs_type = None,
+        *,
+        metric_weights: Optional[Dict[str, float]] = None,
+    ) -> "MetricProtocol":
+        metrics = MetricProtocol.make_multiple(names, configs)
+        if isinstance(metrics, MetricProtocol):
+            return metrics
+        return MultipleMetrics(metrics, weights=metric_weights)
 
     def evaluate(
         self,
