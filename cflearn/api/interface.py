@@ -18,8 +18,10 @@ from ..types import general_config_type
 from ..types import sample_weights_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
+from ..pipeline import ModelSoupConfigs
 from ..protocol import ModelProtocol
 from ..protocol import MetricProtocol
+from ..protocol import DataLoaderProtocol
 from .cv.pipeline import CarefreePipeline as CVCarefree
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
@@ -57,15 +59,40 @@ def pack(
     step: Optional[str] = None,
     config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
     pack_folder: Optional[str] = None,
-    cuda: Optional[str] = None,
+    cuda: Optional[Union[int, str]] = None,
+    compress: bool = True,
+    # model soup
+    model_soup_loader: Optional[DataLoaderProtocol] = None,
+    model_soup_metric_names: Optional[Union[str, List[str]]] = None,
+    model_soup_metric_configs: configs_type = None,
+    model_soup_metric_weights: Optional[Dict[str, float]] = None,
+    model_soup_valid_portion: float = 1.0,
+    model_soup_strategy: str = "greedy",
+    model_soup_states_callback: states_callback_type = None,
+    model_soup_verbose: bool = True,
 ) -> str:
     cls = DLPipeline.get_base(workplace)
+    if model_soup_loader is None or model_soup_metric_names is None:
+        model_soup_configs = None
+    else:
+        model_soup_configs = ModelSoupConfigs(
+            model_soup_loader,
+            model_soup_metric_names,
+            model_soup_metric_configs,
+            model_soup_metric_weights,
+            model_soup_valid_portion,
+            model_soup_strategy,
+            model_soup_states_callback,
+            model_soup_verbose,
+        )
     return cls.pack(
         workplace,
         step=step,
         config_bundle_callback=config_bundle_callback,
         pack_folder=pack_folder,
         cuda=cuda,
+        compress=compress,
+        model_soup_configs=model_soup_configs,
     )
 
 

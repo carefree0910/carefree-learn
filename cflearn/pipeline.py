@@ -1,5 +1,6 @@
 import os
 import json
+import math
 import torch
 import shutil
 
@@ -12,6 +13,7 @@ from typing import Type
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import shallow_copy_dict
 from cftool.misc import prepare_workplace_from
 from cftool.misc import lock_manager
@@ -30,6 +32,7 @@ from .trainer import Trainer
 from .trainer import DeviceInfo
 from .protocol import LossProtocol
 from .protocol import ModelProtocol
+from .protocol import MetricProtocol
 from .protocol import MetricsOutputs
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
@@ -77,6 +80,106 @@ class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
     @abstractmethod
     def load(export_folder: str) -> "PipelineProtocol":
         pass
+
+
+class ModelSoupConfigs(NamedTuple):
+    loader: DataLoaderProtocol
+    metric_names: Union[str, List[str]]
+    metric_configs: configs_type = None
+    metric_weights: Optional[Dict[str, float]] = None
+    valid_portion: float = 1.0
+    strategy: str = "greedy"
+    states_callback: states_callback_type = None
+    verbose: bool = True
+
+
+def _generate_model_soup_checkpoint(
+    m: "DLPipeline",
+    checkpoint_folder: str,
+    configs: ModelSoupConfigs,
+    scores_export_path: str,
+    checkpoint_export_path: str,
+) -> None:
+    current_states: tensor_dict_type = {}
+    with open(os.path.join(checkpoint_folder, SCORES_FILE), "r") as f:
+        scores = json.load(f)
+    sorted_files = get_sorted_checkpoints(checkpoint_folder)
+    sorted_paths = [os.path.join(checkpoint_folder, file) for file in sorted_files]
+    metrics = MetricProtocol.fuse(
+        configs.metric_names,
+        configs.metric_configs,
+        metric_weights=configs.metric_weights,
+    )
+    chosen_ingredients = []
+    if configs.strategy == "greedy":
+        n = 0
+        best_score = -math.inf
+        if configs.verbose:
+            print("\n".join(["=" * 100, "Creating Model Soup", "-" * 100]))
+        for file, path in zip(sorted_files, sorted_paths):
+            if configs.verbose:
+                print(f"> Checking {file}")
+            states = torch.load(path, map_location=m.device)
+            states_backup = shallow_copy_dict(current_states)
+            if configs.states_callback is not None:
+                states = configs.states_callback(m, states)
+            for k, v in states.items():
+                if n == 0:
+                    current_states[k] = v
+                else:
+                    current_v = current_states[k]
+                    current_states[k] = (current_v * n + v) / (n + 1)
+            m.model.load_state_dict(current_states)
+            res = m.inference.get_outputs(
+                configs.loader,
+                portion=configs.valid_portion,
+                metrics=metrics,
+            )
+            score = res.metric_outputs.final_score  # type: ignore
+            if score < best_score:
+                current_states = states_backup
+                if configs.verbose:
+                    print(">> Performance is not improving")
+            else:
+                n += 1
+                best_score = score
+                if configs.verbose:
+                    chosen_ingredients.append(f"{file} ({scores[file]})")
+                    print(f">> New SOTA! ({score})")
+    else:
+        msg = f"model soup strategy `{configs.strategy}` is not implemented yet"
+        raise NotImplementedError(msg)
+    with open(scores_export_path, "r") as rf:
+        existing_scores = json.load(rf)
+    key = list(existing_scores.keys())[0]
+    with open(scores_export_path, "w") as wf:
+        json.dump({key: best_score}, wf)
+    torch.save(current_states, checkpoint_export_path)
+    original_metric_names = m.trainer_config["metric_names"]
+    if original_metric_names is None:
+        metrics_identifier = "+ DEFAULTS +"
+    else:
+        if isinstance(original_metric_names, str):
+            original_metric_names = [original_metric_names]
+        metrics_identifier = " | ".join(original_metric_names)
+    if configs.verbose:
+        print(
+            "\n".join(
+                [
+                    "=" * 100,
+                    "Model Soup Generated",
+                    "-" * 100,
+                    f"Ingredients (Original Metrics : {metrics_identifier})",
+                    "-" * 100,
+                    "\n".join(chosen_ingredients),
+                    "-" * 100,
+                    "Final Score",
+                    "-" * 100,
+                    str(best_score),
+                    "-" * 100,
+                ]
+            )
+        )
 
 
 class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
@@ -423,8 +526,12 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         step: Optional[str] = None,
         config_bundle_callback: Optional[Callable[[Dict[str, Any]], Any]] = None,
         pack_folder: Optional[str] = None,
-        cuda: Optional[str] = None,
+        cuda: Optional[Union[int, str]] = None,
+        compress: bool = True,
+        model_soup_configs: Optional[ModelSoupConfigs] = None,
     ) -> str:
+        if cuda is not None:
+            cuda = str(cuda)
         if pack_folder is None:
             pack_name = f"packed{'' if step is None else f'_{step}'}"
             pack_folder = os.path.join(workplace, pack_name)
@@ -445,13 +552,12 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             else:
                 best_file = get_sorted_checkpoints(checkpoint_folder)[0]
             new_file = f"{PT_PREFIX}-1.pt"
-            shutil.copyfile(
-                os.path.join(checkpoint_folder, best_file),
-                os.path.join(pack_folder, new_file),
-            )
+            new_path = os.path.join(pack_folder, new_file)
+            shutil.copyfile(os.path.join(checkpoint_folder, best_file), new_path)
             with open(os.path.join(checkpoint_folder, SCORES_FILE), "r") as rf:
                 scores = json.load(rf)
-            with open(os.path.join(pack_folder, SCORES_FILE), "w") as wf:
+            new_scores_path = os.path.join(pack_folder, SCORES_FILE)
+            with open(new_scores_path, "w") as wf:
                 json.dump({new_file: scores[best_file]}, wf)
             config = Saving.load_dict(cls.config_name, workplace)
             config_bundle = {
@@ -465,7 +571,18 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 os.path.join(workplace, DataModule.package_folder),
                 os.path.join(pack_folder, DataModule.package_folder),
             )
-            Saving.compress(abs_folder, remove_original=True)
+        if model_soup_configs is not None:
+            m = DLPipeline.load(pack_folder, cuda=cuda, compress=False)
+            _generate_model_soup_checkpoint(
+                m,
+                checkpoint_folder,
+                model_soup_configs,
+                new_scores_path,
+                new_path,
+            )
+        if compress:
+            with lock_manager(base_folder, [pack_folder]):
+                Saving.compress(abs_folder, remove_original=True)
         return pack_folder
 
     @staticmethod
