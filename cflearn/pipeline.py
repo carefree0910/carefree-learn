@@ -96,6 +96,7 @@ class ModelSoupConfigs(NamedTuple):
 def _generate_model_soup_checkpoint(
     m: "DLPipeline",
     checkpoint_folder: str,
+    load_states_callback: Callable[["DLPipeline", Dict[str, Any]], Dict[str, Any]],
     configs: ModelSoupConfigs,
     scores_export_path: str,
     checkpoint_export_path: str,
@@ -120,6 +121,7 @@ def _generate_model_soup_checkpoint(
             if configs.verbose:
                 print(f"> Checking {file}")
             states = torch.load(path, map_location=m.device)
+            states = load_states_callback(m, states)
             states_backup = shallow_copy_dict(current_states)
             if configs.states_callback is not None:
                 states = configs.states_callback(m, states)
@@ -576,6 +578,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             _generate_model_soup_checkpoint(
                 m,
                 checkpoint_folder,
+                cls._load_states_callback,
                 model_soup_configs,
                 new_scores_path,
                 new_path,
