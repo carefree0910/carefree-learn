@@ -23,6 +23,7 @@ from ...data import MLData
 from ...data import MLLoader
 from ...data import MLDataset
 from ...data import DLDataModule
+from ...data import MLInferenceData
 from ...types import configs_type
 from ...types import np_dict_type
 from ...types import states_callback_type
@@ -311,21 +312,21 @@ class SimplePipeline(DLPipeline):
         if ModelPattern is None:
             raise ValueError("`carefree-ml` need to be installed to use `to_pattern`")
 
-        def _predict(x: np.ndarray) -> np.ndarray:
+        def _predict(data: MLInferenceData) -> np.ndarray:
             if pre_process is not None:
-                x = pre_process(x)
-            predictions = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
+                data = pre_process(data)
+            predictions = self.predict(data, **predict_kwargs)[PREDICTIONS_KEY]
             if self.is_classification:
                 return get_label_predictions(predictions, binary_threshold)
             return predictions
 
-        def _predict_prob(x: np.ndarray) -> np.ndarray:
+        def _predict_prob(data: MLInferenceData) -> np.ndarray:
             if not self.is_classification:
                 msg = "`predict_prob` should not be called in regression tasks"
                 raise ValueError(msg)
             if pre_process is not None:
-                x = pre_process(x)
-            logits = self.predict(x, **predict_kwargs)[PREDICTIONS_KEY]
+                data = pre_process(data)
+            logits = self.predict(data, **predict_kwargs)[PREDICTIONS_KEY]
             logits = get_full_logits(logits)
             return softmax(logits)
 
