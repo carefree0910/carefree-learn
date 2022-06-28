@@ -15,6 +15,7 @@ class MLInference(InferenceProtocol):
         loader: MLLoader,
         *,
         portion: float = 1.0,
+        use_loader_cache: bool = True,
         state: Optional[TrainerState] = None,
         metrics: Optional[MetricProtocol] = None,
         loss: Optional[LossProtocol] = None,
@@ -22,7 +23,8 @@ class MLInference(InferenceProtocol):
         use_tqdm: bool = False,
         **kwargs: Any,
     ) -> InferenceOutputs:
-        kwargs["loader_name"] = loader.name
+        if use_loader_cache:
+            kwargs["loader_name"] = loader.name
         return super().get_outputs(
             loader,
             portion=portion,

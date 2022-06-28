@@ -134,6 +134,7 @@ def _generate_model_soup_checkpoint(
             m.model.load_state_dict(current_states)
             res = m.inference.get_outputs(
                 configs.loader,
+                use_loader_cache=False,
                 portion=configs.valid_portion,
                 metrics=metrics,
             )
