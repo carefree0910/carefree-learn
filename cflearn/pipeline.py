@@ -14,6 +14,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import prepare_workplace_from
 from cftool.misc import lock_manager
@@ -132,12 +133,13 @@ def _generate_model_soup_checkpoint(
                     current_v = current_states[k]
                     current_states[k] = (current_v * n + v) / (n + 1)
             m.model.load_state_dict(current_states)
-            res = m.inference.get_outputs(
-                configs.loader,
-                use_loader_cache=False,
+            kw = dict(
                 portion=configs.valid_portion,
                 metrics=metrics,
             )
+            if check_requires(m.inference.get_outputs, "use_loader_cache"):
+                kw["use_loader_cache"] = False
+            res = m.inference.get_outputs(configs.loader, **kw)  # type: ignore
             score = res.metric_outputs.final_score  # type: ignore
             if score < best_score:
                 current_states = states_backup
