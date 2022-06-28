@@ -60,9 +60,7 @@ class HuggingFaceModel(ModelProtocol):
         **kwargs: Any,
     ) -> np_dict_type:
         x = self.tokenizer(texts, padding=True, return_tensors="pt")
-        data = TensorDictData(x)
-        data.prepare(None)
-        loader = data.initialize()[0]
+        loader = TensorDictData(x).get_loaders()[0]
         inference = InferenceProtocol(model=self)
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm, **kwargs)
         return outputs.forward_results

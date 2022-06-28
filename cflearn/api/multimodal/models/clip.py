@@ -49,9 +49,7 @@ class CLIPExtractor:
             texts = [texts]
         text_arrays = [self.tokenizer.tokenize(t) for t in texts]
         texts_tensor = to_torch(np.vstack(text_arrays))
-        data = TensorData(texts_tensor, batch_size=batch_size)
-        data.prepare(None)
-        loader = data.initialize()[0]
+        loader = TensorData(texts_tensor, batch_size=batch_size).get_loaders()[0]
         original_forward = self.clip.forward
         self.clip.forward = lambda _, batch, *s, **kws: self.text_forward_fn(batch)  # type: ignore
         inference = InferenceProtocol(model=self.clip)

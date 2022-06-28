@@ -6,6 +6,7 @@ import unittest
 import numpy as np
 
 from typing import Set
+from cflearn.data import DLDataModule
 
 try:
     from cfdata.tabular import TabularData
@@ -17,15 +18,14 @@ class TestDataModules(unittest.TestCase):
     def _test_data(
         self,
         key: str,
-        data: cflearn.DataModule,
+        data: DLDataModule,
         target_keys: Set[str],
     ) -> None:
         data_folder = os.path.join("_data", key)
-        data.prepare(None)
-        loader = data.initialize()[0]
+        loader = data.get_loaders()[0]
         b1 = next(iter(loader))
         data.save(data_folder)
-        data = cflearn.DataModule.load(data_folder)
+        data = DLDataModule.load(data_folder)
         loader = data.initialize()[0]
         b2 = next(iter(loader))
         for k, v in b1.items():

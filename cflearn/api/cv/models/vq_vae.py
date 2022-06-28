@@ -111,8 +111,7 @@ class VQVAEInference:
         finished_path = os.path.join(export_folder, "__finished__")
         if os.path.isfile(finished_path):
             return None
-        data.prepare(None)
-        code_train, code_valid = data.initialize()
+        code_train, code_valid = data.get_loaders()
         for name, loader in zip(["train", "valid"], [code_train, code_valid]):
             if loader is None:
                 continue

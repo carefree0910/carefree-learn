@@ -143,11 +143,22 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
         return base._load(data_folder, info, sample_weights)
 
 
+data_loaders_type = Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]
+
+
 @DataModule.register("dl")  # type: ignore
 class DLDataModule(DataModule, metaclass=ABCMeta):
     @abstractmethod
-    def initialize(self) -> Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]:
+    def initialize(self) -> data_loaders_type:
         pass
+
+    def get_loaders(
+        self,
+        *,
+        sample_weights: sample_weights_type = None,
+    ) -> data_loaders_type:
+        self.prepare(sample_weights)
+        return self.initialize()
 
 
 def get_weighted_indices(
