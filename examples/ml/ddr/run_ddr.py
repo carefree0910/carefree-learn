@@ -38,7 +38,7 @@ try:
     import cfml
 except:
     print(
-        f"{cflearn.WARNING_PREFIX}`carefre-ml` is not installed, "
+        f"{cflearn.WARNING_PREFIX}`carefree-ml` is not installed, "
         "so the visualization process will not be executed"
     )
     exit(0)
