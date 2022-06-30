@@ -28,9 +28,10 @@ except:
 class DDRPredictor:
     def __init__(self, ddr: DDR):
         self.m = ddr
+        self.device = list(ddr.parameters())[0].device
 
     def _fetch(self, x: np.ndarray, **kwargs: Any) -> tensor_dict_type:
-        net = to_torch(x).to(self.m.device)
+        net = to_torch(x).to(self.device)
         return self.m(net, **kwargs)
 
     def median(self, x: np.ndarray) -> np.ndarray:

@@ -1,11 +1,11 @@
 import torch
 
 import numpy as np
+import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
 from typing import Any
-from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -13,10 +13,8 @@ from typing import Optional
 
 from .fcnn import FCNN
 from .protocol import register_ml_module
-from ..bases import CustomLossBase
 from ...types import losses_type
 from ...types import tensor_dict_type
-from ...protocol import LossProtocol
 from ...protocol import TrainerState
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
@@ -24,6 +22,7 @@ from ...constants import PREDICTIONS_KEY
 from ..implicit.siren import make_grid
 from ..implicit.siren import Siren
 from ...misc.toolkit import get_gradient
+from ...misc.internal_ import register_loss_module
 
 
 def all_exists(*tensors: Optional[Tensor]) -> bool:
@@ -56,7 +55,7 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
 
 
 @register_ml_module("ddr")
-class DDR(CustomLossBase):
+class DDR(nn.Module):
     def __init__(
         self,
         in_dim: int,
@@ -219,35 +218,25 @@ class DDR(CustomLossBase):
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, mods)[-1]
         return results
 
-    def _get_losses(
+
+@register_loss_module("ddr")
+class DDRLoss(nn.Module):
+    def __init__(
         self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        trainer: Any,
-        forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
-        state = trainer.state
-        forward_results = self(batch_idx, batch, state, **forward_kwargs)
-        if not isinstance(trainer.loss, DDRLoss):
-            raise ValueError("`DDR` only supports `DDRLoss` as its loss")
-        loss_dict = trainer.loss(forward_results, batch, state, **loss_kwargs)
-        return forward_results, loss_dict
+        *,
+        lb_ddr: float = 1.0,
+        lb_dual: float = 1.0,
+        lb_monotonous: float = 1.0,
+    ):
+        super().__init__()
+        self.lb_ddr = lb_ddr
+        self.lb_dual = lb_dual
+        self.lb_monotonous = lb_monotonous
 
-
-@LossProtocol.register("ddr")
-class DDRLoss(LossProtocol):
-    def _init_config(self) -> None:
-        self.lb_ddr = self.config.setdefault("lb_ddr", 1.0)
-        self.lb_dual = self.config.setdefault("lb_dual", 1.0)
-        self.lb_monotonous = self.config.setdefault("lb_monotonous", 1.0)
-
-    def _core(
+    def forward(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
     ) -> losses_type:
         tau = forward_results.get("tau")
         quantiles = forward_results.get("quantiles")
