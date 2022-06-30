@@ -15,7 +15,6 @@ from .fcnn import FCNN
 from .protocol import register_ml_module
 from ...types import losses_type
 from ...types import tensor_dict_type
-from ...protocol import TrainerState
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
@@ -63,7 +62,7 @@ class DDR(nn.Module):
         num_history: int,
         hidden_units: Optional[List[int]] = None,
         *,
-        mapping_type: str = "basic",
+        mapping_type: str = "highway",
         bias: bool = True,
         activation: str = "ReLU",
         batch_norm: bool = False,
