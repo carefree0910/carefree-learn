@@ -302,7 +302,7 @@ def register_custom_module(
 
 def register_loss_module(name: str) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     """
-    Registered module should have forwaard method with one of the following formats:
+    Registered module should have forward method with one of the following formats:
 
     * forward(self, predictions, labels, **kwargs)
         * `predictions` / `labels` could have a different name
