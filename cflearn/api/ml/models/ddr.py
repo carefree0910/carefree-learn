@@ -149,6 +149,7 @@ class DDRVisualizer:
             for ratio, anchor, cdf, pdf in zip(ratios, anchors, cdfs.T, pdfs.T):
                 anchor_line = np.full(len(x_base), anchor)
                 plt.plot(x_base.ravel(), cdf, label=f"cdf {ratio:4.2f}")
+                pdf = pdf / (pdf.max() + 1.0e-8) * y_max
                 plt.plot(x_base.ravel(), pdf, label=f"pdf {ratio:4.2f}")
                 plt.plot(
                     x_base.ravel(),
@@ -217,6 +218,7 @@ class DDRVisualizer:
                 cdf, pdf = cdf[..., 0], pdf[..., 0]
                 cdf = cdf * y_diff + y_min
                 _plot("cdf", anchor, yd, cdf, anchor_line)
+                pdf = pdf / (pdf.max() + 1.0e-8) * y_max
                 _plot("pdf", anchor, None, pdf, anchor_line)
 
     @classmethod
