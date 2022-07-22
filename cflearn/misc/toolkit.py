@@ -31,7 +31,6 @@ from torch.optim import Optimizer
 from cftool.misc import prod
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
-from cftool.misc import context_error_handler
 from cftool.misc import DownloadProgressBar
 from cftool.array import arr_type
 from cftool.array import to_standard
@@ -680,7 +679,7 @@ def get_world_size() -> int:
     return 1 if ddp_info is None else ddp_info.world_size
 
 
-class toggle_optimizer(context_error_handler):
+class toggle_optimizer:
     """
     Help focusing gradients on specific optimizer and recovering previous states
 
@@ -710,14 +709,14 @@ class toggle_optimizer(context_error_handler):
             for p in group["params"]:
                 p.requires_grad = True
 
-    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         for k, p in self.m.named_parameters():
             requires_grad = self.requires_grad.get(k)
             if requires_grad is not None:
                 p.requires_grad = requires_grad
 
 
-class mode_context(context_error_handler):
+class mode_context:
     """
     Help entering specific mode and recovering previous mode
 
@@ -767,7 +766,7 @@ class mode_context(context_error_handler):
         if self._inference_context is not None:
             self._inference_context.__enter__()
 
-    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._training)
         if self._inference_context is not None:
