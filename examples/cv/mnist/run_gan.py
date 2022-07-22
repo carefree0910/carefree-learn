@@ -43,12 +43,12 @@ class GANLoss(nn.Module):
         self.register_buffer("real_label", torch.tensor(1.0))
         self.register_buffer("fake_label", torch.tensor(0.0))
 
-    def expand_target(self, tensor: Tensor, use_real_label: bool) -> Tensor:
-        target = self.real_label if use_real_label else self.fake_label
+    def expand_target(self, tensor: Tensor, target_is_real: bool) -> Tensor:
+        target = self.real_label if target_is_real else self.fake_label
         return target.expand_as(tensor)  # type: ignore
 
-    def forward(self, predictions: Tensor, use_real_label: bool) -> Tensor:
-        target_tensor = self.expand_target(predictions, use_real_label)
+    def forward(self, predictions: Tensor, target_is_real: bool) -> Tensor:
+        target_tensor = self.expand_target(predictions, target_is_real)
         loss = self.loss(predictions, target_tensor)
         return loss
 
@@ -113,7 +113,7 @@ class SimpleGAN(cflearn.CustomModule):
         with torch.cuda.amp.autocast(enabled=use_amp):
             sampled = self.sample(len(net))
             pred_fake = self.discriminator(sampled)
-            g_loss = self.loss(pred_fake, use_real_label=True)
+            g_loss = self.loss(pred_fake, target_is_real=True)
         grad_scaler.scale(g_loss).backward()
         clip_norm_fn()
         grad_scaler.step(opt_g)
@@ -123,9 +123,9 @@ class SimpleGAN(cflearn.CustomModule):
         toggle_optimizer(self, opt_d)
         with torch.cuda.amp.autocast(enabled=use_amp):
             pred_real = self.discriminator(net)
-            loss_d_real = self.loss(pred_real, use_real_label=True)
+            loss_d_real = self.loss(pred_real, target_is_real=True)
             pred_fake = self.discriminator(sampled.detach().clone())
-            loss_d_fake = self.loss(pred_fake, use_real_label=False)
+            loss_d_fake = self.loss(pred_fake, target_is_real=False)
             d_loss = 0.5 * (loss_d_fake + loss_d_real)
         grad_scaler.scale(d_loss).backward()
         clip_norm_fn()
@@ -158,9 +158,9 @@ class SimpleGAN(cflearn.CustomModule):
             net = batch[INPUT_KEY]
             sampled = self.sample(len(net))
             pred_fake = self.discriminator(sampled)
-            g_loss = self.loss(pred_fake, use_real_label=True)
+            g_loss = self.loss(pred_fake, target_is_real=True)
             pred_real = self.discriminator(net)
-            d_loss = self.loss(pred_real, use_real_label=True)
+            d_loss = self.loss(pred_real, target_is_real=True)
             loss_items.setdefault("g", []).append(g_loss.item())
             loss_items.setdefault("d", []).append(d_loss.item())
         # gather
