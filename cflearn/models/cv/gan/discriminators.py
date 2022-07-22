@@ -78,7 +78,7 @@ class NLayerDiscriminator(DiscriminatorBase):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False,
+                bias=True,
             ),
             nn.LeakyReLU(0.2, inplace=True),
         ]
@@ -91,7 +91,7 @@ class NLayerDiscriminator(DiscriminatorBase):
                     start_channels * nc_multiplier_prev,
                     start_channels * nc_multiplier,
                     4,
-                    2,
+                    1 if i == num_layers - 1 else 2,
                     bias=False,
                     padding=1,
                     norm_type=norm_type,
@@ -107,7 +107,7 @@ class NLayerDiscriminator(DiscriminatorBase):
             kernel_size=4,
             padding=1,
             stride=1,
-            bias=False,
+            bias=True,
         )
         self.generate_cond(out_channels)
 
