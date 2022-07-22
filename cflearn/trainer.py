@@ -276,6 +276,7 @@ class Trainer:
         scheduler_name: Optional[str] = None,
         optimizer_config: Optional[Dict[str, Any]] = None,
         scheduler_config: Optional[Dict[str, Any]] = None,
+        update_scheduler_per_epoch: bool = False,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         use_zero: bool = False,
         data_info_name: str = "data_info",
@@ -318,6 +319,8 @@ class Trainer:
             settings["optimizer_config"] = optimizer_config
         if scheduler_config is not None:
             settings["scheduler_config"] = scheduler_config
+        self.update_scheduler_per_epoch = update_scheduler_per_epoch
+        self._current_scheduler_epoch = -1
         self.default_opt_settings = DefaultOptimizerSettings(**settings)
         if optimizer_packs is None:
             self.optimizer_packs = None
@@ -663,11 +666,14 @@ class Trainer:
             param.grad = None
 
     def scheduler_step(self) -> None:
+        if self.update_scheduler_per_epoch:
+            if self.state.epoch == self._current_scheduler_epoch:
+                return
         lr_metric_logged = False
         for key, scheduler in self.schedulers.items():
             if scheduler is not None:
                 should_log_lr, kwargs = self._get_scheduler_settings(key, scheduler)
-                if should_log_lr:
+                if should_log_lr or self.update_scheduler_per_epoch:
                     lr_metric_logged = True
                     for callback in self.callbacks:
                         callback.log_lr(
@@ -678,6 +684,8 @@ class Trainer:
                 scheduler.step(**shallow_copy_dict(kwargs))
         if lr_metric_logged:
             self.lr_metrics_updated = False
+        if self.update_scheduler_per_epoch:
+            self._current_scheduler_epoch = self.state.epoch
 
     def _get_scheduler_settings(
         self,
