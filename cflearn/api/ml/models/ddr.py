@@ -14,6 +14,7 @@ from ....types import tensor_dict_type
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import to_numpy
 from ....misc.toolkit import to_torch
+from ....misc.toolkit import eval_context
 from ....models.ml import DDR
 
 try:
@@ -32,7 +33,8 @@ class DDRPredictor:
 
     def _fetch(self, x: np.ndarray, **kwargs: Any) -> tensor_dict_type:
         net = to_torch(x).to(self.device)
-        return self.m(net, **kwargs)
+        with eval_context(self.m, use_grad=True):
+            return self.m(net, **kwargs)
 
     def median(self, x: np.ndarray) -> np.ndarray:
         results = self._fetch(x, get_quantiles=False)
