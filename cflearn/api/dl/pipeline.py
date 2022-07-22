@@ -179,7 +179,7 @@ class CarefreePipeline(SimplePipeline):
                 else:
                     raise ValueError(
                         "`loss_name` should be provided when "
-                        "`model_name` has not implemented its own loss"
+                        f"`{model_name}` has not implemented its own loss"
                     )
         if state_config is None:
             state_config = {}
