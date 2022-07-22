@@ -344,6 +344,7 @@ class TrainerState:
         num_step_per_log: int = 350,
         num_step_per_snapshot: Optional[int] = None,
         max_step_per_snapshot: int = 1000,
+        min_snapshot_epoch_gap: int = 0,
     ):
         self.step = self.epoch = 0
         self.batch_size = loader.batch_size * get_world_size()
@@ -365,9 +366,14 @@ class TrainerState:
             num_step_per_snapshot = min(max_step_per_snapshot, num_step_per_snapshot)
         self.num_step_per_snapshot = num_step_per_snapshot
         self.max_step_per_snapshot = max_step_per_snapshot
+        self.min_snapshot_epoch_gap = min_snapshot_epoch_gap
+        self._previous_snapshot_epoch = 0
 
     def set_terminate(self) -> None:
         self.step = self.epoch = -1
+
+    def update_snapshot_epoch(self) -> None:
+        self._previous_snapshot_epoch = self.epoch
 
     @property
     def config(self) -> Dict[str, Any]:
@@ -434,6 +440,12 @@ class TrainerState:
         min_period = math.ceil(self.num_step_per_log / self.num_step_per_snapshot)
         period = max(1, int(min_period)) * self.num_step_per_snapshot
         return self.step % period == 0
+
+    @property
+    def can_snapshot(self) -> bool:
+        if self.is_terminate:
+            return True
+        return self.epoch - self._previous_snapshot_epoch >= self.min_snapshot_epoch_gap
 
     @property
     def should_start_snapshot(self) -> bool:
