@@ -661,15 +661,18 @@ class ImageFolderData(CVDataModule):
                 lmdb_config=self.lmdb_config,
             )
         )
-        self.valid_data = CVDataset(
-            ImageFolderDataset(
-                self.folder,
-                "valid",
-                self.test_transform,
-                extra_label_names=self.extra_label_names,
-                lmdb_config=self.lmdb_config,
+        if not os.path.isdir(os.path.join(self.folder, "valid")):
+            self.valid_data = self.train_data
+        else:
+            self.valid_data = CVDataset(
+                ImageFolderDataset(
+                    self.folder,
+                    "valid",
+                    self.test_transform,
+                    extra_label_names=self.extra_label_names,
+                    lmdb_config=self.lmdb_config,
+                )
             )
-        )
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         if self.pin_memory_device is not None:
@@ -766,8 +769,11 @@ class _PreparationProtocol:
     def get_new_img_path(self, idx: int, split_folder: str, old_img_path: str) -> str:
         pass
 
-    def is_ready(self, tgt_folder: str) -> bool:
-        for split in ["train", "valid"]:
+    def is_ready(self, tgt_folder: str, valid_split: Union[int, float]) -> bool:
+        candidates = ["train"]
+        if valid_split > 0:
+            candidates.append("valid")
+        for split in candidates:
             extra_keys = [f"{key}_labels" for key in self.extra_labels or []]
             for key in [LABEL_KEY] + extra_keys:
                 path = os.path.join(tgt_folder, split, f"{key}.json")
@@ -827,7 +833,7 @@ def prepare_image_folder(
         src_folder = os.path.join(prefix, src_folder)
         tgt_folder = os.path.join(prefix, tgt_folder)
 
-    if not force_rerun and preparation.is_ready(tgt_folder):
+    if not force_rerun and preparation.is_ready(tgt_folder, valid_split):
         return tgt_folder
 
     preparation.prepare_src_folder(src_folder)
@@ -959,57 +965,6 @@ def prepare_image_folder(
         all_img_paths.pop(i)
 
     # prepare core
-    num_sample = len(all_img_paths)
-    if valid_split < 1:
-        valid_split = min(max_num_valid, int(round(num_sample * valid_split)))
-    assert isinstance(valid_split, int)
-
-    train_portion = (num_sample - valid_split) / num_sample
-    label_indices_mapping: Dict[Any, List[int]] = {}
-    for i, label in enumerate(labels):
-        if isinstance(label, str) and label.endswith(".npy"):
-            label = numpy_token
-        label_indices_mapping.setdefault(label, []).append(i)
-    tuple(map(random.shuffle, label_indices_mapping.values()))
-    train_indices_list: List[List[int]] = []
-    valid_indices_list: List[List[int]] = []
-    for label_indices in label_indices_mapping.values():
-        num_label_samples = len(label_indices)
-        num_train = int(round(train_portion * num_label_samples))
-        num_train = min(num_train, num_label_samples - 1)
-        if num_train == 0:
-            train_indices_list.append([label_indices[0]])
-        else:
-            train_indices_list.append(label_indices[:num_train])
-        valid_indices_list.append(label_indices[num_train:])
-
-    def propagate(src: List[List[int]], tgt: List[List[int]]) -> None:
-        resolved = 0
-        src_lengths = list(map(len, src))
-        sorted_indices = np.argsort(src_lengths).tolist()[::-1]
-        while True:
-            for idx in sorted_indices:
-                if len(src[idx]) > 1:
-                    tgt[idx].append(src[idx].pop())
-                resolved += 1
-                if resolved == diff:
-                    break
-            if resolved == diff:
-                break
-
-    diff = sum(map(len, valid_indices_list)) - valid_split
-    if diff > 0:
-        propagate(valid_indices_list, train_indices_list)
-    elif diff < 0:
-        diff *= -1
-        propagate(train_indices_list, valid_indices_list)
-    merged_train_indices: List[int] = sorted(set(sum(train_indices_list, [])))
-    merged_valid_indices: List[int] = sorted(set(sum(valid_indices_list, [])))
-    if train_all_data:
-        merged_train_indices.extend(merged_valid_indices)
-    train_indices = np.array(merged_train_indices)
-    valid_indices = np.array(merged_valid_indices)
-
     def save(indices: np.ndarray, d_num_jobs: int, dtype: str) -> None:
         def record(idx: int) -> Optional[Tuple[str, Dict[str, Any]]]:
             split_folder = os.path.join(tgt_folder, dtype)
@@ -1100,6 +1055,61 @@ def prepare_image_folder(
         context.commit()
         db.sync()
         db.close()
+
+    num_sample = len(all_img_paths)
+    if valid_split < 1:
+        valid_split = min(max_num_valid, int(round(num_sample * valid_split)))
+    assert isinstance(valid_split, int)
+
+    if valid_split <= 0:
+        save(np.arange(num_sample), max(1, num_jobs), "train")
+        return tgt_folder
+
+    train_portion = (num_sample - valid_split) / num_sample
+    label_indices_mapping: Dict[Any, List[int]] = {}
+    for i, label in enumerate(labels):
+        if isinstance(label, str) and label.endswith(".npy"):
+            label = numpy_token
+        label_indices_mapping.setdefault(label, []).append(i)
+    tuple(map(random.shuffle, label_indices_mapping.values()))
+    train_indices_list: List[List[int]] = []
+    valid_indices_list: List[List[int]] = []
+    for label_indices in label_indices_mapping.values():
+        num_label_samples = len(label_indices)
+        num_train = int(round(train_portion * num_label_samples))
+        num_train = min(num_train, num_label_samples - 1)
+        if num_train == 0:
+            train_indices_list.append([label_indices[0]])
+        else:
+            train_indices_list.append(label_indices[:num_train])
+        valid_indices_list.append(label_indices[num_train:])
+
+    def propagate(src: List[List[int]], tgt: List[List[int]]) -> None:
+        resolved = 0
+        src_lengths = list(map(len, src))
+        sorted_indices = np.argsort(src_lengths).tolist()[::-1]
+        while True:
+            for idx in sorted_indices:
+                if len(src[idx]) > 1:
+                    tgt[idx].append(src[idx].pop())
+                resolved += 1
+                if resolved == diff:
+                    break
+            if resolved == diff:
+                break
+
+    diff = sum(map(len, valid_indices_list)) - valid_split
+    if diff > 0:
+        propagate(valid_indices_list, train_indices_list)
+    elif diff < 0:
+        diff *= -1
+        propagate(train_indices_list, valid_indices_list)
+    merged_train_indices: List[int] = sorted(set(sum(train_indices_list, [])))
+    merged_valid_indices: List[int] = sorted(set(sum(valid_indices_list, [])))
+    if train_all_data:
+        merged_train_indices.extend(merged_valid_indices)
+    train_indices = np.array(merged_train_indices)
+    valid_indices = np.array(merged_valid_indices)
 
     save(train_indices, max(1, num_jobs), "train")
     save(valid_indices, max(1, num_jobs // 2), "valid")
