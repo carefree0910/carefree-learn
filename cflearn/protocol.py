@@ -305,6 +305,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
     ) -> StepOutputs:
         pass
 
+    # TODO : Add `forward_kwargs`
     @abstractmethod
     def evaluate_step(
         self,
