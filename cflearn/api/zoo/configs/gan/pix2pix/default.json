@@ -1,0 +1,38 @@
+{
+  "pipeline": "cv.carefree",
+  "model_name": "pix2pix",
+  "model_config": {
+    "discriminator_config": {
+      "num_layers": 4,
+      "start_channels": 64
+    }
+  },
+  "fixed_epoch": 200,
+  "update_scheduler_per_epoch": true,
+  "optimizer_settings": {
+    "g_parameters": {
+      "optimizer": "adam",
+      "scheduler": "linear",
+      "optimizer_config": {
+        "lr": 0.0002,
+        "betas": [0.5,  0.999]
+      },
+      "scheduler_config": {
+        "start_epoch": 100,
+        "end_epoch": 200
+      }
+    },
+    "d_parameters": {
+      "optimizer": "adam",
+      "scheduler": "linear",
+      "optimizer_config": {
+        "lr": 0.0002,
+        "betas": [0.5,  0.999]
+      },
+      "scheduler_config": {
+        "start_epoch": 100,
+        "end_epoch": 200
+      }
+    }
+  }
+}
