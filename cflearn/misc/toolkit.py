@@ -351,14 +351,6 @@ def fix_denormal_states(
     return new_states
 
 
-def toggle_optimizer(m: nn.Module, optimizer: Optimizer) -> None:
-    for param in m.parameters():
-        param.requires_grad = False
-    for group in optimizer.param_groups:
-        for param in group["params"]:
-            param.requires_grad = True
-
-
 def to_torch(arr: np.ndarray) -> Tensor:
     return torch.from_numpy(to_standard(arr))
 
@@ -688,6 +680,43 @@ def get_world_size() -> int:
     return 1 if ddp_info is None else ddp_info.world_size
 
 
+class toggle_optimizer(context_error_handler):
+    """
+    Help focusing gradients on specific optimizer and recovering previous states
+
+    This is a context controller for requiring and only requiring grads for parameters
+    of the given optimizer at the beginning, and back to previous grads requiring states
+    at the end.
+
+    Examples
+    --------
+    >>> module = nn.Module()
+    >>> optimizer = torch.optim.Adam()
+    >>> with toggle_optimizer(module, optimizer):
+    >>>     pass  # do something
+
+    """
+
+    def __init__(self, m: nn.Module, optimizer: Optimizer):
+        self.m = m
+        self.optimizer = optimizer
+        self.requires_grad: Dict[str, bool] = {}
+
+    def __enter__(self) -> None:
+        self.requires_grad = {k: p.requires_grad for k, p in self.m.named_parameters()}
+        for p in self.m.parameters():
+            p.requires_grad = False
+        for group in self.optimizer.param_groups:
+            for p in group["params"]:
+                p.requires_grad = True
+
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        for k, p in self.m.named_parameters():
+            requires_grad = self.requires_grad.get(k)
+            if requires_grad is not None:
+                p.requires_grad = requires_grad
+
+
 class mode_context(context_error_handler):
     """
     Help entering specific mode and recovering previous mode
@@ -738,7 +767,7 @@ class mode_context(context_error_handler):
         if self._inference_context is not None:
             self._inference_context.__enter__()
 
-    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+    def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
         if self._to_train is not None:
             self._module.train(mode=self._training)
         if self._inference_context is not None:

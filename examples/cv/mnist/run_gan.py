@@ -109,29 +109,29 @@ class SimpleGAN(cflearn.CustomModule):
         opt_g = optimizers["core.g_parameters"]
         opt_d = optimizers["core.d_parameters"]
         # generator step
-        toggle_optimizer(self, opt_g)
-        with torch.cuda.amp.autocast(enabled=use_amp):
-            sampled = self.sample(len(net))
-            pred_fake = self.discriminator(sampled)
-            g_loss = self.loss(pred_fake, target_is_real=True)
-        grad_scaler.scale(g_loss).backward()
-        clip_norm_fn()
-        grad_scaler.step(opt_g)
-        grad_scaler.update()
-        opt_g.zero_grad()
+        with toggle_optimizer(self, opt_g):
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                sampled = self.sample(len(net))
+                pred_fake = self.discriminator(sampled)
+                g_loss = self.loss(pred_fake, target_is_real=True)
+            grad_scaler.scale(g_loss).backward()
+            clip_norm_fn()
+            grad_scaler.step(opt_g)
+            grad_scaler.update()
+            opt_g.zero_grad()
         # discriminator step
-        toggle_optimizer(self, opt_d)
-        with torch.cuda.amp.autocast(enabled=use_amp):
-            pred_real = self.discriminator(net)
-            loss_d_real = self.loss(pred_real, target_is_real=True)
-            pred_fake = self.discriminator(sampled.detach().clone())
-            loss_d_fake = self.loss(pred_fake, target_is_real=False)
-            d_loss = 0.5 * (loss_d_fake + loss_d_real)
-        grad_scaler.scale(d_loss).backward()
-        clip_norm_fn()
-        grad_scaler.step(opt_d)
-        grad_scaler.update()
-        opt_d.zero_grad()
+        with toggle_optimizer(self, opt_d):
+            with torch.cuda.amp.autocast(enabled=use_amp):
+                pred_real = self.discriminator(net)
+                loss_d_real = self.loss(pred_real, target_is_real=True)
+                pred_fake = self.discriminator(sampled.detach())
+                loss_d_fake = self.loss(pred_fake, target_is_real=False)
+                d_loss = 0.5 * (loss_d_fake + loss_d_real)
+            grad_scaler.scale(d_loss).backward()
+            clip_norm_fn()
+            grad_scaler.step(opt_d)
+            grad_scaler.update()
+            opt_d.zero_grad()
         # finalize
         scheduler_step_fn()
         forward_results = {PREDICTIONS_KEY: sampled}

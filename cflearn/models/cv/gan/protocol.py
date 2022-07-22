@@ -5,11 +5,9 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABCMeta
-from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Tuple
 from typing import Optional
 
 from .discriminators import DiscriminatorBase
@@ -31,7 +29,7 @@ from ....losses.gan import GANLoss
 from ....losses.gan import GANTarget
 
 
-class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
+class GANMixin(ModelWithCustomSteps, metaclass=ABCMeta):
     def __init__(
         self,
         *,
@@ -61,19 +59,16 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
     def _g_losses(
         self,
         batch: tensor_dict_type,
-        forward_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type, Optional[Tensor]]:
-        # g_losses, sampled, labels
+        forward: tensor_dict_type,
+    ) -> tensor_dict_type:
         pass
 
     @abstractmethod
     def _d_losses(
         self,
         batch: tensor_dict_type,
-        sampled: tensor_dict_type,
-        labels: Optional[Tensor],
+        detached_forward: tensor_dict_type,
     ) -> tensor_dict_type:
-        # d_losses
         pass
 
     # utilities
@@ -82,18 +77,8 @@ class GANMixin(ModelWithCustomSteps, GaussianGeneratorMixin, metaclass=ABCMeta):
     def can_reconstruct(self) -> bool:
         return False
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
-        return {PREDICTIONS_KEY: self.decode(z, labels=batch[LABEL_KEY], **kwargs)}
-
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self._g_losses(batch, {})
+        self._g_losses(batch, self.forward(batch_idx, batch))
 
 
 class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
@@ -107,37 +92,38 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
     ) -> StepOutputs:
         opt_g = trainer.optimizers["g_parameters"]
         opt_d = trainer.optimizers["d_parameters"]
-        # generator step
-        toggle_optimizer(self, opt_g)
-        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            g_losses, sampled, labels = self._g_losses(batch, forward_kwargs)
-        g_loss = g_losses.pop(LOSS_KEY)
-        trainer.grad_scaler.scale(g_loss).backward()
-        if trainer.clip_norm > 0.0:
-            trainer.clip_norm_step()
-        trainer.grad_scaler.step(opt_g)
-        trainer.grad_scaler.update()
-        opt_g.zero_grad()
-        # discriminator step
-        toggle_optimizer(self, opt_d)
+        # forward
+        forward = self.forward(batch_idx, batch, trainer.state, **forward_kwargs)
         with torch.no_grad():
-            sampled = {k: v.detach().clone() for k, v in sampled.items()}
-        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            d_losses = self._d_losses(batch, sampled, labels)
-        d_loss = d_losses.pop(LOSS_KEY)
-        trainer.grad_scaler.scale(d_loss).backward()
-        if trainer.clip_norm > 0.0:
-            trainer.clip_norm_step()
-        trainer.grad_scaler.step(opt_d)
-        trainer.grad_scaler.update()
-        opt_d.zero_grad()
+            detached_forward = {k: v.detach() for k, v in forward.items()}
+        # generator step
+        with toggle_optimizer(self, opt_g):
+            with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+                g_losses = self._g_losses(batch, forward)
+            g_loss = g_losses.pop(LOSS_KEY)
+            trainer.grad_scaler.scale(g_loss).backward()
+            if trainer.clip_norm > 0.0:
+                trainer.clip_norm_step()
+            trainer.grad_scaler.step(opt_g)
+            trainer.grad_scaler.update()
+            opt_g.zero_grad()
+        # discriminator step
+        with toggle_optimizer(self, opt_d):
+            with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+                d_losses = self._d_losses(batch, detached_forward)
+            d_loss = d_losses.pop(LOSS_KEY)
+            trainer.grad_scaler.scale(d_loss).backward()
+            if trainer.clip_norm > 0.0:
+                trainer.clip_norm_step()
+            trainer.grad_scaler.step(opt_d)
+            trainer.grad_scaler.update()
+            opt_d.zero_grad()
         # finalize
         trainer.scheduler_step()
-        forward_results = {PREDICTIONS_KEY: sampled}
         loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
         loss_dict.update({k: v.item() for k, v in g_losses.items()})
         loss_dict.update({k: v.item() for k, v in d_losses.items()})
-        return StepOutputs(forward_results, loss_dict)
+        return StepOutputs(detached_forward, loss_dict)
 
     def evaluate_step(  # type: ignore
         self,
@@ -150,23 +136,25 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
             if i / len(loader) >= portion:
                 break
             batch = to_device(batch, self.device)
-            g_losses, sampled, labels = self._g_losses(batch, {})
-            d_losses = self._d_losses(batch, sampled, labels)
-            g_loss = g_losses.pop(LOSS_KEY)
-            d_loss = d_losses.pop(LOSS_KEY)
-            loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
+            forward = self.forward(i, batch, trainer.state)
+            g_losses = self._g_losses(batch, forward)
+            # in evaluate step, all tensors are already detached
+            d_losses = self._d_losses(batch, forward)
+            g_loss = g_losses.pop(LOSS_KEY).item()
+            d_loss = d_losses.pop(LOSS_KEY).item()
+            loss = g_loss + d_loss
+            loss_dict = {"g": g_loss, "d": d_loss, LOSS_KEY: loss}
             loss_dict.update({k: v.item() for k, v in g_losses.items()})
             loss_dict.update({k: v.item() for k, v in d_losses.items()})
             for k, v in loss_dict.items():
                 loss_items.setdefault(k, []).append(v)
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        mean_loss_items[LOSS_KEY] = sum(mean_loss_items.values())
         score = trainer.weighted_loss_score(mean_loss_items)
         return MetricsOutputs(score, mean_loss_items)
 
 
-class VanillaGANMixin(OneStageGANMixin, metaclass=ABCMeta):
+class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMeta):
     def __init__(
         self,
         in_channels: int,
@@ -195,27 +183,39 @@ class VanillaGANMixin(OneStageGANMixin, metaclass=ABCMeta):
     def d_parameters(self) -> List[nn.Parameter]:
         return list(self.discriminator.parameters())
 
+    def forward(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
+        return {PREDICTIONS_KEY: self.decode(z, labels=batch[LABEL_KEY], **kwargs)}
+
     def _g_losses(
         self,
         batch: tensor_dict_type,
-        forward_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type, Optional[Tensor]]:
+        forward: tensor_dict_type,
+    ) -> tensor_dict_type:
         labels = batch.get(LABEL_KEY)
         if labels is not None:
             labels = labels.view(-1)
-        sampled = self.sample(len(batch[INPUT_KEY]), labels=labels, **forward_kwargs)
+        sampled = forward[PREDICTIONS_KEY]
         pred_fake = self.discriminator(sampled)
         loss_g = self.gan_loss(pred_fake, GANTarget(True, labels))
-        return {LOSS_KEY: loss_g}, {"sampled": sampled}, labels
+        return {LOSS_KEY: loss_g}
 
     def _d_losses(
         self,
         batch: tensor_dict_type,
-        sampled: tensor_dict_type,
-        labels: Optional[Tensor],
+        detached_forward: tensor_dict_type,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
-        sampled_tensor = sampled["sampled"]
+        labels = batch.get(LABEL_KEY)
+        if labels is not None:
+            labels = labels.view(-1)
+        sampled_tensor = detached_forward[PREDICTIONS_KEY]
         pred_real = self.discriminator(net)
         loss_d_real = self.gan_loss(pred_real, GANTarget(True, labels))
         pred_fake = self.discriminator(sampled_tensor)
