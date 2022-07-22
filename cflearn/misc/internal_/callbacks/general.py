@@ -241,10 +241,11 @@ class ArtifactCallback(TrainerCallback):
             checkpoint_folder = trainer.checkpoint_folder
             if checkpoint_folder is not None:
                 score_path = os.path.join(checkpoint_folder, SCORES_FILE)
-                with open(score_path, "r") as f:
-                    for key in json.load(f):
-                        name = os.path.splitext(key)[0]
-                        must_keep.add(int(name[len(PT_PREFIX) :]))
+                if os.path.isfile(score_path):
+                    with open(score_path, "r") as f:
+                        for key in json.load(f):
+                            name = os.path.splitext(key)[0]
+                            must_keep.add(int(name[len(PT_PREFIX) :]))
             num_left = len(current_steps)
             for step in current_steps:
                 if step in must_keep:
