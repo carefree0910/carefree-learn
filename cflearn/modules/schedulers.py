@@ -8,6 +8,7 @@ from torch.optim import Optimizer
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.optim.lr_scheduler import StepLR
 from torch.optim.lr_scheduler import CyclicLR
+from torch.optim.lr_scheduler import LambdaLR
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -30,6 +31,16 @@ def register_scheduler(name: str) -> Callable[[Type], Type]:
 register_scheduler("cyclic")(CyclicLR)
 register_scheduler("cosine")(CosineAnnealingLR)
 register_scheduler("cosine_restarts")(CosineAnnealingWarmRestarts)
+
+
+@register_scheduler("linear")
+class LinearScheduler(LambdaLR):
+    def __init__(self, optimizer: Optimizer, *, start_epoch: int, end_epoch: int):
+        def lr_lambda(epoch: int) -> float:
+            span = float(end_epoch - start_epoch + 1)
+            return 1.0 - max(0, min(epoch, end_epoch) + 1 - start_epoch) / span
+
+        super().__init__(optimizer, lr_lambda=lr_lambda)
 
 
 @register_scheduler("linear_inverse")
