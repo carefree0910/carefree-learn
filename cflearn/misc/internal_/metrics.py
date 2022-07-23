@@ -170,7 +170,7 @@ class Correlation(MetricInterface):
         return True
 
     def forward(self, predictions: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
-        return corr(predictions, labels).mean().item()
+        return corr(predictions, labels, get_diagonal=True).mean().item()
 
 
 @register_metric("iou")
