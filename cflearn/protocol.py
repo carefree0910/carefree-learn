@@ -812,7 +812,7 @@ class InferenceProtocol:
                         labels.setdefault(k, []).append(v)
                 # metrics
                 if requires_metrics:
-                    sub_outputs = metrics.evaluate(np_batch, np_outputs)  # type: ignore
+                    sub_outputs = metrics.evaluate(np_batch, np_outputs, loader)  # type: ignore
                     metric_outputs_list.append(sub_outputs)
                 # loss
                 if loss is not None:
@@ -844,6 +844,7 @@ class InferenceProtocol:
                 metric_outputs = metrics.evaluate(
                     {k: np.vstack(v) for k, v in labels.items()},
                     final_results,
+                    loader,
                 )
             else:
                 scores = []
