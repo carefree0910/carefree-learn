@@ -2,7 +2,6 @@ import numpy as np
 
 from typing import Any
 from typing import Dict
-from typing import List
 from typing import Optional
 from cftool.array import iou
 from cftool.array import corr
@@ -13,7 +12,6 @@ from .register import MetricInterface
 from ..toolkit import get_full_logits
 from ..toolkit import get_label_predictions
 from ...types import np_dict_type
-from ...protocol import MetricsOutputs
 from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY

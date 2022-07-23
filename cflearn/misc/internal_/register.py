@@ -373,4 +373,5 @@ __all__ = [
     "register_custom_module",
     "register_loss_module",
     "CustomModule",
+    "MetricInterface",
 ]
