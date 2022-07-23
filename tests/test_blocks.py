@@ -252,13 +252,13 @@ class TestBlocks(unittest.TestCase):
         t1, t2, t3 = _test_case([4] * 10 + [8] * 10 + [16] * 10)
         self.assertTrue(t1 > t2 and t1 > t3)
         for dim in [4, 64, 128, 256]:
-            for n_dim in [10, 3]:
+            for n_dim in [8, 16]:
                 t1, t2, t3 = _test_case([dim] * n_dim)
                 self.assertTrue(t1 > t2 and t1 > t3)
         for dim in [4, 16]:
-            dims = [dim] * 8 + [dim * 2] * 8 + [dim * 3] * 8
+            dims = [dim] * 16 + [dim * 2] * 12 + [dim * 3] * 8
             t1, t2, t3 = _test_case(dims)
-            self.assertTrue(t1 > t3 > t2)
+            self.assertTrue(t1 > t2 and t1 > t3)
 
     def test_cv_backbone(self) -> None:
         def _check(name: str) -> None:
