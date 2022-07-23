@@ -461,11 +461,12 @@ class MLModel(ModelWithCustomSteps):
 def register_ml_module(
     name: str,
     *,
+    allow_duplicate: bool = False,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
-        @MLCoreProtocol.register(name)
+        @MLCoreProtocol.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
             def __init__(self, **kwargs: Any):
                 super().__init__(**filter_kw(MLCoreProtocol.__init__, kwargs))

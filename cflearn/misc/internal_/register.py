@@ -70,9 +70,13 @@ class MetricInterface:
 metric_type = Type[MetricInterface]
 
 
-def register_metric(name: str) -> Callable[[metric_type], metric_type]:
+def register_metric(
+    name: str,
+    *,
+    allow_duplicate: bool = False,
+) -> Callable[[metric_type], metric_type]:
     def _core(metric_base: metric_type) -> metric_type:
-        @MetricProtocol.register(name)
+        @MetricProtocol.register(name, allow_duplicate=allow_duplicate)
         class _(MetricProtocol):
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
@@ -136,11 +140,12 @@ def _forward(
 def register_module(
     name: str,
     *,
+    allow_duplicate: bool = False,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
-        @ModelProtocol.register(name)
+        @ModelProtocol.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
@@ -224,6 +229,7 @@ class CustomModule(nn.Module, metaclass=ABCMeta):
 def register_custom_module(
     name: str,
     *,
+    allow_duplicate: bool = False,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
     custom_train_step: bool = True,
@@ -232,7 +238,7 @@ def register_custom_module(
     custom_ddp_initialization: bool = False,
 ) -> Callable[[Type[CustomModule]], Type[CustomModule]]:
     def _core(m: Type[CustomModule]) -> Type[CustomModule]:
-        @ModelProtocol.register(name)
+        @ModelProtocol.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
@@ -300,7 +306,11 @@ def register_custom_module(
     return _core
 
 
-def register_loss_module(name: str) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
+def register_loss_module(
+    name: str,
+    *,
+    allow_duplicate: bool = False,
+) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     """
     Registered module should have forward method with one of the following formats:
 
@@ -323,7 +333,7 @@ def register_loss_module(name: str) -> Callable[[Type[nn.Module]], Type[nn.Modul
     """
 
     def _core(loss_base: Type[nn.Module]) -> Type[nn.Module]:
-        @LossProtocol.register(name)
+        @LossProtocol.register(name, allow_duplicate=allow_duplicate)
         class _(LossProtocol):  # type: ignore
             def __init__(self, reduction: str = "mean", **kwargs: Any):
                 super().__init__(reduction, **kwargs)
