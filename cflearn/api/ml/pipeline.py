@@ -32,7 +32,6 @@ from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
-from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import get_full_logits
 from ...misc.toolkit import get_label_predictions
@@ -286,7 +285,11 @@ class SimplePipeline(DLPipeline):
 
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         super()._prepare_trainer_defaults(data_info)
-        if self.trainer_config["metric_names"] is None and self.use_auto_loss:
+        if (
+            self.trainer_config["metric_names"] is None
+            and self.use_auto_loss
+            and not self.trainer_config["use_losses_as_metrics"]
+        ):
             if data_info["is_classification"]:
                 self.trainer_config["metric_names"] = ["acc", "auc"]
             else:
