@@ -20,6 +20,7 @@ from ..types import sample_weights_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
 from ..pipeline import ModelSoupConfigs
+from ..protocol import LossProtocol
 from ..protocol import ModelProtocol
 from ..protocol import MetricProtocol
 from ..protocol import DataLoaderProtocol
@@ -154,6 +155,14 @@ def pack_onnx(
         verbose=verbose,
         **kwargs,
     )
+
+
+def make_model(name: str, **kwargs: Any) -> ModelProtocol:
+    return ModelProtocol.make(name, kwargs)
+
+
+def make_loss(name: str, **kwargs: Any) -> LossProtocol:
+    return LossProtocol.make(name, kwargs)
 
 
 def make_metric(name: str, **kwargs: Any) -> MetricProtocol:
