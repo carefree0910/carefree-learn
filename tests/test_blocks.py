@@ -250,7 +250,7 @@ class TestBlocks(unittest.TestCase):
         t1, t2, t3 = _test_case([4] * 30)
         self.assertTrue(t1 > t2 and t1 > t3)
         t1, t2, t3 = _test_case([4] * 10 + [8] * 10 + [16] * 10)
-        self.assertTrue(t1 > t3 > t2)
+        self.assertTrue(t1 > t2 and t1 > t3)
         for dim in [4, 64, 128, 256]:
             for n_dim in [10, 3]:
                 t1, t2, t3 = _test_case([dim] * n_dim)
