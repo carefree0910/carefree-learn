@@ -33,6 +33,7 @@ jobs:
           pip install pytest
           pip install pytest-cov
           pytest -v --cov --durations=0
+          pip uninstall --yes carefree-toolkit
       - name: Install full dependencies
         shell: bash -l {0}
         run: |
