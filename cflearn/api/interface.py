@@ -13,6 +13,7 @@ from cftool.misc import parse_config
 from ..models import *
 from ..types import data_type
 from ..types import configs_type
+from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import sample_weights_type
@@ -167,12 +168,18 @@ def _make_ml_data(
     y_train: data_type = None,
     x_valid: data_type = None,
     y_valid: data_type = None,
+    train_others: Optional[np_dict_type] = None,
+    valid_others: Optional[np_dict_type] = None,
     carefree: bool = False,
     is_classification: Optional[bool] = None,
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
 ) -> MLData:
-    data_kwargs: Dict[str, Any] = {"is_classification": is_classification}
+    data_kwargs: Dict[str, Any] = {
+        "is_classification": is_classification,
+        "train_others": train_others,
+        "valid_others": valid_others,
+    }
     if carefree:
         data_kwargs["cf_data_config"] = cf_data_config
     update_dict(data_config or {}, data_kwargs)
@@ -187,6 +194,8 @@ def fit_ml(
     x_valid: data_type = None,
     y_valid: data_type = None,
     *,
+    train_others: Optional[np_dict_type] = None,
+    valid_others: Optional[np_dict_type] = None,
     # data
     carefree: bool = False,
     is_classification: Optional[bool] = None,
@@ -300,6 +309,8 @@ def fit_ml(
         y_train,
         x_valid,
         y_valid,
+        train_others,
+        valid_others,
         carefree,
         is_classification,
         data_config,
@@ -314,6 +325,8 @@ def repeat_ml(
     x_valid: data_type = None,
     y_valid: data_type = None,
     *,
+    train_others: Optional[np_dict_type] = None,
+    valid_others: Optional[np_dict_type] = None,
     # repeat
     workplace: str = "_repeat",
     models: Union[str, List[str]] = "fcnn",
@@ -434,6 +447,8 @@ def repeat_ml(
             y_train,
             x_valid,
             y_valid,
+            train_others,
+            valid_others,
             carefree,
             is_classification,
             data_config,

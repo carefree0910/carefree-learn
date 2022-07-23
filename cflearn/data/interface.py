@@ -42,6 +42,7 @@ from .core import DLDataModule
 from .core import ImageFolderDataset
 from .core import InferenceImageFolderDataset
 from ..types import data_type
+from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..types import sample_weights_type
 from ..constants import INPUT_KEY
@@ -314,6 +315,8 @@ class MLData(DLDataModule):
         x_valid: data_type = None,
         y_valid: data_type = None,
         *,
+        train_others: Optional[np_dict_type] = None,
+        valid_others: Optional[np_dict_type] = None,
         cf_data: Optional[TabularData] = None,
         num_history: int = 1,
         is_classification: Optional[bool] = None,
@@ -333,7 +336,15 @@ class MLData(DLDataModule):
         for_inference: bool = False,
     ):
         self.arguments = shallow_copy_dict(get_arguments())
-        pop_keys = ["x_train", "y_train", "x_valid", "y_valid", "cf_data"]
+        pop_keys = [
+            "x_train",
+            "y_train",
+            "x_valid",
+            "y_valid",
+            "train_others",
+            "valid_others",
+            "cf_data",
+        ]
         for key in pop_keys:
             self.arguments.pop(key)
         assert x_train is not None
@@ -341,6 +352,8 @@ class MLData(DLDataModule):
         self.y_train = y_train
         self.x_valid = x_valid
         self.y_valid = y_valid
+        self.train_others = train_others
+        self.valid_others = valid_others
         self.cf_data = cf_data
         self.num_history = num_history
         if is_classification is None and cf_data is None and not for_inference:
@@ -370,6 +383,8 @@ class MLData(DLDataModule):
         }
 
     def prepare(self, sample_weights: sample_weights_type) -> None:
+        train_others = self.train_others or {}
+        valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
         if self.cf_data is not None:
             if not self.loaded:
@@ -400,11 +415,13 @@ class MLData(DLDataModule):
                     rs = self.cf_data.split(split, order=self.valid_split_order)
                     self.train_cf_data = rs.remained
                     self.valid_cf_data = rs.split
-            self.train_data = MLDataset(*self.train_cf_data.processed.xy)
+            train_xy = self.train_cf_data.processed.xy
+            self.train_data = MLDataset(*train_xy, **train_others)
             if self.valid_cf_data is None:
                 self.valid_data = None
             else:
-                self.valid_data = MLDataset(*self.valid_cf_data.processed.xy)
+                valid_xy = self.valid_cf_data.processed.xy
+                self.valid_data = MLDataset(*valid_xy, **valid_others)
             self.num_classes = self.train_cf_data.num_classes
             self.input_dim = self.train_cf_data.processed_dim
             return None
@@ -412,11 +429,11 @@ class MLData(DLDataModule):
             raise ValueError("`cf_data` should be provided when `x_train` is `str`")
         self.num_classes = None
         self.input_dim = self.x_train.shape[-1]
-        self.train_data = MLDataset(self.x_train, self.y_train)
+        self.train_data = MLDataset(self.x_train, self.y_train, **train_others)
         if self.x_valid is None or self.y_valid is None:
             self.valid_data = None
         else:
-            self.valid_data = MLDataset(self.x_valid, self.y_valid)
+            self.valid_data = MLDataset(self.x_valid, self.y_valid, **valid_others)
 
     def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
         train_loader = MLLoader(
@@ -496,6 +513,12 @@ class MLData(DLDataModule):
         for data, file in zip(all_data, self.data_files):
             if data is not None:
                 np.save(os.path.join(data_folder, file), data)
+        if self.train_others is not None:
+            for k, v in self.train_others.items():
+                np.save(os.path.join(data_folder, f"{k}_train.npy"), v)
+        if self.valid_others is not None:
+            for k, v in self.valid_others.items():
+                np.save(os.path.join(data_folder, f"{k}_valid.npy"), v)
         if self.cf_data is not None:
             full_cf_data_folder = os.path.join(data_folder, self.full_cf_data_name)
             self.cf_data.save(full_cf_data_folder, retain_data=True)
@@ -513,6 +536,20 @@ class MLData(DLDataModule):
             args.append(None if not os.path.isfile(path) else np.load(path))
         with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
             kwargs = json.load(f)
+        train_others = {}
+        valid_others = {}
+        for file in os.listdir(data_folder):
+            if file in cls.data_files:
+                continue
+            path = os.path.join(data_folder, file)
+            if file.endswith("_train"):
+                train_others[file.split("_train")[0]] = np.load(path)
+            elif file.endswith("_valid"):
+                valid_others[file.split("_valid")[0]] = np.load(path)
+        if train_others:
+            kwargs["train_others"] = train_others
+        if valid_others:
+            kwargs["valid_others"] = valid_others
         if info["cf_data"] is not None:
             if TabularData is None:
                 raise ValueError(

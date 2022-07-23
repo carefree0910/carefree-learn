@@ -177,10 +177,11 @@ def get_weighted_indices(
 
 @DatasetProtocol.register("ml")
 class MLDataset(DatasetProtocol):
-    def __init__(self, x: np.ndarray, y: Optional[np.ndarray]):
+    def __init__(self, x: np.ndarray, y: Optional[np.ndarray], **others: np.ndarray):
         super().__init__()
         self.x = x
         self.y = y
+        self.others = others
 
     def __len__(self) -> int:
         return len(self.x)
@@ -226,11 +227,14 @@ class MLLoader(DataLoaderProtocol):
             raise StopIteration
         self.cursor += self.batch_size
         indices = self.indices[start : self.cursor]
-        return {
+        batch = {
             INPUT_KEY: to_torch(self.data.x[indices]),
             LABEL_KEY: None if self.data.y is None else to_torch(self.data.y[indices]),
             BATCH_INDICES_KEY: to_torch(indices),
         }
+        for k, v in self.data.others.items():
+            batch[k] = to_torch(v[indices])
+        return batch
 
     def disable_shuffle(self) -> None:
         self.shuffle = False
