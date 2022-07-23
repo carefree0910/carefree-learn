@@ -29,8 +29,8 @@ class TestToolkit(unittest.TestCase):
         corr10 = corr(w_pred, w_pred)
         corr11 = corr(w_pred, w_target)
         corr12 = corr(w_target, w_pred)
-        self.assertTrue(allclose(corr00, corr10))
-        self.assertTrue(allclose(corr01, corr11, corr02.t(), corr12.t()))
+        self.assertTrue(allclose(corr00, corr10, atol=1.0e-5))
+        self.assertTrue(allclose(corr01, corr11, corr02.t(), corr12.t(), atol=1.0e-5))
 
 
 if __name__ == "__main__":
