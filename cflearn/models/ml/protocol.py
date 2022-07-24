@@ -322,6 +322,9 @@ class MixedStackedModel(nn.Module):
         use_positional_encoding: bool = False,
     ):
         super().__init__()
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        self.num_history = num_history
         self.to_encoder = Linear(input_dim, latent_dim)
         self.encoder = MixedStackedEncoder(
             latent_dim,
