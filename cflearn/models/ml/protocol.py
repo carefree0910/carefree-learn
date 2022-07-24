@@ -482,6 +482,8 @@ def register_ml_module(
         class _(*bases):  # type: ignore
             def __init__(self, **kwargs: Any):
                 super().__init__(**filter_kw(MLCoreProtocol.__init__, kwargs))
+                kwargs["in_dim"] = kwargs["input_dim"]
+                kwargs["out_dim"] = kwargs["output_dim"]
                 self.core = m(**filter_kw(m, kwargs))
 
             def _init_with_trainer(self, trainer: Any) -> None:
