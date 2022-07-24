@@ -5,15 +5,12 @@ import numpy as np
 import torch.nn as nn
 
 from torch import Tensor
-from typing import Any
 from typing import Dict
 from typing import List
 from typing import Callable
-from typing import Optional
 from torch.optim import Optimizer
 from cflearn.types import tensor_dict_type
 from cflearn.protocol import StepOutputs
-from cflearn.protocol import TrainerState
 from cflearn.protocol import MetricsOutputs
 from cflearn.protocol import DataLoaderProtocol
 from cflearn.constants import INPUT_KEY
@@ -92,18 +89,14 @@ class SimpleGAN(cflearn.CustomModule):
         )
         self.loss = GANLoss()
 
-    def train_step(
+    def train_step(  # type: ignore
         self,
-        batch_idx: int,
         batch: tensor_dict_type,
         optimizers: Dict[str, Optimizer],
         use_amp: bool,
         grad_scaler: GradScaler,
         clip_norm_fn: Callable[[], None],
         scheduler_step_fn: Callable[[], None],
-        trainer: Any,
-        forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
         net = batch[INPUT_KEY]
         opt_g = optimizers["core.g_parameters"]
@@ -143,12 +136,11 @@ class SimpleGAN(cflearn.CustomModule):
         }
         return StepOutputs(forward_results, loss_dict)
 
-    def evaluate_step(
+    def evaluate_step(  # type: ignore
         self,
         loader: DataLoaderProtocol,
         portion: float,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
-        trainer: Any,
     ) -> MetricsOutputs:
         loss_items: Dict[str, List[float]] = {}
         for i, batch in enumerate(loader):
@@ -181,14 +173,8 @@ class SimpleGAN(cflearn.CustomModule):
         z = torch.randn(num_samples, self.latent_dim, device=self.device)
         return self.generator(z)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.sample(len(batch[INPUT_KEY]))}
+    def forward(self, net: Tensor) -> Tensor:  # type: ignore
+        return self.sample(len(net))
 
 
 config = dict(cuda=None if is_ci else 0)

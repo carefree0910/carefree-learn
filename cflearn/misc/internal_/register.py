@@ -30,6 +30,7 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import filter_kw
+from ...misc.toolkit import shallow_copy_dict
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -215,8 +216,7 @@ class CustomModule(nn.Module, metaclass=ABCMeta):
     ) -> tensor_dict_type:
         pass
 
-    @staticmethod
-    def params_groups(m: nn.Module) -> Any:
+    def params_groups(self, m: nn.Module) -> Any:
         pass
 
     def init_ddp(self) -> None:
@@ -251,7 +251,7 @@ def register_custom_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                return self.core.forward(batch_idx, batch, state, **kwargs)
+                return _forward(self, batch_idx, batch, INPUT_KEY, state, **kwargs)
 
             def train_step(
                 self,
@@ -261,18 +261,20 @@ def register_custom_module(
                 forward_kwargs: Dict[str, Any],
                 loss_kwargs: Dict[str, Any],
             ) -> StepOutputs:
-                return self.core.train_step(
-                    batch_idx,
-                    batch,
-                    trainer.optimizers,
-                    trainer.use_amp,
-                    trainer.grad_scaler,
-                    _get_clip_norm_fn(trainer),
-                    trainer.scheduler_step,
-                    trainer,
-                    forward_kwargs,
-                    loss_kwargs,
+                kwargs = dict(
+                    batch_idx=batch_idx,
+                    batch=batch,
+                    optimizers=trainer.optimizers,
+                    use_amp=trainer.use_amp,
+                    grad_scaler=trainer.grad_scaler,
+                    clip_norm_fn=_get_clip_norm_fn(trainer),
+                    scheduler_step_fn=trainer.scheduler_step,
+                    trainer=trainer,
+                    forward_kwargs=forward_kwargs,
+                    loss_kwargs=loss_kwargs,
                 )
+                fn = self.core.train_step
+                return fn(**filter_kw(fn, kwargs))
 
             def evaluate_step(  # type: ignore
                 self,
@@ -280,12 +282,14 @@ def register_custom_module(
                 portion: float,
                 trainer: Any,
             ) -> MetricsOutputs:
-                return self.core.evaluate_step(
-                    loader,
-                    portion,
-                    trainer.weighted_loss_score,
-                    trainer,
+                kwargs = dict(
+                    loader=loader,
+                    portion=portion,
+                    weighted_loss_score_fn=trainer.weighted_loss_score,
+                    trainer=trainer,
                 )
+                fn = self.core.evaluate_step
+                return fn(**filter_kw(fn, kwargs))
 
             def params_groups(self, m_: nn.Module) -> Any:
                 return self.core.params_groups(m_)
