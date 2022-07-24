@@ -205,7 +205,7 @@ class Encoder(nn.Module):
             assert isinstance(self._fe_init_config, dict)
             self.embeddings.append(
                 Embedding(
-                    sum(input_dims),
+                    sum(input_dims[i] for i in self._embed_indices),
                     unified_dim,
                     self._fe_init_method,
                     self._fe_init_config,
