@@ -126,6 +126,20 @@ class Dimensions:
         self._numerical_columns = sorted(numerical_columns_mapping.values())
         self.num_history = num_history
 
+    def __str__(self) -> str:
+        return "\n".join(
+            [
+                "Dimensions(",
+                f"    merged_dim    = {self.merged_dim}",
+                f"    one_hot_dim   = {self.one_hot_dim}",
+                f"    embedding_dim = {self.embedding_dim}",
+                f"    numerical_dim = {self.numerical_dim}",
+                ")",
+            ]
+        )
+
+    __repr__ = __str__
+
     @property
     def merged_dim(self) -> int:
         return self._categorical_dim + self.numerical_dim
