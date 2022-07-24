@@ -211,10 +211,6 @@ class TestBlocks(unittest.TestCase):
             nd = len(embed_dims)
             return Encoder(
                 {
-                    "use_fast_embedding": use_fast_embedding,
-                    "recover_original_dim": recover_original_dim,
-                },
-                {
                     idx: EncodingSettings(
                         dim=embed_dims[idx],
                         methods="embedding",
@@ -222,7 +218,10 @@ class TestBlocks(unittest.TestCase):
                     )
                     for idx in range(nd)
                 },
-                [],
+                config={
+                    "use_fast_embedding": use_fast_embedding,
+                    "recover_original_dim": recover_original_dim,
+                },
             )
 
         def _run(

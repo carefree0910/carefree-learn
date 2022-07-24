@@ -109,9 +109,10 @@ class EncodingSettings(NamedTuple):
 class Encoder(nn.Module):
     def __init__(
         self,
-        config: Dict[str, Any],
         settings: Dict[int, EncodingSettings],
-        loaders: List[MLLoader],
+        *,
+        config: Optional[Dict[str, Any]] = None,
+        loaders: Optional[List[MLLoader]] = None,
     ):
         """
         Encoder to perform differentiable categorical encodings.
@@ -125,6 +126,9 @@ class Encoder(nn.Module):
 
         Parameters
         ----------
+        settings (Dict[`idx`, EncoderSettings]) : encoding settings of each categorical column.
+            * key: `idx`.
+            * value: `EncoderSettings`.
         config (Dict[str, Any]) : configs of the encoder.
             * embedding_dropout (float) : dropout rate for embedding.
                 * default : 0.2
@@ -142,9 +146,7 @@ class Encoder(nn.Module):
                 * default : None
             * fast_embedding_init_config (Dict[str, Any] | None) : init config for fast embedding.
                 * default : None
-        settings (Dict[`idx`, EncoderSettings]) : encoding settings of each categorical column.
-            * key: `idx`.
-            * value: `EncoderSettings`.
+        loaders (List[MLLoader]) : internally used by `carefree-learn`.
 
         Properties
         ----------
@@ -172,9 +174,10 @@ class Encoder(nn.Module):
 
         """
         super().__init__()
+        loaders = loaders or []
         self._fe_init_method: Optional[str]
         self._fe_init_config: Optional[Dict[str, Any]]
-        self._init_config(config)
+        self._init_config(config or {})
         for loader in loaders:
             if loader.shuffle:
                 raise ValueError("`loader` should not be shuffled in `Encoder`")

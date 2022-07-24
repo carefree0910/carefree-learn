@@ -190,7 +190,7 @@ class SimplePipeline(DLPipeline):
             if valid_loader is not None:
                 assert isinstance(valid_loader, MLLoader)
                 loaders.append(valid_loader)
-        return Encoder(self.encoder_config, settings, loaders)
+        return Encoder(settings, config=self.encoder_config, loaders=loaders)
 
     def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
         assert isinstance(self.input_dim, int)
