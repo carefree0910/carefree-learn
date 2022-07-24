@@ -502,11 +502,11 @@ class CarefreePipeline(SimplePipeline):
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                     numerical_columns_mapping[idx] = idx - excluded
                 elif idx not in encoder_settings:
+                    true_idx = idx - excluded
                     setting = EncodingSettings(dim=recognizer.num_unique_values)
-                    encoder_settings[idx] = setting
+                    encoder_settings[true_idx] = setting
                     use_one_hot = use_one_hot or setting.use_one_hot
                     use_embedding = use_embedding or setting.use_embedding
-                    true_idx = idx - excluded
                     categorical_columns_mapping[idx] = true_idx
         if not encoder_settings:
             encoder = None
