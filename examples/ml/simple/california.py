@@ -3,12 +3,19 @@ import cflearn
 import numpy as np
 
 from cfdata.tabular import TabularDataset
+from cflearn.misc.toolkit import check_is_ci
 
 
 metrics = ["mae", "mse"]
 x, y = TabularDataset.california().xy
 y = (y - y.mean()) / y.std()
-m = cflearn.api.fit_ml(x, y, is_classification=False, metric_names=metrics)
+m = cflearn.api.fit_ml(
+    x,
+    y,
+    is_classification=False,
+    metric_names=metrics,
+    debug=check_is_ci(),
+)
 
 idata = cflearn.MLInferenceData(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)

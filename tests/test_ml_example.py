@@ -43,7 +43,7 @@ class TestExample(unittest.TestCase):
             0,
         )
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'california.py')}"),
+            os.system(f"python {os.path.join(folder, 'california.py')} --ci 1"),
             0,
         )
 
