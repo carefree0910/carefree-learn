@@ -9,8 +9,8 @@ from .protocol import register_ml_module
 class Transformer(MixedStackedModel):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         latent_dim: int = 256,
         *,
@@ -24,8 +24,8 @@ class Transformer(MixedStackedModel):
         attention_kwargs.setdefault("bias", False)
         attention_kwargs.setdefault("num_heads", 8)
         super().__init__(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             latent_dim,
             token_mixing_type="attention",

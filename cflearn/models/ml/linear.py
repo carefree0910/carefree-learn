@@ -7,14 +7,14 @@ from .protocol import register_ml_module
 class Linear(torch.nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         *,
         bias: bool = True,
     ):
         super().__init__()
-        self.net = torch.nn.Linear(in_dim * num_history, out_dim, bias)
+        self.net = torch.nn.Linear(input_dim * num_history, output_dim, bias)
 
     def forward(self, net: torch.Tensor) -> torch.Tensor:
         if len(net.shape) > 2:

@@ -27,8 +27,8 @@ rnn_dict = {
 class RNN(nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         cell: str = "GRU",
         num_layers: int = 1,
@@ -43,13 +43,13 @@ class RNN(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.input_dim = input_dim
+        self.output_dim = output_dim
         self.num_history = num_history
         rnn_dim = self._init_rnn(cell, num_layers, hidden_size, bidirectional)
         self.head = FCNN(
             rnn_dim,
-            out_dim,
+            output_dim,
             1,
             hidden_units,
             mapping_type=mapping_type,
@@ -67,7 +67,7 @@ class RNN(nn.Module):
         bidirectional: bool,
     ) -> int:
         rnn_base = rnn_dict[cell]
-        input_dimensions = [self.in_dim]
+        input_dimensions = [self.input_dim]
         cell_config = {
             "batch_first": True,
             "hidden_size": hidden_size,
@@ -98,8 +98,8 @@ class RNN(nn.Module):
 class RNNWithBAKE(BAKEBase):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         cell: str = "GRU",
         num_layers: int = 1,
@@ -120,8 +120,8 @@ class RNNWithBAKE(BAKEBase):
     ):
         super().__init__()
         self.rnn = RNN(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             cell,
             num_layers,

@@ -8,8 +8,8 @@ from .protocol import MixedStackedModel
 class PoolFormer(MixedStackedModel):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         latent_dim: int = 256,
         *,
@@ -18,8 +18,8 @@ class PoolFormer(MixedStackedModel):
         norm_type: Optional[str] = "batch_norm",
     ):
         super().__init__(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             latent_dim,
             token_mixing_type="pool",

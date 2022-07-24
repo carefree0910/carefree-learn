@@ -12,8 +12,8 @@ from ...modules.blocks import mapping_dict
 class FCNN(nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         hidden_units: Optional[List[int]] = None,
         *,
@@ -24,15 +24,15 @@ class FCNN(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        in_dim *= num_history
+        input_dim *= num_history
         if hidden_units is None:
-            dim = max(32, min(1024, 2 * in_dim))
+            dim = max(32, min(1024, 2 * input_dim))
             hidden_units = 2 * [dim]
         mapping_base = mapping_dict[mapping_type]
         blocks: List[nn.Module] = []
         for hidden_unit in hidden_units:
             mapping = mapping_base(
-                in_dim,
+                input_dim,
                 hidden_unit,
                 bias=bias,
                 activation=activation,
@@ -40,8 +40,8 @@ class FCNN(nn.Module):
                 dropout=dropout,
             )
             blocks.append(mapping)
-            in_dim = hidden_unit
-        blocks.append(nn.Linear(in_dim, out_dim, bias))
+            input_dim = hidden_unit
+        blocks.append(nn.Linear(input_dim, output_dim, bias))
         self.hidden_units = hidden_units
         self.net = nn.Sequential(*blocks)
 

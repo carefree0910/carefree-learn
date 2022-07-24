@@ -40,8 +40,8 @@ def export_structure(tree: DecisionTreeClassifier) -> tuple:
 class NDT(torch.nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         *,
         dt: DecisionTreeClassifier,
@@ -49,16 +49,16 @@ class NDT(torch.nn.Module):
         if DecisionTreeClassifier is None:
             raise ValueError("`scikit-learn` is needed for `NDT`")
         super().__init__()
-        in_dim *= num_history
+        input_dim *= num_history
         tree_structure = export_structure(dt)
         # dt statistics
         num_leaves = sum([1 if pair[1] == -1 else 0 for pair in tree_structure])
         num_internals = num_leaves - 1
         # transform
         b = np.zeros(num_internals, dtype=np.float32)
-        w1 = np.zeros([in_dim, num_internals], dtype=np.float32)
+        w1 = np.zeros([input_dim, num_internals], dtype=np.float32)
         w2 = np.zeros([num_internals, num_leaves], dtype=np.float32)
-        w3 = np.zeros([num_leaves, out_dim], dtype=np.float32)
+        w3 = np.zeros([num_leaves, output_dim], dtype=np.float32)
         node_list: List[int] = []
         node_sign_list: List[int] = []
         node_id_cursor = leaf_id_cursor = 0
@@ -80,15 +80,15 @@ class NDT(torch.nn.Module):
                 leaf_id_cursor += 1
         w1_, w2_, w3_, b_ = map(to_torch, [w1, w2, w3, b])
         # construct planes & routes
-        self.to_planes = Linear(in_dim, num_internals, init_method=None)
+        self.to_planes = Linear(input_dim, num_internals, init_method=None)
         self.to_routes = Linear(num_internals, num_leaves, bias=False, init_method=None)
-        self.to_leaves = Linear(num_leaves, out_dim, init_method=None)
+        self.to_leaves = Linear(num_leaves, output_dim, init_method=None)
         with torch.no_grad():
             self.to_planes.linear.bias.data = b_
             self.to_planes.linear.weight.data = w1_.t()
             self.to_routes.linear.weight.data = w2_.t()
             self.to_leaves.linear.weight.data = w3_.t()
-            uniform = F.log_softmax(torch.zeros(out_dim, dtype=torch.float32), dim=0)
+            uniform = F.log_softmax(torch.zeros(output_dim, dtype=torch.float32), dim=0)
             self.to_leaves.linear.bias.data = uniform
         # activations
         self.planes_activation = Activation.make("sign")

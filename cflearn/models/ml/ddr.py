@@ -57,8 +57,8 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
 class DDR(nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         hidden_units: Optional[List[int]] = None,
         *,
@@ -76,8 +76,8 @@ class DDR(nn.Module):
     ):
         super().__init__()
         self.fcnn = FCNN(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             hidden_units,
             mapping_type=mapping_type,
@@ -95,7 +95,7 @@ class DDR(nn.Module):
             return Siren(
                 None,
                 _in_dim or 1,
-                out_dim,
+                output_dim,
                 hidden_units[0],  # type: ignore
                 num_layers=len(hidden_units),  # type: ignore
                 w_sin=w_sin,
@@ -108,7 +108,7 @@ class DDR(nn.Module):
         self.predict_quantiles = predict_quantiles
         self.predict_cdf = predict_cdf
         self.q_siren = None if not predict_quantiles else _make_siren()
-        self.cdf_siren = None if not predict_cdf else _make_siren(out_dim)
+        self.cdf_siren = None if not predict_cdf else _make_siren(output_dim)
         self.num_random_samples = num_random_samples
         self._y_min_max = y_min_max
         self.register_buffer("y_min_max", torch.tensor([0.0, 0.0]))

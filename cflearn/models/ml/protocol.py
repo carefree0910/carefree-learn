@@ -258,14 +258,14 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
 
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         dimensions: Dimensions,
     ):
         super().__init__()
-        self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.input_dim = input_dim
+        self.output_dim = output_dim
         self.num_history = num_history
         self.dimensions = dimensions
 
@@ -304,8 +304,8 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
 class MixedStackedModel(nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         latent_dim: int,
         *,
@@ -322,7 +322,7 @@ class MixedStackedModel(nn.Module):
         use_positional_encoding: bool = False,
     ):
         super().__init__()
-        self.to_encoder = Linear(in_dim, latent_dim)
+        self.to_encoder = Linear(input_dim, latent_dim)
         self.encoder = MixedStackedEncoder(
             latent_dim,
             num_history,
@@ -338,7 +338,7 @@ class MixedStackedModel(nn.Module):
             use_head_token=use_head_token,
             use_positional_encoding=use_positional_encoding,
         )
-        self.head = Linear(latent_dim, out_dim)
+        self.head = Linear(latent_dim, output_dim)
 
     def forward(self, net: Tensor) -> Tensor:
         net = self.to_encoder(net)
@@ -352,7 +352,7 @@ class MLModel(ModelWithCustomSteps):
 
     def __init__(
         self,
-        out_dim: int,
+        output_dim: int,
         num_history: int,
         *,
         encoder: Optional[Encoder],
@@ -367,7 +367,7 @@ class MLModel(ModelWithCustomSteps):
         num_repeat: Optional[int] = None,
     ):
         super().__init__()
-        self.out_dim = out_dim
+        self.output_dim = output_dim
         self.encoder = encoder
         self.dimensions = Dimensions(
             num_history=num_history,
@@ -382,8 +382,8 @@ class MLModel(ModelWithCustomSteps):
             only_categorical=only_categorical,
         )
         core_config = shallow_copy_dict(core_config)
-        core_config["in_dim"] = self.transform.out_dim
-        core_config["out_dim"] = out_dim
+        core_config["input_dim"] = self.transform.out_dim
+        core_config["output_dim"] = output_dim
         core_config["num_history"] = num_history
         core_config["dimensions"] = self.dimensions
         core = ml_core_dict[core_name](**core_config)

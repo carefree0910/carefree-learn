@@ -124,8 +124,8 @@ class NBMBlock(nn.Module):
 class NBM(nn.Module):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         *,
         nary: Optional[Dict[str, List[Tuple[int, ...]]]] = None,
@@ -138,17 +138,17 @@ class NBM(nn.Module):
         dropout: float = 0.0,
     ):
         super().__init__()
-        in_dim *= num_history
+        input_dim *= num_history
         if hidden_units is None:
-            dim = max(32, min(1024, 2 * in_dim))
+            dim = max(32, min(1024, 2 * input_dim))
             hidden_units = 2 * [dim]
 
-        self.in_dim = in_dim
-        self.out_dim = out_dim
+        self.input_dim = input_dim
+        self.output_dim = output_dim
         self.bias = bias
 
         self.bases = nn.ModuleDict()
-        self.nary = nary or {"1": list(combinations(range(in_dim), 1))}
+        self.nary = nary or {"1": list(combinations(range(input_dim), 1))}
         self.num_bases = num_bases
         for order in self.nary:
             self.bases[order] = NBMBlock(
@@ -174,7 +174,7 @@ class NBM(nn.Module):
             groups=self.latent_dim,
             bias=bias,
         )
-        self.head = nn.Linear(self.latent_dim, out_dim, bias=True)
+        self.head = nn.Linear(self.latent_dim, output_dim, bias=True)
 
     def get_key(self, order: str) -> str:
         return f"order_{order}"

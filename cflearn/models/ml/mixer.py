@@ -16,8 +16,8 @@ from ...constants import PREDICTIONS_KEY
 class Mixer(MixedStackedModel):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         latent_dim: int = 256,
         *,
@@ -26,8 +26,8 @@ class Mixer(MixedStackedModel):
         norm_type: Optional[str] = "batch_norm",
     ):
         super().__init__(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             latent_dim,
             token_mixing_type="mlp",
@@ -44,8 +44,8 @@ class Mixer(MixedStackedModel):
 class MixerWithBAKE(BAKEBase):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         latent_dim: int = 256,
         *,
@@ -60,8 +60,8 @@ class MixerWithBAKE(BAKEBase):
     ):
         super().__init__()
         self.mixer = Mixer(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             latent_dim,
             num_layers=num_layers,
@@ -81,8 +81,8 @@ class MixerWithBAKE(BAKEBase):
 class MixerWithRDropout(RDropoutBase):
     def __init__(
         self,
-        in_dim: int,
-        out_dim: int,
+        input_dim: int,
+        output_dim: int,
         num_history: int,
         latent_dim: int = 256,
         *,
@@ -94,8 +94,8 @@ class MixerWithRDropout(RDropoutBase):
     ):
         super().__init__()
         self.mixer = Mixer(
-            in_dim,
-            out_dim,
+            input_dim,
+            output_dim,
             num_history,
             latent_dim,
             num_layers=num_layers,

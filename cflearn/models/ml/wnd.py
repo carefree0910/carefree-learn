@@ -17,7 +17,7 @@ from ...types import tensor_dict_type
 class WideAndDeep(torch.nn.Module):
     def __init__(
         self,
-        out_dim: int,
+        output_dim: int,
         num_history: int,
         dimensions: Dimensions,
         hidden_units: Optional[List[int]] = None,
@@ -33,7 +33,7 @@ class WideAndDeep(torch.nn.Module):
         deep_dim = dimensions.numerical_dim + dimensions.embedding_dim
         self.fcnn = FCNN(
             deep_dim,
-            out_dim,
+            output_dim,
             num_history,
             hidden_units,
             mapping_type=mapping_type,
@@ -42,7 +42,7 @@ class WideAndDeep(torch.nn.Module):
             batch_norm=batch_norm,
             dropout=dropout,
         )
-        self.linear = Linear(wide_dim, out_dim, num_history, bias=bias)
+        self.linear = Linear(wide_dim, output_dim, num_history, bias=bias)
 
     def forward(self, batch: tensor_dict_type) -> tensor_dict_type:
         one_hot = batch[ONE_HOT_KEY]
