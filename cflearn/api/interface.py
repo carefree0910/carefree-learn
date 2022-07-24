@@ -359,10 +359,7 @@ def repeat_ml(
     # encoder
     only_categorical: bool = False,
     encoder_config: Optional[Dict[str, Any]] = None,
-    encoding_methods: Optional[Dict[str, List[str]]] = None,
-    encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
-    default_encoding_methods: Optional[List[str]] = None,
-    default_encoding_configs: Optional[Dict[str, Any]] = None,
+    encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
     # trainer
     state_config: Optional[Dict[str, Any]] = None,
     num_epoch: int = 40,
@@ -406,10 +403,7 @@ def repeat_ml(
         loss_config=loss_config,
         only_categorical=only_categorical,
         encoder_config=encoder_config,
-        encoding_methods=encoding_methods,
-        encoding_configs=encoding_configs,
-        default_encoding_methods=default_encoding_methods,
-        default_encoding_configs=default_encoding_configs,
+        encoding_settings=encoding_settings,
         state_config=state_config,
         num_epoch=num_epoch,
         max_epoch=max_epoch,
