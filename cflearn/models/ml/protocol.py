@@ -338,7 +338,6 @@ class MLModel(ModelWithCustomSteps):
 
     def __init__(
         self,
-        in_dim: int,
         out_dim: int,
         num_history: int,
         *,
@@ -354,7 +353,6 @@ class MLModel(ModelWithCustomSteps):
         num_repeat: Optional[int] = None,
     ):
         super().__init__()
-        self.in_dim = in_dim
         self.out_dim = out_dim
         self.encoder = encoder
         self.dimensions = Dimensions(

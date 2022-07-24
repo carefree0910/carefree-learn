@@ -40,7 +40,6 @@ class TestModels(unittest.TestCase):
                     super().__init__()
                     _num_history = kwargs.pop("num_history", 1)
                     self.net = cflearn.MLModel(
-                        in_dim,
                         out_dim,
                         _num_history,
                         encoder=None,

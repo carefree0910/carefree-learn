@@ -267,7 +267,6 @@ class SimplePipeline(DLPipeline):
         assert isinstance(self.input_dim, int)
         assert isinstance(self.output_dim, int)
         self.model = MLModel(
-            self.input_dim,
             self.output_dim,
             data_info["num_history"],
             encoder=self.encoder,
