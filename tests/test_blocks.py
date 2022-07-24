@@ -19,6 +19,7 @@ from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
 from cflearn.models.cv.encoder import BackboneEncoder
 from cflearn.models.ml.encoders import Encoder
+from cflearn.models.ml.encoders import EncodingSettings
 
 
 class TestBlocks(unittest.TestCase):
@@ -213,10 +214,14 @@ class TestBlocks(unittest.TestCase):
                     "use_fast_embedding": use_fast_embedding,
                     "recover_original_dim": recover_original_dim,
                 },
-                embed_dims,
-                ["embedding"] * nd,
-                [{"embedding_dim": d} for d in embed_dims],
-                list(range(nd)),
+                {
+                    idx: EncodingSettings(
+                        dim=embed_dims[idx],
+                        methods="embedding",
+                        method_configs={"embedding_dim": embed_dims[idx]},
+                    )
+                    for idx in range(nd)
+                },
                 [],
             )
 

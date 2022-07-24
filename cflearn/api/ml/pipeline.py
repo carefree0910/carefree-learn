@@ -36,6 +36,7 @@ from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import get_full_logits
 from ...misc.toolkit import get_label_predictions
 from ...models.ml.encoders import Encoder
+from ...models.ml.encoders import EncodingSettings
 from ...models.ml.protocol import MLModel
 from ...misc.internal_.inference import MLInference
 
@@ -70,11 +71,7 @@ class SimplePipeline(DLPipeline):
         # encoder
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
-        categorical_dims: Optional[Dict[str, int]] = None,
-        encoding_methods: Optional[Dict[str, List[str]]] = None,
-        encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
-        default_encoding_methods: Optional[List[str]] = None,
-        default_encoding_configs: Optional[Dict[str, Any]] = None,
+        encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -156,13 +153,9 @@ class SimplePipeline(DLPipeline):
         self.only_categorical = only_categorical
         self.encoder = None
         self.encoder_config = encoder_config or {}
-        self.categorical_dims = categorical_dims or {}
-        self.encoding_methods = encoding_methods or {}
-        self.encoding_configs = encoding_configs or {}
-        if default_encoding_methods is None:
-            default_encoding_methods = ["embedding"]
-        self.default_encoding_methods = default_encoding_methods
-        self.default_encoding_configs = default_encoding_configs or {}
+        self.encoding_settings = {}
+        for idx, raw_setting in (encoding_settings or {}).items():
+            self.encoding_settings[idx] = EncodingSettings(**raw_setting)
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
@@ -185,13 +178,7 @@ class SimplePipeline(DLPipeline):
             else:
                 self.loss_name = "bce" if self.output_dim == 1 else "focal"
 
-    def _instantiate_encoder(
-        self,
-        categorical_dims: List[int],
-        encoding_methods: List[List[str]],
-        encoding_configs: List[Dict[str, Any]],
-        categorical_columns: List[int],
-    ) -> Encoder:
+    def _instantiate_encoder(self, settings: Dict[int, EncodingSettings]) -> Encoder:
         if self.in_loading:
             loaders = []
         else:
@@ -203,57 +190,27 @@ class SimplePipeline(DLPipeline):
             if valid_loader is not None:
                 assert isinstance(valid_loader, MLLoader)
                 loaders.append(valid_loader)
-        return Encoder(
-            self.encoder_config,
-            categorical_dims,
-            encoding_methods,  # type: ignore
-            encoding_configs,
-            categorical_columns,
-            loaders,
-        )
+        return Encoder(self.encoder_config, settings, loaders)
 
     def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
-        categorical_dims = []
-        encoding_methods = []
-        encoding_configs = []
-        categorical_columns = []
-        use_one_hot = False
-        use_embedding = False
-        for str_idx, categorical_dim in self.categorical_dims.items():
-            idx_encoding_methods = self.encoding_methods.setdefault(
-                str_idx,
-                self.default_encoding_methods,
-            )
-            idx_encoding_configs = self.encoding_configs.setdefault(
-                str_idx,
-                self.default_encoding_configs,
-            )
-            if isinstance(idx_encoding_methods, str):
-                idx_encoding_methods = [idx_encoding_methods]
-            use_one_hot = use_one_hot or "one_hot" in idx_encoding_methods
-            use_embedding = use_embedding or "embedding" in idx_encoding_methods
-            categorical_dims.append(categorical_dim)
-            encoding_methods.append(idx_encoding_methods)
-            encoding_configs.append(idx_encoding_configs)
-            categorical_columns.append(int(str_idx))
-
         assert isinstance(self.input_dim, int)
         all_indices = list(range(self.input_dim))
-        if not categorical_columns:
+        if not self.encoding_settings:
             self.encoder = None
             self.numerical_columns_mapping = {i: i for i in all_indices}
             self.categorical_columns_mapping = {}
             self.use_one_hot = False
             self.use_embedding = False
         else:
-            self.encoder = self._instantiate_encoder(
-                categorical_dims,
-                encoding_methods,
-                encoding_configs,
-                categorical_columns,
-            )
+            use_one_hot = False
+            use_embedding = False
+            for idx, setting in self.encoding_settings.items():
+                use_one_hot = use_one_hot or setting.use_one_hot
+                use_embedding = use_embedding or setting.use_embedding
+            self.encoder = self._instantiate_encoder(self.encoding_settings)
             self.use_one_hot = use_one_hot
             self.use_embedding = use_embedding
+            categorical_columns = self.encoder.columns.copy()
             categorical_set = set(categorical_columns)
             numerical_columns = [i for i in all_indices if i not in categorical_set]
             self.numerical_columns_mapping = {i: i for i in numerical_columns}
@@ -427,11 +384,7 @@ class CarefreePipeline(SimplePipeline):
         # encoder
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
-        categorical_dims: Optional[Dict[str, int]] = None,
-        encoding_methods: Optional[Dict[str, List[str]]] = None,
-        encoding_configs: Optional[Dict[str, Dict[str, Any]]] = None,
-        default_encoding_methods: Optional[List[str]] = None,
-        default_encoding_configs: Optional[Dict[str, Any]] = None,
+        encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -484,11 +437,7 @@ class CarefreePipeline(SimplePipeline):
             loss_config=loss_config,
             only_categorical=only_categorical,
             encoder_config=encoder_config,
-            categorical_dims=categorical_dims,
-            encoding_methods=encoding_methods,
-            encoding_configs=encoding_configs,
-            default_encoding_methods=default_encoding_methods,
-            default_encoding_configs=default_encoding_configs,
+            encoding_settings=encoding_settings,
             state_config=state_config,
             num_epoch=num_epoch,
             max_epoch=max_epoch,
@@ -533,12 +482,9 @@ class CarefreePipeline(SimplePipeline):
             raise ValueError(msg)
         # encoder
         excluded = 0
+        encoder_settings = {}
         numerical_columns_mapping = {}
         categorical_columns_mapping = {}
-        categorical_dims = []
-        encoding_methods = []
-        encoding_configs = []
-        categorical_columns = []
         use_one_hot = False
         use_embedding = False
         if self.cf_data.is_simplify:
@@ -555,40 +501,17 @@ class CarefreePipeline(SimplePipeline):
                     excluded += 1
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                     numerical_columns_mapping[idx] = idx - excluded
-                else:
-                    str_idx = str(idx)
-                    categorical_dim = self.categorical_dims.setdefault(
-                        str_idx,
-                        recognizer.num_unique_values,
-                    )
-                    categorical_dims.append(categorical_dim)
-                    idx_encoding_methods = self.encoding_methods.setdefault(
-                        str_idx,
-                        self.default_encoding_methods,
-                    )
-                    if isinstance(idx_encoding_methods, str):
-                        idx_encoding_methods = [idx_encoding_methods]
-                    use_one_hot = use_one_hot or "one_hot" in idx_encoding_methods
-                    use_embedding = use_embedding or "embedding" in idx_encoding_methods
-                    encoding_methods.append(idx_encoding_methods)
-                    encoding_configs.append(
-                        self.encoding_configs.setdefault(
-                            str_idx,
-                            self.default_encoding_configs,
-                        )
-                    )
+                elif idx not in encoder_settings:
+                    setting = EncodingSettings(dim=recognizer.num_unique_values)
+                    encoder_settings[idx] = setting
+                    use_one_hot = use_one_hot or setting.use_one_hot
+                    use_embedding = use_embedding or setting.use_embedding
                     true_idx = idx - excluded
-                    categorical_columns.append(true_idx)
                     categorical_columns_mapping[idx] = true_idx
-        if not categorical_columns:
+        if not encoder_settings:
             encoder = None
         else:
-            encoder = self._instantiate_encoder(
-                categorical_dims,
-                encoding_methods,
-                encoding_configs,
-                categorical_columns,
-            )
+            encoder = self._instantiate_encoder(encoder_settings)
         self.encoder = encoder
         self.use_one_hot = use_one_hot
         self.use_embedding = use_embedding

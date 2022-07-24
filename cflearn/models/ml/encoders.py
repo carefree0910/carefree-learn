@@ -72,18 +72,56 @@ class Embedding(nn.Module):
         return self.core(tensor)
 
 
+class EncodingSettings(NamedTuple):
+    """
+    Encoder settings.
+
+    Properties
+    ----------
+    dim (int) : number of different values of this categorical column.
+    methods (str | List[str]) : encoding methods to use for each categorical column.
+        * if List[str] is provided and its length > 1, then multiple encoding methods will be used.
+    method_configs (Dict[str, Any]) : configs of the corresponding encoding methods.
+
+    """
+
+    dim: int
+    methods: Union[str, List[str]] = "embedding"
+    method_configs: Optional[Dict[str, Any]] = None
+
+    @property
+    def use_one_hot(self) -> bool:
+        if self.methods == "one_hot":
+            return True
+        if isinstance(self.methods, list) and "one_hot" in self.methods:
+            return True
+        return False
+
+    @property
+    def use_embedding(self) -> bool:
+        if self.methods == "embedding":
+            return True
+        if isinstance(self.methods, list) and "embedding" in self.methods:
+            return True
+        return False
+
+
 class Encoder(nn.Module):
     def __init__(
         self,
         config: Dict[str, Any],
-        input_dims: List[int],
-        methods_list: List[Union[str, List[str]]],
-        method_configs: List[Dict[str, Any]],
-        categorical_columns: List[int],
+        settings: Dict[int, EncodingSettings],
         loaders: List[MLLoader],
     ):
         """
         Encoder to perform differentiable categorical encodings.
+
+        Terminology
+        ----------
+        `i`   : indicates the {i}th element of `columns`.
+        `idx` : indicates the actual column index.
+
+        -> So basically, we have self.columns[i] = idx.
 
         Parameters
         ----------
@@ -104,33 +142,33 @@ class Encoder(nn.Module):
                 * default : None
             * fast_embedding_init_config (Dict[str, Any] | None) : init config for fast embedding.
                 * default : None
-        input_dims (List[int]) : number of different values of each categorical column.
-            * Note that len(input_dims) should be = len(categorical_columns)
-        methods_list (List[Union[str, List[str]]]): list of encoding methods to use
-            for each categorical column.
-            * if List[str] is provided, then multiple encoding methods will be used.
-        method_configs (List[Dict[str, Any]]): configs of the corresponding encoding methods.
-        categorical_columns (List[int]): indices of categorical columns.
-            * Note that len(categorical_columns) should be = len(input_dims)
+        settings (Dict[`idx`, EncoderSettings]) : encoding settings of each categorical column.
+            * key: `idx`.
+            * value: `EncoderSettings`.
 
         Properties
         ----------
-        _one_hot_indices (List[int]) : indices of categorical columns that are encoded with one-hot.
-            * notice that these indices are indices of `categorical_columns`
-        _embed_indices (List[int]) : indices of categorical columns that are encoded with embedding.
-            * notice that these indices are indices of `categorical_columns`.
-        _embed_dims (Dict[int, int]) : dims of embedding used for each categorical column.
-            * key : index of `categorical_columns`.
-            * value : dimension of the embedding module (self.embeddings[self._embed_indices.index(key)]).
+        columns (List[`idx`]) : sorted categorical columns.
+        input_dims (tensor) : number of different values of each categorical column.
+            * len(input_dims) = len(columns)
+            * input_dims[i] indicates the number of different values of the {columns[i]}th column.
+        _one_hot_indices (List[`i`]) : indices that are encoded with one-hot.
+        _one_hot_columns (List[`idx`]) : columns that are encoded with one-hot.
+        _embed_indices (List[`i`]) : indices that are encoded with embedding.
+        _embed_columns (List[`idx`]) : indices that are encoded with embedding.
+        _embed_dims (Dict[`idx`, int]) : dims of embedding used for each categorical column.
+            * key : `idx`.
+            * value : embed dimension of the embedding module.
             * len(_embed_dims) should be = len(_embed_indices).
-        merged_dims (Dict[int, int])
-            * key : index of `categorical_columns`.
-            * value : final encoded dim of the {categorical_columns[key]}th column.
-        embeddings (nn.ModuleList) : list of embedding modules.
-            * ith embedding correspond to the {categorical_columns[self._embed_indices[i]]}th column.
-        one_hot_encoders (nn.ModuleList) : list of one-hot encoder modules.
-            * ith one-hot encoder correspond to the {categorical_columns[self._one_hot_indices[i]]}th column.
-        input_dims (tensor) : same as `input_dims` above, but in torch.tensor format.
+        merged_dims (Dict[`idx`, int])
+            * key : `idx`.
+            * value : final encoded dim of the {key}th column.
+        embeddings (nn.ModuleDict) : collection of embedding modules.
+            * key : str(`idx`).
+            * value : embedding module of the {key}th column.
+        one_hot_encoders (nn.ModuleDict) : collection of one-hot encoder modules.
+            * key : str(`idx`).
+            * value : one-hot encoder module of the {key}th column.
 
         """
         super().__init__()
@@ -143,21 +181,25 @@ class Encoder(nn.Module):
         self.merged_dim = 0
         self.one_hot_dim = 0
         self.embedding_dim = 0
-        dims_tensor = torch.tensor(input_dims, dtype=torch.float32)
-        self.register_buffer("input_dims", dims_tensor)
-        self.sorted_categorical_columns = sorted(categorical_columns)
-        self.tgt_columns = np.array(self.sorted_categorical_columns, np.int64)
+        self.columns = sorted(settings)
+        self.tgt_columns = np.array(self.columns, np.int64)
+        self.register_buffer(
+            "input_dims",
+            torch.tensor(
+                [settings[idx].dim for idx in self.columns],
+                dtype=torch.float32,
+            ),
+        )
         self.merged_dims: Dict[int, int] = defaultdict(int)
-        self.embeddings = nn.ModuleList()
-        self.one_hot_encoders = nn.ModuleList()
+        self.embeddings = nn.ModuleDict()
+        self.one_hot_encoders = nn.ModuleDict()
         self._one_hot_indices: List[int] = []
+        self._one_hot_columns: List[int] = []
         self._embed_indices: List[int] = []
+        self._embed_columns: List[int] = []
         self._embed_dims: Dict[int, int] = {}
-        iterator = zip(input_dims, methods_list, method_configs)
-        for i, (in_dim, methods, methods_config) in enumerate(iterator):
-            if isinstance(methods, str):
-                methods = [methods]
-            self._register(i, in_dim, methods, methods_config)
+        for i, idx in enumerate(self.columns):
+            self._register(i, idx, settings[idx])
         # fast embedding
         self.unified_dim = 0
         if self.use_embedding and self._use_fast_embed:
@@ -191,7 +233,7 @@ class Encoder(nn.Module):
                 )
             self.unified_dim = unified_dim
             embedding_dim_sum = 0
-            for idx in self._embed_indices:
+            for idx in self._embed_columns:
                 original_dim = self._embed_dims[idx]
                 final_dim = original_dim if self._recover_dim else unified_dim
                 self.merged_dims[idx] += final_dim
@@ -203,23 +245,21 @@ class Encoder(nn.Module):
             if self._fe_init_config is None:
                 self._fe_init_config = self._de_init_config
             assert isinstance(self._fe_init_config, dict)
-            self.embeddings.append(
-                Embedding(
-                    sum(input_dims[i] for i in self._embed_indices),
-                    unified_dim,
-                    self._fe_init_method,
-                    self._fe_init_config,
-                )
+            embed_input_dims = [settings[idx].dim for idx in self._embed_columns]
+            self.embeddings["-1"] = Embedding(
+                sum(embed_input_dims),
+                unified_dim,
+                self._fe_init_method,
+                self._fe_init_config,
             )
-            assert isinstance(self.input_dims, torch.Tensor)
-            embed_dims_cumsum = self.input_dims[self._embed_indices].cumsum(0)[:-1]
-            embed_dims_cumsum = embed_dims_cumsum.to(torch.long)
-            self.register_buffer("embed_dims_cumsum", embed_dims_cumsum)
+            embed_input_dims_cumsum = torch.tensor(embed_input_dims).cumsum(0)[:-1]
+            embed_input_dims_cumsum = embed_input_dims_cumsum.to(torch.long)
+            self.register_buffer("embed_input_dims_cumsum", embed_input_dims_cumsum)
             if not self._recover_dim or len(set(self._embed_dims.values())) == 1:
                 self.register_buffer("recover_indices", None)
             else:
                 recover_indices: List[int] = []
-                for i, idx in enumerate(sorted(self._embed_dims)):
+                for i, idx in enumerate(self._embed_columns):
                     dim = self._embed_dims[idx]
                     recover_indices.extend(i * unified_dim + j for j in range(dim))
                 recover_indices_tensor = torch.tensor(recover_indices, dtype=torch.long)
@@ -229,10 +269,8 @@ class Encoder(nn.Module):
         if self.use_embedding and 0.0 < self._embed_drop < 1.0:
             self.embedding_dropout = nn.Dropout(self._embed_drop)
         # compile
-        self.one_hot_columns = self.tgt_columns[self._one_hot_indices]
-        self.embedding_columns = self.tgt_columns[self._embed_indices]
-        self._all_one_hot = len(self.one_hot_columns) == len(input_dims)
-        self._all_embedding = len(self.embedding_columns) == len(input_dims)
+        self._all_one_hot = len(self._one_hot_indices) == len(settings)
+        self._all_embedding = len(self._embed_indices) == len(settings)
         self._compile(loaders)
 
     @property
@@ -287,46 +325,37 @@ class Encoder(nn.Module):
             if not self._all_embedding:
                 indices = indices[..., self._embed_indices]
             if not use_cache and self._use_fast_embed:
-                indices[..., 1:] += self.embed_dims_cumsum
+                indices[..., 1:] += self.embed_input_dims_cumsum
             embedding = self._embedding(indices.to(torch.long))
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
         return EncodingResult(one_hot, embedding)
 
     def encode(self, column: arr_type, column_idx: int) -> EncodingResult:
-        try:
-            idx = self.sorted_categorical_columns.index(column_idx)
-        except ValueError:
+        if column_idx not in self.columns:
             return EncodingResult(None, None)
         if isinstance(column, np.ndarray):
             column = to_torch(column)
         column = column.to(torch.long).view(-1)
         # one hot
-        if not self.use_one_hot:
+        if not self.use_one_hot or column_idx not in self._one_hot_columns:
             one_hot = None
         else:
-            if self._all_one_hot:
-                one_hot_idx = idx
-            else:
-                one_hot_idx = self._one_hot_indices[idx]
-            one_hot = self.one_hot_encoders[one_hot_idx](column)
+            one_hot = self.one_hot_encoders[str(column_idx)](column)
         # embedding
-        if not self.use_embedding:
+        if not self.use_embedding or column_idx not in self._embed_columns:
             embedding = None
         else:
-            if self._all_embedding:
-                embedding_idx = idx
-            else:
-                embedding_idx = self._embed_indices.index(idx)
             indices = column.clone()
             if not self._use_fast_embed:
-                embedding = self.embeddings[embedding_idx](indices)
+                embedding = self.embeddings[str(column_idx)](indices)
             else:
-                if embedding_idx > 0:
-                    indices += self.embed_dims_cumsum[embedding_idx - 1]
-                embedding = self.embeddings[0](indices)
+                i_embedding = self._embed_columns.index(column_idx)
+                if i_embedding > 0:
+                    indices += self.embed_input_dims_cumsum[i_embedding - 1]
+                embedding = self.embeddings["-1"](indices)
                 if self._recover_dim:
-                    dim = self._embed_dims[idx]
+                    dim = self._embed_dims[column_idx]
                     embedding = embedding[..., list(range(dim))]
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
@@ -350,24 +379,28 @@ class Encoder(nn.Module):
         self._fe_init_method = config.setdefault("fast_embedding_init_method", None)
         self._fe_init_config = config.setdefault("fast_embedding_init_config", None)
 
-    def _register(
-        self,
-        i: int,
-        in_dim: int,
-        methods: List[str],
-        methods_config: Dict[str, Any],
-    ) -> None:
+    def _register(self, i: int, idx: int, setting: EncodingSettings) -> None:
+        methods = setting.methods
+        if isinstance(methods, str):
+            methods = [methods]
         for method in methods:
             attr = getattr(self, f"_register_{method}", None)
             if attr is None:
                 msg = f"encoding method '{method}' is not implemented"
                 raise NotImplementedError(msg)
-            attr(i, in_dim, methods_config)
+            attr(i, idx, setting.dim, setting.method_configs or {})
 
-    def _register_one_hot(self, i: int, in_dim: int, _: Dict[str, Any]) -> None:
-        self.one_hot_encoders.append(OneHot(in_dim))
+    def _register_one_hot(
+        self,
+        i: int,
+        idx: int,
+        in_dim: int,
+        _: Dict[str, Any],
+    ) -> None:
+        self.one_hot_encoders[str(idx)] = OneHot(in_dim)
         self._one_hot_indices.append(i)
-        self.merged_dims[i] += in_dim
+        self._one_hot_columns.append(idx)
+        self.merged_dims[idx] += in_dim
         self.one_hot_dim += in_dim
         self.merged_dim += in_dim
 
@@ -375,8 +408,15 @@ class Encoder(nn.Module):
     def _get_embed_key(num: int) -> str:
         return f"embedding_weight_{num}"
 
-    def _register_embedding(self, i: int, in_dim: int, config: Dict[str, Any]) -> None:
+    def _register_embedding(
+        self,
+        i: int,
+        idx: int,
+        in_dim: int,
+        config: Dict[str, Any],
+    ) -> None:
         self._embed_indices.append(i)
+        self._embed_columns.append(idx)
         embedding_dim = config.setdefault("embedding_dim", "auto")
         if isinstance(embedding_dim, int):
             out_dim = embedding_dim
@@ -389,7 +429,7 @@ class Encoder(nn.Module):
         else:
             raise ValueError(f"embedding dim '{embedding_dim}' is not defined")
         if self._use_fast_embed:
-            self._embed_dims[i] = out_dim
+            self._embed_dims[idx] = out_dim
             if self._fe_init_method is None:
                 self._fe_init_method = config.get("init_method")
             if self._fe_init_config is None:
@@ -397,10 +437,11 @@ class Encoder(nn.Module):
         else:
             init_method = config.setdefault("init_method", self._de_init_method)
             init_config = config.setdefault("init_config", self._de_init_config)
-            self.merged_dims[i] += out_dim
+            embedding = Embedding(in_dim, out_dim, init_method, init_config)
+            self.embeddings[str(idx)] = embedding
+            self.merged_dims[idx] += out_dim
             self.embedding_dim += out_dim
             self.merged_dim += out_dim
-            self.embeddings.append(Embedding(in_dim, out_dim, init_method, init_config))
 
     def _oob_imputation(
         self,
@@ -426,22 +467,22 @@ class Encoder(nn.Module):
     def _one_hot(self, one_hot_columns: torch.Tensor) -> torch.Tensor:
         split = self._to_split(one_hot_columns)
         encodings = [
-            encoder(flat_feature)
-            for encoder, flat_feature in zip(self.one_hot_encoders, split)
+            self.one_hot_encoders[str(self._one_hot_columns[i])](flat_feature)
+            for i, flat_feature in enumerate(split)
         ]
         return torch.cat(encodings, dim=1)
 
     def _embedding(self, indices_columns: torch.Tensor) -> torch.Tensor:
         if self._use_fast_embed:
-            embed_mat = self.embeddings[0](indices_columns)
+            embed_mat = self.embeddings["-1"](indices_columns)
             embed_mat = embed_mat.view(-1, self.num_embedding * self.unified_dim)
             if not self._recover_dim or self.recover_indices is None:
                 return embed_mat
             return embed_mat[..., self.recover_indices]
         split = self._to_split(indices_columns)
         encodings = [
-            embedding(flat_feature)
-            for embedding, flat_feature in zip(self.embeddings, split)
+            self.embeddings[str(self._embed_columns[i])](flat_feature)
+            for i, flat_feature in enumerate(split)
         ]
         return torch.cat(encodings, dim=1)
 
@@ -478,9 +519,13 @@ class Encoder(nn.Module):
                 self.register_buffer(keys["one_hot"], one_hot_cache)
             # compile embedding
             if self.use_embedding and self._use_fast_embed:
-                tensor[..., 1:] += self.embed_dims_cumsum
+                tensor[..., 1:] += self.embed_input_dims_cumsum
                 indices = tensor.to(torch.long)
                 self.register_buffer(keys["indices"], indices.to(torch.float32))
 
 
-__all__ = ["Encoder", "EncodingResult"]
+__all__ = [
+    "Encoder",
+    "EncodingSettings",
+    "EncodingResult",
+]
