@@ -37,7 +37,6 @@ class TestExample(unittest.TestCase):
             import cfdata
         except:
             return
-        folder = os.path.join(examples_folder, "iris")
         folder = os.path.join(examples_folder, "simple")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'iris.py')}"),
