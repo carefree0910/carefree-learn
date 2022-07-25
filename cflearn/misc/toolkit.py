@@ -3,6 +3,7 @@ import sys
 import json
 import math
 import torch
+import inspect
 import argparse
 import torchvision
 import urllib.request
@@ -72,6 +73,19 @@ def filter_kw(
         if check_requires(fn, k, strict):
             kw[k] = v
     return kw
+
+
+def get_num_positional_args(fn: Callable) -> Union[int, float]:
+    signature = inspect.signature(fn)
+    counter = 0
+    for param in signature.parameters.values():
+        if param.kind is inspect.Parameter.VAR_POSITIONAL:
+            return math.inf
+        if param.kind is inspect.Parameter.POSITIONAL_ONLY:
+            counter += 1
+        elif param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
+            counter += 1
+    return counter
 
 
 def check_is_ci() -> bool:

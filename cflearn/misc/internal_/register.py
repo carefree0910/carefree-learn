@@ -31,6 +31,7 @@ from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...data.core import Transforms
 from ...misc.toolkit import filter_kw
+from ...misc.toolkit import get_num_positional_args
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -136,7 +137,8 @@ def _forward(
     args: List[Any] = []
     if check_requires(fn, "batch_idx"):
         args.append(batch_idx)
-    args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
+    if get_num_positional_args(fn) > 0:
+        args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
     if check_requires(fn, "state"):
         args.append(state)
     rs = self.core(*args, **kw)
