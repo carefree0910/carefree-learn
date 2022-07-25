@@ -49,7 +49,7 @@ class Pix2PixPreparation(cflearn.DefaultPreparation):
 
 
 @cflearn.register_transform("pix2pix")
-class Pix2PixTransform(cflearn.TransformInterface):
+class Pix2PixITransform(cflearn.ITransform):
     def __init__(self, *, resize_size: int, crop_size: int):
         self.resize_size = resize_size
         self.crop_size = crop_size
@@ -82,7 +82,7 @@ class Pix2PixTransform(cflearn.TransformInterface):
 
 
 @cflearn.register_transform("pix2pix_test")
-class Pix2PixTestTransform(cflearn.TransformInterface):
+class Pix2PixTestITransform(cflearn.ITransform):
     def __init__(self, *, size: int):
         self.size = size
 

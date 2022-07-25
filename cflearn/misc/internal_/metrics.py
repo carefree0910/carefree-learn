@@ -8,7 +8,7 @@ from cftool.array import corr
 from cftool.array import softmax
 
 from .register import register_metric
-from .register import MetricInterface
+from .register import IMetric
 from ..toolkit import get_full_logits
 from ..toolkit import get_label_predictions
 from ...types import np_dict_type
@@ -25,7 +25,7 @@ except:
 
 
 @register_metric("acc")
-class Accuracy(MetricInterface):
+class Accuracy(IMetric):
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
@@ -40,7 +40,7 @@ class Accuracy(MetricInterface):
 
 
 @register_metric("quantile")
-class Quantile(MetricInterface):
+class Quantile(IMetric):
     def __init__(self, q: Any):
         super().__init__()
         if not isinstance(q, float):
@@ -57,7 +57,7 @@ class Quantile(MetricInterface):
 
 
 @register_metric("f1")
-class F1Score(MetricInterface):
+class F1Score(IMetric):
     def __init__(self, threshold: float = 0.5):
         super().__init__()
         self.threshold = threshold
@@ -76,7 +76,7 @@ class F1Score(MetricInterface):
 
 
 @register_metric("r2")
-class R2Score(MetricInterface):
+class R2Score(IMetric):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
@@ -93,7 +93,7 @@ class R2Score(MetricInterface):
 
 
 @register_metric("auc")
-class AUC(MetricInterface):
+class AUC(IMetric):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
@@ -120,7 +120,7 @@ class AUC(MetricInterface):
 
 
 @register_metric("mae")
-class MAE(MetricInterface):
+class MAE(IMetric):
     @property
     def is_positive(self) -> bool:
         return False
@@ -130,7 +130,7 @@ class MAE(MetricInterface):
 
 
 @register_metric("mse")
-class MSE(MetricInterface):
+class MSE(IMetric):
     @property
     def is_positive(self) -> bool:
         return False
@@ -140,7 +140,7 @@ class MSE(MetricInterface):
 
 
 @register_metric("ber")
-class BER(MetricInterface):
+class BER(IMetric):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
@@ -162,7 +162,7 @@ class BER(MetricInterface):
 
 
 @register_metric("corr")
-class Correlation(MetricInterface):
+class Correlation(IMetric):
     @property
     def is_positive(self) -> bool:
         return True
@@ -172,7 +172,7 @@ class Correlation(MetricInterface):
 
 
 @register_metric("iou")
-class IOU(MetricInterface):
+class IOU(IMetric):
     @property
     def is_positive(self) -> bool:
         return True
@@ -182,7 +182,7 @@ class IOU(MetricInterface):
 
 
 @register_metric("aux")
-class Auxiliary(MetricInterface):
+class Auxiliary(IMetric):
     def __init__(
         self,
         base: str,

@@ -31,7 +31,6 @@ from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...data.core import Transforms
 from ...misc.toolkit import filter_kw
-from ...misc.toolkit import shallow_copy_dict
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -42,7 +41,7 @@ def register_initializer(name: str) -> Callable[[Callable], Callable]:
     return _register
 
 
-class MetricInterface:
+class IMetric:
     @property
     @abstractmethod
     def is_positive(self) -> bool:
@@ -69,7 +68,14 @@ class MetricInterface:
         return False
 
 
-metric_type = Type[MetricInterface]
+class ITransform:
+    @abstractmethod
+    def forward(self, sample: Dict[str, Any]) -> tensor_dict_type:
+        pass
+
+
+metric_type = Type[IMetric]
+transform_type = Type[ITransform]
 
 
 def register_metric(
@@ -370,15 +376,6 @@ def register_loss_module(
     return _core
 
 
-class TransformInterface:
-    @abstractmethod
-    def forward(self, sample: Dict[str, Any]) -> tensor_dict_type:
-        pass
-
-
-transform_type = Type[TransformInterface]
-
-
 def register_transform(
     name: str,
     *,
@@ -413,6 +410,6 @@ __all__ = [
     "register_loss_module",
     "register_transform",
     "CustomModule",
-    "MetricInterface",
-    "TransformInterface",
+    "IMetric",
+    "ITransform",
 ]
