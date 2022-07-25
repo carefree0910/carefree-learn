@@ -12,7 +12,7 @@ from typing import Union
 from typing import Optional
 
 from .fcnn import FCNN
-from .protocol import register_ml_module
+from ..register import register_ml_module
 from ...types import losses_type
 from ...types import tensor_dict_type
 from ...constants import LOSS_KEY

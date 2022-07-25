@@ -1,6 +1,6 @@
 import torch
 
-from .protocol import register_ml_module
+from ..register import register_ml_module
 
 
 @register_ml_module("linear")

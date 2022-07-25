@@ -5,12 +5,12 @@ from typing import Optional
 
 from .fcnn import FCNN
 from .linear import Linear
-from .protocol import ONE_HOT_KEY
-from .protocol import EMBEDDING_KEY
-from .protocol import NUMERICAL_KEY
-from .protocol import register_ml_module
-from .protocol import Dimensions
+from ..register import register_ml_module
 from ...types import tensor_dict_type
+from ..protocols.ml import ONE_HOT_KEY
+from ..protocols.ml import EMBEDDING_KEY
+from ..protocols.ml import NUMERICAL_KEY
+from ..protocols.ml import Dimensions
 
 
 @register_ml_module("wnd")

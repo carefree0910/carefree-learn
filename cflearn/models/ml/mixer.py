@@ -3,13 +3,13 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .protocol import register_ml_module
-from .protocol import MixedStackedModel
 from ..bases import BAKEBase
 from ..bases import RDropoutBase
+from ..register import register_ml_module
 from ...types import tensor_dict_type
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
+from ..protocols.ml import MixedStackedModel
 
 
 @register_ml_module("mixer")

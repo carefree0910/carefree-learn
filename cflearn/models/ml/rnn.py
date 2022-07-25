@@ -9,8 +9,8 @@ from typing import List
 from typing import Optional
 
 from .fcnn import FCNN
-from .protocol import register_ml_module
 from ..bases import BAKEBase
+from ..register import register_ml_module
 from ...types import tensor_dict_type
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY

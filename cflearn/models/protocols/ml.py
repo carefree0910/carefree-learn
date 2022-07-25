@@ -12,14 +12,11 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
-from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
-from .encoders import Encoder
-from .encoders import EncodingResult
 from ...types import tensor_dict_type
 from ...protocol import StepOutputs
 from ...protocol import TrainerState
@@ -29,11 +26,9 @@ from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...misc.toolkit import to_numpy
-from ...misc.toolkit import filter_kw
 from ...modules.blocks import get_clones
 from ...modules.blocks import Linear
 from ...modules.blocks import MixedStackedEncoder
-from ...misc.internal_.register import _forward
 
 
 NUMERICAL_KEY = "_numerical"
@@ -41,6 +36,36 @@ ONE_HOT_KEY = "_one_hot"
 EMBEDDING_KEY = "_embedding"
 MERGED_KEY = "_merged"
 ml_core_dict: Dict[str, Type["MLCoreProtocol"]] = {}
+
+
+class IEncoder:
+    merged_dim: int
+    merged_dims: Dict[int, int]
+    one_hot_dim: int
+    embedding_dim: int
+
+    def __call__(self, *args: Any, **kwds: Any) -> Any:
+        pass
+
+    def encode(self, *args: Any, **kwds: Any) -> Any:
+        pass
+
+
+class EncodingResult(NamedTuple):
+    one_hot: Optional[torch.Tensor]
+    embedding: Optional[torch.Tensor]
+
+    @property
+    def merged(self) -> torch.Tensor:
+        if self.one_hot is None and self.embedding is None:
+            raise ValueError("no data is provided in `EncodingResult`")
+        if self.one_hot is None:
+            assert self.embedding is not None
+            return self.embedding
+        if self.embedding is None:
+            assert self.one_hot is not None
+            return self.one_hot
+        return torch.cat([self.one_hot, self.embedding], dim=1)
 
 
 class SplitFeatures(NamedTuple):
@@ -105,7 +130,7 @@ class Dimensions:
         self,
         *,
         num_history: int,
-        encoder: Optional[Encoder] = None,
+        encoder: Optional[IEncoder] = None,
         one_hot_dim: Optional[int] = None,
         embedding_dim: Optional[int] = None,
         categorical_dim: Optional[int] = None,
@@ -358,7 +383,7 @@ class MLModel(ModelWithCustomSteps):
         output_dim: int,
         num_history: int,
         *,
-        encoder: Optional[Encoder],
+        encoder: Optional[IEncoder],
         numerical_columns_mapping: Dict[int, int],
         categorical_columns_mapping: Dict[int, int],
         use_one_hot: bool,
@@ -473,71 +498,6 @@ class MLModel(ModelWithCustomSteps):
         return self.core.evaluate_step(loader, portion, trainer)
 
 
-def register_ml_module(
-    name: str,
-    *,
-    allow_duplicate: bool = False,
-    pre_bases: Optional[List[type]] = None,
-    post_bases: Optional[List[type]] = None,
-) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
-    def _core(m: Type[nn.Module]) -> Type[nn.Module]:
-        @MLCoreProtocol.register(name, allow_duplicate=allow_duplicate)
-        class _(*bases):  # type: ignore
-            def __init__(self, **kwargs: Any):
-                super().__init__(**filter_kw(MLCoreProtocol.__init__, kwargs))
-                kwargs["in_dim"] = kwargs["input_dim"]
-                kwargs["out_dim"] = kwargs["output_dim"]
-                self.core = m(**filter_kw(m, kwargs))
-
-            def _init_with_trainer(self, trainer: Any) -> None:
-                init_fn = getattr(self.core, "_init_with_trainer", None)
-                if init_fn is not None:
-                    init_fn(trainer)
-
-            def forward(
-                self,
-                batch_idx: int,
-                batch: tensor_dict_type,
-                state: Optional[TrainerState] = None,
-                **kwargs: Any,
-            ) -> tensor_dict_type:
-                key = MERGED_KEY if MERGED_KEY in batch else INPUT_KEY
-                return _forward(self, batch_idx, batch, key, state, **kwargs)
-
-            def train_step(  # type: ignore
-                self,
-                batch_idx: int,
-                batch: tensor_dict_type,
-                trainer: Any,
-                forward_kwargs: Dict[str, Any],
-                loss_kwargs: Dict[str, Any],
-            ) -> StepOutputs:
-                train_step = getattr(self.core, "train_step", None)
-                if train_step is not None:
-                    return train_step(
-                        batch_idx,
-                        batch,
-                        trainer,
-                        forward_kwargs,
-                        loss_kwargs,
-                    )
-
-            def evaluate_step(  # type: ignore
-                self,
-                loader: DataLoaderProtocol,
-                portion: float,
-                trainer: Any,
-            ) -> MetricsOutputs:
-                evaluate_step = getattr(self.core, "evaluate_step", None)
-                if evaluate_step is not None:
-                    return evaluate_step(loader, portion, trainer)
-
-        return m
-
-    bases = (pre_bases or []) + [MLCoreProtocol] + (post_bases or [])
-    return _core
-
-
 __all__ = [
     "MERGED_KEY",
     "ONE_HOT_KEY",
@@ -549,5 +509,4 @@ __all__ = [
     "MLCoreProtocol",
     "MixedStackedModel",
     "MLModel",
-    "register_ml_module",
 ]

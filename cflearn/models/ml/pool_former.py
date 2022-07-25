@@ -1,7 +1,7 @@
 from typing import Optional
 
-from .protocol import register_ml_module
-from .protocol import MixedStackedModel
+from ..register import register_ml_module
+from ..protocols.ml import MixedStackedModel
 
 
 @register_ml_module("pool_former")

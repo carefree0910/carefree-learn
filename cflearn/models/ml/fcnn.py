@@ -4,7 +4,7 @@ from torch import Tensor
 from typing import List
 from typing import Optional
 
-from .protocol import register_ml_module
+from ..register import register_ml_module
 from ...modules.blocks import mapping_dict
 
 

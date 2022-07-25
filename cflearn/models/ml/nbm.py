@@ -10,7 +10,7 @@ from typing import Tuple
 from typing import Optional
 from itertools import combinations
 
-from .protocol import register_ml_module
+from ..register import register_ml_module
 from ...misc.toolkit import eval_context
 from ...modules.blocks import Activation
 

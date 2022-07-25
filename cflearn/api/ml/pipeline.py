@@ -35,10 +35,10 @@ from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import get_full_logits
 from ...misc.toolkit import get_label_predictions
+from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.encoders import EncodingSettings
-from ...models.ml.protocol import MLModel
-from ...misc.internal_.inference import MLInference
+from ...models.protocols.ml import MLModel
 
 try:
     from cfdata.tabular import ColumnTypes

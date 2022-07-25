@@ -13,8 +13,8 @@ from ....misc.toolkit import to_numpy
 from ....misc.toolkit import to_torch
 from ....misc.toolkit import eval_context
 from ....models.ml.nbm import NBM
-from ....models.ml.encoders import Encoder
-from ....models.ml.protocol import Dimensions
+from ....models.protocols.ml import IEncoder
+from ....models.protocols.ml import Dimensions
 
 try:
     import matplotlib.pyplot as plt
@@ -25,7 +25,7 @@ except:
 @dataclass
 class NBMInspector:
     m: NBM
-    encoder: Optional[Encoder] = None
+    encoder: Optional[IEncoder] = None
     dimensions: Optional[Dimensions] = None
     dpi: int = 200
     figsize: Tuple[int, int] = (8, 6)

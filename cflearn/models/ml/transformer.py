@@ -1,8 +1,8 @@
 from typing import Any
 from typing import Optional
 
-from .protocol import MixedStackedModel
-from .protocol import register_ml_module
+from ..register import register_ml_module
+from ..protocols.ml import MixedStackedModel
 
 
 @register_ml_module("transformer")

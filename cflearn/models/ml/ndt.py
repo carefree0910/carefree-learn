@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from typing import List
 from typing import Iterator
 
-from .protocol import register_ml_module
+from ..register import register_ml_module
 from ...misc.toolkit import to_torch
 from ...misc.toolkit import to_numpy
 from ...modules.blocks import Linear

@@ -14,10 +14,10 @@ from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import to_numpy
 from cflearn.misc.toolkit import to_torch
 from cflearn.misc.toolkit import eval_context
-from cflearn.models.ml.protocol import MERGED_KEY
-from cflearn.models.ml.protocol import ONE_HOT_KEY
-from cflearn.models.ml.protocol import EMBEDDING_KEY
-from cflearn.models.ml.protocol import NUMERICAL_KEY
+from cflearn.models.protocols.ml import MERGED_KEY
+from cflearn.models.protocols.ml import ONE_HOT_KEY
+from cflearn.models.protocols.ml import EMBEDDING_KEY
+from cflearn.models.protocols.ml import NUMERICAL_KEY
 
 
 batch_size = 21
