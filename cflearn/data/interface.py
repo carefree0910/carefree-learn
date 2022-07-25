@@ -698,18 +698,16 @@ class ImageFolderData(CVDataModule):
                 lmdb_config=self.lmdb_config,
             )
         )
-        if not os.path.isdir(os.path.join(self.folder, "valid")):
-            self.valid_data = self.train_data
-        else:
-            self.valid_data = CVDataset(
-                ImageFolderDataset(
-                    self.folder,
-                    "valid",
-                    self.test_transform,
-                    extra_label_names=self.extra_label_names,
-                    lmdb_config=self.lmdb_config,
-                )
+        use_train_as_valid = not os.path.isdir(os.path.join(self.folder, "valid"))
+        self.valid_data = CVDataset(
+            ImageFolderDataset(
+                self.folder,
+                "train" if use_train_as_valid else "valid",
+                self.test_transform,
+                extra_label_names=self.extra_label_names,
+                lmdb_config=self.lmdb_config,
             )
+        )
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         if self.pin_memory_device is not None:
