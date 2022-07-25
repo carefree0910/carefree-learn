@@ -15,7 +15,7 @@
       "scheduler": "linear",
       "optimizer_config": {
         "lr": 0.0002,
-        "betas": [0.5,  0.999]
+        "betas": [0.5, 0.999]
       },
       "scheduler_config": {
         "start_epoch": 100,
@@ -27,12 +27,17 @@
       "scheduler": "linear",
       "optimizer_config": {
         "lr": 0.0002,
-        "betas": [0.5,  0.999]
+        "betas": [0.5, 0.999]
       },
       "scheduler_config": {
         "start_epoch": 100,
         "end_epoch": 200
       }
     }
+  },
+  "log_steps": 100,
+  "valid_portion": 1e-5,
+  "state_config": {
+    "min_snapshot_epoch_gap": 5
   }
 }
