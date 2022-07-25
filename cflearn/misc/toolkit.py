@@ -499,6 +499,8 @@ def summary(
             if m_name is None:
                 return
 
+            if not inp:
+                return
             inp = inp[0]
             if not isinstance(inp, Tensor):
                 return
