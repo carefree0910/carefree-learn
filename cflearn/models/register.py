@@ -53,7 +53,7 @@ def register_ml_module(
                 **kwargs: Any,
             ) -> tensor_dict_type:
                 key = MERGED_KEY if MERGED_KEY in batch else INPUT_KEY
-                return _forward(self, batch_idx, batch, key, state, **kwargs)
+                return _forward(self.core, batch_idx, batch, key, state, **kwargs)
 
             def train_step(  # type: ignore
                 self,
@@ -171,7 +171,7 @@ def register_custom_loss_module(
                 **kwargs: Any,
             ) -> tensor_dict_type:
                 key = MERGED_KEY if is_ml and MERGED_KEY in batch else INPUT_KEY
-                return _forward(self, batch_idx, batch, key, state, **kwargs)
+                return _forward(self.core, batch_idx, batch, key, state, **kwargs)
 
         if is_ml:
             register_ml_module(name, allow_duplicate=allow_duplicate)(_)

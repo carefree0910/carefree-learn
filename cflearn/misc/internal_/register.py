@@ -125,14 +125,14 @@ def register_metric(
 
 
 def _forward(
-    self: Any,
+    m: nn.Module,
     batch_idx: int,
     batch: tensor_dict_type,
     general_input_key: str,
     state: Optional[TrainerState] = None,
     **kwargs: Any,
 ) -> tensor_dict_type:
-    fn = self.core.forward
+    fn = m.forward
     kw = filter_kw(fn, kwargs)
     args: List[Any] = []
     if check_requires(fn, "batch_idx"):
@@ -141,7 +141,7 @@ def _forward(
         args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
     if check_requires(fn, "state"):
         args.append(state)
-    rs = self.core(*args, **kw)
+    rs = m(*args, **kw)
     if not isinstance(rs, dict):
         rs = {PREDICTIONS_KEY: rs}
     return rs
@@ -168,7 +168,7 @@ def register_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                return _forward(self, batch_idx, batch, INPUT_KEY, state, **kwargs)
+                return _forward(self.core, batch_idx, batch, INPUT_KEY, state, **kwargs)
 
         return m
 
@@ -260,7 +260,7 @@ def register_custom_module(
                 state: Optional[TrainerState] = None,
                 **kwargs: Any,
             ) -> tensor_dict_type:
-                return _forward(self, batch_idx, batch, INPUT_KEY, state, **kwargs)
+                return _forward(self.core, batch_idx, batch, INPUT_KEY, state, **kwargs)
 
             def train_step(
                 self,
