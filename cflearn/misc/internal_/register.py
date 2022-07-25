@@ -29,6 +29,7 @@ from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
+from ...data.core import Transforms
 from ...misc.toolkit import filter_kw
 from ...misc.toolkit import shallow_copy_dict
 
@@ -369,6 +370,40 @@ def register_loss_module(
     return _core
 
 
+class TransformInterface:
+    @abstractmethod
+    def forward(self, batch: Dict[str, Any]) -> tensor_dict_type:
+        pass
+
+
+transform_type = Type[TransformInterface]
+
+
+def register_transform(
+    name: str,
+    *,
+    allow_duplicate: bool = False,
+) -> Callable[[transform_type], transform_type]:
+    def _core(transform_base: transform_type) -> transform_type:
+        @Transforms.register(name, allow_duplicate=allow_duplicate)
+        class _(Transforms):
+            def __init__(self, *args: Any, **kwargs: Any):
+                super().__init__()
+                self.fn = transform_base(*args, **kwargs).forward
+
+            @property
+            def need_batch_process(self) -> bool:
+                return True
+
+            @property
+            def need_numpy(self) -> bool:
+                return False
+
+        return transform_base
+
+    return _core
+
+
 __all__ = [
     "register_initializer",
     "register_metric",
@@ -376,6 +411,8 @@ __all__ = [
     "register_module",
     "register_custom_module",
     "register_loss_module",
+    "register_transform",
     "CustomModule",
     "MetricInterface",
+    "TransformInterface",
 ]
