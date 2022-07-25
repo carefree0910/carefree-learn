@@ -6,12 +6,12 @@ from typing import Optional
 
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
-from ..protocol import ImageTranslatorMixin
 from ...bases import CascadeBase
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 
 

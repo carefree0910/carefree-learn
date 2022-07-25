@@ -8,7 +8,6 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
@@ -16,6 +15,7 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.backbone import BackboneEncoder
+from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d

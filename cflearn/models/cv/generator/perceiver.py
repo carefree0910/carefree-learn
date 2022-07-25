@@ -2,12 +2,12 @@ from torch import nn
 from typing import Any
 from typing import Optional
 
-from ..protocol import ImageTranslatorMixin
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ...protocols.cv import ImageTranslatorMixin
 from ....modules.blocks import PerceiverIO
 from ....modules.blocks import VanillaPatchEmbed
 

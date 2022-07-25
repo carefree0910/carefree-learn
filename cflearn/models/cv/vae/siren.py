@@ -7,7 +7,6 @@ from typing import Optional
 from cftool.misc import check_requires
 
 from .vanilla import reparameterize
-from ..protocol import GaussianGeneratorMixin
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
@@ -15,6 +14,7 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import Encoder1DBase
 from ...implicit.siren import ImgSiren
+from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import auto_num_layers
 from ....losses.vae import MU_KEY
 from ....losses.vae import LOG_VAR_KEY

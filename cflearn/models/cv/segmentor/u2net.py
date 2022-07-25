@@ -7,7 +7,7 @@ from typing import List
 from typing import Union
 from typing import Optional
 
-from ..protocol import ImageTranslatorMixin
+from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_clones
 from ....modules.blocks import get_conv_blocks

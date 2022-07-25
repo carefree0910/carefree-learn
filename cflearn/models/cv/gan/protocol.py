@@ -11,7 +11,6 @@ from typing import List
 from typing import Optional
 
 from .discriminators import DiscriminatorBase
-from ..protocol import GaussianGeneratorMixin
 from ....data import CVLoader
 from ....types import tensor_dict_type
 from ....protocol import StepOutputs
@@ -22,6 +21,7 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
+from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
 from ....misc.toolkit import toggle_optimizer

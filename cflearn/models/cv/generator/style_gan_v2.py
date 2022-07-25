@@ -8,7 +8,6 @@ from typing import Dict
 from typing import Optional
 
 from .constants import STYLE_LABEL_KEY
-from ..protocol import ImageTranslatorMixin
 from ....protocol import ModelProtocol
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
@@ -17,6 +16,7 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..decoder.style_gan_v2 import FullyConnected
 from ..decoder.style_gan_v2 import StyleGAN2Decoder
+from ...protocols.cv import ImageTranslatorMixin
 
 
 def normalize_z(net: Tensor, dim: int = 1, eps: float = 1.0e-8) -> Tensor:

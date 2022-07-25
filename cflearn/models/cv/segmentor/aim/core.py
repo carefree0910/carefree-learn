@@ -8,7 +8,7 @@ from typing import List
 from typing import Tuple
 
 from .backbone import resnet34_mp
-from ...protocol import ImageTranslatorMixin
+from ....protocols.cv import ImageTranslatorMixin
 from .....misc.toolkit import interpolate
 from .....modules.blocks import get_conv_blocks
 from .....modules.blocks import Conv2d
