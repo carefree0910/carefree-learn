@@ -17,9 +17,8 @@ from cftool.misc import check_requires
 
 from .noises import noises
 from ..protocol import PerceptorProtocol
-from ...bases import CustomLossBase
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
+from ...bases import ICustomLossModule
+from ...bases import ICustomLossOutput
 from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
@@ -126,7 +125,7 @@ class CutOuts(nn.Module):
         return net
 
 
-class Aligner(CustomLossBase, metaclass=ABCMeta):
+class Aligner(ICustomLossModule, metaclass=ABCMeta):
     perceptor: PerceptorProtocol
 
     def __init__(
@@ -283,17 +282,9 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
     def perceptor_normalize(self, image: Tensor) -> Tensor:
         pass
 
-    def _get_losses(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        trainer: Any,
-        forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+    def get_losses(self, trainer: Any) -> ICustomLossOutput:  # type: ignore
         state = trainer.state
-        forward_results = self(batch_idx, batch, state, **forward_kwargs)
-        net = forward_results[PREDICTIONS_KEY]
+        net = self.forward()
         cutouts = self.cutouts(net)
         perceptor_net = self.perceptor_normalize(cutouts)
         img_code = self.perceptor.encode_image(perceptor_net)
@@ -306,7 +297,7 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
             vision_loss = losses["vision"] = F.mse_loss(img_code, self.img_code)
             loss = loss + vision_loss * self.vision_weight
         losses[LOSS_KEY] = loss
-        return forward_results, losses
+        return ICustomLossOutput({PREDICTIONS_KEY: net}, losses)
 
     # api
 
@@ -315,14 +306,8 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
         clamped = ClampWithGrad.apply(raw, 0.0, 1.0)
         return clamped
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.generate()}
+    def forward(self) -> Tensor:  # type: ignore
+        return self.generate()
 
 
 __all__ = ["Text2ImageAligner"]

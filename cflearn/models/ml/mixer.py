@@ -3,9 +3,10 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from ..bases import BAKEBase
-from ..bases import RDropoutBase
+from ..bases import IBAKE
+from ..bases import IRDropout
 from ..register import register_ml_module
+from ..register import register_custom_loss_module
 from ...types import tensor_dict_type
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
@@ -40,8 +41,8 @@ class Mixer(MixedStackedModel):
         )
 
 
-@register_ml_module("mixer_bake")
-class MixerWithBAKE(BAKEBase):
+@register_custom_loss_module("mixer_bake", is_ml=True)
+class MixerWithBAKE(IBAKE):
     def __init__(
         self,
         input_dim: int,
@@ -77,8 +78,8 @@ class MixerWithBAKE(BAKEBase):
         return {LATENT_KEY: latent, PREDICTIONS_KEY: net}
 
 
-@register_ml_module("mixer_r_dropout")
-class MixerWithRDropout(RDropoutBase):
+@register_custom_loss_module("mixer_r_dropout", is_ml=True)
+class MixerWithRDropout(IRDropout):
     def __init__(
         self,
         input_dim: int,

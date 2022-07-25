@@ -7,88 +7,47 @@ from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
-from typing import List
-from typing import Tuple
+from typing import Type
 from typing import Optional
+from typing import NamedTuple
 
 from ..types import tensor_dict_type
-from ..protocol import StepOutputs
 from ..protocol import LossProtocol
 from ..protocol import ModelProtocol
-from ..protocol import MetricsOutputs
-from ..protocol import DataLoaderProtocol
-from ..protocol import ModelWithCustomSteps
 from ..constants import LOSS_KEY
 from ..constants import LABEL_KEY
 from ..constants import LATENT_KEY
 from ..constants import WARNING_PREFIX
 from ..constants import PREDICTIONS_KEY
-from ..misc.toolkit import to_device
 from ..misc.toolkit import set_requires_grad
 
 
-class CustomLossBase(ModelWithCustomSteps, metaclass=ABCMeta):
+class ICustomLossOutput(NamedTuple):
+    forward_results: tensor_dict_type
+    loss_dict: tensor_dict_type
+
+
+class ICustomLossModule(torch.nn.Module):
     @abstractmethod
-    def _get_losses(
+    def get_losses(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
         trainer: Any,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+    ) -> ICustomLossOutput:
         pass
 
-    def train_step(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        trainer: Any,
-        forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
-    ) -> StepOutputs:
-        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            forward_results, loss_dict = self._get_losses(
-                batch_idx,
-                batch,
-                trainer,
-                forward_kwargs,
-                loss_kwargs,
-            )
-        trainer.post_loss_step(loss_dict)
-        return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
-
-    def evaluate_step(
-        self,
-        loader: DataLoaderProtocol,
-        portion: float,
-        trainer: Any,
-    ) -> MetricsOutputs:
-        if trainer.metrics is not None:
-            outputs = trainer.inference.get_outputs(
-                loader,
-                portion=portion,
-                state=trainer.state,
-                metrics=trainer.metrics,
-                return_outputs=False,
-            )
-            assert outputs.metric_outputs is not None
-            return outputs.metric_outputs
-        loss_items: Dict[str, List[float]] = {}
-        for i, batch in enumerate(loader):
-            if i / len(loader) >= portion:
-                break
-            batch = to_device(batch, self.device)
-            _, losses = self._get_losses(0, batch, trainer, {}, {})
-            for k, v in losses.items():
-                loss_items.setdefault(k, []).append(v.item())
-        # gather
-        mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        score = trainer.weighted_loss_score(mean_loss_items)
-        return MetricsOutputs(score, mean_loss_items)
+    @abstractmethod
+    def forward(self, *args: Any, **kwargs: Any) -> Any:
+        pass
 
 
-class BAKEBase(CustomLossBase, metaclass=ABCMeta):
+custom_loss_module_type = Type[ICustomLossModule]
+
+
+class IBAKE(ICustomLossModule):
     lb: float
     bake_loss: LossProtocol
     w_ensemble: float
@@ -109,14 +68,14 @@ class BAKEBase(CustomLossBase, metaclass=ABCMeta):
             bake_loss = "focal" if is_classification else "mae"
         self.bake_loss = LossProtocol.make(bake_loss, bake_loss_config or {})
 
-    def _get_losses(
+    def get_losses(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
         trainer: Any,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+    ) -> ICustomLossOutput:
         state = trainer.state
         forward_results = self(batch_idx, batch, state, **forward_kwargs)
         loss_dict = trainer.loss(forward_results, batch, state, **loss_kwargs)
@@ -143,21 +102,21 @@ class BAKEBase(CustomLossBase, metaclass=ABCMeta):
         )[LOSS_KEY]
         loss_dict["bake"] = bake_loss
         loss_dict[LOSS_KEY] = loss + self.lb * bake_loss
-        return forward_results, loss_dict
+        return ICustomLossOutput(forward_results, loss_dict)
 
 
-class RDropoutBase(CustomLossBase, metaclass=ABCMeta):
+class IRDropout(ICustomLossModule):
     lb: float
     is_classification: bool
 
-    def _get_losses(
+    def get_losses(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
         trainer: Any,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
-    ) -> Tuple[tensor_dict_type, tensor_dict_type]:
+    ) -> ICustomLossOutput:
         state = trainer.state
         fr1 = self(batch_idx, batch, state, **forward_kwargs)
         fr2 = self(batch_idx, batch, state, **forward_kwargs)
@@ -176,7 +135,7 @@ class RDropoutBase(CustomLossBase, metaclass=ABCMeta):
             r_dropout = 0.5 * (p1_loss + p2_loss)
         loss_dict["r_dropout"] = r_dropout
         loss_dict[LOSS_KEY] = loss + self.lb * r_dropout
-        return fr1, loss_dict
+        return ICustomLossOutput(fr1, loss_dict)
 
 
 class CascadeBase(ModelProtocol, metaclass=ABCMeta):
@@ -205,8 +164,7 @@ class CascadeBase(ModelProtocol, metaclass=ABCMeta):
 
 
 __all__ = [
-    "BAKEBase",
-    "CascadeBase",
-    "RDropoutBase",
-    "CustomLossBase",
+    "ICustomLossModule",
+    "IBAKE",
+    "IRDropout",
 ]

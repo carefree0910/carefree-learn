@@ -33,7 +33,7 @@ class CLIPWithVQGANAlignerCallback(TrainerCallback):
             return None
         outputs_folder = os.path.join(trainer.workplace, self.outputs_folder)
         os.makedirs(outputs_folder, exist_ok=True)
-        model = trainer.model
+        model = trainer.model.core
         with eval_context(model):
             img_tensor = model.generate()[0]
         img_tensor = (img_tensor * 255.0).to(torch.uint8)
@@ -50,7 +50,7 @@ class CLIPWithVQGANAlignerCallback(TrainerCallback):
         workplace = trainer.workplace
         src = os.path.join(workplace, self.outputs_folder)
         video_path = os.path.join(src, self.video_file)
-        resolution = trainer.model.resolution
+        resolution = trainer.model.core.resolution
         fourcc = cv2.VideoWriter_fourcc("M", "P", "4", "V")
         out = cv2.VideoWriter(video_path, fourcc, 25, resolution, isColor=True)
         files = [file for file in os.listdir(src) if file.endswith(".png")]

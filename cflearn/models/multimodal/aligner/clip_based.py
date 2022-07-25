@@ -6,10 +6,11 @@ from typing import Optional
 
 from .core import Text2ImageAligner
 from ..clip import CLIP
+from ...register import register_custom_loss_module
 from ...cv.generator import VQGANGenerator
 
 
-@Text2ImageAligner.register("clip_vqgan_aligner")
+@register_custom_loss_module("clip_vqgan_aligner", is_ml=False)
 class CLIPWithVQGANAligner(Text2ImageAligner):
     perceptor: CLIP
     generator: VQGANGenerator

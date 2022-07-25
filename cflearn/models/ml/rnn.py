@@ -9,8 +9,9 @@ from typing import List
 from typing import Optional
 
 from .fcnn import FCNN
-from ..bases import BAKEBase
+from ..bases import IBAKE
 from ..register import register_ml_module
+from ..register import register_custom_loss_module
 from ...types import tensor_dict_type
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
@@ -94,8 +95,8 @@ class RNN(nn.Module):
         return self.head(net[:, -1])
 
 
-@register_ml_module("rnn_bake")
-class RNNWithBAKE(BAKEBase):
+@register_custom_loss_module("rnn_bake", is_ml=True)
+class RNNWithBAKE(IBAKE):
     def __init__(
         self,
         input_dim: int,
