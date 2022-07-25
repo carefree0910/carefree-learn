@@ -372,7 +372,7 @@ def register_loss_module(
 
 class TransformInterface:
     @abstractmethod
-    def forward(self, batch: Dict[str, Any]) -> tensor_dict_type:
+    def forward(self, sample: Dict[str, Any]) -> tensor_dict_type:
         pass
 
 
