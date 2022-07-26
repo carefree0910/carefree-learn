@@ -1,0 +1,31 @@
+{
+  "pipeline": "cv.carefree",
+  "fixed_epoch": 200,
+  "update_scheduler_per_epoch": true,
+  "optimizer_settings": {
+    "core.g_parameters": {
+      "optimizer": "adam",
+      "scheduler": "linear",
+      "optimizer_config": {
+        "lr": 0.0002,
+        "betas": [0.5, 0.999]
+      },
+      "scheduler_config": {
+        "start_epoch": 100,
+        "end_epoch": 200
+      }
+    },
+    "core.d_parameters": {
+      "optimizer": "adam",
+      "scheduler": "linear",
+      "optimizer_config": {
+        "lr": 0.0002,
+        "betas": [0.5, 0.999]
+      },
+      "scheduler_config": {
+        "start_epoch": 100,
+        "end_epoch": 200
+      }
+    }
+  }
+}

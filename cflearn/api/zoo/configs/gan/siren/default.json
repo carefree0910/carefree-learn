@@ -1,20 +1,10 @@
 {
+  "__bases__": ["common_/gan"],
   "__requires__": {
     "model_config": ["img_size"]
   },
-  "pipeline": "cv.carefree",
   "model_name": "siren_gan",
   "model_config": {
     "in_channels": 3
-  },
-  "optimizer_settings": {
-    "core.g_parameters": {
-      "optimizer": "adam",
-      "scheduler": "warmup"
-    },
-    "core.d_parameters": {
-      "optimizer": "adam",
-      "scheduler": "warmup"
-    }
   }
 }
