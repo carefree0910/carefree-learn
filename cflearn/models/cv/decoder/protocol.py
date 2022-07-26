@@ -1,7 +1,3 @@
-import torch.nn as nn
-
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -11,32 +7,49 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
 from ....types import tensor_dict_type
+from ....protocol import _forward
 from ....protocol import TrainerState
-from ....misc.toolkit import interpolate
-from ....misc.toolkit import auto_num_layers
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import filter_kw
+from ....misc.toolkit import interpolate
+from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import ChannelPadding
 
 
-decoders: Dict[str, Type["DecoderBase"]] = {}
-decoders_1d: Dict[str, Type["Decoder1DBase"]] = {}
+decoders: Dict[str, Type["DecoderMixin"]] = {}
+decoders_1d: Dict[str, Type["Decoder1DMixin"]] = {}
 
 
-class DecoderProtocol(nn.Module):
-    img_size: Optional[int] = None
-    num_classes: Optional[int] = None
+class IDecoder:
+    num_upsample: int
+    out_channels: int
+    img_size: Optional[int]
+    num_classes: Optional[int]
+    latent_resolution: Optional[int]
 
-    @abstractmethod
-    def forward(
+    def _initialize(
         self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
+        *,
+        out_channels: int,
+        img_size: Optional[int],
+        num_upsample: Optional[int],
+        num_classes: Optional[int],
+        latent_resolution: Optional[int],
+    ) -> None:
+        if num_upsample is None:
+            fmt = "`{}` should be provided when `num_upsample` is not"
+            if img_size is None:
+                raise ValueError(fmt.format("img_size"))
+            if latent_resolution is None:
+                raise ValueError(fmt.format("latent_resolution"))
+            num_upsample = auto_num_layers(img_size, latent_resolution, None)
+        self.num_upsample = num_upsample
+        self.out_channels = out_channels
+        self.img_size = img_size
+        self.num_classes = num_classes
+        self.latent_resolution = latent_resolution
 
     @property
     def is_conditional(self) -> bool:
@@ -48,51 +61,29 @@ class DecoderProtocol(nn.Module):
         return interpolate(net, size=self.img_size, determinate=determinate)
 
     def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
-        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
+        return run_decoder(self, 0, batch, **kwargs)[PREDICTIONS_KEY]
 
 
 # decode from latent feature map
-class DecoderBase(DecoderProtocol, WithRegister["DecoderBase"], metaclass=ABCMeta):
+class DecoderMixin(IDecoder, WithRegister["DecoderMixin"]):
     d = decoders
 
-    def __init__(
-        self,
-        latent_channels: int,
-        out_channels: int,
-        *,
-        img_size: Optional[int] = None,
-        num_upsample: Optional[int] = None,
-        num_classes: Optional[int] = None,
-        latent_resolution: Optional[int] = None,
-        cond_channels: int = 16,
-    ):
-        super().__init__()
-        self.img_size = img_size
-        self.latent_channels = latent_channels
-        self.latent_resolution = latent_resolution
-        self.out_channels = out_channels
-        if num_upsample is None:
-            fmt = "`{}` should be provided when `num_upsample` is not"
-            if img_size is None:
-                raise ValueError(fmt.format("img_size"))
-            if latent_resolution is None:
-                raise ValueError(fmt.format("latent_resolution"))
-            num_upsample = auto_num_layers(img_size, latent_resolution, None)
-        self.num_upsample = num_upsample
-        # conditional
+    latent_channels: int
+    cond_channels: int
+
+    def _init_cond(self, *, cond_channels: int = 16) -> None:
         self.cond_channels = cond_channels
-        self.num_classes = num_classes
-        if num_classes is None:
+        if self.num_classes is None:
             self.cond = None
         else:
-            if latent_resolution is None:
+            if self.latent_resolution is None:
                 msg = "`latent_resolution` should be provided for conditional modeling"
                 raise ValueError(msg)
             self.cond = ChannelPadding(
-                latent_channels,
+                self.latent_channels,
                 cond_channels,
-                latent_resolution,
-                num_classes=num_classes,
+                self.latent_resolution,
+                num_classes=self.num_classes,
             )
 
     def _inject_cond(self, batch: tensor_dict_type) -> tensor_dict_type:
@@ -104,36 +95,30 @@ class DecoderBase(DecoderProtocol, WithRegister["DecoderBase"], metaclass=ABCMet
 
 
 # decode from 1d latent code
-class Decoder1DBase(DecoderProtocol, WithRegister["Decoder1DBase"], metaclass=ABCMeta):
+class Decoder1DMixin(IDecoder, WithRegister["Decoder1DMixin"]):
     d = decoders_1d
 
-    def __init__(
-        self,
-        latent_dim: int,
-        out_channels: int,
-        *,
-        img_size: Optional[int] = None,
-        num_upsample: Optional[int] = None,
-        num_classes: Optional[int] = None,
-        latent_resolution: Optional[int] = None,
-    ):
-        super().__init__()
-        self.img_size = img_size
-        self.latent_dim = latent_dim
-        self.out_channels = out_channels
-        self.num_classes = num_classes
-        self.latent_resolution = latent_resolution
-        if num_upsample is None:
-            fmt = "`{}` should be provided when `num_upsample` is not"
-            if img_size is None:
-                raise ValueError(fmt.format("img_size"))
-            if latent_resolution is None:
-                raise ValueError(fmt.format("latent_resolution"))
-            num_upsample = auto_num_layers(img_size, latent_resolution, None)
-        self.num_upsample = num_upsample
+    latent_dim: int
+
+
+def make_decoder(name: str, config: Dict[str, Any], *, is_1d: bool = False) -> IDecoder:
+    base = (Decoder1DMixin if is_1d else DecoderMixin).get(name)  # type: ignore
+    return base(**filter_kw(base, config))
+
+
+def run_decoder(
+    decoder: IDecoder,
+    batch_idx: int,
+    batch: tensor_dict_type,
+    state: Optional[TrainerState] = None,
+    **kwargs: Any,
+) -> tensor_dict_type:
+    return _forward(decoder, batch_idx, batch, INPUT_KEY, state, **kwargs)
 
 
 __all__ = [
-    "DecoderBase",
-    "Decoder1DBase",
+    "make_decoder",
+    "run_decoder",
+    "DecoderMixin",
+    "Decoder1DMixin",
 ]

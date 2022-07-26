@@ -7,7 +7,7 @@ from typing import List
 from typing import Optional
 
 from .protocol import VanillaGANMixin
-from ..decoder import DecoderBase
+from ..decoder import DecoderMixin
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....misc.toolkit import auto_num_layers
@@ -68,7 +68,7 @@ class VanillaGAN(VanillaGANMixin):
         generator_config["num_upsample"] = num_upsample
         generator_config["out_channels"] = out_channels or in_channels
         generator_config["num_classes"] = num_classes
-        self.generator = DecoderBase.make(generator, config=generator_config)
+        self.generator = DecoderMixin.make(generator, config=generator_config)
 
     @property
     def g_parameters(self) -> List[nn.Parameter]:

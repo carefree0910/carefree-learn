@@ -2,18 +2,17 @@ import math
 
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import List
 from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 
-from .protocol import DecoderBase
-from .protocol import Decoder1DBase
+from .protocol import DecoderMixin
+from .protocol import Decoder1DMixin
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
@@ -23,8 +22,8 @@ from ....modules.blocks import ChannelPadding
 from ....modules.blocks import UpsampleConv2d
 
 
-@DecoderBase.register("vanilla")
-class VanillaDecoder(DecoderBase):
+@DecoderMixin.register("vanilla")
+class VanillaDecoder(nn.Module, DecoderMixin):
     def __init__(
         self,
         latent_channels: int,
@@ -46,15 +45,16 @@ class VanillaDecoder(DecoderBase):
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
     ):
-        super().__init__(
-            latent_channels,
-            out_channels,
+        super().__init__()
+        self.latent_channels = latent_channels
+        self._initialize(
+            out_channels=out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
-            cond_channels=cond_channels,
             num_classes=num_classes,
             latent_resolution=latent_resolution,
         )
+        self._init_cond(cond_channels=cond_channels)
 
         blocks: List[nn.Module] = []
 
@@ -142,13 +142,7 @@ class VanillaDecoder(DecoderBase):
 
         self.decoder = nn.ModuleList(blocks)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         net = self._inject_cond(batch)[INPUT_KEY]
         determinate = kwargs.pop("determinate", False)
         for block in self.decoder:
@@ -157,11 +151,11 @@ class VanillaDecoder(DecoderBase):
                 kw["determinate"] = determinate
             net = block(net, **kw)
         net = self.resize(net, determinate=determinate)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
-@Decoder1DBase.register("vanilla")
-class VanillaDecoder1D(Decoder1DBase):
+@Decoder1DMixin.register("vanilla")
+class VanillaDecoder1D(nn.Module, Decoder1DMixin):
     def __init__(
         self,
         latent_dim: int,
@@ -185,19 +179,20 @@ class VanillaDecoder1D(Decoder1DBase):
         latent_padding_channels: Optional[int] = 16,
         latent_expand_ratio: int = 1,
     ):
-        super().__init__(
-            latent_dim,
-            out_channels,
+        super().__init__()
+        self.latent_dim = latent_dim
+        if latent_resolution is None:
+            latent_resolution = int(round(img_size / 2**self.num_upsample))
+        self._initialize(
+            out_channels=out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
             num_classes=num_classes,
             latent_resolution=latent_resolution,
         )
-        if latent_resolution is None:
-            latent_resolution = int(round(img_size / 2**self.num_upsample))
-        self.latent_resolution = latent_resolution
         in_dim = latent_dim
         latent_dim *= latent_expand_ratio
+        assert isinstance(self.latent_resolution, int)
         latent_area = self.latent_resolution**2
         latent_channels = math.ceil(latent_dim / latent_area)
         shape = -1, latent_channels, latent_resolution, latent_resolution
@@ -234,18 +229,12 @@ class VanillaDecoder1D(Decoder1DBase):
             latent_resolution=latent_resolution,
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         batch = shallow_copy_dict(batch)
         net = batch[INPUT_KEY]
         net = self.from_latent(net)
         batch[INPUT_KEY] = net
-        return self.decoder(batch_idx, batch, state, **kwargs)
+        return self.decoder(batch, **kwargs)
 
 
 __all__ = [

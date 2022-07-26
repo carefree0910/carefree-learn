@@ -6,13 +6,11 @@ from torch import nn
 from torch import Tensor
 from torch.nn import init
 
-from .protocol import Decoder1DBase
+from .protocol import Decoder1DMixin
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
-from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Linear
@@ -164,8 +162,8 @@ class ToOutput(nn.Module):
         return self.mapping(x)
 
 
-@Decoder1DBase.register("style")
-class StyleDecoder(Decoder1DBase):
+@Decoder1DMixin.register("style")
+class StyleDecoder(nn.Module, Decoder1DMixin):
     def __init__(
         self,
         img_size: int,
@@ -180,6 +178,8 @@ class StyleDecoder(Decoder1DBase):
         demodulate: bool = False,
         num_upsample: Optional[int] = None,
     ):
+        super().__init__()
+        self.latent_dim = latent_dim
         target_num_upsample = auto_num_layers(img_size, latent_resolution, None) + 1
         if num_upsample is not None and num_upsample != target_num_upsample:
             raise ValueError(
@@ -187,9 +187,8 @@ class StyleDecoder(Decoder1DBase):
                 f"but it should be {target_num_upsample}"
             )
         num_upsample = target_num_upsample
-        super().__init__(
-            latent_dim,
-            out_channels,
+        self._initialize(
+            out_channels=out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
             num_classes=num_classes,
@@ -232,13 +231,7 @@ class StyleDecoder(Decoder1DBase):
         self.blocks = nn.ModuleList(blocks)
         self.to_output = ToOutput(in_nc, out_channels, gain=0.03)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type) -> Tensor:
         styles = batch.get(INPUT_KEY)
         if styles is None:
             msg = "`styles` should be provided in batch.data in `StyleGenerator`"
@@ -259,7 +252,7 @@ class StyleDecoder(Decoder1DBase):
         for i in range(self.num_upsample):
             net = self.blocks[i](net, styles, styles, self.noise)  # type: ignore
         net = self.to_output(net)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = [

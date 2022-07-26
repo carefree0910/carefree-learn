@@ -6,9 +6,8 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
-from cftool.misc import check_requires
 
-from ..decoder import DecoderBase
+from ..decoder import make_decoder
 from ..encoder import run_encoder
 from ..encoder import make_encoder
 from ..encoder import EncoderMixin
@@ -95,14 +94,12 @@ class VQGenerator(ModelProtocol):
         # codebook
         self.codebook = VQCodebook(num_code, code_dimension)
         # decoder
-        decoder_base = DecoderBase.get(decoder)
-        if check_requires(decoder_base, "img_size"):
-            decoder_config["img_size"] = img_size
-        decoder_config["out_channels"] = out_channels or in_channels
-        decoder_config["latent_resolution"] = latent_resolution
-        decoder_config["latent_channels"] = latent_channels
-        decoder_config["num_classes"] = num_classes
-        self.decoder = decoder_base(**decoder_config)
+        decoder_config.setdefault("img_size", img_size)
+        decoder_config.setdefault("out_channels", out_channels or in_channels)
+        decoder_config.setdefault("latent_resolution", latent_resolution)
+        decoder_config.setdefault("latent_channels", latent_channels)
+        decoder_config.setdefault("num_classes", num_classes)
+        self.decoder = make_decoder(decoder, decoder_config)
         # latent padding
         if latent_padding_channels is None:
             self.latent_padding = None

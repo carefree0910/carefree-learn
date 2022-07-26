@@ -5,10 +5,9 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .decoder import DecoderBase
-from .decoder import Decoder1DBase
 from .encoder import make_encoder
 from .encoder import EncoderMixin
+from .decoder import make_decoder
 from ...types import tensor_dict_type
 from ...misc.toolkit import auto_num_layers
 
@@ -53,8 +52,6 @@ class EncoderDecoder(nn.Module):
                 "in `VanillaVAEBase` (when `latent_resolution` is not provided, "
                 "it will be inferred automatically with `img_size`)"
             )
-        # check num_downsample requirement
-        self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)  # type: ignore
         # properties
         self.is_1d = is_1d
         self.latent = latent
@@ -78,15 +75,13 @@ class EncoderDecoder(nn.Module):
         # decoder
         if decoder_config is None:
             decoder_config = {}
+        decoder_config.setdefault("img_size", img_size)
+        decoder_config.setdefault("num_classes", num_classes)
+        decoder_config.setdefault("out_channels", out_channels or in_channels)
+        decoder_config.setdefault("num_upsample", num_upsample)
+        decoder_config.setdefault("latent_resolution", latent_resolution)
         decoder_config[self.latent_key] = self.decoder_latent
-        decoder_config["img_size"] = img_size
-        decoder_config["num_classes"] = num_classes
-        decoder_config["out_channels"] = out_channels or in_channels
-        if num_upsample is not None and not decoder.startswith("style"):
-            decoder_config["num_upsample"] = num_upsample
-        if latent_resolution is not None:
-            decoder_config["latent_resolution"] = latent_resolution
-        self.decoder = self.decoder_base.make(decoder, config=decoder_config)
+        self.decoder = make_decoder(decoder, decoder_config, is_1d=is_1d)
         self.latent_resolution = self.decoder.latent_resolution
 
     def resize(self, net: Tensor) -> Tensor:

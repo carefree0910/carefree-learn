@@ -5,9 +5,8 @@ from typing import Any
 from typing import List
 from typing import Optional
 
-from .protocol import DecoderBase
+from .protocol import DecoderMixin
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.vqgan import normalize
@@ -29,8 +28,8 @@ class Upsample(nn.Module):
         return net
 
 
-@DecoderBase.register("vqgan")
-class VQGANDecoder(DecoderBase):
+@DecoderMixin.register("vqgan")
+class VQGANDecoder(nn.Module, DecoderMixin):
     def __init__(
         self,
         img_size: int,
@@ -47,6 +46,8 @@ class VQGANDecoder(DecoderBase):
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
     ):
+        super().__init__()
+        self.latent_channels = latent_channels
         if channel_multipliers is None:
             channel_multipliers = [1, 1, 2, 2, 4]
         if attention_resolutions is None:
@@ -57,15 +58,14 @@ class VQGANDecoder(DecoderBase):
                 f"the length of `channel_multipliers` ({len(channel_multipliers)}"
             )
         num_upsample = len(channel_multipliers)
-        super().__init__(
-            latent_channels,
-            out_channels,
+        self._initialize(
+            out_channels=out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
-            cond_channels=cond_channels,
             num_classes=num_classes,
             latent_resolution=latent_resolution,
         )
+        self._init_cond(cond_channels=cond_channels)
         in_nc = latent_dim * channel_multipliers[-1]
         current_res = img_size // 2 ** (num_upsample - 1)
         # in conv
@@ -98,13 +98,7 @@ class VQGANDecoder(DecoderBase):
             Conv2d(in_nc, out_channels, kernel_size=3, padding=1),
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         net = batch[INPUT_KEY]
         net = self.in_conv(net)
         net = self.mid(net)
@@ -113,7 +107,7 @@ class VQGANDecoder(DecoderBase):
         net = self.out(net)
         if kwargs.get("resize", True):
             net = self.resize(net)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = [

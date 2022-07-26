@@ -11,12 +11,10 @@ from typing import List
 from typing import Tuple
 from typing import Optional
 
-from .protocol import Decoder1DBase
+from .protocol import Decoder1DMixin
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Activation
 from ....modules.blocks import UpsampleConv2d
@@ -378,8 +376,8 @@ class StyleGAN2Decoder(nn.Module):
         return rgb
 
 
-@Decoder1DBase.register("style2")
-class StyleDecoder2(Decoder1DBase):
+@Decoder1DMixin.register("style2")
+class StyleDecoder2(nn.Module, Decoder1DMixin):
     def __init__(
         self,
         img_size: int,
@@ -393,10 +391,11 @@ class StyleDecoder2(Decoder1DBase):
         **block_kwargs: Any,
     ):
         assert img_size >= 4 and img_size & (img_size - 1) == 0
+        super().__init__()
+        self.latent_dim = latent_dim
         num_upsample = int(round(math.log2(img_size))) - 1
-        super().__init__(
-            latent_dim,
-            out_channels,
+        self._initialize(
+            out_channels=out_channels,
             img_size=img_size,
             num_upsample=num_upsample,
             num_classes=num_classes,
@@ -418,16 +417,10 @@ class StyleDecoder2(Decoder1DBase):
     def _z2ws(self, z: Tensor) -> Tensor:
         return z.unsqueeze(1).repeat(1, self.decoder.num_ws, 1)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any,) -> Tensor:
         ws = self._z2ws(batch[INPUT_KEY])
         net = self.decoder(ws, labels=batch.get(LABEL_KEY), **kwargs)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = [
