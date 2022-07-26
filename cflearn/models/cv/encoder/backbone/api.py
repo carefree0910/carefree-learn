@@ -89,7 +89,7 @@ class BackboneEncoder1D(nn.Module, Encoder1DMixin):
         self.latent_dim = self.encoder.latent_channels
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
-    def forward(self, batch: tensor_dict_type) -> tensor_dict_type:  # type: ignore
+    def forward(self, batch: tensor_dict_type) -> tensor_dict_type:
         outputs = self.encoder(batch)
         latent = outputs[LATENT_KEY]
         if latent.shape[-2] != 1 or latent.shape[-1] != 1:

@@ -165,7 +165,7 @@ class VQGANEncoder(nn.Module, EncoderMixin):
         )
         self.net = nn.Sequential(*blocks)
 
-    def forward(self, batch: tensor_dict_type) -> Tensor:  # type: ignore
+    def forward(self, batch: tensor_dict_type) -> Tensor:
         return self.net(batch[INPUT_KEY])
 
 
