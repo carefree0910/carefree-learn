@@ -207,14 +207,14 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
         ]
         if latent_padding_channels is not None:
             latent_padding = ChannelPadding(
-                latent_dim,
+                latent_channels,
                 latent_padding_channels,
                 latent_resolution,
             )
             blocks.append(latent_padding)
         self.from_latent = nn.Sequential(*blocks)
         self.decoder = VanillaDecoder(
-            latent_dim,
+            latent_channels,
             out_channels,
             norm_type,
             res_norm_type,
