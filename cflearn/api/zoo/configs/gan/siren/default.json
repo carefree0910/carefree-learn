@@ -5,6 +5,7 @@
   },
   "model_name": "siren_gan",
   "model_config": {
-    "in_channels": 3
+    "in_channels": 3,
+    "final_activation": "Sigmoid"
   }
 }
