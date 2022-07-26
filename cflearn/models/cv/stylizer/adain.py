@@ -91,8 +91,7 @@ class AdaINStylizer(ModelProtocol):
         if not need_stylized_features:
             decoded_feats = decoded_content_latent = None
         else:
-            decoded_inp = {INPUT_KEY: decoded}
-            decoded_feats = self.backbone(batch_idx, decoded_inp, state, **kwargs)
+            decoded_feats = self.backbone({INPUT_KEY: decoded})
             decoded_content_latent = decoded_feats.pop(LATENT_KEY)
         return {
             PREDICTIONS_KEY: decoded,
