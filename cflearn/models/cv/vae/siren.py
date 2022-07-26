@@ -1,5 +1,3 @@
-import torch
-
 from torch import nn
 from torch import Tensor
 from typing import Any
@@ -83,9 +81,7 @@ class SirenVAE(nn.Module, GaussianGeneratorMixin):
         size: Optional[int] = None,
         **kwargs: Any,
     ) -> Tensor:
-        net = self.siren.decode(z, labels=labels, size=size)
-        net = torch.tanh(net)
-        return net
+        return self.siren.decode(z, labels=labels, size=size)
 
     def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         net = self.encoder.encode(batch, **kwargs)

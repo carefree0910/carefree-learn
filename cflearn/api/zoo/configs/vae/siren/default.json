@@ -5,7 +5,8 @@
   "pipeline": "cv.carefree",
   "model_name": "siren_vae",
   "model_config": {
-    "in_channels": 3
+    "in_channels": 3,
+    "final_activation": "Tanh"
   },
   "scheduler_name": "plateau",
   "loss_metrics_weights": {"kld": 0.001, "mse": 1.0}
