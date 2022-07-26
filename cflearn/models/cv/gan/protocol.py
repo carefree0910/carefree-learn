@@ -15,10 +15,12 @@ from ....types import tensor_dict_type
 from ....protocol import _forward
 from ....protocol import StepOutputs
 from ....protocol import MetricsOutputs
+from ....protocol import WithDeviceMixin
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
+from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
 from ....misc.toolkit import toggle_optimizer
@@ -33,7 +35,7 @@ class GANMixin:
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
         gan_loss_config: Optional[Dict[str, Any]] = None,
-    ):
+    ) -> None:
         self.num_classes = num_classes
         self.gan_mode = gan_mode
         self.gan_loss = GANLoss(gan_mode)
@@ -74,10 +76,10 @@ class GANMixin:
         return False
 
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self._g_losses(batch, self.forward(batch_idx, batch))
+        self._g_losses(batch, self.forward(batch_idx, batch))  # type: ignore
 
 
-class OneStageGANMixin(GANMixin):
+class OneStageGANMixin(GANMixin, WithDeviceMixin):
     def train_step(
         self,
         batch_idx: int,
@@ -156,8 +158,8 @@ class OneStageGANMixin(GANMixin):
         return MetricsOutputs(score, mean_loss_items)
 
 
-class VanillaGANMixin(OneStageGANMixin):
-    def _initialize(
+class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin):
+    def _initialize(  # type: ignore
         self,
         *,
         in_channels: int,

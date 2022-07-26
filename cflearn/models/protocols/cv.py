@@ -21,15 +21,6 @@ class GeneratorMixin(WithDeviceMixin, metaclass=ABCMeta):
     latent_dim: int
     num_classes: Optional[int]
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
     # inherit
 
     @property
@@ -129,15 +120,6 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
 
 
 class ImageTranslatorMixin(WithDeviceMixin):
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return self.generate_from(batch[INPUT_KEY], determinate=True)
 

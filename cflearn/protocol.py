@@ -154,7 +154,7 @@ def _forward(
 
 
 class WithDeviceMixin:
-    parameters: Iterator[nn.Parameter]
+    parameters: Callable[["WithDeviceMixin"], Iterator[nn.Parameter]]
 
     @property
     def device(self) -> torch.device:

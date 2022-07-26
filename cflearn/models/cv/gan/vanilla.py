@@ -10,7 +10,6 @@ from .protocol import VanillaGANMixin
 from ..decoder import DecoderMixin
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
@@ -19,7 +18,7 @@ from ....misc.internal_.register import CustomModule
 
 
 @register_custom_module("gan")
-class VanillaGAN(VanillaGANMixin, CustomModule, GaussianGeneratorMixin):
+class VanillaGAN(VanillaGANMixin, CustomModule):  # type: ignore
     def __init__(
         self,
         img_size: int,

@@ -22,7 +22,7 @@ from ....misc.internal_.register import CustomModule
 
 
 @register_custom_module("pix2pix")
-class Pix2Pix(OneStageGANMixin, CustomModule):
+class Pix2Pix(OneStageGANMixin, CustomModule):  # type: ignore
     def __init__(
         self,
         in_channels: int = 3,

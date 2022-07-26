@@ -81,6 +81,7 @@ class SirenVAE(nn.Module, GaussianGeneratorMixin):
         *,
         labels: Optional[Tensor],
         size: Optional[int] = None,
+        **kwargs: Any,
     ) -> Tensor:
         net = self.siren.decode(z, labels=labels, size=size)
         net = torch.tanh(net)

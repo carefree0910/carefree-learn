@@ -8,13 +8,12 @@ from typing import Optional
 
 from .protocol import VanillaGANMixin
 from ...implicit.siren import ImgSiren
-from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.internal_.register import register_custom_module
 from ....misc.internal_.register import CustomModule
 
 
 @register_custom_module("siren_gan")
-class SirenGAN(VanillaGANMixin, CustomModule, GaussianGeneratorMixin):
+class SirenGAN(VanillaGANMixin, CustomModule):  # type: ignore
     def __init__(
         self,
         img_size: int,
@@ -69,6 +68,7 @@ class SirenGAN(VanillaGANMixin, CustomModule, GaussianGeneratorMixin):
         *,
         labels: Optional[Tensor],
         size: Optional[int] = None,
+        **kwargs: Any,
     ) -> Tensor:
         return self.siren.decode(z, labels=labels, size=size)
 

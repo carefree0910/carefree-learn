@@ -1,5 +1,3 @@
-import torch
-
 import torch.nn as nn
 
 from abc import abstractmethod
@@ -184,15 +182,6 @@ class CustomModule(WithDeviceMixin, nn.Module):
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
         trainer: Any,
     ) -> MetricsOutputs:
-        pass
-
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
         pass
 
     def params_groups(self, m: nn.Module) -> Any:
