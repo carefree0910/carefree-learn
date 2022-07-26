@@ -1,20 +1,20 @@
+from torch import nn
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
 
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
-from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
+from cflearn.constants import INPUT_KEY
+
 from ..decoder.vanilla import VanillaDecoder
 from ..encoder.vanilla import VanillaEncoder
 from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
+from ....misc.internal_.register import register_module
 
 
-@ModelProtocol.register("cycle_gan_generator")
-class CycleGANGenerator(ImageTranslatorMixin, ModelProtocol):
+@register_module("cycle_gan_generator")
+class CycleGANGenerator(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int = 3,
@@ -64,18 +64,11 @@ class CycleGANGenerator(ImageTranslatorMixin, ModelProtocol):
             num_upsample=num_downsample,
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        inp = batch[INPUT_KEY]
-        net = self.encoder.encode(batch, **kwargs)
-        net = self.decoder.decode({INPUT_KEY: net}, **kwargs)
+    def forward(self, inp: Tensor) -> Tensor:
+        net = self.encoder(inp)
+        net = self.decoder({INPUT_KEY: net})
         net = interpolate(net, anchor=inp)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = ["CycleGANGenerator"]

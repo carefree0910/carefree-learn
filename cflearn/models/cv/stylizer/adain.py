@@ -24,6 +24,8 @@ from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
+from ....misc.internal_.register import register_module
+from ....misc.internal_.register import register_loss_module
 
 try:
     from cfcv.misc.toolkit import clip_normalize
@@ -31,8 +33,8 @@ except:
     clip_normalize = None
 
 
-@ModelProtocol.register("adain")
-class AdaINStylizer(ModelProtocol):
+@register_module("adain")
+class AdaINStylizer(nn.Module):
     def __init__(
         self,
         in_channels: int = 3,
@@ -61,13 +63,7 @@ class AdaINStylizer(ModelProtocol):
             **(decoder_config or {}),
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         style = batch[STYLE_KEY]
         content = batch[INPUT_KEY]
         determinate = kwargs.pop("determinate", False)
@@ -101,7 +97,7 @@ class AdaINStylizer(ModelProtocol):
     def stylize(self, net: Tensor, style: Tensor, **kwargs: Any) -> Tensor:
         inp = {INPUT_KEY: net, STYLE_KEY: style}
         kwargs["need_stylized_features"] = False
-        decoded = self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
+        decoded = self.forward(inp, **kwargs)[PREDICTIONS_KEY]
         if clip_normalize is not None:
             return clip_normalize(decoded)
         print(
@@ -111,12 +107,13 @@ class AdaINStylizer(ModelProtocol):
         return decoded
 
 
-@LossProtocol.register("adain")
-class AdaINLoss(LossProtocol):
-    def _init_config(self) -> None:
+@register_loss_module("adain")
+class AdaINLoss(nn.Module):
+    def __init__(self, *, content_weight: float = 1.0, style_weight: float = 10.0):
+        super().__init__()
         self.mse = nn.MSELoss()
-        self.content_w = self.config.setdefault("content_weight", 1.0)
-        self.style_w = self.config.setdefault("style_weight", 10.0)
+        self.content_w = content_weight
+        self.style_w = style_weight
 
     def _content_loss(self, stylized: Tensor, target: Tensor) -> Tensor:
         return self.mse(stylized, target)
@@ -128,13 +125,7 @@ class AdaINLoss(LossProtocol):
         std_loss = self.mse(stylized_std, target_std)
         return mean_loss + std_loss
 
-    def _core(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> losses_type:
+    def forward(self, forward_results: tensor_dict_type) -> losses_type:
         content_latent = forward_results[CONTENT_LATENT_KEY]
         stylized_latent = forward_results[STYLIZED_CONTENT_LATENT_KEY]
         content_loss = self._content_loss(stylized_latent, content_latent)

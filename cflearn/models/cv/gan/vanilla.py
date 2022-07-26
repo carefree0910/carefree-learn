@@ -10,13 +10,16 @@ from .protocol import VanillaGANMixin
 from ..decoder import DecoderMixin
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
+from ....misc.internal_.register import register_custom_module
+from ....misc.internal_.register import CustomModule
 
 
-@VanillaGANMixin.register("gan")
-class VanillaGAN(VanillaGANMixin):
+@register_custom_module("gan")
+class VanillaGAN(VanillaGANMixin, CustomModule, GaussianGeneratorMixin):
     def __init__(
         self,
         img_size: int,
@@ -33,8 +36,9 @@ class VanillaGAN(VanillaGANMixin):
         gan_mode: str = "vanilla",
         gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(
-            in_channels,
+        super().__init__()
+        self._initialize(
+            in_channels=in_channels,
             discriminator=discriminator,
             discriminator_config=discriminator_config,
             num_classes=num_classes,

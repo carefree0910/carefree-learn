@@ -8,13 +8,13 @@
     "in_channels": 3
   },
   "optimizer_settings": {
-    "g_parameters": {
-        "optimizer": "adam",
-        "scheduler": "warmup"
+    "core.g_parameters": {
+      "optimizer": "adam",
+      "scheduler": "warmup"
     },
-    "d_parameters": {
-        "optimizer": "adam",
-        "scheduler": "warmup"
+    "core.d_parameters": {
+      "optimizer": "adam",
+      "scheduler": "warmup"
     }
   }
 }

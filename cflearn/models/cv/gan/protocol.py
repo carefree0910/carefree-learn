@@ -4,7 +4,6 @@ import random
 import torch.nn as nn
 
 from abc import abstractmethod
-from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
@@ -13,15 +12,13 @@ from typing import Optional
 from .discriminators import DiscriminatorBase
 from ....data import CVLoader
 from ....types import tensor_dict_type
+from ....protocol import _forward
 from ....protocol import StepOutputs
-from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
-from ....protocol import ModelWithCustomSteps
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
 from ....misc.toolkit import toggle_optimizer
@@ -29,15 +26,14 @@ from ....losses.gan import GANLoss
 from ....losses.gan import GANTarget
 
 
-class GANMixin(ModelWithCustomSteps, metaclass=ABCMeta):
-    def __init__(
+class GANMixin:
+    def _initialize(
         self,
         *,
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
         gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__()
         self.num_classes = num_classes
         self.gan_mode = gan_mode
         self.gan_loss = GANLoss(gan_mode)
@@ -81,19 +77,25 @@ class GANMixin(ModelWithCustomSteps, metaclass=ABCMeta):
         self._g_losses(batch, self.forward(batch_idx, batch))
 
 
-class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
+class OneStageGANMixin(GANMixin):
     def train_step(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
         trainer: Any,
         forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        opt_g = trainer.optimizers["g_parameters"]
-        opt_d = trainer.optimizers["d_parameters"]
+        opt_g = trainer.optimizers["core.g_parameters"]
+        opt_d = trainer.optimizers["core.d_parameters"]
         # forward
-        forward = self.forward(batch_idx, batch, trainer.state, **forward_kwargs)
+        forward = _forward(
+            self,
+            batch_idx,
+            batch,
+            INPUT_KEY,
+            trainer.state,
+            **forward_kwargs,
+        )
         with torch.no_grad():
             detached_forward = {k: v.detach() for k, v in forward.items()}
         # generator step
@@ -125,7 +127,7 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
         loss_dict.update({k: v.item() for k, v in d_losses.items()})
         return StepOutputs(detached_forward, loss_dict)
 
-    def evaluate_step(  # type: ignore
+    def evaluate_step(
         self,
         loader: CVLoader,
         portion: float,
@@ -136,7 +138,7 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
             if i / len(loader) >= portion:
                 break
             batch = to_device(batch, self.device)
-            forward = self.forward(i, batch, trainer.state)
+            forward = _forward(self, i, batch, INPUT_KEY, trainer.state)
             g_losses = self._g_losses(batch, forward)
             # in evaluate step, all tensors are already detached
             d_losses = self._d_losses(batch, forward)
@@ -154,18 +156,18 @@ class OneStageGANMixin(GANMixin, metaclass=ABCMeta):
         return MetricsOutputs(score, mean_loss_items)
 
 
-class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMeta):
-    def __init__(
+class VanillaGANMixin(OneStageGANMixin):
+    def _initialize(
         self,
-        in_channels: int,
         *,
+        in_channels: int,
         discriminator: str = "basic",
         discriminator_config: Optional[Dict[str, Any]] = None,
         num_classes: Optional[int] = None,
         gan_mode: str = "vanilla",
         gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(
+        super()._initialize(
             num_classes=num_classes,
             gan_mode=gan_mode,
             gan_loss_config=gan_loss_config,
@@ -183,15 +185,9 @@ class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMet
     def d_parameters(self) -> List[nn.Parameter]:
         return list(self.discriminator.parameters())
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
         z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
-        return {PREDICTIONS_KEY: self.decode(z, labels=batch[LABEL_KEY], **kwargs)}
+        return self.decode(z, labels=batch[LABEL_KEY], **kwargs)
 
     def _g_losses(
         self,

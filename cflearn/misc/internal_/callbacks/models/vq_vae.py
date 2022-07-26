@@ -26,7 +26,7 @@ class VQVAECallback(ImageCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         original = batch[INPUT_KEY]
-        model = trainer.model
+        model = trainer.model.core
         state = trainer.state
         with eval_context(model):
             outputs = model(0, batch, state)

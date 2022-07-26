@@ -1,5 +1,6 @@
 import torch
 
+from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -7,8 +8,6 @@ from typing import Optional
 
 from .vanilla import reparameterize
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import make_encoder
@@ -18,10 +17,11 @@ from ....misc.toolkit import auto_num_layers
 from ....losses.vae import MU_KEY
 from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Linear
+from ....misc.internal_.register import register_module
 
 
-@ModelProtocol.register("siren_vae")
-class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
+@register_module("siren_vae")
+class SirenVAE(nn.Module, GaussianGeneratorMixin):
     def __init__(
         self,
         img_size: int,
@@ -81,19 +81,12 @@ class SirenVAE(ModelProtocol, GaussianGeneratorMixin):
         *,
         labels: Optional[Tensor],
         size: Optional[int] = None,
-        **kwargs: Any,
     ) -> Tensor:
         net = self.siren.decode(z, labels=labels, size=size)
         net = torch.tanh(net)
         return net
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         net = self.encoder.encode(batch, **kwargs)
         net = self.to_statistics(net)
         mu, log_var = net.chunk(2, dim=1)

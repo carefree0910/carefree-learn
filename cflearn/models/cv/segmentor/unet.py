@@ -1,7 +1,6 @@
 import torch
 
-import torch.nn as nn
-
+from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -9,9 +8,6 @@ from typing import List
 from typing import Optional
 
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
-from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.backbone import BackboneEncoder
@@ -19,6 +15,7 @@ from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
+from ....misc.internal_.register import register_module
 
 
 class UNetDecoderBlock(nn.Module):
@@ -86,8 +83,8 @@ class UNetDecoder(nn.Module):
         return net
 
 
-@ModelProtocol.register("unet")
-class UNet(ImageTranslatorMixin, ModelProtocol):
+@register_module("unet")
+class UNet(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -106,14 +103,7 @@ class UNet(ImageTranslatorMixin, ModelProtocol):
         self.decoder = UNetDecoder(backbone_channels, **(decoder_config or {}))
         self.head = Conv2d(backbone_channels[0], out_channels, kernel_size=3)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        inp = batch[INPUT_KEY]
+    def forward(self, inp: Tensor) -> Tensor:
         features = self.backbone(inp)
         features.pop(LATENT_KEY)
         net = self.head(self.decoder(features))

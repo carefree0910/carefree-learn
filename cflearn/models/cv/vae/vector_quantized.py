@@ -1,5 +1,6 @@
 import torch
 
+from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -7,15 +8,15 @@ from typing import Tuple
 from typing import Optional
 
 from ....types import tensor_dict_type
-from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import PREDICTIONS_KEY
 from ..generator.vector_quantized import VQGenerator
 from ....misc.toolkit import auto_num_layers
+from ....misc.internal_.register import register_module
 
 
-@ModelProtocol.register("vq_vae")
-class VQVAE(ModelProtocol):
+@register_module("vq_vae")
+class VQVAE(nn.Module):
     def __init__(
         self,
         img_size: int,

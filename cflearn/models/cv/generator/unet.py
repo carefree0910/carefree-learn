@@ -124,8 +124,8 @@ class UnetSkipConnectionBlock(nn.Module):
         return torch.cat([net, self.model(net)], 1)
 
 
-@register_module("unet_generator", pre_bases=[ImageTranslatorMixin])
-class UnetGenerator(nn.Module):
+@register_module("unet_generator")
+class UnetGenerator(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int = 3,

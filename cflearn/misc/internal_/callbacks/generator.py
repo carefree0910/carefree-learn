@@ -11,6 +11,7 @@ from ...toolkit import save_images
 from ...toolkit import eval_context
 from ....trainer import Trainer
 from ....trainer import TrainerCallback
+from ....protocol import _forward
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
@@ -40,7 +41,7 @@ class GeneratorCallback(ImageCallback):
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
         original = batch[INPUT_KEY]
-        model = trainer.model
+        model = trainer.model.core
         if not isinstance(model, GeneratorMixin):
             msg = "`GeneratorCallback` is only compatible with `GeneratorMixin`"
             raise ValueError(msg)
@@ -84,7 +85,7 @@ class SizedGeneratorCallback(GeneratorCallback):
         if not self.is_rank_0:
             return None
         super().log_artifacts(trainer)
-        model = trainer.model
+        model = trainer.model.core
         image_folder = self._prepare_folder(trainer, check_num_keep=False)
         sample_method = getattr(model, "sample", None)
         if sample_method is None:
@@ -111,8 +112,9 @@ class AlphaSegmentationCallback(ImageCallback):
             return None
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
-        with eval_context(trainer.model):
-            results = trainer.model(0, batch)
+        model = trainer.model.core
+        with eval_context(model):
+            results = _forward(model, 0, batch, INPUT_KEY)
         original = batch[INPUT_KEY]
         label = batch[LABEL_KEY].float()
         logits = results[PREDICTIONS_KEY]
@@ -154,7 +156,7 @@ class StyleTransferCallback(ImageCallback):
         batch = to_device(batch, trainer.device)
         content = batch[INPUT_KEY]
         style = batch[STYLE_KEY]
-        model = trainer.model
+        model = trainer.model.core
         image_folder = self._prepare_folder(trainer)
         # inputs
         save_images(content, os.path.join(image_folder, "original.png"))

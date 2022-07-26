@@ -1,18 +1,13 @@
 import torch
 
-import torch.nn as nn
-
+from torch import nn
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
 
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
-from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....constants import PREDICTIONS_KEY
 from ..encoder.backbone import BackboneEncoder
 from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
@@ -20,10 +15,11 @@ from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
+from ....misc.internal_.register import register_module
 
 
-@ModelProtocol.register("linear_seg")
-class LinearSegmentation(ImageTranslatorMixin, ModelProtocol):
+@register_module("linear_seg")
+class LinearSegmentation(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -62,14 +58,7 @@ class LinearSegmentation(ImageTranslatorMixin, ModelProtocol):
         self.dropout = nn.Dropout2d(dropout) if dropout > 0.0 else None
         self.linear_head = Conv2d(latent_dim, out_channels, kernel_size=1)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        inp = batch[INPUT_KEY]
+    def forward(self, inp: Tensor) -> Tensor:
         features = self.backbone(inp)
         features.pop(LATENT_KEY)
         outputs = []
@@ -85,7 +74,7 @@ class LinearSegmentation(ImageTranslatorMixin, ModelProtocol):
         if self.dropout is not None:
             net = self.dropout(net)
         net = self.linear_head(net)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = ["LinearSegmentation"]

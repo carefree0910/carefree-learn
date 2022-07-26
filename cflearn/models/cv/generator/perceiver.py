@@ -1,19 +1,15 @@
 from torch import nn
-from typing import Any
+from torch import Tensor
 from typing import Optional
 
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
-from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
 from ...protocols.cv import ImageTranslatorMixin
 from ....modules.blocks import PerceiverIO
 from ....modules.blocks import VanillaPatchEmbed
+from ....misc.internal_.register import register_module
 
 
-@ModelProtocol.register("perceiver_io_generator")
-class PerceiverIOGenerator(ImageTranslatorMixin, ModelProtocol):
+@register_module("perceiver_io_generator")
+class PerceiverIOGenerator(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         patch_size: int,
@@ -52,14 +48,7 @@ class PerceiverIOGenerator(ImageTranslatorMixin, ModelProtocol):
             num_self_attn_repeat=num_self_attn_repeat,
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        inp = batch[INPUT_KEY]
+    def forward(self, inp: Tensor) -> Tensor:
         b, c, h, w = inp.shape
         net, _ = self.to_patches(inp)
         inp = inp.view(b, c, h * w).transpose(1, 2).contiguous()
@@ -67,7 +56,7 @@ class PerceiverIOGenerator(ImageTranslatorMixin, ModelProtocol):
         net = self.net(net, out_queries=inp)
         net = self.from_latent(net)
         net = net.transpose(1, 2).contiguous().view(b, -1, h, w)
-        return {PREDICTIONS_KEY: net}
+        return net
 
 
 __all__ = ["PerceiverIOGenerator"]

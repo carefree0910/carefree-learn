@@ -8,6 +8,7 @@ from typing import Any
 from typing import Optional
 
 from ...types import tensor_dict_type
+from ...protocol import _forward
 from ...protocol import TrainerState
 from ...protocol import WithDeviceMixin
 from ...constants import INPUT_KEY
@@ -74,7 +75,7 @@ class GeneratorMixin(WithDeviceMixin, metaclass=ABCMeta):
                 f"`{LABEL_KEY}` should be provided in `reconstruct` "
                 f"for conditional `{name}`"
             )
-        return self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
+        return _forward(self, 0, batch, INPUT_KEY, **kwargs)[PREDICTIONS_KEY]
 
     def get_sample_labels(
         self,
@@ -141,7 +142,7 @@ class ImageTranslatorMixin(WithDeviceMixin):
         return self.generate_from(batch[INPUT_KEY], determinate=True)
 
     def generate_from(self, net: Tensor, **kwargs: Any) -> Tensor:
-        rs = self.forward(0, {INPUT_KEY: net}, **kwargs)[PREDICTIONS_KEY]
+        rs = _forward(self, 0, {INPUT_KEY: net}, INPUT_KEY, **kwargs)[PREDICTIONS_KEY]
         if isinstance(rs, list):
             rs = rs[0]
         return rs

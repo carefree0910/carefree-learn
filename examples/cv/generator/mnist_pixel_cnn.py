@@ -22,7 +22,7 @@ class PixelCNNCallback(cflearn.ImageCallback):
         batch = to_device(batch, trainer.device)
         original = batch[cflearn.INPUT_KEY].float() / 255.0
         num_samples, img_size = len(original), original.shape[2]
-        model = trainer.model
+        model = trainer.model.core
         with eval_context(model):
             sampled_indices = model.sample(num_samples, 2 if is_ci else img_size)
             sampled = sampled_indices.float() / 255.0

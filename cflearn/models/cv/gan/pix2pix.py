@@ -2,6 +2,7 @@ import torch
 
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -11,16 +12,17 @@ from .protocol import OneStageGANMixin
 from .discriminators import DiscriminatorBase
 from ..generator import UnetGenerator
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....losses.gan import GANTarget
+from ....misc.internal_.register import register_custom_module
+from ....misc.internal_.register import CustomModule
 
 
-@OneStageGANMixin.register("pix2pix")
-class Pix2Pix(OneStageGANMixin):
+@register_custom_module("pix2pix")
+class Pix2Pix(OneStageGANMixin, CustomModule):
     def __init__(
         self,
         in_channels: int = 3,
@@ -37,7 +39,8 @@ class Pix2Pix(OneStageGANMixin):
         gan_loss_config: Optional[Dict[str, Any]] = None,
         lb_l1: float = 100.0,
     ):
-        super().__init__(gan_mode=gan_mode, gan_loss_config=gan_loss_config)
+        super().__init__()
+        self._initialize(gan_mode=gan_mode, gan_loss_config=gan_loss_config)
         self.generator = UnetGenerator(
             in_channels,
             out_channels,
@@ -66,14 +69,8 @@ class Pix2Pix(OneStageGANMixin):
     def d_parameters(self) -> List[nn.Parameter]:
         return list(self.discriminator.parameters())
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional["TrainerState"] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {PREDICTIONS_KEY: self.generator(batch[INPUT_KEY])}
+    def forward(self, net: Tensor) -> Tensor:
+        return self.generator(net)
 
     def _g_losses(
         self,

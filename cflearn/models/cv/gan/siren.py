@@ -8,10 +8,13 @@ from typing import Optional
 
 from .protocol import VanillaGANMixin
 from ...implicit.siren import ImgSiren
+from ...protocols.cv import GaussianGeneratorMixin
+from ....misc.internal_.register import register_custom_module
+from ....misc.internal_.register import CustomModule
 
 
-@VanillaGANMixin.register("siren_gan")
-class SirenGAN(VanillaGANMixin):
+@register_custom_module("siren_gan")
+class SirenGAN(VanillaGANMixin, CustomModule, GaussianGeneratorMixin):
     def __init__(
         self,
         img_size: int,
@@ -31,8 +34,9 @@ class SirenGAN(VanillaGANMixin):
         gan_mode: str = "vanilla",
         gan_loss_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(
-            in_channels,
+        super().__init__()
+        self._initialize(
+            in_channels=in_channels,
             discriminator=discriminator,
             discriminator_config=discriminator_config,
             num_classes=num_classes,
@@ -55,21 +59,18 @@ class SirenGAN(VanillaGANMixin):
             final_activation=final_activation,
         )
 
+    @property
+    def g_parameters(self) -> List[nn.Parameter]:
+        return list(self.siren.parameters())
+
     def decode(
         self,
         z: Tensor,
         *,
         labels: Optional[Tensor],
         size: Optional[int] = None,
-        **kwargs: Any,
     ) -> Tensor:
         return self.siren.decode(z, labels=labels, size=size)
-
-    # training part
-
-    @property
-    def g_parameters(self) -> List[nn.Parameter]:
-        return list(self.siren.parameters())
 
 
 __all__ = ["SirenGAN"]

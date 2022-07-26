@@ -1,7 +1,6 @@
 import torch
 
-import torch.nn as nn
-
+from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Optional
@@ -15,13 +14,14 @@ from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import ResidualBlock
+from ....misc.internal_.register import register_module
 
 
 # TODO : Try ResidualBlockV2
 
 
-@ModelProtocol.register("alpha_refine")
-class AlphaRefineNet(ModelProtocol):
+@register_module("alpha_refine")
+class AlphaRefineNet(nn.Module):
     def __init__(
         self,
         in_channels: int,
@@ -67,24 +67,18 @@ class AlphaRefineNet(ModelProtocol):
         blocks.extend(get_conv_blocks(latent_channels, out_channels, 3, 1))
         self.net = nn.Sequential(*blocks)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type) -> Tensor:
         net = batch[INPUT_KEY]
         lv1_raw_alpha = batch[LV1_RAW_ALPHA_KEY]
         lv1_alpha = batch[LV1_ALPHA_KEY]
         net = self.net(torch.cat([net, lv1_alpha], dim=1))
         net = net + lv1_raw_alpha
-        return {PREDICTIONS_KEY: net}
+        return net
 
-    def refine_from(self, net: Tensor, lv1_raw_alpha: Tensor, **kwargs: Any) -> Tensor:
+    def refine_from(self, net: Tensor, lv1_raw_alpha: Tensor) -> Tensor:
         alpha = torch.sigmoid(lv1_raw_alpha)
         inp = {INPUT_KEY: net, LV1_RAW_ALPHA_KEY: lv1_raw_alpha, LV1_ALPHA_KEY: alpha}
-        return self.forward(0, inp, **kwargs)[PREDICTIONS_KEY]
+        return self.forward(inp)
 
 
 __all__ = [

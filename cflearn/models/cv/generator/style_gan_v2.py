@@ -8,15 +8,13 @@ from typing import Dict
 from typing import Optional
 
 from .constants import STYLE_LABEL_KEY
-from ....protocol import ModelProtocol
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import PREDICTIONS_KEY
 from ..decoder.style_gan_v2 import FullyConnected
 from ..decoder.style_gan_v2 import StyleGAN2Decoder
 from ...protocols.cv import ImageTranslatorMixin
+from ....misc.internal_.register import register_module
 
 
 def normalize_z(net: Tensor, dim: int = 1, eps: float = 1.0e-8) -> Tensor:
@@ -103,8 +101,8 @@ class MappingNetwork(nn.Module):
         return net
 
 
-@ModelProtocol.register("style_gan2_generator")
-class StyleGAN2Generator(ImageTranslatorMixin, ModelProtocol):
+@register_module("style_gan2_generator")
+class StyleGAN2Generator(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         img_size: int,
@@ -145,13 +143,7 @@ class StyleGAN2Generator(ImageTranslatorMixin, ModelProtocol):
             **(mapping_kwargs or {}),
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         z = batch[INPUT_KEY]
         truncation_psi = kwargs.pop("truncation_psi", 1.0)
         truncation_cutoff = kwargs.pop("truncation_cutoff", None)
@@ -159,7 +151,7 @@ class StyleGAN2Generator(ImageTranslatorMixin, ModelProtocol):
         ws = self.mapping(z, style_labels, truncation_psi, truncation_cutoff)
         content_labels = batch.get(LABEL_KEY)
         rgb = self.decoder(ws, labels=content_labels, **kwargs)
-        return {PREDICTIONS_KEY: rgb}
+        return rgb
 
 
 __all__ = [

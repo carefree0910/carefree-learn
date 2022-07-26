@@ -3,9 +3,10 @@ from typing import Dict
 from typing import Optional
 
 from ..vae import VanillaVAE1D
+from ....misc.internal_.register import register_module
 
 
-@VanillaVAE1D.register("style_vae")
+@register_module("style_vae")
 class StyleVAE(VanillaVAE1D):
     def __init__(
         self,

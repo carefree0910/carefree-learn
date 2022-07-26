@@ -143,8 +143,8 @@ class UNetFRS(UNetBase):
         return self.msg
 
 
-@register_module("u2net", pre_bases=[ImageTranslatorMixin])
-class U2Net(UNetBase):
+@register_module("u2net")
+class U2Net(UNetBase, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,

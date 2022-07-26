@@ -10,7 +10,6 @@ from typing import Optional
 from ..general import EncoderDecoder
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
@@ -20,6 +19,7 @@ from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Lambda
 from ....modules.blocks import Activation
 from ....modules.blocks import ChannelPadding
+from ....misc.internal_.register import register_module
 
 
 def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:
@@ -28,7 +28,7 @@ def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:
     return eps * std + mu
 
 
-class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
+class VanillaVAEBase(nn.Module, GaussianGeneratorMixin):
     from_latent: nn.Module
 
     def __init__(
@@ -105,13 +105,7 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
             net = self.out(net)
         return net
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
         net = self.generator.encode(batch, **kwargs)
         mu, log_var = net.chunk(2, dim=1)
         net = reparameterize(mu, log_var)
@@ -120,8 +114,8 @@ class VanillaVAEBase(ModelProtocol, GaussianGeneratorMixin):
         return {PREDICTIONS_KEY: net, MU_KEY: mu, LOG_VAR_KEY: log_var}
 
 
-@ModelProtocol.register("vae")
-@ModelProtocol.register("vae1d")
+@register_module("vae")
+@register_module("vae1d")
 class VanillaVAE1D(VanillaVAEBase):
     def __init__(
         self,
@@ -169,7 +163,7 @@ class VanillaVAE1D(VanillaVAEBase):
         self.from_latent = nn.Identity()
 
 
-@ModelProtocol.register("vae2d")
+@register_module("vae2d")
 class VanillaVAE2D(VanillaVAEBase):
     def __init__(
         self,

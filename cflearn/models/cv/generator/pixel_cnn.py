@@ -9,15 +9,14 @@ from typing import List
 from typing import Optional
 
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
-from ....constants import PREDICTIONS_KEY
 from ....constants import ORIGINAL_LABEL_KEY
+from ...protocols.cv import ImageTranslatorMixin
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import ChannelPadding
+from ....misc.internal_.register import register_module
 
 
 class MaskedConv2d(Conv2d):
@@ -68,8 +67,8 @@ class MaskedConv2d(Conv2d):
         return super().forward(net, style, transpose=transpose)
 
 
-@ModelProtocol.register("pixel_cnn")
-class PixelCNN(ModelProtocol):
+@register_module("pixel_cnn")
+class PixelCNN(nn.Module, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -138,25 +137,18 @@ class PixelCNN(ModelProtocol):
         blocks.append(Conv2d(latent_channels, num_classes, kernel_size=1))
         self.net = nn.Sequential(*blocks)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type) -> Tensor:
         net = batch[INPUT_KEY]
         net = self.to_blocks(net)
         if self.channel_padding is not None:
             net = self.channel_padding(net, batch[ORIGINAL_LABEL_KEY])
-        return {PREDICTIONS_KEY: self.net(net)}
+        return self.net(net)
 
     def sample(
         self,
         num_sample: int,
         img_size: int,
         class_idx: Optional[int] = None,
-        **kwargs: Any,
     ) -> Tensor:
         shape = num_sample, self.in_channels, img_size, img_size
         sampled = torch.zeros(shape, dtype=torch.long, device=self.device)
@@ -174,7 +166,7 @@ class PixelCNN(ModelProtocol):
         for i in range(img_size):
             for j in range(img_size):
                 batch = {INPUT_KEY: sampled, ORIGINAL_LABEL_KEY: labels}
-                out = self.forward(0, batch, **kwargs)[PREDICTIONS_KEY]
+                out = self.forward(batch)
                 probabilities = F.softmax(out[:, :, i, j], dim=1).data
                 sampled[:, :, i, j] = torch.multinomial(probabilities, 1)
         return sampled
