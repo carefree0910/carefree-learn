@@ -417,7 +417,7 @@ class StyleDecoder2(nn.Module, Decoder1DMixin):
     def _z2ws(self, z: Tensor) -> Tensor:
         return z.unsqueeze(1).repeat(1, self.decoder.num_ws, 1)
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any,) -> Tensor:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         ws = self._z2ws(batch[INPUT_KEY])
         net = self.decoder(ws, labels=batch.get(LABEL_KEY), **kwargs)
         return net
