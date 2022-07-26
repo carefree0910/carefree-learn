@@ -2768,11 +2768,10 @@ class ChannelPadding(Module):
         token_shape = (num_classes or 1), latent_channels, map_dim, map_dim
         self.channel_padding = nn.Parameter(torch.randn(*token_shape))  # type: ignore
         in_nc = in_channels + latent_channels
-        out_nc = in_channels
         if is_1d:
-            self.mapping = Linear(in_nc, out_nc, bias=False)
+            self.mapping = Linear(in_nc, in_channels, bias=False)
         else:
-            self.mapping = Conv2d(in_nc, out_nc, kernel_size=1, bias=False)
+            self.mapping = Conv2d(in_nc, in_channels, kernel_size=1, bias=False)
 
     def forward(self, net: Tensor, labels: Optional[Tensor] = None) -> Tensor:
         if not self.is_conditional:
