@@ -29,7 +29,7 @@ except:
 class DDRPredictor:
     def __init__(self, ddr: DDR):
         self.m = ddr
-        self.device = list(ddr.parameters())[0].device
+        self.device = ddr.device
 
     def _fetch(self, x: np.ndarray, **kwargs: Any) -> tensor_dict_type:
         net = to_torch(x).to(self.device)

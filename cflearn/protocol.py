@@ -16,6 +16,7 @@ from typing import Type
 from typing import Union
 from typing import TypeVar
 from typing import Callable
+from typing import Iterator
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import lock_manager
@@ -152,15 +153,25 @@ def _forward(
     return rs
 
 
-class ModelProtocol(nn.Module, WithRegister["ModelProtocol"], metaclass=ABCMeta):
+class WithDeviceMixin:
+    parameters: Iterator[nn.Parameter]
+
+    @property
+    def device(self) -> torch.device:
+        params = list(self.parameters())
+        return torch.device("cpu") if not params else params[0].device
+
+
+class ModelProtocol(
+    WithDeviceMixin,
+    nn.Module,
+    WithRegister["ModelProtocol"],
+    metaclass=ABCMeta,
+):
     d = model_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
-
-    @property
-    def device(self) -> torch.device:
-        return list(self.parameters())[0].device
 
     def _init_with_trainer(self, trainer: Any) -> None:
         pass

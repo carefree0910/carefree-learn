@@ -2,7 +2,6 @@ import torch
 import random
 
 from abc import abstractmethod
-from abc import ABC
 from abc import ABCMeta
 from torch import Tensor
 from typing import Any
@@ -10,29 +9,17 @@ from typing import Optional
 
 from ...types import tensor_dict_type
 from ...protocol import TrainerState
+from ...protocol import WithDeviceMixin
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import slerp
 
 
-class GeneratorMixin(ABC):
+class GeneratorMixin(WithDeviceMixin, metaclass=ABCMeta):
     latent_dim: int
     num_classes: Optional[int]
 
-    # inherit
-
-    @property
-    @abstractmethod
-    def device(self) -> torch.device:
-        pass
-
-    @property
-    @abstractmethod
-    def can_reconstruct(self) -> bool:
-        pass
-
-    @abstractmethod
     def forward(
         self,
         batch_idx: int,
@@ -40,6 +27,13 @@ class GeneratorMixin(ABC):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
+        pass
+
+    # inherit
+
+    @property
+    @abstractmethod
+    def can_reconstruct(self) -> bool:
         pass
 
     @abstractmethod
@@ -133,8 +127,7 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         return self.decode(z, labels=labels, **kwargs)
 
 
-class ImageTranslatorMixin(ABC):
-    @abstractmethod
+class ImageTranslatorMixin(WithDeviceMixin):
     def forward(
         self,
         batch_idx: int,

@@ -33,6 +33,7 @@ from torch.nn.modules.utils import _pair
 from torch.nn.modules.pooling import _MaxUnpoolNd
 
 from ..types import tensor_dict_type
+from ..protocol import WithDeviceMixin
 from ..misc.toolkit import adain_with_params
 from ..misc.toolkit import interpolate
 from ..misc.toolkit import eval_context
@@ -1465,7 +1466,7 @@ class HighwayBlock(MappingBase):
 to_patches: Dict[str, Type["ImgToPatches"]] = {}
 
 
-class ImgToPatches(Module, WithRegister["ImgToPatches"]):
+class ImgToPatches(Module, WithDeviceMixin, WithRegister["ImgToPatches"]):
     d = to_patches
 
     def __init__(
@@ -1488,10 +1489,8 @@ class ImgToPatches(Module, WithRegister["ImgToPatches"]):
     @property
     def num_patches(self) -> int:
         shape = 1, self.in_channels, self.img_size, self.img_size
-        params = list(self.parameters())
-        device = "cpu" if not params else params[0].device
         with eval_context(self):
-            net = self.forward(torch.zeros(*shape, device=device))[0]
+            net = self.forward(torch.zeros(*shape, device=self.device))[0]
         return net.shape[1]
 
     @staticmethod

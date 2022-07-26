@@ -15,6 +15,7 @@ from .fcnn import FCNN
 from ..register import register_ml_module
 from ...types import losses_type
 from ...types import tensor_dict_type
+from ...protocol import WithDeviceMixin
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
@@ -54,7 +55,7 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
 
 
 @register_ml_module("ddr")
-class DDR(nn.Module):
+class DDR(nn.Module, WithDeviceMixin):
     def __init__(
         self,
         input_dim: int,

@@ -3,7 +3,6 @@ import torch
 import torch.nn as nn
 
 from abc import abstractmethod
-from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
@@ -25,6 +24,7 @@ from ...protocol import TrainerState
 from ...protocol import ModelProtocol
 from ...protocol import MetricProtocol
 from ...protocol import MetricsOutputs
+from ...protocol import WithDeviceMixin
 from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
@@ -32,7 +32,6 @@ from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...data.core import Transforms
 from ...misc.toolkit import filter_kw
-from ...misc.toolkit import get_num_positional_args
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
@@ -162,12 +161,7 @@ def _get_clip_norm_fn(trainer: Any) -> Callable[[], None]:
     return _core
 
 
-class CustomModule(nn.Module, metaclass=ABCMeta):
-    @property
-    def device(self) -> torch.device:
-        return list(self.parameters())[0].device
-
-    @abstractmethod
+class CustomModule(WithDeviceMixin, nn.Module):
     def train_step(
         self,
         batch_idx: int,
@@ -183,7 +177,6 @@ class CustomModule(nn.Module, metaclass=ABCMeta):
     ) -> StepOutputs:
         pass
 
-    @abstractmethod
     def evaluate_step(
         self,
         loader: DataLoaderProtocol,
@@ -193,7 +186,6 @@ class CustomModule(nn.Module, metaclass=ABCMeta):
     ) -> MetricsOutputs:
         pass
 
-    @abstractmethod
     def forward(
         self,
         batch_idx: int,
