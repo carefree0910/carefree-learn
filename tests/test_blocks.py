@@ -277,7 +277,7 @@ class TestBlocks(unittest.TestCase):
                 else:
                     key = "_".join(name.split("_")[:-1])
             encoder = BackboneEncoder(key, in_channels)
-            results = encoder({INPUT_KEY: inp})
+            results = encoder(inp)
             backbone = encoder.net
             if check_rep_vgg_deploy:
                 backbone.original.switch_to_deploy()

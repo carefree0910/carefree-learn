@@ -1,6 +1,7 @@
 import math
 import torch
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -9,7 +10,6 @@ from typing import Optional
 from .protocol import Encoder1DFromPatches
 from .protocol import Encoder2DFromPatches
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import LATENT_KEY
 from ....modules.blocks import MixedStackedEncoder
 
@@ -83,8 +83,8 @@ class ViTEncoder(Encoder1DFromPatches):
             init = (latent_dim**-0.5) * torch.randn(latent_dim, output_dim)
             self.output_projection = torch.nn.Parameter(init)
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
-        latent = super().forward(batch, **kwargs)
+    def forward(self, net: Tensor, **kwargs: Any) -> tensor_dict_type:
+        latent = super().forward(net, **kwargs)
         rs = {LATENT_KEY: latent}
         if self.aux_heads is None:
             if self.output_projection is not None:
@@ -152,8 +152,8 @@ class ViTEncoder2D(Encoder2DFromPatches):
             norm_after_head=norm_after_head,
         )
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
-        latent = super().forward(batch, **kwargs)
+    def forward(self, net: Tensor, **kwargs: Any) -> Tensor:
+        latent = super().forward(net, **kwargs)
         resolution = int(round(math.sqrt(self.num_patches)))
         latent = latent.view(latent.shape[0], resolution, resolution, -1)
         latent = latent.permute(0, 3, 1, 2).contiguous()

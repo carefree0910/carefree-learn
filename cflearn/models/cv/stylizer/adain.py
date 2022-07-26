@@ -72,9 +72,9 @@ class AdaINStylizer(ModelProtocol):
         content = batch[INPUT_KEY]
         determinate = kwargs.pop("determinate", False)
         need_stylized_features = kwargs.pop("need_stylized_features", True)
-        style_feats = self.backbone({INPUT_KEY: style})
+        style_feats = self.backbone(style)
         style_latent = style_feats.pop(LATENT_KEY)
-        content_feats = self.backbone({INPUT_KEY: content})
+        content_feats = self.backbone(content)
         content_latent = content_feats[LATENT_KEY]
         args = content_latent, style_latent
         encoded = adain_with_tensor(*args, determinate=determinate)
@@ -85,7 +85,7 @@ class AdaINStylizer(ModelProtocol):
         if not need_stylized_features:
             decoded_feats = decoded_content_latent = None
         else:
-            decoded_feats = self.backbone({INPUT_KEY: decoded})
+            decoded_feats = self.backbone(decoded)
             decoded_content_latent = decoded_feats.pop(LATENT_KEY)
         return {
             PREDICTIONS_KEY: decoded,

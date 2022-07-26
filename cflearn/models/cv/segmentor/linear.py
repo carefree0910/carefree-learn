@@ -70,7 +70,7 @@ class LinearSegmentation(ImageTranslatorMixin, ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         inp = batch[INPUT_KEY]
-        features = self.backbone(batch)
+        features = self.backbone(inp)
         features.pop(LATENT_KEY)
         outputs = []
         for i, linear in enumerate(self.linear_blocks):

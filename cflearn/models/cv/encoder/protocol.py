@@ -2,12 +2,12 @@ import torch
 
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
 from cftool.misc import check_requires
-from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
 from ....types import tensor_dict_type
@@ -25,7 +25,7 @@ encoders_1d: Dict[str, Type["Encoder1DMixin"]] = {}
 
 
 class IEncoder:
-    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
+    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         return run_encoder(self, 0, batch, **kwargs)[LATENT_KEY]
 
 
@@ -107,17 +107,14 @@ class EncoderFromPatchesMixin:
     def num_patches(self) -> int:
         return self.to_patches.num_patches
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
-        batch = shallow_copy_dict(batch)
-        inp = batch[INPUT_KEY]
+    def forward(self, net: Tensor, **kwargs: Any) -> Tensor:
         determinate = kwargs.pop("determinate", False)
-        patches, hw = self.to_patches(inp, determinate=determinate)
-        batch[INPUT_KEY] = patches
+        patches, hw = self.to_patches(net, determinate=determinate)
         kwargs["hw"] = hw
-        kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size
+        kwargs["hwp"] = *net.shape[-2:], self.to_patches.patch_size
         if check_requires(self.encoder.forward, "determinate", strict=False):
             kwargs["determinate"] = determinate
-        return self.encoder(batch[INPUT_KEY], **kwargs)
+        return self.encoder(patches, **kwargs)
 
 
 class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):

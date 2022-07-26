@@ -8,9 +8,6 @@ from cftool.array import squeeze
 
 from .protocol import EncoderMixin
 from .protocol import Encoder1DMixin
-from ....types import tensor_dict_type
-from ....constants import INPUT_KEY
-from ....constants import LATENT_KEY
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Linear
 from ....modules.blocks import ResidualBlock
@@ -104,8 +101,8 @@ class VanillaEncoder(nn.Module, EncoderMixin):
         # construct
         self.encoder = nn.Sequential(*blocks)
 
-    def forward(self, batch: tensor_dict_type) -> Tensor:  # type: ignore
-        return self.encoder(batch[INPUT_KEY])
+    def forward(self, net: Tensor) -> Tensor:
+        return self.encoder(net)
 
 
 @Encoder1DMixin.register("vanilla")
@@ -156,8 +153,8 @@ class VanillaEncoder1D(nn.Module, Encoder1DMixin):
         else:
             raise ValueError(f"unrecognized `pool` value : '{pool}'")
 
-    def forward(self, batch: tensor_dict_type) -> Tensor:
-        net = self.encoder(batch)
+    def forward(self, net: Tensor) -> Tensor:
+        net = self.encoder(net)
         net = squeeze(self.pool(net))
         return net
 

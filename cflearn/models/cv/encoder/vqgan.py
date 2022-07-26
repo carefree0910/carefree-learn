@@ -7,8 +7,6 @@ from typing import List
 from typing import Optional
 
 from .protocol import EncoderMixin
-from ....types import tensor_dict_type
-from ....constants import INPUT_KEY
 from ....modules.blocks import Conv2d
 
 
@@ -165,8 +163,8 @@ class VQGANEncoder(nn.Module, EncoderMixin):
         )
         self.net = nn.Sequential(*blocks)
 
-    def forward(self, batch: tensor_dict_type) -> Tensor:
-        return self.net(batch[INPUT_KEY])
+    def forward(self, net: Tensor) -> Tensor:
+        return self.net(net)
 
 
 __all__ = [

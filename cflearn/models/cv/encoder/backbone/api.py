@@ -1,4 +1,5 @@
 from torch import nn
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -10,8 +11,6 @@ from .core import Backbone
 from ..protocol import EncoderMixin
 from ..protocol import Encoder1DMixin
 from .....types import tensor_dict_type
-from .....protocol import TrainerState
-from .....constants import INPUT_KEY
 from .....constants import LATENT_KEY
 from .....modules.blocks import Conv2d
 
@@ -59,8 +58,7 @@ class BackboneEncoder(nn.Module, EncoderMixin):
         self.num_downsample = self.net.num_downsample
         self.latent_channels = self.net.latent_channels
 
-    def forward(self, batch: tensor_dict_type) -> tensor_dict_type:  # type: ignore
-        net = batch[INPUT_KEY]
+    def forward(self, net: Tensor) -> tensor_dict_type:
         if self.to_rgb is not None:
             net = self.to_rgb(net)
         return self.net(net)
@@ -89,8 +87,8 @@ class BackboneEncoder1D(nn.Module, Encoder1DMixin):
         self.latent_dim = self.encoder.latent_channels
         self.pool = nn.AdaptiveAvgPool2d((1, 1))
 
-    def forward(self, batch: tensor_dict_type) -> tensor_dict_type:
-        outputs = self.encoder(batch)
+    def forward(self, net: Tensor) -> tensor_dict_type:
+        outputs = self.encoder(net)
         latent = outputs[LATENT_KEY]
         if latent.shape[-2] != 1 or latent.shape[-1] != 1:
             latent = self.pool(latent)
