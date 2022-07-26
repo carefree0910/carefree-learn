@@ -11,10 +11,10 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
 from ....types import tensor_dict_type
+from ....protocol import _forward
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....misc.toolkit import _forward
 from ....misc.toolkit import filter_kw
 from ....misc.toolkit import eval_context
 from ....modules.blocks import ImgToPatches

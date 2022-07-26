@@ -11,6 +11,7 @@ from typing import Optional
 
 from .bases import custom_loss_module_type
 from ..types import tensor_dict_type
+from ..protocol import _forward
 from ..protocol import StepOutputs
 from ..protocol import TrainerState
 from ..protocol import MetricsOutputs
@@ -19,7 +20,6 @@ from ..protocol import ModelWithCustomSteps
 from ..constants import INPUT_KEY
 from .protocols.ml import MERGED_KEY
 from .protocols.ml import MLCoreProtocol
-from ..misc.toolkit import _forward
 from ..misc.toolkit import filter_kw
 from ..misc.toolkit import to_device
 

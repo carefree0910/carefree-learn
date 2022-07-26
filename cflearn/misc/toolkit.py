@@ -41,12 +41,10 @@ from ..types import param_type
 from ..types import np_dict_type
 from ..types import tensor_dict_type
 from ..types import sample_weights_type
-from ..protocol import TrainerState
 from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
 from ..constants import INFO_PREFIX
 from ..constants import WARNING_PREFIX
-from ..constants import PREDICTIONS_KEY
 
 try:
     import matplotlib.pyplot as plt
@@ -320,33 +318,6 @@ class WeightsStrategy:
 
 
 # dl
-
-
-def _forward(
-    m: nn.Module,
-    batch_idx: int,
-    batch: tensor_dict_type,
-    general_input_key: str,
-    state: Optional[TrainerState] = None,
-    *,
-    general_output_key: str = PREDICTIONS_KEY,
-    **kwargs: Any,
-) -> tensor_dict_type:
-    fn = m.forward
-    if check_requires(fn, "general_output_key"):
-        kwargs["general_output_key"] = general_output_key
-    kw = filter_kw(fn, kwargs)
-    args: List[Any] = []
-    if check_requires(fn, "batch_idx"):
-        args.append(batch_idx)
-    if get_num_positional_args(fn) > 0:
-        args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
-    if check_requires(fn, "state"):
-        args.append(state)
-    rs = m(*args, **kw)
-    if not isinstance(rs, dict):
-        rs = {general_output_key: rs}
-    return rs
 
 
 def get_label_predictions(logits: np.ndarray, threshold: float) -> np.ndarray:

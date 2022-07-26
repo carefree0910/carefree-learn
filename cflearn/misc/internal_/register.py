@@ -18,6 +18,7 @@ from ..toolkit import Initializer
 from ...types import losses_type
 from ...types import np_dict_type
 from ...types import tensor_dict_type
+from ...protocol import _forward
 from ...protocol import StepOutputs
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
@@ -30,7 +31,6 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...data.core import Transforms
-from ...misc.toolkit import _forward
 from ...misc.toolkit import filter_kw
 from ...misc.toolkit import get_num_positional_args
 

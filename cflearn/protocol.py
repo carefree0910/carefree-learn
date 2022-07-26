@@ -19,6 +19,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import lock_manager
+from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import WithRegister
@@ -36,10 +37,12 @@ from .constants import PREDICTIONS_KEY
 from .constants import BATCH_INDICES_KEY
 from .constants import ORIGINAL_LABEL_KEY
 from .misc.toolkit import to_numpy
+from .misc.toolkit import filter_kw
 from .misc.toolkit import to_device
 from .misc.toolkit import eval_context
 from .misc.toolkit import get_world_size
 from .misc.toolkit import fix_denormal_states
+from .misc.toolkit import get_num_positional_args
 from .misc.toolkit import ONNX
 
 try:
@@ -120,6 +123,33 @@ class DataLoaderProtocol(WithRegister["DataLoaderProtocol"], metaclass=ABCMeta):
 
 
 # model
+
+
+def _forward(
+    m: nn.Module,
+    batch_idx: int,
+    batch: tensor_dict_type,
+    general_input_key: str,
+    state: Optional["TrainerState"] = None,
+    *,
+    general_output_key: str = PREDICTIONS_KEY,
+    **kwargs: Any,
+) -> tensor_dict_type:
+    fn = m.forward
+    if check_requires(fn, "general_output_key"):
+        kwargs["general_output_key"] = general_output_key
+    kw = filter_kw(fn, kwargs)
+    args: List[Any] = []
+    if check_requires(fn, "batch_idx"):
+        args.append(batch_idx)
+    if get_num_positional_args(fn) > 0:
+        args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
+    if check_requires(fn, "state"):
+        args.append(state)
+    rs = m(*args, **kw)
+    if not isinstance(rs, dict):
+        rs = {general_output_key: rs}
+    return rs
 
 
 class ModelProtocol(nn.Module, WithRegister["ModelProtocol"], metaclass=ABCMeta):
@@ -977,6 +1007,7 @@ class MultipleMetrics(MetricProtocol):
 
 
 __all__ = [
+    "_forward",
     "dataset_dict",
     "loader_dict",
     "loss_dict",
