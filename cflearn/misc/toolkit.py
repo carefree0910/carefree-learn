@@ -66,7 +66,8 @@ except:
 def filter_kw(
     fn: Callable,
     kwargs: Dict[str, Any],
-    strict: bool = True,
+    *,
+    strict: bool = False,
 ) -> Dict[str, Any]:
     kw = {}
     for k, v in kwargs.items():
