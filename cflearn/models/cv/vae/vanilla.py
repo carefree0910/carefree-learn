@@ -9,7 +9,6 @@ from typing import Optional
 
 from ..general import EncoderDecoder
 from ....types import tensor_dict_type
-from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
@@ -137,10 +136,6 @@ class VanillaVAE1D(VanillaVAEBase):
         decoder_config: Optional[Dict[str, Any]] = None,
         output_activation: Optional[str] = "tanh",
     ):
-        if decoder_config is None:
-            decoder_config = {}
-        if decoder == "vanilla":
-            decoder_config["latent_expand_ratio"] = 2
         super().__init__(
             True,
             in_channels,

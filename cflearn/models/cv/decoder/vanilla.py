@@ -183,7 +183,6 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
         latent_padding_channels: Optional[int] = None,
-        latent_expand_ratio: int = 1,
         final_activation: Optional[str] = None,
     ):
         super().__init__()
@@ -198,7 +197,6 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
         if latent_resolution is None:
             latent_resolution = int(round(img_size / 2**self.num_upsample))
         self.latent_resolution = latent_resolution
-        latent_dim *= latent_expand_ratio
         assert isinstance(self.latent_resolution, int)
         latent_area = self.latent_resolution**2
         shape = -1, latent_channels, latent_resolution, latent_resolution
