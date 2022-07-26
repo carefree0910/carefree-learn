@@ -1,5 +1,3 @@
-import math
-
 import torch.nn as nn
 
 from torch import Tensor
@@ -14,9 +12,9 @@ from .protocol import Decoder1DMixin
 from ....types import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....modules.blocks import get_conv_blocks
-from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
+from ....modules.blocks import Activation
 from ....modules.blocks import ResidualBlock
 from ....modules.blocks import ChannelPadding
 from ....modules.blocks import UpsampleConv2d
@@ -44,6 +42,7 @@ class VanillaDecoder(nn.Module, DecoderMixin):
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
+        final_activation: Optional[str] = None,
     ):
         super().__init__()
         self.latent_channels = latent_channels
@@ -141,6 +140,10 @@ class VanillaDecoder(nn.Module, DecoderMixin):
             in_nc = out_nc
 
         self.decoder = nn.ModuleList(blocks)
+        if final_activation is None:
+            self.final_activation = None
+        else:
+            self.final_activation = Activation.make(final_activation)
 
     def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         net = self._inject_cond(batch)[INPUT_KEY]
@@ -151,6 +154,8 @@ class VanillaDecoder(nn.Module, DecoderMixin):
                 kw["determinate"] = determinate
             net = block(net, **kw)
         net = self.resize(net, determinate=determinate)
+        if self.final_activation is not None:
+            net = self.final_activation(net)
         return net
 
 
@@ -160,6 +165,7 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
         self,
         latent_dim: int,
         out_channels: int,
+        latent_channels: int = 64,
         norm_type: Optional[str] = "instance",
         res_norm_type: Optional[str] = "instance",
         activation: Optional[str] = "leaky_relu_0.2",
@@ -176,8 +182,9 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
         cond_channels: int = 16,
         num_classes: Optional[int] = None,
         latent_resolution: Optional[int] = None,
-        latent_padding_channels: Optional[int] = 16,
+        latent_padding_channels: Optional[int] = None,
         latent_expand_ratio: int = 1,
+        final_activation: Optional[str] = None,
     ):
         super().__init__()
         self.latent_dim = latent_dim
@@ -191,16 +198,14 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
         if latent_resolution is None:
             latent_resolution = int(round(img_size / 2**self.num_upsample))
         self.latent_resolution = latent_resolution
-        in_dim = latent_dim
         latent_dim *= latent_expand_ratio
         assert isinstance(self.latent_resolution, int)
         latent_area = self.latent_resolution**2
-        latent_channels = math.ceil(latent_dim / latent_area)
         shape = -1, latent_channels, latent_resolution, latent_resolution
         blocks: List[nn.Module] = [
-            Linear(in_dim, latent_channels * latent_area),
+            Linear(latent_dim, latent_channels * latent_area),
+            Activation.make(activation),
             Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(latent_channels, latent_dim, kernel_size=1),
         ]
         if latent_padding_channels is not None:
             latent_padding = ChannelPadding(
@@ -228,6 +233,7 @@ class VanillaDecoder1D(nn.Module, Decoder1DMixin):
             cond_channels=cond_channels,
             num_classes=num_classes,
             latent_resolution=latent_resolution,
+            final_activation=final_activation,
         )
 
     def forward(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
