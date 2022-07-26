@@ -67,7 +67,7 @@ class BackboneEncoder(nn.Module, EncoderMixin):
 
 
 @Encoder1DMixin.register("backbone")
-class BackboneEncoder1D(Encoder1DMixin):
+class BackboneEncoder1D(nn.Module, Encoder1DMixin):
     def __init__(
         self,
         name: str,
@@ -77,7 +77,8 @@ class BackboneEncoder1D(Encoder1DMixin):
         pretrained: bool = False,
         backbone_config: Optional[Dict[str, Any]] = None,
     ):
-        super().__init__(in_channels, -1)
+        super().__init__()
+        self.in_channels = in_channels
         self.encoder = BackboneEncoder(
             name,
             in_channels,
