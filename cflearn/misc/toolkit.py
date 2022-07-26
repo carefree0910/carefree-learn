@@ -3,9 +3,7 @@ import sys
 import json
 import math
 import torch
-import inspect
 import argparse
-import torchvision
 import urllib.request
 
 import numpy as np
@@ -33,13 +31,13 @@ from cftool.misc import prod
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import DownloadProgressBar
-from cftool.array import arr_type
+from cftool.array import to_torch
 from cftool.array import to_standard
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 
 from ..types import data_type
 from ..types import param_type
-from ..types import np_dict_type
-from ..types import tensor_dict_type
 from ..types import sample_weights_type
 from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
@@ -61,32 +59,6 @@ except:
 
 
 # general
-
-
-def filter_kw(
-    fn: Callable,
-    kwargs: Dict[str, Any],
-    *,
-    strict: bool = False,
-) -> Dict[str, Any]:
-    kw = {}
-    for k, v in kwargs.items():
-        if check_requires(fn, k, strict):
-            kw[k] = v
-    return kw
-
-
-def get_num_positional_args(fn: Callable) -> Union[int, float]:
-    signature = inspect.signature(fn)
-    counter = 0
-    for param in signature.parameters.values():
-        if param.kind is inspect.Parameter.VAR_POSITIONAL:
-            return math.inf
-        if param.kind is inspect.Parameter.POSITIONAL_ONLY:
-            counter += 1
-        elif param.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD:
-            counter += 1
-    return counter
 
 
 def check_is_ci() -> bool:
@@ -321,23 +293,6 @@ class WeightsStrategy:
 # dl
 
 
-def get_label_predictions(logits: np.ndarray, threshold: float) -> np.ndarray:
-    # binary classification
-    if logits.shape[-1] == 2:
-        logits = logits[..., [1]] - logits[..., [0]]
-    if logits.shape[-1] == 1:
-        logit_threshold = math.log(threshold / (1.0 - threshold))
-        return (logits > logit_threshold).astype(int)
-    return logits.argmax(1)[..., None]
-
-
-def get_full_logits(logits: np.ndarray) -> np.ndarray:
-    # binary classification
-    if logits.shape[-1] == 1:
-        logits = np.concatenate([-logits, logits], axis=-1)
-    return logits
-
-
 def inject_debug(config: Dict[str, Any]) -> None:
     config["fixed_steps"] = 1
     config["valid_portion"] = 1.0e-4
@@ -363,29 +318,6 @@ def fix_denormal_states(
     if verbose:
         print(f"{INFO_PREFIX}denormal ratio : {num_denormal_total / num_total:8.6f}")
     return new_states
-
-
-def to_torch(arr: np.ndarray) -> Tensor:
-    return torch.from_numpy(to_standard(arr))
-
-
-def to_numpy(tensor: Tensor) -> np.ndarray:
-    return tensor.detach().cpu().numpy()
-
-
-def to_device(
-    batch: tensor_dict_type,
-    device: torch.device,
-    **kwargs: Any,
-) -> tensor_dict_type:
-    return {
-        k: v.to(device, **kwargs)
-        if isinstance(v, Tensor)
-        else [vv.to(device, **kwargs) if isinstance(vv, Tensor) else vv for vv in v]
-        if isinstance(v, list)
-        else v
-        for k, v in batch.items()
-    }
 
 
 def has_batch_norms(m: nn.Module) -> bool:
@@ -1089,22 +1021,6 @@ def adain_with_params(
 def adain_with_tensor(src: Tensor, tgt: Tensor, *, determinate: bool = False) -> Tensor:
     tgt_mean, tgt_std = mean_std(tgt, determinate=determinate)
     return adain_with_params(src, tgt_mean, tgt_std, determinate=determinate)
-
-
-def make_grid(arr: arr_type, n_row: Optional[int] = None) -> Tensor:
-    if isinstance(arr, np.ndarray):
-        arr = to_torch(arr)
-    if n_row is None:
-        n_row = math.ceil(math.sqrt(len(arr)))
-    return torchvision.utils.make_grid(arr, n_row)
-
-
-def save_images(arr: arr_type, path: str, n_row: Optional[int] = None) -> None:
-    if isinstance(arr, np.ndarray):
-        arr = to_torch(arr)
-    if n_row is None:
-        n_row = math.ceil(math.sqrt(len(arr)))
-    torchvision.utils.save_image(arr, path, normalize=True, nrow=n_row)
 
 
 def make_indices_visualization_map(indices: Tensor) -> Tensor:

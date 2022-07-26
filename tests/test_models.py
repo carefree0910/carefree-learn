@@ -9,10 +9,10 @@ import numpy as np
 from typing import Any
 from torch.nn import Module
 from cftool.array import allclose
+from cftool.array import to_numpy
+from cftool.array import to_torch
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import PREDICTIONS_KEY
-from cflearn.misc.toolkit import to_numpy
-from cflearn.misc.toolkit import to_torch
 from cflearn.misc.toolkit import eval_context
 from cflearn.models.protocols.ml import MERGED_KEY
 from cflearn.models.protocols.ml import ONE_HOT_KEY

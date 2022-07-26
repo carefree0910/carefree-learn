@@ -16,8 +16,9 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
+from cftool.array import to_numpy
+from cftool.types import tensor_dict_type
 
-from ...types import tensor_dict_type
 from ...protocol import StepOutputs
 from ...protocol import TrainerState
 from ...protocol import MetricsOutputs
@@ -25,7 +26,6 @@ from ...protocol import DataLoaderProtocol
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import BATCH_INDICES_KEY
-from ...misc.toolkit import to_numpy
 from ...modules.blocks import get_clones
 from ...modules.blocks import Linear
 from ...modules.blocks import MixedStackedEncoder

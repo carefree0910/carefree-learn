@@ -26,6 +26,8 @@ from cftool.misc import walk
 from cftool.misc import get_arguments
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 from torch.utils.data import Dataset
 
 from .core import default_lmdb_path
@@ -42,8 +44,6 @@ from .core import DLDataModule
 from .core import ImageFolderDataset
 from .core import InferenceImageFolderDataset
 from ..types import data_type
-from ..types import np_dict_type
-from ..types import tensor_dict_type
 from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY

@@ -3,16 +3,16 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
+from cftool.misc import filter_kw
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
+from cftool.types import tensor_dict_type
 
-from ....types import tensor_dict_type
 from ....protocol import _forward
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import filter_kw
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import ChannelPadding

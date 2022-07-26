@@ -8,10 +8,11 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from cftool.array import to_device
+from cftool.types import tensor_dict_type
 
 from .discriminators import DiscriminatorBase
 from ....data import CVLoader
-from ....types import tensor_dict_type
 from ....protocol import _forward
 from ....protocol import StepOutputs
 from ....protocol import MetricsOutputs
@@ -21,7 +22,6 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ...protocols.cv import GaussianGeneratorMixin
-from ....misc.toolkit import to_device
 from ....misc.toolkit import mode_context
 from ....misc.toolkit import toggle_optimizer
 from ....losses.gan import GANLoss

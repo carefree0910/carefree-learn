@@ -6,8 +6,8 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from cftool.types import tensor_dict_type
 
-from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import WithDeviceMixin
 from ....constants import PREDICTIONS_KEY

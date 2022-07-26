@@ -3,6 +3,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .constants import STYLE_KEY
 from .constants import STYLE_LATENTS_KEY
@@ -12,10 +13,6 @@ from .constants import STYLIZED_CONTENT_LATENT_KEY
 from ..decoder import VanillaDecoder
 from ..encoder import BackboneEncoder
 from ....types import losses_type
-from ....types import tensor_dict_type
-from ....protocol import TrainerState
-from ....protocol import LossProtocol
-from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY

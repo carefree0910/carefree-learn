@@ -5,10 +5,10 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.types import np_dict_type
 
 from ....data import Transforms
 from ....data import InferenceImageFolderData
-from ....types import np_dict_type
 from ....pipeline import DLPipeline
 
 

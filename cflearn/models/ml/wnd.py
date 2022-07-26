@@ -2,11 +2,11 @@ import torch
 
 from typing import List
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .fcnn import FCNN
 from .linear import Linear
 from ..register import register_ml_module
-from ...types import tensor_dict_type
 from ..protocols.ml import ONE_HOT_KEY
 from ..protocols.ml import EMBEDDING_KEY
 from ..protocols.ml import NUMERICAL_KEY

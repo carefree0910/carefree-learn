@@ -7,11 +7,11 @@ from typing import Callable
 from typing import Optional
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 
 from ...bases import ModelProtocol
 from ....types import texts_type
-from ....types import np_dict_type
-from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import InferenceProtocol
 from ....data.interface import TensorDictData

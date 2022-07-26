@@ -7,9 +7,9 @@ from torch import nn
 from torch import Tensor
 from typing import Any
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .constants import TEXT_KEY
-from ...types import tensor_dict_type
 from ...protocol import TrainerState
 from ...protocol import ModelProtocol
 from ...constants import INPUT_KEY

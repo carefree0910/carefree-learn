@@ -10,11 +10,11 @@ from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .fcnn import FCNN
 from ..register import register_ml_module
 from ...types import losses_type
-from ...types import tensor_dict_type
 from ...protocol import WithDeviceMixin
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY

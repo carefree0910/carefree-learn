@@ -10,8 +10,8 @@ from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
+from cftool.types import tensor_dict_type
 
-from ...types import tensor_dict_type
 from ...pipeline import DLPipeline
 from ...pipeline import PipelineProtocol
 from ...protocol import ModelProtocol

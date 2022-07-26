@@ -6,6 +6,7 @@ from torch import Tensor
 from typing import List
 from typing import Tuple
 from typing import Callable
+from cftool.array import to_torch
 
 from ...cv.models.utils import predict_folder
 from ...cv.pipeline import SimplePipeline
@@ -13,7 +14,6 @@ from ....types import texts_type
 from ....protocol import InferenceProtocol
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....misc.toolkit import to_torch
 from ....data.interface import TensorData
 from ....models.nlp.tokenizers import TokenizerProtocol
 from ....models.multimodal.clip import CLIP

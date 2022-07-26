@@ -6,9 +6,9 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .constants import STYLE_LABEL_KEY
-from ....types import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ..decoder.style_gan_v2 import FullyConnected

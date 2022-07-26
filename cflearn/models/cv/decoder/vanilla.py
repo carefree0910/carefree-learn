@@ -6,10 +6,10 @@ from typing import List
 from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
+from cftool.types import tensor_dict_type
 
 from .protocol import DecoderMixin
 from .protocol import Decoder1DMixin
-from ....types import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Lambda

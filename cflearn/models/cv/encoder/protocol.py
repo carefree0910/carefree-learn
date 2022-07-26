@@ -7,16 +7,16 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
+from cftool.misc import filter_kw
 from cftool.misc import check_requires
 from cftool.misc import WithRegister
+from cftool.types import tensor_dict_type
 
-from ....types import tensor_dict_type
 from ....protocol import _forward
 from ....protocol import TrainerState
 from ....protocol import WithDeviceMixin
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....misc.toolkit import filter_kw
 from ....misc.toolkit import eval_context
 from ....modules.blocks import ImgToPatches
 

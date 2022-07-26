@@ -6,11 +6,11 @@ from typing import List
 from typing import Tuple
 from typing import Optional
 from dataclasses import dataclass
+from cftool.array import to_numpy
+from cftool.array import to_torch
 
 from ..pipeline import SimplePipeline
 from ....constants import WARNING_PREFIX
-from ....misc.toolkit import to_numpy
-from ....misc.toolkit import to_torch
 from ....misc.toolkit import eval_context
 from ....models.ml.nbm import NBM
 from ....models.protocols.ml import IEncoder

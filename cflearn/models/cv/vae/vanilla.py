@@ -6,9 +6,9 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from ..general import EncoderDecoder
-from ....types import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY

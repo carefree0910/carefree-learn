@@ -7,8 +7,8 @@ from torch import Tensor
 from typing import Any
 from typing import List
 from typing import Optional
+from cftool.types import tensor_dict_type
 
-from ....types import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....constants import ORIGINAL_LABEL_KEY
 from ...protocols.cv import ImageTranslatorMixin

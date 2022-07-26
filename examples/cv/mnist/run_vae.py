@@ -5,12 +5,9 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from typing import Any
 from typing import Dict
-from typing import Optional
+from cftool.types import tensor_dict_type
 from cflearn.types import losses_type
-from cflearn.types import tensor_dict_type
-from cflearn.protocol import TrainerState
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import interpolate
 from cflearn.misc.toolkit import inject_debug

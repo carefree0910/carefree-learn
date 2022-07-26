@@ -5,14 +5,14 @@ from tqdm import tqdm
 from torch import Tensor
 from typing import List
 from typing import Tuple
+from cftool.array import to_torch
+from cftool.array import to_device
 
 from .utils import predict_folder
 from ..data import SSLTestTransform
 from ..data import InferenceImageFolderData
 from ..pipeline import SimplePipeline
 from ....constants import LATENT_KEY
-from ....misc.toolkit import to_torch
-from ....misc.toolkit import to_device
 from ....misc.toolkit import eval_context
 
 try:

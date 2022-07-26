@@ -9,8 +9,8 @@ from typing import Dict
 from typing import List
 from typing import Callable
 from typing import Optional
+from cftool.types import tensor_dict_type
 
-from ..types import tensor_dict_type
 from ..trainer import DeviceInfo
 from ..constants import WARNING_PREFIX
 from ..api.cv.pipeline import SimplePipeline

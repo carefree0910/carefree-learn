@@ -19,16 +19,20 @@ from typing import Callable
 from typing import Iterator
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import filter_kw
 from cftool.misc import lock_manager
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
+from cftool.misc import get_num_positional_args
 from cftool.misc import WithRegister
+from cftool.array import to_numpy
+from cftool.array import to_device
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 
 from .types import losses_type
 from .types import configs_type
-from .types import np_dict_type
-from .types import tensor_dict_type
 from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
@@ -37,13 +41,9 @@ from .constants import WARNING_PREFIX
 from .constants import PREDICTIONS_KEY
 from .constants import BATCH_INDICES_KEY
 from .constants import ORIGINAL_LABEL_KEY
-from .misc.toolkit import to_numpy
-from .misc.toolkit import filter_kw
-from .misc.toolkit import to_device
 from .misc.toolkit import eval_context
 from .misc.toolkit import get_world_size
 from .misc.toolkit import fix_denormal_states
-from .misc.toolkit import get_num_positional_args
 from .misc.toolkit import ONNX
 
 try:

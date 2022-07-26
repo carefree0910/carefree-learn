@@ -6,10 +6,9 @@ from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Optional
+from cftool.types import tensor_dict_type
 
-from ...types import tensor_dict_type
 from ...protocol import _forward
-from ...protocol import TrainerState
 from ...protocol import WithDeviceMixin
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY

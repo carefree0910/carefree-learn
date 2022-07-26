@@ -13,9 +13,10 @@ from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import iou
 from cftool.array import corr
+from cftool.array import to_torch
+from cftool.types import tensor_dict_type
 
 from ..types import losses_type
-from ..types import tensor_dict_type
 from ..protocol import MultiLoss
 from ..protocol import LossProtocol
 from ..protocol import TrainerState
@@ -23,7 +24,6 @@ from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import PREDICTIONS_KEY
-from ..misc.toolkit import to_torch
 from ..misc.internal_.register import register_loss_module
 
 

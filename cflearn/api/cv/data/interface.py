@@ -7,10 +7,10 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from functools import partial
+from cftool.types import tensor_dict_type
 from torchvision.datasets import MNIST
 
 from ....data import Transforms
-from ....types import tensor_dict_type
 from ....types import sample_weights_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY

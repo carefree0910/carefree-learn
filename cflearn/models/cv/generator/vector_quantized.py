@@ -6,12 +6,12 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from ..decoder import make_decoder
 from ..encoder import run_encoder
 from ..encoder import make_encoder
 from ..encoder import EncoderMixin
-from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY

@@ -8,9 +8,11 @@ from typing import List
 from typing import Type
 from typing import Callable
 from typing import Optional
+from cftool.misc import filter_kw
+from cftool.array import to_device
+from cftool.types import tensor_dict_type
 
 from .bases import custom_loss_module_type
-from ..types import tensor_dict_type
 from ..protocol import _forward
 from ..protocol import StepOutputs
 from ..protocol import TrainerState
@@ -20,8 +22,6 @@ from ..protocol import ModelWithCustomSteps
 from ..constants import INPUT_KEY
 from .protocols.ml import MERGED_KEY
 from .protocols.ml import MLCoreProtocol
-from ..misc.toolkit import filter_kw
-from ..misc.toolkit import to_device
 
 
 def register_ml_module(

@@ -8,12 +8,12 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from cftool.array import to_numpy
+from cftool.array import to_torch
+from cftool.types import tensor_dict_type
 
 from ..pipeline import SimplePipeline
-from ....types import tensor_dict_type
 from ....constants import PREDICTIONS_KEY
-from ....misc.toolkit import to_numpy
-from ....misc.toolkit import to_torch
 from ....misc.toolkit import eval_context
 from ....models.ml import DDR
 

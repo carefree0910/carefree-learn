@@ -5,11 +5,11 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
 from ...bases import CascadeMixin
-from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY

@@ -9,8 +9,8 @@ from typing import Dict
 from typing import Type
 from typing import Optional
 from typing import NamedTuple
+from cftool.types import tensor_dict_type
 
-from ..types import tensor_dict_type
 from ..protocol import LossProtocol
 from ..protocol import ModelProtocol
 from ..constants import LOSS_KEY

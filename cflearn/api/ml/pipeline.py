@@ -18,6 +18,9 @@ from cftool.misc import Saving
 from cftool.array import softmax
 from cftool.array import squeeze
 from cftool.array import is_float
+from cftool.array import get_full_logits
+from cftool.array import get_label_predictions
+from cftool.types import np_dict_type
 
 from ...data import MLData
 from ...data import MLLoader
@@ -25,7 +28,6 @@ from ...data import MLDataset
 from ...data import DLDataModule
 from ...data import MLInferenceData
 from ...types import configs_type
-from ...types import np_dict_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import DLPipeline
@@ -33,8 +35,6 @@ from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
-from ...misc.toolkit import get_full_logits
-from ...misc.toolkit import get_label_predictions
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.encoders import EncodingSettings

@@ -12,13 +12,14 @@ from typing import Tuple
 from typing import Optional
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
+from cftool.array import to_device
 from cftool.array import l2_normalize
+from cftool.types import tensor_dict_type
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from ..encoder import run_encoder
 from ..encoder import Encoder1DMixin
 from ....data import CVLoader
-from ....types import tensor_dict_type
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
@@ -26,7 +27,6 @@ from ....protocol import ModelWithCustomSteps
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....misc.toolkit import to_device
 from ....misc.toolkit import get_world_size
 from ....misc.toolkit import has_batch_norms
 

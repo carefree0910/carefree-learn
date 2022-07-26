@@ -3,8 +3,8 @@
 import os
 import cflearn
 
+from cftool.array import to_device
 from torchvision.transforms import transforms
-from cflearn.misc.toolkit import to_device
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context

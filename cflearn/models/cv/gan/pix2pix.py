@@ -7,11 +7,11 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .protocol import OneStageGANMixin
 from .discriminators import DiscriminatorBase
 from ..generator import UnetGenerator
-from ....types import tensor_dict_type
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY

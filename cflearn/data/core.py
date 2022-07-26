@@ -24,6 +24,9 @@ from cftool.misc import is_numeric
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from cftool.misc import WithRegister
+from cftool.array import to_torch
+from cftool.array import to_device
+from cftool.types import tensor_dict_type
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
 from torch.utils.data import Sampler
@@ -31,7 +34,6 @@ from torch.utils.data import SequentialSampler
 from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data.distributed import DistributedSampler
 
-from ..types import tensor_dict_type
 from ..types import sample_weights_type
 from ..protocol import DatasetProtocol
 from ..protocol import DataLoaderProtocol
@@ -39,8 +41,6 @@ from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import WARNING_PREFIX
 from ..constants import BATCH_INDICES_KEY
-from ..misc.toolkit import to_torch
-from ..misc.toolkit import to_device
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
 

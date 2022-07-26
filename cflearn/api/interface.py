@@ -9,12 +9,12 @@ from typing import Callable
 from typing import Optional
 from cftool.misc import update_dict
 from cftool.misc import parse_config
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 
 from ..models import *
 from ..types import data_type
 from ..types import configs_type
-from ..types import np_dict_type
-from ..types import tensor_dict_type
 from ..types import general_config_type
 from ..types import sample_weights_type
 from ..types import states_callback_type

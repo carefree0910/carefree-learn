@@ -2,12 +2,12 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from ..bases import IBAKE
 from ..bases import IRDropout
 from ..register import register_ml_module
 from ..register import register_custom_loss_module
-from ...types import tensor_dict_type
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
 from ..protocols.ml import MixedStackedModel

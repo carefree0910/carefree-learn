@@ -6,12 +6,12 @@ from typing import Optional
 from cftool.array import iou
 from cftool.array import corr
 from cftool.array import softmax
+from cftool.array import get_full_logits
+from cftool.array import get_label_predictions
+from cftool.types import np_dict_type
 
 from .register import register_metric
 from .register import IMetric
-from ..toolkit import get_full_logits
-from ..toolkit import get_label_predictions
-from ...types import np_dict_type
 from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY

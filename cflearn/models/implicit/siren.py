@@ -9,8 +9,8 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from cftool.types import tensor_dict_type
 
-from ...types import tensor_dict_type
 from ...constants import LABEL_KEY
 from ...modules.blocks import Lambda
 from ...modules.blocks import Activation

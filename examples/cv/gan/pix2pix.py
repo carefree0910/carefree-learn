@@ -11,11 +11,11 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from cftool.misc import hash_code
-from cflearn.types import tensor_dict_type
+from cftool.array import to_device
+from cftool.array import save_images
+from cftool.types import tensor_dict_type
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import LABEL_KEY
-from cflearn.misc.toolkit import to_device
-from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 from torchvision.transforms import InterpolationMode
 

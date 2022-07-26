@@ -7,12 +7,12 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .fcnn import FCNN
 from ..bases import IBAKE
 from ..register import register_ml_module
 from ..register import register_custom_loss_module
-from ...types import tensor_dict_type
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
 

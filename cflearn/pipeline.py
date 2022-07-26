@@ -20,12 +20,12 @@ from cftool.misc import prepare_workplace_from
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import WithRegister
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 
 from .data import DataModule
 from .data import DLDataModule
 from .types import configs_type
-from .types import np_dict_type
-from .types import tensor_dict_type
 from .types import sample_weights_type
 from .types import states_callback_type
 from .trainer import get_sorted_checkpoints

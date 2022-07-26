@@ -3,9 +3,9 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .vanilla import reparameterize
-from ....types import tensor_dict_type
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.protocol import make_encoder

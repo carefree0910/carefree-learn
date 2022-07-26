@@ -7,9 +7,9 @@ from typing import List
 from typing import Tuple
 from typing import Optional
 from collections import OrderedDict
+from cftool.types import tensor_dict_type
 
 from .register import backbone_info_dict
-from .....types import tensor_dict_type
 from .....constants import LATENT_KEY
 from .....misc.toolkit import set_requires_grad
 

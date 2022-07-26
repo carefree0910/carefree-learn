@@ -6,10 +6,10 @@ from typing import Dict
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import softmax
+from cftool.types import tensor_dict_type
 
 from ..encoder import run_encoder
 from ..encoder import make_encoder
-from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY

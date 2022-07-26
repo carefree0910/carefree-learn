@@ -3,9 +3,9 @@ import torch
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .constants import MASK_KEY
-from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
 from ....constants import INPUT_KEY

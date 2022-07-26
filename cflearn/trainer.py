@@ -23,6 +23,8 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import sort_dict_by_value
 from cftool.misc import context_error_handler
 from cftool.misc import WithRegister
+from cftool.array import to_device
+from cftool.types import tensor_dict_type
 from torch.optim.lr_scheduler import _LRScheduler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed.optim import ZeroRedundancyOptimizer as ZeRO
@@ -30,7 +32,6 @@ from torch.utils.data.distributed import DistributedSampler
 
 from .data import DLLoader
 from .data import DLDataModule
-from .types import tensor_dict_type
 from .protocol import StepOutputs
 from .protocol import LossProtocol
 from .protocol import TrainerState
@@ -51,7 +52,6 @@ from .constants import ERROR_PREFIX
 from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
-from .misc.toolkit import to_device
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import has_batch_norms
 from .misc.toolkit import scheduler_requires_metric

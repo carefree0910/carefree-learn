@@ -4,11 +4,11 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .encoder import make_encoder
 from .encoder import EncoderMixin
 from .decoder import make_decoder
-from ...types import tensor_dict_type
 from ...misc.toolkit import auto_num_layers
 
 

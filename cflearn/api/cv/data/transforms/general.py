@@ -4,10 +4,10 @@ from PIL import Image
 from typing import Any
 from typing import Dict
 from cftool.array import arr_type
+from cftool.array import to_torch
 from torchvision.transforms import transforms
 
 from .....data import Transforms
-from .....misc.toolkit import to_torch
 
 
 class NoBatchTransforms(Transforms):

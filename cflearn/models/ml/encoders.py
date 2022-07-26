@@ -13,10 +13,10 @@ from typing import Optional
 from typing import NamedTuple
 from collections import defaultdict
 from cftool.array import arr_type
+from cftool.array import to_torch
 
 from ...data import MLLoader
 from ...constants import INPUT_KEY
-from ...misc.toolkit import to_torch
 from ...misc.toolkit import Initializer
 from ...modules.blocks import Lambda
 

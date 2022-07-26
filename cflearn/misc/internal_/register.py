@@ -7,15 +7,16 @@ from typing import List
 from typing import Type
 from typing import Callable
 from typing import Optional
+from cftool.misc import filter_kw
 from cftool.misc import check_requires
+from cftool.misc import get_num_positional_args
+from cftool.types import np_dict_type
+from cftool.types import tensor_dict_type
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
 
 from ..toolkit import Initializer
-from ..toolkit import get_num_positional_args
 from ...types import losses_type
-from ...types import np_dict_type
-from ...types import tensor_dict_type
 from ...protocol import _forward
 from ...protocol import StepOutputs
 from ...protocol import LossProtocol
@@ -30,7 +31,6 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...data.core import Transforms
-from ...misc.toolkit import filter_kw
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
