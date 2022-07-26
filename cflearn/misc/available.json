@@ -1,10 +1,6 @@
 {
   "data_info": [],
-  "tokenizers": [
-    "clip",
-    "clip_3.8",
-    "clip_3.9"
-  ],
+  "tokenizers": ["clip", "clip_3.8", "clip_3.9"],
   "checkpoints": [
     "vgg_style",
     "adain",
@@ -16,7 +12,6 @@
     "style_gan2_generator.brecahad",
     "style_gan2_generator.ffhq",
     "style_gan2_generator.metfaces",
-    "cycle_gan2_generator.pixel_art",
     "cct_large_224",
     "cct_large_384",
     "u2net",
