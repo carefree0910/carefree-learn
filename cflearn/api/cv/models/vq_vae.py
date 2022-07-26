@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 from typing import Any
 from typing import Optional
+from cftool.misc import random_hash
 
 from ...interface import load
 from ...interface import pack
@@ -22,8 +23,10 @@ from ....misc.internal_.callbacks import ImageCallback
 from ....models.cv.vae.vector_quantized import VQVAE
 
 
-def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> None:
-    @ImageCallback.register("pixel_cnn")
+def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> str:
+    tmp_name = random_hash()
+
+    @ImageCallback.register(tmp_name)
     class _(ImageCallback):
         def __init__(self, num_keep: int = 25, num_interpolations: int = 16):
             super().__init__(num_keep)
@@ -78,8 +81,12 @@ def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> None:
                         os.path.join(conditional_folder, f"interpolation_{i}.png"),
                     )
 
+    return tmp_name
+
 
 class VQVAEInference:
+    tmp_callback_name: Optional[str] = None
+
     def __init__(
         self,
         workplace: str,
@@ -95,12 +102,15 @@ class VQVAEInference:
         self.debug = kwargs.get("debug", False)
         self.vqvae = load(pack(vqvae_log_folder), cuda=cuda).model.core
         self.code_export_folder = os.path.join(workplace, "codes")
-        register_callback(self.vqvae, num_classes)
+        if VQVAEInference.tmp_callback_name is not None:
+            ImageCallback.remove(VQVAEInference.tmp_callback_name)
+        VQVAEInference.tmp_callback_name = register_callback(self.vqvae, num_classes)
         if inference_model == "pixel_cnn":
             model_config = kwargs.setdefault("model_config", {})
             model_config["need_embedding"] = True
             model_config["num_conditional_classes"] = num_classes
             kwargs.setdefault("workplace", os.path.join(workplace, "_logs"))
+            kwargs.setdefault("callback_names", VQVAEInference.tmp_callback_name)
             self.m = pixel_cnn(num_codes, **kwargs)
         else:
             msg = f"inference model '{inference_model}' is not implemented"
