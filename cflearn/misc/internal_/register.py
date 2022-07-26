@@ -12,6 +12,7 @@ from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
 
 from ..toolkit import Initializer
+from ..toolkit import get_num_positional_args
 from ...types import losses_type
 from ...types import np_dict_type
 from ...types import tensor_dict_type
@@ -320,16 +321,18 @@ def register_loss_module(
             ) -> losses_type:
                 args: List[Any] = []
                 fn = self.core.forward
+                num_args = get_num_positional_args(fn)
                 if check_requires(fn, "forward_results"):
                     args.append(forward_results)
                 else:
                     args.append(forward_results[PREDICTIONS_KEY])
-                if check_requires(fn, "batch"):
-                    args.append(batch)
-                else:
-                    args.append(batch[LABEL_KEY])
-                if check_requires(fn, "state"):
-                    args.append(state)
+                if num_args >= 2:
+                    if check_requires(fn, "batch"):
+                        args.append(batch)
+                    else:
+                        args.append(batch.get(LABEL_KEY))
+                    if check_requires(fn, "state"):
+                        args.append(state)
                 return self.core(*args, **kwargs)
 
         return loss_base
