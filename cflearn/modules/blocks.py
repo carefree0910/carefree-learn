@@ -34,8 +34,9 @@ from torch.nn.modules.pooling import _MaxUnpoolNd
 
 from ..types import tensor_dict_type
 from ..protocol import WithDeviceMixin
-from ..misc.toolkit import adain_with_params
+from ..misc.toolkit import filter_kw
 from ..misc.toolkit import interpolate
+from ..misc.toolkit import adain_with_params
 from ..misc.toolkit import eval_context
 
 
@@ -1683,7 +1684,8 @@ class AttentionTokenMixer(TokenMixerBase):
         attention_kwargs.setdefault("num_heads", 8)
         attention_kwargs["input_dim"] = latent_dim
         attention_kwargs.setdefault("is_self_attention", True)
-        self.net = Attention.make(attention_type, config=attention_kwargs)
+        base = Attention.get(attention_type)
+        self.net = base(**filter_kw(base, attention_kwargs))
 
     def forward(
         self,
