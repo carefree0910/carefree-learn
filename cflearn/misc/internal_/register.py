@@ -30,6 +30,7 @@ from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...data.core import Transforms
+from ...misc.toolkit import _forward
 from ...misc.toolkit import filter_kw
 from ...misc.toolkit import get_num_positional_args
 
@@ -122,29 +123,6 @@ def register_metric(
         return metric_base
 
     return _core
-
-
-def _forward(
-    m: nn.Module,
-    batch_idx: int,
-    batch: tensor_dict_type,
-    general_input_key: str,
-    state: Optional[TrainerState] = None,
-    **kwargs: Any,
-) -> tensor_dict_type:
-    fn = m.forward
-    kw = filter_kw(fn, kwargs)
-    args: List[Any] = []
-    if check_requires(fn, "batch_idx"):
-        args.append(batch_idx)
-    if get_num_positional_args(fn) > 0:
-        args.append(batch if check_requires(fn, "batch") else batch[general_input_key])
-    if check_requires(fn, "state"):
-        args.append(state)
-    rs = m(*args, **kw)
-    if not isinstance(rs, dict):
-        rs = {PREDICTIONS_KEY: rs}
-    return rs
 
 
 def register_module(

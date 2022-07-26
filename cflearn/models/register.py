@@ -19,9 +19,9 @@ from ..protocol import ModelWithCustomSteps
 from ..constants import INPUT_KEY
 from .protocols.ml import MERGED_KEY
 from .protocols.ml import MLCoreProtocol
+from ..misc.toolkit import _forward
 from ..misc.toolkit import filter_kw
 from ..misc.toolkit import to_device
-from ..misc.internal_.register import _forward
 
 
 def register_ml_module(
