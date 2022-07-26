@@ -1,22 +1,25 @@
 import torch
 
+from torch import nn
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
 
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
-from ...bases import CascadeBase
+from ...bases import CascadeMixin
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...protocols.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
+from ....misc.internal_.register import register_module
 
 
-@CascadeBase.register("cascade_u2net")
-class CascadeU2Net(ImageTranslatorMixin, CascadeBase):
+@register_module("cascade_u2net")
+class CascadeU2Net(nn.Module, CascadeMixin, ImageTranslatorMixin):
     def __init__(
         self,
         in_channels: int,
@@ -65,7 +68,7 @@ class CascadeU2Net(ImageTranslatorMixin, CascadeBase):
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
         **kwargs: Any,
-    ) -> tensor_dict_type:
+    ) -> Tensor:
         lv1_outputs = self.lv1_net(batch_idx, batch, state, **kwargs)
         lv1_raw_alpha = lv1_outputs[PREDICTIONS_KEY][0]
         lv1_alpha = torch.sigmoid(lv1_raw_alpha)
@@ -91,7 +94,7 @@ class CascadeU2Net(ImageTranslatorMixin, CascadeBase):
             lv2_raw_alpha = lv2_raw_alpha[0]
         if self.lv2_resolution is not None:
             lv2_raw_alpha = interpolate(lv2_raw_alpha, size=resolution, mode="bilinear")
-        return {PREDICTIONS_KEY: lv2_raw_alpha}
+        return lv2_raw_alpha
 
 
 __all__ = [

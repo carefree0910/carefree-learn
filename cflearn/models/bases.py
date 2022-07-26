@@ -4,7 +4,6 @@ import torch
 import torch.nn.functional as F
 
 from abc import abstractmethod
-from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import Type
@@ -138,7 +137,7 @@ class IRDropout(ICustomLossModule):
         return ICustomLossOutput(fr1, loss_dict)
 
 
-class CascadeBase(ModelProtocol, metaclass=ABCMeta):
+class CascadeMixin:
     lv1_net: ModelProtocol
     lv2_net: ModelProtocol
 
@@ -151,7 +150,7 @@ class CascadeBase(ModelProtocol, metaclass=ABCMeta):
         lv1_model_ckpt_path: Optional[str],
         lv1_model_trainable: bool,
     ) -> None:
-        self.lv1_net = self.make(lv1_model_name, lv1_model_config)
+        self.lv1_net = ModelProtocol.make(lv1_model_name, lv1_model_config)
         if lv1_model_ckpt_path is not None:
             if not os.path.isfile(lv1_model_ckpt_path):
                 print(f"{WARNING_PREFIX}'{lv1_model_ckpt_path}' does not exist")
@@ -160,11 +159,12 @@ class CascadeBase(ModelProtocol, metaclass=ABCMeta):
                 self.lv1_net.load_state_dict(state_dict)
         if not lv1_model_trainable:
             set_requires_grad(self.lv1_net, False)
-        self.lv2_net = self.make(lv2_model_name, lv2_model_config)
+        self.lv2_net = ModelProtocol.make(lv2_model_name, lv2_model_config)
 
 
 __all__ = [
     "ICustomLossModule",
     "IBAKE",
     "IRDropout",
+    "CascadeMixin",
 ]
