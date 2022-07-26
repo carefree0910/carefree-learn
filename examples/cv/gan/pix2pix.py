@@ -114,7 +114,7 @@ class StyleTransferCallback(cflearn.ImageCallback):
         save_images(src, os.path.join(image_folder, "src.png"))
         save_images(tgt, os.path.join(image_folder, "tgt.png"))
         # stylize
-        model = trainer.model.generator
+        model = trainer.model.core.generator
         with eval_context(model):
             translated = model(src)
         save_images(translated, os.path.join(image_folder, "translated.png"))
