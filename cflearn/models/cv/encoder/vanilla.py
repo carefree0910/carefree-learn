@@ -157,7 +157,7 @@ class VanillaEncoder1D(nn.Module, Encoder1DMixin):
             raise ValueError(f"unrecognized `pool` value : '{pool}'")
 
     def forward(self, batch: tensor_dict_type) -> Tensor:  # type: ignore
-        net = self.encoder(batch)[LATENT_KEY]
+        net = self.encoder(batch)
         net = squeeze(self.pool(net))
         return net
 
