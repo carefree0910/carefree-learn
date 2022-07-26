@@ -7,25 +7,24 @@ from typing import List
 from typing import Optional
 
 from .protocol import VanillaGANMixin
-from ..decoder import DecoderMixin
+from ..decoder import make_decoder
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....misc.toolkit import auto_num_layers
-from ....modules.blocks import Conv2d
-from ....modules.blocks import Lambda
 from ....misc.internal_.register import register_custom_module
 from ....misc.internal_.register import CustomModule
 
 
 @register_custom_module("gan")
 class VanillaGAN(VanillaGANMixin, CustomModule):  # type: ignore
+    generator: nn.Module
+
     def __init__(
         self,
         img_size: int,
         in_channels: int,
+        latent_resolution: int = 7,
         out_channels: Optional[int] = None,
-        latent_dim: int = 128,
-        latent_resolution: int = 2,
+        latent_dim: int = 64,
         *,
         generator: str = "vanilla",
         discriminator: str = "basic",
@@ -44,41 +43,23 @@ class VanillaGAN(VanillaGANMixin, CustomModule):  # type: ignore
             gan_mode=gan_mode,
             gan_loss_config=gan_loss_config,
         )
-        num_upsample = auto_num_layers(
-            img_size,
-            latent_resolution,
-            None,
-            use_stride=True,
-        )
-        # latent
         self.latent_dim = latent_dim
-        map_area = latent_resolution**2
-        if latent_dim % map_area != 0:
-            msg = f"`latent_dim` should be divisible by `map_area` ({map_area})"
-            raise ValueError(msg)
-        compressed_channels = latent_dim // map_area
-        shape = -1, compressed_channels, latent_resolution, latent_resolution
-        self.from_latent = nn.Sequential(
-            Lambda(lambda tensor: tensor.view(*shape), f"reshape -> {shape}"),
-            Conv2d(compressed_channels, latent_dim, kernel_size=1, bias=False),
-        )
         # generator
         if generator_config is None:
             generator_config = {}
         generator_config["img_size"] = img_size
-        generator_config["latent_channels"] = latent_dim
+        generator_config["latent_dim"] = latent_dim
         generator_config["latent_resolution"] = latent_resolution
-        generator_config["num_upsample"] = num_upsample
         generator_config["out_channels"] = out_channels or in_channels
         generator_config["num_classes"] = num_classes
-        self.generator = DecoderMixin.make(generator, config=generator_config)
+        self.generator = make_decoder(generator, generator_config, is_1d=True)
 
     @property
     def g_parameters(self) -> List[nn.Parameter]:
         return list(self.generator.parameters())
 
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
-        batch = {INPUT_KEY: self.from_latent(z), LABEL_KEY: labels}
+        batch = {INPUT_KEY: z, LABEL_KEY: labels}
         net = self.generator.decode(batch, **kwargs)
         return net
 
