@@ -92,7 +92,7 @@ class CLIP(PerceptorProtocol):
         nn.init.normal_(self.text_projection, std=self.text_latent_dim**-0.5)
 
     def encode_image(self, image: Tensor) -> Tensor:
-        net = self.vit(0, {INPUT_KEY: image}, determinate=True)[LATENT_KEY]
+        net = self.vit({INPUT_KEY: image}, determinate=True)[LATENT_KEY]
         return l2_normalize(net)
 
     def encode_text(self, text: Tensor) -> Tensor:
