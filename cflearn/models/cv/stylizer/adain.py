@@ -80,14 +80,8 @@ class AdaINStylizer(ModelProtocol):
         encoded = adain_with_tensor(*args, determinate=determinate)
         style_weight = kwargs.get("style_weight", 1.0)
         encoded = style_weight * encoded + (1.0 - style_weight) * content_latent
-        rs = self.decoder(
-            batch_idx,
-            {INPUT_KEY: encoded},
-            state,
-            determinate=determinate,
-            **kwargs,
-        )
-        decoded = interpolate(rs[PREDICTIONS_KEY], anchor=content)
+        net = self.decoder({INPUT_KEY: encoded}, determinate=determinate, **kwargs)
+        decoded = interpolate(net, anchor=content)
         if not need_stylized_features:
             decoded_feats = decoded_content_latent = None
         else:
