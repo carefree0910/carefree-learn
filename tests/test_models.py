@@ -463,4 +463,4 @@ class TestModels(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    TestModels().test_cv_clf_mixed_stack()
+    unittest.main()
