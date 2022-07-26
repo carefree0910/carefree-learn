@@ -328,9 +328,13 @@ def _forward(
     batch: tensor_dict_type,
     general_input_key: str,
     state: Optional[TrainerState] = None,
+    *,
+    general_output_key: str = PREDICTIONS_KEY,
     **kwargs: Any,
 ) -> tensor_dict_type:
     fn = m.forward
+    if check_requires(fn, "general_output_key"):
+        kwargs["general_output_key"] = general_output_key
     kw = filter_kw(fn, kwargs)
     args: List[Any] = []
     if check_requires(fn, "batch_idx"):
@@ -341,7 +345,7 @@ def _forward(
         args.append(state)
     rs = m(*args, **kw)
     if not isinstance(rs, dict):
-        rs = {PREDICTIONS_KEY: rs}
+        rs = {general_output_key: rs}
     return rs
 
 
