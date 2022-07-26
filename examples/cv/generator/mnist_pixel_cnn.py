@@ -4,9 +4,9 @@ import os
 import cflearn
 
 from cftool.array import to_device
+from cftool.array import save_images
 from torchvision.transforms import transforms
 from cflearn.misc.toolkit import check_is_ci
-from cflearn.misc.toolkit import save_images
 from cflearn.misc.toolkit import eval_context
 
 
