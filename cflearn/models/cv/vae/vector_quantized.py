@@ -9,6 +9,7 @@ from typing import Optional
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
+from ....protocol import WithDeviceMixin
 from ....constants import PREDICTIONS_KEY
 from ..generator.vector_quantized import VQGenerator
 from ....misc.toolkit import auto_num_layers
@@ -16,7 +17,7 @@ from ....misc.internal_.register import register_module
 
 
 @register_module("vq_vae")
-class VQVAE(nn.Module):
+class VQVAE(nn.Module, WithDeviceMixin):
     def __init__(
         self,
         img_size: int,

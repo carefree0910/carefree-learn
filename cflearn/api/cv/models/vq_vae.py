@@ -93,7 +93,7 @@ class VQVAEInference:
     ):
         self.cuda = cuda
         self.debug = kwargs.get("debug", False)
-        self.vqvae = load(pack(vqvae_log_folder), cuda=cuda).model
+        self.vqvae = load(pack(vqvae_log_folder), cuda=cuda).model.core
         self.code_export_folder = os.path.join(workplace, "codes")
         register_callback(self.vqvae, num_classes)
         if inference_model == "pixel_cnn":
