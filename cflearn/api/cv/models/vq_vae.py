@@ -38,7 +38,7 @@ def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> None:
             original_indices = batch[INPUT_KEY]
             img_size = original_indices.shape[2]
             batch_size = original_indices.shape[0]
-            model = trainer.model
+            model = trainer.model.core
             with eval_context(model):
                 sampled_indices = model.sample(batch_size, img_size)
             with eval_context(vqvae):
