@@ -1,16 +1,14 @@
 import torch
+
 import torch.nn as nn
 
 from torch import Tensor
-from typing import Any
 from typing import List
 from typing import Optional
 
-from .protocol import EncoderBase
+from .protocol import EncoderMixin
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
-from ....constants import LATENT_KEY
 from ....modules.blocks import Conv2d
 
 
@@ -100,8 +98,8 @@ class ResidualBlock(nn.Module):
         return inp + net
 
 
-@EncoderBase.register("vqgan")
-class VQGANEncoder(EncoderBase):
+@EncoderMixin.register("vqgan")
+class VQGANEncoder(nn.Module, EncoderMixin):
     def __init__(
         self,
         img_size: int,
@@ -114,12 +112,15 @@ class VQGANEncoder(EncoderBase):
         res_dropout: float = 0.0,
         num_res_blocks: int = 2,
     ):
+        super().__init__()
         if channel_multipliers is None:
             channel_multipliers = [1, 1, 2, 2, 4]
         if attention_resolutions is None:
             attention_resolutions = [16]
         num_downsample = len(channel_multipliers)
-        super().__init__(in_channels, num_downsample, latent_channels)
+        self.in_channels = in_channels
+        self.num_downsample = num_downsample
+        self.latent_channels = latent_channels
         self.num_res_blocks = num_res_blocks
         # in conv
         blocks = [Conv2d(in_channels, latent_dim, kernel_size=3, padding=1)]
@@ -164,14 +165,8 @@ class VQGANEncoder(EncoderBase):
         )
         self.net = nn.Sequential(*blocks)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {LATENT_KEY: self.net(batch[INPUT_KEY])}
+    def forward(self, batch: tensor_dict_type) -> Tensor:  # type: ignore
+        return self.net(batch[INPUT_KEY])
 
 
 __all__ = [

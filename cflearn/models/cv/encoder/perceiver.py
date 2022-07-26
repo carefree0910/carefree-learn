@@ -24,13 +24,13 @@ class PerceiverIOForEncoder1D(PerceiverIO):
 class PerceiverIOEncoder(Encoder1DFromPatches):
     def __init__(
         self,
+        *,
         img_size: int,
         patch_size: int,
         in_channels: int,
         latent_dim: int = 128,
         to_patches_type: str = "vanilla",
         to_patches_config: Optional[Dict[str, Any]] = None,
-        *,
         num_layers: int = 6,
         num_latents: int = 64,
         output_dim: Optional[int] = None,
@@ -44,12 +44,12 @@ class PerceiverIOEncoder(Encoder1DFromPatches):
         num_self_attn_repeat: int = 1,
     ):
         super().__init__(
-            img_size,
-            patch_size,
-            in_channels,
-            latent_dim,
-            to_patches_type,
-            to_patches_config,
+            img_size=img_size,
+            patch_size=patch_size,
+            in_channels=in_channels,
+            latent_dim=latent_dim,
+            to_patches_type=to_patches_type,
+            to_patches_config=to_patches_config,
         )
         self.encoder = PerceiverIOForEncoder1D(
             input_dim=latent_dim,

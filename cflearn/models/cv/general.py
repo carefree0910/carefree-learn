@@ -4,12 +4,11 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cftool.misc import check_requires
 
-from .encoder import EncoderBase
-from .encoder import Encoder1DBase
 from .decoder import DecoderBase
 from .decoder import Decoder1DBase
+from .encoder import make_encoder
+from .encoder import EncoderMixin
 from ...types import tensor_dict_type
 from ...misc.toolkit import auto_num_layers
 
@@ -17,7 +16,7 @@ from ...misc.toolkit import auto_num_layers
 class EncoderDecoder(nn.Module):
     def __init__(
         self,
-        is_1d: int,
+        is_1d: bool,
         in_channels: int,
         out_channels: Optional[int] = None,
         target_downsample: Optional[int] = None,
@@ -55,11 +54,7 @@ class EncoderDecoder(nn.Module):
                 "it will be inferred automatically with `img_size`)"
             )
         # check num_downsample requirement
-        self.encoder_base = (Encoder1DBase if is_1d else EncoderBase).get(encoder)  # type: ignore
         self.decoder_base = (Decoder1DBase if is_1d else DecoderBase).get(decoder)  # type: ignore
-        requires_num_downsample = check_requires(self.encoder_base, "num_downsample")
-        if not requires_num_downsample:
-            num_downsample = None
         # properties
         self.is_1d = is_1d
         self.latent = latent
@@ -73,14 +68,12 @@ class EncoderDecoder(nn.Module):
         # encoder
         if encoder_config is None:
             encoder_config = {}
-        if check_requires(self.encoder_base, "img_size"):
-            encoder_config["img_size"] = img_size
-        if requires_num_downsample:
-            encoder_config["num_downsample"] = num_downsample
-        encoder_config["in_channels"] = in_channels
+        encoder_config.setdefault("img_size", img_size)
+        encoder_config.setdefault("in_channels", in_channels)
+        encoder_config.setdefault("num_downsample", num_downsample)
         encoder_config[self.latent_key] = latent
-        self.encoder = self.encoder_base.make(encoder, config=encoder_config)
-        if not is_1d and img_size is not None:
+        self.encoder = make_encoder(encoder, encoder_config, is_1d=is_1d)  # type: ignore
+        if isinstance(self.encoder, EncoderMixin) and img_size is not None:
             latent_resolution = self.encoder.latent_resolution(img_size)
         # decoder
         if decoder_config is None:

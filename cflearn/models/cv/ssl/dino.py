@@ -15,7 +15,8 @@ from cftool.misc import shallow_copy_dict
 from cftool.array import l2_normalize
 from torch.nn.parallel import DistributedDataParallel as DDP
 
-from ..encoder import Encoder1DBase
+from ..encoder import run_encoder
+from ..encoder import Encoder1DMixin
 from ....data import CVLoader
 from ....types import tensor_dict_type
 from ....protocol import StepOutputs
@@ -66,7 +67,7 @@ def cosine_scheduler(
 
 
 class MultiCropWrapper(nn.Module):
-    def __init__(self, backbone: nn.Module, head: nn.Module):
+    def __init__(self, backbone: Encoder1DMixin, head: nn.Module):
         super().__init__()
         backbone.fc, backbone.head = nn.Identity(), nn.Identity()
         self.backbone = backbone
@@ -98,7 +99,7 @@ class MultiCropWrapper(nn.Module):
         for end_idx in idx_crops:
             local_batch = shallow_copy_dict(batch)
             local_batch[INPUT_KEY] = torch.cat(img_crops[start_idx:end_idx])
-            idx_rs = self.backbone(batch_idx, local_batch, state, **kwargs)
+            idx_rs = run_encoder(self.backbone, batch_idx, local_batch, state, **kwargs)
             idx_out = idx_rs[LATENT_KEY]
             if isinstance(idx_out, tuple):
                 idx_out = idx_out[0]
@@ -276,8 +277,8 @@ class DINO(ModelWithCustomSteps):
         base = update_dict(encoder1d_config or {}, _get_dino_defaults(encoder1d))
         student_cfg = update_dict(student_specific or {}, shallow_copy_dict(base))
         teacher_cfg = update_dict(teacher_specific or {}, shallow_copy_dict(base))
-        student = Encoder1DBase.make(encoder1d, student_cfg)
-        teacher = Encoder1DBase.make(encoder1d, teacher_cfg)
+        student = Encoder1DMixin.make(encoder1d, student_cfg)
+        teacher = Encoder1DMixin.make(encoder1d, teacher_cfg)
         self.ddp_student = self.ddp_teacher = None
         self.student = MultiCropWrapper(
             student,
@@ -326,7 +327,8 @@ class DINO(ModelWithCustomSteps):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        net = self.student.backbone(batch_idx, batch, state, **kwargs)[LATENT_KEY]
+        res = run_encoder(self.student.backbone, batch_idx, batch, state, **kwargs)
+        net = res[LATENT_KEY]
         net = l2_normalize(net)
         return {LATENT_KEY: net}
 

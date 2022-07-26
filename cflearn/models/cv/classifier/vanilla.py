@@ -4,12 +4,11 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.array import softmax
 
-from ..encoder import ViTEncoder
-from ..encoder import Encoder1DBase
+from ..encoder import run_encoder
+from ..encoder import make_encoder
 from ....types import tensor_dict_type
 from ....protocol import ModelProtocol
 from ....protocol import TrainerState
@@ -40,16 +39,15 @@ class VanillaClassifier(ModelProtocol):
         super().__init__()
         self.img_size = img_size
         # encoder1d
-        encoder1d_base = Encoder1DBase.get(encoder1d)
         if encoder1d_config is None:
             encoder1d_config = {}
-        if check_requires(encoder1d_base, "img_size"):
-            encoder1d_config["img_size"] = img_size
-        if ViTEncoder.check_subclass(encoder1d) and aux_num_classes is not None:
-            encoder1d_config["aux_heads"] = sorted(aux_num_classes)
-        encoder1d_config["in_channels"] = in_channels
-        encoder1d_config["latent_dim"] = latent_dim
-        self.encoder1d = encoder1d_base(**encoder1d_config)
+        encoder1d_config.setdefault("img_size", img_size)
+        encoder1d_config.setdefault("in_channels", in_channels)
+        encoder1d_config.setdefault("latent_dim", latent_dim)
+        if aux_num_classes is not None:
+            encoder1d_config.setdefault("aux_heads", sorted(aux_num_classes))
+        self.encoder1d = make_encoder(encoder1d, encoder1d_config, is_1d=True)
+        assert isinstance(self.encoder1d, torch.nn.Module)
         if encoder1d_pretrained_path is None:
             if encoder1d_pretrained_name is not None:
                 encoder1d_pretrained_path = download_model(encoder1d_pretrained_name)
@@ -84,7 +82,7 @@ class VanillaClassifier(ModelProtocol):
         **kwargs: Any,
     ) -> tensor_dict_type:
         batch = shallow_copy_dict(batch)
-        encodings = self.encoder1d(batch_idx, batch, state, **kwargs)
+        encodings = run_encoder(self.encoder1d, batch_idx, batch, state, **kwargs)
         if return_encodings:
             return encodings
         if self.head is not None:

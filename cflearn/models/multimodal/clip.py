@@ -46,7 +46,7 @@ class CLIP(PerceptorProtocol):
         self.vision_latent_dim = int(round(latent_dim * vision_latent_expand))
         feedforward_kwargs = {"activation": "quick_gelu"}
         self.vit = ViTEncoder(
-            img_size,
+            img_size=img_size,
             patch_size=vision_patch_size,
             in_channels=in_channels,
             latent_dim=self.vision_latent_dim,

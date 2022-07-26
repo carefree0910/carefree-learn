@@ -13,7 +13,6 @@ from typing import Dict
 from typing import Tuple
 from typing import Optional
 from torchvision import transforms
-from cftool.misc import check_requires
 
 from .noises import noises
 from ..protocol import PerceptorProtocol
@@ -23,7 +22,8 @@ from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ...cv.encoder import EncoderBase
+from ...cv.encoder import make_encoder
+from ...cv.encoder import EncoderMixin
 from ...nlp.tokenizers import TokenizerProtocol
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import download_model
@@ -185,7 +185,7 @@ class ClampWithGrad(torch.autograd.Function):
 
 
 class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
-    vision: Optional[EncoderBase]
+    vision: Optional[EncoderMixin]
 
     def __init__(
         self,
@@ -253,11 +253,11 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
                     vepp = download_model(vision_encoder_pretrained_name)
             if vision_encoder_config is None:
                 vision_encoder_config = {}
-            encoder_base = EncoderBase.get(vision_encoder)
-            if check_requires(encoder_base, "img_size"):
-                vision_encoder_config["img_size"] = resolution
-            vision_encoder_config["in_channels"] = self.initial_img.shape[1]
-            self.vision = EncoderBase.make(vision_encoder, vision_encoder_config)
+            vision_encoder_config.setdefault("img_size", resolution)
+            vision_encoder_config.setdefault("in_channels", self.initial_img.shape[1])
+            vision = make_encoder(vision_encoder, vision_encoder_config)
+            assert isinstance(vision, EncoderMixin)
+            self.vision = vision
             self.vision.requires_grad_(False).eval()
             if vepp is not None:
                 with torch.no_grad():

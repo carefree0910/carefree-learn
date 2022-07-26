@@ -2,8 +2,6 @@ import torch
 
 import torch.nn as nn
 
-from abc import abstractmethod
-from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import Type
@@ -14,45 +12,30 @@ from cftool.misc import WithRegister
 
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
-from ....misc.toolkit import eval_context
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
+from ....misc.toolkit import _forward
+from ....misc.toolkit import filter_kw
+from ....misc.toolkit import eval_context
 from ....modules.blocks import ImgToPatches
 
 
-encoders: Dict[str, Type["EncoderBase"]] = {}
-encoders_1d: Dict[str, Type["Encoder1DBase"]] = {}
+encoders: Dict[str, Type["EncoderMixin"]] = {}
+encoders_1d: Dict[str, Type["Encoder1DMixin"]] = {}
 
 
-class EncoderProtocol(nn.Module):
-    @abstractmethod
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        pass
-
+class IEncoder:
     def encode(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
-        return self.forward(0, batch, **kwargs)[LATENT_KEY]
+        return run_encoder(self, 0, batch, **kwargs)[LATENT_KEY]
 
 
 # encode to a latent feature map
-class EncoderBase(EncoderProtocol, WithRegister["EncoderBase"], metaclass=ABCMeta):
+class EncoderMixin(IEncoder, WithRegister["EncoderMixin"]):
     d = encoders
 
-    def __init__(
-        self,
-        in_channels: int,
-        num_downsample: int,
-        latent_channels: int = 128,
-    ):
-        super().__init__()
-        self.in_channels = in_channels
-        self.num_downsample = num_downsample
-        self.latent_channels = latent_channels
+    in_channels: int
+    num_downsample: int
+    latent_channels: int
 
     def latent_resolution(self, img_size: int) -> int:
         shape = 1, self.in_channels, img_size, img_size
@@ -64,13 +47,34 @@ class EncoderBase(EncoderProtocol, WithRegister["EncoderBase"], metaclass=ABCMet
 
 
 # encode to a 1d latent code
-class Encoder1DBase(EncoderProtocol, WithRegister["Encoder1DBase"], metaclass=ABCMeta):
+class Encoder1DMixin(IEncoder, WithRegister["Encoder1DMixin"]):
     d = encoders_1d
 
-    def __init__(self, in_channels: int, latent_dim: int = 128):
-        super().__init__()
-        self.in_channels = in_channels
-        self.latent_dim = latent_dim
+    in_channels: int
+    latent_dim: int
+
+
+def make_encoder(name: str, config: Dict[str, Any], *, is_1d: bool = False) -> IEncoder:
+    base = (Encoder1DMixin if is_1d else EncoderMixin).get(name)  # type: ignore
+    return base(**filter_kw(base, config))
+
+
+def run_encoder(
+    encoder: IEncoder,
+    batch_idx: int,
+    batch: tensor_dict_type,
+    state: Optional[TrainerState] = None,
+    **kwargs: Any,
+) -> tensor_dict_type:
+    return _forward(
+        encoder,
+        batch_idx,
+        batch,
+        INPUT_KEY,
+        state,
+        general_output_key=LATENT_KEY,
+        **kwargs,
+    )
 
 
 # from patches
@@ -79,6 +83,7 @@ class EncoderFromPatchesMixin:
 
     def __init__(
         self,
+        *,
         img_size: int,
         patch_size: int,
         in_channels: int,
@@ -102,13 +107,7 @@ class EncoderFromPatchesMixin:
     def num_patches(self) -> int:
         return self.to_patches.num_patches
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
         batch = shallow_copy_dict(batch)
         inp = batch[INPUT_KEY]
         determinate = kwargs.pop("determinate", False)
@@ -118,12 +117,13 @@ class EncoderFromPatchesMixin:
         kwargs["hwp"] = *inp.shape[-2:], self.to_patches.patch_size
         if check_requires(self.encoder.forward, "determinate", strict=False):
             kwargs["determinate"] = determinate
-        return {LATENT_KEY: self.encoder(batch[INPUT_KEY], **kwargs)}
+        return self.encoder(batch[INPUT_KEY], **kwargs)
 
 
-class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DBase):
+class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DMixin):
     def __init__(
         self,
+        *,
         img_size: int,
         patch_size: int,
         in_channels: int,
@@ -131,21 +131,22 @@ class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DBase):
         to_patches_type: str = "vanilla",
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
-        Encoder1DBase.__init__(self, in_channels, latent_dim)
-        EncoderFromPatchesMixin.__init__(
-            self,
-            img_size,
-            patch_size,
-            in_channels,
-            latent_dim,
-            to_patches_type,
-            to_patches_config,
+        super().__init__(
+            img_size=img_size,
+            patch_size=patch_size,
+            in_channels=in_channels,
+            latent_dim=latent_dim,
+            to_patches_type=to_patches_type,
+            to_patches_config=to_patches_config,
         )
+        self.in_channels = in_channels
+        self.latent_dim = latent_dim
 
 
-class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderBase):
+class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderMixin):
     def __init__(
         self,
+        *,
         img_size: int,
         patch_size: int,
         in_channels: int,
@@ -153,21 +154,23 @@ class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderBase):
         to_patches_type: str = "vanilla",
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
-        EncoderBase.__init__(self, in_channels, -1, latent_channels)
-        EncoderFromPatchesMixin.__init__(
-            self,
-            img_size,
-            patch_size,
-            in_channels,
-            latent_channels,
-            to_patches_type,
-            to_patches_config,
+        super().__init__(
+            img_size=img_size,
+            patch_size=patch_size,
+            in_channels=in_channels,
+            latent_dim=latent_channels,
+            to_patches_type=to_patches_type,
+            to_patches_config=to_patches_config,
         )
+        self.in_channels = in_channels
+        self.latent_channels = latent_channels
 
 
 __all__ = [
-    "EncoderBase",
-    "Encoder1DBase",
+    "make_encoder",
+    "run_encoder",
+    "EncoderMixin",
+    "Encoder1DMixin",
     "Encoder1DFromPatches",
     "Encoder2DFromPatches",
 ]

@@ -9,7 +9,9 @@ from typing import Optional
 from cftool.misc import check_requires
 
 from ..decoder import DecoderBase
-from ..encoder import EncoderBase
+from ..encoder import run_encoder
+from ..encoder import make_encoder
+from ..encoder import EncoderMixin
 from ....types import tensor_dict_type
 from ....protocol import TrainerState
 from ....protocol import ModelProtocol
@@ -83,12 +85,11 @@ class VQGenerator(ModelProtocol):
         if decoder_config is None:
             decoder_config = {}
         # encoder
-        encoder_base = EncoderBase.get(encoder)
-        if check_requires(encoder_base, "img_size"):
-            encoder_config["img_size"] = img_size
-        encoder_config["in_channels"] = in_channels
-        encoder_config["latent_channels"] = latent_channels
-        self.encoder = encoder_base(**encoder_config)
+        encoder_config.setdefault("img_size", img_size)
+        encoder_config.setdefault("in_channels", in_channels)
+        encoder_config.setdefault("latent_channels", latent_channels)
+        self.encoder = make_encoder(encoder, encoder_config)
+        assert isinstance(self.encoder, EncoderMixin)
         latent_resolution = self.encoder.latent_resolution(img_size)
         self.latent_resolution = latent_resolution
         # codebook
@@ -147,7 +148,7 @@ class VQGenerator(ModelProtocol):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        z_e = self.encoder(batch_idx, batch, state, **kwargs)[LATENT_KEY]
+        z_e = run_encoder(self.encoder, batch_idx, batch, state, **kwargs)[LATENT_KEY]
         net = self.to_codebook(z_e)
         z_q, indices = self.codebook(net)
         net = self.decode(z_q, labels=batch.get(LABEL_KEY))

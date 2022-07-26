@@ -1,14 +1,14 @@
 import torch.nn as nn
 
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
 from cftool.array import squeeze
 
-from .protocol import EncoderBase
-from .protocol import Encoder1DBase
+from .protocol import EncoderMixin
+from .protocol import Encoder1DMixin
 from ....types import tensor_dict_type
-from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....modules.blocks import get_conv_blocks
@@ -19,8 +19,8 @@ from ....modules.blocks import ResidualBlock
 # TODO : Try ResidualBlockV2
 
 
-@EncoderBase.register("vanilla")
-class VanillaEncoder(EncoderBase):
+@EncoderMixin.register("vanilla")
+class VanillaEncoder(nn.Module, EncoderMixin):
     def __init__(
         self,
         in_channels: int,
@@ -38,14 +38,17 @@ class VanillaEncoder(EncoderBase):
         activation: str = "leaky_relu_0.2",
         padding: str = "same",
     ):
-        super().__init__(in_channels, num_downsample, latent_channels)
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_downsample = num_downsample
+        self.latent_channels = latent_channels
         self.first_kernel_size = first_kernel_size
         if start_channels is None:
-            start_channels = int(round(latent_channels / (2**self.num_downsample)))
+            start_channels = int(round(latent_channels / (2**num_downsample)))
         if start_channels <= 0:
             raise ValueError(
                 f"latent_channels ({latent_channels}) is too small "
-                f"for num_downsample ({self.num_downsample})"
+                f"for num_downsample ({num_downsample})"
             )
         # in conv
         blocks = get_conv_blocks(
@@ -101,18 +104,12 @@ class VanillaEncoder(EncoderBase):
         # construct
         self.encoder = nn.Sequential(*blocks)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        return {LATENT_KEY: self.encoder(batch[INPUT_KEY])}
+    def forward(self, batch: tensor_dict_type) -> Tensor:  # type: ignore
+        return self.encoder(batch[INPUT_KEY])
 
 
-@Encoder1DBase.register("vanilla")
-class VanillaEncoder1D(Encoder1DBase):
+@Encoder1DMixin.register("vanilla")
+class VanillaEncoder1D(nn.Module, Encoder1DMixin):
     def __init__(
         self,
         in_channels: int,
@@ -131,7 +128,9 @@ class VanillaEncoder1D(Encoder1DBase):
         padding: str = "same",
         pool: str = "average",
     ):
-        super().__init__(in_channels, latent_dim)
+        super().__init__()
+        self.in_channels = in_channels
+        self.latent_dim = latent_dim
         self.encoder = VanillaEncoder(
             in_channels,
             num_downsample,
@@ -157,16 +156,10 @@ class VanillaEncoder1D(Encoder1DBase):
         else:
             raise ValueError(f"unrecognized `pool` value : '{pool}'")
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        net = self.encoder(batch_idx, batch, state, **kwargs)[LATENT_KEY]
+    def forward(self, batch: tensor_dict_type) -> Tensor:  # type: ignore
+        net = self.encoder(batch)[LATENT_KEY]
         net = squeeze(self.pool(net))
-        return {LATENT_KEY: net}
+        return net
 
 
 __all__ = [

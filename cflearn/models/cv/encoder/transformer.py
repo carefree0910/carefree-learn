@@ -18,13 +18,13 @@ from ....modules.blocks import MixedStackedEncoder
 class ViTEncoder(Encoder1DFromPatches):
     def __init__(
         self,
+        *,
         img_size: int,
         patch_size: int,
         in_channels: int,
         latent_dim: int = 384,
         to_patches_type: str = "vanilla",
         to_patches_config: Optional[Dict[str, Any]] = None,
-        *,
         num_layers: int = 12,
         dropout: float = 0.0,
         drop_path_rate: float = 0.0,
@@ -44,12 +44,12 @@ class ViTEncoder(Encoder1DFromPatches):
         aux_heads: Optional[List[str]] = None,
     ):
         super().__init__(
-            img_size,
-            patch_size,
-            in_channels,
-            latent_dim,
-            to_patches_type,
-            to_patches_config,
+            img_size=img_size,
+            patch_size=patch_size,
+            in_channels=in_channels,
+            latent_dim=latent_dim,
+            to_patches_type=to_patches_type,
+            to_patches_config=to_patches_config,
         )
         if attention_kwargs is None:
             attention_kwargs = {}
@@ -83,15 +83,9 @@ class ViTEncoder(Encoder1DFromPatches):
             init = (latent_dim**-0.5) * torch.randn(latent_dim, output_dim)
             self.output_projection = torch.nn.Parameter(init)
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        rs = super().forward(batch_idx, batch, state, **kwargs)
-        latent = rs[LATENT_KEY]
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> tensor_dict_type:
+        latent = super().forward(batch, **kwargs)
+        rs = {LATENT_KEY: latent}
         if self.aux_heads is None:
             if self.output_projection is not None:
                 rs[LATENT_KEY] = latent @ self.output_projection
@@ -105,13 +99,13 @@ class ViTEncoder(Encoder1DFromPatches):
 class ViTEncoder2D(Encoder2DFromPatches):
     def __init__(
         self,
+        *,
         img_size: int,
         patch_size: int,
         in_channels: int,
         latent_channels: int = 384,
         to_patches_type: str = "vanilla",
         to_patches_config: Optional[Dict[str, Any]] = None,
-        *,
         num_layers: int = 12,
         dropout: float = 0.0,
         drop_path_rate: float = 0.0,
@@ -126,12 +120,12 @@ class ViTEncoder2D(Encoder2DFromPatches):
         norm_after_head: bool = False,
     ):
         super().__init__(
-            img_size,
-            patch_size,
-            in_channels,
-            latent_channels,
-            to_patches_type,
-            to_patches_config,
+            img_size=img_size,
+            patch_size=patch_size,
+            in_channels=in_channels,
+            latent_channels=latent_channels,
+            to_patches_type=to_patches_type,
+            to_patches_config=to_patches_config,
         )
         if attention_kwargs is None:
             attention_kwargs = {}
@@ -158,19 +152,12 @@ class ViTEncoder2D(Encoder2DFromPatches):
             norm_after_head=norm_after_head,
         )
 
-    def forward(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> tensor_dict_type:
-        rs = super().forward(batch_idx, batch, state, **kwargs)
+    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
+        latent = super().forward(batch, **kwargs)
         resolution = int(round(math.sqrt(self.num_patches)))
-        latent = rs[LATENT_KEY]
         latent = latent.view(latent.shape[0], resolution, resolution, -1)
-        rs[LATENT_KEY] = latent.permute(0, 3, 1, 2).contiguous()
-        return rs
+        latent = latent.permute(0, 3, 1, 2).contiguous()
+        return latent
 
 
 __all__ = [
