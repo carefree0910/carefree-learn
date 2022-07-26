@@ -13,7 +13,7 @@ from cflearn.misc.toolkit import eval_context
 is_ci = check_is_ci()
 
 
-@cflearn.ImageCallback.register("pixel_cnn")
+@cflearn.ImageCallback.register("pixel_cnn_generator")
 class PixelCNNCallback(cflearn.ImageCallback):
     def log_artifacts(self, trainer: cflearn.Trainer) -> None:
         if not self.is_rank_0:
@@ -51,6 +51,7 @@ data = cflearn.cv.MNISTData(
 
 m = cflearn.api.pixel_cnn(
     256,
+    callback_names="pixel_cnn_generator",
     model_config={"num_conditional_classes": num_conditional_classes},
     debug=is_ci,
 )
