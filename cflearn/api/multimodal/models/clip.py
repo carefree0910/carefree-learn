@@ -55,7 +55,7 @@ class CLIPExtractor:
         inference = InferenceProtocol(model=self.clip)
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm)
         self.clip.forward = original_forward  # type: ignore
-        return outputs.forward_results
+        return outputs.forward_results[LATENT_KEY]
 
     def get_folder_latent(
         self,
