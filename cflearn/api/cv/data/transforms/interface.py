@@ -20,13 +20,17 @@ from .....data import Transforms
 
 try:
     import cv2
+except:
+    cv2 = None
+try:
     from skimage.transform import resize
+except:
+    resize = None
+try:
     from cfcv.misc.toolkit import to_rgb
     from cfcv.misc.toolkit import min_max_normalize
     from cfcv.misc.toolkit import imagenet_normalize
 except:
-    cv2 = None
-    resize = None
     to_rgb = None
     min_max_normalize = None
     imagenet_normalize = None
@@ -194,7 +198,9 @@ class SSLTransform(Transforms):
 @Transforms.register("ssl_test")
 class SSLTestTransform(Transforms):
     def __init__(self, img_size: int, to_gray: bool = False):
-        if resize is None or min_max_normalize is None or imagenet_normalize is None:
+        if resize is None:
+            raise ValueError("`scikit-image` is needed for `SSLTestTransform`")
+        if min_max_normalize is None or imagenet_normalize is None:
             raise ValueError("`carefree-cv` is needed for `SSLTestTransform`")
         super().__init__()
         self.img_size = img_size
