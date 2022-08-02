@@ -52,9 +52,17 @@ except:
     onnx = None
 try:
     from onnxsim import simplify as onnx_simplify
-    from onnxsim.onnx_simplifier import get_input_names
+
+    def get_inputs(model: onnx.ModelProto) -> List[onnx.ValueInfoProto]:
+        initializer_names = [x.name for x in model.graph.initializer]
+        return [inp for inp in model.graph.input if inp.name not in initializer_names]
+
+    def get_input_names(model: onnx.ModelProto) -> List[str]:
+        input_names = [inp.name for inp in get_inputs(model)]
+        return input_names
+
 except:
-    onnx_simplify = get_input_names = None
+    onnx_simplify = get_input_names = None  # type: ignore
 
 
 dataset_dict: Dict[str, Type["DatasetProtocol"]] = {}
