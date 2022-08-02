@@ -15,7 +15,7 @@ setup(
     extras_require={
         "onnx": [
             "onnx",
-            "onnx-simplifier",
+            "onnx-simplifier>=0.4.1",
             "onnxruntime",
         ],
         "full": [
@@ -30,7 +30,7 @@ setup(
             "albumentations",
             "mlflow",
             "onnx",
-            "onnx-simplifier",
+            "onnx-simplifier>=0.4.1",
             "onnxruntime",
             "plotly",
             "carefree-data>=0.2.8",

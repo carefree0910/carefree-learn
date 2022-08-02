@@ -84,7 +84,7 @@ class CLIPExtractor:
         self,
         export_folder: str,
         *,
-        num_samples: Optional[int] = 1,
+        num_samples: Optional[int] = None,
         onnx_file: str = "text.onnx",
     ) -> None:
         inp = to_torch(self.tokenizer.tokenize("Test."))
@@ -101,7 +101,7 @@ class CLIPExtractor:
         self,
         export_folder: str,
         *,
-        num_samples: Optional[int] = 1,
+        num_samples: Optional[int] = None,
         onnx_file: str = "image.onnx",
     ) -> None:
         inp = torch.randn(1, 3, self.img_size, self.img_size)

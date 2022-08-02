@@ -297,15 +297,13 @@ class ModelProtocol(
                 try:
                     onnx_model = onnx.load(onnx_path)
                     final_input_names = get_input_names(onnx_model)
-                    np_sample = {
-                        name: to_numpy(tensor)
-                        for name, tensor in input_sample.items()
-                        if name in final_input_names
-                    }
                     model_simplified, check = onnx_simplify(
                         onnx_model,
-                        input_data=np_sample,
-                        dynamic_input_shape=bool(dynamic_axes),
+                        test_input_shapes={
+                            name: tensor.shape
+                            for name, tensor in input_sample.items()
+                            if name in final_input_names
+                        },
                     )
                 except Exception as err:
                     if verbose:
