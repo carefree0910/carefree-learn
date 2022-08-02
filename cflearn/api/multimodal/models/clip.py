@@ -6,6 +6,7 @@ from torch import Tensor
 from typing import List
 from typing import Tuple
 from typing import Callable
+from typing import Optional
 from cftool.array import to_torch
 
 from ...cv.models.utils import predict_folder
@@ -79,7 +80,13 @@ class CLIPExtractor:
         latent = to_torch(results.outputs[LATENT_KEY])
         return latent, results.img_paths
 
-    def to_text_onnx(self, export_folder: str, onnx_file: str = "text.onnx") -> None:
+    def to_text_onnx(
+        self,
+        export_folder: str,
+        *,
+        num_samples: Optional[int] = 1,
+        onnx_file: str = "text.onnx",
+    ) -> None:
         inp = to_torch(self.tokenizer.tokenize("Test."))
         self.clip.to_onnx(
             export_folder,
@@ -87,9 +94,16 @@ class CLIPExtractor:
             onnx_file=onnx_file,
             forward_fn=self.text_forward_fn,
             output_names=[LATENT_KEY],
+            num_samples=num_samples,
         )
 
-    def to_image_onnx(self, export_folder: str, onnx_file: str = "image.onnx") -> None:
+    def to_image_onnx(
+        self,
+        export_folder: str,
+        *,
+        num_samples: Optional[int] = 1,
+        onnx_file: str = "image.onnx",
+    ) -> None:
         inp = torch.randn(1, 3, self.img_size, self.img_size)
         self.clip.to_onnx(
             export_folder,
@@ -97,6 +111,7 @@ class CLIPExtractor:
             onnx_file=onnx_file,
             forward_fn=self.image_forward_fn,
             output_names=[LATENT_KEY],
+            num_samples=num_samples,
         )
 
 
