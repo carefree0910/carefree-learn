@@ -19,6 +19,7 @@ setup(
             "onnxruntime",
         ],
         "full": [
+            "faiss-cpu",
             "protobuf==3.19.4",
             "ortools>=9.3.0",
             "sacremoses",
