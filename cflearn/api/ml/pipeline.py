@@ -351,9 +351,8 @@ class SimplePipeline(DLPipeline):
             predict_prob_method=_predict_prob,
         )
 
-    @classmethod
+    @staticmethod
     def fuse_multiple(
-        cls,
         export_folders: List[str],
         *,
         cuda: Optional[str] = None,
@@ -366,7 +365,7 @@ class SimplePipeline(DLPipeline):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = cls._load_infrastructure(
+                m = ISerializer.load_infrastructure(
                     export_folder,
                     cuda,
                     False,
@@ -376,7 +375,7 @@ class SimplePipeline(DLPipeline):
                 assert isinstance(m, SimplePipeline)
                 data_info = DLDataModule.load_info(export_folder)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
-        m._prepare_modules(data_info)
+        m._make_builder().build(data_info)
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
         for i, export_folder in enumerate(export_folders):
