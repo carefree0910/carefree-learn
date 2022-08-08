@@ -9,6 +9,7 @@ from typing import Dict
 from typing import List
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.types import tensor_dict_type
 
 from ..trainer import DeviceInfo
@@ -28,15 +29,44 @@ def _check() -> None:
         raise ValueError(msg)
 
 
-def run_faiss(
+class FaissResponse(NamedTuple):
+    indices: List[List[int]]
+    metrics: List[List[float]]
+
+
+class FaissAPI:
+    def __init__(self, index_path: str):
+        _check()
+        self.index = faiss.read_index(index_path)
+
+    def predict(
+        self,
+        query: np.ndarray,
+        *,
+        top_k: int,
+        n_probe: Optional[int] = None,
+    ) -> FaissResponse:
+        if n_probe is not None:
+            self.index.nprobe = n_probe
+        top_k = min(top_k, self.index.ntotal)
+        metrics, indices = self.index.search(query, top_k)
+        for i, (sub_i, sub_m) in enumerate(zip(indices, metrics)):
+            metrics[i] = [d for j, d in enumerate(sub_m) if sub_i[j] != -1]
+            indices[i] = [j for j in sub_i if j != -1]
+        return FaissResponse(indices, metrics)
+
+
+def build_faiss(
     x: np.ndarray,
     index_path: str,
     *,
     dimension: int,
     factory: str = "IVF128,Flat",
-) -> Any:
+    use_cosine_similarity: bool = False,
+) -> None:
     _check()
-    index = faiss.index_factory(dimension, factory)
+    metric = faiss.METRIC_INNER_PRODUCT if use_cosine_similarity else faiss.METRIC_L2
+    index = faiss.index_factory(dimension, factory, metric)
     print(">> training index")
     index.train(x)
     print(">> adding data to index")
@@ -131,6 +161,7 @@ def image_retrieval(
 
 
 __all__ = [
-    "run_faiss",
+    "build_faiss",
     "image_retrieval",
+    "FaissAPI",
 ]
