@@ -409,8 +409,9 @@ class ISerializer(WithRegister["ISerializer"], ModifierMixin, IDLPipeline):
         checkpoint_path = os.path.join(folder, checkpoints[0])
         return torch.load(checkpoint_path, map_location=self.device)
 
-    def permute_states(self, states: Dict[str, Any]) -> Dict[str, Any]:
-        return states
+    # changes should happen inplace
+    def permute_states(self, states: Dict[str, Any]) -> None:
+        pass
 
 
 @PipelineProtocol.register("dl")
@@ -746,7 +747,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
                 m.model.to(m.device)
                 # restore checkpoint
                 states = serializer.load_states_from(export_folder)
-                states = serializer.permute_states(states)
+                serializer.permute_states(states)
                 if states_callback is not None:
                     states = states_callback(m, states)
                 m.model.load_state_dict(states)

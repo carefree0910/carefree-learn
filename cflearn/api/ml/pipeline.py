@@ -173,7 +173,7 @@ class MLBuilder(IBuilder, IMLPipelineMixin):
 
 @ISerializer.register("ml")
 class MLSerializer(ISerializer, IMLPipelineMixin):
-    def permute_states(self, states: Dict[str, Any]) -> Dict[str, Any]:
+    def permute_states(self, states: Dict[str, Any]) -> None:
         if self.encoder is not None:
             encoder_cache_keys = []
             for key in states:
@@ -181,7 +181,6 @@ class MLSerializer(ISerializer, IMLPipelineMixin):
                     encoder_cache_keys.append(key)
             for key in encoder_cache_keys:
                 states.pop(key)
-        return states
 
 
 @DLPipeline.register("ml.simple")
