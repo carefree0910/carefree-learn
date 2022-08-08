@@ -22,6 +22,7 @@ from cftool.array import get_full_logits
 from cftool.array import get_label_predictions
 from cftool.types import np_dict_type
 
+from ...data import MLData
 from ...data import MLLoader
 from ...data import DLDataModule
 from ...data import MLInferenceData
@@ -205,6 +206,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
 class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
     modifier = "ml"
 
+    data: MLData
     model: MLModel
     inference: MLInference
     inference_base = MLInference

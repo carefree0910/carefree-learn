@@ -391,8 +391,11 @@ class _InternalMLDataModifier(IMLDataModifier):
 class MLData(IMLData):
     modifier = "_internal.ml"
 
+    cf_data: Optional[TabularData]
     train_data: MLDataset
     valid_data: Optional[MLDataset]
+    train_cf_data: Optional[TabularData]
+    valid_cf_data: Optional[TabularData]
 
     data_files = [
         "x_train.npy",
