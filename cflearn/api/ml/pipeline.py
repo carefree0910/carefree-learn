@@ -30,6 +30,7 @@ from ...data import MLInferenceData
 from ...types import configs_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
+from ...pipeline import get_requirements
 from ...pipeline import IModifier
 from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
@@ -71,9 +72,13 @@ class IMLPipelineMixin:
     _num_repeat: Optional[int]
 
 
+_ml_requirements = get_requirements(IMLPipelineMixin, excludes=[])
+
+
 @IModifier.register("ml")
 class MLModifier(IModifier, IMLPipelineMixin):
     build_steps = ["setup_defaults", "setup_encoder"] + IModifier.build_steps
+    requirements = IModifier.requirements + _ml_requirements
 
     # build steps
 

@@ -3,6 +3,7 @@ import json
 import math
 import torch
 import shutil
+import inspect
 
 from abc import abstractmethod
 from abc import ABCMeta
@@ -16,6 +17,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import filter_kw
 from cftool.misc import print_info
+from cftool.misc import random_hash
 from cftool.misc import print_warning
 from cftool.misc import get_arguments
 from cftool.misc import check_requires
@@ -225,6 +227,14 @@ class IDLPipeline:
     is_rank_0: bool
 
 
+def get_requirements(c: Type, *, excludes: List[str]) -> List[str]:
+    lines = inspect.getsource(c).split("\n")[1:]
+    requirements = list(filter(bool, (line.strip().split(":")[0] for line in lines)))
+    for e in excludes:
+        requirements.remove(e)
+    return requirements
+
+
 class IModifier(WithRegister["IModifier"], IDLPipeline):
     d = dl_pipeline_modifiers
 
@@ -234,6 +244,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         "build_model",
         "build_inference",
     ]
+    requirements = get_requirements(IDLPipeline, excludes=["data"])
 
     def __init__(self, pipeline: "DLPipeline") -> None:
         self.__pipeline = pipeline
@@ -251,6 +262,19 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     def _write_pipeline_info(self, folder: str) -> None:
         with open(os.path.join(folder, self.pipeline_file), "w") as f:
             f.write(self.__pipeline.__identifier__)
+
+    def _sanity_check(self) -> None:
+        missing_requirements = []
+        token = f"{random_hash()}{random_hash()}{random_hash()}"
+        for requirement in self.requirements:
+            if getattr(self.__pipeline, requirement, token) == token:
+                missing_requirements.append(requirement)
+        if missing_requirements:
+            pipeline_name = self.__pipeline.__class__.__name__
+            raise ValueError(
+                f"the following attributes is missing in `{pipeline_name}`: "
+                f"{', '.join(missing_requirements)}"
+            )
 
     # build steps
 
@@ -330,6 +354,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(**trainer_config)
+        self._sanity_check()
         self.built = True
 
     # load steps
