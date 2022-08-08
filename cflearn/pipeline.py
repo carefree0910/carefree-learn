@@ -41,6 +41,7 @@ from .protocol import LossProtocol
 from .protocol import ModelProtocol
 from .protocol import MetricProtocol
 from .protocol import MetricsOutputs
+from .protocol import InferenceOutputs
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
@@ -55,6 +56,7 @@ from .misc.internal_.trainer import make_trainer
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
 dl_pipeline_builders: Dict[str, Type["IBuilder"]] = {}
 dl_pipeline_serializers: Dict[str, Type["ISerializer"]] = {}
+dl_pipeline_predictors: Dict[str, Type["IPredictor"]] = {}
 
 
 class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
@@ -193,6 +195,7 @@ def _generate_model_soup_checkpoint(
 class IDLPipeline:
     builder: str
     serializer: str
+    predictor: str
 
     data: DLDataModule
     loss: LossProtocol
@@ -413,10 +416,29 @@ class ISerializer(WithRegister["ISerializer"], ModifierMixin, IDLPipeline):
         pass
 
 
+class IPredictor(WithRegister["IPredictor"], ModifierMixin, IDLPipeline):
+    d = dl_pipeline_predictors
+
+    def make_new_loader(
+        self,
+        data: DLDataModule,
+        batch_size: int,
+        **kwargs: Any,
+    ) -> DataLoaderProtocol:
+        train_loader, valid_loader = data.initialize()
+        if valid_loader is not None:
+            raise ValueError("`valid_loader` should not be provided")
+        return train_loader
+
+    def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
+        return outputs.forward_results
+
+
 @PipelineProtocol.register("dl")
 class DLPipeline(PipelineProtocol, IDLPipeline):
     builder = "dl"
     serializer = "dl"
+    predictor = "dl"
 
     inference_base = InferenceProtocol
 
@@ -563,16 +585,8 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
     def _make_serializer(self) -> ISerializer:
         return ISerializer.make(self.serializer, {"pipeline": self})
 
-    def _make_new_loader(
-        self,
-        data: DLDataModule,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> DataLoaderProtocol:
-        train_loader, valid_loader = data.initialize()
-        if valid_loader is not None:
-            raise ValueError("`valid_loader` should not be provided")
-        return train_loader
+    def _make_predictor(self) -> IPredictor:
+        return IPredictor.make(self.predictor, {"pipeline": self})
 
     # api
 
@@ -610,10 +624,12 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         make_loader_kwargs: Optional[Dict[str, Any]] = None,
         **predict_kwargs: Any,
     ) -> np_dict_type:
-        loader = self._make_new_loader(data, batch_size, **(make_loader_kwargs or {}))
+        predictor = self._make_predictor()
+        make_loader_kwargs = make_loader_kwargs or {}
+        loader = predictor.make_new_loader(data, batch_size, **make_loader_kwargs)
         predict_kwargs = shallow_copy_dict(predict_kwargs)
         outputs = self.inference.get_outputs(loader, **predict_kwargs)
-        return outputs.forward_results
+        return predictor.post_process(outputs)
 
     def save(
         self,
@@ -843,15 +859,22 @@ def register_serializer(name: str, *, allow_duplicate: bool = False) -> Callable
     return ISerializer.register(name, allow_duplicate=allow_duplicate)
 
 
+def register_predictor(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return IPredictor.register(name, allow_duplicate=allow_duplicate)
+
+
 register_builder("dl")(IBuilder)
 register_serializer("dl")(ISerializer)
+register_serializer("dl")(IPredictor)
 
 
 __all__ = [
     "register_builder",
     "register_serializer",
+    "register_predictor",
     "PipelineProtocol",
     "IBuilder",
     "ISerializer",
+    "IPredictor",
     "DLPipeline",
 ]

@@ -32,6 +32,7 @@ from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import IBuilder
 from ...pipeline import DLPipeline
+from ...pipeline import IPredictor
 from ...pipeline import ISerializer
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
@@ -44,9 +45,10 @@ from ...models.protocols.ml import MLModel
 
 try:
     from cfdata.tabular import ColumnTypes
+    from cfdata.tabular import TabularData
     from cfml.misc.toolkit import ModelPattern
 except:
-    ColumnTypes = ModelPattern = None
+    ColumnTypes = TabularData = ModelPattern = None
 
 
 class IMLPipelineMixin:
@@ -183,10 +185,23 @@ class MLSerializer(ISerializer, IMLPipelineMixin):
                 states.pop(key)
 
 
+@IPredictor.register("ml")
+class MLPredictor(IPredictor, IMLPipelineMixin):
+    def make_new_loader(
+        self,
+        data: MLData,
+        batch_size: int,
+        **kwargs: Any,
+    ) -> MLLoader:
+        x = data.x_train
+        return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
+
+
 @DLPipeline.register("ml.simple")
 class SimplePipeline(DLPipeline):
     builder = "ml"
     serializer = "ml"
+    predictor = "ml"
 
     model: MLModel
     inference: MLInference
@@ -301,17 +316,6 @@ class SimplePipeline(DLPipeline):
             self.encoding_settings[idx] = EncodingSettings(**raw_setting)
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
-
-    def _make_new_loader(  # type: ignore
-        self,
-        data: MLData,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> MLLoader:
-        x = data.x_train
-        return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
-
-    # api
 
     def to_pattern(
         self,
@@ -460,117 +464,24 @@ class MLCarefreeSerializer(MLSerializer):
         self.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
 
 
-@DLPipeline.register("ml.carefree")
-class CarefreePipeline(SimplePipeline):
-    builder = "ml.carefree"
-    serializer = "ml.carefree"
+@IPredictor.register("ml.carefree")
+class MLCarefreePredictor(MLPredictor):
+    cf_data: Optional[TabularData]
 
-    def __init__(
+    def make_new_loader(
         self,
-        core_name: str = "fcnn",
-        core_config: Optional[Dict[str, Any]] = None,
-        *,
-        input_dim: Optional[int] = None,
-        output_dim: Optional[int] = None,
-        loss_name: str = "auto",
-        loss_config: Optional[Dict[str, Any]] = None,
-        # encoder
-        use_encoder_cache: bool = True,
-        only_categorical: bool = False,
-        encoder_config: Optional[Dict[str, Any]] = None,
-        encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
-        # trainer
-        state_config: Optional[Dict[str, Any]] = None,
-        num_epoch: int = 40,
-        max_epoch: int = 1000,
-        fixed_epoch: Optional[int] = None,
-        fixed_steps: Optional[int] = None,
-        log_steps: Optional[int] = None,
-        valid_portion: float = 1.0,
-        amp: bool = False,
-        clip_norm: float = 0.0,
-        cudnn_benchmark: bool = False,
-        metric_names: Optional[Union[str, List[str]]] = None,
-        metric_configs: configs_type = None,
-        metric_weights: Optional[Dict[str, float]] = None,
-        use_losses_as_metrics: Optional[bool] = None,
-        loss_metrics_weights: Optional[Dict[str, float]] = None,
-        recompute_train_losses_in_eval: bool = True,
-        monitor_names: Optional[Union[str, List[str]]] = None,
-        monitor_configs: Optional[Dict[str, Any]] = None,
-        callback_names: Optional[Union[str, List[str]]] = None,
-        callback_configs: Optional[Dict[str, Any]] = None,
-        lr: Optional[float] = None,
-        optimizer_name: Optional[str] = None,
-        scheduler_name: Optional[str] = None,
-        optimizer_config: Optional[Dict[str, Any]] = None,
-        scheduler_config: Optional[Dict[str, Any]] = None,
-        update_scheduler_per_epoch: bool = False,
-        optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-        use_zero: bool = False,
-        workplace: str = "_logs",
-        finetune_config: Optional[Dict[str, Any]] = None,
-        tqdm_settings: Optional[Dict[str, Any]] = None,
-        # misc
-        in_loading: bool = False,
-        pre_process_batch: bool = True,
-        num_repeat: Optional[int] = None,
-    ):
-        if ColumnTypes is None:
-            raise ValueError(
-                "`carefree-data` need to be installed for `ml.CarefreePipeline`, "
-                "please use `ml.SimplePipeline` instead."
-            )
-        config = get_arguments()
-        super().__init__(
-            core_name,
-            core_config,
-            input_dim=input_dim,
-            output_dim=output_dim,
-            loss_name=loss_name,
-            loss_config=loss_config,
-            use_encoder_cache=use_encoder_cache,
-            only_categorical=only_categorical,
-            encoder_config=encoder_config,
-            encoding_settings=encoding_settings,
-            state_config=state_config,
-            num_epoch=num_epoch,
-            max_epoch=max_epoch,
-            fixed_epoch=fixed_epoch,
-            fixed_steps=fixed_steps,
-            log_steps=log_steps,
-            valid_portion=valid_portion,
-            amp=amp,
-            clip_norm=clip_norm,
-            cudnn_benchmark=cudnn_benchmark,
-            metric_names=metric_names,
-            metric_configs=metric_configs,
-            metric_weights=metric_weights,
-            use_losses_as_metrics=use_losses_as_metrics,
-            loss_metrics_weights=loss_metrics_weights,
-            recompute_train_losses_in_eval=recompute_train_losses_in_eval,
-            monitor_names=monitor_names,
-            monitor_configs=monitor_configs,
-            callback_names=callback_names,
-            callback_configs=callback_configs,
-            lr=lr,
-            optimizer_name=optimizer_name,
-            scheduler_name=scheduler_name,
-            optimizer_config=optimizer_config,
-            scheduler_config=scheduler_config,
-            update_scheduler_per_epoch=update_scheduler_per_epoch,
-            optimizer_settings=optimizer_settings,
-            use_zero=use_zero,
-            workplace=workplace,
-            finetune_config=finetune_config,
-            tqdm_settings=tqdm_settings,
-            in_loading=in_loading,
-            pre_process_batch=pre_process_batch,
-            num_repeat=num_repeat,
+        data: MLData,
+        batch_size: int,
+        **kwargs: Any,
+    ) -> MLLoader:
+        assert self.cf_data is not None
+        return MLLoader(
+            MLDataset(*self.cf_data.transform(data.x_train, None, **kwargs).xy),
+            shuffle=False,
+            batch_size=batch_size,
         )
-        self.config = config
 
-    def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
+    def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
         assert self.cf_data is not None
         results = outputs.forward_results
         if self.cf_data.is_clf:
@@ -586,18 +497,12 @@ class CarefreePipeline(SimplePipeline):
             recovered[k] = v
         return recovered
 
-    def _make_new_loader(  # type: ignore
-        self,
-        data: MLData,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> MLLoader:
-        assert self.cf_data is not None
-        return MLLoader(
-            MLDataset(*self.cf_data.transform(data.x_train, None, **kwargs).xy),
-            shuffle=False,
-            batch_size=batch_size,
-        )
+
+@DLPipeline.register("ml.carefree")
+class CarefreePipeline(SimplePipeline):
+    builder = "ml.carefree"
+    serializer = "ml.carefree"
+    predictor = "ml.carefree"
 
 
 __all__ = [
