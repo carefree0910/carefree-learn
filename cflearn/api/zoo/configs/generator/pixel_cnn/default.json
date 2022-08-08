@@ -2,7 +2,7 @@
   "__requires__": {
     "model_config": ["num_classes"]
   },
-  "pipeline": "cv.carefree",
+  "pipeline": "cv",
   "model_name": "pixel_cnn",
   "model_config": {
     "in_channels": 1

@@ -1,5 +1,5 @@
 {
-  "pipeline": "cv.carefree",
+  "pipeline": "cv",
   "fixed_epoch": 200,
   "update_scheduler_per_epoch": true,
   "optimizer_settings": {

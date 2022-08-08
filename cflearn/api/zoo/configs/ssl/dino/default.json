@@ -4,7 +4,7 @@
       "encoder1d_config": ["img_size"]
     }
   },
-  "pipeline": "cv.carefree",
+  "pipeline": "cv",
   "model_name": "dino",
   "model_config": {
     "out_dim": 512,

@@ -2,7 +2,7 @@
   "__requires__": {
     "model_config": ["num_classes"]
   },
-  "pipeline": "cv.carefree",
+  "pipeline": "cv",
   "model_name": "clf",
   "model_config": {
     "in_channels": 3,
@@ -17,5 +17,5 @@
   "metric_names": ["acc", "auc"],
   "lr": 3.0e-4,
   "optimizer_name": "adam",
-  "optimizer_config": {"betas": [0.9, 0.999], "weight_decay": 5.0e-4}
+  "optimizer_config": { "betas": [0.9, 0.999], "weight_decay": 5.0e-4 }
 }

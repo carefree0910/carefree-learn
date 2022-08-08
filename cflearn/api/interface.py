@@ -24,7 +24,7 @@ from ..protocol import LossProtocol
 from ..protocol import ModelProtocol
 from ..protocol import MetricProtocol
 from ..protocol import DataLoaderProtocol
-from .cv.pipeline import CarefreePipeline as CVCarefree
+from .cv.pipeline import CVPipeline
 from .ml.pipeline import SimplePipeline as MLSimple
 from .ml.pipeline import CarefreePipeline as MLCarefree
 from .ml.interface import repeat_with
@@ -516,7 +516,7 @@ def fit_cv(
     # fit
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
-) -> "CVCarefree":
+) -> "CVPipeline":
     pipeline_config = dict(
         model_name=model_name,
         model_config=model_config,

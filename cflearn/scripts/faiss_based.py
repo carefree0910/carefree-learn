@@ -14,7 +14,7 @@ from cftool.types import tensor_dict_type
 
 from ..trainer import DeviceInfo
 from ..constants import WARNING_PREFIX
-from ..api.cv.pipeline import SimplePipeline
+from ..api.cv.pipeline import CVPipeline
 from ..api.cv.models.interface import IImageExtractor
 
 try:
@@ -77,7 +77,7 @@ def build_faiss(
 
 
 def image_retrieval(
-    m: SimplePipeline,
+    m: CVPipeline,
     packed: str,
     extractor: IImageExtractor,
     *,

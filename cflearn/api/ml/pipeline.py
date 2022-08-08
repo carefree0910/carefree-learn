@@ -185,7 +185,6 @@ class SimplePipeline(DLPipeline):
             loaders = []
         else:
             train_loader, valid_loader = self.data.initialize()
-            assert isinstance(train_loader, MLLoader)
             train_loader_copy = train_loader.copy()
             train_loader_copy.disable_shuffle()
             loaders = [train_loader_copy]
@@ -243,6 +242,8 @@ class SimplePipeline(DLPipeline):
         self.inference = MLInference(model=self.model)
 
     def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
+        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
         super()._prepare_trainer_defaults(data_info)
         if (
             self.trainer_config["metric_names"] is None

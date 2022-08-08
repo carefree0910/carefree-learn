@@ -11,7 +11,7 @@ from cftool.array import to_device
 from .utils import predict_folder
 from ..data import SSLTestTransform
 from ..data import InferenceImageFolderData
-from ..pipeline import SimplePipeline
+from ..pipeline import CVPipeline
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context
 
@@ -22,7 +22,7 @@ except:
 
 
 class DINOExtractor:
-    def __init__(self, m: SimplePipeline, img_size: int, *, to_gray: bool = False):
+    def __init__(self, m: CVPipeline, img_size: int, *, to_gray: bool = False):
         if to_rgb is None:
             raise ValueError("`carefree-cv` is needed for `DINOExtractor`")
         self.m = m

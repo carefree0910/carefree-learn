@@ -14,6 +14,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import get_arguments
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import prepare_workplace_from
@@ -28,9 +29,11 @@ from .data import DLDataModule
 from .types import configs_type
 from .types import sample_weights_type
 from .types import states_callback_type
+from .trainer import callback_dict
 from .trainer import get_sorted_checkpoints
 from .trainer import Trainer
 from .trainer import DeviceInfo
+from .protocol import loss_dict
 from .protocol import LossProtocol
 from .protocol import ModelProtocol
 from .protocol import MetricProtocol
@@ -39,6 +42,7 @@ from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
 from .constants import PT_PREFIX
+from .constants import INFO_PREFIX
 from .constants import SCORES_FILE
 from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
@@ -209,8 +213,10 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
 
     def __init__(
         self,
+        model_name: str,
+        model_config: Optional[Dict[str, Any]] = None,
         *,
-        loss_name: str,
+        loss_name: Optional[str] = None,
         loss_config: Optional[Dict[str, Any]] = None,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
@@ -246,8 +252,37 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         tqdm_settings: Optional[Dict[str, Any]] = None,
         # misc
         in_loading: bool = False,
+        allow_no_loss: bool = False,
     ):
+        self.config = get_arguments()
+        # sanity check
+        if loss_name is None:
+            if model_name in loss_dict:
+                loss_name = model_name
+            else:
+                model_base = ModelProtocol.get(model_name)
+                if allow_no_loss or issubclass(model_base, ModelWithCustomSteps):
+                    loss_name = LossProtocol.placeholder_key
+                else:
+                    raise ValueError(
+                        "`loss_name` should be provided when "
+                        f"`{model_name}` has not implemented its own loss "
+                        "and `allow_no_loss` is False"
+                    )
+            print(f"{INFO_PREFIX}`{loss_name}` loss will be used.")
+        # set defaults
+        if state_config is None:
+            state_config = {}
+        state_config.setdefault("max_snapshot_file", 25)
+        if callback_names is None:
+            if model_name in callback_dict:
+                callback_names = model_name
+                print(f"{INFO_PREFIX}`{model_name}` callback will be used.")
+        # initialize
         super().__init__()
+        self.input_dim = None
+        self.model_name = model_name
+        self.model_config = model_config or {}
         self.loss_name = loss_name
         self.loss_config = loss_config
         self.trainer_config: Dict[str, Any] = {
@@ -303,26 +338,17 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             return True
         return False
 
-    # abstract
-
-    @abstractmethod
-    def _make_new_loader(
-        self,
-        data: DLDataModule,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> DataLoaderProtocol:
-        pass
-
-    @abstractmethod
-    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
-        pass
-
     # internal
 
     def _write_pipeline_info(self, folder: str) -> None:
         with open(os.path.join(folder, self.pipeline_file), "w") as f:
             f.write(self.__identifier__)
+
+    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
+        self._prepare_workplace()
+        self._prepare_loss()
+        self.model = ModelProtocol.make(self.model_name, config=self.model_config)
+        self.inference = self.inference_base(model=self.model)
 
     def _prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading:
@@ -350,7 +376,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
                 )
             self.trainer_config["monitor_names"] = "conservative"
         if self.trainer_config["monitor_names"] is None:
-            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
+            self.trainer_config["monitor_names"] = "conservative"
         tqdm_settings = self.trainer_config["tqdm_settings"]
         callback_names = self.trainer_config["callback_names"]
         callback_configs = self.trainer_config["callback_configs"]
@@ -408,6 +434,17 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
         }
         Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
         return final_results.final_score
+
+    def _make_new_loader(
+        self,
+        data: DLDataModule,
+        batch_size: int,
+        **kwargs: Any,
+    ) -> DataLoaderProtocol:
+        train_loader, valid_loader = data.initialize()
+        if valid_loader is not None:
+            raise ValueError("`valid_loader` should not be provided")
+        return train_loader
 
     @classmethod
     def _load_infrastructure(

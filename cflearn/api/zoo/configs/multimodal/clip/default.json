@@ -1,5 +1,5 @@
 {
-  "pipeline": "cv.carefree",
+  "pipeline": "cv",
   "model_name": "clip",
   "model_config": {},
   "allow_no_loss": true

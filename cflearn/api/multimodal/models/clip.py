@@ -8,8 +8,8 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.array import to_torch
 
+from ...cv.pipeline import CVPipeline
 from ...cv.models.utils import predict_folder
-from ...cv.pipeline import SimplePipeline
 from ....types import texts_type
 from ....protocol import InferenceProtocol
 from ....constants import INPUT_KEY
@@ -27,7 +27,7 @@ class ImageFolderLatentResponse(NamedTuple):
 class CLIPExtractor:
     clip: CLIP
 
-    def __init__(self, m: SimplePipeline):
+    def __init__(self, m: CVPipeline):
         self.m = m
         clip = m.model
         self.clip = clip
