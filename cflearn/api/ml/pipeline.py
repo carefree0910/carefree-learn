@@ -30,6 +30,7 @@ from ...data import MLInferenceData
 from ...types import configs_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
+from ...pipeline import IBuilder
 from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
@@ -47,8 +48,132 @@ except:
     ColumnTypes = ModelPattern = None
 
 
+class IMLPipelineMixin:
+    is_classification: bool
+    output_dim: Optional[int]
+    use_auto_loss: bool
+
+    encoder: Optional[Encoder]
+    encoder_config: Dict[str, Any]
+    encoding_settings: Dict[int, EncodingSettings]
+    numerical_columns_mapping: Dict[int, int]
+    categorical_columns_mapping: Dict[int, int]
+    use_one_hot: bool
+    use_embedding: bool
+    only_categorical: bool
+    use_encoder_cache: bool
+
+    core_name: str
+    core_config: Dict[str, Any]
+
+    _pre_process_batch: bool
+    _num_repeat: Optional[int]
+
+
+@IBuilder.register("ml")
+class MLBuilder(IBuilder, IMLPipelineMixin):
+    steps = ["setup_defaults", "setup_encoder"] + IBuilder.steps
+
+    def setup_defaults(self, data_info: Dict[str, Any]) -> None:
+        self.is_classification = data_info["is_classification"]
+        is_reg = not self.is_classification
+        if self.input_dim is None:
+            self.input_dim = data_info["input_dim"]
+        if self.output_dim is None:
+            self.output_dim = 1 if is_reg else data_info["num_classes"]
+            if self.output_dim is None:
+                raise ValueError(
+                    "either `MLData` with `cf_data`, or `output_dim`, "
+                    "should be provided"
+                )
+        self.use_auto_loss = self.loss_name == "auto"
+        if self.use_auto_loss:
+            if is_reg:
+                self.loss_name = "mae"
+            else:
+                self.loss_name = "bce" if self.output_dim == 1 else "focal"
+
+    def setup_encoder(self) -> None:
+        assert isinstance(self.input_dim, int)
+        all_indices = list(range(self.input_dim))
+        if not self.encoding_settings:
+            self.encoder = None
+            self.numerical_columns_mapping = {i: i for i in all_indices}
+            self.categorical_columns_mapping = {}
+            self.use_one_hot = False
+            self.use_embedding = False
+        else:
+            use_one_hot = False
+            use_embedding = False
+            for idx, setting in self.encoding_settings.items():
+                use_one_hot = use_one_hot or setting.use_one_hot
+                use_embedding = use_embedding or setting.use_embedding
+            self.encoder = self._instantiate_encoder(self.encoding_settings)
+            self.use_one_hot = use_one_hot
+            self.use_embedding = use_embedding
+            categorical_columns = self.encoder.columns.copy()
+            categorical_set = set(categorical_columns)
+            numerical_columns = [i for i in all_indices if i not in categorical_set]
+            self.numerical_columns_mapping = {i: i for i in numerical_columns}
+            self.categorical_columns_mapping = {i: i for i in categorical_columns}
+
+    def _instantiate_encoder(self, settings: Dict[int, EncodingSettings]) -> Encoder:
+        if self.in_loading or not self.use_encoder_cache:
+            loaders = []
+        else:
+            train_loader, valid_loader = self.data.initialize()
+            train_loader_copy = train_loader.copy()
+            train_loader_copy.disable_shuffle()
+            loaders = [train_loader_copy]
+            if valid_loader is not None:
+                assert isinstance(valid_loader, MLLoader)
+                loaders.append(valid_loader)
+        return Encoder(settings, config=self.encoder_config, loaders=loaders)
+
+    def build_model(self, data_info: Dict[str, Any]) -> None:  # type: ignore
+        assert isinstance(self.input_dim, int)
+        assert isinstance(self.output_dim, int)
+        self.model = MLModel(
+            self.output_dim,
+            data_info["num_history"],
+            encoder=self.encoder,
+            use_encoder_cache=self.use_encoder_cache,
+            numerical_columns_mapping=self.numerical_columns_mapping,
+            categorical_columns_mapping=self.categorical_columns_mapping,
+            use_one_hot=self.use_one_hot,
+            use_embedding=self.use_embedding,
+            only_categorical=self.only_categorical,
+            core_name=self.core_name,
+            core_config=self.core_config,
+            pre_process_batch=self._pre_process_batch,
+            num_repeat=self._num_repeat,
+        )
+
+    def build_inference(self) -> None:
+        self.inference = MLInference(model=self.model)
+
+    def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:  # type: ignore
+        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
+        super().prepare_trainer_defaults()
+        if (
+            self.trainer_config["metric_names"] is None
+            and self.use_auto_loss
+            and not self.trainer_config["use_losses_as_metrics"]
+        ):
+            if data_info["is_classification"]:
+                self.trainer_config["metric_names"] = ["acc", "auc"]
+            else:
+                self.trainer_config["metric_names"] = ["mae", "mse"]
+        callback_names = self.trainer_config["callback_names"]
+        if "_inject_loader_name" not in callback_names:
+            callback_names.append("_inject_loader_name")
+
+
 @DLPipeline.register("ml.simple")
 class SimplePipeline(DLPipeline):
+    builder = "ml"
+
     model: MLModel
     inference: MLInference
     inference_base = MLInference
@@ -163,103 +288,6 @@ class SimplePipeline(DLPipeline):
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
-    def _setup_defaults(self, data_info: Dict[str, Any]) -> None:
-        self.is_classification = data_info["is_classification"]
-        is_reg = not self.is_classification
-        if self.input_dim is None:
-            self.input_dim = data_info["input_dim"]
-        if self.output_dim is None:
-            self.output_dim = 1 if is_reg else data_info["num_classes"]
-            if self.output_dim is None:
-                raise ValueError(
-                    "either `MLData` with `cf_data`, or `output_dim`, "
-                    "should be provided"
-                )
-        self.use_auto_loss = self.loss_name == "auto"
-        if self.use_auto_loss:
-            if is_reg:
-                self.loss_name = "mae"
-            else:
-                self.loss_name = "bce" if self.output_dim == 1 else "focal"
-
-    def _instantiate_encoder(self, settings: Dict[int, EncodingSettings]) -> Encoder:
-        if self.in_loading or not self.use_encoder_cache:
-            loaders = []
-        else:
-            train_loader, valid_loader = self.data.initialize()
-            train_loader_copy = train_loader.copy()
-            train_loader_copy.disable_shuffle()
-            loaders = [train_loader_copy]
-            if valid_loader is not None:
-                assert isinstance(valid_loader, MLLoader)
-                loaders.append(valid_loader)
-        return Encoder(settings, config=self.encoder_config, loaders=loaders)
-
-    def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
-        assert isinstance(self.input_dim, int)
-        all_indices = list(range(self.input_dim))
-        if not self.encoding_settings:
-            self.encoder = None
-            self.numerical_columns_mapping = {i: i for i in all_indices}
-            self.categorical_columns_mapping = {}
-            self.use_one_hot = False
-            self.use_embedding = False
-        else:
-            use_one_hot = False
-            use_embedding = False
-            for idx, setting in self.encoding_settings.items():
-                use_one_hot = use_one_hot or setting.use_one_hot
-                use_embedding = use_embedding or setting.use_embedding
-            self.encoder = self._instantiate_encoder(self.encoding_settings)
-            self.use_one_hot = use_one_hot
-            self.use_embedding = use_embedding
-            categorical_columns = self.encoder.columns.copy()
-            categorical_set = set(categorical_columns)
-            numerical_columns = [i for i in all_indices if i not in categorical_set]
-            self.numerical_columns_mapping = {i: i for i in numerical_columns}
-            self.categorical_columns_mapping = {i: i for i in categorical_columns}
-
-    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
-        self._setup_defaults(data_info)
-        self._setup_encoder(data_info)
-        self._prepare_workplace()
-        self._prepare_loss()
-        assert isinstance(self.input_dim, int)
-        assert isinstance(self.output_dim, int)
-        self.model = MLModel(
-            self.output_dim,
-            data_info["num_history"],
-            encoder=self.encoder,
-            use_encoder_cache=self.use_encoder_cache,
-            numerical_columns_mapping=self.numerical_columns_mapping,
-            categorical_columns_mapping=self.categorical_columns_mapping,
-            use_one_hot=self.use_one_hot,
-            use_embedding=self.use_embedding,
-            only_categorical=self.only_categorical,
-            core_name=self.core_name,
-            core_config=self.core_config,
-            pre_process_batch=self._pre_process_batch,
-            num_repeat=self._num_repeat,
-        )
-        self.inference = MLInference(model=self.model)
-
-    def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
-        if self.trainer_config["monitor_names"] is None:
-            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
-        super()._prepare_trainer_defaults(data_info)
-        if (
-            self.trainer_config["metric_names"] is None
-            and self.use_auto_loss
-            and not self.trainer_config["use_losses_as_metrics"]
-        ):
-            if data_info["is_classification"]:
-                self.trainer_config["metric_names"] = ["acc", "auc"]
-            else:
-                self.trainer_config["metric_names"] = ["mae", "mse"]
-        callback_names = self.trainer_config["callback_names"]
-        if "_inject_loader_name" not in callback_names:
-            callback_names.append("_inject_loader_name")
-
     def _make_new_loader(  # type: ignore
         self,
         data: MLData,
@@ -268,6 +296,19 @@ class SimplePipeline(DLPipeline):
     ) -> MLLoader:
         x = data.x_train
         return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
+
+    @classmethod
+    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
+        if m.encoder is not None:
+            encoder_cache_keys = []
+            for key in states:
+                if key.startswith("encoder") and key.endswith("cache"):
+                    encoder_cache_keys.append(key)
+            for key in encoder_cache_keys:
+                states.pop(key)
+        return states
+
+    # api
 
     def to_pattern(
         self,
@@ -364,20 +405,56 @@ class SimplePipeline(DLPipeline):
                 Saving.compress(abs_folder, remove_original=True)
         return self
 
-    @classmethod
-    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
-        if m.encoder is not None:
-            encoder_cache_keys = []
-            for key in states:
-                if key.startswith("encoder") and key.endswith("cache"):
-                    encoder_cache_keys.append(key)
-            for key in encoder_cache_keys:
-                states.pop(key)
-        return states
+
+@IBuilder.register("ml.carefree")
+class MLCarefreeBuilder(MLBuilder):
+    def setup_encoder(self, data_info: Dict[str, Any]) -> None:  # type: ignore
+        self.cf_data = data_info["cf_data"]
+        if self.cf_data is None:
+            msg = "cf_data` is not provided, please use `ml.SimplePipeline` instead"
+            raise ValueError(msg)
+        excluded = 0
+        encoder_settings = {}
+        numerical_columns_mapping = {}
+        categorical_columns_mapping = {}
+        use_one_hot = False
+        use_embedding = False
+        if self.cf_data.is_simplify:
+            for idx in range(self.cf_data.processed.x.shape[1]):
+                numerical_columns_mapping[idx] = idx
+        else:
+            ts_indices = self.cf_data.ts_indices
+            recognizers = self.cf_data.recognizers
+            sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
+            for idx in sorted_indices:
+                recognizer = recognizers[idx]
+                assert recognizer is not None
+                if not recognizer.info.is_valid or idx in ts_indices:
+                    excluded += 1
+                elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
+                    numerical_columns_mapping[idx] = idx - excluded
+                elif idx not in encoder_settings:
+                    true_idx = idx - excluded
+                    setting = EncodingSettings(dim=recognizer.num_unique_values)
+                    encoder_settings[true_idx] = setting
+                    use_one_hot = use_one_hot or setting.use_one_hot
+                    use_embedding = use_embedding or setting.use_embedding
+                    categorical_columns_mapping[idx] = true_idx
+        if not encoder_settings:
+            encoder = None
+        else:
+            encoder = self._instantiate_encoder(encoder_settings)
+        self.encoder = encoder
+        self.use_one_hot = use_one_hot
+        self.use_embedding = use_embedding
+        self.numerical_columns_mapping = numerical_columns_mapping
+        self.categorical_columns_mapping = categorical_columns_mapping
 
 
 @DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):
+    builder = "ml.carefree"
+
     def __init__(
         self,
         core_name: str = "fcnn",
@@ -482,49 +559,6 @@ class CarefreePipeline(SimplePipeline):
             num_repeat=num_repeat,
         )
         self.config = config
-
-    def _setup_encoder(self, data_info: Dict[str, Any]) -> None:
-        self.cf_data = data_info["cf_data"]
-        if self.cf_data is None:
-            msg = "cf_data` is not provided, please use `ml.SimplePipeline` instead"
-            raise ValueError(msg)
-        # encoder
-        excluded = 0
-        encoder_settings = {}
-        numerical_columns_mapping = {}
-        categorical_columns_mapping = {}
-        use_one_hot = False
-        use_embedding = False
-        if self.cf_data.is_simplify:
-            for idx in range(self.cf_data.processed.x.shape[1]):
-                numerical_columns_mapping[idx] = idx
-        else:
-            ts_indices = self.cf_data.ts_indices
-            recognizers = self.cf_data.recognizers
-            sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
-            for idx in sorted_indices:
-                recognizer = recognizers[idx]
-                assert recognizer is not None
-                if not recognizer.info.is_valid or idx in ts_indices:
-                    excluded += 1
-                elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
-                    numerical_columns_mapping[idx] = idx - excluded
-                elif idx not in encoder_settings:
-                    true_idx = idx - excluded
-                    setting = EncodingSettings(dim=recognizer.num_unique_values)
-                    encoder_settings[true_idx] = setting
-                    use_one_hot = use_one_hot or setting.use_one_hot
-                    use_embedding = use_embedding or setting.use_embedding
-                    categorical_columns_mapping[idx] = true_idx
-        if not encoder_settings:
-            encoder = None
-        else:
-            encoder = self._instantiate_encoder(encoder_settings)
-        self.encoder = encoder
-        self.use_one_hot = use_one_hot
-        self.use_embedding = use_embedding
-        self.numerical_columns_mapping = numerical_columns_mapping
-        self.categorical_columns_mapping = categorical_columns_mapping
 
     def _predict_from_outputs(self, outputs: InferenceOutputs) -> np_dict_type:
         assert self.cf_data is not None

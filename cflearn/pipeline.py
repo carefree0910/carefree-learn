@@ -53,13 +53,11 @@ from .misc.internal_.trainer import make_trainer
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
+dl_pipeline_builders: Dict[str, Type["IBuilder"]] = {}
 
 
 class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
     d = pipeline_dict
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
 
     @abstractmethod
     def build(self, data_info: Dict[str, Any]) -> None:
@@ -192,26 +190,155 @@ def _generate_model_soup_checkpoint(
         )
 
 
-@PipelineProtocol.register("dl")
-class DLPipeline(PipelineProtocol):
+class IDLPipeline:
+    data: DLDataModule
     loss: LossProtocol
+    loss_name: str
+    loss_config: Optional[Dict[str, Any]]
     model: ModelProtocol
+    model_name: str
+    model_config: Dict[str, Any]
     trainer: Trainer
+    trainer_config: Dict[str, Any]
     inference: InferenceProtocol
-    inference_base: Type[InferenceProtocol] = InferenceProtocol
+    inference_base: Type[InferenceProtocol]
     device_info: DeviceInfo
 
-    pipeline_file: str = "pipeline.txt"
-    config_name: str = "config"
-    trainer_config_file: str = "trainer_config.json"
-    data_info_name: str = "data_info"
-    metrics_log_file: str = "metrics.txt"
+    pipeline_file: str
+    config_name: str
+    trainer_config_file: str
+    data_info_name: str
+    metrics_log_file: str
 
-    final_results_file = "final_results.json"
-    config_bundle_name = "config_bundle"
+    final_results_file: str
+    config_bundle_name: str
 
     config: Dict[str, Any]
     input_dim: Optional[int]
+
+    built: bool
+    is_rank_0: bool
+    in_loading: bool
+
+
+class IBuilder(WithRegister["IBuilder"], IDLPipeline):
+    d = dl_pipeline_builders
+    steps = ["prepare_workplace", "prepare_loss", "build_model", "build_inference"]
+
+    def __init__(self, pipeline: "DLPipeline") -> None:
+        self.__pipeline = pipeline
+
+    def __getattr__(self, __name: str) -> Any:
+        return getattr(self.__pipeline, __name)
+
+    def __setattr__(self, __name: str, __value: Any) -> None:
+        pipeline_key = "_IBuilder__pipeline"
+        if __name == pipeline_key:
+            self.__dict__[pipeline_key] = __value
+        else:
+            setattr(self.__pipeline, __name, __value)
+
+    def _write_pipeline_info(self, folder: str) -> None:
+        with open(os.path.join(folder, self.pipeline_file), "w") as f:
+            f.write(self.__identifier__)
+
+    # pre-defined build steps
+
+    def prepare_workplace(self) -> None:
+        if self.is_rank_0 and not self.in_loading:
+            workplace = prepare_workplace_from(self.trainer_config["workplace"])
+            self.trainer_config["workplace"] = workplace
+            self.trainer_config["data_info_name"] = self.data_info_name
+            self.trainer_config["metrics_log_file"] = self.metrics_log_file
+            self._write_pipeline_info(workplace)
+            Saving.save_dict(self.config, self.config_name, workplace)
+
+    def prepare_loss(self) -> None:
+        if self.in_loading:
+            return None
+        self.loss_name = LossProtocol.parse(self.loss_name)
+        self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
+
+    def build_model(self) -> None:
+        self.model = ModelProtocol.make(self.model_name, config=self.model_config)
+
+    def build_inference(self) -> None:
+        self.inference = self.inference_base(model=self.model)
+
+    # trainer stuffs
+
+    def prepare_trainer_defaults(self) -> None:
+        # set some trainer defaults to deep learning tasks which work well in practice
+        if get_ddp_info() is not None:
+            mns = self.trainer_config["monitor_names"]
+            if mns is not None and mns != "conservative" and mns != ["conservative"]:
+                print_warning(
+                    "only `conservative` monitor is available "
+                    f"in DDP mode, {mns} found"
+                )
+            self.trainer_config["monitor_names"] = "conservative"
+        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config["monitor_names"] = "conservative"
+        tqdm_settings = self.trainer_config["tqdm_settings"]
+        callback_names = self.trainer_config["callback_names"]
+        callback_configs = self.trainer_config["callback_configs"]
+        optimizer_settings = self.trainer_config["optimizer_settings"]
+        if callback_names is None:
+            callback_names = []
+        if callback_configs is None:
+            callback_configs = {}
+        if isinstance(callback_names, str):
+            callback_names = [callback_names]
+        auto_callback = self.trainer_config.get("auto_callback", True)
+        if "mlflow" in callback_names and auto_callback:
+            mlflow_config = callback_configs.setdefault("mlflow", {})
+            mlflow_config.setdefault("experiment_name", self.model.__identifier__)
+        if "_log_metrics_msg" not in callback_names and auto_callback:
+            callback_names.insert(0, "_log_metrics_msg")
+            verbose = False
+            if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
+                verbose = True
+            log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
+            log_metrics_msg_config.setdefault("verbose", verbose)
+        self.trainer_config["tqdm_settings"] = tqdm_settings
+        self.trainer_config["callback_names"] = callback_names
+        self.trainer_config["callback_configs"] = callback_configs
+        self.trainer_config["optimizer_settings"] = optimizer_settings
+
+    # api
+
+    def build(self, data_info: Dict[str, Any]) -> None:
+        if self.built:
+            return None
+        kw = dict(data_info=data_info)
+        for step in self.steps:
+            fn = getattr(self, step)
+            fn(**filter_kw(fn, kw))
+        if self.in_loading:
+            return None
+        fn = self.prepare_trainer_defaults
+        fn(**filter_kw(fn, kw))
+        trainer_config = shallow_copy_dict(self.trainer_config)
+        if isinstance(self.model, ModelWithCustomSteps):
+            self.model.permute_trainer_config(trainer_config)
+        self.trainer = make_trainer(**trainer_config)
+        self.built = True
+
+
+@PipelineProtocol.register("dl")
+class DLPipeline(PipelineProtocol, IDLPipeline):
+    builder = "dl"
+
+    inference_base = InferenceProtocol
+
+    pipeline_file = "pipeline.txt"
+    config_name = "config"
+    trainer_config_file = "trainer_config.json"
+    data_info_name = "data_info"
+    metrics_log_file = "metrics.txt"
+
+    final_results_file = "final_results.json"
+    config_bundle_name = "config_bundle"
 
     def __init__(
         self,
@@ -281,7 +408,6 @@ class DLPipeline(PipelineProtocol):
                 callback_names = model_name
                 print_info(f"`{model_name}` callback will be used.")
         # initialize
-        super().__init__()
         self.input_dim = None
         self.model_name = model_name
         self.model_config = model_config or {}
@@ -332,7 +458,7 @@ class DLPipeline(PipelineProtocol):
         return self.device_info.device
 
     @property
-    def is_rank_0(self) -> bool:
+    def is_rank_0(self) -> bool:  # type: ignore
         ddp_info = get_ddp_info()
         if ddp_info is None:
             return True
@@ -341,69 +467,6 @@ class DLPipeline(PipelineProtocol):
         return False
 
     # internal
-
-    def _write_pipeline_info(self, folder: str) -> None:
-        with open(os.path.join(folder, self.pipeline_file), "w") as f:
-            f.write(self.__identifier__)
-
-    def _prepare_modules(self, data_info: Dict[str, Any]) -> None:
-        self._prepare_workplace()
-        self._prepare_loss()
-        self.model = ModelProtocol.make(self.model_name, config=self.model_config)
-        self.inference = self.inference_base(model=self.model)
-
-    def _prepare_workplace(self) -> None:
-        if self.is_rank_0 and not self.in_loading:
-            workplace = prepare_workplace_from(self.trainer_config["workplace"])
-            self.trainer_config["workplace"] = workplace
-            self.trainer_config["data_info_name"] = self.data_info_name
-            self.trainer_config["metrics_log_file"] = self.metrics_log_file
-            self._write_pipeline_info(workplace)
-            Saving.save_dict(self.config, self.config_name, workplace)
-
-    def _prepare_loss(self) -> None:
-        if self.in_loading:
-            return None
-        self.loss_name = LossProtocol.parse(self.loss_name)
-        self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
-
-    def _prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
-        # set some trainer defaults to deep learning tasks which work well in practice
-        if get_ddp_info() is not None:
-            mns = self.trainer_config["monitor_names"]
-            if mns is not None and mns != "conservative" and mns != ["conservative"]:
-                print_warning(
-                    "only `conservative` monitor is available "
-                    f"in DDP mode, {mns} found"
-                )
-            self.trainer_config["monitor_names"] = "conservative"
-        if self.trainer_config["monitor_names"] is None:
-            self.trainer_config["monitor_names"] = "conservative"
-        tqdm_settings = self.trainer_config["tqdm_settings"]
-        callback_names = self.trainer_config["callback_names"]
-        callback_configs = self.trainer_config["callback_configs"]
-        optimizer_settings = self.trainer_config["optimizer_settings"]
-        if callback_names is None:
-            callback_names = []
-        if callback_configs is None:
-            callback_configs = {}
-        if isinstance(callback_names, str):
-            callback_names = [callback_names]
-        auto_callback = self.trainer_config.get("auto_callback", True)
-        if "mlflow" in callback_names and auto_callback:
-            mlflow_config = callback_configs.setdefault("mlflow", {})
-            mlflow_config.setdefault("experiment_name", self.model.__identifier__)
-        if "_log_metrics_msg" not in callback_names and auto_callback:
-            callback_names.insert(0, "_log_metrics_msg")
-            verbose = False
-            if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
-                verbose = True
-            log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
-            log_metrics_msg_config.setdefault("verbose", verbose)
-        self.trainer_config["tqdm_settings"] = tqdm_settings
-        self.trainer_config["callback_names"] = callback_names
-        self.trainer_config["callback_configs"] = callback_configs
-        self.trainer_config["optimizer_settings"] = optimizer_settings
 
     def _save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
@@ -489,35 +552,11 @@ class DLPipeline(PipelineProtocol):
         states = torch.load(checkpoint_path, map_location=m.device)
         return cls._load_states_callback(m, states)
 
-    # core
-
-    def _fit(self, data: DLDataModule, cuda: Optional[str]) -> None:
-        self.data = data
-        self.build(data.info)
-        self.trainer.fit(
-            data,
-            self.loss,
-            self.model,
-            self.inference,
-            config_export_file=self.trainer_config_file,
-            cuda=cuda,
-        )
-        self.device_info = self.trainer.device_info
-
     # api
 
     def build(self, data_info: Dict[str, Any]) -> None:
-        if self.built:
-            return None
-        self._prepare_modules(data_info)
-        if self.in_loading:
-            return None
-        self._prepare_trainer_defaults(data_info)
-        trainer_config = shallow_copy_dict(self.trainer_config)
-        if isinstance(self.model, ModelWithCustomSteps):
-            self.model.permute_trainer_config(trainer_config)
-        self.trainer = make_trainer(**trainer_config)
-        self.built = True
+        builder = IBuilder.make(self.builder, {"pipeline": self})
+        builder.build(data_info)
 
     def fit(  # type: ignore
         self,
@@ -529,7 +568,17 @@ class DLPipeline(PipelineProtocol):
         data.prepare(sample_weights)
         if cuda is not None:
             cuda = str(cuda)
-        self._fit(data, cuda)
+        self.data = data
+        self.build(data.info)
+        self.trainer.fit(
+            data,
+            self.loss,
+            self.model,
+            self.inference,
+            config_export_file=self.trainer_config_file,
+            cuda=cuda,
+        )
+        self.device_info = self.trainer.device_info
         return self
 
     def predict(  # type: ignore
@@ -762,7 +811,16 @@ class DLPipeline(PipelineProtocol):
         return m
 
 
+def register_builder(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return IBuilder.register(name, allow_duplicate=allow_duplicate)
+
+
+register_builder("dl")(IBuilder)
+
+
 __all__ = [
+    "register_builder",
     "PipelineProtocol",
+    "IBuilder",
     "DLPipeline",
 ]
