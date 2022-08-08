@@ -724,7 +724,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
                         "empty `data_info` will be used"
                     )
                     data_info = {}
-                m._prepare_modules(data_info)
+                m._make_builder().build(data_info)
                 m.model.to(m.device)
                 # restore checkpoint
                 states = cls._load_states_from(m, export_folder)
