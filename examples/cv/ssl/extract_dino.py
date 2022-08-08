@@ -7,7 +7,7 @@ import cflearn
 from PIL import Image
 
 
-base = cflearn.cv.CarefreePipeline
+base = cflearn.cv.CVPipeline
 packed = base.pack(".versions/512_2000")
 dino_api = cflearn.cv.DINOExtractor(base.load(packed, cuda=0), 224)  # type: ignore
 

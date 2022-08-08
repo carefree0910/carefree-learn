@@ -112,6 +112,7 @@ class SimplePipeline(DLPipeline):
     ):
         self.config = get_arguments()
         super().__init__(
+            "MLModel",
             loss_name=loss_name,
             loss_config=loss_config,
             state_config=state_config,
