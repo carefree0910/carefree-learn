@@ -6,6 +6,7 @@ from .trainer import *
 from .protocol import *
 from .constants import *
 from .data import *
+from .pipeline import *
 
 from .api import cv
 from .api import ml

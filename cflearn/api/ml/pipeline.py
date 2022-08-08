@@ -503,6 +503,8 @@ class MLCarefreePipeline(MLSimplePipeline):
 
 
 __all__ = [
+    "MLModifier",
     "MLSimplePipeline",
+    "MLCarefreeModifier",
     "MLCarefreePipeline",
 ]
