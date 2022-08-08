@@ -110,7 +110,7 @@ class SimplePipeline(DLPipeline):
         pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
-        self.config = get_arguments()
+        config = get_arguments()
         super().__init__(
             "MLModel",
             loss_name=loss_name,
@@ -148,6 +148,7 @@ class SimplePipeline(DLPipeline):
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
         )
+        self.config = config
         self.core_name = core_name
         self.core_config = core_config or {}
         self.input_dim = input_dim
