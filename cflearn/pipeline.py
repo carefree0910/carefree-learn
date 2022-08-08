@@ -246,13 +246,7 @@ class ModifierMixin:
 
     def _write_pipeline_info(self, folder: str) -> None:
         with open(os.path.join(folder, self.pipeline_file), "w") as f:
-            json.dump(
-                {
-                    "pipeline": self.__pipeline.__identifier__,
-                    "serializer": self.serializer,
-                },
-                f,
-            )
+            f.write(self.__pipeline.__identifier__)
 
 
 class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
@@ -426,7 +420,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
 
     inference_base = InferenceProtocol
 
-    pipeline_file = "pipeline.json"
+    pipeline_file = "pipeline.txt"
     config_name = "config"
     trainer_config_file = "trainer_config.json"
     data_info_name = "data_info"
@@ -710,12 +704,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
     @staticmethod
     def get_base(workplace: str) -> Type["DLPipeline"]:
         with open(os.path.join(workplace, DLPipeline.pipeline_file), "r") as f:
-            return DLPipeline.get(json.load(f)["pipeline"])  # type: ignore
-
-    @staticmethod
-    def get_serializer_base(workplace: str) -> Type["ISerializer"]:
-        with open(os.path.join(workplace, DLPipeline.pipeline_file), "r") as f:
-            return ISerializer.get(json.load(f)["serializer"])
+            return DLPipeline.get(f.read())  # type: ignore
 
     @staticmethod
     def load(
@@ -742,7 +731,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
                     pre_callback,
                     post_callback,
                 )
-                serializer = DLPipeline.get_serializer_base(export_folder)(m)
+                serializer = ISerializer.get(pipeline_cls.serializer)(m)
                 serializer.post_load_infrastructure(export_folder)
                 try:
                     data_info = DataModule.load_info(export_folder)
