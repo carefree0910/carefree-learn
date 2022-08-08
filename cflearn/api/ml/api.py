@@ -119,10 +119,7 @@ def evaluate(
         else:
             if not isinstance(x, str):
                 raise ValueError("`x` should be str when `y` is not provided")
-            data_pipeline = list(pipelines.values())[0][0]
-            if not isinstance(data_pipeline, MLCarefreePipeline):
-                raise ValueError("only `CarefreePipeline` can handle file inputs")
-            cf_data = data_pipeline.cf_data
+            cf_data = data.cf_data
             assert cf_data is not None
             x, y = cf_data.read_file(x, contains_labels=contains_labels)
             y = cf_data.transform(x, y).y
