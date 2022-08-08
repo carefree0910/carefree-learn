@@ -351,8 +351,9 @@ class SimplePipeline(DLPipeline):
             predict_prob_method=_predict_prob,
         )
 
-    @staticmethod
+    @classmethod
     def fuse_multiple(
+        cls,
         export_folders: List[str],
         *,
         cuda: Optional[str] = None,
@@ -366,6 +367,7 @@ class SimplePipeline(DLPipeline):
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 m = ISerializer.load_infrastructure(
+                    cls,
                     export_folder,
                     cuda,
                     False,
