@@ -472,9 +472,12 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
 
     # internal
 
+    def _make_builder(self) -> IBuilder:
+        return IBuilder.make(self.builder, {"pipeline": self})
+
     def _save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
-        self._write_pipeline_info(export_folder)
+        self._make_builder()._write_pipeline_info(export_folder)
         data = getattr(self, "data", None)
         if data is not None:
             self.data.save_info(export_folder)
@@ -559,8 +562,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
     # api
 
     def build(self, data_info: Dict[str, Any]) -> None:
-        builder = IBuilder.make(self.builder, {"pipeline": self})
-        builder.build(data_info)
+        self._make_builder().build(data_info)
 
     def fit(  # type: ignore
         self,
