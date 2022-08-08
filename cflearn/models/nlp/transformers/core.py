@@ -14,7 +14,7 @@ from ...bases import ModelProtocol
 from ....types import texts_type
 from ....protocol import TrainerState
 from ....protocol import InferenceProtocol
-from ....data.interface import TensorDictData
+from ....data.api import TensorDictData
 
 try:
     from transformers import AutoModel

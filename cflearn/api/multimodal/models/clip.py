@@ -14,7 +14,7 @@ from ....types import texts_type
 from ....protocol import InferenceProtocol
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....data.interface import TensorData
+from ....data.api import TensorData
 from ....models.nlp.tokenizers import TokenizerProtocol
 from ....models.multimodal.clip import CLIP
 

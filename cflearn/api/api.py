@@ -25,13 +25,13 @@ from ..protocol import ModelProtocol
 from ..protocol import MetricProtocol
 from ..protocol import DataLoaderProtocol
 from .cv.pipeline import CVPipeline
+from .ml.api import repeat_with
+from .ml.api import RepeatResult
 from .ml.pipeline import MLSimplePipeline
 from .ml.pipeline import MLCarefreePipeline
-from .ml.interface import repeat_with
-from .ml.interface import RepeatResult
 from .zoo.core import DLZoo
-from ..data.interface import MLData
-from ..data.interface import CVDataModule
+from ..data.api import MLData
+from ..data.api import CVDataModule
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
 

@@ -20,7 +20,7 @@ from ....data import CVDataset
 from ....data import CVLoader
 from ....data import DataLoader
 from ....data import DLDataModule
-from ....data.interface import CVDataModule
+from ....data.api import CVDataModule
 
 
 def batch_callback(

@@ -9,15 +9,15 @@ from cftool.misc import random_hash
 from cftool.array import to_device
 from cftool.array import save_images
 
-from ...interface import load
-from ...interface import pack
-from ...interface import pixel_cnn
+from ...api import load
+from ...api import pack
+from ...api import pixel_cnn
 from ....trainer import Trainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import ORIGINAL_LABEL_KEY
-from ....data.interface import TensorData
-from ....data.interface import CVDataModule
+from ....data.api import TensorData
+from ....data.api import CVDataModule
 from ....misc.toolkit import eval_context
 from ....misc.internal_.callbacks import ImageCallback
 from ....models.cv.vae.vector_quantized import VQVAE
