@@ -351,9 +351,8 @@ class SimplePipeline(DLPipeline):
             predict_prob_method=_predict_prob,
         )
 
-    @classmethod
+    @staticmethod
     def fuse_multiple(
-        cls,
         export_folders: List[str],
         *,
         cuda: Optional[str] = None,
@@ -367,14 +366,13 @@ class SimplePipeline(DLPipeline):
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 m = ISerializer.load_infrastructure(
-                    cls,
+                    SimplePipeline,
                     export_folder,
                     cuda,
                     False,
                     pre_callback,
                     post_callback,
                 )
-                assert isinstance(m, SimplePipeline)
                 data_info = DLDataModule.load_info(export_folder)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
         m._make_builder().build(data_info)
