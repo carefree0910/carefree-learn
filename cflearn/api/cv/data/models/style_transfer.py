@@ -20,8 +20,8 @@ from .....data import ImageFolderData
 from .....data import InferenceImageFolderData
 from .....types import sample_weights_type
 from .....constants import INPUT_KEY
-from .....data.core import ImageFolderDataset
-from .....data.core import InferenceImageFolderDataset
+from .....data.cv import ImageFolderDataset
+from .....data.cv import InferenceImageFolderDataset
 from .....models.cv.stylizer.constants import STYLE_KEY
 
 try:

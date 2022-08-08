@@ -30,7 +30,7 @@ from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
-from ...data.core import Transforms
+from ...data.cv import Transforms
 
 
 def register_initializer(name: str) -> Callable[[Callable], Callable]:
