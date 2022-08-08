@@ -221,9 +221,8 @@ class IDLPipeline:
     in_loading: bool
 
 
-class IBuilder(WithRegister["IBuilder"], IDLPipeline):
-    d = dl_pipeline_builders
-    steps = ["prepare_workplace", "prepare_loss", "build_model", "build_inference"]
+class ModifierMixin:
+    pipeline_file: str
 
     def __init__(self, pipeline: "DLPipeline") -> None:
         self.__pipeline = pipeline
@@ -232,7 +231,7 @@ class IBuilder(WithRegister["IBuilder"], IDLPipeline):
         return getattr(self.__pipeline, __name)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        pipeline_key = "_IBuilder__pipeline"
+        pipeline_key = "_ModifierMixin__pipeline"
         if __name == pipeline_key:
             self.__dict__[pipeline_key] = __value
         else:
@@ -240,7 +239,12 @@ class IBuilder(WithRegister["IBuilder"], IDLPipeline):
 
     def _write_pipeline_info(self, folder: str) -> None:
         with open(os.path.join(folder, self.pipeline_file), "w") as f:
-            f.write(self.__identifier__)
+            f.write(self.__pipeline.__identifier__)
+
+
+class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
+    d = dl_pipeline_builders
+    steps = ["prepare_workplace", "prepare_loss", "build_model", "build_inference"]
 
     # pre-defined build steps
 
