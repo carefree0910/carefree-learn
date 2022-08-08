@@ -68,7 +68,7 @@ if __name__ == "__main__":
         if model not in ["decision_tree", "random_forest"]:
             pipelines[model] = cflearn.ml.task_loader(
                 workplace,
-                cflearn.ml.CarefreePipeline,
+                cflearn.ml.MLCarefreePipeline,
             )
         else:
             model_file = os.path.join(workplace, "sk_model.pkl")

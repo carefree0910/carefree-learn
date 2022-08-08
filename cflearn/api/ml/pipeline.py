@@ -196,7 +196,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
 
 
 @DLPipeline.register("ml.simple")
-class SimplePipeline(DLPipeline):
+class MLSimplePipeline(DLPipeline):
     modifier = "ml"
 
     model: MLModel
@@ -356,13 +356,13 @@ class SimplePipeline(DLPipeline):
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
-    ) -> "SimplePipeline":
+    ) -> "MLSimplePipeline":
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 m = IModifier.load_infrastructure(
-                    SimplePipeline,
+                    MLSimplePipeline,
                     export_folder,
                     cuda,
                     False,
@@ -394,7 +394,12 @@ class SimplePipeline(DLPipeline):
         m.model.load_state_dict(merged_states)
         return m
 
-    def re_save(self, export_folder: str, *, compress: bool = True) -> "SimplePipeline":
+    def re_save(
+        self,
+        export_folder: str,
+        *,
+        compress: bool = True,
+    ) -> "MLSimplePipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
@@ -494,11 +499,11 @@ class MLCarefreeModifier(MLModifier):
 
 
 @DLPipeline.register("ml.carefree")
-class CarefreePipeline(SimplePipeline):
+class MLCarefreePipeline(MLSimplePipeline):
     modifier = "ml.carefree"
 
 
 __all__ = [
-    "SimplePipeline",
-    "CarefreePipeline",
+    "MLSimplePipeline",
+    "MLCarefreePipeline",
 ]

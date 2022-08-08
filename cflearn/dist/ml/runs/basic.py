@@ -1,8 +1,8 @@
 import os
 import cflearn
 
-from cflearn.api.ml.pipeline import SimplePipeline
-from cflearn.api.ml.pipeline import CarefreePipeline
+from cflearn.api.ml.pipeline import MLSimplePipeline
+from cflearn.api.ml.pipeline import MLCarefreePipeline
 
 from ._utils import get_info
 
@@ -14,6 +14,6 @@ if __name__ == "__main__":
     assert data is not None
     cuda = info.meta["cuda"]
     carefree = info.meta.get("carefree", data.cf_data is not None)
-    m_base = CarefreePipeline if carefree else SimplePipeline
+    m_base = MLCarefreePipeline if carefree else MLSimplePipeline
     m = m_base(**kwargs).fit(data, cuda=cuda)
     m.save(os.path.join(info.workplace, cflearn.ML_PIPELINE_SAVE_NAME))

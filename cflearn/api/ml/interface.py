@@ -19,8 +19,8 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import get_latest_workplace
 
-from .pipeline import SimplePipeline
-from .pipeline import CarefreePipeline
+from .pipeline import MLSimplePipeline
+from .pipeline import MLCarefreePipeline
 from ...data import MLData
 from ...data import MLInferenceData
 from ...types import configs_type
@@ -49,11 +49,11 @@ except:
     ModelPattern = None
 
 
-pipelines_type = Dict[str, List[SimplePipeline]]
+pipelines_type = Dict[str, List[MLSimplePipeline]]
 various_pipelines_type = Union[
-    SimplePipeline,
-    List[SimplePipeline],
-    Dict[str, SimplePipeline],
+    MLSimplePipeline,
+    List[MLSimplePipeline],
+    Dict[str, MLSimplePipeline],
     pipelines_type,
 ]
 
@@ -118,7 +118,7 @@ def evaluate(
             if not isinstance(x, str):
                 raise ValueError("`x` should be str when `y` is not provided")
             data_pipeline = list(pipelines.values())[0][0]
-            if not isinstance(data_pipeline, CarefreePipeline):
+            if not isinstance(data_pipeline, MLCarefreePipeline):
                 raise ValueError("only `CarefreePipeline` can handle file inputs")
             cf_data = data_pipeline.cf_data
             assert cf_data is not None
@@ -163,27 +163,27 @@ def evaluate(
 
 def task_loader(
     workplace: str,
-    pipeline_base: Type[SimplePipeline] = CarefreePipeline,
+    pipeline_base: Type[MLSimplePipeline] = MLCarefreePipeline,
     *,
     to_original_device: bool = False,
     compress: bool = True,
-) -> SimplePipeline:
+) -> MLSimplePipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
     m = pipeline_base.load(
         export_folder=export_folder,
         to_original_device=to_original_device,
         compress=compress,
     )
-    assert isinstance(m, SimplePipeline)
+    assert isinstance(m, MLSimplePipeline)
     return m
 
 
 def load_experiment_results(
     results: ExperimentResults,
-    pipeline_base: Type[SimplePipeline],
+    pipeline_base: Type[MLSimplePipeline],
     to_original_device: bool = False,
 ) -> pipelines_type:
-    pipelines_dict: Dict[str, Dict[int, SimplePipeline]] = {}
+    pipelines_dict: Dict[str, Dict[int, MLSimplePipeline]] = {}
     iterator = list(zip(results.workplaces, results.workplace_keys))
     for workplace, workplace_key in tqdm(iterator, desc="load"):
         pipeline = task_loader(
@@ -199,7 +199,7 @@ def load_experiment_results(
 class RepeatResult(NamedTuple):
     data: Optional[TabularData]
     experiment: Optional[Experiment]
-    pipelines: Optional[Dict[str, List[SimplePipeline]]]
+    pipelines: Optional[Dict[str, List[MLSimplePipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
 
@@ -256,8 +256,8 @@ def repeat_with(
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
 
-    pipeline_base = CarefreePipeline if carefree else SimplePipeline
-    pipelines_dict: Optional[Dict[str, List[SimplePipeline]]] = None
+    pipeline_base = MLCarefreePipeline if carefree else MLSimplePipeline
+    pipelines_dict: Optional[Dict[str, List[MLSimplePipeline]]] = None
     if sequential:
         cuda = kwargs.pop("cuda", None)
         experiment = None
@@ -352,7 +352,7 @@ def repeat_with(
     cf_data = None
     if patterns is not None:
         m = patterns[models[0]][0].model
-        if isinstance(m, CarefreePipeline):
+        if isinstance(m, MLCarefreePipeline):
             cf_data = m.cf_data
 
     return RepeatResult(cf_data, experiment, pipelines_dict, patterns)
@@ -360,7 +360,7 @@ def repeat_with(
 
 def pack_repeat(
     workplace: str,
-    pipeline_base: Type[SimplePipeline],
+    pipeline_base: Type[MLSimplePipeline],
     *,
     num_jobs: int = 1,
 ) -> List[str]:
@@ -376,7 +376,7 @@ def pack_repeat(
 
 def pick_from_repeat_and_pack(
     workplace: str,
-    pipeline_base: Type[SimplePipeline],
+    pipeline_base: Type[MLSimplePipeline],
     *,
     num_pick: int,
     num_jobs: int = 1,
@@ -406,7 +406,7 @@ def make_toy_model(
     cf_data_config: Optional[Dict[str, Any]] = None,
     data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     cuda: Optional[str] = None,
-) -> SimplePipeline:
+) -> MLSimplePipeline:
     if config is None:
         config = {}
     if data_tuple is not None:
@@ -439,7 +439,7 @@ def make_toy_model(
     }
     updated = update_dict(config, base_config)
     pipelines_type = "ml.simple" if cf_data_config is None else "ml.carefree"
-    m = SimplePipeline.make(pipelines_type, updated)
+    m = MLSimplePipeline.make(pipelines_type, updated)
     if cf_data_config is None:
         data = MLData(
             x_np,

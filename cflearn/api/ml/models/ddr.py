@@ -12,7 +12,7 @@ from cftool.array import to_numpy
 from cftool.array import to_torch
 from cftool.types import tensor_dict_type
 
-from ..pipeline import SimplePipeline
+from ..pipeline import MLSimplePipeline
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import eval_context
 from ....models.ml import DDR
@@ -57,7 +57,7 @@ class DDRPredictor:
         return to_numpy(results["cdf"]), to_numpy(results["pdf"])
 
     @classmethod
-    def from_pipeline(cls, m: SimplePipeline) -> "DDRPredictor":
+    def from_pipeline(cls, m: MLSimplePipeline) -> "DDRPredictor":
         return cls(m.model.core.core)
 
 
@@ -226,7 +226,7 @@ class DDRVisualizer:
     @classmethod
     def from_pipeline(
         cls,
-        m: SimplePipeline,
+        m: MLSimplePipeline,
         dpi: int = 200,
         figsize: Tuple[int, int] = (8, 6),
     ) -> "DDRVisualizer":

@@ -20,7 +20,7 @@ from .task import Task
 from ...constants import META_CONFIG_NAME
 from ...constants import CHECKPOINTS_FOLDER
 from ...data.core import DataModule
-from ...api.ml.pipeline import CarefreePipeline
+from ...api.ml.pipeline import MLCarefreePipeline
 
 
 def _task(
@@ -50,10 +50,10 @@ def inject_distributed_tqdm_kwargs(
 class ExperimentResults(NamedTuple):
     workplaces: List[str]
     workplace_keys: List[Tuple[str, str]]
-    pipelines: Optional[List[CarefreePipeline]]
+    pipelines: Optional[List[MLCarefreePipeline]]
 
     @property
-    def pipeline_dict(self) -> Dict[str, CarefreePipeline]:
+    def pipeline_dict(self) -> Dict[str, MLCarefreePipeline]:
         if self.pipelines is None:
             raise ValueError("pipelines are not provided")
         return dict(zip(self.workplaces, self.pipelines))
@@ -178,7 +178,7 @@ class Experiment(LoggingMixin):
         self,
         *,
         use_tqdm: bool = True,
-        task_loader: Optional[Callable[[str], CarefreePipeline]] = None,
+        task_loader: Optional[Callable[[str], MLCarefreePipeline]] = None,
         **parallel_kwargs: Any,
     ) -> ExperimentResults:
         resource_config = shallow_copy_dict(self.resource_config)
@@ -242,7 +242,7 @@ class Experiment(LoggingMixin):
         saving_folder: str,
         *,
         compress: bool = True,
-        task_loader: Optional[Callable[[str], CarefreePipeline]] = None,
+        task_loader: Optional[Callable[[str], MLCarefreePipeline]] = None,
     ) -> "Experiment":
         workplace: str
         workplace_key: Tuple[str, str]

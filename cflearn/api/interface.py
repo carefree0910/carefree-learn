@@ -25,8 +25,8 @@ from ..protocol import ModelProtocol
 from ..protocol import MetricProtocol
 from ..protocol import DataLoaderProtocol
 from .cv.pipeline import CVPipeline
-from .ml.pipeline import SimplePipeline as MLSimple
-from .ml.pipeline import CarefreePipeline as MLCarefree
+from .ml.pipeline import MLSimplePipeline
+from .ml.pipeline import MLCarefreePipeline
 from .ml.interface import repeat_with
 from .ml.interface import RepeatResult
 from .zoo.core import DLZoo
@@ -258,7 +258,7 @@ def fit_ml(
     # fit
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
-) -> MLSimple:
+) -> MLSimplePipeline:
     pipeline_config = dict(
         core_name=core_name,
         core_config=core_config,
@@ -304,7 +304,7 @@ def fit_ml(
     if debug:
         inject_debug(pipeline_config)
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
-    m_base = MLCarefree if carefree else MLSimple
+    m_base = MLCarefreePipeline if carefree else MLSimplePipeline
     data = _make_ml_data(
         x_train,
         y_train,

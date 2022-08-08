@@ -30,6 +30,6 @@ packed_paths = []
 for stuff in sorted(os.listdir("_logs"))[-2:]:
     folder = os.path.join("_logs", stuff)
     packed_paths.append(cflearn.api.pack(folder))
-fused = cflearn.ml.SimplePipeline.fuse_multiple(packed_paths)
+fused = cflearn.ml.MLSimplePipeline.fuse_multiple(packed_paths)
 p_fused = fused.predict(idata)[cflearn.PREDICTIONS_KEY]
 assert np.allclose(0.5 * (p + p2), p_fused)
