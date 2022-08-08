@@ -550,7 +550,7 @@ class MLData(IMLData):
     def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
         train_loader = MLLoader(
             self.train_data,
-            name="train",
+            name=None if self.for_inference else "train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
             sample_weights=self.train_weights,
