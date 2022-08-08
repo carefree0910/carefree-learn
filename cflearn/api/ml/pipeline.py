@@ -93,7 +93,7 @@ class MLBuilder(IBuilder, IMLPipelineMixin):
             else:
                 self.loss_name = "bce" if self.output_dim == 1 else "focal"
 
-    def setup_encoder(self) -> None:
+    def setup_encoder(self, data_info: Dict[str, Any]) -> None:
         assert isinstance(self.input_dim, int)
         all_indices = list(range(self.input_dim))
         if not self.encoding_settings:
@@ -130,7 +130,7 @@ class MLBuilder(IBuilder, IMLPipelineMixin):
                 loaders.append(valid_loader)
         return Encoder(settings, config=self.encoder_config, loaders=loaders)
 
-    def build_model(self, data_info: Dict[str, Any]) -> None:  # type: ignore
+    def build_model(self, data_info: Dict[str, Any]) -> None:
         assert isinstance(self.input_dim, int)
         assert isinstance(self.output_dim, int)
         self.model = MLModel(
@@ -155,7 +155,7 @@ class MLBuilder(IBuilder, IMLPipelineMixin):
     def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:  # type: ignore
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
-        super().prepare_trainer_defaults()
+        super().prepare_trainer_defaults(data_info)
         if (
             self.trainer_config["metric_names"] is None
             and self.use_auto_loss

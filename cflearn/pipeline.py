@@ -263,7 +263,7 @@ class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
         self.loss_name = LossProtocol.parse(self.loss_name)
         self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
 
-    def build_model(self) -> None:
+    def build_model(self, data_info: Dict[str, Any]) -> None:
         self.model = ModelProtocol.make(self.model_name, config=self.model_config)
 
     def build_inference(self) -> None:
@@ -271,7 +271,7 @@ class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
 
     # trainer stuffs
 
-    def prepare_trainer_defaults(self) -> None:
+    def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
         if get_ddp_info() is not None:
             mns = self.trainer_config["monitor_names"]
