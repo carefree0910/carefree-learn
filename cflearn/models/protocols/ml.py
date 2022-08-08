@@ -65,7 +65,7 @@ class EncodingResult(NamedTuple):
         if self.embedding is None:
             assert self.one_hot is not None
             return self.one_hot
-        return torch.cat([self.one_hot, self.embedding], dim=1)
+        return torch.cat([self.one_hot, self.embedding], dim=-1)
 
 
 class SplitFeatures(NamedTuple):
@@ -100,12 +100,12 @@ class SplitFeatures(NamedTuple):
             assert embedding is not None
             if numerical is None:
                 return embedding
-            return torch.cat([numerical, embedding], dim=1)
+            return torch.cat([numerical, embedding], dim=-1)
         one_hot = categorical.one_hot
         assert not use_embedding and one_hot is not None
         if numerical is None:
             return one_hot
-        return torch.cat([numerical, one_hot], dim=1)
+        return torch.cat([numerical, one_hot], dim=-1)
 
     def _merge_all(self, only_categorical: bool) -> Tensor:
         categorical = self.categorical

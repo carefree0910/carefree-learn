@@ -35,7 +35,7 @@ class EncodingResult(NamedTuple):
         if self.embedding is None:
             assert self.one_hot is not None
             return self.one_hot
-        return torch.cat([self.one_hot, self.embedding], dim=1)
+        return torch.cat([self.one_hot, self.embedding], dim=-1)
 
 
 class OneHot(nn.Module):
@@ -81,7 +81,8 @@ class EncodingSettings(NamedTuple):
     dim (int) : number of different values of this categorical column.
     methods (str | List[str]) : encoding methods to use for each categorical column.
         * if List[str] is provided and its length > 1, then multiple encoding methods will be used.
-    method_configs (Dict[str, Any]) : configs of the corresponding encoding methods.
+    method_configs (Dict[str, Any]) : (flattened) configs of the corresponding encoding methods.
+        * even if multiple methods are used, `method_configs` should still be 'flattened'
 
     """
 
@@ -465,7 +466,7 @@ class Encoder(nn.Module):
 
     @staticmethod
     def _to_split(columns: torch.Tensor) -> List[torch.Tensor]:
-        return list(columns.to(torch.long).t().unbind())
+        return list(columns.to(torch.long).unbind(dim=-1))
 
     def _one_hot(self, one_hot_columns: torch.Tensor) -> torch.Tensor:
         split = self._to_split(one_hot_columns)
@@ -473,12 +474,15 @@ class Encoder(nn.Module):
             self.one_hot_encoders[str(self._one_hot_columns[i])](flat_feature)
             for i, flat_feature in enumerate(split)
         ]
-        return torch.cat(encodings, dim=1)
+        return torch.cat(encodings, dim=-1)
 
     def _embedding(self, indices_columns: torch.Tensor) -> torch.Tensor:
         if self._use_fast_embed:
             embed_mat = self.embeddings["-1"](indices_columns)
-            embed_mat = embed_mat.view(-1, self.num_embedding * self.unified_dim)
+            embed_mat = embed_mat.view(
+                *indices_columns.shape[:-1],
+                self.num_embedding * self.unified_dim,
+            )
             if not self._recover_dim or self.recover_indices is None:
                 return embed_mat
             return embed_mat[..., self.recover_indices]
@@ -487,7 +491,7 @@ class Encoder(nn.Module):
             self.embeddings[str(self._embed_columns[i])](flat_feature)
             for i, flat_feature in enumerate(split)
         ]
-        return torch.cat(encodings, dim=1)
+        return torch.cat(encodings, dim=-1)
 
     @staticmethod
     def _get_cache_keys(name: str) -> Dict[str, str]:
