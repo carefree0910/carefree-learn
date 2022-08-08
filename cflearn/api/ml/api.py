@@ -78,7 +78,7 @@ def _to_pipelines(pipelines: various_pipelines_type) -> pipelines_type:
 
 
 def evaluate(
-    data: Union[MLData, MLInferenceData],
+    data: MLInferenceData,
     *,
     metrics: Union[str, List[str]],
     metric_configs: configs_type = None,
@@ -90,6 +90,8 @@ def evaluate(
 ) -> Comparer:
     if Comparer is None:
         raise ValueError("`carefree-ml` is needed for `evaluate`")
+    if not data.for_inference:
+        raise ValueError("`data.for_inference` should be `True` in `evaluate`")
 
     if not contains_labels:
         err_msg = "`cflearn.evaluate` must be called with `contains_labels = True`"

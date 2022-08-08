@@ -24,8 +24,9 @@ class TestCustomization(unittest.TestCase):
             config={"core_name": "foo", "output_dim": 1, "fixed_epoch": 0},
         )
         data = cflearn.MLData(x, y, is_classification=False)
+        idata = cflearn.MLInferenceData(x, y)
         m.fit(data)
-        predictions = m.predict(data)[cflearn.PREDICTIONS_KEY]
+        predictions = m.predict(idata)[cflearn.PREDICTIONS_KEY]
         self.assertTrue(np.allclose(predictions, np.ones_like(y)))
         self.assertTrue(list(m.model.parameters())[0] is m.model.core.core.dummy)  # type: ignore
 

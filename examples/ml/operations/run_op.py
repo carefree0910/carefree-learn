@@ -41,7 +41,8 @@ rnn = cflearn.api.fit_ml(x, y_add, core_name="rnn", **kwargs)
 try:
     import cfml
 
-    cflearn.ml.evaluate(linear.data, metrics=metrics, pipelines=[linear, fcnn, rnn])
+    idata = linear.make_inference_data(x, y_add)
+    cflearn.ml.evaluate(idata, metrics=metrics, pipelines=[linear, fcnn, rnn])
 except:
     from cftool.misc import print_warning
 
