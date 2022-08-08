@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 sk_patterns[model] = sk_pattern
 
     cflearn.ml.evaluate(
-        m.make_inference_data(x_valid, y_valid),
+        cflearn.MLInferenceData(x_valid, y_valid),
         metrics=metrics,
         pipelines=pipelines,
         other_patterns=sk_patterns,
