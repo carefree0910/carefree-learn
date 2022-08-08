@@ -196,8 +196,9 @@ class MLModifier(IModifier, IMLPipelineMixin):
         y: data_type = None,
         *,
         shuffle: bool = False,
+        contains_labels: bool = True,
     ) -> MLInferenceData:
-        return MLInferenceData(x, y, shuffle=shuffle)
+        return MLInferenceData(x, y, shuffle=shuffle, contains_labels=contains_labels)
 
 
 @DLPipeline.register("ml.simple")
@@ -318,8 +319,14 @@ class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
         y: data_type = None,
         *,
         shuffle: bool = False,
+        contains_labels: bool = True,
     ) -> MLInferenceData:
-        return self._make_modifier().make_inference_data(x, y, shuffle=shuffle)  # type: ignore
+        return self._make_modifier().make_inference_data(  # type: ignore
+            x,
+            y,
+            shuffle=shuffle,
+            contains_labels=contains_labels,
+        )
 
     def to_pattern(
         self,
@@ -502,8 +509,15 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipelineMixin):
         y: data_type = None,
         *,
         shuffle: bool = False,
+        contains_labels: bool = True,
     ) -> MLInferenceData:
-        return MLInferenceData(x, y, shuffle=shuffle, cf_data=self.cf_data)
+        return MLInferenceData(
+            x,
+            y,
+            shuffle=shuffle,
+            contains_labels=contains_labels,
+            cf_data=self.cf_data,
+        )
 
 
 @DLPipeline.register("ml.carefree")

@@ -430,6 +430,7 @@ class MLData(IMLData):
         valid_batch_size: int = 512,
         # inference
         for_inference: bool = False,
+        contains_labels: bool = True,
     ):
         self.arguments = shallow_copy_dict(get_arguments())
         pop_keys = [
@@ -467,6 +468,7 @@ class MLData(IMLData):
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
         self.for_inference = for_inference
+        self.contains_labels = contains_labels
         self.loaded = False
 
     def get_info(self) -> IMLDataInfo:
@@ -489,7 +491,11 @@ class MLData(IMLData):
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
         if self.cf_data is not None:
             if self.for_inference:
-                train_xy = self.cf_data.transform(self.x_train, None).xy
+                train_xy = self.cf_data.transform(
+                    self.x_train,
+                    None,
+                    contains_labels=self.contains_labels,
+                ).xy
                 self.train_data = MLDataset(*train_xy)
                 self.valid_data = None
                 self.train_cf_data = self.cf_data
@@ -594,6 +600,7 @@ class MLInferenceData(MLData):
         y: data_type = None,
         *,
         shuffle: bool = False,
+        contains_labels: bool = True,
         cf_data: Optional[TabularData] = None,
     ):
         super().__init__(
@@ -602,6 +609,7 @@ class MLInferenceData(MLData):
             cf_data=cf_data,
             shuffle_train=shuffle,
             for_inference=True,
+            contains_labels=contains_labels,
         )
         self.prepare(None)
 
