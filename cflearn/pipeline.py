@@ -611,13 +611,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         self.device_info = self.trainer.device_info
         return self
 
-    def predict(  # type: ignore
-        self,
-        data: DLDataModule,
-        *,
-        batch_size: int = 128,
-        **predict_kwargs: Any,
-    ) -> np_dict_type:
+    def predict(self, data: DLDataModule, **predict_kwargs: Any) -> np_dict_type:
         modifier = self._make_modifier()
         train_loader, valid_loader = data.initialize()
         if valid_loader is not None:
