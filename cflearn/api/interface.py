@@ -556,7 +556,7 @@ def fit_cv(
     if debug:
         inject_debug(pipeline_config)
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
-    return CVCarefree(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
+    return CVPipeline(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
 
 
 # clf

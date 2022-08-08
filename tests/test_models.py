@@ -43,6 +43,7 @@ class TestModels(unittest.TestCase):
                         out_dim,
                         _num_history,
                         encoder=None,
+                        use_encoder_cache=False,
                         numerical_columns_mapping={i: i for i in range(in_dim)},
                         categorical_columns_mapping={},
                         use_one_hot=False,

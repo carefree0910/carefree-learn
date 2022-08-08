@@ -14,6 +14,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import filter_kw
 from cftool.misc import get_arguments
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
@@ -460,7 +461,7 @@ class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
             pre_callback(config_bundle)
         config = config_bundle["config"]
         config["in_loading"] = True
-        m = cls(**config)
+        m = cls(**filter_kw(cls, config))
         device_info = DeviceInfo(*config_bundle["device_info"])
         if not to_original_device:
             device_info = device_info._replace(cuda=cuda)
