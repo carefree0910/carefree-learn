@@ -11,7 +11,7 @@ metrics = ["acc", "auc"]
 x, y = TabularDataset.iris().xy
 m = cflearn.api.fit_ml(x, y, is_classification=True, output_dim=3, metric_names=metrics)
 
-idata = cflearn.MLInferenceData(x, y)
+idata = m.make_inference_data(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
 p = m.predict(idata)[cflearn.PREDICTIONS_KEY]

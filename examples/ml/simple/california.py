@@ -17,7 +17,7 @@ m = cflearn.api.fit_ml(
     debug=check_is_ci(),
 )
 
-idata = cflearn.MLInferenceData(x, y)
+idata = m.make_inference_data(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
 predictions = m.predict(idata)[cflearn.PREDICTIONS_KEY]

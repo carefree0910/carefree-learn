@@ -33,7 +33,7 @@ if __name__ == "__main__":
     print(stacked.mean(0))
     print(stacked.std(0))
 
-    idata = cflearn.MLInferenceData(iris_data_file)
+    idata = m.make_inference_data(iris_data_file)
     predictions = m.predict(idata, contains_labels=True)
     cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                 sk_patterns[model] = sk_pattern
 
     cflearn.ml.evaluate(
-        cflearn.MLInferenceData(x_valid, y_valid),
+        m.make_inference_data(x_valid, y_valid),
         metrics=metrics,
         pipelines=pipelines,
         other_patterns=sk_patterns,

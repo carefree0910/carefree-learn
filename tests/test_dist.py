@@ -39,7 +39,7 @@ class TestDist(unittest.TestCase):
         loaded = cflearn.dist.ml.Experiment.load(saving_folder)
         assert loaded.results is not None
         ms_loaded = load_results(loaded.results, cflearn.ml.MLSimplePipeline)
-        idata = cflearn.MLInferenceData(x)
+        idata = cflearn.MLInferenceData(x, cf_data=data.cf_data)
         self.assertTrue(
             np.allclose(
                 ms["fcnn"][1].predict(idata)[cflearn.PREDICTIONS_KEY],

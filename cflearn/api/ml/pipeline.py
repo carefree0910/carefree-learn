@@ -25,6 +25,7 @@ from cftool.types import np_dict_type
 from ...data import MLLoader
 from ...data import DLDataModule
 from ...data import MLInferenceData
+from ...types import data_type
 from ...types import configs_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
@@ -68,6 +69,7 @@ class IMLPipelineMixin:
 
     _pre_process_batch: bool
     _num_repeat: Optional[int]
+    _make_modifier: Callable[[], "MLModifier"]
 
 
 _ml_requirements = get_requirements(IMLPipelineMixin, excludes=[])
@@ -186,9 +188,20 @@ class MLModifier(IModifier, IMLPipelineMixin):
             for key in encoder_cache_keys:
                 states.pop(key)
 
+    # inference
+
+    def make_inference_data(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+    ) -> MLInferenceData:
+        return MLInferenceData(x, y, shuffle=shuffle)
+
 
 @DLPipeline.register("ml.simple")
-class MLSimplePipeline(DLPipeline, IMLPipelineMixin):
+class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
     modifier = "ml"
 
     model: MLModel
@@ -299,6 +312,15 @@ class MLSimplePipeline(DLPipeline, IMLPipelineMixin):
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
+    def make_inference_data(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+    ) -> MLInferenceData:
+        return self._make_modifier().make_inference_data(x, y, shuffle=shuffle)  # type: ignore
+
     def to_pattern(
         self,
         *,
@@ -399,10 +421,12 @@ class MLSimplePipeline(DLPipeline, IMLPipelineMixin):
         return self
 
 
-@IModifier.register("ml.carefree")
-class MLCarefreeModifier(MLModifier):
+class IMLCarefreePipelineMixin:
     cf_data: Optional[TabularData]
 
+
+@IModifier.register("ml.carefree")
+class MLCarefreeModifier(MLModifier, IMLCarefreePipelineMixin):
     # build steps
 
     def setup_encoder(self, data_info: Dict[str, Any]) -> None:  # type: ignore
@@ -470,9 +494,20 @@ class MLCarefreeModifier(MLModifier):
             recovered[k] = v
         return recovered
 
+    # inference
+
+    def make_inference_data(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+    ) -> MLInferenceData:
+        return MLInferenceData(x, y, shuffle=shuffle, cf_data=self.cf_data)
+
 
 @DLPipeline.register("ml.carefree")
-class MLCarefreePipeline(MLSimplePipeline):
+class MLCarefreePipeline(MLSimplePipeline, IMLCarefreePipelineMixin):
     modifier = "ml.carefree"
 
 

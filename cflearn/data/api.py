@@ -588,8 +588,21 @@ class MLData(IMLData):
 
 
 class MLInferenceData(MLData):
-    def __init__(self, x: data_type, y: data_type = None, shuffle: bool = False):
-        super().__init__(x, y, shuffle_train=shuffle, for_inference=True)
+    def __init__(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+        cf_data: Optional[TabularData] = None,
+    ):
+        super().__init__(
+            x,
+            y,
+            cf_data=cf_data,
+            shuffle_train=shuffle,
+            for_inference=True,
+        )
         self.prepare(None)
 
 

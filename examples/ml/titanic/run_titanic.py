@@ -12,7 +12,7 @@ test_file = os.path.join(file_folder, "test.csv")
 kwargs = dict(carefree=True, cf_data_config={"label_name": "Survived"})
 m = cflearn.api.fit_ml(train_file, **kwargs)  # type: ignore
 
-idata = cflearn.MLInferenceData(test_file)
+idata = m.make_inference_data(test_file)
 results = m.predict(idata, make_loader_kwargs={"contains_labels": False})
 predictions = results[cflearn.PREDICTIONS_KEY]
 
