@@ -16,6 +16,7 @@ from typing import Any
 from typing import Set
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Callable
@@ -28,7 +29,6 @@ from cftool.misc import print_error
 from cftool.misc import print_warning
 from cftool.misc import get_arguments
 from cftool.misc import shallow_copy_dict
-from cftool.misc import Saving
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 from torch.utils.data import Dataset
@@ -42,6 +42,9 @@ from .cv import ImageFolderDataset
 from .cv import InferenceImageFolderDataset
 from .ml import MLLoader
 from .ml import MLDataset
+from .ml import IMLData
+from .ml import IMLDataInfo
+from .ml import IMLDataModifier
 from .core import DLLoader
 from .core import DLDataset
 from .core import DataLoader
@@ -293,8 +296,101 @@ def _split_sw(sample_weights: sample_weights_type) -> split_sw_type:
     return train_weights, valid_weights
 
 
+@IMLDataModifier.register("_internal.ml")
+class _InternalMLDataModifier(IMLDataModifier):
+    data: "MLData"
+
+    def save(self, data_folder: str) -> None:
+        with open(os.path.join(data_folder, self.data.arguments_file), "w") as f:
+            json.dump(self.data.arguments, f)
+        all_data = [
+            self.data.x_train,
+            self.data.y_train,
+            self.data.x_valid,
+            self.data.y_valid,
+        ]
+        for data, file in zip(all_data, self.data.data_files):
+            if data is not None:
+                np.save(os.path.join(data_folder, file), data)
+        if self.data.train_others is not None:
+            for k, v in self.data.train_others.items():
+                np.save(os.path.join(data_folder, f"{k}_train.npy"), v)
+        if self.data.valid_others is not None:
+            for k, v in self.data.valid_others.items():
+                np.save(os.path.join(data_folder, f"{k}_valid.npy"), v)
+        if self.data.cf_data is not None:
+            full_cf_data_folder = os.path.join(data_folder, self.data.full_cf_data_name)
+            self.data.cf_data.save(full_cf_data_folder, retain_data=True)
+
+    @classmethod
+    def load(cls, data_folder: str, info: Dict[str, Any]) -> "MLData":
+        args = []
+        for file in MLData.data_files:
+            path = os.path.join(data_folder, file)
+            args.append(None if not os.path.isfile(path) else np.load(path))
+        with open(os.path.join(data_folder, MLData.arguments_file), "r") as f:
+            kwargs = json.load(f)
+        train_others = {}
+        valid_others = {}
+        for file in os.listdir(data_folder):
+            if file in MLData.data_files:
+                continue
+            path = os.path.join(data_folder, file)
+            if file.endswith("_train"):
+                train_others[file.split("_train")[0]] = np.load(path)
+            elif file.endswith("_valid"):
+                valid_others[file.split("_valid")[0]] = np.load(path)
+        if train_others:
+            kwargs["train_others"] = train_others
+        if valid_others:
+            kwargs["valid_others"] = valid_others
+        if info["cf_data"] is not None:
+            if TabularData is None:
+                raise ValueError(
+                    "`carefree-data` needs to be installed "
+                    "to load `MLData` with `cf_data` defined"
+                )
+            full_cf_data_folder = os.path.join(data_folder, MLData.full_cf_data_name)
+            kwargs["cf_data"] = TabularData.load(full_cf_data_folder)
+        return MLData(*args, **kwargs)
+
+    def permute_info_in_save(self, info: Dict[str, Any]) -> None:
+        if info["cf_data"] is not None:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                tmp_name = os.path.join(tmp_dir, self.data.tmp_cf_data_name)
+                info["cf_data"].save(tmp_name, retain_data=False)
+                zip_file = f"{tmp_name}.zip"
+                with open(zip_file, "rb") as f:
+                    info["cf_data"] = f.read()
+                os.remove(zip_file)
+
+    @classmethod
+    def permute_info_in_load(
+        cls,
+        data_cls: Type["MLData"],
+        info: Dict[str, Any],
+    ) -> None:
+        cf_data = info["cf_data"]
+        if cf_data is None:
+            return
+        if TabularData is None:
+            raise ValueError(
+                "`carefree-data` needs to be installed "
+                "to load `MLData` with `cf_data` defined"
+            )
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_name = os.path.join(tmp_dir, data_cls.tmp_cf_data_name)
+            zip_file = f"{tmp_name}.zip"
+            with open(zip_file, "wb") as f:
+                f.write(cf_data)
+            info["cf_data"] = TabularData.load(tmp_name)
+            os.remove(zip_file)
+
+
 @DLDataModule.register("ml")
-class MLData(DLDataModule):
+class MLData(IMLData):
+    modifier = "_internal.ml"
+
     train_data: MLDataset
     valid_data: Optional[MLDataset]
 
@@ -372,15 +468,19 @@ class MLData(DLDataModule):
         self.valid_batch_size = valid_batch_size
         self.loaded = False
 
+    def get_info(self) -> IMLDataInfo:
+        return IMLDataInfo(
+            self.input_dim,
+            self.num_history,
+            self.num_classes,
+            self.is_classification,
+        )
+
     @property
     def info(self) -> Dict[str, Any]:
-        return {
-            "cf_data": self.cf_data,
-            "input_dim": self.input_dim,
-            "num_classes": self.num_classes,
-            "num_history": self.num_history,
-            "is_classification": self.is_classification,
-        }
+        info = super().info
+        info["cf_data"] = self.cf_data
+        return info
 
     def prepare(self, sample_weights: sample_weights_type) -> None:
         train_others = self.train_others or {}
@@ -473,95 +573,6 @@ class MLData(DLDataModule):
         kwargs["is_classification"] = is_classification
         kwargs["cf_data"] = TabularData(**(cf_data_config or {}))
         return cls(*args, **kwargs)
-
-    def _save_info(self, folder: str) -> None:
-        info = self.info
-        if info["cf_data"] is not None:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_name = os.path.join(tmp_dir, self.tmp_cf_data_name)
-                info["cf_data"].save(tmp_name, retain_data=False)
-                zip_file = f"{tmp_name}.zip"
-                with open(zip_file, "rb") as f:
-                    info["cf_data"] = f.read()
-                os.remove(zip_file)
-        Saving.save_dict(info, self.info_name, folder)
-
-    @classmethod
-    def _load_info(cls, folder: str) -> Dict[str, Any]:
-        d = super()._load_info(folder)
-        cf_data = d["cf_data"]
-        if cf_data is None:
-            return d
-        if TabularData is None:
-            raise ValueError(
-                "`carefree-data` needs to be installed "
-                "to load `MLData` with `cf_data` defined"
-            )
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_name = os.path.join(tmp_dir, cls.tmp_cf_data_name)
-            zip_file = f"{tmp_name}.zip"
-            with open(zip_file, "wb") as f:
-                f.write(cf_data)
-            d["cf_data"] = TabularData.load(tmp_name)
-            os.remove(zip_file)
-        return d
-
-    def _save_data(self, data_folder: str) -> None:
-        with open(os.path.join(data_folder, self.arguments_file), "w") as f:
-            json.dump(self.arguments, f)
-        all_data = [self.x_train, self.y_train, self.x_valid, self.y_valid]
-        for data, file in zip(all_data, self.data_files):
-            if data is not None:
-                np.save(os.path.join(data_folder, file), data)
-        if self.train_others is not None:
-            for k, v in self.train_others.items():
-                np.save(os.path.join(data_folder, f"{k}_train.npy"), v)
-        if self.valid_others is not None:
-            for k, v in self.valid_others.items():
-                np.save(os.path.join(data_folder, f"{k}_valid.npy"), v)
-        if self.cf_data is not None:
-            full_cf_data_folder = os.path.join(data_folder, self.full_cf_data_name)
-            self.cf_data.save(full_cf_data_folder, retain_data=True)
-
-    @classmethod
-    def _load(
-        cls,
-        data_folder: str,
-        info: Dict[str, Any],
-        sample_weights: sample_weights_type,
-    ) -> "MLData":
-        args = []
-        for file in cls.data_files:
-            path = os.path.join(data_folder, file)
-            args.append(None if not os.path.isfile(path) else np.load(path))
-        with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
-            kwargs = json.load(f)
-        train_others = {}
-        valid_others = {}
-        for file in os.listdir(data_folder):
-            if file in cls.data_files:
-                continue
-            path = os.path.join(data_folder, file)
-            if file.endswith("_train"):
-                train_others[file.split("_train")[0]] = np.load(path)
-            elif file.endswith("_valid"):
-                valid_others[file.split("_valid")[0]] = np.load(path)
-        if train_others:
-            kwargs["train_others"] = train_others
-        if valid_others:
-            kwargs["valid_others"] = valid_others
-        if info["cf_data"] is not None:
-            if TabularData is None:
-                raise ValueError(
-                    "`carefree-data` needs to be installed "
-                    "to load `MLData` with `cf_data` defined"
-                )
-            full_cf_data_folder = os.path.join(data_folder, cls.full_cf_data_name)
-            kwargs["cf_data"] = TabularData.load(full_cf_data_folder)
-        data = cls(*args, **kwargs)
-        data.loaded = True
-        data.prepare(sample_weights)
-        return data
 
 
 class MLInferenceData(MLData):
