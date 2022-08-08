@@ -54,9 +54,7 @@ from .misc.internal_.trainer import make_trainer
 
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
-dl_pipeline_builders: Dict[str, Type["IBuilder"]] = {}
-dl_pipeline_serializers: Dict[str, Type["ISerializer"]] = {}
-dl_pipeline_predictors: Dict[str, Type["IPredictor"]] = {}
+dl_pipeline_modifiers: Dict[str, Type["IModifier"]] = {}
 
 
 class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
@@ -127,7 +125,7 @@ def _generate_model_soup_checkpoint(
             if configs.verbose:
                 print(f"> Checking {file}")
             states = torch.load(path, map_location=m.device)
-            m._make_serializer().permute_states(states)
+            m._make_modifier().permute_states(states)
             states_backup = shallow_copy_dict(current_states)
             if configs.states_callback is not None:
                 states = configs.states_callback(m, states)
@@ -193,9 +191,7 @@ def _generate_model_soup_checkpoint(
 
 
 class IDLPipeline:
-    builder: str
-    serializer: str
-    predictor: str
+    modifier: str
 
     data: DLDataModule
     loss: LossProtocol
@@ -229,9 +225,15 @@ class IDLPipeline:
     is_rank_0: bool
 
 
-class ModifierMixin:
-    serializer: str
-    pipeline_file: str
+class IModifier(WithRegister["IModifier"], IDLPipeline):
+    d = dl_pipeline_modifiers
+
+    build_steps = [
+        "prepare_workplace",
+        "prepare_loss",
+        "build_model",
+        "build_inference",
+    ]
 
     def __init__(self, pipeline: "DLPipeline") -> None:
         self.__pipeline = pipeline
@@ -240,7 +242,7 @@ class ModifierMixin:
         return getattr(self.__pipeline, __name)
 
     def __setattr__(self, __name: str, __value: Any) -> None:
-        pipeline_key = "_ModifierMixin__pipeline"
+        pipeline_key = "_IModifier__pipeline"
         if __name == pipeline_key:
             self.__dict__[pipeline_key] = __value
         else:
@@ -250,12 +252,7 @@ class ModifierMixin:
         with open(os.path.join(folder, self.pipeline_file), "w") as f:
             f.write(self.__pipeline.__identifier__)
 
-
-class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
-    d = dl_pipeline_builders
-    steps = ["prepare_workplace", "prepare_loss", "build_model", "build_inference"]
-
-    # pre-defined build steps
+    # build steps
 
     def prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading:
@@ -277,8 +274,6 @@ class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
 
     def build_inference(self) -> None:
         self.inference = self.inference_base(model=self.model)
-
-    # trainer stuffs
 
     def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
@@ -318,13 +313,13 @@ class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
         self.trainer_config["callback_configs"] = callback_configs
         self.trainer_config["optimizer_settings"] = optimizer_settings
 
-    # api
+    ## api
 
     def build(self, data_info: Dict[str, Any]) -> None:
         if self.built:
             return None
         kw = dict(data_info=data_info)
-        for step in self.steps:
+        for step in self.build_steps:
             fn = getattr(self, step)
             fn(**filter_kw(fn, kw))
         if self.in_loading:
@@ -337,9 +332,23 @@ class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
         self.trainer = make_trainer(**trainer_config)
         self.built = True
 
+    # load steps
 
-class ISerializer(WithRegister["ISerializer"], ModifierMixin, IDLPipeline):
-    d = dl_pipeline_serializers
+    def post_load_infrastructure(self, export_folder: str) -> None:
+        pass
+
+    def load_states_from(self, folder: str) -> Dict[str, Any]:
+        checkpoints = get_sorted_checkpoints(folder)
+        if not checkpoints:
+            raise ValueError(f"no model file found in {folder}")
+        checkpoint_path = os.path.join(folder, checkpoints[0])
+        return torch.load(checkpoint_path, map_location=self.device)
+
+    # changes should happen inplace
+    def permute_states(self, states: Dict[str, Any]) -> None:
+        pass
+
+    ## api
 
     def save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
@@ -401,23 +410,7 @@ class ISerializer(WithRegister["ISerializer"], ModifierMixin, IDLPipeline):
             post_callback(m, config_bundle)
         return m
 
-    def post_load_infrastructure(self, export_folder: str) -> None:
-        pass
-
-    def load_states_from(self, folder: str) -> Dict[str, Any]:
-        checkpoints = get_sorted_checkpoints(folder)
-        if not checkpoints:
-            raise ValueError(f"no model file found in {folder}")
-        checkpoint_path = os.path.join(folder, checkpoints[0])
-        return torch.load(checkpoint_path, map_location=self.device)
-
-    # changes should happen inplace
-    def permute_states(self, states: Dict[str, Any]) -> None:
-        pass
-
-
-class IPredictor(WithRegister["IPredictor"], ModifierMixin, IDLPipeline):
-    d = dl_pipeline_predictors
+    # predict steps
 
     def make_new_loader(
         self,
@@ -436,9 +429,7 @@ class IPredictor(WithRegister["IPredictor"], ModifierMixin, IDLPipeline):
 
 @PipelineProtocol.register("dl")
 class DLPipeline(PipelineProtocol, IDLPipeline):
-    builder = "dl"
-    serializer = "dl"
-    predictor = "dl"
+    modifier = "dl"
 
     inference_base = InferenceProtocol
 
@@ -562,8 +553,6 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         if cudnn_benchmark:
             torch.backends.cudnn.benchmark = True
 
-    # properties
-
     @property
     def device(self) -> torch.device:  # type: ignore
         return self.device_info.device
@@ -577,21 +566,13 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
             return True
         return False
 
-    # internal
-
-    def _make_builder(self) -> IBuilder:
-        return IBuilder.make(self.builder, {"pipeline": self})
-
-    def _make_serializer(self) -> ISerializer:
-        return ISerializer.make(self.serializer, {"pipeline": self})
-
-    def _make_predictor(self) -> IPredictor:
-        return IPredictor.make(self.predictor, {"pipeline": self})
+    def _make_modifier(self) -> IModifier:
+        return IModifier.make(self.modifier, {"pipeline": self})
 
     # api
 
     def build(self, data_info: Dict[str, Any]) -> None:
-        self._make_builder().build(data_info)
+        self._make_modifier().build(data_info)
 
     def fit(  # type: ignore
         self,
@@ -624,12 +605,12 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         make_loader_kwargs: Optional[Dict[str, Any]] = None,
         **predict_kwargs: Any,
     ) -> np_dict_type:
-        predictor = self._make_predictor()
+        modifier = self._make_modifier()
         make_loader_kwargs = make_loader_kwargs or {}
-        loader = predictor.make_new_loader(data, batch_size, **make_loader_kwargs)
+        loader = modifier.make_new_loader(data, batch_size, **make_loader_kwargs)
         predict_kwargs = shallow_copy_dict(predict_kwargs)
         outputs = self.inference.get_outputs(loader, **predict_kwargs)
-        return predictor.post_process(outputs)
+        return modifier.post_process(outputs)
 
     def save(
         self,
@@ -641,7 +622,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            score = self._make_serializer().save_misc(export_folder)
+            score = self._make_modifier().save_misc(export_folder)
             if getattr(self.trainer, "model", None) is None:
                 self.trainer.model = self.model
             self.trainer.save_checkpoint(score, export_folder, no_history=True)
@@ -738,7 +719,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 pipeline_cls = DLPipeline.get_base(export_folder)
-                m = ISerializer.load_infrastructure(
+                m = IModifier.load_infrastructure(
                     pipeline_cls,
                     export_folder,
                     None if cuda is None else str(cuda),
@@ -746,8 +727,8 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
                     pre_callback,
                     post_callback,
                 )
-                serializer = ISerializer.get(pipeline_cls.serializer)(m)
-                serializer.post_load_infrastructure(export_folder)
+                modifier = IModifier.get(pipeline_cls.modifier)(m)
+                modifier.post_load_infrastructure(export_folder)
                 try:
                     data_info = DataModule.load_info(export_folder)
                 except Exception as err:
@@ -757,11 +738,11 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
                         "empty `data_info` will be used"
                     )
                     data_info = {}
-                m._make_builder().build(data_info)
+                m._make_modifier().build(data_info)
                 m.model.to(m.device)
                 # restore checkpoint
-                states = serializer.load_states_from(export_folder)
-                serializer.permute_states(states)
+                states = modifier.load_states_from(export_folder)
+                modifier.permute_states(states)
                 if states_callback is not None:
                     states = states_callback(m, states)
                 m.model.load_state_dict(states)
@@ -851,30 +832,16 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         return m
 
 
-def register_builder(name: str, *, allow_duplicate: bool = False) -> Callable:
-    return IBuilder.register(name, allow_duplicate=allow_duplicate)
+def register_modifier(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return IModifier.register(name, allow_duplicate=allow_duplicate)
 
 
-def register_serializer(name: str, *, allow_duplicate: bool = False) -> Callable:
-    return ISerializer.register(name, allow_duplicate=allow_duplicate)
-
-
-def register_predictor(name: str, *, allow_duplicate: bool = False) -> Callable:
-    return IPredictor.register(name, allow_duplicate=allow_duplicate)
-
-
-register_builder("dl")(IBuilder)
-register_serializer("dl")(ISerializer)
-register_serializer("dl")(IPredictor)
+register_modifier("dl")(IModifier)
 
 
 __all__ = [
-    "register_builder",
-    "register_serializer",
-    "register_predictor",
+    "register_modifier",
+    "IModifier",
     "PipelineProtocol",
-    "IBuilder",
-    "ISerializer",
-    "IPredictor",
     "DLPipeline",
 ]

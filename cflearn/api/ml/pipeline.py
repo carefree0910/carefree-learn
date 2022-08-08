@@ -30,10 +30,8 @@ from ...data import MLInferenceData
 from ...types import configs_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
-from ...pipeline import IBuilder
+from ...pipeline import IModifier
 from ...pipeline import DLPipeline
-from ...pipeline import IPredictor
-from ...pipeline import ISerializer
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
@@ -73,9 +71,11 @@ class IMLPipelineMixin:
     _num_repeat: Optional[int]
 
 
-@IBuilder.register("ml")
-class MLBuilder(IBuilder, IMLPipelineMixin):
-    steps = ["setup_defaults", "setup_encoder"] + IBuilder.steps
+@IModifier.register("ml")
+class MLModifier(IModifier, IMLPipelineMixin):
+    build_steps = ["setup_defaults", "setup_encoder"] + IModifier.build_steps
+
+    # build steps
 
     def setup_defaults(self, data_info: Dict[str, Any]) -> None:
         self.is_classification = data_info["is_classification"]
@@ -172,9 +172,8 @@ class MLBuilder(IBuilder, IMLPipelineMixin):
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
 
+    # load steps
 
-@ISerializer.register("ml")
-class MLSerializer(ISerializer, IMLPipelineMixin):
     def permute_states(self, states: Dict[str, Any]) -> None:
         if self.encoder is not None:
             encoder_cache_keys = []
@@ -184,9 +183,8 @@ class MLSerializer(ISerializer, IMLPipelineMixin):
             for key in encoder_cache_keys:
                 states.pop(key)
 
+    # predict steps
 
-@IPredictor.register("ml")
-class MLPredictor(IPredictor, IMLPipelineMixin):
     def make_new_loader(
         self,
         data: MLData,
@@ -199,9 +197,7 @@ class MLPredictor(IPredictor, IMLPipelineMixin):
 
 @DLPipeline.register("ml.simple")
 class SimplePipeline(DLPipeline):
-    builder = "ml"
-    serializer = "ml"
-    predictor = "ml"
+    modifier = "ml"
 
     model: MLModel
     inference: MLInference
@@ -365,7 +361,7 @@ class SimplePipeline(DLPipeline):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                m = ISerializer.load_infrastructure(
+                m = IModifier.load_infrastructure(
                     SimplePipeline,
                     export_folder,
                     cuda,
@@ -375,7 +371,7 @@ class SimplePipeline(DLPipeline):
                 )
                 data_info = DLDataModule.load_info(export_folder)
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
-        m._make_builder().build(data_info)
+        m._make_modifier().build(data_info)
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
         for i, export_folder in enumerate(export_folders):
@@ -412,8 +408,12 @@ class SimplePipeline(DLPipeline):
         return self
 
 
-@IBuilder.register("ml.carefree")
-class MLCarefreeBuilder(MLBuilder):
+@IModifier.register("ml.carefree")
+class MLCarefreeModifier(MLModifier):
+    cf_data: Optional[TabularData]
+
+    # build steps
+
     def setup_encoder(self, data_info: Dict[str, Any]) -> None:  # type: ignore
         self.cf_data = data_info["cf_data"]
         if self.cf_data is None:
@@ -456,16 +456,12 @@ class MLCarefreeBuilder(MLBuilder):
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
 
+    # load steps
 
-@ISerializer.register("ml.carefree")
-class MLCarefreeSerializer(MLSerializer):
     def post_load_infrastructure(self, export_folder: str) -> None:
         self.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
 
-
-@IPredictor.register("ml.carefree")
-class MLCarefreePredictor(MLPredictor):
-    cf_data: Optional[TabularData]
+    # predict steps
 
     def make_new_loader(
         self,
@@ -499,9 +495,7 @@ class MLCarefreePredictor(MLPredictor):
 
 @DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):
-    builder = "ml.carefree"
-    serializer = "ml.carefree"
-    predictor = "ml.carefree"
+    modifier = "ml.carefree"
 
 
 __all__ = [
