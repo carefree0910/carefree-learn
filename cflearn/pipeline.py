@@ -198,7 +198,7 @@ class DLPipeline(PipelineProtocol):
     model: ModelProtocol
     trainer: Trainer
     inference: InferenceProtocol
-    inference_base: Type[InferenceProtocol]
+    inference_base: Type[InferenceProtocol] = InferenceProtocol
     device_info: DeviceInfo
 
     pipeline_file: str = "pipeline.txt"
