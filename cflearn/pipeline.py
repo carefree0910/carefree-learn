@@ -192,7 +192,8 @@ def _generate_model_soup_checkpoint(
         )
 
 
-class DLPipeline(PipelineProtocol, metaclass=ABCMeta):
+@PipelineProtocol.register("dl")
+class DLPipeline(PipelineProtocol):
     loss: LossProtocol
     model: ModelProtocol
     trainer: Trainer
