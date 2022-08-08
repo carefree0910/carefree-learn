@@ -334,27 +334,27 @@ class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
         self,
         *,
         binary_threshold: float = 0.5,
-        pre_process: Optional[Callable] = None,
+        pre_process: Optional[Callable[[MLInferenceData], MLInferenceData]] = None,
         **predict_kwargs: Any,
     ) -> ModelPattern:
         if ModelPattern is None:
             raise ValueError("`carefree-ml` need to be installed to use `to_pattern`")
 
-        def _predict(data: MLInferenceData) -> np.ndarray:
+        def _predict(idata: MLInferenceData) -> np.ndarray:
             if pre_process is not None:
-                data = pre_process(data)
-            predictions = self.predict(data, **predict_kwargs)[PREDICTIONS_KEY]
+                idata = pre_process(idata)
+            predictions = self.predict(idata, **predict_kwargs)[PREDICTIONS_KEY]
             if self.is_classification:
                 return get_label_predictions(predictions, binary_threshold)
             return predictions
 
-        def _predict_prob(data: MLInferenceData) -> np.ndarray:
+        def _predict_prob(idata: MLInferenceData) -> np.ndarray:
             if not self.is_classification:
                 msg = "`predict_prob` should not be called in regression tasks"
                 raise ValueError(msg)
             if pre_process is not None:
-                data = pre_process(data)
-            logits = self.predict(data, **predict_kwargs)[PREDICTIONS_KEY]
+                idata = pre_process(idata)
+            logits = self.predict(idata, **predict_kwargs)[PREDICTIONS_KEY]
             logits = get_full_logits(logits)
             return softmax(logits)
 

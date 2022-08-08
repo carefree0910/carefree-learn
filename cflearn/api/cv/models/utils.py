@@ -28,15 +28,15 @@ def predict_folder(
     use_tqdm: bool = True,
     **predict_kwargs: Any,
 ) -> FolderInferenceResults:
-    data = InferenceImageFolderData(
+    idata = InferenceImageFolderData(
         folder,
         batch_size=batch_size,
         num_workers=num_workers,
         transform=transform,
         transform_config=transform_config,
     )
-    outputs = m.predict(data, use_tqdm=use_tqdm, **predict_kwargs)
-    return FolderInferenceResults(outputs, data.dataset.img_paths)
+    outputs = m.predict(idata, use_tqdm=use_tqdm, **predict_kwargs)
+    return FolderInferenceResults(outputs, idata.dataset.img_paths)
 
 
 __all__ = [
