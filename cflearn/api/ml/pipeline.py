@@ -196,18 +196,12 @@ class MLModifier(IModifier, IMLPipelineMixin):
 
 
 @DLPipeline.register("ml.simple")
-class MLSimplePipeline(DLPipeline):
+class MLSimplePipeline(DLPipeline, IMLPipelineMixin):
     modifier = "ml"
 
     model: MLModel
     inference: MLInference
     inference_base = MLInference
-
-    encoder: Optional[Encoder]
-    numerical_columns_mapping: Dict[int, int]
-    categorical_columns_mapping: Dict[int, int]
-    use_one_hot: bool
-    use_embedding: bool
 
     def __init__(
         self,
