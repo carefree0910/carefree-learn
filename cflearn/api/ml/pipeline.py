@@ -32,6 +32,7 @@ from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import IBuilder
 from ...pipeline import DLPipeline
+from ...pipeline import ISerializer
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
@@ -170,9 +171,23 @@ class MLBuilder(IBuilder, IMLPipelineMixin):
             callback_names.append("_inject_loader_name")
 
 
+@ISerializer.register("ml")
+class MLSerializer(ISerializer, IMLPipelineMixin):
+    def permute_states(self, states: Dict[str, Any]) -> Dict[str, Any]:
+        if self.encoder is not None:
+            encoder_cache_keys = []
+            for key in states:
+                if key.startswith("encoder") and key.endswith("cache"):
+                    encoder_cache_keys.append(key)
+            for key in encoder_cache_keys:
+                states.pop(key)
+        return states
+
+
 @DLPipeline.register("ml.simple")
 class SimplePipeline(DLPipeline):
     builder = "ml"
+    serializer = "ml"
 
     model: MLModel
     inference: MLInference
@@ -296,17 +311,6 @@ class SimplePipeline(DLPipeline):
     ) -> MLLoader:
         x = data.x_train
         return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
-
-    @classmethod
-    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
-        if m.encoder is not None:
-            encoder_cache_keys = []
-            for key in states:
-                if key.startswith("encoder") and key.endswith("cache"):
-                    encoder_cache_keys.append(key)
-            for key in encoder_cache_keys:
-                states.pop(key)
-        return states
 
     # api
 
@@ -451,9 +455,16 @@ class MLCarefreeBuilder(MLBuilder):
         self.categorical_columns_mapping = categorical_columns_mapping
 
 
+@ISerializer.register("ml.carefree")
+class MLCarefreeSerializer(MLSerializer):
+    def post_load_infrastructure(self, export_folder: str) -> None:
+        self.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
+
+
 @DLPipeline.register("ml.carefree")
 class CarefreePipeline(SimplePipeline):
     builder = "ml.carefree"
+    serializer = "ml.carefree"
 
     def __init__(
         self,
@@ -588,26 +599,6 @@ class CarefreePipeline(SimplePipeline):
             shuffle=False,
             batch_size=batch_size,
         )
-
-    @classmethod
-    def _load_infrastructure(
-        cls,
-        export_folder: str,
-        cuda: Optional[str],
-        to_original_device: bool,
-        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
-    ) -> "CarefreePipeline":
-        m = super()._load_infrastructure(
-            export_folder,
-            cuda,
-            to_original_device,
-            pre_callback,
-            post_callback,
-        )
-        assert isinstance(m, CarefreePipeline)
-        m.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
-        return m
 
 
 __all__ = [

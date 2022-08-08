@@ -54,6 +54,7 @@ from .misc.internal_.trainer import make_trainer
 
 pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
 dl_pipeline_builders: Dict[str, Type["IBuilder"]] = {}
+dl_pipeline_serializers: Dict[str, Type["ISerializer"]] = {}
 
 
 class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
@@ -191,6 +192,9 @@ def _generate_model_soup_checkpoint(
 
 
 class IDLPipeline:
+    builder: str
+    serializer: str
+
     data: DLDataModule
     loss: LossProtocol
     loss_name: str
@@ -217,11 +221,14 @@ class IDLPipeline:
     input_dim: Optional[int]
 
     built: bool
-    is_rank_0: bool
     in_loading: bool
+
+    device: torch.device
+    is_rank_0: bool
 
 
 class ModifierMixin:
+    serializer: str
     pipeline_file: str
 
     def __init__(self, pipeline: "DLPipeline") -> None:
@@ -239,7 +246,13 @@ class ModifierMixin:
 
     def _write_pipeline_info(self, folder: str) -> None:
         with open(os.path.join(folder, self.pipeline_file), "w") as f:
-            f.write(self.__pipeline.__identifier__)
+            json.dump(
+                {
+                    "pipeline": self.__pipeline.__identifier__,
+                    "serializer": self.serializer,
+                },
+                f,
+            )
 
 
 class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
@@ -329,13 +342,91 @@ class IBuilder(WithRegister["IBuilder"], ModifierMixin, IDLPipeline):
         self.built = True
 
 
+class ISerializer(WithRegister["ISerializer"], ModifierMixin, IDLPipeline):
+    d = dl_pipeline_serializers
+
+    def save_misc(self, export_folder: str) -> float:
+        os.makedirs(export_folder, exist_ok=True)
+        self._write_pipeline_info(export_folder)
+        data = getattr(self, "data", None)
+        if data is not None:
+            self.data.save_info(export_folder)
+        # final results
+        final_results = None
+        try:
+            final_results = self.trainer.final_results
+            if final_results is None:
+                print_warning(
+                    "`final_results` are not generated yet, "
+                    "'unknown' results will be saved"
+                )
+        except AttributeError as e:
+            print_warning(
+                f"{e}, so `final_results` cannot be accessed, "
+                "and 'unknown' results will be saved"
+            )
+        if final_results is None:
+            final_results = MetricsOutputs(0.0, {"unknown": 0.0})
+        with open(os.path.join(export_folder, self.final_results_file), "w") as f:
+            json.dump(final_results, f)
+        # config bundle
+        config_bundle = {
+            "config": shallow_copy_dict(self.config),
+            "device_info": self.device_info,
+        }
+        Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
+        return final_results.final_score
+
+    @staticmethod
+    def load_infrastructure(
+        cls: Type["DLPipeline"],
+        export_folder: str,
+        cuda: Optional[str],
+        to_original_device: bool,
+        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+    ) -> "DLPipeline":
+        config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
+        if pre_callback is not None:
+            pre_callback(config_bundle)
+        config = config_bundle["config"]
+        config["in_loading"] = True
+        m = cls(**filter_kw(cls, config))
+        device_info = DeviceInfo(*config_bundle["device_info"])
+        if not to_original_device:
+            device_info = device_info._replace(cuda=cuda)
+        elif cuda is not None:
+            print_warning(
+                "`to_original_device` is set to True, so "
+                f"`cuda={cuda}` will be ignored"
+            )
+        m.device_info = device_info
+        if post_callback is not None:
+            post_callback(m, config_bundle)
+        return m
+
+    def post_load_infrastructure(self, export_folder: str) -> None:
+        pass
+
+    def load_states_from(self, folder: str) -> Dict[str, Any]:
+        checkpoints = get_sorted_checkpoints(folder)
+        if not checkpoints:
+            raise ValueError(f"no model file found in {folder}")
+        checkpoint_path = os.path.join(folder, checkpoints[0])
+        return torch.load(checkpoint_path, map_location=self.device)
+
+    def permute_states(self, states: Dict[str, Any]) -> Dict[str, Any]:
+        return states
+
+
 @PipelineProtocol.register("dl")
 class DLPipeline(PipelineProtocol, IDLPipeline):
     builder = "dl"
+    serializer = "dl"
 
     inference_base = InferenceProtocol
 
-    pipeline_file = "pipeline.txt"
+    pipeline_file = "pipeline.json"
     config_name = "config"
     trainer_config_file = "trainer_config.json"
     data_info_name = "data_info"
@@ -458,7 +549,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
     # properties
 
     @property
-    def device(self) -> torch.device:
+    def device(self) -> torch.device:  # type: ignore
         return self.device_info.device
 
     @property
@@ -475,37 +566,8 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
     def _make_builder(self) -> IBuilder:
         return IBuilder.make(self.builder, {"pipeline": self})
 
-    def _save_misc(self, export_folder: str) -> float:
-        os.makedirs(export_folder, exist_ok=True)
-        self._make_builder()._write_pipeline_info(export_folder)
-        data = getattr(self, "data", None)
-        if data is not None:
-            self.data.save_info(export_folder)
-        # final results
-        final_results = None
-        try:
-            final_results = self.trainer.final_results
-            if final_results is None:
-                print_warning(
-                    "`final_results` are not generated yet, "
-                    "'unknown' results will be saved"
-                )
-        except AttributeError as e:
-            print_warning(
-                f"{e}, so `final_results` cannot be accessed, "
-                "and 'unknown' results will be saved"
-            )
-        if final_results is None:
-            final_results = MetricsOutputs(0.0, {"unknown": 0.0})
-        with open(os.path.join(export_folder, self.final_results_file), "w") as f:
-            json.dump(final_results, f)
-        # config bundle
-        config_bundle = {
-            "config": shallow_copy_dict(self.config),
-            "device_info": self.device_info,
-        }
-        Saving.save_dict(config_bundle, self.config_bundle_name, export_folder)
-        return final_results.final_score
+    def _make_serializer(self) -> ISerializer:
+        return ISerializer.make(self.serializer, {"pipeline": self})
 
     def _make_new_loader(
         self,
@@ -517,47 +579,6 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         if valid_loader is not None:
             raise ValueError("`valid_loader` should not be provided")
         return train_loader
-
-    @classmethod
-    def _load_infrastructure(
-        cls,
-        export_folder: str,
-        cuda: Optional[str],
-        to_original_device: bool,
-        pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
-        post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
-    ) -> "DLPipeline":
-        config_bundle = Saving.load_dict(cls.config_bundle_name, export_folder)
-        if pre_callback is not None:
-            pre_callback(config_bundle)
-        config = config_bundle["config"]
-        config["in_loading"] = True
-        m = cls(**filter_kw(cls, config))
-        device_info = DeviceInfo(*config_bundle["device_info"])
-        if not to_original_device:
-            device_info = device_info._replace(cuda=cuda)
-        elif cuda is not None:
-            print_warning(
-                "`to_original_device` is set to True, so "
-                f"`cuda={cuda}` will be ignored"
-            )
-        m.device_info = device_info
-        if post_callback is not None:
-            post_callback(m, config_bundle)
-        return m
-
-    @classmethod
-    def _load_states_callback(cls, m: Any, states: Dict[str, Any]) -> Dict[str, Any]:
-        return states
-
-    @classmethod
-    def _load_states_from(cls, m: Any, folder: str) -> Dict[str, Any]:
-        checkpoints = get_sorted_checkpoints(folder)
-        if not checkpoints:
-            raise ValueError(f"no model file found in {folder}")
-        checkpoint_path = os.path.join(folder, checkpoints[0])
-        states = torch.load(checkpoint_path, map_location=m.device)
-        return cls._load_states_callback(m, states)
 
     # api
 
@@ -610,7 +631,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
-            score = self._save_misc(export_folder)
+            score = self._make_serializer().save_misc(export_folder)
             if getattr(self.trainer, "model", None) is None:
                 self.trainer.model = self.model
             self.trainer.save_checkpoint(score, export_folder, no_history=True)
@@ -689,7 +710,12 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
     @staticmethod
     def get_base(workplace: str) -> Type["DLPipeline"]:
         with open(os.path.join(workplace, DLPipeline.pipeline_file), "r") as f:
-            return DLPipeline.get(f.read())  # type: ignore
+            return DLPipeline.get(json.load(f)["pipeline"])  # type: ignore
+
+    @staticmethod
+    def get_serializer_base(workplace: str) -> Type["ISerializer"]:
+        with open(os.path.join(workplace, DLPipeline.pipeline_file), "r") as f:
+            return ISerializer.get(json.load(f)["serializer"])
 
     @staticmethod
     def load(
@@ -707,14 +733,17 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
-                cls = DLPipeline.get_base(export_folder)
-                m = cls._load_infrastructure(
+                pipeline_cls = DLPipeline.get_base(export_folder)
+                m = ISerializer.load_infrastructure(
+                    pipeline_cls,
                     export_folder,
                     None if cuda is None else str(cuda),
                     to_original_device,
                     pre_callback,
                     post_callback,
                 )
+                serializer = DLPipeline.get_serializer_base(export_folder)(m)
+                serializer.post_load_infrastructure(export_folder)
                 try:
                     data_info = DataModule.load_info(export_folder)
                 except Exception as err:
@@ -727,7 +756,8 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
                 m._make_builder().build(data_info)
                 m.model.to(m.device)
                 # restore checkpoint
-                states = cls._load_states_from(m, export_folder)
+                states = serializer.load_states_from(export_folder)
+                states = serializer.permute_states(states)
                 if states_callback is not None:
                     states = states_callback(m, states)
                 m.model.load_state_dict(states)
@@ -821,12 +851,19 @@ def register_builder(name: str, *, allow_duplicate: bool = False) -> Callable:
     return IBuilder.register(name, allow_duplicate=allow_duplicate)
 
 
+def register_serializer(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return ISerializer.register(name, allow_duplicate=allow_duplicate)
+
+
 register_builder("dl")(IBuilder)
+register_serializer("dl")(ISerializer)
 
 
 __all__ = [
     "register_builder",
+    "register_serializer",
     "PipelineProtocol",
     "IBuilder",
+    "ISerializer",
     "DLPipeline",
 ]
