@@ -22,9 +22,7 @@ from cftool.array import get_full_logits
 from cftool.array import get_label_predictions
 from cftool.types import np_dict_type
 
-from ...data import MLData
 from ...data import MLLoader
-from ...data import MLDataset
 from ...data import DLDataModule
 from ...data import MLInferenceData
 from ...types import configs_type
@@ -187,17 +185,6 @@ class MLModifier(IModifier, IMLPipelineMixin):
                     encoder_cache_keys.append(key)
             for key in encoder_cache_keys:
                 states.pop(key)
-
-    # predict steps
-
-    def make_new_loader(
-        self,
-        data: MLData,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> MLLoader:
-        x = data.x_train
-        return MLLoader(MLDataset(x, None), shuffle=False, batch_size=batch_size)
 
 
 @DLPipeline.register("ml.simple")
@@ -466,19 +453,6 @@ class MLCarefreeModifier(MLModifier):
         self.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
 
     # predict steps
-
-    def make_new_loader(
-        self,
-        data: MLData,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> MLLoader:
-        assert self.cf_data is not None
-        return MLLoader(
-            MLDataset(*self.cf_data.transform(data.x_train, None, **kwargs).xy),
-            shuffle=False,
-            batch_size=batch_size,
-        )
 
     def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
         assert self.cf_data is not None

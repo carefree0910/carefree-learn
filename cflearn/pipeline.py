@@ -437,17 +437,6 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
     # predict steps
 
-    def make_new_loader(
-        self,
-        data: DLDataModule,
-        batch_size: int,
-        **kwargs: Any,
-    ) -> DataLoaderProtocol:
-        train_loader, valid_loader = data.initialize()
-        if valid_loader is not None:
-            raise ValueError("`valid_loader` should not be provided")
-        return train_loader
-
     def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
         return outputs.forward_results
 
@@ -627,14 +616,14 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         data: DLDataModule,
         *,
         batch_size: int = 128,
-        make_loader_kwargs: Optional[Dict[str, Any]] = None,
         **predict_kwargs: Any,
     ) -> np_dict_type:
         modifier = self._make_modifier()
-        make_loader_kwargs = make_loader_kwargs or {}
-        loader = modifier.make_new_loader(data, batch_size, **make_loader_kwargs)
+        train_loader, valid_loader = data.initialize()
+        if valid_loader is not None:
+            raise ValueError("`valid_loader` should not be provided in `predict`")
         predict_kwargs = shallow_copy_dict(predict_kwargs)
-        outputs = self.inference.get_outputs(loader, **predict_kwargs)
+        outputs = self.inference.get_outputs(train_loader, **predict_kwargs)
         return modifier.post_process(outputs)
 
     def save(

@@ -466,6 +466,7 @@ class MLData(IMLData):
         self.shuffle_valid = shuffle_valid
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
+        self.for_inference = for_inference
         self.loaded = False
 
     def get_info(self) -> IMLDataInfo:
@@ -487,41 +488,52 @@ class MLData(IMLData):
         valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
         if self.cf_data is not None:
-            if not self.loaded:
-                self.cf_data.read(self.x_train, self.y_train, **self.read_config)
+            if self.for_inference:
+                train_xy = self.cf_data.transform(self.x_train, None).xy
+                self.train_data = MLDataset(*train_xy)
+                self.valid_data = None
+                self.train_cf_data = self.cf_data
+                self.valid_cf_data = None
+            else:
+                if not self.loaded:
+                    self.cf_data.read(self.x_train, self.y_train, **self.read_config)
+                if self.x_valid is not None:
+                    self.train_cf_data = self.cf_data
+                    self.valid_cf_data = self.cf_data.copy_to(
+                        self.x_valid, self.y_valid
+                    )
+                else:
+                    if isinstance(self.valid_split, int):
+                        split = self.valid_split
+                    else:
+                        num_data = len(self.cf_data)
+                        if isinstance(self.valid_split, float):
+                            split = int(round(self.valid_split * num_data))
+                        else:
+                            default_split = 0.1
+                            num_split = int(round(default_split * num_data))
+                            num_split = max(self.min_valid_split, num_split)
+                            max_split = int(
+                                round(num_data * self.max_valid_split_ratio)
+                            )
+                            max_split = min(max_split, self.max_valid_split)
+                            split = min(num_split, max_split)
+                    if split <= 0:
+                        self.train_cf_data = self.cf_data
+                        self.valid_cf_data = None
+                    else:
+                        rs = self.cf_data.split(split, order=self.valid_split_order)
+                        self.train_cf_data = rs.remained
+                        self.valid_cf_data = rs.split
+                train_xy = self.train_cf_data.processed.xy
+                self.train_data = MLDataset(*train_xy, **train_others)
+                if self.valid_cf_data is None:
+                    self.valid_data = None
+                else:
+                    valid_xy = self.valid_cf_data.processed.xy
+                    self.valid_data = MLDataset(*valid_xy, **valid_others)
             if self.is_classification is None:
                 self.is_classification = self.cf_data.is_clf
-            if self.x_valid is not None:
-                self.train_cf_data = self.cf_data
-                self.valid_cf_data = self.cf_data.copy_to(self.x_valid, self.y_valid)
-            else:
-                if isinstance(self.valid_split, int):
-                    split = self.valid_split
-                else:
-                    num_data = len(self.cf_data)
-                    if isinstance(self.valid_split, float):
-                        split = int(round(self.valid_split * num_data))
-                    else:
-                        default_split = 0.1
-                        num_split = int(round(default_split * num_data))
-                        num_split = max(self.min_valid_split, num_split)
-                        max_split = int(round(num_data * self.max_valid_split_ratio))
-                        max_split = min(max_split, self.max_valid_split)
-                        split = min(num_split, max_split)
-                if split <= 0:
-                    self.train_cf_data = self.cf_data
-                    self.valid_cf_data = None
-                else:
-                    rs = self.cf_data.split(split, order=self.valid_split_order)
-                    self.train_cf_data = rs.remained
-                    self.valid_cf_data = rs.split
-            train_xy = self.train_cf_data.processed.xy
-            self.train_data = MLDataset(*train_xy, **train_others)
-            if self.valid_cf_data is None:
-                self.valid_data = None
-            else:
-                valid_xy = self.valid_cf_data.processed.xy
-                self.valid_data = MLDataset(*valid_xy, **valid_others)
             self.num_classes = self.train_cf_data.num_classes
             self.input_dim = self.train_cf_data.processed_dim
             return None
@@ -576,8 +588,9 @@ class MLData(IMLData):
 
 
 class MLInferenceData(MLData):
-    def __init__(self, x: data_type, y: data_type = None):
-        super().__init__(x, y, for_inference=True)
+    def __init__(self, x: data_type, y: data_type = None, shuffle: bool = False):
+        super().__init__(x, y, shuffle_train=shuffle, for_inference=True)
+        self.prepare(None)
 
 
 # cv
