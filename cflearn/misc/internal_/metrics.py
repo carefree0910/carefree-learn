@@ -3,6 +3,7 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import print_warning
 from cftool.array import iou
 from cftool.array import corr
 from cftool.array import softmax
@@ -15,7 +16,6 @@ from .register import IMetric
 from ...protocol import MetricProtocol
 from ...protocol import DataLoaderProtocol
 from ...constants import LABEL_KEY
-from ...constants import WARNING_PREFIX
 from ...constants import PREDICTIONS_KEY
 
 try:
@@ -62,7 +62,7 @@ class F1Score(IMetric):
         super().__init__()
         self.threshold = threshold
         if metrics is None:
-            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `F1Score`")
+            print_warning("`scikit-learn` needs to be installed for `F1Score`")
 
     @property
     def is_positive(self) -> bool:
@@ -80,7 +80,7 @@ class R2Score(IMetric):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
-            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `R2Score`")
+            print_warning("`scikit-learn` needs to be installed for `R2Score`")
 
     @property
     def is_positive(self) -> bool:
@@ -97,7 +97,7 @@ class AUC(IMetric):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
-            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `AUC`")
+            print_warning("`scikit-learn` needs to be installed for `AUC`")
 
     @property
     def is_positive(self) -> bool:
@@ -144,7 +144,7 @@ class BER(IMetric):
     def __init__(self) -> None:
         super().__init__()
         if metrics is None:
-            print(f"{WARNING_PREFIX}`scikit-learn` needs to be installed for `AUC`")
+            print_warning("`scikit-learn` needs to be installed for `AUC`")
 
     @property
     def is_positive(self) -> bool:

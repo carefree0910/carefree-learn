@@ -6,11 +6,11 @@ from typing import List
 from typing import Tuple
 from typing import Optional
 from dataclasses import dataclass
+from cftool.misc import print_warning
 from cftool.array import to_numpy
 from cftool.array import to_torch
 
 from ..pipeline import SimplePipeline
-from ....constants import WARNING_PREFIX
 from ....misc.toolkit import eval_context
 from ....models.ml.nbm import NBM
 from ....models.protocols.ml import IEncoder
@@ -63,7 +63,7 @@ class NBMInspector:
         existing_titles = set()
         for x_dims in target_x_dims:
             if len(x_dims) != 1:
-                print(f"{WARNING_PREFIX}dim > 1 is not supported yet")
+                print_warning("dim > 1 is not supported yet")
                 continue
 
             if self.column_names is None:
@@ -83,7 +83,7 @@ class NBMInspector:
             else:
                 res = self.dimensions.get_indices_in_merged(dim)
                 if res is None:
-                    print(f"{WARNING_PREFIX}column {dim} is redundant, skipped")
+                    print_warning(f"column {dim} is redundant, skipped")
                     continue
                 indices, is_categorical = res
             i_min, i_max = self.boundings[dim]

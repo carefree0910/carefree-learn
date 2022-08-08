@@ -23,6 +23,9 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.dist import Parallel
 from cftool.misc import walk
+from cftool.misc import print_info
+from cftool.misc import print_error
+from cftool.misc import print_warning
 from cftool.misc import get_arguments
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
@@ -47,9 +50,6 @@ from ..types import data_type
 from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
-from ..constants import INFO_PREFIX
-from ..constants import ERROR_PREFIX
-from ..constants import WARNING_PREFIX
 from ..constants import ORIGINAL_LABEL_KEY
 
 try:
@@ -641,18 +641,18 @@ class ImageFolderData(CVDataModule):
         if not torch.cuda.is_available():
             fmt = "cuda is not available but {} is provided, which will have no effect"
             if prefetch_device is not None:
-                print(f"{WARNING_PREFIX}{fmt.format('`prefetch_device`')}")
+                print_warning(f"{fmt.format('`prefetch_device`')}")
                 prefetch_device = None
             if pin_memory_device is not None:
-                print(f"{WARNING_PREFIX}{fmt.format('`pin_memory_device`')}")
+                print_warning(f"{fmt.format('`pin_memory_device`')}")
                 pin_memory_device = None
         if prefetch_device is not None:
             if pin_memory_device is None:
                 pin_memory_device = prefetch_device
             if pin_memory_device is not None:
                 if str(prefetch_device) != str(pin_memory_device):
-                    print(
-                        f"{WARNING_PREFIX}`prefetch_device` and `pin_memory_device` "
+                    print_warning(
+                        "`prefetch_device` and `pin_memory_device` "
                         "are both provided but they are not consistent, which may "
                         "impact the memory usage and performance"
                     )
@@ -873,11 +873,11 @@ def prepare_image_folder(
 
     preparation.prepare_src_folder(src_folder)
     if os.path.isdir(tgt_folder):
-        print(f"{WARNING_PREFIX}'{tgt_folder}' already exists, it will be removed")
+        print_warning(f"'{tgt_folder}' already exists, it will be removed")
         shutil.rmtree(tgt_folder)
     os.makedirs(tgt_folder, exist_ok=True)
 
-    print(f"{INFO_PREFIX}collecting hierarchies")
+    print_info("collecting hierarchies")
 
     def hierarchy_callback(hierarchy: List[str], path: str) -> None:
         hierarchy = hierarchy[prefix_idx:]
@@ -905,8 +905,7 @@ def prepare_image_folder(
                 return label_fn(*args)
             except Exception as err:
                 err_path = "/".join(h)
-                msg = f"error occurred ({err}) when getting label of {err_path}"
-                print(f"{ERROR_PREFIX}{msg}")
+                print_error(f"error occurred ({err}) when getting label of {err_path}")
                 return None
 
         if not make_labels_in_parallel:
@@ -922,7 +921,7 @@ def prepare_image_folder(
             final_results[idx] = rs
         return final_results
 
-    print(f"{INFO_PREFIX}making labels")
+    print_info("making labels")
     labels = get_labels(preparation.get_label)
     excluded_indices = {i for i, label in enumerate(labels) if label is None}
     extra_labels_dict: Optional[Dict[str, List[str]]] = None
@@ -930,7 +929,7 @@ def prepare_image_folder(
     extra_label_fn = preparation.get_extra_label
     if extra_labels is not None:
         extra_labels_dict = {}
-        print(f"{INFO_PREFIX}making extra labels")
+        print_info("making extra labels")
         for el_name in extra_labels:
             extra_labels_dict[el_name] = get_labels(extra_label_fn, el_name)
         for extra_labels in extra_labels_dict.values():
@@ -993,7 +992,7 @@ def prepare_image_folder(
 
     # exclude samples
     if excluded_indices:
-        print(f"{WARNING_PREFIX}{len(excluded_indices)} samples will be excluded")
+        print_warning(f"{len(excluded_indices)} samples will be excluded")
     for i in sorted(excluded_indices)[::-1]:
         for sub_labels in labels_dict.values():
             sub_labels.pop(i)
@@ -1057,9 +1056,8 @@ def prepare_image_folder(
         # lmdb
         if lmdb_config is None or lmdb is None:
             if lmdb_config is not None:
-                print(
-                    f"{WARNING_PREFIX}`lmdb` is not installed, "
-                    "so `lmdb_config` will be ignored"
+                print_warning(
+                    "`lmdb` is not installed, so `lmdb_config` will be ignored"
                 )
             return None
         local_lmdb_config = shallow_copy_dict(lmdb_config)

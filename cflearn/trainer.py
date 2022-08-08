@@ -18,7 +18,10 @@ from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
+from cftool.misc import print_info
+from cftool.misc import print_error
 from cftool.misc import update_dict
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import sort_dict_by_value
 from cftool.misc import context_error_handler
@@ -46,10 +49,7 @@ from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
 from .constants import LOSS_KEY
 from .constants import PT_PREFIX
-from .constants import INFO_PREFIX
 from .constants import SCORES_FILE
-from .constants import ERROR_PREFIX
-from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
 from .misc.toolkit import get_ddp_info
@@ -465,14 +465,14 @@ class Trainer:
         pretrained_ckpt = self.finetune_config.get("pretrained_ckpt")
         if pretrained_ckpt is None:
             raise ValueError("`rank` should be provided when `finetune` is triggered")
-        print(f"{INFO_PREFIX}loading pretrained checkpoint from '{pretrained_ckpt}'...")
+        print_info(f"loading pretrained checkpoint from '{pretrained_ckpt}'...")
         d = torch.load(pretrained_ckpt, map_location=self.device)
         self.model.load_state_dict(d)
         freeze = self.finetune_config.get("freeze", "")
         freeze_except = self.finetune_config.get("freeze_except", "")
         if not freeze and not freeze_except:
             return None
-        msg_fmt = f"{INFO_PREFIX}{'{}'} parameters will be {'{}'} under '{'{}'}'"
+        msg_fmt = f"-> {'{}'} parameters will be {'{}'} under '{'{}'}'"
         param_names = []
         if freeze:
             num_frozen = 0
@@ -549,8 +549,8 @@ class Trainer:
         if pack.scope == "all":
             if self.model_has_custom_steps and self.model.custom_params_groups:
                 if self.use_zero:
-                    print(
-                        f"{WARNING_PREFIX}currently PyTorch does not support "
+                    print_warning(
+                        "currently PyTorch does not support "
                         "using ZeRO with parameter groups, so ZeRO will be disabled"
                     )
                     self.use_zero = False
@@ -874,7 +874,7 @@ class Trainer:
         # train
         has_ckpt = terminate = False
         if self.is_rank_0 and self.epoch_tqdm is None:
-            print(f"{INFO_PREFIX}entered training loop")
+            print_info("entered training loop")
         if self.is_rank_0 and config_export_file is not None:
             config_export_path = os.path.join(self.workplace, config_export_file)
             with open(config_export_path, "w") as f:
@@ -916,7 +916,7 @@ class Trainer:
             except KeyboardInterrupt:
                 if dist.is_initialized():
                     raise
-                print(f"{ERROR_PREFIX}keyboard interrupted")
+                print_error("keyboard interrupted")
                 terminate = True
             if terminate:
                 break
@@ -930,7 +930,7 @@ class Trainer:
         # restore
         if self.is_rank_0 and self.has_checkpoint_folder:
             if not self.tqdm_settings.in_distributed:
-                print(f"{INFO_PREFIX}rolling back to the best checkpoint")
+                print_info("rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
@@ -999,8 +999,8 @@ class Trainer:
         state = getattr(self, "state", None)
         pt_file = f"{PT_PREFIX}{-1 if state is None else state.step}.pt"
         if state is None:
-            print(
-                f"{WARNING_PREFIX}`state` is not initialized, "
+            print_warning(
+                "`state` is not initialized, "
                 "latest model will be saved and no scores will be recorded"
             )
             torch.save(self.model.state_dict(), os.path.join(folder, pt_file))
@@ -1035,7 +1035,7 @@ class Trainer:
         checkpoints = get_sorted_checkpoints(folder)
         if not checkpoints:
             if not self.tqdm_settings.in_distributed:
-                print(f"{WARNING_PREFIX}no model file found in {folder}")
+                print_warning(f"no model file found in {folder}")
             return False
         success = False
         for checkpoint in checkpoints:
@@ -1043,7 +1043,7 @@ class Trainer:
             if not os.path.isfile(model_file):
                 continue
             if not self.tqdm_settings.in_distributed:
-                print(f"{INFO_PREFIX}restoring from {model_file}")
+                print_info(f"restoring from {model_file}")
             states = torch.load(model_file, map_location=self.device)
             if state_dict_callback is not None:
                 state_dict_callback(states)

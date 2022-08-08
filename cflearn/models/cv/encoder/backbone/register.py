@@ -2,8 +2,7 @@ from typing import Dict
 from typing import List
 from typing import Callable
 from typing import NamedTuple
-
-from .....constants import WARNING_PREFIX
+from cftool.misc import print_warning
 
 
 class BackboneInfo(NamedTuple):
@@ -23,8 +22,8 @@ def register_backbone(
     def _register(fn: Callable) -> Callable:
         registered = backbone_info_dict.get(name)
         if registered is not None:
-            print(
-                f"{WARNING_PREFIX}'{name}' has already been registered "
+            print_warning(
+                f"'{name}' has already been registered "
                 f"in the given global dict ({backbone_info_dict})"
             )
             return fn

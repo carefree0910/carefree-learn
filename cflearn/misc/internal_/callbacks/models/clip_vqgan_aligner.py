@@ -3,10 +3,10 @@ import torch
 
 from PIL import Image
 from tqdm import tqdm
+from cftool.misc import print_warning
 
 from .....trainer import Trainer
 from .....trainer import TrainerCallback
-from .....constants import WARNING_PREFIX
 from .....misc.toolkit import eval_context
 
 try:
@@ -42,8 +42,8 @@ class CLIPWithVQGANAlignerCallback(TrainerCallback):
 
     def finalize(self, trainer: Trainer) -> None:
         if cv2 is None:
-            print(
-                f"{WARNING_PREFIX}`opencv-python` is not installed, "
+            print_warning(
+                "`opencv-python` is not installed, "
                 "so the video file cannot be generated."
             )
             return

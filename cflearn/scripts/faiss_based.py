@@ -13,7 +13,6 @@ from typing import NamedTuple
 from cftool.types import tensor_dict_type
 
 from ..trainer import DeviceInfo
-from ..constants import WARNING_PREFIX
 from ..api.cv.pipeline import CVPipeline
 from ..api.cv.models.interface import IImageExtractor
 
@@ -25,8 +24,7 @@ except ImportError:
 
 def _check() -> None:
     if faiss is None:
-        msg = f"{WARNING_PREFIX}`faiss` is needed for faiss based scripts"
-        raise ValueError(msg)
+        raise ValueError("`faiss` is needed for faiss based scripts")
 
 
 class FaissResponse(NamedTuple):

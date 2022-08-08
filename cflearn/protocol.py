@@ -20,6 +20,8 @@ from typing import Iterator
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import filter_kw
+from cftool.misc import print_info
+from cftool.misc import print_warning
 from cftool.misc import lock_manager
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
@@ -36,8 +38,6 @@ from .types import configs_type
 from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
-from .constants import INFO_PREFIX
-from .constants import WARNING_PREFIX
 from .constants import PREDICTIONS_KEY
 from .constants import BATCH_INDICES_KEY
 from .constants import ORIGINAL_LABEL_KEY
@@ -283,15 +283,15 @@ class ModelProtocol(
                 if not simplify:
                     return self.to(device)
                 if onnx is None:
-                    print(
-                        f"{WARNING_PREFIX}`onnx` is not installed, "
-                        f"so the exported onnx model will not be simplified"
+                    print_warning(
+                        "`onnx` is not installed, "
+                        "so the exported onnx model will not be simplified"
                     )
                     return self.to(device)
                 if onnx_simplify is None or get_input_names is None:
-                    print(
-                        f"{WARNING_PREFIX}`onnx-simplifier` is not installed, "
-                        f"so the exported onnx model will not be simplified"
+                    print_warning(
+                        "`onnx-simplifier` is not installed, "
+                        "so the exported onnx model will not be simplified"
                     )
                     return self.to(device)
                 try:
@@ -307,12 +307,12 @@ class ModelProtocol(
                     )
                 except Exception as err:
                     if verbose:
-                        print(f"{WARNING_PREFIX}Failed to simplify ONNX model ({err})")
+                        print_warning(f"Failed to simplify ONNX model ({err})")
                     model_simplified = None
                     check = False
                 if verbose:
                     tag = " " if check else " not "
-                    print(f"{INFO_PREFIX}Simplified ONNX model is{tag}validated!")
+                    print_info(f"Simplified ONNX model is{tag}validated!")
                 if check and model_simplified is not None:
                     onnx.save(model_simplified, onnx_path)
         return self.to(device)

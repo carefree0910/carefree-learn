@@ -15,6 +15,8 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import filter_kw
+from cftool.misc import print_info
+from cftool.misc import print_warning
 from cftool.misc import get_arguments
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
@@ -43,9 +45,7 @@ from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
 from .constants import PT_PREFIX
-from .constants import INFO_PREFIX
 from .constants import SCORES_FILE
-from .constants import WARNING_PREFIX
 from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import get_ddp_info
@@ -271,7 +271,7 @@ class DLPipeline(PipelineProtocol):
                         f"`{model_name}` has not implemented its own loss "
                         "and `allow_no_loss` is False"
                     )
-            print(f"{INFO_PREFIX}`{loss_name}` loss will be used.")
+            print_info(f"`{loss_name}` loss will be used.")
         # set defaults
         if state_config is None:
             state_config = {}
@@ -279,7 +279,7 @@ class DLPipeline(PipelineProtocol):
         if callback_names is None:
             if model_name in callback_dict:
                 callback_names = model_name
-                print(f"{INFO_PREFIX}`{model_name}` callback will be used.")
+                print_info(f"`{model_name}` callback will be used.")
         # initialize
         super().__init__()
         self.input_dim = None
@@ -372,8 +372,8 @@ class DLPipeline(PipelineProtocol):
         if get_ddp_info() is not None:
             mns = self.trainer_config["monitor_names"]
             if mns is not None and mns != "conservative" and mns != ["conservative"]:
-                print(
-                    f"{WARNING_PREFIX}only `conservative` monitor is available "
+                print_warning(
+                    "only `conservative` monitor is available "
                     f"in DDP mode, {mns} found"
                 )
             self.trainer_config["monitor_names"] = "conservative"
@@ -416,13 +416,13 @@ class DLPipeline(PipelineProtocol):
         try:
             final_results = self.trainer.final_results
             if final_results is None:
-                print(
-                    f"{WARNING_PREFIX}`final_results` are not generated yet, "
+                print_warning(
+                    "`final_results` are not generated yet, "
                     "'unknown' results will be saved"
                 )
         except AttributeError as e:
-            print(
-                f"{WARNING_PREFIX}{e}, so `final_results` cannot be accessed, "
+            print_warning(
+                f"{e}, so `final_results` cannot be accessed, "
                 "and 'unknown' results will be saved"
             )
         if final_results is None:
@@ -467,8 +467,8 @@ class DLPipeline(PipelineProtocol):
         if not to_original_device:
             device_info = device_info._replace(cuda=cuda)
         elif cuda is not None:
-            print(
-                f"{WARNING_PREFIX}`to_original_device` is set to True, so "
+            print_warning(
+                "`to_original_device` is set to True, so "
                 f"`cuda={cuda}` will be ignored"
             )
         m.device_info = device_info
@@ -484,8 +484,7 @@ class DLPipeline(PipelineProtocol):
     def _load_states_from(cls, m: Any, folder: str) -> Dict[str, Any]:
         checkpoints = get_sorted_checkpoints(folder)
         if not checkpoints:
-            msg = f"{WARNING_PREFIX}no model file found in {folder}"
-            raise ValueError(msg)
+            raise ValueError(f"no model file found in {folder}")
         checkpoint_path = os.path.join(folder, checkpoints[0])
         states = torch.load(checkpoint_path, map_location=m.device)
         return cls._load_states_callback(m, states)
@@ -582,7 +581,7 @@ class DLPipeline(PipelineProtocol):
             pack_name = f"packed{'' if step is None else f'_{step}'}"
             pack_folder = os.path.join(workplace, pack_name)
         if os.path.isdir(pack_folder):
-            print(f"{WARNING_PREFIX}'{pack_folder}' already exists, it will be erased")
+            print_warning(f"'{pack_folder}' already exists, it will be erased")
             shutil.rmtree(pack_folder)
         os.makedirs(pack_folder)
         abs_folder = os.path.abspath(pack_folder)
@@ -664,8 +663,8 @@ class DLPipeline(PipelineProtocol):
                 try:
                     data_info = DataModule.load_info(export_folder)
                 except Exception as err:
-                    print(
-                        f"{WARNING_PREFIX}error occurred when trying to load "
+                    print_warning(
+                        "error occurred when trying to load "
                         f"`DataModule` ({err}), it might cause by BC breaking, "
                         "empty `data_info` will be used"
                     )

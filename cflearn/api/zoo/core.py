@@ -10,12 +10,12 @@ from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
+from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
 from ...pipeline import DLPipeline
 from ...pipeline import PipelineProtocol
 from ...protocol import ModelProtocol
-from ...constants import WARNING_PREFIX
 from ...constants import DEFAULT_ZOO_TAG
 from ...misc.toolkit import inject_debug
 from ...misc.toolkit import download_model
@@ -216,9 +216,9 @@ class DLZoo(ZooBase):
         try:
             zoo.load_pretrained()
         except ValueError:
-            print(
-                f"{WARNING_PREFIX}no pretrained models are available for '{model}', "
-                f"so onnx will not be dumped"
+            print_warning(
+                f"no pretrained models are available for '{model}', "
+                "so onnx will not be dumped"
             )
             return zoo.m
         zoo.m.to_onnx(

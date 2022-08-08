@@ -3,6 +3,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
 from .constants import STYLE_KEY
@@ -16,7 +17,6 @@ from ....types import losses_type
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....constants import WARNING_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
@@ -97,8 +97,8 @@ class AdaINStylizer(nn.Module):
         decoded = self.forward(inp, **kwargs)[PREDICTIONS_KEY]
         if clip_normalize is not None:
             return clip_normalize(decoded)
-        print(
-            f"{WARNING_PREFIX}`carefree-cv` is not installed, "
+        print_warning(
+            "`carefree-cv` is not installed, "
             "so the stylized image is not normalized, which might harm the quality"
         )
         return decoded

@@ -21,6 +21,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import walk
 from cftool.misc import is_numeric
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from cftool.misc import WithRegister
@@ -39,7 +40,6 @@ from ..protocol import DatasetProtocol
 from ..protocol import DataLoaderProtocol
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
-from ..constants import WARNING_PREFIX
 from ..constants import BATCH_INDICES_KEY
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
@@ -337,8 +337,8 @@ class DLLoader(DataLoaderProtocol):
             self.stream = torch.cuda.Stream(prefetch_device)
         else:
             if prefetch_device is not None:
-                print(
-                    f"{WARNING_PREFIX}`prefetch_device` is specified but "
+                print_warning(
+                    "`prefetch_device` is specified but "
                     "cuda is not available, it will have no effects"
                 )
             self.stream = None
@@ -528,9 +528,8 @@ class ImageFolderDataset(Dataset):
         )
         if lmdb_config is None or lmdb is None:
             if lmdb_config is not None:
-                print(
-                    f"{WARNING_PREFIX}`lmdb` is not installed, "
-                    "so `lmdb_config` will be ignored"
+                print_warning(
+                    "`lmdb` is not installed, so `lmdb_config` will be ignored"
                 )
             self.lmdb = self.context = None
             with open(os.path.join(self.folder, f"{LABEL_KEY}.json"), "r") as f:

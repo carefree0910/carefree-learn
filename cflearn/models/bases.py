@@ -9,6 +9,7 @@ from typing import Dict
 from typing import Type
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
 from ..protocol import LossProtocol
@@ -16,7 +17,6 @@ from ..protocol import ModelProtocol
 from ..constants import LOSS_KEY
 from ..constants import LABEL_KEY
 from ..constants import LATENT_KEY
-from ..constants import WARNING_PREFIX
 from ..constants import PREDICTIONS_KEY
 from ..misc.toolkit import set_requires_grad
 
@@ -153,7 +153,7 @@ class CascadeMixin:
         self.lv1_net = ModelProtocol.make(lv1_model_name, lv1_model_config)
         if lv1_model_ckpt_path is not None:
             if not os.path.isfile(lv1_model_ckpt_path):
-                print(f"{WARNING_PREFIX}'{lv1_model_ckpt_path}' does not exist")
+                print_warning(f"'{lv1_model_ckpt_path}' does not exist")
             else:
                 state_dict = torch.load(lv1_model_ckpt_path, map_location="cpu")
                 self.lv1_net.load_state_dict(state_dict)

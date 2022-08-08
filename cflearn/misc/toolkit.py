@@ -28,6 +28,8 @@ from collections import defaultdict
 from collections import OrderedDict
 from torch.optim import Optimizer
 from cftool.misc import prod
+from cftool.misc import print_info
+from cftool.misc import print_warning
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import DownloadProgressBar
@@ -41,8 +43,6 @@ from ..types import param_type
 from ..types import sample_weights_type
 from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
-from ..constants import INFO_PREFIX
-from ..constants import WARNING_PREFIX
 
 try:
     import matplotlib.pyplot as plt
@@ -114,10 +114,7 @@ def download(
         if extract_zip:
             os.remove(path)
         else:
-            print(
-                f"{WARNING_PREFIX}zip file is not extracted, "
-                f"so we will not remove it!"
-            )
+            print_warning("zip file is not extracted, so we will not remove it!")
     return zip_folder_path
 
 
@@ -246,8 +243,8 @@ def get_compatible_name(
         if check_available(tag, repo, compatible_name):
             name = compatible_name
         else:
-            print(
-                f"{WARNING_PREFIX}compatible name '{compatible_name}' is not available "
+            print_warning(
+                "compatible name '{compatible_name}' is not available "
                 f"on the server, will use the original name ({name}) instead"
             )
     return name
@@ -277,9 +274,9 @@ class WeightsStrategy:
 
     def visualize(self, export_path: str = "weights_strategy.png") -> None:
         if plt is None:
-            raise ValueError(f"{WARNING_PREFIX}`matplotlib` is needed for `visualize`")
+            raise ValueError("`matplotlib` is needed for `visualize`")
         if show_or_save is None:
-            raise ValueError(f"{WARNING_PREFIX}`carefree-ml` is needed for `visualize`")
+            raise ValueError("`carefree-ml` is needed for `visualize`")
         n = 1000
         x = np.linspace(0, 1, n)
         y = self(n, 0)
@@ -316,7 +313,7 @@ def fix_denormal_states(
         if num_denormal > 0:
             new_states[k][denormal] = v.new_zeros(num_denormal)
     if verbose:
-        print(f"{INFO_PREFIX}denormal ratio : {num_denormal_total / num_total:8.6f}")
+        print_info(f"denormal ratio : {num_denormal_total / num_total:8.6f}")
     return new_states
 
 
@@ -790,7 +787,7 @@ class Initializer:
     @classmethod
     def add_initializer(cls, f: Callable, name: str) -> None:
         if name in cls.defined_initialization:
-            print(f"{WARNING_PREFIX}'{name}' initializer is already defined")
+            print_warning(f"'{name}' initializer is already defined")
             return
         cls.defined_initialization.add(name)
         cls.custom_initializer[name] = f
@@ -829,8 +826,8 @@ class Initializer:
                 weight_base[invalid] = param.new_empty(num_invalid).normal_()
                 invalid = get_invalid(weight_base)
         if not success:
-            print(
-                f"{WARNING_PREFIX}invalid ratio for truncated normal : "
+            print_warning(
+                "invalid ratio for truncated normal : "
                 f"{invalid.to(torch.float32).mean():8.6f}, it might cause by "
                 f"too little epoch ({epoch}) or too small tolerance ({tol})",
             )
@@ -958,9 +955,9 @@ def interpolate(
     if factor is not None:
         template = "`{}` will take no affect because `factor` is provided"
         if size is not None:
-            print(f"{WARNING_PREFIX}{template.format('size')}")
+            print_warning(template.format("size"))
         if anchor is not None:
-            print(f"{WARNING_PREFIX}{template.format('anchor')}")
+            print_warning(template.format("anchor"))
         if factor == 1.0 or factor == (1.0, 1.0):
             return src
         if not determinate:

@@ -4,6 +4,7 @@ import torch
 from tqdm import tqdm
 from typing import Any
 from typing import Optional
+from cftool.misc import print_info
 from cftool.misc import random_hash
 from cftool.array import to_device
 from cftool.array import save_images
@@ -14,7 +15,6 @@ from ...interface import pixel_cnn
 from ....trainer import Trainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import INFO_PREFIX
 from ....constants import ORIGINAL_LABEL_KEY
 from ....data.interface import TensorData
 from ....data.interface import CVDataModule
@@ -135,11 +135,11 @@ class VQVAEInference:
                     break
             all_codes = torch.cat(code_indices, dim=0)
             path = os.path.join(export_folder, f"{name}.pt")
-            print(f"{INFO_PREFIX}saving {name} codes ({all_codes.shape})")
+            print_info(f"saving {name} codes ({all_codes.shape})")
             torch.save(all_codes, path)
             all_labels = torch.cat(labels, dim=0)
             label_path = os.path.join(export_folder, f"{name}_labels.pt")
-            print(f"{INFO_PREFIX}saving {name} labels ({all_labels.shape})")
+            print_info(f"saving {name} labels ({all_labels.shape})")
             torch.save(all_labels, label_path)
         if not self.debug:
             with open(finished_path, "w"):

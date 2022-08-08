@@ -12,6 +12,7 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
+from cftool.misc import print_warning
 
 from .....data import CVDataset
 from .....data import Transforms
@@ -19,7 +20,6 @@ from .....data import ImageFolderData
 from .....data import InferenceImageFolderData
 from .....types import sample_weights_type
 from .....constants import INPUT_KEY
-from .....constants import WARNING_PREFIX
 from .....data.core import ImageFolderDataset
 from .....data.core import InferenceImageFolderDataset
 from .....models.cv.stylizer.constants import STYLE_KEY
@@ -53,8 +53,7 @@ class StyleTransferMixin:
                     to_rgb(Image.open(path)).verify()
                     self.style_paths.append(path)
                 except Exception as err:
-                    msg = f"error occurred ({err}) when reading '{path}'"
-                    print(f"{WARNING_PREFIX}{msg}")
+                    print_warning(f"error occurred ({err}) when reading '{path}'")
                     continue
         with open(style_paths_path, "w") as f:
             json.dump(self.style_paths, f)

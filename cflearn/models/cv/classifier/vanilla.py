@@ -4,6 +4,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.misc import print_info
 from cftool.misc import shallow_copy_dict
 from cftool.array import softmax
 from cftool.types import tensor_dict_type
@@ -14,7 +15,6 @@ from ....protocol import ModelProtocol
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....constants import INFO_PREFIX
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import download_model
 from ....modules.blocks import Linear
@@ -52,9 +52,8 @@ class VanillaClassifier(ModelProtocol):
             if encoder1d_pretrained_name is not None:
                 encoder1d_pretrained_path = download_model(encoder1d_pretrained_name)
         if encoder1d_pretrained_path is not None:
-            print(
-                f"{INFO_PREFIX}loading pretrained encoder1d "
-                f"from '{encoder1d_pretrained_path}'"
+            print_info(
+                f"loading pretrained encoder1d from '{encoder1d_pretrained_path}'"
             )
             d = torch.load(encoder1d_pretrained_path)
             self.encoder1d.load_state_dict(d, strict=encoder1d_pretrained_strict)

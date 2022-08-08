@@ -37,8 +37,10 @@ m = cflearn.api.fit_ml(
 try:
     import cfml
 except:
-    print(
-        f"{cflearn.WARNING_PREFIX}`carefree-ml` is not installed, "
+    from cftool.misc import print_warning
+
+    print_warning(
+        "`carefree-ml` is not installed, "
         "so the visualization process will not be executed"
     )
     exit(0)

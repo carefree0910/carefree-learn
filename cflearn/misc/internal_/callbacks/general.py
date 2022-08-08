@@ -9,6 +9,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from cftool.misc import lock_manager
+from cftool.misc import print_warning
 from cftool.misc import fix_float_to_length
 
 from ....trainer import Trainer
@@ -18,7 +19,6 @@ from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
 from ....constants import PT_PREFIX
 from ....constants import SCORES_FILE
-from ....constants import WARNING_PREFIX
 
 try:
     import mlflow
@@ -138,9 +138,8 @@ class MLFlowCallback(TrainerCallback):
         if not self.is_rank_0:
             return None
         if mlflow is None:
-            print(
-                f"{WARNING_PREFIX}`mlflow` is not installed, "
-                "so `MLFlowCallback` will have no effect."
+            print_warning(
+                "`mlflow` is not installed, so `MLFlowCallback` will have no effect."
             )
             return
         tracking_folder = os.path.abspath(self.tracking_folder)
@@ -166,8 +165,8 @@ class MLFlowCallback(TrainerCallback):
                 run = self.mlflow_client.get_run(existing_run_id)
                 from_external = True
             except MlflowException:
-                print(
-                    f"{WARNING_PREFIX}`run_id` is found in environment but "
+                print_warning(
+                    "`run_id` is found in environment but "
                     "corresponding mlflow run does not exist. This might cause by "
                     "external calls."
                 )

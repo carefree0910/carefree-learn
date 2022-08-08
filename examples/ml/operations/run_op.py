@@ -43,8 +43,10 @@ try:
 
     cflearn.ml.evaluate(linear.data, metrics=metrics, pipelines=[linear, fcnn, rnn])
 except:
-    print(
-        f"{cflearn.WARNING_PREFIX}`carefree-ml` is not installed, "
+    from cftool.misc import print_warning
+
+    print_warning(
+        "`carefree-ml` is not installed, "
         "so the evaluation process will not be executed"
     )
 

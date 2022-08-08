@@ -15,6 +15,7 @@ from typing import NamedTuple
 from tqdm.autonotebook import tqdm
 from cftool.dist import Parallel
 from cftool.misc import update_dict
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import get_latest_workplace
 
@@ -26,7 +27,6 @@ from ...types import configs_type
 from ...types import sample_weights_type
 from ...trainer import get_sorted_checkpoints
 from ...constants import SCORES_FILE
-from ...constants import WARNING_PREFIX
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import ML_PIPELINE_SAVE_NAME
 from ...dist.ml import Experiment
@@ -135,8 +135,8 @@ def evaluate(
     if other_patterns is not None:
         for other_name in other_patterns.keys():
             if other_name in patterns:
-                print(
-                    f"{WARNING_PREFIX}'{other_name}' is found in "
+                print_warning(
+                    f"'{other_name}' is found in "
                     "`other_patterns`, it will be overwritten"
                 )
         update_dict(other_patterns, patterns)
@@ -226,7 +226,7 @@ def repeat_with(
     **kwargs: Any,
 ) -> RepeatResult:
     if os.path.isdir(workplace) and not is_fix:
-        print(f"{WARNING_PREFIX}'{workplace}' already exists, it will be erased")
+        print_warning(f"'{workplace}' already exists, it will be erased")
         shutil.rmtree(workplace)
     kwargs = shallow_copy_dict(kwargs)
     if isinstance(models, str):
@@ -266,8 +266,8 @@ def repeat_with(
             kwargs["tqdm_settings"] = tqdm_settings = {}
         tqdm_settings["tqdm_position"] = 2
         if not return_patterns:
-            print(
-                f"{WARNING_PREFIX}`return_patterns` should be "
+            print_warning(
+                "`return_patterns` should be "
                 "True when `sequential` is True, because patterns "
                 "will always be generated"
             )
@@ -299,8 +299,8 @@ def repeat_with(
             pipelines_dict[model] = local_pipelines
     else:
         if num_jobs <= 1:
-            print(
-                f"{WARNING_PREFIX}we suggest setting `sequential` "
+            print_warning(
+                "we suggest setting `sequential` "
                 f"to True when `num_jobs` is {num_jobs}"
             )
         # data
