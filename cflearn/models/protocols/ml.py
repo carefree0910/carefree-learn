@@ -384,6 +384,7 @@ class MLModel(ModelWithCustomSteps):
         num_history: int,
         *,
         encoder: Optional[IEncoder],
+        use_encoder_cache: bool,
         numerical_columns_mapping: Dict[int, int],
         categorical_columns_mapping: Dict[int, int],
         use_one_hot: bool,
@@ -397,6 +398,7 @@ class MLModel(ModelWithCustomSteps):
         super().__init__()
         self.output_dim = output_dim
         self.encoder = encoder
+        self.use_encoder_cache = use_encoder_cache
         self.dimensions = Dimensions(
             num_history=num_history,
             encoder=self.encoder,
@@ -445,7 +447,7 @@ class MLModel(ModelWithCustomSteps):
             split = self.dimensions.split_features(
                 batch[INPUT_KEY],
                 batch_indices,
-                kwargs.get("loader_name"),
+                kwargs.get("loader_name") if self.use_encoder_cache else None,
             )
             batch[NUMERICAL_KEY] = split.numerical
             if split.categorical is None:

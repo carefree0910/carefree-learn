@@ -69,6 +69,7 @@ class SimplePipeline(DLPipeline):
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
         # encoder
+        use_encoder_cache: bool = True,
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
         encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
@@ -150,6 +151,7 @@ class SimplePipeline(DLPipeline):
         self.core_config = core_config or {}
         self.input_dim = input_dim
         self.output_dim = output_dim
+        self.use_encoder_cache = use_encoder_cache
         self.only_categorical = only_categorical
         self.encoder = None
         self.encoder_config = encoder_config or {}
@@ -179,7 +181,7 @@ class SimplePipeline(DLPipeline):
                 self.loss_name = "bce" if self.output_dim == 1 else "focal"
 
     def _instantiate_encoder(self, settings: Dict[int, EncodingSettings]) -> Encoder:
-        if self.in_loading:
+        if self.in_loading or not self.use_encoder_cache:
             loaders = []
         else:
             train_loader, valid_loader = self.data.initialize()
@@ -227,6 +229,7 @@ class SimplePipeline(DLPipeline):
             self.output_dim,
             data_info["num_history"],
             encoder=self.encoder,
+            use_encoder_cache=self.use_encoder_cache,
             numerical_columns_mapping=self.numerical_columns_mapping,
             categorical_columns_mapping=self.categorical_columns_mapping,
             use_one_hot=self.use_one_hot,
@@ -382,6 +385,7 @@ class CarefreePipeline(SimplePipeline):
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
         # encoder
+        use_encoder_cache: bool = True,
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
         encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
@@ -435,6 +439,7 @@ class CarefreePipeline(SimplePipeline):
             output_dim=output_dim,
             loss_name=loss_name,
             loss_config=loss_config,
+            use_encoder_cache=use_encoder_cache,
             only_categorical=only_categorical,
             encoder_config=encoder_config,
             encoding_settings=encoding_settings,
