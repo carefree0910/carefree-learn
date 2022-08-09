@@ -100,6 +100,14 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
     # api
 
     def save_info(self, folder: str) -> None:
+        """
+        Save the core `info` of this `DataModule`
+
+        * The core `info` should be as light-weight as possible.
+        * The core `info` represents the minimal subset of information
+        which is needed to build up the `Pipeline`, so in most cases this method
+        (instead of `save`) will be used to serialize the `DataModule`.
+        """
         folder = os.path.join(folder, self.package_folder)
         os.makedirs(folder, exist_ok=True)
         with open(os.path.join(folder, self.id_file), "w") as f:
@@ -112,6 +120,13 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
         return base._load_info(folder)
 
     def save(self, folder: str) -> None:
+        """
+        Save a complete version of this `DataModule`.
+
+        * This method should serialize every information.
+        * Currently this method is only used in the `Experiment` class. See
+        `cflearn/dist/ml/experiment` for more details.
+        """
         self.save_info(folder)
         data_folder = os.path.join(folder, self.package_folder, self.data_folder)
         os.makedirs(data_folder, exist_ok=True)
