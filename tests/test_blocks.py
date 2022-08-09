@@ -6,7 +6,6 @@ import torch.nn as nn
 
 from typing import List
 from typing import Tuple
-from cflearn.constants import INPUT_KEY
 from cflearn.constants import LATENT_KEY
 from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import inject_parameters
