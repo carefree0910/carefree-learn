@@ -221,7 +221,7 @@ class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
         loss_name: str = "auto",
         loss_config: Optional[Dict[str, Any]] = None,
         # encoder
-        use_encoder_cache: bool = True,
+        use_encoder_cache: bool = False,
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
         encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
