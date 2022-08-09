@@ -503,6 +503,8 @@ class MLData(IMLData):
                 self.valid_data = None
                 self.train_cf_data = self.cf_data
                 self.valid_cf_data = None
+                # if `for_inference` is True, these properties are not needed
+                self.input_dim = self.num_classes = self.is_classification = None
             else:
                 if not self.loaded:
                     self.cf_data.read(self.x_train, self.y_train, **self.read_config)
@@ -541,10 +543,11 @@ class MLData(IMLData):
                 else:
                     valid_xy = self.valid_cf_data.processed.xy
                     self.valid_data = MLDataset(*valid_xy, **valid_others)
-            if self.is_classification is None:
-                self.is_classification = self.cf_data.is_clf
-            self.num_classes = self.train_cf_data.num_classes
-            self.input_dim = self.train_cf_data.processed_dim
+                # initialize properties with train_cf_data
+                self.input_dim = self.train_cf_data.processed_dim
+                self.num_classes = self.train_cf_data.num_classes
+                if self.is_classification is None:
+                    self.is_classification = self.train_cf_data.is_clf
             return None
         if isinstance(self.x_train, str):
             raise ValueError("`cf_data` should be provided when `x_train` is `str`")
