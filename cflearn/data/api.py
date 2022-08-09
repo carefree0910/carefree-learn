@@ -504,7 +504,8 @@ class MLData(IMLData):
                 self.train_cf_data = self.cf_data
                 self.valid_cf_data = None
                 # if `for_inference` is True, these properties are not needed
-                self.input_dim = self.num_classes = self.is_classification = None
+                self.input_dim = -1
+                self.num_classes = self.is_classification = None
             else:
                 if not self.loaded:
                     self.cf_data.read(self.x_train, self.y_train, **self.read_config)
