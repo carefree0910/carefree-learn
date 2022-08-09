@@ -42,7 +42,7 @@ def prepare() -> None:
     def filter_fn(hierarchy: List[str]) -> bool:
         return hierarchy[2] == "clip_img"
 
-    cflearn.cv.prepare_image_folder(
+    cflearn.api.prepare_image_folder(
         src_folder,
         tgt_folder,
         to_index=False,
@@ -61,7 +61,7 @@ if __name__ == "__main__":
         transform="for_salient_object_detection",
     )
     cflearn.MultiStageLoss.register_(["bce", "iou", "sigmoid_mae"])
-    m = cflearn.cv.CarefreePipeline(
+    m = cflearn.cv.CVPipeline(
         "u2net",
         {
             "in_channels": 3,
