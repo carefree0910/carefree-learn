@@ -19,11 +19,13 @@ predictions = results[cflearn.PREDICTIONS_KEY]
 export_folder = "titanic"
 m.save(export_folder)
 m2 = cflearn.api.load(export_folder)
+idata = m2.make_inference_data(test_file, contains_labels=False)
 results = m2.predict(idata)
 assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY])
 
 latest = get_latest_workplace("_logs")
 assert latest is not None
 m3 = cflearn.api.load(cflearn.api.pack(latest))
+idata = m3.make_inference_data(test_file, contains_labels=False)
 results = m3.predict(idata)
 assert np.allclose(predictions, results[cflearn.PREDICTIONS_KEY])
