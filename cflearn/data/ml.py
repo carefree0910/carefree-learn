@@ -142,11 +142,11 @@ class IMLLoader(DataLoaderProtocol, metaclass=ABCMeta):
 
 class IMLDataInfo(NamedTuple):
     """
-    input_dim (int) : final dim that the model will receive
-    num_history (int) : number of history, useful in time series tasks
-    num_classes (int | None) : number of classes
+    * input_dim (int) : final dim that the model will receive
+    * num_history (int) : number of history, useful in time series tasks
+    * num_classes (int | None) : number of classes
       -> will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified
-    is_classification (bool | None) : whether current task is a classification task
+    * is_classification (bool | None) : whether current task is a classification task
       -> it should always be provided unless it's at inference time
     """
 
