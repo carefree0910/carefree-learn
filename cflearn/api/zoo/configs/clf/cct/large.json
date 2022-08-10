@@ -1,15 +1,12 @@
 {
   "__bases__": ["clf/cct"],
-  "__requires__": {
-    "model_config": ["img_size", "num_classes"]
-  },
   "model_config": {
     "latent_dim": 384,
     "encoder1d_config": {
       "patch_size": 7,
       "num_layers": 14,
       "feedforward_dim_ratio": 3.0,
-      "attention_kwargs": {"num_heads": 6}
+      "attention_kwargs": { "num_heads": 6 }
     }
   }
 }

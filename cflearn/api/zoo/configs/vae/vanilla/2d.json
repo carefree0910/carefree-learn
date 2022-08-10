@@ -1,7 +1,4 @@
 {
   "__bases__": ["vae/vanilla"],
-  "__requires__": {
-    "model_config": ["img_size"]
-  },
   "model_name": "vae2d"
 }

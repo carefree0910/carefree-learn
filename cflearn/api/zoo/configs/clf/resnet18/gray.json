@@ -1,8 +1,5 @@
 {
   "__bases__": ["clf/resnet18"],
-  "__requires__": {
-    "model_config": ["num_classes"]
-  },
   "model_config": {
     "in_channels": 1,
     "encoder1d_config": {

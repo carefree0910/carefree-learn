@@ -1,8 +1,5 @@
 {
   "__bases__": ["vae/vq.lite"],
-  "__requires__": {
-    "model_config": ["img_size"]
-  },
   "model_config": {
     "in_channels": 1
   }
