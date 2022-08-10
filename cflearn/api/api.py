@@ -1,12 +1,15 @@
 import os
 import sys
+import json
 
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Union
+from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import update_dict
 from cftool.misc import parse_config
 from cftool.types import np_dict_type
@@ -24,11 +27,13 @@ from ..protocol import LossProtocol
 from ..protocol import ModelProtocol
 from ..protocol import MetricProtocol
 from ..protocol import DataLoaderProtocol
+from ..constants import DEFAULT_ZOO_TAG
 from .cv.pipeline import CVPipeline
 from .ml.api import repeat_with
 from .ml.api import RepeatResult
 from .ml.pipeline import MLSimplePipeline
 from .ml.pipeline import MLCarefreePipeline
+from .zoo.core import configs_root
 from .zoo.core import DLZoo
 from ..data.api import MLData
 from ..data.api import CVDataModule
@@ -171,6 +176,58 @@ def make_loss(name: str, **kwargs: Any) -> LossProtocol:
 
 def make_metric(name: str, **kwargs: Any) -> MetricProtocol:
     return MetricProtocol.make(name, kwargs)
+
+
+class ModelItem(NamedTuple):
+    model: str
+    requirements: Dict[str, Any]
+
+
+def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
+    models = []
+    for task in sorted(os.listdir(configs_root)):
+        if task == "common_":
+            continue
+        task_folder = os.path.join(configs_root, task)
+        for model in sorted(os.listdir(task_folder)):
+            model_folder = os.path.join(task_folder, model)
+            for config_file in sorted(os.listdir(model_folder)):
+                config_path = os.path.join(model_folder, config_file)
+                with open(config_path, "r") as f:
+                    requirements = json.load(f).get("__requires__", {})
+                tag = os.path.splitext(config_file)[0]
+                name = f"{task}/{model}"
+                if tag != DEFAULT_ZOO_TAG:
+                    name = f"{name}.{tag}"
+                models.append(ModelItem(name, requirements))
+    if verbose:
+
+        def _stringify_item(item: ModelItem) -> str:
+            return f"{item.model:>{span}s}   |   {json.dumps(item.requirements)}"
+
+        span = 42
+        print(
+            "\n".join(
+                [
+                    "=" * 100,
+                    f"{'Models':>{span}s}   |   Requirements",
+                    "-" * 100,
+                    "\n".join(map(_stringify_item, models)),
+                    "-" * 100,
+                ]
+            )
+        )
+    return models
+
+
+def from_zoo(
+    model: str,
+    *,
+    return_model: bool = False,
+    **kwargs: Any,
+) -> Union[ModelProtocol, DLPipeline]:
+    fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
+    return fn(model, **kwargs)  # type: ignore
 
 
 # ml
