@@ -111,11 +111,11 @@ class ZooBase(ABC):
                                 return f"{l}{key}=...{r}"
                             return _example(f"{l}{key}=dict(", f"){r}", h)
 
-                        example = _example('', '', k_hierarchy.split(' -> ') + [vv])
+                        example = _example("", "", k_hierarchy.split(" -> ") + [vv])
                         raise ValueError(
                             f"'{vv}' should be provided in `{k_hierarchy}`, for example:\n"
-                            f"* cflearn.api.from_zoo(\"{model}\", {example})\n"
-                            f"* cflearn.ZooBase.load_pipeline(\"{model}\", {example})\n"
+                            f'* cflearn.api.from_zoo("{model}", {example})\n'
+                            f'* cflearn.ZooBase.load_pipeline("{model}", {example})\n'
                         )
                     kd[vv] = required
 
