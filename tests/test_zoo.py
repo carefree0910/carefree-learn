@@ -4,6 +4,11 @@ import unittest
 from typing import Any
 from typing import Dict
 
+try:
+    import transformers
+except ImportError:
+    transformers = None
+
 
 def _inject_mock(req: Dict[str, Any], d: Dict[str, Any]) -> None:
     for k, v in req.items():
@@ -36,6 +41,8 @@ class TestZoo(unittest.TestCase):
     def test_model_zoo(self) -> None:
         models = cflearn.api.model_zoo(verbose=True)
         for model in models:
+            if model.name.startswith("hugging_face") and transformers is None:
+                continue
             kwargs: Dict[str, Any] = {}
             _inject_mock(model.requirements, kwargs)
             if model.name.startswith("vae/vanilla"):
