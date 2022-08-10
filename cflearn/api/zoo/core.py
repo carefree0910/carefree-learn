@@ -87,11 +87,16 @@ class ZooBase(ABC):
             inject_debug(kwargs)
 
         # handle requires
-        def _inject_requires(d: Dict[str, Any], local_requires: Dict[str, Any]) -> None:
+        def _inject_requires(
+            d: Dict[str, Any],
+            local_requires: Dict[str, Any],
+            hierarchy: Optional[str],
+        ) -> None:
             for k, v in local_requires.items():
+                k_hierarchy = k if hierarchy is None else f"{hierarchy} -> {k}"
                 kd = d.setdefault(k, {})
                 if isinstance(v, dict):
-                    _inject_requires(kd, v)
+                    _inject_requires(kd, v, k_hierarchy)
                     continue
                 assert isinstance(v, list), "requirements should be a list"
                 for vv in v:
@@ -99,11 +104,23 @@ class ZooBase(ABC):
                         continue
                     required = kwargs.pop(vv, None)
                     if required is None:
-                        raise ValueError(f"'{vv}' should be provided in `kwargs`")
+
+                        def _example(l: str, r: str, h: List[str]) -> str:
+                            key = h.pop(0)
+                            if not h:
+                                return f"{l}{key}=...{r}"
+                            return _example(f"{l}{key}=dict(", f"){r}", h)
+
+                        example = _example('', '', k_hierarchy.split(' -> ') + [vv])
+                        raise ValueError(
+                            f"'{vv}' should be provided in `{k_hierarchy}`, for example:\n"
+                            f"* cflearn.api.from_zoo(\"{model}\", {example})\n"
+                            f"* cflearn.ZooBase.load_pipeline(\"{model}\", {example})\n"
+                        )
                     kd[vv] = required
 
         requires = self.config.pop("__requires__", {})
-        _inject_requires(kwargs, requires)
+        _inject_requires(kwargs, requires, None)
         # build
         update_dict(kwargs, self.config)
         if no_build:
@@ -234,4 +251,7 @@ class DLZoo(ZooBase):
         return zoo.m
 
 
-__all__ = ["DLZoo"]
+__all__ = [
+    "ZooBase",
+    "DLZoo",
+]
