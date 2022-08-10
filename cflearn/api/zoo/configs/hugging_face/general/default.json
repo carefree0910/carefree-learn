@@ -1,4 +1,7 @@
 {
+  "__requires__": {
+    "model_config": ["model"]
+  },
   "pipeline": "nlp",
   "model_name": "hugging_face",
   "allow_no_loss": true

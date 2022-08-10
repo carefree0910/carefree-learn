@@ -1,4 +1,7 @@
 {
+  "__requires__": {
+    "model_config": ["text"]
+  },
   "pipeline": "dl",
   "model_name": "clip_vqgan_aligner",
   "model_config": {},
