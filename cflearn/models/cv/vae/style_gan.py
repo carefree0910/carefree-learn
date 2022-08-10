@@ -21,7 +21,7 @@ class StyleVAE(VanillaVAE1D):
         min_size: int = 2,
         num_downsample: Optional[int] = None,
         num_upsample: Optional[int] = None,
-        latent_resolution: Optional[int] = None,
+        latent_resolution: int = 4,
         encoder: str = "vanilla",
         decoder: str = "style",
         encoder_config: Optional[Dict[str, Any]] = None,
