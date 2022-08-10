@@ -94,7 +94,7 @@ class ZooBase(ABC):
             return _example(f"{l}{key}=dict(", f"){r}", h)
 
         # handle requires
-        def _check_requires(
+        def _inject_requires(
             d: Dict[str, Any],
             local_requires: Dict[str, Any],
             hierarchy: Optional[str],
@@ -103,22 +103,29 @@ class ZooBase(ABC):
                 k_hierarchy = k if hierarchy is None else f"{hierarchy} -> {k}"
                 kd = d.setdefault(k, {})
                 if isinstance(v, dict):
-                    _check_requires(kd, v, k_hierarchy)
+                    _inject_requires(kd, v, k_hierarchy)
                     continue
                 assert isinstance(v, list), "requirements should be a list"
                 for vv in v:
                     if vv not in kd:
+                        shortcut = final_config.pop(vv, None)
+                        if shortcut is not None:
+                            kd[vv] = shortcut
+                            continue
                         example = _example("", "", k_hierarchy.split(" -> ") + [vv])
                         raise ValueError(
                             f"'{vv}' should be provided in `{k_hierarchy}`, for example:\n"
                             f'* cflearn.api.from_zoo("{model}", {example})\n'
                             f'* cflearn.ZooBase.load_pipeline("{model}", {example})\n'
+                            f"\nOr you can use shortcut for simplicity:\n"
+                            f'* cflearn.api.from_zoo("{model}", {vv}=...)\n'
+                            f'* cflearn.ZooBase.load_pipeline("{model}", {vv}=...)\n'
                         )
 
         final_config = shallow_copy_dict(self.config)
         requires = final_config.pop("__requires__", {})
         update_dict(kwargs, final_config)
-        _check_requires(final_config, requires, None)
+        _inject_requires(final_config, requires, None)
         # build
         if no_build:
             self.m = None
