@@ -11,6 +11,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
 from cftool.misc import print_warning
+from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
 from ...pipeline import DLPipeline
@@ -86,8 +87,14 @@ class ZooBase(ABC):
         if debug:
             inject_debug(kwargs)
 
+        def _example(l: str, r: str, h: List[str]) -> str:
+            key = h.pop(0)
+            if not h:
+                return f"{l}{key}=...{r}"
+            return _example(f"{l}{key}=dict(", f"){r}", h)
+
         # handle requires
-        def _inject_requires(
+        def _check_requires(
             d: Dict[str, Any],
             local_requires: Dict[str, Any],
             hierarchy: Optional[str],
@@ -96,37 +103,27 @@ class ZooBase(ABC):
                 k_hierarchy = k if hierarchy is None else f"{hierarchy} -> {k}"
                 kd = d.setdefault(k, {})
                 if isinstance(v, dict):
-                    _inject_requires(kd, v, k_hierarchy)
+                    _check_requires(kd, v, k_hierarchy)
                     continue
                 assert isinstance(v, list), "requirements should be a list"
                 for vv in v:
-                    if vv in kd:
-                        continue
-                    required = kwargs.pop(vv, None)
-                    if required is None:
-
-                        def _example(l: str, r: str, h: List[str]) -> str:
-                            key = h.pop(0)
-                            if not h:
-                                return f"{l}{key}=...{r}"
-                            return _example(f"{l}{key}=dict(", f"){r}", h)
-
+                    if vv not in kd:
                         example = _example("", "", k_hierarchy.split(" -> ") + [vv])
                         raise ValueError(
                             f"'{vv}' should be provided in `{k_hierarchy}`, for example:\n"
                             f'* cflearn.api.from_zoo("{model}", {example})\n'
                             f'* cflearn.ZooBase.load_pipeline("{model}", {example})\n'
                         )
-                    kd[vv] = required
 
-        requires = self.config.pop("__requires__", {})
-        _inject_requires(kwargs, requires, None)
+        final_config = shallow_copy_dict(self.config)
+        requires = final_config.pop("__requires__", {})
+        update_dict(kwargs, final_config)
+        _check_requires(final_config, requires, None)
         # build
-        update_dict(kwargs, self.config)
         if no_build:
             self.m = None
         else:
-            self.m = DLPipeline.make(self.pipeline_name, self.config)
+            self.m = DLPipeline.make(self.pipeline_name, final_config)
             if data_info is None:
                 if self.download_name is None:
                     data_info = {}
