@@ -1,5 +1,6 @@
 {
   "pipeline": "cv",
   "model_name": "vqgan_generator",
-  "model_config": { "img_size": 256 }
+  "model_config": { "img_size": 256 },
+  "allow_no_loss": true
 }
