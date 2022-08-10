@@ -4,6 +4,7 @@ from typing import Dict
 from typing import Type
 from typing import Optional
 from cftool.misc import filter_kw
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 from cftool.types import tensor_dict_type
@@ -43,7 +44,11 @@ class IDecoder:
             if img_size is None:
                 raise ValueError(fmt.format("img_size"))
             if latent_resolution is None:
-                raise ValueError(fmt.format("latent_resolution"))
+                print_warning(
+                    f'{fmt.format("latent_resolution")}, '
+                    "and 7 will be used as the default `latent_resolution` now"
+                )
+                latent_resolution = 7
             num_upsample = auto_num_layers(img_size, latent_resolution, None)
         self.num_upsample = num_upsample
         self.out_channels = out_channels
