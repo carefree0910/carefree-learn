@@ -208,6 +208,7 @@ class IDLPipeline:
     inference_base: Type[InferenceProtocol]
     device_info: DeviceInfo
 
+    pipeline_key: str
     pipeline_file: str
     config_name: str
     trainer_config_file: str
@@ -447,6 +448,7 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
 
     inference_base = InferenceProtocol
 
+    pipeline_key = "pipeline"
     pipeline_file = "pipeline.txt"
     config_name = "config"
     trainer_config_file = "trainer_config.json"
@@ -566,6 +568,11 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         self.device_info = DeviceInfo(None, None)
         if cudnn_benchmark:
             torch.backends.cudnn.benchmark = True
+
+    def __eq__(self, __o: object) -> bool:
+        if not isinstance(__o, DLPipeline):
+            return False
+        return json.dumps(self.to_json()) == json.dumps(__o.to_json())
 
     @property
     def device(self) -> torch.device:  # type: ignore
@@ -838,6 +845,28 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
             **kwargs,
         )
         return m
+
+    def to_json(self, *, export_path: Optional[str] = None) -> Dict[str, Any]:
+        d = shallow_copy_dict(self.config)
+        d[self.pipeline_key] = self.__identifier__
+        if export_path is not None:
+            os.makedirs(os.path.dirname(export_path), exist_ok=True)
+            with open(export_path, "w") as f:
+                json.dump(d, f)
+        return d
+
+    @classmethod
+    def from_json(cls, d: Union[str, Dict[str, Any]]) -> "DLPipeline":
+        if isinstance(d, dict):
+            d = shallow_copy_dict(d)
+        elif isinstance(d, str):
+            with open(d, "r") as f:
+                d = json.load(f)
+        else:
+            raise ValueError(f"unrecognized input {d} occurred")
+        assert isinstance(d, dict)
+        name = d.pop(cls.pipeline_key)
+        return cls.make(name, d)
 
 
 def register_modifier(name: str, *, allow_duplicate: bool = False) -> Callable:

@@ -157,6 +157,10 @@ def pack_onnx(
     )
 
 
+def from_json(d: Union[str, Dict[str, Any]]) -> DLPipeline:
+    return DLPipeline.from_json(d)
+
+
 def make_model(name: str, **kwargs: Any) -> ModelProtocol:
     return ModelProtocol.make(name, kwargs)
 
