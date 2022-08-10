@@ -75,12 +75,12 @@ class ZooBase(ABC):
             json_path = parsed.json_path
             self.download_name = parsed.download_name
         self.json_path = json_path
-        self.config = _parse_config(json_path)
+        parsed_config = _parse_config(json_path)
         if self.download_name is None:
-            self.download_name = self.config.pop("tag", None)
+            self.download_name = parsed_config.pop("tag", None)
         self.err_msg_fmt = f"`{'{}'}` should be provided in '{json_path}'"
         # get pipeline
-        self.pipeline_name = self.config.pop("pipeline", None)
+        self.pipeline_name = parsed_config.pop("pipeline", None)
         if self.pipeline_name is None:
             raise ValueError(self.err_msg_fmt.format("pipeline"))
         # handle debug
@@ -95,22 +95,24 @@ class ZooBase(ABC):
 
         # handle requires
         def _inject_requires(
-            d: Dict[str, Any],
+            increment: Dict[str, Any],
+            reference: Dict[str, Any],
             local_requires: Dict[str, Any],
             hierarchy: Optional[str],
         ) -> None:
             for k, v in local_requires.items():
                 k_hierarchy = k if hierarchy is None else f"{hierarchy} -> {k}"
-                kd = d.setdefault(k, {})
+                ki = increment.setdefault(k, {})
+                kr = reference.setdefault(k, {})
                 if isinstance(v, dict):
-                    _inject_requires(kd, v, k_hierarchy)
+                    _inject_requires(ki, kr, v, k_hierarchy)
                     continue
                 assert isinstance(v, list), "requirements should be a list"
                 for vv in v:
-                    if vv not in kd:
-                        shortcut = final_config.pop(vv, None)
+                    shortcut = kwargs.pop(vv, None)
+                    if vv not in kr:
                         if shortcut is not None:
-                            kd[vv] = shortcut
+                            ki[vv] = shortcut
                             continue
                         example = _example("", "", k_hierarchy.split(" -> ") + [vv])
                         raise ValueError(
@@ -122,15 +124,19 @@ class ZooBase(ABC):
                             f'* cflearn.ZooBase.load_pipeline("{model}", {vv}=...)\n'
                         )
 
-        final_config = shallow_copy_dict(self.config)
-        requires = final_config.pop("__requires__", {})
-        update_dict(kwargs, final_config)
-        _inject_requires(final_config, requires, None)
+        requires = parsed_config.pop("__requires__", {})
+        merged_config = shallow_copy_dict(parsed_config)
+        update_dict(shallow_copy_dict(kwargs), merged_config)
+        increment: Dict[str, Any] = {}
+        _inject_requires(increment, merged_config, requires, None)
+        self.config = shallow_copy_dict(parsed_config)
+        update_dict(kwargs, self.config)
+        update_dict(increment, self.config)
         # build
         if no_build:
             self.m = None
         else:
-            self.m = DLPipeline.make(self.pipeline_name, final_config)
+            self.m = DLPipeline.make(self.pipeline_name, merged_config)
             if data_info is None:
                 if self.download_name is None:
                     data_info = {}
