@@ -136,7 +136,7 @@ class ZooBase(ABC):
         if no_build:
             self.m = None
         else:
-            self.m = DLPipeline.make(self.pipeline_name, merged_config)
+            self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
             if data_info is None:
                 if self.download_name is None:
                     data_info = {}
