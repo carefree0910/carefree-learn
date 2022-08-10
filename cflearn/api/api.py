@@ -179,7 +179,7 @@ def make_metric(name: str, **kwargs: Any) -> MetricProtocol:
 
 
 class ModelItem(NamedTuple):
-    model: str
+    name: str
     requirements: Dict[str, Any]
 
 
@@ -203,7 +203,7 @@ def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
     if verbose:
 
         def _stringify_item(item: ModelItem) -> str:
-            return f"{item.model:>{span}s}   |   {json.dumps(item.requirements)}"
+            return f"{item.name:>{span}s}   |   {json.dumps(item.requirements)}"
 
         span = 42
         print(
