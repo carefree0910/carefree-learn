@@ -33,6 +33,7 @@ from .ml.api import repeat_with
 from .ml.api import RepeatResult
 from .ml.pipeline import MLSimplePipeline
 from .ml.pipeline import MLCarefreePipeline
+from .zoo.core import _parse_config
 from .zoo.core import configs_root
 from .zoo.core import DLZoo
 from ..data.api import MLData
@@ -184,6 +185,22 @@ class ModelItem(NamedTuple):
 
 
 def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
+    def _squeeze_requirements(req: Dict[str, Any], d: Dict[str, Any]) -> None:
+        for k, v in req.items():
+            kd = d.get(k)
+            if kd is None:
+                continue
+            if isinstance(v, dict):
+                _squeeze_requirements(v, kd)
+                continue
+            assert isinstance(v, list)
+            pop_indices = []
+            for i, vv in enumerate(v):
+                if vv in kd:
+                    pop_indices.append(i)
+            for i in pop_indices[::-1]:
+                v.pop(i)
+
     models = []
     for task in sorted(os.listdir(configs_root)):
         if task == "common_":
@@ -193,8 +210,9 @@ def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
             model_folder = os.path.join(task_folder, model)
             for config_file in sorted(os.listdir(model_folder)):
                 config_path = os.path.join(model_folder, config_file)
-                with open(config_path, "r") as f:
-                    requirements = json.load(f).get("__requires__", {})
+                d = _parse_config(config_path)
+                requirements = d.pop("__requires__", {})
+                _squeeze_requirements(requirements, d)
                 tag = os.path.splitext(config_file)[0]
                 name = f"{task}/{model}"
                 if tag != DEFAULT_ZOO_TAG:
