@@ -45,7 +45,6 @@ class EncoderDecoder(nn.Module):
                 )
             args = img_size, min_size, target_downsample
             num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
-        num_upsample = num_upsample or num_downsample
         if latent_resolution is None and img_size is None:
             raise ValueError(
                 "either `img_size` or `latent_resolution` should be provided "
