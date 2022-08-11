@@ -192,6 +192,8 @@ class IMLDataModifier(WithRegister["IMLDataModifier"], metaclass=ABCMeta):
 class IMLData(DLDataModule, metaclass=ABCMeta):
     modifier: str
 
+    config: Dict[str, Any]
+
     @abstractmethod
     def get_info(self) -> IMLDataInfo:
         pass

@@ -392,7 +392,6 @@ class _InternalMLDataModifier(IMLDataModifier):
 class MLData(IMLData, metaclass=ConfigMeta):
     modifier = "_internal.ml"
 
-    config: Dict[str, Any]
     cf_data: Optional[TabularData]
     train_data: MLDataset
     valid_data: Optional[MLDataset]
@@ -447,7 +446,7 @@ class MLData(IMLData, metaclass=ConfigMeta):
             "cf_data",
         ]
         for key in pop_keys:
-            self.config.pop(key)
+            self.config.pop(key, None)
         assert x_train is not None
         self.x_train = x_train
         self.y_train = y_train
