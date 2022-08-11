@@ -227,11 +227,11 @@ def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
         print(
             "\n".join(
                 [
-                    "=" * 100,
+                    "=" * 120,
                     f"{'Names':>{span}s}   |   Requirements",
-                    "-" * 100,
+                    "-" * 120,
                     "\n".join(map(_stringify_item, models)),
-                    "-" * 100,
+                    "-" * 120,
                 ]
             )
         )
