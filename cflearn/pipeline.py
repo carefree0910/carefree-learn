@@ -11,12 +11,13 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from collections import OrderedDict
 from cftool.misc import filter_kw
-from cftool.misc import print_info
 from cftool.misc import random_hash
 from cftool.misc import print_warning
 from cftool.misc import check_requires
@@ -195,6 +196,8 @@ def _generate_model_soup_checkpoint(
 class IDLPipeline:
     modifier: str
 
+    _defaults: Dict[str, Any]
+
     data: DLDataModule
     loss: LossProtocol
     loss_name: str
@@ -277,11 +280,29 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
                 f"{', '.join(missing_requirements)}"
             )
 
+    def _report_defaults(self) -> None:
+        def _stringify_item(item: Tuple[str, Any]) -> str:
+            return f"{item[0]:>{span}s}   |   {item[1]}"
+
+        span = 42
+        print(
+            "\n".join(
+                [
+                    "=" * 120,
+                    f"{'Internal Default Configurations Used by `carefree-learn`':^120s}",
+                    "-" * 120,
+                    "\n".join(map(_stringify_item, self._defaults.items())),
+                    "-" * 120,
+                ]
+            )
+        )
+
     # build steps
 
     def prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
+            self._defaults["workplace"] = workplace
             self.trainer_config["workplace"] = workplace
             self.trainer_config["data_info_name"] = self.data_info_name
             self.trainer_config["metrics_log_file"] = self.metrics_log_file
@@ -311,6 +332,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
                 )
             self.trainer_config["monitor_names"] = "conservative"
         if self.trainer_config["monitor_names"] is None:
+            self._defaults["monitor_names"] = "conservative"
             self.trainer_config["monitor_names"] = "conservative"
         tqdm_settings = self.trainer_config["tqdm_settings"]
         callback_names = self.trainer_config["callback_names"]
@@ -325,14 +347,19 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         auto_callback = self.trainer_config.get("auto_callback", True)
         if "mlflow" in callback_names and auto_callback:
             mlflow_config = callback_configs.setdefault("mlflow", {})
-            mlflow_config.setdefault("experiment_name", self.model.__identifier__)
+            if "experiment_name" not in mlflow_config:
+                mlflow_config["experiment_name"] = self.model.__identifier__
+                self._defaults["mlflow_experiment_name"] = self.model.__identifier__
         if "_log_metrics_msg" not in callback_names and auto_callback:
+            self._defaults["additional_callbacks"] = ["_log_metrics_msg"]
             callback_names.insert(0, "_log_metrics_msg")
             verbose = False
             if tqdm_settings is None or not tqdm_settings.get("use_tqdm", False):
                 verbose = True
             log_metrics_msg_config = callback_configs.setdefault("_log_metrics_msg", {})
-            log_metrics_msg_config.setdefault("verbose", verbose)
+            if "verbose" not in log_metrics_msg_config:
+                log_metrics_msg_config["verbose"] = verbose
+                self._defaults["log_metrics_msg_verbose"] = verbose
         self.trainer_config["tqdm_settings"] = tqdm_settings
         self.trainer_config["callback_names"] = callback_names
         self.trainer_config["callback_configs"] = callback_configs
@@ -356,6 +383,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(**trainer_config)
         self._sanity_check()
+        self._report_defaults()
         self.built = True
 
     # load steps
@@ -501,6 +529,8 @@ class DLPipeline(PipelineProtocol, IDLPipeline, metaclass=ConfigMeta):
         in_loading: bool = False,
         allow_no_loss: bool = False,
     ):
+        # record defaults
+        self._defaults = OrderedDict()
         # sanity check
         if loss_name is None:
             if model_name in loss_dict:
@@ -515,15 +545,17 @@ class DLPipeline(PipelineProtocol, IDLPipeline, metaclass=ConfigMeta):
                         f"`{model_name}` has not implemented its own loss "
                         "and `allow_no_loss` is False"
                     )
-            print_info(f"`{loss_name}` loss will be used.")
+            self._defaults["loss_name"] = loss_name
         # set defaults
         if state_config is None:
             state_config = {}
-        state_config.setdefault("max_snapshot_file", 25)
+        if "max_snapshot_file" not in state_config:
+            state_config["max_snapshot_file"] = 25
+            self._defaults["max_snapshot_file"] = 25
         if callback_names is None:
             if model_name in callback_dict:
                 callback_names = model_name
-                print_info(f"`{model_name}` callback will be used.")
+                self._defaults["callback_names"] = model_name
         # initialize
         self.input_dim = None
         self.model_name = model_name

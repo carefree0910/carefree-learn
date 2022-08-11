@@ -88,6 +88,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
         is_reg = not self.is_classification
         if self.input_dim is None:
             self.input_dim = data_info["input_dim"]
+            self._defaults["input_dim"] = self.input_dim
         if self.output_dim is None:
             self.output_dim = 1 if is_reg else data_info["num_classes"]
             if self.output_dim is None:
@@ -95,12 +96,14 @@ class MLModifier(IModifier, IMLPipelineMixin):
                     "either `MLData` with `cf_data`, or `output_dim`, "
                     "should be provided"
                 )
+            self._defaults["output_dim"] = self.output_dim
         self.use_auto_loss = self.loss_name == "auto"
         if self.use_auto_loss:
             if is_reg:
                 self.loss_name = "mae"
             else:
                 self.loss_name = "bce" if self.output_dim == 1 else "focal"
+            self._defaults["loss_name"] = self.loss_name
 
     def setup_encoder(self, data_info: Dict[str, Any]) -> None:
         assert isinstance(self.input_dim, int)
@@ -164,6 +167,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
     def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:  # type: ignore
         if self.trainer_config["monitor_names"] is None:
             self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
+            self._defaults["monitor_names"] = ["mean_std", "plateau"]
         super().prepare_trainer_defaults(data_info)
         if (
             self.trainer_config["metric_names"] is None
@@ -174,9 +178,12 @@ class MLModifier(IModifier, IMLPipelineMixin):
                 self.trainer_config["metric_names"] = ["acc", "auc"]
             else:
                 self.trainer_config["metric_names"] = ["mae", "mse"]
+            self._defaults["metric_names"] = self.trainer_config["metric_names"]
         callback_names = self.trainer_config["callback_names"]
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
+            cbs = self._defaults.setdefault("additional_callbacks", [])
+            cbs.append("_inject_loader_name")
 
     # load steps
 
