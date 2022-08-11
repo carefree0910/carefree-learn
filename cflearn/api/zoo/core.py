@@ -132,10 +132,8 @@ class ZooBase(ABC):
         update_dict(kwargs, self.config)
         update_dict(increment, self.config)
         # build
-        if no_build:
-            self.m = None
-        else:
-            self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
+        self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
+        if not no_build:
             try:
                 self.m.build(data_info or {})
             except Exception as err:
