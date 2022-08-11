@@ -117,7 +117,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
         else:
             use_one_hot = False
             use_embedding = False
-            for idx, setting in self.encoding_settings.items():
+            for setting in self.encoding_settings.values():
                 use_one_hot = use_one_hot or setting.use_one_hot
                 use_embedding = use_embedding or setting.use_embedding
             self.encoder = self._instantiate_encoder(self.encoding_settings)
