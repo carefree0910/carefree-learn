@@ -439,7 +439,7 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipelineMixin):
     def setup_encoder(self, data_info: Dict[str, Any]) -> None:  # type: ignore
         self.cf_data = data_info["cf_data"]
         if self.cf_data is None:
-            msg = "cf_data` is not provided, please use `ml.SimplePipeline` instead"
+            msg = "cf_data` is not provided, please use `ml.MLSimplePipeline` instead"
             raise ValueError(msg)
         excluded = 0
         encoder_settings = {}
