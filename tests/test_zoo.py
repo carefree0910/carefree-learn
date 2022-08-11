@@ -59,7 +59,10 @@ class TestZoo(unittest.TestCase):
                 kwargs["model_config"]["generator_pretrained_name"] = None
             m = cflearn.api.from_zoo(model.name, **kwargs)
             m2 = cflearn.api.from_json(m.to_json())
+            m3 = cflearn.api.from_zoo(model.name, no_build=True, **kwargs)
+            m4 = cflearn.api.from_json(m3.to_json())
             self.assertEqual(m, m2)
+            self.assertEqual(m3, m4)
 
 
 if __name__ == "__main__":
