@@ -54,6 +54,7 @@ from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import ORIGINAL_LABEL_KEY
+from ..misc.toolkit import ConfigMeta
 
 try:
     import lmdb
@@ -302,7 +303,7 @@ class _InternalMLDataModifier(IMLDataModifier):
 
     def save(self, data_folder: str) -> None:
         with open(os.path.join(data_folder, self.data.arguments_file), "w") as f:
-            json.dump(self.data.arguments, f)
+            json.dump(self.data.config, f)
         all_data = [
             self.data.x_train,
             self.data.y_train,
@@ -388,9 +389,10 @@ class _InternalMLDataModifier(IMLDataModifier):
 
 
 @DLDataModule.register("ml")
-class MLData(IMLData):
+class MLData(IMLData, metaclass=ConfigMeta):
     modifier = "_internal.ml"
 
+    config: Dict[str, Any]
     cf_data: Optional[TabularData]
     train_data: MLDataset
     valid_data: Optional[MLDataset]
@@ -435,7 +437,6 @@ class MLData(IMLData):
         for_inference: bool = False,
         contains_labels: bool = True,
     ):
-        self.arguments = shallow_copy_dict(get_arguments())
         pop_keys = [
             "x_train",
             "y_train",
@@ -446,7 +447,7 @@ class MLData(IMLData):
             "cf_data",
         ]
         for key in pop_keys:
-            self.arguments.pop(key)
+            self.config.pop(key)
         assert x_train is not None
         self.x_train = x_train
         self.y_train = y_train
@@ -625,7 +626,7 @@ class MLInferenceData(MLData):
 
 
 class CVDataModule(DLDataModule, metaclass=ABCMeta):
-    arguments: Dict[str, Any]
+    config: Dict[str, Any]
     test_transform: Optional[Transforms]
     transform_file = "transform.pkl"
     arguments_file = "arguments.json"
@@ -649,7 +650,7 @@ class CVDataModule(DLDataModule, metaclass=ABCMeta):
 
     def _save_data(self, data_folder: str) -> None:
         with open(os.path.join(data_folder, self.arguments_file), "w") as f:
-            json.dump(self.arguments, f)
+            json.dump(self.config, f)
 
     @classmethod
     def _load(
@@ -667,7 +668,7 @@ class CVDataModule(DLDataModule, metaclass=ABCMeta):
 
 
 @DLDataModule.register("image_folder")
-class ImageFolderData(CVDataModule):
+class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
     def __init__(
         self,
         folder: str,
@@ -686,7 +687,6 @@ class ImageFolderData(CVDataModule):
         test_transform_config: Optional[Dict[str, Any]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
     ):
-        self.arguments = shallow_copy_dict(get_arguments())
         self.folder = folder
         self.shuffle = shuffle
         self.drop_train_last = drop_train_last
@@ -795,7 +795,7 @@ class ImageFolderData(CVDataModule):
                     json.dump(new_rs, f, ensure_ascii=False)
 
 
-class InferenceImageFolderData(CVDataModule):
+class InferenceImageFolderData(CVDataModule, metaclass=ConfigMeta):
     def __init__(
         self,
         folder: str,
@@ -806,7 +806,6 @@ class InferenceImageFolderData(CVDataModule):
         transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
     ):
-        self.arguments = shallow_copy_dict(get_arguments())
         self.folder = folder
         self.batch_size = batch_size
         self.num_workers = num_workers

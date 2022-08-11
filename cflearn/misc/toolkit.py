@@ -3,6 +3,7 @@ import sys
 import json
 import math
 import torch
+import inspect
 import argparse
 import urllib.request
 
@@ -10,6 +11,7 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from abc import ABCMeta
 from PIL import Image
 from PIL import ImageDraw
 from torch import Tensor
@@ -230,6 +232,30 @@ def get_compatible_name(
                 f"on the server, will use the original name ({name}) instead"
             )
     return name
+
+
+class ConfigMeta(ABCMeta):
+    def __new__(mcs, *args: Any, **kwargs: Any) -> type:
+        name, bases, attr = args[:3]
+        original_init = attr["__init__"]
+
+        def __init__(self: Any, *args_: Any, **kwargs_: Any) -> None:
+            if getattr(self, "_in_control_", False):
+                original_init(self, *args_, **kwargs_)
+            else:
+                self._is_root_ = True
+                self._in_control_ = True
+                self.config = kwargs_
+                signatures = list(inspect.signature(original_init).parameters.items())
+                for arg, (k, _) in zip(args_, signatures[1:]):
+                    self.config[k] = arg
+                original_init(self, **kwargs_)
+            if getattr(self, "_is_root_", False):
+                del self._is_root_
+                del self._in_control_
+
+        attr["__init__"] = __init__
+        return type(name, bases, attr)
 
 
 class WeightsStrategy:

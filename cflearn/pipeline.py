@@ -19,7 +19,6 @@ from cftool.misc import filter_kw
 from cftool.misc import print_info
 from cftool.misc import random_hash
 from cftool.misc import print_warning
-from cftool.misc import get_arguments
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import prepare_workplace_from
@@ -52,6 +51,7 @@ from .constants import SCORES_FILE
 from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import get_ddp_info
+from .misc.toolkit import ConfigMeta
 from .misc.internal_.trainer import make_trainer
 
 
@@ -443,7 +443,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
 
 @PipelineProtocol.register("dl")
-class DLPipeline(PipelineProtocol, IDLPipeline):
+class DLPipeline(PipelineProtocol, IDLPipeline, metaclass=ConfigMeta):
     modifier = "dl"
 
     inference_base = InferenceProtocol
@@ -501,7 +501,6 @@ class DLPipeline(PipelineProtocol, IDLPipeline):
         in_loading: bool = False,
         allow_no_loss: bool = False,
     ):
-        self.config = get_arguments()
         # sanity check
         if loss_name is None:
             if model_name in loss_dict:

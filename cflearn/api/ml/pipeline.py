@@ -12,7 +12,6 @@ from typing import Callable
 from typing import Optional
 from functools import partial
 from collections import OrderedDict
-from cftool.misc import get_arguments
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.array import softmax
@@ -37,6 +36,7 @@ from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
+from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.encoders import EncodingSettings
@@ -203,7 +203,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
 
 
 @DLPipeline.register("ml.simple")
-class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
+class MLSimplePipeline(IMLPipelineMixin, DLPipeline, metaclass=ConfigMeta):
     modifier = "ml"
 
     data: MLData
@@ -262,7 +262,6 @@ class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
         pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
-        config = get_arguments()
         super().__init__(
             "MLModel",
             loss_name=loss_name,
@@ -300,7 +299,6 @@ class MLSimplePipeline(IMLPipelineMixin, DLPipeline):
             tqdm_settings=tqdm_settings,
             in_loading=in_loading,
         )
-        self.config = config
         self.core_name = core_name
         self.core_config = core_config or {}
         self.input_dim = input_dim
