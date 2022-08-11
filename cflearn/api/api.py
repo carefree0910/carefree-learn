@@ -242,8 +242,12 @@ def from_zoo(
     model: str,
     *,
     return_model: bool = False,
+    no_build: bool = False,
     **kwargs: Any,
 ) -> Union[ModelProtocol, DLPipeline]:
+    if return_model and no_build:
+        raise ValueError("`no_build` should be False when `return_model` is True")
+    kwargs["no_build"] = no_build
     fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
     return fn(model, **kwargs)  # type: ignore
 
