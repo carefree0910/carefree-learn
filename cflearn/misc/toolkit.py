@@ -245,11 +245,14 @@ class ConfigMeta(ABCMeta):
             else:
                 self._is_root_ = True
                 self._in_control_ = True
-                self.config = kwargs_
+                self.config = shallow_copy_dict(kwargs_)
                 signatures = list(inspect.signature(original_init).parameters.items())
                 for arg, (k, _) in zip(args_, signatures[1:]):
-                    self.config[k] = arg
-                original_init(self, **kwargs_)
+                    if not isinstance(arg, dict):
+                        self.config[k] = arg
+                    else:
+                        self.config[k] = shallow_copy_dict(arg)
+                original_init(self, *args_, **kwargs_)
             if getattr(self, "_is_root_", False):
                 del self._is_root_
                 del self._in_control_
