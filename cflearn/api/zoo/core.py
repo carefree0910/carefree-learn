@@ -20,7 +20,6 @@ from ...protocol import ModelProtocol
 from ...constants import DEFAULT_ZOO_TAG
 from ...misc.toolkit import inject_debug
 from ...misc.toolkit import download_model
-from ...misc.toolkit import download_data_info
 
 
 root = os.path.dirname(__file__)
@@ -137,17 +136,8 @@ class ZooBase(ABC):
             self.m = None
         else:
             self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
-            if data_info is None:
-                if self.download_name is None:
-                    data_info = {}
-                else:
-                    try:
-                        with open(download_data_info(self.download_name), "r") as f:
-                            data_info = json.load(f)
-                    except ValueError:
-                        data_info = {}
             try:
-                self.m.build(data_info)
+                self.m.build(data_info or {})
             except Exception as err:
                 raise ValueError(f"Failed to build '{model}': {err}")
 

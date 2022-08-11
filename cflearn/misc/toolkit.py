@@ -118,24 +118,6 @@ def download(
     return zip_folder_path
 
 
-def download_data_info(
-    name: str,
-    *,
-    root: str = os.path.join(CACHE_DIR, "data_info"),
-    force_download: bool = False,
-) -> str:
-    return download(
-        "data_info",
-        "pretrained-models",
-        name,
-        root,
-        "json",
-        force_download,
-        None,
-        False,
-    )
-
-
 def download_tokenizer(
     name: str,
     *,
