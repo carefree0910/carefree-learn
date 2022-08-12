@@ -15,6 +15,7 @@ from cftool.types import tensor_dict_type
 from .fcnn import FCNN
 from ..register import register_ml_module
 from ...types import losses_type
+from ...protocol import ITrainer
 from ...protocol import WithDeviceMixin
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
@@ -114,7 +115,7 @@ class DDR(nn.Module, WithDeviceMixin):
         self._y_min_max = y_min_max
         self.register_buffer("y_min_max", torch.tensor([0.0, 0.0]))
 
-    def _init_with_trainer(self, trainer: Any) -> None:
+    def _init_with_trainer(self, trainer: ITrainer) -> None:
         if self._y_min_max is None:
             y_train = trainer.train_loader.data.y
             self._y_min_max = y_train.min().item(), y_train.max().item()

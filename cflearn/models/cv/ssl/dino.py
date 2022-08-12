@@ -22,6 +22,7 @@ from torch.cuda.amp import GradScaler
 from ..encoder import run_encoder
 from ..encoder import Encoder1DMixin
 from ....data import CVLoader
+from ....protocol import ITrainer
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
@@ -409,7 +410,7 @@ class DINO(CustomModule):
         optimizers: Dict[str, Optimizer],
         use_amp: bool,
         grad_scaler: GradScaler,
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
     ) -> StepOutputs:
         if self.lr_schedule is None:
@@ -521,7 +522,7 @@ class DINO(CustomModule):
         self.ddp_teacher = DDP(self.teacher)
         self.ddp_teacher.requires_grad_(False)  # type: ignore
 
-    def init_with_trainer(self, trainer: Any) -> None:
+    def init_with_trainer(self, trainer: ITrainer) -> None:
         self.teacher_for_training.requires_grad_(False)
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:

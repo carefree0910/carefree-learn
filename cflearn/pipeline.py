@@ -34,11 +34,11 @@ from .data import DLDataModule
 from .types import configs_type
 from .types import sample_weights_type
 from .types import states_callback_type
-from .trainer import callback_dict
 from .trainer import get_sorted_checkpoints
 from .trainer import Trainer
-from .trainer import DeviceInfo
 from .protocol import loss_dict
+from .protocol import callback_dict
+from .protocol import DeviceInfo
 from .protocol import LossProtocol
 from .protocol import ModelProtocol
 from .protocol import MetricProtocol

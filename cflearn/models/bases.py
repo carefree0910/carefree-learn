@@ -12,6 +12,7 @@ from typing import NamedTuple
 from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
+from ..protocol import ITrainer
 from ..protocol import LossProtocol
 from ..protocol import ModelProtocol
 from ..constants import LOSS_KEY
@@ -32,7 +33,7 @@ class ICustomLossModule(torch.nn.Module):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> ICustomLossOutput:
@@ -71,7 +72,7 @@ class IBAKE(ICustomLossModule):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> ICustomLossOutput:
@@ -112,7 +113,7 @@ class IRDropout(ICustomLossModule):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> ICustomLossOutput:

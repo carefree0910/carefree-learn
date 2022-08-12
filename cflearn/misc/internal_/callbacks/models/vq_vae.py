@@ -6,7 +6,7 @@ from cftool.array import to_device
 from cftool.array import save_images
 
 from ..general import ImageCallback
-from .....trainer import Trainer
+from .....protocol import ITrainer
 from .....constants import INPUT_KEY
 from .....constants import PREDICTIONS_KEY
 from .....misc.toolkit import interpolate
@@ -20,7 +20,7 @@ class VQVAECallback(ImageCallback):
         super().__init__(num_keep)
         self.num_classes = num_classes
 
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))

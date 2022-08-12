@@ -7,12 +7,12 @@ from typing import Optional
 from .monitors import BasicMonitor
 from ...types import configs_type
 from ...trainer import Trainer
-from ...trainer import TqdmSettings
-from ...trainer import OptimizerPack
-from ...trainer import TrainerCallback
+from ...protocol import TqdmSettings
+from ...protocol import OptimizerPack
 from ...protocol import TrainerMonitor
 from ...protocol import MetricProtocol
 from ...protocol import MultipleMetrics
+from ...protocol import TrainerCallback
 from .callbacks.general import _LogMetricsMsgCallback
 
 

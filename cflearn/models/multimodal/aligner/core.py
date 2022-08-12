@@ -18,6 +18,7 @@ from .noises import noises
 from ..protocol import PerceptorProtocol
 from ...bases import ICustomLossModule
 from ...bases import ICustomLossOutput
+from ....protocol import ITrainer
 from ....protocol import ModelProtocol
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
@@ -282,7 +283,7 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
     def perceptor_normalize(self, image: Tensor) -> Tensor:
         pass
 
-    def get_losses(self, trainer: Any) -> ICustomLossOutput:  # type: ignore
+    def get_losses(self, trainer: ITrainer) -> ICustomLossOutput:  # type: ignore
         state = trainer.state
         net = self.forward()
         cutouts = self.cutouts(net)

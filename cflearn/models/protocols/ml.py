@@ -19,6 +19,7 @@ from cftool.misc import WithRegister
 from cftool.array import to_numpy
 from cftool.types import tensor_dict_type
 
+from ...protocol import ITrainer
 from ...protocol import StepOutputs
 from ...protocol import TrainerState
 from ...protocol import MetricsOutputs
@@ -294,7 +295,7 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
         self.num_history = num_history
         self.dimensions = dimensions
 
-    def _init_with_trainer(self, trainer: Any) -> None:
+    def _init_with_trainer(self, trainer: ITrainer) -> None:
         pass
 
     @abstractmethod
@@ -311,7 +312,7 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
@@ -321,7 +322,7 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
         self,
         loader: DataLoaderProtocol,
         portion: float,
-        trainer: Any,
+        trainer: ITrainer,
     ) -> MetricsOutputs:
         pass
 
@@ -428,7 +429,7 @@ class MLModel(ModelWithCustomSteps):
         self.custom_train_step = core.custom_train_step
         self.custom_evaluate_step = core.custom_evaluate_step
 
-    def _init_with_trainer(self, trainer: Any) -> None:
+    def _init_with_trainer(self, trainer: ITrainer) -> None:
         if isinstance(self.core, nn.ModuleList):
             raise ValueError("`num_repeat` is not supported for custom models")
         self.core._init_with_trainer(trainer)
@@ -475,7 +476,7 @@ class MLModel(ModelWithCustomSteps):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
@@ -493,7 +494,7 @@ class MLModel(ModelWithCustomSteps):
         self,
         loader: DataLoaderProtocol,
         portion: float,
-        trainer: Any,
+        trainer: ITrainer,
     ) -> MetricsOutputs:
         if isinstance(self.core, nn.ModuleList):
             raise ValueError("`num_repeat` is not supported for custom models")

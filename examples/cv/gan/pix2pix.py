@@ -102,7 +102,7 @@ class Pix2PixTestITransform(cflearn.ITransform):
 
 @cflearn.ImageCallback.register("pix2pix")
 class StyleTransferCallback(cflearn.ImageCallback):
-    def log_artifacts(self, trainer: cflearn.Trainer) -> None:
+    def log_artifacts(self, trainer: cflearn.ITrainer) -> None:
         if not self.is_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))

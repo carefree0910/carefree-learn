@@ -5,8 +5,8 @@ from PIL import Image
 from tqdm import tqdm
 from cftool.misc import print_warning
 
-from .....trainer import Trainer
-from .....trainer import TrainerCallback
+from .....protocol import ITrainer
+from .....protocol import TrainerCallback
 from .....misc.toolkit import eval_context
 
 try:
@@ -22,10 +22,10 @@ class CLIPWithVQGANAlignerCallback(TrainerCallback):
         self.outputs_folder = outputs_folder
         self.video_file = video_file
 
-    def before_loop(self, trainer: Trainer) -> None:
+    def before_loop(self, trainer: ITrainer) -> None:
         self.log_artifacts(trainer)
 
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         state = trainer.state
@@ -40,7 +40,7 @@ class CLIPWithVQGANAlignerCallback(TrainerCallback):
         img = Image.fromarray(img_tensor.cpu().numpy().transpose([1, 2, 0]))
         img.save(os.path.join(outputs_folder, f"{state.step:06d}.png"))
 
-    def finalize(self, trainer: Trainer) -> None:
+    def finalize(self, trainer: ITrainer) -> None:
         if cv2 is None:
             print_warning(
                 "`opencv-python` is not installed, "

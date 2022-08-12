@@ -12,7 +12,7 @@ from cftool.array import save_images
 from ...api import load
 from ...api import pack
 from ...api import pixel_cnn
-from ....trainer import Trainer
+from ....protocol import ITrainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import ORIGINAL_LABEL_KEY
@@ -32,7 +32,7 @@ def register_callback(vqvae: VQVAE, num_classes: Optional[int]) -> str:
             super().__init__(num_keep)
             self.num_interpolations = num_interpolations
 
-        def log_artifacts(self, trainer: Trainer) -> None:
+        def log_artifacts(self, trainer: ITrainer) -> None:
             if not self.is_rank_0:
                 return None
             device = trainer.device

@@ -12,11 +12,11 @@ from cftool.misc import lock_manager
 from cftool.misc import print_warning
 from cftool.misc import fix_float_to_length
 
-from ....trainer import Trainer
-from ....trainer import TrainerCallback
+from ....protocol import ITrainer
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
+from ....protocol import TrainerCallback
 from ....constants import PT_PREFIX
 from ....constants import SCORES_FILE
 
@@ -103,7 +103,7 @@ class _InjectLoaderName(TrainerCallback):
     def mutate_train_forward_kwargs(
         self,
         kwargs: Dict[str, Any],
-        trainer: "Trainer",
+        trainer: ITrainer,
     ) -> None:
         kwargs["loader_name"] = trainer.train_loader.name  # type: ignore
 
@@ -199,7 +199,7 @@ class MLFlowCallback(TrainerCallback):
         score = metric_outputs.final_score
         self.mlflow_client.log_metric(self.run_id, "score", score, step=state.step)
 
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.enabled or not self._log_artifacts:
             return None
         self.mlflow_client.log_artifacts(self.run_id, trainer.workplace)
@@ -212,7 +212,7 @@ class MLFlowCallback(TrainerCallback):
                 key = f"tr_{key}"
                 self.mlflow_client.log_metric(self.run_id, key, value, step=state.step)
 
-    def finalize(self, trainer: Trainer) -> None:
+    def finalize(self, trainer: ITrainer) -> None:
         if not self.enabled:
             return None
         self.log_artifacts(trainer)
@@ -226,7 +226,7 @@ class ArtifactCallback(TrainerCallback):
         super().__init__()
         self.num_keep = num_keep
 
-    def _prepare_folder(self, trainer: Trainer, *, check_num_keep: bool = True) -> str:
+    def _prepare_folder(self, trainer: ITrainer, *, check_num_keep: bool = True) -> str:
         state = trainer.state
         sub_folder = os.path.join(trainer.workplace, self.key)
         os.makedirs(sub_folder, exist_ok=True)

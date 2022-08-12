@@ -14,6 +14,7 @@ from cftool.types import tensor_dict_type
 
 from .bases import custom_loss_module_type
 from ..protocol import _forward
+from ..protocol import ITrainer
 from ..protocol import StepOutputs
 from ..protocol import TrainerState
 from ..protocol import MetricsOutputs
@@ -40,7 +41,7 @@ def register_ml_module(
                 kwargs["out_dim"] = kwargs["output_dim"]
                 self.core = m(**filter_kw(m, kwargs))
 
-            def _init_with_trainer(self, trainer: Any) -> None:
+            def _init_with_trainer(self, trainer: ITrainer) -> None:
                 init_fn = getattr(self.core, "_init_with_trainer", None)
                 if init_fn is not None:
                     init_fn(trainer)
@@ -59,7 +60,7 @@ def register_ml_module(
                 self,
                 batch_idx: int,
                 batch: tensor_dict_type,
-                trainer: Any,
+                trainer: ITrainer,
                 forward_kwargs: Dict[str, Any],
                 loss_kwargs: Dict[str, Any],
             ) -> StepOutputs:
@@ -77,7 +78,7 @@ def register_ml_module(
                 self,
                 loader: DataLoaderProtocol,
                 portion: float,
-                trainer: Any,
+                trainer: ITrainer,
             ) -> MetricsOutputs:
                 evaluate_step = getattr(self.core, "evaluate_step", None)
                 if evaluate_step is not None:
@@ -107,7 +108,7 @@ def register_custom_loss_module(
                 self,
                 batch_idx: int,
                 batch: tensor_dict_type,
-                trainer: Any,
+                trainer: ITrainer,
                 forward_kwargs: Dict[str, Any],
                 loss_kwargs: Dict[str, Any],
             ) -> StepOutputs:
@@ -130,7 +131,7 @@ def register_custom_loss_module(
                 self,
                 loader: DataLoaderProtocol,
                 portion: float,
-                trainer: Any,
+                trainer: ITrainer,
             ) -> MetricsOutputs:
                 if trainer.metrics is not None:
                     outputs = trainer.inference.get_outputs(

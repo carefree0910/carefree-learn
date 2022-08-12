@@ -10,9 +10,9 @@ from cftool.array import save_images
 
 from .general import ImageCallback
 from ...toolkit import eval_context
-from ....trainer import Trainer
-from ....trainer import TrainerCallback
 from ....protocol import _forward
+from ....protocol import ITrainer
+from ....protocol import TrainerCallback
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
@@ -36,7 +36,7 @@ class GeneratorCallback(ImageCallback):
         super().__init__(num_keep)
         self.num_interpolations = num_interpolations
 
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))
@@ -82,7 +82,7 @@ class GeneratorCallback(ImageCallback):
 @TrainerCallback.register("siren_vae")
 @TrainerCallback.register("sized_generator")
 class SizedGeneratorCallback(GeneratorCallback):
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         super().log_artifacts(trainer)
@@ -108,7 +108,7 @@ class SizedGeneratorCallback(GeneratorCallback):
 @ImageCallback.register("u2net")
 @ImageCallback.register("cascade_u2net")
 class AlphaSegmentationCallback(ImageCallback):
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))
@@ -150,7 +150,7 @@ class AlphaSegmentationCallback(ImageCallback):
 @TrainerCallback.register("adain")
 @TrainerCallback.register("style_transfer")
 class StyleTransferCallback(ImageCallback):
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))

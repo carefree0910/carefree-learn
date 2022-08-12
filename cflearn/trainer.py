@@ -10,7 +10,6 @@ import torch.distributed as dist
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Callable
@@ -25,7 +24,6 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import sort_dict_by_value
 from cftool.misc import context_error_handler
-from cftool.misc import WithRegister
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
 from torch.optim.lr_scheduler import _LRScheduler
@@ -34,16 +32,21 @@ from torch.distributed.optim import ZeroRedundancyOptimizer as ZeRO
 from torch.utils.data.distributed import DistributedSampler
 
 from .data import DLLoader
-from .data import DLDataModule
+from .protocol import ITrainer
+from .protocol import DeviceInfo
+from .protocol import IDataModule
 from .protocol import StepOutputs
 from .protocol import LossProtocol
+from .protocol import TqdmSettings
 from .protocol import TrainerState
 from .protocol import ModelProtocol
+from .protocol import OptimizerPack
 from .protocol import MetricsOutputs
 from .protocol import MonitorResults
 from .protocol import TrainerMonitor
 from .protocol import MetricProtocol
 from .protocol import MultipleMetrics
+from .protocol import TrainerCallback
 from .protocol import InferenceProtocol
 from .protocol import DataLoaderProtocol
 from .protocol import ModelWithCustomSteps
@@ -60,17 +63,6 @@ from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
 from .modules.schedulers import WarmupScheduler
 from .misc.internal_.monitors import ConservativeMonitor
-
-
-callback_dict: Dict[str, Type["TrainerCallback"]] = {}
-
-
-class OptimizerPack(NamedTuple):
-    scope: str
-    optimizer_name: str
-    scheduler_name: Optional[str] = None
-    optimizer_config: Optional[Dict[str, Any]] = None
-    scheduler_config: Optional[Dict[str, Any]] = None
 
 
 class amp_context(context_error_handler):
@@ -141,84 +133,6 @@ class DefaultOptimizerSettings(NamedTuple):
         )
 
 
-class DeviceInfo(NamedTuple):
-    cuda: Optional[str]
-    rank: Optional[int]
-
-    @property
-    def device(self) -> torch.device:
-        if self.rank is not None:
-            return torch.device(f"cuda:{self.rank}")
-        return torch.device("cpu" if self.cuda is None else f"cuda:{self.cuda}")
-
-
-class TrainerCallback(WithRegister["TrainerCallback"]):
-    d = callback_dict
-    is_rank_0: bool = True
-
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
-
-    def initialize(self) -> None:
-        pass
-
-    def mutate_train_forward_kwargs(
-        self,
-        kwargs: Dict[str, Any],
-        trainer: "Trainer",
-    ) -> None:
-        pass
-
-    def mutate_train_loss_kwargs(
-        self,
-        kwargs: Dict[str, Any],
-        trainer: "Trainer",
-    ) -> None:
-        pass
-
-    def before_loop(self, trainer: "Trainer") -> None:
-        pass
-
-    def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
-        pass
-
-    def log_metrics(self, metric_outputs: MetricsOutputs, state: TrainerState) -> None:
-        pass
-
-    def log_metrics_msg(
-        self,
-        metric_outputs: MetricsOutputs,
-        metrics_log_path: str,
-        state: TrainerState,
-    ) -> None:
-        pass
-
-    def log_artifacts(self, trainer: "Trainer") -> None:
-        pass
-
-    def after_step(self, step_outputs: StepOutputs, state: TrainerState) -> None:
-        pass
-
-    def after_monitor(
-        self,
-        monitor_results: MonitorResults,
-        state: TrainerState,
-    ) -> None:
-        pass
-
-    def finalize(self, trainer: "Trainer") -> None:
-        pass
-
-
-class TqdmSettings(NamedTuple):
-    use_tqdm: bool = False
-    use_step_tqdm: bool = False
-    use_tqdm_in_validation: bool = False
-    in_distributed: bool = False
-    position: int = 0
-    desc: str = "epoch"
-
-
 def get_sorted_checkpoints(checkpoint_folder: str) -> List[str]:
     # better checkpoints will be placed earlier,
     #  which means `checkpoints[0]` is the best checkpoint
@@ -241,19 +155,7 @@ def _setup_ddp(*, backend: str = "nccl", dist_url: str = "env://") -> None:
     )
 
 
-class Trainer:
-    loss: LossProtocol
-    model: ModelProtocol
-    metrics: Optional[MetricProtocol]
-    monitors: List[TrainerMonitor]
-    callbacks: List[TrainerCallback]
-    state: TrainerState
-    device_info: DeviceInfo
-    train_loader: DataLoaderProtocol
-    train_loader_copy: DataLoaderProtocol
-    valid_loader: Optional[DataLoaderProtocol]
-    inference: InferenceProtocol
-
+class Trainer(ITrainer):
     def __init__(
         self,
         state_config: Optional[Dict[str, Any]] = None,
@@ -381,8 +283,8 @@ class Trainer:
         # initialize artifact structure
         self.checkpoint_folder = None
         self.data_info_name = data_info_name
+        self.workplace = workplace
         if self.is_rank_0:
-            self.workplace = workplace
             os.makedirs(self.workplace, exist_ok=True)
             self.metrics_log_path = os.path.join(self.workplace, metrics_log_file)
             with open(self.metrics_log_path, "w"):
@@ -394,6 +296,36 @@ class Trainer:
         self.intermediate: Optional[MetricsOutputs] = None
         self.final_results: Optional[MetricsOutputs] = None
         self.checkpoint_scores: Dict[str, float] = {}
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        ddp_info = get_ddp_info()
+        ddp_d = None if ddp_info is None else ddp_info._asdict()
+        return {
+            "state_config": self.state.config,
+            "valid_portion": self.valid_portion,
+            "amp": self.use_amp,
+            "clip_norm": self.clip_norm,
+            "metrics": (
+                None
+                if self.metrics is None
+                else self.metrics.__identifier__
+                if not isinstance(self.metrics, MultipleMetrics)
+                else [metric.__identifier__ for metric in self.metrics.metrics]
+            ),
+            "loss_metrics_weights": self.loss_metrics_weights,
+            "monitors": [monitor.__identifier__ for monitor in self.monitors],
+            "callbacks": [callback.__identifier__ for callback in self.callbacks],
+            "optimizer_packs": (
+                None
+                if self.optimizer_packs is None
+                else [pack._asdict() for pack in self.optimizer_packs]
+            ),
+            "ddp_info": ddp_d,
+            "finetune_config": self.finetune_config,
+            "tqdm_settings": self.tqdm_settings._asdict(),
+            "device_info": self.device_info._asdict(),
+        }
 
     @property
     def device(self) -> torch.device:
@@ -779,39 +711,9 @@ class Trainer:
 
     # api
 
-    @property
-    def config(self) -> Dict[str, Any]:
-        ddp_info = get_ddp_info()
-        ddp_d = None if ddp_info is None else ddp_info._asdict()
-        return {
-            "state_config": self.state.config,
-            "valid_portion": self.valid_portion,
-            "amp": self.use_amp,
-            "clip_norm": self.clip_norm,
-            "metrics": (
-                None
-                if self.metrics is None
-                else self.metrics.__identifier__
-                if not isinstance(self.metrics, MultipleMetrics)
-                else [metric.__identifier__ for metric in self.metrics.metrics]
-            ),
-            "loss_metrics_weights": self.loss_metrics_weights,
-            "monitors": [monitor.__identifier__ for monitor in self.monitors],
-            "callbacks": [callback.__identifier__ for callback in self.callbacks],
-            "optimizer_packs": (
-                None
-                if self.optimizer_packs is None
-                else [pack._asdict() for pack in self.optimizer_packs]
-            ),
-            "ddp_info": ddp_d,
-            "finetune_config": self.finetune_config,
-            "tqdm_settings": self.tqdm_settings._asdict(),
-            "device_info": self.device_info._asdict(),
-        }
-
     def fit(
         self,
-        data: DLDataModule,
+        data: IDataModule,
         loss: LossProtocol,
         model: ModelProtocol,
         inference: InferenceProtocol,
@@ -1056,10 +958,4 @@ class Trainer:
 __all__ = [
     "get_sorted_checkpoints",
     "Trainer",
-    "DeviceInfo",
-    "TqdmSettings",
-    "callback_dict",
-    "TrainerCallback",
-    "StepOutputs",
-    "OptimizerPack",
 ]

@@ -13,12 +13,15 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import TypeVar
 from typing import Callable
 from typing import Iterator
 from typing import Optional
+from typing import Protocol
 from typing import NamedTuple
+from torch.optim import Optimizer
 from cftool.misc import filter_kw
 from cftool.misc import print_info
 from cftool.misc import print_warning
@@ -32,9 +35,11 @@ from cftool.array import to_numpy
 from cftool.array import to_device
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
+from torch.optim.lr_scheduler import _LRScheduler
 
 from .types import losses_type
 from .types import configs_type
+from .types import sample_weights_type
 from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
@@ -70,7 +75,11 @@ loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
 model_dict: Dict[str, Type["ModelProtocol"]] = {}
 monitor_dict: Dict[str, Type["TrainerMonitor"]] = {}
 loss_dict: Dict[str, Type["LossProtocol"]] = {}
+multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
 metric_dict: Dict[str, Type["MetricProtocol"]] = {}
+callback_dict: Dict[str, Type["TrainerCallback"]] = {}
+
+LossType = TypeVar("LossType", bound="LossProtocol", covariant=True)
 
 
 # data
@@ -131,6 +140,29 @@ class DataLoaderProtocol(WithRegister["DataLoaderProtocol"], metaclass=ABCMeta):
         return _(self)
 
 
+class IDataModule:
+    id_file: str
+    info_name: str
+    data_folder: str
+    package_folder: str
+
+    @property
+    def info(self) -> Dict[str, Any]:
+        pass
+
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        pass
+
+    def initialize(self) -> Any:
+        pass
+
+    def save_info(self, folder: str) -> None:
+        pass
+
+    def save(self, folder: str) -> None:
+        pass
+
+
 # model
 
 
@@ -181,7 +213,7 @@ class ModelProtocol(
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
 
-    def _init_with_trainer(self, trainer: Any) -> None:
+    def _init_with_trainer(self, trainer: "ITrainer") -> None:
         pass
 
     @abstractmethod
@@ -346,7 +378,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        trainer: "ITrainer",
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
@@ -358,7 +390,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
         self,
         loader: DataLoaderProtocol,
         portion: float,
-        trainer: Any,
+        trainer: "ITrainer",
     ) -> MetricsOutputs:
         pass
 
@@ -372,7 +404,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
         pass
 
 
-# trainer
+# trainer types
 
 
 class TrainerState:
@@ -557,9 +589,6 @@ class MonitorResults(NamedTuple):
 # loss
 
 
-LossType = TypeVar("LossType", bound="LossProtocol", covariant=True)
-
-
 class LossProtocol(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
     d = loss_dict
     placeholder_key = "[PLACEHOLDER]"
@@ -619,9 +648,6 @@ class LossProtocol(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
         loss_name = cls.parse(":".join(split[:-2]))
         aux_names = split[-1].split(",")
         return AuxLoss.register_(loss_name, aux_names)
-
-
-multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
 
 
 class MultiLoss(LossProtocol, metaclass=ABCMeta):
@@ -930,7 +956,7 @@ class InferenceProtocol:
 class MetricProtocol(WithRegister["MetricProtocol"], metaclass=ABCMeta):
     d = metric_dict
 
-    trainer: Any
+    trainer: "ITrainer"
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
@@ -1023,11 +1049,261 @@ class MultipleMetrics(MetricProtocol):
         return MetricsOutputs(sum(scores) / sum(weights), metrics_values)
 
 
+# trainer interface
+
+
+class DeviceInfo(NamedTuple):
+    cuda: Optional[str]
+    rank: Optional[int]
+
+    @property
+    def device(self) -> torch.device:
+        if self.rank is not None:
+            return torch.device(f"cuda:{self.rank}")
+        return torch.device("cpu" if self.cuda is None else f"cuda:{self.cuda}")
+
+
+class OptimizerPack(NamedTuple):
+    scope: str
+    optimizer_name: str
+    scheduler_name: Optional[str] = None
+    optimizer_config: Optional[Dict[str, Any]] = None
+    scheduler_config: Optional[Dict[str, Any]] = None
+
+
+class TqdmSettings(NamedTuple):
+    use_tqdm: bool = False
+    use_step_tqdm: bool = False
+    use_tqdm_in_validation: bool = False
+    in_distributed: bool = False
+    position: int = 0
+    desc: str = "epoch"
+
+
+class TrainerCallback(WithRegister["TrainerCallback"]):
+    d = callback_dict
+    is_rank_0: bool = True
+
+    def __init__(self, *args: Any, **kwargs: Any):
+        pass
+
+    def initialize(self) -> None:
+        pass
+
+    def mutate_train_forward_kwargs(
+        self,
+        kwargs: Dict[str, Any],
+        trainer: "ITrainer",
+    ) -> None:
+        pass
+
+    def mutate_train_loss_kwargs(
+        self,
+        kwargs: Dict[str, Any],
+        trainer: "ITrainer",
+    ) -> None:
+        pass
+
+    def before_loop(self, trainer: "ITrainer") -> None:
+        pass
+
+    def log_lr(self, key: str, lr: float, state: TrainerState) -> None:
+        pass
+
+    def log_metrics(self, metric_outputs: MetricsOutputs, state: TrainerState) -> None:
+        pass
+
+    def log_metrics_msg(
+        self,
+        metric_outputs: MetricsOutputs,
+        metrics_log_path: str,
+        state: TrainerState,
+    ) -> None:
+        pass
+
+    def log_artifacts(self, trainer: "ITrainer") -> None:
+        pass
+
+    def after_step(self, step_outputs: StepOutputs, state: TrainerState) -> None:
+        pass
+
+    def after_monitor(
+        self,
+        monitor_results: MonitorResults,
+        state: TrainerState,
+    ) -> None:
+        pass
+
+    def finalize(self, trainer: "ITrainer") -> None:
+        pass
+
+
+class ITrainer:
+    loss: LossProtocol
+    model: ModelProtocol
+    metrics: Optional[MetricProtocol]
+    monitors: List[TrainerMonitor]
+    callbacks: List[TrainerCallback]
+    optimizers: Dict[str, Optimizer]
+    schedulers: Dict[str, Optional[_LRScheduler]]
+
+    state: TrainerState
+    device_info: DeviceInfo
+    train_loader: DataLoaderProtocol
+    train_loader_copy: DataLoaderProtocol
+    valid_loader: Optional[DataLoaderProtocol]
+    inference: InferenceProtocol
+
+    workplace: str
+    checkpoint_folder: Optional[str]
+
+    tqdm_settings: TqdmSettings
+    state_config: Dict[str, Any]
+    num_epoch: int
+    max_epoch: int
+    fixed_steps: Optional[int]
+    valid_portion: float
+    use_amp: bool
+    use_zero: bool
+    clip_norm: float
+    grad_scaler: torch.cuda.amp.GradScaler
+
+    @property
+    def config(self) -> Dict[str, Any]:
+        pass
+
+    @property
+    def device(self) -> torch.device:
+        pass
+
+    @property
+    def use_tqdm_in_validation(self) -> bool:
+        pass
+
+    @property
+    def validation_loader(self) -> DataLoaderProtocol:
+        pass
+
+    @property
+    def input_sample(self) -> tensor_dict_type:
+        pass
+
+    @property
+    def has_checkpoint_folder(self) -> bool:
+        pass
+
+    @property
+    def model_has_custom_steps(self) -> bool:
+        pass
+
+    @property
+    def model_for_training(self) -> nn.Module:
+        pass
+
+    # init
+
+    def _init_ddp(self) -> None:
+        pass
+
+    def _init_finetune(self) -> None:
+        pass
+
+    def default_lr_configs(
+        self,
+        optimizer: Optimizer,
+        optimizer_config: Dict[str, Any],
+    ) -> Dict[str, Dict[str, Any]]:
+        pass
+
+    def _define_optimizer(self, pack: OptimizerPack) -> Optimizer:
+        pass
+
+    def _define_scheduler(self, optimizer: Optimizer, pack: OptimizerPack) -> None:
+        pass
+
+    def _init_optimizers(self) -> None:
+        pass
+
+    # core
+
+    def post_loss_step(self, loss_dict: tensor_dict_type) -> None:
+        pass
+
+    def weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
+        pass
+
+    def clip_norm_step(self) -> None:
+        pass
+
+    def optimizer_step(self) -> None:
+        pass
+
+    def scheduler_step(self) -> None:
+        pass
+
+    def _get_scheduler_settings(
+        self,
+        key: str,
+        scheduler: Any,
+    ) -> Tuple[bool, Dict[str, Any]]:
+        pass
+
+    def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
+        pass
+
+    def _monitor_step(self, step_outputs: StepOutputs) -> MonitorResults:
+        pass
+
+    def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
+        pass
+
+    def fit(
+        self,
+        data: IDataModule,
+        loss: LossProtocol,
+        model: ModelProtocol,
+        inference: InferenceProtocol,
+        *,
+        config_export_file: Optional[str] = None,
+        show_summary: Optional[bool] = None,
+        cuda: Optional[str] = None,
+    ) -> "ITrainer":
+        pass
+
+    def get_metrics(
+        self,
+        *,
+        portion: float = 1.0,
+        loader: Optional[DataLoaderProtocol] = None,
+    ) -> MetricsOutputs:
+        pass
+
+    def save_checkpoint(
+        self,
+        score: float,
+        folder: Optional[str] = None,
+        *,
+        no_history: bool = False,
+    ) -> None:
+        pass
+
+    def restore_checkpoint(
+        self,
+        folder: str = None,
+        strict: bool = True,
+        state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    ) -> bool:
+        pass
+
+
 __all__ = [
     "_forward",
     "dataset_dict",
     "loader_dict",
     "loss_dict",
+    "multi_prefix_mapping",
+    "metric_dict",
+    "callback_dict",
     "DatasetProtocol",
     "DataLoaderProtocol",
     "ModelProtocol",
@@ -1045,4 +1321,9 @@ __all__ = [
     "MetricsOutputs",
     "MetricProtocol",
     "MultipleMetrics",
+    "DeviceInfo",
+    "OptimizerPack",
+    "TqdmSettings",
+    "TrainerCallback",
+    "ITrainer",
 ]

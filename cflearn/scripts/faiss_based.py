@@ -12,7 +12,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.types import tensor_dict_type
 
-from ..trainer import DeviceInfo
+from ..protocol import DeviceInfo
 from ..api.cv.pipeline import CVPipeline
 from ..api.cv.models.interface import IImageExtractor
 

@@ -6,14 +6,14 @@ from cftool.array import save_images
 from .general import ImageCallback
 from ...toolkit import eval_context
 from ...toolkit import make_indices_visualization_map
-from ....trainer import Trainer
+from ....protocol import ITrainer
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 
 
 @ImageCallback.register("clf")
 class ClassificationCallback(ImageCallback):
-    def log_artifacts(self, trainer: Trainer) -> None:
+    def log_artifacts(self, trainer: ITrainer) -> None:
         if not self.is_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))

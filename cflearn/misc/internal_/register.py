@@ -18,6 +18,7 @@ from torch.optim.optimizer import Optimizer
 from ..toolkit import Initializer
 from ...types import losses_type
 from ...protocol import _forward
+from ...protocol import ITrainer
 from ...protocol import StepOutputs
 from ...protocol import LossProtocol
 from ...protocol import TrainerState
@@ -169,7 +170,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         grad_scaler: GradScaler,
         clip_norm_fn: Callable[[], None],
         scheduler_step_fn: Callable[[], None],
-        trainer: Any,
+        trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
@@ -181,7 +182,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         portion: float,
         state: TrainerState,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
-        trainer: Any,
+        trainer: ITrainer,
     ) -> MetricsOutputs:
         pass
 
@@ -191,7 +192,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
     def init_ddp(self) -> None:
         pass
 
-    def init_with_trainer(self, trainer: Any) -> None:
+    def init_with_trainer(self, trainer: ITrainer) -> None:
         pass
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
@@ -235,7 +236,7 @@ def register_custom_module(
                 self,
                 batch_idx: int,
                 batch: tensor_dict_type,
-                trainer: Any,
+                trainer: ITrainer,
                 forward_kwargs: Dict[str, Any],
                 loss_kwargs: Dict[str, Any],
             ) -> StepOutputs:
@@ -259,7 +260,7 @@ def register_custom_module(
                 self,
                 loader: DataLoaderProtocol,
                 portion: float,
-                trainer: Any,
+                trainer: ITrainer,
             ) -> MetricsOutputs:
                 kwargs = dict(
                     loader=loader,
@@ -280,7 +281,7 @@ def register_custom_module(
             def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
                 self.core.permute_trainer_config(trainer_config)
 
-            def _init_with_trainer(self, trainer: Any) -> None:
+            def _init_with_trainer(self, trainer: ITrainer) -> None:
                 self.core.init_with_trainer(trainer)
 
         _.custom_train_step = custom_train_step
