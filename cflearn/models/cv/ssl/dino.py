@@ -10,12 +10,14 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from torch.optim import Optimizer
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.array import to_device
 from cftool.array import l2_normalize
 from cftool.types import tensor_dict_type
 from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.cuda.amp import GradScaler
 
 from ..encoder import run_encoder
 from ..encoder import Encoder1DMixin
@@ -23,12 +25,13 @@ from ....data import CVLoader
 from ....protocol import StepOutputs
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
-from ....protocol import ModelWithCustomSteps
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import get_world_size
 from ....misc.toolkit import has_batch_norms
+from ....misc.internal_.register import register_custom_module
+from ....misc.internal_.register import CustomModule
 
 
 def _get_dino_defaults(name: str) -> Dict[str, Any]:
@@ -244,11 +247,12 @@ class DINOEvaluateLoss:
         return loss.item()
 
 
-@ModelWithCustomSteps.register("dino")
-class DINO(ModelWithCustomSteps):
-    custom_params_groups = True
-    custom_ddp_initialization = True
-
+@register_custom_module(
+    "dino",
+    custom_params_groups=True,
+    custom_ddp_initialization=True,
+)
+class DINO(CustomModule):
     lr_schedule: Optional[Scheduler]
     wd_schedule: Optional[Scheduler]
     momentum_schedule: Optional[Scheduler]
@@ -337,6 +341,9 @@ class DINO(ModelWithCustomSteps):
         net = self.get_latent(inp, determinate=True)
         return net.view(inp.shape[0], self.student.backbone.latent_dim)
 
+    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
+        self.student(batch_idx, to_device(batch, self.device))
+
     def get_latent(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.forward(0, {INPUT_KEY: net}, **kwargs)[LATENT_KEY]
 
@@ -354,9 +361,6 @@ class DINO(ModelWithCustomSteps):
             if k.startswith("ddp"):
                 states.pop(k)
         return states
-
-    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self.student(batch_idx, to_device(batch, self.device))
 
     def _get_outputs(
         self,
@@ -396,13 +400,14 @@ class DINO(ModelWithCustomSteps):
             loss = self.loss(epoch, num_crops, student_output, teacher_output)
         return outputs, loss
 
-    def train_step(
+    def train_step(  # type: ignore
         self,
         batch_idx: int,
         batch: tensor_dict_type,
+        optimizers: Dict[str, Optimizer],
+        grad_scaler: GradScaler,
         trainer: Any,
         forward_kwargs: Dict[str, Any],
-        loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
         state = trainer.state
         if self.lr_schedule is None:
@@ -421,7 +426,7 @@ class DINO(ModelWithCustomSteps):
                 state.num_step_per_epoch,
             )
         # manual scheduling
-        optimizer = trainer.optimizers["all"]
+        optimizer = optimizers["all"]
         for i, param_group in enumerate(optimizer.param_groups):
             param_group["lr"] = self.lr_schedule[state.step]
             if i == 0:
@@ -430,10 +435,10 @@ class DINO(ModelWithCustomSteps):
         rs, loss = self._get_loss(batch_idx, batch, trainer, forward_kwargs)
         # backward pass
         optimizer.zero_grad()
-        trainer.grad_scaler.scale(loss).backward()
+        grad_scaler.scale(loss).backward()
         # clip norm
         if trainer.clip_norm > 0.0:
-            trainer.grad_scaler.unscale_(optimizer)
+            grad_scaler.unscale_(optimizer)
             nn.utils.clip_grad_norm_(
                 self.student_for_training.parameters(),
                 max_norm=trainer.clip_norm,
@@ -444,8 +449,8 @@ class DINO(ModelWithCustomSteps):
                 if "last_layer" in n:
                     p.grad = None
         # update parameters
-        trainer.grad_scaler.step(optimizer)
-        trainer.grad_scaler.update()
+        grad_scaler.step(optimizer)
+        grad_scaler.update()
         # update momentum teacher
         if self.momentum_schedule is None:
             self.momentum_schedule = cosine_scheduler(
