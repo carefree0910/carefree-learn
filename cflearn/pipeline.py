@@ -383,7 +383,8 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(**trainer_config)
         self._sanity_check()
-        self._report_defaults()
+        if self.trainer.is_rank_0 and not self.trainer.tqdm_settings.in_distributed:
+            self._report_defaults()
         self.built = True
 
     # load steps
