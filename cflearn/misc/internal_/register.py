@@ -163,6 +163,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
+        state: TrainerState,
         optimizers: Dict[str, Optimizer],
         use_amp: bool,
         grad_scaler: GradScaler,
@@ -178,6 +179,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         self,
         loader: DataLoaderProtocol,
         portion: float,
+        state: TrainerState,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
         trainer: Any,
     ) -> MetricsOutputs:
@@ -240,6 +242,7 @@ def register_custom_module(
                 kwargs = dict(
                     batch_idx=batch_idx,
                     batch=batch,
+                    state=trainer.state,
                     optimizers=trainer.optimizers,
                     use_amp=trainer.use_amp,
                     grad_scaler=trainer.grad_scaler,
@@ -261,6 +264,7 @@ def register_custom_module(
                 kwargs = dict(
                     loader=loader,
                     portion=portion,
+                    state=trainer.state,
                     weighted_loss_score_fn=trainer.weighted_loss_score,
                     trainer=trainer,
                 )
