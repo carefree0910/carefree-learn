@@ -6,6 +6,7 @@ import numpy as np
 import torch.nn as nn
 
 from abc import abstractmethod
+from abc import ABC
 from abc import ABCMeta
 from copy import deepcopy
 from tqdm import tqdm
@@ -140,25 +141,30 @@ class DataLoaderProtocol(WithRegister["DataLoaderProtocol"], metaclass=ABCMeta):
         return _(self)
 
 
-class IDataModule:
+class IDataModule(ABC):
     id_file: str
     info_name: str
     data_folder: str
     package_folder: str
 
     @property
+    @abstractmethod
     def info(self) -> Dict[str, Any]:
         pass
 
+    @abstractmethod
     def prepare(self, sample_weights: sample_weights_type) -> None:
         pass
 
+    @abstractmethod
     def initialize(self) -> Any:
         pass
 
+    @abstractmethod
     def save_info(self, folder: str) -> None:
         pass
 
+    @abstractmethod
     def save(self, folder: str) -> None:
         pass
 
@@ -1138,7 +1144,7 @@ class TrainerCallback(WithRegister["TrainerCallback"]):
         pass
 
 
-class ITrainer:
+class ITrainer(ABC):
     loss: LossProtocol
     model: ModelProtocol
     metrics: Optional[MetricProtocol]
@@ -1169,45 +1175,56 @@ class ITrainer:
     grad_scaler: torch.cuda.amp.GradScaler
 
     @property
+    @abstractmethod
     def config(self) -> Dict[str, Any]:
         pass
 
     @property
+    @abstractmethod
     def device(self) -> torch.device:
         pass
 
     @property
+    @abstractmethod
     def use_tqdm_in_validation(self) -> bool:
         pass
 
     @property
+    @abstractmethod
     def validation_loader(self) -> DataLoaderProtocol:
         pass
 
     @property
+    @abstractmethod
     def input_sample(self) -> tensor_dict_type:
         pass
 
     @property
+    @abstractmethod
     def has_checkpoint_folder(self) -> bool:
         pass
 
     @property
+    @abstractmethod
     def model_has_custom_steps(self) -> bool:
         pass
 
     @property
+    @abstractmethod
     def model_for_training(self) -> nn.Module:
         pass
 
     # init
 
+    @abstractmethod
     def _init_ddp(self) -> None:
         pass
 
+    @abstractmethod
     def _init_finetune(self) -> None:
         pass
 
+    @abstractmethod
     def default_lr_configs(
         self,
         optimizer: Optimizer,
@@ -1215,32 +1232,41 @@ class ITrainer:
     ) -> Dict[str, Dict[str, Any]]:
         pass
 
+    @abstractmethod
     def _define_optimizer(self, pack: OptimizerPack) -> Optimizer:
         pass
 
+    @abstractmethod
     def _define_scheduler(self, optimizer: Optimizer, pack: OptimizerPack) -> None:
         pass
 
+    @abstractmethod
     def _init_optimizers(self) -> None:
         pass
 
     # core
 
+    @abstractmethod
     def post_loss_step(self, loss_dict: tensor_dict_type) -> None:
         pass
 
+    @abstractmethod
     def weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
         pass
 
+    @abstractmethod
     def clip_norm_step(self) -> None:
         pass
 
+    @abstractmethod
     def optimizer_step(self) -> None:
         pass
 
+    @abstractmethod
     def scheduler_step(self) -> None:
         pass
 
+    @abstractmethod
     def _get_scheduler_settings(
         self,
         key: str,
@@ -1248,15 +1274,19 @@ class ITrainer:
     ) -> Tuple[bool, Dict[str, Any]]:
         pass
 
+    @abstractmethod
     def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
         pass
 
+    @abstractmethod
     def _monitor_step(self, step_outputs: StepOutputs) -> MonitorResults:
         pass
 
+    @abstractmethod
     def _step(self, batch_idx: int, batch: tensor_dict_type) -> StepOutputs:
         pass
 
+    @abstractmethod
     def fit(
         self,
         data: IDataModule,
@@ -1270,6 +1300,7 @@ class ITrainer:
     ) -> "ITrainer":
         pass
 
+    @abstractmethod
     def get_metrics(
         self,
         *,
@@ -1278,6 +1309,7 @@ class ITrainer:
     ) -> MetricsOutputs:
         pass
 
+    @abstractmethod
     def save_checkpoint(
         self,
         score: float,
@@ -1287,6 +1319,7 @@ class ITrainer:
     ) -> None:
         pass
 
+    @abstractmethod
     def restore_checkpoint(
         self,
         folder: str = None,
