@@ -76,7 +76,7 @@ class GANMixin:
         return False
 
     def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self._g_losses(batch, self.forward(batch_idx, batch))  # type: ignore
+        self._g_losses(batch, _forward(self, batch_idx, batch, INPUT_KEY))  # type: ignore
 
 
 class OneStageGANMixin(GANMixin, WithDeviceMixin):
