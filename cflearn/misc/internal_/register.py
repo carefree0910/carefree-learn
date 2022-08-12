@@ -161,6 +161,12 @@ def _get_clip_norm_fn(trainer: Any) -> Callable[[], None]:
 
 
 class CustomModule(WithDeviceMixin, nn.Module):
+    def onnx_forward(self, batch: tensor_dict_type) -> Any:
+        return _forward(self, 0, batch, INPUT_KEY)
+
+    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
+        _forward(self, batch_idx, batch, INPUT_KEY)
+
     def train_step(
         self,
         batch_idx: int,
@@ -221,6 +227,12 @@ def register_custom_module(
                 **kwargs: Any,
             ) -> tensor_dict_type:
                 return _forward(self.core, batch_idx, batch, INPUT_KEY, state, **kwargs)
+
+            def onnx_forward(self, batch: tensor_dict_type) -> Any:
+                return self.core.onnx_forward(batch)
+
+            def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
+                self.core.summary_forward(batch_idx, batch)
 
             def train_step(
                 self,
