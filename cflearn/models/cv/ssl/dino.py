@@ -511,9 +511,6 @@ class DINO(CustomModule):
                 regularized.append(param)
         return [{"params": regularized}, {"params": bias_and_norm, "weight_decay": 0.0}]
 
-    def _init_with_trainer(self, trainer: Any) -> None:
-        self.teacher_for_training.requires_grad_(False)
-
     def init_ddp(self) -> None:
         if has_batch_norms(self.student):
             self.student = nn.SyncBatchNorm.convert_sync_batchnorm(self.student)
@@ -521,6 +518,9 @@ class DINO(CustomModule):
         self.ddp_student = DDP(self.student)
         self.ddp_teacher = DDP(self.teacher)
         self.ddp_teacher.requires_grad_(False)  # type: ignore
+
+    def init_with_trainer(self, trainer: Any) -> None:
+        self.teacher_for_training.requires_grad_(False)
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
         # TODO : make `permute_trainer_config` more general

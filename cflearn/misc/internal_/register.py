@@ -189,6 +189,9 @@ class CustomModule(WithDeviceMixin, nn.Module):
     def init_ddp(self) -> None:
         pass
 
+    def init_with_trainer(self, trainer: Any) -> None:
+        pass
+
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
         pass
 
@@ -272,6 +275,9 @@ def register_custom_module(
 
             def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
                 self.core.permute_trainer_config(trainer_config)
+
+            def _init_with_trainer(self, trainer: Any) -> None:
+                self.core.init_with_trainer(trainer)
 
         _.custom_train_step = custom_train_step
         _.custom_evaluate_step = custom_evaluate_step
