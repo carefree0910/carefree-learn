@@ -3,6 +3,7 @@ import sys
 import json
 import math
 import torch
+import hashlib
 import inspect
 import argparse
 import urllib.request
@@ -70,12 +71,23 @@ def check_is_ci() -> bool:
     return bool(args.ci)
 
 
-def check_available(tag: str, repo: str, name: str) -> bool:
+class FileInfo(NamedTuple):
+    sha: str
+    st_size: int
+
+
+def check_available(tag: str, repo: str, name: str) -> Optional[FileInfo]:
     with open(os.path.join(os.path.dirname(__file__), "available.json"), "r") as f:
         available = json.load(f)
     if repo != "pretrained-models":
-        return True
-    return name in available[tag]
+        return FileInfo("", 0)
+    info = available[tag].get(name)
+    return None if info is None else FileInfo(**info)
+
+
+def _check_sha(path: str, tgt_sha: str) -> bool:
+    with open(path, "rb") as f:
+        return hashlib.sha256(f.read()).hexdigest() == tgt_sha
 
 
 def download(
@@ -84,11 +96,12 @@ def download(
     name: str,
     root: str,
     extension: str,
-    force_download: bool,
-    remove_zip: Optional[bool],
-    extract_zip: bool,
+    *,
+    check_sha: bool = False,
+    remove_zip: bool = True,
 ) -> str:
-    if not check_available(tag, repo, name):
+    info = check_available(tag, repo, name)
+    if info is None:
         raise ValueError(f"'{name}' is currently not available at '{tag}'")
     prefix = f"https://github.com/carefree0910/{repo}/releases/download/{tag}/"
     os.makedirs(root, exist_ok=True)
@@ -96,9 +109,16 @@ def download(
     path = os.path.join(root, file)
     is_zip = extension == "zip"
     zip_folder_path = os.path.join(root, name)
-    exists = os.path.isdir(zip_folder_path) if is_zip else os.path.isfile(path)
-    if exists and not force_download:
-        return zip_folder_path if is_zip else path
+    if is_zip and os.path.isdir(zip_folder_path):
+        return zip_folder_path
+    fmt = "cache file is detected but {}, it will be re-downloaded"
+    if not is_zip and os.path.isfile(path):
+        if os.stat(path).st_size != info.st_size:
+            print_warning(fmt.format("st_size is not correct"))
+        else:
+            if not check_sha or _check_sha(path, info.sha):
+                return path
+            print_warning(fmt.format("sha is not correct"))
     with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=name) as t:
         urllib.request.urlretrieve(
             f"{prefix}{file}",
@@ -107,16 +127,10 @@ def download(
         )
     if not is_zip:
         return path
-    if extract_zip:
-        with ZipFile(path, "r") as zip_ref:
-            zip_ref.extractall(zip_folder_path)
-    if remove_zip is None:
-        remove_zip = extract_zip
+    with ZipFile(path, "r") as zip_ref:
+        zip_ref.extractall(zip_folder_path)
     if remove_zip:
-        if extract_zip:
-            os.remove(path)
-        else:
-            print_warning("zip file is not extracted, so we will not remove it!")
+        os.remove(path)
     return zip_folder_path
 
 
@@ -124,74 +138,33 @@ def download_tokenizer(
     name: str,
     *,
     root: str = os.path.join(CACHE_DIR, "tokenizers"),
-    force_download: bool = False,
 ) -> str:
-    return download(
-        "tokenizers",
-        "pretrained-models",
-        name,
-        root,
-        "pkl",
-        force_download,
-        None,
-        False,
-    )
+    return download("tokenizers", "pretrained-models", name, root, "pkl")
 
 
 def download_model(
     name: str,
     *,
     root: str = os.path.join(CACHE_DIR, "models"),
-    force_download: bool = False,
 ) -> str:
-    return download(
-        "checkpoints",
-        "pretrained-models",
-        name,
-        root,
-        "pt",
-        force_download,
-        None,
-        False,
-    )
+    return download("checkpoints", "pretrained-models", name, root, "pt")
 
 
 def download_reference(
     name: str,
     *,
     root: str = os.path.join(CACHE_DIR, "reference"),
-    force_download: bool = False,
 ) -> str:
-    return download(
-        "reference",
-        "pretrained-models",
-        name,
-        root,
-        "pt",
-        force_download,
-        None,
-        False,
-    )
+    return download("reference", "pretrained-models", name, root, "pt")
 
 
 def download_dataset(
     name: str,
     *,
     root: str = os.getcwd(),
-    force_download: bool = False,
-    remove_zip: Optional[bool] = None,
-    extract_zip: bool = True,
+    remove_zip: bool = True,
 ) -> str:
-    return download(
-        "latest",
-        "datasets",
-        name,
-        root,
-        "zip",
-        force_download,
-        remove_zip,
-        extract_zip,
-    )
+    return download("latest", "datasets", name, root, "zip", remove_zip=remove_zip)
 
 
 def get_compatible_name(

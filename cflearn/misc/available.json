@@ -1,30 +1,108 @@
 {
-  "data_info": [],
-  "tokenizers": ["clip", "clip_3.8", "clip_3.9"],
-  "checkpoints": [
-    "vgg_style",
-    "adain",
-    "clip",
-    "vqgan_generator",
-    "style_gan2_generator.afhqcat",
-    "style_gan2_generator.afhqdog",
-    "style_gan2_generator.afhqwild",
-    "style_gan2_generator.brecahad",
-    "style_gan2_generator.ffhq",
-    "style_gan2_generator.metfaces",
-    "cct_large_224",
-    "cct_large_384",
-    "u2net",
-    "u2net.lite"
-  ],
-  "reference": [
-    "u2net",
-    "u2netp",
-    "afhqcat",
-    "afhqdog",
-    "afhqwild",
-    "brecahad",
-    "ffhq",
-    "metfaces"
-  ]
+  "tokenizers": {
+    "clip": {
+      "sha": "2f61cd7e87afea5cb03581f272001020432ccbae49fd0e3b16fb8dcda931693c",
+      "st_size": 3255756
+    },
+    "clip_3.8": {
+      "sha": "900a78d315073e9e92265f723e52947edd4b3ff3ca74dfc5fd524c72ddd67f76",
+      "st_size": 2097451
+    },
+    "clip_3.9": {
+      "sha": "9e471d3563111c9540029fd11546589fe38778fbd001d5c3a4b8926e64a6cdc2",
+      "st_size": 2096168
+    }
+  },
+  "checkpoints": {
+    "vgg_style": {
+      "sha": "e1f6d57181cc06a32b3acb31734c485341ec11c247eacec0dbdddd0f179c8771",
+      "st_size": 14029161
+    },
+    "adain": {
+      "sha": "357869313e3f711abd6c9114ff35cebe9c077b80f52bfffe1b2a207644c3f560",
+      "st_size": 28054835
+    },
+    "clip": {
+      "sha": "ef1629f092adee8ebbdb89074254a3fb4b48d8d50e086de24736f58be2b587f1",
+      "st_size": 605262947
+    },
+    "vqgan_generator": {
+      "sha": "36a9d1b6df91c40a34f96febb057eed3a32efaecf904a3d6915f8535268520b6",
+      "st_size": 304418003
+    },
+    "style_gan2_generator.afhqcat": {
+      "sha": "3d0c446c7040c045ff635cf445868fc5076288f884dddf94ba3a457115d6246f",
+      "st_size": 123961240
+    },
+    "style_gan2_generator.afhqdog": {
+      "sha": "fe4453fb5bcbce5765e217092d0b504112f17b68effbfcf634b748eb6c9d21ad",
+      "st_size": 123961240
+    },
+    "style_gan2_generator.afhqwild": {
+      "sha": "f9519b751e433cb9ae5d874ce54280c13e6bc12b5a2278bacdd6d2e7d51c66a6",
+      "st_size": 123961405
+    },
+    "style_gan2_generator.brecahad": {
+      "sha": "0178848bd46b02f37f6399bda108b524a588271402ee44d6dac818eddd561bb3",
+      "st_size": 123961405
+    },
+    "style_gan2_generator.ffhq": {
+      "sha": "f7fcfb0d08d52008dd39801a137cfb1cd3a85cab5774c187dda70287964a2ad0",
+      "st_size": 132729957
+    },
+    "style_gan2_generator.metfaces": {
+      "sha": "0d032515e4aac95343614a1b45dad963a9a234dbe010b78b72e8007f88d1ad2d",
+      "st_size": 132730693
+    },
+    "cct_large_224": {
+      "sha": "5ce8456c8d0e36cfa7449f40846715e024d0e3813c84760c948e267734a890c1",
+      "st_size": 87981439
+    },
+    "cct_large_384": {
+      "sha": "215d46176120f2d94a318fef7cdbb42e604b584bd6c4a84c7a7eeffdf795df64",
+      "st_size": 88565119
+    },
+    "u2net": {
+      "sha": "2c0f4ce0674579022c735f9ffcec7092115af11b4d7377d89d57d0bc24f415dd",
+      "st_size": 176439557
+    },
+    "u2net.lite": {
+      "sha": "56967fa8f786f681048ea8741d457dcb9873c37264f0762b6d7498365fc3b9c0",
+      "st_size": 4831877
+    }
+  },
+  "reference": {
+    "u2net": {
+      "sha": "10025a17f49cd3208afc342b589890e402ee63123d6f2d289a4a0903695cce58",
+      "st_size": 176290937
+    },
+    "u2netp": {
+      "sha": "e7567cde013fb64813973ce6e1ecc25a80c05c3ca7adbc5a54f3c3d90991b854",
+      "st_size": 4683258
+    },
+    "afhqcat": {
+      "sha": "f62fd750c51f649147ba355844833c0f2a37081f7c032194f52fd74a016c3a29",
+      "st_size": 363959591
+    },
+    "afhqdog": {
+      "sha": "f124ff3f23206052473a7212cbc1f4e095a73c231500411e9c3b81a11eac3662",
+      "st_size": 363959591
+    },
+    "afhqwild": {
+      "sha": "b848043b0518e809f854fdd8b6a6daa7c7e1cce7abaaf8eb883a901c6c6bd347",
+      "st_size": 363959591
+    },
+    "brecahad": {
+      "sha": "f9f0c2766187aff4c3424c4a5a67d52c503672f28cf08eab645382523b7a5161",
+      "st_size": 363959591
+    },
+    "ffhq": {
+      "sha": "a205a346e86a9ddaae702e118097d014b7b8bd719491396a162cca438f2f524c",
+      "st_size": 381624121
+    },
+    "metfaces": {
+      "sha": "880a460d011a3696c088f58f5844b44271b17903963f2671f96f72dfbce5f76f",
+      "st_size": 381624133
+    }
+  }
 }
