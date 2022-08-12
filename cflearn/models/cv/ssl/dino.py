@@ -366,20 +366,20 @@ class DINO(CustomModule):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        state: TrainerState,
         forward_kwargs: Dict[str, Any],
     ) -> tensor_dict_type:
         teacher_output = self.teacher_for_training(
             batch_idx,
             batch,
-            trainer.state,
+            state,
             img_end_idx=2,
             **forward_kwargs,
         )
         student_output = self.student_for_training(
             batch_idx,
             batch,
-            trainer.state,
+            state,
             **forward_kwargs,
         )
         return {"student": student_output, "teacher": teacher_output}
@@ -388,12 +388,13 @@ class DINO(CustomModule):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        state: TrainerState,
+        use_amp: bool,
         forward_kwargs: Dict[str, Any],
     ) -> Tuple[tensor_dict_type, Tensor]:
-        with torch.cuda.amp.autocast(enabled=trainer.use_amp):
-            outputs = self._get_outputs(batch_idx, batch, trainer, forward_kwargs)
-            epoch = trainer.state.epoch
+        with torch.cuda.amp.autocast(enabled=use_amp):
+            outputs = self._get_outputs(batch_idx, batch, state, forward_kwargs)
+            epoch = state.epoch
             num_crops = len(batch[INPUT_KEY])
             student_output = outputs["student"]
             teacher_output = outputs["teacher"]
@@ -404,12 +405,13 @@ class DINO(CustomModule):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
+        state: TrainerState,
         optimizers: Dict[str, Optimizer],
+        use_amp: bool,
         grad_scaler: GradScaler,
         trainer: Any,
         forward_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        state = trainer.state
         if self.lr_schedule is None:
             self.lr_schedule = cosine_scheduler(
                 self.lr * (len(batch[INPUT_KEY][0]) * get_world_size()) / 256.0,  # type: ignore
@@ -432,7 +434,7 @@ class DINO(CustomModule):
             if i == 0:
                 param_group["weight_decay"] = self.wd_schedule[state.step]
         # forward pass
-        rs, loss = self._get_loss(batch_idx, batch, trainer, forward_kwargs)
+        rs, loss = self._get_loss(batch_idx, batch, state, use_amp, forward_kwargs)
         # backward pass
         optimizer.zero_grad()
         grad_scaler.scale(loss).backward()
@@ -473,17 +475,17 @@ class DINO(CustomModule):
         self,
         loader: CVLoader,
         portion: float,
-        trainer: Any,
+        state: TrainerState,
     ) -> MetricsOutputs:
         losses = []
         for i, batch in enumerate(loader):
             if i / len(loader) >= portion:
                 break
             batch = to_device(batch, self.device)
-            outputs = self._get_outputs(i, batch, trainer, {})
+            outputs = self._get_outputs(i, batch, state, {})
             losses.append(
                 self.evaluate_loss(
-                    trainer.state.epoch,
+                    state.epoch,
                     outputs["student"],
                     outputs["teacher"],
                 )
@@ -494,8 +496,8 @@ class DINO(CustomModule):
             -mean_loss,
             {
                 "loss": mean_loss,
-                "lr": self.lr_schedule[trainer.state.step],  # type: ignore
-                "wd": self.wd_schedule[trainer.state.step],  # type: ignore
+                "lr": self.lr_schedule[state.step],  # type: ignore
+                "wd": self.wd_schedule[state.step],  # type: ignore
             },
         )
 

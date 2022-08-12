@@ -7,14 +7,18 @@ from abc import abstractmethod
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Callable
 from typing import Optional
+from torch.optim import Optimizer
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
+from torch.cuda.amp import GradScaler
 
 from .discriminators import DiscriminatorBase
 from ....data import CVLoader
 from ....protocol import _forward
 from ....protocol import StepOutputs
+from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
 from ....protocol import WithDeviceMixin
 from ....constants import LOSS_KEY
@@ -79,49 +83,55 @@ class GANMixin:
         self._g_losses(batch, _forward(self, batch_idx, batch, INPUT_KEY))  # type: ignore
 
 
+# This mixin should be used with `CustomModule` & `register_custom_module`
 class OneStageGANMixin(GANMixin, WithDeviceMixin):
     def train_step(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        trainer: Any,
+        state: TrainerState,
+        optimizers: Dict[str, Optimizer],
+        use_amp: bool,
+        grad_scaler: GradScaler,
+        clip_norm_fn: Callable[[], None],
+        scheduler_step_fn: Callable[[], None],
         forward_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        opt_g = trainer.optimizers["core.g_parameters"]
-        opt_d = trainer.optimizers["core.d_parameters"]
+        opt_g = optimizers["core.g_parameters"]
+        opt_d = optimizers["core.d_parameters"]
         # forward
         forward = _forward(
             self,
             batch_idx,
             batch,
             INPUT_KEY,
-            trainer.state,
+            state,
             **forward_kwargs,
         )
         with torch.no_grad():
             detached_forward = {k: v.detach() for k, v in forward.items()}
         # generator step
         with toggle_optimizer(self, opt_g):
-            with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+            with torch.cuda.amp.autocast(enabled=use_amp):
                 g_losses = self._g_losses(batch, forward)
             g_loss = g_losses.pop(LOSS_KEY)
-            trainer.grad_scaler.scale(g_loss).backward()
-            trainer.clip_norm_step()
-            trainer.grad_scaler.step(opt_g)
-            trainer.grad_scaler.update()
+            grad_scaler.scale(g_loss).backward()
+            clip_norm_fn()
+            grad_scaler.step(opt_g)
+            grad_scaler.update()
             opt_g.zero_grad()
         # discriminator step
         with toggle_optimizer(self, opt_d):
-            with torch.cuda.amp.autocast(enabled=trainer.use_amp):
+            with torch.cuda.amp.autocast(enabled=use_amp):
                 d_losses = self._d_losses(batch, detached_forward)
             d_loss = d_losses.pop(LOSS_KEY)
-            trainer.grad_scaler.scale(d_loss).backward()
-            trainer.clip_norm_step()
-            trainer.grad_scaler.step(opt_d)
-            trainer.grad_scaler.update()
+            grad_scaler.scale(d_loss).backward()
+            clip_norm_fn()
+            grad_scaler.step(opt_d)
+            grad_scaler.update()
             opt_d.zero_grad()
         # finalize
-        trainer.scheduler_step()
+        scheduler_step_fn()
         loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
         loss_dict.update({k: v.item() for k, v in g_losses.items()})
         loss_dict.update({k: v.item() for k, v in d_losses.items()})
@@ -131,14 +141,15 @@ class OneStageGANMixin(GANMixin, WithDeviceMixin):
         self,
         loader: CVLoader,
         portion: float,
-        trainer: Any,
+        state: TrainerState,
+        weighted_loss_score_fn: Callable[[Dict[str, float]], float],
     ) -> MetricsOutputs:
         loss_items: Dict[str, List[float]] = {}
         for i, batch in enumerate(loader):
             if i / len(loader) >= portion:
                 break
             batch = to_device(batch, self.device)
-            forward = _forward(self, i, batch, INPUT_KEY, trainer.state)
+            forward = _forward(self, i, batch, INPUT_KEY, state)
             g_losses = self._g_losses(batch, forward)
             # in evaluate step, all tensors are already detached
             d_losses = self._d_losses(batch, forward)
@@ -152,7 +163,7 @@ class OneStageGANMixin(GANMixin, WithDeviceMixin):
                 loss_items.setdefault(k, []).append(v)
         # gather
         mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        score = trainer.weighted_loss_score(mean_loss_items)
+        score = weighted_loss_score_fn(mean_loss_items)
         return MetricsOutputs(score, mean_loss_items)
 
 
