@@ -633,8 +633,7 @@ class Trainer:
         loss = loss_dict[LOSS_KEY]
         self.grad_scaler.scale(loss).backward()
         # clip norm
-        if self.clip_norm > 0.0:
-            self.clip_norm_step()
+        self.clip_norm_step()
         # optimize
         self.optimizer_step()
         self.scheduler_step()
@@ -651,12 +650,13 @@ class Trainer:
         return score
 
     def clip_norm_step(self) -> None:
-        for opt in self.optimizers.values():
-            self.grad_scaler.unscale_(opt)
-        self._gradient_norm = nn.utils.clip_grad_norm_(
-            self.model_for_training.parameters(),
-            max_norm=self.clip_norm,
-        )
+        if self.clip_norm > 0.0:
+            for opt in self.optimizers.values():
+                self.grad_scaler.unscale_(opt)
+            self._gradient_norm = nn.utils.clip_grad_norm_(
+                self.model_for_training.parameters(),
+                max_norm=self.clip_norm,
+            )
 
     def optimizer_step(self) -> None:
         for opt in self.optimizers.values():

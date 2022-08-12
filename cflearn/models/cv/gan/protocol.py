@@ -106,8 +106,7 @@ class OneStageGANMixin(GANMixin, WithDeviceMixin):
                 g_losses = self._g_losses(batch, forward)
             g_loss = g_losses.pop(LOSS_KEY)
             trainer.grad_scaler.scale(g_loss).backward()
-            if trainer.clip_norm > 0.0:
-                trainer.clip_norm_step()
+            trainer.clip_norm_step()
             trainer.grad_scaler.step(opt_g)
             trainer.grad_scaler.update()
             opt_g.zero_grad()
@@ -117,8 +116,7 @@ class OneStageGANMixin(GANMixin, WithDeviceMixin):
                 d_losses = self._d_losses(batch, detached_forward)
             d_loss = d_losses.pop(LOSS_KEY)
             trainer.grad_scaler.scale(d_loss).backward()
-            if trainer.clip_norm > 0.0:
-                trainer.clip_norm_step()
+            trainer.clip_norm_step()
             trainer.grad_scaler.step(opt_d)
             trainer.grad_scaler.update()
             opt_d.zero_grad()

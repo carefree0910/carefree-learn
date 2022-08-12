@@ -152,14 +152,6 @@ def register_module(
     return _core
 
 
-def _get_clip_norm_fn(trainer: Any) -> Callable[[], None]:
-    def _core() -> None:
-        if trainer.clip_norm > 0.0:
-            trainer.clip_norm_step()
-
-    return _core
-
-
 class CustomModule(WithDeviceMixin, nn.Module):
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return _forward(self, 0, batch, INPUT_KEY)
@@ -248,7 +240,7 @@ def register_custom_module(
                     optimizers=trainer.optimizers,
                     use_amp=trainer.use_amp,
                     grad_scaler=trainer.grad_scaler,
-                    clip_norm_fn=_get_clip_norm_fn(trainer),
+                    clip_norm_fn=trainer.clip_norm_step,
                     scheduler_step_fn=trainer.scheduler_step,
                     trainer=trainer,
                     forward_kwargs=forward_kwargs,
