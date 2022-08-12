@@ -13,7 +13,7 @@ from ..encoder import run_encoder
 from ..encoder import make_encoder
 from ..encoder import EncoderMixin
 from ....protocol import TrainerState
-from ....protocol import ModelProtocol
+from ....protocol import IDLModel
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY
@@ -54,8 +54,8 @@ class VQCodebook(nn.Module):
         return z_q, indices
 
 
-@ModelProtocol.register("vq_generator")
-class VQGenerator(ModelProtocol):
+@IDLModel.register("vq_generator")
+class VQGenerator(IDLModel):
     def __init__(
         self,
         img_size: int,

@@ -36,19 +36,19 @@ from .protocol import ITrainer
 from .protocol import DeviceInfo
 from .protocol import IDataModule
 from .protocol import StepOutputs
-from .protocol import LossProtocol
+from .protocol import ILoss
 from .protocol import TqdmSettings
 from .protocol import TrainerState
-from .protocol import ModelProtocol
+from .protocol import IDLModel
 from .protocol import OptimizerPack
 from .protocol import MetricsOutputs
 from .protocol import MonitorResults
 from .protocol import TrainerMonitor
-from .protocol import MetricProtocol
-from .protocol import MultipleMetrics
+from .protocol import _IMetric
+from .protocol import _MultipleMetrics
 from .protocol import TrainerCallback
-from .protocol import InferenceProtocol
-from .protocol import DataLoaderProtocol
+from .protocol import IInference
+from .protocol import IDataLoader
 from .protocol import ModelWithCustomSteps
 from .constants import LOSS_KEY
 from .constants import PT_PREFIX
@@ -167,7 +167,7 @@ class Trainer(ITrainer):
         valid_portion: float = 1.0,
         amp: bool = False,
         clip_norm: float = 0.0,
-        metrics: Optional[MetricProtocol] = None,
+        metrics: Optional[_IMetric] = None,
         use_losses_as_metrics: Optional[bool] = None,
         loss_metrics_weights: Optional[Dict[str, float]] = None,
         recompute_train_losses_in_eval: bool = True,
@@ -252,7 +252,7 @@ class Trainer(ITrainer):
                 msg = "`metrics` should be provided when not `use_losses_as_metrics`"
                 raise ValueError(msg)
         else:
-            if not isinstance(metrics, MultipleMetrics):
+            if not isinstance(metrics, _MultipleMetrics):
                 metrics.trainer = self
             else:
                 for metric in metrics.metrics:
@@ -310,7 +310,7 @@ class Trainer(ITrainer):
                 None
                 if self.metrics is None
                 else self.metrics.__identifier__
-                if not isinstance(self.metrics, MultipleMetrics)
+                if not isinstance(self.metrics, _MultipleMetrics)
                 else [metric.__identifier__ for metric in self.metrics.metrics]
             ),
             "loss_metrics_weights": self.loss_metrics_weights,
@@ -340,7 +340,7 @@ class Trainer(ITrainer):
         return self.tqdm_settings.use_tqdm_in_validation or self.state.is_terminate
 
     @property
-    def validation_loader(self) -> DataLoaderProtocol:
+    def validation_loader(self) -> IDataLoader:
         return self.valid_loader or self.train_loader_copy
 
     @property
@@ -714,9 +714,9 @@ class Trainer(ITrainer):
     def fit(
         self,
         data: IDataModule,
-        loss: LossProtocol,
-        model: ModelProtocol,
-        inference: InferenceProtocol,
+        loss: ILoss,
+        model: IDLModel,
+        inference: IInference,
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
@@ -849,7 +849,7 @@ class Trainer(ITrainer):
         self,
         *,
         portion: float = 1.0,
-        loader: Optional[DataLoaderProtocol] = None,
+        loader: Optional[IDataLoader] = None,
     ) -> MetricsOutputs:
         if loader is None:
             loader = self.validation_loader

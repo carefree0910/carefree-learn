@@ -13,8 +13,8 @@ from cftool.types import np_dict_type
 
 from .register import register_metric
 from .register import IMetric
-from ...protocol import MetricProtocol
-from ...protocol import DataLoaderProtocol
+from ...protocol import _IMetric
+from ...protocol import IDataLoader
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 
@@ -192,7 +192,7 @@ class Auxiliary(IMetric):
     ):
         super().__init__()
         self.key = key
-        self.base = MetricProtocol.make(base, base_config or {})
+        self.base = _IMetric.make(base, base_config or {})
         self.__identifier__ = f"{base}_{key}"
 
     @property
@@ -203,7 +203,7 @@ class Auxiliary(IMetric):
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
+        loader: Optional[IDataLoader],
     ) -> float:
         return self.base._core(
             {LABEL_KEY: np_batch[self.key]},

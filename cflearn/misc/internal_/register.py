@@ -20,13 +20,13 @@ from ...types import losses_type
 from ...protocol import _forward
 from ...protocol import ITrainer
 from ...protocol import StepOutputs
-from ...protocol import LossProtocol
+from ...protocol import ILoss
 from ...protocol import TrainerState
-from ...protocol import ModelProtocol
-from ...protocol import MetricProtocol
+from ...protocol import IDLModel
+from ...protocol import _IMetric
 from ...protocol import MetricsOutputs
 from ...protocol import WithDeviceMixin
-from ...protocol import DataLoaderProtocol
+from ...protocol import IDataLoader
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
@@ -85,8 +85,8 @@ def register_metric(
     allow_duplicate: bool = False,
 ) -> Callable[[metric_type], metric_type]:
     def _core(metric_base: metric_type) -> metric_type:
-        @MetricProtocol.register(name, allow_duplicate=allow_duplicate)
-        class _(MetricProtocol):
+        @_IMetric.register(name, allow_duplicate=allow_duplicate)
+        class _(_IMetric):
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
                 self.core = metric_base(*args, **kwargs)
@@ -103,7 +103,7 @@ def register_metric(
                 self,
                 np_batch: np_dict_type,
                 np_outputs: np_dict_type,
-                loader: Optional[DataLoaderProtocol],
+                loader: Optional[IDataLoader],
             ) -> float:
                 args: List[Any] = []
                 fn = self.core.forward
@@ -132,7 +132,7 @@ def register_module(
     post_bases: Optional[List[type]] = None,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
-        @ModelProtocol.register(name, allow_duplicate=allow_duplicate)
+        @IDLModel.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
@@ -149,7 +149,7 @@ def register_module(
 
         return m
 
-    bases = (pre_bases or []) + [ModelProtocol] + (post_bases or [])
+    bases = (pre_bases or []) + [IDLModel] + (post_bases or [])
     return _core
 
 
@@ -178,7 +178,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
 
     def evaluate_step(
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         portion: float,
         state: TrainerState,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
@@ -211,7 +211,7 @@ def register_custom_module(
     custom_ddp_initialization: bool = False,
 ) -> Callable[[Type[CustomModule]], Type[CustomModule]]:
     def _core(m: Type[CustomModule]) -> Type[CustomModule]:
-        @ModelProtocol.register(name, allow_duplicate=allow_duplicate)
+        @IDLModel.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
@@ -258,7 +258,7 @@ def register_custom_module(
 
             def evaluate_step(  # type: ignore
                 self,
-                loader: DataLoaderProtocol,
+                loader: IDataLoader,
                 portion: float,
                 trainer: ITrainer,
             ) -> MetricsOutputs:
@@ -321,8 +321,8 @@ def register_loss_module(
     """
 
     def _core(loss_base: Type[nn.Module]) -> Type[nn.Module]:
-        @LossProtocol.register(name, allow_duplicate=allow_duplicate)
-        class _(LossProtocol):  # type: ignore
+        @ILoss.register(name, allow_duplicate=allow_duplicate)
+        class _(ILoss):  # type: ignore
             def __init__(self, reduction: str = "mean", **kwargs: Any):
                 super().__init__(reduction, **kwargs)
                 self.core = loss_base(**kwargs)

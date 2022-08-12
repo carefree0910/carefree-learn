@@ -10,10 +10,10 @@ from cftool.misc import shallow_copy_dict
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
-from ...bases import ModelProtocol
+from ...bases import IDLModel
 from ....types import texts_type
 from ....protocol import TrainerState
-from ....protocol import InferenceProtocol
+from ....protocol import IInference
 from ....data.api import TensorDictData
 
 try:
@@ -23,8 +23,8 @@ except:
     AutoModel = AutoTokenizer = None
 
 
-@ModelProtocol.register("hugging_face")
-class HuggingFaceModel(ModelProtocol):
+@IDLModel.register("hugging_face")
+class HuggingFaceModel(IDLModel):
     tokenizer_base: Type = AutoTokenizer
     model_base: Type = AutoModel
     forward_fn_name: str = "forward"
@@ -61,7 +61,7 @@ class HuggingFaceModel(ModelProtocol):
     ) -> np_dict_type:
         x = self.tokenizer(texts, padding=True, return_tensors="pt")
         loader = TensorDictData(x).get_loaders()[0]
-        inference = InferenceProtocol(model=self)
+        inference = IInference(model=self)
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm, **kwargs)
         return outputs.forward_results
 
@@ -80,7 +80,7 @@ class HuggingFaceModel(ModelProtocol):
         num_samples: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
-    ) -> "ModelProtocol":
+    ) -> "IDLModel":
         if max_length is None:
             input_sample = self.tokenizer(sample_text, return_tensors="pt")
         else:

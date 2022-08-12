@@ -10,7 +10,7 @@ from torchvision.transforms import Normalize
 from torchvision.transforms import CenterCrop
 from torchvision.transforms import InterpolationMode
 
-from .protocol import PerceptorProtocol
+from .protocol import IPerceptor
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ..cv.encoder.transformer import ViTEncoder
@@ -22,8 +22,8 @@ except:
     to_rgb = None
 
 
-@PerceptorProtocol.register("clip")
-class CLIP(PerceptorProtocol):
+@IPerceptor.register("clip")
+class CLIP(IPerceptor):
     def __init__(
         self,
         img_size: int = 224,

@@ -18,8 +18,8 @@ from cftool.types import tensor_dict_type
 
 from .core import DLDataModule
 from ..types import sample_weights_type
-from ..protocol import DatasetProtocol
-from ..protocol import DataLoaderProtocol
+from ..protocol import IDataset
+from ..protocol import IDataLoader
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import BATCH_INDICES_KEY
@@ -43,7 +43,7 @@ def get_weighted_indices(
     return indices
 
 
-class IMLDataset(DatasetProtocol, metaclass=ABCMeta):
+class IMLDataset(IDataset, metaclass=ABCMeta):
     @abstractmethod
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
         pass
@@ -65,7 +65,7 @@ class IMLLoaderCallback(WithRegister["IMLLoaderCallback"], metaclass=ABCMeta):
         pass
 
 
-class IMLLoader(DataLoaderProtocol, metaclass=ABCMeta):
+class IMLLoader(IDataLoader, metaclass=ABCMeta):
     callback: str
 
     cursor: int
@@ -244,7 +244,7 @@ def register_ml_data_modifier(name: str, *, allow_duplicate: bool = False) -> Ca
     return IMLDataModifier.register(name, allow_duplicate=allow_duplicate)
 
 
-@DatasetProtocol.register("ml")
+@IDataset.register("ml")
 class MLDataset(IMLDataset):
     def __init__(self, x: np.ndarray, y: Optional[np.ndarray], **others: np.ndarray):
         super().__init__()
@@ -271,7 +271,7 @@ class BasicMLLoaderCallback(IMLLoaderCallback):
         return batch
 
 
-@DataLoaderProtocol.register("ml")
+@IDataLoader.register("ml")
 class MLLoader(IMLLoader):
     callback = "basic"
 

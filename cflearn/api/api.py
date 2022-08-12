@@ -23,10 +23,10 @@ from ..types import sample_weights_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
 from ..pipeline import ModelSoupConfigs
-from ..protocol import LossProtocol
-from ..protocol import ModelProtocol
-from ..protocol import MetricProtocol
-from ..protocol import DataLoaderProtocol
+from ..protocol import ILoss
+from ..protocol import IDLModel
+from ..protocol import _IMetric
+from ..protocol import IDataLoader
 from ..constants import DEFAULT_ZOO_TAG
 from .cv.pipeline import CVPipeline
 from .ml.api import repeat_with
@@ -70,7 +70,7 @@ def pack(
     cuda: Optional[Union[int, str]] = None,
     compress: bool = True,
     # model soup
-    model_soup_loader: Optional[DataLoaderProtocol] = None,
+    model_soup_loader: Optional[IDataLoader] = None,
     model_soup_metric_names: Optional[Union[str, List[str]]] = None,
     model_soup_metric_configs: configs_type = None,
     model_soup_metric_weights: Optional[Dict[str, float]] = None,
@@ -167,16 +167,16 @@ def from_json(d: Union[str, Dict[str, Any]]) -> DLPipeline:
     return DLPipeline.from_json(d)
 
 
-def make_model(name: str, **kwargs: Any) -> ModelProtocol:
-    return ModelProtocol.make(name, kwargs)
+def make_model(name: str, **kwargs: Any) -> IDLModel:
+    return IDLModel.make(name, kwargs)
 
 
-def make_loss(name: str, **kwargs: Any) -> LossProtocol:
-    return LossProtocol.make(name, kwargs)
+def make_loss(name: str, **kwargs: Any) -> ILoss:
+    return ILoss.make(name, kwargs)
 
 
-def make_metric(name: str, **kwargs: Any) -> MetricProtocol:
-    return MetricProtocol.make(name, kwargs)
+def make_metric(name: str, **kwargs: Any) -> _IMetric:
+    return _IMetric.make(name, kwargs)
 
 
 class ModelItem(NamedTuple):
@@ -244,7 +244,7 @@ def from_zoo(
     return_model: bool = False,
     no_build: bool = False,
     **kwargs: Any,
-) -> Union[ModelProtocol, DLPipeline]:
+) -> Union[IDLModel, DLPipeline]:
     if return_model and no_build:
         raise ValueError("`no_build` should be False when `return_model` is True")
     kwargs["no_build"] = no_build
@@ -925,7 +925,7 @@ def aim() -> DLPipeline:
     return DLZoo.load_pipeline("segmentor/aim")
 
 
-def aim_model() -> ModelProtocol:
+def aim_model() -> IDLModel:
     return DLZoo.load_model("segmentor/aim")
 
 
@@ -933,7 +933,7 @@ def u2net(pretrained: bool = False, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("segmentor/u2net", pretrained=pretrained, **kwargs)
 
 
-def u2net_model(pretrained: bool = False, **kwargs: Any) -> ModelProtocol:
+def u2net_model(pretrained: bool = False, **kwargs: Any) -> IDLModel:
     return DLZoo.load_model("segmentor/u2net", pretrained=pretrained, **kwargs)
 
 
@@ -941,7 +941,7 @@ def u2net_lite(pretrained: bool = False, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("segmentor/u2net.lite", pretrained=pretrained, **kwargs)
 
 
-def u2net_lite_model(pretrained: bool = False, **kwargs: Any) -> ModelProtocol:
+def u2net_lite_model(pretrained: bool = False, **kwargs: Any) -> IDLModel:
     return DLZoo.load_model("segmentor/u2net.lite", pretrained=pretrained, **kwargs)
 
 

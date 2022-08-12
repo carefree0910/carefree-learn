@@ -13,7 +13,7 @@ from cftool.array import to_device
 from cftool.types import tensor_dict_type
 from cflearn.protocol import StepOutputs
 from cflearn.protocol import MetricsOutputs
-from cflearn.protocol import DataLoaderProtocol
+from cflearn.protocol import IDataLoader
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import check_is_ci
@@ -138,7 +138,7 @@ class SimpleGAN(cflearn.CustomModule):
 
     def evaluate_step(  # type: ignore
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         portion: float,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
     ) -> MetricsOutputs:

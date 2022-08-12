@@ -23,7 +23,7 @@ from ...protocol import ITrainer
 from ...protocol import StepOutputs
 from ...protocol import TrainerState
 from ...protocol import MetricsOutputs
-from ...protocol import DataLoaderProtocol
+from ...protocol import IDataLoader
 from ...protocol import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import BATCH_INDICES_KEY
@@ -36,7 +36,7 @@ NUMERICAL_KEY = "_numerical"
 ONE_HOT_KEY = "_one_hot"
 EMBEDDING_KEY = "_embedding"
 MERGED_KEY = "_merged"
-ml_core_dict: Dict[str, Type["MLCoreProtocol"]] = {}
+ml_core_dict: Dict[str, Type["IMLCore"]] = {}
 
 
 class IEncoder:
@@ -276,7 +276,7 @@ class Transform(nn.Module):
         return f"{one_hot_str}\n{embedding_str}\n{only_str}"
 
 
-class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMeta):
+class IMLCore(nn.Module, WithRegister["IMLCore"], metaclass=ABCMeta):
     d = ml_core_dict
 
     custom_train_step: bool = False
@@ -320,7 +320,7 @@ class MLCoreProtocol(nn.Module, WithRegister["MLCoreProtocol"], metaclass=ABCMet
 
     def evaluate_step(
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         portion: float,
         trainer: ITrainer,
     ) -> MetricsOutputs:
@@ -377,7 +377,7 @@ class MixedStackedModel(nn.Module):
 
 
 class MLModel(ModelWithCustomSteps):
-    core: Union[MLCoreProtocol, nn.ModuleList]
+    core: Union[IMLCore, nn.ModuleList]
 
     def __init__(
         self,
@@ -492,7 +492,7 @@ class MLModel(ModelWithCustomSteps):
 
     def evaluate_step(
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         portion: float,
         trainer: ITrainer,
     ) -> MetricsOutputs:
@@ -509,7 +509,7 @@ __all__ = [
     "SplitFeatures",
     "Dimensions",
     "Transform",
-    "MLCoreProtocol",
+    "IMLCore",
     "MixedStackedModel",
     "MLModel",
 ]

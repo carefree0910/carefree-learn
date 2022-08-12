@@ -39,13 +39,13 @@ from .trainer import Trainer
 from .protocol import loss_dict
 from .protocol import callback_dict
 from .protocol import DeviceInfo
-from .protocol import LossProtocol
-from .protocol import ModelProtocol
-from .protocol import MetricProtocol
+from .protocol import ILoss
+from .protocol import IDLModel
+from .protocol import _IMetric
 from .protocol import MetricsOutputs
 from .protocol import InferenceOutputs
-from .protocol import InferenceProtocol
-from .protocol import DataLoaderProtocol
+from .protocol import IInference
+from .protocol import IDataLoader
 from .protocol import ModelWithCustomSteps
 from .constants import PT_PREFIX
 from .constants import SCORES_FILE
@@ -56,11 +56,11 @@ from .misc.toolkit import ConfigMeta
 from .misc.internal_.trainer import make_trainer
 
 
-pipeline_dict: Dict[str, Type["PipelineProtocol"]] = {}
+pipeline_dict: Dict[str, Type["IPipeline"]] = {}
 dl_pipeline_modifiers: Dict[str, Type["IModifier"]] = {}
 
 
-class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
+class IPipeline(WithRegister["IPipeline"], metaclass=ABCMeta):
     d = pipeline_dict
 
     @abstractmethod
@@ -73,7 +73,7 @@ class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
         data: DataModule,
         *,
         sample_weights: sample_weights_type = None,
-    ) -> "PipelineProtocol":
+    ) -> "IPipeline":
         pass
 
     @abstractmethod
@@ -81,17 +81,17 @@ class PipelineProtocol(WithRegister["PipelineProtocol"], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def save(self, export_folder: str) -> "PipelineProtocol":
+    def save(self, export_folder: str) -> "IPipeline":
         pass
 
     @staticmethod
     @abstractmethod
-    def load(export_folder: str) -> "PipelineProtocol":
+    def load(export_folder: str) -> "IPipeline":
         pass
 
 
 class ModelSoupConfigs(NamedTuple):
-    loader: DataLoaderProtocol
+    loader: IDataLoader
     metric_names: Union[str, List[str]]
     metric_configs: configs_type = None
     metric_weights: Optional[Dict[str, float]] = None
@@ -113,7 +113,7 @@ def _generate_model_soup_checkpoint(
         scores = json.load(f)
     sorted_files = get_sorted_checkpoints(checkpoint_folder)
     sorted_paths = [os.path.join(checkpoint_folder, file) for file in sorted_files]
-    metrics = MetricProtocol.fuse(
+    metrics = _IMetric.fuse(
         configs.metric_names,
         configs.metric_configs,
         metric_weights=configs.metric_weights,
@@ -199,16 +199,16 @@ class IDLPipeline:
     _defaults: Dict[str, Any]
 
     data: DLDataModule
-    loss: LossProtocol
+    loss: ILoss
     loss_name: str
     loss_config: Optional[Dict[str, Any]]
-    model: ModelProtocol
+    model: IDLModel
     model_name: str
     model_config: Dict[str, Any]
     trainer: Trainer
     trainer_config: Dict[str, Any]
-    inference: InferenceProtocol
-    inference_base: Type[InferenceProtocol]
+    inference: IInference
+    inference_base: Type[IInference]
     device_info: DeviceInfo
 
     pipeline_key: str
@@ -312,11 +312,11 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     def prepare_loss(self) -> None:
         if self.in_loading:
             return None
-        self.loss_name = LossProtocol.parse(self.loss_name)
-        self.loss = LossProtocol.make(self.loss_name, self.loss_config or {})
+        self.loss_name = ILoss.parse(self.loss_name)
+        self.loss = ILoss.make(self.loss_name, self.loss_config or {})
 
     def build_model(self, data_info: Dict[str, Any]) -> None:
-        self.model = ModelProtocol.make(self.model_name, config=self.model_config)
+        self.model = IDLModel.make(self.model_name, config=self.model_config)
 
     def build_inference(self) -> None:
         self.inference = self.inference_base(model=self.model)
@@ -471,11 +471,11 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         return outputs.forward_results
 
 
-@PipelineProtocol.register("dl")
-class DLPipeline(PipelineProtocol, IDLPipeline, metaclass=ConfigMeta):
+@IPipeline.register("dl")
+class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
     modifier = "dl"
 
-    inference_base = InferenceProtocol
+    inference_base = IInference
 
     pipeline_key = "pipeline"
     pipeline_file = "pipeline.txt"
@@ -537,9 +537,9 @@ class DLPipeline(PipelineProtocol, IDLPipeline, metaclass=ConfigMeta):
             if model_name in loss_dict:
                 loss_name = model_name
             else:
-                model_base = ModelProtocol.get(model_name)
+                model_base = IDLModel.get(model_name)
                 if allow_no_loss or issubclass(model_base, ModelWithCustomSteps):
-                    loss_name = LossProtocol.placeholder_key
+                    loss_name = ILoss.placeholder_key
                 else:
                     raise ValueError(
                         "`loss_name` should be provided when "
@@ -911,6 +911,6 @@ register_modifier("dl")(IModifier)
 __all__ = [
     "register_modifier",
     "IModifier",
-    "PipelineProtocol",
+    "IPipeline",
     "DLPipeline",
 ]

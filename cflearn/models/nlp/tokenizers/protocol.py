@@ -16,10 +16,10 @@ from ....misc.toolkit import download_tokenizer
 from ....misc.toolkit import get_compatible_name
 
 
-tokenizers: Dict[str, Type["TokenizerProtocol"]] = {}
+tokenizers: Dict[str, Type["ITokenizer"]] = {}
 
 
-class TokenizerProtocol(WithRegister["TokenizerProtocol"], metaclass=ABCMeta):
+class ITokenizer(WithRegister["ITokenizer"], metaclass=ABCMeta):
     d = tokenizers
 
     @abstractmethod
@@ -27,7 +27,7 @@ class TokenizerProtocol(WithRegister["TokenizerProtocol"], metaclass=ABCMeta):
         pass
 
     @classmethod
-    def make(cls, name: str, config: Dict[str, Any]) -> "TokenizerProtocol":
+    def make(cls, name: str, config: Dict[str, Any]) -> "ITokenizer":
         tag = "tokenizers"
         repo = "pretrained-models"
         name = get_compatible_name(tag, repo, name, [(3, 8), (3, 9)])
@@ -38,5 +38,5 @@ class TokenizerProtocol(WithRegister["TokenizerProtocol"], metaclass=ABCMeta):
 
 
 __all__ = [
-    "TokenizerProtocol",
+    "ITokenizer",
 ]

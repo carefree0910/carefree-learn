@@ -2,14 +2,14 @@ from typing import Any
 from typing import Optional
 
 from ...data import MLLoader
-from ...protocol import LossProtocol
+from ...protocol import ILoss
 from ...protocol import TrainerState
-from ...protocol import MetricProtocol
+from ...protocol import _IMetric
 from ...protocol import InferenceOutputs
-from ...protocol import InferenceProtocol
+from ...protocol import IInference
 
 
-class MLInference(InferenceProtocol):
+class MLInference(IInference):
     def get_outputs(  # type: ignore
         self,
         loader: MLLoader,
@@ -17,8 +17,8 @@ class MLInference(InferenceProtocol):
         portion: float = 1.0,
         use_loader_cache: bool = True,
         state: Optional[TrainerState] = None,
-        metrics: Optional[MetricProtocol] = None,
-        loss: Optional[LossProtocol] = None,
+        metrics: Optional[_IMetric] = None,
+        loss: Optional[ILoss] = None,
         return_outputs: bool = True,
         use_tqdm: bool = False,
         **kwargs: Any,
@@ -37,11 +37,11 @@ class MLInference(InferenceProtocol):
         )
 
 
-class CVInference(InferenceProtocol):
+class CVInference(IInference):
     pass
 
 
-class NLPInference(InferenceProtocol):
+class NLPInference(IInference):
     pass
 
 

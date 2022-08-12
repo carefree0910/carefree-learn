@@ -3,13 +3,13 @@ import unittest
 
 import numpy as np
 
-from cflearn.protocol import MetricProtocol
+from cflearn.protocol import _IMetric
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
 
 
 def _get_score(
-    metric: MetricProtocol,
+    metric: _IMetric,
     predictions: np.ndarray,
     labels: np.ndarray,
 ) -> float:

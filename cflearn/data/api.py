@@ -831,7 +831,7 @@ class PrepareResults(NamedTuple):
     tgt_folder: str
 
 
-class _PreparationProtocol:
+class _IPreparation:
     @property
     def extra_labels(self) -> Optional[List[str]]:
         pass
@@ -878,7 +878,7 @@ class _PreparationProtocol:
         return num_classes
 
 
-class DefaultPreparation(_PreparationProtocol):
+class DefaultPreparation(_IPreparation):
     @property
     def extra_labels(self) -> Optional[List[str]]:
         return None
@@ -903,7 +903,7 @@ def prepare_image_folder(
     *,
     to_index: bool,
     prefix: Optional[str] = None,
-    preparation: _PreparationProtocol = DefaultPreparation(),
+    preparation: _IPreparation = DefaultPreparation(),
     force_rerun: bool = False,
     extensions: Optional[Set[str]] = None,
     make_labels_in_parallel: bool = False,
@@ -1206,7 +1206,7 @@ def prepare_image_folder_data(
     to_index: bool,
     batch_size: int,
     prefix: Optional[str] = None,
-    preparation: _PreparationProtocol = DefaultPreparation(),
+    preparation: _IPreparation = DefaultPreparation(),
     num_workers: int = 0,
     shuffle: bool = True,
     drop_train_last: bool = True,

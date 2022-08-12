@@ -18,11 +18,11 @@ from ..protocol import ITrainer
 from ..protocol import StepOutputs
 from ..protocol import TrainerState
 from ..protocol import MetricsOutputs
-from ..protocol import DataLoaderProtocol
+from ..protocol import IDataLoader
 from ..protocol import ModelWithCustomSteps
 from ..constants import INPUT_KEY
 from .protocols.ml import MERGED_KEY
-from .protocols.ml import MLCoreProtocol
+from .protocols.ml import IMLCore
 
 
 def register_ml_module(
@@ -33,10 +33,10 @@ def register_ml_module(
     post_bases: Optional[List[type]] = None,
 ) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
-        @MLCoreProtocol.register(name, allow_duplicate=allow_duplicate)
+        @IMLCore.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
             def __init__(self, **kwargs: Any):
-                super().__init__(**filter_kw(MLCoreProtocol.__init__, kwargs))
+                super().__init__(**filter_kw(IMLCore.__init__, kwargs))
                 kwargs["in_dim"] = kwargs["input_dim"]
                 kwargs["out_dim"] = kwargs["output_dim"]
                 self.core = m(**filter_kw(m, kwargs))
@@ -76,7 +76,7 @@ def register_ml_module(
 
             def evaluate_step(  # type: ignore
                 self,
-                loader: DataLoaderProtocol,
+                loader: IDataLoader,
                 portion: float,
                 trainer: ITrainer,
             ) -> MetricsOutputs:
@@ -86,7 +86,7 @@ def register_ml_module(
 
         return m
 
-    bases = (pre_bases or []) + [MLCoreProtocol] + (post_bases or [])
+    bases = (pre_bases or []) + [IMLCore] + (post_bases or [])
     return _core
 
 
@@ -129,7 +129,7 @@ def register_custom_loss_module(
 
             def evaluate_step(
                 self,
-                loader: DataLoaderProtocol,
+                loader: IDataLoader,
                 portion: float,
                 trainer: ITrainer,
             ) -> MetricsOutputs:

@@ -11,7 +11,7 @@ from cftool.types import tensor_dict_type
 
 from ..encoder import run_encoder
 from ..encoder import make_encoder
-from ....protocol import ModelProtocol
+from ....protocol import IDLModel
 from ....protocol import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
@@ -20,8 +20,8 @@ from ....misc.toolkit import download_model
 from ....modules.blocks import Linear
 
 
-@ModelProtocol.register("clf")
-class VanillaClassifier(ModelProtocol):
+@IDLModel.register("clf")
+class VanillaClassifier(IDLModel):
     def __init__(
         self,
         in_channels: int,

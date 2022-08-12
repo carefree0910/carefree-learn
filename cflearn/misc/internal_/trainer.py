@@ -10,8 +10,8 @@ from ...trainer import Trainer
 from ...protocol import TqdmSettings
 from ...protocol import OptimizerPack
 from ...protocol import TrainerMonitor
-from ...protocol import MetricProtocol
-from ...protocol import MultipleMetrics
+from ...protocol import _IMetric
+from ...protocol import _MultipleMetrics
 from ...protocol import TrainerCallback
 from .callbacks.general import _LogMetricsMsgCallback
 
@@ -58,11 +58,11 @@ def make_trainer(
         state_config.setdefault("snapshot_start_step", log_steps)
         state_config.setdefault("num_step_per_snapshot", log_steps)
     # metrics
-    metrics: Optional[Union[MetricProtocol, MultipleMetrics]]
+    metrics: Optional[Union[_IMetric, _MultipleMetrics]]
     if metric_names is None:
         metrics = None
     else:
-        metrics = MetricProtocol.fuse(
+        metrics = _IMetric.fuse(
             metric_names,
             metric_configs,
             metric_weights=metric_weights,

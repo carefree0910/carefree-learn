@@ -20,7 +20,6 @@ from typing import TypeVar
 from typing import Callable
 from typing import Iterator
 from typing import Optional
-from typing import Protocol
 from typing import NamedTuple
 from torch.optim import Optimizer
 from cftool.misc import filter_kw
@@ -71,22 +70,22 @@ except:
     onnx_simplify = get_input_names = None  # type: ignore
 
 
-dataset_dict: Dict[str, Type["DatasetProtocol"]] = {}
-loader_dict: Dict[str, Type["DataLoaderProtocol"]] = {}
-model_dict: Dict[str, Type["ModelProtocol"]] = {}
+dataset_dict: Dict[str, Type["IDataset"]] = {}
+loader_dict: Dict[str, Type["IDataLoader"]] = {}
+model_dict: Dict[str, Type["IDLModel"]] = {}
 monitor_dict: Dict[str, Type["TrainerMonitor"]] = {}
-loss_dict: Dict[str, Type["LossProtocol"]] = {}
+loss_dict: Dict[str, Type["ILoss"]] = {}
 multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
-metric_dict: Dict[str, Type["MetricProtocol"]] = {}
+metric_dict: Dict[str, Type["_IMetric"]] = {}
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
 
-LossType = TypeVar("LossType", bound="LossProtocol", covariant=True)
+LossType = TypeVar("LossType", bound="ILoss", covariant=True)
 
 
 # data
 
 
-class DatasetProtocol(WithRegister["DatasetProtocol"], metaclass=ABCMeta):
+class IDataset(WithRegister["IDataset"], metaclass=ABCMeta):
     d = dataset_dict
 
     def __init__(self, *args: Any, **kwargs: Any):
@@ -97,16 +96,16 @@ class DatasetProtocol(WithRegister["DatasetProtocol"], metaclass=ABCMeta):
         pass
 
 
-class DataLoaderProtocol(WithRegister["DataLoaderProtocol"], metaclass=ABCMeta):
+class IDataLoader(WithRegister["IDataLoader"], metaclass=ABCMeta):
     d = loader_dict
-    data: DatasetProtocol
+    data: IDataset
     batch_size: int
 
     def __init__(self, *, sample_weights: Optional[np.ndarray] = None):
         self.sample_weights = sample_weights
 
     @abstractmethod
-    def __iter__(self) -> "DataLoaderProtocol":
+    def __iter__(self) -> "IDataLoader":
         pass
 
     @abstractmethod
@@ -124,12 +123,12 @@ class DataLoaderProtocol(WithRegister["DataLoaderProtocol"], metaclass=ABCMeta):
     def __len__(self) -> int:
         return math.ceil(len(self.data) / self.batch_size)
 
-    def copy(self) -> "DataLoaderProtocol":
+    def copy(self) -> "IDataLoader":
         return deepcopy(self)
 
     def temporarily_disable_shuffle(self) -> context_error_handler:
         class _(context_error_handler):
-            def __init__(self, loader: DataLoaderProtocol):
+            def __init__(self, loader: IDataLoader):
                 self.loader = loader
 
             def __enter__(self) -> None:
@@ -208,10 +207,10 @@ class WithDeviceMixin:
         return torch.device("cpu") if not params else params[0].device
 
 
-class ModelProtocol(
+class IDLModel(
     WithDeviceMixin,
     nn.Module,
-    WithRegister["ModelProtocol"],
+    WithRegister["IDLModel"],
     metaclass=ABCMeta,
 ):
     d = model_dict
@@ -252,7 +251,7 @@ class ModelProtocol(
         num_samples: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
-    ) -> "ModelProtocol":
+    ) -> "IDLModel":
         # prepare
         device = self.device
         model = self.cpu()
@@ -373,7 +372,7 @@ class InferenceOutputs(NamedTuple):
     loss_items: Optional[Dict[str, float]]
 
 
-class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
+class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
     custom_train_step: bool = True
     custom_evaluate_step: bool = True
     custom_params_groups: bool = False
@@ -394,7 +393,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
     @abstractmethod
     def evaluate_step(
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         portion: float,
         trainer: "ITrainer",
     ) -> MetricsOutputs:
@@ -416,7 +415,7 @@ class ModelWithCustomSteps(ModelProtocol, metaclass=ABCMeta):
 class TrainerState:
     def __init__(
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         *,
         num_epoch: int,
         max_epoch: int,
@@ -595,7 +594,7 @@ class MonitorResults(NamedTuple):
 # loss
 
 
-class LossProtocol(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
+class ILoss(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
     d = loss_dict
     placeholder_key = "[PLACEHOLDER]"
 
@@ -656,20 +655,19 @@ class LossProtocol(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
         return AuxLoss.register_(loss_name, aux_names)
 
 
-class MultiLoss(LossProtocol, metaclass=ABCMeta):
+class MultiLoss(ILoss, metaclass=ABCMeta):
     prefix: str
 
     names: Union[str, List[str]]
     base_losses: nn.ModuleList
 
     def _init_config(self) -> None:
-        base_losses: List[LossProtocol]
+        base_losses: List[ILoss]
         if isinstance(self.names, str):
-            base_losses = [LossProtocol.make(self.names, self.config)]
+            base_losses = [ILoss.make(self.names, self.config)]
         else:
             base_losses = [
-                LossProtocol.make(name, self.config.get(name, {}))
-                for name in self.names
+                ILoss.make(name, self.config.get(name, {})) for name in self.names
             ]
         self.base_losses = nn.ModuleList(base_losses)
 
@@ -710,16 +708,16 @@ class MultiLoss(LossProtocol, metaclass=ABCMeta):
         return _
 
 
-class AuxLoss(LossProtocol):
+class AuxLoss(ILoss):
     identifier: str = "aux"
     main_loss_key: str = "main"
 
-    loss: LossProtocol
+    loss: ILoss
     loss_name: str
     aux_names: List[str]
 
     def _init_config(self) -> None:
-        self.loss = LossProtocol.make(self.loss_name, self.config)
+        self.loss = ILoss.make(self.loss_name, self.config)
 
     @staticmethod
     def _convert(losses: losses_type) -> torch.Tensor:
@@ -772,8 +770,8 @@ class AuxLoss(LossProtocol):
         return tag
 
 
-@LossProtocol.register(LossProtocol.placeholder_key)
-class PlaceholderLoss(LossProtocol):
+@ILoss.register(ILoss.placeholder_key)
+class PlaceholderLoss(ILoss):
     def _core(
         self,
         forward_results: tensor_dict_type,
@@ -787,12 +785,12 @@ class PlaceholderLoss(LossProtocol):
 # inference
 
 
-class InferenceProtocol:
+class IInference:
     def __init__(
         self,
         *,
         onnx: Optional[ONNX] = None,
-        model: Optional[ModelProtocol] = None,
+        model: Optional[IDLModel] = None,
         use_grad_in_predict: bool = False,
     ):
         self.onnx = onnx
@@ -805,12 +803,12 @@ class InferenceProtocol:
 
     def get_outputs(
         self,
-        loader: DataLoaderProtocol,
+        loader: IDataLoader,
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
-        metrics: Optional["MetricProtocol"] = None,
-        loss: Optional[LossProtocol] = None,
+        metrics: Optional["_IMetric"] = None,
+        loss: Optional[ILoss] = None,
         return_outputs: bool = True,
         stack_outputs: bool = True,
         use_tqdm: bool = False,
@@ -959,7 +957,7 @@ class InferenceProtocol:
 # metrics
 
 
-class MetricProtocol(WithRegister["MetricProtocol"], metaclass=ABCMeta):
+class _IMetric(WithRegister["_IMetric"], metaclass=ABCMeta):
     d = metric_dict
 
     trainer: "ITrainer"
@@ -977,7 +975,7 @@ class MetricProtocol(WithRegister["MetricProtocol"], metaclass=ABCMeta):
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
+        loader: Optional[IDataLoader],
     ) -> float:
         pass
 
@@ -992,24 +990,24 @@ class MetricProtocol(WithRegister["MetricProtocol"], metaclass=ABCMeta):
         configs: configs_type = None,
         *,
         metric_weights: Optional[Dict[str, float]] = None,
-    ) -> "MetricProtocol":
-        metrics = MetricProtocol.make_multiple(names, configs)
-        if isinstance(metrics, MetricProtocol):
+    ) -> "_IMetric":
+        metrics = _IMetric.make_multiple(names, configs)
+        if isinstance(metrics, _IMetric):
             return metrics
-        return MultipleMetrics(metrics, weights=metric_weights)
+        return _MultipleMetrics(metrics, weights=metric_weights)
 
     def evaluate(
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol] = None,
+        loader: Optional[IDataLoader] = None,
     ) -> MetricsOutputs:
         metric = self._core(np_batch, np_outputs, loader)
         score = metric * (1.0 if self.is_positive else -1.0)
         return MetricsOutputs(score, {self.__identifier__: metric})
 
 
-class MultipleMetrics(MetricProtocol):
+class _MultipleMetrics(_IMetric):
     @property
     def is_positive(self) -> bool:
         raise NotImplementedError
@@ -1022,13 +1020,13 @@ class MultipleMetrics(MetricProtocol):
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol],
+        loader: Optional[IDataLoader],
     ) -> float:
         raise NotImplementedError
 
     def __init__(
         self,
-        metric_list: List[MetricProtocol],
+        metric_list: List[_IMetric],
         *,
         weights: Optional[Dict[str, float]] = None,
     ):
@@ -1041,7 +1039,7 @@ class MultipleMetrics(MetricProtocol):
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
-        loader: Optional[DataLoaderProtocol] = None,
+        loader: Optional[IDataLoader] = None,
     ) -> MetricsOutputs:
         scores: List[float] = []
         weights: List[float] = []
@@ -1145,9 +1143,9 @@ class TrainerCallback(WithRegister["TrainerCallback"]):
 
 
 class ITrainer(ABC):
-    loss: LossProtocol
-    model: ModelProtocol
-    metrics: Optional[MetricProtocol]
+    loss: ILoss
+    model: IDLModel
+    metrics: Optional[_IMetric]
     monitors: List[TrainerMonitor]
     callbacks: List[TrainerCallback]
     optimizers: Dict[str, Optimizer]
@@ -1155,10 +1153,10 @@ class ITrainer(ABC):
 
     state: TrainerState
     device_info: DeviceInfo
-    train_loader: DataLoaderProtocol
-    train_loader_copy: DataLoaderProtocol
-    valid_loader: Optional[DataLoaderProtocol]
-    inference: InferenceProtocol
+    train_loader: IDataLoader
+    train_loader_copy: IDataLoader
+    valid_loader: Optional[IDataLoader]
+    inference: IInference
 
     workplace: str
     checkpoint_folder: Optional[str]
@@ -1191,7 +1189,7 @@ class ITrainer(ABC):
 
     @property
     @abstractmethod
-    def validation_loader(self) -> DataLoaderProtocol:
+    def validation_loader(self) -> IDataLoader:
         pass
 
     @property
@@ -1290,9 +1288,9 @@ class ITrainer(ABC):
     def fit(
         self,
         data: IDataModule,
-        loss: LossProtocol,
-        model: ModelProtocol,
-        inference: InferenceProtocol,
+        loss: ILoss,
+        model: IDLModel,
+        inference: IInference,
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
@@ -1305,7 +1303,7 @@ class ITrainer(ABC):
         self,
         *,
         portion: float = 1.0,
-        loader: Optional[DataLoaderProtocol] = None,
+        loader: Optional[IDataLoader] = None,
     ) -> MetricsOutputs:
         pass
 
@@ -1337,23 +1335,23 @@ __all__ = [
     "multi_prefix_mapping",
     "metric_dict",
     "callback_dict",
-    "DatasetProtocol",
-    "DataLoaderProtocol",
-    "ModelProtocol",
+    "IDataset",
+    "IDataLoader",
+    "IDLModel",
     "ModelWithCustomSteps",
     "StepOutputs",
     "TrainerState",
     "TrainerMonitor",
     "MonitorResults",
-    "LossProtocol",
+    "ILoss",
     "MultiLoss",
     "AuxLoss",
     "ONNX",
     "InferenceOutputs",
-    "InferenceProtocol",
+    "IInference",
     "MetricsOutputs",
-    "MetricProtocol",
-    "MultipleMetrics",
+    "_IMetric",
+    "_MultipleMetrics",
     "DeviceInfo",
     "OptimizerPack",
     "TqdmSettings",

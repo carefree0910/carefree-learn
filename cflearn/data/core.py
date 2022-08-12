@@ -26,8 +26,8 @@ from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from ..types import sample_weights_type
-from ..protocol import DatasetProtocol
-from ..protocol import DataLoaderProtocol
+from ..protocol import IDataset
+from ..protocol import IDataLoader
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
 
@@ -145,7 +145,7 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
         return base._load(data_folder, info, sample_weights)
 
 
-data_loaders_type = Tuple[DataLoaderProtocol, Optional[DataLoaderProtocol]]
+data_loaders_type = Tuple[IDataLoader, Optional[IDataLoader]]
 
 
 @DataModule.register("dl")  # type: ignore
@@ -163,7 +163,7 @@ class DLDataModule(DataModule, metaclass=ABCMeta):
         return self.initialize()
 
 
-class DLDataset(DatasetProtocol):
+class DLDataset(IDataset):
     def __init__(self, dataset: Dataset):
         super().__init__()
         self.dataset = dataset
@@ -214,7 +214,7 @@ class DataLoader(TorchDataLoader):
         super(TorchDataLoader, self).__setattr__(attr, val)
 
 
-class DLLoader(DataLoaderProtocol):
+class DLLoader(IDataLoader):
     data: DLDataset
     next_batch: tensor_dict_type
 

@@ -11,12 +11,12 @@ from cftool.types import tensor_dict_type
 
 from .constants import TEXT_KEY
 from ...protocol import TrainerState
-from ...protocol import ModelProtocol
+from ...protocol import IDLModel
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 
 
-class PerceptorProtocol(ModelProtocol, metaclass=ABCMeta):
+class IPerceptor(IDLModel, metaclass=ABCMeta):
     def __init__(self, img_size: int, context_length: int):
         super().__init__()
         self.img_size = img_size
@@ -48,5 +48,5 @@ class PerceptorProtocol(ModelProtocol, metaclass=ABCMeta):
 
 
 __all__ = [
-    "PerceptorProtocol",
+    "IPerceptor",
 ]

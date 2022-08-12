@@ -18,7 +18,7 @@ from cftool.types import tensor_dict_type
 
 from ..types import losses_type
 from ..protocol import MultiLoss
-from ..protocol import LossProtocol
+from ..protocol import ILoss
 from ..protocol import TrainerState
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
@@ -65,11 +65,11 @@ class MSELoss(nn.Module):
 
 @register_loss_module("recon")
 class ReconstructionLoss(nn.Module):
-    base_loss: LossProtocol
+    base_loss: ILoss
 
     def __init__(self, base_loss_name: str, **kwargs: Any):
         super().__init__()
-        self.base_loss = LossProtocol.make(base_loss_name, kwargs)
+        self.base_loss = ILoss.make(base_loss_name, kwargs)
 
     def forward(
         self,

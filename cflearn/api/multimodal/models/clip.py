@@ -11,11 +11,11 @@ from cftool.array import to_torch
 from ...cv.pipeline import CVPipeline
 from ...cv.models.utils import predict_folder
 from ....types import texts_type
-from ....protocol import InferenceProtocol
+from ....protocol import IInference
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....data.api import TensorData
-from ....models.nlp.tokenizers import TokenizerProtocol
+from ....models.nlp.tokenizers import ITokenizer
 from ....models.multimodal.clip import CLIP
 
 
@@ -33,7 +33,7 @@ class CLIPExtractor:
         self.clip = clip
         self.img_size = clip.img_size
         self.transform = clip.get_transform()
-        self.tokenizer = TokenizerProtocol.make("clip", {})
+        self.tokenizer = ITokenizer.make("clip", {})
 
     @property
     def text_forward_fn(self) -> Callable:
@@ -57,7 +57,7 @@ class CLIPExtractor:
         loader = TensorData(texts_tensor, batch_size=batch_size).get_loaders()[0]
         original_forward = self.clip.forward
         self.clip.forward = lambda _, batch, *s, **kws: self.text_forward_fn(batch)  # type: ignore
-        inference = InferenceProtocol(model=self.clip)
+        inference = IInference(model=self.clip)
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm)
         self.clip.forward = original_forward  # type: ignore
         return outputs.forward_results[LATENT_KEY]

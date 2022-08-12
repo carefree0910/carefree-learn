@@ -7,7 +7,7 @@ from cftool.types import tensor_dict_type
 
 from .constants import MASK_KEY
 from ....protocol import TrainerState
-from ....protocol import ModelProtocol
+from ....protocol import IDLModel
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....modules.blocks import MixedStackedEncoder
@@ -16,8 +16,8 @@ from ....modules.blocks import MixedStackedEncoder
 # TeT -> TextTransformer
 
 
-@ModelProtocol.register("tet")
-class TeTEncoder(ModelProtocol):
+@IDLModel.register("tet")
+class TeTEncoder(IDLModel):
     def __init__(
         self,
         latent_dim: int = 384,

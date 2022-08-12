@@ -15,17 +15,17 @@ from typing import Optional
 from torchvision import transforms
 
 from .noises import noises
-from ..protocol import PerceptorProtocol
+from ..protocol import IPerceptor
 from ...bases import ICustomLossModule
 from ...bases import ICustomLossOutput
 from ....protocol import ITrainer
-from ....protocol import ModelProtocol
+from ....protocol import IDLModel
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...cv.encoder import make_encoder
 from ...cv.encoder import EncoderMixin
-from ...nlp.tokenizers import TokenizerProtocol
+from ...nlp.tokenizers import ITokenizer
 from ....misc.toolkit import interpolate
 from ....misc.toolkit import download_model
 from ....misc.toolkit import DropNoGradStatesMixin
@@ -127,7 +127,7 @@ class CutOuts(nn.Module):
 
 
 class Aligner(ICustomLossModule, metaclass=ABCMeta):
-    perceptor: PerceptorProtocol
+    perceptor: IPerceptor
 
     def __init__(
         self,
@@ -151,8 +151,8 @@ class Aligner(ICustomLossModule, metaclass=ABCMeta):
         if generator_pretrained_path is None:
             if generator_pretrained_name is not None:
                 generator_pretrained_path = download_model(generator_pretrained_name)
-        self.perceptor = PerceptorProtocol.make(perceptor, perceptor_config or {})
-        self.generator = ModelProtocol.make(generator, generator_config or {})
+        self.perceptor = IPerceptor.make(perceptor, perceptor_config or {})
+        self.generator = IDLModel.make(generator, generator_config or {})
         if not hasattr(self.generator, "encode"):
             raise ValueError(
                 "`generator` should implement the `encode` method, because "
@@ -270,7 +270,7 @@ class Text2ImageAligner(DropNoGradStatesMixin, Aligner, metaclass=ABCMeta):
             img_code = self.vision.encode({INPUT_KEY: self.initial_img})
             self.register_buffer("img_code", img_code)
         # text latent code
-        tokenizer_ins = TokenizerProtocol.make(tokenizer, tokenizer_config or {})
+        tokenizer_ins = ITokenizer.make(tokenizer, tokenizer_config or {})
         text_tensor = torch.from_numpy(tokenizer_ins.tokenize(text))
         text_code = self.perceptor.encode_text(text_tensor)
         self.register_buffer("text_code", text_code)

@@ -71,7 +71,7 @@ class TestPipeline(unittest.TestCase):
         res = m.inference.get_outputs(
             valid_loader,  # type: ignore
             portion=portion,
-            metrics=cflearn.MetricProtocol.fuse(["acc", "auc"]),
+            metrics=cflearn._IMetric.fuse(["acc", "auc"]),
         )
         with open(os.path.join(packed, cflearn.SCORES_FILE), "r") as f:
             score = list(json.load(f).values())[0]

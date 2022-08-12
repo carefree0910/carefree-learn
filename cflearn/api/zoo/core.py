@@ -15,8 +15,8 @@ from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
 from ...pipeline import DLPipeline
-from ...pipeline import PipelineProtocol
-from ...protocol import ModelProtocol
+from ...pipeline import IPipeline
+from ...protocol import IDLModel
 from ...constants import DEFAULT_ZOO_TAG
 from ...misc.toolkit import inject_debug
 from ...misc.toolkit import download_model
@@ -148,7 +148,7 @@ class ZooBase(ABC):
         json_path: Optional[str] = None,
         debug: bool = False,
         **kwargs: Any,
-    ) -> PipelineProtocol:
+    ) -> IPipeline:
         zoo = cls(
             model,
             data_info=data_info,
@@ -163,7 +163,7 @@ class ZooBase(ABC):
 class DLZoo(ZooBase):
     m: DLPipeline
 
-    def load_pretrained(self) -> ModelProtocol:
+    def load_pretrained(self) -> IDLModel:
         if self.download_name is None:
             err_msg = self.err_msg_fmt.format("tag")
             raise ValueError(f"{err_msg} when `pretrained` is True")
@@ -202,7 +202,7 @@ class DLZoo(ZooBase):
         json_path: Optional[str] = None,
         pretrained: bool = False,
         **kwargs: Any,
-    ) -> ModelProtocol:
+    ) -> IDLModel:
         kwargs.setdefault("in_loading", True)
         zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
         if pretrained:

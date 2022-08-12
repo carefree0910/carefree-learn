@@ -27,8 +27,8 @@ from torch.utils.data import Dataset
 from .core import DLLoader
 from .core import DLDataset
 from .core import DataLoader
-from ..protocol import DatasetProtocol
-from ..protocol import DataLoaderProtocol
+from ..protocol import IDataset
+from ..protocol import IDataLoader
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 
@@ -38,12 +38,12 @@ except:
     lmdb = None
 
 
-@DatasetProtocol.register("cv")
+@IDataset.register("cv")
 class CVDataset(DLDataset):
     pass
 
 
-@DataLoaderProtocol.register("cv")
+@IDataLoader.register("cv")
 class CVLoader(DLLoader):
     data: CVDataset
 

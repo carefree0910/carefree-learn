@@ -13,8 +13,8 @@ from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
 from ..protocol import ITrainer
-from ..protocol import LossProtocol
-from ..protocol import ModelProtocol
+from ..protocol import ILoss
+from ..protocol import IDLModel
 from ..constants import LOSS_KEY
 from ..constants import LABEL_KEY
 from ..constants import LATENT_KEY
@@ -49,7 +49,7 @@ custom_loss_module_type = Type[ICustomLossModule]
 
 class IBAKE(ICustomLossModule):
     lb: float
-    bake_loss: LossProtocol
+    bake_loss: ILoss
     w_ensemble: float
     is_classification: bool
 
@@ -66,7 +66,7 @@ class IBAKE(ICustomLossModule):
         self.is_classification = is_classification
         if bake_loss == "auto":
             bake_loss = "focal" if is_classification else "mae"
-        self.bake_loss = LossProtocol.make(bake_loss, bake_loss_config or {})
+        self.bake_loss = ILoss.make(bake_loss, bake_loss_config or {})
 
     def get_losses(
         self,
@@ -139,8 +139,8 @@ class IRDropout(ICustomLossModule):
 
 
 class CascadeMixin:
-    lv1_net: ModelProtocol
-    lv2_net: ModelProtocol
+    lv1_net: IDLModel
+    lv2_net: IDLModel
 
     def _construct(
         self,
@@ -151,7 +151,7 @@ class CascadeMixin:
         lv1_model_ckpt_path: Optional[str],
         lv1_model_trainable: bool,
     ) -> None:
-        self.lv1_net = ModelProtocol.make(lv1_model_name, lv1_model_config)
+        self.lv1_net = IDLModel.make(lv1_model_name, lv1_model_config)
         if lv1_model_ckpt_path is not None:
             if not os.path.isfile(lv1_model_ckpt_path):
                 print_warning(f"'{lv1_model_ckpt_path}' does not exist")
@@ -160,7 +160,7 @@ class CascadeMixin:
                 self.lv1_net.load_state_dict(state_dict)
         if not lv1_model_trainable:
             set_requires_grad(self.lv1_net, False)
-        self.lv2_net = ModelProtocol.make(lv2_model_name, lv2_model_config)
+        self.lv2_net = IDLModel.make(lv2_model_name, lv2_model_config)
 
 
 __all__ = [
