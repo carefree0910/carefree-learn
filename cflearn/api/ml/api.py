@@ -19,7 +19,7 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import get_latest_workplace
 
-from .pipeline import MLSimplePipeline
+from .pipeline import MLPipeline
 from .pipeline import MLCarefreePipeline
 from ...data import MLData
 from ...data import MLInferenceData
@@ -49,11 +49,11 @@ except:
     ModelPattern = None
 
 
-pipelines_type = Dict[str, List[MLSimplePipeline]]
+pipelines_type = Dict[str, List[MLPipeline]]
 various_pipelines_type = Union[
-    MLSimplePipeline,
-    List[MLSimplePipeline],
-    Dict[str, MLSimplePipeline],
+    MLPipeline,
+    List[MLPipeline],
+    Dict[str, MLPipeline],
     pipelines_type,
 ]
 
@@ -162,27 +162,27 @@ def evaluate(
 
 def task_loader(
     workplace: str,
-    pipeline_base: Type[MLSimplePipeline] = MLCarefreePipeline,
+    pipeline_base: Type[MLPipeline] = MLCarefreePipeline,
     *,
     to_original_device: bool = False,
     compress: bool = True,
-) -> MLSimplePipeline:
+) -> MLPipeline:
     export_folder = os.path.join(workplace, ML_PIPELINE_SAVE_NAME)
     m = pipeline_base.load(
         export_folder=export_folder,
         to_original_device=to_original_device,
         compress=compress,
     )
-    assert isinstance(m, MLSimplePipeline)
+    assert isinstance(m, MLPipeline)
     return m
 
 
 def load_experiment_results(
     results: ExperimentResults,
-    pipeline_base: Type[MLSimplePipeline],
+    pipeline_base: Type[MLPipeline],
     to_original_device: bool = False,
 ) -> pipelines_type:
-    pipelines_dict: Dict[str, Dict[int, MLSimplePipeline]] = {}
+    pipelines_dict: Dict[str, Dict[int, MLPipeline]] = {}
     iterator = list(zip(results.workplaces, results.workplace_keys))
     for workplace, workplace_key in tqdm(iterator, desc="load"):
         pipeline = task_loader(
@@ -198,7 +198,7 @@ def load_experiment_results(
 class RepeatResult(NamedTuple):
     data: Optional[TabularData]
     experiment: Optional[Experiment]
-    pipelines: Optional[Dict[str, List[MLSimplePipeline]]]
+    pipelines: Optional[Dict[str, List[MLPipeline]]]
     patterns: Optional[Dict[str, List[ModelPattern]]]
 
 
@@ -255,8 +255,8 @@ def repeat_with(
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
 
-    pipeline_base = MLCarefreePipeline if carefree else MLSimplePipeline
-    pipelines_dict: Optional[Dict[str, List[MLSimplePipeline]]] = None
+    pipeline_base = MLCarefreePipeline if carefree else MLPipeline
+    pipelines_dict: Optional[Dict[str, List[MLPipeline]]] = None
     if sequential:
         cuda = kwargs.pop("cuda", None)
         experiment = None
@@ -359,7 +359,7 @@ def repeat_with(
 
 def pack_repeat(
     workplace: str,
-    pipeline_base: Type[MLSimplePipeline],
+    pipeline_base: Type[MLPipeline],
     *,
     num_jobs: int = 1,
 ) -> List[str]:
@@ -375,7 +375,7 @@ def pack_repeat(
 
 def pick_from_repeat_and_pack(
     workplace: str,
-    pipeline_base: Type[MLSimplePipeline],
+    pipeline_base: Type[MLPipeline],
     *,
     num_pick: int,
     num_jobs: int = 1,
@@ -405,7 +405,7 @@ def make_toy_model(
     cf_data_config: Optional[Dict[str, Any]] = None,
     data_tuple: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     cuda: Optional[str] = None,
-) -> MLSimplePipeline:
+) -> MLPipeline:
     if config is None:
         config = {}
     if data_tuple is not None:
@@ -437,8 +437,8 @@ def make_toy_model(
         "max_epoch": 4,
     }
     updated = update_dict(config, base_config)
-    pipelines_type = "ml.simple" if cf_data_config is None else "ml.carefree"
-    m = MLSimplePipeline.make(pipelines_type, updated)
+    pipelines_type = "ml" if cf_data_config is None else "ml.carefree"
+    m = MLPipeline.make(pipelines_type, updated)
     if cf_data_config is None:
         data = MLData(
             x_np,

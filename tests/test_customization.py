@@ -20,7 +20,7 @@ class TestCustomization(unittest.TestCase):
         x = np.random.random([1000, 10])
         y = np.random.random([1000, 1])
         m = cflearn.api.make(
-            "ml.simple",
+            "ml",
             config={"core_name": "foo", "output_dim": 1, "fixed_epoch": 0},
         )
         data = cflearn.MLData(x, y, is_classification=False)

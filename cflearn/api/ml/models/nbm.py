@@ -10,7 +10,7 @@ from cftool.misc import print_warning
 from cftool.array import to_numpy
 from cftool.array import to_torch
 
-from ..pipeline import MLSimplePipeline
+from ..pipeline import MLPipeline
 from ....misc.toolkit import eval_context
 from ....models.ml.nbm import NBM
 from ....models.protocols.ml import IEncoder
@@ -169,7 +169,7 @@ class NBMInspector:
     @classmethod
     def from_pipeline(
         cls,
-        m: MLSimplePipeline,
+        m: MLPipeline,
         dpi: int = 200,
         figsize: Tuple[int, int] = (8, 6),
     ) -> "NBMInspector":

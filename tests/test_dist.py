@@ -33,12 +33,12 @@ class TestDist(unittest.TestCase):
         experiment.add_task(model="linear", **shallow_copy_dict(common_kwargs))
         results = experiment.run_tasks()
         load_results = cflearn.ml.load_experiment_results
-        ms = load_results(results, cflearn.ml.MLSimplePipeline)
+        ms = load_results(results, cflearn.ml.MLPipeline)
         saving_folder = os.path.join(logging_folder, "__test_experiment_save__")
         experiment.save(saving_folder)
         loaded = cflearn.dist.ml.Experiment.load(saving_folder)
         assert loaded.results is not None
-        ms_loaded = load_results(loaded.results, cflearn.ml.MLSimplePipeline)
+        ms_loaded = load_results(loaded.results, cflearn.ml.MLPipeline)
         idata = cflearn.MLInferenceData(x, cf_data=data.cf_data)
         self.assertTrue(
             np.allclose(

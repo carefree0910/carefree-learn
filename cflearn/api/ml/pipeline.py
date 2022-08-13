@@ -257,8 +257,8 @@ class MLModifier(IModifier, IMLPipeline):
         return MLInferenceData(x, y, shuffle=shuffle, contains_labels=contains_labels)
 
 
-@DLPipeline.register("ml.simple")
-class MLSimplePipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
+@DLPipeline.register("ml")
+class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
     modifier = "ml"
 
     data: MLData
@@ -426,13 +426,13 @@ class MLSimplePipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: 
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
-    ) -> "MLSimplePipeline":
+    ) -> "MLPipeline":
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
             with Saving.compress_loader(export_folder, compress):
                 m = IModifier.load_infrastructure(
-                    MLSimplePipeline,
+                    MLPipeline,
                     export_folder,
                     cuda,
                     False,
@@ -469,7 +469,7 @@ class MLSimplePipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: 
         export_folder: str,
         *,
         compress: bool = True,
-    ) -> "MLSimplePipeline":
+    ) -> "MLPipeline":
         abs_folder = os.path.abspath(export_folder)
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
@@ -589,13 +589,13 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
 
 
 @DLPipeline.register("ml.carefree")
-class MLCarefreePipeline(MLSimplePipeline, IMLCarefreePipeline):  # type: ignore
+class MLCarefreePipeline(MLPipeline, IMLCarefreePipeline):  # type: ignore
     modifier = "ml.carefree"
 
 
 __all__ = [
     "MLModifier",
-    "MLSimplePipeline",
+    "MLPipeline",
     "MLCarefreeModifier",
     "MLCarefreePipeline",
 ]

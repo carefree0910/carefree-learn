@@ -31,7 +31,7 @@ from ..constants import DEFAULT_ZOO_TAG
 from .cv.pipeline import CVPipeline
 from .ml.api import repeat_with
 from .ml.api import RepeatResult
-from .ml.pipeline import MLSimplePipeline
+from .ml.pipeline import MLPipeline
 from .ml.pipeline import MLCarefreePipeline
 from .zoo.core import _parse_config
 from .zoo.core import configs_root
@@ -341,7 +341,7 @@ def fit_ml(
     # fit
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
-) -> MLSimplePipeline:
+) -> MLPipeline:
     pipeline_config = dict(
         core_name=core_name,
         core_config=core_config,
@@ -387,7 +387,7 @@ def fit_ml(
     if debug:
         inject_debug(pipeline_config)
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
-    m_base = MLCarefreePipeline if carefree else MLSimplePipeline
+    m_base = MLCarefreePipeline if carefree else MLPipeline
     data = _make_ml_data(
         x_train,
         y_train,
