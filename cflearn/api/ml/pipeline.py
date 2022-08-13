@@ -60,6 +60,7 @@ class IMLPredict(Protocol):
         return_classes: bool = False,
         binarty_threshold: float = 0.5,
         return_probabilities: bool = False,
+        contains_labels: bool = True,
         **predict_kwargs: Any,
     ) -> np_dict_type:
         pass
