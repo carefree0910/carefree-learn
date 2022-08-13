@@ -25,8 +25,8 @@ from torch.nn import Module
 from torch.nn import ModuleList
 from torch.fft import fft
 from torch.autograd import Function
-from cftool.misc import filter_kw
 from cftool.misc import update_dict
+from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 from cftool.array import squeeze
@@ -1684,8 +1684,7 @@ class AttentionTokenMixer(TokenMixerBase):
         attention_kwargs.setdefault("num_heads", 8)
         attention_kwargs["input_dim"] = latent_dim
         attention_kwargs.setdefault("is_self_attention", True)
-        base = Attention.get(attention_type)
-        self.net = base(**filter_kw(base, attention_kwargs))
+        self.net = safe_execute(Attention.get(attention_type), attention_kwargs)
 
     def forward(
         self,

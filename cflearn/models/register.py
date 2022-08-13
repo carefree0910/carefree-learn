@@ -9,6 +9,7 @@ from typing import Type
 from typing import Callable
 from typing import Optional
 from cftool.misc import filter_kw
+from cftool.misc import safe_execute
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
 
@@ -39,7 +40,7 @@ def register_ml_module(
                 super().__init__(**filter_kw(IMLCore.__init__, kwargs))
                 kwargs["in_dim"] = kwargs["input_dim"]
                 kwargs["out_dim"] = kwargs["output_dim"]
-                self.core = m(**filter_kw(m, kwargs))
+                self.core = safe_execute(m, kwargs)
 
             def _init_with_trainer(self, trainer: ITrainer) -> None:
                 init_fn = getattr(self.core, "_init_with_trainer", None)
@@ -120,12 +121,9 @@ def register_custom_loss_module(
                         forward_kwargs=forward_kwargs,
                         loss_kwargs=loss_kwargs,
                     )
-                    fn = self.core.get_losses
-                    forward_results, loss_dict = fn(**filter_kw(fn, kwargs))
+                    forward, loss_dict = safe_execute(self.core.get_losses, kwargs)
                 trainer.post_loss_step(loss_dict)
-                return StepOutputs(
-                    forward_results, {k: v.item() for k, v in loss_dict.items()}
-                )
+                return StepOutputs(forward, {k: v.item() for k, v in loss_dict.items()})
 
             def evaluate_step(
                 self,
@@ -155,8 +153,7 @@ def register_custom_loss_module(
                         forward_kwargs={},
                         loss_kwargs={},
                     )
-                    fn = self.core.get_losses
-                    _, losses = fn(**filter_kw(fn, kwargs))
+                    _, losses = safe_execute(self.core.get_losses, kwargs)
                     for k, v in losses.items():
                         loss_items.setdefault(k, []).append(v.item())
                 # gather

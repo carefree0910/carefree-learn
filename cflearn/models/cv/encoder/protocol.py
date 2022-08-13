@@ -7,7 +7,7 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
-from cftool.misc import filter_kw
+from cftool.misc import safe_execute
 from cftool.misc import check_requires
 from cftool.misc import WithRegister
 from cftool.types import tensor_dict_type
@@ -55,7 +55,7 @@ class Encoder1DMixin(IEncoder, WithRegister["Encoder1DMixin"]):
 
 def make_encoder(name: str, config: Dict[str, Any], *, is_1d: bool = False) -> IEncoder:
     base = (Encoder1DMixin if is_1d else EncoderMixin).get(name)  # type: ignore
-    return base(**filter_kw(base, config))
+    return safe_execute(base, config)
 
 
 def run_encoder(

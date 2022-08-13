@@ -17,8 +17,8 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from collections import OrderedDict
-from cftool.misc import filter_kw
 from cftool.misc import random_hash
+from cftool.misc import safe_execute
 from cftool.misc import print_warning
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
@@ -372,12 +372,10 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             return None
         kw = dict(data_info=data_info)
         for step in self.build_steps:
-            fn = getattr(self, step)
-            fn(**filter_kw(fn, kw))
+            safe_execute(getattr(self, step), shallow_copy_dict(kw))
         if self.in_loading:
             return None
-        fn = self.prepare_trainer_defaults
-        fn(**filter_kw(fn, kw))
+        safe_execute(self.prepare_trainer_defaults, shallow_copy_dict(kw))
         trainer_config = shallow_copy_dict(self.trainer_config)
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
@@ -451,7 +449,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             pre_callback(config_bundle)
         config = config_bundle["config"]
         config["in_loading"] = True
-        m = cls(**filter_kw(cls, config))
+        m = safe_execute(cls, config)
         device_info = DeviceInfo(*config_bundle["device_info"])
         if not to_original_device:
             device_info = device_info._replace(cuda=cuda)

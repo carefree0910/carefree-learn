@@ -3,7 +3,7 @@ from typing import Any
 from typing import Dict
 from typing import Type
 from typing import Optional
-from cftool.misc import filter_kw
+from cftool.misc import safe_execute
 from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
@@ -108,7 +108,7 @@ class Decoder1DMixin(IDecoder, WithRegister["Decoder1DMixin"]):
 
 def make_decoder(name: str, config: Dict[str, Any], *, is_1d: bool = False) -> IDecoder:
     base = (Decoder1DMixin if is_1d else DecoderMixin).get(name)  # type: ignore
-    return base(**filter_kw(base, config))
+    return safe_execute(base, config)
 
 
 def run_decoder(

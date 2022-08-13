@@ -7,7 +7,7 @@ from typing import List
 from typing import Type
 from typing import Callable
 from typing import Optional
-from cftool.misc import filter_kw
+from cftool.misc import safe_execute
 from cftool.misc import check_requires
 from cftool.misc import get_num_positional_args
 from cftool.types import np_dict_type
@@ -253,8 +253,7 @@ def register_custom_module(
                     forward_kwargs=forward_kwargs,
                     loss_kwargs=loss_kwargs,
                 )
-                fn = self.core.train_step
-                return fn(**filter_kw(fn, kwargs))
+                return safe_execute(self.core.train_step, kwargs)
 
             def evaluate_step(  # type: ignore
                 self,
@@ -269,8 +268,7 @@ def register_custom_module(
                     weighted_loss_score_fn=trainer.weighted_loss_score,
                     trainer=trainer,
                 )
-                fn = self.core.evaluate_step
-                return fn(**filter_kw(fn, kwargs))
+                return safe_execute(self.core.evaluate_step, kwargs)
 
             def params_groups(self, m_: nn.Module) -> Any:
                 return self.core.params_groups(m_)
