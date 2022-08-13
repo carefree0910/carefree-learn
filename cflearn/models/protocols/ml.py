@@ -226,15 +226,13 @@ class Dimensions:
         numerical_idx = numerical_mapping.get(idx)
         categorical_idx = categorical_mapping.get(idx)
         if numerical_idx is not None:
-            categorical_dim = self.categorical_dim
-            all_numerical_indices = sorted(numerical_mapping.values())
-            true_idx = categorical_dim + all_numerical_indices.index(numerical_idx)
-            return IndicesResponse((true_idx,), False)
+            return IndicesResponse((numerical_idx,), False)
         if categorical_idx is not None:
             categorical_dims = self.categorical_dims
             all_categorical_indices = sorted(categorical_mapping.values())
             start_idx = all_categorical_indices.index(categorical_idx)
             start = sum(categorical_dims[i] for i in range(start_idx))
+            start += self.numerical_dim
             indices = tuple(range(start, start + categorical_dims[start_idx]))
             return IndicesResponse(indices, True)
         return None
