@@ -533,11 +533,6 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
         self.numerical_columns_mapping = numerical_columns_mapping
         self.categorical_columns_mapping = categorical_columns_mapping
 
-    # load steps
-
-    def post_load_infrastructure(self, export_folder: str) -> None:
-        self.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
-
     # inference
 
     def post_process(

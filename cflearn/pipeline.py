@@ -387,9 +387,6 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
     # load steps
 
-    def post_load_infrastructure(self, export_folder: str) -> None:
-        pass
-
     def load_states_from(self, folder: str) -> Dict[str, Any]:
         checkpoints = get_sorted_checkpoints(folder)
         if not checkpoints:
@@ -774,8 +771,6 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
                     pre_callback,
                     post_callback,
                 )
-                modifier = IModifier.get(pipeline_cls.modifier)(m)
-                modifier.post_load_infrastructure(export_folder)
                 try:
                     data_info = DataModule.load_info(export_folder)
                 except Exception as err:
