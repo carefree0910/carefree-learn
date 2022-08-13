@@ -1,6 +1,7 @@
 # type: ignore
 
 import os
+import torch
 import pickle
 import cflearn
 
@@ -11,6 +12,9 @@ from cfml.misc.toolkit import ModelPattern
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import inject_debug
 
+
+torch.manual_seed(142857)
+np.random.seed(142857)
 
 is_ci = check_is_ci()
 file_folder = os.path.dirname(__file__)
@@ -34,7 +38,10 @@ if __name__ == "__main__":
     print(stacked.std(0))
 
     idata = m.make_inference_data(iris_data_file)
-    predictions = m.predict(idata, contains_labels=True)
+    rs = m.predict(idata, contains_labels=True)
+    rs = m.predict(idata, return_probabilities=True, contains_labels=True)
+    rs = m.predict(idata, return_classes=True, contains_labels=True)
+    print(rs["predictions"][[0, 60, 100]])
     cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
 
     kwargs = dict(carefree=True, num_repeat=2)
