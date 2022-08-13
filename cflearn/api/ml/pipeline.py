@@ -73,8 +73,8 @@ class IMLPipeline:
     encoder: Optional[Encoder]
     encoder_config: Dict[str, Any]
     encoding_settings: Dict[int, EncodingSettings]
-    numerical_columns_mapping: Dict[int, int]
-    categorical_columns_mapping: Dict[int, int]
+    numerical_columns: List[int]
+    categorical_columns: List[int]
     use_one_hot: bool
     use_embedding: bool
     only_categorical: bool
@@ -127,8 +127,8 @@ class MLModifier(IModifier, IMLPipeline):
         all_indices = list(range(self.input_dim))
         if not self.encoding_settings:
             self.encoder = None
-            self.numerical_columns_mapping = {i: i for i in all_indices}
-            self.categorical_columns_mapping = {}
+            self.numerical_columns = all_indices
+            self.categorical_columns = []
             self.use_one_hot = False
             self.use_embedding = False
         else:
@@ -143,8 +143,8 @@ class MLModifier(IModifier, IMLPipeline):
             categorical_columns = self.encoder.columns.copy()
             categorical_set = set(categorical_columns)
             numerical_columns = [i for i in all_indices if i not in categorical_set]
-            self.numerical_columns_mapping = {i: i for i in numerical_columns}
-            self.categorical_columns_mapping = {i: i for i in categorical_columns}
+            self.numerical_columns = sorted(numerical_columns)
+            self.categorical_columns = sorted(categorical_columns)
 
     def _instantiate_encoder(self, settings: Dict[int, EncodingSettings]) -> Encoder:
         if self.in_loading or not self.use_encoder_cache:
@@ -167,8 +167,8 @@ class MLModifier(IModifier, IMLPipeline):
             data_info["num_history"],
             encoder=self.encoder,
             use_encoder_cache=self.use_encoder_cache,
-            numerical_columns_mapping=self.numerical_columns_mapping,
-            categorical_columns_mapping=self.categorical_columns_mapping,
+            numerical_columns=self.numerical_columns,
+            categorical_columns=self.categorical_columns,
             use_one_hot=self.use_one_hot,
             use_embedding=self.use_embedding,
             only_categorical=self.only_categorical,
@@ -503,13 +503,12 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
             raise ValueError(msg)
         excluded = 0
         encoder_settings = {}
-        numerical_columns_mapping = {}
-        categorical_columns_mapping = {}
+        numerical_columns = []
+        categorical_columns = []
         use_one_hot = False
         use_embedding = False
         if self.cf_data.is_simplify:
-            for idx in range(self.cf_data.processed.x.shape[1]):
-                numerical_columns_mapping[idx] = idx
+            numerical_columns = list(range(self.cf_data.processed.x.shape[1]))
         else:
             ts_indices = self.cf_data.ts_indices
             recognizers = self.cf_data.recognizers
@@ -520,14 +519,14 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
                 if not recognizer.info.is_valid or idx in ts_indices:
                     excluded += 1
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
-                    numerical_columns_mapping[idx] = idx - excluded
+                    numerical_columns.append(idx - excluded)
                 elif idx not in encoder_settings:
                     true_idx = idx - excluded
                     setting = EncodingSettings(dim=recognizer.num_unique_values)
                     encoder_settings[true_idx] = setting
                     use_one_hot = use_one_hot or setting.use_one_hot
                     use_embedding = use_embedding or setting.use_embedding
-                    categorical_columns_mapping[idx] = true_idx
+                    categorical_columns.append(true_idx)
         if not encoder_settings:
             encoder = None
         else:
@@ -535,8 +534,8 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
         self.encoder = encoder
         self.use_one_hot = use_one_hot
         self.use_embedding = use_embedding
-        self.numerical_columns_mapping = numerical_columns_mapping
-        self.categorical_columns_mapping = categorical_columns_mapping
+        self.numerical_columns = numerical_columns
+        self.categorical_columns = categorical_columns
 
     # inference
 

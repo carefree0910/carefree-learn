@@ -134,23 +134,30 @@ class Dimensions:
         encoder: Optional[IEncoder] = None,
         one_hot_dim: Optional[int] = None,
         embedding_dim: Optional[int] = None,
-        categorical_dim: Optional[int] = None,
         categorical_dims: Optional[Dict[int, int]] = None,
-        numerical_columns_mapping: Dict[int, int],
-        categorical_columns_mapping: Dict[int, int],
+        numerical_columns: List[int],
+        categorical_columns: List[int],
     ):
         self.encoder = encoder
         if encoder is not None:
-            self._categorical_dim = encoder.merged_dim
+            self.one_hot_dim = encoder.one_hot_dim
+            self.embedding_dim = encoder.embedding_dim
+            c_dims = self.categorical_dims = encoder.merged_dims
         else:
-            self._categorical_dim = categorical_dim or 0
-        self._one_hot_dim = one_hot_dim
-        self._embedding_dim = embedding_dim
-        self._categorical_dims = categorical_dims
-        self.numerical_columns_mapping = numerical_columns_mapping
-        self.categorical_columns_mapping = categorical_columns_mapping
-        self._numerical_columns = sorted(numerical_columns_mapping.values())
+            self.one_hot_dim = one_hot_dim or 0
+            self.embedding_dim = embedding_dim or 0
+            c_dims = self.categorical_dims = categorical_dims or {}
+
         self.num_history = num_history
+        self.numerical_columns = sorted(numerical_columns)
+        self.categorical_columns = sorted(categorical_columns)
+
+        self.categorical_dim = sum(c_dims[idx] for idx in categorical_columns)
+        self.numerical_dim = len(numerical_columns)
+        self.merged_dim = self.categorical_dim + self.numerical_dim
+
+        self.has_categorical = self.categorical_dim > 0
+        self.has_numerical = self.numerical_dim > 0
 
     def __str__(self) -> str:
         return "\n".join(
@@ -166,44 +173,6 @@ class Dimensions:
 
     __repr__ = __str__
 
-    @property
-    def merged_dim(self) -> int:
-        return self._categorical_dim + self.numerical_dim
-
-    @property
-    def one_hot_dim(self) -> int:
-        if self.encoder is None:
-            return self._one_hot_dim or 0
-        return self.encoder.one_hot_dim
-
-    @property
-    def embedding_dim(self) -> int:
-        if self.encoder is None:
-            return self._embedding_dim or 0
-        return self.encoder.embedding_dim
-
-    @property
-    def categorical_dims(self) -> Dict[int, int]:
-        if self.encoder is None:
-            return self._categorical_dims or {}
-        return self.encoder.merged_dims
-
-    @property
-    def categorical_dim(self) -> int:
-        return self._categorical_dim
-
-    @property
-    def numerical_dim(self) -> int:
-        return len(self._numerical_columns)
-
-    @property
-    def has_categorical(self) -> bool:
-        return self.categorical_dim > 0
-
-    @property
-    def has_numerical(self) -> bool:
-        return self.numerical_dim > 0
-
     def split_features(
         self,
         x_batch: Tensor,
@@ -213,24 +182,18 @@ class Dimensions:
         if self.encoder is None:
             return SplitFeatures(None, x_batch)
         encoding_result = self.encoder(x_batch, batch_indices, loader_name)
-        numerical_columns = self._numerical_columns
-        if not numerical_columns:
+        if not self.has_numerical:
             numerical = None
         else:
-            numerical = x_batch[..., numerical_columns]
+            numerical = x_batch[..., self.numerical_columns]
         return SplitFeatures(encoding_result, numerical)
 
     def get_indices_in_merged(self, idx: int) -> Optional[IndicesResponse]:
-        numerical_mapping = self.numerical_columns_mapping
-        categorical_mapping = self.categorical_columns_mapping
-        numerical_idx = numerical_mapping.get(idx)
-        categorical_idx = categorical_mapping.get(idx)
-        if numerical_idx is not None:
-            return IndicesResponse((numerical_idx,), False)
-        if categorical_idx is not None:
+        if idx in self.numerical_columns:
+            return IndicesResponse((idx,), False)
+        if idx in self.categorical_columns:
             categorical_dims = self.categorical_dims
-            all_categorical_indices = sorted(categorical_mapping.values())
-            start_idx = all_categorical_indices.index(categorical_idx)
+            start_idx = self.categorical_columns.index(idx)
             start = sum(categorical_dims[i] for i in range(start_idx))
             start += self.numerical_dim
             indices = tuple(range(start, start + categorical_dims[start_idx]))
@@ -384,8 +347,8 @@ class MLModel(ModelWithCustomSteps):
         *,
         encoder: Optional[IEncoder],
         use_encoder_cache: bool,
-        numerical_columns_mapping: Dict[int, int],
-        categorical_columns_mapping: Dict[int, int],
+        numerical_columns: List[int],
+        categorical_columns: List[int],
         use_one_hot: bool,
         use_embedding: bool,
         only_categorical: bool,
@@ -401,8 +364,8 @@ class MLModel(ModelWithCustomSteps):
         self.dimensions = Dimensions(
             num_history=num_history,
             encoder=self.encoder,
-            numerical_columns_mapping=numerical_columns_mapping,
-            categorical_columns_mapping=categorical_columns_mapping,
+            numerical_columns=numerical_columns,
+            categorical_columns=categorical_columns,
         )
         self.transform = Transform(
             self.dimensions,
