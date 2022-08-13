@@ -465,7 +465,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             post_callback(m, config_bundle)
         return m
 
-    # predict steps
+    # inference
 
     def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
         return outputs.forward_results
@@ -651,13 +651,15 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         return self
 
     def predict(self, data: DLDataModule, **predict_kwargs: Any) -> np_dict_type:
-        modifier = self._make_modifier()
         train_loader, valid_loader = data.initialize()
         if valid_loader is not None:
             raise ValueError("`valid_loader` should not be provided in `predict`")
-        predict_kwargs = shallow_copy_dict(predict_kwargs)
-        outputs = self.inference.get_outputs(train_loader, **predict_kwargs)
-        return modifier.post_process(outputs)
+        kw0 = shallow_copy_dict(predict_kwargs)
+        kw1 = shallow_copy_dict(predict_kwargs)
+        kw0["loader"] = train_loader
+        outputs = safe_execute(self.inference.get_outputs, kw0)
+        kw1["outputs"] = outputs
+        return safe_execute(self._make_modifier().post_process, kw1)
 
     def save(
         self,

@@ -10,6 +10,7 @@ from typing import List
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import Protocol
 from functools import partial
 from collections import OrderedDict
 from cftool.misc import lock_manager
@@ -35,6 +36,7 @@ from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
+from ...data.ml import IMLData
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
@@ -50,7 +52,20 @@ except:
     ColumnTypes = TabularData = ModelPattern = None
 
 
-class IMLPipelineMixin:
+class IMLPredict(Protocol):
+    def __call__(
+        self,
+        data: IMLData,
+        *,
+        return_classes: bool = False,
+        binarty_threshold: float = 0.5,
+        return_probabilities: bool = False,
+        **predict_kwargs: Any,
+    ) -> np_dict_type:
+        pass
+
+
+class IMLPipeline:
     is_classification: bool
     output_dim: Optional[int]
     use_auto_loss: bool
@@ -72,12 +87,14 @@ class IMLPipelineMixin:
     _num_repeat: Optional[int]
     _make_modifier: Callable[[], "MLModifier"]
 
+    predict: IMLPredict
 
-_ml_requirements = get_requirements(IMLPipelineMixin, excludes=[])
+
+_ml_requirements = get_requirements(IMLPipeline, excludes=[])
 
 
 @IModifier.register("ml")
-class MLModifier(IModifier, IMLPipelineMixin):
+class MLModifier(IModifier, IMLPipeline):
     build_steps = ["setup_defaults", "setup_encoder"] + IModifier.build_steps
     requirements = IModifier.requirements + _ml_requirements
 
@@ -198,6 +215,37 @@ class MLModifier(IModifier, IMLPipelineMixin):
 
     # inference
 
+    def post_process(  # type: ignore
+        self,
+        outputs: InferenceOutputs,
+        *,
+        return_classes: bool = False,
+        binarty_threshold: float = 0.5,
+        return_probabilities: bool = False,
+    ) -> np_dict_type:
+        forward = super().post_process(outputs)
+        if not self.is_classification:
+            return forward
+        if return_classes and return_probabilities:
+            raise ValueError(
+                "`return_classes` & `return_probabilities`"
+                "should not be True at the same time"
+            )
+        if not return_classes and not return_probabilities:
+            return forward
+        predictions = forward[PREDICTIONS_KEY]
+        if predictions.shape[1] > 2 and return_classes:
+            forward[PREDICTIONS_KEY] = predictions.argmax(1, keepdims=True)
+        else:
+            probabilities = softmax(predictions)
+            if return_probabilities:
+                forward[PREDICTIONS_KEY] = probabilities
+            else:
+                assert probabilities.shape[1] == 2, "internal error occurred"
+                classes = (probabilities[..., [1]] >= binarty_threshold).astype(int)
+                forward[PREDICTIONS_KEY] = classes
+        return forward
+
     def make_inference_data(
         self,
         x: data_type,
@@ -210,7 +258,7 @@ class MLModifier(IModifier, IMLPipelineMixin):
 
 
 @DLPipeline.register("ml.simple")
-class MLSimplePipeline(IMLPipelineMixin, DLPipeline, metaclass=ConfigMeta):
+class MLSimplePipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
     modifier = "ml"
 
     data: MLData
@@ -435,12 +483,12 @@ class MLSimplePipeline(IMLPipelineMixin, DLPipeline, metaclass=ConfigMeta):
         return self
 
 
-class IMLCarefreePipelineMixin:
+class IMLCarefreePipeline:
     cf_data: Optional[TabularData]
 
 
 @IModifier.register("ml.carefree")
-class MLCarefreeModifier(MLModifier, IMLCarefreePipelineMixin):
+class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
     # build steps
 
     def setup_encoder(self, data_info: Dict[str, Any]) -> None:  # type: ignore
@@ -490,25 +538,38 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipelineMixin):
     def post_load_infrastructure(self, export_folder: str) -> None:
         self.cf_data = DLDataModule.load_info(export_folder)["cf_data"]
 
-    # predict steps
+    # inference
 
-    def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
+    def post_process(
+        self,
+        outputs: InferenceOutputs,
+        *,
+        return_classes: bool = False,
+        binarty_threshold: float = 0.5,
+        return_probabilities: bool = False,
+    ) -> np_dict_type:
         assert self.cf_data is not None
-        results = outputs.forward_results
-        if self.cf_data.is_clf:
-            return results
+        forward = super().post_process(
+            outputs,
+            return_classes=return_classes,
+            binarty_threshold=binarty_threshold,
+            return_probabilities=return_probabilities,
+        )
+        is_clf = self.cf_data.is_clf
+        if is_clf and return_probabilities:
+            return forward
         fn = partial(self.cf_data.recover_labels, inplace=True)
         recovered = {}
-        for k, v in results.items():
-            if is_float(v):
+        for k, v in forward.items():
+            if is_clf and k != PREDICTIONS_KEY:
+                continue
+            if is_clf or is_float(v):
                 if v.shape[1] == 1:
                     v = fn(v)
                 else:
                     v = squeeze(np.apply_along_axis(fn, axis=0, arr=v))
             recovered[k] = v
         return recovered
-
-    # inference
 
     def make_inference_data(
         self,
@@ -528,7 +589,7 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipelineMixin):
 
 
 @DLPipeline.register("ml.carefree")
-class MLCarefreePipeline(MLSimplePipeline, IMLCarefreePipelineMixin):
+class MLCarefreePipeline(MLSimplePipeline, IMLCarefreePipeline):  # type: ignore
     modifier = "ml.carefree"
 
 
