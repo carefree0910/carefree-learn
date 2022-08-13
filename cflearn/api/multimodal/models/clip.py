@@ -10,11 +10,11 @@ from cftool.array import to_torch
 
 from ...cv.pipeline import CVPipeline
 from ...cv.models.utils import predict_folder
+from ....data import TensorData
 from ....types import texts_type
 from ....protocol import IInference
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
-from ....data.api import TensorData
 from ....models.nlp.tokenizers import ITokenizer
 from ....models.multimodal.clip import CLIP
 

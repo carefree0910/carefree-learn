@@ -16,6 +16,16 @@ from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
 from ..models import *
+from .cv.pipeline import CVPipeline
+from .ml.api import repeat_with
+from .ml.api import RepeatResult
+from .ml.pipeline import MLPipeline
+from .ml.pipeline import MLCarefreePipeline
+from .zoo.core import _parse_config
+from .zoo.core import configs_root
+from .zoo.core import DLZoo
+from ..data import MLData
+from ..data import CVDataModule
 from ..types import data_type
 from ..types import configs_type
 from ..types import general_config_type
@@ -28,16 +38,6 @@ from ..protocol import IDLModel
 from ..protocol import _IMetric
 from ..protocol import IDataLoader
 from ..constants import DEFAULT_ZOO_TAG
-from .cv.pipeline import CVPipeline
-from .ml.api import repeat_with
-from .ml.api import RepeatResult
-from .ml.pipeline import MLPipeline
-from .ml.pipeline import MLCarefreePipeline
-from .zoo.core import _parse_config
-from .zoo.core import configs_root
-from .zoo.core import DLZoo
-from ..data.api import MLData
-from ..data.api import CVDataModule
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
 

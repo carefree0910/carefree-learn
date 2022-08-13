@@ -934,6 +934,7 @@ __all__ = [
     "Function",
     "Compose",
     "default_lmdb_path",
+    "CVDataModule",
     "ImageFolderData",
     "InferenceImageFolderData",
     "DefaultPreparation",

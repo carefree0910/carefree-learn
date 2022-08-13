@@ -12,12 +12,12 @@ from cftool.array import save_images
 from ...api import load
 from ...api import pack
 from ...api import pixel_cnn
+from ....data import TensorData
+from ....data import CVDataModule
 from ....protocol import ITrainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import ORIGINAL_LABEL_KEY
-from ....data.api import TensorData
-from ....data.api import CVDataModule
 from ....misc.toolkit import eval_context
 from ....misc.internal_.callbacks import ImageCallback
 from ....models.cv.vae.vector_quantized import VQVAE

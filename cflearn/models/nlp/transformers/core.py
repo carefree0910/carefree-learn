@@ -11,10 +11,10 @@ from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
 from ...bases import IDLModel
+from ....data import TensorDictData
 from ....types import texts_type
 from ....protocol import TrainerState
 from ....protocol import IInference
-from ....data.api import TensorDictData
 
 try:
     from transformers import AutoModel

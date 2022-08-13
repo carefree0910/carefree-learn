@@ -19,8 +19,8 @@ from ....constants import ORIGINAL_LABEL_KEY
 from ....data import CVDataset
 from ....data import CVLoader
 from ....data import DataLoader
+from ....data import CVDataModule
 from ....data import DLDataModule
-from ....data.api import CVDataModule
 
 
 def batch_callback(
