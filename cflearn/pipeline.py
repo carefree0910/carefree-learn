@@ -271,7 +271,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         missing_requirements = []
         token = f"{random_hash()}{random_hash()}{random_hash()}"
         for requirement in self.requirements:
-            if getattr(self.__pipeline, requirement, token) == token:
+            if getattr(self.__pipeline, requirement, token) is token:
                 missing_requirements.append(requirement)
         if missing_requirements:
             pipeline_name = self.__pipeline.__class__.__name__
@@ -780,7 +780,8 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
                         "empty `data_info` will be used"
                     )
                     data_info = {}
-                m._make_modifier().build(data_info)
+                modifier = m._make_modifier()
+                modifier.build(data_info)
                 m.model.to(m.device)
                 # restore checkpoint
                 states = modifier.load_states_from(export_folder)

@@ -487,11 +487,16 @@ class IMLCarefreePipeline:
     cf_data: Optional[TabularData]
 
 
+_ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
+
+
 @IModifier.register("ml.carefree")
 class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
+    requirements = MLModifier.requirements + _ml_carefree_requirements
+
     # build steps
 
-    def setup_encoder(self, data_info: Dict[str, Any]) -> None:  # type: ignore
+    def setup_encoder(self, data_info: Dict[str, Any]) -> None:
         self.cf_data = data_info["cf_data"]
         if self.cf_data is None:
             msg = "cf_data` is not provided, please use `ml.MLSimplePipeline` instead"
