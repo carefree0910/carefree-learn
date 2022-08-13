@@ -45,7 +45,7 @@ class TestModels(unittest.TestCase):
                         encoder=None,
                         use_encoder_cache=False,
                         numerical_columns=list(range(in_dim)),
-                        categorical_columns_mapping=[],
+                        categorical_columns=[],
                         use_one_hot=False,
                         use_embedding=False,
                         only_categorical=False,
