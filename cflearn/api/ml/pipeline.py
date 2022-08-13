@@ -563,7 +563,7 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
         for k, v in forward.items():
             if is_clf and k != PREDICTIONS_KEY:
                 continue
-            if is_clf or is_float(v):
+            if is_clf ^ is_float(v):
                 if v.shape[1] == 1:
                     v = fn(v)
                 else:
