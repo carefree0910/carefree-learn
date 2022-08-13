@@ -132,9 +132,6 @@ class Dimensions:
         *,
         num_history: int,
         encoder: Optional[IEncoder] = None,
-        one_hot_dim: Optional[int] = None,
-        embedding_dim: Optional[int] = None,
-        categorical_dims: Optional[Dict[int, int]] = None,
         numerical_columns: List[int],
         categorical_columns: List[int],
     ):
@@ -144,9 +141,9 @@ class Dimensions:
             self.embedding_dim = encoder.embedding_dim
             c_dims = self.categorical_dims = encoder.merged_dims
         else:
-            self.one_hot_dim = one_hot_dim or 0
-            self.embedding_dim = embedding_dim or 0
-            c_dims = self.categorical_dims = categorical_dims or {}
+            self.one_hot_dim = 0
+            self.embedding_dim = 0
+            c_dims = self.categorical_dims = {}
 
         self.num_history = num_history
         self.numerical_columns = sorted(numerical_columns)
