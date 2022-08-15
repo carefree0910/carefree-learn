@@ -629,6 +629,21 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
 class MLCarefreePipeline(IMLCarefreePipeline, MLPipeline):  # type: ignore
     modifier = "ml.carefree"
 
+    def make_inference_data(  # type: ignore
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+        contains_labels: bool = True,
+    ) -> MLInferenceData:
+        return self._make_modifier().make_inference_data(
+            x,
+            y,
+            shuffle=shuffle,
+            contains_labels=contains_labels,
+        )
+
 
 __all__ = [
     "MLModifier",
