@@ -493,15 +493,18 @@ _ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
 
 @IModifier.register("ml.carefree")
 class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
+    build_steps = ["setup_cf_data"] + MLModifier.build_steps
     requirements = MLModifier.requirements + _ml_carefree_requirements
 
     # build steps
 
-    def setup_encoder(self, data_info: Dict[str, Any]) -> None:
+    def setup_cf_data(self, data_info: Dict[str, Any]) -> None:
         self.cf_data = data_info["cf_data"]
         if self.cf_data is None:
             msg = "cf_data` is not provided, please use `ml.MLSimplePipeline` instead"
             raise ValueError(msg)
+
+    def setup_encoder(self) -> None:  # type: ignore
         excluded = 0
         encoder_settings = {}
         numerical_columns = []
