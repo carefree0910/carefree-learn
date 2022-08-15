@@ -375,14 +375,8 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         y: data_type = None,
         *,
         shuffle: bool = False,
-        contains_labels: bool = True,
     ) -> IMLData:
-        return self._make_modifier().make_inference_data(  # type: ignore
-            x,
-            y,
-            shuffle=shuffle,
-            contains_labels=contains_labels,
-        )
+        return self._make_modifier().make_inference_data(x, y, shuffle=shuffle)
 
     def to_pattern(
         self,

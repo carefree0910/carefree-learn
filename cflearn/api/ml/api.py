@@ -460,7 +460,7 @@ def make_toy_model(
                 label_process_method="identical",
             ),
         )
-        data = MLData.with_cf_data(
+        data = MLCarefreeData.make_with(
             x_np,
             y_np,
             is_classification=is_classification,
