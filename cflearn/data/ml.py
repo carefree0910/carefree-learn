@@ -154,10 +154,11 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
 
 class IMLDataInfo(NamedTuple):
     """
-    * input_dim (int) : final dim that the model will receive
+    * input_dim (int) : input feature dim that the model will receive
     * num_history (int) : number of history, useful in time series tasks
     * num_classes (int | None) : number of classes
       -> will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified
+      -> In other words, if `output_dim` is provided, we can leave it as `None`
     * is_classification (bool | None) : whether current task is a classification task
       -> it should always be provided unless it's at inference time
     """
@@ -470,6 +471,8 @@ class MLData(IMLData, metaclass=ConfigMeta):
         if self.valid_data is None:
             valid_loader = None
         else:
+            # when `for_inference`, `valid_data` will always be `None`
+            # so we don't need to condition `name` field here
             valid_loader = MLLoader(
                 self.valid_data,
                 name="valid",
