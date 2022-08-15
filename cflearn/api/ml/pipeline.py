@@ -67,6 +67,22 @@ class IMLPredict(Protocol):
         pass
 
 
+class IMLMakeModifier(Protocol):
+    def __call__(self) -> "MLModifier":
+        pass
+
+
+class IMLMakeInferenceData(Protocol):
+    def __call__(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+    ) -> IMLData:
+        pass
+
+
 class IMLPipeline:
     is_classification: bool
     output_dim: Optional[int]
@@ -87,9 +103,10 @@ class IMLPipeline:
 
     _pre_process_batch: bool
     _num_repeat: Optional[int]
-    _make_modifier: Callable[[], "MLModifier"]
+    _make_modifier: IMLMakeModifier
 
     predict: IMLPredict
+    make_inference_data: IMLMakeInferenceData
 
 
 _ml_requirements = get_requirements(IMLPipeline, excludes=[])
@@ -254,7 +271,7 @@ class MLModifier(IModifier, IMLPipeline):
         y: Optional[np.ndarray] = None,
         *,
         shuffle: bool = False,
-    ) -> IMLData:
+    ) -> MLInferenceData:
         return MLInferenceData(x, y, shuffle=shuffle)
 
 
@@ -375,7 +392,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         y: data_type = None,
         *,
         shuffle: bool = False,
-    ) -> IMLData:
+    ) -> MLInferenceData:
         return self._make_modifier().make_inference_data(x, y, shuffle=shuffle)
 
     def to_pattern(
@@ -478,15 +495,38 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         return self
 
 
+# carefree
+
+
+class IMLCarefreeMakeModifier(Protocol):
+    def __call__(self) -> "MLCarefreeModifier":
+        pass
+
+
+class IMLCarefreeMakeInferenceData(Protocol):
+    def __call__(
+        self,
+        x: data_type,
+        y: data_type = None,
+        *,
+        shuffle: bool = False,
+        contains_labels: bool = True,
+    ) -> MLCarefreeInferenceData:
+        pass
+
+
 class IMLCarefreePipeline:
     cf_data: TabularData
+
+    _make_modifier: IMLCarefreeMakeModifier
+    make_inference_data: IMLCarefreeMakeInferenceData
 
 
 _ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
 
 
 @IModifier.register("ml.carefree")
-class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
+class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
     build_steps = ["setup_cf_data"] + MLModifier.build_steps
     requirements = MLModifier.requirements + _ml_carefree_requirements
 
@@ -568,7 +608,7 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
             recovered[k] = v
         return recovered
 
-    def make_inference_data(
+    def make_inference_data(  # type: ignore
         self,
         x: data_type,
         y: data_type = None,
@@ -586,7 +626,7 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
 
 
 @DLPipeline.register("ml.carefree")
-class MLCarefreePipeline(MLPipeline, IMLCarefreePipeline):  # type: ignore
+class MLCarefreePipeline(IMLCarefreePipeline, MLPipeline):  # type: ignore
     modifier = "ml.carefree"
 
 
