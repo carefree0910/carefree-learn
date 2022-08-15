@@ -34,6 +34,8 @@ from ..types import sample_weights_type
 from ..types import states_callback_type
 from ..pipeline import DLPipeline
 from ..pipeline import ModelSoupConfigs
+from ..protocol import loss_dict
+from ..protocol import metric_dict
 from ..protocol import ILoss
 from ..protocol import IDLModel
 from ..protocol import _IMetric
@@ -41,6 +43,7 @@ from ..protocol import IDataLoader
 from ..constants import DEFAULT_ZOO_TAG
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
+from ..models.protocols.ml import ml_core_dict
 
 
 # dl
@@ -251,6 +254,14 @@ def from_zoo(
     kwargs["no_build"] = no_build
     fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
     return fn(model, **kwargs)  # type: ignore
+
+
+def supported_losses() -> List[str]:
+    return sorted(loss_dict)
+
+
+def supported_metrics() -> List[str]:
+    return sorted(metric_dict)
 
 
 # ml
@@ -552,6 +563,10 @@ def repeat_ml(
         is_fix=is_fix,
         **pipeline_config,
     )
+
+
+def supported_ml_models() -> List[str]:
+    return sorted(ml_core_dict)
 
 
 # cv
