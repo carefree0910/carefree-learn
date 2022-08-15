@@ -289,6 +289,63 @@ class MLLoader(IMLLoader):
     callback = "basic"
 
 
+class MLDataMixin(IMLData, metaclass=ABCMeta):
+    train_data: MLDataset
+    valid_data: Optional[MLDataset]
+
+    data_files = [
+        "x_train.npy",
+        "y_train.npy",
+        "x_valid.npy",
+        "y_valid.npy",
+    ]
+    arguments_file = "arguments.json"
+
+    input_dim: int
+    num_history: int
+    num_classes: Optional[int]
+    is_classification: Optional[bool]
+
+    shuffle_train: bool
+    shuffle_valid: bool
+    batch_size: int
+    valid_batch_size: int
+    train_weights: Optional[np.ndarray]
+    valid_weights: Optional[np.ndarray]
+
+    for_inference: bool
+
+    def get_info(self) -> IMLDataInfo:
+        return IMLDataInfo(
+            self.input_dim,
+            self.num_history,
+            self.num_classes,
+            self.is_classification,
+        )
+
+    def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
+        train_loader = MLLoader(
+            self.train_data,
+            name=None if self.for_inference else "train",
+            shuffle=self.shuffle_train,
+            batch_size=self.batch_size,
+            sample_weights=self.train_weights,
+        )
+        if self.valid_data is None:
+            valid_loader = None
+        else:
+            # when `for_inference` is True, `valid_data` will always be `None`
+            # so we don't need to condition `name` field here
+            valid_loader = MLLoader(
+                self.valid_data,
+                name="valid",
+                shuffle=self.shuffle_valid,
+                batch_size=self.valid_batch_size,
+                sample_weights=self.valid_weights,
+            )
+        return train_loader, valid_loader
+
+
 # api
 
 
@@ -367,19 +424,8 @@ class _InternalMLDataModifier(IMLDataModifier):
 
 
 @DLDataModule.register("ml")
-class MLData(IMLData, metaclass=ConfigMeta):
+class MLData(MLDataMixin, metaclass=ConfigMeta):
     modifier = "_internal.ml"
-
-    train_data: MLDataset
-    valid_data: Optional[MLDataset]
-
-    data_files = [
-        "x_train.npy",
-        "y_train.npy",
-        "x_valid.npy",
-        "y_valid.npy",
-    ]
-    arguments_file = "arguments.json"
 
     def __init__(
         self,
@@ -441,14 +487,6 @@ class MLData(IMLData, metaclass=ConfigMeta):
         self.for_inference = for_inference
         self.loaded = False
 
-    def get_info(self) -> IMLDataInfo:
-        return IMLDataInfo(
-            self.input_dim,
-            self.num_history,
-            self.num_classes,
-            self.is_classification,
-        )
-
     def prepare(self, sample_weights: sample_weights_type) -> None:
         train_others = self.train_others or {}
         valid_others = self.valid_others or {}
@@ -459,28 +497,6 @@ class MLData(IMLData, metaclass=ConfigMeta):
             self.valid_data = None
         else:
             self.valid_data = MLDataset(self.x_valid, self.y_valid, **valid_others)
-
-    def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
-        train_loader = MLLoader(
-            self.train_data,
-            name=None if self.for_inference else "train",
-            shuffle=self.shuffle_train,
-            batch_size=self.batch_size,
-            sample_weights=self.train_weights,
-        )
-        if self.valid_data is None:
-            valid_loader = None
-        else:
-            # when `for_inference`, `valid_data` will always be `None`
-            # so we don't need to condition `name` field here
-            valid_loader = MLLoader(
-                self.valid_data,
-                name="valid",
-                shuffle=self.shuffle_valid,
-                batch_size=self.valid_batch_size,
-                sample_weights=self.valid_weights,
-            )
-        return train_loader, valid_loader
 
 
 class MLInferenceData(MLData):
@@ -543,7 +559,7 @@ class _InternalMLCarefreeDataModifier(_InternalMLDataModifier):
 
 
 @DLDataModule.register("ml.carefree")
-class MLCarefreeData(MLData, metaclass=ConfigMeta):
+class MLCarefreeData(MLDataMixin, metaclass=ConfigMeta):
     modifier = "_internal.ml.carefree"
 
     cf_data: TabularData
