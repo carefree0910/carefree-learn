@@ -867,6 +867,32 @@ def resnet18_gray(num_classes: int, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("clf/resnet18.gray", **kwargs)
 
 
+def resnet50(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    kwargs["num_classes"] = num_classes
+    model_config = kwargs.setdefault("model_config", {})
+    encoder1d_config = model_config.setdefault("encoder1d_config", {})
+    encoder1d_config["pretrained"] = pretrained
+    return DLZoo.load_pipeline("clf/resnet50", **kwargs)
+
+
+def resnet50_model(
+    num_classes: int,
+    *,
+    pretrained: bool = False,
+    **kwargs: Any,
+) -> VanillaClassifier:
+    kwargs["num_classes"] = num_classes
+    model_config = kwargs.setdefault("model_config", {})
+    encoder1d_config = model_config.setdefault("encoder1d_config", {})
+    encoder1d_config["pretrained"] = pretrained
+    return DLZoo.load_model("clf/resnet50", **kwargs)
+
+
+def resnet50_gray(num_classes: int, **kwargs: Any) -> DLPipeline:
+    kwargs["num_classes"] = num_classes
+    return DLZoo.load_pipeline("clf/resnet50.gray", **kwargs)
+
+
 def resnet101(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
     kwargs["num_classes"] = num_classes
     model_config = kwargs.setdefault("model_config", {})

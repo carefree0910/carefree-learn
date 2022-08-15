@@ -1,0 +1,9 @@
+{
+  "__bases__": ["clf/resnet50"],
+  "model_config": {
+    "in_channels": 1,
+    "encoder1d_config": {
+      "pretrained": false
+    }
+  }
+}

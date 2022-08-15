@@ -1,0 +1,18 @@
+{
+  "__requires__": {
+    "model_config": ["num_classes"]
+  },
+  "pipeline": "cv",
+  "model_name": "clf",
+  "model_config": {
+    "in_channels": 3,
+    "latent_dim": 2048,
+    "encoder1d": "backbone",
+    "encoder1d_config": {
+      "name": "resnet50",
+      "pretrained": true
+    }
+  },
+  "loss_name": "multi_task:focal,cross_entropy",
+  "metric_names": "acc"
+}
