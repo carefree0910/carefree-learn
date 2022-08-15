@@ -22,7 +22,8 @@ from cftool.misc import get_latest_workplace
 from .pipeline import MLPipeline
 from .pipeline import MLCarefreePipeline
 from ...data import MLData
-from ...data import MLInferenceData
+from ...data import IMLData
+from ...data import MLCarefreeData
 from ...types import configs_type
 from ...types import sample_weights_type
 from ...trainer import get_sorted_checkpoints
@@ -78,7 +79,7 @@ def _to_pipelines(pipelines: various_pipelines_type) -> pipelines_type:
 
 
 def evaluate(
-    data: MLInferenceData,
+    data: IMLData,
     *,
     metrics: Union[str, List[str]],
     metric_configs: configs_type = None,
@@ -203,9 +204,9 @@ class RepeatResult(NamedTuple):
 
 
 def repeat_with(
-    data: MLData,
+    data: IMLData,
     *,
-    carefree: bool = True,
+    carefree: Optional[bool] = None,
     workplace: str = "_repeat",
     models: Union[str, List[str]] = "fcnn",
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
@@ -255,6 +256,11 @@ def repeat_with(
         local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
         return shallow_copy_dict(local_kwargs)
 
+    is_carefree_data = isinstance(data, MLCarefreeData)
+    if carefree and not is_carefree_data:
+        raise ValueError("data should be `MLCarefreeData` when `carefree` is True")
+    if carefree is None:
+        carefree = is_carefree_data
     pipeline_base = MLCarefreePipeline if carefree else MLPipeline
     pipelines_dict: Optional[Dict[str, List[MLPipeline]]] = None
     if sequential:
