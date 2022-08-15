@@ -182,7 +182,7 @@ class IMLDataModifier(WithRegister["IMLDataModifier"], metaclass=ABCMeta):
 
     @classmethod
     @abstractmethod
-    def load(cls, data_folder: str, info: Dict[str, Any]) -> "IMLData":
+    def load(cls, data_folder: str) -> "IMLData":
         pass
 
     # optional callbacks
@@ -238,7 +238,7 @@ class IMLData(DLDataModule, metaclass=ABCMeta):
         info: Dict[str, Any],
         sample_weights: sample_weights_type,
     ) -> "IMLData":
-        data = IMLDataModifier.get(cls.modifier).load(data_folder, info)
+        data = IMLDataModifier.get(cls.modifier).load(data_folder)
         data.loaded = True
         data.prepare(sample_weights)
         return data
@@ -334,12 +334,9 @@ class _InternalMLDataModifier(IMLDataModifier):
         if self.data.valid_others is not None:
             for k, v in self.data.valid_others.items():
                 np.save(os.path.join(data_folder, f"{k}_valid.npy"), v)
-        if self.data.cf_data is not None:
-            full_cf_data_folder = os.path.join(data_folder, self.data.full_cf_data_name)
-            self.data.cf_data.save(full_cf_data_folder, retain_data=True)
 
     @classmethod
-    def load(cls, data_folder: str, info: Dict[str, Any]) -> "MLData":
+    def get_load_arguments(cls, data_folder: str) -> Tuple[List[Any], Dict[str, Any]]:
         args = []
         for file in MLData.data_files:
             path = os.path.join(data_folder, file)
@@ -360,40 +357,179 @@ class _InternalMLDataModifier(IMLDataModifier):
             kwargs["train_others"] = train_others
         if valid_others:
             kwargs["valid_others"] = valid_others
-        if info["cf_data"] is not None:
-            if TabularData is None:
-                raise ValueError(
-                    "`carefree-data` needs to be installed "
-                    "to load `MLData` with `cf_data` defined"
-                )
-            full_cf_data_folder = os.path.join(data_folder, MLData.full_cf_data_name)
-            kwargs["cf_data"] = TabularData.load(full_cf_data_folder)
+        return args, kwargs
+
+    @classmethod
+    def load(cls, data_folder: str) -> "MLData":
+        args, kwargs = cls.get_load_arguments(data_folder)
         return MLData(*args, **kwargs)
 
+
+@DLDataModule.register("ml")
+class MLData(IMLData, metaclass=ConfigMeta):
+    modifier = "_internal.ml"
+
+    train_data: MLDataset
+    valid_data: Optional[MLDataset]
+
+    data_files = [
+        "x_train.npy",
+        "y_train.npy",
+        "x_valid.npy",
+        "y_valid.npy",
+    ]
+    arguments_file = "arguments.json"
+
+    def __init__(
+        self,
+        x_train: np.ndarray,
+        y_train: Optional[np.ndarray] = None,
+        x_valid: Optional[np.ndarray] = None,
+        y_valid: Optional[np.ndarray] = None,
+        *,
+        train_others: Optional[np_dict_type] = None,
+        valid_others: Optional[np_dict_type] = None,
+        num_history: int = 1,
+        num_classes: Optional[int] = None,
+        is_classification: Optional[bool] = None,
+        # valid split
+        valid_split: Optional[Union[int, float]] = None,
+        min_valid_split: int = 100,
+        max_valid_split: int = 10000,
+        max_valid_split_ratio: float = 0.5,
+        valid_split_order: str = "auto",
+        # data loader
+        shuffle_train: bool = True,
+        shuffle_valid: bool = False,
+        batch_size: int = 128,
+        valid_batch_size: int = 512,
+        # inference
+        for_inference: bool = False,
+    ):
+        if is_classification is None and not for_inference:
+            msg = "`is_classification` should be provided when `for_inference` is False"
+            raise ValueError(msg)
+        pop_keys = [
+            "x_train",
+            "y_train",
+            "x_valid",
+            "y_valid",
+            "train_others",
+            "valid_others",
+        ]
+        for key in pop_keys:
+            self.config.pop(key, None)
+        self.x_train = x_train
+        self.y_train = y_train
+        self.x_valid = x_valid
+        self.y_valid = y_valid
+        self.train_others = train_others
+        self.valid_others = valid_others
+        self.num_history = num_history
+        self.num_classes = num_classes
+        self.is_classification = is_classification
+        self.valid_split = valid_split
+        self.min_valid_split = min_valid_split
+        self.max_valid_split = max_valid_split
+        self.max_valid_split_ratio = max_valid_split_ratio
+        self.valid_split_order = valid_split_order
+        self.shuffle_train = shuffle_train
+        self.shuffle_valid = shuffle_valid
+        self.batch_size = batch_size
+        self.valid_batch_size = valid_batch_size
+        self.for_inference = for_inference
+        self.loaded = False
+
+    def get_info(self) -> IMLDataInfo:
+        return IMLDataInfo(
+            self.input_dim,
+            self.num_history,
+            self.num_classes,
+            self.is_classification,
+        )
+
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        train_others = self.train_others or {}
+        valid_others = self.valid_others or {}
+        self.train_weights, self.valid_weights = _split_sw(sample_weights)
+        self.input_dim = self.x_train.shape[-1]
+        self.train_data = MLDataset(self.x_train, self.y_train, **train_others)
+        if self.x_valid is None or self.y_valid is None:
+            self.valid_data = None
+        else:
+            self.valid_data = MLDataset(self.x_valid, self.y_valid, **valid_others)
+
+    def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
+        train_loader = MLLoader(
+            self.train_data,
+            name=None if self.for_inference else "train",
+            shuffle=self.shuffle_train,
+            batch_size=self.batch_size,
+            sample_weights=self.train_weights,
+        )
+        if self.valid_data is None:
+            valid_loader = None
+        else:
+            valid_loader = MLLoader(
+                self.valid_data,
+                name="valid",
+                shuffle=self.shuffle_valid,
+                batch_size=self.valid_batch_size,
+                sample_weights=self.valid_weights,
+            )
+        return train_loader, valid_loader
+
+
+class MLInferenceData(MLData):
+    def __init__(
+        self,
+        x: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        *,
+        shuffle: bool = False,
+    ):
+        super().__init__(x, y, shuffle_train=shuffle, for_inference=True)
+        self.prepare(None)
+
+
+@IMLDataModifier.register("_internal.ml.carefree")
+class _InternalMLCarefreeDataModifier(_InternalMLDataModifier):
+    data: "MLCarefreeData"
+
+    def save(self, data_folder: str) -> None:
+        super().save(data_folder)
+        full_cf_data_folder = os.path.join(data_folder, self.data.full_cf_data_name)
+        self.data.cf_data.save(full_cf_data_folder, retain_data=True)
+
+    @classmethod
+    def load(cls, data_folder: str) -> "MLCarefreeData":
+        if TabularData is None:
+            msg = "`carefree-data` needs to be installed to load `MLCarefreeData`"
+            raise ValueError(msg)
+        args, kwargs = cls.get_load_arguments(data_folder)
+        cf_data_folder = os.path.join(data_folder, MLCarefreeData.full_cf_data_name)
+        kwargs["cf_data"] = TabularData.load(cf_data_folder)
+        return MLCarefreeData(*args, **kwargs)
+
     def permute_info_in_save(self, info: Dict[str, Any]) -> None:
-        if info["cf_data"] is not None:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                tmp_name = os.path.join(tmp_dir, self.data.tmp_cf_data_name)
-                info["cf_data"].save(tmp_name, retain_data=False)
-                zip_file = f"{tmp_name}.zip"
-                with open(zip_file, "rb") as f:
-                    info["cf_data"] = f.read()
-                os.remove(zip_file)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_name = os.path.join(tmp_dir, self.data.tmp_cf_data_name)
+            info["cf_data"].save(tmp_name, retain_data=False)
+            zip_file = f"{tmp_name}.zip"
+            with open(zip_file, "rb") as f:
+                info["cf_data"] = f.read()
+            os.remove(zip_file)
 
     @classmethod
     def permute_info_in_load(
         cls,
-        data_cls: Type["MLData"],
+        data_cls: Type["MLCarefreeData"],
         info: Dict[str, Any],
     ) -> None:
-        cf_data = info["cf_data"]
-        if cf_data is None:
-            return
         if TabularData is None:
-            raise ValueError(
-                "`carefree-data` needs to be installed "
-                "to load `MLData` with `cf_data` defined"
-            )
+            msg = "`carefree-data` needs to be installed to load `MLCarefreeData`"
+            raise ValueError(msg)
+        cf_data = info["cf_data"]
         with tempfile.TemporaryDirectory() as tmp_dir:
             tmp_name = os.path.join(tmp_dir, data_cls.tmp_cf_data_name)
             zip_file = f"{tmp_name}.zip"
@@ -403,23 +539,14 @@ class _InternalMLDataModifier(IMLDataModifier):
             os.remove(zip_file)
 
 
-@DLDataModule.register("ml")
-class MLData(IMLData, metaclass=ConfigMeta):
-    modifier = "_internal.ml"
+@DLDataModule.register("ml.carefree")
+class MLCarefreeData(MLData, metaclass=ConfigMeta):
+    modifier = "_internal.ml.carefree"
 
-    cf_data: Optional[TabularData]
-    train_data: MLDataset
-    valid_data: Optional[MLDataset]
-    train_cf_data: Optional[TabularData]
+    cf_data: TabularData
+    train_cf_data: TabularData
     valid_cf_data: Optional[TabularData]
 
-    data_files = [
-        "x_train.npy",
-        "y_train.npy",
-        "x_valid.npy",
-        "y_valid.npy",
-    ]
-    arguments_file = "arguments.json"
     tmp_cf_data_name = ".tmp_cf_data"
     full_cf_data_name = "cf_data"
 
@@ -430,9 +557,9 @@ class MLData(IMLData, metaclass=ConfigMeta):
         x_valid: data_type = None,
         y_valid: data_type = None,
         *,
+        cf_data: TabularData,
         train_others: Optional[np_dict_type] = None,
         valid_others: Optional[np_dict_type] = None,
-        cf_data: Optional[TabularData] = None,
         num_history: int = 1,
         is_classification: Optional[bool] = None,
         read_config: Optional[Dict[str, Any]] = None,
@@ -462,18 +589,14 @@ class MLData(IMLData, metaclass=ConfigMeta):
         ]
         for key in pop_keys:
             self.config.pop(key, None)
-        assert x_train is not None
         self.x_train = x_train
         self.y_train = y_train
         self.x_valid = x_valid
         self.y_valid = y_valid
+        self.cf_data = cf_data
         self.train_others = train_others
         self.valid_others = valid_others
-        self.cf_data = cf_data
         self.num_history = num_history
-        if is_classification is None and cf_data is None and not for_inference:
-            msg = "`cf_data` should be provided when `is_classification` is None"
-            raise ValueError(msg)
         self.is_classification = is_classification
         self.read_config = read_config or {}
         self.valid_split = valid_split
@@ -489,14 +612,6 @@ class MLData(IMLData, metaclass=ConfigMeta):
         self.contains_labels = contains_labels
         self.loaded = False
 
-    def get_info(self) -> IMLDataInfo:
-        return IMLDataInfo(
-            self.input_dim,
-            self.num_history,
-            self.num_classes,
-            self.is_classification,
-        )
-
     @property
     def info(self) -> Dict[str, Any]:
         info = super().info
@@ -507,104 +622,70 @@ class MLData(IMLData, metaclass=ConfigMeta):
         train_others = self.train_others or {}
         valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
-        if self.cf_data is not None:
-            if self.for_inference:
-                train_xy = self.cf_data.transform(
-                    self.x_train,
-                    None,
-                    contains_labels=self.contains_labels,
-                ).xy
-                self.train_data = MLDataset(*train_xy)
-                self.valid_data = None
-                self.train_cf_data = self.cf_data
-                self.valid_cf_data = None
-                # if `for_inference` is True, these properties are not needed
-                self.input_dim = -1
-                self.num_classes = self.is_classification = None
-            else:
-                if not self.loaded:
-                    self.cf_data.read(self.x_train, self.y_train, **self.read_config)
-                if self.x_valid is not None:
-                    self.train_cf_data = self.cf_data
-                    self.valid_cf_data = self.cf_data.copy_to(
-                        self.x_valid, self.y_valid
-                    )
-                else:
-                    if isinstance(self.valid_split, int):
-                        split = self.valid_split
-                    else:
-                        num_data = len(self.cf_data)
-                        if isinstance(self.valid_split, float):
-                            split = int(round(self.valid_split * num_data))
-                        else:
-                            default_split = 0.1
-                            num_split = int(round(default_split * num_data))
-                            num_split = max(self.min_valid_split, num_split)
-                            max_split = int(
-                                round(num_data * self.max_valid_split_ratio)
-                            )
-                            max_split = min(max_split, self.max_valid_split)
-                            split = min(num_split, max_split)
-                    if split <= 0:
-                        self.train_cf_data = self.cf_data
-                        self.valid_cf_data = None
-                    else:
-                        rs = self.cf_data.split(split, order=self.valid_split_order)
-                        self.train_cf_data = rs.remained
-                        self.valid_cf_data = rs.split
-                train_xy = self.train_cf_data.processed.xy
-                self.train_data = MLDataset(*train_xy, **train_others)
-                if self.valid_cf_data is None:
-                    self.valid_data = None
-                else:
-                    valid_xy = self.valid_cf_data.processed.xy
-                    self.valid_data = MLDataset(*valid_xy, **valid_others)
-                # initialize properties with train_cf_data
-                self.input_dim = self.train_cf_data.processed_dim
-                self.num_classes = self.train_cf_data.num_classes
-                if self.is_classification is None:
-                    self.is_classification = self.train_cf_data.is_clf
-            return None
-        if isinstance(self.x_train, str):
-            raise ValueError("`cf_data` should be provided when `x_train` is `str`")
-        self.num_classes = None
-        self.input_dim = self.x_train.shape[-1]
-        self.train_data = MLDataset(self.x_train, self.y_train, **train_others)
-        if self.x_valid is None or self.y_valid is None:
+        if self.for_inference:
+            train_xy = self.cf_data.transform(
+                self.x_train,
+                None,
+                contains_labels=self.contains_labels,
+            ).xy
+            self.train_data = MLDataset(*train_xy)
             self.valid_data = None
+            self.train_cf_data = self.cf_data
+            self.valid_cf_data = None
+            # if `for_inference` is True, these properties are not needed
+            self.input_dim = -1
+            self.num_classes = self.is_classification = None
         else:
-            self.valid_data = MLDataset(self.x_valid, self.y_valid, **valid_others)
-
-    def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
-        train_loader = MLLoader(
-            self.train_data,
-            name=None if self.for_inference else "train",
-            shuffle=self.shuffle_train,
-            batch_size=self.batch_size,
-            sample_weights=self.train_weights,
-        )
-        if self.valid_data is None:
-            valid_loader = None
-        else:
-            valid_loader = MLLoader(
-                self.valid_data,
-                name="valid",
-                shuffle=self.shuffle_valid,
-                batch_size=self.valid_batch_size,
-                sample_weights=self.valid_weights,
-            )
-        return train_loader, valid_loader
+            if not self.loaded:
+                self.cf_data.read(self.x_train, self.y_train, **self.read_config)
+            if self.x_valid is not None:
+                self.train_cf_data = self.cf_data
+                self.valid_cf_data = self.cf_data.copy_to(self.x_valid, self.y_valid)
+            else:
+                if isinstance(self.valid_split, int):
+                    split = self.valid_split
+                else:
+                    num_data = len(self.cf_data)
+                    if isinstance(self.valid_split, float):
+                        split = int(round(self.valid_split * num_data))
+                    else:
+                        default_split = 0.1
+                        num_split = int(round(default_split * num_data))
+                        num_split = max(self.min_valid_split, num_split)
+                        max_split = int(round(num_data * self.max_valid_split_ratio))
+                        max_split = min(max_split, self.max_valid_split)
+                        split = min(num_split, max_split)
+                if split <= 0:
+                    self.train_cf_data = self.cf_data
+                    self.valid_cf_data = None
+                else:
+                    rs = self.cf_data.split(split, order=self.valid_split_order)
+                    self.train_cf_data = rs.remained
+                    self.valid_cf_data = rs.split
+            train_xy = self.train_cf_data.processed.xy
+            self.train_data = MLDataset(*train_xy, **train_others)
+            if self.valid_cf_data is None:
+                self.valid_data = None
+            else:
+                valid_xy = self.valid_cf_data.processed.xy
+                self.valid_data = MLDataset(*valid_xy, **valid_others)
+            # initialize properties with train_cf_data
+            self.input_dim = self.train_cf_data.processed_dim
+            self.num_classes = self.train_cf_data.num_classes
+            if self.is_classification is None:
+                self.is_classification = self.train_cf_data.is_clf
 
     @classmethod
-    def with_cf_data(
+    def make_with(
         cls,
         *args: Any,
         is_classification: Optional[bool] = None,
         cf_data_config: Optional[Dict[str, Any]] = None,
         **kwargs: Any,
-    ) -> "MLData":
+    ) -> "MLCarefreeData":
         if TabularData is None:
-            raise ValueError("`carefree-data` needs to be installed for `with_cf_data`")
+            msg = "`carefree-data` needs to be installed for making `MLCarefreeData`"
+            raise ValueError(msg)
         if cf_data_config is None:
             cf_data_config = {}
         cf_data_config["default_categorical_process"] = "identical"
@@ -615,15 +696,15 @@ class MLData(IMLData, metaclass=ConfigMeta):
         return cls(*args, **kwargs)
 
 
-class MLInferenceData(MLData):
+class MLCarefreeInferenceData(MLCarefreeData):
     def __init__(
         self,
         x: data_type,
         y: data_type = None,
         *,
+        cf_data: TabularData,
         shuffle: bool = False,
         contains_labels: bool = True,
-        cf_data: Optional[TabularData] = None,
     ):
         super().__init__(
             x,
@@ -650,4 +731,6 @@ __all__ = [
     "MLLoader",
     "MLData",
     "MLInferenceData",
+    "MLCarefreeData",
+    "MLCarefreeInferenceData",
 ]

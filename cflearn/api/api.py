@@ -26,6 +26,7 @@ from .zoo.core import configs_root
 from .zoo.core import DLZoo
 from ..data import MLData
 from ..data import CVDataModule
+from ..data import MLCarefreeData
 from ..types import data_type
 from ..types import configs_type
 from ..types import general_config_type
@@ -276,8 +277,8 @@ def _make_ml_data(
         data_kwargs["cf_data_config"] = cf_data_config
     update_dict(data_config or {}, data_kwargs)
     args = x_train, y_train, x_valid, y_valid
-    data_base = MLData.with_cf_data if carefree else MLData
-    return data_base(*args, **data_kwargs)  # type: ignore
+    fn = MLCarefreeData.make_with if carefree else MLData
+    return fn(*args, **data_kwargs)  # type: ignore
 
 
 def fit_ml(

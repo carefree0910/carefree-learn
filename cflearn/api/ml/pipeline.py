@@ -26,6 +26,7 @@ from ...data import MLData
 from ...data import MLLoader
 from ...data import DLDataModule
 from ...data import MLInferenceData
+from ...data import MLCarefreeInferenceData
 from ...types import data_type
 from ...types import configs_type
 from ...types import states_callback_type
@@ -249,13 +250,12 @@ class MLModifier(IModifier, IMLPipeline):
 
     def make_inference_data(
         self,
-        x: data_type,
-        y: data_type = None,
+        x: np.ndarray,
+        y: Optional[np.ndarray] = None,
         *,
         shuffle: bool = False,
-        contains_labels: bool = True,
     ) -> IMLData:
-        return MLInferenceData(x, y, shuffle=shuffle, contains_labels=contains_labels)
+        return MLInferenceData(x, y, shuffle=shuffle)
 
 
 @DLPipeline.register("ml")
@@ -581,13 +581,13 @@ class MLCarefreeModifier(MLModifier, IMLCarefreePipeline):
         *,
         shuffle: bool = False,
         contains_labels: bool = True,
-    ) -> MLInferenceData:
-        return MLInferenceData(
+    ) -> MLCarefreeInferenceData:
+        return MLCarefreeInferenceData(
             x,
             y,
+            cf_data=self.cf_data,
             shuffle=shuffle,
             contains_labels=contains_labels,
-            cf_data=self.cf_data,
         )
 
 

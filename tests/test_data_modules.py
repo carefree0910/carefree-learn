@@ -77,7 +77,7 @@ class TestDataModules(unittest.TestCase):
             return
         x_train = np.random.randn(10, 13)
         y_train = np.random.randn(10, 1)
-        data = cflearn.MLData(
+        data = cflearn.MLCarefreeData(
             x_train,
             y_train,
             cf_data=TabularData(),
