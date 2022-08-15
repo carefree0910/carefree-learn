@@ -485,7 +485,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
 
 
 class IMLCarefreePipeline:
-    cf_data: Optional[TabularData]
+    cf_data: TabularData
 
 
 _ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
