@@ -254,7 +254,7 @@ class MLModifier(IModifier, IMLPipeline):
         *,
         shuffle: bool = False,
         contains_labels: bool = True,
-    ) -> MLInferenceData:
+    ) -> IMLData:
         return MLInferenceData(x, y, shuffle=shuffle, contains_labels=contains_labels)
 
 
@@ -376,7 +376,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         *,
         shuffle: bool = False,
         contains_labels: bool = True,
-    ) -> MLInferenceData:
+    ) -> IMLData:
         return self._make_modifier().make_inference_data(  # type: ignore
             x,
             y,
@@ -388,13 +388,13 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         self,
         *,
         binary_threshold: float = 0.5,
-        pre_process: Optional[Callable[[MLInferenceData], MLInferenceData]] = None,
+        pre_process: Optional[Callable[[IMLData], IMLData]] = None,
         **predict_kwargs: Any,
     ) -> ModelPattern:
         if ModelPattern is None:
             raise ValueError("`carefree-ml` need to be installed to use `to_pattern`")
 
-        def _predict(idata: MLInferenceData) -> np.ndarray:
+        def _predict(idata: IMLData) -> np.ndarray:
             if pre_process is not None:
                 idata = pre_process(idata)
             predictions = self.predict(idata, **predict_kwargs)[PREDICTIONS_KEY]
@@ -402,7 +402,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
                 return get_label_predictions(predictions, binary_threshold)
             return predictions
 
-        def _predict_prob(idata: MLInferenceData) -> np.ndarray:
+        def _predict_prob(idata: IMLData) -> np.ndarray:
             if not self.is_classification:
                 msg = "`predict_prob` should not be called in regression tasks"
                 raise ValueError(msg)
