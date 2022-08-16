@@ -549,6 +549,10 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         return data
 
 
+def register_ml_data(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return IMLData.register(name, allow_duplicate=allow_duplicate)
+
+
 # api
 
 
@@ -828,6 +832,7 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
 
 __all__ = [
     "get_weighted_indices",
+    "register_ml_data",
     "register_ml_data_processor",
     "IMLDataInfo",
     "IMLDataProcessor",
