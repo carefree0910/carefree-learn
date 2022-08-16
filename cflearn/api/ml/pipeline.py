@@ -82,6 +82,7 @@ class IMLMakeInferenceData(Protocol):
         y: data_type = None,
         *,
         shuffle: bool = False,
+        sample_weights: sample_weights_type = None,
     ) -> IMLData:
         pass
 
@@ -172,6 +173,8 @@ class MLModifier(IModifier, IMLPipeline):
         if self.in_loading or not self.use_encoder_cache:
             loaders = []
         else:
+            if self.data is None:
+                raise ValueError("`data` should be prepared when `in_loading` is False")
             train_loader, valid_loader = self.data.initialize()
             train_loader_copy = train_loader.copy()
             train_loader_copy.disable_shuffle()
@@ -386,7 +389,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
-    def make_inference_data(
+    def make_inference_data(  # type: ignore
         self,
         x: data_type,
         y: data_type = None,
@@ -517,13 +520,13 @@ class IMLCarefreeMakeInferenceData(Protocol):
         y: data_type = None,
         *,
         shuffle: bool = False,
+        sample_weights: sample_weights_type = None,
         contains_labels: bool = True,
     ) -> MLCarefreeInferenceData:
         pass
 
 
 class IMLCarefreePipeline:
-    data: MLCarefreeData
     cf_data: TabularData
 
     _make_modifier: IMLCarefreeMakeModifier
@@ -534,7 +537,7 @@ _ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
 
 
 @IModifier.register("ml.carefree")
-class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
+class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
     build_steps = ["setup_cf_data"] + MLModifier.build_steps
     requirements = MLModifier.requirements + _ml_carefree_requirements
 

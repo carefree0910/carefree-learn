@@ -422,9 +422,9 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     def save_misc(self, export_folder: str) -> float:
         os.makedirs(export_folder, exist_ok=True)
         self._write_pipeline_info(export_folder)
-        data = getattr(self, "data", None)
+        data: Optional[DLDataModule] = getattr(self, "data", None)
         if data is not None:
-            self.data.save_info(export_folder)
+            data.save_info(export_folder)
         # final results
         final_results = None
         try:
