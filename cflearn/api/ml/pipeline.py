@@ -224,6 +224,12 @@ class MLModifier(IModifier, IMLPipeline):
             cbs = self._defaults.setdefault("additional_callbacks", [])
             cbs.append("_inject_loader_name")
 
+    ## api
+
+    def build(self, data_info: Dict[str, Any]) -> None:
+        super().build(data_info)
+        data_info["processor"].is_ready = True
+
     # load steps
 
     def permute_states(self, states: Dict[str, Any]) -> None:
