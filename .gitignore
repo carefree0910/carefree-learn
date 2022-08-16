@@ -12,3 +12,4 @@ dist/*
 *.zip
 data/*
 **/datasets
+examples/tmp
