@@ -16,6 +16,7 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from typing import OrderedDict as OrderedDictType
 from collections import OrderedDict
 from cftool.misc import random_hash
 from cftool.misc import safe_execute
@@ -196,7 +197,7 @@ def _generate_model_soup_checkpoint(
 class IDLPipeline:
     modifier: str
 
-    _defaults: Dict[str, Any]
+    _defaults: OrderedDictType[str, Any]
 
     data: DLDataModule
     loss: ILoss
