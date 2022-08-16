@@ -155,7 +155,7 @@ class LMDBItem(NamedTuple):
     labels: Dict[str, Any]
 
 
-class ImageFolderDatasetMixin(Dataset):
+class ImageDatasetMixin(Dataset):
     context: Optional[Any] = None
     labels: Optional[Dict[str, Any]] = None
 
@@ -210,7 +210,7 @@ class ImageFolderDatasetMixin(Dataset):
         return sample
 
 
-class ImageFolderDataset(ImageFolderDatasetMixin):
+class ImageFolderDataset(ImageDatasetMixin):
     def __init__(
         self,
         folder: str,
@@ -263,15 +263,9 @@ class ImageFolderDataset(ImageFolderDatasetMixin):
         return self.length
 
 
-class InferenceImageFolderDataset(ImageFolderDatasetMixin):
-    def __init__(self, folder: str, transform: Optional[Transforms]):
-        self.folder = os.path.abspath(folder)
-        self.img_paths: List[str] = []
-        walk(
-            self.folder,
-            lambda _, path: self.img_paths.append(path),
-            {".jpg", ".png"},
-        )
+class InferenceImagePathsDataset(ImageDatasetMixin):
+    def __init__(self, paths: List[str], transform: Optional[Transforms]):
+        self.img_paths = paths
         self.transform = transform
 
     def __len__(self) -> int:
@@ -287,6 +281,18 @@ class InferenceImageFolderDataset(ImageFolderDatasetMixin):
             DataLoader(self, batch_size, num_workers=num_workers),
             prefetch_device=prefetch_device,
         )
+
+
+class InferenceImageFolderDataset(InferenceImagePathsDataset):
+    def __init__(self, folder: str, transform: Optional[Transforms]):
+        self.folder = os.path.abspath(folder)
+        img_paths: List[str] = []
+        walk(
+            self.folder,
+            lambda _, path: img_paths.append(path),
+            {".jpg", ".png"},
+        )
+        super().__init__(img_paths, transform)
 
 
 # api
@@ -462,10 +468,12 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
                     json.dump(new_rs, f, ensure_ascii=False)
 
 
-class InferenceImageFolderData(CVDataModule, metaclass=ConfigMeta):
+class InferenceImageDataMixin(CVDataModule, metaclass=ConfigMeta):
+    dataset_base: Type[InferenceImagePathsDataset]
+
     def __init__(
         self,
-        folder: str,
+        inp: Any,
         *,
         batch_size: int,
         num_workers: int = 0,
@@ -473,7 +481,7 @@ class InferenceImageFolderData(CVDataModule, metaclass=ConfigMeta):
         transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         transform_config: Optional[Dict[str, Any]] = None,
     ):
-        self.folder = folder
+        self.inp = inp
         self.batch_size = batch_size
         self.num_workers = num_workers
         self.prefetch_device = prefetch_device
@@ -486,12 +494,20 @@ class InferenceImageFolderData(CVDataModule, metaclass=ConfigMeta):
         return self.kw
 
     def prepare(self, sample_weights: sample_weights_type) -> None:
-        self.dataset = InferenceImageFolderDataset(self.folder, self.transform)
+        self.dataset = self.dataset_base(self.inp, self.transform)
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         args = self.batch_size, self.num_workers, self.prefetch_device
         loader = self.dataset.make_loader(*args)
         return loader, None
+
+
+class InferenceImagePathsData(InferenceImageDataMixin):
+    dataset_base = InferenceImagePathsDataset
+
+
+class InferenceImageFolderData(InferenceImageDataMixin):
+    dataset_base = InferenceImageFolderDataset
 
 
 class PrepareResults(NamedTuple):
@@ -934,6 +950,7 @@ __all__ = [
     "LMDBItem",
     "CVDataset",
     "ImageFolderDataset",
+    "InferenceImagePathsDataset",
     "InferenceImageFolderDataset",
     "CVLoader",
     "Transforms",
@@ -942,6 +959,7 @@ __all__ = [
     "default_lmdb_path",
     "CVDataModule",
     "ImageFolderData",
+    "InferenceImagePathsData",
     "InferenceImageFolderData",
     "DefaultPreparation",
     "prepare_image_folder",
