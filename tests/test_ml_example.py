@@ -54,6 +54,10 @@ class TestExample(unittest.TestCase):
             return
         folder = os.path.join(examples_folder, "titanic")
         self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'sanity_check.py')}"),
+            0,
+        )
+        self.assertEqual(
             os.system(f"python {os.path.join(folder, 'run_titanic.py')}"),
             0,
         )
