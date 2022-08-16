@@ -100,7 +100,7 @@ class InferenceStyleTransferDataset(InferenceImageFolderDataset, StyleTransferMi
     def __init__(
         self,
         folder: str,
-        transform: Optional[Callable],
+        transform: Optional[Transforms],
         *,
         style_folder: str,
     ):

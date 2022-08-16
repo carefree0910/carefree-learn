@@ -264,7 +264,7 @@ class ImageFolderDataset(ImageFolderDatasetMixin):
 
 
 class InferenceImageFolderDataset(ImageFolderDatasetMixin):
-    def __init__(self, folder: str, transform: Optional[Callable]):
+    def __init__(self, folder: str, transform: Optional[Transforms]):
         self.folder = os.path.abspath(folder)
         self.img_paths: List[str] = []
         walk(
