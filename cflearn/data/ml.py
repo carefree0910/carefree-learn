@@ -400,6 +400,20 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         self.valid_batch_size = valid_batch_size
         self.for_inference = for_inference
 
+    # api
+
+    def preprocess(
+        self,
+        x: Union[np.ndarray, str],
+        y: Optional[Union[np.ndarray, str]],
+    ) -> IMLPreProcessedXY:
+        if self.processor is None or not self.processor.is_ready:
+            raise ValueError("`processor` should be ready before calling `preprocess`")
+        res = self.processor.preprocess(self, x, y, None, None, for_inference=True)
+        return IMLPreProcessedXY(res.x_train, res.y_train)
+
+    # inheritance
+
     @property
     def info(self) -> Dict[str, Any]:
         if self.processor is None:
@@ -460,16 +474,6 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
                 sample_weights=self.valid_weights,
             )
         return train_loader, valid_loader
-
-    def preprocess(
-        self,
-        x: Union[np.ndarray, str],
-        y: Optional[Union[np.ndarray, str]],
-    ) -> IMLPreProcessedXY:
-        if self.processor is None or not self.processor.is_ready:
-            raise ValueError("`processor` should be ready before calling `preprocess`")
-        res = self.processor.preprocess(self, x, y, None, None, for_inference=True)
-        return IMLPreProcessedXY(res.x_train, res.y_train)
 
     def _save_info(self, folder: str) -> None:
         info = self.info
