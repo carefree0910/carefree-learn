@@ -307,7 +307,6 @@ class IMLPreProcessedXY(NamedTuple):
 
 class IMLData(DLDataModule, metaclass=ConfigMeta):
     config: Dict[str, Any]
-    processor_key: str = ".processor.pack."
 
     processor_type: str
     processor_info: Optional[Dict[str, Any]] = None
@@ -409,11 +408,11 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
                 "maybe you forget to call the `prepare` method first?"
             )
         return {
+            "processor": self.processor,
             "input_dim": self.input_dim,
             "num_history": self.num_history,
             "num_classes": self.num_classes,
             "is_classification": self.is_classification,
-            self.processor_key: self.processor,
         }
 
     def prepare(self, sample_weights: sample_weights_type) -> None:
@@ -474,7 +473,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
 
     def _save_info(self, folder: str) -> None:
         info = self.info
-        info[self.processor_key] = info[self.processor_key].to_pack()
+        info["processor"] = info["processor"].to_pack()
         Saving.save_dict(info, self.info_name, folder)
 
     def _save_data(self, data_folder: str) -> None:
@@ -529,9 +528,9 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
     @classmethod
     def _load_info(cls, folder: str) -> Dict[str, Any]:
         info = super()._load_info(folder)
-        processor_pack = info.pop(cls.processor_key)
+        processor_pack = info.pop("processor")
         processor = IMLDataProcessor.from_pack(processor_pack)
-        info[cls.processor_key] = processor
+        info["processor"] = processor
         return info
 
     @classmethod
@@ -542,7 +541,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         sample_weights: sample_weights_type,
     ) -> "IMLData":
         args, kwargs = cls._get_load_arguments(data_folder)
-        kwargs["processor"] = info[cls.processor_key]
+        kwargs["processor"] = info["processor"]
         data = cls(*args, **kwargs)
         data.prepare(sample_weights)
         return data
