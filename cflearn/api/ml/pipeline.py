@@ -25,10 +25,10 @@ from cftool.types import np_dict_type
 from ...data import MLData
 from ...data import MLLoader
 from ...data import DLDataModule
-from ...data import MLInferenceData
 from ...data import MLCarefreeInferenceData
 from ...types import data_type
 from ...types import configs_type
+from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import get_requirements
@@ -274,15 +274,6 @@ class MLModifier(IModifier, IMLPipeline):
                 forward[PREDICTIONS_KEY] = classes
         return forward
 
-    def make_inference_data(
-        self,
-        x: np.ndarray,
-        y: Optional[np.ndarray] = None,
-        *,
-        shuffle: bool = False,
-    ) -> MLInferenceData:
-        return MLInferenceData(x, y, shuffle=shuffle)
-
 
 @DLPipeline.register("ml")
 class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
@@ -401,8 +392,15 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         y: data_type = None,
         *,
         shuffle: bool = False,
-    ) -> MLInferenceData:
-        return self._make_modifier().make_inference_data(x, y, shuffle=shuffle)
+        sample_weights: sample_weights_type = None,
+        **kwargs: Any,
+    ) -> IMLData:
+        kwargs["processor"] = self.data_info["processor"]
+        kwargs["shuffle_train"] = shuffle
+        kwargs["for_inference"] = True
+        data: IMLData = IMLData.get(self.data_info["type"])(x, y, **kwargs)
+        data.prepare(sample_weights)
+        return data
 
     def to_pattern(
         self,
@@ -615,44 +613,10 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
             recovered[k] = v
         return recovered
 
-    def make_inference_data(  # type: ignore
-        self,
-        x: data_type,
-        y: data_type = None,
-        *,
-        shuffle: bool = False,
-        contains_labels: bool = True,
-    ) -> MLCarefreeInferenceData:
-        processor = _InternalCarefreeMLDataProcessor()
-        processor.cf_data = self.cf_data
-        processor.is_ready = True
-        return MLCarefreeInferenceData(
-            x,
-            y,
-            processor=processor,
-            shuffle=shuffle,
-            contains_labels=contains_labels,
-        )
-
 
 @DLPipeline.register("ml.carefree")
 class MLCarefreePipeline(IMLCarefreePipeline, MLPipeline):  # type: ignore
     modifier = "ml.carefree"
-
-    def make_inference_data(  # type: ignore
-        self,
-        x: data_type,
-        y: data_type = None,
-        *,
-        shuffle: bool = False,
-        contains_labels: bool = True,
-    ) -> MLInferenceData:
-        return self._make_modifier().make_inference_data(
-            x,
-            y,
-            shuffle=shuffle,
-            contains_labels=contains_labels,
-        )
 
 
 __all__ = [
