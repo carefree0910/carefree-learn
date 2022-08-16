@@ -11,7 +11,6 @@ from abc import abstractmethod
 from abc import ABCMeta
 from PIL import Image
 from tqdm import tqdm
-from torch import Tensor
 from typing import Any
 from typing import Set
 from typing import Dict
@@ -156,7 +155,62 @@ class LMDBItem(NamedTuple):
     labels: Dict[str, Any]
 
 
-class ImageFolderDataset(Dataset):
+class ImageFolderDatasetMixin(Dataset):
+    context: Optional[Any] = None
+    labels: Optional[Dict[str, Any]] = None
+
+    img_paths: List[str]
+    transform: Optional[Transforms]
+
+    def __getitem__(self, index: int) -> Dict[str, Any]:
+        if self.context is not None:
+            key = str(index).encode("ascii")
+            item: LMDBItem = dill.loads(self.context.get(key))
+            img = Image.fromarray(item.image)
+            labels = item.labels
+            for k, v in labels.items():
+                if is_numeric(v):
+                    labels[k] = np.array([v])
+        else:
+            file = self.img_paths[index]
+            img = Image.open(file)
+            if self.labels is None:
+                labels = None
+            else:
+                labels = {k: v[file] for k, v in self.labels.items()}
+                for k, v in labels.items():
+                    if is_numeric(v):
+                        v = np.array([v])
+                    elif isinstance(v, str) and v.endswith(".npy"):
+                        v = np.load(v)
+                    labels[k] = v
+        if self.transform is None:
+            img = to_torch(np.array(img).astype(np.float32))
+            sample = {INPUT_KEY: img}
+            if labels is not None:
+                for k, v in labels.items():
+                    if isinstance(v, np.ndarray):
+                        labels[k] = to_torch(v)
+                sample.update(labels)
+            return sample
+        if not self.transform.need_numpy:
+            sample = {INPUT_KEY: img}
+        else:
+            sample = {INPUT_KEY: np.array(img).astype(np.float32) / 255.0}
+        if self.transform.need_batch_process:
+            if labels is not None:
+                sample.update(labels)
+            return self.transform(sample)
+        sample = {INPUT_KEY: self.transform(sample[INPUT_KEY])}
+        if labels is not None:
+            for k, v in labels.items():
+                if isinstance(v, np.ndarray):
+                    labels[k] = to_torch(v)
+            sample.update(labels)
+        return sample
+
+
+class ImageFolderDataset(ImageFolderDatasetMixin):
     def __init__(
         self,
         folder: str,
@@ -205,52 +259,11 @@ class ImageFolderDataset(Dataset):
                 self.length = int(context.get("length".encode("ascii")).decode("ascii"))
         self.transform = Transforms.convert(transform, transform_config)
 
-    def __getitem__(self, index: int) -> Dict[str, Any]:
-        if self.context is not None:
-            key = str(index).encode("ascii")
-            item: LMDBItem = dill.loads(self.context.get(key))
-            img = Image.fromarray(item.image)
-            labels = item.labels
-            for k, v in labels.items():
-                if is_numeric(v):
-                    labels[k] = np.array([v])
-        else:
-            file = self.img_paths[index]
-            img = Image.open(file)
-            labels = {k: v[file] for k, v in self.labels.items()}
-            for k, v in labels.items():
-                if is_numeric(v):
-                    v = np.array([v])
-                elif isinstance(v, str) and v.endswith(".npy"):
-                    v = np.load(v)
-                labels[k] = v
-        if self.transform is None:
-            img = to_torch(np.array(img).astype(np.float32))
-            for k, v in labels.items():
-                if isinstance(v, np.ndarray):
-                    labels[k] = to_torch(v)
-            sample = {INPUT_KEY: img}
-            sample.update(labels)
-            return sample
-        if not self.transform.need_numpy:
-            sample = {INPUT_KEY: img}
-        else:
-            sample = {INPUT_KEY: np.array(img).astype(np.float32) / 255.0}
-        if self.transform.need_batch_process:
-            sample.update(labels)
-            return self.transform(sample)
-        for k, v in labels.items():
-            if isinstance(v, np.ndarray):
-                labels[k] = to_torch(v)
-        sample = {INPUT_KEY: self.transform(sample[INPUT_KEY])}
-        sample.update(labels)
-        return sample
-
     def __len__(self) -> int:
         return self.length
 
 
-class InferenceImageFolderDataset(Dataset):
+class InferenceImageFolderDataset(ImageFolderDatasetMixin):
     def __init__(self, folder: str, transform: Optional[Callable]):
         self.folder = os.path.abspath(folder)
         self.img_paths: List[str] = []
@@ -260,13 +273,6 @@ class InferenceImageFolderDataset(Dataset):
             {".jpg", ".png"},
         )
         self.transform = transform
-
-    def __getitem__(self, index: int) -> Dict[str, Tensor]:
-        img = Image.open(self.img_paths[index])
-        if self.transform is None:
-            img = to_torch(np.array(img).astype(np.float32))
-            return {INPUT_KEY: img}
-        return {INPUT_KEY: self.transform(img)}
 
     def __len__(self) -> int:
         return len(self.img_paths)
