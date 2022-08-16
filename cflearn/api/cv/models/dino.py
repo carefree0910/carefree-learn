@@ -8,9 +8,9 @@ from typing import Tuple
 from cftool.array import to_torch
 from cftool.array import to_device
 
-from .utils import predict_folder
 from ..data import SSLTestTransform
 from ..data import InferenceImageFolderData
+from ..utils import predict_folder
 from ..pipeline import CVPipeline
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context

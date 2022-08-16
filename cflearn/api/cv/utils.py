@@ -7,9 +7,9 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.types import np_dict_type
 
-from ....data import Transforms
-from ....data import InferenceImageFolderData
-from ....pipeline import DLPipeline
+from ...data import Transforms
+from ...data import InferenceImageFolderData
+from ...pipeline import DLPipeline
 
 
 class FolderInferenceResults(NamedTuple):

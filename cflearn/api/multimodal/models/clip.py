@@ -8,8 +8,8 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.array import to_torch
 
+from ...cv.utils import predict_folder
 from ...cv.pipeline import CVPipeline
-from ...cv.models.utils import predict_folder
 from ....data import TensorData
 from ....types import texts_type
 from ....protocol import IInference
