@@ -31,8 +31,10 @@ if __name__ == "__main__":
     print(m.cf_data.processed.y[0])
 
     data = m.data
-    x_train, y_train = data.train_cf_data.processed.xy
-    x_valid, y_valid = data.valid_cf_data.processed.xy
+    x_train = data.train_data.x
+    y_train = data.train_data.y
+    x_valid = data.valid_data.x
+    y_valid = data.valid_data.y
     stacked = np.vstack([x_train, x_valid])
     print(stacked.mean(0))
     print(stacked.std(0))
