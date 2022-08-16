@@ -835,27 +835,6 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
         return cls(*args, **kwargs)
 
 
-class MLCarefreeInferenceData(MLCarefreeData):
-    def __init__(
-        self,
-        x: data_type,
-        y: data_type = None,
-        *,
-        processor: _InternalCarefreeMLDataProcessor,
-        shuffle: bool = False,
-        contains_labels: bool = True,
-    ):
-        super().__init__(
-            x,
-            y,
-            processor=processor,
-            shuffle_train=shuffle,
-            for_inference=True,
-            contains_labels=contains_labels,
-        )
-        self.prepare(None)
-
-
 __all__ = [
     "get_weighted_indices",
     "register_ml_loader_callback",
@@ -869,5 +848,4 @@ __all__ = [
     "MLData",
     "MLInferenceData",
     "MLCarefreeData",
-    "MLCarefreeInferenceData",
 ]

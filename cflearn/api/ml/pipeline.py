@@ -25,7 +25,6 @@ from cftool.types import np_dict_type
 from ...data import MLData
 from ...data import MLLoader
 from ...data import DLDataModule
-from ...data import MLCarefreeInferenceData
 from ...types import data_type
 from ...types import configs_type
 from ...types import sample_weights_type
@@ -40,8 +39,6 @@ from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
 from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData
-from ...data.ml import IMLDataProcessor
-from ...data.ml import _InternalCarefreeMLDataProcessor
 from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
@@ -522,7 +519,7 @@ class IMLCarefreeMakeInferenceData(Protocol):
         shuffle: bool = False,
         sample_weights: sample_weights_type = None,
         contains_labels: bool = True,
-    ) -> MLCarefreeInferenceData:
+    ) -> MLCarefreeData:
         pass
 
 
