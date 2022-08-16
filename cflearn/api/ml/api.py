@@ -120,10 +120,7 @@ def evaluate(
         else:
             if not isinstance(x, str):
                 raise ValueError("`x` should be str when `y` is not provided")
-            cf_data = data.cf_data
-            assert cf_data is not None
-            x, y = cf_data.read_file(x, contains_labels=contains_labels)
-            y = cf_data.transform(x, y).y
+            y = data.preprocess(x, y).y
         # get metrics
         if predict_config is None:
             predict_config = {}

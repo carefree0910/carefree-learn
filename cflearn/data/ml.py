@@ -299,6 +299,11 @@ class MLLoader(IMLLoader):
     callback = "basic"
 
 
+class IMLPreProcessedXY(NamedTuple):
+    x: np.ndarray
+    y: Optional[np.ndarray]
+
+
 class IMLData(DLDataModule, metaclass=ConfigMeta):
     config: Dict[str, Any]
     processor_key: str = ".processor.pack."
@@ -455,6 +460,16 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
                 sample_weights=self.valid_weights,
             )
         return train_loader, valid_loader
+
+    def preprocess(
+        self,
+        x: Union[np.ndarray, str],
+        y: Optional[Union[np.ndarray, str]],
+    ) -> IMLPreProcessedXY:
+        if self.processor is None or not self.processor.is_ready:
+            raise ValueError("`processor` should be ready before calling `preprocess`")
+        res = self.processor.preprocess(self, x, y, None, None, for_inference=True)
+        return IMLPreProcessedXY(res.x_train, res.y_train)
 
     def _save_data(self, data_folder: str) -> None:
         with open(os.path.join(data_folder, self.arguments_file), "w") as f:
