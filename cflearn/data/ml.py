@@ -595,10 +595,12 @@ class MLInferenceData(MLData):
         *,
         shuffle: bool = False,
     ):
+        processor = _InternalBasicMLDataProcessor()
+        processor.is_ready = True
         super().__init__(
             x,
             y,
-            processor=_InternalBasicMLDataProcessor(),
+            processor=processor,
             shuffle_train=shuffle,
             for_inference=True,
         )
