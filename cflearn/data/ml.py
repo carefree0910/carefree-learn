@@ -18,6 +18,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import hash_code
+from cftool.misc import Saving
 from cftool.misc import WithRegister
 from cftool.array import to_torch
 from cftool.array import is_string
@@ -412,7 +413,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             "num_history": self.num_history,
             "num_classes": self.num_classes,
             "is_classification": self.is_classification,
-            self.processor_key: self.processor.to_pack(),
+            self.processor_key: self.processor,
         }
 
     def prepare(self, sample_weights: sample_weights_type) -> None:
@@ -471,6 +472,11 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         res = self.processor.preprocess(self, x, y, None, None, for_inference=True)
         return IMLPreProcessedXY(res.x_train, res.y_train)
 
+    def _save_info(self, folder: str) -> None:
+        info = self.info
+        info[self.processor_key] = info[self.processor_key].to_pack()
+        Saving.save_dict(info, self.info_name, folder)
+
     def _save_data(self, data_folder: str) -> None:
         with open(os.path.join(data_folder, self.arguments_file), "w") as f:
             json.dump(self.config, f)
@@ -521,16 +527,22 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         return args, kwargs
 
     @classmethod
+    def _load_info(cls, folder: str) -> Dict[str, Any]:
+        info = super()._load_info(folder)
+        processor_pack = info.pop(cls.processor_key)
+        processor = IMLDataProcessor.from_pack(processor_pack)
+        info[cls.processor_key] = processor
+        return info
+
+    @classmethod
     def _load(
         cls,
         data_folder: str,
         info: Dict[str, Any],
         sample_weights: sample_weights_type,
     ) -> "IMLData":
-        processor_pack = info.pop(cls.processor_key)
-        processor = IMLDataProcessor.from_pack(processor_pack)
         args, kwargs = cls._get_load_arguments(data_folder)
-        kwargs["processor"] = processor
+        kwargs["processor"] = info[cls.processor_key]
         data = cls(*args, **kwargs)
         data.prepare(sample_weights)
         return data

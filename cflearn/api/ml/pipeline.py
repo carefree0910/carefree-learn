@@ -537,13 +537,7 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
     # build steps
 
     def setup_cf_data(self, data_info: Dict[str, Any]) -> None:
-        data: Optional[MLCarefreeData] = getattr(self, "data", None)
-        if data is not None and data.processor.is_ready:
-            self.cf_data = data.processor.cf_data
-        else:
-            pack = data_info[IMLData.processor_key]
-            processor = IMLDataProcessor.from_pack(pack)
-            self.cf_data = processor.cf_data
+        self.cf_data = data_info[IMLData.processor_key].cf_data
 
     def setup_encoder(self) -> None:  # type: ignore
         excluded = 0
