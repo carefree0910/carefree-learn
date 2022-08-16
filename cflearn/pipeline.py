@@ -200,7 +200,8 @@ class IDLPipeline:
 
     _defaults: OrderedDictType[str, Any]
 
-    data: DLDataModule
+    data: Optional[DLDataModule]
+    data_info: Dict[str, Any]
     loss: ILoss
     loss_name: str
     loss_config: Optional[Dict[str, Any]]
@@ -387,6 +388,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     def build(self, data_info: Dict[str, Any]) -> None:
         if self.built:
             return None
+        self.data_info = shallow_copy_dict(data_info)
         kw = dict(data_info=data_info)
         for step in self.build_steps:
             safe_execute(getattr(self, step), shallow_copy_dict(kw))
