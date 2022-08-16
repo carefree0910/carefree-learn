@@ -30,6 +30,7 @@ from cftool.misc import WithRegister
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
+from .data import IMLData
 from .data import DataModule
 from .data import DLDataModule
 from .types import configs_type
@@ -244,6 +245,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     d = dl_pipeline_modifiers
 
     build_steps = [
+        "record_num_samples",
         "prepare_workplace",
         "prepare_loss",
         "build_model",
@@ -299,6 +301,20 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         )
 
     # build steps
+
+    def record_num_samples(self) -> None:
+        data: Optional[IMLData] = getattr(self, "data", None)
+        if data is None:
+            self._defaults["train_samples"] = None
+            self._defaults["valid_samples"] = None
+        else:
+            self._defaults["train_samples"] = len(data.train_data)
+            if data.valid_data is None:
+                self._defaults["valid_samples"] = None
+            else:
+                self._defaults["valid_samples"] = len(data.valid_data)
+        self._defaults.move_to_end("valid_samples", last=False)
+        self._defaults.move_to_end("train_samples", last=False)
 
     def prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading:
