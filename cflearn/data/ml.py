@@ -825,9 +825,11 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
 __all__ = [
     "get_weighted_indices",
     "register_ml_data_processor",
+    "IMLDataInfo",
+    "IMLDataProcessor",
+    "IMLPreProcessedData",
     "IMLDataset",
     "IMLLoader",
-    "IMLDataInfo",
     "IMLData",
     "MLDataset",
     "MLLoader",
