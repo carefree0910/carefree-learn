@@ -18,6 +18,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import hash_code
+from cftool.misc import safe_execute
 from cftool.misc import Saving
 from cftool.misc import WithRegister
 from cftool.array import to_torch
@@ -383,7 +384,15 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
     ) -> IMLPreProcessedXY:
         if self.processor is None or not self.processor.is_ready:
             raise ValueError("`processor` should be ready before calling `preprocess`")
-        res = self.processor.preprocess(self, x, y, None, None, for_inference=True)
+        kw = dict(
+            data=self,
+            x_train=x,
+            y_train=y,
+            x_valid=None,
+            y_valid=None,
+            for_inference=True,
+        )
+        res = safe_execute(self.processor.preprocess, kw)
         return IMLPreProcessedXY(res.x_train, res.y_train)
 
     # inheritance
@@ -408,7 +417,13 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         train_others = self.train_others or {}
         valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
-        data_args = self, self.x_train, self.y_train, self.x_valid, self.y_valid
+        data_kwrags = dict(
+            data=self,
+            x_train=self.x_train,
+            y_train=self.y_train,
+            x_valid=self.x_valid,
+            y_valid=self.y_valid,
+        )
         if self.for_inference:
             assert self.processor is not None
             processor = self.processor
@@ -416,9 +431,10 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             processor = self.processor
         else:
             processor = IMLDataProcessor.get(self.processor_type)()
-            processor.build_with(*data_args)
+            safe_execute(processor.build_with, data_kwrags)
             self.processor = processor
-        final = processor.preprocess(*data_args, for_inference=self.for_inference)
+        data_kwrags["for_inference"] = self.for_inference
+        final = safe_execute(processor.preprocess, data_kwrags)
         for k, v in final.data_info._asdict().items():
             if v is not None:
                 setattr(self, k, v)
@@ -559,25 +575,15 @@ def _split_sw(sample_weights: sample_weights_type) -> split_sw_type:
 
 @IMLDataProcessor.register("_internal.basic")
 class _InternalBasicMLDataProcessor(IMLDataProcessor):
-    def build_with(
-        self,
-        data: "IMLData",
-        x_train: np.ndarray,
-        y_train: Optional[np.ndarray],
-        x_valid: Optional[np.ndarray],
-        y_valid: Optional[np.ndarray],
-    ) -> None:
+    def build_with(self) -> None:  # type: ignore
         pass
 
-    def preprocess(
+    def preprocess(  # type: ignore
         self,
-        data: "MLData",
         x_train: np.ndarray,
         y_train: Optional[np.ndarray],
         x_valid: Optional[np.ndarray],
         y_valid: Optional[np.ndarray],
-        *,
-        for_inference: bool,
     ) -> IMLPreProcessedData:
         return IMLPreProcessedData(
             x_train,
@@ -629,13 +635,11 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
     tmp_cf_data_name = ".tmp_cf_data"
     full_cf_data_name = "cf_data"
 
-    def build_with(
+    def build_with(  # type: ignore
         self,
         data: "MLCarefreeData",
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
-        x_valid: Optional[Union[np.ndarray, str]],
-        y_valid: Optional[Union[np.ndarray, str]],
     ) -> None:
         self.cf_data = TabularData(**data.data_config)
         self.cf_data.read(x_train, y_train, **data.read_config)
