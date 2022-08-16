@@ -25,6 +25,7 @@ from .zoo.core import _parse_config
 from .zoo.core import configs_root
 from .zoo.core import DLZoo
 from ..data import MLData
+from ..data import IMLData
 from ..data import CVDataModule
 from ..data import MLCarefreeData
 from ..types import data_type
@@ -268,7 +269,7 @@ def supported_metrics() -> List[str]:
 
 
 def _make_ml_data(
-    x_train: data_type,
+    x_train: Union[data_type, IMLData],
     y_train: data_type = None,
     x_valid: data_type = None,
     y_valid: data_type = None,
@@ -278,7 +279,9 @@ def _make_ml_data(
     is_classification: Optional[bool] = None,
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
-) -> MLData:
+) -> IMLData:
+    if isinstance(x_train, IMLData):
+        return x_train
     data_kwargs: Dict[str, Any] = {
         "is_classification": is_classification,
         "train_others": train_others,
@@ -293,7 +296,7 @@ def _make_ml_data(
 
 
 def fit_ml(
-    x_train: data_type,
+    x_train: Union[data_type, IMLData],
     y_train: data_type = None,
     x_valid: data_type = None,
     y_valid: data_type = None,

@@ -11,7 +11,7 @@ setup(
     name="carefree-learn",
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
-    install_requires=["carefree-toolkit>=0.2.16"],
+    install_requires=["carefree-toolkit>=0.2.17"],
     extras_require={
         "onnx": [
             "onnx",
@@ -34,7 +34,7 @@ setup(
             "onnx-simplifier>=0.4.1",
             "onnxruntime",
             "plotly",
-            "carefree-data>=0.2.8",
+            "carefree-data>=0.2.9",
             "carefree-ml>=0.1.3",
             "carefree-cv>=0.1.0",
         ],

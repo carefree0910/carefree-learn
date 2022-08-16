@@ -37,8 +37,11 @@ from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
-from ...data.ml import IMLData
 from ...constants import PREDICTIONS_KEY
+from ...data.ml import IMLData
+from ...data.ml import MLCarefreeData
+from ...data.ml import IMLDataProcessor
+from ...data.ml import _InternalCarefreeMLDataProcessor
 from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
@@ -516,6 +519,7 @@ class IMLCarefreeMakeInferenceData(Protocol):
 
 
 class IMLCarefreePipeline:
+    data: MLCarefreeData
     cf_data: TabularData
 
     _make_modifier: IMLCarefreeMakeModifier
@@ -533,10 +537,13 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
     # build steps
 
     def setup_cf_data(self, data_info: Dict[str, Any]) -> None:
-        self.cf_data = data_info["cf_data"]
-        if self.cf_data is None:
-            msg = "cf_data` is not provided, please use `ml.MLSimplePipeline` instead"
-            raise ValueError(msg)
+        data: Optional[MLCarefreeData] = getattr(self, "data", None)
+        if data is not None and data.processor.is_ready:
+            self.cf_data = data.processor.cf_data
+        else:
+            pack = data_info[IMLData.processor_key]
+            processor = IMLDataProcessor.from_pack(pack)
+            self.cf_data = processor.cf_data
 
     def setup_encoder(self) -> None:  # type: ignore
         excluded = 0
@@ -616,10 +623,13 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):
         shuffle: bool = False,
         contains_labels: bool = True,
     ) -> MLCarefreeInferenceData:
+        processor = _InternalCarefreeMLDataProcessor()
+        processor.cf_data = self.cf_data
+        processor.is_ready = True
         return MLCarefreeInferenceData(
             x,
             y,
-            cf_data=self.cf_data,
+            processor=processor,
             shuffle=shuffle,
             contains_labels=contains_labels,
         )

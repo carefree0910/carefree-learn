@@ -446,12 +446,7 @@ def make_toy_model(
     pipelines_type = "ml" if cf_data_config is None else "ml.carefree"
     m = MLPipeline.make(pipelines_type, updated)
     if cf_data_config is None:
-        data = MLData(
-            x_np,
-            y_np,
-            is_classification=is_classification,
-            valid_split=0.0,
-        )
+        data = MLData(x_np, y_np, is_classification=is_classification)
     else:
         cf_data_config = update_dict(
             cf_data_config,

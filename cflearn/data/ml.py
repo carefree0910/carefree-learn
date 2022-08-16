@@ -1,5 +1,7 @@
 import os
 import json
+import shutil
+import hashlib
 import tempfile
 
 import numpy as np
@@ -15,9 +17,10 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
-from cftool.misc import Saving
+from cftool.misc import hash_code
 from cftool.misc import WithRegister
 from cftool.array import to_torch
+from cftool.array import is_string
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
@@ -28,6 +31,7 @@ from ..protocol import IDataset
 from ..protocol import IDataLoader
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
+from ..constants import DATA_CACHE_DIR
 from ..constants import BATCH_INDICES_KEY
 from ..misc.toolkit import ConfigMeta
 
@@ -38,7 +42,7 @@ except:
 
 
 ml_loader_callbacks: Dict[str, Type["IMLLoaderCallback"]] = {}
-ml_data_modifiers: Dict[str, Type["IMLDataModifier"]] = {}
+ml_data_processors: Dict[str, Type["IMLDataProcessor"]] = {}
 
 
 def get_weighted_indices(
@@ -53,6 +57,9 @@ def get_weighted_indices(
             numbers += 1
         indices = indices.repeat(numbers)
     return indices
+
+
+# protocols
 
 
 class IMLDataset(IDataset, metaclass=ABCMeta):
@@ -155,94 +162,94 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
 class IMLDataInfo(NamedTuple):
     """
     * input_dim (int) : input feature dim that the model will receive
-    * num_history (int) : number of history, useful in time series tasks
-    * num_classes (int | None) : number of classes
+    * num_history (Optional[int]) : number of history, useful in time series tasks
+    * num_classes (Optional[int]) : number of classes
       -> will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified
-      -> In other words, if `output_dim` is provided, we can leave it as `None`
-    * is_classification (bool | None) : whether current task is a classification task
-      -> it should always be provided unless it's at inference time
+    * is_classification (Optional[bool]) : whether current task is a classification task
     """
 
     input_dim: int
-    num_history: int
+    num_history: Optional[int] = None
     num_classes: Optional[int] = None
     is_classification: Optional[bool] = None
 
 
-class IMLDataModifier(WithRegister["IMLDataModifier"], metaclass=ABCMeta):
-    d = ml_data_modifiers
+class IMLPreProcessedData(NamedTuple):
+    x_train: np.ndarray
+    y_train: Optional[np.ndarray]
+    x_valid: Optional[np.ndarray]
+    y_valid: Optional[np.ndarray]
+    data_info: IMLDataInfo
 
-    def __init__(self, data: "IMLData"):
-        self.data = data
+
+class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
+    d = ml_data_processors
+
+    is_ready: bool = False
+
+    cache_folder = os.path.join(DATA_CACHE_DIR, "IMLDataProcessor")
 
     # abstract
 
     @abstractmethod
-    def save(self, data_folder: str) -> None:
-        pass
-
-    @classmethod
-    @abstractmethod
-    def load(cls, data_folder: str) -> "IMLData":
-        pass
-
-    # optional callbacks
-
-    # changes should happen inplace
-    def permute_info_in_save(self, info: Dict[str, Any]) -> None:
-        pass
-
-    # changes should happen inplace
-    @classmethod
-    def permute_info_in_load(
-        cls,
-        data_cls: Type["IMLData"],
-        info: Dict[str, Any],
+    def build_with(
+        self,
+        data: "IMLData",
+        x_train: Union[np.ndarray, str],
+        y_train: Optional[Union[np.ndarray, str]],
+        x_valid: Optional[Union[np.ndarray, str]],
+        y_valid: Optional[Union[np.ndarray, str]],
     ) -> None:
         pass
 
-
-class IMLData(DLDataModule, metaclass=ABCMeta):
-    modifier: str
-
-    config: Dict[str, Any]
-
     @abstractmethod
-    def get_info(self) -> IMLDataInfo:
+    def preprocess(
+        self,
+        data: "IMLData",
+        x_train: Union[np.ndarray, str],
+        y_train: Optional[Union[np.ndarray, str]],
+        x_valid: Optional[Union[np.ndarray, str]],
+        y_valid: Optional[Union[np.ndarray, str]],
+        *,
+        for_inference: bool,
+    ) -> IMLPreProcessedData:
         pass
 
-    @property
-    def info(self) -> Dict[str, Any]:
-        return self.get_info()._asdict()
+    @abstractmethod
+    def dumps(self) -> Any:
+        pass
 
-    def _make_modifier(self) -> IMLDataModifier:
-        return IMLDataModifier.make(self.modifier, {"data": self})
+    @abstractmethod
+    def loads(self, dumped: Any) -> None:
+        pass
 
-    def _save_info(self, folder: str) -> None:
-        info = self.info
-        self._make_modifier().permute_info_in_save(info)
-        Saving.save_dict(info, self.info_name, folder)
+    # api
+
+    ## caching
+
+    @staticmethod
+    def get_hash(data: Optional[Union[np.ndarray, Any]]) -> Optional[str]:
+        if data is None:
+            return None
+        if isinstance(data, np.ndarray):
+            return hashlib.sha1(data).hexdigest()
+        return hash_code(str(data))
 
     @classmethod
-    def _load_info(cls, folder: str) -> Dict[str, Any]:
-        info = super()._load_info(folder)
-        IMLDataModifier.get(cls.modifier).permute_info_in_load(cls, info)
-        return info
+    def clear_all_cache(cls) -> None:
+        shutil.rmtree(cls.cache_folder)
 
-    def _save_data(self, data_folder: str) -> None:
-        self._make_modifier().save(data_folder)
+    ## serialization
+
+    def to_pack(self) -> Dict[str, Any]:
+        return dict(type=self.__identifier__, info=self.dumps())
 
     @classmethod
-    def _load(
-        cls,
-        data_folder: str,
-        info: Dict[str, Any],
-        sample_weights: sample_weights_type,
-    ) -> "IMLData":
-        data = IMLDataModifier.get(cls.modifier).load(data_folder)
-        data.loaded = True
-        data.prepare(sample_weights)
-        return data
+    def from_pack(cls, pack: Dict[str, Any]) -> "IMLDataProcessor":
+        processor = cls.get(pack["type"])()
+        processor.loads(pack["info"])
+        processor.is_ready = True
+        return processor
 
 
 def register_ml_loader_callback(
@@ -253,8 +260,11 @@ def register_ml_loader_callback(
     return IMLLoaderCallback.register(name, allow_duplicate=allow_duplicate)
 
 
-def register_ml_data_modifier(name: str, *, allow_duplicate: bool = False) -> Callable:
-    return IMLDataModifier.register(name, allow_duplicate=allow_duplicate)
+def register_ml_data_processor(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return IMLDataProcessor.register(name, allow_duplicate=allow_duplicate)
+
+
+# internal
 
 
 @IDataset.register("ml")
@@ -289,7 +299,13 @@ class MLLoader(IMLLoader):
     callback = "basic"
 
 
-class MLDataMixin(IMLData, metaclass=ABCMeta):
+class IMLData(DLDataModule, metaclass=ConfigMeta):
+    config: Dict[str, Any]
+    processor_key: str = ".processor.pack."
+
+    processor_type: str
+    processor_info: Optional[Dict[str, Any]] = None
+
     train_data: MLDataset
     valid_data: Optional[MLDataset]
 
@@ -306,6 +322,10 @@ class MLDataMixin(IMLData, metaclass=ABCMeta):
     num_classes: Optional[int]
     is_classification: Optional[bool]
 
+    processor: Optional[IMLDataProcessor]
+    train_others: Optional[np_dict_type]
+    valid_others: Optional[np_dict_type]
+
     shuffle_train: bool
     shuffle_valid: bool
     batch_size: int
@@ -315,13 +335,104 @@ class MLDataMixin(IMLData, metaclass=ABCMeta):
 
     for_inference: bool
 
-    def get_info(self) -> IMLDataInfo:
-        return IMLDataInfo(
-            self.input_dim,
-            self.num_history,
-            self.num_classes,
-            self.is_classification,
-        )
+    def __init__(
+        self,
+        x_train: Any,
+        y_train: Optional[Any] = None,
+        x_valid: Optional[Any] = None,
+        y_valid: Optional[Any] = None,
+        *,
+        # processor
+        processor: Optional[IMLDataProcessor] = None,
+        # auxiliary data
+        train_others: Optional[np_dict_type] = None,
+        valid_others: Optional[np_dict_type] = None,
+        # common
+        num_history: int = 1,
+        num_classes: Optional[int] = None,
+        is_classification: Optional[bool] = None,
+        # data loader
+        shuffle_train: bool = True,
+        shuffle_valid: bool = False,
+        batch_size: int = 128,
+        valid_batch_size: int = 512,
+        # inference
+        for_inference: bool = False,
+    ):
+        if for_inference:
+            msg = None
+            fmt = "`processor` should be {} when `for_inference` is True"
+            if processor is None:
+                msg = fmt.format("provided")
+            elif not processor.is_ready:
+                msg = fmt.format("ready")
+            if msg is not None:
+                raise ValueError(msg)
+        pop_keys = [
+            "x_train",
+            "y_train",
+            "x_valid",
+            "y_valid",
+            "processor",
+            "train_others",
+            "valid_others",
+        ]
+        for key in pop_keys:
+            self.config.pop(key, None)
+        self.x_train = x_train
+        self.y_train = y_train
+        self.x_valid = x_valid
+        self.y_valid = y_valid
+        self.processor = processor
+        self.train_others = train_others
+        self.valid_others = valid_others
+        self.num_history = num_history
+        self.num_classes = num_classes
+        self.is_classification = is_classification
+        self.shuffle_train = shuffle_train
+        self.shuffle_valid = shuffle_valid
+        self.batch_size = batch_size
+        self.valid_batch_size = valid_batch_size
+        self.for_inference = for_inference
+
+    @property
+    def info(self) -> Dict[str, Any]:
+        if self.processor is None:
+            raise ValueError(
+                "`processor` should be provided before accessing `info`, "
+                "maybe you forget to call the `prepare` method first?"
+            )
+        return {
+            "input_dim": self.input_dim,
+            "num_history": self.num_history,
+            "num_classes": self.num_classes,
+            "is_classification": self.is_classification,
+            self.processor_key: self.processor.to_pack(),
+        }
+
+    def prepare(self, sample_weights: sample_weights_type) -> None:
+        train_others = self.train_others or {}
+        valid_others = self.valid_others or {}
+        self.train_weights, self.valid_weights = _split_sw(sample_weights)
+        data_args = self, self.x_train, self.y_train, self.x_valid, self.y_valid
+        if self.for_inference:
+            assert self.processor is not None
+            processor = self.processor
+        elif self.processor is not None and self.processor.is_ready:
+            processor = self.processor
+        else:
+            processor = IMLDataProcessor.get(self.processor_type)()
+            processor.build_with(*data_args)
+            self.processor = processor
+        final = processor.preprocess(*data_args, for_inference=self.for_inference)
+        for k, v in final.data_info._asdict().items():
+            if v is not None:
+                setattr(self, k, v)
+        self.train_data = MLDataset(final.x_train, final.y_train, **train_others)
+        if final.x_valid is None or final.y_valid is None:
+            self.valid_data = None
+        else:
+            self.valid_data = MLDataset(final.x_valid, final.y_valid, **valid_others)
 
     def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
         train_loader = MLLoader(
@@ -344,6 +455,70 @@ class MLDataMixin(IMLData, metaclass=ABCMeta):
                 sample_weights=self.valid_weights,
             )
         return train_loader, valid_loader
+
+    def _save_data(self, data_folder: str) -> None:
+        with open(os.path.join(data_folder, self.arguments_file), "w") as f:
+            json.dump(self.config, f)
+        all_data = [
+            self.x_train,
+            self.y_train,
+            self.x_valid,
+            self.y_valid,
+        ]
+        for data, file in zip(all_data, self.data_files):
+            if data is not None:
+                np.save(os.path.join(data_folder, file), data)
+        if self.train_others is not None:
+            for k, v in self.train_others.items():
+                np.save(os.path.join(data_folder, f"{k}_train.npy"), v)
+        if self.valid_others is not None:
+            for k, v in self.valid_others.items():
+                np.save(os.path.join(data_folder, f"{k}_valid.npy"), v)
+
+    @classmethod
+    def _get_load_arguments(cls, data_folder: str) -> Tuple[List[Any], Dict[str, Any]]:
+        args = []
+        for file in cls.data_files:
+            path = os.path.join(data_folder, file)
+            if not os.path.isfile(path):
+                data = None
+            else:
+                data = np.load(path)
+                if is_string(data):
+                    data = data.item()
+            args.append(data)
+        with open(os.path.join(data_folder, cls.arguments_file), "r") as f:
+            kwargs = json.load(f)
+        train_others = {}
+        valid_others = {}
+        for file in os.listdir(data_folder):
+            if file in cls.data_files:
+                continue
+            path = os.path.join(data_folder, file)
+            if file.endswith("_train"):
+                train_others[file.split("_train")[0]] = np.load(path)
+            elif file.endswith("_valid"):
+                valid_others[file.split("_valid")[0]] = np.load(path)
+        if train_others:
+            kwargs["train_others"] = train_others
+        if valid_others:
+            kwargs["valid_others"] = valid_others
+        return args, kwargs
+
+    @classmethod
+    def _load(
+        cls,
+        data_folder: str,
+        info: Dict[str, Any],
+        sample_weights: sample_weights_type,
+    ) -> "IMLData":
+        processor_pack = info.pop(cls.processor_key)
+        processor = IMLDataProcessor.from_pack(processor_pack)
+        args, kwargs = cls._get_load_arguments(data_folder)
+        kwargs["processor"] = processor
+        data = cls(*args, **kwargs)
+        data.prepare(sample_weights)
+        return data
 
 
 # api
@@ -370,72 +545,192 @@ def _split_sw(sample_weights: sample_weights_type) -> split_sw_type:
     return train_weights, valid_weights
 
 
-@IMLDataModifier.register("_internal.ml")
-class _InternalMLDataModifier(IMLDataModifier):
-    data: "MLData"
+@IMLDataProcessor.register("_internal.basic")
+class _InternalBasicMLDataProcessor(IMLDataProcessor):
+    def build_with(
+        self,
+        data: "IMLData",
+        x_train: np.ndarray,
+        y_train: Optional[np.ndarray],
+        x_valid: Optional[np.ndarray],
+        y_valid: Optional[np.ndarray],
+    ) -> None:
+        pass
 
-    def save(self, data_folder: str) -> None:
-        with open(os.path.join(data_folder, self.data.arguments_file), "w") as f:
-            json.dump(self.data.config, f)
-        all_data = [
-            self.data.x_train,
-            self.data.y_train,
-            self.data.x_valid,
-            self.data.y_valid,
-        ]
-        for data, file in zip(all_data, self.data.data_files):
-            if data is not None:
-                np.save(os.path.join(data_folder, file), data)
-        if self.data.train_others is not None:
-            for k, v in self.data.train_others.items():
-                np.save(os.path.join(data_folder, f"{k}_train.npy"), v)
-        if self.data.valid_others is not None:
-            for k, v in self.data.valid_others.items():
-                np.save(os.path.join(data_folder, f"{k}_valid.npy"), v)
+    def preprocess(
+        self,
+        data: "MLData",
+        x_train: np.ndarray,
+        y_train: Optional[np.ndarray],
+        x_valid: Optional[np.ndarray],
+        y_valid: Optional[np.ndarray],
+        *,
+        for_inference: bool,
+    ) -> IMLPreProcessedData:
+        return IMLPreProcessedData(
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            IMLDataInfo(x_train.shape[-1]),
+        )
 
-    @classmethod
-    def get_load_arguments(cls, data_folder: str) -> Tuple[List[Any], Dict[str, Any]]:
-        args = []
-        for file in MLData.data_files:
-            path = os.path.join(data_folder, file)
-            args.append(None if not os.path.isfile(path) else np.load(path))
-        with open(os.path.join(data_folder, MLData.arguments_file), "r") as f:
-            kwargs = json.load(f)
-        train_others = {}
-        valid_others = {}
-        for file in os.listdir(data_folder):
-            if file in MLData.data_files:
-                continue
-            path = os.path.join(data_folder, file)
-            if file.endswith("_train"):
-                train_others[file.split("_train")[0]] = np.load(path)
-            elif file.endswith("_valid"):
-                valid_others[file.split("_valid")[0]] = np.load(path)
-        if train_others:
-            kwargs["train_others"] = train_others
-        if valid_others:
-            kwargs["valid_others"] = valid_others
-        return args, kwargs
+    def dumps(self) -> Any:
+        return {}
 
-    @classmethod
-    def load(cls, data_folder: str) -> "MLData":
-        args, kwargs = cls.get_load_arguments(data_folder)
-        return MLData(*args, **kwargs)
+    def loads(self, dumped: Any) -> None:
+        pass
 
 
 @DLDataModule.register("ml")
-class MLData(MLDataMixin, metaclass=ConfigMeta):
-    modifier = "_internal.ml"
+class MLData(IMLData):
+    processor_type = "_internal.basic"
+
+
+class MLInferenceData(MLData):
+    def __init__(
+        self,
+        x: np.ndarray,
+        y: Optional[np.ndarray] = None,
+        *,
+        shuffle: bool = False,
+    ):
+        super().__init__(x, y, shuffle_train=shuffle, for_inference=True)
+        self.prepare(None)
+
+
+@IMLDataProcessor.register("_internal.carefree")
+class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
+    cf_data: TabularData
+
+    tmp_cf_data_name = ".tmp_cf_data"
+    full_cf_data_name = "cf_data"
+
+    def build_with(
+        self,
+        data: "MLCarefreeData",
+        x_train: Union[np.ndarray, str],
+        y_train: Optional[Union[np.ndarray, str]],
+        x_valid: Optional[Union[np.ndarray, str]],
+        y_valid: Optional[Union[np.ndarray, str]],
+    ) -> None:
+        self.cf_data = TabularData(**data.data_config)
+        self.cf_data.read(x_train, y_train, **data.read_config)
+
+    def preprocess(
+        self,
+        data: "MLCarefreeData",
+        x_train: Union[np.ndarray, str],
+        y_train: Optional[Union[np.ndarray, str]],
+        x_valid: Optional[Union[np.ndarray, str]],
+        y_valid: Optional[Union[np.ndarray, str]],
+        *,
+        for_inference: bool,
+    ) -> IMLPreProcessedData:
+        if for_inference:
+            x_train, y_train = self.cf_data.transform(
+                x_train,
+                y_train,
+                contains_labels=data.contains_labels,
+            ).xy
+            return IMLPreProcessedData(x_train, y_train, None, None, IMLDataInfo(-1))
+        # split data
+        if x_valid is not None:
+            train_cf_data = self.cf_data
+            valid_cf_data = self.cf_data.copy_to(x_valid, y_valid)
+        else:
+            if isinstance(data.valid_split, int):
+                split = data.valid_split
+            else:
+                num_data = len(self.cf_data)
+                if isinstance(data.valid_split, float):
+                    split = int(round(data.valid_split * num_data))
+                else:
+                    default_split = 0.1
+                    num_split = int(round(default_split * num_data))
+                    num_split = max(data.min_valid_split, num_split)
+                    max_split = int(round(num_data * data.max_valid_split_ratio))
+                    max_split = min(max_split, data.max_valid_split)
+                    split = min(num_split, max_split)
+            if split <= 0:
+                train_cf_data = self.cf_data
+                valid_cf_data = None
+            else:
+                rs = self.cf_data.split(split, order=data.valid_split_order)
+                train_cf_data = rs.remained
+                valid_cf_data = rs.split
+        # process data
+        if train_cf_data.processed is not None:
+            x_train, y_train = train_cf_data.processed.xy
+        else:
+            x_train, y_train = train_cf_data.transform(
+                x_train,
+                y_train,
+                contains_labels=data.contains_labels,
+            ).xy
+        if valid_cf_data is None:
+            x_valid = y_valid = None
+        else:
+            x_valid, y_valid = valid_cf_data.processed.xy
+        is_classification = data.is_classification
+        if is_classification is None:
+            is_classification = train_cf_data.is_clf
+        return IMLPreProcessedData(
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            IMLDataInfo(
+                x_train.shape[-1],
+                num_classes=train_cf_data.num_classes,
+                is_classification=is_classification,
+            ),
+        )
+
+    def dumps(self) -> Any:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_name = os.path.join(tmp_dir, self.tmp_cf_data_name)
+            self.cf_data.save(tmp_name, retain_data=False)
+            zip_file = f"{tmp_name}.zip"
+            with open(zip_file, "rb") as f:
+                cf_data_bytes = f.read()
+            os.remove(zip_file)
+        return cf_data_bytes
+
+    def loads(self, dumped: Any) -> None:
+        if TabularData is None:
+            msg = "`carefree-data` needs to be installed to load `MLCarefreeData`"
+            raise ValueError(msg)
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            tmp_name = os.path.join(tmp_dir, self.tmp_cf_data_name)
+            zip_file = f"{tmp_name}.zip"
+            with open(zip_file, "wb") as f:
+                f.write(dumped)
+            self.cf_data = TabularData.load(tmp_name)
+            os.remove(zip_file)
+
+
+@DLDataModule.register("ml.carefree")
+class MLCarefreeData(IMLData, metaclass=ConfigMeta):
+    processor_type = "_internal.carefree"
+
+    processor: _InternalCarefreeMLDataProcessor
 
     def __init__(
         self,
-        x_train: np.ndarray,
-        y_train: Optional[np.ndarray] = None,
-        x_valid: Optional[np.ndarray] = None,
-        y_valid: Optional[np.ndarray] = None,
+        x_train: data_type,
+        y_train: data_type = None,
+        x_valid: data_type = None,
+        y_valid: data_type = None,
         *,
+        # processor
+        processor: Optional[_InternalCarefreeMLDataProcessor] = None,
+        data_config: Optional[Dict[str, Any]] = None,
+        read_config: Optional[Dict[str, Any]] = None,
+        # auxiliary data
         train_others: Optional[np_dict_type] = None,
         valid_others: Optional[np_dict_type] = None,
+        # common
         num_history: int = 1,
         num_classes: Optional[int] = None,
         is_classification: Optional[bool] = None,
@@ -452,247 +747,33 @@ class MLData(MLDataMixin, metaclass=ConfigMeta):
         valid_batch_size: int = 512,
         # inference
         for_inference: bool = False,
-    ):
-        if is_classification is None and not for_inference:
-            msg = "`is_classification` should be provided when `for_inference` is False"
-            raise ValueError(msg)
-        pop_keys = [
-            "x_train",
-            "y_train",
-            "x_valid",
-            "y_valid",
-            "train_others",
-            "valid_others",
-        ]
-        for key in pop_keys:
-            self.config.pop(key, None)
-        self.x_train = x_train
-        self.y_train = y_train
-        self.x_valid = x_valid
-        self.y_valid = y_valid
-        self.train_others = train_others
-        self.valid_others = valid_others
-        self.num_history = num_history
-        self.num_classes = num_classes
-        self.is_classification = is_classification
-        self.valid_split = valid_split
-        self.min_valid_split = min_valid_split
-        self.max_valid_split = max_valid_split
-        self.max_valid_split_ratio = max_valid_split_ratio
-        self.valid_split_order = valid_split_order
-        self.shuffle_train = shuffle_train
-        self.shuffle_valid = shuffle_valid
-        self.batch_size = batch_size
-        self.valid_batch_size = valid_batch_size
-        self.for_inference = for_inference
-        self.loaded = False
-
-    def prepare(self, sample_weights: sample_weights_type) -> None:
-        train_others = self.train_others or {}
-        valid_others = self.valid_others or {}
-        self.train_weights, self.valid_weights = _split_sw(sample_weights)
-        self.input_dim = self.x_train.shape[-1]
-        self.train_data = MLDataset(self.x_train, self.y_train, **train_others)
-        if self.x_valid is None or self.y_valid is None:
-            self.valid_data = None
-        else:
-            self.valid_data = MLDataset(self.x_valid, self.y_valid, **valid_others)
-
-
-class MLInferenceData(MLData):
-    def __init__(
-        self,
-        x: np.ndarray,
-        y: Optional[np.ndarray] = None,
-        *,
-        shuffle: bool = False,
-    ):
-        super().__init__(x, y, shuffle_train=shuffle, for_inference=True)
-        self.prepare(None)
-
-
-@IMLDataModifier.register("_internal.ml.carefree")
-class _InternalMLCarefreeDataModifier(_InternalMLDataModifier):
-    data: "MLCarefreeData"
-
-    def save(self, data_folder: str) -> None:
-        super().save(data_folder)
-        full_cf_data_folder = os.path.join(data_folder, self.data.full_cf_data_name)
-        self.data.cf_data.save(full_cf_data_folder, retain_data=True)
-
-    @classmethod
-    def load(cls, data_folder: str) -> "MLCarefreeData":
-        if TabularData is None:
-            msg = "`carefree-data` needs to be installed to load `MLCarefreeData`"
-            raise ValueError(msg)
-        args, kwargs = cls.get_load_arguments(data_folder)
-        cf_data_folder = os.path.join(data_folder, MLCarefreeData.full_cf_data_name)
-        kwargs["cf_data"] = TabularData.load(cf_data_folder)
-        return MLCarefreeData(*args, **kwargs)
-
-    def permute_info_in_save(self, info: Dict[str, Any]) -> None:
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_name = os.path.join(tmp_dir, self.data.tmp_cf_data_name)
-            info["cf_data"].save(tmp_name, retain_data=False)
-            zip_file = f"{tmp_name}.zip"
-            with open(zip_file, "rb") as f:
-                info["cf_data"] = f.read()
-            os.remove(zip_file)
-
-    @classmethod
-    def permute_info_in_load(
-        cls,
-        data_cls: Type["MLCarefreeData"],
-        info: Dict[str, Any],
-    ) -> None:
-        if TabularData is None:
-            msg = "`carefree-data` needs to be installed to load `MLCarefreeData`"
-            raise ValueError(msg)
-        cf_data = info["cf_data"]
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            tmp_name = os.path.join(tmp_dir, data_cls.tmp_cf_data_name)
-            zip_file = f"{tmp_name}.zip"
-            with open(zip_file, "wb") as f:
-                f.write(cf_data)
-            info["cf_data"] = TabularData.load(tmp_name)
-            os.remove(zip_file)
-
-
-@DLDataModule.register("ml.carefree")
-class MLCarefreeData(MLDataMixin, metaclass=ConfigMeta):
-    modifier = "_internal.ml.carefree"
-
-    cf_data: TabularData
-    train_cf_data: TabularData
-    valid_cf_data: Optional[TabularData]
-
-    tmp_cf_data_name = ".tmp_cf_data"
-    full_cf_data_name = "cf_data"
-
-    def __init__(
-        self,
-        x_train: data_type,
-        y_train: data_type = None,
-        x_valid: data_type = None,
-        y_valid: data_type = None,
-        *,
-        cf_data: TabularData,
-        train_others: Optional[np_dict_type] = None,
-        valid_others: Optional[np_dict_type] = None,
-        num_history: int = 1,
-        is_classification: Optional[bool] = None,
-        read_config: Optional[Dict[str, Any]] = None,
-        # valid split
-        valid_split: Optional[Union[int, float]] = None,
-        min_valid_split: int = 100,
-        max_valid_split: int = 10000,
-        max_valid_split_ratio: float = 0.5,
-        valid_split_order: str = "auto",
-        # data loader
-        shuffle_train: bool = True,
-        shuffle_valid: bool = False,
-        batch_size: int = 128,
-        valid_batch_size: int = 512,
-        # inference
-        for_inference: bool = False,
         contains_labels: bool = True,
     ):
-        pop_keys = [
-            "x_train",
-            "y_train",
-            "x_valid",
-            "y_valid",
-            "train_others",
-            "valid_others",
-            "cf_data",
-        ]
-        for key in pop_keys:
-            self.config.pop(key, None)
-        self.x_train = x_train
-        self.y_train = y_train
-        self.x_valid = x_valid
-        self.y_valid = y_valid
-        self.cf_data = cf_data
-        self.train_others = train_others
-        self.valid_others = valid_others
-        self.num_history = num_history
-        self.is_classification = is_classification
+        super().__init__(
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            processor=processor,
+            train_others=train_others,
+            valid_others=valid_others,
+            num_history=num_history,
+            num_classes=num_classes,
+            is_classification=is_classification,
+            shuffle_train=shuffle_train,
+            shuffle_valid=shuffle_valid,
+            batch_size=batch_size,
+            valid_batch_size=valid_batch_size,
+            for_inference=for_inference,
+        )
+        self.data_config = data_config or {}
         self.read_config = read_config or {}
         self.valid_split = valid_split
         self.min_valid_split = min_valid_split
         self.max_valid_split = max_valid_split
         self.max_valid_split_ratio = max_valid_split_ratio
         self.valid_split_order = valid_split_order
-        self.shuffle_train = shuffle_train
-        self.shuffle_valid = shuffle_valid
-        self.batch_size = batch_size
-        self.valid_batch_size = valid_batch_size
-        self.for_inference = for_inference
         self.contains_labels = contains_labels
-        self.loaded = False
-
-    @property
-    def info(self) -> Dict[str, Any]:
-        info = super().info
-        info["cf_data"] = self.cf_data
-        return info
-
-    def prepare(self, sample_weights: sample_weights_type) -> None:
-        train_others = self.train_others or {}
-        valid_others = self.valid_others or {}
-        self.train_weights, self.valid_weights = _split_sw(sample_weights)
-        if self.for_inference:
-            train_xy = self.cf_data.transform(
-                self.x_train,
-                None,
-                contains_labels=self.contains_labels,
-            ).xy
-            self.train_data = MLDataset(*train_xy)
-            self.valid_data = None
-            self.train_cf_data = self.cf_data
-            self.valid_cf_data = None
-            # if `for_inference` is True, these properties are not needed
-            self.input_dim = -1
-            self.num_classes = self.is_classification = None
-        else:
-            if not self.loaded:
-                self.cf_data.read(self.x_train, self.y_train, **self.read_config)
-            if self.x_valid is not None:
-                self.train_cf_data = self.cf_data
-                self.valid_cf_data = self.cf_data.copy_to(self.x_valid, self.y_valid)
-            else:
-                if isinstance(self.valid_split, int):
-                    split = self.valid_split
-                else:
-                    num_data = len(self.cf_data)
-                    if isinstance(self.valid_split, float):
-                        split = int(round(self.valid_split * num_data))
-                    else:
-                        default_split = 0.1
-                        num_split = int(round(default_split * num_data))
-                        num_split = max(self.min_valid_split, num_split)
-                        max_split = int(round(num_data * self.max_valid_split_ratio))
-                        max_split = min(max_split, self.max_valid_split)
-                        split = min(num_split, max_split)
-                if split <= 0:
-                    self.train_cf_data = self.cf_data
-                    self.valid_cf_data = None
-                else:
-                    rs = self.cf_data.split(split, order=self.valid_split_order)
-                    self.train_cf_data = rs.remained
-                    self.valid_cf_data = rs.split
-            train_xy = self.train_cf_data.processed.xy
-            self.train_data = MLDataset(*train_xy, **train_others)
-            if self.valid_cf_data is None:
-                self.valid_data = None
-            else:
-                valid_xy = self.valid_cf_data.processed.xy
-                self.valid_data = MLDataset(*valid_xy, **valid_others)
-            # initialize properties with train_cf_data
-            self.input_dim = self.train_cf_data.processed_dim
-            self.num_classes = self.train_cf_data.num_classes
-            if self.is_classification is None:
-                self.is_classification = self.train_cf_data.is_clf
 
     @classmethod
     def make_with(
@@ -711,7 +792,7 @@ class MLCarefreeData(MLDataMixin, metaclass=ConfigMeta):
         if is_classification is not None:
             cf_data_config["task_type"] = "clf" if is_classification else "reg"
         kwargs["is_classification"] = is_classification
-        kwargs["cf_data"] = TabularData(**(cf_data_config or {}))
+        kwargs["data_config"] = cf_data_config
         return cls(*args, **kwargs)
 
 
@@ -721,14 +802,14 @@ class MLCarefreeInferenceData(MLCarefreeData):
         x: data_type,
         y: data_type = None,
         *,
-        cf_data: TabularData,
+        processor: _InternalCarefreeMLDataProcessor,
         shuffle: bool = False,
         contains_labels: bool = True,
     ):
         super().__init__(
             x,
             y,
-            cf_data=cf_data,
+            processor=processor,
             shuffle_train=shuffle,
             for_inference=True,
             contains_labels=contains_labels,
@@ -739,12 +820,10 @@ class MLCarefreeInferenceData(MLCarefreeData):
 __all__ = [
     "get_weighted_indices",
     "register_ml_loader_callback",
-    "register_ml_data_modifier",
     "IMLDataset",
     "IMLLoaderCallback",
     "IMLLoader",
     "IMLDataInfo",
-    "IMLDataModifier",
     "IMLData",
     "MLDataset",
     "MLLoader",

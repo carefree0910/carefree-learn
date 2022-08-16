@@ -80,7 +80,6 @@ class TestDataModules(unittest.TestCase):
         data = cflearn.MLCarefreeData(
             x_train,
             y_train,
-            cf_data=TabularData(),
             shuffle_train=False,
             batch_size=4,
         )
