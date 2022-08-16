@@ -422,6 +422,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
                 "maybe you forget to call the `prepare` method first?"
             )
         return {
+            "type": self.__identifier__,
             "processor": self.processor,
             "input_dim": self.input_dim,
             "num_history": self.num_history,
