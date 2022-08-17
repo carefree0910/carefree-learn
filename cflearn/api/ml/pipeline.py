@@ -59,7 +59,7 @@ class IMLPredict(Protocol):
         data: IMLData,
         *,
         return_classes: bool = False,
-        binarty_threshold: float = 0.5,
+        binary_threshold: float = 0.5,
         return_probabilities: bool = False,
         contains_labels: bool = True,
         **predict_kwargs: Any,
@@ -248,7 +248,7 @@ class MLModifier(IModifier, IMLPipeline):
         outputs: InferenceOutputs,
         *,
         return_classes: bool = False,
-        binarty_threshold: float = 0.5,
+        binary_threshold: float = 0.5,
         return_probabilities: bool = False,
     ) -> np_dict_type:
         forward = super().post_process(outputs)
@@ -270,7 +270,7 @@ class MLModifier(IModifier, IMLPipeline):
                 forward[PREDICTIONS_KEY] = probabilities
             else:
                 assert probabilities.shape[1] == 2, "internal error occurred"
-                classes = (probabilities[..., [1]] >= binarty_threshold).astype(int)
+                classes = (probabilities[..., [1]] >= binary_threshold).astype(int)
                 forward[PREDICTIONS_KEY] = classes
         return forward
 
@@ -587,14 +587,14 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
         outputs: InferenceOutputs,
         *,
         return_classes: bool = False,
-        binarty_threshold: float = 0.5,
+        binary_threshold: float = 0.5,
         return_probabilities: bool = False,
     ) -> np_dict_type:
         assert self.cf_data is not None
         forward = super().post_process(
             outputs,
             return_classes=return_classes,
-            binarty_threshold=binarty_threshold,
+            binary_threshold=binary_threshold,
             return_probabilities=return_probabilities,
         )
         is_clf = self.cf_data.is_clf

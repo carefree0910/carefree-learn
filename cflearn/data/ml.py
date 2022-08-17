@@ -417,7 +417,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         train_others = self.train_others or {}
         valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
-        data_kwrags = dict(
+        data_kwargs = dict(
             data=self,
             x_train=self.x_train,
             y_train=self.y_train,
@@ -431,10 +431,10 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             processor = self.processor
         else:
             processor = IMLDataProcessor.get(self.processor_type)()
-            safe_execute(processor.build_with, data_kwrags)
+            safe_execute(processor.build_with, data_kwargs)
             self.processor = processor
-        data_kwrags["for_inference"] = self.for_inference
-        final = safe_execute(processor.preprocess, data_kwrags)
+        data_kwargs["for_inference"] = self.for_inference
+        final = safe_execute(processor.preprocess, data_kwargs)
         for k, v in final.data_info._asdict().items():
             if v is not None:
                 setattr(self, k, v)
