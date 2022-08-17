@@ -653,13 +653,7 @@ class _InternalBasicMLDataProcessor(IMLDataProcessor):
         x_valid: Optional[np.ndarray],
         y_valid: Optional[np.ndarray],
     ) -> IMLPreProcessedData:
-        return IMLPreProcessedData(
-            x_train,
-            y_train,
-            x_valid,
-            y_valid,
-            input_dim=x_train.shape[-1],
-        )
+        return IMLPreProcessedData(x_train, y_train, x_valid, y_valid)
 
     def dumps(self) -> Any:
         return {}
@@ -769,7 +763,6 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
             y_train,
             x_valid,
             y_valid,
-            input_dim=x_train.shape[-1],
             num_classes=train_cf_data.num_classes,
             is_classification=is_classification,
         )
