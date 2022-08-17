@@ -312,7 +312,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         use_encoder_cache: bool = False,
         only_categorical: bool = False,
         encoder_config: Optional[Dict[str, Any]] = None,
-        encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
+        encoding_settings: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
         # trainer
         state_config: Optional[Dict[str, Any]] = None,
         num_epoch: int = 40,
@@ -397,7 +397,8 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         self.encoder_config = encoder_config or {}
         self.encoding_settings = {}
         for idx, raw_setting in (encoding_settings or {}).items():
-            self.encoding_settings[idx] = EncodingSettings(**raw_setting)
+            # when loading from json, the keys (idx) will be str
+            self.encoding_settings[int(idx)] = EncodingSettings(**raw_setting)
         self._pre_process_batch = pre_process_batch
         self._num_repeat = num_repeat
 
