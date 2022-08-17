@@ -109,7 +109,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
     @abstractmethod
     def build_with(
         self,
-        data: "IMLData",
+        config: Dict[str, Any],
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
         x_valid: Optional[Union[np.ndarray, str]],
@@ -120,7 +120,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
     @abstractmethod
     def preprocess(
         self,
-        data: "IMLData",
+        config: Dict[str, Any],
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
         x_valid: Optional[Union[np.ndarray, str]],
@@ -341,7 +341,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
     num_classes: Optional[int]
     is_classification: Optional[bool]
 
-    processor: Optional[IMLDataProcessor]
+    processor: IMLDataProcessor
     train_others: Optional[np_dict_type]
     valid_others: Optional[np_dict_type]
 
@@ -380,15 +380,6 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         use_numpy: bool = False,
         for_inference: bool = False,
     ):
-        if for_inference:
-            msg = None
-            fmt = "`processor` should be {} when `for_inference` is True"
-            if processor is None:
-                msg = fmt.format("provided")
-            elif not processor.is_ready:
-                msg = fmt.format("ready")
-            if msg is not None:
-                raise ValueError(msg)
         pop_keys = [
             "x_train",
             "y_train",
@@ -404,7 +395,6 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         self.y_train = y_train
         self.x_valid = x_valid
         self.y_valid = y_valid
-        self.processor = processor
         self.train_others = train_others
         self.valid_others = valid_others
         self.num_history = num_history
@@ -416,18 +406,43 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         self.valid_batch_size = valid_batch_size
         self.use_numpy = use_numpy
         self.for_inference = for_inference
+        # processor
+        if processor is None:
+            processor = IMLDataProcessor.get(self.processor_type)()
+        self.processor = processor
+        if not processor.is_ready:
+            self.build_processor()
 
-    # api
+    # processor
+
+    @property
+    def processor_build_config(self) -> Dict[str, Any]:
+        return {}
+
+    @property
+    def processor_preprocess_config(self) -> Dict[str, Any]:
+        return {}
+
+    def build_processor(self) -> None:
+        kw = dict(
+            config=self.processor_build_config,
+            x_train=self.x_train,
+            y_train=self.y_train,
+            x_valid=self.x_valid,
+            y_valid=self.y_valid,
+        )
+        safe_execute(self.processor.build_with, kw)
+        self.processor.is_ready = True
 
     def preprocess(
         self,
         x: Union[np.ndarray, str],
         y: Optional[Union[np.ndarray, str]],
     ) -> IMLPreProcessedXY:
-        if self.processor is None or not self.processor.is_ready:
+        if not self.processor.is_ready:
             raise ValueError("`processor` should be ready before calling `preprocess`")
         kw = dict(
-            data=self,
+            config=self.processor_preprocess_config,
             x_train=x,
             y_train=y,
             x_valid=None,
@@ -459,24 +474,15 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         train_others = self.train_others or {}
         valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
-        data_kwargs = dict(
-            data=self,
+        preprocess_kw = dict(
+            config=self.processor_preprocess_config,
             x_train=self.x_train,
             y_train=self.y_train,
             x_valid=self.x_valid,
             y_valid=self.y_valid,
+            for_inference=self.for_inference,
         )
-        if self.for_inference:
-            assert self.processor is not None
-            processor = self.processor
-        elif self.processor is not None and self.processor.is_ready:
-            processor = self.processor
-        else:
-            processor = IMLDataProcessor.get(self.processor_type)()
-            safe_execute(processor.build_with, data_kwargs)
-            self.processor = processor
-        data_kwargs["for_inference"] = self.for_inference
-        final = safe_execute(processor.preprocess, data_kwargs)
+        final = safe_execute(self.processor.preprocess, preprocess_kw)
         data_info = IMLDataInfo(
             input_dim=final.input_dim,
             num_history=final.num_history,
@@ -675,12 +681,9 @@ class MLInferenceData(MLData):
         *,
         shuffle: bool = False,
     ):
-        processor = _InternalBasicMLDataProcessor()
-        processor.is_ready = True
         super().__init__(
             x,
             y,
-            processor=processor,
             shuffle_train=shuffle,
             for_inference=True,
         )
@@ -696,16 +699,16 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
 
     def build_with(  # type: ignore
         self,
-        data: "MLCarefreeData",
+        config: Dict[str, Any],
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
     ) -> None:
-        self.cf_data = TabularData(**data.data_config)
-        self.cf_data.read(x_train, y_train, **data.read_config)
+        self.cf_data = TabularData(**config["data_config"])
+        self.cf_data.read(x_train, y_train, **config["read_config"])
 
     def preprocess(
         self,
-        data: "MLCarefreeData",
+        config: Dict[str, Any],
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
         x_valid: Optional[Union[np.ndarray, str]],
@@ -717,7 +720,7 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
             x_train, y_train = self.cf_data.transform(
                 x_train,
                 y_train,
-                contains_labels=data.contains_labels,
+                contains_labels=config["contains_labels"],
             ).xy
             return IMLPreProcessedData(x_train, y_train)
         # split data
@@ -725,24 +728,24 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
             train_cf_data = self.cf_data
             valid_cf_data = self.cf_data.copy_to(x_valid, y_valid)
         else:
-            if isinstance(data.valid_split, int):
-                split = data.valid_split
+            if isinstance(config["valid_split"], int):
+                split = config["valid_split"]
             else:
                 num_data = len(self.cf_data)
-                if isinstance(data.valid_split, float):
-                    split = int(round(data.valid_split * num_data))
+                if isinstance(config["valid_split"], float):
+                    split = int(round(config["valid_split"] * num_data))
                 else:
                     default_split = 0.1
                     num_split = int(round(default_split * num_data))
-                    num_split = max(data.min_valid_split, num_split)
-                    max_split = int(round(num_data * data.max_valid_split_ratio))
-                    max_split = min(max_split, data.max_valid_split)
+                    num_split = max(config["min_valid_split"], num_split)
+                    max_split = int(round(num_data * config["max_valid_split_ratio"]))
+                    max_split = min(max_split, config["max_valid_split"])
                     split = min(num_split, max_split)
             if split <= 0:
                 train_cf_data = self.cf_data
                 valid_cf_data = None
             else:
-                rs = self.cf_data.split(split, order=data.valid_split_order)
+                rs = self.cf_data.split(split, order=config["valid_split_order"])
                 train_cf_data = rs.remained
                 valid_cf_data = rs.split
         # process data
@@ -752,13 +755,13 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
             x_train, y_train = train_cf_data.transform(
                 x_train,
                 y_train,
-                contains_labels=data.contains_labels,
+                contains_labels=config["contains_labels"],
             ).xy
         if valid_cf_data is None:
             x_valid = y_valid = None
         else:
             x_valid, y_valid = valid_cf_data.processed.xy
-        is_classification = data.is_classification
+        is_classification = config["is_classification"]
         if is_classification is None:
             is_classification = train_cf_data.is_clf
         return IMLPreProcessedData(
@@ -862,6 +865,14 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
         for_inference: bool = False,
         contains_labels: bool = True,
     ):
+        self.data_config = data_config or {}
+        self.read_config = read_config or {}
+        self.valid_split = valid_split
+        self.min_valid_split = min_valid_split
+        self.max_valid_split = max_valid_split
+        self.max_valid_split_ratio = max_valid_split_ratio
+        self.valid_split_order = valid_split_order
+        self.contains_labels = contains_labels
         super().__init__(
             x_train,
             y_train,
@@ -880,14 +891,25 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
             use_numpy=use_numpy,
             for_inference=for_inference,
         )
-        self.data_config = data_config or {}
-        self.read_config = read_config or {}
-        self.valid_split = valid_split
-        self.min_valid_split = min_valid_split
-        self.max_valid_split = max_valid_split
-        self.max_valid_split_ratio = max_valid_split_ratio
-        self.valid_split_order = valid_split_order
-        self.contains_labels = contains_labels
+
+    @property
+    def processor_build_config(self) -> Dict[str, Any]:
+        return dict(
+            data_config=self.data_config,
+            read_config=self.read_config,
+        )
+
+    @property
+    def processor_preprocess_config(self) -> Dict[str, Any]:
+        return dict(
+            contains_labels=self.contains_labels,
+            valid_split=self.valid_split,
+            min_valid_split=self.min_valid_split,
+            max_valid_split=self.max_valid_split,
+            max_valid_split_ratio=self.max_valid_split_ratio,
+            valid_split_order=self.valid_split_order,
+            is_classification=self.is_classification,
+        )
 
     @classmethod
     def make_with(
