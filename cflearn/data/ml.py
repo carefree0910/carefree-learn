@@ -69,18 +69,17 @@ def get_weighted_indices(
 
 class IMLDataInfo(NamedTuple):
     """
-    * input_dim (Optional[int]) : input feature dim that the model will receive
-      -> If `encoder` is provided, this setting will have no effect, because the `input_dim`
-      will then be inferred from the `encoder` settings
-      -> However, it is still a good practice to specify this field because it can make your
-      pipeline much more robust
+    * input_dim (int) : input feature dim that the model will receive
+      -> If `encoder` is provided, this setting will not represent the final input dim that your
+      model will receive, because the `encoder` might 'expand' the dimension with some encoding methods
+      -> However, this field is still required in order to specify the 'original' feature dimension
     * num_history (Optional[int]) : number of history, useful in time series tasks
     * num_classes (Optional[int]) : number of classes
       -> will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified
     * is_classification (Optional[bool]) : whether current task is a classification task
     """
 
-    input_dim: Optional[int] = None
+    input_dim: int
     num_history: Optional[int] = None
     num_classes: Optional[int] = None
     is_classification: Optional[bool] = None
@@ -91,6 +90,7 @@ class IMLPreProcessedData(NamedTuple):
     y_train: Optional[np.ndarray] = None
     x_valid: Optional[np.ndarray] = None
     y_valid: Optional[np.ndarray] = None
+    # if input_dim is not specified, we'll use `x_train.shape[-1]` as default
     input_dim: Optional[int] = None
     num_history: Optional[int] = None
     num_classes: Optional[int] = None
@@ -484,7 +484,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         )
         final = safe_execute(self.processor.preprocess, preprocess_kw)
         data_info = IMLDataInfo(
-            input_dim=final.input_dim,
+            input_dim=final.input_dim or final.x_train.shape[-1],
             num_history=final.num_history,
             num_classes=final.num_classes,
             is_classification=final.is_classification,
