@@ -234,7 +234,7 @@ class MLModifier(IModifier, IMLPipeline):
 
     def build(self, data_info: Dict[str, Any]) -> None:
         super().build(data_info)
-        data_info["processor"].is_ready = True
+        self.processor.is_ready = True
 
     # load steps
 
