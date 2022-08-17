@@ -481,7 +481,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
     # inference
 
-    def post_process(self, outputs: InferenceOutputs) -> np_dict_type:
+    def postprocess(self, outputs: InferenceOutputs) -> np_dict_type:
         return outputs.forward_results
 
 
@@ -673,7 +673,7 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         kw0["loader"] = train_loader
         outputs = safe_execute(self.inference.get_outputs, kw0)
         kw1["outputs"] = outputs
-        return safe_execute(self._make_modifier().post_process, kw1)
+        return safe_execute(self._make_modifier().postprocess, kw1)
 
     def save(
         self,

@@ -251,7 +251,7 @@ class MLModifier(IModifier, IMLPipeline):
 
     # inference
 
-    def post_process(  # type: ignore
+    def postprocess(  # type: ignore
         self,
         outputs: InferenceOutputs,
         *,
@@ -259,7 +259,7 @@ class MLModifier(IModifier, IMLPipeline):
         binary_threshold: float = 0.5,
         return_probabilities: bool = False,
     ) -> np_dict_type:
-        forward = super().post_process(outputs)
+        forward = super().postprocess(outputs)
         if not self.is_classification:
             return forward
         if return_classes and return_probabilities:
@@ -587,7 +587,7 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
 
     # inference
 
-    def post_process(
+    def postprocess(
         self,
         outputs: InferenceOutputs,
         *,
@@ -595,7 +595,7 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
         binary_threshold: float = 0.5,
         return_probabilities: bool = False,
     ) -> np_dict_type:
-        forward = super().post_process(
+        forward = super().postprocess(
             outputs,
             return_classes=return_classes,
             binary_threshold=binary_threshold,
