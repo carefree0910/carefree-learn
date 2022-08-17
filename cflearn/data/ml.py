@@ -17,10 +17,13 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from functools import partial
 from cftool.misc import hash_code
 from cftool.misc import safe_execute
 from cftool.misc import Saving
 from cftool.misc import WithRegister
+from cftool.array import squeeze
+from cftool.array import is_float
 from cftool.array import to_torch
 from cftool.array import is_string
 from cftool.types import np_dict_type
@@ -34,6 +37,7 @@ from ..protocol import IDataLoader
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import DATA_CACHE_DIR
+from ..constants import PREDICTIONS_KEY
 from ..constants import BATCH_INDICES_KEY
 from ..misc.toolkit import ConfigMeta
 
@@ -128,6 +132,21 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
         pass
 
     # optional callbacks
+
+    @property
+    def num_samples(self) -> Optional[int]:
+        return None
+
+    def fetch_batch(
+        self,
+        x: np.ndarray,
+        y: Optional[np.ndarray],
+        indices: Union[int, List[int], np.ndarray],
+    ) -> np_dict_type:
+        return {
+            INPUT_KEY: x[indices],
+            LABEL_KEY: None if y is None else y[indices],
+        }
 
     # changes can happen inplace
     def postprocess_batch(self, batch: np_dict_type) -> np_dict_type:
@@ -273,17 +292,14 @@ class MLDataset(IMLDataset):
         self.others = others
 
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
-        batch = {
-            INPUT_KEY: self.x[item],
-            LABEL_KEY: None if self.y is None else self.y[item],
-        }
+        batch = self.processor.fetch_batch(self.x, self.y, item)
         for k, v in self.others.items():
             batch[k] = v[item]
         batch = self.processor.postprocess_batch(batch)
         return batch
 
     def __len__(self) -> int:
-        return len(self.x)
+        return self.processor.num_samples or len(self.x)
 
 
 @IDataLoader.register("ml")
@@ -772,6 +788,7 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
         self,
         forward: np_dict_type,
         *,
+        return_classes: bool,
         return_probabilities: bool,
     ) -> np_dict_type:
         cf_data = self.cf_data
@@ -788,6 +805,8 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
                     v = fn(v)
                 else:
                     v = squeeze(np.apply_along_axis(fn, axis=0, arr=v))
+            if is_clf and return_classes and is_float(v):
+                v = v.astype(int)
             recovered[k] = v
         return recovered
 
