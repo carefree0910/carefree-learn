@@ -39,6 +39,8 @@ from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
 from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData
+from ...data.ml import IMLDataProcessor
+from ...data.ml import _InternalCarefreeMLDataProcessor
 from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
@@ -85,6 +87,8 @@ class IMLMakeInferenceData(Protocol):
 
 
 class IMLPipeline:
+    processor: IMLDataProcessor
+
     is_classification: bool
     output_dim: Optional[int]
     use_auto_loss: bool
@@ -111,14 +115,18 @@ class IMLPipeline:
 
 
 _ml_requirements = get_requirements(IMLPipeline, excludes=[])
+_ml_build_steps = ["setup_processor", "setup_defaults", "setup_encoder"]
 
 
 @IModifier.register("ml")
 class MLModifier(IModifier, IMLPipeline):
-    build_steps = ["setup_defaults", "setup_encoder"] + IModifier.build_steps
+    build_steps = _ml_build_steps + IModifier.build_steps
     requirements = IModifier.requirements + _ml_requirements
 
     # build steps
+
+    def setup_processor(self, data_info: Dict[str, Any]) -> None:
+        self.processor = data_info["processor"]
 
     def setup_defaults(self, data_info: Dict[str, Any]) -> None:
         self.is_classification = data_info["is_classification"]
@@ -524,7 +532,7 @@ class IMLCarefreeMakeInferenceData(Protocol):
 
 
 class IMLCarefreePipeline:
-    cf_data: TabularData
+    processor: _InternalCarefreeMLDataProcessor
 
     _make_modifier: IMLCarefreeMakeModifier
     make_inference_data: IMLCarefreeMakeInferenceData
@@ -535,13 +543,9 @@ _ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
 
 @IModifier.register("ml.carefree")
 class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
-    build_steps = ["setup_cf_data"] + MLModifier.build_steps
     requirements = MLModifier.requirements + _ml_carefree_requirements
 
     # build steps
-
-    def setup_cf_data(self, data_info: Dict[str, Any]) -> None:
-        self.cf_data = data_info["processor"].cf_data
 
     def setup_encoder(self) -> None:  # type: ignore
         excluded = 0
@@ -550,11 +554,12 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
         categorical_columns = []
         use_one_hot = False
         use_embedding = False
-        if self.cf_data.is_simplify:
-            numerical_columns = list(range(self.cf_data.processed.x.shape[1]))
+        cf_data = self.processor.cf_data
+        if cf_data.is_simplify:
+            numerical_columns = list(range(cf_data.processed.x.shape[1]))
         else:
-            ts_indices = self.cf_data.ts_indices
-            recognizers = self.cf_data.recognizers
+            ts_indices = cf_data.ts_indices
+            recognizers = cf_data.recognizers
             sorted_indices = [idx for idx in sorted(recognizers) if idx != -1]
             for idx in sorted_indices:
                 recognizer = recognizers[idx]
@@ -590,17 +595,17 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
         binary_threshold: float = 0.5,
         return_probabilities: bool = False,
     ) -> np_dict_type:
-        assert self.cf_data is not None
         forward = super().post_process(
             outputs,
             return_classes=return_classes,
             binary_threshold=binary_threshold,
             return_probabilities=return_probabilities,
         )
-        is_clf = self.cf_data.is_clf
+        cf_data = self.processor.cf_data
+        is_clf = cf_data.is_clf
         if is_clf and return_probabilities:
             return forward
-        fn = partial(self.cf_data.recover_labels, inplace=True)
+        fn = partial(cf_data.recover_labels, inplace=True)
         recovered = {}
         for k, v in forward.items():
             if is_clf and k != PREDICTIONS_KEY:
@@ -617,6 +622,10 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
 @DLPipeline.register("ml.carefree")
 class MLCarefreePipeline(IMLCarefreePipeline, MLPipeline):  # type: ignore
     modifier = "ml.carefree"
+
+    @property
+    def cf_data(self) -> TabularData:
+        return self.processor.cf_data
 
 
 __all__ = [
