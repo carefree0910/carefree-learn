@@ -317,6 +317,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
     train_weights: Optional[np.ndarray]
     valid_weights: Optional[np.ndarray]
 
+    use_numpy: bool
     for_inference: bool
 
     def __init__(
@@ -341,6 +342,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         batch_size: int = 128,
         valid_batch_size: int = 512,
         # inference
+        use_numpy: bool = False,
         for_inference: bool = False,
     ):
         if for_inference:
@@ -377,6 +379,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         self.shuffle_valid = shuffle_valid
         self.batch_size = batch_size
         self.valid_batch_size = valid_batch_size
+        self.use_numpy = use_numpy
         self.for_inference = for_inference
 
     # api
@@ -470,6 +473,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
             sample_weights=self.train_weights,
+            use_numpy=self.use_numpy,
         )
         if self.valid_data is None:
             valid_loader = None
@@ -482,6 +486,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
                 sample_weights=self.valid_weights,
+                use_numpy=self.use_numpy,
             )
         return train_loader, valid_loader
 
@@ -786,6 +791,7 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
         batch_size: int = 128,
         valid_batch_size: int = 512,
         # inference
+        use_numpy: bool = False,
         for_inference: bool = False,
         contains_labels: bool = True,
     ):
@@ -804,6 +810,7 @@ class MLCarefreeData(IMLData, metaclass=ConfigMeta):
             shuffle_valid=shuffle_valid,
             batch_size=batch_size,
             valid_batch_size=valid_batch_size,
+            use_numpy=use_numpy,
             for_inference=for_inference,
         )
         self.data_config = data_config or {}
