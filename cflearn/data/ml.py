@@ -120,16 +120,17 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def process_batch(self, batch: np_dict_type) -> np_dict_type:
-        pass
-
-    @abstractmethod
     def dumps(self) -> Any:
         pass
 
     @abstractmethod
     def loads(self, dumped: Any) -> None:
         pass
+
+    # optional callbacks
+
+    def postprocess_batch(self, batch: np_dict_type) -> np_dict_type:
+        return batch
 
     # api
 
@@ -177,7 +178,6 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
     indices: np.ndarray
 
     data: IMLDataset
-    processor: IMLDataProcessor
     shuffle: bool
     shuffle_backup: bool
     name: Optional[str]
@@ -187,7 +187,6 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
     def __init__(
         self,
         data: IMLDataset,
-        processor: IMLDataProcessor,
         *,
         shuffle: bool,
         name: Optional[str] = None,
@@ -202,7 +201,6 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
             )
         super().__init__(sample_weights=sample_weights)
         self.data = data
-        self.processor = processor
         self.shuffle = shuffle
         self.shuffle_backup = shuffle
         self.name = name
@@ -223,7 +221,6 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
         self.cursor += self.batch_size
         indices = self.indices[start : self.cursor]
         batch = self.data[indices]
-        batch = self.processor.process_batch(batch)
         batch.setdefault(BATCH_INDICES_KEY, indices)
         if self.use_numpy:
             return batch
@@ -238,7 +235,6 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
     def copy(self) -> "IMLLoader":
         return self.__class__(
             self.data,
-            self.processor,
             name=self.name,
             shuffle=self.shuffle,
             batch_size=self.batch_size,
@@ -251,10 +247,17 @@ class IMLLoader(IDataLoader, metaclass=ABCMeta):
 
 @IDataset.register("ml")
 class MLDataset(IMLDataset):
-    def __init__(self, x: np.ndarray, y: Optional[np.ndarray], **others: np.ndarray):
+    def __init__(
+        self,
+        x: np.ndarray,
+        y: Optional[np.ndarray],
+        processor: IMLDataProcessor,
+        **others: np.ndarray,
+    ):
         super().__init__()
         self.x = x
         self.y = y
+        self.processor = processor
         self.others = others
 
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
@@ -264,6 +267,7 @@ class MLDataset(IMLDataset):
         }
         for k, v in self.others.items():
             batch[k] = v[item]
+        batch = self.processor.postprocess_batch(batch)
         return batch
 
     def __len__(self) -> int:
@@ -438,11 +442,21 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         for k, v in final.data_info._asdict().items():
             if v is not None:
                 setattr(self, k, v)
-        self.train_data = MLDataset(final.x_train, final.y_train, **train_others)
+        self.train_data = MLDataset(
+            final.x_train,
+            final.y_train,
+            self.processor,
+            **train_others,
+        )
         if final.x_valid is None or final.y_valid is None:
             self.valid_data = None
         else:
-            self.valid_data = MLDataset(final.x_valid, final.y_valid, **valid_others)
+            self.valid_data = MLDataset(
+                final.x_valid,
+                final.y_valid,
+                self.processor,
+                **valid_others,
+            )
 
     def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
         if self.processor is None:
@@ -452,7 +466,6 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             )
         train_loader = MLLoader(
             self.train_data,
-            self.processor,
             name=None if self.for_inference else "train",
             shuffle=self.shuffle_train,
             batch_size=self.batch_size,
@@ -465,7 +478,6 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             # so we don't need to condition `name` field here
             valid_loader = MLLoader(
                 self.valid_data,
-                self.processor,
                 name="valid",
                 shuffle=self.shuffle_valid,
                 batch_size=self.valid_batch_size,
@@ -597,9 +609,6 @@ class _InternalBasicMLDataProcessor(IMLDataProcessor):
             IMLDataInfo(x_train.shape[-1]),
         )
 
-    def process_batch(self, batch: np_dict_type) -> np_dict_type:
-        return batch
-
     def dumps(self) -> Any:
         return {}
 
@@ -717,9 +726,6 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
                 is_classification=is_classification,
             ),
         )
-
-    def process_batch(self, batch: np_dict_type) -> np_dict_type:
-        return batch
 
     def dumps(self) -> Any:
         with tempfile.TemporaryDirectory() as tmp_dir:
