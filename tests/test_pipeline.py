@@ -4,6 +4,8 @@ import torch
 import cflearn
 import unittest
 
+import numpy as np
+
 from cftool.misc import get_latest_workplace
 
 
@@ -34,9 +36,31 @@ class TestPipeline(unittest.TestCase):
         self.assertEqual(mlflow_config["experiment_name"], "clf")
 
     def test_serialization(self) -> None:
+        # ml
+        x1 = np.random.random([100, 2])
+        x2 = np.random.randint(0, 3, [100, 1])
+        x = np.hstack([x1, x2, x1])
+        y = np.random.random([100, 3])
+        m = cflearn.api.fit_ml(
+            x,
+            y,
+            is_classification=False,
+            output_dim=3,
+            encoding_settings={2: dict(dim=3)},
+            debug=True,
+        )
+        idata = m.make_inference_data(x)
+        p = m.predict(idata)[cflearn.PREDICTIONS_KEY]
+        name = "test_serialization.ml"
+        m.save(name)
+        m2: cflearn.ml.MLPipeline = cflearn.api.load(name)
+        idata = m2.make_inference_data(x)
+        p2 = m.predict(idata)[cflearn.PREDICTIONS_KEY]
+        assert np.allclose(p, p2)
+        # cv
         m = cflearn.api.cct_lite(28, 10, metric_names="acc", debug=True)
         data = cflearn.cv.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
-        name = "test_serialization"
+        name = "test_serialization.cv"
         m.fit(data).save(name)
         cflearn.api.load(name)
         workplace = get_latest_workplace("_logs")
