@@ -557,7 +557,7 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
 
     def setup_encoder(self) -> None:  # type: ignore
         excluded = 0
-        encoder_settings = {}
+        encoding_settings = {}
         numerical_columns = []
         categorical_columns = []
         use_one_hot = False
@@ -576,17 +576,17 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
                     excluded += 1
                 elif recognizer.info.column_type is ColumnTypes.NUMERICAL:
                     numerical_columns.append(idx - excluded)
-                elif idx not in encoder_settings:
+                elif idx not in encoding_settings:
                     true_idx = idx - excluded
                     setting = EncodingSettings(dim=recognizer.num_unique_values)
-                    encoder_settings[true_idx] = setting
+                    encoding_settings[true_idx] = setting
                     use_one_hot = use_one_hot or setting.use_one_hot
                     use_embedding = use_embedding or setting.use_embedding
                     categorical_columns.append(true_idx)
-        if not encoder_settings:
+        if not encoding_settings:
             encoder = None
         else:
-            encoder = self._instantiate_encoder(encoder_settings)
+            encoder = self._instantiate_encoder(encoding_settings)
         self.encoder = encoder
         self.use_one_hot = use_one_hot
         self.use_embedding = use_embedding
