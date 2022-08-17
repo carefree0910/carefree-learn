@@ -129,8 +129,20 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
 
     # optional callbacks
 
+    # changes can happen inplace
     def postprocess_batch(self, batch: np_dict_type) -> np_dict_type:
         return batch
+
+    # changes can happen inplace
+    def postprocess_results(
+        self,
+        forward: np_dict_type,
+        *,
+        return_classes: bool,
+        binary_threshold: float,
+        return_probabilities: bool,
+    ) -> np_dict_type:
+        return forward
 
     # api
 
@@ -753,6 +765,31 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
                 f.write(dumped)
             self.cf_data = TabularData.load(tmp_name)
             os.remove(zip_file)
+
+    # callbacks
+
+    def postprocess_results(  # type: ignore
+        self,
+        forward: np_dict_type,
+        *,
+        return_probabilities: bool,
+    ) -> np_dict_type:
+        cf_data = self.cf_data
+        is_clf = cf_data.is_clf
+        if is_clf and return_probabilities:
+            return forward
+        fn = partial(cf_data.recover_labels, inplace=True)
+        recovered = {}
+        for k, v in forward.items():
+            if is_clf and k != PREDICTIONS_KEY:
+                continue
+            if is_clf ^ is_float(v):
+                if v.shape[1] == 1:
+                    v = fn(v)
+                else:
+                    v = squeeze(np.apply_along_axis(fn, axis=0, arr=v))
+            recovered[k] = v
+        return recovered
 
 
 @DLDataModule.register("ml.carefree")

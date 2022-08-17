@@ -11,13 +11,11 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import Protocol
-from functools import partial
 from collections import OrderedDict
 from cftool.misc import lock_manager
+from cftool.misc import safe_execute
 from cftool.misc import Saving
 from cftool.array import softmax
-from cftool.array import squeeze
-from cftool.array import is_float
 from cftool.array import get_full_logits
 from cftool.array import get_label_predictions
 from cftool.types import np_dict_type
@@ -261,25 +259,34 @@ class MLModifier(IModifier, IMLPipeline):
     ) -> np_dict_type:
         forward = super().postprocess(outputs)
         if not self.is_classification:
-            return forward
-        if return_classes and return_probabilities:
+            pass
+        elif return_classes and return_probabilities:
             raise ValueError(
                 "`return_classes` & `return_probabilities`"
                 "should not be True at the same time"
             )
-        if not return_classes and not return_probabilities:
-            return forward
-        predictions = forward[PREDICTIONS_KEY]
-        if predictions.shape[1] > 2 and return_classes:
-            forward[PREDICTIONS_KEY] = predictions.argmax(1, keepdims=True)
+        elif not return_classes and not return_probabilities:
+            pass
         else:
-            probabilities = softmax(predictions)
-            if return_probabilities:
-                forward[PREDICTIONS_KEY] = probabilities
+            predictions = forward[PREDICTIONS_KEY]
+            if predictions.shape[1] > 2 and return_classes:
+                forward[PREDICTIONS_KEY] = predictions.argmax(1, keepdims=True)
             else:
-                assert probabilities.shape[1] == 2, "internal error occurred"
-                classes = (probabilities[..., [1]] >= binary_threshold).astype(int)
-                forward[PREDICTIONS_KEY] = classes
+                probabilities = softmax(predictions)
+                if return_probabilities:
+                    forward[PREDICTIONS_KEY] = probabilities
+                else:
+                    assert probabilities.shape[1] == 2, "internal error occurred"
+                    classes = (probabilities[..., [1]] >= binary_threshold).astype(int)
+                    forward[PREDICTIONS_KEY] = classes
+        # processor callback
+        kw = dict(
+            forward=forward,
+            return_classes=return_classes,
+            binary_threshold=binary_threshold,
+            return_probabilities=return_probabilities,
+        )
+        forward = safe_execute(self.processor.postprocess_results, kw)
         return forward
 
 
@@ -584,39 +591,6 @@ class MLCarefreeModifier(IMLCarefreePipeline, MLModifier):  # type: ignore
         self.use_embedding = use_embedding
         self.numerical_columns = numerical_columns
         self.categorical_columns = categorical_columns
-
-    # inference
-
-    def postprocess(
-        self,
-        outputs: InferenceOutputs,
-        *,
-        return_classes: bool = False,
-        binary_threshold: float = 0.5,
-        return_probabilities: bool = False,
-    ) -> np_dict_type:
-        forward = super().postprocess(
-            outputs,
-            return_classes=return_classes,
-            binary_threshold=binary_threshold,
-            return_probabilities=return_probabilities,
-        )
-        cf_data = self.processor.cf_data
-        is_clf = cf_data.is_clf
-        if is_clf and return_probabilities:
-            return forward
-        fn = partial(cf_data.recover_labels, inplace=True)
-        recovered = {}
-        for k, v in forward.items():
-            if is_clf and k != PREDICTIONS_KEY:
-                continue
-            if is_clf ^ is_float(v):
-                if v.shape[1] == 1:
-                    v = fn(v)
-                else:
-                    v = squeeze(np.apply_along_axis(fn, axis=0, arr=v))
-            recovered[k] = v
-        return recovered
 
 
 @DLPipeline.register("ml.carefree")
