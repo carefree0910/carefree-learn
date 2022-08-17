@@ -69,14 +69,18 @@ def get_weighted_indices(
 
 class IMLDataInfo(NamedTuple):
     """
-    * input_dim (int) : input feature dim that the model will receive
+    * input_dim (Optional[int]) : input feature dim that the model will receive
+      -> If `encoder` is provided, this setting will have no effect, because the `input_dim`
+      will then be inferred from the `encoder` settings
+      -> However, it is still a good practice to specify this field because it can make your
+      pipeline much more robust
     * num_history (Optional[int]) : number of history, useful in time series tasks
     * num_classes (Optional[int]) : number of classes
       -> will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified
     * is_classification (Optional[bool]) : whether current task is a classification task
     """
 
-    input_dim: int
+    input_dim: Optional[int] = None
     num_history: Optional[int] = None
     num_classes: Optional[int] = None
     is_classification: Optional[bool] = None
@@ -84,10 +88,13 @@ class IMLDataInfo(NamedTuple):
 
 class IMLPreProcessedData(NamedTuple):
     x_train: np.ndarray
-    y_train: Optional[np.ndarray]
-    x_valid: Optional[np.ndarray]
-    y_valid: Optional[np.ndarray]
-    data_info: IMLDataInfo
+    y_train: Optional[np.ndarray] = None
+    x_valid: Optional[np.ndarray] = None
+    y_valid: Optional[np.ndarray] = None
+    input_dim: Optional[int] = None
+    num_history: Optional[int] = None
+    num_classes: Optional[int] = None
+    is_classification: Optional[bool] = None
 
 
 class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
@@ -470,7 +477,13 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             self.processor = processor
         data_kwargs["for_inference"] = self.for_inference
         final = safe_execute(processor.preprocess, data_kwargs)
-        for k, v in final.data_info._asdict().items():
+        data_info = IMLDataInfo(
+            input_dim=final.input_dim,
+            num_history=final.num_history,
+            num_classes=final.num_classes,
+            is_classification=final.is_classification,
+        )
+        for k, v in data_info._asdict().items():
             if v is not None:
                 setattr(self, k, v)
         self.train_data = MLDataset(
@@ -639,7 +652,7 @@ class _InternalBasicMLDataProcessor(IMLDataProcessor):
             y_train,
             x_valid,
             y_valid,
-            IMLDataInfo(x_train.shape[-1]),
+            input_dim=x_train.shape[-1],
         )
 
     def dumps(self) -> Any:
@@ -706,7 +719,7 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
                 y_train,
                 contains_labels=data.contains_labels,
             ).xy
-            return IMLPreProcessedData(x_train, y_train, None, None, IMLDataInfo(-1))
+            return IMLPreProcessedData(x_train, y_train)
         # split data
         if x_valid is not None:
             train_cf_data = self.cf_data
@@ -753,11 +766,9 @@ class _InternalCarefreeMLDataProcessor(IMLDataProcessor):
             y_train,
             x_valid,
             y_valid,
-            IMLDataInfo(
-                x_train.shape[-1],
-                num_classes=train_cf_data.num_classes,
-                is_classification=is_classification,
-            ),
+            input_dim=x_train.shape[-1],
+            num_classes=train_cf_data.num_classes,
+            is_classification=is_classification,
         )
 
     def dumps(self) -> Any:
@@ -903,7 +914,6 @@ __all__ = [
     "get_weighted_indices",
     "register_ml_data",
     "register_ml_data_processor",
-    "IMLDataInfo",
     "IMLDataProcessor",
     "IMLPreProcessedData",
     "IMLDataset",
