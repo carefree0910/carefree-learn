@@ -219,7 +219,7 @@ class MLModifier(IModifier, IMLPipeline):
             and self.use_auto_loss
             and not self.trainer_config["use_losses_as_metrics"]
         ):
-            if data_info["is_classification"]:
+            if self.is_classification:
                 self.trainer_config["metric_names"] = ["acc", "auc"]
             else:
                 self.trainer_config["metric_names"] = ["mae", "mse"]
