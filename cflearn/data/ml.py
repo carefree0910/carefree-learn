@@ -101,8 +101,6 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
 
     is_ready: bool = False
 
-    cache_folder = os.path.join(DATA_CACHE_DIR, "IMLDataProcessor")
-
     # abstract
 
     @abstractmethod
@@ -170,22 +168,6 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
         return forward
 
     # api
-
-    ## caching
-
-    @staticmethod
-    def get_hash(data: Optional[Union[np.ndarray, Any]]) -> Optional[str]:
-        if data is None:
-            return None
-        if isinstance(data, np.ndarray):
-            return hashlib.sha1(data).hexdigest()
-        return hash_code(str(data))
-
-    @classmethod
-    def clear_all_cache(cls) -> None:
-        shutil.rmtree(cls.cache_folder)
-
-    ## serialization
 
     def to_pack(self) -> Dict[str, Any]:
         return dict(type=self.__identifier__, info=self.dumps())
