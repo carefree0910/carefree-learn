@@ -538,7 +538,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
 
     def _save_info(self, folder: str) -> None:
         info = self.info
-        info["processor"] = info["processor"].to_pack()
+        info["processor"] = self.processor.to_pack()
         Saving.save_dict(info, self.info_name, folder)
 
     def _save_data(self, data_folder: str) -> None:
