@@ -1,7 +1,5 @@
 import os
 import json
-import shutil
-import hashlib
 import tempfile
 
 import numpy as np
@@ -18,7 +16,6 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from functools import partial
-from cftool.misc import hash_code
 from cftool.misc import safe_execute
 from cftool.misc import Saving
 from cftool.misc import WithRegister
@@ -36,7 +33,6 @@ from ..protocol import IDataset
 from ..protocol import IDataLoader
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
-from ..constants import DATA_CACHE_DIR
 from ..constants import PREDICTIONS_KEY
 from ..constants import BATCH_INDICES_KEY
 from ..misc.toolkit import ConfigMeta
@@ -137,8 +133,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
 
     # optional callbacks
 
-    @property
-    def num_samples(self) -> Optional[int]:
+    def get_num_samples(self, x: np.ndarray) -> Optional[int]:
         return None
 
     def fetch_batch(
@@ -287,7 +282,7 @@ class MLDataset(IMLDataset):
         return batch
 
     def __len__(self) -> int:
-        return self.processor.num_samples or len(self.x)
+        return self.processor.get_num_samples(self.x) or len(self.x)
 
 
 @IDataLoader.register("ml")
