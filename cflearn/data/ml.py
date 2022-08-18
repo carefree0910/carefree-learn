@@ -175,7 +175,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
     @classmethod
     def from_pack(cls, pack: Dict[str, Any]) -> "IMLDataProcessor":
         processor = cls.get(pack["type"])()
-        processor.loads(pack["info"])
+        safe_execute(processor.loads, dict(dumped=pack["info"]))
         processor.is_ready = True
         return processor
 
@@ -639,7 +639,7 @@ class _InternalBasicMLDataProcessor(IMLDataProcessor):
     def dumps(self) -> Any:
         return {}
 
-    def loads(self, dumped: Any) -> None:
+    def loads(self) -> None:  # type: ignore
         pass
 
 
