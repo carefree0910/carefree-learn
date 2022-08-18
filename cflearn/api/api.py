@@ -281,6 +281,7 @@ def _make_ml_data(
     cf_data_config: Optional[Dict[str, Any]] = None,
 ) -> IMLData:
     if isinstance(x_train, IMLData):
+        x_train.is_classification = is_classification
         return x_train
     data_kwargs: Dict[str, Any] = {
         "is_classification": is_classification,
