@@ -92,6 +92,12 @@ class IMLPreProcessedData(NamedTuple):
     is_classification: Optional[bool] = None
 
 
+class IMLBatch(NamedTuple):
+    input: np.ndarray
+    labels: Optional[np.ndarray]
+    others: Optional[np_dict_type] = None
+
+
 class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
     d = ml_data_processors
 
@@ -141,11 +147,8 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
         x: np.ndarray,
         y: Optional[np.ndarray],
         indices: Union[int, List[int], np.ndarray],
-    ) -> np_dict_type:
-        return {
-            INPUT_KEY: x[indices],
-            LABEL_KEY: None if y is None else y[indices],
-        }
+    ) -> IMLBatch:
+        return IMLBatch(x[indices], None if y is None else y[indices])
 
     # changes can happen inplace
     def postprocess_batch(self, batch: np_dict_type) -> np_dict_type:
@@ -275,7 +278,14 @@ class MLDataset(IMLDataset):
         self.others = others
 
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
-        batch = self.processor.fetch_batch(self.x, self.y, item)
+        ml_batch = self.processor.fetch_batch(self.x, self.y, item)
+        batch = {
+            INPUT_KEY: ml_batch.input,
+            LABEL_KEY: ml_batch.labels,
+        }
+        if ml_batch.others is not None:
+            for k, v in ml_batch.others.items():
+                batch[k] = v
         for k, v in self.others.items():
             batch[k] = v[item]
         batch = self.processor.postprocess_batch(batch)
@@ -905,6 +915,7 @@ __all__ = [
     "get_weighted_indices",
     "register_ml_data",
     "register_ml_data_processor",
+    "IMLBatch",
     "IMLDataProcessor",
     "IMLPreProcessedData",
     "IMLDataset",
