@@ -67,30 +67,29 @@ def get_weighted_indices(
 # protocols
 
 
-class IMLDataInfo(NamedTuple):
-    """
-    * input_dim (int) : input feature dim that the model will receive
-      -> If `encoder` is provided, this setting will not represent the final input dim that your
-      model will receive, because the `encoder` might 'expand' the dimension with some encoding methods
-      -> However, this field is still required in order to specify the 'original' feature dimension
-    * num_history (Optional[int]) : number of history, useful in time series tasks
-    * num_classes (Optional[int]) : number of classes
-      -> will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified
-    * is_classification (Optional[bool]) : whether current task is a classification task
-    """
-
-    input_dim: int
-    num_history: Optional[int] = None
-    num_classes: Optional[int] = None
-    is_classification: Optional[bool] = None
-
-
 class IMLPreProcessedData(NamedTuple):
+    """
+    * x_train (np.ndarray) : preprocessed training features.
+    * y_train (Optional[np.ndarray]) : preprocessed training labels, could be None if not provided.
+      * It is common that labels are not provided at inference time.
+    * x_valid (Optional[np.ndarray]) : preprocessed validation features.
+    * y_valid (Optional[np.ndarray]) : preprocessed validation labels, could be None if not provided.
+    * input_dim (int) : input feature dim that the model will receive.
+      * If not provided, `x_train.shape[-1]` will be used.
+      * If `encoder` is provided, this setting will not represent the final input dim that your
+      model will receive, because the `encoder` might 'expand' the dimension with some encoding methods.
+    * num_history (Optional[int]) : number of history, useful in time series tasks.
+      * If not provided, we will use the default value defined in the pipeline.
+    * num_classes (Optional[int]) : number of classes, will be used as `output_dim` if `is_classification` is True & `output_dim` is not specified.
+      * If not provided, we will use the default value defined in the pipeline.
+    * is_classification (Optional[bool]) : whether current task is a classification task.
+      * If not provided, we will use the default value defined in the pipeline.
+    """
+
     x_train: np.ndarray
     y_train: Optional[np.ndarray] = None
     x_valid: Optional[np.ndarray] = None
     y_valid: Optional[np.ndarray] = None
-    # if input_dim is not specified, we'll use `x_train.shape[-1]` as default
     input_dim: Optional[int] = None
     num_history: Optional[int] = None
     num_classes: Optional[int] = None
@@ -483,13 +482,13 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             for_inference=self.for_inference,
         )
         final = safe_execute(self.processor.preprocess, preprocess_kw)
-        data_info = IMLDataInfo(
+        data_info = dict(
             input_dim=final.input_dim or final.x_train.shape[-1],
             num_history=final.num_history,
             num_classes=final.num_classes,
             is_classification=final.is_classification,
         )
-        for k, v in data_info._asdict().items():
+        for k, v in data_info.items():
             if v is not None:
                 setattr(self, k, v)
         self.train_data = MLDataset(
