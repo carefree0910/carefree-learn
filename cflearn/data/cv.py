@@ -750,6 +750,7 @@ def prepare_image_folder(
                 print(f"error occurred with {img_path} : {err}")
                 return None
 
+        print_info(f"saving {dtype} dataset")
         parallel = Parallel(d_num_jobs, use_tqdm=use_tqdm)
         results: List[Tuple[str, Dict[str, Any]]]
         indices = indices.copy()
