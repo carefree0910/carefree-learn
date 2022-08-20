@@ -58,9 +58,9 @@ class Quantile(IMetric):
 
 @register_metric("f1")
 class F1Score(IMetric):
-    def __init__(self, threshold: float = 0.5):
+    def __init__(self, average: str = "macro"):
         super().__init__()
-        self.threshold = threshold
+        self.average = average
         if metrics is None:
             print_warning("`scikit-learn` needs to be installed for `F1Score`")
 
@@ -68,11 +68,20 @@ class F1Score(IMetric):
     def is_positive(self) -> bool:
         return True
 
+    @property
+    def requires_all(self) -> bool:
+        return True
+
     def forward(self, logits: np.ndarray, labels: np.ndarray) -> float:  # type: ignore
         if metrics is None:
             return 0.0
-        predictions = get_label_predictions(logits, self.threshold)
-        return metrics.f1_score(labels.ravel(), predictions.ravel())
+        logits = get_full_logits(logits)
+        num_classes = logits.shape[1]
+        classes = logits.argmax(1)
+        labels = labels.ravel()
+        if num_classes == 2:
+            return metrics.f1_score(labels, classes)
+        return metrics.f1_score(labels, classes, average=self.average)
 
 
 @register_metric("r2")
