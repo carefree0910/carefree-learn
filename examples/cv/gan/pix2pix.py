@@ -49,7 +49,7 @@ class Pix2PixPreparation(cflearn.DefaultPreparation):
 
 
 @cflearn.register_transform("pix2pix")
-class Pix2PixITransform(cflearn.ITransform):
+class Pix2PixTransform(cflearn.ITransform):
     def __init__(self, *, resize_size: int, crop_size: int):
         self.resize_size = resize_size
         self.crop_size = crop_size
@@ -57,8 +57,8 @@ class Pix2PixITransform(cflearn.ITransform):
     def forward(self, sample: Dict[str, Any]) -> tensor_dict_type:
         src = sample[INPUT_KEY]
         tgt = Image.fromarray(sample[LABEL_KEY])
-        x = random.randint(0, np.maximum(0, self.resize_size - self.crop_size))
-        y = random.randint(0, np.maximum(0, self.resize_size - self.crop_size))
+        x = random.randint(0, max(0, self.resize_size - self.crop_size))
+        y = random.randint(0, max(0, self.resize_size - self.crop_size))
         flip = random.random() > 0.5
         transform_list = [
             transforms.Resize(
@@ -82,7 +82,7 @@ class Pix2PixITransform(cflearn.ITransform):
 
 
 @cflearn.register_transform("pix2pix_test")
-class Pix2PixTestITransform(cflearn.ITransform):
+class Pix2PixTestTransform(cflearn.ITransform):
     def __init__(self, *, size: int):
         self.size = size
 
