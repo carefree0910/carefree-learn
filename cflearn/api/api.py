@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import shutil
 
 from typing import Any
 from typing import Dict
@@ -9,8 +10,12 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import print_info
+from cftool.misc import random_hash
 from cftool.misc import update_dict
 from cftool.misc import parse_config
+from cftool.misc import print_warning
+from cftool.misc import get_latest_workplace
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
@@ -32,6 +37,7 @@ from ..types import configs_type
 from ..types import general_config_type
 from ..types import sample_weights_type
 from ..types import states_callback_type
+from ..trainer import get_sorted_checkpoints
 from ..pipeline import DLPipeline
 from ..pipeline import ModelSoupConfigs
 from ..protocol import loss_dict
@@ -40,7 +46,10 @@ from ..protocol import ILoss
 from ..protocol import IDLModel
 from ..protocol import _IMetric
 from ..protocol import IDataLoader
+from ..constants import SCORES_FILE
 from ..constants import DEFAULT_ZOO_TAG
+from ..constants import CHECKPOINTS_FOLDER
+from ..dist.ml import Experiment
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
 from ..models.protocols.ml import ml_core_dict
@@ -63,6 +72,84 @@ def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:
     kwargs["nproc_per_node"] = len(cuda_list)
     prefix = f"{sys.executable} -m torch.distributed.run "
     os.system(f"{prefix}{_convert_config()} {path}")
+
+
+def run_multiple(
+    path: str,
+    model_name: str,
+    cuda_list: List[Union[int, str]],
+    *,
+    num_jobs: int = 1,
+    num_multiple: int = 5,
+    workplace: str = "_multiple",
+    sequential: Optional[bool] = None,
+    resource_config: Optional[Dict[str, Any]] = None,
+    is_fix: bool = False,
+) -> None:
+    if os.path.isdir(workplace) and not is_fix:
+        print_warning(f"'{workplace}' already exists, it will be erased")
+        shutil.rmtree(workplace)
+    if sequential is None:
+        sequential = num_jobs <= 1
+
+    def is_buggy(i_: int) -> bool:
+        i_workplace = os.path.join(workplace, model_name, str(i_))
+        i_latest_workplace = get_latest_workplace(i_workplace)
+        if i_latest_workplace is None:
+            return True
+        checkpoint_folder = os.path.join(i_latest_workplace, CHECKPOINTS_FOLDER)
+        if not os.path.isfile(os.path.join(checkpoint_folder, SCORES_FILE)):
+            return True
+        if not get_sorted_checkpoints(checkpoint_folder):
+            return True
+        return False
+
+    if sequential:
+        for i in range(num_multiple):
+            if is_fix and not is_buggy(i):
+                continue
+            os.environ["CUDA_VISIBLE_DEVICES"] = str(cuda_list[0])
+            os.system(f"{sys.executable} {path}")
+    else:
+        if num_jobs <= 1:
+            print_warning(
+                "we suggest setting `sequential` "
+                f"to True when `num_jobs` is {num_jobs}"
+            )
+        # generate temporary runtime script
+        with open(path, "r") as rf:
+            original_scripts = rf.read()
+        folder = os.path.split(os.path.abspath(path))[0]
+        tmp_path = os.path.join(folder, f"{random_hash()}.py")
+        with open(tmp_path, "w") as wf:
+            wf.write(f"""
+import os
+from cflearn.misc.toolkit import _set_environ_workplace
+from cflearn.dist.ml.runs._utils import get_info
+
+info = get_info(requires_data=False)
+os.environ["CUDA_VISIBLE_DEVICES"] = str(info.meta["cuda"])
+_set_environ_workplace(info.meta["workplace"])
+
+{original_scripts}
+""")
+        print_info(f"`{tmp_path}` will be executed")
+        # construct & execute an Experiment
+        experiment = Experiment(
+            num_jobs=num_jobs,
+            available_cuda_list=cuda_list,
+            resource_config=resource_config,
+        )
+        for i in range(num_multiple):
+            if is_fix and not is_buggy(i):
+                continue
+            experiment.add_task(
+                model=model_name,
+                run_command=f"{sys.executable} {tmp_path}",
+                root_workplace=workplace,
+            )
+        experiment.run_tasks(use_tqdm=False)
+        os.remove(tmp_path)
 
 
 def pack(
