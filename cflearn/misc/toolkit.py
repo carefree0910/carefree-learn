@@ -400,14 +400,26 @@ def summary(
     def _get_param_counts(module_: nn.Module) -> Tuple[int, int]:
         num_params = 0
         num_trainable_params = 0
-        for param in module_.parameters():
-            local_num_params = int(round(prod(param.data.shape)))
+        for p in module_.parameters():
+            local_num_params = int(round(prod(p.data.shape)))
             num_params += local_num_params
-            if param.requires_grad:
+            if p.requires_grad:
                 num_trainable_params += local_num_params
         return num_params, num_trainable_params
 
     def register_hook(module: nn.Module) -> None:
+        def inject_output_shape(output: Any, res: Dict[int, Any]) -> None:
+            idx = 0 if not res else max(res)
+            if isinstance(output, Tensor):
+                o_shape = list(output.shape)
+                o_shape[0] = -1
+                res[idx + 1] = o_shape
+                return
+            if isinstance(output, (list, tuple)):
+                o_res = res[idx + 1] = {}
+                for o in output:
+                    inject_output_shape(o, o_res)
+
         def hook(module_: nn.Module, inp: Any, output: Any) -> None:
             m_name = module_names.get(module_)
             if m_name is None:
@@ -418,25 +430,13 @@ def summary(
             inp = inp[0]
             if not isinstance(inp, Tensor):
                 return
-            if isinstance(output, (list, tuple)):
-                for element in output:
-                    if not isinstance(element, Tensor):
-                        return
-            elif not isinstance(output, Tensor):
-                return
 
             m_dict: OrderedDict[str, Any] = OrderedDict()
-            m_dict["input_shape"] = list(inp.size())
+            m_dict["input_shape"] = list(inp.shape)
             if len(m_dict["input_shape"]) > 0:
                 m_dict["input_shape"][0] = -1
-            if isinstance(output, (list, tuple)):
-                m_dict["output_shape"] = [[-1] + list(o.size())[1:] for o in output]
-                m_dict["is_multiple_output"] = True
-            else:
-                m_dict["output_shape"] = list(output.size())
-                if len(m_dict["output_shape"]) > 0:
-                    m_dict["output_shape"][0] = -1
-                m_dict["is_multiple_output"] = False
+            output_shape_res = m_dict["output_shape"] = {}
+            inject_output_shape(output, output_shape_res)
 
             num_params_, num_trainable_params_ = _get_param_counts(module_)
             m_dict["num_params"] = num_params_
@@ -537,28 +537,45 @@ def summary(
     messages = ["=" * line_length]
     line_format = "{:30}  {:>20} {:>40} {:>20}"
     headers = "Layer (type)", "Input Shape", "Output Shape", "Trainable Param #"
-    line_new = line_format.format(*headers)
-    messages.append(line_new)
+    messages.append(line_format.format(*headers))
     messages.append("-" * line_length)
     total_output = 0
     for layer, layer_summary in summary_dict.items():
         layer_name = "-".join(layer.split("-")[:-1])
         if layer_summary is None:
-            line_new = line_format.format(layer_name, "", "", "")
+            messages.append(line_format.format(layer_name, "", "", ""))
         else:
-            line_new = line_format.format(
-                layer_name,
-                str(layer_summary["input_shape"]),
-                str(layer_summary["output_shape"]),
-                "{0:,}".format(layer_summary["num_trainable_params"]),
-            )
-            output_shape = layer_summary["output_shape"]
-            is_multiple_output = layer_summary["is_multiple_output"]
-            if not is_multiple_output:
-                output_shape = [output_shape]
-            for shape in output_shape:
+            is_title = True
+            all_output_shapes: List[List[int]] = []
+
+            def _inject(output_shape_item: Dict[int, Any], prefix: str) -> None:
+                only_one = len(output_shape_item) == 1
+                for i, idx in enumerate(sorted(output_shape_item)):
+                    if not prefix and only_one:
+                        idx_prefix = ""
+                    else:
+                        idx_prefix = f"{prefix}{idx}."
+                    value = output_shape_item[idx]
+                    if isinstance(value, dict):
+                        _inject(value, idx_prefix)
+                        continue
+                    output_shape_str = f"{idx_prefix} {str(value):>16s}"
+                    ntp_str = "{0:,}".format(layer_summary["num_trainable_params"])
+                    nonlocal is_title
+                    messages.append(
+                        line_format.format(
+                            layer_name if is_title else "",
+                            str(layer_summary["input_shape"]) if is_title else "",
+                            output_shape_str,
+                            ntp_str if is_title else "",
+                        )
+                    )
+                    is_title = False
+                    all_output_shapes.append(value)
+
+            _inject(layer_summary["output_shape"], "")
+            for shape in all_output_shapes:
                 total_output += prod(shape)
-        messages.append(line_new)
 
     total_params, trainable_params = _get_param_counts(model)
     # assume 4 bytes/number (float on cuda).
