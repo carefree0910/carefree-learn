@@ -6,7 +6,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Union
-from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -425,6 +424,8 @@ def repeat_ml(
     x_valid: data_type = None,
     y_valid: data_type = None,
     *,
+    num_jobs: int = 1,
+    num_repeat: int = 5,
     train_others: Optional[np_dict_type] = None,
     valid_others: Optional[np_dict_type] = None,
     # repeat
@@ -433,8 +434,6 @@ def repeat_ml(
     model_configs: Optional[Dict[str, Dict[str, Any]]] = None,
     predict_config: Optional[Dict[str, Any]] = None,
     sequential: Optional[bool] = None,
-    num_jobs: int = 1,
-    num_repeat: int = 5,
     return_patterns: bool = True,
     compress: bool = True,
     use_tqdm: bool = True,
