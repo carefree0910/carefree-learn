@@ -174,6 +174,11 @@ class NBMInspector:
         figsize: Tuple[int, int] = (8, 6),
     ) -> "NBMInspector":
         model = m.model
+        if isinstance(model.dimensions, list):
+            raise ValueError(
+                "`MLPipeline` with `_num_repeat` defined is detected, "
+                "which is not compatible with `NBM.from_pipeline`"
+            )
         return cls(
             model.core.core,
             model.encoder,

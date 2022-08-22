@@ -336,6 +336,9 @@ class MixedStackedModel(nn.Module):
 
 class MLModel(ModelWithCustomSteps):
     core: Union[IMLCore, nn.ModuleList]
+    encoder: Union[nn.Module, nn.ModuleList]
+    dimensions: Union[Dimensions, List[Dimensions]]
+    transform: Union[Transform, List[Transform]]
 
     def __init__(
         self,
@@ -443,7 +446,7 @@ class MLModel(ModelWithCustomSteps):
                 batch_indices = batch.get(BATCH_INDICES_KEY)
                 if batch_indices is not None:
                     batch_indices = to_numpy(batch_indices)
-                _inject_batch(batch, batch_indices, self.dimensions, self.transform)
+                _inject_batch(batch, batch_indices, self.dimensions, self.transform)  # type: ignore
             return self.core(batch_idx, batch, state, **kwargs)
 
         batches = []
@@ -454,7 +457,7 @@ class MLModel(ModelWithCustomSteps):
             batch_indices = batch.get(BATCH_INDICES_KEY)
             if batch_indices is not None:
                 batch_indices = to_numpy(batch_indices)
-            for d, t in zip(self.dimensions, self.transform):
+            for d, t in zip(self.dimensions, self.transform):  # type: ignore
                 local_batch = shallow_copy_dict(batch)
                 _inject_batch(local_batch, batch_indices, d, t)
                 batches.append(local_batch)
