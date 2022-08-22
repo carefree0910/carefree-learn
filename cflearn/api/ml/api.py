@@ -27,6 +27,7 @@ from ...data import MLCarefreeData
 from ...types import configs_type
 from ...types import sample_weights_type
 from ...trainer import get_sorted_checkpoints
+from ...pipeline import DLPipeline
 from ...constants import SCORES_FILE
 from ...constants import CHECKPOINTS_FOLDER
 from ...constants import ML_PIPELINE_SAVE_NAME
@@ -360,25 +361,19 @@ def repeat_with(
     return RepeatResult(cf_data, experiment, pipelines_dict, patterns)
 
 
-def pack_repeat(
-    workplace: str,
-    pipeline_base: Type[MLPipeline],
-    *,
-    num_jobs: int = 1,
-) -> List[str]:
+def pack_repeat(workplace: str, *, num_jobs: int = 1) -> List[str]:
     sub_workplaces = []
     for stuff in sorted(os.listdir(workplace)):
         stuff_path = os.path.join(workplace, stuff)
         if not os.path.isdir(stuff_path):
             continue
         sub_workplaces.append(get_latest_workplace(stuff_path))
-    rs = Parallel(num_jobs).grouped(pipeline_base.pack, sub_workplaces).ordered_results
+    rs = Parallel(num_jobs).grouped(DLPipeline.pack, sub_workplaces).ordered_results
     return sum(rs, [])
 
 
 def pick_from_repeat_and_pack(
     workplace: str,
-    pipeline_base: Type[MLPipeline],
     *,
     num_pick: int,
     num_jobs: int = 1,
@@ -396,7 +391,7 @@ def pick_from_repeat_and_pack(
             score_workplace_pairs.append((score, sub_workplace))
     score_workplace_pairs = sorted(score_workplace_pairs)[::-1]
     sub_workplaces = [pair[1] for pair in score_workplace_pairs[:num_pick]]
-    rs = Parallel(num_jobs).grouped(pipeline_base.pack, sub_workplaces).ordered_results
+    rs = Parallel(num_jobs).grouped(DLPipeline.pack, sub_workplaces).ordered_results
     return sum(rs, [])
 
 
@@ -440,8 +435,8 @@ def make_toy_model(
         "max_epoch": 4,
     }
     updated = update_dict(config, base_config)
-    pipelines_type = "ml" if cf_data_config is None else "ml.carefree"
-    m = MLPipeline.make(pipelines_type, updated)
+    pipeline = "ml" if cf_data_config is None else "ml.carefree"
+    m = MLPipeline.make(pipeline, updated)
     if cf_data_config is None:
         data = MLData(x_np, y_np, is_classification=is_classification)
     else:
