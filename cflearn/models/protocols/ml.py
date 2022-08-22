@@ -198,7 +198,7 @@ class Dimensions:
         return None
 
 
-class Transform(nn.Module):
+class Transform:
     def __init__(
         self,
         dimensions: Dimensions,
@@ -213,6 +213,9 @@ class Transform(nn.Module):
         self.use_embedding = embedding
         self.only_categorical = only_categorical
 
+    def __call__(self, split: SplitFeatures) -> Tensor:
+        return split.merge(self.use_one_hot, self.use_embedding, self.only_categorical)
+
     @property
     def out_dim(self) -> int:
         out_dim = self.dimensions.merged_dim
@@ -223,9 +226,6 @@ class Transform(nn.Module):
         if self.only_categorical:
             out_dim -= self.dimensions.numerical_dim
         return out_dim
-
-    def forward(self, split: SplitFeatures) -> Tensor:
-        return split.merge(self.use_one_hot, self.use_embedding, self.only_categorical)
 
     def extra_repr(self) -> str:
         one_hot_str = f"(use_one_hot): {self.use_one_hot}"
@@ -354,22 +354,28 @@ class MLModel(ModelWithCustomSteps):
         pre_process_batch: bool = True,
         num_repeat: Optional[int] = None,
     ):
+        def _make_dimensions(enc: Optional[IEncoder]) -> Dimensions:
+            return Dimensions(
+                num_history=num_history,
+                encoder=enc,
+                numerical_columns=numerical_columns,
+                categorical_columns=categorical_columns,
+            )
+
+        def _make_transform(dim: Dimensions) -> Transform:
+            return Transform(
+                dim,
+                one_hot=use_one_hot,
+                embedding=use_embedding,
+                only_categorical=only_categorical,
+            )
+
         super().__init__()
         self.output_dim = output_dim
         self.encoder = encoder
         self.use_encoder_cache = use_encoder_cache
-        self.dimensions = Dimensions(
-            num_history=num_history,
-            encoder=self.encoder,
-            numerical_columns=numerical_columns,
-            categorical_columns=categorical_columns,
-        )
-        self.transform = Transform(
-            self.dimensions,
-            one_hot=use_one_hot,
-            embedding=use_embedding,
-            only_categorical=only_categorical,
-        )
+        self.dimensions = _make_dimensions(encoder)
+        self.transform = _make_transform(self.dimensions)
         core_config = shallow_copy_dict(core_config)
         core_config["input_dim"] = self.transform.out_dim
         core_config["output_dim"] = output_dim
@@ -381,6 +387,13 @@ class MLModel(ModelWithCustomSteps):
             self.core = core
         else:
             self.core = get_clones(core, num_repeat)  # type: ignore
+            if encoder is None:
+                self.dimensions = [self.dimensions] * num_repeat
+                self.transform = [self.transform] * num_repeat
+            else:
+                self.encoder = get_clones(encoder, num_repeat)
+                self.dimensions = list(map(_make_dimensions, self.encoder))
+                self.transform = list(map(_make_transform, self.dimensions))
         self.__identifier__ = core_name
         self._num_repeat = num_repeat
         # custom steps
@@ -399,28 +412,54 @@ class MLModel(ModelWithCustomSteps):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        if self._pre_process_batch:
+        def _get_split(
+            dim: Dimensions,
+            batch_indices_: Optional[np.ndarray],
+        ) -> SplitFeatures:
+            return dim.split_features(
+                batch[INPUT_KEY],
+                batch_indices_,
+                kwargs.get("loader_name") if self.use_encoder_cache else None,
+            )
+
+        def _inject_batch(
+            b: tensor_dict_type,
+            batch_indices_: Optional[np.ndarray],
+            dim: Dimensions,
+            transform: Transform,
+        ) -> None:
+            split = _get_split(dim, batch_indices_)
+            b[NUMERICAL_KEY] = split.numerical
+            if split.categorical is None:
+                b[ONE_HOT_KEY] = None
+                b[EMBEDDING_KEY] = None
+            else:
+                b[ONE_HOT_KEY] = split.categorical.one_hot
+                b[EMBEDDING_KEY] = split.categorical.embedding
+            b[MERGED_KEY] = transform(split)
+
+        if self._num_repeat is None:
+            if self._pre_process_batch:
+                batch_indices = batch.get(BATCH_INDICES_KEY)
+                if batch_indices is not None:
+                    batch_indices = to_numpy(batch_indices)
+                _inject_batch(batch, batch_indices, self.dimensions, self.transform)
+            return self.core(batch_idx, batch, state, **kwargs)
+
+        batches = []
+        if not self._pre_process_batch:
+            for _ in range(self._num_repeat):
+                batches.append(shallow_copy_dict(batch))
+        else:
             batch_indices = batch.get(BATCH_INDICES_KEY)
             if batch_indices is not None:
                 batch_indices = to_numpy(batch_indices)
-            split = self.dimensions.split_features(
-                batch[INPUT_KEY],
-                batch_indices,
-                kwargs.get("loader_name") if self.use_encoder_cache else None,
-            )
-            batch[NUMERICAL_KEY] = split.numerical
-            if split.categorical is None:
-                batch[ONE_HOT_KEY] = None
-                batch[EMBEDDING_KEY] = None
-            else:
-                batch[ONE_HOT_KEY] = split.categorical.one_hot
-                batch[EMBEDDING_KEY] = split.categorical.embedding
-            batch[MERGED_KEY] = self.transform(split)
-        if self._num_repeat is None:
-            return self.core(batch_idx, batch, state, **kwargs)
+            for d, t in zip(self.dimensions, self.transform):
+                local_batch = shallow_copy_dict(batch)
+                _inject_batch(local_batch, batch_indices, d, t)
+                batches.append(local_batch)
         all_results: Dict[str, List[torch.Tensor]] = {}
-        for m in self.core:  # type: ignore
-            m_batch = shallow_copy_dict(batch)
+        for m, m_batch in zip(self.core, batches):  # type: ignore
             m_kwargs = shallow_copy_dict(kwargs)
             sub_results = m(batch_idx, m_batch, state, **m_kwargs)
             for k, v in sub_results.items():
