@@ -7,10 +7,10 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.types import np_dict_type
 
+from .pipeline import CVPipeline
 from ...data import Transforms
 from ...data import InferenceImagePathsData
 from ...data import InferenceImageFolderData
-from ...pipeline import DLPipeline
 
 
 class InferenceResults(NamedTuple):
@@ -19,7 +19,7 @@ class InferenceResults(NamedTuple):
 
 
 def predict_paths(
-    m: DLPipeline,
+    m: CVPipeline,
     paths: str,
     *,
     batch_size: int,
@@ -33,7 +33,7 @@ def predict_paths(
         paths,
         batch_size=batch_size,
         num_workers=num_workers,
-        transform=transform,
+        transform=m.test_transform or transform,
         transform_config=transform_config,
     )
     outputs = m.predict(idata, use_tqdm=use_tqdm, **predict_kwargs)
@@ -41,7 +41,7 @@ def predict_paths(
 
 
 def predict_folder(
-    m: DLPipeline,
+    m: CVPipeline,
     folder: str,
     *,
     batch_size: int,
@@ -55,7 +55,7 @@ def predict_folder(
         folder,
         batch_size=batch_size,
         num_workers=num_workers,
-        transform=transform,
+        transform=m.test_transform or transform,
         transform_config=transform_config,
     )
     outputs = m.predict(idata, use_tqdm=use_tqdm, **predict_kwargs)
