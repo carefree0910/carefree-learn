@@ -33,7 +33,8 @@ def get_info(*, requires_data: bool = True) -> Info:
     else:
         data_folder = kwargs.pop("data_folder", None)
         if data_folder is None:
-            raise ValueError("`data_folder` should be provided")
+            msg = "`data_folder` should be provided when `requires_data` is True"
+            raise ValueError(msg)
         data = DataModule.load(data_folder)
     return Info(workplace, meta_config, kwargs, data)
 
