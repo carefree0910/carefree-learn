@@ -361,7 +361,7 @@ def repeat_with(
     return RepeatResult(cf_data, experiment, pipelines_dict, patterns)
 
 
-def pack_repeat(workplace: str, *, num_jobs: int = 1) -> List[str]:
+def pack_multiple(workplace: str, *, num_jobs: int = 1) -> List[str]:
     sub_workplaces = []
     for stuff in sorted(os.listdir(workplace)):
         stuff_path = os.path.join(workplace, stuff)
@@ -372,7 +372,7 @@ def pack_repeat(workplace: str, *, num_jobs: int = 1) -> List[str]:
     return sum(rs, [])
 
 
-def pick_from_repeat_and_pack(
+def pick_from_multiple_and_pack(
     workplace: str,
     *,
     num_pick: int,
@@ -463,8 +463,8 @@ __all__ = [
     "task_loader",
     "load_experiment_results",
     "repeat_with",
-    "pack_repeat",
-    "pick_from_repeat_and_pack",
+    "pack_multiple",
+    "pick_from_multiple_and_pack",
     "make_toy_model",
     "RepeatResult",
 ]
