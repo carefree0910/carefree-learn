@@ -420,7 +420,7 @@ def fit_ml(
 
 
 def repeat_ml(
-    x_train: data_type,
+    x_train: Union[data_type, IMLData],
     y_train: data_type = None,
     x_valid: data_type = None,
     y_valid: data_type = None,
