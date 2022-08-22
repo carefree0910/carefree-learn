@@ -46,6 +46,11 @@ class BaseResponse(NamedTuple):
     base: Type["DataModule"]
 
 
+class LoadInfoResponse(NamedTuple):
+    info: Dict[str, Any]
+    data_module_bytes: Optional[bytes]
+
+
 class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
     d = data_modules  # type: ignore
 
@@ -115,9 +120,17 @@ class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
         self._save_info(folder)
 
     @classmethod
-    def load_info(cls, folder: str) -> Dict[str, Any]:
-        folder, base = cls._get_base(folder)
-        return base._load_info(folder)
+    def load_info(cls, folder: str, *, return_bytes: bool) -> LoadInfoResponse:
+        data_module_folder, base = cls._get_base(folder)
+        info = base._load_info(data_module_folder)
+        if not return_bytes:
+            return LoadInfoResponse(info, None)
+        Saving.compress(data_module_folder, remove_original=False)
+        zip_path = f"{data_module_folder}.zip"
+        with open(zip_path, "rb") as f:
+            data_module_bytes = f.read()
+        os.remove(zip_path)
+        return LoadInfoResponse(info, data_module_bytes)
 
     def save(self, folder: str) -> None:
         """

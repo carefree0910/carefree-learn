@@ -1,5 +1,4 @@
 import os
-import json
 import torch
 
 import numpy as np
@@ -22,7 +21,7 @@ from cftool.types import np_dict_type
 
 from ...data import MLData
 from ...data import MLLoader
-from ...data import DLDataModule
+from ...data import DataModule
 from ...types import data_type
 from ...types import configs_type
 from ...types import sample_weights_type
@@ -32,8 +31,6 @@ from ...pipeline import get_requirements
 from ...pipeline import IModifier
 from ...pipeline import DLPipeline
 from ...protocol import InferenceOutputs
-from ...constants import PT_PREFIX
-from ...constants import SCORES_FILE
 from ...constants import PREDICTIONS_KEY
 from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData
@@ -474,7 +471,9 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
                     pre_callback,
                     post_callback,
                 )
-                data_info = DLDataModule.load_info(export_folder)
+                loaded = DataModule.load_info(export_folder, return_bytes=True)
+                data_info = loaded.info
+                m.data_module_bytes = loaded.data_module_bytes
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
         m._make_modifier().build(data_info)
         m.model.to(m.device)
@@ -498,24 +497,6 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
                     merged_states.update(states)
         m.model.load_state_dict(merged_states)
         return m
-
-    def re_save(
-        self,
-        export_folder: str,
-        *,
-        compress: bool = True,
-    ) -> "MLPipeline":
-        abs_folder = os.path.abspath(export_folder)
-        base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [export_folder]):
-            self._save_misc(export_folder)
-            file = f"{PT_PREFIX}-1.pt"
-            torch.save(self.model.state_dict(), os.path.join(export_folder, file))
-            with open(os.path.join(export_folder, SCORES_FILE), "w") as f:
-                json.dump({file: 0.0}, f)
-            if compress:
-                Saving.compress(abs_folder, remove_original=True)
-        return self
 
 
 # carefree

@@ -4,6 +4,7 @@ import math
 import torch
 import shutil
 import inspect
+import zipfile
 
 from abc import abstractmethod
 from abc import ABCMeta
@@ -202,6 +203,7 @@ class IDLPipeline:
 
     data: Optional[DLDataModule]
     data_info: Dict[str, Any]
+    data_module_bytes: Optional[bytes]
     loss: ILoss
     loss_name: str
     loss_config: Optional[Dict[str, Any]]
@@ -425,6 +427,18 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         data: Optional[DLDataModule] = getattr(self, "data", None)
         if data is not None:
             data.save_info(export_folder)
+        else:
+            msg = "`data` is not found, `pipeline.data_module_bytes` will be saved"
+            print_warning(msg)
+            if self.data_module_bytes is None:
+                raise ValueError("`data_module_bytes` should be provided")
+            data_folder = os.path.join(export_folder, DLDataModule.package_folder)
+            zip_path = f"{data_folder}.zip"
+            with open(zip_path, "wb") as f:
+                f.write(self.data_module_bytes)
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(data_folder)
+            os.remove(zip_path)
         # final results
         final_results = None
         try:
@@ -575,6 +589,7 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         self.input_dim = None
         self.model_name = model_name
         self.model_config = model_config or {}
+        self.data_module_bytes = None
         self.loss_name = loss_name
         self.loss_config = loss_config
         self.trainer_config: Dict[str, Any] = {
@@ -686,9 +701,15 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         base_folder = os.path.dirname(abs_folder)
         with lock_manager(base_folder, [export_folder]):
             score = self._make_modifier().save_misc(export_folder)
-            if getattr(self.trainer, "model", None) is None:
-                self.trainer.model = self.model
-            self.trainer.save_checkpoint(score, export_folder, no_history=True)
+            if getattr(self, "trainer", None) is not None:
+                if getattr(self.trainer, "model", None) is None:
+                    self.trainer.model = self.model
+                self.trainer.save_checkpoint(score, export_folder, no_history=True)
+            else:
+                file = f"{PT_PREFIX}-1.pt"
+                torch.save(self.model.state_dict(), os.path.join(export_folder, file))
+                with open(os.path.join(export_folder, SCORES_FILE), "w") as f:
+                    json.dump({file: 0.0}, f)
             if compress:
                 Saving.compress(abs_folder, remove_original=remove_original)
         return self
@@ -791,7 +812,11 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
                     post_callback,
                 )
                 try:
-                    data_info = DataModule.load_info(export_folder)
+                    data_base = DataModule._get_base(export_folder).base
+                    m.data_type = data_base.__identifier__
+                    loaded = DataModule.load_info(export_folder, return_bytes=True)
+                    data_info = loaded.info
+                    m.data_module_bytes = loaded.data_module_bytes
                 except Exception as err:
                     print_warning(
                         "error occurred when trying to load "
