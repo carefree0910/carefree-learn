@@ -412,7 +412,8 @@ def summary(
             idx = 0 if not res else max(res)
             if isinstance(output, Tensor):
                 o_shape = list(output.shape)
-                o_shape[0] = -1
+                if o_shape:
+                    o_shape[0] = -1
                 res[idx + 1] = o_shape
                 return
             if isinstance(output, (list, tuple)):
