@@ -448,8 +448,6 @@ def repeat_ml(
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
     # pipeline
-    core_name: str = "fcnn",
-    core_config: Optional[Dict[str, Any]] = None,
     input_dim: Optional[int] = None,
     output_dim: Optional[int] = None,
     loss_name: str = "auto",
@@ -493,8 +491,6 @@ def repeat_ml(
     debug: bool = False,
 ) -> RepeatResult:
     pipeline_config = dict(
-        core_name=core_name,
-        core_config=core_config,
         input_dim=input_dim,
         output_dim=output_dim,
         loss_name=loss_name,
