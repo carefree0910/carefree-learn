@@ -55,6 +55,7 @@ from .constants import SCORES_FILE
 from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import get_ddp_info
+from .misc.toolkit import _get_environ_workplace
 from .misc.toolkit import ConfigMeta
 from .misc.internal_.trainer import make_trainer
 
@@ -620,7 +621,7 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
             "update_scheduler_per_epoch": update_scheduler_per_epoch,
             "optimizer_settings": optimizer_settings,
             "use_zero": use_zero,
-            "workplace": workplace,
+            "workplace": _get_environ_workplace() or workplace,
             "finetune_config": finetune_config,
             "tqdm_settings": tqdm_settings,
         }

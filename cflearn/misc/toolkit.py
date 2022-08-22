@@ -46,6 +46,7 @@ from ..types import param_type
 from ..types import sample_weights_type
 from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
+from ..constants import WORKPLACE_ENVIRON_KEY
 
 try:
     import matplotlib.pyplot as plt
@@ -62,6 +63,14 @@ except:
 
 
 # general
+
+
+def _get_environ_workplace() -> Optional[str]:
+    return os.environ.get(WORKPLACE_ENVIRON_KEY)
+
+
+def _set_environ_workplace(workplace: str) -> None:
+    os.environ[WORKPLACE_ENVIRON_KEY] = workplace
 
 
 def check_is_ci() -> bool:
