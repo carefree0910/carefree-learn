@@ -487,6 +487,7 @@ def repeat_ml(
     tqdm_settings: Optional[Dict[str, Any]] = None,
     # misc
     sample_weights: sample_weights_type = None,
+    cuda: Optional[Union[int, str]] = None,
     pre_process_batch: bool = True,
     debug: bool = False,
 ) -> RepeatResult:
@@ -527,6 +528,7 @@ def repeat_ml(
         finetune_config=finetune_config,
         tqdm_settings=tqdm_settings,
         pre_process_batch=pre_process_batch,
+        cuda=cuda,
     )
     if debug:
         inject_debug(pipeline_config)
