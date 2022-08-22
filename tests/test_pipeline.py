@@ -55,20 +55,36 @@ class TestPipeline(unittest.TestCase):
         m.save(name)
         m2: cflearn.ml.MLPipeline = cflearn.api.load(name)
         idata = m2.make_inference_data(x)
-        p2 = m.predict(idata)[cflearn.PREDICTIONS_KEY]
+        p2 = m2.predict(idata)[cflearn.PREDICTIONS_KEY]
         assert np.allclose(p, p2)
+        m2.save(name)
+        m3: cflearn.ml.MLPipeline = cflearn.api.load(name)
+        idata = m3.make_inference_data(x)
+        p3 = m3.predict(idata)[cflearn.PREDICTIONS_KEY]
+        assert np.allclose(p2, p3)
         # cv
-        m = cflearn.api.cct_lite(28, 10, metric_names="acc", debug=True)
-        data = cflearn.cv.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
+        n = 3
+        size = 7
+        m = cflearn.api.cct_lite(size, 10, metric_names="acc", debug=True)
+        x = torch.randn(n, 3, size, size)
+        y = torch.randint(0, 2, [n, 1])
+        data = cflearn.TensorData(x, y)
         name = "test_serialization.cv"
         m.fit(data).save(name)
-        cflearn.api.load(name)
+        m2 = cflearn.api.load(name)
+        p = m.predict(data)[cflearn.PREDICTIONS_KEY]
+        p2 = m2.predict(data)[cflearn.PREDICTIONS_KEY]
+        assert np.allclose(p, p2)
+        m2.save(name)
+        m3 = cflearn.api.load(name)
+        p3 = m3.predict(data)[cflearn.PREDICTIONS_KEY]
+        assert np.allclose(p2, p3)
         workplace = get_latest_workplace("_logs")
         assert workplace is not None
         cflearn.api.pack_onnx(
             workplace,
             ".onnx",
-            input_sample={cflearn.INPUT_KEY: torch.randn(1, 3, 28, 28)},
+            input_sample={cflearn.INPUT_KEY: torch.randn(1, 3, size, size)},
         )
 
     def test_model_soup(self) -> None:
