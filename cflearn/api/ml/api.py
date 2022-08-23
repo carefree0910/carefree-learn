@@ -10,6 +10,7 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from tqdm.autonotebook import tqdm
@@ -26,6 +27,7 @@ from ...data import IMLData
 from ...data import MLCarefreeData
 from ...types import configs_type
 from ...types import sample_weights_type
+from ...types import states_callback_type
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import DLPipeline
 from ...constants import SCORES_FILE
@@ -395,6 +397,25 @@ def pick_from_multiple_and_pack(
     return sum(rs, [])
 
 
+def fuse_multiple(
+    export_folders: List[str],
+    *,
+    cuda: Optional[str] = None,
+    compress: bool = True,
+    states_callback: states_callback_type = None,
+    pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
+    post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
+) -> MLPipeline:
+    return MLPipeline.fuse_multiple(
+        export_folders,
+        cuda=cuda,
+        compress=compress,
+        states_callback=states_callback,
+        pre_callback=pre_callback,
+        post_callback=post_callback,
+    )
+
+
 def make_toy_model(
     model: str = "fcnn",
     config: Optional[Dict[str, Any]] = None,
@@ -465,6 +486,7 @@ __all__ = [
     "repeat_with",
     "pack_multiple",
     "pick_from_multiple_and_pack",
+    "fuse_multiple",
     "make_toy_model",
     "RepeatResult",
 ]
