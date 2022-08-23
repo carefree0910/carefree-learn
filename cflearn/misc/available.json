@@ -1,11 +1,11 @@
 {
   "tokenizers": {
     "clip": {
-      "sha": "170dfc65305528207127a578523403c12a23a53e2c31343dd774b5fe13b755ce'",
+      "sha": "3acf502b90b408d17079d8e0be7c56d52eb93ae9d20308af10cb8388594b97dd'",
       "st_size": 2097773
     },
     "clip_3.8": {
-      "sha": "170dfc65305528207127a578523403c12a23a53e2c31343dd774b5fe13b755ce'",
+      "sha": "3acf502b90b408d17079d8e0be7c56d52eb93ae9d20308af10cb8388594b97dd'",
       "st_size": 2097773
     },
     "clip_3.9": {
