@@ -94,6 +94,12 @@ def check_available(tag: str, repo: str, name: str) -> Optional[FileInfo]:
     return None if info is None else FileInfo(**info)
 
 
+def _get_file_info(path: str) -> FileInfo:
+    with open(path, "rb") as f:
+        sha = hashlib.sha256(f.read()).hexdigest()
+    return FileInfo(sha, os.stat(path).st_size)
+
+
 def _check_sha(path: str, tgt_sha: str) -> bool:
     with open(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest() == tgt_sha
