@@ -117,6 +117,39 @@ class TestPipeline(unittest.TestCase):
             score = list(json.load(f).values())[0]
         self.assertAlmostEqual(res.metric_outputs.final_score, score)  # type: ignore
 
+    def test_fuse_multiple(self) -> None:
+        n = 100
+        num_multiple = 7
+        x = np.hstack(
+            [
+                np.random.randint(0, 3, [n, 1]),
+                np.random.random([n, 2]),
+                np.random.randint(0, 11, [n, 1]),
+                np.random.random([n, 3]),
+            ]
+        )
+        y = np.random.random([n, 5])
+        ps = []
+        packed_list = []
+        for i in range(num_multiple):
+            m = cflearn.api.fit_ml(
+                x,
+                y,
+                is_classification=False,
+                output_dim=5,
+                encoding_settings={0: dict(dim=3), 3: dict(dim=11)},
+                debug=True,
+            )
+            idata = m.make_inference_data(x)
+            ps.append(m.predict(idata)[cflearn.PREDICTIONS_KEY])
+            packed = f"./m{i}"
+            m.save(packed)
+            packed_list.append(packed)
+        fused = cflearn.ml.fuse_multiple(packed_list)
+        idata = fused.make_inference_data(x)
+        pf = fused.predict(idata)[cflearn.PREDICTIONS_KEY]
+        assert np.allclose(np.stack(ps).mean(axis=0), pf)
+
 
 if __name__ == "__main__":
     unittest.main()
