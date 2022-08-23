@@ -77,7 +77,7 @@ def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:
 def run_multiple(
     path: str,
     model_name: str,
-    cuda_list: List[Union[int, str]],
+    cuda_list: Optional[List[Union[int, str]]],
     *,
     num_jobs: int = 1,
     num_multiple: int = 5,
@@ -108,7 +108,8 @@ def run_multiple(
         for i in range(num_multiple):
             if is_fix and not is_buggy(i):
                 continue
-            os.environ["CUDA_VISIBLE_DEVICES"] = str(cuda_list[0])
+            cuda = "" if cuda_list is None else str(cuda_list[0])
+            os.environ["CUDA_VISIBLE_DEVICES"] = cuda
             os.system(f"{sys.executable} {path}")
     else:
         if num_jobs <= 1:
@@ -122,7 +123,8 @@ def run_multiple(
         folder = os.path.split(os.path.abspath(path))[0]
         tmp_path = os.path.join(folder, f"{random_hash()}.py")
         with open(tmp_path, "w") as wf:
-            wf.write(f"""
+            wf.write(
+                f"""
 import os
 from cflearn.misc.toolkit import _set_environ_workplace
 from cflearn.dist.ml.runs._utils import get_info
@@ -132,12 +134,14 @@ os.environ["CUDA_VISIBLE_DEVICES"] = str(info.meta["cuda"])
 _set_environ_workplace(info.meta["workplace"])
 
 {original_scripts}
-""")
+"""
+            )
         print_info(f"`{tmp_path}` will be executed")
         # construct & execute an Experiment
+        cudas = None if cuda_list is None else list(map(int, cuda_list))
         experiment = Experiment(
             num_jobs=num_jobs,
-            available_cuda_list=cuda_list,
+            available_cuda_list=cudas,
             resource_config=resource_config,
         )
         for i in range(num_multiple):
