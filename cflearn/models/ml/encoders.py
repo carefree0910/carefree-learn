@@ -64,12 +64,13 @@ class Embedding(nn.Module):
         else:
             Initializer(init_config).initialize(weights, init_method)
         self.weights = nn.Parameter(weights)
-        embedding_fn = lambda column: F.embedding(column, self.weights)
-        self.core = Lambda(embedding_fn, f"embedding: {in_dim} -> {out_dim}")
         self.in_dim, self.out_dim = in_dim, out_dim
 
+    def extra_repr(self) -> str:
+        return f"{self.in_dim} -> {self.out_dim}"
+
     def forward(self, tensor: torch.Tensor) -> torch.Tensor:
-        return self.core(tensor)
+        return F.embedding(tensor, self.weights)
 
 
 class EncodingSettings(NamedTuple):
