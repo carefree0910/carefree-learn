@@ -216,7 +216,7 @@ def get_compatible_name(
             name = compatible_name
         else:
             print_warning(
-                "compatible name '{compatible_name}' is not available "
+                f"compatible name '{compatible_name}' is not available "
                 f"on the server, will use the original name ({name}) instead"
             )
     return name
