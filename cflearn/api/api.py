@@ -528,6 +528,7 @@ def repeat_ml(
     return_patterns: bool = True,
     compress: bool = True,
     use_tqdm: bool = True,
+    cuda: Optional[Union[int, str]] = None,
     available_cuda_list: Optional[List[int]] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     task_meta_kwargs: Optional[Dict[str, Any]] = None,
@@ -578,7 +579,6 @@ def repeat_ml(
     tqdm_settings: Optional[Dict[str, Any]] = None,
     # misc
     sample_weights: sample_weights_type = None,
-    cuda: Optional[Union[int, str]] = None,
     pre_process_batch: bool = True,
     debug: bool = False,
 ) -> RepeatResult:
@@ -619,7 +619,6 @@ def repeat_ml(
         finetune_config=finetune_config,
         tqdm_settings=tqdm_settings,
         pre_process_batch=pre_process_batch,
-        cuda=cuda,
     )
     if debug:
         inject_debug(pipeline_config)
@@ -648,6 +647,7 @@ def repeat_ml(
         return_patterns=return_patterns,
         compress=compress,
         use_tqdm=use_tqdm,
+        cuda=cuda,
         available_cuda_list=available_cuda_list,
         resource_config=resource_config,
         task_meta_kwargs=task_meta_kwargs,

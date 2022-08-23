@@ -216,6 +216,7 @@ def repeat_with(
     return_patterns: bool = True,
     compress: bool = True,
     use_tqdm: bool = True,
+    cuda: Optional[Union[int, str]] = None,
     available_cuda_list: Optional[List[int]] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     task_meta_kwargs: Optional[Dict[str, Any]] = None,
@@ -262,7 +263,6 @@ def repeat_with(
     pipeline_base = MLCarefreePipeline if carefree else MLPipeline
     pipelines_dict: Optional[Dict[str, List[MLPipeline]]] = None
     if sequential:
-        cuda = kwargs.pop("cuda", None)
         experiment = None
         tqdm_settings = kwargs.setdefault("tqdm_settings", {})
         if tqdm_settings is None:
