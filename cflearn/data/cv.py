@@ -32,6 +32,7 @@ from cftool.misc import WithRegister
 from cftool.array import to_torch
 from torchvision.transforms import transforms
 from torch.utils.data import Dataset
+from torch.utils.data import WeightedRandomSampler
 
 from .core import DLLoader
 from .core import DLDataset
@@ -262,6 +263,30 @@ class ImageFolderDataset(ImageDatasetMixin):
     def __len__(self) -> int:
         return self.length
 
+    def get_sample_weights_with(
+        self,
+        label_mapping: Dict[str, Any],
+        label_weights: Dict[str, float],
+    ) -> List[float]:
+        try:
+            labels = [label_mapping[path] for path in self.img_paths]
+        except:
+            missing_keys = [p for p in self.img_paths if p not in label_mapping]
+            print_error(
+                "`label_mapping` does not cover the entire dataset, "
+                f"{len(missing_keys)} keys are missing: ({missing_keys[0]}, ...)"
+            )
+            raise
+        try:
+            return [label_weights[l] for l in labels]
+        except:
+            missing_keys = [l for l in labels if l not in label_weights]
+            print_error(
+                "`label_weights` does not cover the entire dataset, "
+                f"{len(missing_keys)} labels are missing: ({missing_keys[0]}, ...)"
+            )
+            raise
+
 
 class InferenceImagePathsDataset(ImageDatasetMixin):
     def __init__(self, paths: List[str], transform: Optional[Transforms]):
@@ -342,6 +367,9 @@ class CVDataModule(DLDataModule, metaclass=ABCMeta):
 
 @DLDataModule.register("image_folder")
 class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
+    train_data: CVDataset
+    valid_data: CVDataset
+
     def __init__(
         self,
         folder: str,
@@ -358,6 +386,8 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
         test_shuffle: Optional[bool] = None,
         test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         test_transform_config: Optional[Dict[str, Any]] = None,
+        label_mapping: Optional[Dict[str, Any]] = None,
+        label_weights: Optional[Dict[str, float]] = None,
         lmdb_config: Optional[Dict[str, Any]] = None,
     ):
         self.folder = folder
@@ -393,6 +423,8 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
         self.test_transform = Transforms.convert(test_transform, test_transform_config)
         if self.test_transform is None:
             self.test_transform = self.transform
+        self.label_mapping = label_mapping
+        self.label_weights = label_weights
         self.lmdb_config = lmdb_config
         self.kw = dict(
             batch_size=batch_size,
@@ -412,8 +444,16 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
             d["lmdb_config"] = str(err)
         return d
 
-    # TODO : support sample weights
+    @property
+    def use_sw(self) -> bool:
+        return self.label_mapping is not None and self.label_weights is not None
+
     def prepare(self, sample_weights: sample_weights_type) -> None:
+        if sample_weights is not None:
+            print_warning(
+                "`sample_weights` will not take effect in `ImageFolderData`, "
+                "please use `label_mappings` and `label_weights` instead"
+            )
         self.train_data = CVDataset(
             ImageFolderDataset(
                 self.folder,
@@ -423,6 +463,12 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
                 lmdb_config=self.lmdb_config,
             )
         )
+        self.train_weights = None
+        if self.use_sw:
+            self.train_weights = self.train_data.dataset.get_sample_weights_with(
+                self.label_mapping,
+                self.label_weights,
+            )
         use_train_as_valid = not os.path.isdir(os.path.join(self.folder, "valid"))
         self.valid_data = CVDataset(
             ImageFolderDataset(
@@ -440,11 +486,19 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
         d = shallow_copy_dict(self.kw)
         trd = shallow_copy_dict(d)
         trd["drop_last"] = self.drop_train_last
+        if self.train_weights is not None:
+            trd.pop("shuffle")
+            trd["sampler"] = self.make_weighted_sampler(self.train_weights)
         kw = {"prefetch_device": self.prefetch_device}
         train_loader = CVLoader(DataLoader(self.train_data, **trd), **kw)  # type: ignore
         d["shuffle"] = self.test_shuffle or self.shuffle
         valid_loader = CVLoader(DataLoader(self.valid_data, **d), **kw)  # type: ignore
         return train_loader, valid_loader
+
+    @staticmethod
+    def make_weighted_sampler(sample_weights: List[float]) -> WeightedRandomSampler:
+        weights = to_torch(np.array(sample_weights, np.float32))
+        return WeightedRandomSampler(weights, len(weights), replacement=True)
 
     @staticmethod
     def switch_prefix(src: str, previous: str, now: str) -> None:
@@ -909,6 +963,8 @@ def prepare_image_folder_data(
     num_jobs: int = 8,
     valid_split: Union[int, float] = 0.1,
     max_num_valid: int = 10000,
+    use_auto_label_weights: bool = False,
+    label_weights: Optional[Dict[str, float]] = None,
     lmdb_config: Optional[Dict[str, Any]] = None,
     use_tqdm: bool = True,
 ) -> PrepareResults:
@@ -928,6 +984,24 @@ def prepare_image_folder_data(
         lmdb_config=lmdb_config,
         use_tqdm=use_tqdm,
     )
+    if use_auto_label_weights and label_weights is not None:
+        print_warning(
+            "`label_weights` is already provided, "
+            "so `use_auto_label_weights` will not take effect"
+        )
+        use_auto_label_weights = False
+    label_mapping = None
+    if use_auto_label_weights or label_weights is not None:
+        label_mapping = {}
+        for split in ["train", "valid"]:
+            split_folder = os.path.join(tgt_folder, split)
+            label_path = os.path.join(split_folder, f"{LABEL_KEY}.json")
+            with open(label_path, "r") as f:
+                label_mapping.update(json.load(f))
+    if use_auto_label_weights:
+        labels = list(label_mapping.values())
+        unique, counts = np.unique(labels, return_counts=True)
+        label_weights = {key: 1.0 / value for key, value in zip(unique, counts)}
     data = ImageFolderData(
         tgt_folder,
         batch_size=batch_size,
@@ -942,6 +1016,8 @@ def prepare_image_folder_data(
         test_shuffle=test_shuffle,
         test_transform=test_transform,
         test_transform_config=test_transform_config,
+        label_mapping=label_mapping,
+        label_weights=label_weights,
         lmdb_config=lmdb_config,
     )
     return PrepareResults(data, tgt_folder)
