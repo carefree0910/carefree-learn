@@ -491,7 +491,8 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
             trd["sampler"] = self.make_weighted_sampler(self.train_weights)
         kw = {"prefetch_device": self.prefetch_device}
         train_loader = CVLoader(DataLoader(self.train_data, **trd), **kw)  # type: ignore
-        d["shuffle"] = self.test_shuffle or self.shuffle
+        if self.test_shuffle is not None:
+            d["shuffle"] = self.test_shuffle
         valid_loader = CVLoader(DataLoader(self.valid_data, **d), **kw)  # type: ignore
         return train_loader, valid_loader
 
