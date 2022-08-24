@@ -30,7 +30,7 @@ class TestPipeline(unittest.TestCase):
         os.environ.pop("LOCAL_RANK")
 
     def test_mlflow_auto_callback(self) -> None:
-        m = cflearn.api.resnet18_gray(2, callback_names="mlflow")
+        m = cflearn.api.resnet18_gray(2, build=True, callback_names="mlflow")
         callback_configs = m.trainer_config["callback_configs"]
         mlflow_config = callback_configs["mlflow"]
         self.assertEqual(mlflow_config["experiment_name"], "clf")

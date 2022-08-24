@@ -30,8 +30,8 @@ model_lite = U2NETP(3, 1)
 model.load_state_dict(torch.load(download_reference("u2net"), map_location="cpu"))
 model_lite.load_state_dict(torch.load(download_reference("u2netp"), map_location="cpu"))
 
-cf_model = cflearn.api.u2net(pretrained=True).model
-cf_model_lite = cflearn.api.u2net_lite(pretrained=True).model
+cf_model = cflearn.api.u2net_model(pretrained=True)
+cf_model_lite = cflearn.api.u2net_lite_model(pretrained=True)
 
 with eval_context(model):
     o1s = model(inp)
