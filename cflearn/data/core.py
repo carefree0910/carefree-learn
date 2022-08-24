@@ -163,6 +163,9 @@ data_loaders_type = Tuple[IDataLoader, Optional[IDataLoader]]
 
 @DataModule.register("dl")  # type: ignore
 class DLDataModule(DataModule, metaclass=ABCMeta):
+    train_data: IDataset
+    valid_data: Optional[IDataset]
+
     @abstractmethod
     def initialize(self) -> data_loaders_type:
         pass

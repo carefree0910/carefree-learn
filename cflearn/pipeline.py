@@ -31,7 +31,6 @@ from cftool.misc import WithRegister
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
-from .data import IMLData
 from .data import DataModule
 from .data import DLDataModule
 from .types import configs_type
@@ -307,7 +306,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     # build steps
 
     def record_num_samples(self) -> None:
-        data: Optional[IMLData] = getattr(self, "data", None)
+        data: Optional[DLDataModule] = getattr(self, "data", None)
         if data is None:
             self._defaults["train_samples"] = None
             self._defaults["valid_samples"] = None
