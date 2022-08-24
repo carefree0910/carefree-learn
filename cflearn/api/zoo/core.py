@@ -59,9 +59,9 @@ class ZooBase(ABC):
         self,
         model: Optional[str] = None,
         *,
+        build: bool = False,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
-        no_build: bool = False,
         debug: bool = False,
         **kwargs: Any,
     ):
@@ -133,7 +133,7 @@ class ZooBase(ABC):
         update_dict(increment, self.config)
         # build
         self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
-        if not no_build:
+        if build:
             try:
                 self.m.build(data_info or {})
             except Exception as err:
@@ -144,6 +144,7 @@ class ZooBase(ABC):
         cls,
         model: Optional[str] = None,
         *,
+        build: bool = False,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         debug: bool = False,
@@ -151,6 +152,7 @@ class ZooBase(ABC):
     ) -> IPipeline:
         zoo = cls(
             model,
+            build=build,
             data_info=data_info,
             json_path=json_path,
             debug=debug,
@@ -176,6 +178,7 @@ class DLZoo(ZooBase):
         cls,
         model: Optional[str] = None,
         *,
+        build: bool = False,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         pretrained: bool = False,
@@ -184,6 +187,7 @@ class DLZoo(ZooBase):
     ) -> DLPipeline:
         zoo = cls(
             model,
+            build=build,
             data_info=data_info,
             json_path=json_path,
             debug=debug,
@@ -204,7 +208,7 @@ class DLZoo(ZooBase):
         **kwargs: Any,
     ) -> IDLModel:
         kwargs.setdefault("in_loading", True)
-        zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
+        zoo = cls(model, build=True, data_info=data_info, json_path=json_path, **kwargs)
         if pretrained:
             zoo.load_pretrained()
         return zoo.m.model
@@ -227,7 +231,13 @@ class DLZoo(ZooBase):
         **kwargs: Any,
     ) -> DLPipeline:
         kwargs["in_loading"] = True
-        zoo = cls(model, data_info=data_info, json_path=json_path, **kwargs)
+        zoo = cls(
+            model,
+            build=True,
+            data_info=data_info,
+            json_path=json_path,
+            **kwargs,
+        )
         try:
             zoo.load_pretrained()
         except ValueError:

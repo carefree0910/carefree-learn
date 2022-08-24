@@ -336,13 +336,13 @@ def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
 def from_zoo(
     model: str,
     *,
+    build: bool = False,
     return_model: bool = False,
-    no_build: bool = False,
     **kwargs: Any,
 ) -> Union[IDLModel, DLPipeline]:
-    if return_model and no_build:
-        raise ValueError("`no_build` should be False when `return_model` is True")
-    kwargs["no_build"] = no_build
+    if return_model and not build:
+        raise ValueError("`build` should be True when `return_model` is True")
+    kwargs["build"] = build
     fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
     return fn(model, **kwargs)  # type: ignore
 
