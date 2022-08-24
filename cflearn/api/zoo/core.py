@@ -185,6 +185,9 @@ class DLZoo(ZooBase):
         debug: bool = False,
         **kwargs: Any,
     ) -> DLPipeline:
+        if pretrained and not build:
+            print_warning("`build` must be True when `pretrained` is True")
+            build = True
         zoo = cls(
             model,
             build=build,
