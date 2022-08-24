@@ -317,6 +317,9 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             self._defaults,
         )
 
+    def _report_configs(self) -> None:
+        self._report_messages("External Configurations", self.config)
+
     # build steps
 
     def record_num_samples(self) -> None:
@@ -418,6 +421,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         self._sanity_check()
         if self.trainer.is_rank_0 and not self.trainer.tqdm_settings.in_distributed:
             self._report_defaults()
+            self._report_configs()
         self.built = True
 
     # load steps
