@@ -772,7 +772,7 @@ def _clf(
     fn = DLZoo.load_model if return_model else DLZoo.load_pipeline
     if aux_num_classes is None:
         return fn(model, **kwargs)  # type: ignore
-    config = DLZoo(model, no_build=True, **kwargs).config
+    config = DLZoo(model, **kwargs).config
     aux_labels = sorted(aux_num_classes)
     loss_name = config["loss_name"]
     config["loss_name"] = f"{loss_name}:aux:{','.join(aux_labels)}"
