@@ -286,21 +286,35 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
                 f"{', '.join(missing_requirements)}"
             )
 
-    def _report_defaults(self) -> None:
-        def _stringify_item(item: Tuple[str, Any]) -> str:
-            return f"{item[0]:>{span}s}   |   {item[1]}"
+    @staticmethod
+    def _report_messages(title: str, messages: Dict[str, Any]) -> None:
+        def _stringify_item(item: Tuple[str, Any], prefix: Optional[str] = None) -> str:
+            key, value = item
+            if prefix is not None:
+                key = f"{prefix}{key}"
+            if not isinstance(value, dict):
+                return f"{key:>{span}s}   |   {value}"
+            prefix = f"{key}."
+            items = [_stringify_item((vk, vv), prefix) for vk, vv in value.items()]
+            return "\n".join(items)
 
         span = 42
         print(
             "\n".join(
                 [
                     "=" * 120,
-                    f"{'Internal Default Configurations Used by `carefree-learn`':^120s}",
+                    f"{title:^120s}",
                     "-" * 120,
-                    "\n".join(map(_stringify_item, self._defaults.items())),
+                    "\n".join(map(_stringify_item, messages.items())),
                     "-" * 120,
                 ]
             )
+        )
+
+    def _report_defaults(self) -> None:
+        self._report_messages(
+            "Internal Default Configurations Used by `carefree-learn`",
+            self._defaults,
         )
 
     # build steps
