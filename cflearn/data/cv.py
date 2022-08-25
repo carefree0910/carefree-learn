@@ -432,6 +432,7 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
             num_workers=num_workers,
             pin_memory=pin_memory_device is not None,
         )
+        self.train_weights = None
 
     @property
     def info(self) -> Dict[str, Any]:
@@ -448,6 +449,13 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
     def use_sw(self) -> bool:
         return self.label_mapping is not None and self.label_weights is not None
 
+    def setup_train_weights(self) -> None:
+        if self.use_sw:
+            self.train_weights = self.train_data.dataset.get_sample_weights_with(
+                self.label_mapping,
+                self.label_weights,
+            )
+
     def prepare(self, sample_weights: sample_weights_type) -> None:
         if sample_weights is not None:
             print_warning(
@@ -463,12 +471,7 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
                 lmdb_config=self.lmdb_config,
             )
         )
-        self.train_weights = None
-        if self.use_sw:
-            self.train_weights = self.train_data.dataset.get_sample_weights_with(
-                self.label_mapping,
-                self.label_weights,
-            )
+        self.setup_train_weights()
         use_train_as_valid = not os.path.isdir(os.path.join(self.folder, "valid"))
         self.valid_data = CVDataset(
             ImageFolderDataset(

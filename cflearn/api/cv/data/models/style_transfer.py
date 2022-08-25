@@ -155,7 +155,6 @@ class StyleTransferData(ImageFolderData):
         d["style_folder"] = self.style_folder
         return d
 
-    # TODO : support sample weights
     def prepare(self, sample_weights: sample_weights_type) -> None:
         self.train_data = CVDataset(
             StyleTransferDataset(
@@ -166,6 +165,7 @@ class StyleTransferData(ImageFolderData):
                 style_folder=self.style_folder,
             )
         )
+        self.setup_train_weights()
         self.valid_data = CVDataset(
             StyleTransferDataset(
                 self.folder,
