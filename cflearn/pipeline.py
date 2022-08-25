@@ -298,15 +298,16 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             items = [_stringify_item((vk, vv), prefix) for vk, vv in value.items()]
             return "\n".join(items)
 
-        span = 42
+        span = 64
+        length = 2 * span
         print(
             "\n".join(
                 [
-                    "=" * 120,
-                    f"{title:^120s}",
-                    "-" * 120,
+                    "=" * length,
+                    f"{title:^{length}s}",
+                    "-" * length,
                     "\n".join(map(_stringify_item, messages.items())),
-                    "-" * 120,
+                    "-" * length,
                 ]
             )
         )
