@@ -447,17 +447,22 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         if data is not None:
             data.save_info(export_folder)
         else:
-            msg = "`data` is not found, `pipeline.data_module_bytes` will be saved"
-            print_warning(msg)
             if self.data_module_bytes is None:
-                raise ValueError("`data_module_bytes` should be provided")
-            data_folder = os.path.join(export_folder, DLDataModule.package_folder)
-            zip_path = f"{data_folder}.zip"
-            with open(zip_path, "wb") as f:
-                f.write(self.data_module_bytes)
-            with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(data_folder)
-            os.remove(zip_path)
+                print_warning(
+                    "`data_module_bytes` is not found. This is likely to cause "
+                    "data-processing issues unless you are "
+                    "saving a pretrained model."
+                )
+            else:
+                msg = "`data` is not found, `pipeline.data_module_bytes` will be saved"
+                print_warning(msg)
+                data_folder = os.path.join(export_folder, DLDataModule.package_folder)
+                zip_path = f"{data_folder}.zip"
+                with open(zip_path, "wb") as f:
+                    f.write(self.data_module_bytes)
+                with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                    zip_ref.extractall(data_folder)
+                os.remove(zip_path)
         # final results
         final_results = None
         try:
