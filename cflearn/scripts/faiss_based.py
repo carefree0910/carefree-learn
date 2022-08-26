@@ -90,7 +90,7 @@ def image_retrieval(
     index_factory: str = "IVF128,Flat",
     forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     output_names: Optional[List[str]] = None,
-    cuda: int = 7,
+    cuda: Optional[int] = None,
 ) -> None:
     _check()
     version_folder = os.path.join(".versions", task, tag)
@@ -104,8 +104,9 @@ def image_retrieval(
     if os.path.isdir(version_folder):
         print(f"> Warning : '{version_folder}' already exists, it will be removed")
         shutil.rmtree(version_folder)
-    m.device_info = DeviceInfo(str(cuda), None)
-    m.model.to(f"cuda:{cuda}")
+    if cuda is not None:
+        m.device_info = DeviceInfo(str(cuda), None)
+        m.model.to(f"cuda:{cuda}")
     m.to_onnx(
         version_folder,
         onnx_file=onnx_file,
