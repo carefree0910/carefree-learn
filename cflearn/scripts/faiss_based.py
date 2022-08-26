@@ -7,6 +7,7 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -86,7 +87,9 @@ def image_retrieval(
     data_folder: str,
     input_sample: tensor_dict_type,
     index_dimension: int,
-    path_converter: Callable[[str], str],
+    # 1) if returns `str`, it will be saved as-is
+    # 2) if returns `Dict`, it will be saved with `json.dumps`
+    info_fn: Callable[[str], Union[str, Dict[str, Any]]],
     batch_size: int = 128,
     num_workers: int = 32,
     is_raw_data_folder: bool = False,
@@ -95,14 +98,14 @@ def image_retrieval(
     forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     output_names: Optional[List[str]] = None,
     cuda: Optional[int] = None,
-) -> None:
+) -> str:
     _check()
     version_folder = os.path.join(".versions", task, tag)
     features_folder = os.path.join(version_folder, "features")
     dist_folder = os.path.join(version_folder, "dist")
     onnx_file = f"{tag}.onnx"
     features_file = "features.npy"
-    files_file = "files.json"
+    info_file = "info.json"
 
     if os.path.isdir(version_folder):
         print(f"> Warning : '{version_folder}' already exists, it will be removed")
@@ -124,22 +127,23 @@ def image_retrieval(
     if is_raw_data_folder:
         rs = extractor.get_folder_latent(data_folder, **kw)  # type: ignore
         x = rs.latent
-        files = rs.img_paths
+        img_paths = rs.img_paths
     else:
         xs = []
-        files = []
+        img_paths = []
         for split in ["train", "valid"]:
             split_folder = os.path.join(data_folder, split)
             with open(os.path.join(split_folder, "path_mapping.json"), "r") as f:
                 mapping = json.load(f)
             rs = extractor.get_folder_latent(split_folder, **kw)  # type: ignore
             xs.append(rs.latent)
-            files.extend([mapping[file] for file in rs.img_paths])
+            img_paths.extend([mapping[path] for path in rs.img_paths])
         x = np.vstack(xs)
     np.save(os.path.join(features_folder, features_file), x)
-    files_path = os.path.join(features_folder, files_file)
-    with open(files_path, "w") as f:
-        json.dump([path_converter(file) for file in files], f, ensure_ascii=False)
+    info_path = os.path.join(features_folder, info_file)
+    with open(info_path, "w") as f:
+        info_list = list(map(json.dumps, map(info_fn, img_paths)))
+        json.dump(info_list, f, ensure_ascii=False)
 
     args = [index_dimension, index_factory]
     if index_metrics is not None:
@@ -167,11 +171,13 @@ def image_retrieval(
         os.path.join(version_folder, onnx_file),
         os.path.join(dist_folder, onnx_file),
     )
-    print(">> copying files")
-    shutil.copyfile(files_path, os.path.join(dist_folder, files_file))
+    print(">> copying info")
+    shutil.copyfile(info_path, os.path.join(dist_folder, info_file))
     print(">> copying index")
     shutil.copyfile(index_path, os.path.join(dist_folder, index_file))
     print("> done")
+
+    return dist_folder
 
 
 __all__ = [
