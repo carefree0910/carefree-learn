@@ -97,7 +97,6 @@ def image_retrieval(
     version_folder = os.path.join(".versions", task, tag)
     features_folder = os.path.join(version_folder, "features")
     dist_folder = os.path.join(version_folder, "dist")
-    model_file = f"{tag}.zip"
     onnx_file = f"{tag}.onnx"
     features_file = "features.npy"
     files_file = "files.json"
@@ -152,7 +151,11 @@ def image_retrieval(
 
     os.makedirs(dist_folder)
     print(">> copying model")
-    shutil.copyfile(f"{packed}.zip", os.path.join(dist_folder, model_file))
+    if os.path.isdir(packed):
+        shutil.copytree(packed, os.path.join(dist_folder, "packed"))
+    else:
+        model_path = os.path.join(dist_folder, f"{tag}.zip")
+        shutil.copyfile(f"{packed}.zip", model_path)
     print(">> copying onnx")
     shutil.copyfile(
         os.path.join(version_folder, onnx_file),
