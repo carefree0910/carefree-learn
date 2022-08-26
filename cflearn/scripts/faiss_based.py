@@ -87,6 +87,7 @@ def image_retrieval(
     path_converter: Callable[[str], str],
     batch_size: int = 128,
     num_workers: int = 32,
+    is_raw_data_folder: bool = False,
     index_factory: str = "IVF128,Flat",
     forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     output_names: Optional[List[str]] = None,
@@ -117,17 +118,22 @@ def image_retrieval(
 
     os.makedirs(features_folder, exist_ok=True)
     kw = dict(batch_size=batch_size, num_workers=num_workers)
-    files = []
-    features = []
-    for split in ["train", "valid"]:
-        split_folder = os.path.join(data_folder, split)
-        with open(os.path.join(split_folder, "path_mapping.json"), "r") as f:
-            mapping = json.load(f)
-        rs = extractor.get_folder_latent(split_folder, **kw)  # type: ignore
-        files.extend([mapping[file] for file in rs[1]])
-        features.append(rs[0])
 
-    x = np.vstack(features)
+    if is_raw_data_folder:
+        rs = extractor.get_folder_latent(data_folder, **kw)  # type: ignore
+        x = rs.latent
+        files = rs.img_paths
+    else:
+        xs = []
+        files = []
+        for split in ["train", "valid"]:
+            split_folder = os.path.join(data_folder, split)
+            with open(os.path.join(split_folder, "path_mapping.json"), "r") as f:
+                mapping = json.load(f)
+            rs = extractor.get_folder_latent(split_folder, **kw)  # type: ignore
+            xs.append(rs.latent)
+            files.extend([mapping[file] for file in rs.img_paths])
+        x = np.vstack(xs)
     np.save(os.path.join(features_folder, features_file), x)
     files_path = os.path.join(features_folder, files_file)
     with open(files_path, "w") as f:
