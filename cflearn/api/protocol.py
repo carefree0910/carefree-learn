@@ -1,6 +1,12 @@
-from torch import Tensor
+import numpy as np
+
 from typing import List
-from typing import Tuple
+from typing import NamedTuple
+
+
+class ImageFolderLatentResponse(NamedTuple):
+    latent: np.ndarray
+    img_paths: List[str]
 
 
 class IImageExtractor:
@@ -11,7 +17,7 @@ class IImageExtractor:
         batch_size: int,
         num_workers: int = 0,
         use_tqdm: bool = True,
-    ) -> Tuple[Tensor, List[str]]:
+    ) -> ImageFolderLatentResponse:
         pass
 
 

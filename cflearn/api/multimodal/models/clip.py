@@ -2,12 +2,12 @@ import torch
 
 import numpy as np
 
-from typing import List
 from typing import Callable
 from typing import Optional
-from typing import NamedTuple
 from cftool.array import to_torch
 
+from ...protocol import IImageExtractor
+from ...protocol import ImageFolderLatentResponse
 from ...cv.utils import predict_folder
 from ...cv.pipeline import CVPipeline
 from ....data import TensorData
@@ -17,11 +17,6 @@ from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....models.nlp.tokenizers import ITokenizer
 from ....models.multimodal.clip import CLIP
-
-
-class ImageFolderLatentResponse(NamedTuple):
-    latent: np.ndarray
-    img_paths: List[str]
 
 
 class CLIPExtractor:
@@ -81,8 +76,7 @@ class CLIPExtractor:
             use_tqdm=use_tqdm,
         )
         self.clip.forward = original_forward  # type: ignore
-        latent = results.outputs[LATENT_KEY]
-        return ImageFolderLatentResponse(latent, results.img_paths)
+        return ImageFolderLatentResponse(results.outputs[LATENT_KEY], results.img_paths)
 
     def to_text_onnx(
         self,
