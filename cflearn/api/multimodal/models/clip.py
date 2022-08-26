@@ -19,7 +19,7 @@ from ....models.nlp.tokenizers import ITokenizer
 from ....models.multimodal.clip import CLIP
 
 
-class CLIPExtractor:
+class CLIPExtractor(IImageExtractor):
     clip: CLIP
 
     def __init__(self, m: CVPipeline):

@@ -12,6 +12,8 @@ from ..data import SSLTestTransform
 from ..data import InferenceImageFolderData
 from ..utils import predict_folder
 from ..pipeline import CVPipeline
+from ...protocol import IImageExtractor
+from ...protocol import ImageFolderLatentResponse
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context
 
@@ -21,7 +23,7 @@ except:
     to_rgb = None
 
 
-class DINOExtractor:
+class DINOExtractor(IImageExtractor):
     def __init__(self, m: CVPipeline, img_size: int, *, to_gray: bool = False):
         if to_rgb is None:
             raise ValueError("`carefree-cv` is needed for `DINOExtractor`")
@@ -52,7 +54,7 @@ class DINOExtractor:
         batch_size: int,
         num_workers: int = 0,
         use_tqdm: bool = True,
-    ) -> Tuple[Tensor, List[str]]:
+    ) -> ImageFolderLatentResponse:
         results = predict_folder(
             self.m,
             src_folder,
@@ -61,8 +63,7 @@ class DINOExtractor:
             transform=self.transform,
             use_tqdm=use_tqdm,
         )
-        latent = to_torch(results.outputs[LATENT_KEY])
-        return latent, results.img_paths
+        return ImageFolderLatentResponse(results.outputs[LATENT_KEY], results.img_paths)
 
     def get_folder_logits(
         self,

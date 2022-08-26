@@ -1,8 +1,8 @@
 import os
-
 import json
-import torch
 import cflearn
+
+import numpy as np
 
 from PIL import Image
 
@@ -21,10 +21,10 @@ valid_data_folder = os.path.join(data_folder, "valid")
 os.makedirs(features_folder, exist_ok=True)
 kw = dict(batch_size=4, num_workers=2)
 rs = dino_api.get_folder_latent(train_data_folder, **kw)  # type: ignore
-torch.save(rs[0], os.path.join(features_folder, "train.pt"))
+np.save(os.path.join(features_folder, "train.npy"), rs.latent)
 with open(os.path.join(features_folder, "train.json"), "w") as f:
-    json.dump(rs[1], f)
+    json.dump(rs.img_paths, f)
 rs = dino_api.get_folder_latent(valid_data_folder, **kw)  # type: ignore
-torch.save(rs[0], os.path.join(features_folder, "valid.pt"))
+np.save(os.path.join(features_folder, "valid.npy"), rs.latent)
 with open(os.path.join(features_folder, "valid.json"), "w") as f:
-    json.dump(rs[1], f)
+    json.dump(rs.img_paths, f)
