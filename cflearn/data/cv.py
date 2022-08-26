@@ -1006,6 +1006,9 @@ def prepare_image_folder_data(
         labels = list(label_mapping.values())
         unique, counts = np.unique(labels, return_counts=True)
         label_weights = {key: 1.0 / value for key, value in zip(unique, counts)}
+        lw_strings = [f"{key}: 1/{value}" for key, value in zip(unique, counts)]
+        lw_str = ", ".join(lw_strings)
+        print_info(f"generated `label_weights`: {'{' + lw_str + '}'}")
     data = ImageFolderData(
         tgt_folder,
         batch_size=batch_size,
