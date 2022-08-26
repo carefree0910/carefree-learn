@@ -1,6 +1,8 @@
 import os
 import json
+import torch
 import shutil
+import tempfile
 
 import numpy as np
 
@@ -14,7 +16,12 @@ from typing import NamedTuple
 from cftool.types import tensor_dict_type
 
 from ..protocol import DeviceInfo
+from ..constants import INPUT_KEY
+from ..constants import PREDICTIONS_KEY
+from ..api.api import clip
+from ..api.api import load
 from ..api.protocol import IImageExtractor
+from ..api.multimodal import CLIPExtractor
 from ..api.cv.pipeline import CVPipeline
 
 try:
@@ -180,8 +187,78 @@ def image_retrieval(
     return dist_folder
 
 
-__all__ = [
-    "build_faiss",
-    "image_retrieval",
-    "FaissAPI",
-]
+class IRResponse(NamedTuple):
+    scores: List[float]
+    info_list: List[Any]
+
+
+def clip_image_retrieval(
+    *,
+    tag: str,
+    task: str,
+    data_folder: str,
+    info_fn: Callable[[str], str],
+    index_factory: str = "IVF128,Flat",
+    cuda: Optional[int] = None,
+) -> str:
+    _check()
+    m = clip()
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        packed = os.path.join(tmp_dir, "packed")
+        m.save(packed, compress=False)
+        model = m.model
+        img_size = model.img_size
+        return image_retrieval(
+            m,
+            packed,
+            CLIPExtractor(m),
+            tag=tag,
+            task=task,
+            data_folder=data_folder,
+            input_sample={INPUT_KEY: torch.zeros(1, 3, img_size, img_size)},
+            index_dimension=512,
+            info_fn=info_fn,
+            is_raw_data_folder=True,
+            index_factory=index_factory,
+            index_metrics=faiss.METRIC_INNER_PRODUCT,
+            forward_fn=lambda b: model.encode_image(b[INPUT_KEY]),
+            output_names=[PREDICTIONS_KEY],
+            cuda=cuda,
+        )
+
+
+def test_clip_image_retrieval(
+    dist_folder: str,
+    *,
+    test_data_folder: str,
+    top_k: int = 16,
+    n_probe: Optional[int] = None,
+    batch_size: int = 16,
+    cuda: Optional[int] = None,
+) -> Dict[str, IRResponse]:
+    # collect
+    index_path = None
+    for file in os.listdir(dist_folder):
+        path = os.path.join(dist_folder, file)
+        if file.endswith(".index"):
+            index_path = path
+    if index_path is None:
+        raise ValueError(f"index is not found under '{dist_folder}'")
+    info_path = os.path.join(dist_folder, "info.json")
+    if not os.path.isfile(info_path):
+        raise ValueError(f"'{info_path}' is not found under '{dist_folder}'")
+    with open(info_path, "r") as f:
+        pool = list(map(json.loads, json.load(f)))
+    # inference
+    m = load(os.path.join(dist_folder, "packed"), cuda=cuda, compress=False)
+    clip_extractor = CLIPExtractor(m)
+    clip_rs = clip_extractor.get_folder_latent(test_data_folder, batch_size=batch_size)
+    latent = clip_rs.latent
+    img_paths = clip_rs.img_paths
+    # predict
+    final = {}
+    api = FaissAPI(index_path)
+    faiss_rs = api.predict(latent, top_k=top_k, n_probe=n_probe)
+    for i, (i_indices, i_metrics) in enumerate(zip(faiss_rs.indices, faiss_rs.metrics)):
+        final[img_paths[i]] = IRResponse(i_metrics, [pool[idx] for idx in i_indices])
+    return final
