@@ -89,6 +89,7 @@ def image_retrieval(
     num_workers: int = 32,
     is_raw_data_folder: bool = False,
     index_factory: str = "IVF128,Flat",
+    index_metrics: Optional[Any] = None,
     forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     output_names: Optional[List[str]] = None,
     cuda: Optional[int] = None,
@@ -138,7 +139,10 @@ def image_retrieval(
     with open(files_path, "w") as f:
         json.dump([path_converter(file) for file in files], f, ensure_ascii=False)
 
-    index = faiss.index_factory(index_dimension, index_factory)
+    args = [index_dimension, index_factory]
+    if index_metrics is not None:
+        args.append(index_metrics)
+    index = faiss.index_factory(*args)
     print(">> training index")
     index.train(x)
     print(">> adding data to index")
