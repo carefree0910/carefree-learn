@@ -903,9 +903,11 @@ class Trainer(ITrainer):
         if state is None:
             print_warning(
                 "`state` is not initialized, "
-                "latest model will be saved and no scores will be recorded"
+                "latest model will be saved and the recorded score will always be 0"
             )
             torch.save(self.model.state_dict(), os.path.join(folder, pt_file))
+            with open(os.path.join(folder, SCORES_FILE), "w") as f:
+                json.dump({pt_file: 0.0}, f)
             return
         # leave top_k snapshots only
         if state.max_snapshot_file > 0:
