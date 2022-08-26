@@ -292,7 +292,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             key, value = item
             if prefix is not None:
                 key = f"{prefix}{key}"
-            if not isinstance(value, dict):
+            if not isinstance(value, dict) or not value:
                 return f"{key:>{span}s}   |   {value}"
             prefix = f"{key}."
             items = [_stringify_item((vk, vv), prefix) for vk, vv in value.items()]
