@@ -48,6 +48,8 @@ class FaissAPI:
             self.index.nprobe = n_probe
         top_k = min(top_k, self.index.ntotal)
         metrics, indices = self.index.search(query, top_k)
+        metrics = metrics.tolist()
+        indices = indices.tolist()
         for i, (sub_i, sub_m) in enumerate(zip(indices, metrics)):
             metrics[i] = [d for j, d in enumerate(sub_m) if sub_i[j] != -1]
             indices[i] = [j for j in sub_i if j != -1]
