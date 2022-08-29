@@ -101,7 +101,7 @@ def image_retrieval(
     num_workers: int = 32,
     is_raw_data_folder: bool = False,
     index_factory: str = "IVF128,Flat",
-    index_metrics: Optional[Any] = None,
+    use_cosine_similarity: bool = False,
     forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
     output_names: Optional[List[str]] = None,
     cuda: Optional[int] = None,
@@ -152,19 +152,15 @@ def image_retrieval(
         info_list = list(map(json.dumps, map(info_fn, img_paths)))
         json.dump(info_list, f, ensure_ascii=False)
 
-    args = [index_dimension, index_factory]
-    if index_metrics is not None:
-        args.append(index_metrics)
-    index = faiss.index_factory(*args)
-    print(">> training index")
-    index.train(x)
-    print(">> adding data to index")
-    index.add(x)
-    print(">> saving index")
     index_file = f"{task}.{tag}.index"
     index_path = os.path.join(features_folder, index_file)
-    faiss.write_index(index, index_path)
-    print("> done")
+    build_faiss(
+        x,
+        index_path,
+        dimension=index_dimension,
+        factory=index_factory,
+        use_cosine_similarity=use_cosine_similarity,
+    )
 
     os.makedirs(dist_folder)
     print(">> copying model")
@@ -220,7 +216,7 @@ def clip_image_retrieval(
             info_fn=info_fn,
             is_raw_data_folder=True,
             index_factory=index_factory,
-            index_metrics=faiss.METRIC_INNER_PRODUCT,
+            use_cosine_similarity=True,
             forward_fn=lambda b: model.encode_image(b[INPUT_KEY]),
             output_names=[PREDICTIONS_KEY],
             cuda=cuda,
