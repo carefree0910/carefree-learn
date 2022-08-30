@@ -29,6 +29,7 @@ texts = ["a diagram", "a dog", "a cat"]
 text = clip.tokenize(texts).to(torch.long)
 assert torch.allclose(text, torch.from_numpy(cf_tokenizer.tokenize(texts)))
 
+cf_clip.logit_scale = model.logit_scale
 with eval_context(model):
     o = model(img, text)[0]
 with eval_context(cf_clip):
