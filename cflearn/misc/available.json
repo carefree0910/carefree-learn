@@ -11,6 +11,18 @@
     "clip_3.9": {
       "sha": "cb80050e795c3092bd6766478fc16511ec553ac08a01bf748f69d2d298292fec",
       "st_size": 2097753
+    },
+    "clip.chinese": {
+      "sha": "8cc7bb7db8db2e8c5f6e0b9b098e41fa242145b6679bce8f94b0073d7da6e2b3'",
+      "st_size": 386032
+    },
+    "clip.chinese_3.8": {
+      "sha": "8cc7bb7db8db2e8c5f6e0b9b098e41fa242145b6679bce8f94b0073d7da6e2b3'",
+      "st_size": 386032
+    },
+    "clip.chinese_3.9": {
+      "sha": "5e6edacb6c2231077c774414c3d9f909ad1bfe6a8a923e18bc391f0d6e1f3351",
+      "st_size": 386109
     }
   },
   "checkpoints": {
@@ -25,6 +37,11 @@
     "clip": {
       "sha": "6e47b23cc2e6907a3c6fa19e87882a1c34ae2eac62554d10c82d3f6d2bd82c72",
       "st_size": 605255009
+    },
+    "clip.chinese": {
+      "sha": "12307b8b13dc13913d9acdb702eef7105c04040dd4e2a3051c15c311122d178e",
+      "st_size": 2521375197,
+      "download_url": "https://drive.google.com/uc?export=download&id=1njiSBoyVw1Qrr4TfzmVX8TGgyoa6dhU2&confirm=t&uuid=11d0b741-ca61-4ac8-8dd4-b3e22fc12665"
     },
     "vqgan_generator": {
       "sha": "36a9d1b6df91c40a34f96febb057eed3a32efaecf904a3d6915f8535268520b6",

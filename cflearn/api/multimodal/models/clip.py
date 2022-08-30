@@ -22,13 +22,18 @@ from ....models.multimodal.clip import CLIP
 class CLIPExtractor(IImageExtractor):
     clip: CLIP
 
-    def __init__(self, m: CVPipeline):
+    def __init__(self, m: CVPipeline, *, tokenizer: Optional[str] = None):
         self.m = m
         clip = m.model
         self.clip = clip
         self.img_size = clip.img_size
         self.transform = clip.get_transform()
-        self.tokenizer = ITokenizer.make("clip", {})
+        if tokenizer is None:
+            if self.clip.context_length == 512:
+                tokenizer = "clip.chinese"
+            else:
+                tokenizer = "clip"
+        self.tokenizer = ITokenizer.make(tokenizer, {})
 
     @property
     def text_forward_fn(self) -> Callable:

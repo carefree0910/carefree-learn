@@ -1059,6 +1059,20 @@ def clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
     return DLZoo.load_model("multimodal/clip", pretrained=pretrained, **kwargs)
 
 
+def chinese_clip(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    if pretrained:
+        kwargs["build"] = True
+    model = "multimodal/clip.chinese"
+    return DLZoo.load_pipeline(model, pretrained=pretrained, **kwargs)
+
+
+def chinese_clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
+    if pretrained:
+        kwargs["build"] = True
+    model = "multimodal/clip.chinese"
+    return DLZoo.load_model(model, pretrained=pretrained, **kwargs)
+
+
 def clip_vqgan_aligner(**kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("multimodal/clip_vqgan_aligner", **kwargs)
 
