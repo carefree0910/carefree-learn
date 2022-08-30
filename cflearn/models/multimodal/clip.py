@@ -2,6 +2,8 @@ import torch
 
 from torch import nn
 from torch import Tensor
+from typing import Optional
+from cftool.misc import shallow_copy_dict
 from cftool.array import l2_normalize
 from torchvision.transforms import Resize
 from torchvision.transforms import Compose
@@ -33,15 +35,25 @@ class CLIP(IPerceptor):
         in_channels: int = 3,
         vision_latent_dim: int = 768,
         vision_patch_size: int = 32,
-        vision_num_layers: int = 12,
         vision_num_heads: int = 12,
+        vision_num_layers: int = 12,
         vision_norm_eps: float = 1.0e-5,
         # text
         vocab_size: int = 49408,
         context_length: int = 77,
+        use_text_triu_attn_mask: bool = True,
+        token_type_size: Optional[int] = None,
         text_latent_dim: int = 512,
-        text_num_layers: int = 12,
+        text_padding_idx: int = 0,
+        use_text_embedding_norm: bool = False,
+        text_embedding_dropout: Optional[bool] = None,
+        text_dropout: float = 0.0,
         text_num_heads: int = 8,
+        text_num_layers: int = 12,
+        text_norm_position: str = "pre_norm",
+        text_norm_eps: float = 1.0e-5,
+        text_feedforward_activation: str = "quick_gelu",
+        text_head_pooler: Optional[str] = None,
     ):
         super().__init__(img_size, context_length)
         self.vision_latent_dim = vision_latent_dim
@@ -62,17 +74,38 @@ class CLIP(IPerceptor):
         )
         self.text_num_layers = text_num_layers
         self.text_latent_dim = text_latent_dim
-        self.token_embedding = nn.Embedding(vocab_size, self.text_latent_dim)
+        self.token_embedding = nn.Embedding(
+            vocab_size,
+            text_latent_dim,
+            padding_idx=text_padding_idx,
+        )
+        if token_type_size is None:
+            self.token_type_embedding = None
+        else:
+            self.token_type_embedding = nn.Embedding(token_type_size, text_latent_dim)
+        if not use_text_embedding_norm:
+            text_embedding_norm = None
+        else:
+            text_embedding_norm = nn.LayerNorm(text_latent_dim, text_norm_eps)
+        feedforward_kwargs = shallow_copy_dict(feedforward_kwargs)
+        feedforward_kwargs["activation"] = text_feedforward_activation
         self.text_transformer = TeTEncoder(
-            self.text_latent_dim,
-            use_triu_attn_mask=True,
+            text_latent_dim,
+            context_length,
+            use_triu_attn_mask=use_text_triu_attn_mask,
             num_layers=text_num_layers,
-            norm_kwargs={"eps": 1.0e-5},
+            dropout=text_dropout,
+            norm_position=text_norm_position,
+            norm_kwargs={"eps": text_norm_eps},
+            embedding_norm=text_embedding_norm,
+            embedding_dropout=text_embedding_dropout,
             attention_kwargs={"num_heads": text_num_heads},
             feedforward_kwargs=feedforward_kwargs,
+            head_pooler=text_head_pooler,
         )
-        projection_shape = self.text_latent_dim, latent_dim
-        self.text_projection = nn.Parameter(torch.empty(*projection_shape))
+        self.text_head_pooler = text_head_pooler
+        self.text_latent_dropout = nn.Dropout(text_dropout)
+        self.text_projection = nn.Linear(text_latent_dim, latent_dim)
 
         self.reset_parameters()
 
@@ -90,7 +123,8 @@ class CLIP(IPerceptor):
             nn.init.normal_(attn.out_linear.weight, std=proj_std)
             nn.init.normal_(mlp[0].weight, std=fc_std)
             nn.init.normal_(mlp[3].weight, std=proj_std)
-        nn.init.normal_(self.text_projection, std=self.text_latent_dim**-0.5)
+        nn.init.normal_(self.text_projection.weight, std=self.text_latent_dim**-0.5)
+        nn.init.zeros_(self.text_projection.bias)
 
     def encode_image(self, image: Tensor) -> Tensor:
         net = self.vit(image, determinate=True)[LATENT_KEY]
@@ -98,14 +132,20 @@ class CLIP(IPerceptor):
 
     def encode_text(self, text: Tensor) -> Tensor:
         net = self.token_embedding(text)
+        if self.token_type_embedding is not None:
+            token_type = torch.zeros_like(text)
+            net = net + self.token_type_embedding(token_type)
         net = self.text_transformer(0, {INPUT_KEY: net}, determinate=True)[LATENT_KEY]
-        batch_size = net.shape[0]
-        if self.training or batch_size > 1:
-            net = net[torch.arange(batch_size), text.argmax(dim=-1)]
-        else:
-            # ONNX compatibility
-            net = net[:, torch.nonzero(text)[:, 1][-1]]
-        net = net @ self.text_projection
+        # 'pool' the latent net if pooler is not provided
+        if self.text_head_pooler is None:
+            batch_size = net.shape[0]
+            if self.training or batch_size > 1:
+                net = net[torch.arange(batch_size), text.argmax(dim=-1)]
+            else:
+                # ONNX compatibility
+                net = net[:, torch.nonzero(text)[:, 1][-1]]
+        net = self.text_latent_dropout(net)
+        net = self.text_projection(net)
         return l2_normalize(net)
 
     def get_transform(self) -> Compose:

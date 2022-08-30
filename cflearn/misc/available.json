@@ -23,8 +23,8 @@
       "st_size": 28054835
     },
     "clip": {
-      "sha": "ef1629f092adee8ebbdb89074254a3fb4b48d8d50e086de24736f58be2b587f1",
-      "st_size": 605262947
+      "sha": "6e47b23cc2e6907a3c6fa19e87882a1c34ae2eac62554d10c82d3f6d2bd82c72",
+      "st_size": 605255009
     },
     "vqgan_generator": {
       "sha": "36a9d1b6df91c40a34f96febb057eed3a32efaecf904a3d6915f8535268520b6",
