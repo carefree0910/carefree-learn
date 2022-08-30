@@ -83,6 +83,7 @@ def check_is_ci() -> bool:
 class FileInfo(NamedTuple):
     sha: str
     st_size: int
+    download_url: Optional[str] = None
 
 
 def check_available(tag: str, repo: str, name: str) -> Optional[FileInfo]:
@@ -118,7 +119,6 @@ def download(
     info = check_available(tag, repo, name)
     if info is None:
         raise ValueError(f"'{name}' is currently not available at '{tag}'")
-    prefix = f"https://github.com/carefree0910/{repo}/releases/download/{tag}/"
     os.makedirs(root, exist_ok=True)
     file = f"{name}.{extension}"
     path = os.path.join(root, file)
@@ -135,8 +135,13 @@ def download(
                 return path
             print_warning(fmt.format("sha is not correct"))
     with DownloadProgressBar(unit="B", unit_scale=True, miniters=1, desc=name) as t:
+        if info.download_url is not None:
+            url = info.download_url
+        else:
+            prefix = f"https://github.com/carefree0910/{repo}/releases/download/{tag}/"
+            url = f"{prefix}{file}"
         urllib.request.urlretrieve(
-            f"{prefix}{file}",
+            url,
             filename=path,
             reporthook=t.update_to,
         )
