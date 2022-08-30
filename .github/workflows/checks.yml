@@ -28,6 +28,7 @@ jobs:
         pip install black
         pip install types-setuptools
         pip install types-dataclasses
+        pip install types-requests
     - name: black
       run: black . --check --diff
     - name: mypy
