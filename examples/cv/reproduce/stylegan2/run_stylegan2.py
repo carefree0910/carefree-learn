@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import random
 import cflearn
 
 from cflearn.misc.toolkit import eval_context
@@ -22,23 +23,24 @@ import legacy
 torch.manual_seed(142857)
 z = torch.randn(1, 512)
 
+src = random.choice(
+    [
+        "afhqcat",
+        "afhqdog",
+        "afhqwild",
+        "brecahad",
+        "ffhq",
+        "metfaces",
+    ]
+)
+with open(download_reference(src), "rb") as f:
+    g = legacy.load_network_pkl(f)["G_ema"]
+cf_model_name = f"generator/style_gan2_generator.{src}"
+cfg = cflearn.DLZoo.load_model(cf_model_name, pretrained=True)
 
-for src in [
-    "afhqcat",
-    "afhqdog",
-    "afhqwild",
-    "brecahad",
-    "ffhq",
-    "metfaces",
-]:
-    with open(download_reference(src), "rb") as f:
-        g = legacy.load_network_pkl(f)["G_ema"]
-    cf_model_name = f"generator/style_gan2_generator.{src}"
-    cfg = cflearn.DLZoo.load_model(cf_model_name, pretrained=True)
-
-    print(f"=== checking {src} ===")
-    with eval_context(g):
-        o = g(z, None, force_fp32=True, noise_mode="const")
-    with eval_context(cfg):
-        cfo = cfg(0, {"input": z}, noise_mode="const")["predictions"]
-    assert torch.allclose(o, cfo, atol=1.0e-4)
+print(f"=== checking {src} ===")
+with eval_context(g):
+    o = g(z, None, force_fp32=True, noise_mode="const")
+with eval_context(cfg):
+    cfo = cfg(0, {"input": z}, noise_mode="const")["predictions"]
+assert torch.allclose(o, cfo, atol=1.0e-4)

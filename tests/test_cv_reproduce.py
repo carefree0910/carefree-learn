@@ -31,7 +31,7 @@ class TestReproduce(unittest.TestCase):
             return
         self._core("clip")
         self._core("clip", name="base")
-        self._core("clip", name="chinese")
+        # self._core("clip", name="chinese")
 
 
 if __name__ == "__main__":
