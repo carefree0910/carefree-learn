@@ -19,7 +19,7 @@
       "norm_kwargs": { "eps": 1.0e-5 },
       "residual_after_norm": true,
       "use_head_token": false,
-      "sequence_pool": true
+      "head_pooler": "sequence"
     }
   },
   "loss_name": "multi_task:focal,cross_entropy",

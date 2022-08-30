@@ -35,6 +35,7 @@ class CLIP(IPerceptor):
         vision_patch_size: int = 32,
         vision_num_layers: int = 12,
         vision_num_heads: int = 12,
+        vision_norm_eps: float = 1.0e-5,
         # text
         vocab_size: int = 49408,
         context_length: int = 77,
@@ -52,8 +53,8 @@ class CLIP(IPerceptor):
             latent_dim=self.vision_latent_dim,
             to_patches_config={"bias": False},
             num_layers=vision_num_layers,
-            norm_kwargs={"eps": 1.0e-5},
-            first_norm=nn.LayerNorm(self.vision_latent_dim),
+            norm_kwargs={"eps": vision_norm_eps},
+            embedding_norm=nn.LayerNorm(self.vision_latent_dim, vision_norm_eps),
             attention_kwargs={"num_heads": vision_num_heads},
             feedforward_kwargs=feedforward_kwargs,
             norm_after_head=True,
@@ -83,8 +84,8 @@ class CLIP(IPerceptor):
         attn_std = self.text_latent_dim**-0.5
         fc_std = (2 * self.text_latent_dim) ** -0.5
         for block in text_encoder.mixing_blocks:
-            attn = block.token_mixing.module.net
-            mlp = block.channel_mixing.module.net
+            attn = block.token_mixing.net
+            mlp = block.channel_mixing.net
             nn.init.normal_(attn.in_w, std=attn_std)
             nn.init.normal_(attn.out_linear.weight, std=proj_std)
             nn.init.normal_(mlp[0].weight, std=fc_std)

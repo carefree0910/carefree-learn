@@ -36,6 +36,7 @@ class Transformer(MixedStackedModel):
             feedforward_dim_ratio=feedforward_dim_ratio,
             use_head_token=use_head_token,
             use_positional_encoding=True,
+            is_vision_positional_encoding=False,
         )
 
 

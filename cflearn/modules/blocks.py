@@ -1817,29 +1817,47 @@ class MixingBlock(Module):
         latent_dim: int,
         feedforward_dim: int,
         *,
+        norm_position: str = "pre_norm",
         token_mixing_type: str,
         token_mixing_config: Optional[Dict[str, Any]] = None,
+        token_mixing_dropout: Optional[float] = None,
         channel_mixing_type: str = "ff",
         channel_mixing_config: Optional[Dict[str, Any]] = None,
         dropout: float = 0.0,
         drop_path: float = 0.0,
         norm_type: Optional[str] = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
-        first_norm: Optional[nn.Module] = None,
         residual_after_norm: bool = False,
     ):
+        def _make_norm() -> nn.Module:
+            factory = NormFactory(norm_type)
+            return factory.make(latent_dim, **(norm_kwargs or {}))
+
         super().__init__()
-        self.first_norm = first_norm
+        if norm_position not in {"pre_norm", "post_norm"}:
+            raise ValueError(
+                "`norm_position` should be either 'pre_norm' or 'post_norm', "
+                f"'{norm_position}' found"
+            )
+        self.norm_position = norm_position
         self.drop_path = DropPath(drop_path) if drop_path > 0.0 else nn.Identity()
+        # token mixing
         if token_mixing_config is None:
             token_mixing_config = {}
-        token_mixing_config.update({"num_tokens": num_tokens, "latent_dim": latent_dim})
-        self.token_mixing = PreNorm(
-            latent_dim,
-            module=TokenMixerBase.make(token_mixing_type, token_mixing_config),
-            norm_type=norm_type,
-            norm_kwargs=norm_kwargs,
+        token_mixing_config.update(
+            {
+                "num_tokens": num_tokens,
+                "latent_dim": latent_dim,
+                "dropout": dropout,
+            }
         )
+        self.token_norm = _make_norm()
+        token_mixing_base = TokenMixerBase.get(token_mixing_type)
+        self.token_mixing = safe_execute(token_mixing_base, token_mixing_config)
+        if token_mixing_dropout is None:
+            token_mixing_dropout = dropout
+        self.token_mixing_dropout = nn.Dropout(token_mixing_dropout)
+        # channel mixing
         if channel_mixing_config is None:
             channel_mixing_config = {}
         channel_mixing_config.update(
@@ -1849,19 +1867,9 @@ class MixingBlock(Module):
                 "dropout": dropout,
             }
         )
-        ffn = FFN.make(channel_mixing_type, channel_mixing_config)
-        if residual_after_norm:
-            factory = NormFactory(norm_type)
-            self.channel_norm = factory.make(latent_dim, **(norm_kwargs or {}))
-            self.channel_mixing = ffn
-        else:
-            self.channel_norm = None
-            self.channel_mixing = PreNorm(
-                latent_dim,
-                module=ffn,
-                norm_type=norm_type,
-                norm_kwargs=norm_kwargs,
-            )
+        self.residual_after_norm = residual_after_norm
+        self.channel_norm = _make_norm()
+        self.channel_mixing = FFN.make(channel_mixing_type, channel_mixing_config)
 
     def forward(
         self,
@@ -1871,23 +1879,67 @@ class MixingBlock(Module):
         determinate: bool = False,
         **kwargs: Any,
     ) -> Tensor:
-        if self.first_norm is not None:
-            net = self.first_norm(net)
+        if self.norm_position == "pre_norm":
+            return self._pre_norm_forward(net, hw, determinate=determinate, **kwargs)
+        if self.norm_position == "post_norm":
+            return self._post_norm_forward(net, hw, determinate=determinate, **kwargs)
+        raise ValueError(f"unrecognized norm_position '{self.norm_position}' occurred")
+
+    def _pre_norm_forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
+        **kwargs: Any,
+    ) -> Tensor:
+        # token mixing
         token_mixing_kw = dict(hw=hw, determinate=determinate)
         token_mixing_kw.update(kwargs)
-        net = net + self.drop_path(self.token_mixing(net, **token_mixing_kw))
-        if self.channel_norm is None:
-            need_2d = self.channel_mixing.module.need_2d
-        else:
+        token_mixing_net = self.token_norm(net)
+        token_mixing_net = self.token_mixing(token_mixing_net, **token_mixing_kw)
+        token_mixing_net = self.token_mixing_dropout(token_mixing_net)
+        net = net + self.drop_path(token_mixing_net)
+        # channel mixing
+        if self.residual_after_norm:
             net = self.channel_norm(net)
-            need_2d = self.channel_mixing.need_2d
-        if not need_2d:
+        if not self.channel_mixing.need_2d:
             channel_mixing_net = net
         else:
             if hw is None:
                 raise ValueError("`hw` should be provided when FFN needs 2d input")
             channel_mixing_net = net.view(-1, *hw, net.shape[-1])
-        net = net + self.drop_path(self.channel_mixing(channel_mixing_net))
+        if not self.residual_after_norm:
+            channel_mixing_net = self.channel_norm(channel_mixing_net)
+        channel_mixing_net = self.channel_mixing(channel_mixing_net)
+        net = net + self.drop_path(channel_mixing_net)
+        return net
+
+    def _post_norm_forward(
+        self,
+        net: Tensor,
+        hw: Optional[Tuple[int, int]] = None,
+        *,
+        determinate: bool = False,
+        **kwargs: Any,
+    ) -> Tensor:
+        # token mixing
+        token_mixing_kw = dict(hw=hw, determinate=determinate)
+        token_mixing_kw.update(kwargs)
+        token_mixing_net = self.token_mixing(net, **token_mixing_kw)
+        token_mixing_net = self.token_mixing_dropout(token_mixing_net)
+        net = net + self.drop_path(token_mixing_net)
+        net = self.token_norm(net)
+        # channel mixing
+        if not self.channel_mixing.need_2d:
+            channel_mixing_net = net
+        else:
+            if hw is None:
+                raise ValueError("`hw` should be provided when FFN needs 2d input")
+            channel_mixing_net = net.view(-1, *hw, net.shape[-1])
+        channel_mixing_net = self.channel_mixing(channel_mixing_net)
+        net = net + self.drop_path(channel_mixing_net)
+        net = self.channel_norm(net)
         return net
 
 
@@ -1899,6 +1951,7 @@ class PositionalEncoding(Module):
         dropout: float = 0.0,
         *,
         num_heads: int,
+        is_vision: bool,
         enable: bool = True,
     ):
         super().__init__()
@@ -1909,6 +1962,7 @@ class PositionalEncoding(Module):
             self.pos_encoding = nn.Parameter(torch.zeros(1, num_history, dim))
             nn.init.trunc_normal_(self.pos_encoding, std=0.02)
         self.num_heads = num_heads
+        self.is_vision = is_vision
 
     def forward(
         self,
@@ -1918,7 +1972,10 @@ class PositionalEncoding(Module):
     ) -> Tensor:
         if self.pos_encoding is None or self.pos_drop is None:
             return net
-        pos_encoding = self.interpolate_pos_encoding(net, hwp)
+        if self.is_vision:
+            pos_encoding = self.interpolate_pos_encoding(net, hwp)
+        else:
+            pos_encoding = self.pos_encoding[:, : net.shape[1] - self.num_heads]
         pos_encoding = self.pos_drop(pos_encoding)
         return net + pos_encoding
 
@@ -1962,7 +2019,20 @@ class PositionalEncoding(Module):
         return torch.cat([head_encoding, pos_encoding], dim=1)
 
 
-class SequencePooling(Module):
+class BertPooler(Module):
+    def __init__(self, dim: int):
+        super().__init__()
+        self.linear = nn.Linear(dim, dim)
+        self.activation = nn.Tanh()
+
+    def forward(self, net: Tensor) -> Tensor:
+        net = net[:, 0]
+        net = self.linear(net)
+        net = self.activation(net)
+        return net
+
+
+class SequencePooler(Module):
     def __init__(self, dim: int, aux_heads: Optional[List[str]], bias: bool = True):
         super().__init__()
         self.out_dim = 1 + (0 if aux_heads is None else len(aux_heads))
@@ -1991,15 +2061,19 @@ class MixedStackedEncoder(Module):
         dropout: float = 0.0,
         dpr_list: Optional[List[float]] = None,
         drop_path_rate: float = 0.1,
+        norm_position: str = "pre_norm",
         norm_type: Optional[str] = "batch_norm",
         norm_kwargs: Optional[Dict[str, Any]] = None,
-        first_norm: Optional[nn.Module] = None,
+        embedding_norm: Optional[nn.Module] = None,
+        embedding_dropout: Optional[float] = None,
         residual_after_norm: bool = False,
         feedforward_dim_ratio: float = 1.0,
-        reduce_head: bool = True,
-        sequence_pool: bool = False,
         use_head_token: bool = False,
+        head_pooler: Optional[str] = "mean",
         use_positional_encoding: bool = False,
+        is_vision_positional_encoding: Optional[bool] = None,
+        positional_encoding_dropout: float = 0.0,
+        no_head_norm: Optional[bool] = None,
         norm_after_head: bool = False,
         aux_heads: Optional[List[str]] = None,
     ):
@@ -2017,13 +2091,26 @@ class MixedStackedEncoder(Module):
         self.num_heads = num_heads
         # positional encoding
         num_history += num_heads
+        if is_vision_positional_encoding is None:
+            if use_positional_encoding:
+                raise ValueError(
+                    "`is_vision_positional_encoding` should be specified when "
+                    "`is_vision_positional_encoding` is set to True"
+                )
+            is_vision_positional_encoding = False
         self.pos_encoding = PositionalEncoding(
             dim,
             num_history,
-            dropout,
+            positional_encoding_dropout,
             num_heads=num_heads,
+            is_vision=is_vision_positional_encoding,
             enable=use_positional_encoding,
         )
+        self.embedding_norm = embedding_norm
+        if embedding_dropout is None:
+            self.embedding_dropout = None
+        else:
+            self.embedding_dropout = nn.Dropout(embedding_dropout)
         # core
         if dpr_list is None:
             dpr_list = [x.item() for x in torch.linspace(0, drop_path_rate, num_layers)]
@@ -2034,6 +2121,7 @@ class MixedStackedEncoder(Module):
                     num_history,
                     dim,
                     feedforward_dim,
+                    norm_position=norm_position,
                     token_mixing_type=token_mixing_type,
                     token_mixing_config=token_mixing_config,
                     channel_mixing_type=channel_mixing_type,
@@ -2042,10 +2130,9 @@ class MixedStackedEncoder(Module):
                     drop_path=drop_path,
                     norm_type=norm_type,
                     norm_kwargs=norm_kwargs,
-                    first_norm=first_norm if i == 0 else None,
                     residual_after_norm=residual_after_norm,
                 )
-                for i, drop_path in enumerate(dpr_list)
+                for drop_path in dpr_list
             ]
         )
         # head
@@ -2054,19 +2141,31 @@ class MixedStackedEncoder(Module):
                 head = Lambda(lambda x: x[:, 0], name="head_token")
             else:
                 head = Lambda(lambda x: x[:, : self.num_heads], name="head_token")
-        elif sequence_pool:
-            head = SequencePooling(dim, aux_heads)
         else:
-            if aux_heads is not None:
-                raise ValueError(
-                    "either `head_token` or `sequence_pool` should be used "
-                    f"when `aux_heads` ({aux_heads}) is provided"
-                )
-            if not reduce_head:
+            if head_pooler is None:
                 head = nn.Identity()
+            elif head_pooler == "sequence":
+                head = SequencePooler(dim, aux_heads)
             else:
-                head = Lambda(lambda x: x.mean(1), name="global_average")
-        if norm_after_head:
+                if aux_heads is not None:
+                    raise ValueError(
+                        "either `head_token` or `sequence` head_pooler should be used "
+                        f"when `aux_heads` ({aux_heads}) is provided"
+                    )
+                if head_pooler == "bert":
+                    head = BertPooler(dim)
+                elif head_pooler == "mean":
+                    head = Lambda(lambda x: x.mean(1), name="global_average")
+                else:
+                    msg = f"unrecognized head_pooler '{head_pooler}' occurred"
+                    raise ValueError(msg)
+        # head norm
+        if no_head_norm is None:
+            no_head_norm = norm_position == "post_norm"
+        if no_head_norm:
+            self.head_norm = None
+            self.head = head
+        elif norm_after_head:
             self.head_norm = NormFactory(norm_type).make(dim, **(norm_kwargs or {}))
             self.head = head
         else:
@@ -2106,6 +2205,10 @@ class MixedStackedEncoder(Module):
         if determinate:
             net = net.view(-1, *map(int, [t, d]))
         net = self.pos_encoding(net, **kwargs)
+        if self.embedding_norm is not None:
+            net = self.embedding_norm(net)
+        if self.embedding_dropout is not None:
+            net = self.embedding_dropout(net)
         return net
 
     def post_process(self, net: Tensor) -> Tensor:

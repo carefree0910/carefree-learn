@@ -78,8 +78,8 @@ class MixViT(nn.Module):
                     dpr_list=dpr[cursor : cursor + num_layers],
                     norm_type=norm_type,
                     feedforward_dim_ratio=ff_ratio,
-                    reduce_head=False,
                     use_head_token=False,
+                    head_pooler=None,
                     use_positional_encoding=False,
                 )
             )

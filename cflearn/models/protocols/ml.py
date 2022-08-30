@@ -301,9 +301,10 @@ class MixedStackedModel(nn.Module):
         dropout: float = 0.0,
         norm_type: Optional[str] = "batch_norm",
         feedforward_dim_ratio: float = 1.0,
-        sequence_pool: bool = False,
         use_head_token: bool = False,
+        head_pooler: Optional[str] = "mean",
         use_positional_encoding: bool = False,
+        is_vision_positional_encoding: Optional[bool] = None,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -321,9 +322,10 @@ class MixedStackedModel(nn.Module):
             dropout=dropout,
             norm_type=norm_type,
             feedforward_dim_ratio=feedforward_dim_ratio,
-            sequence_pool=sequence_pool,
             use_head_token=use_head_token,
+            head_pooler=head_pooler,
             use_positional_encoding=use_positional_encoding,
+            is_vision_positional_encoding=is_vision_positional_encoding,
         )
         self.head = Linear(latent_dim, output_dim)
 
