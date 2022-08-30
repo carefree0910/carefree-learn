@@ -31,19 +31,19 @@ class CLIP(IPerceptor):
         *,
         # vision
         in_channels: int = 3,
-        vision_latent_expand: float = 1.5,
+        vision_latent_dim: int = 768,
         vision_patch_size: int = 32,
         vision_num_layers: int = 12,
         vision_num_heads: int = 12,
         # text
         vocab_size: int = 49408,
         context_length: int = 77,
-        text_latent_expand: float = 1.0,
+        text_latent_dim: int = 512,
         text_num_layers: int = 12,
         text_num_heads: int = 8,
     ):
         super().__init__(img_size, context_length)
-        self.vision_latent_dim = int(round(latent_dim * vision_latent_expand))
+        self.vision_latent_dim = vision_latent_dim
         feedforward_kwargs = {"activation": "quick_gelu"}
         self.vit = ViTEncoder(
             img_size=img_size,
@@ -60,7 +60,7 @@ class CLIP(IPerceptor):
             output_dim=latent_dim,
         )
         self.text_num_layers = text_num_layers
-        self.text_latent_dim = int(round(latent_dim * text_latent_expand))
+        self.text_latent_dim = text_latent_dim
         self.token_embedding = nn.Embedding(vocab_size, self.text_latent_dim)
         self.text_transformer = TeTEncoder(
             self.text_latent_dim,
