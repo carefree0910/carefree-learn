@@ -415,6 +415,8 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     ) -> None:
         if self.built:
             if build_trainer and self.trainer is None:
+                self.need_build_trainer = True
+                self.prepare_workplace()
                 self.build_trainer()
             return None
         self.data_info = shallow_copy_dict(data_info)
