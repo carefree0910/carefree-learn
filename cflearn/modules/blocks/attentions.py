@@ -362,8 +362,94 @@ class SpatialAttention(Module):
         return net
 
 
+class CrossAttention(nn.Module):
+    def __init__(
+        self,
+        *,
+        query_dim: int,
+        context_dim: Optional[int] = None,
+        num_heads: int = 8,
+        head_dim: int = 64,
+        dropout: float = 0.0,
+    ):
+        super().__init__()
+        latent_dim = head_dim * num_heads
+        context_dim = context_dim or query_dim
+
+        self.scale = head_dim**-0.5
+        self.num_heads = num_heads
+
+        self.to_q = nn.Linear(query_dim, latent_dim, bias=False)
+        self.to_k = nn.Linear(context_dim, latent_dim, bias=False)
+        self.to_v = nn.Linear(context_dim, latent_dim, bias=False)
+
+        self.out_linear = nn.Sequential(
+            nn.Linear(latent_dim, query_dim),
+            nn.Dropout(dropout),
+        )
+
+    def transpose(self, net: Tensor) -> Tensor:
+        b, t, d = net.shape
+        dim = d // self.num_heads
+        # (B, T, D) -> (B, T, head, dim)
+        net = net.view(b, t, self.num_heads, dim)
+        # (B, T, head, dim) -> (B, head, T, dim)
+        net = net.permute(0, 2, 1, 3)
+        # (B, head, T, dim) -> (B * head, T, dim)
+        net = net.reshape(b * self.num_heads, t, dim)
+        return net
+
+    def forward(
+        self,
+        net: Tensor,
+        *,
+        context: Optional[Tensor] = None,
+        mask: Optional[Tensor] = None,
+    ) -> Tensor:
+        # (B, Tq, Dq)
+        b, tq, dq = net.shape
+
+        # (B, Tq, D)
+        q = self.to_q(net)
+        context = context or net
+        # (B, Tc, D)
+        k = self.to_k(context)
+        v = self.to_v(context)
+
+        # (B * head, Tq, dim)
+        q = self.transpose(q)
+        # (B * head, Tc, dim)
+        k = self.transpose(k)
+        v = self.transpose(v)
+
+        # (B * head, Tq, Tc)
+        attn_mat = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+
+        if mask is not None:
+            mask = mask.view(b, -1)
+            max_neg_value = -torch.finfo(attn_mat.dtype).max
+            mask = mask[:, None, :].repeat(self.num_heads, 1, 1)
+            attn_mat.masked_fill_(~mask, max_neg_value)
+
+        # (B * head, Tq, Tc)
+        attn_prob = attn_mat.softmax(dim=-1)
+
+        # (B * head, Tq, dim)
+        net = torch.einsum("b i j, b j d -> b i d", attn_prob, v)
+        # (B, head, Tq, dim)
+        net = net.reshape(b, self.num_heads, tq, dq)
+        # (B, Tq, head, dim)
+        net = net.permute(0, 2, 1, 3).contiguous()
+        # (B, Tq, D)
+        net = net.view(b, tq, dq)
+        # (B, Tq, Dq)
+        net = self.out_linear(net)
+        return net
+
+
 __all__ = [
     "Attention",
     "DecayedAttention",
     "SpatialAttention",
+    "CrossAttention",
 ]
