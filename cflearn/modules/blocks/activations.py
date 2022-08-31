@@ -156,6 +156,17 @@ class QuickGELU(Activation):
         return net * torch.sigmoid(1.702 * net)
 
 
+@Activation.register("geglu")
+class GEGLU(Activation):
+    def __init__(self, in_dim: int, out_dim: int):
+        super().__init__()
+        self.net = nn.Linear(in_dim, out_dim * 2)
+
+    def forward(self, net: Tensor) -> Tensor:
+        net, gate = self.net(net).chunk(2, dim=-1)
+        return net * F.gelu(gate)
+
+
 @Activation.register("diff_relu")
 class DiffReLU(Activation):
     def forward(self, net: Tensor) -> Tensor:
