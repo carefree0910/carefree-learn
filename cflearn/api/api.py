@@ -25,9 +25,6 @@ from .ml.api import repeat_with
 from .ml.api import RepeatResult
 from .ml.pipeline import MLPipeline
 from .ml.pipeline import MLCarefreePipeline
-from .zoo.core import _parse_config
-from .zoo.core import configs_root
-from .zoo.core import DLZoo
 from ..data import MLData
 from ..data import IMLData
 from ..data import CVDataModule
@@ -49,6 +46,9 @@ from ..protocol import IDataLoader
 from ..constants import SCORES_FILE
 from ..constants import DEFAULT_ZOO_TAG
 from ..constants import CHECKPOINTS_FOLDER
+from ..zoo.core import _parse_config
+from ..zoo.core import configs_root
+from ..zoo.core import DLZoo
 from ..dist.ml import Experiment
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model

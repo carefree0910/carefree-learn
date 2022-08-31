@@ -14,12 +14,12 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
-from ...pipeline import DLPipeline
-from ...pipeline import IPipeline
-from ...protocol import IDLModel
-from ...constants import DEFAULT_ZOO_TAG
-from ...misc.toolkit import inject_debug
-from ...misc.toolkit import download_model
+from cflearn.pipeline import DLPipeline
+from cflearn.pipeline import IPipeline
+from cflearn.protocol import IDLModel
+from cflearn.constants import DEFAULT_ZOO_TAG
+from cflearn.misc.toolkit import inject_debug
+from cflearn.misc.toolkit import download_model
 
 
 root = os.path.dirname(__file__)

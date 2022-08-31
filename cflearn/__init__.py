@@ -7,13 +7,13 @@ from .protocol import *
 from .constants import *
 from .data import *
 from .pipeline import *
+from .zoo import *
 
 from .api import cv
 from .api import ml
 from .api import nlp
 from .api import multimodal
 from .api import api
-from .api.zoo import *
 from . import dist
 from . import scripts
 
