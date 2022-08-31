@@ -336,7 +336,7 @@ def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
 def from_zoo(
     model: str,
     *,
-    build: bool = False,
+    build: bool = True,
     return_model: bool = False,
     **kwargs: Any,
 ) -> Union[IDLModel, DLPipeline]:
@@ -766,7 +766,6 @@ def _clf(
         kwargs["img_size"] = img_size
     kwargs["num_classes"] = num_classes
     if pretrained_name is not None:
-        kwargs["build"] = True
         model_config = kwargs.setdefault("model_config", {})
         model_config["encoder1d_pretrained_name"] = pretrained_name
     model = f"clf/{model}"
@@ -935,8 +934,6 @@ def cct_large_384_model(
 
 
 def resnet18(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
-    if pretrained:
-        kwargs["build"] = True
     kwargs["num_classes"] = num_classes
     model_config = kwargs.setdefault("model_config", {})
     encoder1d_config = model_config.setdefault("encoder1d_config", {})
@@ -963,8 +960,6 @@ def resnet18_gray(num_classes: int, **kwargs: Any) -> DLPipeline:
 
 
 def resnet50(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
-    if pretrained:
-        kwargs["build"] = True
     kwargs["num_classes"] = num_classes
     model_config = kwargs.setdefault("model_config", {})
     encoder1d_config = model_config.setdefault("encoder1d_config", {})
@@ -991,8 +986,6 @@ def resnet50_gray(num_classes: int, **kwargs: Any) -> DLPipeline:
 
 
 def resnet101(num_classes: int, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
-    if pretrained:
-        kwargs["build"] = True
     kwargs["num_classes"] = num_classes
     model_config = kwargs.setdefault("model_config", {})
     encoder1d_config = model_config.setdefault("encoder1d_config", {})
@@ -1048,27 +1041,19 @@ def pixel_cnn(num_classes: int, **kwargs: Any) -> DLPipeline:
 
 
 def clip(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
-    if pretrained:
-        kwargs["build"] = True
     return DLZoo.load_pipeline("multimodal/clip", pretrained=pretrained, **kwargs)
 
 
 def clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
-    if pretrained:
-        kwargs["build"] = True
     return DLZoo.load_model("multimodal/clip", pretrained=pretrained, **kwargs)
 
 
 def chinese_clip(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
-    if pretrained:
-        kwargs["build"] = True
     model = "multimodal/clip.chinese"
     return DLZoo.load_pipeline(model, pretrained=pretrained, **kwargs)
 
 
 def chinese_clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
-    if pretrained:
-        kwargs["build"] = True
     model = "multimodal/clip.chinese"
     return DLZoo.load_model(model, pretrained=pretrained, **kwargs)
 

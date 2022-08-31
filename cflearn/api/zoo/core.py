@@ -59,7 +59,8 @@ class ZooBase(ABC):
         self,
         model: Optional[str] = None,
         *,
-        build: bool = False,
+        build: bool = True,
+        report: Optional[bool] = None,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         debug: bool = False,
@@ -135,7 +136,7 @@ class ZooBase(ABC):
         self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
         if build:
             try:
-                self.m.build(data_info or {})
+                self.m.build(data_info or {}, build_trainer=False, report=report)
             except Exception as err:
                 raise ValueError(f"Failed to build '{model}': {err}")
 
@@ -144,7 +145,8 @@ class ZooBase(ABC):
         cls,
         model: Optional[str] = None,
         *,
-        build: bool = False,
+        build: bool = True,
+        report: Optional[bool] = None,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         debug: bool = False,
@@ -153,6 +155,7 @@ class ZooBase(ABC):
         zoo = cls(
             model,
             build=build,
+            report=report,
             data_info=data_info,
             json_path=json_path,
             debug=debug,
@@ -178,19 +181,18 @@ class DLZoo(ZooBase):
         cls,
         model: Optional[str] = None,
         *,
-        build: bool = False,
+        build: bool = True,
+        report: Optional[bool] = None,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         pretrained: bool = False,
         debug: bool = False,
         **kwargs: Any,
     ) -> DLPipeline:
-        if pretrained and not build:
-            print_warning("`build` must be True when `pretrained` is True")
-            build = True
         zoo = cls(
             model,
             build=build,
+            report=report,
             data_info=data_info,
             json_path=json_path,
             debug=debug,
@@ -205,13 +207,21 @@ class DLZoo(ZooBase):
         cls,
         model: Optional[str] = None,
         *,
+        report: bool = True,
         data_info: Optional[Dict[str, Any]] = None,
         json_path: Optional[str] = None,
         pretrained: bool = False,
         **kwargs: Any,
     ) -> IDLModel:
         kwargs.setdefault("in_loading", True)
-        zoo = cls(model, build=True, data_info=data_info, json_path=json_path, **kwargs)
+        zoo = cls(
+            model,
+            build=True,
+            report=report,
+            data_info=data_info,
+            json_path=json_path,
+            **kwargs,
+        )
         if pretrained:
             zoo.load_pretrained()
         return zoo.m.model

@@ -231,6 +231,7 @@ class IDLPipeline:
 
     built: bool
     in_loading: bool
+    need_build_trainer: bool
 
     device: torch.device
     is_rank_0: bool
@@ -338,7 +339,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         self._defaults.move_to_end("train_samples", last=False)
 
     def prepare_workplace(self) -> None:
-        if self.is_rank_0 and not self.in_loading:
+        if self.is_rank_0 and not self.in_loading and self.need_build_trainer:
             workplace = prepare_workplace_from(self.trainer_config["workplace"])
             self._defaults["workplace"] = workplace
             self.trainer_config["workplace"] = workplace
@@ -405,25 +406,47 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
     ## api
 
-    def build(self, data_info: Dict[str, Any]) -> None:
+    def build(
+        self,
+        data_info: Dict[str, Any],
+        *,
+        build_trainer: bool = True,
+        report: Optional[bool] = None,
+    ) -> None:
         if self.built:
+            if build_trainer and self.trainer is None:
+                self.build_trainer()
             return None
         self.data_info = shallow_copy_dict(data_info)
+        self.need_build_trainer = build_trainer
         kw = dict(data_info=data_info)
         for step in self.build_steps:
             safe_execute(getattr(self, step), shallow_copy_dict(kw))
         if self.in_loading:
             return None
         safe_execute(self.prepare_trainer_defaults, shallow_copy_dict(kw))
+        if not build_trainer:
+            self.trainer = None  # type: ignore
+        else:
+            self.build_trainer()
+        self._sanity_check()
+        if report is None:
+            if self.trainer is None:
+                report = True
+            else:
+                is_rank_0 = self.trainer.is_rank_0
+                in_distributed = self.trainer.tqdm_settings.in_distributed
+                report = is_rank_0 and not in_distributed
+        if report:
+            self._report_defaults()
+            self._report_configs()
+        self.built = True
+
+    def build_trainer(self) -> None:
         trainer_config = shallow_copy_dict(self.trainer_config)
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(**trainer_config)
-        self._sanity_check()
-        if self.trainer.is_rank_0 and not self.trainer.tqdm_settings.in_distributed:
-            self._report_defaults()
-            self._report_configs()
-        self.built = True
 
     # load steps
 
@@ -677,8 +700,15 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
 
     # api
 
-    def build(self, data_info: Dict[str, Any]) -> None:
-        self._make_modifier().build(data_info)
+    def build(
+        self,
+        data_info: Dict[str, Any],
+        *,
+        build_trainer: bool = True,
+        report: Optional[bool] = None,
+    ) -> None:
+        modifier = self._make_modifier()
+        modifier.build(data_info, build_trainer=build_trainer, report=report)
 
     def fit(  # type: ignore
         self,
@@ -817,6 +847,8 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         cuda: Optional[Union[int, str]] = None,
         to_original_device: bool = False,
         compress: bool = True,
+        build_trainer: bool = False,
+        report: Optional[bool] = None,
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
@@ -849,7 +881,7 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
                     )
                     data_info = {}
                 modifier = m._make_modifier()
-                modifier.build(data_info)
+                modifier.build(data_info, build_trainer=build_trainer, report=report)
                 m.model.to(m.device)
                 # restore checkpoint
                 states = modifier.load_states_from(export_folder)

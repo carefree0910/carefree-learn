@@ -229,8 +229,14 @@ class MLModifier(IModifier, IMLPipeline):
 
     ## api
 
-    def build(self, data_info: Dict[str, Any]) -> None:
-        super().build(data_info)
+    def build(
+        self,
+        data_info: Dict[str, Any],
+        *,
+        build_trainer: bool = True,
+        report: Optional[bool] = None,
+    ) -> None:
+        super().build(data_info, build_trainer=build_trainer, report=report)
         self.processor.is_ready = True
 
     # load steps
@@ -455,6 +461,8 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
         *,
         cuda: Optional[str] = None,
         compress: bool = True,
+        build_trainer: bool = False,
+        report: Optional[bool] = None,
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
@@ -475,7 +483,7 @@ class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
                 data_info = loaded.info
                 m.data_module_bytes = loaded.data_module_bytes
         m._num_repeat = m.config["num_repeat"] = len(export_folders)
-        m._make_modifier().build(data_info)
+        m._make_modifier().build(data_info, build_trainer=build_trainer, report=report)
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
         for i, export_folder in enumerate(export_folders):
