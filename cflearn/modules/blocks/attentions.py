@@ -1,3 +1,4 @@
+import math
 import torch
 
 import numpy as np
@@ -281,7 +282,88 @@ class DecayedAttention(Attention):
         return weights.view(-1, *last_shapes)
 
 
+class SpatialAttention(Module):
+    def __init__(
+        self,
+        in_channels: int,
+        *,
+        num_groups: int = 32,
+        num_head_channels: Optional[int] = None,
+        rescale_output_factor: float = 1.0,
+        eps: float = 1.0e-5,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        self.num_head_channels = num_head_channels
+        if num_head_channels is None:
+            self.num_heads = 1
+        else:
+            self.num_heads = in_channels // num_head_channels
+        self.group_norm = nn.GroupNorm(
+            num_channels=in_channels,
+            num_groups=num_groups,
+            eps=eps,
+            affine=True,
+        )
+
+        self.to_q = nn.Linear(in_channels, in_channels)
+        self.to_k = nn.Linear(in_channels, in_channels)
+        self.to_v = nn.Linear(in_channels, in_channels)
+
+        self.rescale_output_factor = rescale_output_factor
+        self.out_linear = nn.Linear(in_channels, in_channels)
+
+    def transpose(self, net: Tensor) -> Tensor:
+        # (B, H * W, C) -> (B, H * W, head, dim)
+        net = net.view(*net.shape[:-1], self.num_heads, -1)
+        # (B, H * W, head, dim) -> (B, head, H * W, dim)
+        net = net.permute(0, 2, 1, 3)
+        return net
+
+    def forward(self, net: Tensor) -> Tensor:
+        # (B, C, H, W)
+        inp = net
+        batch, channel, height, width = net.shape
+        net = self.group_norm(net)
+        # (B, C, H * W)
+        net = net.view(batch, channel, height * width)
+        # (B, H * W, C)
+        net = net.transpose(1, 2)
+
+        # (B, H * W, C)
+        q_net = self.to_q(net)
+        k_net = self.to_k(net)
+        v_net = self.to_v(net)
+
+        # (B, head, H * W, dim)
+        q_net = self.transpose(q_net)
+        k_net = self.transpose(k_net)
+        v_net = self.transpose(v_net)
+
+        # get scores
+        scale = 1 / math.sqrt(math.sqrt(self.in_channels / self.num_heads))
+        # (B, head, H * W, H * W)
+        attn_mat = torch.matmul(q_net * scale, k_net.transpose(-1, -2) * scale)
+        attn_prob = torch.softmax(attn_mat.float(), dim=-1).to(attn_mat.dtype)
+
+        # (B, head, H * W, dim)
+        net = torch.matmul(attn_prob, v_net)
+        # (B, H * W, head, dim)
+        net = net.permute(0, 2, 1, 3).contiguous()
+        # (B, H * W, C)
+        net = net.view(*net.shape[:-2], self.in_channels)
+        # (B, H * W, C)
+        net = self.out_linear(net)
+        # (B, C, H, W)
+        net = net.transpose(-1, -2).reshape(batch, channel, height, width)
+
+        # (B, C, H, W)
+        net = (net + inp) / self.rescale_output_factor
+        return net
+
+
 __all__ = [
     "Attention",
     "DecayedAttention",
+    "SpatialAttention",
 ]
