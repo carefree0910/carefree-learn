@@ -7,7 +7,7 @@
 ##### attentions (convs, common, customs, activations)
 ###### high_level (all the above)
 ####### mixed_stacks (all the above)
-######## api (all the above)
+######## implementations (all the above)
 
 from .utils import *
 from .common import *
@@ -19,4 +19,4 @@ from .convs import *
 from .attentions import *
 from .high_level import *
 from .mixed_stacks import *
-from .api import *
+from .implementations import *

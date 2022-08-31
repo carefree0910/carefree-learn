@@ -6,10 +6,10 @@ from torch import Tensor
 from typing import Optional
 from torch.nn import Module
 
-from .common import reuse_fn
-from .high_level import PreNorm
-from .attentions import Attention
-from .mixed_stacks import FeedForward
+from ..common import reuse_fn
+from ..high_level import PreNorm
+from ..attentions import Attention
+from ..mixed_stacks import FeedForward
 
 
 class PerceiverIO(Module):
@@ -125,8 +125,8 @@ class PerceiverIO(Module):
         mask: Optional[Tensor] = None,
         out_queries: Optional[Tensor] = None,
     ) -> Tensor:
-        B = net.shape[0]
-        in_latent = torch.repeat_interleave(self.in_latent[None, ...], B, dim=0)
+        b = net.shape[0]
+        in_latent = torch.repeat_interleave(self.in_latent[None, ...], b, dim=0)
         for cross_attn, cross_ff, self_attn_blocks in self.layers:
             in_latent = cross_attn(in_latent, net, mask=mask) + in_latent
             in_latent = cross_ff(in_latent) + in_latent
@@ -134,7 +134,7 @@ class PerceiverIO(Module):
                 in_latent = self_attn(in_latent) + in_latent
                 in_latent = self_ff(in_latent) + in_latent
         if self.out_latent is not None:
-            out_queries = torch.repeat_interleave(self.out_latent[None, ...], B, dim=0)
+            out_queries = torch.repeat_interleave(self.out_latent[None, ...], b, dim=0)
         if out_queries is None:
             return in_latent
         return self.decoder_cross_attn(out_queries, in_latent)
