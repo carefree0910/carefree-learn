@@ -6,6 +6,7 @@ from .protocols import FFN
 from ..convs import DepthWiseConv2d
 from ..common import Lambda
 from ..customs import Linear
+from ..activations import GEGLU
 from ..activations import Activation
 
 
@@ -17,15 +18,20 @@ class FeedForward(FFN):
         latent_dim: int,
         dropout: float,
         activation: str = "GELU",
+        add_last_dropout: bool = True,
     ):
         super().__init__(in_dim, latent_dim, dropout)
-        self.net = nn.Sequential(
-            Linear(in_dim, latent_dim),
-            Activation.make(activation),
-            nn.Dropout(dropout),
-            Linear(latent_dim, in_dim),
-            nn.Dropout(dropout),
-        )
+        if activation == "geglu":
+            blocks = [GEGLU(in_dim, latent_dim)]
+        else:
+            blocks = [
+                Linear(in_dim, latent_dim),
+                Activation.make(activation),
+            ]
+        blocks += [nn.Dropout(dropout), Linear(latent_dim, in_dim)]
+        if add_last_dropout:
+            blocks.append(nn.Dropout(dropout))
+        self.net = nn.Sequential(*blocks)
 
     @property
     def need_2d(self) -> bool:
