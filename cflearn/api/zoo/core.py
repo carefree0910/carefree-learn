@@ -95,14 +95,14 @@ class ZooBase(ABC):
 
         # handle requires
         def _inject_requires(
-            increment: Dict[str, Any],
+            inc: Dict[str, Any],
             reference: Dict[str, Any],
             local_requires: Dict[str, Any],
             hierarchy: Optional[str],
         ) -> None:
             for k, v in local_requires.items():
                 k_hierarchy = k if hierarchy is None else f"{hierarchy} -> {k}"
-                ki = increment.setdefault(k, {})
+                ki = inc.setdefault(k, {})
                 kr = reference.setdefault(k, {})
                 if isinstance(v, dict):
                     _inject_requires(ki, kr, v, k_hierarchy)
