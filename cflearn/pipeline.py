@@ -25,6 +25,7 @@ from cftool.misc import print_warning
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import prepare_workplace_from
+from cftool.misc import truncate_string_to_length
 from cftool.misc import lock_manager
 from cftool.misc import Saving
 from cftool.misc import WithRegister
@@ -294,6 +295,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             if prefix is not None:
                 key = f"{prefix}{key}"
             if not isinstance(value, dict) or not value:
+                key = truncate_string_to_length(key, span)
                 return f"{key:>{span}s}   |   {value}"
             prefix = f"{key}."
             items = [_stringify_item((vk, vv), prefix) for vk, vv in value.items()]
