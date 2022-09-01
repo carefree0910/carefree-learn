@@ -7,12 +7,29 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .encoder import make_encoder
+from .encoder import IEncoder
 from .encoder import EncoderMixin
 from .decoder import make_decoder
+from .decoder import IDecoder
 from ...misc.toolkit import auto_num_layers
 
 
-class EncoderDecoder(nn.Module):
+class EncoderDecoderMixin:
+    encoder: IEncoder
+    decoder: IDecoder
+
+    def resize(self, net: Tensor) -> Tensor:
+        return self.decoder.resize(net)
+
+    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
+        return self.encoder.encode(batch, **kwargs)
+
+    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
+        net = self.decoder.decode(batch, **kwargs)
+        return self.resize(net)
+
+
+class EncoderDecoder(nn.Module, EncoderDecoderMixin):
     def __init__(
         self,
         is_1d: bool,
@@ -83,15 +100,23 @@ class EncoderDecoder(nn.Module):
         self.decoder = make_decoder(decoder, decoder_config, is_1d=is_1d)
         self.latent_resolution = self.decoder.latent_resolution
 
-    def resize(self, net: Tensor) -> Tensor:
-        return self.decoder.resize(net)
 
-    def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
-        return self.encoder.encode(batch, **kwargs)
+class PureEncoderDecoder(nn.Module, EncoderDecoderMixin):
+    def __init__(
+        self,
+        *,
+        is_1d: bool,
+        encoder: str = "vanilla",
+        decoder: str = "vanilla",
+        encoder_config: Optional[Dict[str, Any]] = None,
+        decoder_config: Optional[Dict[str, Any]] = None,
+    ):
+        super().__init__()
+        self.encoder = make_encoder(encoder, encoder_config or {}, is_1d=is_1d)
+        self.decoder = make_decoder(decoder, decoder_config or {}, is_1d=is_1d)
 
-    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
-        net = self.decoder.decode(batch, **kwargs)
-        return self.resize(net)
 
-
-__all__ = ["EncoderDecoder"]
+__all__ = [
+    "EncoderDecoder",
+    "PureEncoderDecoder",
+]

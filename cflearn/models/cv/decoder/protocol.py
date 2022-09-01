@@ -124,6 +124,7 @@ def run_decoder(
 __all__ = [
     "make_decoder",
     "run_decoder",
+    "IDecoder",
     "DecoderMixin",
     "Decoder1DMixin",
 ]

@@ -167,6 +167,7 @@ class Encoder2DFromPatches(nn.Module, EncoderFromPatchesMixin, EncoderMixin):
 __all__ = [
     "make_encoder",
     "run_encoder",
+    "IEncoder",
     "EncoderMixin",
     "Encoder1DMixin",
     "Encoder1DFromPatches",
