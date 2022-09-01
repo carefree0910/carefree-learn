@@ -330,6 +330,41 @@ class SpatialAttention(Module):
         return net
 
 
+class LinearDepthWiseAttention(Module):
+    def __init__(
+        self,
+        in_channels: int,
+        *,
+        num_heads: int = 4,
+        head_dim: int = 32,
+    ):
+        super().__init__()
+        self.num_heads = num_heads
+        self.head_dim = head_dim
+        self.latent_dim = num_heads * head_dim
+        self.to_qkv = nn.Conv2d(in_channels, self.latent_dim * 3, 1, bias=False)
+        self.to_out = nn.Conv2d(self.latent_dim, in_channels, 1)
+
+    def transpose(self, net: Tensor) -> Tensor:
+        # (B, H * W, C) -> (B, H * W, head, dim)
+        net = net.view(*net.shape[:-1], self.num_heads, self.head_dim)
+        # (B, H * W, head, dim) -> (B, head, dim, H * W)
+        net = net.permute(0, 2, 3, 1)
+        return net
+
+    def forward(self, net: Tensor) -> Tensor:
+        b, c, h, w = net.shape
+        qkv = self.to_qkv(net)
+        q, k, v = qkv.chunk(3, dim=-1)
+        q, k, v = map(self.transpose, [q, k, v])
+        k = k.softmax(dim=-1)
+        context = torch.einsum("bhdn,bhen->bhde", k, v)
+        net = torch.einsum("bhde,bhdn->bhen", context, q)
+        net = net.contiguous().view(b, self.latent_dim, h, w)
+        net = self.to_out(net)
+        return net
+
+
 class CrossAttention(nn.Module):
     def __init__(
         self,
@@ -426,6 +461,8 @@ def make_attention(in_channels: int, attention_type: str, **kwargs: Any) -> Modu
         return safe_execute(Attention.get(attention_type), kwargs)
     if attention_type == "spatial":
         return safe_execute(SpatialAttention, kwargs)
+    if attention_type == "linear_depth_wise":
+        return safe_execute(LinearDepthWiseAttention, kwargs)
     raise ValueError(f"unrecognized attention type '{attention_type}' occurred")
 
 
@@ -433,6 +470,7 @@ __all__ = [
     "Attention",
     "DecayedAttention",
     "SpatialAttention",
+    "LinearDepthWiseAttention",
     "CrossAttention",
     "make_attention",
 ]
