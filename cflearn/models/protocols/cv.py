@@ -6,6 +6,8 @@ from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Optional
+from cftool.misc import safe_execute
+from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
 from ...protocol import _forward
@@ -84,6 +86,9 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
     def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
         pass
 
+    def generate_z(self, num_samples: int) -> Tensor:
+        return torch.randn(num_samples, self.latent_dim, device=self.device)
+
     def sample(
         self,
         num_samples: int,
@@ -92,13 +97,16 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         labels: Optional[Tensor] = None,
         **kwargs: Any,
     ) -> Tensor:
-        z = torch.randn(num_samples, self.latent_dim, device=self.device)
+        z = self.generate_z(num_samples)
         if labels is None:
             labels = self.get_sample_labels(num_samples, class_idx)
         elif class_idx is not None:
             msg = "`class_idx` should not be provided when `labels` is provided"
             raise ValueError(msg)
-        return self.decode(z, labels=labels, **kwargs)
+        kw = shallow_copy_dict(kwargs)
+        kw["z"] = z
+        kw["labels"] = labels
+        return safe_execute(self.decode, kw)
 
     def interpolate(
         self,
@@ -108,14 +116,20 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         use_slerp: bool = False,
         **kwargs: Any,
     ) -> Tensor:
-        z1 = torch.randn(1, self.latent_dim, device=self.device)
-        z2 = torch.randn(1, self.latent_dim, device=self.device)
+        z1 = self.generate_z(1)
+        z2 = self.generate_z(1)
+        shape = z1.shape
+        z1 = z1.view(1, -1)
+        z2 = z2.view(1, -1)
         ratio = torch.linspace(0.0, 1.0, num_samples, device=self.device)[:, None]
         z = slerp(z1, z2, ratio) if use_slerp else ratio * z1 + (1.0 - ratio) * z2
+        z = z.view(num_samples, *shape[1:])
         if class_idx is None and self.num_classes is not None:
             class_idx = random.randint(0, self.num_classes - 1)
-        labels = self.get_sample_labels(num_samples, class_idx)
-        return self.decode(z, labels=labels, **kwargs)
+        kw = shallow_copy_dict(kwargs)
+        kw["z"] = z
+        kw["labels"] = self.get_sample_labels(num_samples, class_idx)
+        return safe_execute(self.decode, kw)
 
 
 class ImageTranslatorMixin(WithDeviceMixin):
