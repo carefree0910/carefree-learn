@@ -70,7 +70,7 @@ class GeneratorCallback(ImageCallback):
         cond_folder = os.path.join(image_folder, "conditional")
         os.makedirs(cond_folder, exist_ok=True)
         with eval_context(model):
-            for i in range(model.num_classes):
+            for i in range(model.num_classes or 0):
                 sampled = model.sample(len(original), class_idx=i)
                 interpolations = model.interpolate(len(original), class_idx=i)
                 save_images(sampled, os.path.join(cond_folder, f"sampled_{i}.png"))

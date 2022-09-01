@@ -18,7 +18,7 @@ from ...misc.toolkit import slerp
 
 class GeneratorMixin(WithDeviceMixin, metaclass=ABCMeta):
     latent_dim: int
-    num_classes: Optional[int]
+    num_classes: Optional[int] = None
 
     # inherit
 
