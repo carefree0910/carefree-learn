@@ -35,6 +35,7 @@ from cftool.misc import print_info
 from cftool.misc import print_warning
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
+from cftool.misc import truncate_string_to_length
 from cftool.misc import DownloadProgressBar
 from cftool.array import to_torch
 from cftool.array import to_standard
@@ -563,6 +564,7 @@ def summary(
     total_output = 0
     for layer, layer_summary in summary_dict.items():
         layer_name = "-".join(layer.split("-")[:-1])
+        layer_name = truncate_string_to_length(layer_name, 30)
         if layer_summary is None:
             messages.append(line_format.format(layer_name, "", "", ""))
         else:
