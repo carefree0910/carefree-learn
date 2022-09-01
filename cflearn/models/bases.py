@@ -4,6 +4,7 @@ import torch
 import torch.nn.functional as F
 
 from abc import abstractmethod
+from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import Type
@@ -47,7 +48,7 @@ class ICustomLossModule(torch.nn.Module):
 custom_loss_module_type = Type[ICustomLossModule]
 
 
-class IBAKE(ICustomLossModule):
+class IBAKE(ICustomLossModule, metaclass=ABCMeta):
     lb: float
     bake_loss: ILoss
     w_ensemble: float
@@ -105,7 +106,7 @@ class IBAKE(ICustomLossModule):
         return ICustomLossOutput(forward_results, loss_dict)
 
 
-class IRDropout(ICustomLossModule):
+class IRDropout(ICustomLossModule, metaclass=ABCMeta):
     lb: float
     is_classification: bool
 
