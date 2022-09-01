@@ -14,6 +14,7 @@ from typing import Optional
 from typing import NamedTuple
 from functools import partial
 from torch.nn import Module
+from cftool.misc import safe_execute
 from cftool.misc import WithRegister
 
 from .convs import Conv2d
@@ -414,9 +415,24 @@ class CrossAttention(nn.Module):
         return net
 
 
+def make_attention(in_channels: int, attention_type: str, **kwargs: Any) -> Module:
+    if attention_type == "none":
+        return nn.Identity(in_channels)
+    if attention_type == "cross":
+        kwargs["query_dim"] = in_channels
+        return safe_execute(CrossAttention, kwargs)
+    kwargs["in_channels"] = in_channels
+    if attention_type in attentions:
+        return safe_execute(Attention.get(attention_type), kwargs)
+    if attention_type == "spatial":
+        return safe_execute(SpatialAttention, kwargs)
+    raise ValueError(f"unrecognized attention type '{attention_type}' occurred")
+
+
 __all__ = [
     "Attention",
     "DecayedAttention",
     "SpatialAttention",
     "CrossAttention",
+    "make_attention",
 ]
