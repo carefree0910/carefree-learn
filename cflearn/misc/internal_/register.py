@@ -1,6 +1,7 @@
 import torch.nn as nn
 
 from abc import abstractmethod
+from abc import ABC
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -8,14 +9,17 @@ from typing import List
 from typing import Type
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import safe_execute
 from cftool.misc import check_requires
 from cftool.misc import get_num_positional_args
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
+from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
 
+from ..toolkit import toggle_optimizer
 from ..toolkit import Initializer
 from ...types import losses_type
 from ...protocol import _forward
@@ -154,7 +158,49 @@ def register_module(
     return _core
 
 
+class CustomTrainStepLoss(NamedTuple):
+    loss: Tensor
+    losses: Dict[str, float]
+
+
+class CustomTrainStep(ABC):
+    def __init__(
+        self,
+        optimizer_name: str,
+        *,
+        enable_toggle_optimizer: bool = True,
+    ) -> None:
+        self.optimizer_name = optimizer_name
+        self.enable_toggle_optimizer = enable_toggle_optimizer
+
+    @property
+    def requires_new_forward(self) -> bool:
+        return False
+
+    @property
+    def requires_scheduler_step(self) -> bool:
+        return False
+
+    def should_skip(self, m: "CustomModule", state: TrainerState) -> bool:
+        return False
+
+    @abstractmethod
+    def loss_fn(
+        self,
+        m: "CustomModule",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> CustomTrainStepLoss:
+        pass
+
+
 class CustomModule(WithDeviceMixin, nn.Module):
+    @property
+    def train_steps(self) -> Optional[List[CustomTrainStep]]:
+        return None
+
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return _forward(self, 0, batch, INPUT_KEY)
 
@@ -213,6 +259,40 @@ def get_update_fn(trainer: ITrainer) -> Callable[[Tensor, Optimizer], None]:
     return update_fn
 
 
+def run_train_steps(
+    m: CustomModule,
+    train_steps: List[CustomTrainStep],
+    *,
+    batch_idx: int,
+    batch: tensor_dict_type,
+    trainer: ITrainer,
+    forward_kwargs: Dict[str, Any],
+    loss_kwargs: Dict[str, Any],
+) -> StepOutputs:
+    state = trainer.state
+    forward = {}
+    loss_dict = {}
+    update_fn = get_update_fn(trainer)
+    performed_scheduler_step = False
+    for i, train_step in enumerate(train_steps):
+        if train_step.should_skip(m, trainer.state):
+            continue
+        if i == 0 or train_step.requires_new_forward:
+            forward = _forward(m, batch_idx, batch, INPUT_KEY, state, **forward_kwargs)
+        optimizer = trainer.optimizers[train_step.optimizer_name]
+        with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
+            with autocast(enabled=trainer.use_amp):
+                loss_res = train_step.loss_fn(m, trainer, batch, forward, **loss_kwargs)
+            update_fn(loss_res.loss, optimizer)
+            loss_dict.update(loss_res.losses)
+        performed_scheduler_step = train_step.requires_scheduler_step
+        if performed_scheduler_step:
+            trainer.scheduler_step()
+    if not performed_scheduler_step:
+        trainer.scheduler_step()
+    return StepOutputs(forward, loss_dict)
+
+
 def register_custom_module(
     name: str,
     *,
@@ -227,6 +307,8 @@ def register_custom_module(
     def _core(m: Type[CustomModule]) -> Type[CustomModule]:
         @IDLModel.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
+            core: CustomModule
+
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()
                 self.core = m(*args, **kwargs)
@@ -254,6 +336,17 @@ def register_custom_module(
                 forward_kwargs: Dict[str, Any],
                 loss_kwargs: Dict[str, Any],
             ) -> StepOutputs:
+                train_steps = self.core.train_steps
+                if train_steps is not None:
+                    return run_train_steps(
+                        self.core,
+                        train_steps,
+                        batch_idx=batch_idx,
+                        batch=batch,
+                        trainer=trainer,
+                        forward_kwargs=forward_kwargs,
+                        loss_kwargs=loss_kwargs,
+                    )
                 kwargs = dict(
                     batch_idx=batch_idx,
                     batch=batch,
@@ -401,6 +494,8 @@ __all__ = [
     "register_custom_module",
     "register_loss_module",
     "register_transform",
+    "CustomTrainStep",
+    "CustomTrainStepLoss",
     "CustomModule",
     "IMetric",
     "ITransform",
