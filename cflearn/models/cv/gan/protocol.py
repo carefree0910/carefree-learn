@@ -4,6 +4,7 @@ import random
 import torch.nn as nn
 
 from abc import abstractmethod
+from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import List
@@ -84,7 +85,7 @@ class GANMixin:
 
 
 # This mixin should be used with `CustomModule` & `register_custom_module`
-class OneStageGANMixin(GANMixin, WithDeviceMixin):
+class OneStageGANMixin(GANMixin, WithDeviceMixin, metaclass=ABCMeta):
     def train_step(
         self,
         batch_idx: int,
@@ -167,7 +168,7 @@ class OneStageGANMixin(GANMixin, WithDeviceMixin):
         return MetricsOutputs(score, mean_loss_items)
 
 
-class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin):
+class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMeta):
     def _initialize(  # type: ignore
         self,
         *,
