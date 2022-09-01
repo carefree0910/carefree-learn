@@ -166,11 +166,11 @@ class CustomTrainStepLoss(NamedTuple):
 class CustomTrainStep(ABC):
     def __init__(
         self,
-        optimizer_name: str,
+        scope: str = "all",
         *,
         enable_toggle_optimizer: bool = True,
     ) -> None:
-        self.optimizer_name = optimizer_name
+        self.scope = scope
         self.enable_toggle_optimizer = enable_toggle_optimizer
 
     @property
@@ -279,7 +279,7 @@ def run_train_steps(
             continue
         if i == 0 or train_step.requires_new_forward:
             forward = _forward(m, batch_idx, batch, INPUT_KEY, state, **forward_kwargs)
-        optimizer = trainer.optimizers[train_step.optimizer_name]
+        optimizer = trainer.optimizers[train_step.scope]
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
             with autocast(enabled=trainer.use_amp):
                 loss_res = train_step.loss_fn(m, trainer, batch, forward, **loss_kwargs)
