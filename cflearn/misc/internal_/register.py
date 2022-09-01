@@ -7,6 +7,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -168,9 +169,11 @@ class CustomTrainStep(ABC):
         self,
         scope: str = "all",
         *,
+        num_forward: int = 1,
         enable_toggle_optimizer: bool = True,
     ) -> None:
         self.scope = scope
+        self.num_forward = num_forward
         self.enable_toggle_optimizer = enable_toggle_optimizer
 
     @property
@@ -190,7 +193,7 @@ class CustomTrainStep(ABC):
         m: "CustomModule",
         trainer: ITrainer,
         batch: tensor_dict_type,
-        forward_results: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
         **kwargs: Any,
     ) -> CustomTrainStepLoss:
         pass
@@ -270,15 +273,19 @@ def run_train_steps(
     loss_kwargs: Dict[str, Any],
 ) -> StepOutputs:
     state = trainer.state
-    forward = {}
+    forward: Union[tensor_dict_type, List[tensor_dict_type]] = {}
     loss_dict = {}
     update_fn = get_update_fn(trainer)
     performed_scheduler_step = False
+    get_fw = lambda: _forward(m, batch_idx, batch, INPUT_KEY, state, **forward_kwargs)
     for i, train_step in enumerate(train_steps):
         if train_step.should_skip(m, trainer.state):
             continue
         if i == 0 or train_step.requires_new_forward:
-            forward = _forward(m, batch_idx, batch, INPUT_KEY, state, **forward_kwargs)
+            if train_step.num_forward == 1:
+                forward = get_fw()
+            else:
+                forward = [get_fw() for _ in range(train_step.num_forward)]
         optimizer = trainer.optimizers[train_step.scope]
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
             with autocast(enabled=trainer.use_amp):
