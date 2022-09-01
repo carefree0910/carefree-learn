@@ -327,6 +327,8 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     # build steps
 
     def record_num_samples(self) -> None:
+        if not self.need_build_trainer:
+            return
         data: Optional[DLDataModule] = getattr(self, "data", None)
         if data is None:
             self._defaults["train_samples"] = None
@@ -418,8 +420,10 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         if self.built:
             if build_trainer and self.trainer is None:
                 self.need_build_trainer = True
+                self.record_num_samples()
                 self.prepare_workplace()
                 self.build_trainer()
+                self.report()
             return None
         self.data_info = shallow_copy_dict(data_info)
         self.need_build_trainer = build_trainer
@@ -436,14 +440,13 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         self._sanity_check()
         if report is None:
             if self.trainer is None:
-                report = True
+                report = False
             else:
                 is_rank_0 = self.trainer.is_rank_0
                 in_distributed = self.trainer.tqdm_settings.in_distributed
                 report = is_rank_0 and not in_distributed
         if report:
-            self._report_defaults()
-            self._report_configs()
+            self.report()
         self.built = True
 
     def build_trainer(self) -> None:
@@ -451,6 +454,10 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(**trainer_config)
+
+    def report(self) -> None:
+        self._report_defaults()
+        self._report_configs()
 
     # load steps
 
