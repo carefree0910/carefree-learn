@@ -29,6 +29,19 @@ register_backbone(
 
 
 register_backbone(
+    "vgg16_full",
+    [64, 128, 256, 512, 512],
+    {
+        "features.3": "stage0",
+        "features.8": "stage1",
+        "features.15": "stage2",
+        "features.22": "stage3",
+        "features.29": "stage4",
+    },
+)(vgg16)
+
+
+register_backbone(
     "vgg19",
     [64, 128, 256, 512],
     {
