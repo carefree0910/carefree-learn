@@ -172,10 +172,12 @@ class CustomTrainStep(ABC):
         scope: str = "all",
         *,
         num_forward: int = 1,
+        grad_accumulate: int = 1,
         enable_toggle_optimizer: bool = True,
     ) -> None:
         self.scope = scope
         self.num_forward = num_forward
+        self.grad_accumulate = grad_accumulate
         self.enable_toggle_optimizer = enable_toggle_optimizer
 
     @property
@@ -221,7 +223,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         use_amp: bool,
         grad_scaler: GradScaler,
         clip_norm_fn: Callable[[], None],
-        update_fn: Callable[[Tensor, Optimizer], None],
+        update_fn: Callable[[Tensor, Optimizer, bool], None],
         scheduler_step_fn: Callable[[], None],
         trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
@@ -252,14 +254,15 @@ class CustomModule(WithDeviceMixin, nn.Module):
         pass
 
 
-def get_update_fn(trainer: ITrainer) -> Callable[[Tensor, Optimizer], None]:
-    def update_fn(loss: Tensor, optimizer: Optimizer) -> None:
+def get_update_fn(trainer: ITrainer) -> Callable[[Tensor, Optimizer, bool], None]:
+    def update_fn(loss: Tensor, optimizer: Optimizer, update: bool = True) -> None:
         grad_scaler = trainer.grad_scaler
         grad_scaler.scale(loss).backward()
-        trainer.clip_norm_step()
-        grad_scaler.step(optimizer)
-        grad_scaler.update()
-        optimizer.zero_grad()
+        if update:
+            trainer.clip_norm_step()
+            grad_scaler.step(optimizer)
+            grad_scaler.update()
+            optimizer.zero_grad()
 
     return update_fn
 
@@ -278,6 +281,7 @@ def run_train_steps(
     forward: Union[tensor_dict_type, List[tensor_dict_type]] = {}
     loss_dict = {}
     update_fn = get_update_fn(trainer)
+    any_update = False
     performed_scheduler_step = False
     get_fw = lambda: _forward(m, batch_idx, batch, INPUT_KEY, state, **forward_kwargs)
     for i, train_step in enumerate(train_steps):
@@ -292,12 +296,15 @@ def run_train_steps(
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
             with autocast(enabled=trainer.use_amp):
                 loss_res = train_step.loss_fn(m, trainer, batch, forward, **loss_kwargs)
-            update_fn(loss_res.loss, optimizer)
+            update = state.step % train_step.grad_accumulate == 0
+            update_fn(loss_res.loss, optimizer, update)
             loss_dict.update(loss_res.losses)
-        performed_scheduler_step = train_step.requires_scheduler_step
-        if performed_scheduler_step:
-            trainer.scheduler_step()
-    if not performed_scheduler_step:
+        if update:
+            any_update = True
+            performed_scheduler_step = train_step.requires_scheduler_step
+            if performed_scheduler_step:
+                trainer.scheduler_step()
+    if any_update and not performed_scheduler_step:
         trainer.scheduler_step()
     return StepOutputs(forward, loss_dict)
 
