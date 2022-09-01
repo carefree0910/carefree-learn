@@ -1,6 +1,7 @@
 import torch.nn as nn
 
 from abc import abstractmethod
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -169,6 +170,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         use_amp: bool,
         grad_scaler: GradScaler,
         clip_norm_fn: Callable[[], None],
+        update_fn: Callable[[Tensor, Optimizer], None],
         scheduler_step_fn: Callable[[], None],
         trainer: ITrainer,
         forward_kwargs: Dict[str, Any],
@@ -197,6 +199,18 @@ class CustomModule(WithDeviceMixin, nn.Module):
 
     def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
         pass
+
+
+def get_update_fn(trainer: ITrainer) -> Callable[[Tensor, Optimizer], None]:
+    def update_fn(loss: Tensor, optimizer: Optimizer) -> None:
+        grad_scaler = trainer.grad_scaler
+        grad_scaler.scale(loss).backward()
+        trainer.clip_norm_step()
+        grad_scaler.step(optimizer)
+        grad_scaler.update()
+        optimizer.zero_grad()
+
+    return update_fn
 
 
 def register_custom_module(
@@ -248,6 +262,7 @@ def register_custom_module(
                     use_amp=trainer.use_amp,
                     grad_scaler=trainer.grad_scaler,
                     clip_norm_fn=trainer.clip_norm_step,
+                    update_fn=get_update_fn(trainer),
                     scheduler_step_fn=trainer.scheduler_step,
                     trainer=trainer,
                     forward_kwargs=forward_kwargs,
