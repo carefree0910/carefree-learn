@@ -5,13 +5,12 @@ import numpy as np
 import torch.nn as nn
 
 from torch import Tensor
+from typing import Any
 from typing import Dict
 from typing import List
 from typing import Callable
-from torch.optim import Optimizer
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
-from cflearn.protocol import StepOutputs
 from cflearn.protocol import MetricsOutputs
 from cflearn.protocol import IDataLoader
 from cflearn.constants import INPUT_KEY
@@ -19,10 +18,8 @@ from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import interpolate
 from cflearn.misc.toolkit import inject_debug
-from cflearn.misc.toolkit import toggle_optimizer
 from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import UpsampleConv2d
-from torch.cuda.amp.grad_scaler import GradScaler
 
 
 # preparations
@@ -48,6 +45,45 @@ class GANLoss(nn.Module):
         target_tensor = self.expand_target(predictions, target_is_real)
         loss = self.loss(predictions, target_tensor)
         return loss
+
+
+class GeneratorStep(cflearn.CustomTrainStep):
+    def loss_fn(
+        self,
+        m: "SimpleGAN",
+        trainer: cflearn.ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> cflearn.CustomTrainStepLoss:
+        sampled = forward_results[PREDICTIONS_KEY]
+        pred_fake = m.discriminator(sampled)
+        g_loss = m.loss(pred_fake, target_is_real=True)
+        return cflearn.CustomTrainStepLoss(g_loss, {"g": g_loss.item()})
+
+
+class DiscriminatorStep(cflearn.CustomTrainStep):
+    def loss_fn(
+        self,
+        m: "SimpleGAN",
+        trainer: cflearn.ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> cflearn.CustomTrainStepLoss:
+        net = batch[INPUT_KEY]
+        sampled = forward_results[PREDICTIONS_KEY]
+        pred_real = m.discriminator(net)
+        loss_d_real = m.loss(pred_real, target_is_real=True)
+        pred_fake = m.discriminator(sampled.detach())
+        loss_d_fake = m.loss(pred_fake, target_is_real=False)
+        d_loss = 0.5 * (loss_d_fake + loss_d_real)
+        d_losses = {
+            "d": d_loss.item(),
+            "d_real": loss_d_real.item(),
+            "d_fake": loss_d_fake.item(),
+        }
+        return cflearn.CustomTrainStepLoss(d_loss, d_losses)
 
 
 @cflearn.register_custom_module("simple_gan")
@@ -89,52 +125,12 @@ class SimpleGAN(cflearn.CustomModule):
         )
         self.loss = GANLoss()
 
-    def train_step(  # type: ignore
-        self,
-        batch: tensor_dict_type,
-        optimizers: Dict[str, Optimizer],
-        use_amp: bool,
-        grad_scaler: GradScaler,
-        clip_norm_fn: Callable[[], None],
-        scheduler_step_fn: Callable[[], None],
-    ) -> StepOutputs:
-        net = batch[INPUT_KEY]
-        opt_g = optimizers["core.g_parameters"]
-        opt_d = optimizers["core.d_parameters"]
-        # generator step
-        with toggle_optimizer(self, opt_g):
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                sampled = self.sample(len(net))
-                pred_fake = self.discriminator(sampled)
-                g_loss = self.loss(pred_fake, target_is_real=True)
-            grad_scaler.scale(g_loss).backward()
-            clip_norm_fn()
-            grad_scaler.step(opt_g)
-            grad_scaler.update()
-            opt_g.zero_grad()
-        # discriminator step
-        with toggle_optimizer(self, opt_d):
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                pred_real = self.discriminator(net)
-                loss_d_real = self.loss(pred_real, target_is_real=True)
-                pred_fake = self.discriminator(sampled.detach())
-                loss_d_fake = self.loss(pred_fake, target_is_real=False)
-                d_loss = 0.5 * (loss_d_fake + loss_d_real)
-            grad_scaler.scale(d_loss).backward()
-            clip_norm_fn()
-            grad_scaler.step(opt_d)
-            grad_scaler.update()
-            opt_d.zero_grad()
-        # finalize
-        scheduler_step_fn()
-        forward_results = {PREDICTIONS_KEY: sampled}
-        loss_dict = {
-            "g": g_loss.item(),
-            "d": d_loss.item(),
-            "d_fake": loss_d_fake.item(),
-            "d_real": loss_d_real.item(),
-        }
-        return StepOutputs(forward_results, loss_dict)
+    @property
+    def train_steps(self) -> List[cflearn.CustomTrainStep]:
+        return [
+            GeneratorStep("core.g_parameters"),
+            DiscriminatorStep("core.d_parameters"),
+        ]
 
     def evaluate_step(  # type: ignore
         self,

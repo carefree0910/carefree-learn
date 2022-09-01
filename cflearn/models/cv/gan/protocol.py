@@ -10,15 +10,13 @@ from typing import Dict
 from typing import List
 from typing import Callable
 from typing import Optional
-from torch.optim import Optimizer
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
-from torch.cuda.amp import GradScaler
 
 from .discriminators import DiscriminatorBase
 from ....data import CVLoader
 from ....protocol import _forward
-from ....protocol import StepOutputs
+from ....protocol import ITrainer
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
 from ....protocol import WithDeviceMixin
@@ -28,7 +26,8 @@ from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ...protocols.cv import GaussianGeneratorMixin
 from ....misc.toolkit import mode_context
-from ....misc.toolkit import toggle_optimizer
+from ....misc.internal_ import CustomTrainStep
+from ....misc.internal_ import CustomTrainStepLoss
 from ....losses.gan import GANLoss
 from ....losses.gan import GANTarget
 
@@ -84,59 +83,48 @@ class GANMixin:
         self._g_losses(batch, _forward(self, batch_idx, batch, INPUT_KEY))  # type: ignore
 
 
+class GeneratorStep(CustomTrainStep):
+    def loss_fn(
+        self,
+        m: "OneStageGANMixin",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> CustomTrainStepLoss:
+        g_losses = m._g_losses(batch, forward_results)
+        g_loss = g_losses.pop(LOSS_KEY)
+        g_loss_dict = {k: v.item() for k, v in g_losses.items()}
+        g_loss_dict["g"] = g_loss.item()
+        return CustomTrainStepLoss(g_loss, g_loss_dict)
+
+
+class DiscriminatorStep(CustomTrainStep):
+    def loss_fn(
+        self,
+        m: "OneStageGANMixin",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> CustomTrainStepLoss:
+        with torch.no_grad():
+            detached_forward = {k: v.detach() for k, v in forward_results.items()}
+        d_losses = m._d_losses(batch, detached_forward)
+        d_loss = d_losses.pop(LOSS_KEY)
+        d_loss_dict = {k: v.item() for k, v in d_losses.items()}
+        d_loss_dict["g"] = d_loss.item()
+        return CustomTrainStepLoss(d_loss, d_loss_dict)
+
+
 # This mixin should be used with `CustomModule` & `register_custom_module`
 class OneStageGANMixin(GANMixin, WithDeviceMixin, metaclass=ABCMeta):
-    def train_step(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: TrainerState,
-        optimizers: Dict[str, Optimizer],
-        use_amp: bool,
-        grad_scaler: GradScaler,
-        clip_norm_fn: Callable[[], None],
-        scheduler_step_fn: Callable[[], None],
-        forward_kwargs: Dict[str, Any],
-    ) -> StepOutputs:
-        opt_g = optimizers["core.g_parameters"]
-        opt_d = optimizers["core.d_parameters"]
-        # forward
-        forward = _forward(
-            self,
-            batch_idx,
-            batch,
-            INPUT_KEY,
-            state,
-            **forward_kwargs,
-        )
-        with torch.no_grad():
-            detached_forward = {k: v.detach() for k, v in forward.items()}
-        # generator step
-        with toggle_optimizer(self, opt_g):
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                g_losses = self._g_losses(batch, forward)
-            g_loss = g_losses.pop(LOSS_KEY)
-            grad_scaler.scale(g_loss).backward()
-            clip_norm_fn()
-            grad_scaler.step(opt_g)
-            grad_scaler.update()
-            opt_g.zero_grad()
-        # discriminator step
-        with toggle_optimizer(self, opt_d):
-            with torch.cuda.amp.autocast(enabled=use_amp):
-                d_losses = self._d_losses(batch, detached_forward)
-            d_loss = d_losses.pop(LOSS_KEY)
-            grad_scaler.scale(d_loss).backward()
-            clip_norm_fn()
-            grad_scaler.step(opt_d)
-            grad_scaler.update()
-            opt_d.zero_grad()
-        # finalize
-        scheduler_step_fn()
-        loss_dict = {"g": g_loss.item(), "d": d_loss.item()}
-        loss_dict.update({k: v.item() for k, v in g_losses.items()})
-        loss_dict.update({k: v.item() for k, v in d_losses.items()})
-        return StepOutputs(detached_forward, loss_dict)
+    @property
+    def train_steps(self) -> List[CustomTrainStep]:
+        return [
+            GeneratorStep("core.g_parameters"),
+            DiscriminatorStep("core.d_parameters"),
+        ]
 
     def evaluate_step(
         self,
