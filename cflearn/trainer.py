@@ -572,7 +572,10 @@ class Trainer(ITrainer):
 
     def weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
         if not self.loss_metrics_weights:
-            return -loss_items[LOSS_KEY]
+            loss = loss_items.get(LOSS_KEY)
+            if loss is not None:
+                return -loss
+            return -sum(loss_items.values()) / len(loss_items)
         score = 0.0
         for k, w in self.loss_metrics_weights.items():
             v = loss_items.get(k)
