@@ -664,12 +664,15 @@ class toggle_optimizer:
 
     """
 
-    def __init__(self, m: nn.Module, optimizer: Optimizer):
+    def __init__(self, m: nn.Module, optimizer: Optimizer, *, enabled: bool = True):
         self.m = m
         self.optimizer = optimizer
+        self.enabled = enabled
         self.requires_grad: Dict[str, bool] = {}
 
     def __enter__(self) -> None:
+        if not self.enabled:
+            return
         self.requires_grad = {k: p.requires_grad for k, p in self.m.named_parameters()}
         for p in self.m.parameters():
             p.requires_grad = False
@@ -678,6 +681,8 @@ class toggle_optimizer:
                 p.requires_grad = True
 
     def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if not self.enabled:
+            return
         for k, p in self.m.named_parameters():
             requires_grad = self.requires_grad.get(k)
             if requires_grad is not None:
