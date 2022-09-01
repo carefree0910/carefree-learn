@@ -56,6 +56,15 @@ class DiscriminatorBase(nn.Module, WithRegister["DiscriminatorBase"]):
         return DiscriminatorOutput(logits, cond_logits)
 
 
+def weights_init(m: nn.Module) -> None:
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif classname.find("BatchNorm") != -1:
+        nn.init.normal_(m.weight.data, 1.0, 0.02)
+        nn.init.constant_(m.bias.data, 0)
+
+
 @DiscriminatorBase.register("basic")
 class NLayerDiscriminator(DiscriminatorBase):
     def __init__(
@@ -82,6 +91,7 @@ class NLayerDiscriminator(DiscriminatorBase):
             ),
             nn.LeakyReLU(0.2, inplace=True),
         ]
+        use_bias = norm_type != "batch"
         nc_multiplier = 1
         for i in range(1, num_layers):
             nc_multiplier_prev = nc_multiplier
@@ -92,7 +102,7 @@ class NLayerDiscriminator(DiscriminatorBase):
                     start_channels * nc_multiplier,
                     4,
                     1 if i == num_layers - 1 else 2,
-                    bias=False,
+                    bias=use_bias,
                     padding=1,
                     norm_type=norm_type,
                     activation=nn.LeakyReLU(0.2, inplace=True),
@@ -109,7 +119,10 @@ class NLayerDiscriminator(DiscriminatorBase):
             stride=1,
             bias=True,
         )
+        # conditional
         self.generate_cond(out_channels)
+        # initialize
+        self.apply(weights_init)
 
 
 @DiscriminatorBase.register("multi_scale")
@@ -141,6 +154,7 @@ class MultiScaleDiscriminator(DiscriminatorBase):
         )
         nets = [self._make() for _ in range(num_scales)]
         self.discriminators = nn.ModuleList(nets)
+        self.apply(weights_init)
 
     def _make(self) -> nn.Sequential:
         in_nc = self.in_channels
