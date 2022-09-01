@@ -46,7 +46,7 @@ class GeneratorCallback(ImageCallback):
         if not isinstance(model, GeneratorMixin):
             msg = "`GeneratorCallback` is only compatible with `GeneratorMixin`"
             raise ValueError(msg)
-        is_conditional = model.is_conditional
+        is_conditional = getattr(model, "is_conditional", False)
         labels = None if not is_conditional else batch[LABEL_KEY]
         image_folder = self._prepare_folder(trainer)
         # original
@@ -65,7 +65,7 @@ class GeneratorCallback(ImageCallback):
             interpolations = model.interpolate(self.num_interpolations)
         save_images(interpolations, os.path.join(image_folder, "interpolations.png"))
         # conditional sampling
-        if model.num_classes is None:
+        if getattr(model, "num_classes", None) is None:
             return None
         cond_folder = os.path.join(image_folder, "conditional")
         os.makedirs(cond_folder, exist_ok=True)
