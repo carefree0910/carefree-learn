@@ -474,29 +474,20 @@ class DINO(CustomModule):
 
     def evaluate_step(  # type: ignore
         self,
-        loader: CVLoader,
-        portion: float,
+        batch_idx: int,
+        batch: tensor_dict_type,
         state: TrainerState,
     ) -> MetricsOutputs:
-        losses = []
-        for i, batch in enumerate(loader):
-            if i / len(loader) >= portion:
-                break
-            batch = to_device(batch, self.device)
-            outputs = self._get_outputs(i, batch, state, {})
-            losses.append(
-                self.evaluate_loss(
-                    state.epoch,
-                    outputs["student"],
-                    outputs["teacher"],
-                )
-            )
-        # gather
-        mean_loss = sum(losses) / len(losses)
+        outputs = self._get_outputs(batch_idx, batch, state, {})
+        loss = self.evaluate_loss(
+            state.epoch,
+            outputs["student"],
+            outputs["teacher"],
+        )
         return MetricsOutputs(
-            -mean_loss,
+            -loss,
             {
-                "loss": mean_loss,
+                "loss": loss,
                 "lr": self.lr_schedule[state.step],  # type: ignore
                 "wd": self.wd_schedule[state.step],  # type: ignore
             },

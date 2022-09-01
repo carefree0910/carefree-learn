@@ -12,7 +12,6 @@ from typing import Callable
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
 from cflearn.protocol import MetricsOutputs
-from cflearn.protocol import IDataLoader
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import check_is_ci
@@ -134,28 +133,19 @@ class SimpleGAN(cflearn.CustomModule):
 
     def evaluate_step(  # type: ignore
         self,
-        loader: IDataLoader,
-        portion: float,
+        batch: tensor_dict_type,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
     ) -> MetricsOutputs:
-        loss_items: Dict[str, List[float]] = {}
-        for i, batch in enumerate(loader):
-            if i / len(loader) >= portion:
-                break
-            batch = to_device(batch, self.device)
-            net = batch[INPUT_KEY]
-            sampled = self.sample(len(net))
-            pred_fake = self.discriminator(sampled)
-            g_loss = self.loss(pred_fake, target_is_real=True)
-            pred_real = self.discriminator(net)
-            d_loss = self.loss(pred_real, target_is_real=True)
-            loss_items.setdefault("g", []).append(g_loss.item())
-            loss_items.setdefault("d", []).append(d_loss.item())
-        # gather
-        mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        mean_loss_items[cflearn.LOSS_KEY] = sum(mean_loss_items.values())
-        score = weighted_loss_score_fn(mean_loss_items)
-        return MetricsOutputs(score, mean_loss_items)
+        batch = to_device(batch, self.device)
+        net = batch[INPUT_KEY]
+        sampled = self.sample(len(net))
+        pred_fake = self.discriminator(sampled)
+        g_loss = self.loss(pred_fake, target_is_real=True)
+        pred_real = self.discriminator(net)
+        d_loss = self.loss(pred_real, target_is_real=True)
+        loss_items = {"g": g_loss.item(), "d": d_loss.item()}
+        score = weighted_loss_score_fn(loss_items)
+        return MetricsOutputs(score, loss_items)
 
     @property
     def g_parameters(self) -> List[nn.Parameter]:

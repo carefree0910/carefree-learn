@@ -13,7 +13,9 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import safe_execute
 from cftool.misc import check_requires
+from cftool.misc import shallow_copy_dict
 from cftool.misc import get_num_positional_args
+from cftool.array import to_device
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 from torch.cuda.amp import autocast
@@ -229,8 +231,8 @@ class CustomModule(WithDeviceMixin, nn.Module):
 
     def evaluate_step(
         self,
-        loader: IDataLoader,
-        portion: float,
+        batch_idx: int,
+        batch: tensor_dict_type,
         state: TrainerState,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
         trainer: ITrainer,
@@ -376,14 +378,29 @@ def register_custom_module(
                 portion: float,
                 trainer: ITrainer,
             ) -> MetricsOutputs:
-                kwargs = dict(
-                    loader=loader,
-                    portion=portion,
+                kw = dict(
                     state=trainer.state,
                     weighted_loss_score_fn=trainer.weighted_loss_score,
                     trainer=trainer,
                 )
-                return safe_execute(self.core.evaluate_step, kwargs)
+                fn = self.core.evaluate_step
+                final_scores = []
+                metric_values: Dict[str, List[float]] = {}
+                for i, batch in enumerate(loader):
+                    if i / len(loader) >= portion:
+                        break
+                    batch = to_device(batch, self.device)
+                    i_kw = shallow_copy_dict(kw)
+                    i_kw["batch_idx"] = i
+                    i_kw["batch"] = batch
+                    out: MetricsOutputs = safe_execute(fn, i_kw)
+                    final_scores.append(out.final_score)
+                    for k, v in out.metric_values.items():
+                        metric_values.setdefault(k, []).append(v)
+                return MetricsOutputs(
+                    sum(final_scores) / len(final_scores),
+                    {k: sum(v) / len(v) for k, v in metric_values.items()},
+                )
 
             def params_groups(self, m_: nn.Module) -> Any:
                 return self.core.params_groups(m_)

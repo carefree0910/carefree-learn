@@ -10,11 +10,9 @@ from typing import Dict
 from typing import List
 from typing import Callable
 from typing import Optional
-from cftool.array import to_device
 from cftool.types import tensor_dict_type
 
 from .discriminators import DiscriminatorBase
-from ....data import CVLoader
 from ....protocol import _forward
 from ....protocol import ITrainer
 from ....protocol import TrainerState
@@ -128,32 +126,23 @@ class OneStageGANMixin(GANMixin, WithDeviceMixin, metaclass=ABCMeta):
 
     def evaluate_step(
         self,
-        loader: CVLoader,
-        portion: float,
+        batch_idx: int,
+        batch: tensor_dict_type,
         state: TrainerState,
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
     ) -> MetricsOutputs:
-        loss_items: Dict[str, List[float]] = {}
-        for i, batch in enumerate(loader):
-            if i / len(loader) >= portion:
-                break
-            batch = to_device(batch, self.device)
-            forward = _forward(self, i, batch, INPUT_KEY, state)
-            g_losses = self._g_losses(batch, forward)
-            # in evaluate step, all tensors are already detached
-            d_losses = self._d_losses(batch, forward)
-            g_loss = g_losses.pop(LOSS_KEY).item()
-            d_loss = d_losses.pop(LOSS_KEY).item()
-            loss = g_loss + d_loss
-            loss_dict = {"g": g_loss, "d": d_loss, LOSS_KEY: loss}
-            loss_dict.update({k: v.item() for k, v in g_losses.items()})
-            loss_dict.update({k: v.item() for k, v in d_losses.items()})
-            for k, v in loss_dict.items():
-                loss_items.setdefault(k, []).append(v)
-        # gather
-        mean_loss_items = {k: sum(v) / len(v) for k, v in loss_items.items()}
-        score = weighted_loss_score_fn(mean_loss_items)
-        return MetricsOutputs(score, mean_loss_items)
+        forward = _forward(self, batch_idx, batch, INPUT_KEY, state)
+        g_losses = self._g_losses(batch, forward)
+        # in evaluate step, all tensors are already detached
+        d_losses = self._d_losses(batch, forward)
+        g_loss = g_losses.pop(LOSS_KEY).item()
+        d_loss = d_losses.pop(LOSS_KEY).item()
+        loss = g_loss + d_loss
+        loss_dict = {"g": g_loss, "d": d_loss, LOSS_KEY: loss}
+        loss_dict.update({k: v.item() for k, v in g_losses.items()})
+        loss_dict.update({k: v.item() for k, v in d_losses.items()})
+        score = weighted_loss_score_fn(loss_dict)
+        return MetricsOutputs(score, loss_dict)
 
 
 class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMeta):
