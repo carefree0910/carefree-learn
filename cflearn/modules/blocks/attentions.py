@@ -365,7 +365,7 @@ class LinearDepthWiseAttention(Module):
         return net
 
 
-class CrossAttention(nn.Module):
+class CrossAttention(Module):
     def __init__(
         self,
         *,

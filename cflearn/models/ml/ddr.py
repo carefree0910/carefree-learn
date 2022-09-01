@@ -5,7 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
-from typing import Any
 from typing import List
 from typing import Tuple
 from typing import Union
