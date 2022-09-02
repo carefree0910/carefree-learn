@@ -15,9 +15,9 @@ from ....protocol import ITrainer
 from ....protocol import TrainerCallback
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
+from ....constants import STYLE_KEY
 from ....constants import PREDICTIONS_KEY
 from ....models.protocols.cv import GeneratorMixin
-from ....models.cv.stylizer.constants import STYLE_KEY
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 try:

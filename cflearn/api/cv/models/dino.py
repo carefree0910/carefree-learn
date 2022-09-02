@@ -8,12 +8,12 @@ from typing import Tuple
 from cftool.array import to_torch
 from cftool.array import to_device
 
-from ..data import SSLTestTransform
-from ..data import InferenceImageFolderData
 from ..utils import predict_folder
 from ..pipeline import CVPipeline
 from ...protocol import IImageExtractor
 from ...protocol import ImageFolderLatentResponse
+from ....data import SSLTestTransform
+from ....data import InferenceImageFolderData
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context
 
