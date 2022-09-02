@@ -22,6 +22,7 @@ from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
 
+from ..toolkit import no_grad_context
 from ..toolkit import toggle_optimizer
 from ..toolkit import Initializer
 from ...types import losses_type
@@ -173,20 +174,18 @@ class CustomTrainStep(ABC):
         *,
         num_forward: int = 1,
         grad_accumulate: int = 1,
+        requires_new_forward: bool = False,
+        requires_grad_in_forward: bool = True,
+        requires_scheduler_step: bool = False,
         enable_toggle_optimizer: bool = True,
     ) -> None:
         self.scope = scope
         self.num_forward = num_forward
         self.grad_accumulate = grad_accumulate
+        self.requires_new_forward = requires_new_forward
+        self.requires_grad_in_forward = requires_grad_in_forward
+        self.requires_scheduler_step = requires_scheduler_step
         self.enable_toggle_optimizer = enable_toggle_optimizer
-
-    @property
-    def requires_new_forward(self) -> bool:
-        return False
-
-    @property
-    def requires_scheduler_step(self) -> bool:
-        return False
 
     def should_skip(self, m: "CustomModule", state: TrainerState) -> bool:
         return False
@@ -283,15 +282,33 @@ def run_train_steps(
     update_fn = get_update_fn(trainer)
     any_update = False
     performed_scheduler_step = False
+    # sanity check
+    fw_has_grad = True
+    fw_train_step: Any = ()
+    for i, train_step in enumerate(train_steps):
+        if i == 0 or train_step.requires_new_forward:
+            fw_has_grad = train_step.requires_grad_in_forward
+            fw_train_step = train_step
+        if not fw_has_grad and train_step.requires_grad_in_forward:
+            fw_name = fw_train_step.__class__.__name__
+            current_name = train_step.__class__.__name__
+            raise ValueError(
+                f"current forward pass comes from '{fw_name}' and has no grad, "
+                f"but '{current_name}' requires grad in forward. You can either set "
+                f"`requires_grad_in_forward` of '{fw_name}' to True, or set "
+                f"`requires_new_forward` of '{current_name}' to True."
+            )
+    # run train steps
     get_fw = lambda: _forward(m, batch_idx, batch, INPUT_KEY, state, **forward_kwargs)
     for i, train_step in enumerate(train_steps):
         if train_step.should_skip(m, trainer.state):
             continue
         if i == 0 or train_step.requires_new_forward:
-            if train_step.num_forward == 1:
-                forward = get_fw()
-            else:
-                forward = [get_fw() for _ in range(train_step.num_forward)]
+            with no_grad_context(enabled=not train_step.requires_grad_in_forward):
+                if train_step.num_forward == 1:
+                    forward = get_fw()
+                else:
+                    forward = [get_fw() for _ in range(train_step.num_forward)]
         optimizer = trainer.optimizers[train_step.scope]
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
             with autocast(enabled=trainer.use_amp):
