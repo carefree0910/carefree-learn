@@ -16,13 +16,17 @@ from cftool.misc import safe_execute
 from .poolers import BertPooler
 from .poolers import SequencePooler
 from .feedforward import FFN
+from .feedforward import FeedForward
 from .token_mixers import TokenMixerBase
 from ..norms import NormFactory
+from ..utils import zero_module
 from ..common import Lambda
 from ..customs import Linear
 from ..customs import DropPath
 from ..high_level import PreNorm
+from ..attentions import CrossAttention
 from ....misc.toolkit import interpolate
+from ....misc.toolkit import gradient_checkpoint
 
 
 class MixingBlock(Module):
@@ -418,6 +422,105 @@ class MixedStackedEncoder(Module):
         return net
 
 
+class SpatialTransformerBlock(Module):
+    def __init__(
+        self,
+        query_dim: int,
+        num_heads: int,
+        head_dim: int,
+        *,
+        dropout: float = 0.0,
+        context_dim: Optional[int] = None,
+        feedforward_multiplier: float = 4.0,
+        feedforward_activation: str = "geglu",
+        use_checkpoint: bool = True,
+    ):
+        super().__init__()
+        self.attn1 = CrossAttention(
+            query_dim=query_dim,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout,
+        )
+        latent_dim = round(query_dim * feedforward_multiplier)
+        self.ff = FeedForward(
+            query_dim,
+            latent_dim,
+            dropout,
+            activation=feedforward_activation,
+            add_last_dropout=False,
+        )
+        self.attn2 = CrossAttention(
+            query_dim=query_dim,
+            context_dim=context_dim,
+            num_heads=num_heads,
+            head_dim=head_dim,
+            dropout=dropout,
+        )
+        self.norm1 = nn.LayerNorm(query_dim)
+        self.norm2 = nn.LayerNorm(query_dim)
+        self.norm3 = nn.LayerNorm(query_dim)
+        self.use_checkpoint = use_checkpoint
+
+    def forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
+        return gradient_checkpoint(
+            self._forward,
+            inputs=(net, context),
+            params=self.parameters(),
+            enabled=self.use_checkpoint,
+        )
+
+    def _forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
+        net = self.attn1(self.norm1(net)) + net
+        net = self.attn2(self.norm2(net), context=context) + net
+        net = self.ff(self.norm3(net)) + net
+        return net
+
+
+class SpatialTransformer(Module):
+    def __init__(
+        self,
+        in_channels: int,
+        num_heads: int,
+        head_dim: int,
+        *,
+        num_layers: int = 1,
+        dropout: float = 0.0,
+        context_dim: Optional[int] = None,
+    ):
+        super().__init__()
+        self.norm = nn.GroupNorm(32, in_channels, 1.0e-6, affine=True)
+        latent_channels = num_heads * head_dim
+        self.to_latent = nn.Conv2d(in_channels, latent_channels, 1, 1, 0)
+        self.blocks = nn.ModuleList(
+            [
+                SpatialTransformerBlock(
+                    latent_channels,
+                    num_heads,
+                    head_dim,
+                    dropout=dropout,
+                    context_dim=context_dim,
+                )
+                for _ in range(num_layers)
+            ]
+        )
+        self.from_latent = zero_module(nn.Conv2d(latent_channels, in_channels, 1, 1, 0))
+
+    def forward(self, net: Tensor, context: Optional[Tensor]) -> Tensor:
+        inp = net
+        b, c, h, w = net.shape
+        net = self.norm(net)
+        net = self.to_latent(net)
+        net = net.permute(0, 2, 3, 1).reshape(b, h * w, c)
+        for block in self.blocks:
+            net = block(net, context=context)
+        net = net.permute(0, 2, 1).contiguous()
+        net = net.view(b, c, h, w)
+        net = self.from_latent(net)
+        return inp + net
+
+
 __all__ = [
     "MixedStackedEncoder",
+    "SpatialTransformer",
 ]
