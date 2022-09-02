@@ -1,3 +1,4 @@
+from .attn import *
 from .fnet import *
 from .mixer import *
 from .vqgan import *
