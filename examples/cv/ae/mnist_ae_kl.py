@@ -16,5 +16,5 @@ data = cflearn.MNISTData(
     transform_config={"img_size": img_size},
 )
 
-m = cflearn.api.ae_kl_f4(img_size, debug=is_ci)
+m = cflearn.api.ae_kl_f4(img_size, pretrained=False, debug=is_ci)
 m.fit(data, cuda=None if is_ci else 1)
