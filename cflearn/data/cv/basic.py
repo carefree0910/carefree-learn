@@ -49,6 +49,10 @@ try:
     import lmdb
 except:
     lmdb = None
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
 
 
 @IDataset.register("cv")
@@ -639,6 +643,25 @@ class DefaultPreparation(_IPreparation):
         return os.path.join(split_folder, f"{idx}{ext}")
 
 
+class ResizedPreparation(DefaultPreparation):
+    def __init__(self, img_size: int):
+        self.img_size = img_size
+
+    def copy(self, src_path: str, tgt_path: str) -> None:
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `ResizedPreparation`")
+        img = to_rgb(Image.open(src_path))
+        w, h = img.size
+        wh_ratio = w / h
+        if wh_ratio < 1:
+            new_w = self.img_size
+            new_h = round(self.img_size / wh_ratio)
+        else:
+            new_w = round(self.img_size * wh_ratio)
+            new_h = self.img_size
+        img.resize((new_w, new_h), Image.LANCZOS).save(tgt_path)
+
+
 def prepare_image_folder(
     src_folder: str,
     tgt_folder: str,
@@ -1046,6 +1069,7 @@ __all__ = [
     "InferenceImagePathsData",
     "InferenceImageFolderData",
     "DefaultPreparation",
+    "ResizedPreparation",
     "prepare_image_folder",
     "prepare_image_folder_data",
 ]
