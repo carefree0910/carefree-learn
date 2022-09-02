@@ -54,7 +54,7 @@ def prepare() -> None:
 
 if __name__ == "__main__":
     prepare()
-    data = cflearn.cv.ImageFolderData(
+    data = cflearn.ImageFolderData(
         tgt_folder,
         batch_size=8,
         num_workers=2,

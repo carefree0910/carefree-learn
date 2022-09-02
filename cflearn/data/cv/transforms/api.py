@@ -15,8 +15,8 @@ from torchvision.transforms import InterpolationMode
 from .A import *
 from .pt import *
 from .general import *
-from .....data import Compose
-from .....data import Transforms
+from ..basic import Compose
+from ..basic import Transforms
 
 try:
     import cv2

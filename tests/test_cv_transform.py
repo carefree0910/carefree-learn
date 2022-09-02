@@ -4,8 +4,8 @@ import unittest
 import numpy as np
 
 from PIL import Image
-from cflearn.api.cv.data.transforms import ToRGB
-from cflearn.api.cv.data.transforms import ToGray
+from cflearn.data.cv.transforms import ToRGB
+from cflearn.data.cv.transforms import ToGray
 
 
 class TestTransform(unittest.TestCase):

@@ -5,7 +5,7 @@ from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
 
 from .general import NoBatchTransforms
-from .....data import Transforms
+from ..basic import Transforms
 
 
 @Transforms.register("to_tensor")

@@ -10,17 +10,17 @@ from functools import partial
 from cftool.types import tensor_dict_type
 from torchvision.datasets import MNIST
 
-from ....data import Transforms
+from ..basic import Transforms
+from ..basic import CVDataset
+from ..basic import CVLoader
+from ..basic import DataLoader
+from ..basic import CVDataModule
+from ..basic import DLDataModule
 from ....types import sample_weights_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import DATA_CACHE_DIR
 from ....constants import ORIGINAL_LABEL_KEY
-from ....data import CVDataset
-from ....data import CVLoader
-from ....data import DataLoader
-from ....data import CVDataModule
-from ....data import DLDataModule
 
 
 def batch_callback(

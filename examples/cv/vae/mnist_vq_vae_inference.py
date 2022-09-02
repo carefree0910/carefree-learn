@@ -6,7 +6,7 @@ from cflearn.misc.toolkit import check_is_ci
 
 is_ci = check_is_ci()
 
-data = cflearn.cv.MNISTData(shuffle=False, transform="for_generation")
+data = cflearn.MNISTData(shuffle=False, transform="for_generation")
 workplace = "_logs"
 vqvae_log_folder = get_latest_workplace(workplace)
 config = dict(

@@ -14,15 +14,15 @@ from typing import Callable
 from typing import Optional
 from cftool.misc import print_warning
 
-from .....data import CVDataset
-from .....data import Transforms
-from .....data import ImageFolderData
-from .....data import InferenceImageFolderData
-from .....types import sample_weights_type
-from .....constants import INPUT_KEY
-from .....data.cv import ImageFolderDataset
-from .....data.cv import InferenceImageFolderDataset
-from .....models.cv.stylizer.constants import STYLE_KEY
+from ..basic import CVDataset
+from ..basic import Transforms
+from ..basic import ImageFolderData
+from ..basic import InferenceImageFolderData
+from ..basic import ImageFolderDataset
+from ..basic import InferenceImageFolderDataset
+from ....types import sample_weights_type
+from ....constants import INPUT_KEY
+from ....models.cv.stylizer.constants import STYLE_KEY
 
 try:
     from cfcv.misc.toolkit import to_rgb

@@ -34,14 +34,14 @@ if __name__ == "__main__":
         num_jobs=0 if is_ci else 24,
         lmdb_config=lmdb_config,
     )
-    data = cflearn.cv.StyleTransferData(
+    data = cflearn.StyleTransferData(
         gathered_folder,
         style_folder,
         batch_size=8,
         num_workers=2 if is_ci else 4,
         drop_train_last=not is_ci,
-        transform=cflearn.cv.StyleTransferTransform(label_alias=STYLE_KEY),
-        test_transform=cflearn.cv.StyleTransferTestTransform(label_alias=STYLE_KEY),
+        transform=cflearn.StyleTransferTransform(label_alias=STYLE_KEY),
+        test_transform=cflearn.StyleTransferTestTransform(label_alias=STYLE_KEY),
         lmdb_config=lmdb_config,
     )
 

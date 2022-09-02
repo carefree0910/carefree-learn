@@ -7,7 +7,7 @@ from cftool.array import arr_type
 from cftool.array import to_torch
 from torchvision.transforms import transforms
 
-from .....data import Transforms
+from ..basic import Transforms
 
 
 class NoBatchTransforms(Transforms):

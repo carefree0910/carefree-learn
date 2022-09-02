@@ -23,7 +23,7 @@ from cflearn.modules.blocks import UpsampleConv2d
 
 # preparations
 is_ci = check_is_ci()
-data = cflearn.cv.MNISTData(batch_size=16, transform="to_tensor")
+data = cflearn.MNISTData(batch_size=16, transform="to_tensor")
 # for reproduction
 np.random.seed(142857)
 torch.manual_seed(142857)

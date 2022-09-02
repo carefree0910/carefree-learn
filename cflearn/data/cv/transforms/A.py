@@ -6,9 +6,9 @@ from typing import Optional
 from .general import ToRGB
 from .general import ToGray
 from .general import BatchWrapper
-from .....data import Transforms
-from .....constants import INPUT_KEY
-from .....constants import LABEL_KEY
+from ..basic import Transforms
+from ....constants import INPUT_KEY
+from ....constants import LABEL_KEY
 
 try:
     import cv2

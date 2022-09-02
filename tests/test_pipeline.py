@@ -96,7 +96,7 @@ class TestPipeline(unittest.TestCase):
             fixed_steps=10,
             log_steps=1,
         )
-        data = cflearn.cv.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
+        data = cflearn.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
         m.fit(data)
         valid_loader = m.trainer.valid_loader
         workplace = get_latest_workplace("_logs")

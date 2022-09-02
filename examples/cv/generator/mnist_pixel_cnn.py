@@ -38,7 +38,7 @@ class PixelCNNCallback(cflearn.ImageCallback):
 
 
 num_conditional_classes = None if is_ci else 10
-data = cflearn.cv.MNISTData(
+data = cflearn.MNISTData(
     batch_size=4 if is_ci else 64,
     transform=transforms.Compose(
         [

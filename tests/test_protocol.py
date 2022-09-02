@@ -11,7 +11,7 @@ def _get_m(**kwargs: Any) -> DLPipeline:
     kw = dict(metric_names="acc", debug=True)
     kw.update(kwargs)
     m = cflearn.api.cct_lite(28, 10, **kw)  # type: ignore
-    data = cflearn.cv.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
+    data = cflearn.MNISTData(batch_size=4, transform=["to_rgb", "to_tensor"])
     return m.fit(data)
 
 
