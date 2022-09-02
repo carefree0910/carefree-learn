@@ -1,3 +1,4 @@
+from .ae import *
 from .gan import *
 from .ssl import *
 from .vae import *
