@@ -935,6 +935,43 @@ class ONNX:
         return dict(zip(self.output_names, self.ort_session.run(None, ort_inputs)))
 
 
+def gradient_checkpoint(func: Callable, inputs: Any, params: Any, enabled: bool) -> Any:
+    if not enabled:
+        return func(*inputs)
+    args = tuple(inputs) + tuple(params)
+    return GradientCheckpointFunction.apply(func, len(inputs), *args)
+
+
+class GradientCheckpointFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx: Any, *args: Any, **kwargs: Any) -> Any:
+        run_function, length = args[:2]
+        ctx.run_function = run_function
+        ctx.input_tensors = list(args[:length])
+        ctx.input_params = list(args[length:])
+
+        with torch.no_grad():
+            output_tensors = ctx.run_function(*ctx.input_tensors)
+        return output_tensors
+
+    @staticmethod
+    def backward(ctx: Any, *grad_outputs: Any) -> Any:
+        ctx.input_tensors = [x.detach().requires_grad_(True) for x in ctx.input_tensors]
+        with torch.enable_grad():
+            shallow_copies = [x.view_as(x) for x in ctx.input_tensors]
+            output_tensors = ctx.run_function(*shallow_copies)
+        input_grads = torch.autograd.grad(
+            output_tensors,
+            ctx.input_tensors + ctx.input_params,
+            grad_outputs,
+            allow_unused=True,
+        )
+        del ctx.input_tensors
+        del ctx.input_params
+        del output_tensors
+        return (None, None) + input_grads
+
+
 # ml
 
 
