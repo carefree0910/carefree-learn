@@ -125,6 +125,10 @@ class TestExample(unittest.TestCase):
         self.assertEqual(os.system(cmd), 0)
 
     def test_mnist_ae_kl(self) -> None:
+        try:
+            import albumentations
+        except:
+            return
         folder = os.path.join(examples_folder, "ae")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'mnist_ae_kl.py')} --ci 1"),
