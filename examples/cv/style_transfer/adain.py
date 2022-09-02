@@ -4,10 +4,10 @@ import os
 import cflearn
 
 from PIL import Image
+from cflearn.constants import STYLE_KEY
 from cflearn.constants import DATA_CACHE_DIR
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
-from cflearn.models.cv.stylizer.constants import STYLE_KEY
 
 
 is_ci = check_is_ci()

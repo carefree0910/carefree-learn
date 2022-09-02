@@ -6,18 +6,18 @@ from typing import Optional
 from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
-from .constants import STYLE_KEY
-from .constants import STYLE_LATENTS_KEY
-from .constants import CONTENT_LATENT_KEY
-from .constants import STYLIZED_STYLE_LATENTS_KEY
-from .constants import STYLIZED_CONTENT_LATENT_KEY
 from ..decoder import VanillaDecoder
 from ..encoder import BackboneEncoder
 from ....types import losses_type
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
+from ....constants import STYLE_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....constants import STYLE_LATENTS_KEY
+from ....constants import CONTENT_LATENT_KEY
+from ....constants import STYLIZED_STYLE_LATENTS_KEY
+from ....constants import STYLIZED_CONTENT_LATENT_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate

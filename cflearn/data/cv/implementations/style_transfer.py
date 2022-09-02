@@ -22,7 +22,7 @@ from ..basic import ImageFolderDataset
 from ..basic import InferenceImageFolderDataset
 from ....types import sample_weights_type
 from ....constants import INPUT_KEY
-from ....models.cv.stylizer.constants import STYLE_KEY
+from ....constants import STYLE_KEY
 
 try:
     from cfcv.misc.toolkit import to_rgb
