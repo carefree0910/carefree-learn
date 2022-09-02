@@ -26,6 +26,10 @@
     }
   },
   "checkpoints": {
+    "lpips": {
+      "sha": "af871281bc45f42cab4acb576b9ad407133f5432fd58bdf2c92fac230ae90f3c",
+      "st_size": 7579
+    },
     "vgg_style": {
       "sha": "e1f6d57181cc06a32b3acb31734c485341ec11c247eacec0dbdddd0f179c8771",
       "st_size": 14029161
