@@ -1,6 +1,7 @@
 import random
 
 import numpy as np
+import albumentations as A
 
 from PIL import ImageOps
 from PIL import ImageFilter
@@ -10,6 +11,7 @@ from typing import Tuple
 from typing import Optional
 from PIL.Image import Image
 from PIL.Image import ANTIALIAS
+from cftool.array import to_torch
 from torchvision.transforms import transforms
 from torchvision.transforms import InterpolationMode
 
@@ -301,6 +303,52 @@ class StyleTransferTestTransform(Compose):
         )
 
 
+@Transforms.register("ae_kl")
+class AutoEncoderKLTransform(Transforms):
+    def __init__(
+        self,
+        *,
+        img_size: int = 256,
+        crop_bounds: Tuple[float, float] = (0.5, 1.0),
+        random_crop: bool = True,
+    ):
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `AutoEncoderKLTransform`")
+        super().__init__()
+        self.img_size = img_size
+        self.crop_bounds = crop_bounds
+        self.random_crop = random_crop
+        self.resizer = A.Resize(img_size, img_size, cv2.INTER_AREA)
+
+    def fn(self, image: Image) -> Tensor:
+        w, h = image.size
+        image = to_rgb(image)
+        image = np.array(image).astype(np.uint8)
+        min_wh = min(w, h)
+        if not self.random_crop:
+            cropper = A.CenterCrop(min_wh, min_wh)
+        else:
+            crop_size = min_wh * np.random.uniform(*self.crop_bounds)
+            crop_size = round(crop_size)
+            cropper = A.RandomCrop(crop_size, crop_size)
+        image = cropper(image=image)["image"]
+        image = self.resizer(image=image)["image"]
+        image = to_torch(image.astype(np.float32))
+        image = image / 127.5 - 1.0
+        image = image.permute(2, 0, 1)
+        return image
+
+    @property
+    def need_batch_process(self) -> bool:
+        return False
+
+
+@Transforms.register("ae_kl_test")
+class AutoEncoderKLTestTransform(AutoEncoderKLTransform):
+    def __init__(self, img_size: int = 256):
+        super().__init__(img_size=img_size, random_crop=False)
+
+
 @Transforms.register("clf")
 class ClassificationTransform(Compose):
     def __init__(
@@ -343,6 +391,8 @@ __all__ = [
     "ABundleTestTransform",
     "StyleTransferTransform",
     "StyleTransferTestTransform",
+    "AutoEncoderKLTransform",
+    "AutoEncoderKLTestTransform",
     "ClassificationTransform",
     "ClassificationTestTransform",
 ]
