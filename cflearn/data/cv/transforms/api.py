@@ -4,6 +4,7 @@ import numpy as np
 
 from PIL import ImageOps
 from PIL import ImageFilter
+from torch import Tensor
 from typing import List
 from typing import Tuple
 from typing import Optional
@@ -162,7 +163,7 @@ class SSLTransform(Transforms):
                 ]
             )
 
-        def __call__(self, image: Image) -> Image:
+        def __call__(self, image: Image) -> List[Tensor]:
             image = to_rgb(image)
             crops = [self.global_transform1(image), self.global_transform2(image)]
             for _ in range(self.local_crops_number):
