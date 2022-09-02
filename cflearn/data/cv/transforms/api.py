@@ -1,7 +1,6 @@
 import random
 
 import numpy as np
-import albumentations as A
 
 from PIL import ImageOps
 from PIL import ImageFilter
@@ -37,6 +36,10 @@ except:
     to_rgb = None
     min_max_normalize = None
     imagenet_normalize = None
+try:
+    import albumentations as A
+except:
+    A = None
 
 
 @Transforms.register("for_generation")
@@ -312,6 +315,8 @@ class AutoEncoderKLTransform(Transforms):
         crop_bounds: Tuple[float, float] = (0.5, 1.0),
         random_crop: bool = True,
     ):
+        if A is None:
+            raise ValueError("`albumentations` is needed for `AutoEncoderKLTransform`")
         if to_rgb is None:
             raise ValueError("`carefree-cv` is needed for `AutoEncoderKLTransform`")
         super().__init__()
