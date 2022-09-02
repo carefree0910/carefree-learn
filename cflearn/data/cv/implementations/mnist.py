@@ -51,6 +51,8 @@ class MNISTData(CVDataModule):
         drop_train_last: bool = True,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
+        test_transform_config: Optional[Dict[str, Any]] = None,
         label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
     ):
         self.root = root
@@ -59,7 +61,11 @@ class MNISTData(CVDataModule):
         self.num_workers = num_workers
         self.drop_train_last = drop_train_last
         self.transform = Transforms.convert(transform, transform_config)
-        self.test_transform = self.transform
+        if test_transform is None:
+            self.test_transform = self.transform
+        else:
+            cfg = test_transform_config or transform_config
+            self.test_transform = Transforms.convert(test_transform, cfg)
         self.label_callback = label_callback
 
     @property
@@ -79,7 +85,7 @@ class MNISTData(CVDataModule):
             MNIST(
                 self.root,
                 train=False,
-                transform=self.transform,
+                transform=self.test_transform,
                 download=True,
             )
         )
