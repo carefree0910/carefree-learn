@@ -1136,6 +1136,33 @@ def adain(pretrained: bool = False, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("style_transfer/adain", **kwargs)
 
 
+# ae
+
+
+def ae_kl_f4(size: int = 256, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    if pretrained and size != 256:
+        raise ValueError("pretrained `ae_kl_f4` should have `size`=256")
+    kwargs["img_size"] = size
+    kwargs["pretrained"] = pretrained
+    return DLZoo.load_pipeline("ae/kl.f4", **kwargs)
+
+
+def ae_kl_f8(size: int = 256, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    if pretrained and size != 256:
+        raise ValueError("pretrained `ae_kl_f8` should have `size`=256")
+    kwargs["img_size"] = size
+    kwargs["pretrained"] = pretrained
+    return DLZoo.load_pipeline("ae/kl.f8", **kwargs)
+
+
+def ae_kl_f16(size: int = 256, pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    if pretrained and size != 256:
+        raise ValueError("pretrained `ae_kl_f16` should have `size`=256")
+    kwargs["img_size"] = size
+    kwargs["pretrained"] = pretrained
+    return DLZoo.load_pipeline("ae/kl.f16", **kwargs)
+
+
 # vae
 
 

@@ -30,6 +30,18 @@
       "sha": "af871281bc45f42cab4acb576b9ad407133f5432fd58bdf2c92fac230ae90f3c",
       "st_size": 7579
     },
+    "kl.f4": {
+      "sha": "0ff5e34a1dc3c0fa6573a7c3f05b7f7a35647268573d05283c06c56b6ab1898a",
+      "st_size": 291265337
+    },
+    "kl.f8": {
+      "sha": "b04b9962c04f1b1ef1da9cb34cec6d68f4567e2801ce87b188e506fc2a888e97",
+      "st_size": 404646817
+    },
+    "kl.f16": {
+      "sha": "70ac3afa71f594c0cad9456d61e54ec7c9324cd3e195ca1e5140581308f1d3b0",
+      "st_size": 348505765
+    },
     "vgg_style": {
       "sha": "e1f6d57181cc06a32b3acb31734c485341ec11c247eacec0dbdddd0f179c8771",
       "st_size": 14029161
