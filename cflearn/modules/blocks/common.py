@@ -66,6 +66,8 @@ class EMA(Module):
         self,
         decay: float,
         named_parameters: List[Tuple[str, nn.Parameter]],
+        *,
+        use_num_updates: bool = False,
     ):
         super().__init__()
         self._decay = decay
@@ -73,6 +75,8 @@ class EMA(Module):
         for name, param in self.tgt_params:
             self.register_buffer(self.get_name(True, name), param.data.clone())
             self.register_buffer(self.get_name(False, name), param.data.clone())
+        num_updates = torch.tensor(0 if use_num_updates else -1, dtype=torch.int)
+        self.register_buffer("num_updates", num_updates)
 
     @staticmethod
     def get_name(train: bool, name: str) -> str:
@@ -87,11 +91,16 @@ class EMA(Module):
         )
 
     def forward(self) -> None:
+        if self.num_updates < 0:
+            decay = self._decay
+        else:
+            self.num_updates += 1
+            decay = min(self._decay, (1 + self.num_updates) / (10 + self.num_updates))
         for name, param in self.tgt_params:
             setattr(self, self.get_name(True, name), param.data.clone())
             ema_name = self.get_name(False, name)
             ema_attr = getattr(self, ema_name)
-            ema = (1.0 - self._decay) * param.data + self._decay * ema_attr
+            ema = (1.0 - decay) * param.data + decay * ema_attr
             setattr(self, ema_name, ema.clone())
 
     def train(self, mode: bool = True) -> "EMA":
