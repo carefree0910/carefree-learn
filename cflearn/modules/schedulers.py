@@ -1,3 +1,7 @@
+import math
+
+import numpy as np
+
 from typing import Any
 from typing import Dict
 from typing import List
@@ -17,6 +21,12 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 from ..misc.toolkit import scheduler_requires_metric
 
 
+class ISchedulerOp:
+    def schedule(self, step: int, **kwargs: Any) -> float:
+        pass
+
+
+scheduler_ops: Dict[str, Type[ISchedulerOp]] = {}
 scheduler_dict: Dict[str, Type[_LRScheduler]] = {}
 
 
@@ -167,6 +177,79 @@ class WarmupScheduler(_LRScheduler):
         else:
             assert metrics is not None
             self.scheduler_afterwards.step(metrics)  # type: ignore
+
+
+def register_op(name: str) -> Callable:
+    def _register(cls_: Type) -> Type:
+        global scheduler_ops
+        scheduler_ops[name] = cls_
+        return cls_
+
+    return _register
+
+
+@register_op("cosine_warmup")
+class CosineWarmupOp:
+    def __init__(
+        self,
+        warmup_steps: List[int],
+        cycle_lengths: List[int],
+        f_start: List[float],
+        f_min: List[float],
+        f_max: List[float],
+    ):
+        self.warmup_steps = warmup_steps
+        self.cycle_lengths = cycle_lengths
+        self.cum_cycles = np.cumsum([0] + list(self.cycle_lengths))
+        self.f_start = f_start
+        self.f_min = f_min
+        self.f_max = f_max
+
+    def find_in_interval(self, step: int) -> int:
+        interval = 0
+        for cl in self.cum_cycles[1:]:
+            if step <= cl:
+                return interval
+            interval += 1
+        return interval - 1
+
+    def schedule(self, step: int, **kwargs: Any) -> float:
+        cycle = self.find_in_interval(step)
+        step = step - self.cum_cycles[cycle]
+        warmup_step = self.warmup_steps[cycle]
+        f_start = self.f_start[cycle]
+        f_max = self.f_max[cycle]
+        if step < warmup_step:
+            return (f_max - f_start) / warmup_step * step + f_start
+        t = (step - warmup_step) / (self.cycle_lengths[cycle] - warmup_step)
+        t = min(t, 1.0)
+        f_min = self.f_min[cycle]
+        return f_min + 0.5 * (f_max - f_min) * (1.0 + math.cos(t * math.pi))
+
+
+@register_op("linear_warmup")
+class LinearWarmupOp(CosineWarmupOp):
+    def schedule(self, step: int, **kwargs: Any) -> float:
+        cycle = self.find_in_interval(step)
+        step = step - self.cum_cycles[cycle]
+        warmup_step = self.warmup_steps[cycle]
+        f_start = self.f_start[cycle]
+        f_max = self.f_max[cycle]
+        if step < warmup_step:
+            return (f_max - f_start) / warmup_step * step + f_start
+        cycle_length = self.cycle_lengths[cycle]
+        f_min = self.f_min[cycle]
+        return f_min + (f_max - f_min) * (cycle_length - step) / cycle_length
+
+
+@register_scheduler("op")
+class OpScheduler(LambdaLR):
+    def __init__(self, optimizer: Optimizer, op_type: str, op_config: Dict[str, Any]):
+        op_base = scheduler_ops.get(op_type)
+        if op_base is None:
+            raise ValueError(f"unrecognized scheduler op '{op_type}' occurred")
+        op = op_base(**op_config)
+        super().__init__(optimizer, lr_lambda=op.schedule)
 
 
 __all__ = [
