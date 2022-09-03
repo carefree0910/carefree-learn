@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch import Tensor
 
 from ..misc.toolkit import download_model
+from ..misc.toolkit import set_requires_grad
 from ..models.cv.encoder.backbone.core import Backbone
 
 
@@ -55,8 +56,7 @@ class LPIPS(nn.Module):
         self.out_channels = self.backbone.out_channels
         self.mappings = nn.ModuleList(list(map(make_mapping, self.out_channels)))
         self.load_pretrained()
-        for param in self.parameters():
-            param.requires_grad = False
+        set_requires_grad(self, False)
 
     def load_pretrained(self) -> None:
         ckpt = download_model("lpips")
