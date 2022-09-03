@@ -953,7 +953,7 @@ def gradient_checkpoint(func: Callable, inputs: Any, params: Any, enabled: bool)
 class GradientCheckpointFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx: Any, *args: Any, **kwargs: Any) -> Any:
-        run_function, length, *args = args
+        run_function, length, *args = args  # type: ignore
         ctx.run_function = run_function
         ctx.input_tensors = list(args[:length])
         ctx.input_params = list(args[length:])
