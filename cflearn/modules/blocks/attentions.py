@@ -440,7 +440,7 @@ class CrossAttention(Module):
         # (B * head, Tq, dim)
         net = torch.einsum("b i j, b j d -> b i d", attn_prob, v)
         # (B, head, Tq, dim)
-        net = net.reshape(b, self.num_heads, tq, dq)
+        net = net.reshape(b, self.num_heads, tq, dq // self.num_heads)
         # (B, Tq, head, dim)
         net = net.permute(0, 2, 1, 3).contiguous()
         # (B, Tq, D)
