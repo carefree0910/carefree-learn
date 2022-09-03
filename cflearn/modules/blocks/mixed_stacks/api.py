@@ -463,9 +463,10 @@ class SpatialTransformerBlock(Module):
         self.use_checkpoint = use_checkpoint
 
     def forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
+        inputs = (net,) if context is None else (net, context)
         return gradient_checkpoint(
             self._forward,
-            inputs=(net, context),
+            inputs=inputs,
             params=self.parameters(),
             enabled=self.use_checkpoint,
         )

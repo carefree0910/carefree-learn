@@ -204,9 +204,10 @@ class ResidualBlockWithTimeEmbedding(Module):
                 self.shortcut = nn.Conv2d(in_channels, out_channels, 1, 1, 0)
 
     def forward(self, net: Tensor, time_net: Optional[Tensor] = None) -> Tensor:
+        inputs = (net,) if time_net is None else (net, time_net)
         return gradient_checkpoint(
             self._forward,
-            inputs=(net, time_net),
+            inputs=inputs,
             params=self.parameters(),
             enabled=self.use_checkpoint,
         )
