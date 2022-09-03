@@ -433,7 +433,7 @@ class SpatialTransformerBlock(Module):
         context_dim: Optional[int] = None,
         feedforward_multiplier: float = 4.0,
         feedforward_activation: str = "geglu",
-        use_checkpoint: bool = True,
+        use_checkpoint: bool = False,
     ):
         super().__init__()
         self.attn1 = CrossAttention(
@@ -488,6 +488,7 @@ class SpatialTransformer(Module):
         num_layers: int = 1,
         dropout: float = 0.0,
         context_dim: Optional[int] = None,
+        use_checkpoint: bool = False,
     ):
         super().__init__()
         self.norm = nn.GroupNorm(32, in_channels, 1.0e-6, affine=True)
@@ -501,6 +502,7 @@ class SpatialTransformer(Module):
                     head_dim,
                     dropout=dropout,
                     context_dim=context_dim,
+                    use_checkpoint=use_checkpoint,
                 )
                 for _ in range(num_layers)
             ]
