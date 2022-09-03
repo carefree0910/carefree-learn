@@ -406,6 +406,14 @@ def set_requires_grad(module: nn.Module, requires_grad: bool = False) -> None:
         param.requires_grad = requires_grad
 
 
+def freeze(module: nn.Module) -> nn.Module:
+    module.eval()
+    # make sure that the module will never go back to `train` mode
+    module.train = lambda m, mode=True: m  # type: ignore
+    set_requires_grad(module, False)
+    return module
+
+
 def scheduler_requires_metric(scheduler: Any) -> bool:
     return check_requires(scheduler.step, "metrics")
 
