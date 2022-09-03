@@ -17,7 +17,7 @@ from torch.optim.optimizer import Optimizer
 optimizer_dict: Dict[str, Type[Optimizer]] = {}
 
 
-def register_optimizer(name: str) -> Callable[[Type], Type]:
+def register_optimizer(name: str) -> Callable:
     def _register(cls_: Type) -> Type:
         global optimizer_dict
         optimizer_dict[name] = cls_

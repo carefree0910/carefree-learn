@@ -16,10 +16,11 @@ from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts
 
 from ..misc.toolkit import scheduler_requires_metric
 
-scheduler_dict = {}
+
+scheduler_dict: Dict[str, Type[_LRScheduler]] = {}
 
 
-def register_scheduler(name: str) -> Callable[[Type], Type]:
+def register_scheduler(name: str) -> Callable:
     def _register(cls_: Type) -> Type:
         global scheduler_dict
         scheduler_dict[name] = cls_

@@ -13,7 +13,7 @@ from cftool.misc import safe_execute
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
 
-from .bases import custom_loss_module_type
+from .bases import ICustomLossModule
 from ..protocol import _forward
 from ..protocol import ITrainer
 from ..protocol import StepOutputs
@@ -32,7 +32,7 @@ def register_ml_module(
     allow_duplicate: bool = False,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
-) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
+) -> Callable:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
         @IMLCore.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
@@ -98,8 +98,8 @@ def register_custom_loss_module(
     allow_duplicate: bool = False,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
-) -> Callable[[custom_loss_module_type], custom_loss_module_type]:
-    def _core(m: custom_loss_module_type) -> custom_loss_module_type:
+) -> Callable:
+    def _core(m: Type[ICustomLossModule]) -> Type[ICustomLossModule]:
         class _(*bases):  # type: ignore
             def __init__(self, *args: Any, **kwargs: Any):
                 super().__init__()

@@ -7,7 +7,6 @@ from abc import abstractmethod
 from abc import ABCMeta
 from typing import Any
 from typing import Dict
-from typing import Type
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import print_warning
@@ -43,9 +42,6 @@ class ICustomLossModule(torch.nn.Module):
     @abstractmethod
     def forward(self, *args: Any, **kwargs: Any) -> Any:
         pass
-
-
-custom_loss_module_type = Type[ICustomLossModule]
 
 
 class IBAKE(ICustomLossModule, metaclass=ABCMeta):

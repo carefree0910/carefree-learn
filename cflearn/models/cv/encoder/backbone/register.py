@@ -18,7 +18,7 @@ def register_backbone(
     name: str,
     out_channels: List[int],
     return_nodes: Dict[str, str],
-) -> Callable[[Callable], Callable]:
+) -> Callable:
     def _register(fn: Callable) -> Callable:
         registered = backbone_info_dict.get(name)
         if registered is not None:

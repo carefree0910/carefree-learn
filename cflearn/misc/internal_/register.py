@@ -43,7 +43,7 @@ from ...constants import PREDICTIONS_KEY
 from ...data.cv import Transforms
 
 
-def register_initializer(name: str) -> Callable[[Callable], Callable]:
+def register_initializer(name: str) -> Callable:
     def _register(f: Callable) -> Callable:
         Initializer.add_initializer(f, name)
         return f
@@ -84,16 +84,12 @@ class ITransform:
         pass
 
 
-metric_type = Type[IMetric]
-transform_type = Type[ITransform]
-
-
 def register_metric(
     name: str,
     *,
     allow_duplicate: bool = False,
-) -> Callable[[metric_type], metric_type]:
-    def _core(metric_base: metric_type) -> metric_type:
+) -> Callable:
+    def _core(metric_base: Type[IMetric]) -> Type[IMetric]:
         @_IMetric.register(name, allow_duplicate=allow_duplicate)
         class _(_IMetric):
             def __init__(self, *args: Any, **kwargs: Any):
@@ -139,7 +135,7 @@ def register_module(
     allow_duplicate: bool = False,
     pre_bases: Optional[List[type]] = None,
     post_bases: Optional[List[type]] = None,
-) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
+) -> Callable:
     def _core(m: Type[nn.Module]) -> Type[nn.Module]:
         @IDLModel.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
@@ -336,7 +332,7 @@ def register_custom_module(
     custom_evaluate_step: bool = True,
     custom_params_groups: bool = False,
     custom_ddp_initialization: bool = False,
-) -> Callable[[Type[CustomModule]], Type[CustomModule]]:
+) -> Callable:
     def _core(m: Type[CustomModule]) -> Type[CustomModule]:
         @IDLModel.register(name, allow_duplicate=allow_duplicate)
         class _(*bases):  # type: ignore
@@ -452,7 +448,7 @@ def register_loss_module(
     name: str,
     *,
     allow_duplicate: bool = False,
-) -> Callable[[Type[nn.Module]], Type[nn.Module]]:
+) -> Callable:
     """
     Registered module should have forward method with one of the following formats:
 
@@ -513,8 +509,8 @@ def register_transform(
     name: str,
     *,
     allow_duplicate: bool = False,
-) -> Callable[[transform_type], transform_type]:
-    def _core(transform_base: transform_type) -> transform_type:
+) -> Callable:
+    def _core(transform_base: Type[ITransform]) -> Type[ITransform]:
         @Transforms.register(name, allow_duplicate=allow_duplicate)
         class _(Transforms):
             def __init__(self, *args: Any, **kwargs: Any):
