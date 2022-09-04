@@ -863,6 +863,7 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
+        strict: bool = True,
     ) -> "DLPipeline":
         if export_folder.endswith(".zip"):
             export_folder = export_folder[:-4]
@@ -899,7 +900,7 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
                 modifier.permute_states(states)
                 if states_callback is not None:
                     states = states_callback(m, states)
-                m.model.load_state_dict(states)
+                m.model.load_state_dict(states, strict=strict)
         return m
 
     def to_onnx(

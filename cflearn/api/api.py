@@ -207,6 +207,7 @@ def load(
     states_callback: states_callback_type = None,
     pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
+    strict: bool = True,
 ) -> DLPipeline:
     return DLPipeline.load(
         export_folder,
@@ -215,6 +216,7 @@ def load(
         states_callback=states_callback,
         pre_callback=pre_callback,
         post_callback=post_callback,
+        strict=strict,
     )
 
 
