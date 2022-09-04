@@ -116,6 +116,7 @@ class ZooBase(ABC):
                             continue
                         example = _example("", "", k_hierarchy.split(" -> ") + [vv])
                         raise ValueError(
+                            f"Failed to build '{model}': "
                             f"'{vv}' should be provided in `{k_hierarchy}`, for example:\n"
                             f'* cflearn.api.from_zoo("{model}", {example})\n'
                             f'* cflearn.ZooBase.load_pipeline("{model}", {example})\n'
