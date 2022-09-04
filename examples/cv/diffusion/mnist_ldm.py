@@ -16,11 +16,14 @@ data = cflearn.MNISTData(
     transform_config={"img_size": img_size},
 )
 
+model_config = {}
+if is_ci:
+    model_config["start_channels"] = 32
+    model_config["default_start_T"] = 1
+
 m = cflearn.api.ldm(
-    img_size,
-    model_config=dict(
-        start_channels=64,
-    ),
+    latent_size=32,
+    model_config=model_config,
     workplace="_ldm",
     pretrained=False,
     debug=is_ci,
