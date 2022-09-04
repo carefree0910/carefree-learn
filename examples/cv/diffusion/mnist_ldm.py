@@ -17,8 +17,9 @@ data = cflearn.MNISTData(
 )
 
 m = cflearn.api.ldm(
+    img_size,
     model_config=dict(
-        # start_channels=32,
+        start_channels=64,
     ),
     workplace="_ldm",
     pretrained=False,

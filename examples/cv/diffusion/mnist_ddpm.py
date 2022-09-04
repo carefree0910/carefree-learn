@@ -19,8 +19,9 @@ data = cflearn.MNISTData(
 m = cflearn.api.ddpm(
     img_size,
     model_config=dict(
-        # start_channels=64,
+        start_channels=64,
     ),
+    workplace="_ddpm",
     pretrained=False,
     debug=is_ci,
 )
