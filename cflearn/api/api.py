@@ -1262,6 +1262,26 @@ def vq_vae_gray_lite(
     return _vq_vae("vq.gray_lite", img_size, num_classes, **kwargs)
 
 
+# diffusion
+
+
+def ddpm(img_size: int = 256, **kwargs: Any) -> DLPipeline:
+    kwargs["img_size"] = img_size
+    return DLZoo.load_pipeline("diffusion/ddpm", **kwargs)
+
+
+def ldm(
+    latent_size: int = 32,
+    latent_in_channels: int = 4,
+    latent_out_channels: int = 4,
+    **kwargs: Any,
+) -> DLPipeline:
+    kwargs["img_size"] = latent_size
+    kwargs["in_channels"] = latent_in_channels
+    kwargs["out_channels"] = latent_out_channels
+    return DLZoo.load_pipeline("diffusion/ldm", **kwargs)
+
+
 # nlp
 
 

@@ -1,0 +1,38 @@
+{
+  "__requires__": {
+    "model_config": ["img_size"]
+  },
+  "pipeline": "cv",
+  "model_name": "ddpm",
+  "model_config": {
+    "in_channels": 3,
+    "out_channels": 3,
+    "start_channels": 320,
+    "use_checkpoint": true,
+    "ema_decay": null,
+    "condition_type": "cross_attn",
+    "condition_learnable": false,
+    "timesteps": 1000,
+    "linear_start": 0.00085,
+    "linear_end": 0.0120
+  },
+  "optimizer_settings": {
+    "core.learnable": {
+      "optimizer": "adamw",
+      "scheduler": "op",
+      "optimizer_config": {
+        "lr": 1.0e-4
+      },
+      "scheduler_config": {
+        "op_type": "linear_warmup",
+        "op_config": {
+          "warmup_steps": [10000],
+          "cycle_lengths": [10000000000000],
+          "f_start": [1.0e-6],
+          "f_max": [1.0],
+          "f_min": [1.0]
+        }
+      }
+    }
+  }
+}
