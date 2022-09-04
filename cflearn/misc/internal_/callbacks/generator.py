@@ -26,6 +26,7 @@ except:
     min_max_normalize = None
 
 
+@TrainerCallback.register("ddpm")
 @TrainerCallback.register("ae_kl")
 @TrainerCallback.register("gan")
 @TrainerCallback.register("vae")
