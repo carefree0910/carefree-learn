@@ -64,6 +64,8 @@ class LDM(DDPM):
         original_elbo_weight: float = 0.0,
         learn_log_var: bool = False,
         log_var_init: float = 0.0,
+        ## sampling
+        default_start_T: int = 1000,
     ):
         self.use_first_stage_as_condition = use_first_stage_as_condition
         if use_first_stage_as_condition:
@@ -109,6 +111,7 @@ class LDM(DDPM):
             original_elbo_weight=original_elbo_weight,
             learn_log_var=learn_log_var,
             log_var_init=log_var_init,
+            default_start_T=default_start_T,
         )
         first_stage_kw = first_stage_config or {}
         first_stage_kw.setdefault("report", False)
