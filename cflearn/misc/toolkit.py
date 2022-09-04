@@ -572,7 +572,10 @@ def summary(
     total_output = 0
     for layer, layer_summary in summary_dict.items():
         layer_name = "-".join(layer.split("-")[:-1])
-        layer_name = truncate_string_to_length(layer_name, 30)
+        valid_layer_name = layer_name.strip()
+        num_spaces = len(layer_name) - len(valid_layer_name)
+        valid_layer_name = truncate_string_to_length(valid_layer_name, 30 - num_spaces)
+        layer_name = " " * num_spaces + valid_layer_name
         if layer_summary is None:
             messages.append(line_format.format(layer_name, "", "", ""))
         else:
