@@ -141,6 +141,17 @@ class LDM(DDPM):
         net = self._from_latent(latent)
         return net
 
+    def reconstruct(
+        self,
+        net: Tensor,
+        *,
+        cond: Optional[Any] = None,
+        **kwargs: Any,
+    ) -> Tensor:
+        latent = self._to_latent(net)
+        net = super().reconstruct(latent, cond=cond, **kwargs)
+        return net
+
     def _to_latent(self, net: Tensor) -> Tensor:
         net = self.first_stage.core.encode(net)
         if isinstance(net, GaussianDistribution):
