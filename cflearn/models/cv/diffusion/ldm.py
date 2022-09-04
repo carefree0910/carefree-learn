@@ -129,7 +129,7 @@ class LDM(DDPM):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        net = super().decode(
+        latent = super().decode(
             z,
             cond=cond,
             start_T=start_T,
@@ -138,8 +138,18 @@ class LDM(DDPM):
             verbose=verbose,
             **kwargs,
         )
-        net = self.first_stage.core.decode(net)
+        net = self._from_latent(latent)
         return net
+
+    def _to_latent(self, net: Tensor) -> Tensor:
+        net = self.first_stage.core.encode(net)
+        if isinstance(net, GaussianDistribution):
+            net = net.sample()
+        net = self.scale_factor * net
+        return net
+
+    def _from_latent(self, latent: Tensor) -> Tensor:
+        return self.first_stage.core.decode(latent)
 
     def _get_cond(self, cond: Any) -> Tensor:
         if self.condition_model is None:
@@ -162,10 +172,7 @@ class LDM(DDPM):
         in_decode: bool = False,
     ) -> Tuple[Tensor, tensor_dict_type]:
         if not in_decode:
-            net = self.first_stage.core.encode(net)
-            if isinstance(net, GaussianDistribution):
-                net = net.sample()
-            net = self.scale_factor * net
+            net = self._to_latent(net)
         return super()._get_input(net, cond)
 
 
