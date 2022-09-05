@@ -207,6 +207,9 @@ class AutoEncoderLPIPSWithDiscriminator(nn.Module, metaclass=ABCMeta):
         pass
 
 
+err_fmt = "`loss` is not initialized for `{}`"
+
+
 class GeneratorStep(CustomTrainStep):
     def loss_fn(
         self,
@@ -216,6 +219,8 @@ class GeneratorStep(CustomTrainStep):
         forward_results: tensor_dict_type,
         **kwargs: Any,
     ) -> CustomTrainStepLoss:
+        if m.loss is None:
+            raise ValueError(err_fmt.format(m.__class__.__name__))
         return m.loss.get_generator_loss(
             batch,
             forward_results,
@@ -226,6 +231,8 @@ class GeneratorStep(CustomTrainStep):
 
 class DiscriminatorStep(CustomTrainStep):
     def should_skip(self, m: "AutoEncoderModelMixin", state: TrainerState) -> bool:
+        if m.loss is None:
+            raise ValueError(err_fmt.format(m.__class__.__name__))
         return state.step < m.loss.d_loss_start_step
 
     def loss_fn(
@@ -236,6 +243,8 @@ class DiscriminatorStep(CustomTrainStep):
         forward_results: tensor_dict_type,
         **kwargs: Any,
     ) -> CustomTrainStepLoss:
+        if m.loss is None:
+            raise ValueError(err_fmt.format(m.__class__.__name__))
         return m.loss.get_discriminator_loss(
             batch[INPUT_KEY],
             forward_results[PREDICTIONS_KEY],
@@ -244,7 +253,7 @@ class DiscriminatorStep(CustomTrainStep):
 
 
 class AutoEncoderModelMixin(ABC):
-    loss: AutoEncoderLPIPSWithDiscriminator
+    loss: Optional[AutoEncoderLPIPSWithDiscriminator]
     generator: nn.Module
     to_embedding: nn.Module
     from_embedding: nn.Module
@@ -253,6 +262,10 @@ class AutoEncoderModelMixin(ABC):
     z_size: int
     grad_accumulate: int
     embedding_channels: int
+
+    @property
+    def use_loss(self) -> bool:
+        return self.loss is not None
 
     @property
     def ae_parameters(self) -> List[nn.Parameter]:
@@ -264,6 +277,8 @@ class AutoEncoderModelMixin(ABC):
 
     @property
     def d_parameters(self) -> List[nn.Parameter]:
+        if self.loss is None:
+            return []
         return list(self.loss.discriminator.parameters())
 
     @property
@@ -295,6 +310,8 @@ class AutoEncoderModelMixin(ABC):
         loss_items = {}
         g_out = GeneratorStep().loss_fn(*args)
         loss_items.update(g_out.losses)
+        if self.loss is None:
+            raise ValueError(err_fmt.format(self.__class__.__name__))
         if state.step >= self.loss.d_loss_start_step:
             d_out = DiscriminatorStep().loss_fn(*args)
             loss_items.update(d_out.losses)

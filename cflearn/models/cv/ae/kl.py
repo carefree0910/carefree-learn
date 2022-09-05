@@ -187,6 +187,7 @@ class AutoEncoderKLModel(AutoEncoderKL, AutoEncoderModelMixin, CustomModule, Gau
         resample_with_conv: bool = True,
         attention_type: str = "spatial",
         # loss configs
+        use_loss: bool = True,
         kl_weight: float = 1.0,
         log_var_init: float = 0.0,
         d_loss: str = "hinge",
@@ -214,18 +215,21 @@ class AutoEncoderKLModel(AutoEncoderKL, AutoEncoderModelMixin, CustomModule, Gau
             resample_with_conv=resample_with_conv,
             attention_type=attention_type,
         )
-        self.loss = AutoEncoderKLLoss(
-            kl_weight=kl_weight,
-            log_var_init=log_var_init,
-            d_loss=d_loss,
-            d_loss_start_step=d_loss_start_step,
-            d_num_layers=d_num_layers,
-            d_in_channels=d_in_channels,
-            d_start_channels=d_start_channels,
-            d_factor=d_factor,
-            d_weight=d_weight,
-            perceptual_weight=perceptual_weight,
-        )
+        if not use_loss:
+            self.loss = None
+        else:
+            self.loss = AutoEncoderKLLoss(
+                kl_weight=kl_weight,
+                log_var_init=log_var_init,
+                d_loss=d_loss,
+                d_loss_start_step=d_loss_start_step,
+                d_num_layers=d_num_layers,
+                d_in_channels=d_in_channels,
+                d_start_channels=d_start_channels,
+                d_factor=d_factor,
+                d_weight=d_weight,
+                perceptual_weight=perceptual_weight,
+            )
         self.setup(img_size, grad_accumulate, embedding_channels, channel_multipliers)
 
 

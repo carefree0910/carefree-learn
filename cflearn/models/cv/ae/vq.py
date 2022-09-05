@@ -181,6 +181,7 @@ class AutoEncoderVQModel(AutoEncoderVQ, AutoEncoderModelMixin, CustomModule, Gau
         resample_with_conv: bool = True,
         attention_type: str = "spatial",
         # loss configs
+        use_loss: bool = True,
         lb_vq: float = 0.25,
         lb_recon: float = 1.0,
         lb_commit: float = 1.0,
@@ -213,21 +214,24 @@ class AutoEncoderVQModel(AutoEncoderVQ, AutoEncoderModelMixin, CustomModule, Gau
             resample_with_conv=resample_with_conv,
             attention_type=attention_type,
         )
-        self.loss = AutoEncoderVQLoss(
-            lb_vq=lb_vq,
-            lb_recon=lb_recon,
-            lb_commit=lb_commit,
-            vq_loss_type=vq_loss_type,
-            kl_weight=kl_weight,
-            d_loss=d_loss,
-            d_loss_start_step=d_loss_start_step,
-            d_num_layers=d_num_layers,
-            d_in_channels=d_in_channels,
-            d_start_channels=d_start_channels,
-            d_factor=d_factor,
-            d_weight=d_weight,
-            perceptual_weight=perceptual_weight,
-        )
+        if not use_loss:
+            self.loss = None
+        else:
+            self.loss = AutoEncoderVQLoss(
+                lb_vq=lb_vq,
+                lb_recon=lb_recon,
+                lb_commit=lb_commit,
+                vq_loss_type=vq_loss_type,
+                kl_weight=kl_weight,
+                d_loss=d_loss,
+                d_loss_start_step=d_loss_start_step,
+                d_num_layers=d_num_layers,
+                d_in_channels=d_in_channels,
+                d_start_channels=d_start_channels,
+                d_factor=d_factor,
+                d_weight=d_weight,
+                perceptual_weight=perceptual_weight,
+            )
         self.setup(img_size, grad_accumulate, embedding_channels, channel_multipliers)
 
 
