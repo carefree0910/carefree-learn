@@ -8,6 +8,7 @@ from typing import Optional
 
 from .ddpm import DDPM
 from ..ae.kl import GaussianDistribution
+from ..generator.vector_quantized import VQCodebookOut
 from ....zoo import DLZoo
 from ....protocol import tensor_dict_type
 from ....misc.toolkit import freeze
@@ -175,6 +176,8 @@ class LDM(DDPM):
         net = self.first_stage.core.encode(net)
         if isinstance(net, GaussianDistribution):
             net = net.sample()
+        elif isinstance(net, VQCodebookOut):
+            net = net.z_q
         net = self.scale_factor * net
         return net
 
