@@ -153,6 +153,10 @@ class TestExample(unittest.TestCase):
             os.system(f"python {os.path.join(folder, 'mnist_ldm.py')} --ci 1"),
             0,
         )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ldm_vq.py')} --ci 1"),
+            0,
+        )
 
 
 if __name__ == "__main__":
