@@ -105,6 +105,7 @@ class AutoEncoderKL(nn.Module):
         self.out_channels = out_channels
         self.inner_channels = inner_channels
         self.latent_channels = latent_channels
+        self.embedding_channels = embedding_channels
         module_config = dict(
             img_size=img_size,
             in_channels=in_channels,
