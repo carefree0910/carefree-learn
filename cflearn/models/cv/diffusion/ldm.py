@@ -44,6 +44,7 @@ class LDM(DDPM):
         first_stage_scale_factor: float = 1.0,
         # diffusion
         ema_decay: Optional[float] = None,
+        use_num_updates_in_ema: bool = True,
         parameterization: str = "eps",
         ## condition
         condition_type: str = "cross_attn",
@@ -96,6 +97,7 @@ class LDM(DDPM):
             use_fp16=use_fp16,
             use_checkpoint=use_checkpoint,
             ema_decay=ema_decay,
+            use_num_updates_in_ema=use_num_updates_in_ema,
             parameterization=parameterization,
             condition_type=condition_type,
             condition_model=condition_model,

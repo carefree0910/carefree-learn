@@ -160,6 +160,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         use_checkpoint: bool = False,
         # diffusion
         ema_decay: Optional[float] = None,
+        use_num_updates_in_ema: bool = True,
         parameterization: str = "eps",
         ## condition
         condition_type: str = "cross_attn",
@@ -211,7 +212,11 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if ema_decay is None:
             self.unet_ema = None
         else:
-            self.unet_ema = EMA(ema_decay, list(self.unet.named_parameters()))
+            self.unet_ema = EMA(
+                ema_decay,
+                list(self.unet.named_parameters()),
+                use_num_updates=use_num_updates_in_ema,
+            )
         # condition
         self.condition_type = condition_type
         self.condition_learnable = condition_learnable
