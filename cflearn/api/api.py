@@ -1298,7 +1298,8 @@ def ddpm(img_size: int = 256, **kwargs: Any) -> DLPipeline:
     return DLZoo.load_pipeline("diffusion/ddpm", **kwargs)
 
 
-def ldm(
+def _ldm(
+    model: str,
     latent_size: int = 32,
     latent_in_channels: int = 4,
     latent_out_channels: int = 4,
@@ -1322,7 +1323,22 @@ def ldm(
             return states
 
         first_stage_kw["pretrained_state_callback"] = state_callback
-    return DLZoo.load_pipeline("diffusion/ldm", **kwargs)
+    return DLZoo.load_pipeline(model, **kwargs)
+
+
+def ldm(
+    latent_size: int = 32,
+    latent_in_channels: int = 4,
+    latent_out_channels: int = 4,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _ldm(
+        "diffusion/ldm",
+        latent_size,
+        latent_in_channels,
+        latent_out_channels,
+        **kwargs,
+    )
 
 
 # nlp
