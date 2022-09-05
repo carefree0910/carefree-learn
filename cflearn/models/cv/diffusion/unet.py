@@ -76,7 +76,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         *,
         num_heads: Optional[int] = None,
         num_head_channels: Optional[int] = None,
-        use_spatial_transformer: bool = True,
+        use_spatial_transformer: bool = False,
         num_transformer_layers: int = 1,
         context_dim: Optional[int] = None,
         signal_dim: int = 2,
@@ -84,14 +84,14 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         num_res_blocks: int = 2,
         attention_downsample_rates: Tuple[int, ...] = (1, 2, 4),
         dropout: float = 0.0,
-        channel_multipliers: Tuple[int, ...] = (1, 2, 4, 4),
+        channel_multipliers: Tuple[int, ...] = (1, 2, 4, 8),
         resample_with_conv: bool = True,
         resample_with_resblock: bool = False,
         use_scale_shift_norm: bool = False,
         num_classes: Optional[int] = None,
         # misc
         use_fp16: bool = False,
-        use_checkpoint: bool = True,
+        use_checkpoint: bool = False,
     ):
         super().__init__()
         self.in_channels = in_channels
