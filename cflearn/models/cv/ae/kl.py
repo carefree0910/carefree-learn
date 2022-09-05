@@ -101,6 +101,10 @@ class AutoEncoderKL(nn.Module):
         apply_tanh: bool = False,
     ):
         super().__init__()
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.inner_channels = inner_channels
+        self.latent_channels = latent_channels
         module_config = dict(
             img_size=img_size,
             in_channels=in_channels,
