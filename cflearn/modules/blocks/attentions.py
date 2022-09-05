@@ -365,14 +365,13 @@ class MultiHeadSpatialAttention(nn.Module):
         )
 
     def _forward(self, net: Tensor) -> Tensor:
-        inp = net
         b, c, h, w = net.shape
+        area = h * w
 
-        net = net.view(b, c, -1)
+        inp = net = net.view(b, c, area)
         qkv = self.to_qkv(self.norm(net))
         q, k, v = qkv.chunk(3, dim=1)
 
-        area = h * w
         head_dim = int(c) // self.num_heads
         scale = 1.0 / math.sqrt(math.sqrt(head_dim))
         attn_mat = torch.einsum(
