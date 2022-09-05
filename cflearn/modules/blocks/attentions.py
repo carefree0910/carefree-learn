@@ -384,9 +384,9 @@ class MultiHeadSpatialAttention(nn.Module):
         net = torch.einsum(
             "bts,bcs->bct",
             attn_prob,
-            v.view(b * self.num_heads, head_dim, area),
+            v.contiguous().view(b * self.num_heads, head_dim, area),
         )
-        net = net.view(b, c, area)
+        net = net.contiguous().view(b, c, area)
         net = self.to_out(net)
         return (inp + net).view(b, c, h, w)
 
