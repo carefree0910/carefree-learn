@@ -76,13 +76,8 @@ class VQVAE(nn.Module, WithDeviceMixin):
         state: Optional[TrainerState] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        results = self.generator(batch_idx, batch, state, **kwargs)
+        results = self.generator(batch_idx, batch, state, return_z_q_g=True, **kwargs)
         results[PREDICTIONS_KEY] = torch.tanh(results[PREDICTIONS_KEY])
-        z_q, indices = results["z_q"], results["indices"]
-        z_q_g_flatten = self.generator.codebook.embedding.weight[indices]
-        shape = -1, *z_q.shape[2:], self.latent_channels
-        z_q_g = z_q_g_flatten.view(*shape).permute(0, 3, 1, 2).contiguous()
-        results["z_q_g"] = z_q_g
         return results
 
     def decode(

@@ -6,6 +6,7 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from typing import NamedTuple
 from cftool.types import tensor_dict_type
 
 from ..decoder import make_decoder
@@ -22,6 +23,12 @@ from ....modules.blocks import Conv2d
 from ....modules.blocks import ChannelPadding
 
 
+class VQCodebookOut(NamedTuple):
+    z_q: Tensor
+    indices: Tensor
+    z_q_g: Optional[Tensor] = None
+
+
 class VQCodebook(nn.Module):
     def __init__(self, num_code: int, code_dimension: int):
         super().__init__()
@@ -31,7 +38,8 @@ class VQCodebook(nn.Module):
         span = 1.0 / num_code
         self.embedding.weight.data.uniform_(-span, span)
 
-    def forward(self, z_e: Tensor) -> Tuple[Tensor, Tensor]:
+    # z_q_g : z_q with embedding gradient
+    def forward(self, z_e: Tensor, *, return_z_q_g: bool = False) -> VQCodebookOut:
         z_e = z_e.permute(0, 2, 3, 1).contiguous()
 
         codebook = self.embedding.weight.detach()
@@ -51,7 +59,14 @@ class VQCodebook(nn.Module):
 
         indices = indices.view(*z_q.shape[:-1])
         z_q = z_q.permute(0, 3, 1, 2).contiguous()
-        return z_q, indices
+
+        if not return_z_q_g:
+            return VQCodebookOut(z_q, indices)
+
+        # z_q with embedding gradient
+        z_q_g_flattened = self.embedding.weight[indices]
+        z_q_g = z_q_g_flattened.view_as(z_e)
+        return VQCodebookOut(z_q, indices, z_q_g)
 
 
 @IDLModel.register("vq_generator")
@@ -119,7 +134,7 @@ class VQGenerator(IDLModel):
     def encode(self, net: Tensor) -> Tensor:
         net = self.encoder.encode({INPUT_KEY: net})
         net = self.to_codebook(net)
-        net, _ = self.codebook(net)
+        net = self.codebook(net).z_q
         return net
 
     def decode(
@@ -143,22 +158,29 @@ class VQGenerator(IDLModel):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
+        return_z_q_g: bool = False,
         **kwargs: Any,
     ) -> tensor_dict_type:
         z_e = run_encoder(self.encoder, batch_idx, batch, state, **kwargs)[LATENT_KEY]
         net = self.to_codebook(z_e)
-        z_q, indices = self.codebook(net)
+        z_q, indices, z_q_g = self.codebook(net, return_z_q_g=return_z_q_g)
         net = self.decode(z_q, labels=batch.get(LABEL_KEY))
-        return {PREDICTIONS_KEY: net, "z_q": z_q, "z_e": z_e, "indices": indices}
+        return {
+            PREDICTIONS_KEY: net,
+            "z_e": z_e,
+            "z_q": z_q,
+            "indices": indices,
+            "z_q_g": z_q_g,
+        }
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         z_e = self.encoder.encode({INPUT_KEY: net}, **kwargs)
-        _, indices = self.codebook(z_e)
+        indices = self.codebook(z_e).indices
         return indices
 
     def get_code(self, code_indices: Tensor) -> Tensor:
         code_indices = code_indices.squeeze(1)
-        z_q = self.codebook.embedding(code_indices.to(self.device))
+        z_q = self.codebook.embedding(code_indices.to(self.device)).z_q
         return z_q.permute(0, 3, 1, 2)
 
     def reconstruct_from(
