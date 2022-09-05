@@ -17,11 +17,12 @@ data = cflearn.MNISTData(
     transform_config={"img_size": img_size},
 )
 
+kw = {}
 model_config = {}
 if is_ci:
     latent_size = 16
-    model_config["in_channels"] = 16
-    model_config["out_channels"] = 16
+    kw["in_channels"] = 16
+    kw["out_channels"] = 16
     model_config["start_channels"] = 32
     model_config["default_start_T"] = 1
     model_config["first_stage"] = "ae/kl.f16"
@@ -34,5 +35,6 @@ m = cflearn.api.ldm(
     workplace="_ldm",
     pretrained=False,
     debug=is_ci,
+    **kw,
 )
 m.fit(data, cuda=None if is_ci else 1)
