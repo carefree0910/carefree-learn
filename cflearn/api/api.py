@@ -1356,6 +1356,19 @@ def ldm_vq(
     )
 
 
+def ldm_celeba_hq() -> DLPipeline:
+    return ldm_vq(
+        pretrained=True,
+        download_name="ldm_celeba_hq",
+        model_config=dict(
+            ema_decay=None,
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
+    )
+
+
 # nlp
 
 

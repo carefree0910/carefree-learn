@@ -54,6 +54,10 @@
       "sha": "58fa033add3d77061398bd225d3f13ba5b983868beef85b974f39352eb78910d",
       "st_size": 332501833
     },
+    "ldm_celeba_hq": {
+      "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
+      "st_size": 1317739701
+    },
     "vgg_style": {
       "sha": "e1f6d57181cc06a32b3acb31734c485341ec11c247eacec0dbdddd0f179c8771",
       "st_size": 14029161
