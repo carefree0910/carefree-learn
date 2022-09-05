@@ -63,18 +63,20 @@ class ZooBase(ABC):
         build: bool = True,
         report: Optional[bool] = None,
         data_info: Optional[Dict[str, Any]] = None,
+        download_name: Optional[str] = None,
         json_path: Optional[str] = None,
         debug: bool = False,
         **kwargs: Any,
     ):
-        self.download_name = None
+        self.download_name = download_name
         # load json
         if json_path is None:
             if model is None:
                 raise ValueError("either `model` or `json_path` should be provided")
             parsed = _parse_model(model)
             json_path = parsed.json_path
-            self.download_name = parsed.download_name
+            if self.download_name is None:
+                self.download_name = parsed.download_name
         self.json_path = json_path
         parsed_config = _parse_config(json_path)
         if self.download_name is None:
