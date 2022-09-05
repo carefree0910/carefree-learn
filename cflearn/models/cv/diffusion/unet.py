@@ -12,6 +12,7 @@ from ...protocols.cv import ImageTranslatorMixin
 from ....modules.blocks import conv_nd
 from ....modules.blocks import zero_module
 from ....modules.blocks import SpatialTransformer
+from ....modules.blocks import MultiHeadSpatialAttention
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
 from ....modules.blocks.convs.residual import ResUpsample
 from ....modules.blocks.convs.residual import ResDownsample
@@ -75,6 +76,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         *,
         num_heads: Optional[int] = None,
         num_head_channels: Optional[int] = None,
+        use_spatial_transformer: bool = True,
         num_transformer_layers: int = 1,
         context_dim: Optional[int] = None,
         signal_dim: int = 2,
@@ -97,9 +99,6 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         self.context_dim = context_dim
         self.num_heads = num_heads
         self.num_head_channels = num_head_channels
-        if num_heads is None and num_head_channels is None:
-            msg = "either `num_heads` or `num_head_channels` should be provided"
-            raise ValueError(msg)
         self.signal_dim = signal_dim
         self.start_channels = start_channels
         self.num_res_blocks = num_res_blocks
@@ -133,15 +132,31 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
             use_checkpoint=use_checkpoint,
             use_scale_shift_norm=use_scale_shift_norm,
         )
-        specified_head_dim = num_head_channels is not None
-        make_spatial_transformer = lambda in_c: SpatialTransformer(
-            in_c,
-            num_heads if not specified_head_dim else in_c // num_head_channels,
-            num_head_channels if specified_head_dim else in_c // num_heads,
-            num_layers=num_transformer_layers,
-            context_dim=context_dim,
-            use_checkpoint=use_checkpoint,
-        )
+
+        def make_attn_block(in_c: int) -> nn.Module:
+            err_msg = "either `num_heads` or `num_head_channels` should be provided"
+            if num_head_channels is not None:
+                n_heads = in_c // num_head_channels
+            else:
+                if num_heads is None:
+                    raise ValueError(err_msg)
+                n_heads = num_heads
+            head_c = in_c // n_heads if num_head_channels is None else num_head_channels
+            if not use_spatial_transformer:
+                return MultiHeadSpatialAttention(
+                    in_c,
+                    num_heads=n_heads,
+                    num_head_channels=head_c,
+                    use_checkpoint=use_checkpoint,
+                )
+            return SpatialTransformer(
+                in_c,
+                n_heads,
+                head_c,
+                num_layers=num_transformer_layers,
+                context_dim=context_dim,
+                use_checkpoint=use_checkpoint,
+            )
 
         # input
         input_blocks = [
@@ -159,7 +174,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 blocks = [make_res_block(in_nc, out_nc)]
                 in_nc = out_nc
                 if downsample_rate in attention_downsample_rates:
-                    blocks.append(make_spatial_transformer(in_nc))
+                    blocks.append(make_attn_block(in_nc))
                 input_blocks.append(TimestepAttnSequential(*blocks))
                 feature_size += in_nc
                 input_block_channels.append(in_nc)
@@ -183,7 +198,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         # residual
         self.residual = TimestepAttnSequential(
             make_res_block(in_nc, in_nc),
-            make_spatial_transformer(in_nc),
+            make_attn_block(in_nc),
             make_res_block(in_nc, in_nc),
         )
         feature_size += in_nc
@@ -197,7 +212,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 blocks = [make_res_block(in_nc + idx_nc, out_nc)]
                 in_nc = out_nc
                 if downsample_rate in attention_downsample_rates:
-                    blocks.append(make_spatial_transformer(in_nc))
+                    blocks.append(make_attn_block(in_nc))
                 if i != 0 and idx == num_res_blocks:
                     out_nc = in_nc
                     blocks.append(
