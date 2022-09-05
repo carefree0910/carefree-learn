@@ -187,7 +187,6 @@ class AutoEncoderVQModel(AutoEncoderVQ, AutoEncoderModelMixin, CustomModule, Gau
         lb_commit: float = 1.0,
         vq_loss_type: str = "l1",
         kl_weight: float = 1.0,
-        log_var_init: float = 0.0,
         d_loss: str = "hinge",
         d_loss_start_step: int = 50001,
         d_num_layers: int = 4,
