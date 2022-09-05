@@ -18,9 +18,12 @@ from cftool.misc import safe_execute
 from cftool.misc import WithRegister
 
 from .convs import Conv2d
+from .utils import conv_nd
+from .utils import zero_module
 from .common import Lambda
 from .customs import Linear
 from .activations import Activation
+from ...misc.toolkit import gradient_checkpoint
 
 
 attentions: Dict[str, Type["Attention"]] = {}
@@ -330,6 +333,64 @@ class SpatialAttention(Module):
         return net
 
 
+class MultiHeadSpatialAttention(nn.Module):
+    def __init__(
+        self,
+        in_channels: int,
+        *,
+        num_heads: Optional[int] = 1,
+        num_head_channels: Optional[int] = None,
+        use_checkpoint: bool = False,
+    ):
+        super().__init__()
+        self.in_channels = in_channels
+        if num_head_channels is None:
+            if num_heads is None:
+                msg = "either `num_heads` or `num_head_channels` should be provided"
+                raise ValueError(msg)
+            self.num_heads = num_heads
+        else:
+            self.num_heads = in_channels // num_head_channels
+        self.use_checkpoint = use_checkpoint
+        self.norm = nn.GroupNorm(32, in_channels)
+        self.to_qkv = conv_nd(1, in_channels, in_channels * 3, 1)
+        self.to_out = zero_module(conv_nd(1, in_channels, in_channels, 1))
+
+    def forward(self, net: Tensor) -> Tensor:
+        return gradient_checkpoint(
+            self._forward,
+            (net,),
+            self.parameters(),
+            self.use_checkpoint,
+        )
+
+    def _forward(self, net: Tensor) -> Tensor:
+        inp = net
+        b, c, h, w = net.shape
+
+        net = net.view(b, c, -1)
+        qkv = self.to_qkv(self.norm(net))
+        q, k, v = qkv.chunk(3, dim=1)
+
+        area = h * w
+        head_dim = int(c) // self.num_heads
+        scale = 1.0 / math.sqrt(math.sqrt(head_dim))
+        attn_mat = torch.einsum(
+            "bct,bcs->bts",
+            (q * scale).view(b * self.num_heads, head_dim, area),
+            (k * scale).view(b * self.num_heads, head_dim, area),
+        )
+        attn_prob = F.softmax(attn_mat, dim=-1)
+        net = torch.einsum(
+            "bts,bcs->bct",
+            attn_prob,
+            v.view(b * self.num_heads, head_dim, area),
+        )
+        net = net.view(b, c, area)
+        net = self.to_out(net)
+        return (inp + net).view(b, c, h, w)
+
+
 class LinearDepthWiseAttention(Module):
     def __init__(
         self,
@@ -461,6 +522,8 @@ def make_attention(in_channels: int, attention_type: str, **kwargs: Any) -> Modu
         return safe_execute(Attention.get(attention_type), kwargs)
     if attention_type == "spatial":
         return safe_execute(SpatialAttention, kwargs)
+    if attention_type == "multi_head_spatial":
+        return safe_execute(MultiHeadSpatialAttention, kwargs)
     if attention_type == "linear_depth_wise":
         return safe_execute(LinearDepthWiseAttention, kwargs)
     raise ValueError(f"unrecognized attention type '{attention_type}' occurred")
@@ -470,6 +533,7 @@ __all__ = [
     "Attention",
     "DecayedAttention",
     "SpatialAttention",
+    "MultiHeadSpatialAttention",
     "LinearDepthWiseAttention",
     "CrossAttention",
     "make_attention",
