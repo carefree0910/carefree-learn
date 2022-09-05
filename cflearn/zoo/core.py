@@ -7,6 +7,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Union
+from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
@@ -170,12 +171,37 @@ class ZooBase(ABC):
 class DLZoo(ZooBase):
     m: DLPipeline
 
+    def __init__(
+        self,
+        model: Optional[str] = None,
+        *,
+        build: bool = True,
+        report: Optional[bool] = None,
+        data_info: Optional[Dict[str, Any]] = None,
+        json_path: Optional[str] = None,
+        debug: bool = False,
+        **kwargs: Any,
+    ):
+        self.pretrained_state_callback = kwargs.pop("pretrained_state_callback", None)
+        super().__init__(
+            model,
+            build=build,
+            report=report,
+            data_info=data_info,
+            json_path=json_path,
+            debug=debug,
+            **kwargs,
+        )
+
     def load_pretrained(self) -> IDLModel:
         if self.download_name is None:
             err_msg = self.err_msg_fmt.format("tag")
             raise ValueError(f"{err_msg} when `pretrained` is True")
         m = self.m.model
-        m.load_state_dict(torch.load(download_model(self.download_name)))
+        states = torch.load(download_model(self.download_name))
+        if self.pretrained_state_callback is not None:
+            states = self.pretrained_state_callback(states)
+        m.load_state_dict(states)
         return m
 
     @classmethod
