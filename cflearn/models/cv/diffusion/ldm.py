@@ -115,6 +115,7 @@ class LDM(DDPM):
         )
         first_stage_kw = first_stage_config or {}
         first_stage_kw.setdefault("report", False)
+        first_stage_kw.setdefault("pretrained", True)
         self.first_stage = freeze(DLZoo.load_model(first_stage, **first_stage_kw))
         self.scale_factor = first_stage_scale_factor
 
