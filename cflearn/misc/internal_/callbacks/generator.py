@@ -29,6 +29,7 @@ except:
 @TrainerCallback.register("ldm")
 @TrainerCallback.register("ddpm")
 @TrainerCallback.register("ae_kl")
+@TrainerCallback.register("ae_vq")
 @TrainerCallback.register("gan")
 @TrainerCallback.register("vae")
 @TrainerCallback.register("vae2d")

@@ -1,0 +1,11 @@
+{
+  "__bases__": ["ae/kl.f4"],
+  "model_name": "ae_vq",
+  "model_config": {
+    "num_code": 8192,
+    "lb_vq": 0.25,
+    "lb_commit": 1.0,
+    "d_loss_start_step": 0,
+    "d_weight": 0.75
+  }
+}

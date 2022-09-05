@@ -1,0 +1,6 @@
+{
+  "__bases__": ["ae/vq.f4"],
+  "model_config": {
+    "attention_type": "none"
+  }
+}
