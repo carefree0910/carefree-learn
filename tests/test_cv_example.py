@@ -124,7 +124,7 @@ class TestExample(unittest.TestCase):
         cmd = f"python {os.path.join(folder, 'mnist_vq_vae_inference.py')} --ci 1"
         self.assertEqual(os.system(cmd), 0)
 
-    def test_mnist_ae_kl(self) -> None:
+    def test_mnist_ae(self) -> None:
         try:
             import albumentations
         except:
@@ -132,6 +132,10 @@ class TestExample(unittest.TestCase):
         folder = os.path.join(examples_folder, "ae")
         self.assertEqual(
             os.system(f"python {os.path.join(folder, 'mnist_ae_kl.py')} --ci 1"),
+            0,
+        )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'mnist_ae_vq.py')} --ci 1"),
             0,
         )
 
