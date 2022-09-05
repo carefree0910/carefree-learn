@@ -24,9 +24,13 @@ from ....modules.blocks import ChannelPadding
 
 
 class VQCodebookOut(NamedTuple):
+    z_e: Tensor
     z_q: Tensor
     indices: Tensor
     z_q_g: Optional[Tensor] = None
+
+    def to_dict(self) -> tensor_dict_type:
+        return self._asdict()
 
 
 class VQCodebook(nn.Module):
@@ -40,6 +44,7 @@ class VQCodebook(nn.Module):
 
     # z_q_g : z_q with embedding gradient
     def forward(self, z_e: Tensor, *, return_z_q_g: bool = False) -> VQCodebookOut:
+        inp = z_e
         z_e = z_e.permute(0, 2, 3, 1).contiguous()
 
         codebook = self.embedding.weight.detach()
@@ -61,12 +66,12 @@ class VQCodebook(nn.Module):
         z_q = z_q.permute(0, 3, 1, 2).contiguous()
 
         if not return_z_q_g:
-            return VQCodebookOut(z_q, indices)
+            return VQCodebookOut(inp, z_q, indices)
 
         # z_q with embedding gradient
         z_q_g_flattened = self.embedding.weight[indices]
         z_q_g = z_q_g_flattened.view_as(z_e)
-        return VQCodebookOut(z_q, indices, z_q_g)
+        return VQCodebookOut(inp, z_q, indices, z_q_g)
 
 
 @IDLModel.register("vq_generator")
@@ -163,16 +168,13 @@ class VQGenerator(IDLModel):
     ) -> tensor_dict_type:
         z_e = run_encoder(self.encoder, batch_idx, batch, state, **kwargs)[LATENT_KEY]
         net = self.to_codebook(z_e)
-        z_q, indices, z_q_g = self.codebook(net, return_z_q_g=return_z_q_g)
-        z_q = self.from_codebook(z_q)
+        out = self.codebook(net, return_z_q_g=return_z_q_g)
+        z_q = self.from_codebook(out.z_q)
+        out = out._replace(z_q=z_q)
         net = self.decode(z_q, labels=batch.get(LABEL_KEY))
-        return {
-            PREDICTIONS_KEY: net,
-            "z_e": z_e,
-            "z_q": z_q,
-            "indices": indices,
-            "z_q_g": z_q_g,
-        }
+        results = {PREDICTIONS_KEY: net}
+        results.update(out.to_dict())
+        return results
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         z_e = self.encoder.encode({INPUT_KEY: net}, **kwargs)
