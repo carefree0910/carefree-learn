@@ -8,6 +8,7 @@ from cflearn.misc.toolkit import check_is_ci
 is_ci = check_is_ci()
 
 img_size = 256
+latent_size = 32
 batch_size = 4 if is_ci else 16
 data = cflearn.MNISTData(
     batch_size=batch_size,
@@ -18,11 +19,17 @@ data = cflearn.MNISTData(
 
 model_config = {}
 if is_ci:
+    latent_size = 16
+    model_config["in_channels"] = 16
+    model_config["out_channels"] = 16
     model_config["start_channels"] = 32
     model_config["default_start_T"] = 1
+    model_config["first_stage"] = "ae/kl.f16"
+    first_stage_config = model_config["first_stage_config"] = {}
+    first_stage_config["pretrained"] = False
 
 m = cflearn.api.ldm(
-    latent_size=32,
+    latent_size,
     model_config=model_config,
     workplace="_ldm",
     pretrained=False,
