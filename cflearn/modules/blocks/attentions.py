@@ -340,6 +340,7 @@ class MultiHeadSpatialAttention(nn.Module):
         *,
         num_heads: Optional[int] = 1,
         num_head_channels: Optional[int] = None,
+        split_qkv_before_heads: bool = False,
         use_checkpoint: bool = False,
     ):
         super().__init__()
@@ -351,6 +352,7 @@ class MultiHeadSpatialAttention(nn.Module):
             self.num_heads = num_heads
         else:
             self.num_heads = in_channels // num_head_channels
+        self.split_qkv_before_heads = split_qkv_before_heads
         self.use_checkpoint = use_checkpoint
         self.norm = nn.GroupNorm(32, in_channels)
         self.to_qkv = conv_nd(1, in_channels, in_channels * 3, 1)
@@ -370,9 +372,25 @@ class MultiHeadSpatialAttention(nn.Module):
 
         inp = net = net.view(b, c, area)
         qkv = self.to_qkv(self.norm(net))
+        head_dim = int(c) // self.num_heads
+        args = b, c, area, head_dim
+        if self.split_qkv_before_heads:
+            net = self._split_qkv_before_heads(qkv, *args)
+        else:
+            net = self._split_qkv_after_heads(qkv, *args)
+        net = self.to_out(net)
+        return (inp + net).view(b, c, h, w)
+
+    def _split_qkv_before_heads(
+        self,
+        qkv: Tensor,
+        b: int,
+        c: int,
+        area: int,
+        head_dim: int,
+    ) -> Tensor:
         q, k, v = qkv.chunk(3, dim=1)
 
-        head_dim = int(c) // self.num_heads
         scale = 1.0 / math.sqrt(math.sqrt(head_dim))
         attn_mat = torch.einsum(
             "bct,bcs->bts",
@@ -385,9 +403,24 @@ class MultiHeadSpatialAttention(nn.Module):
             attn_prob,
             v.contiguous().view(b * self.num_heads, head_dim, area),
         )
-        net = net.contiguous().view(b, c, area)
-        net = self.to_out(net)
-        return (inp + net).view(b, c, h, w)
+        return net.contiguous().view(b, c, area)
+
+    def _split_qkv_after_heads(
+        self,
+        qkv: Tensor,
+        b: int,
+        c: int,
+        area: int,
+        head_dim: int,
+    ) -> Tensor:
+        qkv = qkv.view(b * self.num_heads, head_dim * 3, area)
+        q, k, v = qkv.split(head_dim, dim=1)
+
+        scale = 1.0 / math.sqrt(math.sqrt(head_dim))
+        attn_mat = torch.einsum("bct,bcs->bts", q * scale, k * scale)
+        attn_prob = F.softmax(attn_mat, dim=-1)
+        net = torch.einsum("bts,bcs->bct", attn_prob, v)
+        return net.contiguous().view(b, c, area)
 
 
 class LinearDepthWiseAttention(Module):
