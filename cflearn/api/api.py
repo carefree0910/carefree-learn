@@ -1341,6 +1341,21 @@ def ldm(
     )
 
 
+def ldm_vq(
+    latent_size: int = 64,
+    latent_in_channels: int = 3,
+    latent_out_channels: int = 3,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _ldm(
+        "diffusion/ldm.vq",
+        latent_size,
+        latent_in_channels,
+        latent_out_channels,
+        **kwargs,
+    )
+
+
 # nlp
 
 
