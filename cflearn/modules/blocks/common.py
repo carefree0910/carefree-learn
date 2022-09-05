@@ -181,10 +181,22 @@ class MTL(Module):
         return f"n_task={self._n_task}, method='{method}'"
 
 
+class ApplyTanhMixin:
+    apply_tanh: bool
+
+    def postprocess(self, net: Tensor, apply_tanh: Optional[bool]) -> Tensor:
+        if apply_tanh is None:
+            apply_tanh = self.apply_tanh
+        if apply_tanh:
+            net = torch.tanh(net)
+        return net
+
+
 __all__ = [
     "get_clones",
     "reuse_fn",
     "Lambda",
     "EMA",
     "MTL",
+    "ApplyTanhMixin",
 ]

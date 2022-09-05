@@ -5,9 +5,11 @@ import torch.nn.functional as F
 
 from torch import Tensor
 from typing import Tuple
+from typing import Optional
 
 from .protocol import DecoderMixin
 from ....modules.blocks import make_attention
+from ....modules.blocks import ApplyTanhMixin
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
 from ....modules.blocks.activations import Swish
 
@@ -28,7 +30,7 @@ class Upsample(nn.Module):
 
 
 @DecoderMixin.register("attention")
-class AttentionDecoder(nn.Module, DecoderMixin):
+class AttentionDecoder(nn.Module, DecoderMixin, ApplyTanhMixin):
     def __init__(
         self,
         img_size: int,
@@ -42,6 +44,7 @@ class AttentionDecoder(nn.Module, DecoderMixin):
         dropout: float = 0.0,
         upsample_with_conv: bool = True,
         attention_type: str = "spatial",
+        apply_tanh: bool = False,
     ):
         super().__init__()
         self.img_size = img_size
@@ -50,6 +53,7 @@ class AttentionDecoder(nn.Module, DecoderMixin):
         self.latent_channels = latent_channels
         self.num_upsample = len(channel_multipliers)
         self.num_res_blocks = num_res_blocks
+        self.apply_tanh = apply_tanh
         make_res_block = lambda in_c, out_c: ResidualBlockWithTimeEmbedding(
             in_c,
             out_c,
@@ -92,14 +96,13 @@ class AttentionDecoder(nn.Module, DecoderMixin):
         net: Tensor,
         *,
         no_head: bool = False,
-        apply_tanh: bool = False,
+        apply_tanh: Optional[bool] = None,
     ) -> Tensor:
         net = self.decoder(net)
         if no_head:
             return net
         net = self.head(net)
-        if apply_tanh:
-            net = torch.tanh(net)
+        net = self.postprocess(net, apply_tanh)
         return net
 
 

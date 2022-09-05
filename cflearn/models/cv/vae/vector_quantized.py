@@ -13,11 +13,12 @@ from ....protocol import WithDeviceMixin
 from ....constants import PREDICTIONS_KEY
 from ..generator.vector_quantized import VQGenerator
 from ....misc.toolkit import auto_num_layers
+from ....modules.blocks import ApplyTanhMixin
 from ....misc.internal_.register import register_module
 
 
 @register_module("vq_vae")
-class VQVAE(nn.Module, WithDeviceMixin):
+class VQVAE(nn.Module, WithDeviceMixin, ApplyTanhMixin):
     def __init__(
         self,
         img_size: int,
@@ -80,10 +81,8 @@ class VQVAE(nn.Module, WithDeviceMixin):
         **kwargs: Any,
     ) -> tensor_dict_type:
         results = self.generator(batch_idx, batch, state, return_z_q_g=True, **kwargs)
-        if apply_tanh is None:
-            apply_tanh = self.apply_tanh
-        if apply_tanh:
-            results[PREDICTIONS_KEY] = torch.tanh(results[PREDICTIONS_KEY])
+        net = results[PREDICTIONS_KEY]
+        results[PREDICTIONS_KEY] = self.postprocess(net, apply_tanh)
         return results
 
     def decode(
@@ -95,10 +94,7 @@ class VQVAE(nn.Module, WithDeviceMixin):
         resize: bool = True,
     ) -> Tensor:
         net = self.generator.decode(z_q, labels=labels, resize=resize)
-        if apply_tanh is None:
-            apply_tanh = self.apply_tanh
-        if apply_tanh:
-            net = torch.tanh(net)
+        net = self.postprocess(net, apply_tanh)
         return net
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
@@ -124,10 +120,7 @@ class VQVAE(nn.Module, WithDeviceMixin):
             use_one_hot=use_one_hot,
             **kwargs,
         )
-        if apply_tanh is None:
-            apply_tanh = self.apply_tanh
-        if apply_tanh:
-            net = torch.tanh(net)
+        net = self.postprocess(net, apply_tanh)
         return net
 
     def sample_codebook(

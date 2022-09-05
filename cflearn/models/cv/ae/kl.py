@@ -121,6 +121,7 @@ class AutoEncoderKL(nn.Module):
         enc_config, dec_config = map(shallow_copy_dict, 2 * [module_config])
         enc_config["latent_channels"] = 2 * latent_channels
         dec_config["latent_channels"] = latent_channels
+        dec_config["apply_tanh"] = apply_tanh
         self.generator = PureEncoderDecoder(
             is_1d=False,
             encoder="attention",
@@ -139,8 +140,6 @@ class AutoEncoderKL(nn.Module):
 
     def decode(self, z: Tensor, *, apply_tanh: Optional[bool] = None) -> Tensor:
         net = self.from_embedding(z)
-        if apply_tanh is None:
-            apply_tanh = self.apply_tanh
         net = self.generator.decode({INPUT_KEY: net}, apply_tanh=apply_tanh)
         return net
 
