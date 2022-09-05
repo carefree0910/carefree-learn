@@ -118,6 +118,20 @@ class LDM(DDPM):
         first_stage_kw.setdefault("pretrained", True)
         self.first_stage = freeze(DLZoo.load_model(first_stage, **first_stage_kw))
         self.scale_factor = first_stage_scale_factor
+        # sanity check
+        latent_channels = self.first_stage.core.latent_channels
+        if in_channels != latent_channels:
+            raise ValueError(
+                f"`in_channels` ({in_channels}) should be identical with the "
+                f"`latent_channels` ({latent_channels}) of the "
+                f"first_stage model ({first_stage})"
+            )
+        if out_channels != latent_channels:
+            raise ValueError(
+                f"`out_channels` ({out_channels}) should be identical with the "
+                f"`latent_channels` ({latent_channels}) of the "
+                f"first_stage model ({first_stage})"
+            )
 
     def decode(
         self,
