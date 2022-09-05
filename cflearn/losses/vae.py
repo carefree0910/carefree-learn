@@ -75,29 +75,48 @@ class VQVAELoss(nn.Module):
         lb_vq: float = 1.0,
         lb_recon: float = 1.0,
         lb_commit: float = 1.0,
+        loss_type: str = "l2",
     ):
         super().__init__()
         self.lb_vq = lb_vq
         self.lb_recon = lb_recon
         self.lb_commit = lb_commit
+        self.loss_type = loss_type
 
     def forward(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
+        *,
+        reduction: str = "mean",
+        gather: bool = True,
     ) -> losses_type:
         # reconstruction loss
         original = batch[INPUT_KEY]
         reconstruction = forward_results[PREDICTIONS_KEY]
-        mse = F.mse_loss(reconstruction, original)
+        if self.loss_type == "l2":
+            recon = F.mse_loss(reconstruction, original, reduction=reduction)
+        elif self.loss_type == "l1":
+            recon = F.l1_loss(reconstruction, original, reduction=reduction)
+        else:
+            raise ValueError(f"unrecognized loss_type '{self.loss_type}' occurred")
         # vq & commit loss
         z_e = forward_results["z_e"]
         z_q_g = forward_results["z_q_g"]
-        vq_loss = F.mse_loss(z_q_g, z_e.detach())
-        commit_loss = F.mse_loss(z_e, z_q_g.detach())
+        vq_loss = F.mse_loss(z_q_g, z_e.detach(), reduction=reduction)
+        commit_loss = F.mse_loss(z_e, z_q_g.detach(), reduction=reduction)
+        codebook_loss = self.lb_vq * vq_loss + self.lb_commit * commit_loss
+        losses = {
+            self.loss_type: recon,
+            "commit": commit_loss,
+            "codebook": codebook_loss,
+        }
+        if not gather:
+            return losses
         # gather
-        loss = self.lb_recon * mse + self.lb_vq * vq_loss + self.lb_commit * commit_loss
-        return {"mse": mse, "commit": commit_loss, LOSS_KEY: loss}
+        loss = self.lb_recon * recon + codebook_loss
+        losses[LOSS_KEY] = loss
+        return losses
 
 
 __all__ = [
