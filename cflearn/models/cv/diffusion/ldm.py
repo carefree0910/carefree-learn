@@ -175,6 +175,7 @@ class LDM(DDPM):
         return net
 
     def _from_latent(self, latent: Tensor) -> Tensor:
+        latent = latent / self.scale_factor
         return self.first_stage.core.decode(latent)
 
     def _get_cond(self, cond: Any) -> Tensor:
