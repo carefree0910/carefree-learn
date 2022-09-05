@@ -70,7 +70,7 @@ class VQCodebook(nn.Module):
 
         # z_q with embedding gradient
         z_q_g_flattened = self.embedding.weight[indices]
-        z_q_g = z_q_g_flattened.view_as(z_e)
+        z_q_g = z_q_g_flattened.view_as(inp)
         return VQCodebookOut(inp, z_q, indices, z_q_g)
 
 
