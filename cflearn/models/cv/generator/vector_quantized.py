@@ -183,7 +183,7 @@ class VQGenerator(IDLModel):
 
     def get_code(self, code_indices: Tensor) -> Tensor:
         code_indices = code_indices.squeeze(1)
-        z_q = self.codebook.embedding(code_indices.to(self.device)).z_q
+        z_q = self.codebook.embedding(code_indices.to(self.device))
         return z_q.permute(0, 3, 1, 2)
 
     def reconstruct_from(
