@@ -71,6 +71,8 @@ class GaussianDistribution:
 
 
 class AutoEncoderKL(AutoEncoderInit):
+    enc_double_channels = True
+
     def encode(self, net: Tensor) -> GaussianDistribution:
         net = self.generator.encode({INPUT_KEY: net})
         net = self.to_embedding(net)

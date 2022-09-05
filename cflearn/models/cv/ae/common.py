@@ -29,6 +29,8 @@ from ....losses.lpips import LPIPS
 
 
 class AutoEncoderInit(nn.Module):
+    enc_double_channels: bool
+
     def __init__(
         self,
         img_size: int,
@@ -57,6 +59,7 @@ class AutoEncoderInit(nn.Module):
             in_channels=in_channels,
             out_channels=out_channels,
             inner_channels=inner_channels,
+            latent_channels=latent_channels,
             channel_multipliers=channel_multipliers,
             num_res_blocks=num_res_blocks,
             attention_resolutions=attention_resolutions,
@@ -66,8 +69,8 @@ class AutoEncoderInit(nn.Module):
             attention_type=attention_type,
         )
         enc_config, dec_config = map(shallow_copy_dict, 2 * [module_config])
-        enc_config["latent_channels"] = 2 * latent_channels
-        dec_config["latent_channels"] = latent_channels
+        enc_scaler = 1 + int(self.enc_double_channels)
+        enc_config["latent_channels"] = enc_scaler * latent_channels
         dec_config["apply_tanh"] = apply_tanh
         self.generator = PureEncoderDecoder(
             is_1d=False,
@@ -76,7 +79,11 @@ class AutoEncoderInit(nn.Module):
             encoder_config=enc_config,
             decoder_config=dec_config,
         )
-        self.to_embedding = nn.Conv2d(2 * latent_channels, 2 * embedding_channels, 1)
+        self.to_embedding = nn.Conv2d(
+            enc_scaler * latent_channels,
+            enc_scaler * embedding_channels,
+            1,
+        )
         self.from_embedding = nn.Conv2d(embedding_channels, latent_channels, 1)
         self.apply_tanh = apply_tanh
 
