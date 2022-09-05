@@ -1311,6 +1311,17 @@ def ldm(
     first_stage_kw = model_config.setdefault("first_stage_config", {})
     first_stage_kw.setdefault("report", False)
     first_stage_kw.setdefault("pretrained", True)
+    first_stage_model_config = first_stage_kw.setdefault("model_config", {})
+    use_loss = first_stage_model_config.setdefault("use_loss", False)
+    if not use_loss:
+
+        def state_callback(states: tensor_dict_type) -> tensor_dict_type:
+            for key in list(states.keys()):
+                if key.startswith("core.loss"):
+                    states.pop(key)
+            return states
+
+        first_stage_kw["pretrained_state_callback"] = state_callback
     return DLZoo.load_pipeline("diffusion/ldm", **kwargs)
 
 
