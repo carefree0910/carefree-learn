@@ -14,5 +14,12 @@
     "use_spatial_transformer": false,
     "linear_start": 0.0015,
     "linear_end": 0.0195
+  },
+  "optimizer_settings": {
+    "core.learnable": {
+      "optimizer_config": {
+        "lr": 2.0e-6
+      }
+    }
   }
 }
