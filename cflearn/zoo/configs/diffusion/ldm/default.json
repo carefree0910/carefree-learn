@@ -1,7 +1,16 @@
 {
   "__bases__": ["diffusion/ddpm"],
   "__requires__": {
-    "model_config": ["img_size", "in_channels", "out_channels"]
+    "model_config": [
+      "img_size",
+      "in_channels",
+      "out_channels",
+      "first_stage",
+      "first_stage_scale_factor",
+      "timesteps",
+      "linear_start",
+      "linear_end"
+    ]
   },
   "model_name": "ldm",
   "model_config": {

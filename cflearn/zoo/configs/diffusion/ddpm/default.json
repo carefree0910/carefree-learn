@@ -1,6 +1,12 @@
 {
   "__requires__": {
-    "model_config": ["img_size"]
+    "model_config": [
+      "img_size",
+      "timesteps",
+      "timesteps",
+      "linear_start",
+      "linear_end"
+    ]
   },
   "pipeline": "cv",
   "model_name": "ddpm",
