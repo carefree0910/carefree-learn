@@ -164,6 +164,7 @@ class VQGenerator(IDLModel):
         z_e = run_encoder(self.encoder, batch_idx, batch, state, **kwargs)[LATENT_KEY]
         net = self.to_codebook(z_e)
         z_q, indices, z_q_g = self.codebook(net, return_z_q_g=return_z_q_g)
+        z_q = self.from_codebook(z_q)
         net = self.decode(z_q, labels=batch.get(LABEL_KEY))
         return {
             PREDICTIONS_KEY: net,
