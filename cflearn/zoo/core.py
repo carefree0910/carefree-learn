@@ -109,11 +109,11 @@ class ZooBase(ABC):
                     continue
                 assert isinstance(v, list), "requirements should be a list"
                 for vv in v:
-                    shortcut = kwargs.pop(vv, None)
+                    shortcut = kwargs.pop(vv, no_shortcut_token)
+                    if shortcut != no_shortcut_token:
+                        ki[vv] = shortcut
+                        continue
                     if vv not in kr:
-                        if shortcut is not None:
-                            ki[vv] = shortcut
-                            continue
                         example = _example("", "", k_hierarchy.split(" -> ") + [vv])
                         raise ValueError(
                             f"Failed to build '{model}': "
@@ -125,6 +125,7 @@ class ZooBase(ABC):
                             f'* cflearn.ZooBase.load_pipeline("{model}", {vv}=...)\n'
                         )
 
+        no_shortcut_token = "@#$no_shortcut$#@"
         requires = parsed_config.pop("__requires__", {})
         merged_config = shallow_copy_dict(parsed_config)
         update_dict(shallow_copy_dict(kwargs), merged_config)
