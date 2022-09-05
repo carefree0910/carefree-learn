@@ -70,18 +70,13 @@ class EMA(Module):
         use_num_updates: bool = False,
     ):
         super().__init__()
+        self._cache: tensor_dict_type = {}
         self._decay = decay
         self._named_parameters = named_parameters
         for name, param in self.tgt_params:
-            self.register_buffer(self.get_name(True, name), param.data.clone())
-            self.register_buffer(self.get_name(False, name), param.data.clone())
+            self.register_buffer(name, param.data.clone())
         num_updates = torch.tensor(0 if use_num_updates else -1, dtype=torch.int)
         self.register_buffer("num_updates", num_updates)
-
-    @staticmethod
-    def get_name(train: bool, name: str) -> str:
-        prefix = "tr" if train else "ema"
-        return f"{prefix}_{name}"
 
     @property
     def tgt_params(self) -> Iterator[Tuple[str, nn.Parameter]]:
@@ -97,16 +92,22 @@ class EMA(Module):
             self.num_updates += 1
             decay = min(self._decay, (1 + self.num_updates) / (10 + self.num_updates))
         for name, param in self.tgt_params:
-            setattr(self, self.get_name(True, name), param.data.clone())
-            ema_name = self.get_name(False, name)
-            ema_attr = getattr(self, ema_name)
+            ema_attr = getattr(self, name)
             ema = (1.0 - decay) * param.data + decay * ema_attr
-            setattr(self, ema_name, ema.clone())
+            setattr(self, name, ema.clone())
 
     def train(self, mode: bool = True) -> "EMA":
         super().train(mode)
-        for name, param in self.tgt_params:
-            param.data = getattr(self, self.get_name(mode, name)).clone()
+        if mode:
+            for name, param in self.tgt_params:
+                cached = self._cache.pop(name, None)
+                if cached is not None:
+                    param.data = cached
+        else:
+            for name, param in self.tgt_params:
+                if name not in self._cache:
+                    self._cache[name] = param.data
+                param.data = getattr(self, name).clone()
         return self
 
     def extra_repr(self) -> str:
