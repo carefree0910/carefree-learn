@@ -1307,6 +1307,10 @@ def ldm(
     kwargs["img_size"] = latent_size
     kwargs["in_channels"] = latent_in_channels
     kwargs["out_channels"] = latent_out_channels
+    model_config = kwargs.setdefault("model_config", {})
+    first_stage_kw = model_config.setdefault("first_stage_config", {})
+    first_stage_kw.setdefault("report", False)
+    first_stage_kw.setdefault("pretrained", True)
     return DLZoo.load_pipeline("diffusion/ldm", **kwargs)
 
 
