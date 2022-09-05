@@ -21,8 +21,8 @@ kw = {}
 model_config = {}
 if is_ci:
     latent_size = 16
-    kw["in_channels"] = 16
-    kw["out_channels"] = 16
+    kw["latent_in_channels"] = 16
+    kw["latent_out_channels"] = 16
     model_config["start_channels"] = 32
     model_config["default_start_T"] = 1
     model_config["first_stage"] = "ae/kl.f16"
