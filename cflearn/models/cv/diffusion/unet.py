@@ -73,7 +73,8 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         in_channels: int,
         out_channels: int,
         *,
-        num_heads: int = 8,
+        num_heads: Optional[int] = None,
+        num_head_channels: Optional[int] = None,
         num_transformer_layers: int = 1,
         context_dim: Optional[int] = None,
         signal_dim: int = 2,
@@ -95,6 +96,10 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         self.out_channels = out_channels
         self.context_dim = context_dim
         self.num_heads = num_heads
+        self.num_head_channels = num_head_channels
+        if num_heads is None and num_head_channels is None:
+            msg = "either `num_heads` or `num_head_channels` should be provided"
+            raise ValueError(msg)
         self.signal_dim = signal_dim
         self.start_channels = start_channels
         self.num_res_blocks = num_res_blocks
@@ -128,10 +133,11 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
             use_checkpoint=use_checkpoint,
             use_scale_shift_norm=use_scale_shift_norm,
         )
+        specified_head_dim = num_head_channels is not None
         make_spatial_transformer = lambda in_c: SpatialTransformer(
             in_c,
-            num_heads,
-            in_c // num_heads,
+            num_heads if not specified_head_dim else in_c // num_head_channels,
+            num_head_channels if specified_head_dim else in_c // num_heads,
             num_layers=num_transformer_layers,
             context_dim=context_dim,
             use_checkpoint=use_checkpoint,
