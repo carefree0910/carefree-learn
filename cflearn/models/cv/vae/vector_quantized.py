@@ -36,11 +36,13 @@ class VQVAE(nn.Module, WithDeviceMixin):
         decoder_config: Optional[Dict[str, Any]] = None,
         latent_padding_channels: Optional[int] = None,
         num_classes: Optional[int] = None,
+        apply_tanh: bool = True,
     ):
         super().__init__()
         self.img_size = img_size
         self.num_classes = num_classes
         self.latent_channels = latent_channels
+        self.apply_tanh = apply_tanh
         if num_downsample is None:
             args = img_size, min_size, target_downsample
             num_downsample = auto_num_layers(*args, use_stride=encoder == "vanilla")
@@ -74,10 +76,14 @@ class VQVAE(nn.Module, WithDeviceMixin):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
+        apply_tanh: Optional[bool] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
         results = self.generator(batch_idx, batch, state, return_z_q_g=True, **kwargs)
-        results[PREDICTIONS_KEY] = torch.tanh(results[PREDICTIONS_KEY])
+        if apply_tanh is None:
+            apply_tanh = self.apply_tanh
+        if apply_tanh:
+            results[PREDICTIONS_KEY] = torch.tanh(results[PREDICTIONS_KEY])
         return results
 
     def decode(
@@ -85,10 +91,15 @@ class VQVAE(nn.Module, WithDeviceMixin):
         z_q: Tensor,
         *,
         labels: Optional[Tensor] = None,
+        apply_tanh: Optional[bool] = None,
         resize: bool = True,
     ) -> Tensor:
         net = self.generator.decode(z_q, labels=labels, resize=resize)
-        return torch.tanh(net)
+        if apply_tanh is None:
+            apply_tanh = self.apply_tanh
+        if apply_tanh:
+            net = torch.tanh(net)
+        return net
 
     def get_code_indices(self, net: Tensor, **kwargs: Any) -> Tensor:
         return self.generator.get_code_indices(net, **kwargs)
@@ -103,6 +114,7 @@ class VQVAE(nn.Module, WithDeviceMixin):
         class_idx: Optional[int] = None,
         labels: Optional[Tensor] = None,
         use_one_hot: bool = False,
+        apply_tanh: Optional[bool] = None,
         **kwargs: Any,
     ) -> Tensor:
         net = self.generator.reconstruct_from(
@@ -112,7 +124,11 @@ class VQVAE(nn.Module, WithDeviceMixin):
             use_one_hot=use_one_hot,
             **kwargs,
         )
-        return torch.tanh(net)
+        if apply_tanh is None:
+            apply_tanh = self.apply_tanh
+        if apply_tanh:
+            net = torch.tanh(net)
+        return net
 
     def sample_codebook(
         self,
