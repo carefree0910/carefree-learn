@@ -378,13 +378,16 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         self,
         net: Tensor,
         *,
+        start_T: Optional[int] = None,
         cond: Optional[Any] = None,
         **kwargs: Any,
     ) -> Tensor:
-        ts = get_timesteps(self.t - 1, net.shape[0], net.device)
+        if start_T is None:
+            start_T = self.t
+        ts = get_timesteps(start_T - 1, net.shape[0], net.device)
         z = self._q_sample(net, ts, torch.randn_like(net))
         kw = shallow_copy_dict(kwargs)
-        kw.update({"z": z, "cond": cond})
+        kw.update(dict(z=z, cond=cond, start_T=start_T))
         net = safe_execute(self.decode, kw)
         return net
 

@@ -165,11 +165,13 @@ class LDM(DDPM):
         self,
         net: Tensor,
         *,
+        start_T: Optional[int] = None,
         cond: Optional[Any] = None,
         **kwargs: Any,
     ) -> Tensor:
         latent = self._to_latent(net)
-        net = super().reconstruct(latent, cond=cond, **kwargs)
+        kwargs.update(dict(start_T=start_T, cond=cond))
+        net = super().reconstruct(latent, **kwargs)
         return net
 
     def _to_latent(self, net: Tensor) -> Tensor:
