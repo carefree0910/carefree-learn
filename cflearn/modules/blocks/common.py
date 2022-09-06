@@ -86,6 +86,8 @@ class EMA(Module):
         )
 
     def forward(self) -> None:
+        if not self.training:
+            raise ValueError("should not update `EMA` at inference stage")
         if self.num_updates < 0:
             decay = self._decay
         else:
