@@ -1050,6 +1050,14 @@ def clip_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
     return DLZoo.load_model("multimodal/clip", pretrained=pretrained, **kwargs)
 
 
+def clip_large(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    return DLZoo.load_pipeline("multimodal/clip.large", pretrained=pretrained, **kwargs)
+
+
+def clip_large_model(pretrained: bool = True, **kwargs: Any) -> CLIP:
+    return DLZoo.load_model("multimodal/clip.large", pretrained=pretrained, **kwargs)
+
+
 def chinese_clip(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
     model = "multimodal/clip.chinese"
     return DLZoo.load_pipeline(model, pretrained=pretrained, **kwargs)

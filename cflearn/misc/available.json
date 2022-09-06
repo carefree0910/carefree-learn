@@ -70,6 +70,10 @@
       "sha": "6e47b23cc2e6907a3c6fa19e87882a1c34ae2eac62554d10c82d3f6d2bd82c72",
       "st_size": 605255009
     },
+    "clip.large": {
+      "sha": "dc9833f1d00a647b158892e94f84719abc88832ae0809251e635125c8ac086fa",
+      "st_size": 1710624321
+    },
     "clip.chinese": {
       "sha": "12307b8b13dc13913d9acdb702eef7105c04040dd4e2a3051c15c311122d178e",
       "st_size": 2521375197,
