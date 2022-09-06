@@ -321,6 +321,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         self.unet_ema.train()
         forward = self.forward(batch)
         losses.update(train_step.loss_fn(self, trainer, batch, forward).losses)
+        self.unet_ema.eval()
         return MetricsOutputs(score, losses)
 
     # api
