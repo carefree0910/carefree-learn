@@ -200,7 +200,7 @@ class DLZoo(ZooBase):
             err_msg = self.err_msg_fmt.format("tag")
             raise ValueError(f"{err_msg} when `pretrained` is True")
         m = self.m.model
-        states = torch.load(download_model(self.download_name))
+        states = torch.load(download_model(self.download_name), map_location="cpu")
         if self.pretrained_state_callback is not None:
             states = self.pretrained_state_callback(states)
         m.load_state_dict(states)
