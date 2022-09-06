@@ -1300,9 +1300,9 @@ def ddpm(img_size: int = 256, **kwargs: Any) -> DLPipeline:
 
 def _ldm(
     model: str,
-    latent_size: int = 32,
-    latent_in_channels: int = 4,
-    latent_out_channels: int = 4,
+    latent_size: int,
+    latent_in_channels: int,
+    latent_out_channels: int,
     **kwargs: Any,
 ) -> DLPipeline:
     kwargs["img_size"] = latent_size
