@@ -91,6 +91,7 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         # setup
         if num_steps is None:
             num_steps = getattr(self, "default_steps", self.model.t)
+            assert isinstance(num_steps, int)
         iterator = list(range(num_steps))
         if verbose:
             iterator = tqdm(iterator, desc=f"sampling ({self.__identifier__})")
