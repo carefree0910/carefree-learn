@@ -7,7 +7,6 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Union
-from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
