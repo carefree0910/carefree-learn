@@ -69,7 +69,7 @@ class LDM(DDPM):
         learn_log_var: bool = False,
         log_var_init: float = 0.0,
         ## sampling
-        sampler: str = "basic",
+        sampler: str = "ddim",
         sampler_config: Optional[Dict[str, Any]] = None,
     ):
         self.use_first_stage_as_condition = use_first_stage_as_condition

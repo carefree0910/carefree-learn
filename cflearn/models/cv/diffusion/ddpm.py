@@ -177,7 +177,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         learn_log_var: bool = False,
         log_var_init: float = 0.0,
         ## sampling
-        sampler: str = "basic",
+        sampler: str = "ddim",
         sampler_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
