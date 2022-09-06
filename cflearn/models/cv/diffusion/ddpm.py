@@ -333,7 +333,6 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         *,
         cond: Optional[Any] = None,
         start_T: Optional[int] = None,
-        num_timesteps: Optional[int] = None,
         temperature: float = 1.0,
         verbose: bool = True,
         **kwargs: Any,
@@ -342,14 +341,11 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             cond = self._get_cond(cond)
         image, cond_kw = self._get_input(z, cond, in_decode=True)
         # setup
-        if num_timesteps is None:
-            num_timesteps = self.t
         if start_T is None:
             start_T = self.default_start_T
-        num_timesteps = min(num_timesteps, start_T)
-        iterator = reversed(range(num_timesteps))
+        iterator = reversed(range(start_T))
         if verbose:
-            iterator = tqdm(iterator, desc="sampling", total=num_timesteps)
+            iterator = tqdm(iterator, desc="sampling", total=start_T)
         # execute
         b = image.shape[0]
         device = image.device
