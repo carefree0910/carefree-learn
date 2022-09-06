@@ -4,7 +4,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from tqdm import tqdm
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -19,6 +18,7 @@ from cftool.array import to_torch
 from .unet import UNetDiffuser
 from .utils import extract_to
 from .utils import get_timesteps
+from .samplers import ISampler
 from ...protocols import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....protocol import tensor_dict_type
@@ -128,6 +128,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
     noise_key = "noise"
     timesteps_key = "timesteps"
 
+    sampler: ISampler
+
     def __init__(
         self,
         img_size: int,
@@ -175,7 +177,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         learn_log_var: bool = False,
         log_var_init: float = 0.0,
         ## sampling
-        default_start_T: Optional[int] = None,
+        sampler: str = "basic",
+        sampler_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -241,10 +244,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             self.log_var = log_var
         else:
             self.log_var = nn.Parameter(log_var, requires_grad=True)
-        # sampling
-        if default_start_T is None:
-            default_start_T = timesteps
-        self.default_start_T = default_start_T
+        # sampler
+        self.switch_sampler(sampler=sampler, sampler_config=sampler_config)
 
     @property
     def can_reconstruct(self) -> bool:
@@ -317,6 +318,24 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     # api
 
+    def make_sampler(
+        self,
+        *,
+        sampler: str,
+        sampler_config: Optional[Dict[str, Any]] = None,
+    ) -> ISampler:
+        kw = shallow_copy_dict(sampler_config or {})
+        kw["model"] = self
+        return ISampler.make(sampler, kw)
+
+    def switch_sampler(
+        self,
+        *,
+        sampler: str,
+        sampler_config: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        self.sampler = self.make_sampler(sampler=sampler, sampler_config=sampler_config)
+
     def generate_z(self, num_samples: int) -> Tensor:
         shape = num_samples, self.in_channels, self.img_size, self.img_size
         return torch.randn(shape, device=self.device)
@@ -326,92 +345,61 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         z: Tensor,
         *,
         cond: Optional[Any] = None,
-        start_T: Optional[int] = None,
-        temperature: float = 1.0,
+        num_steps: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        if cond is not None and self.condition_model is not None:
-            cond = self._get_cond(cond)
-        image, cond_kw = self._get_input(z, cond, in_decode=True)
-        # setup
-        if start_T is None:
-            start_T = self.default_start_T
-        iterator = reversed(range(start_T))
-        if verbose:
-            iterator = tqdm(iterator, desc="sampling", total=start_T)
-        # execute
-        b = image.shape[0]
-        device = image.device
-        for t in iterator:
-            ts = get_timesteps(t, b, device)
-            image = self._p_sample(image, cond_kw, ts, temperature)
-        return image
+        return self.sampler.sample(
+            z,
+            cond=cond,
+            num_steps=num_steps,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def sample(
         self,
         num_samples: int,
         *,
         cond: Optional[Any] = None,
-        start_T: Optional[int] = None,
-        num_timesteps: Optional[int] = None,
-        temperature: float = 1.0,
+        num_steps: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
         return super().sample(
             num_samples,
             cond=cond,
-            start_T=start_T,
-            num_timesteps=num_timesteps,
-            temperature=temperature,
+            num_steps=num_steps,
             verbose=verbose,
+            **kwargs,
         )
 
     def reconstruct(
         self,
         net: Tensor,
         *,
-        start_T: Optional[int] = None,
+        noise_steps: Optional[int] = None,
         cond: Optional[Any] = None,
         **kwargs: Any,
     ) -> Tensor:
-        if start_T is None:
-            start_T = self.default_start_T
-        ts = get_timesteps(start_T - 1, net.shape[0], net.device)
+        if noise_steps is None:
+            noise_steps = self.t
+        ts = get_timesteps(noise_steps - 1, net.shape[0], net.device)
         z = self._q_sample(net, ts, torch.randn_like(net))
         kw = shallow_copy_dict(kwargs)
-        kw.update(dict(z=z, cond=cond, start_T=start_T))
+        kw.update(dict(z=z, cond=cond))
         net = safe_execute(self.decode, kw)
         return net
 
-    # internal
-
-    def _p_sample(
+    def denoise(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
         timesteps: Tensor,
-        temperature: float = 1.0,
+        cond_kw: tensor_dict_type,
     ) -> Tensor:
-        shape = image.shape
-        device = image.device
-        num_dim = len(shape)
-        net = self.unet(image, timesteps=timesteps, **cond_kw)
-        if self.parameterization == "eps":
-            coef1 = extract_to(self.posterior_coef1, timesteps, num_dim)
-            coef2 = extract_to(self.posterior_coef2, timesteps, num_dim)
-            mean = coef1 * (image - coef2 * net)
-        elif self.parameterization == "x0":
-            mean = net
-        else:
-            msg = f"unrecognized parameterization '{self.parameterization}' occurred"
-            raise NotImplementedError(msg)
-        noise = torch.randn(shape, device=device) * temperature
-        noise_mask_shape = shape[0], *((1,) * (num_dim - 1))
-        noise_mask = (1.0 - (timesteps == 0).float()).view(noise_mask_shape)
-        log_var = extract_to(self.posterior_log_variance_clipped, timesteps, num_dim)
-        return mean + noise_mask * (0.5 * log_var).exp() * noise
+        return self.unet(image, timesteps=timesteps, **cond_kw)
+
+    # internal
 
     def _q_sample(self, net: Tensor, timesteps: Tensor, noise: Tensor) -> Tensor:
         num_dim = len(net.shape)

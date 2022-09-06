@@ -69,7 +69,8 @@ class LDM(DDPM):
         learn_log_var: bool = False,
         log_var_init: float = 0.0,
         ## sampling
-        default_start_T: int = 1000,
+        sampler: str = "basic",
+        sampler_config: Optional[Dict[str, Any]] = None,
     ):
         self.use_first_stage_as_condition = use_first_stage_as_condition
         if use_first_stage_as_condition:
@@ -118,7 +119,8 @@ class LDM(DDPM):
             original_elbo_weight=original_elbo_weight,
             learn_log_var=learn_log_var,
             log_var_init=log_var_init,
-            default_start_T=default_start_T,
+            sampler=sampler,
+            sampler_config=sampler_config,
         )
         first_stage_kw = first_stage_config or {}
         self.first_stage = freeze(DLZoo.load_model(first_stage, **first_stage_kw))
@@ -143,18 +145,14 @@ class LDM(DDPM):
         z: Tensor,
         *,
         cond: Optional[Any] = None,
-        start_T: Optional[int] = None,
-        num_timesteps: Optional[int] = None,
-        temperature: float = 1.0,
+        num_steps: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
         latent = super().decode(
             z,
             cond=cond,
-            start_T=start_T,
-            num_timesteps=num_timesteps,
-            temperature=temperature,
+            num_steps=num_steps,
             verbose=verbose,
             **kwargs,
         )
@@ -165,12 +163,12 @@ class LDM(DDPM):
         self,
         net: Tensor,
         *,
-        start_T: Optional[int] = None,
+        noise_steps: Optional[int] = None,
         cond: Optional[Any] = None,
         **kwargs: Any,
     ) -> Tensor:
         latent = self._to_latent(net)
-        kwargs.update(dict(start_T=start_T, cond=cond))
+        kwargs.update(dict(noise_steps=noise_steps, cond=cond))
         net = super().reconstruct(latent, **kwargs)
         return net
 

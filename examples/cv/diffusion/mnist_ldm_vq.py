@@ -20,7 +20,7 @@ if is_ci:
     kw["latent_out_channels"] = 4
     model_config["start_channels"] = 32
     model_config["channel_multipliers"] = (1,)
-    model_config["default_start_T"] = 1
+    model_config["sampler_config"] = {"default_steps": 1}
     model_config["first_stage"] = "ae/vq.f8"
     first_stage_config = model_config["first_stage_config"] = {}
     first_stage_config["pretrained"] = False

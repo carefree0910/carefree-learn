@@ -19,7 +19,7 @@ data = cflearn.MNISTData(
 model_config = {}
 if is_ci:
     model_config["start_channels"] = 32
-    model_config["default_start_T"] = 1
+    model_config["sampler_config"] = {"default_steps": 1}
 
 m = cflearn.api.ddpm(
     img_size,
