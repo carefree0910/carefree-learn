@@ -9,6 +9,7 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import safe_execute
@@ -72,11 +73,6 @@ def make_beta_schedule(
 
 
 class DDPMStep(CustomTrainStep):
-    @staticmethod
-    def update_ema(m: "DDPM") -> None:
-        if m.training and m.unet_ema is not None:
-            m.unet_ema()
-
     def loss_fn(
         self,
         m: "DDPM",
@@ -116,7 +112,6 @@ class DDPMStep(CustomTrainStep):
         loss_simple = m.l_simple_weight * loss_simple.mean()
         if m.original_elbo_weight <= 0:
             losses["loss"] = loss_simple.item()
-            self.update_ema(m)
             return CustomTrainStepLoss(loss_simple, losses)
 
         loss_vlb = (m.lvlb_weights[timesteps] * loss).mean()
@@ -125,8 +120,17 @@ class DDPMStep(CustomTrainStep):
         loss_vlb = m.original_elbo_weight * loss_vlb
         loss = loss_simple + loss_vlb
         losses["loss"] = loss.item()
-        self.update_ema(m)
         return CustomTrainStepLoss(loss, losses)
+
+    def callback(
+        self,
+        m: "DDPM",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
+    ) -> None:
+        if m.training and m.unet_ema is not None:
+            m.unet_ema()
 
 
 @register_custom_module("ddpm")
