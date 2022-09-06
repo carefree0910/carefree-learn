@@ -197,6 +197,15 @@ class CustomTrainStep(ABC):
     ) -> CustomTrainStepLoss:
         pass
 
+    def callback(
+        self,
+        m: "CustomModule",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
+    ) -> None:
+        pass
+
 
 class CustomModule(WithDeviceMixin, nn.Module):
     @property
@@ -319,6 +328,9 @@ def run_train_steps(
                 trainer.scheduler_step()
     if any_update and not performed_scheduler_step:
         trainer.scheduler_step()
+    # callbacks
+    for train_step in train_steps:
+        train_step.callback(m, trainer, batch, forward)
     return StepOutputs(forward, loss_dict)
 
 
