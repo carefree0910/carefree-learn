@@ -51,6 +51,7 @@ class MNISTData(CVDataModule):
         drop_train_last: bool = True,
         transform: Optional[Union[str, List[str], Transforms, Callable]],
         transform_config: Optional[Dict[str, Any]] = None,
+        test_shuffle: Optional[bool] = None,
         test_transform: Optional[Union[str, List[str], Transforms, Callable]] = None,
         test_transform_config: Optional[Dict[str, Any]] = None,
         label_callback: Optional[Callable[[Tuple[Tensor, Tensor]], Tensor]] = None,
@@ -61,6 +62,9 @@ class MNISTData(CVDataModule):
         self.num_workers = num_workers
         self.drop_train_last = drop_train_last
         self.transform = Transforms.convert(transform, transform_config)
+        if test_shuffle is None:
+            test_shuffle = shuffle
+        self.test_shuffle = test_shuffle
         if test_transform is None:
             self.test_transform = self.transform
         else:
@@ -105,7 +109,7 @@ class MNISTData(CVDataModule):
             DataLoader(
                 self.valid_data,
                 batch_size=self.batch_size,
-                shuffle=self.shuffle,
+                shuffle=self.test_shuffle,
                 num_workers=self.num_workers,
             ),
             partial(batch_callback, self.label_callback),
