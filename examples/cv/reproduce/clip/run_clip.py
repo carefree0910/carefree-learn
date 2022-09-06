@@ -19,8 +19,6 @@ sys.path.insert(0, repo_path)
 import clip
 
 device = "cpu"
-model, preprocess = clip.load("ViT-B/32", device=device)
-cf_clip = cflearn.DLZoo.load_model("multimodal/clip", pretrained=True)
 cf_tokenizer = cflearn.ITokenizer.make("clip", {})
 
 torch.manual_seed(142857)
@@ -29,9 +27,15 @@ texts = ["a diagram", "a dog", "a cat"]
 text = clip.tokenize(texts).to(torch.long)
 assert torch.allclose(text, torch.from_numpy(cf_tokenizer.tokenize(texts)))
 
-cf_clip.logit_scale = model.logit_scale
-with eval_context(model):
-    o = model(img, text)[0]
-with eval_context(cf_clip):
-    cfo = cf_clip(0, {"input": img, "text": text})["predictions"]
-assert torch.allclose(o, cfo, atol=1.0e-5)
+for clip_name, cf_clip_name in zip(
+    ["ViT-B/32", "ViT-L/14"],
+    ["multimodal/clip", "multimodal/clip.large"],
+):
+    model, preprocess = clip.load(clip_name, device=device)
+    cf_clip = cflearn.DLZoo.load_model(cf_clip_name, pretrained=True)
+    cf_clip.logit_scale = model.logit_scale
+    with eval_context(model):
+        o = model(img, text)[0]
+    with eval_context(cf_clip):
+        cfo = cf_clip(0, {"input": img, "text": text})["predictions"]
+    assert torch.allclose(o, cfo, atol=1.0e-5)
