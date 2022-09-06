@@ -119,6 +119,11 @@ class DDPMStep(CustomTrainStep):
         loss_vlb = m.original_elbo_weight * loss_vlb
         loss = loss_simple + loss_vlb
         losses["loss"] = loss.item()
+
+        # update ema if necessary
+        if m.training and m.unet_ema is not None:
+            m.unet_ema()
+
         return CustomTrainStepLoss(loss, losses)
 
 
