@@ -47,6 +47,9 @@ class TestZoo(unittest.TestCase):
         for model in models:
             if model.name.startswith("hugging_face") and transformers is None:
                 continue
+            # avoid OOM
+            if model.name.startswith("diffusion"):
+                continue
             kwargs: Dict[str, Any] = {}
             _inject_mock(model.requirements, kwargs)
             if model.name.startswith("vae/vanilla"):
