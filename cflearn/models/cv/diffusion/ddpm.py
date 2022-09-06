@@ -183,7 +183,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         learn_log_var: bool = False,
         log_var_init: float = 0.0,
         ## sampling
-        default_start_T: int = 1000,
+        default_start_T: Optional[int] = None,
     ):
         super().__init__()
         self.img_size = img_size
@@ -250,6 +250,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         else:
             self.log_var = nn.Parameter(log_var, requires_grad=True)
         # sampling
+        if default_start_T is None:
+            default_start_T = timesteps
         self.default_start_T = default_start_T
 
     @property
@@ -383,7 +385,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         **kwargs: Any,
     ) -> Tensor:
         if start_T is None:
-            start_T = self.t
+            start_T = self.default_start_T
         ts = get_timesteps(start_T - 1, net.shape[0], net.device)
         z = self._q_sample(net, ts, torch.randn_like(net))
         kw = shallow_copy_dict(kwargs)
