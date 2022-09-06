@@ -17,6 +17,8 @@ from cftool.misc import shallow_copy_dict
 from cftool.array import to_torch
 
 from .unet import UNetDiffuser
+from .utils import extract_to
+from .utils import get_timesteps
 from ...protocols import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....protocol import tensor_dict_type
@@ -67,16 +69,6 @@ def make_beta_schedule(
         else:
             raise ValueError(f"unrecognized schedule '{schedule}' occurred")
     return betas
-
-
-def extract_to(array: Tensor, indices: Tensor, num_dim: int) -> Tensor:
-    b = indices.shape[0]
-    out = array.gather(-1, indices).contiguous()
-    return out.view(b, *([1] * (num_dim - 1)))
-
-
-def get_timesteps(t: int, num: int, device: torch.device) -> Tensor:
-    return torch.full((num,), t, device=device, dtype=torch.long)
 
 
 class DDPMStep(CustomTrainStep):
