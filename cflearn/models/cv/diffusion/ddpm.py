@@ -257,7 +257,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         else:
             self.log_var = nn.Parameter(log_var, requires_grad=True)
         # sampler
-        self.switch_sampler(sampler=sampler, sampler_config=sampler_config)
+        self.switch_sampler(sampler, sampler_config)
 
     @property
     def can_reconstruct(self) -> bool:
@@ -333,7 +333,6 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     def make_sampler(
         self,
-        *,
         sampler: str,
         sampler_config: Optional[Dict[str, Any]] = None,
     ) -> ISampler:
@@ -343,11 +342,10 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     def switch_sampler(
         self,
-        *,
         sampler: str,
         sampler_config: Optional[Dict[str, Any]] = None,
     ) -> None:
-        self.sampler = self.make_sampler(sampler=sampler, sampler_config=sampler_config)
+        self.sampler = self.make_sampler(sampler, sampler_config)
 
     def generate_z(self, num_samples: int) -> Tensor:
         shape = num_samples, self.in_channels, self.img_size, self.img_size
