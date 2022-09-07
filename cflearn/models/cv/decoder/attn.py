@@ -11,7 +11,6 @@ from .protocol import DecoderMixin
 from ....modules.blocks import make_attention
 from ....modules.blocks import ApplyTanhMixin
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
-from ....modules.blocks.activations import Swish
 
 
 class Upsample(nn.Module):
@@ -84,7 +83,7 @@ class AttentionDecoder(nn.Module, DecoderMixin, ApplyTanhMixin):
         # head
         head_blocks = [
             nn.GroupNorm(num_groups=32, num_channels=in_nc, eps=1.0e-6, affine=True),
-            Swish(),
+            nn.SiLU(),
             nn.Conv2d(in_nc, out_channels, 3, 1, 1),
         ]
         # construct

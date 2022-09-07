@@ -14,7 +14,6 @@ from ..utils import conv_nd
 from ..utils import avg_pool_nd
 from ..utils import zero_module
 from ..utils import Residual
-from ..activations import Swish
 from ....misc.toolkit import gradient_checkpoint
 
 
@@ -184,7 +183,7 @@ class ResidualBlockWithTimeEmbedding(Module):
 
         make_norm = lambda nc: nn.GroupNorm(num_groups=32, num_channels=nc, eps=1.0e-6)
 
-        self.swish = Swish()
+        self.activation = nn.SiLU()
         self.norm1 = make_norm(in_channels)
         self.conv1 = conv_nd(signal_dim, in_channels, out_channels, 3, 1, 1)
         if time_embedding_channels > 0:
@@ -215,7 +214,7 @@ class ResidualBlockWithTimeEmbedding(Module):
     def _forward(self, net: Tensor, time_net: Optional[Tensor] = None) -> Tensor:
         inp = net
         net = self.norm1(net)
-        net = self.swish(net)
+        net = self.activation(net)
         if self.inp_resample is None or self.net_resample is None:
             net = self.conv1(net)
         else:
@@ -226,21 +225,21 @@ class ResidualBlockWithTimeEmbedding(Module):
             inp = self.shortcut(inp)
 
         if time_net is not None:
-            time_net = self.swish(time_net)
+            time_net = self.activation(time_net)
             time_net = self.time_embedding(time_net)
             while len(time_net.shape) < len(net.shape):
                 time_net = time_net[..., None]
             if self.use_scale_shift_norm:
                 scale, shift = torch.chunk(time_net, 2, dim=1)
                 net = self.norm2(net) * (1.0 + scale) + shift
-                net = self.swish(net)
+                net = self.activation(net)
                 net = self.dropout(net)
                 net = self.conv2(net)
                 return inp + net
             net = net + time_net
 
         net = self.norm2(net)
-        net = self.swish(net)
+        net = self.activation(net)
         net = self.dropout(net)
         net = self.conv2(net)
 

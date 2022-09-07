@@ -7,7 +7,6 @@ from typing import Tuple
 from .protocol import EncoderMixin
 from ....modules.blocks import make_attention
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
-from ....modules.blocks.activations import Swish
 
 
 class Downsample(nn.Module):
@@ -83,7 +82,7 @@ class AttentionEncoder(nn.Module, EncoderMixin):
         # output
         blocks += [
             nn.GroupNorm(num_groups=32, num_channels=in_nc, eps=1.0e-6, affine=True),
-            Swish(),
+            nn.SiLU(),
             nn.Conv2d(in_nc, latent_channels, 3, 1, 1),
         ]
         # construct

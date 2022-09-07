@@ -58,11 +58,6 @@ class Downsample(nn.Module):
         return net
 
 
-class Swish(nn.Module):
-    def forward(self, net: Tensor) -> Tensor:
-        return net * torch.sigmoid(net)
-
-
 class ResidualBlock(nn.Module):
     def __init__(
         self,
@@ -76,10 +71,10 @@ class ResidualBlock(nn.Module):
         self.out_channels = out_channels
         self.net = nn.Sequential(
             normalize(in_channels),
-            Swish(),
+            nn.SiLU(),
             Conv2d(in_channels, out_channels, kernel_size=3, padding=1),
             normalize(out_channels),
-            Swish(),
+            nn.SiLU(),
             nn.Dropout(dropout),
             Conv2d(out_channels, out_channels, kernel_size=3, padding=1),
         )
@@ -157,7 +152,7 @@ class VQGANEncoder(nn.Module, EncoderMixin):
         blocks.extend(
             [
                 normalize(in_nc),
-                Swish(),
+                nn.SiLU(),
                 Conv2d(in_nc, latent_channels, kernel_size=3, padding=1),
             ]
         )
@@ -169,7 +164,6 @@ class VQGANEncoder(nn.Module, EncoderMixin):
 
 __all__ = [
     "normalize",
-    "Swish",
     "AttnBlock",
     "ResidualBlock",
     "VQGANEncoder",

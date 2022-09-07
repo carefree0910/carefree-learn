@@ -9,7 +9,6 @@ from cftool.types import tensor_dict_type
 from .protocol import DecoderMixin
 from ....constants import INPUT_KEY
 from ..encoder.vqgan import normalize
-from ..encoder.vqgan import Swish
 from ..encoder.vqgan import AttnBlock
 from ..encoder.vqgan import ResidualBlock
 from ....misc.toolkit import interpolate
@@ -93,7 +92,7 @@ class VQGANDecoder(nn.Module, DecoderMixin):
         # finalize
         self.out = nn.Sequential(
             normalize(in_nc),
-            Swish(),
+            nn.SiLU(),
             Conv2d(in_nc, out_channels, kernel_size=3, padding=1),
         )
 

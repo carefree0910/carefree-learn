@@ -140,12 +140,6 @@ class Sine(Activation):
         return torch.sin(self.w * net)
 
 
-@Activation.register("swish")
-class Swish(Activation):
-    def forward(self, net: Tensor) -> Tensor:
-        return net * torch.sigmoid(net)
-
-
 @Activation.register("h_swish")
 class HSwish(Activation):
     def __init__(self, *, inplace: bool = True):
