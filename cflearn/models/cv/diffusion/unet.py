@@ -127,6 +127,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
             in_c,
             out_c,
             signal_dim=signal_dim,
+            norm_eps=1.0e-5,
             time_embedding_channels=time_embedding_dim,
             dropout=dropout,
             use_checkpoint=use_checkpoint,

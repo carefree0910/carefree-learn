@@ -156,6 +156,7 @@ class ResidualBlockWithTimeEmbedding(Module):
         *,
         signal_dim: int = 2,
         dropout: float = 0.0,
+        norm_eps: float = 1.0e-6,
         use_conv_shortcut: bool = False,
         integrate_upsample: bool = False,
         integrate_downsample: bool = False,
@@ -181,7 +182,7 @@ class ResidualBlockWithTimeEmbedding(Module):
             self.inp_resample = ResDownsample(in_channels, False, signal_dim=signal_dim)
             self.net_resample = ResDownsample(in_channels, False, signal_dim=signal_dim)
 
-        make_norm = lambda nc: nn.GroupNorm(num_groups=32, num_channels=nc, eps=1.0e-6)
+        make_norm = lambda c: nn.GroupNorm(num_groups=32, num_channels=c, eps=norm_eps)
 
         self.activation = nn.SiLU()
         self.norm1 = make_norm(in_channels)
