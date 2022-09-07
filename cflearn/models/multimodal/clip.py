@@ -2,6 +2,8 @@ import torch
 
 from torch import nn
 from torch import Tensor
+from typing import Any
+from typing import Dict
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import l2_normalize
@@ -26,12 +28,20 @@ except:
 
 @IPerceptor.register("clip")
 class CLIP(IPerceptor):
+    vit: Optional[ViTEncoder]
+    token_embedding: Optional[nn.Embedding]
+    token_type_embedding: Optional[nn.Embedding]
+    text_transformer: Optional[TeTEncoder]
+    text_latent_dropout: Optional[nn.Dropout]
+    text_projection: Optional[nn.Linear]
+
     def __init__(
         self,
         img_size: int = 224,
         latent_dim: int = 512,
         *,
         # vision
+        use_vision: bool = True,
         in_channels: int = 3,
         vision_latent_dim: int = 768,
         vision_patch_size: int = 32,
@@ -39,6 +49,7 @@ class CLIP(IPerceptor):
         vision_num_layers: int = 12,
         vision_norm_eps: float = 1.0e-5,
         # text
+        use_text: bool = True,
         vocab_size: int = 49408,
         context_length: int = 77,
         use_text_triu_attn_mask: bool = True,
@@ -56,8 +67,65 @@ class CLIP(IPerceptor):
         text_head_pooler: Optional[str] = None,
     ):
         super().__init__(img_size, context_length)
-        self.vision_latent_dim = vision_latent_dim
         feedforward_kwargs = {"activation": "quick_gelu"}
+        # vision
+        if not use_vision:
+            self.vit = None
+        else:
+            self._init_vision(
+                feedforward_kwargs,
+                img_size,
+                latent_dim,
+                in_channels,
+                vision_latent_dim,
+                vision_patch_size,
+                vision_num_heads,
+                vision_num_layers,
+                vision_norm_eps,
+            )
+        # text
+        if not use_text:
+            self.token_embedding = None
+            self.token_type_embedding = None
+            self.text_transformer = None
+            self.text_latent_dropout = None
+            self.text_projection = None
+        else:
+            self._init_text(
+                latent_dim,
+                feedforward_kwargs,
+                vocab_size,
+                context_length,
+                use_text_triu_attn_mask,
+                token_type_size,
+                text_latent_dim,
+                text_padding_idx,
+                use_text_embedding_norm,
+                text_embedding_dropout,
+                text_dropout,
+                text_num_heads,
+                text_num_layers,
+                text_norm_position,
+                text_norm_eps,
+                text_feedforward_activation,
+                text_head_pooler,
+            )
+        # initialize
+        self.reset_parameters()
+
+    def _init_vision(
+        self,
+        feedforward_kwargs: Dict[str, Any],
+        img_size: int,
+        latent_dim: int,
+        in_channels: int,
+        vision_latent_dim: int,
+        vision_patch_size: int,
+        vision_num_heads: int,
+        vision_num_layers: int,
+        vision_norm_eps: float,
+    ) -> None:
+        self.vision_latent_dim = vision_latent_dim
         self.vit = ViTEncoder(
             img_size=img_size,
             patch_size=vision_patch_size,
@@ -72,6 +140,27 @@ class CLIP(IPerceptor):
             norm_after_head=True,
             output_dim=latent_dim,
         )
+
+    def _init_text(
+        self,
+        latent_dim: int,
+        feedforward_kwargs: Dict[str, Any],
+        vocab_size: int,
+        context_length: int,
+        use_text_triu_attn_mask: bool,
+        token_type_size: Optional[int],
+        text_latent_dim: int,
+        text_padding_idx: int,
+        use_text_embedding_norm: bool,
+        text_embedding_dropout: Optional[bool],
+        text_dropout: float,
+        text_num_heads: int,
+        text_num_layers: int,
+        text_norm_position: str,
+        text_norm_eps: float,
+        text_feedforward_activation: str,
+        text_head_pooler: Optional[str],
+    ) -> None:
         self.text_num_layers = text_num_layers
         self.text_latent_dim = text_latent_dim
         self.token_embedding = nn.Embedding(
@@ -107,30 +196,49 @@ class CLIP(IPerceptor):
         self.text_latent_dropout = nn.Dropout(text_dropout)
         self.text_projection = nn.Linear(text_latent_dim, latent_dim)
 
-        self.reset_parameters()
-
     def reset_parameters(self) -> None:
-        nn.init.normal_(self.token_embedding.weight, std=0.02)
-        text_encoder = self.text_transformer.encoder
-        nn.init.normal_(text_encoder.pos_encoding.pos_encoding, std=0.01)
-        proj_std = (self.text_latent_dim**-0.5) * ((2 * self.text_num_layers) ** -0.5)
-        attn_std = self.text_latent_dim**-0.5
-        fc_std = (2 * self.text_latent_dim) ** -0.5
-        for block in text_encoder.mixing_blocks:
-            attn = block.token_mixing.net
-            mlp = block.channel_mixing.net
-            nn.init.normal_(attn.in_w, std=attn_std)
-            nn.init.normal_(attn.out_linear.weight, std=proj_std)
-            nn.init.normal_(mlp[0].weight, std=fc_std)
-            nn.init.normal_(mlp[3].weight, std=proj_std)
-        nn.init.normal_(self.text_projection.weight, std=self.text_latent_dim**-0.5)
-        nn.init.zeros_(self.text_projection.bias)
+        if self.token_embedding is not None:
+            nn.init.normal_(self.token_embedding.weight, std=0.02)
+        tld = self.text_latent_dim
+        if self.text_transformer is not None:
+            text_encoder = self.text_transformer.encoder
+            nn.init.normal_(text_encoder.pos_encoding.pos_encoding, std=0.01)
+            proj_std = (tld**-0.5) * ((2 * self.text_num_layers) ** -0.5)
+            attn_std = tld**-0.5
+            fc_std = (2 * tld) ** -0.5
+            for block in text_encoder.mixing_blocks:
+                attn = block.token_mixing.net
+                mlp = block.channel_mixing.net
+                nn.init.normal_(attn.in_w, std=attn_std)
+                nn.init.normal_(attn.out_linear.weight, std=proj_std)
+                nn.init.normal_(mlp[0].weight, std=fc_std)
+                nn.init.normal_(mlp[3].weight, std=proj_std)
+        if self.text_projection is not None:
+            nn.init.normal_(self.text_projection.weight, std=tld**-0.5)
+            nn.init.zeros_(self.text_projection.bias)
 
     def encode_image(self, image: Tensor) -> Tensor:
+        if self.vit is None:
+            raise ValueError(
+                "`vit` is not initialized, "
+                "please set `use_vision=True` when initializing `CLIP`"
+            )
         net = self.vit(image, determinate=True)[LATENT_KEY]
         return l2_normalize(net)
 
     def encode_text(self, text: Tensor) -> Tensor:
+        fmt = (
+            "`{}` is not initialized, "
+            "please set `use_text=True` when initializing `CLIP`"
+        )
+        if self.token_embedding is None:
+            raise ValueError(fmt.format("token_embedding"))
+        if self.text_transformer is None:
+            raise ValueError(fmt.format("text_transformer"))
+        if self.text_latent_dropout is None:
+            raise ValueError(fmt.format("text_latent_dropout"))
+        if self.text_projection is None:
+            raise ValueError(fmt.format("text_projection"))
         net = self.token_embedding(text)
         if self.token_type_embedding is not None:
             token_type = torch.zeros_like(text)
