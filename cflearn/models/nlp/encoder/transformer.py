@@ -82,6 +82,8 @@ class TeTEncoder(IDLModel):
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
+        *,
+        apply_head: bool = True,
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
@@ -89,7 +91,8 @@ class TeTEncoder(IDLModel):
         net = self.encoder.pre_process(net, **kwargs)
         for block in self.encoder.mixing_blocks:
             net = block(net, mask=mask)
-        net = self.encoder.post_process(net)
+        if apply_head:
+            net = self.encoder.post_process(net)
         return {LATENT_KEY: net}
 
 
