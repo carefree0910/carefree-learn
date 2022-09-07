@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import Optional
+from cftool.misc import shallow_copy_dict
 
 from .protocol import ISampler
 from .protocol import IDiffusion
@@ -23,6 +25,8 @@ class DDIMSampler(ISampler):
         *,
         eta: float = 0.0,
         discretize: str = "uniform",
+        unconditional_cond: Optional[Any] = None,
+        unconditional_guidance_scale: float = 1.0,
         temperature: float = 1.0,
         noise_dropout: float = 0.0,
         quantize_denoised: bool = False,
@@ -33,6 +37,8 @@ class DDIMSampler(ISampler):
         super().__init__(model)
         self.eta = eta
         self.discretize = discretize
+        self.unconditional_cond = unconditional_cond
+        self.unconditional_guidance_scale = unconditional_guidance_scale
         self.temperature = temperature
         self.noise_dropout = noise_dropout
         self.quantize_denoised = quantize_denoised
@@ -43,6 +49,8 @@ class DDIMSampler(ISampler):
         return dict(
             eta=self.eta,
             discretize=self.discretize,
+            unconditional_cond=self.unconditional_cond,
+            unconditional_guidance_scale=self.unconditional_guidance_scale,
             temperature=self.temperature,
             noise_dropout=self.noise_dropout,
             quantize_denoised=self.quantize_denoised,
@@ -57,13 +65,21 @@ class DDIMSampler(ISampler):
         *,
         eta: float = 0.0,
         discretize: str = "uniform",
+        unconditional_cond: Optional[Any] = None,
+        unconditional_guidance_scale: float = 1.0,
         temperature: float = 1.0,
         noise_dropout: float = 1.0,
         quantize_denoised: bool = False,
         **kwargs: Any,
     ) -> Tensor:
         if step == 0:
-            self._reset_buffers(eta, discretize, total_step)
+            self._reset_buffers(
+                eta,
+                discretize,
+                total_step,
+                unconditional_cond,
+                unconditional_guidance_scale,
+            )
         b = image.shape[0]
         device = image.device
         index = total_step - step - 1
@@ -75,7 +91,7 @@ class DDIMSampler(ISampler):
         sigmas_t = extract(self.ddim_sigmas)
         sqrt_one_minus_alphas_t = extract(self.ddim_sqrt_one_minus_alphas)
         # execute
-        noise_pred = self.model.denoise(image, ts, cond_kw)
+        noise_pred = self._denoise(image, ts, cond_kw)
         pred_x0 = (image - sqrt_one_minus_alphas_t * noise_pred) / alphas_t.sqrt()
         if quantize_denoised:
             err_fmt = "only {} can use `quantize_denoised`"
@@ -97,7 +113,26 @@ class DDIMSampler(ISampler):
         net = alphas_prev_t.sqrt() * pred_x0 + direction + noise
         return net
 
-    def _reset_buffers(self, eta: float, discretize: str, total_step: int) -> None:
+    def _denoise(self, image, ts, cond_kw) -> Tensor:
+        if self.uncond is None:
+            return self.model.denoise(image, ts, cond_kw)
+        cond_kw2 = shallow_copy_dict(cond_kw)
+        for k, v in cond_kw2.items():
+            uncond = self.uncond.repeat_interleave(v.shape[0], dim=0)
+            cond_kw2[k] = torch.cat([uncond, v])
+        image2 = torch.cat([image, image])
+        ts2 = torch.cat([ts, ts])
+        noise_uncond, noise = self.model.denoise(image2, ts2, cond_kw2).chunk(2)
+        return noise_uncond + self.uncond_guidance_scale * (noise - noise_uncond)
+
+    def _reset_buffers(
+        self,
+        eta: float,
+        discretize: str,
+        total_step: int,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+    ) -> None:
         # discretize time steps
         if discretize == "uniform":
             span = self.model.t // total_step
@@ -122,6 +157,10 @@ class DDIMSampler(ISampler):
         )
         self.ddim_sqrt_one_minus_alphas = torch.sqrt(1.0 - self.ddim_alphas)
         self.ddim_timesteps = ddim_timesteps.tolist()
+        # unconditional conditioning
+        if unconditional_cond is not None and self.model.condition_model is not None:
+            self.uncond = self.model._get_cond(unconditional_cond)
+            self.uncond_guidance_scale = unconditional_guidance_scale
 
 
 __all__ = [
