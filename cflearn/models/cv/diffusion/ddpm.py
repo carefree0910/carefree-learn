@@ -20,6 +20,7 @@ from .unet import UNetDiffuser
 from .utils import extract_to
 from .utils import get_timesteps
 from .samplers import ISampler
+from .cond_models import condition_models
 from ...protocols import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....protocol import tensor_dict_type
@@ -447,6 +448,13 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             return net, {"labels": cond}
         raise ValueError(f"unrecognized condition type {self.condition_type} occurred")
 
+    def _make_condition_model(self, key: str, m: nn.Module) -> None:
+        condition_base = condition_models.get(key)
+        if condition_base is None:
+            self.condition_model = m
+        else:
+            self.condition_model = condition_base(m)
+
     def _initialize_condition_model(
         self,
         condition_model: Optional[str],
@@ -460,9 +468,10 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         kwargs.setdefault("report", False)
         if not condition_learnable:
             kwargs.setdefault("pretrained", True)
-        self.condition_model = DLZoo.load_model(condition_model, **kwargs)
+        m = DLZoo.load_model(condition_model, **kwargs)
         if not condition_learnable:
-            freeze(self.condition_model)
+            freeze(m)
+        self._make_condition_model(condition_model, m)
 
     def _register_noise_schedule(
         self,

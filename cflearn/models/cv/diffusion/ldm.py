@@ -185,19 +185,6 @@ class LDM(DDPM):
         latent = latent / self.scale_factor
         return self.first_stage.core.decode(latent)
 
-    def _get_cond(self, cond: Any) -> Tensor:
-        if self.condition_model is None:
-            msg = "should not call `get_cond` when `condition_model` is not provided"
-            raise ValueError(msg)
-        encode_fn = getattr(self.condition_model, "encode", None)
-        if encode_fn is None or not callable(encode_fn):
-            cond = self.condition_model(cond)
-        else:
-            cond = encode_fn(cond)
-            if isinstance(cond, GaussianDistribution):
-                cond = cond.mode()
-        return cond
-
     def _get_input(
         self,
         net: Tensor,
