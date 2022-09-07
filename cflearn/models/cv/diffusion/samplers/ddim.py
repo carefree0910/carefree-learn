@@ -145,7 +145,10 @@ class DDIMMixin(ISampler, metaclass=ABCMeta):
         self.ddim_sqrt_one_minus_alphas = torch.sqrt(1.0 - self.ddim_alphas)
         self.ddim_timesteps = ddim_timesteps.tolist()
         # unconditional conditioning
-        if unconditional_cond is not None and self.model.condition_model is not None:
+        if unconditional_cond is None or self.model.condition_model is None:
+            self.uncond = None
+            self.uncond_guidance_scale = 0.0
+        else:
             self.uncond = self.model._get_cond(unconditional_cond)
             self.uncond_guidance_scale = unconditional_guidance_scale
 
