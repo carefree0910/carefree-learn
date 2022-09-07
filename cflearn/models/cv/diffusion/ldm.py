@@ -125,6 +125,9 @@ class LDM(DDPM):
         first_stage_kw = first_stage_config or {}
         self.first_stage = freeze(DLZoo.load_model(first_stage, **first_stage_kw))
         self.scale_factor = first_stage_scale_factor
+        # condition
+        if use_first_stage_as_condition:
+            self._make_condition_model(first_stage, self.first_stage)
         # sanity check
         embedding_channels = self.first_stage.core.embedding_channels
         if in_channels != embedding_channels:
