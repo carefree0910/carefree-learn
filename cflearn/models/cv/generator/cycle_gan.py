@@ -4,11 +4,10 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from cflearn.constants import INPUT_KEY
-
 from ..decoder.vanilla import VanillaDecoder
 from ..encoder.vanilla import VanillaEncoder
 from ...protocols.cv import ImageTranslatorMixin
+from ....constants import INPUT_KEY
 from ....misc.toolkit import interpolate
 from ....misc.internal_.register import register_module
 
