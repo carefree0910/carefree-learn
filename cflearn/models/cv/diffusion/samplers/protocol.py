@@ -80,7 +80,7 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         self,
         z: Tensor,
         *,
-        cond: Optional[Tensor] = None,
+        cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
