@@ -437,7 +437,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         *,
         in_decode: bool = False,
     ) -> Tuple[Tensor, tensor_dict_type]:
-        if self.condition_type is None:
+        if cond is None or self.condition_type is None:
             return net, {}
         msg = f"`cond` should be provided when condition_type='{self.condition_type}'"
         if self.condition_type == "concat":
