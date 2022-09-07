@@ -1,0 +1,15 @@
+{
+  "__bases__": ["diffusion/ldm"],
+  "model_config": {
+    "context_dim": 768,
+    "condition_model": "multimodal/clip.large",
+    "condition_config": {
+      "use_vision": false
+    },
+    "sampler": "plms",
+    "sampler_config": {
+      "unconditional_cond": [""],
+      "unconditional_guidance_scale": 7.5
+    }
+  }
+}

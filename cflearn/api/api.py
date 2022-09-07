@@ -1364,6 +1364,10 @@ def ldm_vq(
     )
 
 
+def ldm_sd() -> DLPipeline:
+    return _ldm("diffusion/ldm.sd", 64, 4, 4)
+
+
 def ldm_celeba_hq() -> DLPipeline:
     return ldm_vq(
         pretrained=True,
