@@ -14,6 +14,7 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
+from .models import dl_zoo_model_loaders
 from ..pipeline import DLPipeline
 from ..pipeline import IPipeline
 from ..protocol import IDLModel
@@ -183,6 +184,11 @@ class DLZoo(ZooBase):
         debug: bool = False,
         **kwargs: Any,
     ):
+        if model is not None:
+            loader_base = dl_zoo_model_loaders.get(model)
+            if loader_base is not None:
+                loader = loader_base()
+                loader.permute_kwargs(kwargs)
         self.pretrained_state_callback = kwargs.pop("pretrained_state_callback", None)
         super().__init__(
             model,
