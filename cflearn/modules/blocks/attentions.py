@@ -469,6 +469,7 @@ class CrossAttention(Module):
         dropout: float = 0.0,
     ):
         super().__init__()
+        self.has_context = context_dim is not None
         latent_dim = head_dim * num_heads
         context_dim = context_dim or query_dim
 
@@ -507,7 +508,8 @@ class CrossAttention(Module):
 
         # (B, Tq, D)
         q = self.to_q(net)
-        context = context or net
+        if context is None:
+            context = net
         # (B, Tc, D)
         k = self.to_k(context)
         v = self.to_v(context)
