@@ -374,16 +374,20 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         *,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
+        clip_output: bool = True,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        return super().sample(
+        sampled = super().sample(
             num_samples,
             cond=cond,
             num_steps=num_steps,
             verbose=verbose,
             **kwargs,
         )
+        if clip_output:
+            sampled = torch.clip(sampled, -1.0, 1.0)
+        return sampled
 
     def reconstruct(
         self,
