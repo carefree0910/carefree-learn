@@ -226,7 +226,13 @@ class CLIP(IPerceptor):
         net = self.vit(image, determinate=True)[LATENT_KEY]
         return l2_normalize(net)
 
-    def encode_text(self, text: Tensor) -> Tensor:
+    def encode_text(
+        self,
+        text: Tensor,
+        *,
+        apply_pooling: bool = True,
+        determinate: bool = True,
+    ) -> Tensor:
         fmt = (
             "`{}` is not initialized, "
             "please set `use_text=True` when initializing `CLIP`"
@@ -243,7 +249,10 @@ class CLIP(IPerceptor):
         if self.token_type_embedding is not None:
             token_type = torch.zeros_like(text)
             net = net + self.token_type_embedding(token_type)
-        net = self.text_transformer(0, {INPUT_KEY: net}, determinate=True)[LATENT_KEY]
+        kw = dict(determinate=determinate)
+        net = self.text_transformer(0, {INPUT_KEY: net}, **kw)[LATENT_KEY]
+        if not apply_pooling:
+            return net
         # 'pool' the latent net if pooler is not provided
         if self.text_head_pooler is None:
             batch_size = net.shape[0]
