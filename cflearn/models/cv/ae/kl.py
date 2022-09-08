@@ -6,12 +6,12 @@ import torch.nn as nn
 from torch import Tensor
 from typing import Tuple
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .common import AutoEncoderInit
 from .common import AutoEncoderModelMixin
 from .common import AutoEncoderLPIPSWithDiscriminator
 from ...protocols import GaussianGeneratorMixin
-from ....protocol import tensor_dict_type
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.internal_ import register_custom_module

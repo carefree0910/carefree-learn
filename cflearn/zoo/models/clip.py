@@ -1,9 +1,9 @@
 from typing import Any
 from typing import Dict
 from typing import Callable
+from cftool.types import tensor_dict_type
 
 from .protocol import IDLZooModelLoader
-from ...protocol import tensor_dict_type
 
 
 def get_callback(use_vision: bool, use_text: bool) -> Callable:

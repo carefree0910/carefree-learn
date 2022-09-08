@@ -14,10 +14,10 @@ from typing import Tuple
 from typing import Optional
 from torch.autograd import grad
 from cftool.misc import shallow_copy_dict
+from cftool.types import tensor_dict_type
 
 from ..general import PureEncoderDecoder
 from ..gan.discriminators import NLayerDiscriminator
-from ....protocol import tensor_dict_type
 from ....protocol import ITrainer
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs

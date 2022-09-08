@@ -2,10 +2,10 @@ from torch import Tensor
 from typing import Any
 from typing import List
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .ddim import DDIMMixin
 from .protocol import ISampler
-from .....protocol import tensor_dict_type
 
 
 @ISampler.register("plms")

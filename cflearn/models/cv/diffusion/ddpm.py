@@ -15,6 +15,7 @@ from typing import Optional
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import to_torch
+from cftool.types import tensor_dict_type
 
 from .unet import UNetDiffuser
 from .utils import extract_to
@@ -23,7 +24,6 @@ from .samplers import ISampler
 from .cond_models import condition_models
 from ...protocols import GaussianGeneratorMixin
 from ....zoo import DLZoo
-from ....protocol import tensor_dict_type
 from ....protocol import ITrainer
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs

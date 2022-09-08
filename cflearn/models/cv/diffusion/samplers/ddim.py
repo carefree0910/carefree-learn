@@ -11,12 +11,12 @@ from typing import Dict
 from typing import Tuple
 from typing import Optional
 from cftool.misc import shallow_copy_dict
+from cftool.types import tensor_dict_type
 
 from .protocol import ISampler
 from .protocol import IDiffusion
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
-from .....protocol import tensor_dict_type
 
 
 class DDIMMixin(ISampler, metaclass=ABCMeta):

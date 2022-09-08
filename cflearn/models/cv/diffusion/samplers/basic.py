@@ -4,12 +4,12 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .protocol import ISampler
 from .protocol import IDiffusion
 from ..utils import extract_to
 from ..utils import get_timesteps
-from .....protocol import tensor_dict_type
 
 
 @ISampler.register("basic")

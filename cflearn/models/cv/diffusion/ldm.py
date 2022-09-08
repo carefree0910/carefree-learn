@@ -5,12 +5,12 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from cftool.types import tensor_dict_type
 
 from .ddpm import DDPM
 from ..ae.kl import GaussianDistribution
 from ..generator.vector_quantized import VQCodebookOut
 from ....zoo import DLZoo
-from ....protocol import tensor_dict_type
 from ....misc.toolkit import freeze
 from ....misc.internal_ import register_custom_module
 
