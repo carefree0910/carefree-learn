@@ -2,6 +2,9 @@
   "__bases__": ["diffusion/ldm"],
   "model_config": {
     "context_dim": 768,
+    "first_stage_config": {
+      "img_size": 512
+    },
     "condition_model": "multimodal/clip.large",
     "condition_config": {
       "use_vision": false
