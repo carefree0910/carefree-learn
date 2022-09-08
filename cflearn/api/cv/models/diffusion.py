@@ -44,7 +44,7 @@ class DiffusionAPI:
         self.cond_model = m.condition_model
         m.condition_model = nn.Identity()
         if is_ddim(m.sampler):
-            if m.sampler.unconditional_cond is not None:
+            if self.cond_model is not None and m.sampler.unconditional_cond is not None:
                 uncond = self.cond_model(m.sampler.unconditional_cond)
                 m.sampler.unconditional_cond = uncond.to(m.device)
         if not isinstance(m, LDM):
