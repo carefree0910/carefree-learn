@@ -113,14 +113,15 @@ class DiffusionAPI:
                 f"`num_samples` ({num_samples}) should be identical with "
                 f"the number of `cond` ({len(cond)})"
             )
-        if cond is None:
+        unconditional = cond is None
+        if unconditional:
             cond = [0] * num_samples
         iterator = TensorInferenceData(cond, batch_size=batch_size).initialize()[0]
         num_iter = len(iterator)
         if verbose and num_iter > 1:
             iterator = tqdm(iterator, desc="iter", total=num_iter)
         sampled = []
-        kw = dict(num_steps=num_steps, clip_output=clip_output, verbose=verbose)
+        kw = dict(num_steps=num_steps, verbose=verbose)
         kw.update(shallow_copy_dict(kwargs))
         if size is None:
             size = self.m.img_size, self.m.img_size
@@ -139,11 +140,13 @@ class DiffusionAPI:
                 else:
                     i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
                     i_z = torch.randn(i_z_shape, device=self.m.device)
-                if cond is None:
+                if unconditional:
                     i_cond = None
                 i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                 sampled.append(i_sampled.cpu())
         concat = torch.cat(sampled, dim=0)
+        if clip_output:
+            concat = torch.clip(concat, -1.0, 1.0)
         if callback is not None:
             concat = callback(concat)
         if export_path is not None:
