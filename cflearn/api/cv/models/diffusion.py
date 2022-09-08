@@ -1,13 +1,16 @@
 import torch
 
+import numpy as np
 import torch.nn as nn
 
+from PIL import Image
 from tqdm import tqdm
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
+from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
 
@@ -22,6 +25,8 @@ from ....models.cv.diffusion import ISampler
 from ....models.cv.diffusion import DDIMSampler
 from ....models.cv.diffusion import PLMSSampler
 from ....models.cv.ae.common import IAutoEncoder
+from ....models.cv.diffusion.utils import q_sample
+from ....models.cv.diffusion.utils import get_timesteps
 
 
 def is_ddim(sampler: ISampler) -> bool:
@@ -107,6 +112,59 @@ class DiffusionAPI:
         if export_path is not None:
             save_images(concat, export_path)
         return concat
+
+    def img2img(
+        self,
+        img_path: str,
+        export_path: Optional[str] = None,
+        *,
+        fidelity: float = 0.2,
+        cond: Optional[Any] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        # get latent
+        image = Image.open(img_path)
+        w, h = image.size
+        w, h = map(lambda x: x - x % 32, (w, h))
+        image = image.resize((w, h), resample=Image.LANCZOS)
+        image = np.array(image).astype(np.float32) / 255.0
+        image = image[None].transpose(0, 3, 1, 2)
+        z = torch.from_numpy(image).to(self.m.device)
+        z = 2.0 * z - 1.0
+        if isinstance(self.m, LDM):
+            z = self.m._to_latent(z)
+        # perturb latent
+        sampler = self.m.sampler
+        if num_steps is None:
+            num_steps = sampler.default_steps
+        t = round((1.0 - fidelity) * num_steps)
+        ts = get_timesteps(t, 1, z.device)
+        if not isinstance(sampler, (DDIMSampler, PLMSSampler)):
+            z = self.m._q_sample(z, ts)
+        else:
+            kw = shallow_copy_dict(sampler.sample_kwargs)
+            kw["total_step"] = num_steps
+            safe_execute(sampler._reset_buffers, kw)
+            z = q_sample(
+                z,
+                ts,
+                torch.sqrt(sampler.ddim_alphas),
+                sampler.ddim_sqrt_one_minus_alphas,
+            )
+            kwargs["start_step"] = num_steps - t
+        return self.sample(
+            1,
+            export_path,
+            z=z,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
 
     @classmethod
     def from_pipeline(cls, m: DLPipeline) -> "DiffusionAPI":
