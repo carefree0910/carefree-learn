@@ -10,6 +10,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from typing import Callable
 from typing import Optional
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
@@ -97,6 +98,7 @@ class DiffusionAPI:
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
         batch_size: int = 1,
         verbose: bool = True,
         **kwargs: Any,
@@ -140,6 +142,8 @@ class DiffusionAPI:
                 i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                 sampled.append(i_sampled.cpu())
         concat = torch.cat(sampled, dim=0)
+        if callback is not None:
+            concat = callback(concat)
         if export_path is not None:
             save_images(concat, export_path)
         return concat
