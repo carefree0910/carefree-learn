@@ -15,7 +15,6 @@ from typing import Optional
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
-from cfcv.misc.toolkit import to_rgb
 
 from ....data import predict_tensor_data
 from ....data import TensorInferenceData
@@ -31,12 +30,19 @@ from ....models.cv.ae.common import IAutoEncoder
 from ....models.cv.diffusion.utils import q_sample
 from ....models.cv.diffusion.utils import get_timesteps
 
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
+
 
 def is_ddim(sampler: ISampler) -> bool:
     return isinstance(sampler, (DDIMSampler, PLMSSampler))
 
 
 def get_normalized(path: str, max_wh: int, *, to_gray: bool = False) -> np.ndarray:
+    if to_rgb is None:
+        raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
     image = Image.open(path)
     image = image.convert("L") if to_gray else to_rgb(image)
     original_w, original_h = image.size
