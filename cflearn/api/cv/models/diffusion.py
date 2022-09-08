@@ -6,6 +6,7 @@ from tqdm import tqdm
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import Tuple
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
@@ -59,6 +60,7 @@ class DiffusionAPI:
         num_samples: int,
         export_path: Optional[str] = None,
         *,
+        size: Optional[Tuple[int, int]] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -81,12 +83,21 @@ class DiffusionAPI:
         sampled = []
         kw = dict(num_steps=num_steps, clip_output=clip_output, verbose=verbose)
         kw.update(shallow_copy_dict(kwargs))
+        if size is None:
+            size = self.m.img_size, self.m.img_size
+        else:
+            if self.first_stage is None:
+                factor = 1
+            else:
+                factor = self.first_stage.img_size // self.m.img_size
+            size = tuple(map(lambda n: round(n / factor), size))  # type: ignore
         with eval_context(self.m):
             for batch in iterator:
                 i_kw = shallow_copy_dict(kw)
-                # i_cond = batch[INPUT_KEY]
                 i_cond = batch[INPUT_KEY].to(self.m.device)
-                i_sampled = self.m.sample(len(i_cond), cond=i_cond, **i_kw)
+                i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
+                i_z = torch.randn(i_z_shape, device=self.m.device)
+                i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                 sampled.append(i_sampled.cpu())
         concat = torch.cat(sampled, dim=0)
         if export_path is not None:

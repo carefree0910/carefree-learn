@@ -24,9 +24,17 @@ class EncoderDecoderMixin:
     def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         return self.encoder.encode(batch, **kwargs)
 
-    def decode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
+    def decode(
+        self,
+        batch: tensor_dict_type,
+        *,
+        resize: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
         net = self.decoder.decode(batch, **kwargs)
-        return self.resize(net)
+        if resize:
+            net = self.resize(net)
+        return net
 
 
 class EncoderDecoder(nn.Module, EncoderDecoderMixin):

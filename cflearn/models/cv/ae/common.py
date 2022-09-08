@@ -51,6 +51,7 @@ class AutoEncoderInit(nn.Module):
         apply_tanh: bool = False,
     ):
         super().__init__()
+        self.img_size = img_size
         self.in_channels = in_channels
         self.out_channels = out_channels
         self.inner_channels = inner_channels
@@ -346,7 +347,7 @@ class IAutoEncoder(  # type: ignore
     GaussianGeneratorMixin,
     metaclass=ABCMeta,
 ):
-    pass
+    img_size: int
 
 
 __all__ = [

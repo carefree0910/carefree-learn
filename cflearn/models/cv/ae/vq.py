@@ -67,9 +67,16 @@ class AutoEncoderVQ(AutoEncoderInit):
         out = self.codebook(net, return_z_q_g=return_z_q_g)
         return out
 
-    def decode(self, z: Tensor, *, apply_tanh: Optional[bool] = None) -> Tensor:
+    def decode(
+        self,
+        z: Tensor,
+        *,
+        resize: bool = True,
+        apply_tanh: Optional[bool] = None,
+    ) -> Tensor:
         net = self.from_embedding(z)
-        net = self.generator.decode({INPUT_KEY: net}, apply_tanh=apply_tanh)
+        kw = dict(resize=resize, apply_tanh=apply_tanh)
+        net = self.generator.decode({INPUT_KEY: net}, **kw)  # type: ignore
         return net
 
     def forward(

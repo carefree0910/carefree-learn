@@ -76,9 +76,16 @@ class AutoEncoderKL(AutoEncoderInit):
         net = self.to_embedding(net)
         return GaussianDistribution(net)
 
-    def decode(self, z: Tensor, *, apply_tanh: Optional[bool] = None) -> Tensor:
+    def decode(
+        self,
+        z: Tensor,
+        *,
+        resize: bool = True,
+        apply_tanh: Optional[bool] = None,
+    ) -> Tensor:
         net = self.from_embedding(z)
-        net = self.generator.decode({INPUT_KEY: net}, apply_tanh=apply_tanh)
+        kw = dict(resize=resize, apply_tanh=apply_tanh)
+        net = self.generator.decode({INPUT_KEY: net}, **kw)  # type: ignore
         return net
 
     def forward(
