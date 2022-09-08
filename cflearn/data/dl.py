@@ -1,11 +1,17 @@
 import os
 import torch
 
+import torch.nn as nn
+
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from typing import Union
 from typing import Optional
+from cftool.misc import update_dict
+from cftool.misc import check_requires
+from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 from torch.utils.data import Dataset
 
@@ -17,6 +23,7 @@ from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import ORIGINAL_LABEL_KEY
+from ..misc.toolkit import eval_context
 
 
 class TensorDataset(Dataset):
@@ -212,6 +219,58 @@ class TensorDictData(DLDataModule):
         return data
 
 
+class TensorInferenceData(TensorData):
+    def __init__(
+        self,
+        x_train: Tensor,
+        y_train: Optional[Tensor] = None,
+        x_valid: Optional[Tensor] = None,
+        y_valid: Optional[Tensor] = None,
+        train_others: Optional[tensor_dict_type] = None,
+        valid_others: Optional[tensor_dict_type] = None,
+        *,
+        shuffle: bool = False,
+        batch_size: int = 64,
+        num_workers: int = 0,
+    ):
+        super().__init__(
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            train_others,
+            valid_others,
+            shuffle=shuffle,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+        self.prepare(None)
+
+
+class TensorDictInferenceData(TensorDictData):
+    def __init__(
+        self,
+        x_train: tensor_dict_type,
+        y_train: Optional[Tensor] = None,
+        x_valid: Optional[tensor_dict_type] = None,
+        y_valid: Optional[Tensor] = None,
+        *,
+        shuffle: bool = False,
+        batch_size: int = 64,
+        num_workers: int = 0,
+    ):
+        super().__init__(
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            shuffle=shuffle,
+            batch_size=batch_size,
+            num_workers=num_workers,
+        )
+        self.prepare(None)
+
+
 @DLDataModule.register("dummy")
 class DummyData(TensorData):
     def __init__(
@@ -226,8 +285,47 @@ class DummyData(TensorData):
         super().__init__(dummy, dummy, x_valid, y_valid, batch_size=batch_size)
 
 
+def predict_tensor_data(
+    m: nn.Module,
+    data: Union[TensorInferenceData, TensorDictInferenceData],
+    *,
+    batch_size: Optional[int] = None,
+    **predict_kwargs: Any,
+) -> Any:
+    if batch_size is not None:
+        data.kw["batch_size"] = batch_size
+    loader = data.initialize()[0]
+    results = []
+    is_dict_result = False
+    with eval_context(m):
+        fn = m.forward
+        for batch in loader:
+            batch = shallow_copy_dict(batch)
+            args: Tuple[Any, ...]
+            if check_requires(fn, "batch"):
+                args = ()
+                kwargs = dict(batch=batch)
+            else:
+                kwargs = batch
+                args = (kwargs.pop(INPUT_KEY),)
+            update_dict(shallow_copy_dict(predict_kwargs), kwargs)
+            rs = fn(*args, **kwargs)
+            if not is_dict_result and isinstance(rs, dict):
+                is_dict_result = True
+            results.append(rs)
+    if not is_dict_result:
+        return torch.cat(results, dim=0)
+    final = {}
+    for k in results[0]:
+        final[k] = torch.cat([rs[k] for rs in results], dim=0)
+    return final
+
+
 __all__ = [
     "TensorData",
     "TensorDictData",
+    "TensorInferenceData",
+    "TensorDictInferenceData",
     "DummyData",
+    "predict_tensor_data",
 ]
