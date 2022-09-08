@@ -128,7 +128,8 @@ class LDM(DDPM):
         self.scale_factor = first_stage_scale_factor
         # condition
         if use_first_stage_as_condition:
-            self.condition_model = make_condition_model(first_stage, self.first_stage)
+            # avoid recording duplicate parameters
+            self.condition_model = [make_condition_model(first_stage, self.first_stage)]
         # sanity check
         embedding_channels = self.first_stage.core.embedding_channels
         if in_channels != embedding_channels and condition_type != "concat":
@@ -190,6 +191,11 @@ class LDM(DDPM):
     def _from_latent(self, latent: Tensor) -> Tensor:
         latent = latent / self.scale_factor
         return self.first_stage.core.decode(latent, resize=False)
+
+    def _get_cond(self, cond: Any) -> Tensor:
+        if isinstance(self.condition_model, list):
+            return self.condition_model[0](cond)
+        return super()._get_cond(cond)
 
     def _get_input(
         self,
