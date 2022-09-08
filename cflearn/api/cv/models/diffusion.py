@@ -2,6 +2,7 @@ import torch
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from PIL import Image
 from tqdm import tqdm
@@ -32,6 +33,31 @@ from ....models.cv.diffusion.utils import get_timesteps
 
 def is_ddim(sampler: ISampler) -> bool:
     return isinstance(sampler, (DDIMSampler, PLMSSampler))
+
+
+def get_normalized(path: str, max_wh: int, *, to_gray: bool = False) -> np.ndarray:
+    image = Image.open(path)
+    image = image.convert("L") if to_gray else to_rgb(image)
+    original_w, original_h = image.size
+    max_original_wh = max(original_w, original_h)
+    if max_original_wh <= max_wh:
+        w, h = original_w, original_h
+    else:
+        wh_ratio = original_w / original_h
+        if wh_ratio >= 1:
+            w = max_wh
+            h = round(w / wh_ratio)
+        else:
+            h = max_wh
+            w = round(h * wh_ratio)
+    w, h = map(lambda x: x - x % 64, (w, h))
+    image = image.resize((w, h), resample=Image.LANCZOS)
+    image = np.array(image).astype(np.float32) / 127.5 - 1.0
+    if to_gray:
+        image = image[None, None]
+    else:
+        image = image[None].transpose(0, 3, 1, 2)
+    return image
 
 
 class DiffusionAPI:
@@ -131,30 +157,10 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        # get latent
-        image = Image.open(img_path)
-        original_w, original_h = image.size
-        max_original_wh = max(original_w, original_h)
-        if max_original_wh <= max_wh:
-            w, h = original_w, original_h
-        else:
-            wh_ratio = original_w / original_h
-            if wh_ratio >= 1:
-                w = max_wh
-                h = round(w / wh_ratio)
-            else:
-                h = max_wh
-                w = round(h * wh_ratio)
-        w, h = map(lambda x: x - x % 64, (w, h))
-        image = image.resize((w, h), resample=Image.LANCZOS)
-        image = to_rgb(image)
-        image = np.array(image).astype(np.float32) / 255.0
-        image = image[None].transpose(0, 3, 1, 2)
-        z = torch.from_numpy(image).to(self.m.device)
-        z = 2.0 * z - 1.0
-        if isinstance(self.m, LDM):
-            z = self.m._to_latent(z)
-        # perturb latent
+        # get z
+        img = get_normalized(img_path, max_wh)
+        z = self._get_z(img)
+        # perturb z
         sampler = self.m.sampler
         if num_steps is None:
             num_steps = sampler.default_steps
@@ -173,6 +179,7 @@ class DiffusionAPI:
                 sampler.ddim_sqrt_one_minus_alphas,
             )
             kwargs["start_step"] = num_steps - t
+        # sampling
         return self.sample(
             1,
             export_path,
@@ -187,6 +194,12 @@ class DiffusionAPI:
     @classmethod
     def from_pipeline(cls, m: DLPipeline) -> "DiffusionAPI":
         return cls(m.model.core)
+
+    def _get_z(self, img: np.ndarray) -> Tensor:
+        z = torch.from_numpy(img).to(self.m.device)
+        if isinstance(self.m, LDM):
+            z = self.m._to_latent(z)
+        return z
 
 
 __all__ = [
