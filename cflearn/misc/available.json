@@ -63,6 +63,10 @@
       "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
       "st_size": 1317739701
     },
+    "ldm_inpainting": {
+      "sha": "52f3f7551a781ae7ceaade66c597e70d0545b66f40e076b1e5f35617cd05eec5",
+      "st_size": 1762093501
+    },
     "vgg_style": {
       "sha": "e1f6d57181cc06a32b3acb31734c485341ec11c247eacec0dbdddd0f179c8771",
       "st_size": 14029161

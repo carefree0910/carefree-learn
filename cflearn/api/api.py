@@ -1381,6 +1381,28 @@ def ldm_celeba_hq() -> DLPipeline:
     )
 
 
+def ldm_inpainting() -> DLPipeline:
+    return ldm_vq(
+        pretrained=True,
+        latent_in_channels=7,
+        download_name="ldm_inpainting",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=256,
+            num_heads=8,
+            num_head_channels=None,
+            resample_with_resblock=True,
+            condition_type="concat",
+            first_stage_config=dict(
+                pretrained=False,
+                model_config=dict(
+                    attention_type="none",
+                ),
+            ),
+        ),
+    )
+
+
 # nlp
 
 
