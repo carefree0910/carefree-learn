@@ -9,7 +9,6 @@ from typing import Optional
 from .ddpm import make_condition_model
 from .ddpm import DDPM
 from ..ae.kl import GaussianDistribution
-from ..generator.vector_quantized import VQCodebookOut
 from ....zoo import DLZoo
 from ....misc.toolkit import freeze
 from ....misc.internal_ import register_custom_module
@@ -171,8 +170,6 @@ class LDM(DDPM):
         net = self.first_stage.core.encode(net)
         if isinstance(net, GaussianDistribution):
             net = net.sample()
-        elif isinstance(net, VQCodebookOut):
-            net = net.z_q
         net = self.scale_factor * net
         return net
 

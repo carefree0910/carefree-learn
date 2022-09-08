@@ -11,7 +11,6 @@ from .common import IAutoEncoder
 from .common import AutoEncoderInit
 from .common import AutoEncoderLPIPSWithDiscriminator
 from ..generator.vector_quantized import VQCodebook
-from ..generator.vector_quantized import VQCodebookOut
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.internal_ import register_custom_module
@@ -57,23 +56,21 @@ class AutoEncoderVQ(AutoEncoderInit):
         )
         self.codebook = VQCodebook(num_code, embedding_channels)
 
-    def encode_without_quantize(self, net: Tensor) -> Tensor:
+    def encode(self, net: Tensor) -> Tensor:
         net = self.generator.encode({INPUT_KEY: net})
         net = self.to_embedding(net)
         return net
-
-    def encode(self, net: Tensor, *, return_z_q_g: bool = False) -> VQCodebookOut:
-        net = self.encode_without_quantize(net)
-        out = self.codebook(net, return_z_q_g=return_z_q_g)
-        return out
 
     def decode(
         self,
         z: Tensor,
         *,
         resize: bool = True,
+        apply_codebook: bool = True,
         apply_tanh: Optional[bool] = None,
     ) -> Tensor:
+        if apply_codebook:
+            z = self.codebook(z).z_q
         net = self.from_embedding(z)
         kw = dict(resize=resize, apply_tanh=apply_tanh)
         net = self.generator.decode({INPUT_KEY: net}, **kw)  # type: ignore
@@ -85,8 +82,9 @@ class AutoEncoderVQ(AutoEncoderInit):
         *,
         apply_tanh: Optional[bool] = None,
     ) -> dict:
-        out = self.encode(net, return_z_q_g=True)
-        net = self.decode(out.z_q, apply_tanh=apply_tanh)
+        net = self.encode(net)
+        out = self.codebook(net, return_z_q_g=True)
+        net = self.decode(out.z_q, apply_codebook=False, apply_tanh=apply_tanh)
         results = {PREDICTIONS_KEY: net}
         results.update(out.to_dict())
         return results
