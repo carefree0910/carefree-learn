@@ -5,7 +5,6 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
-from cftool.types import tensor_dict_type
 
 from .ddpm import make_condition_model
 from .ddpm import DDPM
@@ -168,20 +167,7 @@ class LDM(DDPM):
         net = self._from_latent(latent)
         return net
 
-    def reconstruct(
-        self,
-        net: Tensor,
-        *,
-        noise_steps: Optional[int] = None,
-        cond: Optional[Any] = None,
-        **kwargs: Any,
-    ) -> Tensor:
-        latent = self._to_latent(net)
-        kwargs.update(dict(noise_steps=noise_steps, cond=cond))
-        net = super().reconstruct(latent, **kwargs)
-        return net
-
-    def _to_latent(self, net: Tensor) -> Tensor:
+    def _preprocess(self, net: Tensor) -> Tensor:
         net = self.first_stage.core.encode(net)
         if isinstance(net, GaussianDistribution):
             net = net.sample()
@@ -198,17 +184,6 @@ class LDM(DDPM):
         if isinstance(self.condition_model, list):
             return self.condition_model[0](cond)
         return super()._get_cond(cond)
-
-    def _get_input(
-        self,
-        net: Tensor,
-        cond: Optional[Tensor],
-        *,
-        in_decode: bool = False,
-    ) -> Tuple[Tensor, tensor_dict_type]:
-        if not in_decode:
-            net = self._to_latent(net)
-        return super()._get_input(net, cond)
 
 
 __all__ = [

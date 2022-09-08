@@ -307,7 +307,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if noise is not None:
             net = self._q_sample(net, timesteps, noise)
         # unet
-        unet_out = self.denoise(net, timesteps, cond, in_decode=False)
+        net = self._preprocess(net)
+        unet_out = self.denoise(net, timesteps, cond)
         return {
             PREDICTIONS_KEY: unet_out,
             self.noise_key: noise,
@@ -409,6 +410,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         cond: Optional[Any] = None,
         **kwargs: Any,
     ) -> Tensor:
+        net = self._preprocess(net)
         if noise_steps is None:
             noise_steps = self.t
         ts = get_timesteps(noise_steps - 1, net.shape[0], net.device)
@@ -423,11 +425,20 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         image: Tensor,
         timesteps: Tensor,
         cond: Optional[Tensor],
-        *,
-        in_decode: bool = True,
     ) -> Tensor:
-        inp, cond_kw = self._get_input(image, cond, in_decode=in_decode)
-        return self.unet(inp, timesteps=timesteps, **cond_kw)
+        net = image
+        cond_kw = {}
+        cond_type = self.condition_type
+        if cond is not None and cond_type != "none":
+            if cond_type == "concat":
+                net = torch.cat([net, cond], dim=1)
+            elif cond_type == "cross_attn":
+                cond_kw = {"context": cond}
+            elif cond_type == "adm":
+                cond_kw = {"labels": cond}
+            else:
+                raise ValueError(f"unrecognized condition type {cond_type} occurred")
+        return self.unet(net, timesteps=timesteps, **cond_kw)
 
     # internal
 
@@ -445,32 +456,14 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             noise,
         )
 
+    def _preprocess(self, net: Tensor) -> Tensor:
+        return net
+
     def _get_cond(self, cond: Any) -> Tensor:
         if self.condition_model is None:
             msg = "should not call `get_cond` when `condition_model` is not provided"
             raise ValueError(msg)
         return self.condition_model(cond)
-
-    # return input & condition inputs
-    def _get_input(
-        self,
-        net: Tensor,
-        cond: Optional[Tensor],
-        *,
-        in_decode: bool = True,
-    ) -> Tuple[Tensor, tensor_dict_type]:
-        if cond is None or self.condition_type is None:
-            return net, {}
-        msg = f"`cond` should be provided when condition_type='{self.condition_type}'"
-        if self.condition_type == "concat":
-            if cond is None:
-                raise ValueError(msg)
-            return torch.cat([net, cond], dim=1), {}
-        if self.condition_type == "cross_attn":
-            return net, {"context": cond}
-        if self.condition_type == "adm":
-            return net, {"labels": cond}
-        raise ValueError(f"unrecognized condition type {self.condition_type} occurred")
 
     def _initialize_condition_model(
         self,

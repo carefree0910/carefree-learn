@@ -203,8 +203,7 @@ class DiffusionAPI:
 
     def _get_z(self, img: np.ndarray) -> Tensor:
         z = torch.from_numpy(img).to(self.m.device)
-        if isinstance(self.m, LDM):
-            z = self.m._to_latent(z)
+        z = self.m._preprocess(z)
         return z
 
 

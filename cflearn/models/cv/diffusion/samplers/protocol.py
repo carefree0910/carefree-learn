@@ -15,7 +15,6 @@ from typing import Protocol
 from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
-from cftool.types import tensor_dict_type
 
 
 samplers: Dict[str, Type["ISampler"]] = {}
@@ -27,8 +26,6 @@ class Denoise(Protocol):
         image: Tensor,
         timesteps: Tensor,
         cond: Optional[Tensor],
-        *,
-        in_decode: bool = True,
     ) -> Tensor:
         pass
 
