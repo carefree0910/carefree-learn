@@ -131,7 +131,7 @@ class LDM(DDPM):
             self.condition_model = make_condition_model(first_stage, self.first_stage)
         # sanity check
         embedding_channels = self.first_stage.core.embedding_channels
-        if in_channels != embedding_channels:
+        if in_channels != embedding_channels and condition_type != "concat":
             raise ValueError(
                 f"`in_channels` ({in_channels}) should be identical with the "
                 f"`embedding_channels` ({embedding_channels}) of the "
