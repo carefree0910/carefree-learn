@@ -18,6 +18,7 @@ from cftool.array import to_torch
 from cftool.types import tensor_dict_type
 
 from .unet import UNetDiffuser
+from .utils import q_sample
 from .utils import extract_to
 from .utils import get_timesteps
 from .samplers import ISampler
@@ -401,7 +402,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if noise_steps is None:
             noise_steps = self.t
         ts = get_timesteps(noise_steps - 1, net.shape[0], net.device)
-        z = self._q_sample(net, ts, torch.randn_like(net))
+        z = self._q_sample(net, ts)
         kw = shallow_copy_dict(kwargs)
         kw.update(dict(z=z, cond=cond))
         net = safe_execute(self.decode, kw)
@@ -417,12 +418,19 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     # internal
 
-    def _q_sample(self, net: Tensor, timesteps: Tensor, noise: Tensor) -> Tensor:
-        num_dim = len(net.shape)
-        w_net = extract_to(self.sqrt_alphas_cumprod, timesteps, num_dim)
-        w_noise = extract_to(self.sqrt_one_minus_alphas_cumprod, timesteps, num_dim)
-        net = w_net * net + w_noise * noise
-        return net
+    def _q_sample(
+        self,
+        net: Tensor,
+        timesteps: Tensor,
+        noise: Optional[Tensor] = None,
+    ) -> Tensor:
+        return q_sample(
+            net,
+            timesteps,
+            self.sqrt_alphas_cumprod,
+            self.sqrt_one_minus_alphas_cumprod,
+            noise,
+        )
 
     def _get_cond(self, cond: Any) -> Tensor:
         if self.condition_model is None:
