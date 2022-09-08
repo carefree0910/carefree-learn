@@ -201,6 +201,50 @@ class DiffusionAPI:
             **kwargs,
         )
 
+    def inpainting(
+        self,
+        img_path: str,
+        mask_path: str,
+        export_path: Optional[str] = None,
+        *,
+        max_wh: int = 1024,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> None:
+        # callback
+        def callback(out: Tensor) -> Tensor:
+            final = torch.from_numpy(remained_image.copy())
+            final += 0.5 * (1.0 + out) * (1.0 - remained_mask)
+            return 2.0 * final - 1.0
+
+        # handle mask stuffs
+        image = get_normalized(img_path, max_wh)
+        mask = get_normalized(mask_path, max_wh, to_gray=True)
+        bool_mask = mask >= 0.5
+        remained_mask = (~bool_mask).astype(np.float32)
+        remained_image = remained_mask * image
+        # construct condition tensor
+        remained_cond = self._get_z(2.0 * remained_image - 1.0)
+        mask_cond = torch.where(torch.from_numpy(bool_mask), 1.0, -1.0)
+        mask_cond = mask_cond.to(torch.float32).to(self.m.device)
+        mask_cond = F.interpolate(mask_cond, size=remained_cond.shape[-2:])
+        cond = torch.cat([remained_cond, mask_cond], dim=1)
+        # sampling
+        z = torch.randn_like(remained_cond)
+        return self.sample(
+            1,
+            export_path,
+            z=z,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            verbose=verbose,
+            **kwargs,
+        )
+
     @classmethod
     def from_pipeline(cls, m: DLPipeline) -> "DiffusionAPI":
         return cls(m.model.core)
