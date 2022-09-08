@@ -54,6 +54,11 @@
       "sha": "58fa033add3d77061398bd225d3f13ba5b983868beef85b974f39352eb78910d",
       "st_size": 332501833
     },
+    "ldm.sd": {
+      "sha": "63562e2939d522a090c7c8ae24c3ebd0c250c12b9236512e76f968bdadcff5b8",
+      "st_size": 4267709714,
+      "download_url": "https://drive.google.com/uc?export=download&id=1ns7eaBuT-x4wkeioM7qkeCjspz0M0f7t&confirm=t&uuid=d0f55fd0-d5c1-40ff-a288-e016ce5aaddb"
+    },
     "ldm_celeba_hq": {
       "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
       "st_size": 1317739701
