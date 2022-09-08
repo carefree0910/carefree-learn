@@ -34,7 +34,7 @@ class BasicSampler(ISampler):
     def sample_step(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         step: int,
         total_step: int,
         *,
@@ -44,7 +44,7 @@ class BasicSampler(ISampler):
         shape = image.shape
         num_dim = len(shape)
         ts = get_timesteps(total_step - step - 1, shape[0], image.device)
-        net = self.model.denoise(image, ts, cond_kw)
+        net = self.model.denoise(image, ts, cond)
         parameterization = self.model.parameterization
         if parameterization == "eps":
             coef1 = extract_to(self.model.posterior_coef1, ts, num_dim)

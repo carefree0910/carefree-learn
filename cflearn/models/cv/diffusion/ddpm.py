@@ -299,15 +299,13 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         # condition
         if cond is not None and self.condition_model is not None:
             cond = self._get_cond(cond)
-        # get input
-        net, cond_kw = self._get_input(net, cond)
         # noise
         if noise is None and use_noise:
             noise = torch.randn_like(net)
         if noise is not None:
             net = self._q_sample(net, timesteps, noise)
         # unet
-        unet_out = self.unet(net, timesteps=timesteps, **cond_kw)
+        unet_out = self.denoise(net, timesteps, cond, in_decode=False)
         return {
             PREDICTIONS_KEY: unet_out,
             self.noise_key: noise,
@@ -422,9 +420,12 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         self,
         image: Tensor,
         timesteps: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
+        *,
+        in_decode: bool = True,
     ) -> Tensor:
-        return self.unet(image, timesteps=timesteps, **cond_kw)
+        inp, cond_kw = self._get_input(image, cond, in_decode=in_decode)
+        return self.unet(inp, timesteps=timesteps, **cond_kw)
 
     # internal
 
@@ -454,7 +455,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         net: Tensor,
         cond: Optional[Tensor],
         *,
-        in_decode: bool = False,
+        in_decode: bool = True,
     ) -> Tuple[Tensor, tensor_dict_type]:
         if cond is None or self.condition_type is None:
             return net, {}

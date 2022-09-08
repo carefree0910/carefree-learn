@@ -10,8 +10,6 @@ from typing import Any
 from typing import Dict
 from typing import Tuple
 from typing import Optional
-from cftool.misc import shallow_copy_dict
-from cftool.types import tensor_dict_type
 
 from .protocol import ISampler
 from .protocol import IDiffusion
@@ -57,16 +55,14 @@ class DDIMMixin(ISampler, metaclass=ABCMeta):
             quantize_denoised=self.quantize_denoised,
         )
 
-    def _denoise(self, image: Tensor, ts: Tensor, cond_kw: tensor_dict_type) -> Tensor:
-        if self.uncond is None:
-            return self.model.denoise(image, ts, cond_kw)
-        cond_kw2 = shallow_copy_dict(cond_kw)
-        for k, v in cond_kw2.items():
-            uncond = self.uncond.repeat_interleave(v.shape[0], dim=0)
-            cond_kw2[k] = torch.cat([uncond, v])
+    def _denoise(self, image: Tensor, ts: Tensor, cond: Optional[Tensor]) -> Tensor:
+        if cond is None or self.uncond is None:
+            return self.model.denoise(image, ts, cond)
+        uncond = self.uncond.repeat_interleave(cond.shape[0], dim=0)
+        cond2 = torch.cat([uncond, cond])
         image2 = torch.cat([image, image])
         ts2 = torch.cat([ts, ts])
-        eps_uncond, eps = self.model.denoise(image2, ts2, cond_kw2).chunk(2)
+        eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
         return eps_uncond + self.uncond_guidance_scale * (eps - eps_uncond)
 
     def _register_temp_buffers(self, image: Tensor, step: int, total_step: int) -> None:
@@ -158,7 +154,7 @@ class DDIMSampler(DDIMMixin):
     def sample_step(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         step: int,
         total_step: int,
         *,
@@ -180,7 +176,7 @@ class DDIMSampler(DDIMMixin):
                 unconditional_guidance_scale,
             )
         self._register_temp_buffers(image, step, total_step)
-        eps_pred = self._denoise(image, self._ts, cond_kw)
+        eps_pred = self._denoise(image, self._ts, cond)
         denoised, _ = self._get_denoised_and_pred_x0(
             eps_pred,
             image,

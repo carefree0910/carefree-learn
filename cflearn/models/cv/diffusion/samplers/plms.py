@@ -2,7 +2,6 @@ from torch import Tensor
 from typing import Any
 from typing import List
 from typing import Optional
-from cftool.types import tensor_dict_type
 
 from .ddim import DDIMMixin
 from .protocol import ISampler
@@ -13,7 +12,7 @@ class PLMSSampler(DDIMMixin):
     def sample_step(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         step: int,
         total_step: int,
         *,
@@ -36,7 +35,7 @@ class PLMSSampler(DDIMMixin):
             )
         self._register_temp_buffers(image, step, total_step)
 
-        get_eps_pred = lambda img, ts: self._denoise(img, ts, cond_kw)
+        get_eps_pred = lambda img, ts: self._denoise(img, ts, cond)
         get_denoised = lambda eps: self._get_denoised_and_pred_x0(
             eps,
             image,

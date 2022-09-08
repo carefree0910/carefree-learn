@@ -22,18 +22,19 @@ samplers: Dict[str, Type["ISampler"]] = {}
 
 
 class Denoise(Protocol):
-    def __call__(
+    def denoise(
         self,
         image: Tensor,
         timesteps: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
+        *,
+        in_decode: bool = True,
     ) -> Tensor:
         pass
 
 
 class IDiffusion:
     _get_cond: Callable
-    _get_input: Callable
 
     denoise: Denoise
     condition_model: Optional[nn.Module]
@@ -68,7 +69,7 @@ class ISampler(WithRegister, metaclass=ABCMeta):
     def sample_step(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         step: int,
         total_step: int,
         **kwargs: Any,
@@ -85,9 +86,6 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        if cond is not None and self.model.condition_model is not None:
-            cond = self.model._get_cond(cond)
-        image, cond_kw = self.model._get_input(z, cond, in_decode=True)
         # setup
         if num_steps is None:
             num_steps = getattr(self, "default_steps", self.model.t)
@@ -98,10 +96,13 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         if verbose:
             iterator = tqdm(iterator, desc=f"sampling ({self.__identifier__})")
         # execute
+        image = z
+        if cond is not None and self.model.condition_model is not None:
+            cond = self.model._get_cond(cond)
         for step in iterator:
             kw = shallow_copy_dict(self.sample_kwargs)
             update_dict(shallow_copy_dict(kwargs), kw)
-            image = self.sample_step(image, cond_kw, step, num_steps, **kw)
+            image = self.sample_step(image, cond, step, num_steps, **kw)
         return image
 
 

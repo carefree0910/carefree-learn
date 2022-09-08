@@ -5,7 +5,6 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cftool.types import tensor_dict_type
 
 from .protocol import ISampler
 from .protocol import IDiffusion
@@ -66,7 +65,7 @@ class DPMSolver(ISampler):
     def sample_step(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         step: int,
         total_step: int,
         *,
@@ -89,23 +88,23 @@ class DPMSolver(ISampler):
         vec_s = torch.ones(b, device=device) * self.timesteps[step]
         vec_t = torch.ones(b, device=device) * self.timesteps[step + 1]
         if order == 1:
-            return self._order1_update(image, cond_kw, vec_s, vec_t)
+            return self._order1_update(image, cond, vec_s, vec_t)
         if order == 2:
-            return self._order2_update(image, cond_kw, vec_s, vec_t)
+            return self._order2_update(image, cond, vec_s, vec_t)
         if order == 3:
-            return self._order3_update(image, cond_kw, vec_s, vec_t)
+            return self._order3_update(image, cond, vec_s, vec_t)
         raise ValueError(f"unrecognized order '{order}' occurred")
 
     # internal
 
-    def _denoise(self, x: Tensor, t: Tensor, cond_kw: tensor_dict_type) -> Tensor:
+    def _denoise(self, x: Tensor, t: Tensor, cond: Optional[Tensor]) -> Tensor:
         t = self.model.t * torch.max(t - 1.0 / self.model.t, torch.zeros_like(t))
-        return self.model.denoise(x, t, cond_kw)
+        return self.model.denoise(x, t, cond)
 
     def _order1_update(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         vec_s: Tensor,
         vec_t: Tensor,
     ) -> Tensor:
@@ -117,7 +116,7 @@ class DPMSolver(ISampler):
         log_alpha_t = self._marginal_log_mean_coef(vec_t)
         sigma_t = self._marginal_std(vec_t)
         phi_1 = torch.expm1(h)
-        noise_s = self._denoise(image, vec_s, cond_kw)
+        noise_s = self._denoise(image, vec_s, cond)
         return (
             torch.exp(log_alpha_t - log_alpha_s)[(...,) + (None,) * dims] * image
             - (sigma_t * phi_1)[(...,) + (None,) * dims] * noise_s
@@ -126,7 +125,7 @@ class DPMSolver(ISampler):
     def _order2_update(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         vec_s: Tensor,
         vec_t: Tensor,
     ) -> Tensor:
@@ -146,12 +145,12 @@ class DPMSolver(ISampler):
         phi_11 = torch.expm1(r1 * h)
         phi_1 = torch.expm1(h)
 
-        noise_s = self._denoise(image, vec_s, cond_kw)
+        noise_s = self._denoise(image, vec_s, cond)
         x_s1 = (
             torch.exp(log_alpha_s1 - log_alpha_s)[(...,) + (None,) * dims] * image
             - (sigma_s1 * phi_11)[(...,) + (None,) * dims] * noise_s
         )
-        noise_s1 = self._denoise(x_s1, s1, cond_kw)
+        noise_s1 = self._denoise(x_s1, s1, cond)
         return (
             torch.exp(log_alpha_t - log_alpha_s)[(...,) + (None,) * dims] * image
             - (sigma_t * phi_1)[(...,) + (None,) * dims] * noise_s
@@ -163,7 +162,7 @@ class DPMSolver(ISampler):
     def _order3_update(
         self,
         image: Tensor,
-        cond_kw: tensor_dict_type,
+        cond: Optional[Tensor],
         vec_s: Tensor,
         vec_t: Tensor,
     ) -> Tensor:
@@ -191,12 +190,12 @@ class DPMSolver(ISampler):
         phi_22 = torch.expm1(r2 * h) / (r2 * h) - 1.0
         phi_2 = torch.expm1(h) / h - 1.0
 
-        noise_s = self._denoise(image, vec_s, cond_kw)
+        noise_s = self._denoise(image, vec_s, cond)
         x_s1 = (
             torch.exp(log_alpha_s1 - log_alpha_s)[(...,) + (None,) * dims] * image
             - (sigma_s1 * phi_11)[(...,) + (None,) * dims] * noise_s
         )
-        noise_s1 = self._denoise(x_s1, s1, cond_kw)
+        noise_s1 = self._denoise(x_s1, s1, cond)
         x_s2 = (
             torch.exp(log_alpha_s2 - log_alpha_s)[(...,) + (None,) * dims] * image
             - (sigma_s2 * phi_12)[(...,) + (None,) * dims] * noise_s
@@ -205,7 +204,7 @@ class DPMSolver(ISampler):
             * (sigma_s2 * phi_22)[(...,) + (None,) * dims]
             * (noise_s1 - noise_s)
         )
-        noise_s2 = self._denoise(x_s2, s2, cond_kw)
+        noise_s2 = self._denoise(x_s2, s2, cond)
         return (
             torch.exp(log_alpha_t - log_alpha_s)[(...,) + (None,) * dims] * image
             - (sigma_t * phi_1)[(...,) + (None,) * dims] * noise_s
