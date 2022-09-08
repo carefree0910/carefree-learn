@@ -7,16 +7,14 @@ from typing import Tuple
 from typing import Optional
 from cftool.types import tensor_dict_type
 
+from .common import IAutoEncoder
 from .common import AutoEncoderInit
-from .common import AutoEncoderModelMixin
 from .common import AutoEncoderLPIPSWithDiscriminator
 from ..generator.vector_quantized import VQCodebook
 from ..generator.vector_quantized import VQCodebookOut
-from ...protocols import GaussianGeneratorMixin
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.internal_ import register_custom_module
-from ....misc.internal_ import CustomModule
 from ....misc.internal_ import CustomTrainStepLoss
 from ....losses.vae import VQVAELoss
 
@@ -163,7 +161,7 @@ class AutoEncoderVQLoss(AutoEncoderLPIPSWithDiscriminator):
 
 
 @register_custom_module("ae_vq")
-class AutoEncoderVQModel(AutoEncoderVQ, AutoEncoderModelMixin, CustomModule, GaussianGeneratorMixin):  # type: ignore
+class AutoEncoderVQModel(AutoEncoderVQ, IAutoEncoder):  # type: ignore
     def __init__(
         self,
         img_size: int,

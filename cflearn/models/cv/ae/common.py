@@ -18,11 +18,13 @@ from cftool.types import tensor_dict_type
 
 from ..general import PureEncoderDecoder
 from ..gan.discriminators import NLayerDiscriminator
+from ...protocols import GaussianGeneratorMixin
 from ....protocol import ITrainer
 from ....protocol import TrainerState
 from ....protocol import MetricsOutputs
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.internal_ import CustomModule
 from ....misc.internal_ import CustomTrainStep
 from ....misc.internal_ import CustomTrainStepLoss
 from ....losses.lpips import LPIPS
@@ -338,8 +340,18 @@ class AutoEncoderModelMixin(ABC):
         pass
 
 
+class IAutoEncoder(  # type: ignore
+    AutoEncoderModelMixin,
+    CustomModule,
+    GaussianGeneratorMixin,
+    metaclass=ABCMeta,
+):
+    pass
+
+
 __all__ = [
     "AutoEncoderInit",
     "AutoEncoderModelMixin",
     "AutoEncoderLPIPSWithDiscriminator",
+    "IAutoEncoder",
 ]
