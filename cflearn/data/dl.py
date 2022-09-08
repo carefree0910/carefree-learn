@@ -41,7 +41,7 @@ class TensorDataset(Dataset):
         return item
 
     def __len__(self) -> int:
-        return self.x.shape[0]
+        return len(self.x)
 
 
 class TensorDictDataset(Dataset):
@@ -62,7 +62,7 @@ class TensorDictDataset(Dataset):
         return item
 
     def __len__(self) -> int:
-        return self.x[self.x_keys[0]].shape[0]
+        return len(self.x[self.x_keys[0]])
 
 
 # api
