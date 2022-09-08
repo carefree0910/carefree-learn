@@ -160,7 +160,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         start_channels: int = 320,
         num_heads: Optional[int] = 8,
         num_head_channels: Optional[int] = None,
-        use_spatial_transformer: bool = True,
+        use_spatial_transformer: bool = False,
         num_transformer_layers: int = 1,
         context_dim: Optional[int] = None,
         signal_dim: int = 2,
