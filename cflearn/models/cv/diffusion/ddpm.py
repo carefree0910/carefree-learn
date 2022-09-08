@@ -301,13 +301,14 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         # condition
         if cond is not None and self.condition_model is not None:
             cond = self._get_cond(cond)
+        # preprocess
+        net = self._preprocess(net)
         # noise
         if noise is None and use_noise:
             noise = torch.randn_like(net)
         if noise is not None:
             net = self._q_sample(net, timesteps, noise)
         # unet
-        net = self._preprocess(net)
         unet_out = self.denoise(net, timesteps, cond)
         return {
             PREDICTIONS_KEY: unet_out,
