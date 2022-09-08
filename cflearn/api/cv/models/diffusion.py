@@ -83,6 +83,8 @@ class DiffusionAPI:
                 f"`num_samples` ({num_samples}) should be identical with "
                 f"the number of `cond` ({len(cond)})"
             )
+        if cond is None:
+            cond = [0] * num_samples
         iterator = TensorInferenceData(cond, batch_size=batch_size).initialize()[0]
         num_iter = len(iterator)
         if verbose and num_iter > 1:
@@ -107,6 +109,8 @@ class DiffusionAPI:
                 else:
                     i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
                     i_z = torch.randn(i_z_shape, device=self.m.device)
+                if cond is None:
+                    i_cond = None
                 i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                 sampled.append(i_sampled.cpu())
         concat = torch.cat(sampled, dim=0)
