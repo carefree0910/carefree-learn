@@ -463,7 +463,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if self.condition_type == "concat":
             if cond is None:
                 raise ValueError(msg)
-            return torch.cat([net, cond]), {}
+            return torch.cat([net, cond], dim=1), {}
         if self.condition_type == "cross_attn":
             return net, {"context": cond}
         if self.condition_type == "adm":
