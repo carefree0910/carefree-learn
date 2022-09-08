@@ -68,6 +68,7 @@ class DiffusionAPI:
 
     def __init__(self, m: DDPM):
         self.m = m
+        self.cond_type = m.condition_type
         self.cond_model = m.condition_model
         m.condition_model = nn.Identity()
         if is_ddim(m.sampler):
@@ -103,9 +104,10 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        if cond is not None and self.cond_model is not None:
-            data = TensorInferenceData(cond, batch_size=batch_size)
-            cond = predict_tensor_data(self.cond_model, data)
+        if cond is not None:
+            if self.cond_type != "concat" and self.cond_model is not None:
+                data = TensorInferenceData(cond, batch_size=batch_size)
+                cond = predict_tensor_data(self.cond_model, data)
         if cond is not None and num_samples != len(cond):
             raise ValueError(
                 f"`num_samples` ({num_samples}) should be identical with "
