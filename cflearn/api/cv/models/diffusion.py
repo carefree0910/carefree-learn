@@ -118,6 +118,7 @@ class DiffusionAPI:
         img_path: str,
         export_path: Optional[str] = None,
         *,
+        max_wh: int = 1024,
         fidelity: float = 0.2,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
@@ -127,7 +128,19 @@ class DiffusionAPI:
     ) -> Tensor:
         # get latent
         image = Image.open(img_path)
-        w, h = image.size
+        original_w, original_h = image.size
+        max_original_wh = max(original_w, original_h)
+        if max_original_wh <= max_wh:
+            w, h = original_w, original_h
+        else:
+            need_resize = True
+            wh_ratio = original_w / original_h
+            if wh_ratio >= 1:
+                w = max_wh
+                h = round(w / wh_ratio)
+            else:
+                h = max_wh
+                w = round(h * wh_ratio)
         w, h = map(lambda x: x - x % 32, (w, h))
         image = image.resize((w, h), resample=Image.LANCZOS)
         image = np.array(image).astype(np.float32) / 255.0
