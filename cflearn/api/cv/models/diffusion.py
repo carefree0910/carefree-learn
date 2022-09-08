@@ -53,7 +53,7 @@ def get_normalized(path: str, max_wh: int, *, to_gray: bool = False) -> np.ndarr
             w = round(h * wh_ratio)
     w, h = map(lambda x: x - x % 64, (w, h))
     image = image.resize((w, h), resample=Image.LANCZOS)
-    image = np.array(image).astype(np.float32) / 127.5 - 1.0
+    image = np.array(image).astype(np.float32) / 255.0
     if to_gray:
         image = image[None, None]
     else:
@@ -168,6 +168,7 @@ class DiffusionAPI:
     ) -> Tensor:
         # get z
         img = get_normalized(img_path, max_wh)
+        img = 2.0 * img - 1.0
         z = self._get_z(img)
         # perturb z
         sampler = self.m.sampler
