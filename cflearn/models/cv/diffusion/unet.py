@@ -123,7 +123,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         else:
             self.label_embedding = nn.Embedding(num_classes, time_embedding_dim)
 
-        make_res_block = lambda in_c, out_c: ResBlock(
+        make_res_block = lambda in_c, out_c, **kwargs: ResBlock(
             in_c,
             out_c,
             signal_dim=signal_dim,
@@ -132,6 +132,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
             dropout=dropout,
             use_checkpoint=use_checkpoint,
             use_scale_shift_norm=use_scale_shift_norm,
+            **kwargs,
         )
 
         def make_attn_block(in_c: int) -> nn.Module:
@@ -159,6 +160,29 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 use_checkpoint=use_checkpoint,
             )
 
+        def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
+            if not resample_with_resblock:
+                return TimestepAttnSequential(
+                    ResDownsample(
+                        in_c,
+                        resample_with_conv,
+                        signal_dim=signal_dim,
+                        out_channels=out_c,
+                    )
+                )
+            res_block = make_res_block(in_c, out_c, integrate_downsample=True)
+            return TimestepAttnSequential(res_block)
+
+        def make_upsample(in_c: int, out_c: int) -> nn.Module:
+            if not resample_with_resblock:
+                return ResUpsample(
+                    in_c,
+                    resample_with_conv,
+                    signal_dim=signal_dim,
+                    out_channels=out_c,
+                )
+            return make_res_block(in_c, out_c, integrate_upsample=True)
+
         # input
         input_blocks = [
             TimestepAttnSequential(
@@ -181,16 +205,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 input_block_channels.append(in_nc)
             if i != len(channel_multipliers) - 1:
                 out_nc = in_nc
-                input_blocks.append(
-                    TimestepAttnSequential(
-                        ResDownsample(
-                            in_nc,
-                            resample_with_conv,
-                            signal_dim=signal_dim,
-                            out_channels=out_nc,
-                        )
-                    )
-                )
+                input_blocks.append(make_downsample(in_nc, out_nc))
                 downsample_rate *= 2
                 feature_size += in_nc
                 input_block_channels.append(in_nc)
@@ -216,14 +231,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                     blocks.append(make_attn_block(in_nc))
                 if i != 0 and idx == num_res_blocks:
                     out_nc = in_nc
-                    blocks.append(
-                        ResUpsample(
-                            in_nc,
-                            resample_with_conv,
-                            signal_dim=signal_dim,
-                            out_channels=out_nc,
-                        )
-                    )
+                    blocks.append(make_upsample(in_nc, out_nc))
                     downsample_rate //= 2
                 output_blocks.append(TimestepAttnSequential(*blocks))
                 feature_size += in_nc
