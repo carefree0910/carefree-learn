@@ -7,6 +7,7 @@ from typing import Tuple
 from typing import Optional
 from cftool.types import tensor_dict_type
 
+from .ddpm import make_condition_model
 from .ddpm import DDPM
 from ..ae.kl import GaussianDistribution
 from ..generator.vector_quantized import VQCodebookOut
@@ -127,7 +128,7 @@ class LDM(DDPM):
         self.scale_factor = first_stage_scale_factor
         # condition
         if use_first_stage_as_condition:
-            self._make_condition_model(first_stage, self.first_stage)
+            self.condition_model = make_condition_model(first_stage, self.first_stage)
         # sanity check
         embedding_channels = self.first_stage.core.embedding_channels
         if in_channels != embedding_channels:

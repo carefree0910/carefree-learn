@@ -19,7 +19,6 @@ from cftool.types import tensor_dict_type
 
 from .unet import UNetDiffuser
 from .utils import q_sample
-from .utils import extract_to
 from .utils import get_timesteps
 from .samplers import ISampler
 from .cond_models import condition_models
@@ -72,6 +71,13 @@ def make_beta_schedule(
         else:
             raise ValueError(f"unrecognized schedule '{schedule}' occurred")
     return betas
+
+
+def make_condition_model(key: str, m: nn.Module) -> nn.Module:
+    condition_base = condition_models.get(key)
+    if condition_base is None:
+        return m
+    return condition_base(m)
 
 
 class DDPMStep(CustomTrainStep):
@@ -463,13 +469,6 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             return net, {"labels": cond}
         raise ValueError(f"unrecognized condition type {self.condition_type} occurred")
 
-    def _make_condition_model(self, key: str, m: nn.Module) -> None:
-        condition_base = condition_models.get(key)
-        if condition_base is None:
-            self.condition_model = m
-        else:
-            self.condition_model = condition_base(m)
-
     def _initialize_condition_model(
         self,
         condition_model: Optional[str],
@@ -489,7 +488,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         m = DLZoo.load_model(condition_model, **kwargs)
         if not condition_learnable:
             freeze(m)
-        self._make_condition_model(condition_model, m)
+        self.condition_model = make_condition_model(condition_model, m)
 
     def _register_noise_schedule(
         self,
