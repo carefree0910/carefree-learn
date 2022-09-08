@@ -60,6 +60,7 @@ class DiffusionAPI:
         num_samples: int,
         export_path: Optional[str] = None,
         *,
+        z: Optional[Tensor] = None,
         size: Optional[Tuple[int, int]] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
@@ -95,8 +96,11 @@ class DiffusionAPI:
             for batch in iterator:
                 i_kw = shallow_copy_dict(kw)
                 i_cond = batch[INPUT_KEY].to(self.m.device)
-                i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
-                i_z = torch.randn(i_z_shape, device=self.m.device)
+                if z is not None:
+                    i_z = z.repeat_interleave(len(i_cond), dim=0)
+                else:
+                    i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
+                    i_z = torch.randn(i_z_shape, device=self.m.device)
                 i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                 sampled.append(i_sampled.cpu())
         concat = torch.cat(sampled, dim=0)
