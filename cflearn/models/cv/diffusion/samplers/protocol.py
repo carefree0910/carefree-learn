@@ -22,7 +22,7 @@ samplers: Dict[str, Type["ISampler"]] = {}
 
 
 class Denoise(Protocol):
-    def denoise(
+    def __call__(
         self,
         image: Tensor,
         timesteps: Tensor,
