@@ -139,6 +139,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
     cond_key = "cond"
     noise_key = "noise"
     timesteps_key = "timesteps"
+    identity_condition_model = "identity"
 
     sampler: ISampler
 
@@ -465,6 +466,9 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
     ) -> None:
         if condition_model is None:
             self.condition_model = None
+            return
+        if condition_model == self.identity_condition_model:
+            self.condition_model = nn.Identity()
             return
         kwargs = condition_config or {}
         kwargs.setdefault("report", False)
