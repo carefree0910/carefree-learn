@@ -13,6 +13,7 @@ from typing import Optional
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
+from cfcv.misc.toolkit import to_rgb
 
 from ....data import predict_tensor_data
 from ....data import TensorInferenceData
@@ -133,7 +134,6 @@ class DiffusionAPI:
         if max_original_wh <= max_wh:
             w, h = original_w, original_h
         else:
-            need_resize = True
             wh_ratio = original_w / original_h
             if wh_ratio >= 1:
                 w = max_wh
@@ -141,8 +141,9 @@ class DiffusionAPI:
             else:
                 h = max_wh
                 w = round(h * wh_ratio)
-        w, h = map(lambda x: x - x % 32, (w, h))
+        w, h = map(lambda x: x - x % 64, (w, h))
         image = image.resize((w, h), resample=Image.LANCZOS)
+        image = to_rgb(image)
         image = np.array(image).astype(np.float32) / 255.0
         image = image[None].transpose(0, 3, 1, 2)
         z = torch.from_numpy(image).to(self.m.device)
