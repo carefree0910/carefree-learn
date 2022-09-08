@@ -149,6 +149,7 @@ class LDM(DDPM):
         *,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
@@ -156,6 +157,7 @@ class LDM(DDPM):
             z,
             cond=cond,
             num_steps=num_steps,
+            start_step=start_step,
             verbose=verbose,
             **kwargs,
         )

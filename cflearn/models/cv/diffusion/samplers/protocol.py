@@ -81,6 +81,7 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         *,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
@@ -91,7 +92,9 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         if num_steps is None:
             num_steps = getattr(self, "default_steps", self.model.t)
             assert isinstance(num_steps, int)
-        iterator = list(range(num_steps))
+        if start_step is None:
+            start_step = 0
+        iterator = list(range(start_step, num_steps))
         if verbose:
             iterator = tqdm(iterator, desc=f"sampling ({self.__identifier__})")
         # execute

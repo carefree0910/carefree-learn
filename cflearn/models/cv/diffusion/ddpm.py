@@ -359,6 +359,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         *,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
@@ -366,6 +367,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             z,
             cond=cond,
             num_steps=num_steps,
+            start_step=start_step,
             verbose=verbose,
             **kwargs,
         )
@@ -376,6 +378,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         *,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
         clip_output: bool = True,
         verbose: bool = True,
         **kwargs: Any,
@@ -384,6 +387,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             num_samples,
             cond=cond,
             num_steps=num_steps,
+            start_step=start_step,
             verbose=verbose,
             **kwargs,
         )
