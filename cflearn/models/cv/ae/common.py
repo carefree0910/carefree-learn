@@ -56,6 +56,7 @@ class AutoEncoderInit(nn.Module):
         self.out_channels = out_channels
         self.inner_channels = inner_channels
         self.latent_channels = latent_channels
+        self.channel_multipliers = channel_multipliers
         self.embedding_channels = embedding_channels
         module_config = dict(
             img_size=img_size,
