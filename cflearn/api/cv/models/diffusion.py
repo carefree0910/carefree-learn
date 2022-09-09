@@ -197,7 +197,7 @@ class DiffusionAPI:
         clip_output: bool = True,
         verbose: bool = True,
         **kwargs: Any,
-    ) -> None:
+    ) -> Tensor:
         # callback
         def callback(out: Tensor) -> Tensor:
             final = torch.from_numpy(remained_image.copy())
