@@ -1403,6 +1403,24 @@ def ldm_inpainting() -> DLPipeline:
     )
 
 
+def ldm_sr() -> DLPipeline:
+    return ldm_vq(
+        pretrained=True,
+        latent_in_channels=6,
+        download_name="ldm_sr",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=160,
+            attention_downsample_rates=[8, 16],
+            channel_multipliers=[1, 2, 2, 4],
+            condition_type="concat",
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
+    )
+
+
 # nlp
 
 
