@@ -199,12 +199,13 @@ class DiffusionAPI:
         export_path: Optional[str] = None,
         *,
         max_wh: int = 1024,
+        refine_fidelity: Optional[float] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        # callback
+        # inpainting callback, will not trigger in refine stage
         def callback(out: Tensor) -> Tensor:
             final = torch.from_numpy(remained_image.copy())
             final += 0.5 * (1.0 + out) * (1.0 - remained_mask)
@@ -218,10 +219,24 @@ class DiffusionAPI:
         remained_image = remained_mask * image
         # construct condition tensor
         remained_cond = self._get_z(2.0 * remained_image - 1.0)
+        latent_shape = remained_cond.shape[-2:]
         mask_cond = torch.where(torch.from_numpy(bool_mask), 1.0, -1.0)
         mask_cond = mask_cond.to(torch.float32).to(self.m.device)
-        mask_cond = F.interpolate(mask_cond, size=remained_cond.shape[-2:])
+        mask_cond = F.interpolate(mask_cond, size=latent_shape)
         cond = torch.cat([remained_cond, mask_cond], dim=1)
+        # refine with img2img
+        if refine_fidelity is not None:
+            z = self._get_z(2.0 * image - 1.0)
+            return self._img2img(
+                z,
+                export_path,
+                fidelity=refine_fidelity,
+                cond=cond,
+                num_steps=num_steps,
+                clip_output=clip_output,
+                verbose=verbose,
+                **kwargs,
+            )
         # sampling
         z = torch.randn_like(remained_cond)
         return self.sample(
