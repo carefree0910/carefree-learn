@@ -172,34 +172,13 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        # get z
         img = get_normalized(img_path, max_wh)
         img = 2.0 * img - 1.0
         z = self._get_z(img)
-        # perturb z
-        sampler = self.m.sampler
-        if num_steps is None:
-            num_steps = sampler.default_steps
-        t = round((1.0 - fidelity) * num_steps)
-        ts = get_timesteps(t, 1, z.device)
-        if not isinstance(sampler, (DDIMSampler, PLMSSampler)):
-            z = self.m._q_sample(z, ts)
-        else:
-            kw = shallow_copy_dict(sampler.sample_kwargs)
-            kw["total_step"] = num_steps
-            safe_execute(sampler._reset_buffers, kw)
-            z = q_sample(
-                z,
-                ts,
-                torch.sqrt(sampler.ddim_alphas),
-                sampler.ddim_sqrt_one_minus_alphas,
-            )
-            kwargs["start_step"] = num_steps - t
-        # sampling
-        return self.sample(
-            1,
+        return self._img2img(
+            z,
             export_path,
-            z=z,
+            fidelity=fidelity,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -259,6 +238,49 @@ class DiffusionAPI:
         z = torch.from_numpy(img).to(self.m.device)
         z = self.m._preprocess(z)
         return z
+
+    def _img2img(
+        self,
+        z: Tensor,
+        export_path: Optional[str] = None,
+        *,
+        fidelity: float = 0.2,
+        cond: Optional[Any] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        # perturb z
+        sampler = self.m.sampler
+        if num_steps is None:
+            num_steps = sampler.default_steps
+        t = round((1.0 - fidelity) * num_steps)
+        ts = get_timesteps(t, 1, z.device)
+        if not isinstance(sampler, (DDIMSampler, PLMSSampler)):
+            z = self.m._q_sample(z, ts)
+        else:
+            kw = shallow_copy_dict(sampler.sample_kwargs)
+            kw["total_step"] = num_steps
+            safe_execute(sampler._reset_buffers, kw)
+            z = q_sample(
+                z,
+                ts,
+                torch.sqrt(sampler.ddim_alphas),
+                sampler.ddim_sqrt_one_minus_alphas,
+            )
+            kwargs["start_step"] = num_steps - t
+        # sampling
+        return self.sample(
+            1,
+            export_path,
+            z=z,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
 
 
 __all__ = [
