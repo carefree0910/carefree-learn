@@ -13,6 +13,7 @@ from typing import Optional
 
 from .protocol import ISampler
 from .protocol import IDiffusion
+from ..utils import q_sample
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
 
@@ -53,6 +54,14 @@ class DDIMMixin(ISampler, metaclass=ABCMeta):
             temperature=self.temperature,
             noise_dropout=self.noise_dropout,
             quantize_denoised=self.quantize_denoised,
+        )
+
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
+        return q_sample(
+            net,
+            timesteps,
+            torch.sqrt(self.ddim_alphas),
+            self.ddim_sqrt_one_minus_alphas,
         )
 
     def _denoise(self, image: Tensor, ts: Tensor, cond: Optional[Tensor]) -> Tensor:

@@ -27,7 +27,6 @@ from ....models.cv.diffusion import ISampler
 from ....models.cv.diffusion import DDIMSampler
 from ....models.cv.diffusion import PLMSSampler
 from ....models.cv.ae.common import IAutoEncoder
-from ....models.cv.diffusion.utils import q_sample
 from ....models.cv.diffusion.utils import get_timesteps
 
 try:
@@ -69,11 +68,13 @@ def get_normalized(path: str, max_wh: int, *, to_gray: bool = False) -> np.ndarr
 
 class DiffusionAPI:
     m: DDPM
+    sampler: ISampler
     cond_model: Optional[nn.Module]
     first_stage: Optional[IAutoEncoder]
 
     def __init__(self, m: DDPM):
         self.m = m
+        self.sampler = m.sampler
         self.cond_type = m.condition_type
         self.cond_model = m.condition_model
         m.condition_model = nn.Identity()
@@ -252,23 +253,15 @@ class DiffusionAPI:
         **kwargs: Any,
     ) -> Tensor:
         # perturb z
-        sampler = self.m.sampler
         if num_steps is None:
-            num_steps = sampler.default_steps
+            num_steps = self.sampler.default_steps
         t = round((1.0 - fidelity) * num_steps)
         ts = get_timesteps(t, 1, z.device)
-        if not isinstance(sampler, (DDIMSampler, PLMSSampler)):
-            z = self.m._q_sample(z, ts)
-        else:
-            kw = shallow_copy_dict(sampler.sample_kwargs)
+        if isinstance(self.sampler, (DDIMSampler, PLMSSampler)):
+            kw = shallow_copy_dict(self.sampler.sample_kwargs)
             kw["total_step"] = num_steps
-            safe_execute(sampler._reset_buffers, kw)
-            z = q_sample(
-                z,
-                ts,
-                torch.sqrt(sampler.ddim_alphas),
-                sampler.ddim_sqrt_one_minus_alphas,
-            )
+            safe_execute(self.sampler._reset_buffers, kw)
+        z = self.sampler.q_sample(z, ts)
         kwargs["start_step"] = num_steps - t
         # sampling
         return self.sample(

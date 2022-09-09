@@ -31,6 +31,9 @@ class BasicSampler(ISampler):
     def sample_kwargs(self) -> Dict[str, Any]:
         return dict(temperature=self.temperature)
 
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
+        return self.model._q_sample(net, timesteps)
+
     def sample_step(
         self,
         image: Tensor,

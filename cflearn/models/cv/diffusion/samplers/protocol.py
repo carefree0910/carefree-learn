@@ -16,6 +16,8 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
+from ..utils import get_timesteps
+
 
 samplers: Dict[str, Type["ISampler"]] = {}
 
@@ -32,6 +34,7 @@ class Denoise(Protocol):
 
 class IDiffusion:
     _get_cond: Callable
+    _q_sample: Callable
 
     denoise: Denoise
     condition_model: Optional[nn.Module]
@@ -71,6 +74,10 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         total_step: int,
         **kwargs: Any,
     ) -> Tensor:
+        pass
+
+    @abstractmethod
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
         pass
 
     def sample(
