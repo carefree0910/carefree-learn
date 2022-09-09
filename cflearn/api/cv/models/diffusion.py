@@ -102,6 +102,8 @@ class DiffusionAPI:
         export_path: Optional[str] = None,
         *,
         z: Optional[Tensor] = None,
+        z_ref: Optional[Tensor] = None,
+        z_ref_mask: Optional[Tensor] = None,
         size: Optional[Tuple[int, int]] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
@@ -149,6 +151,9 @@ class DiffusionAPI:
                     i_z = torch.randn(i_z_shape, device=self.m.device)
                 if unconditional:
                     i_cond = None
+                if z_ref is not None and z_ref_mask is not None:
+                    i_kw["ref"] = z_ref
+                    i_kw["ref_mask"] = z_ref_mask
                 i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                 sampled.append(i_sampled.cpu())
         concat = torch.cat(sampled, dim=0)
