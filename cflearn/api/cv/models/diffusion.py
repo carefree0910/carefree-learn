@@ -269,7 +269,7 @@ class DiffusionAPI:
                 torch.sqrt(sampler.ddim_alphas),
                 sampler.ddim_sqrt_one_minus_alphas,
             )
-            kwargs["start_step"] = num_steps - t
+        kwargs["start_step"] = num_steps - t
         # sampling
         return self.sample(
             1,
