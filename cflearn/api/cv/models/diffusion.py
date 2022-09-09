@@ -179,7 +179,6 @@ class DiffusionAPI:
         **kwargs: Any,
     ) -> Tensor:
         img = get_normalized(img_path, max_wh)
-        img = 2.0 * img - 1.0
         z = self._get_z(img)
         return self._img2img(
             z,
@@ -218,7 +217,7 @@ class DiffusionAPI:
         remained_mask = (~bool_mask).astype(np.float32)
         remained_image = remained_mask * image
         # construct condition tensor
-        remained_cond = self._get_z(2.0 * remained_image - 1.0)
+        remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
         mask_cond = torch.where(torch.from_numpy(bool_mask), 1.0, -1.0)
         mask_cond = mask_cond.to(torch.float32).to(self.m.device)
@@ -226,7 +225,7 @@ class DiffusionAPI:
         cond = torch.cat([remained_cond, mask_cond], dim=1)
         # refine with img2img
         if refine_fidelity is not None:
-            z = self._get_z(2.0 * image - 1.0)
+            z = self._get_z(image)
             return self._img2img(
                 z,
                 export_path,
@@ -256,6 +255,7 @@ class DiffusionAPI:
         return cls(m.model.core)
 
     def _get_z(self, img: np.ndarray) -> Tensor:
+        img = 2.0 * img - 1.0
         z = torch.from_numpy(img).to(self.m.device)
         z = self.m._preprocess(z)
         return z
