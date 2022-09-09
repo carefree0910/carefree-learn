@@ -250,6 +250,34 @@ class DiffusionAPI:
             **kwargs,
         )
 
+    def sr(
+        self,
+        img_path: str,
+        export_path: Optional[str] = None,
+        *,
+        max_wh: int = 2048,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        if not isinstance(self.m, LDM):
+            raise ValueError("`sr` is now only available for `LDM` models")
+        factor = 2 ** (len(self.m.first_stage.core.channel_multipliers) - 1)
+        image = get_normalized(img_path, round(max_wh / factor))
+        cond = torch.from_numpy(2.0 * image - 1.0).to(self.m.device)
+        z = torch.randn_like(cond)
+        return self.sample(
+            1,
+            export_path,
+            z=z,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
+
     @classmethod
     def from_pipeline(cls, m: DLPipeline) -> "DiffusionAPI":
         return cls(m.model.core)
