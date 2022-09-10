@@ -9,7 +9,9 @@ from tqdm import tqdm
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Tuple
+from typing import Union
 from typing import Callable
 from typing import Optional
 from cftool.misc import safe_execute
@@ -164,6 +166,42 @@ class DiffusionAPI:
         if export_path is not None:
             save_images(concat, export_path)
         return concat
+
+    def txt2img(
+        self,
+        txt: Union[str, List[str]],
+        export_path: Optional[str] = None,
+        *,
+        num_samples: Optional[int] = None,
+        size: Optional[Tuple[int, int]] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
+        batch_size: int = 1,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        if isinstance(txt, str):
+            txt = [txt]
+        if num_samples is None:
+            num_samples = len(txt)
+        if len(txt) != num_samples:
+            raise ValueError(
+                f"`num_samples` ({num_samples}) should be identical with "
+                f"the number of `txt` ({len(txt)})"
+            )
+        return self.sample(
+            num_samples,
+            export_path,
+            size=size,
+            cond=txt,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            batch_size=batch_size,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def img2img(
         self,
