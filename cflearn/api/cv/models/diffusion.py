@@ -87,16 +87,26 @@ class DiffusionAPI:
         self.m = m
         self.sampler = m.sampler
         self.cond_type = m.condition_type
+        # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model
+        if self.cond_model is not None:
+            self.cond_model.eval()
         m.condition_model = nn.Identity()
         if is_ddim(m.sampler):
             if self.cond_model is not None and m.sampler.unconditional_cond is not None:
-                uncond = self.cond_model(m.sampler.unconditional_cond)
+                uncond = self.get_cond(m.sampler.unconditional_cond)
                 m.sampler.unconditional_cond = uncond.to(m.device)
         if not isinstance(m, LDM):
             self.first_stage = None
         else:
             self.first_stage = m.first_stage.core
+
+    def get_cond(self, cond: Any) -> Tensor:
+        if self.cond_model is None:
+            msg = "should not call `get_cond` when `cond_model` is not available"
+            raise ValueError(msg)
+        with torch.no_grad():
+            return self.cond_model(cond)
 
     def switch_sampler(
         self,
