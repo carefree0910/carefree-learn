@@ -335,6 +335,49 @@ class DiffusionAPI:
             **kwargs,
         )
 
+    def semantic2img(
+        self,
+        semantic_path: str,
+        export_path: Optional[str] = None,
+        *,
+        max_wh: int = 1024,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        err_fmt = "`{}` is needed for `semantic2img`"
+        if self.cond_model is None:
+            raise ValueError(err_fmt.format("cond_model"))
+        in_channels = getattr(self.cond_model, "in_channels", None)
+        if in_channels is None:
+            raise ValueError(err_fmt.format("cond_model.in_channels"))
+        factor = getattr(self.cond_model, "factor", None)
+        if factor is None:
+            raise ValueError(err_fmt.format("cond_model.factor"))
+        semantic = read_image(
+            semantic_path,
+            max_wh,
+            to_gray=True,
+            resample=Image.NEAREST,
+            normalize=False,
+        )
+        cond = torch.from_numpy(semantic).to(torch.long).to(self.m.device)
+        cond = F.one_hot(cond, num_classes=in_channels)[0].float()
+        cond = cond.permute(0, 3, 1, 2).contiguous()
+        cond = self.get_cond(cond)
+        z = torch.randn_like(cond)
+        return self.sample(
+            1,
+            export_path,
+            z=z,
+            cond=cond,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
+
     @classmethod
     def from_pipeline(cls, m: DLPipeline) -> "DiffusionAPI":
         return cls(m.model.core)
