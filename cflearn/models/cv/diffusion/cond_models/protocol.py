@@ -10,6 +10,7 @@ from cftool.misc import WithRegister
 
 
 condition_models: Dict[str, Type["IConditionModel"]] = {}
+specialized_condition_models: Dict[str, Type[nn.Module]] = {}
 
 
 class IConditionModel(nn.Module, WithRegister, metaclass=ABCMeta):
@@ -24,7 +25,17 @@ class IConditionModel(nn.Module, WithRegister, metaclass=ABCMeta):
         pass
 
 
+class ISpecializedConditionModel(nn.Module, WithRegister, metaclass=ABCMeta):
+    d = specialized_condition_models
+
+    @abstractmethod
+    def forward(self, cond: Any) -> Tensor:
+        pass
+
+
 __all__ = [
     "condition_models",
+    "specialized_condition_models",
     "IConditionModel",
+    "ISpecializedConditionModel",
 ]

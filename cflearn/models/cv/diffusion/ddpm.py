@@ -22,6 +22,7 @@ from .utils import q_sample
 from .utils import get_timesteps
 from .samplers import ISampler
 from .cond_models import condition_models
+from .cond_models import specialized_condition_models
 from ...protocols import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....protocol import ITrainer
@@ -74,6 +75,8 @@ def make_beta_schedule(
 
 
 def make_condition_model(key: str, m: nn.Module) -> nn.Module:
+    if key in specialized_condition_models:
+        return m
     condition_base = condition_models.get(key)
     if condition_base is None:
         return m
@@ -478,11 +481,15 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if condition_model == self.identity_condition_model:
             self.condition_model = nn.Identity()
             return
-        kwargs = condition_config or {}
-        kwargs.setdefault("report", False)
-        if not condition_learnable:
-            kwargs.setdefault("pretrained", True)
-        m = DLZoo.load_model(condition_model, **kwargs)
+        specialized = specialized_condition_models.get(condition_model)
+        if specialized is not None:
+            m = safe_execute(specialized, condition_config or {})
+        else:
+            kwargs = condition_config or {}
+            kwargs.setdefault("report", False)
+            if not condition_learnable:
+                kwargs.setdefault("pretrained", True)
+            m = DLZoo.load_model(condition_model, **kwargs)
         if not condition_learnable:
             freeze(m)
         self.condition_model = make_condition_model(condition_model, m)
