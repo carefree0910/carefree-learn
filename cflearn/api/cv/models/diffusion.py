@@ -41,7 +41,14 @@ def is_ddim(sampler: ISampler) -> bool:
     return isinstance(sampler, (DDIMSampler, PLMSSampler))
 
 
-def get_normalized(path: str, max_wh: int, *, to_gray: bool = False) -> np.ndarray:
+def read_image(
+    path: str,
+    max_wh: int,
+    *,
+    to_gray: bool = False,
+    resample: Any = Image.LANCZOS,
+    normalize: bool = True,
+) -> np.ndarray:
     if to_rgb is None:
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
     image = Image.open(path)
@@ -59,8 +66,10 @@ def get_normalized(path: str, max_wh: int, *, to_gray: bool = False) -> np.ndarr
             h = max_wh
             w = round(h * wh_ratio)
     w, h = map(lambda x: x - x % 64, (w, h))
-    image = image.resize((w, h), resample=Image.LANCZOS)
-    image = np.array(image).astype(np.float32) / 255.0
+    image = image.resize((w, h), resample=resample)
+    image = np.array(image)
+    if normalize:
+        image = image.astype(np.float32) / 255.0
     if to_gray:
         image = image[None, None]
     else:
@@ -216,7 +225,7 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        img = get_normalized(img_path, max_wh)
+        img = read_image(img_path, max_wh)
         z = self._get_z(img)
         return self._img2img(
             z,
@@ -249,8 +258,8 @@ class DiffusionAPI:
             return 2.0 * final - 1.0
 
         # handle mask stuffs
-        image = get_normalized(img_path, max_wh)
-        mask = get_normalized(mask_path, max_wh, to_gray=True)
+        image = read_image(img_path, max_wh)
+        mask = read_image(mask_path, max_wh, to_gray=True)
         bool_mask = mask >= 0.5
         remained_mask = (~bool_mask).astype(np.float32)
         remained_image = remained_mask * image
@@ -302,7 +311,7 @@ class DiffusionAPI:
         if not isinstance(self.m, LDM):
             raise ValueError("`sr` is now only available for `LDM` models")
         factor = 2 ** (len(self.m.first_stage.core.channel_multipliers) - 1)
-        image = get_normalized(img_path, round(max_wh / factor))
+        image = read_image(img_path, round(max_wh / factor))
         cond = torch.from_numpy(2.0 * image - 1.0).to(self.m.device)
         z = torch.randn_like(cond)
         return self.sample(
