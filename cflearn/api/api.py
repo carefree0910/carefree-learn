@@ -1421,6 +1421,33 @@ def ldm_sr() -> DLPipeline:
     )
 
 
+def ldm_semantic() -> DLPipeline:
+    return ldm_vq(
+        latent_size=128,
+        latent_in_channels=6,
+        pretrained=True,
+        download_name="ldm_semantic",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=128,
+            num_heads=8,
+            num_head_channels=None,
+            attention_downsample_rates=[8, 16, 32],
+            channel_multipliers=[1, 4, 8],
+            condition_type="concat",
+            condition_model="rescaler",
+            condition_config=dict(
+                num_stages=2,
+                in_channels=182,
+                out_channels=3,
+            ),
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
+    )
+
+
 # nlp
 
 
