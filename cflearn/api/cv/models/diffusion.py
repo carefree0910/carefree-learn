@@ -216,6 +216,7 @@ class DiffusionAPI:
                 f"`num_samples` ({num_samples}) should be identical with "
                 f"the number of `txt` ({len(txt)})"
             )
+        size = tuple(map(get_suitable_size, size))
         return self.sample(
             num_samples,
             export_path,
