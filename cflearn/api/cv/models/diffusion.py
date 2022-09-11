@@ -17,7 +17,9 @@ from typing import Optional
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
+from cftool.types import tensor_dict_type
 
+from ....zoo import DLZoo
 from ....data import predict_tensor_data
 from ....data import TensorInferenceData
 from ....pipeline import DLPipeline
@@ -379,8 +381,34 @@ class DiffusionAPI:
         )
 
     @classmethod
-    def from_pipeline(cls, m: DLPipeline) -> "DiffusionAPI":
+    def from_pipeline(
+        cls,
+        m: DLPipeline,
+        device: Optional[str] = None,
+    ) -> "DiffusionAPI":
+        if device is not None:
+            m.model.to(device)
         return cls(m.model.core)
+
+    @classmethod
+    def from_sd(cls, device: Optional[str] = None) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_sd(), device)
+
+    @classmethod
+    def from_celeba_hq(cls, device: Optional[str] = None) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_celeba_hq(), device)
+
+    @classmethod
+    def from_inpainting(cls, device: Optional[str] = None) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_inpainting(), device)
+
+    @classmethod
+    def from_sr(cls, device: Optional[str] = None) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_sr(), device)
+
+    @classmethod
+    def from_semantic(cls, device: Optional[str] = None) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_semantic(), device)
 
     def _get_z(self, img: np.ndarray) -> Tensor:
         img = 2.0 * img - 1.0
@@ -422,6 +450,148 @@ class DiffusionAPI:
             verbose=verbose,
             **kwargs,
         )
+
+
+def _ldm(
+    model: str,
+    latent_size: int,
+    latent_in_channels: int,
+    latent_out_channels: int,
+    **kwargs: Any,
+) -> DLPipeline:
+    kwargs["img_size"] = latent_size
+    kwargs["in_channels"] = latent_in_channels
+    kwargs["out_channels"] = latent_out_channels
+    model_config = kwargs.setdefault("model_config", {})
+    first_stage_kw = model_config.setdefault("first_stage_config", {})
+    first_stage_kw.setdefault("report", False)
+    first_stage_kw.setdefault("pretrained", True)
+    first_stage_model_config = first_stage_kw.setdefault("model_config", {})
+    use_loss = first_stage_model_config.setdefault("use_loss", False)
+    if not use_loss:
+
+        def state_callback(states: tensor_dict_type) -> tensor_dict_type:
+            for key in list(states.keys()):
+                if key.startswith("core.loss"):
+                    states.pop(key)
+            return states
+
+        first_stage_kw["pretrained_state_callback"] = state_callback
+    return DLZoo.load_pipeline(model, **kwargs)
+
+
+def ldm(
+    latent_size: int = 32,
+    latent_in_channels: int = 4,
+    latent_out_channels: int = 4,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _ldm(
+        "diffusion/ldm",
+        latent_size,
+        latent_in_channels,
+        latent_out_channels,
+        **kwargs,
+    )
+
+
+def ldm_vq(
+    latent_size: int = 64,
+    latent_in_channels: int = 3,
+    latent_out_channels: int = 3,
+    **kwargs: Any,
+) -> DLPipeline:
+    return _ldm(
+        "diffusion/ldm.vq",
+        latent_size,
+        latent_in_channels,
+        latent_out_channels,
+        **kwargs,
+    )
+
+
+def ldm_sd(pretrained: bool = True) -> DLPipeline:
+    return _ldm("diffusion/ldm.sd", 64, 4, 4, pretrained=pretrained)
+
+
+def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:
+    return ldm_vq(
+        pretrained=pretrained,
+        download_name="ldm_celeba_hq",
+        model_config=dict(
+            ema_decay=None,
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
+    )
+
+
+def ldm_inpainting(pretrained: bool = True) -> DLPipeline:
+    return ldm_vq(
+        pretrained=pretrained,
+        latent_in_channels=7,
+        download_name="ldm_inpainting",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=256,
+            num_heads=8,
+            num_head_channels=None,
+            resample_with_resblock=True,
+            condition_type="concat",
+            first_stage_config=dict(
+                pretrained=False,
+                model_config=dict(
+                    attention_type="none",
+                ),
+            ),
+        ),
+    )
+
+
+def ldm_sr(pretrained: bool = True) -> DLPipeline:
+    return ldm_vq(
+        pretrained=pretrained,
+        latent_in_channels=6,
+        download_name="ldm_sr",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=160,
+            attention_downsample_rates=[8, 16],
+            channel_multipliers=[1, 2, 2, 4],
+            condition_type="concat",
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
+    )
+
+
+def ldm_semantic(pretrained: bool = True) -> DLPipeline:
+    return ldm_vq(
+        pretrained=pretrained,
+        latent_size=128,
+        latent_in_channels=6,
+        download_name="ldm_semantic",
+        model_config=dict(
+            ema_decay=None,
+            start_channels=128,
+            num_heads=8,
+            num_head_channels=None,
+            attention_downsample_rates=[8, 16, 32],
+            channel_multipliers=[1, 4, 8],
+            condition_type="concat",
+            condition_model="rescaler",
+            condition_config=dict(
+                num_stages=2,
+                in_channels=182,
+                out_channels=3,
+            ),
+            first_stage_config=dict(
+                pretrained=False,
+            ),
+        ),
+    )
 
 
 __all__ = [
