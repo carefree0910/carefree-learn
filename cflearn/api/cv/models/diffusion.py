@@ -14,6 +14,7 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
@@ -48,6 +49,11 @@ def get_suitable_size(n: int, anchor: int = 64) -> int:
     return n - mod + int(mod > 0.5 * anchor) * anchor
 
 
+class ReadImageResponse(NamedTuple):
+    image: np.ndarray
+    original_size: Tuple[int, int]
+
+
 def read_image(
     path: str,
     max_wh: int,
@@ -55,7 +61,7 @@ def read_image(
     to_gray: bool = False,
     resample: Any = Image.LANCZOS,
     normalize: bool = True,
-) -> np.ndarray:
+) -> ReadImageResponse:
     if to_rgb is None:
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
     image = Image.open(path)
@@ -81,7 +87,7 @@ def read_image(
         image = image[None, None]
     else:
         image = image[None].transpose(0, 3, 1, 2)
-    return image
+    return ReadImageResponse(image, (original_w, original_h))
 
 
 class DiffusionAPI:
@@ -133,6 +139,7 @@ class DiffusionAPI:
         z_ref: Optional[Tensor] = None,
         z_ref_mask: Optional[Tensor] = None,
         size: Optional[Tuple[int, int]] = None,
+        original_size: Optional[Tuple[int, int]] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -189,6 +196,14 @@ class DiffusionAPI:
             concat = torch.clip(concat, -1.0, 1.0)
         if callback is not None:
             concat = callback(concat)
+        if original_size is not None:
+            with torch.no_grad():
+                concat = F.interpolate(
+                    concat,
+                    original_size[::-1],
+                    mode="bicubic",
+                    antialias=True,
+                )
         if export_path is not None:
             save_images(concat, export_path)
         return concat
@@ -216,11 +231,15 @@ class DiffusionAPI:
                 f"`num_samples` ({num_samples}) should be identical with "
                 f"the number of `txt` ({len(txt)})"
             )
-        size = tuple(map(get_suitable_size, size))
+        if size is None:
+            new_size = None
+        else:
+            new_size = tuple(map(get_suitable_size, size))
         return self.sample(
             num_samples,
             export_path,
-            size=size,
+            size=new_size,  # type: ignore
+            original_size=size,
             cond=txt,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -243,12 +262,13 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        img = read_image(img_path, max_wh)
-        z = self._get_z(img)
+        res = read_image(img_path, max_wh)
+        z = self._get_z(res.image)
         return self._img2img(
             z,
             export_path,
             fidelity=fidelity,
+            original_size=res.original_size,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -276,11 +296,11 @@ class DiffusionAPI:
             return 2.0 * final - 1.0
 
         # handle mask stuffs
-        image = read_image(img_path, max_wh)
-        mask = read_image(mask_path, max_wh, to_gray=True)
+        image_res = read_image(img_path, max_wh)
+        mask = read_image(mask_path, max_wh, to_gray=True).image
         bool_mask = mask >= 0.5
         remained_mask = (~bool_mask).astype(np.float32)
-        remained_image = remained_mask * image
+        remained_image = remained_mask * image_res.image
         # construct condition tensor
         remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
@@ -290,11 +310,12 @@ class DiffusionAPI:
         cond = torch.cat([remained_cond, mask_cond], dim=1)
         # refine with img2img
         if refine_fidelity is not None:
-            z = self._get_z(image)
+            z = self._get_z(image_res.image)
             return self._img2img(
                 z,
                 export_path,
                 fidelity=refine_fidelity,
+                original_size=image_res.original_size,
                 cond=cond,
                 num_steps=num_steps,
                 clip_output=clip_output,
@@ -307,6 +328,7 @@ class DiffusionAPI:
             1,
             export_path,
             z=z,
+            original_size=image_res.original_size,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -329,13 +351,14 @@ class DiffusionAPI:
         if not isinstance(self.m, LDM):
             raise ValueError("`sr` is now only available for `LDM` models")
         factor = 2 ** (len(self.m.first_stage.core.channel_multipliers) - 1)
-        image = read_image(img_path, round(max_wh / factor))
-        cond = torch.from_numpy(2.0 * image - 1.0).to(self.m.device)
+        res = read_image(img_path, round(max_wh / factor))
+        cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.m.device)
         z = torch.randn_like(cond)
         return self.sample(
             1,
             export_path,
             z=z,
+            original_size=res.original_size,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -363,14 +386,14 @@ class DiffusionAPI:
         factor = getattr(self.cond_model, "factor", None)
         if factor is None:
             raise ValueError(err_fmt.format("cond_model.factor"))
-        semantic = read_image(
+        res = read_image(
             semantic_path,
             max_wh,
             to_gray=True,
             resample=Image.NEAREST,
             normalize=False,
         )
-        cond = torch.from_numpy(semantic).to(torch.long).to(self.m.device)
+        cond = torch.from_numpy(res.image).to(torch.long).to(self.m.device)
         cond = F.one_hot(cond, num_classes=in_channels)[0].float()
         cond = cond.permute(0, 3, 1, 2).contiguous()
         cond = self.get_cond(cond)
@@ -379,6 +402,7 @@ class DiffusionAPI:
             1,
             export_path,
             z=z,
+            original_size=res.original_size,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -428,6 +452,7 @@ class DiffusionAPI:
         export_path: Optional[str] = None,
         *,
         fidelity: float = 0.2,
+        original_size: Optional[Tuple[int, int]] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -450,6 +475,7 @@ class DiffusionAPI:
             1,
             export_path,
             z=z,
+            original_size=original_size,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
