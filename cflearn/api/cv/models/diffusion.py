@@ -353,12 +353,14 @@ class DiffusionAPI:
         factor = 2 ** (len(self.m.first_stage.core.channel_multipliers) - 1)
         res = read_image(img_path, round(max_wh / factor))
         cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.m.device)
+        w, h = res.original_size
+        sr_size = w * factor, h * factor
         z = torch.randn_like(cond)
         return self.sample(
             1,
             export_path,
             z=z,
-            original_size=res.original_size,
+            original_size=sr_size,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
