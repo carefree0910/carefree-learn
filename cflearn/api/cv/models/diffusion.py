@@ -105,10 +105,12 @@ class DiffusionAPI:
         if self.cond_model is not None:
             self.cond_model.eval()
         m.condition_model = nn.Identity()
+        # pre-calculate unconditional_cond if needed
         if is_ddim(m.sampler):
             if self.cond_model is not None and m.sampler.unconditional_cond is not None:
                 uncond = self.get_cond(m.sampler.unconditional_cond)
                 m.sampler.unconditional_cond = uncond.to(m.device)
+        # extract first stage
         if not isinstance(m, LDM):
             self.first_stage = None
         else:
