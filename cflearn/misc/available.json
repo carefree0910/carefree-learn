@@ -71,6 +71,10 @@
       "sha": "cd937c1ab85b2ae9bbc12b9fab2574a681ce78f58c0f1e61612ba0158abec006",
       "st_size": 675985521
     },
+    "ldm_semantic": {
+      "sha": "a5c1d24784409726114321f016e3e9532ab51f725a12b1059213d8328b801e56",
+      "st_size": 1082386275
+    },
     "vgg_style": {
       "sha": "e1f6d57181cc06a32b3acb31734c485341ec11c247eacec0dbdddd0f179c8771",
       "st_size": 14029161

@@ -1423,9 +1423,9 @@ def ldm_sr() -> DLPipeline:
 
 def ldm_semantic() -> DLPipeline:
     return ldm_vq(
+        pretrained=True,
         latent_size=128,
         latent_in_channels=6,
-        pretrained=True,
         download_name="ldm_semantic",
         model_config=dict(
             ema_decay=None,
