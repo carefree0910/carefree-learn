@@ -342,7 +342,7 @@ class DiffusionAPI:
         img_path: str,
         export_path: Optional[str] = None,
         *,
-        max_wh: int = 2048,
+        max_wh: int = 1024,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         verbose: bool = True,
