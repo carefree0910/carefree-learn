@@ -43,6 +43,11 @@ def is_ddim(sampler: ISampler) -> bool:
     return isinstance(sampler, (DDIMSampler, PLMSSampler))
 
 
+def get_suitable_size(n: int, anchor: int = 64) -> int:
+    mod = n % anchor
+    return n - mod + int(mod > 0.5 * anchor) * anchor
+
+
 def read_image(
     path: str,
     max_wh: int,
@@ -67,7 +72,7 @@ def read_image(
         else:
             h = max_wh
             w = round(h * wh_ratio)
-    w, h = map(lambda x: x - x % 64, (w, h))
+    w, h = map(get_suitable_size, (w, h))
     image = image.resize((w, h), resample=resample)
     image = np.array(image)
     if normalize:
