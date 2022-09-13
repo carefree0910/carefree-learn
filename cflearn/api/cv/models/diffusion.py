@@ -224,10 +224,11 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        if isinstance(txt, str):
-            txt = [txt]
+        input_is_str = isinstance(txt, str)
         if num_samples is None:
-            num_samples = len(txt)
+            num_samples = 1 if input_is_str else len(txt)
+        if isinstance(txt, str):
+            txt = [txt] * num_samples
         if len(txt) != num_samples:
             raise ValueError(
                 f"`num_samples` ({num_samples}) should be identical with "
