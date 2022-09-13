@@ -19,6 +19,7 @@ from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
 from cftool.types import tensor_dict_type
+from torch.cuda.amp.autocast_mode import autocast
 
 from ....zoo import DLZoo
 from ....data import predict_tensor_data
@@ -96,8 +97,9 @@ class DiffusionAPI:
     cond_model: Optional[nn.Module]
     first_stage: Optional[IAutoEncoder]
 
-    def __init__(self, m: DDPM):
+    def __init__(self, m: DDPM, *, use_amp: bool = False):
         self.m = m
+        self.use_amp = use_amp
         self.sampler = m.sampler
         self.cond_type = m.condition_type
         # extracted the condition model so we can pre-calculate the conditions
@@ -116,12 +118,17 @@ class DiffusionAPI:
         else:
             self.first_stage = m.first_stage.core
 
+    @property
+    def amp_context(self) -> autocast:
+        return autocast(enabled=self.use_amp)
+
     def get_cond(self, cond: Any) -> Tensor:
         if self.cond_model is None:
             msg = "should not call `get_cond` when `cond_model` is not available"
             raise ValueError(msg)
         with torch.no_grad():
-            return self.cond_model(cond)
+            with self.amp_context:
+                return self.cond_model(cond)
 
     def switch_sampler(
         self,
@@ -178,21 +185,22 @@ class DiffusionAPI:
                 factor = self.first_stage.img_size // self.m.img_size
             size = tuple(map(lambda n: round(n / factor), size))  # type: ignore
         with eval_context(self.m):
-            for batch in iterator:
-                i_kw = shallow_copy_dict(kw)
-                i_cond = batch[INPUT_KEY].to(self.m.device)
-                if z is not None:
-                    i_z = z.repeat_interleave(len(i_cond), dim=0)
-                else:
-                    i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
-                    i_z = torch.randn(i_z_shape, device=self.m.device)
-                if unconditional:
-                    i_cond = None
-                if z_ref is not None and z_ref_mask is not None:
-                    i_kw["ref"] = z_ref
-                    i_kw["ref_mask"] = z_ref_mask
-                i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
-                sampled.append(i_sampled.cpu())
+            with self.amp_context:
+                for batch in iterator:
+                    i_kw = shallow_copy_dict(kw)
+                    i_cond = batch[INPUT_KEY].to(self.m.device)
+                    if z is not None:
+                        i_z = z.repeat_interleave(len(i_cond), dim=0)
+                    else:
+                        i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
+                        i_z = torch.randn(i_z_shape, device=self.m.device)
+                    if unconditional:
+                        i_cond = None
+                    if z_ref is not None and z_ref_mask is not None:
+                        i_kw["ref"] = z_ref
+                        i_kw["ref_mask"] = z_ref_mask
+                    i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
+                    sampled.append(i_sampled.cpu().float())
         concat = torch.cat(sampled, dim=0)
         if clip_output:
             concat = torch.clip(concat, -1.0, 1.0)
@@ -420,30 +428,57 @@ class DiffusionAPI:
         cls,
         m: DLPipeline,
         device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
     ) -> "DiffusionAPI":
         if device is not None:
             m.model.to(device)
-        return cls(m.model.core)
+        return cls(m.model.core, use_amp=use_amp)
 
     @classmethod
-    def from_sd(cls, device: Optional[str] = None) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_sd(), device)
+    def from_sd(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_sd(), device, use_amp=use_amp)
 
     @classmethod
-    def from_celeba_hq(cls, device: Optional[str] = None) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_celeba_hq(), device)
+    def from_celeba_hq(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_celeba_hq(), device, use_amp=use_amp)
 
     @classmethod
-    def from_inpainting(cls, device: Optional[str] = None) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_inpainting(), device)
+    def from_inpainting(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_inpainting(), device, use_amp=use_amp)
 
     @classmethod
-    def from_sr(cls, device: Optional[str] = None) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_sr(), device)
+    def from_sr(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_sr(), device, use_amp=use_amp)
 
     @classmethod
-    def from_semantic(cls, device: Optional[str] = None) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_semantic(), device)
+    def from_semantic(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(ldm_semantic(), device, use_amp=use_amp)
 
     def _get_z(self, img: np.ndarray) -> Tensor:
         img = 2.0 * img - 1.0
