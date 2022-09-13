@@ -18,6 +18,16 @@ setup(
             "onnx-simplifier>=0.4.1",
             "onnxruntime",
         ],
+        "cv": [
+            "ftfy",
+            "regex",
+            "lmdb",
+            "albumentations",
+            "onnx",
+            "onnx-simplifier>=0.4.1",
+            "onnxruntime",
+            "carefree-cv>=0.1.0",
+        ],
         "full": [
             "faiss-cpu",
             "protobuf==3.19.4",
