@@ -2,6 +2,7 @@ import torch
 
 import numpy as np
 
+from PIL import Image
 from typing import Callable
 from typing import Optional
 from cftool.array import to_torch
@@ -15,6 +16,7 @@ from ....types import texts_type
 from ....protocol import IInference
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
+from ....misc.toolkit import eval_context
 from ....models.nlp.tokenizers import ITokenizer
 from ....models.multimodal.clip import CLIP
 
@@ -61,6 +63,11 @@ class CLIPExtractor(IImageExtractor):
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm)
         self.clip.forward = original_forward  # type: ignore
         return outputs.forward_results[LATENT_KEY]
+
+    def get_image_latent(self, image: Image.Image) -> np.ndarray:
+        inp = self.transform(image)[None].to(self.clip.device)
+        with eval_context(self.clip):
+            return self.clip.encode_image(inp).cpu().numpy()
 
     def get_folder_latent(
         self,
