@@ -8,15 +8,18 @@ from typing import Optional
 
 from .protocol import ISampler
 from .protocol import IDiffusion
+from .protocol import UncondSamplerMixin
 
 
 @ISampler.register("solver")
-class DPMSolver(ISampler):
+class DPMSolver(ISampler, UncondSamplerMixin):
     def __init__(
         self,
         model: IDiffusion,
         *,
         schedule: str = "linear",
+        unconditional_cond: Optional[Any] = None,
+        unconditional_guidance_scale: float = 1.0,
         t0: float = 1.0e-4,
         tT: Optional[float] = None,
         order: int = 3,
@@ -29,6 +32,8 @@ class DPMSolver(ISampler):
         super().__init__(model)
         if schedule not in ["linear", "cosine"]:
             raise ValueError("only `linear` & `cosine` can be used as `schedule`")
+        self.unconditional_cond = unconditional_cond
+        self.unconditional_guidance_scale = unconditional_guidance_scale
         self.beta_0 = 0.1
         self.beta_1 = 20
         self.cosine_s = 0.008
@@ -55,6 +60,8 @@ class DPMSolver(ISampler):
     @property
     def sample_kwargs(self) -> Dict[str, Any]:
         return dict(
+            unconditional_cond=self.unconditional_cond,
+            unconditional_guidance_scale=self.unconditional_guidance_scale,
             t0=self.t0,
             tT=self.tT,
             order=self.order,
@@ -69,6 +76,8 @@ class DPMSolver(ISampler):
         step: int,
         total_step: int,
         *,
+        unconditional_cond: Optional[Any] = None,
+        unconditional_guidance_scale: float = 1.0,
         t0: float = 1.0e-4,
         tT: Optional[float] = None,
         order: int = 3,
@@ -79,7 +88,16 @@ class DPMSolver(ISampler):
         if tT is None:
             tT = self.default_tT
         if step == 0:
-            self._reset_buffers(total_step, t0, tT, order, skip_type, fast_version)
+            self._reset_buffers(
+                total_step,
+                unconditional_cond,
+                unconditional_guidance_scale,
+                t0,
+                tT,
+                order,
+                skip_type,
+                fast_version,
+            )
         if step >= len(self.orders):
             return image
         b = image.shape[0]
@@ -95,11 +113,14 @@ class DPMSolver(ISampler):
             return self._order3_update(image, cond, vec_s, vec_t)
         raise ValueError(f"unrecognized order '{order}' occurred")
 
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
+        raise ValueError("`DPMSolver` does not support `q_sample`")
+
     # internal
 
-    def _denoise(self, x: Tensor, t: Tensor, cond: Optional[Tensor]) -> Tensor:
-        t = self.model.t * torch.max(t - 1.0 / self.model.t, torch.zeros_like(t))
-        return self.model.denoise(x, t, cond)
+    def _denoise(self, x: Tensor, ts: Tensor, cond: Optional[Tensor]) -> Tensor:
+        ts = self.model.t * torch.max(ts - 1.0 / self.model.t, torch.zeros_like(ts))
+        return self._uncond_denoise(x, ts, cond)
 
     def _order1_update(
         self,
@@ -216,6 +237,8 @@ class DPMSolver(ISampler):
     def _reset_buffers(
         self,
         total_step: int,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
         t0: float,
         tT: float,
         order: int,
@@ -237,6 +260,8 @@ class DPMSolver(ISampler):
             N_steps = total_step // order
             self.orders = [order] * N_steps
             self.timesteps = self._get_time_steps(skip_type, t0, tT, N_steps)
+        # unconditional conditioning
+        self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
     def _get_time_steps(self, skip_type: str, t0: float, tT: float, N: int) -> Tensor:
         device = self.model.device
