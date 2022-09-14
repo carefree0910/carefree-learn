@@ -41,10 +41,6 @@ except:
     to_rgb = None
 
 
-def is_ddim(sampler: ISampler) -> bool:
-    return isinstance(sampler, (DDIMSampler, PLMSSampler))
-
-
 def restrict_wh(w: int, h: int, max_wh: int) -> Tuple[int, int]:
     max_original_wh = max(w, h)
     if max_original_wh <= max_wh:
@@ -108,10 +104,10 @@ class DiffusionAPI:
             self.cond_model.eval()
         m.condition_model = nn.Identity()
         # pre-calculate unconditional_cond if needed
-        if is_ddim(m.sampler):
-            if self.cond_model is not None and m.sampler.unconditional_cond is not None:
-                uncond = self.get_cond(m.sampler.unconditional_cond)
-                m.sampler.unconditional_cond = uncond.to(m.device)
+        unconditional_cond = getattr(m.sampler, "unconditional_cond", None)
+        if self.cond_model is not None and unconditional_cond is not None:
+            uncond = self.get_cond(m.sampler.unconditional_cond)
+            m.sampler.unconditional_cond = uncond.to(m.device)
         # extract first stage
         if not isinstance(m, LDM):
             self.first_stage = None
@@ -136,8 +132,10 @@ class DiffusionAPI:
         sampler_config: Optional[Dict[str, Any]] = None,
     ) -> None:
         sampler_ins = self.m.make_sampler(sampler, sampler_config)
-        if is_ddim(self.m.sampler) and is_ddim(sampler_ins):
-            sampler_ins.unconditional_cond = self.m.sampler.unconditional_cond  # type: ignore
+        current_unconditional_cond = getattr(self.m.sampler, "unconditional_cond", None)
+        if current_unconditional_cond is not None:
+            if hasattr(sampler_ins, "unconditional_cond"):
+                sampler_ins.unconditional_cond = current_unconditional_cond
 
     def sample(
         self,
