@@ -116,6 +116,37 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         return image
 
 
+class UncondSamplerMixin:
+    model: IDiffusion
+    uncond: Optional[Tensor]
+    unconditional_cond: Optional[Any]
+    uncond_guidance_scale: float
+
+    def _reset_uncond_buffers(
+        self,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+    ) -> None:
+        if unconditional_cond is None or self.model.condition_model is None:
+            self.uncond = None
+            self.uncond_guidance_scale = 0.0
+        else:
+            self.uncond = self.model._get_cond(unconditional_cond)
+            self.uncond_guidance_scale = unconditional_guidance_scale
+
+    def _uncond_denoise(
+        self, image: Tensor, ts: Tensor, cond: Optional[Tensor]
+    ) -> Tensor:
+        if cond is None or self.uncond is None:
+            return self.model.denoise(image, ts, cond)
+        uncond = self.uncond.repeat_interleave(cond.shape[0], dim=0)
+        cond2 = torch.cat([uncond, cond])
+        image2 = torch.cat([image, image])
+        ts2 = torch.cat([ts, ts])
+        eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
+        return eps_uncond + self.uncond_guidance_scale * (eps - eps_uncond)
+
+
 __all__ = [
     "ISampler",
 ]

@@ -13,12 +13,13 @@ from typing import Optional
 
 from .protocol import ISampler
 from .protocol import IDiffusion
+from .protocol import UncondSamplerMixin
 from ..utils import q_sample
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
 
 
-class DDIMMixin(ISampler, metaclass=ABCMeta):
+class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def __init__(
         self,
         model: IDiffusion,
@@ -65,14 +66,7 @@ class DDIMMixin(ISampler, metaclass=ABCMeta):
         )
 
     def _denoise(self, image: Tensor, ts: Tensor, cond: Optional[Tensor]) -> Tensor:
-        if cond is None or self.uncond is None:
-            return self.model.denoise(image, ts, cond)
-        uncond = self.uncond.repeat_interleave(cond.shape[0], dim=0)
-        cond2 = torch.cat([uncond, cond])
-        image2 = torch.cat([image, image])
-        ts2 = torch.cat([ts, ts])
-        eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
-        return eps_uncond + self.uncond_guidance_scale * (eps - eps_uncond)
+        return self._uncond_denoise(image, ts, cond)
 
     def _register_temp_buffers(self, image: Tensor, step: int, total_step: int) -> None:
         b = image.shape[0]
@@ -150,12 +144,7 @@ class DDIMMixin(ISampler, metaclass=ABCMeta):
         self.ddim_sqrt_one_minus_alphas = torch.sqrt(1.0 - self.ddim_alphas)
         self.ddim_timesteps = ddim_timesteps.tolist()
         # unconditional conditioning
-        if unconditional_cond is None or self.model.condition_model is None:
-            self.uncond = None
-            self.uncond_guidance_scale = 0.0
-        else:
-            self.uncond = self.model._get_cond(unconditional_cond)
-            self.uncond_guidance_scale = unconditional_guidance_scale
+        self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
 
 @ISampler.register("ddim")
