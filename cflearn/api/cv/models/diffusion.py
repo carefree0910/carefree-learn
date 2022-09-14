@@ -223,6 +223,7 @@ class DiffusionAPI:
         txt: Union[str, List[str]],
         export_path: Optional[str] = None,
         *,
+        max_wh: int = 512,
         num_samples: Optional[int] = None,
         size: Optional[Tuple[int, int]] = None,
         num_steps: Optional[int] = None,
@@ -245,11 +246,12 @@ class DiffusionAPI:
         if size is None:
             new_size = None
         else:
-            new_size = tuple(map(get_suitable_size, size))
+            new_size = restrict_wh(*size, max_wh)
+            new_size = tuple(map(get_suitable_size, new_size))  # type: ignore
         return self.sample(
             num_samples,
             export_path,
-            size=new_size,  # type: ignore
+            size=new_size,
             original_size=size,
             cond=txt,
             num_steps=num_steps,
