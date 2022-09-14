@@ -136,6 +136,11 @@ class DiffusionAPI:
         if current_unconditional_cond is not None:
             if hasattr(sampler_ins, "unconditional_cond"):
                 sampler_ins.unconditional_cond = current_unconditional_cond
+        current_guidance = getattr(self.m.sampler, "unconditional_guidance_scale", None)
+        if current_guidance is not None:
+            if hasattr(sampler_ins, "unconditional_guidance_scale"):
+                sampler_ins.unconditional_guidance_scale = current_guidance
+        self.m.sampler = sampler_ins
 
     def sample(
         self,
