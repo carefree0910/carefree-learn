@@ -45,6 +45,16 @@ def is_ddim(sampler: ISampler) -> bool:
     return isinstance(sampler, (DDIMSampler, PLMSSampler))
 
 
+def restrict_wh(w: int, h: int, max_wh: int) -> Tuple[int, int]:
+    max_original_wh = max(w, h)
+    if max_original_wh <= max_wh:
+        return w, h
+    wh_ratio = w / h
+    if wh_ratio >= 1:
+        return max_wh, round(w / wh_ratio)
+    return round(h * wh_ratio), max_wh
+
+
 def get_suitable_size(n: int, anchor: int = 64) -> int:
     mod = n % anchor
     return n - mod + int(mod > 0.5 * anchor) * anchor
@@ -68,17 +78,7 @@ def read_image(
     image = Image.open(path)
     image = image.convert("L") if to_gray else to_rgb(image)
     original_w, original_h = image.size
-    max_original_wh = max(original_w, original_h)
-    if max_original_wh <= max_wh:
-        w, h = original_w, original_h
-    else:
-        wh_ratio = original_w / original_h
-        if wh_ratio >= 1:
-            w = max_wh
-            h = round(w / wh_ratio)
-        else:
-            h = max_wh
-            w = round(h * wh_ratio)
+    w, h = restrict_wh(original_w, original_h, max_wh)
     w, h = map(get_suitable_size, (w, h))
     image = image.resize((w, h), resample=resample)
     image = np.array(image)
