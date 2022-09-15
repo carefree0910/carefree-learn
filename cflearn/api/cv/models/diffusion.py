@@ -62,7 +62,7 @@ class ReadImageResponse(NamedTuple):
 
 
 def read_image(
-    path: str,
+    image: Union[str, Image.Image],
     max_wh: int,
     *,
     to_gray: bool = False,
@@ -71,7 +71,8 @@ def read_image(
 ) -> ReadImageResponse:
     if to_rgb is None:
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
-    image = Image.open(path)
+    if isinstance(image, str):
+        image = Image.open(image)
     image = image.convert("L") if to_gray else to_rgb(image)
     original_w, original_h = image.size
     w, h = restrict_wh(original_w, original_h, max_wh)
@@ -267,7 +268,7 @@ class DiffusionAPI:
 
     def img2img(
         self,
-        img_path: str,
+        image: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
         max_wh: int = 512,
@@ -278,7 +279,7 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        res = read_image(img_path, max_wh)
+        res = read_image(image, max_wh)
         z = self._get_z(res.image)
         return self._img2img(
             z,
@@ -294,8 +295,8 @@ class DiffusionAPI:
 
     def inpainting(
         self,
-        img_path: str,
-        mask_path: str,
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
         max_wh: int = 512,
@@ -312,8 +313,8 @@ class DiffusionAPI:
             return 2.0 * final - 1.0
 
         # handle mask stuffs
-        image_res = read_image(img_path, max_wh)
-        mask = read_image(mask_path, max_wh, to_gray=True).image
+        image_res = read_image(image, max_wh)
+        mask = read_image(mask, max_wh, to_gray=True).image
         bool_mask = mask >= 0.5
         remained_mask = (~bool_mask).astype(np.float32)
         remained_image = remained_mask * image_res.image
@@ -355,7 +356,7 @@ class DiffusionAPI:
 
     def sr(
         self,
-        img_path: str,
+        image: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
         max_wh: int = 512,
@@ -367,7 +368,7 @@ class DiffusionAPI:
         if not isinstance(self.m, LDM):
             raise ValueError("`sr` is now only available for `LDM` models")
         factor = 2 ** (len(self.m.first_stage.core.channel_multipliers) - 1)
-        res = read_image(img_path, round(max_wh / factor))
+        res = read_image(image, round(max_wh / factor))
         cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.m.device)
         w, h = res.original_size
         sr_size = w * factor, h * factor
@@ -386,7 +387,7 @@ class DiffusionAPI:
 
     def semantic2img(
         self,
-        semantic_path: str,
+        semantic: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
         max_wh: int = 512,
@@ -405,7 +406,7 @@ class DiffusionAPI:
         if factor is None:
             raise ValueError(err_fmt.format("cond_model.factor"))
         res = read_image(
-            semantic_path,
+            semantic,
             max_wh,
             to_gray=True,
             resample=Image.NEAREST,
