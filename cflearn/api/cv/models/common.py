@@ -1,3 +1,5 @@
+import torch
+
 import numpy as np
 import torch.nn as nn
 
@@ -72,10 +74,12 @@ T = TypeVar("T", bound="APIMixin")
 
 class APIMixin:
     m: nn.Module
+    device: torch.device
     use_amp: bool
 
-    def __init__(self, m: nn.Module, *, use_amp: bool = False):
+    def __init__(self, m: nn.Module, device: torch.device, *, use_amp: bool = False):
         self.m = m
+        self.device = device
         self.use_amp = use_amp
 
     @property
@@ -92,4 +96,4 @@ class APIMixin:
     ) -> T:
         if device is not None:
             m.model.to(device)
-        return cls(m.model.core, use_amp=use_amp)
+        return cls(m.model.core, m.model.device, use_amp=use_amp)

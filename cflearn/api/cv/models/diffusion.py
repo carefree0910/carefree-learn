@@ -44,8 +44,8 @@ class DiffusionAPI(APIMixin):
     cond_model: Optional[nn.Module]
     first_stage: Optional[IAutoEncoder]
 
-    def __init__(self, m: DDPM, *, use_amp: bool = False):
-        super().__init__(m, use_amp=use_amp)
+    def __init__(self, m: DDPM, device: torch.device, *, use_amp: bool = False):
+        super().__init__(m, device, use_amp=use_amp)
         self.sampler = m.sampler
         self.cond_type = m.condition_type
         # extracted the condition model so we can pre-calculate the conditions
@@ -57,7 +57,7 @@ class DiffusionAPI(APIMixin):
         unconditional_cond = getattr(m.sampler, "unconditional_cond", None)
         if self.cond_model is not None and unconditional_cond is not None:
             uncond = self.get_cond(m.sampler.unconditional_cond)
-            m.sampler.unconditional_cond = uncond.to(m.device)
+            m.sampler.unconditional_cond = uncond.to(self.device)
         # extract first stage
         if not isinstance(m, LDM):
             self.first_stage = None
@@ -137,12 +137,12 @@ class DiffusionAPI(APIMixin):
             with self.amp_context:
                 for batch in iterator:
                     i_kw = shallow_copy_dict(kw)
-                    i_cond = batch[INPUT_KEY].to(self.m.device)
+                    i_cond = batch[INPUT_KEY].to(self.device)
                     if z is not None:
                         i_z = z.repeat_interleave(len(i_cond), dim=0)
                     else:
                         i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
-                        i_z = torch.randn(i_z_shape, device=self.m.device)
+                        i_z = torch.randn(i_z_shape, device=self.device)
                     if unconditional:
                         i_cond = None
                     if z_ref is not None and z_ref_mask is not None:
@@ -270,7 +270,7 @@ class DiffusionAPI(APIMixin):
         remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
         mask_cond = torch.where(torch.from_numpy(bool_mask), 1.0, -1.0)
-        mask_cond = mask_cond.to(torch.float32).to(self.m.device)
+        mask_cond = mask_cond.to(torch.float32).to(self.device)
         mask_cond = F.interpolate(mask_cond, size=latent_shape)
         cond = torch.cat([remained_cond, mask_cond], dim=1)
         # refine with img2img
@@ -322,7 +322,7 @@ class DiffusionAPI(APIMixin):
         zh, zw = res.image.shape[-2:]
         sr_size = (zw, zw / wh_ratio) if zw > zh else (zh * wh_ratio, zh)
         sr_size = tuple(map(lambda n: round(factor * n), sr_size))  # type: ignore
-        cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.m.device)
+        cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.device)
         z = torch.randn_like(cond)
         return self.sample(
             1,
@@ -365,7 +365,7 @@ class DiffusionAPI(APIMixin):
             resample=Image.NEAREST,
             normalize=False,
         )
-        cond = torch.from_numpy(res.image).to(torch.long).to(self.m.device)
+        cond = torch.from_numpy(res.image).to(torch.long).to(self.device)
         cond = F.one_hot(cond, num_classes=in_channels)[0].float()
         cond = cond.permute(0, 3, 1, 2).contiguous()
         cond = self.get_cond(cond)
@@ -429,7 +429,7 @@ class DiffusionAPI(APIMixin):
 
     def _get_z(self, img: np.ndarray) -> Tensor:
         img = 2.0 * img - 1.0
-        z = torch.from_numpy(img).to(self.m.device)
+        z = torch.from_numpy(img).to(self.device)
         z = self.m._preprocess(z)
         return z
 
