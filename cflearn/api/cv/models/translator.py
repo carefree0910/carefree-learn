@@ -68,6 +68,19 @@ class TranslatorAPI(APIMixin):
             save_images(output, export_path)
         return output
 
+    @classmethod
+    def from_esr(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "TranslatorAPI":
+        return cls.from_pipeline(esr(), device, use_amp=use_amp)
+
+
+def esr(pretrained: bool = True) -> DLPipeline:
+    return DLZoo.load_pipeline("sr/esr", pretrained=pretrained)
+
 
 __all__ = [
     "TranslatorAPI",

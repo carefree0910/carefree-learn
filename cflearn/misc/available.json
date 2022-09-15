@@ -139,6 +139,10 @@
     "u2net.lite": {
       "sha": "56967fa8f786f681048ea8741d457dcb9873c37264f0762b6d7498365fc3b9c0",
       "st_size": 4831877
+    },
+    "esr": {
+      "sha": "d8b9e99f0af8fe689350b5148e4171df415a655f5a606e571e3e9ddddc6c0a6e",
+      "st_size": 67007557
     }
   },
   "reference": {
