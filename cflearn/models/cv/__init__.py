@@ -9,3 +9,4 @@ from .diffusion import *
 from .generator import *
 from .segmentor import *
 from .classifier import *
+from .translator import *
