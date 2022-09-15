@@ -51,7 +51,7 @@ def restrict_wh(w: int, h: int, max_wh: int) -> Tuple[int, int]:
     return round(max_wh * wh_ratio), max_wh
 
 
-def get_suitable_size(n: int, anchor: int = 64) -> int:
+def get_suitable_size(n: int, anchor: int) -> int:
     mod = n % anchor
     return n - mod + int(mod > 0.5 * anchor) * anchor
 
@@ -65,6 +65,7 @@ def read_image(
     image: Union[str, Image.Image],
     max_wh: int,
     *,
+    anchor: int,
     to_gray: bool = False,
     resample: Any = Image.LANCZOS,
     normalize: bool = True,
@@ -76,7 +77,7 @@ def read_image(
     image = image.convert("L") if to_gray else to_rgb(image)
     original_w, original_h = image.size
     w, h = restrict_wh(original_w, original_h, max_wh)
-    w, h = map(get_suitable_size, (w, h))
+    w, h = map(get_suitable_size, (w, h), (anchor, anchor))
     image = image.resize((w, h), resample=resample)
     image = np.array(image)
     if normalize:
@@ -227,6 +228,7 @@ class DiffusionAPI:
         txt: Union[str, List[str]],
         export_path: Optional[str] = None,
         *,
+        anchor: int = 64,
         max_wh: int = 512,
         num_samples: Optional[int] = None,
         size: Optional[Tuple[int, int]] = None,
@@ -251,7 +253,7 @@ class DiffusionAPI:
             new_size = None
         else:
             new_size = restrict_wh(*size, max_wh)
-            new_size = tuple(map(get_suitable_size, new_size))  # type: ignore
+            new_size = tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
         return self.sample(
             num_samples,
             export_path,
@@ -271,6 +273,7 @@ class DiffusionAPI:
         image: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        anchor: int = 32,
         max_wh: int = 512,
         fidelity: float = 0.2,
         cond: Optional[Any] = None,
@@ -279,7 +282,7 @@ class DiffusionAPI:
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        res = read_image(image, max_wh)
+        res = read_image(image, max_wh, anchor=anchor)
         z = self._get_z(res.image)
         return self._img2img(
             z,
@@ -299,6 +302,7 @@ class DiffusionAPI:
         mask: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        anchor: int = 32,
         max_wh: int = 512,
         refine_fidelity: Optional[float] = None,
         num_steps: Optional[int] = None,
@@ -313,8 +317,8 @@ class DiffusionAPI:
             return 2.0 * final - 1.0
 
         # handle mask stuffs
-        image_res = read_image(image, max_wh)
-        mask = read_image(mask, max_wh, to_gray=True).image
+        image_res = read_image(image, max_wh, anchor=anchor)
+        mask = read_image(mask, max_wh, anchor=anchor, to_gray=True).image
         bool_mask = mask >= 0.5
         remained_mask = (~bool_mask).astype(np.float32)
         remained_image = remained_mask * image_res.image
@@ -359,6 +363,7 @@ class DiffusionAPI:
         image: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        anchor: int = 8,
         max_wh: int = 512,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -368,7 +373,7 @@ class DiffusionAPI:
         if not isinstance(self.m, LDM):
             raise ValueError("`sr` is now only available for `LDM` models")
         factor = 2 ** (len(self.m.first_stage.core.channel_multipliers) - 1)
-        res = read_image(image, round(max_wh / factor))
+        res = read_image(image, round(max_wh / factor), anchor=anchor)
         cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.m.device)
         z = torch.randn_like(cond)
         return self.sample(
@@ -387,6 +392,7 @@ class DiffusionAPI:
         semantic: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        anchor: int = 16,
         max_wh: int = 512,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -405,6 +411,7 @@ class DiffusionAPI:
         res = read_image(
             semantic,
             max_wh,
+            anchor=anchor,
             to_gray=True,
             resample=Image.NEAREST,
             normalize=False,
