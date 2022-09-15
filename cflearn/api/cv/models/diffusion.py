@@ -47,8 +47,8 @@ def restrict_wh(w: int, h: int, max_wh: int) -> Tuple[int, int]:
         return w, h
     wh_ratio = w / h
     if wh_ratio >= 1:
-        return max_wh, round(w / wh_ratio)
-    return round(h * wh_ratio), max_wh
+        return max_wh, round(max_wh / wh_ratio)
+    return round(max_wh * wh_ratio), max_wh
 
 
 def get_suitable_size(n: int, anchor: int = 64) -> int:
