@@ -11,6 +11,7 @@ from typing import Callable
 from typing import Optional
 from cftool.array import save_images
 
+from .common import restrict_wh
 from .common import APIMixin
 from ....pipeline import DLPipeline
 from ....zoo.core import DLZoo
@@ -32,11 +33,14 @@ class TranslatorAPI(APIMixin):
         image: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        max_wh: int = 768,
         clip_range: Optional[Tuple[int, int]] = (0, 1),
         preprocess_fn: Optional[Callable[[Image.Image], np.ndarray]] = None,
     ) -> Tensor:
         if isinstance(image, str):
             image = Image.open(image)
+        w, h = image.size
+        image = image.resize(restrict_wh(w, h, max_wh), resample=Image.LANCZOS)
         # handle alpha
         alpha = None
         if image.mode == "RGBA":
