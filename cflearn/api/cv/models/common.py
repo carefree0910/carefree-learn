@@ -47,6 +47,7 @@ def read_image(
     *,
     anchor: int,
     to_gray: bool = False,
+    to_mask: bool = False,
     resample: Any = Image.LANCZOS,
     normalize: bool = True,
 ) -> ReadImageResponse:
@@ -54,7 +55,15 @@ def read_image(
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
     if isinstance(image, str):
         image = Image.open(image)
-    image = image.convert("L") if to_gray else to_rgb(image)
+    if not to_mask and not to_gray:
+        image = to_rgb(image)
+    else:
+        if to_mask and to_gray:
+            raise ValueError("`to_mask` & `to_gray` should not be True simultaneously")
+        if to_mask and image.mode == "RGBA":
+            image = image.split()[3]
+        else:
+            image = image.convert("L")
     original_w, original_h = image.size
     w, h = restrict_wh(original_w, original_h, max_wh)
     w, h = map(get_suitable_size, (w, h), (anchor, anchor))
@@ -62,7 +71,7 @@ def read_image(
     image = np.array(image)
     if normalize:
         image = image.astype(np.float32) / 255.0
-    if to_gray:
+    if to_mask or to_gray:
         image = image[None, None]
     else:
         image = image[None].transpose(0, 3, 1, 2)

@@ -262,7 +262,7 @@ class DiffusionAPI(APIMixin):
 
         # handle mask stuffs
         image_res = read_image(image, max_wh, anchor=anchor)
-        mask = read_image(mask, max_wh, anchor=anchor, to_gray=True).image
+        mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
         bool_mask = mask >= 0.5
         remained_mask = (~bool_mask).astype(np.float32)
         remained_image = remained_mask * image_res.image
