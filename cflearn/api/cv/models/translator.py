@@ -81,9 +81,22 @@ class TranslatorAPI(APIMixin):
     ) -> "TranslatorAPI":
         return cls.from_pipeline(esr(), device, use_amp=use_amp)
 
+    @classmethod
+    def from_esr_anime(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+    ) -> "TranslatorAPI":
+        return cls.from_pipeline(esr_anime(), device, use_amp=use_amp)
+
 
 def esr(pretrained: bool = True) -> DLPipeline:
     return DLZoo.load_pipeline("sr/esr", pretrained=pretrained)
+
+
+def esr_anime(pretrained: bool = True) -> DLPipeline:
+    return DLZoo.load_pipeline("sr/esr.anime", pretrained=pretrained)
 
 
 __all__ = [

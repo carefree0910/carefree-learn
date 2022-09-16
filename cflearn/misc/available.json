@@ -143,6 +143,10 @@
     "esr": {
       "sha": "d8b9e99f0af8fe689350b5148e4171df415a655f5a606e571e3e9ddddc6c0a6e",
       "st_size": 67007557
+    },
+    "esr.anime": {
+      "sha": "3eb358d2260fab1d060df180f9d575e772cba90e8f544c3537cf707c9d75249a",
+      "st_size": 17929217
     }
   },
   "reference": {

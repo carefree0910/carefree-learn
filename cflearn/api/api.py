@@ -33,6 +33,7 @@ from .cv.models.diffusion import ldm_semantic as _ldm_semantic
 from .cv.models.diffusion import ldm_celeba_hq as _ldm_celeba_hq
 from .cv.models.diffusion import ldm_inpainting as _ldm_inpainting
 from .cv.models.translator import esr as _esr
+from .cv.models.translator import esr_anime as _esr_anime
 from ..data import MLData
 from ..data import IMLData
 from ..data import CVDataModule
@@ -1357,6 +1358,10 @@ def ldm_semantic(pretrained: bool = True) -> DLPipeline:
 
 def esr(pretrained: bool = True) -> DLPipeline:
     return _esr(pretrained)
+
+
+def esr_anime(pretrained: bool = True) -> DLPipeline:
+    return _esr_anime(pretrained)
 
 
 # nlp
