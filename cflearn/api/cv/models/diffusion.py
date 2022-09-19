@@ -98,6 +98,7 @@ class DiffusionAPI(APIMixin):
         z_ref_mask: Optional[Tensor] = None,
         size: Optional[Tuple[int, int]] = None,
         original_size: Optional[Tuple[int, int]] = None,
+        alpha: Optional[np.ndarray] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -115,6 +116,13 @@ class DiffusionAPI(APIMixin):
                 f"`num_samples` ({num_samples}) should be identical with "
                 f"the number of `cond` ({len(cond)})"
             )
+        if alpha is not None and original_size is not None:
+            alpha_h, alpha_w = alpha.shape[-2:]
+            if alpha_w != original_size[0] or alpha_h != original_size[1]:
+                raise ValueError(
+                    f"shape of the provided `alpha` ({alpha_w}, {alpha_h}) should be "
+                    f"identical with the provided `original_size` {original_size}"
+                )
         unconditional = cond is None
         if unconditional:
             cond = [0] * num_samples
@@ -163,6 +171,16 @@ class DiffusionAPI(APIMixin):
                     mode="bicubic",
                     antialias=True,
                 )
+        if alpha is not None:
+            alpha = torch.from_numpy(2.0 * alpha - 1.0)
+            if original_size is None:
+                with torch.no_grad():
+                    alpha = F.interpolate(
+                        alpha,
+                        concat.shape[-2:],
+                        mode="nearest",
+                    )
+            concat = torch.cat([concat, alpha], dim=1)
         if export_path is not None:
             save_images(concat, export_path)
         return concat
@@ -233,6 +251,7 @@ class DiffusionAPI(APIMixin):
             export_path,
             fidelity=fidelity,
             original_size=res.original_size,
+            alpha=res.alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -281,6 +300,7 @@ class DiffusionAPI(APIMixin):
                 export_path,
                 fidelity=refine_fidelity,
                 original_size=image_res.original_size,
+                alpha=image_res.alpha,
                 cond=cond,
                 num_steps=num_steps,
                 clip_output=clip_output,
@@ -294,6 +314,7 @@ class DiffusionAPI(APIMixin):
             export_path,
             z=z,
             original_size=image_res.original_size,
+            alpha=image_res.alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -329,6 +350,7 @@ class DiffusionAPI(APIMixin):
             export_path,
             z=z,
             original_size=sr_size,
+            alpha=res.alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -375,6 +397,7 @@ class DiffusionAPI(APIMixin):
             export_path,
             z=z,
             original_size=res.original_size,
+            alpha=res.alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -440,6 +463,7 @@ class DiffusionAPI(APIMixin):
         *,
         fidelity: float = 0.2,
         original_size: Optional[Tuple[int, int]] = None,
+        alpha: Optional[np.ndarray] = None,
         cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -463,6 +487,7 @@ class DiffusionAPI(APIMixin):
             export_path,
             z=z,
             original_size=original_size,
+            alpha=alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,

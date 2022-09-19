@@ -38,6 +38,7 @@ def get_suitable_size(n: int, anchor: int) -> int:
 
 class ReadImageResponse(NamedTuple):
     image: np.ndarray
+    alpha: Optional[np.ndarray]
     original_size: Tuple[int, int]
 
 
@@ -55,13 +56,16 @@ def read_image(
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
     if isinstance(image, str):
         image = Image.open(image)
+    alpha = None
+    if image.mode == "RGBA":
+        alpha = image.split()[3]
     if not to_mask and not to_gray:
         image = to_rgb(image)
     else:
         if to_mask and to_gray:
             raise ValueError("`to_mask` & `to_gray` should not be True simultaneously")
         if to_mask and image.mode == "RGBA":
-            image = image.split()[3]
+            image = alpha
         else:
             image = image.convert("L")
     original_w, original_h = image.size
@@ -71,11 +75,13 @@ def read_image(
     image = np.array(image)
     if normalize:
         image = image.astype(np.float32) / 255.0
+    if alpha is not None:
+        alpha = (np.array(alpha).astype(np.float32) / 255.0)[None, None]
     if to_mask or to_gray:
         image = image[None, None]
     else:
         image = image[None].transpose(0, 3, 1, 2)
-    return ReadImageResponse(image, (original_w, original_h))
+    return ReadImageResponse(image, alpha, (original_w, original_h))
 
 
 T = TypeVar("T", bound="APIMixin")
