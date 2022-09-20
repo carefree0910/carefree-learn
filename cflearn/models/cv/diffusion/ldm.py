@@ -40,6 +40,7 @@ class LDM(DDPM):
         num_classes: Optional[int] = None,
         use_fp16: bool = False,
         use_checkpoint: bool = False,
+        attn_split_chunk: Optional[int] = None,
         # first stage
         first_stage: str,
         first_stage_config: Optional[Dict[str, Any]] = None,
@@ -101,6 +102,7 @@ class LDM(DDPM):
             num_classes=num_classes,
             use_fp16=use_fp16,
             use_checkpoint=use_checkpoint,
+            attn_split_chunk=attn_split_chunk,
             ema_decay=ema_decay,
             use_num_updates_in_ema=use_num_updates_in_ema,
             parameterization=parameterization,

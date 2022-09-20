@@ -92,6 +92,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         # misc
         use_fp16: bool = False,
         use_checkpoint: bool = False,
+        attn_split_chunk: Optional[int] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -110,6 +111,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         self.num_classes = num_classes
         self.dtype = torch.float16 if use_fp16 else torch.float32
         self.use_checkpoint = use_checkpoint
+        self.attn_split_chunk = attn_split_chunk
 
         time_embedding_dim = start_channels * 4
         self.time_embedding = nn.Sequential(
@@ -145,6 +147,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 n_heads = num_heads
             head_c = in_c // n_heads if num_head_channels is None else num_head_channels
             if not use_spatial_transformer:
+                # TODO: support attn_split_chunk
                 return MultiHeadSpatialAttention(
                     in_c,
                     num_heads=n_heads,
@@ -158,6 +161,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 num_layers=num_transformer_layers,
                 context_dim=context_dim,
                 use_checkpoint=use_checkpoint,
+                attn_split_chunk=attn_split_chunk,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:

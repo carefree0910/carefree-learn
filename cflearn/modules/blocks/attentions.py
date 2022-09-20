@@ -467,6 +467,7 @@ class CrossAttention(Module):
         num_heads: int = 8,
         head_dim: int = 64,
         dropout: float = 0.0,
+        attn_split_chunk: Optional[int] = None,
     ):
         super().__init__()
         self.has_context = context_dim is not None
@@ -475,6 +476,7 @@ class CrossAttention(Module):
 
         self.scale = head_dim**-0.5
         self.num_heads = num_heads
+        self.attn_split_chunk = attn_split_chunk
 
         self.to_q = nn.Linear(query_dim, latent_dim, bias=False)
         self.to_k = nn.Linear(context_dim, latent_dim, bias=False)
@@ -520,20 +522,34 @@ class CrossAttention(Module):
         k = self.transpose(k)
         v = self.transpose(v)
 
-        # (B * head, Tq, Tc)
-        attn_mat = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+        if self.attn_split_chunk is None:
+            # (B * head, Tq, Tc)
+            attn_mat = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
+            if mask is not None:
+                mask = mask.view(b, -1)
+                max_neg_value = -torch.finfo(attn_mat.dtype).max
+                mask = mask[:, None, :].repeat(self.num_heads, 1, 1)
+                attn_mat.masked_fill_(~mask, max_neg_value)
+            # (B * head, Tq, Tc)
+            attn_prob = attn_mat.softmax(dim=-1)
+            # (B * head, Tq, dim)
+            net = torch.einsum("b i j, b j d -> b i d", attn_prob, v)
+        else:
+            if mask is not None:
+                msg = "`mask` is not supported yet when `attn_split_chunk` is enabled"
+                raise ValueError(msg)
+            size = b * self.num_heads
+            # (B * head, Tq, dim)
+            net = torch.zeros(size, tq, v.shape[2], device=q.device)
+            for i in range(0, size, self.attn_split_chunk):
+                end = i + self.attn_split_chunk
+                i_mat = torch.einsum("b i d, b j d -> b i j", q[i:end], k[i:end])
+                i_mat *= self.scale
+                i_prob = i_mat.softmax(dim=-1)
+                del i_mat
+                net[i:end] = torch.einsum("b i j, b j d -> b i d", i_prob, v[i:end])
+                del i_prob
 
-        if mask is not None:
-            mask = mask.view(b, -1)
-            max_neg_value = -torch.finfo(attn_mat.dtype).max
-            mask = mask[:, None, :].repeat(self.num_heads, 1, 1)
-            attn_mat.masked_fill_(~mask, max_neg_value)
-
-        # (B * head, Tq, Tc)
-        attn_prob = attn_mat.softmax(dim=-1)
-
-        # (B * head, Tq, dim)
-        net = torch.einsum("b i j, b j d -> b i d", attn_prob, v)
         # (B, head, Tq, dim)
         net = net.reshape(b, self.num_heads, tq, dq // self.num_heads)
         # (B, Tq, head, dim)

@@ -177,6 +177,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         num_classes: Optional[int] = None,
         use_fp16: bool = False,
         use_checkpoint: bool = False,
+        attn_split_chunk: Optional[int] = None,
         # diffusion
         ema_decay: Optional[float] = None,
         use_num_updates_in_ema: bool = True,
@@ -229,6 +230,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             num_classes=num_classes,
             use_fp16=use_fp16,
             use_checkpoint=use_checkpoint,
+            attn_split_chunk=attn_split_chunk,
         )
         # ema
         if ema_decay is None:

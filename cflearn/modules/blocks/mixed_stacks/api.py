@@ -434,6 +434,7 @@ class SpatialTransformerBlock(Module):
         feedforward_multiplier: float = 4.0,
         feedforward_activation: str = "geglu",
         use_checkpoint: bool = False,
+        attn_split_chunk: Optional[int] = None,
     ):
         super().__init__()
         self.attn1 = CrossAttention(
@@ -441,6 +442,7 @@ class SpatialTransformerBlock(Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
+            attn_split_chunk=attn_split_chunk,
         )
         latent_dim = round(query_dim * feedforward_multiplier)
         self.ff = FeedForward(
@@ -456,6 +458,7 @@ class SpatialTransformerBlock(Module):
             num_heads=num_heads,
             head_dim=head_dim,
             dropout=dropout,
+            attn_split_chunk=attn_split_chunk,
         )
         self.norm1 = nn.LayerNorm(query_dim)
         self.norm2 = nn.LayerNorm(query_dim)
@@ -489,6 +492,7 @@ class SpatialTransformer(Module):
         dropout: float = 0.0,
         context_dim: Optional[int] = None,
         use_checkpoint: bool = False,
+        attn_split_chunk: Optional[int] = None,
     ):
         super().__init__()
         self.norm = nn.GroupNorm(32, in_channels, 1.0e-6, affine=True)
@@ -503,6 +507,7 @@ class SpatialTransformer(Module):
                     dropout=dropout,
                     context_dim=context_dim,
                     use_checkpoint=use_checkpoint,
+                    attn_split_chunk=attn_split_chunk,
                 )
                 for _ in range(num_layers)
             ]
