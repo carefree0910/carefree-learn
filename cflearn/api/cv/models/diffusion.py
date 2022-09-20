@@ -29,6 +29,7 @@ from ....data import TensorInferenceData
 from ....pipeline import DLPipeline
 from ....constants import INPUT_KEY
 from ....misc.toolkit import eval_context
+from ....modules.blocks import Conv2d
 from ....models.cv.diffusion import LDM
 from ....models.cv.diffusion import DDPM
 from ....models.cv.diffusion import ISampler
@@ -408,6 +409,21 @@ class DiffusionAPI(APIMixin):
             verbose=verbose,
             **kwargs,
         )
+
+    def switch_circular(self, enable: bool) -> None:
+        def _inject(m: nn.Module) -> None:
+            for child in m.children():
+                _inject(child)
+            modules.append(m)
+
+        padding_mode = "circular" if enable else "zeros"
+        modules: List[nn.Module] = []
+        _inject(self.m)
+        for module in modules:
+            if isinstance(module, nn.Conv2d):
+                module.padding_mode = padding_mode
+            elif isinstance(module, Conv2d):
+                module.padding = padding_mode
 
     @classmethod
     def from_sd(
