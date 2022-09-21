@@ -5,7 +5,6 @@ import numpy as np
 from abc import abstractmethod
 from abc import ABCMeta
 
-from scipy import integrate
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -18,6 +17,11 @@ from .utils import append_zero
 from .protocol import ISampler
 from .protocol import IDiffusion
 from .protocol import UncondSamplerMixin
+
+try:
+    from scipy import integrate
+except:
+    integrate = None
 
 
 def to_d(image: Tensor, sigma: Tensor, denoised: Tensor) -> Tensor:
@@ -168,6 +172,8 @@ def klms_coef(order: int, t: np.ndarray, i: int, j: int) -> float:
             prod *= (tau - t[i - k]) / (t[i - j] - t[i - k])
         return prod
 
+    if integrate is None:
+        raise ValueError("`scipy` is needed for `KLMSSampler`")
     return integrate.quad(fn, t[i], t[i + 1], epsrel=1.0e-4)[0]
 
 
