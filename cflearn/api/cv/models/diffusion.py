@@ -110,6 +110,7 @@ class DiffusionAPI(APIMixin):
         seed: Optional[int] = None,
         # each variation contains (seed, weight)
         variations: Optional[List[Tuple[int, float]]] = None,
+        variation_seed: Optional[int] = None,
         variation_strength: Optional[float] = None,
         z: Optional[Tensor] = None,
         z_ref: Optional[Tensor] = None,
@@ -182,9 +183,10 @@ class DiffusionAPI(APIMixin):
                                 i_z = slerp(v_z, i_z, v_weight)
                         if variation_strength is not None:
                             random.seed()
-                            v_seed = new_seed()
-                            seed_everything(v_seed)
-                            self.latest_variation_seed = v_seed
+                            if variation_seed is None:
+                                variation_seed = new_seed()
+                            seed_everything(variation_seed)
+                            self.latest_variation_seed = variation_seed
                             v_z = torch.randn(i_z_shape, device=self.device)
                             i_z = slerp(v_z, i_z, variation_strength)
                     if unconditional:
