@@ -164,7 +164,7 @@ class DiffusionAPI(APIMixin):
                     if z_ref is not None and z_ref_mask is not None:
                         i_kw["ref"] = z_ref
                         i_kw["ref_mask"] = z_ref_mask
-                    if self.use_half and not self.use_amp:
+                    if self.use_half:
                         i_z = i_z.half()
                         if i_cond is not None:
                             i_cond = i_cond.half()
