@@ -3,12 +3,14 @@ import torch
 import numpy as np
 
 from PIL import Image
+from typing import List
 from typing import Callable
 from typing import Optional
 from cftool.array import to_torch
 
 from ...protocol import IImageExtractor
 from ...protocol import ImageFolderLatentResponse
+from ...cv.utils import predict_paths
 from ...cv.utils import predict_folder
 from ...cv.pipeline import CVPipeline
 from ....data import TensorData
@@ -68,6 +70,27 @@ class CLIPExtractor(IImageExtractor):
         inp = self.transform(image)[None].to(self.clip.device)
         with eval_context(self.clip):
             return self.clip.encode_image(inp).cpu().numpy()
+
+    def get_paths_latent(
+        self,
+        image_paths: List[str],
+        *,
+        batch_size: int = 64,
+        num_workers: int = 0,
+        use_tqdm: bool = True,
+    ) -> np.ndarray:
+        original_forward = self.clip.forward
+        self.clip.forward = lambda _, batch, *s, **kws: self.image_forward_fn(batch)  # type: ignore
+        results = predict_paths(
+            self.m,
+            image_paths,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            transform=self.transform,
+            use_tqdm=use_tqdm,
+        )
+        self.clip.forward = original_forward  # type: ignore
+        return results.outputs[LATENT_KEY]
 
     def get_folder_latent(
         self,
