@@ -4,46 +4,31 @@ from typing import List
 from typing import Optional
 
 from .ddim import DDIMMixin
+from .ddim import IGetEPSPred
+from .ddim import IGetDenoised
 from .protocol import ISampler
 
 
 @ISampler.register("plms")
 class PLMSSampler(DDIMMixin):
-    def sample_step(
+    def sample_step_core(
         self,
         image: Tensor,
         cond: Optional[Tensor],
         step: int,
         total_step: int,
+        get_eps_pred: IGetEPSPred,
+        get_denoised: IGetDenoised,
         *,
-        eta: float = 0.0,
-        discretize: str = "uniform",
-        unconditional_cond: Optional[Any] = None,
-        unconditional_guidance_scale: float = 1.0,
-        temperature: float = 1.0,
-        noise_dropout: float = 1.0,
-        quantize_denoised: bool = False,
+        eta: float,
+        discretize: str,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        temperature: float,
+        noise_dropout: float,
+        quantize_denoised: bool,
         **kwargs: Any,
     ) -> Tensor:
-        if step == 0:
-            self._reset_buffers(
-                eta,
-                discretize,
-                total_step,
-                unconditional_cond,
-                unconditional_guidance_scale,
-            )
-        self._register_temp_buffers(image, step, total_step)
-
-        get_eps_pred = lambda img, ts: self._denoise(img, ts, cond)
-        get_denoised = lambda eps: self._get_denoised_and_pred_x0(
-            eps,
-            image,
-            quantize_denoised,
-            temperature,
-            noise_dropout,
-        )[0]
-
         eps_pred = get_eps_pred(image, self._ts)
 
         if len(self.old_eps) == 0:
