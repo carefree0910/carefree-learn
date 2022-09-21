@@ -3,6 +3,7 @@ import sys
 import json
 import math
 import torch
+import random
 import hashlib
 import inspect
 import argparse
@@ -64,6 +65,27 @@ except:
 
 
 # general
+
+
+min_seed_value = np.iinfo(np.uint32).min
+max_seed_value = np.iinfo(np.uint32).max
+
+
+def new_seed() -> int:
+    return random.randint(min_seed_value, max_seed_value)
+
+
+def seed_everything(seed: int) -> int:
+    if not min_seed_value <= seed <= max_seed_value:
+        print_warning(f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}")
+        seed = new_seed()
+
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+
+    return seed
 
 
 def _get_environ_workplace() -> Optional[str]:
