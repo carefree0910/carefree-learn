@@ -91,11 +91,22 @@ class APIMixin:
     m: nn.Module
     device: torch.device
     use_amp: bool
+    use_half: bool
 
-    def __init__(self, m: nn.Module, device: torch.device, *, use_amp: bool = False):
+    def __init__(
+        self,
+        m: nn.Module,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ):
+        if use_amp and use_half:
+            raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
         self.m = m
         self.device = device
         self.use_amp = use_amp
+        self.use_half = use_half
 
     @property
     def amp_context(self) -> autocast:
@@ -108,7 +119,12 @@ class APIMixin:
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> T:
+        if use_amp and use_half:
+            raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
+        if use_half:
+            m.model.half()
         if device is not None:
             m.model.to(device)
-        return cls(m.model.core, m.model.device, use_amp=use_amp)
+        return cls(m.model.core, m.model.device, use_amp=use_amp, use_half=use_half)

@@ -78,8 +78,9 @@ class TranslatorAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "TranslatorAPI":
-        return cls.from_pipeline(esr(), device, use_amp=use_amp)
+        return cls.from_pipeline(esr(), device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_esr_anime(
@@ -87,8 +88,10 @@ class TranslatorAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "TranslatorAPI":
-        return cls.from_pipeline(esr_anime(), device, use_amp=use_amp)
+        m = esr_anime()
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
 
 def esr(pretrained: bool = True) -> DLPipeline:

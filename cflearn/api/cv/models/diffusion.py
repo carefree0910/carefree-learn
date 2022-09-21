@@ -45,8 +45,15 @@ class DiffusionAPI(APIMixin):
     cond_model: Optional[nn.Module]
     first_stage: Optional[IAutoEncoder]
 
-    def __init__(self, m: DDPM, device: torch.device, *, use_amp: bool = False):
-        super().__init__(m, device, use_amp=use_amp)
+    def __init__(
+        self,
+        m: DDPM,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ):
+        super().__init__(m, device, use_amp=use_amp, use_half=use_half)
         self.sampler = m.sampler
         self.cond_type = m.condition_type
         # extracted the condition model so we can pre-calculate the conditions
@@ -157,6 +164,13 @@ class DiffusionAPI(APIMixin):
                     if z_ref is not None and z_ref_mask is not None:
                         i_kw["ref"] = z_ref
                         i_kw["ref_mask"] = z_ref_mask
+                    if self.use_half and not self.use_amp:
+                        i_z = i_z.half()
+                        if i_cond is not None:
+                            i_cond = i_cond.half()
+                        for k, v in i_kw.items():
+                            if isinstance(v, torch.Tensor) and v.is_floating_point():
+                                i_kw[k] = v.half()
                     i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                     sampled.append(i_sampled.cpu().float())
         concat = torch.cat(sampled, dim=0)
@@ -431,8 +445,9 @@ class DiffusionAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_sd(), device, use_amp=use_amp)
+        return cls.from_pipeline(ldm_sd(), device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_celeba_hq(
@@ -440,8 +455,10 @@ class DiffusionAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_celeba_hq(), device, use_amp=use_amp)
+        m = ldm_celeba_hq()
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_inpainting(
@@ -449,8 +466,10 @@ class DiffusionAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_inpainting(), device, use_amp=use_amp)
+        m = ldm_inpainting()
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sr(
@@ -458,8 +477,9 @@ class DiffusionAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_sr(), device, use_amp=use_amp)
+        return cls.from_pipeline(ldm_sr(), device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_semantic(
@@ -467,8 +487,10 @@ class DiffusionAPI(APIMixin):
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
+        use_half: bool = False,
     ) -> "DiffusionAPI":
-        return cls.from_pipeline(ldm_semantic(), device, use_amp=use_amp)
+        m = ldm_semantic()
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     def _get_z(self, img: np.ndarray) -> Tensor:
         img = 2.0 * img - 1.0
