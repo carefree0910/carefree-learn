@@ -52,8 +52,10 @@ class TranslatorAPI(APIMixin):
         array = (preprocess_fn or default_preprocess)(image)
         tensor = torch.from_numpy(array)[None].permute(0, 3, 1, 2)
         tensor = tensor.contiguous().to(self.device)
+        if self.use_half:
+            tensor = tensor.half()
         with eval_context(self.m):
-            output = self.m(tensor).cpu()
+            output = self.m(tensor).cpu().float()
         if clip_range is not None:
             output = torch.clip(output, *clip_range)
         # handle alpha
