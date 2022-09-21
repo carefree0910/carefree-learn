@@ -77,7 +77,8 @@ def new_seed() -> int:
 
 def seed_everything(seed: int) -> int:
     if not min_seed_value <= seed <= max_seed_value:
-        print_warning(f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}")
+        msg = f"{seed} is not in bounds, numpy accepts from {min_seed_value} to {max_seed_value}"
+        print_warning(msg)
         seed = new_seed()
 
     random.seed(seed)
