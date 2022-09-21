@@ -27,14 +27,14 @@ class GaussianDistribution:
         self.mean, log_var = torch.chunk(net, 2, dim=1)
         self.log_var = torch.clamp(log_var, -30.0, 20.0)
         if self.deterministic:
-            zeros = torch.zeros_like(self.mean).to(device=self.device)
+            zeros = torch.zeros_like(self.mean)
             self.var = self.std = zeros
         else:
             self.std = torch.exp(0.5 * self.log_var)
             self.var = torch.exp(self.log_var)
 
     def sample(self) -> Tensor:
-        std = self.std * torch.randn(self.mean.shape).to(device=self.device)
+        std = self.std * torch.randn_like(self.mean)
         return self.mean + std
 
     def kl(self, other: Optional["GaussianDistribution"] = None) -> Tensor:
