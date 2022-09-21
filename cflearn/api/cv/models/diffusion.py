@@ -1,4 +1,5 @@
 import torch
+import random
 
 import numpy as np
 import torch.nn as nn
@@ -28,7 +29,10 @@ from ....data import predict_tensor_data
 from ....data import TensorInferenceData
 from ....pipeline import DLPipeline
 from ....constants import INPUT_KEY
+from ....misc.toolkit import slerp
+from ....misc.toolkit import new_seed
 from ....misc.toolkit import eval_context
+from ....misc.toolkit import seed_everything
 from ....modules.blocks import Conv2d
 from ....models.cv.diffusion import LDM
 from ....models.cv.diffusion import DDPM
@@ -101,6 +105,10 @@ class DiffusionAPI(APIMixin):
         num_samples: int,
         export_path: Optional[str] = None,
         *,
+        seed: Optional[int] = None,
+        # each variation contains (seed, weight)
+        variations: Optional[List[Tuple[int, float]]] = None,
+        variation_strength: Optional[float] = None,
         z: Optional[Tensor] = None,
         z_ref: Optional[Tensor] = None,
         z_ref_mask: Optional[Tensor] = None,
@@ -158,7 +166,21 @@ class DiffusionAPI(APIMixin):
                         i_z = z.repeat_interleave(len(i_cond), dim=0)
                     else:
                         i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
+                        if seed is None:
+                            seed = new_seed()
+                        seed_everything(seed)
                         i_z = torch.randn(i_z_shape, device=self.device)
+                        if variations is not None:
+                            for v_seed, v_weight in variations:
+                                seed_everything(v_seed)
+                                v_z = torch.randn(i_z_shape, device=self.device)
+                                i_z = slerp(v_z, i_z, v_weight)
+                        if variation_strength is not None:
+                            random.seed()
+                            v_seed = new_seed()
+                            seed_everything(v_seed)
+                            v_z = torch.randn(i_z_shape, device=self.device)
+                            i_z = slerp(v_z, i_z, variation_strength)
                     if unconditional:
                         i_cond = None
                     if z_ref is not None and z_ref_mask is not None:
