@@ -56,8 +56,7 @@ class CLIPExtractor(IImageExtractor):
     ) -> np.ndarray:
         if isinstance(texts, str):
             texts = [texts]
-        text_arrays = [self.tokenizer.tokenize(t) for t in texts]
-        texts_tensor = to_torch(np.vstack(text_arrays))
+        texts_tensor = to_torch(self.tokenizer.tokenize(texts))
         loader = TensorData(texts_tensor, batch_size=batch_size).get_loaders()[0]
         original_forward = self.clip.forward
         self.clip.forward = lambda _, batch, *s, **kws: self.text_forward_fn(batch)  # type: ignore
