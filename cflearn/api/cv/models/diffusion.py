@@ -300,13 +300,14 @@ class DiffusionAPI(APIMixin):
         image_res = read_image(image, max_wh, anchor=anchor)
         mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
         bool_mask = mask >= 0.5
-        remained_mask = (~bool_mask).astype(np.float32)
+        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
         remained_image = remained_mask * image_res.image
         # construct condition tensor
         remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
         mask_cond = torch.where(torch.from_numpy(bool_mask), 1.0, -1.0)
-        mask_cond = mask_cond.to(torch.float32).to(self.device)
+        mask_cond = mask_cond.to(torch.float16 if self.use_half else torch.float32)
+        mask_cond = mask_cond.to(self.device)
         mask_cond = F.interpolate(mask_cond, size=latent_shape)
         cond = torch.cat([remained_cond, mask_cond], dim=1)
         # refine with img2img
@@ -494,7 +495,10 @@ class DiffusionAPI(APIMixin):
 
     def _get_z(self, img: np.ndarray) -> Tensor:
         img = 2.0 * img - 1.0
-        z = torch.from_numpy(img).to(self.device)
+        z = torch.from_numpy(img)
+        if self.use_half:
+            z = z.half()
+        z = z.to(self.device)
         z = self.m._preprocess(z)
         return z
 
