@@ -6,6 +6,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from .utils import append_dims
 from .protocol import ISampler
 from .protocol import IDiffusion
 from .protocol import UncondSamplerMixin
@@ -139,8 +140,8 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         phi_1 = torch.expm1(h)
         noise_s = self._denoise(image, vec_s, cond)
         return (
-            torch.exp(log_alpha_t - log_alpha_s)[(...,) + (None,) * dims] * image
-            - (sigma_t * phi_1)[(...,) + (None,) * dims] * noise_s
+            append_dims(torch.exp(log_alpha_t - log_alpha_s), dims) * image
+            - append_dims(sigma_t * phi_1, dims) * noise_s
         )
 
     def _order2_update(
@@ -168,16 +169,14 @@ class DPMSolver(ISampler, UncondSamplerMixin):
 
         noise_s = self._denoise(image, vec_s, cond)
         x_s1 = (
-            torch.exp(log_alpha_s1 - log_alpha_s)[(...,) + (None,) * dims] * image
-            - (sigma_s1 * phi_11)[(...,) + (None,) * dims] * noise_s
+            append_dims(torch.exp(log_alpha_s1 - log_alpha_s), dims) * image
+            - append_dims(sigma_s1 * phi_11, dims) * noise_s
         )
         noise_s1 = self._denoise(x_s1, s1, cond)
         return (
-            torch.exp(log_alpha_t - log_alpha_s)[(...,) + (None,) * dims] * image
-            - (sigma_t * phi_1)[(...,) + (None,) * dims] * noise_s
-            - (0.5 / r1)
-            * (sigma_t * phi_1)[(...,) + (None,) * dims]
-            * (noise_s1 - noise_s)
+            append_dims(torch.exp(log_alpha_t - log_alpha_s), dims) * image
+            - append_dims(sigma_t * phi_1, dims) * noise_s
+            - (0.5 / r1) * append_dims(sigma_t * phi_1, dims) * (noise_s1 - noise_s)
         )
 
     def _order3_update(
@@ -213,25 +212,20 @@ class DPMSolver(ISampler, UncondSamplerMixin):
 
         noise_s = self._denoise(image, vec_s, cond)
         x_s1 = (
-            torch.exp(log_alpha_s1 - log_alpha_s)[(...,) + (None,) * dims] * image
-            - (sigma_s1 * phi_11)[(...,) + (None,) * dims] * noise_s
+            append_dims(torch.exp(log_alpha_s1 - log_alpha_s), dims) * image
+            - append_dims(sigma_s1 * phi_11, dims) * noise_s
         )
         noise_s1 = self._denoise(x_s1, s1, cond)
         x_s2 = (
-            torch.exp(log_alpha_s2 - log_alpha_s)[(...,) + (None,) * dims] * image
-            - (sigma_s2 * phi_12)[(...,) + (None,) * dims] * noise_s
-            - r2
-            / r1
-            * (sigma_s2 * phi_22)[(...,) + (None,) * dims]
-            * (noise_s1 - noise_s)
+            append_dims(torch.exp(log_alpha_s2 - log_alpha_s), dims) * image
+            - append_dims(sigma_s2 * phi_12, dims) * noise_s
+            - r2 / r1 * append_dims(sigma_s2 * phi_22, dims) * (noise_s1 - noise_s)
         )
         noise_s2 = self._denoise(x_s2, s2, cond)
         return (
-            torch.exp(log_alpha_t - log_alpha_s)[(...,) + (None,) * dims] * image
-            - (sigma_t * phi_1)[(...,) + (None,) * dims] * noise_s
-            - (1.0 / r2)
-            * (sigma_t * phi_2)[(...,) + (None,) * dims]
-            * (noise_s2 - noise_s)
+            append_dims(torch.exp(log_alpha_t - log_alpha_s), dims) * image
+            - append_dims(sigma_t * phi_1, dims) * noise_s
+            - (1.0 / r2) * append_dims(sigma_t * phi_2, dims) * (noise_s2 - noise_s)
         )
 
     def _reset_buffers(
