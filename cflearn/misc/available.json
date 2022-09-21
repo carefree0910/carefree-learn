@@ -13,16 +13,16 @@
       "st_size": 2097753
     },
     "clip.chinese": {
-      "sha": "8cc7bb7db8db2e8c5f6e0b9b098e41fa242145b6679bce8f94b0073d7da6e2b3'",
-      "st_size": 386032
+      "sha": "4a5dc5e0123ed9c616f2ddb1592cb534ca462afe826de04bf4f7b258f8970187'",
+      "st_size": 385752
     },
     "clip.chinese_3.8": {
-      "sha": "8cc7bb7db8db2e8c5f6e0b9b098e41fa242145b6679bce8f94b0073d7da6e2b3'",
-      "st_size": 386032
+      "sha": "4a5dc5e0123ed9c616f2ddb1592cb534ca462afe826de04bf4f7b258f8970187'",
+      "st_size": 385752
     },
     "clip.chinese_3.9": {
-      "sha": "5e6edacb6c2231077c774414c3d9f909ad1bfe6a8a923e18bc391f0d6e1f3351",
-      "st_size": 386109
+      "sha": "cfdd767536eff6f151886e9d61e5ecf8f36c87089420f179f914848fc2fd9abb",
+      "st_size": 385751
     }
   },
   "checkpoints": {
