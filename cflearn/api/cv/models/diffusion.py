@@ -438,7 +438,8 @@ class DiffusionAPI(APIMixin):
             normalize=False,
         )
         cond = torch.from_numpy(res.image).to(torch.long).to(self.device)
-        cond = F.one_hot(cond, num_classes=in_channels)[0].float()
+        cond = F.one_hot(cond, num_classes=in_channels)[0]
+        cond = cond.half() if self.use_half else cond.float()
         cond = cond.permute(0, 3, 1, 2).contiguous()
         cond = self.get_cond(cond)
         z = torch.randn_like(cond)
