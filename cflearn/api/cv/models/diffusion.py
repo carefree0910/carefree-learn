@@ -48,6 +48,8 @@ class DiffusionAPI(APIMixin):
     sampler: ISampler
     cond_model: Optional[nn.Module]
     first_stage: Optional[IAutoEncoder]
+    latest_seed: int
+    latest_variation_seed: Optional[int]
 
     def __init__(
         self,
@@ -169,7 +171,10 @@ class DiffusionAPI(APIMixin):
                         if seed is None:
                             seed = new_seed()
                         seed_everything(seed)
+                        self.latest_seed = seed
                         i_z = torch.randn(i_z_shape, device=self.device)
+                        # variation stuffs
+                        self.latest_variation_seed = None
                         if variations is not None:
                             for v_seed, v_weight in variations:
                                 seed_everything(v_seed)
@@ -179,6 +184,7 @@ class DiffusionAPI(APIMixin):
                             random.seed()
                             v_seed = new_seed()
                             seed_everything(v_seed)
+                            self.latest_variation_seed = v_seed
                             v_z = torch.randn(i_z_shape, device=self.device)
                             i_z = slerp(v_z, i_z, variation_strength)
                     if unconditional:
