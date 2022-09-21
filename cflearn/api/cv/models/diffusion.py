@@ -499,7 +499,7 @@ class DiffusionAPI(APIMixin):
         if self.use_half:
             z = z.half()
         z = z.to(self.device)
-        z = self.m._preprocess(z)
+        z = self.m._preprocess(z, deterministic=True)
         return z
 
     def _img2img(

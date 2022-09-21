@@ -166,10 +166,10 @@ class LDM(DDPM):
         net = self._from_latent(latent)
         return net
 
-    def _preprocess(self, net: Tensor) -> Tensor:
+    def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
         net = self.first_stage.core.encode(net)
         if isinstance(net, GaussianDistribution):
-            net = net.sample()
+            net = net.mode() if deterministic else net.sample()
         net = self.scale_factor * net
         return net
 

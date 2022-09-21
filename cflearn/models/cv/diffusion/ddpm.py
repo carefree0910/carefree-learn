@@ -460,7 +460,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             noise,
         )
 
-    def _preprocess(self, net: Tensor) -> Tensor:
+    def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
         return net
 
     def _get_cond(self, cond: Any) -> Tensor:
