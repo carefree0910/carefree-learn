@@ -20,7 +20,7 @@ class InferenceResults(NamedTuple):
 
 def predict_paths(
     m: CVPipeline,
-    paths: str,
+    paths: List[str],
     *,
     batch_size: int,
     num_workers: int = 0,
