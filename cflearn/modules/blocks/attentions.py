@@ -540,7 +540,7 @@ class CrossAttention(Module):
                 raise ValueError(msg)
             size = b * self.num_heads
             # (B * head, Tq, dim)
-            net = torch.zeros(size, tq, v.shape[2], device=q.device)
+            net = torch.zeros(size, tq, v.shape[2], dtype=q.dtype, device=q.device)
             for i in range(0, size, self.attn_split_chunk):
                 end = i + self.attn_split_chunk
                 i_mat = torch.einsum("b i d, b j d -> b i j", q[i:end], k[i:end])

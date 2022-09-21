@@ -76,7 +76,12 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         t_next = self.ddim_timesteps[max(index - 1, 0)]
         self._ts = get_timesteps(t, b, device)
         self._ts_next = get_timesteps(t_next, b, device)
-        extract = lambda base: torch.full((b, 1, 1, 1), base[index], device=device)
+        extract = lambda base: torch.full(
+            (b, 1, 1, 1),
+            base[index],
+            dtype=image.dtype,
+            device=device,
+        )
         self._at = extract(self.ddim_alphas)
         self._a_prev_t = extract(self.ddim_alphas_prev)
         self._sigmas_t = extract(self.ddim_sigmas)
@@ -134,6 +139,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.ddim_alphas = alphas[ddim_timesteps]
         self.ddim_alphas_prev = torch.tensor(
             [alphas[0]] + alphas[ddim_timesteps[:-1]].tolist(),
+            dtype=alphas.dtype,
             device=self.model.device,
         )
         self.ddim_sigmas = eta * torch.sqrt(

@@ -50,6 +50,7 @@ def timestep_embedding(
     timesteps: Tensor,
     output_dim: int,
     *,
+    dtype: torch.dtype,
     max_period: int = 10000,
     repeat_only: bool = False,
 ) -> Tensor:
@@ -65,6 +66,7 @@ def timestep_embedding(
     embedding = torch.cat([torch.cos(args), torch.sin(args)], dim=-1)
     if output_dim % 2:
         embedding = torch.cat([embedding, torch.zeros_like(embedding[:, :1])], dim=-1)
+    embedding = embedding.to(dtype)
     return embedding
 
 
@@ -90,7 +92,6 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         use_scale_shift_norm: bool = False,
         num_classes: Optional[int] = None,
         # misc
-        use_fp16: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
     ):
@@ -109,7 +110,6 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         self.resample_with_conv = resample_with_conv
         self.use_scale_shift_norm = use_scale_shift_norm
         self.num_classes = num_classes
-        self.dtype = torch.float16 if use_fp16 else torch.float32
         self.use_checkpoint = use_checkpoint
         self.attn_split_chunk = attn_split_chunk
 
@@ -259,14 +259,17 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
     ) -> Tensor:
         if (labels is None) ^ (self.num_classes is None):
             raise ValueError("`labels` should be given iff `num_classes` is specified")
-        time_net = timestep_embedding(timesteps, self.start_channels, repeat_only=False)
+        time_net = timestep_embedding(
+            timesteps,
+            self.start_channels,
+            dtype=net.dtype,
+            repeat_only=False,
+        )
         time_net = self.time_embedding(time_net)
 
         if self.label_embedding is not None:
             time_net = time_net + self.label_embedding(labels)
 
-        inp_dtype = net.dtype
-        net = net.to(self.dtype)
         nets = []
         for block in self.input_blocks:
             net = block(net, time_net, context)
@@ -275,7 +278,6 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         for block in self.output_blocks:
             net = torch.cat([net, nets.pop()], dim=1)
             net = block(net, time_net, context)
-        net = net.to(inp_dtype)
         net = self.head(net)
         return net
 

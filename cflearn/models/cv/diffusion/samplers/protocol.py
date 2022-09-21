@@ -135,7 +135,10 @@ class UncondSamplerMixin:
             self.uncond_guidance_scale = unconditional_guidance_scale
 
     def _uncond_denoise(
-        self, image: Tensor, ts: Tensor, cond: Optional[Tensor]
+        self,
+        image: Tensor,
+        ts: Tensor,
+        cond: Optional[Tensor],
     ) -> Tensor:
         if cond is None or self.uncond is None:
             return self.model.denoise(image, ts, cond)
