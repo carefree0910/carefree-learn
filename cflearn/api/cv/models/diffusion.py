@@ -102,6 +102,21 @@ class DiffusionAPI(APIMixin):
                 sampler_ins.unconditional_guidance_scale = current_guidance
         self.sampler = self.m.sampler = sampler_ins
 
+    def switch_circular(self, enable: bool) -> None:
+        def _inject(m: nn.Module) -> None:
+            for child in m.children():
+                _inject(child)
+            modules.append(m)
+
+        padding_mode = "circular" if enable else "zeros"
+        modules: List[nn.Module] = []
+        _inject(self.m)
+        for module in modules:
+            if isinstance(module, nn.Conv2d):
+                module.padding_mode = padding_mode
+            elif isinstance(module, Conv2d):
+                module.padding = padding_mode
+
     def sample(
         self,
         num_samples: int,
@@ -442,21 +457,6 @@ class DiffusionAPI(APIMixin):
             verbose=verbose,
             **kwargs,
         )
-
-    def switch_circular(self, enable: bool) -> None:
-        def _inject(m: nn.Module) -> None:
-            for child in m.children():
-                _inject(child)
-            modules.append(m)
-
-        padding_mode = "circular" if enable else "zeros"
-        modules: List[nn.Module] = []
-        _inject(self.m)
-        for module in modules:
-            if isinstance(module, nn.Conv2d):
-                module.padding_mode = padding_mode
-            elif isinstance(module, Conv2d):
-                module.padding = padding_mode
 
     @classmethod
     def from_sd(
