@@ -554,6 +554,11 @@ class DiffusionAPI(APIMixin):
         z: Tensor,
         export_path: Optional[str] = None,
         *,
+        seed: Optional[int] = None,
+        # each variation contains (seed, weight)
+        variations: Optional[List[Tuple[int, float]]] = None,
+        variation_seed: Optional[int] = None,
+        variation_strength: Optional[float] = None,
         fidelity: float = 0.2,
         original_size: Optional[Tuple[int, int]] = None,
         alpha: Optional[np.ndarray] = None,
@@ -572,7 +577,13 @@ class DiffusionAPI(APIMixin):
             kw = shallow_copy_dict(self.sampler.sample_kwargs)
             kw["total_step"] = num_steps
             safe_execute(self.sampler._reset_buffers, kw)
-        z = self.sampler.q_sample(z, ts)
+        z = self._set_seed_and_variations(
+            seed,
+            lambda: self.sampler.q_sample(z, ts),
+            variations,
+            variation_seed,
+            variation_strength,
+        )
         kwargs["start_step"] = num_steps - t
         # sampling
         return self.sample(
