@@ -100,7 +100,7 @@ class DiffusionAPI(APIMixin):
         if current_guidance is not None:
             if hasattr(sampler_ins, "unconditional_guidance_scale"):
                 sampler_ins.unconditional_guidance_scale = current_guidance
-        self.m.sampler = sampler_ins
+        self.sampler = self.m.sampler = sampler_ins
 
     def sample(
         self,
