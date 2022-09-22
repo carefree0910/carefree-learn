@@ -37,10 +37,10 @@ from ....modules.blocks import Conv2d
 from ....models.cv.diffusion import LDM
 from ....models.cv.diffusion import DDPM
 from ....models.cv.diffusion import ISampler
-from ....models.cv.diffusion import DDIMSampler
-from ....models.cv.diffusion import PLMSSampler
 from ....models.cv.ae.common import IAutoEncoder
 from ....models.cv.diffusion.utils import get_timesteps
+from ....models.cv.diffusion.samplers.ddim import DDIMMixin
+from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
 
 class DiffusionAPI(APIMixin):
@@ -552,7 +552,7 @@ class DiffusionAPI(APIMixin):
             num_steps = self.sampler.default_steps
         t = round((1.0 - fidelity) * num_steps)
         ts = get_timesteps(t, 1, z.device)
-        if isinstance(self.sampler, (DDIMSampler, PLMSSampler)):
+        if isinstance(self.sampler, (DDIMMixin, KSamplerMixin)):
             kw = shallow_copy_dict(self.sampler.sample_kwargs)
             kw["total_step"] = num_steps
             safe_execute(self.sampler._reset_buffers, kw)
