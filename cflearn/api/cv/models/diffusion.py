@@ -568,6 +568,11 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
+        # switch sampler
+        previous_sampler = None
+        if self.sampler.__identifier__ != "ddim":
+            previous_sampler = self.sampler.__identifier__
+            self.switch_sampler("ddim")
         # perturb z
         if num_steps is None:
             num_steps = self.sampler.default_steps
@@ -586,7 +591,7 @@ class DiffusionAPI(APIMixin):
         )
         kwargs["start_step"] = num_steps - t
         # sampling
-        return self.sample(
+        sampled = self.sample(
             1,
             export_path,
             z=z,
@@ -598,6 +603,10 @@ class DiffusionAPI(APIMixin):
             verbose=verbose,
             **kwargs,
         )
+        # switch sampler
+        if previous_sampler is not None:
+            self.switch_sampler(previous_sampler)
+        return sampled
 
 
 def _ldm(
