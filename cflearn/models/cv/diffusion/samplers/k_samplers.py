@@ -16,6 +16,7 @@ from .utils import append_dims
 from .utils import append_zero
 from .protocol import ISampler
 from .protocol import IDiffusion
+from .protocol import QSampleMixin
 from .protocol import UncondSamplerMixin
 
 try:
@@ -33,7 +34,7 @@ class IGetDenoised(Protocol):
         pass
 
 
-class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
+class KSamplerMixin(QSampleMixin, ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def __init__(
         self,
         model: IDiffusion,
@@ -78,9 +79,6 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             unconditional_cond=self.unconditional_cond,
             unconditional_guidance_scale=self.unconditional_guidance_scale,
         )
-
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        pass
 
     def sample_step(
         self,
@@ -152,6 +150,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
     ) -> None:
+        self._reset_q_buffers("uniform", total_step)
         alphas = self.model.alphas_cumprod
         self.sigmas_base = ((1.0 - alphas) / alphas) ** 0.5
         t_max = len(self.sigmas_base) - 1
