@@ -169,26 +169,13 @@ class DiffusionAPI(APIMixin):
                         i_z = z.repeat_interleave(len(i_cond), dim=0)
                     else:
                         i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
-                        if seed is None:
-                            seed = new_seed()
-                        seed_everything(seed)
-                        self.latest_seed = seed
-                        i_z = torch.randn(i_z_shape, device=self.device)
-                        # variation stuffs
-                        self.latest_variation_seed = None
-                        if variations is not None:
-                            for v_seed, v_weight in variations:
-                                seed_everything(v_seed)
-                                v_z = torch.randn(i_z_shape, device=self.device)
-                                i_z = slerp(v_z, i_z, v_weight)
-                        if variation_strength is not None:
-                            random.seed()
-                            if variation_seed is None:
-                                variation_seed = new_seed()
-                            seed_everything(variation_seed)
-                            self.latest_variation_seed = variation_seed
-                            v_z = torch.randn(i_z_shape, device=self.device)
-                            i_z = slerp(v_z, i_z, variation_strength)
+                        i_z = self._set_seed_and_variations(
+                            seed,
+                            lambda: torch.randn(i_z_shape, device=self.device),
+                            variations,
+                            variation_seed,
+                            variation_strength,
+                        )
                     if unconditional:
                         i_cond = None
                     if z_ref is not None and z_ref_mask is not None:
@@ -531,6 +518,35 @@ class DiffusionAPI(APIMixin):
             z = z.half()
         z = z.to(self.device)
         z = self.m._preprocess(z, deterministic=True)
+        return z
+
+    def _set_seed_and_variations(
+        self,
+        seed: Optional[int],
+        get_new_z: Callable[[], Tensor],
+        variations: Optional[List[Tuple[int, float]]],
+        variation_seed: Optional[int],
+        variation_strength: Optional[float],
+    ) -> Tensor:
+        if seed is None:
+            seed = new_seed()
+        seed = seed_everything(seed)
+        self.latest_seed = seed
+        z = get_new_z()
+        self.latest_variation_seed = None
+        if variations is not None:
+            for v_seed, v_weight in variations:
+                seed_everything(v_seed)
+                nz = get_new_z()
+                z = slerp(nz, z, v_weight)
+        if variation_strength is not None:
+            random.seed()
+            if variation_seed is None:
+                variation_seed = new_seed()
+            variation_seed = seed_everything(variation_seed)
+            self.latest_variation_seed = variation_seed
+            nz = get_new_z()
+            z = slerp(nz, z, variation_strength)
         return z
 
     def _img2img(
