@@ -1,5 +1,7 @@
+import math
 import torch
 
+import numpy as np
 import torch.nn as nn
 
 from abc import abstractmethod
@@ -16,6 +18,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
+from ..utils import q_sample
 from ..utils import get_timesteps
 
 
@@ -114,6 +117,33 @@ class ISampler(WithRegister, metaclass=ABCMeta):
                 ref_noisy = self.q_sample(ref, ref_ts)
                 image = ref_noisy * ref_mask + image * (1.0 - ref_mask)
         return image
+
+
+class QSampleMixin:
+    model: IDiffusion
+
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
+        return q_sample(
+            net,
+            timesteps,
+            torch.sqrt(self.q_alphas),
+            self.q_sqrt_one_minus_alphas,
+        )
+
+    def _reset_q_buffers(self, discretize: str, total_step: int) -> None:
+        if discretize == "uniform":
+            span = self.model.t // total_step
+            q_timesteps = np.array(list(range(0, self.model.t, span)))
+        elif discretize == "quad":
+            end = math.sqrt(self.model.t * 0.8)
+            q_timesteps = (np.linspace(0, end, total_step) ** 2).astype(int)
+        else:
+            raise ValueError(f"unrecognized discretize method '{discretize}' occurred")
+        q_timesteps += 1
+        alphas = self.model.alphas_cumprod
+        self.q_alphas = alphas[q_timesteps]
+        self.q_timesteps = q_timesteps
+        self.q_sqrt_one_minus_alphas = torch.sqrt(1.0 - self.q_alphas)
 
 
 class UncondSamplerMixin:
