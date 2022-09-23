@@ -113,7 +113,7 @@ class ISampler(WithRegister, metaclass=ABCMeta):
             update_dict(shallow_copy_dict(kwargs), kw)
             image = self.sample_step(image, cond, step, num_steps, **kw)
             if ref is not None and ref_mask is not None:
-                ref_ts = get_timesteps(num_steps - step - 1, 1, z.device)
+                ref_ts = get_timesteps(num_steps - step - 1, ref.shape[0], z.device)
                 ref_noisy = self.q_sample(ref, ref_ts)
                 image = ref_noisy * ref_mask + image * (1.0 - ref_mask)
         return image
