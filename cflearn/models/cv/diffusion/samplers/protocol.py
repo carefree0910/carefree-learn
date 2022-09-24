@@ -1,11 +1,8 @@
-import math
 import torch
 
-import numpy as np
 import torch.nn as nn
 
 from abc import abstractmethod
-from abc import ABCMeta
 from tqdm import tqdm
 from torch import Tensor
 from typing import Any
@@ -18,7 +15,7 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
-from ..utils import q_sample
+from ..utils import extract_to
 from ..utils import get_timesteps
 
 
@@ -55,7 +52,7 @@ class IDiffusion:
     alphas_cumprod_prev: Tensor
 
 
-class ISampler(WithRegister, metaclass=ABCMeta):
+class ISampler(WithRegister):
     d = samplers
 
     default_steps: int
@@ -119,31 +116,42 @@ class ISampler(WithRegister, metaclass=ABCMeta):
         return image
 
 
-class QSampleMixin:
-    model: IDiffusion
+class IQSampler:
+    def __init__(self, model: IDiffusion):
+        self.model = model
 
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        return q_sample(
-            net,
-            timesteps,
-            torch.sqrt(self.q_alphas),
-            self.q_sqrt_one_minus_alphas,
-        )
+    @abstractmethod
+    def q_sample(
+        self,
+        net: Tensor,
+        timesteps: Tensor,
+        noise: Optional[Tensor] = None,
+    ) -> Tensor:
+        pass
 
-    def _reset_q_buffers(self, discretize: str, total_step: int) -> None:
-        if discretize == "uniform":
-            span = self.model.t // total_step
-            q_timesteps = np.array(list(range(0, self.model.t, span)))
-        elif discretize == "quad":
-            end = math.sqrt(self.model.t * 0.8)
-            q_timesteps = (np.linspace(0, end, total_step) ** 2).astype(int)
-        else:
-            raise ValueError(f"unrecognized discretize method '{discretize}' occurred")
-        q_timesteps += 1
-        alphas = self.model.alphas_cumprod
-        self.q_alphas = alphas[q_timesteps]
-        self.q_timesteps = q_timesteps
-        self.q_sqrt_one_minus_alphas = torch.sqrt(1.0 - self.q_alphas)
+    @abstractmethod
+    def reset_buffers(self, **kwargs: Any) -> None:
+        pass
+
+
+class DDPMQSampler(IQSampler):
+    def q_sample(
+        self,
+        net: Tensor,
+        timesteps: Tensor,
+        noise: Optional[Tensor] = None,
+    ) -> Tensor:
+        num_dim = len(net.shape)
+        w_net = extract_to(self.sqrt_alphas, timesteps, num_dim)
+        w_noise = extract_to(self.sqrt_one_minus_alphas, timesteps, num_dim)
+        if noise is None:
+            noise = torch.randn_like(net)
+        net = w_net * net + w_noise * noise
+        return net
+
+    def reset_buffers(self, sqrt_alpha: Tensor, sqrt_one_minus_alpha: Tensor) -> None:  # type: ignore
+        self.sqrt_alphas = sqrt_alpha
+        self.sqrt_one_minus_alphas = sqrt_one_minus_alpha
 
 
 class UncondSamplerMixin:
@@ -182,4 +190,6 @@ class UncondSamplerMixin:
 
 __all__ = [
     "ISampler",
+    "IQSampler",
+    "DDPMQSampler",
 ]

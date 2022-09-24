@@ -9,12 +9,11 @@ from typing import Optional
 from .utils import append_dims
 from .protocol import ISampler
 from .protocol import IDiffusion
-from .protocol import QSampleMixin
 from .protocol import UncondSamplerMixin
 
 
 @ISampler.register("solver")
-class DPMSolver(QSampleMixin, ISampler, UncondSamplerMixin):
+class DPMSolver(ISampler, UncondSamplerMixin):
     def __init__(
         self,
         model: IDiffusion,
@@ -114,6 +113,9 @@ class DPMSolver(QSampleMixin, ISampler, UncondSamplerMixin):
         if order == 3:
             return self._order3_update(image, cond, vec_s, vec_t)
         raise ValueError(f"unrecognized order '{order}' occurred")
+
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
+        raise ValueError("`DPMSolver` does not support `q_sample`")
 
     # internal
 
@@ -237,7 +239,6 @@ class DPMSolver(QSampleMixin, ISampler, UncondSamplerMixin):
         skip_type: str,
         fast_version: bool,
     ) -> None:
-        self._reset_q_buffers("uniform", total_step)
         if fast_version:
             K = total_step // 3 + 1
             if total_step % 3 == 0:

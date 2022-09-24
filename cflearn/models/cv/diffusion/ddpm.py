@@ -18,9 +18,9 @@ from cftool.array import to_torch
 from cftool.types import tensor_dict_type
 
 from .unet import UNetDiffuser
-from .utils import q_sample
 from .utils import get_timesteps
 from .samplers import ISampler
+from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
 from ...protocols import GaussianGeneratorMixin
@@ -271,6 +271,11 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             self.log_var = nn.Parameter(log_var, requires_grad=True)
         # sampler
         self.switch_sampler(sampler, sampler_config)
+        self.q_sampler = DDPMQSampler(self)
+        self.q_sampler.reset_buffers(
+            self.sqrt_alphas_cumprod,
+            self.sqrt_one_minus_alphas_cumprod,
+        )
 
     @property
     def can_reconstruct(self) -> bool:
@@ -452,13 +457,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         timesteps: Tensor,
         noise: Optional[Tensor] = None,
     ) -> Tensor:
-        return q_sample(
-            net,
-            timesteps,
-            self.sqrt_alphas_cumprod,
-            self.sqrt_one_minus_alphas_cumprod,
-            noise,
-        )
+        return self.q_sampler.q_sample(net, timesteps, noise)
 
     def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
         return net

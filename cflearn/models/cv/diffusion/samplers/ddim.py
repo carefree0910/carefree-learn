@@ -1,5 +1,7 @@
+import math
 import torch
 
+import numpy as np
 import torch.nn.functional as F
 
 from abc import abstractmethod
@@ -13,7 +15,7 @@ from typing import Protocol
 
 from .protocol import ISampler
 from .protocol import IDiffusion
-from .protocol import QSampleMixin
+from .protocol import DDPMQSampler
 from .protocol import UncondSamplerMixin
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
@@ -29,7 +31,24 @@ class IGetDenoised(Protocol):
         pass
 
 
-class DDIMMixin(QSampleMixin, ISampler, UncondSamplerMixin, metaclass=ABCMeta):
+class DDIMQSampler(DDPMQSampler):
+    def reset_buffers(self, discretize: str, total_step: int) -> None:  # type: ignore
+        if discretize == "uniform":
+            span = self.model.t // total_step
+            q_timesteps = np.array(list(range(0, self.model.t, span)))
+        elif discretize == "quad":
+            end = math.sqrt(self.model.t * 0.8)
+            q_timesteps = (np.linspace(0, end, total_step) ** 2).astype(int)
+        else:
+            raise ValueError(f"unrecognized discretize method '{discretize}' occurred")
+        q_timesteps += 1
+        alphas = self.model.alphas_cumprod
+        self.alphas = alphas[q_timesteps]
+        self.timesteps = q_timesteps
+        super().reset_buffers(torch.sqrt(self.alphas), torch.sqrt(1.0 - self.alphas))
+
+
+class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def __init__(
         self,
         model: IDiffusion,
@@ -140,6 +159,9 @@ class DDIMMixin(QSampleMixin, ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             **kwargs,
         )
 
+    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
+        return self.q_sampler.q_sample(net, timesteps)
+
     # internal
 
     def _register_temp_buffers(self, image: Tensor, step: int, total_step: int) -> None:
@@ -198,11 +220,12 @@ class DDIMMixin(QSampleMixin, ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
     ) -> None:
-        self._reset_q_buffers(discretize, total_step)
+        self.q_sampler = DDIMQSampler(self.model)
+        self.q_sampler.reset_buffers(discretize, total_step)
         alphas = self.model.alphas_cumprod
-        self.ddim_alphas = self.q_alphas
+        self.ddim_alphas = self.q_sampler.alphas
         self.ddim_alphas_prev = torch.tensor(
-            [alphas[0]] + alphas[self.q_timesteps[:-1]].tolist(),
+            [alphas[0]] + alphas[self.q_sampler.timesteps[:-1]].tolist(),
             dtype=alphas.dtype,
             device=self.model.device,
         )
@@ -211,8 +234,8 @@ class DDIMMixin(QSampleMixin, ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             / (1.0 - self.ddim_alphas)
             * (1.0 - self.ddim_alphas / self.ddim_alphas_prev)
         )
-        self.ddim_sqrt_one_minus_alphas = self.q_sqrt_one_minus_alphas
-        self.ddim_timesteps = self.q_timesteps.tolist()
+        self.ddim_sqrt_one_minus_alphas = self.q_sampler.sqrt_one_minus_alphas
+        self.ddim_timesteps = self.q_sampler.timesteps.tolist()
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
