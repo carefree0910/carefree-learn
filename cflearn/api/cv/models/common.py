@@ -3,18 +3,27 @@ import torch
 import numpy as np
 import torch.nn as nn
 
+from abc import abstractmethod
 from PIL import Image
 from typing import Any
+from typing import Dict
 from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import TypeVar
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import WithRegister
+from cftool.misc import safe_execute
+from cftool.misc import shallow_copy_dict
 from torch.cuda.amp.autocast_mode import autocast
 
 from ....pipeline import DLPipeline
 
+try:
+    import cv2
+except:
+    cv2 = None
 try:
     from cfcv.misc.toolkit import to_rgb
 except:
@@ -42,6 +51,53 @@ class ReadImageResponse(NamedTuple):
     original_size: Tuple[int, int]
 
 
+padding_modes: Dict[str, Type["Padding"]] = {}
+
+
+class Padding(WithRegister):
+    d = padding_modes
+
+    @abstractmethod
+    def pad(self, image: Image.Image, alpha: Image.Image, **kwargs: Any) -> Image.Image:
+        pass
+
+
+@Padding.register("cv2_ns")
+class CV2NS(Padding):
+    def pad(
+        self,
+        image: Image.Image,
+        alpha: Image.Image,
+        *,
+        radius: int = 5,
+        **kwargs: Any,
+    ) -> Image.Image:
+        if cv2 is None:
+            raise ValueError("`cv2` is needed for `CV2NS`")
+        img_arr = np.array(image.convert("RGB"))[..., ::-1]
+        mask_arr = np.array(alpha)
+        rs = cv2.inpaint(img_arr, 255 - mask_arr, radius, cv2.INPAINT_NS)
+        return Image.fromarray(rs[..., ::-1])
+
+
+@Padding.register("cv2_telea")
+class CV2Telea(Padding):
+    def pad(
+        self,
+        image: Image.Image,
+        alpha: Image.Image,
+        *,
+        radius: int = 5,
+        **kwargs: Any,
+    ) -> Image.Image:
+        if cv2 is None:
+            raise ValueError("`cv2` is needed for `CV2Telea`")
+        img_arr = np.array(image.convert("RGB"))[..., ::-1]
+        mask_arr = np.array(alpha)
+        rs = cv2.inpaint(img_arr, 255 - mask_arr, radius, cv2.INPAINT_TELEA)
+        return Image.fromarray(rs[..., ::-1])
+
+
 def read_image(
     image: Union[str, Image.Image],
     max_wh: int,
@@ -51,6 +107,8 @@ def read_image(
     to_mask: bool = False,
     resample: Any = Image.LANCZOS,
     normalize: bool = True,
+    padding_mode: Optional[str] = None,
+    padding_kwargs: Optional[Dict[str, Any]] = None,
 ) -> ReadImageResponse:
     if to_rgb is None:
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
@@ -60,7 +118,13 @@ def read_image(
     if image.mode == "RGBA":
         alpha = image.split()[3]
     if not to_mask and not to_gray:
-        image = to_rgb(image)
+        if alpha is None or padding_mode is None:
+            image = to_rgb(image)
+        else:
+            padding = Padding.make(padding_mode, {})
+            padding_kw = shallow_copy_dict(padding_kwargs or {})
+            padding_kw.update(dict(image=image, alpha=alpha))
+            image = safe_execute(padding.pad, padding_kw)
     else:
         if to_mask and to_gray:
             raise ValueError("`to_mask` & `to_gray` should not be True simultaneously")
