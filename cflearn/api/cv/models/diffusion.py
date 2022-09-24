@@ -184,9 +184,10 @@ class DiffusionAPI(APIMixin):
                         i_z = z.repeat_interleave(len(i_cond), dim=0)
                     else:
                         i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
-                        i_z = self._set_seed_and_variations(
+                        i_z, _ = self._set_seed_and_variations(
                             seed,
                             lambda: torch.randn(i_z_shape, device=self.device),
+                            lambda noise: noise,
                             variations,
                             variation_seed,
                             variation_strength,
@@ -523,31 +524,35 @@ class DiffusionAPI(APIMixin):
     def _set_seed_and_variations(
         self,
         seed: Optional[int],
-        get_new_z: Callable[[], Tensor],
+        get_noise: Callable[[], Tensor],
+        get_new_z: Callable[[Tensor], Tensor],
         variations: Optional[List[Tuple[int, float]]],
         variation_seed: Optional[int],
         variation_strength: Optional[float],
-    ) -> Tensor:
+    ) -> Tuple[Tensor, Tensor]:
         if seed is None:
             seed = new_seed()
         seed = seed_everything(seed)
         self.latest_seed = seed
-        z = get_new_z()
+        noise = get_noise()
+        z = get_new_z(noise)
         self.latest_variation_seed = None
         if variations is not None:
             for v_seed, v_weight in variations:
                 seed_everything(v_seed)
-                nz = get_new_z()
-                z = slerp(nz, z, v_weight)
+                v_noise = get_noise()
+                vz = get_new_z(v_noise)
+                z = slerp(vz, z, v_weight)
         if variation_strength is not None:
             random.seed()
             if variation_seed is None:
                 variation_seed = new_seed()
             variation_seed = seed_everything(variation_seed)
             self.latest_variation_seed = variation_seed
-            nz = get_new_z()
-            z = slerp(nz, z, variation_strength)
-        return z
+            variation_noise = get_noise()
+            vz = get_new_z(variation_noise)
+            z = slerp(vz, z, variation_strength)
+        return z, noise
 
     def _img2img(
         self,
@@ -577,9 +582,10 @@ class DiffusionAPI(APIMixin):
             kw = shallow_copy_dict(self.sampler.sample_kwargs)
             kw["total_step"] = num_steps
             safe_execute(self.sampler._reset_buffers, kw)
-        z = self._set_seed_and_variations(
+        z, noise = self._set_seed_and_variations(
             seed,
-            lambda: self.sampler.q_sample(z, ts),
+            lambda: torch.randn_like(z),
+            lambda noise_: self.sampler.q_sample(z, ts, noise_),
             variations,
             variation_seed,
             variation_strength,
