@@ -15,8 +15,10 @@ from typing import Protocol
 from .utils import append_dims
 from .utils import append_zero
 from .protocol import ISampler
+from .protocol import IQSampler
 from .protocol import IDiffusion
 from .protocol import UncondSamplerMixin
+from ..utils import extract_to
 
 try:
     from scipy import integrate
@@ -31,6 +33,23 @@ def to_d(image: Tensor, sigma: Tensor, denoised: Tensor) -> Tensor:
 class IGetDenoised(Protocol):
     def __call__(self, img: Tensor) -> Tensor:
         pass
+
+
+class KQSampler(IQSampler):
+    def q_sample(
+        self,
+        net: Tensor,
+        timesteps: Tensor,
+        noise: Optional[Tensor] = None,
+    ) -> Tensor:
+        w_noise = extract_to(self.sigmas, timesteps, net.ndim)
+        if noise is None:
+            noise = torch.randn_like(net)
+        net = net + w_noise * noise
+        return net
+
+    def reset_buffers(self, sigmas: Tensor) -> None:  # type: ignore
+        self.sigmas = sigmas
 
 
 class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
@@ -80,7 +99,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         )
 
     def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        pass
+        return self.q_sampler.q_sample(net, timesteps)
 
     def sample_step(
         self,
@@ -159,6 +178,9 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.sigmas = append_zero(self._t_to_sigma(ts)).to(alphas.dtype)
         self.sigma_data = 1.0
         self.quantize = quantize
+        # q sampling
+        self.q_sampler = KQSampler(self.model)
+        self.q_sampler.reset_buffers(self.sigmas.flip(0))
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
