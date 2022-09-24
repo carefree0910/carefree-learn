@@ -8,6 +8,7 @@ from typing import Optional
 
 from .utils import append_dims
 from .protocol import ISampler
+from .protocol import IQSampler
 from .protocol import IDiffusion
 from .protocol import UncondSamplerMixin
 
@@ -57,6 +58,10 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         self.skip_type = skip_type
         self.fast_version = fast_version
         self.default_steps = default_steps
+
+    @property
+    def q_sampler(self) -> IQSampler:
+        raise NotImplementedError("`DPMSolver` has not implemented `q_sampler` yet")
 
     @property
     def sample_kwargs(self) -> Dict[str, Any]:
@@ -113,9 +118,6 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         if order == 3:
             return self._order3_update(image, cond, vec_s, vec_t)
         raise ValueError(f"unrecognized order '{order}' occurred")
-
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        raise ValueError("`DPMSolver` does not support `q_sample`")
 
     # internal
 

@@ -4,10 +4,10 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Optional
-from cftool.types import tensor_dict_type
 
 from .protocol import ISampler
 from .protocol import IDiffusion
+from .protocol import DDPMQSampler
 from ..utils import extract_to
 from ..utils import get_timesteps
 
@@ -28,11 +28,12 @@ class BasicSampler(ISampler):
         self.default_steps = default_steps
 
     @property
+    def q_sampler(self) -> DDPMQSampler:
+        return self.model.q_sampler
+
+    @property
     def sample_kwargs(self) -> Dict[str, Any]:
         return dict(temperature=self.temperature)
-
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        return self.model._q_sample(net, timesteps)
 
     def sample_step(
         self,

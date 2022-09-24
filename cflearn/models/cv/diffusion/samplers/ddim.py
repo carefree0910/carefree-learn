@@ -100,6 +100,10 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     # inheritance
 
     @property
+    def q_sampler(self) -> DDIMQSampler:
+        return self._q_sampler
+
+    @property
     def sample_kwargs(self) -> Dict[str, Any]:
         return dict(
             eta=self.eta,
@@ -159,9 +163,6 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             **kwargs,
         )
 
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        return self.q_sampler.q_sample(net, timesteps)
-
     # internal
 
     def _register_temp_buffers(self, image: Tensor, step: int, total_step: int) -> None:
@@ -220,12 +221,12 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         unconditional_cond: Optional[Any],
         unconditional_guidance_scale: float,
     ) -> None:
-        self.q_sampler = DDIMQSampler(self.model)
-        self.q_sampler.reset_buffers(discretize, total_step)
+        self._q_sampler = DDIMQSampler(self.model)
+        self._q_sampler.reset_buffers(discretize, total_step)
         alphas = self.model.alphas_cumprod
-        self.ddim_alphas = self.q_sampler.alphas
+        self.ddim_alphas = self._q_sampler.alphas
         self.ddim_alphas_prev = torch.tensor(
-            [alphas[0]] + alphas[self.q_sampler.timesteps[:-1]].tolist(),
+            [alphas[0]] + alphas[self._q_sampler.timesteps[:-1]].tolist(),
             dtype=alphas.dtype,
             device=self.model.device,
         )
@@ -234,8 +235,8 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             / (1.0 - self.ddim_alphas)
             * (1.0 - self.ddim_alphas / self.ddim_alphas_prev)
         )
-        self.ddim_sqrt_one_minus_alphas = self.q_sampler.sqrt_one_minus_alphas
-        self.ddim_timesteps = self.q_sampler.timesteps.tolist()
+        self.ddim_sqrt_one_minus_alphas = self._q_sampler.sqrt_one_minus_alphas
+        self.ddim_timesteps = self._q_sampler.timesteps.tolist()
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 

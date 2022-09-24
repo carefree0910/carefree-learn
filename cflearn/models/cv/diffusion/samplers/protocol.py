@@ -34,9 +34,9 @@ class Denoise(Protocol):
 
 class IDiffusion:
     _get_cond: Callable
-    _q_sample: Callable
 
     denoise: Denoise
+    q_sampler: "DDPMQSampler"
     condition_model: Optional[nn.Module]
     first_stage: nn.Module
     device: torch.device
@@ -50,70 +50,6 @@ class IDiffusion:
     betas: Tensor
     alphas_cumprod: Tensor
     alphas_cumprod_prev: Tensor
-
-
-class ISampler(WithRegister):
-    d = samplers
-
-    default_steps: int
-
-    def __init__(self, model: IDiffusion):
-        self.model = model
-
-    @property
-    @abstractmethod
-    def sample_kwargs(self) -> Dict[str, Any]:
-        pass
-
-    @abstractmethod
-    def sample_step(
-        self,
-        image: Tensor,
-        cond: Optional[Tensor],
-        step: int,
-        total_step: int,
-        **kwargs: Any,
-    ) -> Tensor:
-        pass
-
-    @abstractmethod
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        pass
-
-    def sample(
-        self,
-        z: Tensor,
-        *,
-        ref: Optional[Tensor] = None,
-        ref_mask: Optional[Tensor] = None,
-        cond: Optional[Any] = None,
-        num_steps: Optional[int] = None,
-        start_step: Optional[int] = None,
-        verbose: bool = True,
-        **kwargs: Any,
-    ) -> Tensor:
-        # setup
-        if num_steps is None:
-            num_steps = getattr(self, "default_steps", self.model.t)
-            assert isinstance(num_steps, int)
-        if start_step is None:
-            start_step = 0
-        iterator = list(range(start_step, num_steps))
-        if verbose:
-            iterator = tqdm(iterator, desc=f"sampling ({self.__identifier__})")
-        # execute
-        image = z
-        if cond is not None and self.model.condition_model is not None:
-            cond = self.model._get_cond(cond)
-        for step in iterator:
-            kw = shallow_copy_dict(self.sample_kwargs)
-            update_dict(shallow_copy_dict(kwargs), kw)
-            image = self.sample_step(image, cond, step, num_steps, **kw)
-            if ref is not None and ref_mask is not None:
-                ref_ts = get_timesteps(num_steps - step - 1, ref.shape[0], z.device)
-                ref_noisy = self.q_sample(ref, ref_ts)
-                image = ref_noisy * ref_mask + image * (1.0 - ref_mask)
-        return image
 
 
 class IQSampler:
@@ -152,6 +88,79 @@ class DDPMQSampler(IQSampler):
     def reset_buffers(self, sqrt_alpha: Tensor, sqrt_one_minus_alpha: Tensor) -> None:  # type: ignore
         self.sqrt_alphas = sqrt_alpha
         self.sqrt_one_minus_alphas = sqrt_one_minus_alpha
+
+
+class ISampler(WithRegister):
+    d = samplers
+
+    default_steps: int
+
+    def __init__(self, model: IDiffusion):
+        self.model = model
+
+    @property
+    @abstractmethod
+    def q_sampler(self) -> IQSampler:
+        pass
+
+    @property
+    @abstractmethod
+    def sample_kwargs(self) -> Dict[str, Any]:
+        pass
+
+    @abstractmethod
+    def sample_step(
+        self,
+        image: Tensor,
+        cond: Optional[Tensor],
+        step: int,
+        total_step: int,
+        **kwargs: Any,
+    ) -> Tensor:
+        pass
+
+    def q_sample(
+        self,
+        net: Tensor,
+        timesteps: Tensor,
+        noise: Optional[Tensor] = None,
+    ) -> Tensor:
+        return self.q_sampler.q_sample(net, timesteps, noise)
+
+    def sample(
+        self,
+        z: Tensor,
+        *,
+        ref: Optional[Tensor] = None,
+        ref_mask: Optional[Tensor] = None,
+        cond: Optional[Any] = None,
+        num_steps: Optional[int] = None,
+        start_step: Optional[int] = None,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        # setup
+        if num_steps is None:
+            num_steps = getattr(self, "default_steps", self.model.t)
+            assert isinstance(num_steps, int)
+        if start_step is None:
+            start_step = 0
+        iterator = list(range(start_step, num_steps))
+        if verbose:
+            iterator = tqdm(iterator, desc=f"sampling ({self.__identifier__})")
+        # execute
+        image = z
+        if cond is not None and self.model.condition_model is not None:
+            cond = self.model._get_cond(cond)
+        for step in iterator:
+            kw = shallow_copy_dict(self.sample_kwargs)
+            update_dict(shallow_copy_dict(kwargs), kw)
+            image = self.sample_step(image, cond, step, num_steps, **kw)
+            if ref is not None and ref_mask is not None:
+                ref_ts = get_timesteps(num_steps - step - 1, ref.shape[0], z.device)
+                ref_noisy = self.q_sample(ref, ref_ts)
+                image = ref_noisy * ref_mask + image * (1.0 - ref_mask)
+        return image
 
 
 class UncondSamplerMixin:

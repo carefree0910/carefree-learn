@@ -91,15 +91,16 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     # inheritance
 
     @property
+    def q_sampler(self) -> KQSampler:
+        return self._q_sampler
+
+    @property
     def sample_kwargs(self) -> Dict[str, Any]:
         return dict(
             quantize=self.default_quantize,
             unconditional_cond=self.unconditional_cond,
             unconditional_guidance_scale=self.unconditional_guidance_scale,
         )
-
-    def q_sample(self, net: Tensor, timesteps: Tensor) -> Tensor:
-        return self.q_sampler.q_sample(net, timesteps)
 
     def sample_step(
         self,
@@ -179,8 +180,8 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.sigma_data = 1.0
         self.quantize = quantize
         # q sampling
-        self.q_sampler = KQSampler(self.model)
-        self.q_sampler.reset_buffers(self.sigmas.flip(0))
+        self._q_sampler = KQSampler(self.model)
+        self._q_sampler.reset_buffers(self.sigmas.flip(0))
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
