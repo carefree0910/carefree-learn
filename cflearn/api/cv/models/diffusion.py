@@ -299,6 +299,46 @@ class DiffusionAPI(APIMixin):
             **kwargs,
         )
 
+    def outpainting(
+        self,
+        txt: str,
+        image: Union[str, Image.Image],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 32,
+        max_wh: int = 512,
+        fidelity: float = 0.2,
+        padding_mode: str = "cv2_telea",
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        with switch_sampler_context(self, "plms"):
+            res = read_image(image, max_wh, anchor=anchor, padding_mode=padding_mode)
+            if res.alpha is None:
+                raise ValueError("`image` should contain alpha channel in outpainting")
+            z = z_ref = self._get_z(res.image)
+            z_ref_mask = F.interpolate(
+                torch.from_numpy(res.alpha).to(z_ref),
+                z_ref.shape[-2:],
+                mode="bicubic",
+            )
+            return self._img2img(
+                z,
+                export_path,
+                z_ref=z_ref,
+                z_ref_mask=z_ref_mask,
+                fidelity=fidelity,
+                original_size=res.original_size,
+                alpha=None,
+                cond=[txt],
+                num_steps=num_steps,
+                clip_output=clip_output,
+                verbose=verbose,
+                **kwargs,
+            )
+
     def img2img(
         self,
         image: Union[str, Image.Image],
