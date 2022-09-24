@@ -43,6 +43,23 @@ from ....models.cv.diffusion.samplers.ddim import DDIMMixin
 from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
 
+class switch_sampler_context:
+    def __init__(self, api: "DiffusionAPI", sampler: str):
+        self.api = api
+        self.m_sampler = api.sampler.__identifier__
+        self.target_sampler = sampler
+        self.switched = False
+
+    def __enter__(self) -> None:
+        if self.m_sampler != self.target_sampler:
+            self.switched = True
+            self.api.switch_sampler(self.target_sampler)
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if self.switched:
+            self.api.switch_sampler(self.m_sampler)
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
