@@ -130,6 +130,7 @@ class DiffusionAPI(APIMixin):
         z: Optional[Tensor] = None,
         z_ref: Optional[Tensor] = None,
         z_ref_mask: Optional[Tensor] = None,
+        z_ref_noise: Optional[Tensor] = None,
         size: Optional[Tuple[int, int]] = None,
         original_size: Optional[Tuple[int, int]] = None,
         alpha: Optional[np.ndarray] = None,
@@ -180,8 +181,9 @@ class DiffusionAPI(APIMixin):
                 for batch in iterator:
                     i_kw = shallow_copy_dict(kw)
                     i_cond = batch[INPUT_KEY].to(self.device)
+                    repeat = lambda t: t.repeat_interleave(len(i_cond), dim=0)
                     if z is not None:
-                        i_z = z.repeat_interleave(len(i_cond), dim=0)
+                        i_z = repeat(z)
                     else:
                         i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
                         i_z, _ = self._set_seed_and_variations(
@@ -192,11 +194,13 @@ class DiffusionAPI(APIMixin):
                             variation_seed,
                             variation_strength,
                         )
+                    if z_ref is not None and z_ref_mask is not None:
+                        if z_ref_noise is not None:
+                            i_kw["ref"] = repeat(z_ref)
+                            i_kw["ref_mask"] = repeat(z_ref_mask)
+                            i_kw["ref_noise"] = repeat(z_ref_noise)
                     if unconditional:
                         i_cond = None
-                    if z_ref is not None and z_ref_mask is not None:
-                        i_kw["ref"] = z_ref
-                        i_kw["ref_mask"] = z_ref_mask
                     if self.use_half:
                         i_z = i_z.half()
                         if i_cond is not None:
