@@ -29,6 +29,7 @@ from .cv.models.diffusion import ldm as _ldm
 from .cv.models.diffusion import ldm_vq as _ldm_vq
 from .cv.models.diffusion import ldm_sd as _ldm_sd
 from .cv.models.diffusion import ldm_sr as _ldm_sr
+from .cv.models.diffusion import ldm_sd_anime as _ldm_sd_anime
 from .cv.models.diffusion import ldm_semantic as _ldm_semantic
 from .cv.models.diffusion import ldm_celeba_hq as _ldm_celeba_hq
 from .cv.models.diffusion import ldm_inpainting as _ldm_inpainting
@@ -1335,6 +1336,10 @@ def ldm_vq(
 
 def ldm_sd(pretrained: bool = True) -> DLPipeline:
     return _ldm_sd(pretrained)
+
+
+def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
+    return _ldm_sd_anime(pretrained)
 
 
 def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:

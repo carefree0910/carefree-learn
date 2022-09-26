@@ -59,6 +59,11 @@
       "st_size": 4267709714,
       "download_url": "https://drive.google.com/uc?export=download&id=1ns7eaBuT-x4wkeioM7qkeCjspz0M0f7t&confirm=t&uuid=d0f55fd0-d5c1-40ff-a288-e016ce5aaddb"
     },
+    "ldm_sd_anime": {
+      "sha": "8a48b6e564aecc235ed832674155eb591ee2d171e6fe07389a0016444647bfa5",
+      "st_size": 4267709714,
+      "download_url": "https://drive.google.com/uc?export=download&id=1rBQyLm_UQZmHYzrSYkbd9MCzZS4g31jq&confirm=t&uuid=2bb0803c-b9f2-4339-913a-271b4485b9a0"
+    },
     "ldm_celeba_hq": {
       "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
       "st_size": 1317739701

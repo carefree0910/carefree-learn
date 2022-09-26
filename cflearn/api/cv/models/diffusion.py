@@ -531,6 +531,17 @@ class DiffusionAPI(APIMixin):
         return cls.from_pipeline(ldm_sd(), device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
+    def from_sd_anime(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> "DiffusionAPI":
+        m = ldm_sd_anime()
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
+
+    @classmethod
     def from_celeba_hq(
         cls,
         device: Optional[str] = None,
@@ -729,8 +740,12 @@ def ldm_vq(
     )
 
 
-def ldm_sd(pretrained: bool = True) -> DLPipeline:
-    return _ldm("diffusion/ldm.sd", 64, 4, 4, pretrained=pretrained)
+def ldm_sd(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    return _ldm("diffusion/ldm.sd", 64, 4, 4, pretrained=pretrained, **kwargs)
+
+
+def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
+    return ldm_sd(pretrained, download_name="ldm_sd_anime")
 
 
 def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:
