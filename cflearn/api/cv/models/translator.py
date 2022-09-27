@@ -72,6 +72,7 @@ class TranslatorAPI(APIMixin):
         # export
         if export_path is not None:
             save_images(output, export_path)
+        torch.cuda.empty_cache()
         return output
 
     @classmethod
