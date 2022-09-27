@@ -203,7 +203,7 @@ class WithDeviceMixin:
 
     @property
     def device(self) -> torch.device:
-        params = list(self.parameters())
+        params = list(self.parameters())  # type: ignore
         return torch.device("cpu") if not params else params[0].device
 
 
