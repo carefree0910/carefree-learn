@@ -607,15 +607,13 @@ class DiffusionAPI(APIMixin):
             seed = new_seed()
         seed = seed_everything(seed)
         self.latest_seed = seed
-        noise = get_noise()
-        z = get_new_z(noise)
+        z_noise = get_noise()
         self.latest_variation_seed = None
         if variations is not None:
             for v_seed, v_weight in variations:
                 seed_everything(v_seed)
                 v_noise = get_noise()
-                vz = get_new_z(v_noise)
-                z = slerp(vz, z, v_weight)
+                z_noise = slerp(v_noise, z_noise, v_weight)
         if variation_strength is not None:
             random.seed()
             if variation_seed is None:
@@ -623,9 +621,9 @@ class DiffusionAPI(APIMixin):
             variation_seed = seed_everything(variation_seed)
             self.latest_variation_seed = variation_seed
             variation_noise = get_noise()
-            vz = get_new_z(variation_noise)
-            z = slerp(vz, z, variation_strength)
-        return z, noise
+            z_noise = slerp(variation_noise, z_noise, variation_strength)
+        z = get_new_z(z_noise)
+        return z, z_noise
 
     def _img2img(
         self,
