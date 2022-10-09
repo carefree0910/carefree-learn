@@ -744,7 +744,7 @@ def ldm_sd(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
 
 
 def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
-    return ldm_sd(pretrained, download_name="ldm_sd_anime")
+    return ldm_sd(pretrained, download_name="ldm_sd_anime_nai")
 
 
 def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:
