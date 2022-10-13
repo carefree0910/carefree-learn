@@ -87,7 +87,7 @@ class DiffusionAPI(APIMixin):
         # pre-calculate unconditional_cond if needed
         unconditional_cond = getattr(m.sampler, "unconditional_cond", None)
         if self.cond_model is not None and unconditional_cond is not None:
-            uncond = self.get_cond(m.sampler.unconditional_cond)
+            uncond = self.get_cond(unconditional_cond)
             m.sampler.unconditional_cond = uncond.to(self.device)
         # extract first stage
         if not isinstance(m, LDM):
@@ -152,6 +152,7 @@ class DiffusionAPI(APIMixin):
         original_size: Optional[Tuple[int, int]] = None,
         alpha: Optional[np.ndarray] = None,
         cond: Optional[Any] = None,
+        unconditional_cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
@@ -193,6 +194,11 @@ class DiffusionAPI(APIMixin):
             else:
                 factor = self.first_stage.img_size // self.m.img_size
             size = tuple(map(lambda n: round(n / factor), size))  # type: ignore
+        uncond_backup = None
+        if self.cond_model is not None and unconditional_cond is not None:
+            uncond_backup = self.sampler.unconditional_cond
+            uncond = self.get_cond(unconditional_cond)
+            self.sampler.unconditional_cond = uncond.to(self.device)
         with eval_context(self.m):
             with self.amp_context:
                 for batch in iterator:
@@ -227,6 +233,8 @@ class DiffusionAPI(APIMixin):
                                 i_kw[k] = v.half()
                     i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                     sampled.append(i_sampled.cpu().float())
+        if uncond_backup is not None:
+            self.sampler.unconditional_cond = uncond_backup
         concat = torch.cat(sampled, dim=0)
         if clip_output:
             concat = torch.clip(concat, -1.0, 1.0)
