@@ -246,7 +246,6 @@ class DiffusionAPI(APIMixin):
                     concat,
                     original_size[::-1],
                     mode="bicubic",
-                    antialias=True,
                 )
         if alpha is not None:
             alpha = torch.from_numpy(2.0 * alpha - 1.0)
