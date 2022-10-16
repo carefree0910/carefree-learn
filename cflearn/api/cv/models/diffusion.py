@@ -140,6 +140,7 @@ class DiffusionAPI(APIMixin):
         export_path: Optional[str] = None,
         *,
         seed: Optional[int] = None,
+        use_seed_resize: bool = False,
         # each variation contains (seed, weight)
         variations: Optional[List[Tuple[int, float]]] = None,
         variation_seed: Optional[int] = None,
@@ -186,13 +187,14 @@ class DiffusionAPI(APIMixin):
         sampled = []
         kw = dict(num_steps=num_steps, verbose=verbose)
         kw.update(shallow_copy_dict(kwargs))
-        if size is None:
-            size = self.m.img_size, self.m.img_size
+        opt_size = self.m.img_size
+        if self.first_stage is None:
+            factor = 1
         else:
-            if self.first_stage is None:
-                factor = 1
-            else:
-                factor = self.first_stage.img_size // self.m.img_size
+            factor = self.first_stage.img_size // opt_size
+        if size is None:
+            size = opt_size, opt_size
+        else:
             size = tuple(map(lambda n: round(n / factor), size))  # type: ignore
         uncond_backup = None
         if self.cond_model is not None and unconditional_cond is not None:
@@ -217,6 +219,26 @@ class DiffusionAPI(APIMixin):
                             variation_seed,
                             variation_strength,
                         )
+                    if use_seed_resize:
+                        z_original_shape = list(i_z.shape[-2:])
+                        z_opt_shape = list(map(lambda n: round(n / factor), [opt_size, opt_size]))
+                        if z_original_shape != z_opt_shape:
+                            dx = (z_original_shape[0] - z_opt_shape[0]) // 2
+                            dy = (z_original_shape[1] - z_opt_shape[1]) // 2
+                            x = z_opt_shape[0] if dx >= 0 else z_opt_shape[0] + 2 * dx
+                            y = z_opt_shape[1] if dy >= 0 else z_opt_shape[1] + 2 * dy
+                            dx = max(-dx, 0)
+                            dy = max(-dy, 0)
+                            i_opt_z_shape = len(i_cond), self.m.in_channels, *z_opt_shape
+                            i_opt_z, _ = self._set_seed_and_variations(
+                                seed,
+                                lambda: torch.randn(i_opt_z_shape, device=self.device),
+                                lambda noise: noise,
+                                variations,
+                                variation_seed,
+                                variation_strength,
+                            )
+                            i_z[..., dx:dx + x, dy:dy + y] = i_opt_z[..., dx:dx + x, dy:dy + y]
                     if z_ref is not None and z_ref_mask is not None:
                         if z_ref_noise is not None:
                             i_kw["ref"] = repeat(z_ref)
