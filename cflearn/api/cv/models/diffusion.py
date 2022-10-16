@@ -295,6 +295,30 @@ class DiffusionAPI(APIMixin):
         torch.cuda.empty_cache()
         return concat
 
+    @staticmethod
+    def _txt_cond(t: Union[str, List[str]], n: Optional[int]) -> Tuple[List[str], int]:
+        if n is None:
+            n = 1 if isinstance(t, str) else len(t)
+        if isinstance(t, str):
+            t = [t] * n
+        if len(t) != n:
+            raise ValueError(
+                f"`num_samples` ({n}) should be identical with "
+                f"the number of `txt` ({len(t)})"
+            )
+        return t, n
+
+    @staticmethod
+    def _get_size(
+        size: Optional[Tuple[int, int]],
+        anchor: int,
+        max_wh: int,
+    ) -> Optional[Tuple[int, int]]:
+        if size is None:
+            return None
+        new_size = restrict_wh(*size, max_wh)
+        return tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
+
     def txt2img(
         self,
         txt: Union[str, List[str]],
@@ -311,21 +335,8 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        input_is_str = isinstance(txt, str)
-        if num_samples is None:
-            num_samples = 1 if input_is_str else len(txt)
-        if isinstance(txt, str):
-            txt = [txt] * num_samples
-        if len(txt) != num_samples:
-            raise ValueError(
-                f"`num_samples` ({num_samples}) should be identical with "
-                f"the number of `txt` ({len(txt)})"
-            )
-        if size is None:
-            new_size = None
-        else:
-            new_size = restrict_wh(*size, max_wh)
-            new_size = tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
+        txt, num_samples = self._txt_cond(txt, num_samples)
+        new_size = self._get_size(size, anchor, max_wh)
         return self.sample(
             num_samples,
             export_path,
