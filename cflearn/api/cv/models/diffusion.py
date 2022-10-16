@@ -352,6 +352,72 @@ class DiffusionAPI(APIMixin):
             **kwargs,
         )
 
+    def txt2img_two_stage(
+        self,
+        txt: Union[str, List[str]],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 64,
+        max_wh: int = 512,
+        img2img_anchor: int = 32,
+        img2img_fidelity: float = 0.2,
+        num_samples: Optional[int] = None,
+        size: Optional[Tuple[int, int]] = None,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
+        batch_size: int = 1,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        txt, num_samples = self._txt_cond(txt, num_samples)
+        factor, opt_size = self.size_info
+        bypass_two_stage = False
+        if size is not None:
+            ns = self._get_size(size, anchor, max_wh)
+            bypass_two_stage = ns[0] // factor == ns[1] // factor == opt_size  # type: ignore
+        if size is None or bypass_two_stage:
+            return self.txt2img(
+                txt,
+                export_path,
+                anchor=anchor,
+                max_wh=max_wh,
+                num_samples=num_samples,
+                size=size,
+                num_steps=num_steps,
+                clip_output=clip_output,
+                callback=callback,
+                batch_size=batch_size,
+                verbose=verbose,
+                **kwargs,
+            )
+        first_stage = self.txt2img(
+            txt,
+            anchor=anchor,
+            max_wh=max_wh,
+            num_samples=num_samples,
+            size=(opt_size * factor, opt_size * factor),
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            batch_size=batch_size,
+            verbose=verbose,
+            **kwargs,
+        )
+        resized = F.interpolate(first_stage, size=size[::-1], mode="bilinear")
+        return self.img2img(
+            resized,
+            export_path,
+            anchor=img2img_anchor,
+            max_wh=max_wh,
+            fidelity=img2img_fidelity,
+            cond=[txt],
+            num_steps=num_steps,
+            clip_output=clip_output,
+            verbose=verbose,
+            **kwargs,
+        )
+
     def outpainting(
         self,
         txt: str,
