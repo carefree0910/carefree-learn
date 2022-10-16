@@ -18,6 +18,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
+from cftool.array import arr_type
 from cftool.array import save_images
 from cftool.types import tensor_dict_type
 
@@ -393,7 +394,7 @@ class DiffusionAPI(APIMixin):
 
     def img2img(
         self,
-        image: Union[str, Image.Image],
+        image: Union[str, Image.Image, Tensor],
         export_path: Optional[str] = None,
         *,
         anchor: int = 32,
@@ -406,14 +407,21 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        res = read_image(image, max_wh, anchor=anchor)
-        z = self._get_z(res.image)
+        if isinstance(image, Tensor):
+            original_size = tuple(image.shape[-2:][::-1])
+        else:
+            res = read_image(image, max_wh, anchor=anchor)
+            image = res.image
+            original_size = res.original_size
+            if alpha is None:
+                alpha = res.alpha
+        z = self._get_z(image)
         return self._img2img(
             z,
             export_path,
             fidelity=fidelity,
-            original_size=res.original_size,
-            alpha=res.alpha if alpha is None else alpha,
+            original_size=original_size,  # type: ignore
+            alpha=alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
@@ -636,9 +644,9 @@ class DiffusionAPI(APIMixin):
         m = ldm_semantic()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
-    def _get_z(self, img: np.ndarray) -> Tensor:
+    def _get_z(self, img: arr_type) -> Tensor:
         img = 2.0 * img - 1.0
-        z = torch.from_numpy(img)
+        z = img if isinstance(img, Tensor) else torch.from_numpy(img)
         if self.use_half:
             z = z.half()
         z = z.to(self.device)
