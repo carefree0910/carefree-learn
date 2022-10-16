@@ -15,6 +15,7 @@ from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
+from typing import NamedTuple
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.array import save_images
@@ -60,6 +61,11 @@ class switch_sampler_context:
             self.api.switch_sampler(self.m_sampler)
 
 
+class SizeInfo(NamedTuple):
+    factor: int
+    opt_size: int
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
@@ -94,6 +100,15 @@ class DiffusionAPI(APIMixin):
             self.first_stage = None
         else:
             self.first_stage = m.first_stage.core
+
+    @property
+    def size_info(self) -> SizeInfo:
+        opt_size = self.m.img_size
+        if self.first_stage is None:
+            factor = 1
+        else:
+            factor = self.first_stage.img_size // opt_size
+        return SizeInfo(factor, opt_size)
 
     def get_cond(self, cond: Any) -> Tensor:
         if self.cond_model is None:
@@ -187,11 +202,7 @@ class DiffusionAPI(APIMixin):
         sampled = []
         kw = dict(num_steps=num_steps, verbose=verbose)
         kw.update(shallow_copy_dict(kwargs))
-        opt_size = self.m.img_size
-        if self.first_stage is None:
-            factor = 1
-        else:
-            factor = self.first_stage.img_size // opt_size
+        factor, opt_size = self.size_info
         if size is None:
             size = opt_size, opt_size
         else:
