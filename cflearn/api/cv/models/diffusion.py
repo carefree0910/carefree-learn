@@ -233,7 +233,9 @@ class DiffusionAPI(APIMixin):
                         )
                     if use_seed_resize:
                         z_original_shape = list(i_z.shape[-2:])
-                        z_opt_shape = list(map(lambda n: round(n / factor), [opt_size, opt_size]))
+                        z_opt_shape = list(
+                            map(lambda n: round(n / factor), [opt_size, opt_size])
+                        )
                         if z_original_shape != z_opt_shape:
                             dx = (z_original_shape[0] - z_opt_shape[0]) // 2
                             dy = (z_original_shape[1] - z_opt_shape[1]) // 2
@@ -241,7 +243,11 @@ class DiffusionAPI(APIMixin):
                             y = z_opt_shape[1] if dy >= 0 else z_opt_shape[1] + 2 * dy
                             dx = max(-dx, 0)
                             dy = max(-dy, 0)
-                            i_opt_z_shape = len(i_cond), self.m.in_channels, *z_opt_shape
+                            i_opt_z_shape = (
+                                len(i_cond),
+                                self.m.in_channels,
+                                *z_opt_shape,
+                            )
                             i_opt_z, _ = self._set_seed_and_variations(
                                 seed,
                                 lambda: torch.randn(i_opt_z_shape, device=self.device),
@@ -250,7 +256,9 @@ class DiffusionAPI(APIMixin):
                                 variation_seed,
                                 variation_strength,
                             )
-                            i_z[..., dx:dx + x, dy:dy + y] = i_opt_z[..., dx:dx + x, dy:dy + y]
+                            i_z[..., dx : dx + x, dy : dy + y] = i_opt_z[
+                                ..., dx : dx + x, dy : dy + y
+                            ]
                     if z_ref is not None and z_ref_mask is not None:
                         if z_ref_noise is not None:
                             i_kw["ref"] = repeat(z_ref)
