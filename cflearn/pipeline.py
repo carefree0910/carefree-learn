@@ -456,8 +456,9 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         self.trainer = make_trainer(**trainer_config)
 
     def report(self) -> None:
-        self._report_defaults()
-        self._report_configs()
+        if self.is_rank_0:
+            self._report_defaults()
+            self._report_configs()
 
     # load steps
 
