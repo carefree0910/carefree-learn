@@ -353,13 +353,14 @@ class DINO(CustomModule):
 
     def state_dict(
         self,
+        *args: Any,
         destination: Any = None,
         prefix: str = "",
         keep_vars: bool = False,
     ) -> Any:
         states = super().state_dict(destination, prefix, keep_vars)
         for k in list(states.keys()):
-            if k.startswith("ddp"):
+            if k.startswith("core.ddp"):
                 states.pop(k)
         return states
 

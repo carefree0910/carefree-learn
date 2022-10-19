@@ -28,7 +28,7 @@ class DINOExtractor(IImageExtractor):
         if to_rgb is None:
             raise ValueError("`carefree-cv` is needed for `DINOExtractor`")
         self.m = m
-        self.dino = m.model
+        self.dino = m.model.core
         self.transform = SSLTestTransform(img_size, to_gray)
 
     @property
