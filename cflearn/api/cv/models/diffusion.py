@@ -209,10 +209,13 @@ class DiffusionAPI(APIMixin):
         else:
             size = tuple(map(lambda n: round(n / factor), size))  # type: ignore
         uncond_backup = None
+        unconditional_cond_backup = None
         if self.cond_model is not None and unconditional_cond is not None:
-            uncond_backup = self.sampler.unconditional_cond
-            uncond = self.get_cond(unconditional_cond)
-            self.sampler.unconditional_cond = uncond.to(self.device)
+            uncond_backup = getattr(self.sampler, "uncond")
+            unconditional_cond_backup = getattr(self.sampler, "unconditional_cond")
+            uncond = self.get_cond(unconditional_cond).to(self.device)
+            self.sampler.uncond = uncond.clone()
+            self.sampler.unconditional_cond = uncond.clone()
         with eval_context(self.m):
             with self.amp_context:
                 for batch in iterator:
@@ -276,7 +279,9 @@ class DiffusionAPI(APIMixin):
                     i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                     sampled.append(i_sampled.cpu().float())
         if uncond_backup is not None:
-            self.sampler.unconditional_cond = uncond_backup
+            self.sampler.uncond = uncond_backup
+        if unconditional_cond_backup is not None:
+            self.sampler.unconditional_cond = unconditional_cond_backup
         concat = torch.cat(sampled, dim=0)
         if clip_output:
             concat = torch.clip(concat, -1.0, 1.0)
