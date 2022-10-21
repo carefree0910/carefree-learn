@@ -26,6 +26,7 @@ from .common import read_image
 from .common import restrict_wh
 from .common import get_suitable_size
 from .common import APIMixin
+from .common import ReadImageResponse
 from ....zoo import DLZoo
 from ....data import predict_tensor_data
 from ....data import TensorInferenceData
@@ -65,6 +66,15 @@ class switch_sampler_context:
 class SizeInfo(NamedTuple):
     factor: int
     opt_size: int
+
+
+class MaskedCond(NamedTuple):
+    image_res: ReadImageResponse
+    mask: np.ndarray
+    remained_image: np.ndarray
+    remained_mask: np.ndarray
+    mask_cond: Tensor
+    remained_image_cond: Tensor
 
 
 class DiffusionAPI(APIMixin):
@@ -333,6 +343,37 @@ class DiffusionAPI(APIMixin):
         new_size = restrict_wh(*size, max_wh)
         return tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
 
+    def _get_masked_cond(
+        self,
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
+        max_wh: int,
+        anchor: int,
+        mask_image_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
+        mask_cond_fn: Callable[[np.ndarray], Tensor],
+    ) -> MaskedCond:
+        # handle mask stuffs
+        image_res = read_image(image, max_wh, anchor=anchor)
+        mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
+        bool_mask = mask >= 0.5
+        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
+        remained_image = mask_image_fn(remained_mask, image_res.image)
+        # construct condition tensor
+        remained_cond = self._get_z(remained_image)
+        latent_shape = remained_cond.shape[-2:]
+        mask_cond = mask_cond_fn(bool_mask)
+        mask_cond = mask_cond.to(torch.float16 if self.use_half else torch.float32)
+        mask_cond = mask_cond.to(self.device)
+        mask_cond = F.interpolate(mask_cond, size=latent_shape)
+        return MaskedCond(
+            image_res,
+            mask,
+            remained_image,
+            remained_mask,
+            mask_cond,
+            remained_cond,
+        )
+
     def txt2img(
         self,
         txt: Union[str, List[str]],
@@ -525,33 +566,28 @@ class DiffusionAPI(APIMixin):
     ) -> Tensor:
         # inpainting callback, will not trigger in refine stage
         def callback(out: Tensor) -> Tensor:
-            final = torch.from_numpy(remained_image.copy())
-            final += 0.5 * (1.0 + out) * (1.0 - remained_mask)
+            final = torch.from_numpy(res.remained_image.copy())
+            final += 0.5 * (1.0 + out) * (1.0 - res.remained_mask)
             return 2.0 * final - 1.0
 
-        # handle mask stuffs
-        image_res = read_image(image, max_wh, anchor=anchor)
-        mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
-        bool_mask = mask >= 0.5
-        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
-        remained_image = remained_mask * image_res.image
-        # construct condition tensor
-        remained_cond = self._get_z(remained_image)
-        latent_shape = remained_cond.shape[-2:]
-        mask_cond = torch.where(torch.from_numpy(bool_mask), 1.0, -1.0)
-        mask_cond = mask_cond.to(torch.float16 if self.use_half else torch.float32)
-        mask_cond = mask_cond.to(self.device)
-        mask_cond = F.interpolate(mask_cond, size=latent_shape)
-        cond = torch.cat([remained_cond, mask_cond], dim=1)
+        res = self._get_masked_cond(
+            image,
+            mask,
+            max_wh,
+            anchor,
+            lambda remained_mask, img: remained_mask * img,
+            lambda arr: torch.where(torch.from_numpy(arr), 1.0, -1.0),
+        )
+        cond = torch.cat([res.remained_image_cond, res.mask_cond], dim=1)
         # refine with img2img
         if refine_fidelity is not None:
-            z = self._get_z(image_res.image)
+            z = self._get_z(res.image_res.image)
             return self._img2img(
                 z,
                 export_path,
                 fidelity=refine_fidelity,
-                original_size=image_res.original_size,
-                alpha=image_res.alpha if alpha is None else alpha,
+                original_size=res.image_res.original_size,
+                alpha=res.image_res.alpha if alpha is None else alpha,
                 cond=cond,
                 num_steps=num_steps,
                 clip_output=clip_output,
@@ -559,13 +595,13 @@ class DiffusionAPI(APIMixin):
                 **kwargs,
             )
         # sampling
-        z = torch.randn_like(remained_cond)
+        z = torch.randn_like(res.remained_image_cond)
         return self.sample(
             1,
             export_path,
             z=z,
-            original_size=image_res.original_size,
-            alpha=image_res.alpha if alpha is None else alpha,
+            original_size=res.image_res.original_size,
+            alpha=res.image_res.alpha if alpha is None else alpha,
             cond=cond,
             num_steps=num_steps,
             clip_output=clip_output,
