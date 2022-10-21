@@ -17,6 +17,7 @@ from .protocol import ISampler
 from .protocol import IDiffusion
 from .protocol import DDPMQSampler
 from .protocol import UncondSamplerMixin
+from ..utils import cond_type
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
 
@@ -80,7 +81,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def sample_step_core(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         get_eps_pred: IGetEPSPred,
@@ -118,7 +119,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def sample_step(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         *,
@@ -246,7 +247,7 @@ class DDIMSampler(DDIMMixin):
     def sample_step_core(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         get_eps_pred: IGetEPSPred,

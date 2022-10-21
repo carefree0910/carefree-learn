@@ -8,6 +8,7 @@ from typing import Optional
 
 from .ddpm import make_condition_model
 from .ddpm import DDPM
+from .utils import CROSS_ATTN_TYPE
 from ..ae.kl import GaussianDistribution
 from ....zoo import DLZoo
 from ....misc.toolkit import freeze
@@ -49,7 +50,7 @@ class LDM(DDPM):
         use_num_updates_in_ema: bool = True,
         parameterization: str = "eps",
         ## condition
-        condition_type: str = "cross_attn",
+        condition_type: str = CROSS_ATTN_TYPE,
         condition_model: Optional[str] = None,
         use_first_stage_as_condition: bool = False,
         condition_config: Optional[Dict[str, Any]] = None,
@@ -132,7 +133,7 @@ class LDM(DDPM):
             self.condition_model = [make_condition_model(first_stage, self.first_stage)]
         # sanity check
         embedding_channels = self.first_stage.core.embedding_channels
-        if in_channels != embedding_channels and condition_type != "concat":
+        if in_channels != embedding_channels and condition_type == CROSS_ATTN_TYPE:
             raise ValueError(
                 f"`in_channels` ({in_channels}) should be identical with the "
                 f"`embedding_channels` ({embedding_channels}) of the "

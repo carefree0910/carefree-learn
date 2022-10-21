@@ -1,6 +1,18 @@
 import torch
 
 from torch import Tensor
+from typing import Union
+from cftool.array import tensor_dict_type
+
+
+cond_type = Union[Tensor, tensor_dict_type]
+ADM_KEY = "labels"
+ADM_TYPE = "adm"
+CONCAT_KEY = "concat"
+CONCAT_TYPE = "concat"
+HYBRID_TYPE = "hybrid"
+CROSS_ATTN_KEY = "context"
+CROSS_ATTN_TYPE = "cross_attn"
 
 
 def extract_to(array: Tensor, indices: Tensor, num_dim: int) -> Tensor:

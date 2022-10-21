@@ -42,6 +42,10 @@ from ....models.cv.diffusion import DDPM
 from ....models.cv.diffusion import ISampler
 from ....models.cv.ae.common import IAutoEncoder
 from ....models.cv.diffusion.utils import get_timesteps
+from ....models.cv.diffusion.utils import CONCAT_KEY
+from ....models.cv.diffusion.utils import CONCAT_TYPE
+from ....models.cv.diffusion.utils import HYBRID_TYPE
+from ....models.cv.diffusion.utils import CROSS_ATTN_KEY
 from ....models.cv.diffusion.samplers.ddim import DDIMMixin
 from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
@@ -179,6 +183,7 @@ class DiffusionAPI(APIMixin):
         original_size: Optional[Tuple[int, int]] = None,
         alpha: Optional[np.ndarray] = None,
         cond: Optional[Any] = None,
+        cond_concat: Optional[Tensor] = None,
         unconditional_cond: Optional[Any] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
@@ -188,7 +193,7 @@ class DiffusionAPI(APIMixin):
         **kwargs: Any,
     ) -> Tensor:
         if cond is not None:
-            if self.cond_type != "concat" and self.cond_model is not None:
+            if self.cond_type != CONCAT_TYPE and self.cond_model is not None:
                 data = TensorInferenceData(cond, batch_size=batch_size)
                 cond = predict_tensor_data(self.cond_model, data)
         if cond is not None and num_samples != len(cond):
@@ -286,6 +291,16 @@ class DiffusionAPI(APIMixin):
                         for k, v in i_kw.items():
                             if isinstance(v, torch.Tensor) and v.is_floating_point():
                                 i_kw[k] = v.half()
+                    if cond_concat is not None:
+                        if self.cond_type != HYBRID_TYPE:
+                            raise ValueError(
+                                f"condition type should be `{HYBRID_TYPE}` when "
+                                f"`cond_concat` is provided"
+                            )
+                        i_cond = {
+                            CROSS_ATTN_KEY: i_cond,
+                            CONCAT_KEY: cond_concat,
+                        }
                     i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                     sampled.append(i_sampled.cpu().float())
         if uncond_backup is not None:
@@ -945,7 +960,7 @@ def ldm_inpainting(pretrained: bool = True) -> DLPipeline:
             num_heads=8,
             num_head_channels=None,
             resample_with_resblock=True,
-            condition_type="concat",
+            condition_type=CONCAT_TYPE,
             first_stage_config=dict(
                 pretrained=False,
                 model_config=dict(
@@ -966,7 +981,7 @@ def ldm_sr(pretrained: bool = True) -> DLPipeline:
             start_channels=160,
             attention_downsample_rates=[8, 16],
             channel_multipliers=[1, 2, 2, 4],
-            condition_type="concat",
+            condition_type=CONCAT_TYPE,
             first_stage_config=dict(
                 pretrained=False,
             ),
@@ -987,7 +1002,7 @@ def ldm_semantic(pretrained: bool = True) -> DLPipeline:
             num_head_channels=None,
             attention_downsample_rates=[8, 16, 32],
             channel_multipliers=[1, 4, 8],
-            condition_type="concat",
+            condition_type=CONCAT_TYPE,
             condition_model="rescaler",
             condition_config=dict(
                 num_stages=2,

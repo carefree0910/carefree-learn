@@ -18,7 +18,15 @@ from cftool.array import to_torch
 from cftool.types import tensor_dict_type
 
 from .unet import UNetDiffuser
+from .utils import cond_type
 from .utils import get_timesteps
+from .utils import ADM_KEY
+from .utils import ADM_TYPE
+from .utils import CONCAT_KEY
+from .utils import CONCAT_TYPE
+from .utils import HYBRID_TYPE
+from .utils import CROSS_ATTN_KEY
+from .utils import CROSS_ATTN_TYPE
 from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
@@ -182,7 +190,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         use_num_updates_in_ema: bool = True,
         parameterization: str = "eps",
         ## condition
-        condition_type: str = "cross_attn",
+        condition_type: str = CROSS_ATTN_TYPE,
         condition_model: Optional[str] = None,
         condition_config: Optional[Dict[str, Any]] = None,
         condition_learnable: bool = False,
@@ -433,18 +441,31 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         self,
         image: Tensor,
         timesteps: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
     ) -> Tensor:
         net = image
         cond_kw = {}
         cond_type = self.condition_type
         if cond is not None and cond_type != "none":
-            if cond_type == "concat":
+            if cond_type == CONCAT_TYPE:
+                if isinstance(cond, dict):
+                    cond = cond[CONCAT_KEY]
                 net = torch.cat([net, cond], dim=1)
-            elif cond_type == "cross_attn":
-                cond_kw = {"context": cond}
-            elif cond_type == "adm":
-                cond_kw = {"labels": cond}
+            elif cond_type == CROSS_ATTN_TYPE or cond_type == HYBRID_TYPE:
+                if not isinstance(cond, dict):
+                    if cond_type == HYBRID_TYPE:
+                        msg = "`cond` should be a dict when `hybrid` is applied"
+                        raise ValueError(msg)
+                    cond_kw = {CROSS_ATTN_KEY: cond}
+                else:
+                    concat = cond[CONCAT_KEY].repeat_interleave(len(net), dim=0)
+                    net = torch.cat([net, concat], dim=1)
+                    cond_kw = {CROSS_ATTN_KEY: cond[CROSS_ATTN_KEY]}
+            elif cond_type == ADM_TYPE:
+                if isinstance(cond, dict):
+                    cond_kw = cond
+                else:
+                    cond_kw = {ADM_KEY: cond}
             else:
                 raise ValueError(f"unrecognized condition type {cond_type} occurred")
         return self.unet(net, timesteps=timesteps, **cond_kw)
@@ -462,11 +483,16 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
     def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
         return net
 
-    def _get_cond(self, cond: Any) -> Tensor:
+    def _get_cond(self, cond: Any) -> cond_type:
         if self.condition_model is None:
             msg = "should not call `get_cond` when `condition_model` is not provided"
             raise ValueError(msg)
-        return self.condition_model(cond)
+        if not isinstance(cond, dict):
+            return self.condition_model(cond)
+        for k, v in cond.items():
+            if k != CONCAT_KEY:
+                cond[k] = self.condition_model(v)
+        return cond
 
     def _initialize_condition_model(
         self,

@@ -7,6 +7,7 @@ from .ddim import DDIMMixin
 from .ddim import IGetEPSPred
 from .ddim import IGetDenoised
 from .protocol import ISampler
+from ..utils import cond_type
 
 
 @ISampler.register("plms")
@@ -14,7 +15,7 @@ class PLMSSampler(DDIMMixin):
     def sample_step_core(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         get_eps_pred: IGetEPSPred,

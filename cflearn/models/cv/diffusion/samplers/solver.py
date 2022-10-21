@@ -11,6 +11,7 @@ from .protocol import ISampler
 from .protocol import IQSampler
 from .protocol import IDiffusion
 from .protocol import UncondSamplerMixin
+from ..utils import cond_type
 
 
 @ISampler.register("solver")
@@ -78,7 +79,7 @@ class DPMSolver(ISampler, UncondSamplerMixin):
     def sample_step(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         *,
@@ -121,14 +122,14 @@ class DPMSolver(ISampler, UncondSamplerMixin):
 
     # internal
 
-    def _denoise(self, x: Tensor, ts: Tensor, cond: Optional[Tensor]) -> Tensor:
+    def _denoise(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
         ts = self.model.t * torch.max(ts - 1.0 / self.model.t, torch.zeros_like(ts))
         return self._uncond_denoise(x, ts, cond)
 
     def _order1_update(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         vec_s: Tensor,
         vec_t: Tensor,
     ) -> Tensor:
@@ -149,7 +150,7 @@ class DPMSolver(ISampler, UncondSamplerMixin):
     def _order2_update(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         vec_s: Tensor,
         vec_t: Tensor,
     ) -> Tensor:
@@ -184,7 +185,7 @@ class DPMSolver(ISampler, UncondSamplerMixin):
     def _order3_update(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         vec_s: Tensor,
         vec_t: Tensor,
     ) -> Tensor:

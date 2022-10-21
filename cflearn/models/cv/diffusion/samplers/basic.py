@@ -8,6 +8,7 @@ from typing import Optional
 from .protocol import ISampler
 from .protocol import IDiffusion
 from .protocol import DDPMQSampler
+from ..utils import cond_type
 from ..utils import extract_to
 from ..utils import get_timesteps
 
@@ -38,7 +39,7 @@ class BasicSampler(ISampler):
     def sample_step(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         *,

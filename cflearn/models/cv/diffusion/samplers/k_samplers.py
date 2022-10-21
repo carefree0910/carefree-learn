@@ -18,6 +18,7 @@ from .protocol import ISampler
 from .protocol import IQSampler
 from .protocol import IDiffusion
 from .protocol import UncondSamplerMixin
+from ..utils import cond_type
 from ..utils import extract_to
 
 try:
@@ -76,7 +77,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def sample_step_core(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         get_denoised: IGetDenoised,
@@ -105,7 +106,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     def sample_step(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         *,
@@ -205,7 +206,7 @@ class KLMSSampler(KSamplerMixin):
     def sample_step_core(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         get_denoised: IGetDenoised,

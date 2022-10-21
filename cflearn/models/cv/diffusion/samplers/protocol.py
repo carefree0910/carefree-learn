@@ -15,8 +15,10 @@ from cftool.misc import update_dict
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
+from ..utils import cond_type
 from ..utils import extract_to
 from ..utils import get_timesteps
+from ..utils import CONCAT_KEY
 
 
 samplers: Dict[str, Type["ISampler"]] = {}
@@ -27,7 +29,7 @@ class Denoise(Protocol):
         self,
         image: Tensor,
         timesteps: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
     ) -> Tensor:
         pass
 
@@ -112,7 +114,7 @@ class ISampler(WithRegister):
     def sample_step(
         self,
         image: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
         step: int,
         total_step: int,
         **kwargs: Any,
@@ -186,12 +188,18 @@ class UncondSamplerMixin:
         self,
         image: Tensor,
         ts: Tensor,
-        cond: Optional[Tensor],
+        cond: Optional[cond_type],
     ) -> Tensor:
         if cond is None or self.uncond is None:
             return self.model.denoise(image, ts, cond)
-        uncond = self.uncond.repeat_interleave(cond.shape[0], dim=0)
-        cond2 = torch.cat([uncond, cond])
+        uncond = self.uncond.repeat_interleave(image.shape[0], dim=0)
+        if not isinstance(cond, dict):
+            cond2 = torch.cat([uncond, cond])
+        else:
+            cond2 = shallow_copy_dict(cond)
+            for k, v in cond2.items():
+                if k != CONCAT_KEY:
+                    cond2[k] = torch.cat([uncond, v])
         image2 = torch.cat([image, image])
         ts2 = torch.cat([ts, ts])
         eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
