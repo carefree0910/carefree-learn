@@ -503,7 +503,7 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        txt, num_samples = self._txt_cond(txt, 1)
+        txt_list, num_samples = self._txt_cond(txt, 1)
         res = self._get_masked_cond(
             image,
             mask,
@@ -520,7 +520,7 @@ class DiffusionAPI(APIMixin):
             z=z,
             original_size=res.image_res.original_size,
             alpha=res.image_res.alpha,
-            cond=txt,
+            cond=txt_list,
             cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
             num_steps=num_steps,
             clip_output=clip_output,
