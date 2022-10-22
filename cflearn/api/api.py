@@ -33,6 +33,7 @@ from .cv.models.diffusion import ldm_sd_anime as _ldm_sd_anime
 from .cv.models.diffusion import ldm_semantic as _ldm_semantic
 from .cv.models.diffusion import ldm_celeba_hq as _ldm_celeba_hq
 from .cv.models.diffusion import ldm_inpainting as _ldm_inpainting
+from .cv.models.diffusion import ldm_sd_version as _ldm_sd_version
 from .cv.models.diffusion import ldm_sd_inpainting as _ldm_sd_inpainting
 from .cv.models.translator import esr as _esr
 from .cv.models.translator import esr_anime as _esr_anime
@@ -1337,6 +1338,10 @@ def ldm_vq(
 
 def ldm_sd(pretrained: bool = True) -> DLPipeline:
     return _ldm_sd(pretrained)
+
+
+def ldm_sd_version(version: str, pretrained: bool = True) -> DLPipeline:
+    return _ldm_sd_version(version, pretrained)
 
 
 def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
