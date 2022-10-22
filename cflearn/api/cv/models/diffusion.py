@@ -25,7 +25,6 @@ from cftool.types import tensor_dict_type
 from .common import read_image
 from .common import restrict_wh
 from .common import get_suitable_size
-from .common import Padding
 from .common import APIMixin
 from .common import ReadImageResponse
 from ....zoo import DLZoo
@@ -241,7 +240,10 @@ class DiffusionAPI(APIMixin):
                     if z is not None:
                         i_z = repeat(z)
                     else:
-                        i_z_shape = len(i_cond), self.m.in_channels, *size[::-1]
+                        in_channels = self.m.in_channels
+                        if cond_concat is not None:
+                            in_channels -= cond_concat.shape[1]
+                        i_z_shape = len(i_cond), in_channels, *size[::-1]
                         i_z, _ = self._set_seed_and_variations(
                             seed,
                             lambda: torch.randn(i_z_shape, device=self.device),
@@ -513,11 +515,14 @@ class DiffusionAPI(APIMixin):
             lambda arr: torch.from_numpy(arr),
         )
         # sampling
-        z = torch.randn_like(res.remained_image_cond)
+        factor = self.size_info.factor
+        size = tuple(
+            map(lambda n: n * factor, res.remained_image_cond.shape[-2:][::-1])
+        )
         return self.sample(
             num_samples,
             export_path,
-            z=z,
+            size=size,  # type: ignore
             original_size=res.image_res.original_size,
             alpha=res.image_res.alpha,
             cond=txt_list,
