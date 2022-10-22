@@ -25,6 +25,7 @@ from cftool.types import tensor_dict_type
 from .common import read_image
 from .common import restrict_wh
 from .common import get_suitable_size
+from .common import Padding
 from .common import APIMixin
 from .common import ReadImageResponse
 from ....zoo import DLZoo
@@ -487,6 +488,47 @@ class DiffusionAPI(APIMixin):
             **kwargs,
         )
 
+    def txt2img_inpainting(
+        self,
+        txt: str,
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
+        export_path: Optional[str] = None,
+        *,
+        anchor: int = 64,
+        max_wh: int = 512,
+        num_steps: Optional[int] = None,
+        clip_output: bool = True,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
+        verbose: bool = True,
+        **kwargs: Any,
+    ) -> Tensor:
+        txt, num_samples = self._txt_cond(txt, 1)
+        res = self._get_masked_cond(
+            image,
+            mask,
+            max_wh,
+            anchor,
+            lambda remained_mask, img: np.where(remained_mask, img, 0.5),
+            lambda arr: torch.from_numpy(arr),
+        )
+        # sampling
+        z = torch.randn_like(res.remained_image_cond)
+        return self.sample(
+            num_samples,
+            export_path,
+            z=z,
+            original_size=res.image_res.original_size,
+            alpha=res.image_res.alpha,
+            cond=txt,
+            cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            verbose=verbose,
+            **kwargs,
+        )
+
     def outpainting(
         self,
         txt: str,
@@ -732,6 +774,17 @@ class DiffusionAPI(APIMixin):
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
+    def from_sd_inpainting(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> "DiffusionAPI":
+        m = ldm_sd_inpainting()
+        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
+
+    @classmethod
     def from_celeba_hq(
         cls,
         device: Optional[str] = None,
@@ -934,6 +987,10 @@ def ldm_sd(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
 
 def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
     return ldm_sd(pretrained, download_name="ldm_sd_anime_nai")
+
+
+def ldm_sd_inpainting(pretrained: bool = True, **kw: Any) -> DLPipeline:
+    return _ldm("diffusion/ldm.sd_inpainting", 64, 9, 4, pretrained=pretrained, **kw)
 
 
 def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:
