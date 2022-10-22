@@ -535,39 +535,34 @@ class DiffusionAPI(APIMixin):
         image: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
-        anchor: int = 32,
+        anchor: int = 64,
         max_wh: int = 512,
-        fidelity: float = 0.2,
-        padding_mode: str = "cv2_telea",
         num_steps: Optional[int] = None,
         clip_output: bool = True,
+        callback: Optional[Callable[[Tensor], Tensor]] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        with switch_sampler_context(self, "plms"):
-            res = read_image(image, max_wh, anchor=anchor, padding_mode=padding_mode)
-            if res.alpha is None:
-                raise ValueError("`image` should contain alpha channel in outpainting")
-            z = z_ref = self._get_z(res.image)
-            z_ref_mask = F.interpolate(
-                torch.from_numpy(res.alpha).to(z_ref),
-                z_ref.shape[-2:],
-                mode="bicubic",
-            )
-            return self._img2img(
-                z,
-                export_path,
-                z_ref=z_ref,
-                z_ref_mask=z_ref_mask,
-                fidelity=fidelity,
-                original_size=res.original_size,
-                alpha=None,
-                cond=[txt],
-                num_steps=num_steps,
-                clip_output=clip_output,
-                verbose=verbose,
-                **kwargs,
-            )
+        if isinstance(image, str):
+            image = Image.open(image)
+        if image.mode != "RGBA":
+            raise ValueError("`image` should be `RGBA` in outpainting")
+        *rgb, alpha = image.split()
+        mask = Image.fromarray(255 - np.array(alpha))
+        image = Image.merge("RGB", rgb)
+        return self.txt2img_inpainting(
+            txt,
+            image,
+            mask,
+            export_path,
+            anchor=anchor,
+            max_wh=max_wh,
+            num_steps=num_steps,
+            clip_output=clip_output,
+            callback=callback,
+            verbose=verbose,
+            **kwargs,
+        )
 
     def img2img(
         self,
