@@ -116,6 +116,43 @@ class DiffusionAPI(APIMixin):
         else:
             self.first_stage = m.first_stage.core
 
+    def to(
+        self,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> None:
+        if use_amp and use_half:
+            raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
+        self.device = device
+        self.use_amp = use_amp
+        self.use_half = use_half
+        unconditional_cond = getattr(self.sampler, "unconditional_cond")
+        if use_half:
+            self.m.half()
+            if self.cond_model is not None:
+                self.cond_model.half()
+            if self.first_stage is not None:
+                self.first_stage.half()
+            if unconditional_cond is not None:
+                unconditional_cond = unconditional_cond.half()
+        else:
+            self.m.float()
+            if self.cond_model is not None:
+                self.cond_model.float()
+            if self.first_stage is not None:
+                self.first_stage.float()
+            if unconditional_cond is not None:
+                unconditional_cond = unconditional_cond.float()
+        self.m.to(device)
+        if self.cond_model is not None:
+            self.cond_model.to(device)
+        if self.first_stage is not None:
+            self.first_stage.to(device)
+        if unconditional_cond is not None:
+            self.sampler.unconditional_cond = unconditional_cond.to(device)
+
     @property
     def size_info(self) -> SizeInfo:
         opt_size = self.m.img_size
