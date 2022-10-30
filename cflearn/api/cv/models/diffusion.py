@@ -51,13 +51,15 @@ from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
 
 class switch_sampler_context:
-    def __init__(self, api: "DiffusionAPI", sampler: str):
+    def __init__(self, api: "DiffusionAPI", sampler: Optional[str]):
         self.api = api
         self.m_sampler = api.sampler.__identifier__
         self.target_sampler = sampler
         self.switched = False
 
     def __enter__(self) -> None:
+        if self.target_sampler is None:
+            return
         if self.m_sampler != self.target_sampler:
             self.switched = True
             self.api.switch_sampler(self.target_sampler)
@@ -341,7 +343,8 @@ class DiffusionAPI(APIMixin):
                             CROSS_ATTN_KEY: i_cond,
                             CONCAT_KEY: cond_concat,
                         }
-                    i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
+                    with switch_sampler_context(self, i_kw.get("sampler")):
+                        i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                     sampled.append(i_sampled.cpu().float())
         if uncond_backup is not None:
             self.sampler.uncond = uncond_backup
