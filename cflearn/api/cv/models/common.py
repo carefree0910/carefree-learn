@@ -19,6 +19,7 @@ from cftool.misc import shallow_copy_dict
 from torch.cuda.amp.autocast_mode import autocast
 
 from ....pipeline import DLPipeline
+from ....misc.toolkit import empty_cuda_cache
 
 try:
     import cv2
@@ -171,6 +172,9 @@ class APIMixin:
         self.device = device
         self.use_amp = use_amp
         self.use_half = use_half
+
+    def empty_cuda_cache(self) -> None:
+        empty_cuda_cache(self.device)
 
     @property
     def amp_context(self) -> autocast:

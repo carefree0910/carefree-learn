@@ -318,6 +318,11 @@ class WeightsStrategy:
 # dl
 
 
+def empty_cuda_cache(device: Union[int, torch.device]) -> None:
+    with torch.cuda.device(device):
+        torch.cuda.empty_cache()
+
+
 def inject_debug(config: Dict[str, Any]) -> None:
     config["fixed_steps"] = 1
     config["valid_portion"] = 1.0e-4

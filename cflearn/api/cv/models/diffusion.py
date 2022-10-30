@@ -375,7 +375,7 @@ class DiffusionAPI(APIMixin):
             concat = torch.cat([concat, alpha], dim=1)
         if export_path is not None:
             save_images(concat, export_path)
-        torch.cuda.empty_cache()
+        self.empty_cuda_cache()
         return concat
 
     @staticmethod

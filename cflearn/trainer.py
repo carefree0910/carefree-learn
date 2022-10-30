@@ -57,6 +57,7 @@ from .constants import CHECKPOINTS_FOLDER
 from .misc.toolkit import summary
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import has_batch_norms
+from .misc.toolkit import empty_cuda_cache
 from .misc.toolkit import scheduler_requires_metric
 from .misc.toolkit import eval_context
 from .modules.optimizers import optimizer_dict
@@ -382,7 +383,7 @@ class Trainer(ITrainer):
                 raise ValueError("Only `ConservativeMonitor` could be used in ddp mode")
         # ddp setup
         _setup_ddp()
-        torch.cuda.empty_cache()
+        empty_cuda_cache(self.rank)
         torch.cuda.set_device(self.rank)
         if self.model_has_custom_steps and self.model.custom_ddp_initialization:
             self.model.init_ddp()
