@@ -7,6 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from .ddim import DDIMQSampler
 from .utils import append_dims
 from .utils import interpolate_fn
 from .protocol import ISampler
@@ -81,7 +82,7 @@ class DPMSolver(ISampler, UncondSamplerMixin):
 
     @property
     def q_sampler(self) -> IQSampler:
-        raise NotImplementedError("`DPMSolver` has not implemented `q_sampler` yet")
+        return self._q_sampler
 
     @property
     def sample_kwargs(self) -> Dict[str, Any]:
@@ -120,12 +121,12 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             )
         b = image.shape[0]
         vec_t = self.timesteps[step].to(image).expand(b)
-        if step == 0:
+        if not self.t_prev_list:
             self.t_prev_list.append(vec_t)
             self.model_prev_list.append(self._model_fn(image, vec_t, cond))
             return image
-        if step < order:
-            image = self._multistep_update(image, vec_t, step)
+        if len(self.t_prev_list) < order:
+            image = self._multistep_update(image, vec_t, len(self.t_prev_list))
             self.t_prev_list.append(vec_t)
             self.model_prev_list.append(self._model_fn(image, vec_t, cond))
             return image
@@ -299,6 +300,8 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         tT: float,
         skip_type: str,
     ) -> None:
+        self._q_sampler = DDIMQSampler(self.model)
+        self._q_sampler.reset_buffers("uniform", total_step)
         self.timesteps = self._get_time_steps(skip_type, t0, tT, total_step - 1)
         assert self.timesteps.shape[0] == total_step
         self.t_prev_list: List[Tensor] = []
