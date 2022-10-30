@@ -47,6 +47,7 @@ from ....models.cv.diffusion.utils import CONCAT_TYPE
 from ....models.cv.diffusion.utils import HYBRID_TYPE
 from ....models.cv.diffusion.utils import CROSS_ATTN_KEY
 from ....models.cv.diffusion.samplers.ddim import DDIMMixin
+from ....models.cv.diffusion.samplers.solver import DPMSolver
 from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
 
@@ -874,39 +875,39 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        # perturb z
-        if num_steps is None:
-            num_steps = self.sampler.default_steps
-        t = round((1.0 - fidelity) * num_steps)
-        ts = get_timesteps(min(t, num_steps - 1), 1, z.device)
-        if isinstance(self.sampler, (DDIMMixin, KSamplerMixin)):
-            kw = shallow_copy_dict(self.sampler.sample_kwargs)
-            kw["total_step"] = num_steps
-            safe_execute(self.sampler._reset_buffers, kw)
-        z, noise = self._set_seed_and_variations(
-            seed,
-            lambda: torch.randn_like(z),
-            lambda noise_: self.sampler.q_sample(z, ts, noise_),
-            variations,
-            variation_seed,
-            variation_strength,
-        )
-        kwargs["start_step"] = num_steps - t
-        return self.sample(
-            1,
-            export_path,
-            z=z,
-            z_ref=z_ref,
-            z_ref_mask=z_ref_mask,
-            z_ref_noise=None if z_ref is None else noise,
-            original_size=original_size,
-            alpha=alpha,
-            cond=cond,
-            num_steps=num_steps,
-            clip_output=clip_output,
-            verbose=verbose,
-            **kwargs,
-        )
+        with switch_sampler_context(self, kwargs.get("sampler")):
+            if num_steps is None:
+                num_steps = self.sampler.default_steps
+            t = round((1.0 - fidelity) * num_steps)
+            ts = get_timesteps(min(t, num_steps - 1), 1, z.device)
+            if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
+                kw = shallow_copy_dict(self.sampler.sample_kwargs)
+                kw["total_step"] = num_steps
+                safe_execute(self.sampler._reset_buffers, kw)
+            z, noise = self._set_seed_and_variations(
+                seed,
+                lambda: torch.randn_like(z),
+                lambda noise_: self.sampler.q_sample(z, ts, noise_),
+                variations,
+                variation_seed,
+                variation_strength,
+            )
+            kwargs["start_step"] = num_steps - t
+            return self.sample(
+                1,
+                export_path,
+                z=z,
+                z_ref=z_ref,
+                z_ref_mask=z_ref_mask,
+                z_ref_noise=None if z_ref is None else noise,
+                original_size=original_size,
+                alpha=alpha,
+                cond=cond,
+                num_steps=num_steps,
+                clip_output=clip_output,
+                verbose=verbose,
+                **kwargs,
+            )
 
 
 def _ldm(
