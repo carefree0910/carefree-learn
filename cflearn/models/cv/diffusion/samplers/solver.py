@@ -4,9 +4,11 @@ import torch
 from torch import Tensor
 from typing import Any
 from typing import Dict
+from typing import List
 from typing import Optional
 
 from .utils import append_dims
+from .utils import interpolate_fn
 from .protocol import ISampler
 from .protocol import IQSampler
 from .protocol import IDiffusion
@@ -20,45 +22,62 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         self,
         model: IDiffusion,
         *,
-        schedule: str = "linear",
+        schedule: str = "discrete",
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
-        t0: float = 1.0e-4,
+        t0: Optional[float] = None,
         tT: Optional[float] = None,
-        order: int = 3,
-        skip_type: str = "logSNR",
-        fast_version: bool = True,
-        default_steps: int = 20,
+        order: int = 2,
+        skip_type: str = "time_uniform",
+        default_steps: int = 25,
+        continuous_beta_0: float = 0.1,
+        continuous_beta_1: float = 20.0,
+        predict_x0: bool = True,
+        thresholding: bool = False,
+        threshold_max_val: float = 1.0,
     ):
         if model.parameterization != "eps":
-            raise ValueError("only `eps` parameterization is supported in `ddim`")
+            raise ValueError("only `eps` parameterization is supported in `DPMSolver`")
         super().__init__(model)
-        if schedule not in ["linear", "cosine"]:
-            raise ValueError("only `linear` & `cosine` can be used as `schedule`")
+        if schedule not in ["discrete", "linear", "cosine"]:
+            msg = "only (`discrete` | `linear` | `cosine`) can be used as `schedule`"
+            raise ValueError(msg)
+        # schedule
+        if schedule == "discrete":
+            default_tT = 1.0
+            log_alphas = 0.5 * torch.log(model.alphas_cumprod)
+            self.total_N = len(log_alphas)
+            self.t_array = torch.linspace(0.0, 1.0, len(log_alphas) + 1)[1:].view(1, -1)
+            self.log_alpha_array = log_alphas.view(1, -1)
+        else:
+            default_tT = 0.9946 if schedule == "cosine" else 1.0
+            self.total_N = 1000
+            self.beta_0 = continuous_beta_0
+            self.beta_1 = continuous_beta_1
+            self.cosine_s = 0.008
+            self.cosine_beta_max = 999.0
+            self.cosine_t_max = (
+                math.atan(self.cosine_beta_max * (1.0 + self.cosine_s) / math.pi)
+                * 2.0
+                * (1.0 + self.cosine_s)
+                / math.pi
+                - self.cosine_s
+            )
+            self.cosine_log_alpha_0 = math.log(
+                math.cos(self.cosine_s / (1.0 + self.cosine_s) * math.pi / 2.0)
+            )
+        # properties
+        self.schedule = schedule
         self.unconditional_cond = unconditional_cond
         self.unconditional_guidance_scale = unconditional_guidance_scale
-        self.beta_0 = 0.1
-        self.beta_1 = 20
-        self.cosine_s = 0.008
-        self.cosine_beta_max = 999.0
-        self.cosine_t_max = (
-            math.atan(self.cosine_beta_max * (1.0 + self.cosine_s) / math.pi)
-            * 2.0
-            * (1.0 + self.cosine_s)
-            / math.pi
-            - self.cosine_s
-        )
-        self.cosine_log_alpha_0 = math.log(
-            math.cos(self.cosine_s / (1.0 + self.cosine_s) * math.pi / 2.0)
-        )
-        self.default_tT = 0.9946 if schedule == "cosine" else 1.0
-        self.schedule = schedule
-        self.t0 = t0
-        self.tT = tT
+        self.t0 = 1.0 / self.total_N if t0 is None else t0
+        self.tT = default_tT if tT is None else tT
         self.order = order
         self.skip_type = skip_type
-        self.fast_version = fast_version
         self.default_steps = default_steps
+        self.predict_x0 = predict_x0
+        self.thresholding = thresholding
+        self.threshold_max_val = threshold_max_val
 
     @property
     def q_sampler(self) -> IQSampler:
@@ -73,7 +92,6 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             tT=self.tT,
             order=self.order,
             skip_type=self.skip_type,
-            fast_version=self.fast_version,
         )
 
     def sample_step(
@@ -86,14 +104,11 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
         t0: float = 1.0e-4,
-        tT: Optional[float] = None,
-        order: int = 3,
-        skip_type: str = "logSNR",
-        fast_version: bool = True,
+        tT: float = 1.0,
+        order: int = 2,
+        skip_type: str = "time_uniform",
         **kwargs: Any,
     ) -> Tensor:
-        if tT is None:
-            tT = self.default_tT
         if step == 0:
             self._reset_buffers(
                 total_step,
@@ -101,135 +116,179 @@ class DPMSolver(ISampler, UncondSamplerMixin):
                 unconditional_guidance_scale,
                 t0,
                 tT,
-                order,
                 skip_type,
-                fast_version,
             )
-        if step >= len(self.orders):
-            return image
         b = image.shape[0]
-        device = image.device
-        order = self.orders[step]
-        vec_s = torch.ones(b, device=device) * self.timesteps[step]
-        vec_t = torch.ones(b, device=device) * self.timesteps[step + 1]
-        if order == 1:
-            return self._order1_update(image, cond, vec_s, vec_t)
-        if order == 2:
-            return self._order2_update(image, cond, vec_s, vec_t)
-        if order == 3:
-            return self._order3_update(image, cond, vec_s, vec_t)
-        raise ValueError(f"unrecognized order '{order}' occurred")
+        vec_t = self.timesteps[step].to(image).expand(b)
+        if step == 0:
+            self.t_prev_list.append(vec_t)
+            self.model_prev_list.append(self._model_fn(image, vec_t, cond))
+            return image
+        if step < order:
+            image = self._multistep_update(image, vec_t, step)
+            self.t_prev_list.append(vec_t)
+            self.model_prev_list.append(self._model_fn(image, vec_t, cond))
+            return image
+        image = self._multistep_update(image, vec_t, order)
+        for i in range(order - 1):
+            self.t_prev_list[i] = self.t_prev_list[i + 1]
+            self.model_prev_list[i] = self.model_prev_list[i + 1]
+        self.t_prev_list[-1] = vec_t
+        if step < total_step - 1:
+            self.model_prev_list[-1] = self._model_fn(image, vec_t, cond)
+        # clear cache at last step
+        else:
+            self.t_prev_list.clear()
+            self.model_prev_list.clear()
+        return image
 
     # internal
 
-    def _denoise(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
+    def _model_fn(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
+        if self.predict_x0:
+            return self._image_fn(x, ts, cond)
+        return self._noise_fn(x, ts, cond)
+
+    def _noise_fn(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
         ts = self.model.t * torch.max(ts - 1.0 / self.model.t, torch.zeros_like(ts))
         return self._uncond_denoise(x, ts, cond)
 
-    def _order1_update(
+    def _image_fn(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
+        eps = self._noise_fn(x, ts, cond)
+        ndim = x.dim()
+        alpha_t = self._marginal_alpha(ts)
+        sigma_t = self._marginal_std(ts)
+        x0 = (x - append_dims(sigma_t, ndim) * eps) / append_dims(alpha_t, ndim)
+        if self.thresholding:
+            p = 0.995  # A hyperparameter in the paper of "Imagen" [1].
+            s = torch.quantile(torch.abs(x0).reshape((x0.shape[0], -1)), p, dim=1)
+            s = append_dims(torch.maximum(s, torch.ones_like(s).to(s.device)), ndim)
+            x0 = torch.clamp(x0, -s, s) / (s / self.threshold_max_val)
+        return x0
+
+    def _multistep_update(
         self,
-        image: Tensor,
-        cond: Optional[cond_type],
+        x: Tensor,
+        vec_t: Tensor,
+        order: int,
+    ) -> Tensor:
+        if order == 1:
+            return self._first_update(
+                x,
+                self.t_prev_list[-1],
+                vec_t,
+                self.model_prev_list[-1],
+            )
+        if order == 2:
+            return self._multistep_second_update(x, vec_t)
+        if order == 3:
+            return self._multistep_third_update(x, vec_t)
+        raise ValueError(f"Solver order must be 1 or 2 or 3, got {order}")
+
+    def _first_update(
+        self,
+        x: Tensor,
         vec_s: Tensor,
         vec_t: Tensor,
+        model_s: Tensor,
     ) -> Tensor:
-        dims = len(image.shape) - 1
+        ndim = x.dim()
         lambda_s = self._marginal_lambda(vec_s)
         lambda_t = self._marginal_lambda(vec_t)
         h = lambda_t - lambda_s
         log_alpha_s = self._marginal_log_mean_coef(vec_s)
         log_alpha_t = self._marginal_log_mean_coef(vec_t)
+        sigma_s = self._marginal_std(vec_s)
         sigma_t = self._marginal_std(vec_t)
+        if self.predict_x0:
+            phi_1 = torch.expm1(-h)
+            alpha_t = torch.exp(log_alpha_t)
+            x_t = (
+                append_dims(sigma_t / sigma_s, ndim) * x
+                - append_dims(alpha_t * phi_1, ndim) * model_s
+            )
+            return x_t
         phi_1 = torch.expm1(h)
-        noise_s = self._denoise(image, vec_s, cond)
-        return (
-            append_dims(torch.exp(log_alpha_t - log_alpha_s), dims) * image
-            - append_dims(sigma_t * phi_1, dims) * noise_s
+        x_t = (
+            append_dims(torch.exp(log_alpha_t - log_alpha_s), ndim) * x
+            - append_dims(sigma_t * phi_1, ndim) * model_s
         )
+        return x_t
 
-    def _order2_update(
-        self,
-        image: Tensor,
-        cond: Optional[cond_type],
-        vec_s: Tensor,
-        vec_t: Tensor,
-    ) -> Tensor:
-        r1 = 0.5
-        dims = len(image.shape) - 1
-        lambda_s = self._marginal_lambda(vec_s)
+    def _multistep_second_update(self, x: Tensor, vec_t: Tensor) -> Tensor:
+        ndim = x.dim()
+        t_prev_1, t_prev_0 = self.t_prev_list
+        model_prev_1, model_prev_0 = self.model_prev_list
+        lambda_prev_1 = self._marginal_lambda(t_prev_1)
+        lambda_prev_0 = self._marginal_lambda(t_prev_0)
         lambda_t = self._marginal_lambda(vec_t)
-        h = lambda_t - lambda_s
-        lambda_s1 = lambda_s + r1 * h
-        s1 = self._inverse_lambda(lambda_s1)
-        log_alpha_s = self._marginal_log_mean_coef(vec_s)
-        log_alpha_s1 = self._marginal_log_mean_coef(s1)
         log_alpha_t = self._marginal_log_mean_coef(vec_t)
-        sigma_s1 = self._marginal_std(s1)
         sigma_t = self._marginal_std(vec_t)
 
-        phi_11 = torch.expm1(r1 * h)
-        phi_1 = torch.expm1(h)
+        h_0 = lambda_prev_0 - lambda_prev_1
+        h = lambda_t - lambda_prev_0
+        r0 = h_0 / h
+        d1_0 = append_dims(1.0 / r0, ndim) * (model_prev_0 - model_prev_1)
 
-        noise_s = self._denoise(image, vec_s, cond)
-        x_s1 = (
-            append_dims(torch.exp(log_alpha_s1 - log_alpha_s), dims) * image
-            - append_dims(sigma_s1 * phi_11, dims) * noise_s
+        if self.predict_x0:
+            exp_mh_m1 = torch.exp(-h) - 1.0
+            sigma_prev_0 = self._marginal_std(t_prev_0)
+            alpha_t = torch.exp(log_alpha_t)
+            x_t = (
+                append_dims(sigma_t / sigma_prev_0, ndim) * x
+                - append_dims(alpha_t * exp_mh_m1, ndim) * model_prev_0
+                - 0.5 * append_dims(alpha_t * exp_mh_m1, ndim) * d1_0
+            )
+            return x_t
+        exp_h_m1 = torch.exp(h) - 1.0
+        log_alpha_prev_0 = self._marginal_log_mean_coef(t_prev_0)
+        x_t = (
+            append_dims(torch.exp(log_alpha_t - log_alpha_prev_0), ndim) * x
+            - append_dims(sigma_t * exp_h_m1, ndim) * model_prev_0
+            - 0.5 * append_dims(sigma_t * exp_h_m1, ndim) * d1_0
         )
-        noise_s1 = self._denoise(x_s1, s1, cond)
-        return (
-            append_dims(torch.exp(log_alpha_t - log_alpha_s), dims) * image
-            - append_dims(sigma_t * phi_1, dims) * noise_s
-            - (0.5 / r1) * append_dims(sigma_t * phi_1, dims) * (noise_s1 - noise_s)
-        )
+        return x_t
 
-    def _order3_update(
-        self,
-        image: Tensor,
-        cond: Optional[cond_type],
-        vec_s: Tensor,
-        vec_t: Tensor,
-    ) -> Tensor:
-        r1 = 1.0 / 3.0
-        r2 = 2.0 / 3.0
-        dims = len(image.shape) - 1
-        lambda_s = self._marginal_lambda(vec_s)
+    def _multistep_third_update(self, x: Tensor, vec_t: Tensor) -> Tensor:
+        ndim = x.dim()
+        t_prev_2, t_prev_1, t_prev_0 = self.t_prev_list
+        model_prev_2, model_prev_1, model_prev_0 = self.model_prev_list
+        lambda_prev_2 = self._marginal_lambda(t_prev_2)
+        lambda_prev_1 = self._marginal_lambda(t_prev_1)
+        lambda_prev_0 = self._marginal_lambda(t_prev_0)
         lambda_t = self._marginal_lambda(vec_t)
-        h = lambda_t - lambda_s
-        lambda_s1 = lambda_s + r1 * h
-        lambda_s2 = lambda_s + r2 * h
-        s1 = self._inverse_lambda(lambda_s1)
-        s2 = self._inverse_lambda(lambda_s2)
-        log_alpha_s = self._marginal_log_mean_coef(vec_s)
-        log_alpha_s1 = self._marginal_log_mean_coef(s1)
-        log_alpha_s2 = self._marginal_log_mean_coef(s2)
         log_alpha_t = self._marginal_log_mean_coef(vec_t)
-        sigma_s1 = self._marginal_std(s1)
-        sigma_s2 = self._marginal_std(s2)
         sigma_t = self._marginal_std(vec_t)
 
-        phi_11 = torch.expm1(r1 * h)
-        phi_12 = torch.expm1(r2 * h)
-        phi_1 = torch.expm1(h)
-        phi_22 = torch.expm1(r2 * h) / (r2 * h) - 1.0
-        phi_2 = torch.expm1(h) / h - 1.0
+        h_1 = lambda_prev_1 - lambda_prev_2
+        h_0 = lambda_prev_0 - lambda_prev_1
+        h = lambda_t - lambda_prev_0
+        r0, r1 = h_0 / h, h_1 / h
+        d1_0 = append_dims(1.0 / r0, ndim) * (model_prev_0 - model_prev_1)
+        d1_1 = append_dims(1.0 / r1, ndim) * (model_prev_1 - model_prev_2)
+        d1 = d1_0 + append_dims(r0 / (r0 + r1), ndim) * (d1_0 - d1_1)
+        d2 = append_dims(1.0 / (r0 + r1), ndim) * (d1_0 - d1_1)
 
-        noise_s = self._denoise(image, vec_s, cond)
-        x_s1 = (
-            append_dims(torch.exp(log_alpha_s1 - log_alpha_s), dims) * image
-            - append_dims(sigma_s1 * phi_11, dims) * noise_s
+        if self.predict_x0:
+            exp_mh_m1 = torch.exp(-h) - 1.0
+            sigma_prev_0 = self._marginal_std(t_prev_0)
+            alpha_t = torch.exp(log_alpha_t)
+            x_t = (
+                append_dims(sigma_t / sigma_prev_0, ndim) * x
+                - append_dims(alpha_t * exp_mh_m1, ndim) * model_prev_0
+                + append_dims(alpha_t * (exp_mh_m1 / h + 1.0), ndim) * d1
+                - append_dims(alpha_t * ((exp_mh_m1 + h) / h**2 - 0.5), ndim) * d2
+            )
+            return x_t
+        exp_h_m1 = torch.exp(h) - 1.0
+        log_alpha_prev_0 = self._marginal_log_mean_coef(t_prev_0)
+        x_t = (
+            append_dims(torch.exp(log_alpha_t - log_alpha_prev_0), ndim) * x
+            - append_dims(sigma_t * exp_h_m1, ndim) * model_prev_0
+            - append_dims(sigma_t * (exp_h_m1 / h - 1.0), ndim) * d1
+            - append_dims(sigma_t * ((exp_h_m1 - h) / h**2 - 0.5), ndim) * d2
         )
-        noise_s1 = self._denoise(x_s1, s1, cond)
-        x_s2 = (
-            append_dims(torch.exp(log_alpha_s2 - log_alpha_s), dims) * image
-            - append_dims(sigma_s2 * phi_12, dims) * noise_s
-            - r2 / r1 * append_dims(sigma_s2 * phi_22, dims) * (noise_s1 - noise_s)
-        )
-        noise_s2 = self._denoise(x_s2, s2, cond)
-        return (
-            append_dims(torch.exp(log_alpha_t - log_alpha_s), dims) * image
-            - append_dims(sigma_t * phi_1, dims) * noise_s
-            - (1.0 / r2) * append_dims(sigma_t * phi_2, dims) * (noise_s2 - noise_s)
-        )
+        return x_t
 
     def _reset_buffers(
         self,
@@ -238,25 +297,12 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         unconditional_guidance_scale: float,
         t0: float,
         tT: float,
-        order: int,
         skip_type: str,
-        fast_version: bool,
     ) -> None:
-        if fast_version:
-            K = total_step // 3 + 1
-            if total_step % 3 == 0:
-                orders = [3] * (K - 2) + [2, 1]
-            elif total_step % 3 == 1:
-                orders = [3] * (K - 1) + [1]
-            else:
-                orders = [3] * (K - 1) + [2]
-            timesteps = self._get_time_steps("logSNR", t0, tT, K)
-            self.orders = orders
-            self.timesteps = timesteps
-        else:
-            N_steps = total_step // order
-            self.orders = [order] * N_steps
-            self.timesteps = self._get_time_steps(skip_type, t0, tT, N_steps)
+        self.timesteps = self._get_time_steps(skip_type, t0, tT, total_step - 1)
+        assert self.timesteps.shape[0] == total_step
+        self.t_prev_list: List[Tensor] = []
+        self.model_prev_list: List[Tensor] = []
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
@@ -286,6 +332,11 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         raise ValueError(f"unrecognized skip_type '{skip_type}' occurred")
 
     def _marginal_log_mean_coef(self, t: Tensor) -> Tensor:
+        if self.schedule == "discrete":
+            t = t.view(-1, 1)
+            self.t_array = self.t_array.to(t)
+            self.log_alpha_array = self.log_alpha_array.to(t)
+            return interpolate_fn(t, self.t_array, self.log_alpha_array).view(-1)
         if self.schedule == "linear":
             return -0.25 * t**2 * (self.beta_1 - self.beta_0) - 0.5 * t * self.beta_0
         if self.schedule == "cosine":
@@ -296,6 +347,9 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             return log_alpha_t
         raise ValueError(f"unrecognized schedule '{self.schedule}' occurred")
 
+    def _marginal_alpha(self, t: Tensor) -> Tensor:
+        return torch.exp(self._marginal_log_mean_coef(t))
+
     def _marginal_std(self, t: Tensor) -> Tensor:
         return torch.sqrt(1.0 - torch.exp(2.0 * self._marginal_log_mean_coef(t)))
 
@@ -305,6 +359,17 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         return log_mean_coef - log_std
 
     def _inverse_lambda(self, lamb: Tensor) -> Tensor:
+        if self.schedule == "discrete":
+            self.t_array = self.t_array.to(lamb)
+            self.log_alpha_array = self.log_alpha_array.to(lamb)
+            zeros = torch.zeros((1,), dtype=lamb.dtype, device=lamb.device)
+            log_alpha = (-0.5 * torch.logaddexp(zeros, -2.0 * lamb)).view(-1, 1)
+            t = interpolate_fn(
+                log_alpha,
+                torch.flip(self.log_alpha_array, [1]),
+                torch.flip(self.t_array, [1]),
+            )
+            return t.view(-1)
         if self.schedule == "linear":
             tmp = (
                 2.0
