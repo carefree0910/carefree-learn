@@ -34,7 +34,7 @@ setup(
             "ortools>=9.3.0",
             "sacremoses",
             "sentencepiece",
-            "transformers",
+            "transformers==4.20.0",
             "ftfy",
             "regex",
             "lmdb",
