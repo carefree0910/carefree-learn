@@ -267,7 +267,11 @@ class DiffusionAPI(APIMixin):
         unconditional_cond_backup = None
         if self.cond_model is not None and unconditional_cond is not None:
             uncond_backup = getattr(self.sampler, "uncond", None)
-            unconditional_cond_backup = getattr(self.sampler, "unconditional_cond", None)
+            unconditional_cond_backup = getattr(
+                self.sampler,
+                "unconditional_cond",
+                None,
+            )
             uncond = self.get_cond(unconditional_cond).to(self.device)
             self.sampler.uncond = uncond.clone()
             self.sampler.unconditional_cond = uncond.clone()
