@@ -131,7 +131,7 @@ class DiffusionAPI(APIMixin):
         self.device = device
         self.use_amp = use_amp
         self.use_half = use_half
-        unconditional_cond = getattr(self.sampler, "unconditional_cond")
+        unconditional_cond = getattr(self.sampler, "unconditional_cond", None)
         if use_half:
             self.m.half()
             if self.cond_model is not None:
@@ -266,8 +266,8 @@ class DiffusionAPI(APIMixin):
         uncond_backup = None
         unconditional_cond_backup = None
         if self.cond_model is not None and unconditional_cond is not None:
-            uncond_backup = getattr(self.sampler, "uncond")
-            unconditional_cond_backup = getattr(self.sampler, "unconditional_cond")
+            uncond_backup = getattr(self.sampler, "uncond", None)
+            unconditional_cond_backup = getattr(self.sampler, "unconditional_cond", None)
             uncond = self.get_cond(unconditional_cond).to(self.device)
             self.sampler.uncond = uncond.clone()
             self.sampler.unconditional_cond = uncond.clone()
