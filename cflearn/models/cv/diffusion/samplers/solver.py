@@ -163,8 +163,11 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         if self.thresholding:
             p = 0.995  # A hyperparameter in the paper of "Imagen" [1].
             s = torch.quantile(torch.abs(x0).reshape((x0.shape[0], -1)), p, dim=1)
-            s = append_dims(torch.maximum(s, torch.ones_like(s).to(s.device)), ndim)
-            x0 = torch.clamp(x0, -s, s) / (s / self.threshold_max_val)
+            s = append_dims(
+                torch.maximum(s, self.threshold_max_val * torch.ones_like(s)),
+                ndim,
+            )
+            x0 = torch.clamp(x0, -s, s) / s
         return x0
 
     def _multistep_update(
