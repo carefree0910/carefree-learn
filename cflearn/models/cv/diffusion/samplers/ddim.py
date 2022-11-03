@@ -43,6 +43,7 @@ class DDIMQSampler(DDPMQSampler):
         else:
             raise ValueError(f"unrecognized discretize method '{discretize}' occurred")
         q_timesteps += 1
+        q_timesteps = np.minimum(q_timesteps, self.model.t - 1)
         alphas = self.model.alphas_cumprod
         self.alphas = alphas[q_timesteps]
         self.timesteps = q_timesteps
