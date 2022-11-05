@@ -4,9 +4,13 @@ from typing import Any
 from typing import List
 from typing import Type
 from typing import Union
-from transformers import BertTokenizer
-from transformers import PreTrainedTokenizer
-from transformers import CLIPTokenizer as _CLIPTokenizer
+
+try:
+    from transformers import BertTokenizer
+    from transformers import PreTrainedTokenizer
+    from transformers import CLIPTokenizer as _CLIPTokenizer
+except:
+    BertTokenizer = PreTrainedTokenizer = _CLIPTokenizer = None
 
 from .protocol import ITokenizer
 
