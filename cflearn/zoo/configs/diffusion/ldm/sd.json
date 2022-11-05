@@ -10,7 +10,7 @@
     "condition_config": {
       "use_vision": false
     },
-    "sampler": "klms",
+    "sampler": "solver",
     "sampler_config": {
       "unconditional_cond": [""],
       "unconditional_guidance_scale": 7.5
