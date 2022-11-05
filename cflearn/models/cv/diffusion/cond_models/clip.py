@@ -32,7 +32,7 @@ weight_pattern = re.compile(
 
 
 def parse_weights(text: str) -> List[List[Any]]:
-    res = []
+    res: List[List[Any]] = []
     round_brackets = []
     square_brackets = []
 

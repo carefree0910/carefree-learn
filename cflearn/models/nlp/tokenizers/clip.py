@@ -64,7 +64,7 @@ class ChineseCLIPTokenizer(ICLIPTokenizer):
     tag = "IDEA-CCNL/Taiyi-CLIP-Roberta-large-326M-Chinese"
     base = BertTokenizer
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__()
         self.max_length = 512
 
