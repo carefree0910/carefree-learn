@@ -9,7 +9,9 @@ from typing import Type
 from cftool.misc import WithRegister
 
 
+# `condition_models` are rather 'independent' models, they can be used independently
 condition_models: Dict[str, Type["IConditionModel"]] = {}
+# `specialized_condition_models` are specialized for conditioning, they cannot be used independently
 specialized_condition_models: Dict[str, Type[nn.Module]] = {}
 
 
