@@ -228,7 +228,7 @@ class CLIP(IPerceptor):
 
     def encode_text(
         self,
-        text: Tensor,
+        indices: Tensor,
         *,
         apply_pooling: bool = True,
         determinate: bool = True,
@@ -245,9 +245,9 @@ class CLIP(IPerceptor):
             raise ValueError(fmt.format("text_latent_dropout"))
         if self.text_projection is None:
             raise ValueError(fmt.format("text_projection"))
-        net = self.token_embedding(text)
+        net = self.token_embedding(indices)
         if self.token_type_embedding is not None:
-            token_type = torch.zeros_like(text)
+            token_type = torch.zeros_like(indices)
             net = net + self.token_type_embedding(token_type)
         kw = dict(determinate=determinate)
         net = self.text_transformer(0, {INPUT_KEY: net}, **kw)[LATENT_KEY]
@@ -257,10 +257,10 @@ class CLIP(IPerceptor):
         if self.text_head_pooler is None:
             batch_size = net.shape[0]
             if self.training or batch_size > 1:
-                net = net[torch.arange(batch_size), text.argmax(dim=-1)]
+                net = net[torch.arange(batch_size), indices.argmax(dim=-1)]
             else:
                 # ONNX compatibility
-                net = net[:, torch.nonzero(text)[:, 1][-1]]
+                net = net[:, torch.nonzero(indices)[:, 1][-1]]
         net = self.text_latent_dropout(net)
         net = self.text_projection(net)
         return l2_normalize(net)
