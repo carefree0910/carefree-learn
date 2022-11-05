@@ -23,18 +23,20 @@ class ITokenizer(WithRegister["ITokenizer"], metaclass=ABCMeta):
     d = tokenizers
 
     @abstractmethod
-    def tokenize(self, texts: Union[str, List[str]]) -> np.ndarray:
+    def tokenize(self, texts: Union[str, List[str]], **kwargs: Any) -> np.ndarray:
         pass
 
     @classmethod
     def make(cls, name: str, config: Dict[str, Any]) -> "ITokenizer":
+        if name in tokenizers:
+            return super().make(name, config)
         tag = "tokenizers"
         repo = "pretrained-models"
         name = get_compatible_name(tag, repo, name, [(3, 8), (3, 9)])
         if check_available(tag, repo, name):
             with open(download_tokenizer(name), "rb") as f:
                 return dill.load(f)
-        return super().make(name, config)
+        raise ValueError(f"unrecognized tokenizer '{name}' occurred")
 
 
 __all__ = [

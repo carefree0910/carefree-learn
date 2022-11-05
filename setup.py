@@ -19,6 +19,7 @@ setup(
             "onnxruntime",
         ],
         "cv": [
+            "transformers",
             "ftfy",
             "regex",
             "lmdb",
@@ -34,7 +35,7 @@ setup(
             "ortools>=9.3.0",
             "sacremoses",
             "sentencepiece",
-            "transformers==4.20.0",
+            "transformers",
             "ftfy",
             "regex",
             "lmdb",
