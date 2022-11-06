@@ -173,6 +173,24 @@ class APIMixin:
         self.use_amp = use_amp
         self.use_half = use_half
 
+    def to(
+        self,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> None:
+        if use_amp and use_half:
+            raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
+        self.device = device
+        self.use_amp = use_amp
+        self.use_half = use_half
+        if use_half:
+            self.m.half()
+        else:
+            self.m.float()
+        self.m.to(device)
+
     def empty_cuda_cache(self) -> None:
         empty_cuda_cache(self.device)
 

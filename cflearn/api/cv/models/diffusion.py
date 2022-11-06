@@ -127,14 +127,9 @@ class DiffusionAPI(APIMixin):
         use_amp: bool = False,
         use_half: bool = False,
     ) -> None:
-        if use_amp and use_half:
-            raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
-        self.device = device
-        self.use_amp = use_amp
-        self.use_half = use_half
+        super().to(device, use_amp=use_amp, use_half=use_half)
         unconditional_cond = getattr(self.sampler, "unconditional_cond", None)
         if use_half:
-            self.m.half()
             if self.cond_model is not None:
                 self.cond_model.half()
             if self.first_stage is not None:
@@ -142,14 +137,12 @@ class DiffusionAPI(APIMixin):
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.half()
         else:
-            self.m.float()
             if self.cond_model is not None:
                 self.cond_model.float()
             if self.first_stage is not None:
                 self.first_stage.float()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.float()
-        self.m.to(device)
         if self.cond_model is not None:
             self.cond_model.to(device)
         if self.first_stage is not None:
