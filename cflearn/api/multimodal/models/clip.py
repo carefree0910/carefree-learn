@@ -26,7 +26,13 @@ from ....models.multimodal.clip import CLIP
 class CLIPExtractor(IImageExtractor):
     clip: CLIP
 
-    def __init__(self, m: CVPipeline, *, tokenizer: Optional[str] = None):
+    def __init__(
+        self,
+        m: CVPipeline,
+        *,
+        tokenizer: Optional[str] = None,
+        pad_to_max: bool = True,
+    ):
         self.m = m
         clip = m.model
         self.clip = clip
@@ -37,7 +43,7 @@ class CLIPExtractor(IImageExtractor):
                 tokenizer = "clip.chinese"
             else:
                 tokenizer = "clip"
-        self.tokenizer = ITokenizer.make(tokenizer, {})
+        self.tokenizer = ITokenizer.make(tokenizer, dict(pad_to_max=pad_to_max))
 
     @property
     def text_forward_fn(self) -> Callable:
