@@ -23,8 +23,9 @@ cf_tokenizer = cflearn.ITokenizer.make("clip", {})
 
 torch.manual_seed(142857)
 img = torch.randn(1, 3, 224, 224)
-texts = ["a diagram", "a dog", "a cat"]
+texts = ["a diagram.", "a dog", "a cat"]
 text = clip.tokenize(texts).to(torch.long)
+text[text == 0] = cf_tokenizer.eos_token_id
 assert torch.allclose(text, torch.from_numpy(cf_tokenizer.tokenize(texts)))
 
 for clip_name, cf_clip_name in zip(
