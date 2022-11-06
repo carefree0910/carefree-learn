@@ -46,6 +46,7 @@ from ....models.cv.diffusion.utils import CONCAT_KEY
 from ....models.cv.diffusion.utils import CONCAT_TYPE
 from ....models.cv.diffusion.utils import HYBRID_TYPE
 from ....models.cv.diffusion.utils import CROSS_ATTN_KEY
+from ....models.cv.diffusion.cond_models import CLIPTextConditionModel
 from ....models.cv.diffusion.samplers.ddim import DDIMMixin
 from ....models.cv.diffusion.samplers.solver import DPMSolver
 from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
@@ -232,6 +233,13 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
+        registered_custom = False
+        if self.cond_model is not None:
+            if isinstance(self.cond_model, CLIPTextConditionModel):
+                custom_embeddings = kwargs.get("custom_embeddings")
+                if custom_embeddings is not None:
+                    registered_custom = True
+                    self.cond_model.register_custom(custom_embeddings)
         if cond is not None:
             if self.cond_type != CONCAT_TYPE and self.cond_model is not None:
                 data = TensorInferenceData(cond, batch_size=batch_size)
@@ -380,6 +388,8 @@ class DiffusionAPI(APIMixin):
         if export_path is not None:
             save_images(concat, export_path)
         self.empty_cuda_cache()
+        if registered_custom:
+            self.cond_model.clear_custom()
         return concat
 
     @staticmethod

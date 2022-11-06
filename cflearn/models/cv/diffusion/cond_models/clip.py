@@ -1,9 +1,13 @@
 import re
+import dill
+import uuid
 import torch
 
 from torch import Tensor
 from typing import Any
+from typing import Dict
 from typing import List
+from typing import NamedTuple
 
 from .protocol import IConditionModel
 from ....nlp.tokenizers import ITokenizer
@@ -82,6 +86,45 @@ def parse_weights(text: str) -> List[List[Any]]:
     return res
 
 
+class CustomToken(NamedTuple):
+    name: str
+    uuid: str
+    token_id: int
+    embedding: Tensor
+
+
+class inject_embeddings:
+    def __init__(self, cond_model: "CLIPTextConditionModel") -> None:
+        self.m = cond_model
+        self.original_embeddings = cond_model.embeddings
+        self.changed = False
+
+    def __enter__(self) -> None:
+        sorted_keys = sorted(self.m.customized)
+        if not sorted_keys:
+            return
+        anchor = self.original_embeddings
+        self.changed = True
+        new_inject = [self.m.customized[k].embedding.to(anchor) for k in sorted_keys]
+        start = len(anchor)
+        for i, k in enumerate(sorted_keys):
+            if start + i != k:
+                msg = "injected embeddings not contiguous to the original embeddings"
+                raise ValueError(msg)
+        concat = torch.cat([anchor] + new_inject, dim=0)
+        self._inject(concat)
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        if not self.changed:
+            return
+        self._inject(self.original_embeddings)
+
+    def _inject(self, embeddings: Tensor) -> None:
+        if self.m.m.token_embedding is None:
+            raise ValueError("`token_embedding` is None")
+        self.m.m.token_embedding.weight.data = embeddings
+
+
 @IConditionModel.register("multimodal/clip")
 @IConditionModel.register("multimodal/clip.large")
 @IConditionModel.register("multimodal/clip.chinese")
@@ -94,8 +137,42 @@ class CLIPTextConditionModel(IConditionModel):
         self.context_length = m.context_length
         tokenizer = "clip.chinese" if m.context_length == 512 else "clip"
         self.tokenizer = ITokenizer.make(tokenizer, dict(pad_to_max=True))
+        self._dumped_tokenizer = dill.dumps(self.tokenizer.tokenizer)
+        self.dictionary: Dict[str, str] = {}
+        self.customized: Dict[int, CustomToken] = {}
+
+    @property
+    def embeddings(self) -> Tensor:
+        if self.m.token_embedding is None:
+            raise ValueError("`token_embedding` is None")
+        return self.m.token_embedding.weight.data
+
+    def register_custom(self, embeddings: Dict[str, List[float]]) -> None:
+        existing = self.embeddings
+        dtype = existing.dtype
+        device = existing.device
+        for name, embedding in embeddings.items():
+            tensor = torch.asarray(embedding, dtype=dtype, device=device).view(1, -1)
+            for token_id, token in list(self.customized.items()):
+                if name == token.name:
+                    new_token = CustomToken(token.name, token.uuid, token_id, tensor)
+                    self.customized[token_id] = new_token
+                    return
+            tag = uuid.uuid4().hex
+            self.tokenizer.tokenizer.add_tokens(tag)
+            token_id = self.tokenizer.tokenizer.convert_tokens_to_ids(tag)
+            self.dictionary[name] = tag
+            self.customized[token_id] = CustomToken(name, tag, token_id, tensor)
+
+    def clear_custom(self) -> None:
+        self.dictionary = {}
+        self.customized = {}
+        # TODO : optimize this
+        self.tokenizer.tokenizer = dill.loads(self._dumped_tokenizer)
 
     def get_line(self, text: str) -> Tensor:
+        for k, v in self.dictionary.items():
+            text = text.replace(k, v)
         parsed = parse_weights(text)
         parsed_texts = [pair[0] for pair in parsed]
         encoded = self.tokenizer.encode(
@@ -122,7 +199,8 @@ class CLIPTextConditionModel(IConditionModel):
         to_torch = lambda l, dtype: torch.asarray(l, dtype=dtype, device=self.m.device)
         inp = to_torch([concat_ids], torch.int64)
         weights_tensor = to_torch(weights, torch.float32).view(1, -1, 1)
-        z = self.m.encode_text(inp, apply_pooling=False, determinate=False)
+        with inject_embeddings(self):
+            z = self.m.encode_text(inp, apply_pooling=False, determinate=False)
         original_mean = z.mean()
         z *= weights_tensor
         new_mean = z.mean()
