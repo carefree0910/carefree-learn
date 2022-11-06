@@ -147,22 +147,22 @@ class CLIPTextConditionModel(IConditionModel):
             raise ValueError("`token_embedding` is None")
         return self.m.token_embedding.weight.data
 
-    def register_custom(self, embeddings: Dict[str, List[float]]) -> None:
+    def register_custom(self, embeddings: Dict[str, List[List[float]]]) -> None:
         existing = self.embeddings
         dtype = existing.dtype
         device = existing.device
         for name, embedding in embeddings.items():
-            tensor = torch.asarray(embedding, dtype=dtype, device=device).view(1, -1)
-            for token_id, token in list(self.customized.items()):
-                if name == token.name:
-                    new_token = CustomToken(token.name, token.uuid, token_id, tensor)
-                    self.customized[token_id] = new_token
-                    return
-            tag = uuid.uuid4().hex
-            self.tokenizer.tokenizer.add_tokens(tag)
-            token_id = self.tokenizer.tokenizer.convert_tokens_to_ids(tag)
-            self.dictionary[name] = tag
-            self.customized[token_id] = CustomToken(name, tag, token_id, tensor)
+            tensor = torch.asarray(embedding, dtype=dtype, device=device)
+            tensor = tensor.view(-1, tensor.shape[-1])
+            tags = []
+            for i in range(tensor.shape[0]):
+                i_tensor = tensor[[i]]
+                tag = uuid.uuid4().hex
+                self.tokenizer.tokenizer.add_tokens(tag)
+                token_id = self.tokenizer.tokenizer.convert_tokens_to_ids(tag)
+                self.customized[token_id] = CustomToken(name, tag, token_id, i_tensor)
+                tags.append(tag)
+            self.dictionary[name] = " ".join(tags)
 
     def clear_custom(self) -> None:
         self.dictionary = {}
