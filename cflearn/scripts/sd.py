@@ -1,6 +1,8 @@
 import torch
 
 from torch import nn
+from typing import Dict
+from typing import List
 from typing import Union
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
@@ -29,6 +31,8 @@ def _convert_first_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_di
             start_idx = i
         elif k == "first_stage_model.decoder.norm_out.weight":
             end_idx = i
+    if end_idx is None:
+        raise ValueError("`first_stage_model.decoder.norm_out.weight` is missing")
     before = keys[:start_idx]
     up = keys[start_idx:end_idx]
     after = keys[end_idx:]
@@ -47,8 +51,8 @@ def _convert_first_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_di
                 mapping[new_k] = d[k]
     keys = before + new_up + after
 
-    def _handle_attn(prefix):
-        attn_keys = {}
+    def _handle_attn(prefix: str) -> None:
+        attn_keys: Dict[int, Dict[int, List[str]]] = {}
         all_attn_keys = []
         for key in keys:
             if key.startswith(prefix):
