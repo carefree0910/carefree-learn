@@ -136,7 +136,7 @@ class CLIPTextConditionModel(IConditionModel):
         super().__init__(m)
         self.context_length = m.context_length
         tokenizer = "clip.chinese" if m.context_length == 512 else "clip"
-        self.tokenizer = ITokenizer.make(tokenizer, dict(pad_to_max=True))
+        self.tokenizer = ITokenizer.make(tokenizer, {})
         self._dumped_tokenizer = dill.dumps(self.tokenizer.tokenizer)
         self.dictionary: Dict[str, str] = {}
         self.customized: Dict[int, CustomToken] = {}

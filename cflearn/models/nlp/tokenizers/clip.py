@@ -22,7 +22,7 @@ class ICLIPTokenizer(ITokenizer):
     def __init__(
         self,
         *,
-        pad_to_max: bool = False,
+        pad_to_max: bool = True,
     ):
         self.tokenizer = self.base.from_pretrained(self.tag)
         self.bos_token_id = self.tokenizer.bos_token_id
