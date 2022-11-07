@@ -27,7 +27,7 @@ setup(
             "onnx",
             "onnx-simplifier>=0.4.1",
             "onnxruntime",
-            "carefree-cv>=0.1.0",
+            "carefree-cv>=0.1.1",
         ],
         "full": [
             "faiss-cpu",
@@ -47,7 +47,7 @@ setup(
             "plotly",
             "carefree-data>=0.2.9",
             "carefree-ml>=0.1.3",
-            "carefree-cv>=0.1.0",
+            "carefree-cv>=0.1.1",
         ],
     },
     author="carefree0910",
