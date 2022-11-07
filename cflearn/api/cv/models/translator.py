@@ -11,6 +11,7 @@ from typing import Callable
 from typing import Optional
 from cftool.array import save_images
 
+from .common import read_image
 from .common import restrict_wh
 from .common import APIMixin
 from ....pipeline import DLPipeline
@@ -23,10 +24,6 @@ except:
     to_rgb = None
 
 
-def default_preprocess(image: Image.Image) -> np.ndarray:
-    return np.array(image).astype(np.float32) / 255.0
-
-
 class TranslatorAPI(APIMixin):
     def sr(
         self,
@@ -35,22 +32,10 @@ class TranslatorAPI(APIMixin):
         *,
         max_wh: int = 768,
         clip_range: Optional[Tuple[int, int]] = (0, 1),
-        preprocess_fn: Optional[Callable[[Image.Image], np.ndarray]] = None,
     ) -> Tensor:
-        if isinstance(image, str):
-            image = Image.open(image)
-        w, h = image.size
-        image = image.resize(restrict_wh(w, h, max_wh), resample=Image.LANCZOS)
-        # handle alpha
-        alpha = None
-        if image.mode == "RGBA":
-            if to_rgb is None:
-                raise ValueError("`carefree-cv` is needed for `TranslatorAPI`")
-            alpha = image.split()[3]
-            image = to_rgb(image)
+        res = read_image(image, max_wh, anchor=None)
         # inference
-        array = (preprocess_fn or default_preprocess)(image)
-        tensor = torch.from_numpy(array)[None].permute(0, 3, 1, 2)
+        tensor = torch.from_numpy(res.image)
         tensor = tensor.contiguous().to(self.device)
         if self.use_half:
             tensor = tensor.half()
@@ -59,9 +44,8 @@ class TranslatorAPI(APIMixin):
         if clip_range is not None:
             output = torch.clip(output, *clip_range)
         # handle alpha
-        if alpha is not None:
-            alpha_tensor = torch.from_numpy(np.array(alpha).astype(np.float32) / 255.0)
-            alpha_tensor = alpha_tensor[None, None]
+        if res.alpha is not None:
+            alpha_tensor = torch.from_numpy(res.alpha)
             with torch.no_grad():
                 alpha_tensor = F.interpolate(
                     alpha_tensor,
