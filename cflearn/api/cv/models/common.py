@@ -103,7 +103,7 @@ def read_image(
     image: Union[str, Image.Image],
     max_wh: int,
     *,
-    anchor: int,
+    anchor: Optional[int],
     to_gray: bool = False,
     to_mask: bool = False,
     resample: Any = Image.LANCZOS,
@@ -135,7 +135,8 @@ def read_image(
             image = image.convert("L")
     original_w, original_h = image.size
     w, h = restrict_wh(original_w, original_h, max_wh)
-    w, h = map(get_suitable_size, (w, h), (anchor, anchor))
+    if anchor is not None:
+        w, h = map(get_suitable_size, (w, h), (anchor, anchor))
     image = image.resize((w, h), resample=resample)
     image = np.array(image)
     if normalize:
