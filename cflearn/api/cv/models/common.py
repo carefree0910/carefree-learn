@@ -42,6 +42,8 @@ def restrict_wh(w: int, h: int, max_wh: int) -> Tuple[int, int]:
 
 
 def get_suitable_size(n: int, anchor: int) -> int:
+    if n <= anchor:
+        return anchor
     mod = n % anchor
     return n - mod + int(mod > 0.5 * anchor) * anchor
 
