@@ -930,7 +930,7 @@ class Trainer(ITrainer):
 
     def restore_checkpoint(
         self,
-        folder: str = None,
+        folder: Optional[str] = None,
         strict: bool = True,
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> bool:

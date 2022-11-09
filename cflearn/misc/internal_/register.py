@@ -233,7 +233,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        pass
+        return StepOutputs({}, {})
 
     def evaluate_step(
         self,
@@ -243,7 +243,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
         trainer: ITrainer,
     ) -> MetricsOutputs:
-        pass
+        return MetricsOutputs(0.0, {})
 
     def params_groups(self, m: nn.Module) -> Any:
         pass

@@ -49,7 +49,7 @@ def reuse_fn(f: Callable) -> Callable:
 
 
 class Lambda(Module):
-    def __init__(self, fn: Callable, name: str = None):
+    def __init__(self, fn: Callable, name: Optional[str] = None):
         super().__init__()
         self.name = name
         self.fn = fn

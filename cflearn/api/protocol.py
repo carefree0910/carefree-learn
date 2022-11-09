@@ -1,5 +1,6 @@
 import numpy as np
 
+from abc import abstractmethod
 from typing import List
 from typing import NamedTuple
 
@@ -10,6 +11,7 @@ class ImageFolderLatentResponse(NamedTuple):
 
 
 class IImageExtractor:
+    @abstractmethod
     def get_folder_latent(
         self,
         src_folder: str,

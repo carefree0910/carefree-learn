@@ -274,7 +274,7 @@ class IMLCore(nn.Module, WithRegister["IMLCore"], metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        pass
+        return StepOutputs({}, {})
 
     def evaluate_step(
         self,
@@ -282,7 +282,7 @@ class IMLCore(nn.Module, WithRegister["IMLCore"], metaclass=ABCMeta):
         portion: float,
         trainer: ITrainer,
     ) -> MetricsOutputs:
-        pass
+        return MetricsOutputs(0.0, {})
 
 
 class MixedStackedModel(nn.Module):

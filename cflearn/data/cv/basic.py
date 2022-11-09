@@ -585,18 +585,22 @@ class _IPreparation:
     def prepare_src_folder(self, src_path: str) -> None:
         pass
 
+    @abstractmethod
     def filter(self, hierarchy: List[str]) -> bool:
         pass
 
+    @abstractmethod
     def get_label(self, hierarchy: List[str]) -> Any:
         pass
 
     def get_extra_label(self, label_name: str, hierarchy: List[str]) -> Any:
         pass
 
+    @abstractmethod
     def copy(self, src_path: str, tgt_path: str) -> None:
         pass
 
+    @abstractmethod
     def get_new_img_path(self, idx: int, split_folder: str, old_img_path: str) -> str:
         pass
 

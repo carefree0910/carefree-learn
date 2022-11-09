@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 
+from abc import abstractmethod
 from typing import Any
 from typing import Dict
 from typing import List
@@ -22,6 +23,7 @@ from ..misc.toolkit import scheduler_requires_metric
 
 
 class ISchedulerOp:
+    @abstractmethod
     def schedule(self, step: int, **kwargs: Any) -> float:
         pass
 
