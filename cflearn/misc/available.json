@@ -210,5 +210,12 @@
       "sha": "880a460d011a3696c088f58f5844b44271b17903963f2671f96f72dfbce5f76f",
       "st_size": 381624133
     }
+  },
+  "static": {
+    "sd_mapping": {
+      "sha": "02274443c436b749f484280af7a2e22c8d31857bf3303fc93202a5193bf43966",
+      "st_size": 111278,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_mapping.json"
+    }
   }
 }

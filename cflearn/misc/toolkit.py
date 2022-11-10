@@ -202,6 +202,15 @@ def download_reference(
     return download("reference", "pretrained-models", name, root, "pt")
 
 
+def download_static(
+    name: str,
+    *,
+    extension: str,
+    root: str = os.path.join(CACHE_DIR, "static"),
+) -> str:
+    return download("static", "pretrained-models", name, root, extension)
+
+
 def download_dataset(
     name: str,
     *,
