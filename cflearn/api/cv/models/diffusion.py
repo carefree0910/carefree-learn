@@ -362,6 +362,7 @@ class DiffusionAPI(APIMixin):
         if callback is not None:
             concat = callback(concat)
         if original_size is not None:
+            original_size = (max(original_size[0], 1), max(original_size[1], 1))
             with torch.no_grad():
                 concat = F.interpolate(
                     concat,
