@@ -263,6 +263,13 @@ def convert(
     return nd
 
 
+def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
+    d = _get_d(inp)
+    with api.load_context() as wrapper:
+        wrapper.load_state_dict(d)
+
+
 __all__ = [
     "convert",
+    "inject",
 ]
