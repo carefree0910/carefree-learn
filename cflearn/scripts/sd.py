@@ -236,6 +236,14 @@ def _convert_with_key_mapping(
     return nd
 
 
+def _get_d(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+    if isinstance(inp, str):
+        inp = torch.load(inp, map_location="cpu")
+        if "state_dict" in inp:
+            inp = inp["state_dict"]
+    return inp
+
+
 def convert(
     inp: Union[str, tensor_dict_type],
     api: DiffusionAPI,
@@ -243,10 +251,7 @@ def convert(
     load: bool = False,
     use_mapping: bool = True,
 ) -> tensor_dict_type:
-    if isinstance(inp, str):
-        inp = torch.load(inp, map_location="cpu")
-        if "state_dict" in inp:
-            inp = inp["state_dict"]
+    inp = _get_d(inp)
     with api.load_context() as wrapper:
         md = wrapper.state_dict()
         if not use_mapping:
