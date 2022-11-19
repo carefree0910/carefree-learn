@@ -243,26 +243,18 @@ def convert(
     load: bool = False,
     use_mapping: bool = True,
 ) -> tensor_dict_type:
-    class Wrapper(nn.Module):
-        def __init__(self, m: nn.Module) -> None:
-            super().__init__()
-            self.core = m
-
     if isinstance(inp, str):
         inp = torch.load(inp, map_location="cpu")
         if "state_dict" in inp:
             inp = inp["state_dict"]
-    api_cond, m_cond = api.cond_model, api.m.condition_model
-    api.m.condition_model = api_cond
-    wrapper = Wrapper(api.m)
-    md = wrapper.state_dict()
-    if not use_mapping:
-        nd = _convert(inp, md)
-    else:
-        nd = _convert_with_key_mapping(inp, md)
-    if load:
-        wrapper.load_state_dict(nd)
-    api.m.condition_model = m_cond
+    with api.load_context() as wrapper:
+        md = wrapper.state_dict()
+        if not use_mapping:
+            nd = _convert(inp, md)
+        else:
+            nd = _convert_with_key_mapping(inp, md)
+        if load:
+            wrapper.load_state_dict(nd)
     return nd
 
 

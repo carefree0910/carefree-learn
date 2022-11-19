@@ -18,6 +18,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
+from cftool.misc import context_error_handler
 from cftool.array import arr_type
 from cftool.array import save_images
 from cftool.types import tensor_dict_type
@@ -734,6 +735,26 @@ class DiffusionAPI(APIMixin):
             verbose=verbose,
             **kwargs,
         )
+
+    def load_context(self) -> context_error_handler:
+        class _(context_error_handler):
+            def __init__(self, api: DiffusionAPI):
+                self.api = api
+                self.m_cond = api.m.condition_model
+                api.m.condition_model = api.cond_model
+
+            def __enter__(self) -> nn.Module:
+                class Wrapper(nn.Module):
+                    def __init__(self, m: nn.Module) -> None:
+                        super().__init__()
+                        self.core = m
+
+                return Wrapper(self.api.m)
+
+            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+                self.api.m.condition_model = self.m_cond
+
+        return _(self)
 
     @classmethod
     def from_sd(
