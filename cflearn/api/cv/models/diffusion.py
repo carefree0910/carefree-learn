@@ -485,10 +485,35 @@ class DiffusionAPI(APIMixin):
         max_wh: int = 512,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
+        use_raw_inpainting: bool = False,
+        raw_inpainting_fidelity: float = 0.2,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
+        if use_raw_inpainting:
+            image_res = read_image(image, max_wh, anchor=anchor)
+            mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
+            z = z_ref = self._get_z(image_res.image)
+            z_ref_mask = F.interpolate(
+                torch.from_numpy(mask).to(z_ref),
+                z_ref.shape[-2:],
+                mode="bicubic",
+            )
+            return self._img2img(
+                z,
+                export_path,
+                z_ref=z_ref,
+                z_ref_mask=z_ref_mask,
+                fidelity=raw_inpainting_fidelity,
+                original_size=image_res.original_size,
+                alpha=None,
+                cond=[txt],
+                num_steps=num_steps,
+                clip_output=clip_output,
+                verbose=verbose,
+                **kwargs,
+            )
         txt_list, num_samples = self._txt_cond(txt, 1)
         res = self._get_masked_cond(
             image,
