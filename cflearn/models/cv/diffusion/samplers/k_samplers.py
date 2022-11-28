@@ -32,7 +32,7 @@ def to_d(image: Tensor, sigma: Tensor, denoised: Tensor) -> Tensor:
 
 
 class IGetDenoised(Protocol):
-    def __call__(self, img: Tensor) -> Tensor:
+    def __call__(self, img: Tensor, sigma: Tensor) -> Tensor:
         pass
 
 
@@ -126,16 +126,18 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         if step == total_step - 1:
             return image
 
-        def get_denoised(img: Tensor) -> Tensor:
-            sigmas = self.sigmas[step] * image.new_ones([image.shape[0]])
-            ts = self._sigma_to_t(sigmas, quantize)
+        def get_denoised(img: Tensor, sigma: Tensor) -> Tensor:
+            sigma = sigma * s_in
+            ts = self._sigma_to_t(sigma, quantize)
             c_in = append_dims(
-                1.0 / (sigmas**2 + self.sigma_data**2) ** 0.5, img.ndim
+                1.0 / (sigma**2 + self.sigma_data**2) ** 0.5,
+                img.ndim,
             )
-            c_out = append_dims(sigmas, img.ndim)
+            c_out = append_dims(sigma, img.ndim)
             eps = self._uncond_denoise(img * c_in, ts, cond)
             return img - eps * c_out
 
+        s_in = image.new_ones([image.shape[0]])
         return self.sample_step_core(
             image,
             cond,
@@ -217,7 +219,7 @@ class KLMSSampler(KSamplerMixin):
         **kwargs: Any,
     ) -> Tensor:
         order = 4
-        denoised = get_denoised(image)
+        denoised = get_denoised(image, self.sigmas[step])
         d = to_d(image, self.sigmas[step], denoised)
         self.ds.append(d)
         if len(self.ds) > order:
