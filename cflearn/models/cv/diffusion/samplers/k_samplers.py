@@ -9,6 +9,7 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Optional
 from typing import Protocol
 
@@ -29,6 +30,22 @@ except:
 
 def to_d(image: Tensor, sigma: Tensor, denoised: Tensor) -> Tensor:
     return (image - denoised) / append_dims(sigma, image.ndim)
+
+
+def get_ancestral_step(
+    sigma_from: float,
+    sigma_to: float,
+    eta: float = 1.0,
+) -> Tuple[float, float]:
+    if not eta:
+        return sigma_to, 0.0
+    sigma_up = min(
+        sigma_to,
+        eta
+        * (sigma_to**2 * (sigma_from**2 - sigma_to**2) / sigma_from**2) ** 0.5,
+    )
+    sigma_down = (sigma_to**2 - sigma_up**2) ** 0.5
+    return sigma_down, sigma_up
 
 
 class IGetDenoised(Protocol):
@@ -282,7 +299,41 @@ class KEulerSampler(KSamplerMixin):
         return image
 
 
+@ISampler.register("k_euler_a")
+class KEulerAncestralSampler(KSamplerMixin):
+    def sample_step_core(
+        self,
+        image: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+        get_denoised: IGetDenoised,
+        *,
+        quantize: bool,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        **kwargs: Any,
+    ) -> Tensor:
+        eta = 1.0
+        s_noise = 1.0
+        sigma = self.sigmas[step]
+        next_sigma = self.sigmas[step + 1]
+        denoised = get_denoised(image, sigma)
+        sigma_down, sigma_up = get_ancestral_step(
+            sigma.item(),
+            next_sigma.item(),
+            eta=eta,
+        )
+        d = to_d(image, sigma, denoised)
+        dt = sigma_down - sigma
+        image = image + d * dt
+        if next_sigma.item() > 0:
+            image = image + torch.randn_like(image) * s_noise * sigma_up
+        return image
+
+
 __all__ = [
     "KLMSSampler",
     "KEulerSampler",
+    "KEulerAncestralSampler",
 ]
