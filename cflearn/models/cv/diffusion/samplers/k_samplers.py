@@ -247,6 +247,42 @@ class KLMSSampler(KSamplerMixin):
         self.sigmas_numpy = self.sigmas.detach().cpu().numpy()
 
 
+@ISampler.register("k_euler")
+class KEulerSampler(KSamplerMixin):
+    def sample_step_core(
+        self,
+        image: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+        get_denoised: IGetDenoised,
+        *,
+        quantize: bool,
+        unconditional_cond: Optional[Any],
+        unconditional_guidance_scale: float,
+        **kwargs: Any,
+    ) -> Tensor:
+        s_churn = 0.0
+        s_tmin = 0.0
+        s_tmax = float("inf")
+        s_noise = 1.0
+        sigma = self.sigmas[step]
+        if not s_tmin <= sigma.item() <= s_tmax:
+            gamma = 0.0
+        else:
+            gamma = min(s_churn / (total_step - 1), 2**0.5 - 1)
+        eps = torch.randn_like(image) * s_noise
+        sigma_hat = sigma * (gamma + 1)
+        if gamma > 0:
+            image = image + eps * (sigma_hat**2 - sigma**2) ** 0.5
+        denoised = get_denoised(image, sigma_hat)
+        d = to_d(image, sigma_hat, denoised)
+        dt = self.sigmas[step + 1] - sigma_hat
+        image = image + d * dt
+        return image
+
+
 __all__ = [
     "KLMSSampler",
+    "KEulerSampler",
 ]
