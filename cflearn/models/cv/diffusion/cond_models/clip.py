@@ -134,6 +134,7 @@ class CLIPTextConditionModel(IConditionModel):
 
     def __init__(self, m: CLIP):
         super().__init__(m)
+        self.clip_skip = 0
         self.context_length = m.context_length
         tokenizer = "clip.chinese" if m.context_length == 512 else "clip"
         self.tokenizer = ITokenizer.make(tokenizer, {})
@@ -170,7 +171,7 @@ class CLIPTextConditionModel(IConditionModel):
         # TODO : optimize this
         self.tokenizer.tokenizer = dill.loads(self._dumped_tokenizer)
 
-    def get_line(self, text: str) -> Tensor:
+    def get_line(self, text: str, clip_skip: int) -> Tensor:
         for k, v in self.dictionary.items():
             text = text.replace(k, v)
         parsed = parse_weights(text)
@@ -200,7 +201,12 @@ class CLIPTextConditionModel(IConditionModel):
         inp = to_torch([concat_ids], torch.int64)
         weights_tensor = to_torch(weights, torch.float32).view(1, -1, 1)
         with inject_embeddings(self):
-            z = self.m.encode_text(inp, apply_pooling=False, determinate=False)
+            z = self.m.encode_text(
+                inp,
+                apply_pooling=False,
+                determinate=False,
+                clip_skip=clip_skip,
+            )
         original_mean = z.mean()
         z *= weights_tensor
         new_mean = z.mean()
@@ -208,7 +214,7 @@ class CLIPTextConditionModel(IConditionModel):
         return z
 
     def forward(self, cond: List[str]) -> Tensor:
-        lines = list(map(self.get_line, cond))
+        lines = [self.get_line(text, self.clip_skip) for text in cond]
         return torch.cat(lines, dim=0)
 
 
