@@ -2,6 +2,7 @@ import json
 import torch
 
 from torch import nn
+from torch import Tensor
 from typing import Dict
 from typing import List
 from typing import Union
@@ -16,22 +17,30 @@ key_mapping_inv = {}
 
 
 def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_type:
+    def _get_dv(k: str) -> Tensor:
+        v = d.get(k)
+        if v is None:
+            v = d[k.replace(".text_model", "")]
+        return v
+
     if not d or not md:
         return {}
     d, md = map(shallow_copy_dict, [d, md])
     nd = {
-        "core.condition_model.m.token_embedding.weight": d[
+        "core.condition_model.m.token_embedding.weight": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.token_embedding.weight"
-        ],
-        "core.condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": d[
+        ),
+        "core.condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
-        ][None, ...],
-        "core.condition_model.m.text_transformer.encoder.head.norms.0.weight": d[
+        )[
+            None, ...
+        ],
+        "core.condition_model.m.text_transformer.encoder.head.norms.0.weight": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.weight"
-        ],
-        "core.condition_model.m.text_transformer.encoder.head.norms.0.bias": d[
+        ),
+        "core.condition_model.m.text_transformer.encoder.head.norms.0.bias": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.bias"
-        ],
+        ),
     }
     for key in [
         "core.condition_model.m.logit_scale",
@@ -46,19 +55,19 @@ def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dic
     for i in range(num_cond_layers):
         i_prefix = f"{prefix}.{i}"
         m_i_prefix = f"{m_prefix}.{i}"
-        get_w = lambda n: d[f"{i_prefix}.self_attn.{n}_proj.weight"]
-        get_b = lambda n: d[f"{i_prefix}.self_attn.{n}_proj.bias"]
+        get_w = lambda n: _get_dv(f"{i_prefix}.self_attn.{n}_proj.weight")
+        get_b = lambda n: _get_dv(f"{i_prefix}.self_attn.{n}_proj.bias")
         in_w = torch.cat(list(map(get_w, ["q", "k", "v"])))
         qkv_bias = torch.cat(list(map(get_b, ["q", "k", "v"])))
         m_i_token_mixing_prefix = f"{m_i_prefix}.token_mixing.net"
         nd[f"{m_i_token_mixing_prefix}.in_w"] = in_w
         nd[f"{m_i_token_mixing_prefix}.qkv_bias"] = qkv_bias
-        out_w = d[f"{i_prefix}.self_attn.out_proj.weight"]
-        out_b = d[f"{i_prefix}.self_attn.out_proj.bias"]
+        out_w = _get_dv(f"{i_prefix}.self_attn.out_proj.weight")
+        out_b = _get_dv(f"{i_prefix}.self_attn.out_proj.bias")
         nd[f"{m_i_token_mixing_prefix}.out_linear.linear.weight"] = out_w
         nd[f"{m_i_token_mixing_prefix}.out_linear.linear.bias"] = out_b
-        get_fc_w = lambda n: d[f"{i_prefix}.mlp.{n}.weight"]
-        get_fc_b = lambda n: d[f"{i_prefix}.mlp.{n}.bias"]
+        get_fc_w = lambda n: _get_dv(f"{i_prefix}.mlp.{n}.weight")
+        get_fc_b = lambda n: _get_dv(f"{i_prefix}.mlp.{n}.bias")
         m_i_channel_mixing_prefix = f"{m_i_prefix}.channel_mixing.net"
         nd[f"{m_i_channel_mixing_prefix}.0.linear.weight"] = get_fc_w("fc1")
         nd[f"{m_i_channel_mixing_prefix}.0.linear.bias"] = get_fc_b("fc1")
@@ -68,8 +77,8 @@ def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dic
             ["layer_norm1", "layer_norm2"],
             ["token_norm", "channel_norm"],
         ):
-            nd[f"{m_i_prefix}.{m_ln}.weight"] = d[f"{i_prefix}.{ln}.weight"]
-            nd[f"{m_i_prefix}.{m_ln}.bias"] = d[f"{i_prefix}.{ln}.bias"]
+            nd[f"{m_i_prefix}.{m_ln}.weight"] = _get_dv(f"{i_prefix}.{ln}.weight")
+            nd[f"{m_i_prefix}.{m_ln}.bias"] = _get_dv(f"{i_prefix}.{ln}.bias")
     return nd
 
 
