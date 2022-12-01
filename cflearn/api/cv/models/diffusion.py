@@ -230,6 +230,7 @@ class DiffusionAPI(APIMixin):
         registered_custom = False
         if self.cond_model is not None:
             if isinstance(self.cond_model, CLIPTextConditionModel):
+                self.cond_model.clip_skip = kwargs.get("clip_skip", 0)
                 custom_embeddings = kwargs.get("custom_embeddings")
                 if custom_embeddings is not None:
                     registered_custom = True
