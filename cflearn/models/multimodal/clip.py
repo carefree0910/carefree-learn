@@ -232,6 +232,7 @@ class CLIP(IPerceptor):
         *,
         apply_pooling: bool = True,
         determinate: bool = True,
+        clip_skip: int = 0,
     ) -> Tensor:
         fmt = (
             "`{}` is not initialized, "
@@ -249,7 +250,7 @@ class CLIP(IPerceptor):
         if self.token_type_embedding is not None:
             token_type = torch.zeros_like(indices)
             net = net + self.token_type_embedding(token_type)
-        kw = dict(determinate=determinate)
+        kw = dict(clip_skip=clip_skip, determinate=determinate)
         net = self.text_transformer(0, {INPUT_KEY: net}, **kw)[LATENT_KEY]
         if not apply_pooling:
             return net
