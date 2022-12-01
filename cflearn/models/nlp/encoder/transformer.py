@@ -84,13 +84,16 @@ class TeTEncoder(IDLModel):
         state: Optional[TrainerState] = None,
         *,
         apply_head: bool = True,
+        clip_skip: int = 0,
         **kwargs: Any,
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
         mask = batch.get(MASK_KEY, self.attention_mask)
         net = self.encoder.pre_process(net, **kwargs)
-        for block in self.encoder.mixing_blocks:
+        for i, block in enumerate(self.encoder.mixing_blocks):
             net = block(net, mask=mask)
+            if i == len(self.encoder.mixing_blocks) - 1 - clip_skip:
+                break
         if apply_head:
             net = self.encoder.post_process(net)
         return {LATENT_KEY: net}
