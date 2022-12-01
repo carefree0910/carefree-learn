@@ -244,7 +244,11 @@ class ResidualBlockWithTimeEmbedding(Module):
         net = self.dropout(net)
         net = self.conv2(net)
 
-        return inp + net
+        net = inp + net
+        finfo = torch.finfo(net.dtype)
+        net.clamp_(finfo.min, finfo.max)
+
+        return net
 
 
 __all__ = [
