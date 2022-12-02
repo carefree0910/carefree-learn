@@ -193,16 +193,32 @@ class UncondSamplerMixin:
         if cond is None or self.uncond is None:
             return self.model.denoise(image, ts, cond)
         uncond = self.uncond.repeat_interleave(image.shape[0], dim=0)
+        cond2 = None
         if not isinstance(cond, dict):
-            cond2 = torch.cat([uncond, cond])
+            if cond.shape[1] == uncond.shape[1]:
+                cond2 = torch.cat([uncond, cond])
         else:
             cond2 = shallow_copy_dict(cond)
             for k, v in cond2.items():
                 if k != CONCAT_KEY:
+                    if v.shape[1] != uncond.shape[1]:
+                        cond2 = None
+                        break
                     cond2[k] = torch.cat([uncond, v])
-        image2 = torch.cat([image, image])
-        ts2 = torch.cat([ts, ts])
-        eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
+        if cond2 is not None:
+            image2 = torch.cat([image, image])
+            ts2 = torch.cat([ts, ts])
+            eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
+        else:
+            eps = self.model.denoise(image, ts, cond)
+            if not isinstance(cond, dict):
+                uncond_cond = uncond
+            else:
+                uncond_cond = shallow_copy_dict(cond)
+                for k, v in cond.items():
+                    if k != CONCAT_KEY:
+                        uncond_cond[k] = uncond
+            eps_uncond = self.model.denoise(image, ts, uncond_cond)
         return eps_uncond + self.uncond_guidance_scale * (eps - eps_uncond)
 
 

@@ -1,5 +1,6 @@
 import re
 import dill
+import math
 import uuid
 import torch
 
@@ -138,6 +139,8 @@ class CLIPTextConditionModel(IConditionModel):
         self.context_length = m.context_length
         tokenizer = "clip.chinese" if m.context_length == 512 else "clip"
         self.tokenizer = ITokenizer.make(tokenizer, {})
+        self.comma_token = self.tokenizer.tokenizer.get_vocab()[",</w>"]
+        self.comma_padding_backtrack = 20
         self._dumped_tokenizer = dill.dumps(self.tokenizer.tokenizer)
         self.dictionary: Dict[str, str] = {}
         self.customized: Dict[int, CustomToken] = {}
@@ -176,42 +179,100 @@ class CLIPTextConditionModel(IConditionModel):
             text = text.replace(k, v)
         parsed = parse_weights(text)
         parsed_texts = [pair[0] for pair in parsed]
-        encoded = self.tokenizer.encode(
+        parsed_weights = [pair[1] for pair in parsed]
+        tokenized = self.tokenizer.encode(
             parsed_texts,
             truncation=False,
             add_special_tokens=False,
         )["input_ids"]
+
         concat_ids = [self.tokenizer.bos_token_id]
         weights = [1.0]
-        for ids, (_, weight) in zip(encoded, parsed):
-            concat_ids += ids
-            weights += [weight] * len(ids)
-        # padding
-        diff = self.context_length - len(concat_ids)
-        if diff > 0:
-            concat_ids += [self.tokenizer.eos_token_id] * diff
-            weights += [1.0] * diff
-        else:
-            concat_ids = concat_ids[: self.context_length - 1]
-            weights = weights[: self.context_length - 1]
-            concat_ids.append(self.tokenizer.eos_token_id)
-            weights.append(1.0)
-        # encode
-        to_torch = lambda l, dtype: torch.asarray(l, dtype=dtype, device=self.m.device)
-        inp = to_torch([concat_ids], torch.int64)
-        weights_tensor = to_torch(weights, torch.float32).view(1, -1, 1)
-        with inject_embeddings(self):
-            z = self.m.encode_text(
-                inp,
-                apply_pooling=False,
-                determinate=False,
-                clip_skip=clip_skip,
+        id_end = self.tokenizer.eos_token_id
+        last_comma = -1
+        valid_context_length = self.context_length - 2
+        for tokens, weight in zip(tokenized, parsed_weights):
+            i = 0
+            while i < len(tokens):
+                token = tokens[i]
+                if token == self.comma_token:
+                    last_comma = len(concat_ids)
+                elif (
+                    self.comma_padding_backtrack != 0
+                    and max(len(concat_ids), 1) % valid_context_length == 0
+                    and last_comma != -1
+                    and len(concat_ids) - last_comma <= self.comma_padding_backtrack
+                ):
+                    last_comma += 1
+                    reloc_tokens = concat_ids[last_comma:]
+                    reloc_mults = weights[last_comma:]
+
+                    concat_ids = concat_ids[:last_comma]
+                    length = len(concat_ids)
+
+                    rem = (
+                        int(math.ceil(length / valid_context_length))
+                        * valid_context_length
+                        - length
+                    )
+                    concat_ids += [id_end] * rem + reloc_tokens
+                    weights = weights[:last_comma] + [1.0] * rem + reloc_mults
+
+                concat_ids.append(token)
+                weights.append(weight)
+                i += 1
+
+        zs = []
+        add_bos = False
+        remained_ids = concat_ids
+        remained_weights = weights
+        while remained_ids:
+            local_ids = remained_ids[:]
+            local_weights = remained_weights[:]
+            if add_bos:
+                local_ids = [self.tokenizer.bos_token_id] + local_ids
+                local_weights = [1.0] + local_weights
+            # padding
+            diff = self.context_length - len(local_ids)
+            if diff > 0:
+                local_ids += [self.tokenizer.eos_token_id] * diff
+                local_weights += [1.0] * diff
+                remained_ids = []
+            else:
+                remained_ids = local_ids[self.context_length - 1 :]
+                remained_weights = local_weights[self.context_length - 1 :]
+                local_ids = local_ids[: self.context_length - 1]
+                local_weights = local_weights[: self.context_length - 1]
+                local_ids.append(self.tokenizer.eos_token_id)
+                local_weights.append(1.0)
+            # encode
+            to_torch = lambda l, dtype: torch.asarray(
+                l,
+                dtype=dtype,
+                device=self.m.device,
             )
-        original_mean = z.mean()
-        z *= weights_tensor
-        new_mean = z.mean()
-        z *= original_mean / new_mean
-        return z
+            inp = to_torch([local_ids], torch.int64)
+            weights_tensor = to_torch(local_weights, torch.float32).view(1, -1, 1)
+
+            with inject_embeddings(self):
+                z = self.m.encode_text(
+                    inp,
+                    apply_pooling=False,
+                    determinate=False,
+                    clip_skip=clip_skip,
+                )
+            # weighting
+            original_mean = z.mean()
+            z *= weights_tensor
+            new_mean = z.mean()
+            z *= original_mean / new_mean
+            zs.append(z)
+            # add bos in next iter
+            add_bos = True
+
+        if len(zs) == 1:
+            return zs[0]
+        return torch.cat(zs, dim=1)
 
     def forward(self, cond: List[str]) -> Tensor:
         lines = [self.get_line(text, self.clip_skip) for text in cond]
