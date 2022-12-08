@@ -32,6 +32,7 @@ class TestReproduce(unittest.TestCase):
         self._core("clip")
         self._core("clip", name="base")
         # self._core("clip", name="chinese")
+        # self._core("clip", name="open_clip")
 
 
 if __name__ == "__main__":
