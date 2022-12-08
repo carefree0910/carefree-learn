@@ -36,6 +36,8 @@ class Denoise(Protocol):
 
 class IDiffusion:
     _get_cond: Callable
+    predict_eps_from_z_and_v: Callable
+    predict_start_from_z_and_v: Callable
 
     denoise: Denoise
     q_sampler: "DDPMQSampler"

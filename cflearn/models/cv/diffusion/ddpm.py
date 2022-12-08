@@ -19,6 +19,7 @@ from cftool.types import tensor_dict_type
 
 from .unet import UNetDiffuser
 from .utils import cond_type
+from .utils import extract_to
 from .utils import get_timesteps
 from .utils import ADM_KEY
 from .utils import ADM_TYPE
@@ -100,12 +101,15 @@ class DDPMStep(CustomTrainStep):
         forward_results: tensor_dict_type,
         **kwargs: Any,
     ) -> CustomTrainStepLoss:
-        unet_out = forward_results[PREDICTIONS_KEY]
         noise = forward_results[m.noise_key]
+        unet_out = forward_results[PREDICTIONS_KEY]
+        timesteps = forward_results[m.timesteps_key]
         if m.parameterization == "eps":
             target = noise
         elif m.parameterization == "x0":
             target = batch[INPUT_KEY]
+        elif m.parameterization == "v":
+            target = self.get_v(m, batch[INPUT_KEY], noise, timesteps)
         else:
             msg = f"unrecognized parameterization '{m.parameterization}' occurred"
             raise ValueError(msg)
@@ -121,7 +125,6 @@ class DDPMStep(CustomTrainStep):
         loss_simple = loss
         losses["simple"] = loss_simple.mean().item()
 
-        timesteps = forward_results[m.timesteps_key]
         log_var_t = m.log_var[timesteps].to(unet_out.device)  # type: ignore
         loss_simple = loss_simple / torch.exp(log_var_t) + log_var_t
         if m.learn_log_var:
@@ -140,6 +143,13 @@ class DDPMStep(CustomTrainStep):
         loss = loss_simple + loss_vlb
         losses["loss"] = loss.item()
         return CustomTrainStepLoss(loss, losses)
+
+    def get_v(self, m: "DDPM", x: Tensor, noise: Tensor, ts: Tensor) -> Tensor:
+        num_dim = x.ndim
+        return (
+            extract_to(m.sqrt_alphas_cumprod, ts, num_dim) * noise
+            - extract_to(m.sqrt_one_minus_alphas_cumprod, ts, num_dim) * x
+        )
 
     def callback(
         self,
@@ -470,6 +480,30 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
                 raise ValueError(f"unrecognized condition type {cond_type} occurred")
         return self.unet(net, timesteps=timesteps, **cond_kw)
 
+    def predict_eps_from_z_and_v(
+        self,
+        image: Tensor,
+        ts: Tensor,
+        v: Tensor,
+    ) -> Tensor:
+        num_dim = image.ndim
+        return (
+            extract_to(self.sqrt_alphas_cumprod, ts, num_dim) * v
+            + extract_to(self.sqrt_one_minus_alphas_cumprod, ts, num_dim) * image
+        )
+
+    def predict_start_from_z_and_v(
+        self,
+        image: Tensor,
+        ts: Tensor,
+        v: Tensor,
+    ) -> Tensor:
+        num_dim = image.ndim
+        return (
+            extract_to(self.sqrt_alphas_cumprod, ts, num_dim) * image
+            - extract_to(self.sqrt_one_minus_alphas_cumprod, ts, num_dim) * v
+        )
+
     # internal
 
     def _q_sample(
@@ -585,6 +619,16 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             )
         elif self.parameterization == "x0":
             lvlb_weights = to_torch(0.25 * np.sqrt(alphas_cumprod) / one_m_cumprod)
+        elif self.parameterization == "v":
+            lvlb_weights = torch.ones_like(
+                self.betas**2
+                / (
+                    2
+                    * self.posterior_variance
+                    * to_torch(alphas)
+                    * (1.0 - self.alphas_cumprod)
+                )
+            )
         else:
             msg = f"unrecognized parameterization '{self.parameterization}' occurred"
             raise NotImplementedError(msg)

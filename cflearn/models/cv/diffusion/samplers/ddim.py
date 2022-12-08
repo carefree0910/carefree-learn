@@ -18,17 +18,18 @@ from .protocol import IDiffusion
 from .protocol import DDPMQSampler
 from .protocol import UncondSamplerMixin
 from ..utils import cond_type
+from ..utils import extract_to
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
 
 
-class IGetEPSPred(Protocol):
+class IGetModelOutput(Protocol):
     def __call__(self, image: Tensor, ts: Tensor) -> Tensor:
         pass
 
 
 class IGetDenoised(Protocol):
-    def __call__(self, eps: Tensor) -> Tensor:
+    def __call__(self, model_output: Tensor, ts: Tensor) -> Tensor:
         pass
 
 
@@ -64,8 +65,8 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize_denoised: bool = False,
         default_steps: int = 50,
     ):
-        if model.parameterization != "eps":
-            raise ValueError("only `eps` parameterization is supported in `ddim`")
+        if model.parameterization not in ("eps", "v"):
+            raise ValueError("only `v` / `eps` parameterization is supported in `ddim`")
         super().__init__(model)
         self.eta = eta
         self.discretize = discretize
@@ -85,7 +86,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        get_eps_pred: IGetEPSPred,
+        get_model_output: IGetModelOutput,
         get_denoised: IGetDenoised,
         *,
         eta: float,
@@ -148,8 +149,9 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             step,
             total_step,
             lambda img, ts: self._uncond_denoise(img, ts, cond),
-            lambda eps: self._get_denoised_and_pred_x0(
-                eps,
+            lambda model_output, ts: self._get_denoised_and_pred_x0(
+                model_output,
+                ts,
                 image,
                 quantize_denoised,
                 temperature,
@@ -188,13 +190,21 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
 
     def _get_denoised_and_pred_x0(
         self,
-        eps_pred: Tensor,
+        model_output: Tensor,
+        ts: Tensor,
         image: Tensor,
         quantize_denoised: bool,
         temperature: float,
         noise_dropout: float,
     ) -> Tuple[Tensor, Tensor]:
-        pred_x0 = (image - self._sqrt_one_minus_at * eps_pred) / self._at.sqrt()
+        if self.model.parameterization != "v":
+            eps = model_output
+        else:
+            eps = self.model.predict_eps_from_z_and_v(image, ts, model_output)
+        if self.model.parameterization != "v":
+            pred_x0 = (image - self._sqrt_one_minus_at * eps) / self._at.sqrt()
+        else:
+            pred_x0 = self.model.predict_start_from_z_and_v(image, ts, model_output)
         if quantize_denoised:
             err_fmt = "only {} can use `quantize_denoised`"
             first_stage = getattr(self.model, "first_stage", None)
@@ -208,7 +218,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                     )
                 )
             pred_x0 = vq.codebook(pred_x0).z_q
-        direction = (1.0 - self._a_prev_t - self._sigmas_t**2).sqrt() * eps_pred
+        direction = (1.0 - self._a_prev_t - self._sigmas_t**2).sqrt() * eps
         noise = self._sigmas_t * torch.randn_like(image) * temperature
         if noise_dropout > 0:
             noise = F.dropout(noise, p=noise_dropout)
@@ -251,7 +261,7 @@ class DDIMSampler(DDIMMixin):
         cond: Optional[cond_type],
         step: int,
         total_step: int,
-        get_eps_pred: IGetEPSPred,
+        get_model_output: IGetModelOutput,
         get_denoised: IGetDenoised,
         *,
         eta: float,
@@ -263,8 +273,8 @@ class DDIMSampler(DDIMMixin):
         quantize_denoised: bool,
         **kwargs: Any,
     ) -> Tensor:
-        eps_pred = get_eps_pred(image, self._ts)
-        denoised = get_denoised(eps_pred)
+        model_output = get_model_output(image, self._ts)
+        denoised = get_denoised(model_output, self._ts)
         return denoised
 
 

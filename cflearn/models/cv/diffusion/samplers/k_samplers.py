@@ -80,8 +80,9 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         unconditional_guidance_scale: float = 1.0,
         default_steps: int = 50,
     ):
-        if model.parameterization != "eps":
-            raise ValueError("only `eps` parameterization is supported in `k_samplers`")
+        if model.parameterization not in ("eps", "v"):
+            msg = "only `v` / `eps` parameterization is supported in `k_samplers`"
+            raise ValueError(msg)
         super().__init__(model)
         self.default_quantize = default_quantize
         self.unconditional_cond = unconditional_cond
@@ -144,15 +145,37 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             return image
 
         def get_denoised(img: Tensor, sigma: Tensor) -> Tensor:
+            ndim = img.ndim
             sigma = sigma * s_in
             ts = self._sigma_to_t(sigma, quantize)
-            c_in = append_dims(
-                1.0 / (sigma**2 + self.sigma_data**2) ** 0.5,
-                img.ndim,
+            if self.model.parameterization == "eps":
+                c_in = append_dims(
+                    1.0 / (sigma**2 + self.sigma_data**2) ** 0.5,
+                    ndim,
+                )
+                c_out = append_dims(sigma, ndim)
+                eps = self._uncond_denoise(img * c_in, ts, cond)
+                return img - eps * c_out
+            if self.model.parameterization == "v":
+                c_in = append_dims(
+                    1.0 / (sigma**2 + self.sigma_data**2) ** 0.5,
+                    ndim,
+                )
+                c_out = append_dims(
+                    sigma
+                    * self.sigma_data
+                    / (sigma**2 + self.sigma_data**2) ** 0.5,
+                    ndim,
+                )
+                c_skip = append_dims(
+                    self.sigma_data**2 / (sigma**2 + self.sigma_data**2),
+                    ndim,
+                )
+                v = self._uncond_denoise(img * c_in, ts, cond)
+                return img * c_skip - v * c_out
+            raise ValueError(
+                f"unrecognized parameterization `{self.model.parameterization}` occurred"
             )
-            c_out = append_dims(sigma, img.ndim)
-            eps = self._uncond_denoise(img * c_in, ts, cond)
-            return img - eps * c_out
 
         s_in = image.new_ones([image.shape[0]])
         return self.sample_step_core(
