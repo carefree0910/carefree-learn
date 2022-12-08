@@ -205,6 +205,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         condition_model: Optional[str] = None,
         condition_config: Optional[Dict[str, Any]] = None,
         condition_learnable: bool = False,
+        use_pretrained_condition: bool = False,
         ## noise schedule
         v_posterior: float = 0.0,
         timesteps: int = 1000,
@@ -262,10 +263,12 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         # condition
         self.condition_type = condition_type
         self.condition_learnable = condition_learnable
+        self.use_pretrained_condition = use_pretrained_condition
         self._initialize_condition_model(
             condition_model,
             condition_config,
             condition_learnable,
+            use_pretrained_condition,
         )
         # settings
         self.parameterization = parameterization
@@ -535,6 +538,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         condition_model: Optional[str],
         condition_config: Optional[Dict[str, Any]],
         condition_learnable: bool,
+        use_pretrained_condition: bool,
     ) -> None:
         if condition_model is None:
             self.condition_model = None
@@ -548,8 +552,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         else:
             kwargs = condition_config or {}
             kwargs.setdefault("report", False)
-            if not condition_learnable:
-                kwargs.setdefault("pretrained", True)
+            kwargs.setdefault("pretrained", use_pretrained_condition)
             m = DLZoo.load_model(condition_model, **kwargs)
         if not condition_learnable:
             freeze(m)

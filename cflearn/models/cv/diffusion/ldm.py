@@ -56,6 +56,7 @@ class LDM(DDPM):
         use_first_stage_as_condition: bool = False,
         condition_config: Optional[Dict[str, Any]] = None,
         condition_learnable: bool = False,
+        use_pretrained_condition: bool = False,
         ## noise schedule
         v_posterior: float = 0.0,
         timesteps: int = 1000,
@@ -111,6 +112,7 @@ class LDM(DDPM):
             condition_model=condition_model,
             condition_config=condition_config,
             condition_learnable=condition_learnable,
+            use_pretrained_condition=use_pretrained_condition,
             v_posterior=v_posterior,
             timesteps=timesteps,
             given_betas=given_betas,
