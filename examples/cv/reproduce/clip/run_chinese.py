@@ -1,4 +1,3 @@
-import os
 import cflearn
 import requests
 
@@ -42,10 +41,8 @@ image_embeds = outputs.image_embeds.numpy()
 # cflearn
 m = cflearn.api.chinese_clip()
 cf_clip = cflearn.multimodal.CLIPExtractor(m)
-os.makedirs(".tmp", exist_ok=True)
-image.save(f".tmp/test.png")
 cf_text_embeds = cf_clip.get_texts_latent(zh)
-cf_image_embeds = cf_clip.get_folder_latent(".tmp", batch_size=1).latent
+cf_image_embeds = cf_clip.get_image_latent(image)
 
 text_diff = np.abs(text_embeds - cf_text_embeds)
 image_diff = np.abs(image_embeds - cf_image_embeds)
