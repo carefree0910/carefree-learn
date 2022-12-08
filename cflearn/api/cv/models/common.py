@@ -209,6 +209,7 @@ class APIMixin:
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        **kwargs: Any,
     ) -> T:
         if use_amp and use_half:
             raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
@@ -216,4 +217,10 @@ class APIMixin:
             m.model.half()
         if device is not None:
             m.model.to(device)
-        return cls(m.model.core, m.model.device, use_amp=use_amp, use_half=use_half)
+        return cls(
+            m.model.core,
+            m.model.device,
+            use_amp=use_amp,
+            use_half=use_half,
+            **kwargs,
+        )
