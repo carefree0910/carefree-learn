@@ -254,13 +254,9 @@ def _get_d(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     return shallow_copy_dict(inp)
 
 
-def convert(
+def _get_inp(
     inp: Union[str, tensor_dict_type],
-    api: DiffusionAPI,
-    *,
-    vae_inp: Optional[Union[str, tensor_dict_type]] = None,
-    load: bool = False,
-    use_mapping: bool = True,
+    vae_inp: Optional[Union[str, tensor_dict_type]],
 ) -> tensor_dict_type:
     inp = _get_d(inp)
     if vae_inp is not None:
@@ -272,6 +268,18 @@ def convert(
                 inp[inp_k] = v
                 num_injected += 1
         print(f">> injected vae parameters: {num_injected}")
+    return inp
+
+
+def convert(
+    inp: Union[str, tensor_dict_type],
+    api: DiffusionAPI,
+    *,
+    vae_inp: Optional[Union[str, tensor_dict_type]] = None,
+    load: bool = False,
+    use_mapping: bool = True,
+) -> tensor_dict_type:
+    inp = _get_inp(inp, vae_inp)
     with api.load_context() as wrapper:
         md = wrapper.state_dict()
         if not use_mapping:
