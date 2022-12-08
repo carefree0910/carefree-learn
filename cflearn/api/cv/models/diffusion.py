@@ -101,20 +101,21 @@ class DiffusionAPI(APIMixin):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        clip_skip: int = 0,
     ):
         super().__init__(m, device, use_amp=use_amp, use_half=use_half)
         self.sampler = m.sampler
         self.cond_type = m.condition_type
+        self.clip_skip = clip_skip
         # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model
         if self.cond_model is not None:
             self.cond_model.eval()
         m.condition_model = nn.Identity()
         # pre-calculate unconditional_cond if needed
-        unconditional_cond = getattr(m.sampler, "unconditional_cond", None)
-        if self.cond_model is not None and unconditional_cond is not None:
-            uncond = self.get_cond(unconditional_cond)
-            m.sampler.unconditional_cond = uncond.to(self.device)
+        self._original_raw_uncond = getattr(m.sampler, "unconditional_cond", None)
+        self._uncond_cache: tensor_dict_type = {}
+        self._update_sampler_uncond(clip_skip)
         # extract first stage
         if not isinstance(m, LDM):
             self.first_stage = None
@@ -229,8 +230,12 @@ class DiffusionAPI(APIMixin):
     ) -> Tensor:
         registered_custom = False
         if self.cond_model is not None:
+            clip_skip = kwargs.get(
+                "clip_skip",
+                0 if self.clip_skip is None else self.clip_skip,
+            )
+            self._update_sampler_uncond(clip_skip)
             if isinstance(self.cond_model, CLIPTextConditionModel):
-                self.cond_model.clip_skip = kwargs.get("clip_skip", 0)
                 custom_embeddings = kwargs.get("custom_embeddings")
                 if custom_embeddings is not None:
                     registered_custom = True
@@ -387,6 +392,21 @@ class DiffusionAPI(APIMixin):
         if registered_custom:
             self.cond_model.clear_custom()
         return concat
+
+    def _update_clip_skip(self, clip_skip: int) -> None:
+        if isinstance(self.cond_model, CLIPTextConditionModel):
+            self.cond_model.clip_skip = clip_skip
+
+    def _update_sampler_uncond(self, clip_skip: int) -> None:
+        self._update_clip_skip(clip_skip)
+        if self.cond_model is not None and self._original_raw_uncond is not None:
+            cache = self._uncond_cache.get(clip_skip)
+            if cache is not None:
+                uncond = cache
+            else:
+                uncond = self.get_cond(self._original_raw_uncond)
+                self._uncond_cache[clip_skip] = uncond
+            self.m.sampler.unconditional_cond = uncond.to(self.device)
 
     @staticmethod
     def _txt_cond(t: Union[str, List[str]], n: Optional[int]) -> Tuple[List[str], int]:
