@@ -1032,7 +1032,7 @@ def ldm_sd_version(version: str, pretrained: bool = True) -> DLPipeline:
 
 
 def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
-    return ldm_sd(pretrained, download_name="ldm_sd_anime_nai")
+    return ldm_sd_version("anime_nai", pretrained)
 
 
 def ldm_sd_inpainting(pretrained: bool = True, **kw: Any) -> DLPipeline:
