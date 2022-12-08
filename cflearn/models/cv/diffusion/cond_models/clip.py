@@ -129,6 +129,7 @@ class inject_embeddings:
 @IConditionModel.register("multimodal/clip")
 @IConditionModel.register("multimodal/clip.large")
 @IConditionModel.register("multimodal/clip.chinese")
+@IConditionModel.register("multimodal/clip.open_clip_ViT_H_14")
 class CLIPTextConditionModel(IConditionModel):
     m: CLIP
     tokenizer: ICLIPTokenizer
@@ -253,7 +254,6 @@ class CLIPTextConditionModel(IConditionModel):
             )
             inp = to_torch([local_ids], torch.int64)
             weights_tensor = to_torch(local_weights, torch.float32).view(1, -1, 1)
-
             with inject_embeddings(self):
                 z = self.m.encode_text(
                     inp,

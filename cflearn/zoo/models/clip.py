@@ -28,6 +28,7 @@ def get_callback(use_vision: bool, use_text: bool) -> Callable:
 @IDLZooModelLoader.register("multimodal/clip")
 @IDLZooModelLoader.register("multimodal/clip.large")
 @IDLZooModelLoader.register("multimodal/clip.chinese")
+@IDLZooModelLoader.register("multimodal/clip.open_clip_ViT_H_14")
 class CLIPModelLoader(IDLZooModelLoader):
     def permute_kwargs(self, kwargs: Dict[str, Any]) -> None:
         use_vision = kwargs.pop("use_vision", True)
