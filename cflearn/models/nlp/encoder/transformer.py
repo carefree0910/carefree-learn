@@ -89,6 +89,10 @@ class TeTEncoder(IDLModel):
     ) -> tensor_dict_type:
         net = batch[INPUT_KEY]
         mask = batch.get(MASK_KEY, self.attention_mask)
+        if mask is not None:
+            t = net.shape[1]
+            if t != mask.shape[0]:
+                mask = mask[:t, :t]
         net = self.encoder.pre_process(net, **kwargs)
         for i, block in enumerate(self.encoder.mixing_blocks):
             net = block(net, mask=mask)
