@@ -1,11 +1,11 @@
 import json
 import torch
 
-from torch import nn
 from torch import Tensor
 from typing import Dict
 from typing import List
 from typing import Union
+from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
@@ -248,19 +248,29 @@ def _convert_with_key_mapping(
 def _get_d(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     if isinstance(inp, str):
         inp = torch.load(inp, map_location="cpu")
-        if "state_dict" in inp:
-            inp = inp["state_dict"]
-    return inp
+    if "state_dict" in inp:
+        inp = inp["state_dict"]
+    return shallow_copy_dict(inp)
 
 
 def convert(
     inp: Union[str, tensor_dict_type],
     api: DiffusionAPI,
     *,
+    vae_inp: Optional[Union[str, tensor_dict_type]] = None,
     load: bool = False,
     use_mapping: bool = True,
 ) -> tensor_dict_type:
     inp = _get_d(inp)
+    if vae_inp is not None:
+        vae_inp = _get_d(vae_inp)
+        num_injected = 0
+        for k, v in vae_inp.items():
+            inp_k = f"first_stage_model.{k}"
+            if inp_k in inp:
+                inp[inp_k] = v
+                num_injected += 1
+        print(f">> injected vae parameters: {num_injected}")
     with api.load_context() as wrapper:
         md = wrapper.state_dict()
         if not use_mapping:
