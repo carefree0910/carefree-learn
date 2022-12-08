@@ -291,6 +291,40 @@ def convert(
     return nd
 
 
+def convert_v2(
+    inp: Union[str, tensor_dict_type],
+    api: DiffusionAPI,
+    *,
+    vae_inp: Optional[Union[str, tensor_dict_type]] = None,
+    load: bool = False,
+) -> tensor_dict_type:
+    inp = _get_inp(inp, vae_inp)
+    for k in [
+        "log_one_minus_alphas_cumprod",
+        "sqrt_recip_alphas_cumprod",
+        "sqrt_recipm1_alphas_cumprod",
+    ]:
+        inp.pop(k)
+    with api.load_context() as wrapper:
+        md = wrapper.state_dict()
+        nd = {}
+        for k in [
+            "core.condition_model.m.text_projection.bias",
+            "core.condition_model.m.text_transformer.attention_mask",
+        ]:
+            nd[k] = md.pop(k)
+        with open(download_static("sd_v2_mapping", extension="json"), "r") as f:
+            mapping = json.load(f)
+        for k, mk in mapping.items():
+            v = inp[k]
+            if mk == "core.condition_model.m.text_projection.weight":
+                v = v.t()
+            nd[mk] = v.view(md[mk].shape)
+        if load:
+            wrapper.load_state_dict(nd)
+    return nd
+
+
 def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
     d = _get_d(inp)
     with api.load_context() as wrapper:
@@ -299,5 +333,6 @@ def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
 
 __all__ = [
     "convert",
+    "convert_v2",
     "inject",
 ]
