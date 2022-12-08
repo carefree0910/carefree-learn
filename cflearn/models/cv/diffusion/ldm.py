@@ -39,6 +39,7 @@ class LDM(DDPM):
         resample_with_resblock: bool = False,
         use_scale_shift_norm: bool = False,
         num_classes: Optional[int] = None,
+        use_linear_in_transformer: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
         # first stage
@@ -100,6 +101,7 @@ class LDM(DDPM):
             resample_with_resblock=resample_with_resblock,
             use_scale_shift_norm=use_scale_shift_norm,
             num_classes=num_classes,
+            use_linear_in_transformer=use_linear_in_transformer,
             use_checkpoint=use_checkpoint,
             attn_split_chunk=attn_split_chunk,
             ema_decay=ema_decay,

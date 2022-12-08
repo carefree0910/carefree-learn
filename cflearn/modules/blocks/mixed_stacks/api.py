@@ -491,13 +491,18 @@ class SpatialTransformer(Module):
         num_layers: int = 1,
         dropout: float = 0.0,
         context_dim: Optional[int] = None,
+        use_linear: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
     ):
         super().__init__()
         self.norm = nn.GroupNorm(32, in_channels, 1.0e-6, affine=True)
+        self.use_linear = use_linear
         latent_channels = num_heads * head_dim
-        self.to_latent = nn.Conv2d(in_channels, latent_channels, 1, 1, 0)
+        if not use_linear:
+            self.to_latent = nn.Conv2d(in_channels, latent_channels, 1, 1, 0)
+        else:
+            self.to_latent = nn.Linear(in_channels, latent_channels)
         self.blocks = nn.ModuleList(
             [
                 SpatialTransformerBlock(
@@ -512,19 +517,29 @@ class SpatialTransformer(Module):
                 for _ in range(num_layers)
             ]
         )
-        self.from_latent = zero_module(nn.Conv2d(latent_channels, in_channels, 1, 1, 0))
+        self.from_latent = zero_module(
+            nn.Conv2d(latent_channels, in_channels, 1, 1, 0)
+            if not use_linear
+            else nn.Linear(in_channels, latent_channels)
+        )
 
     def forward(self, net: Tensor, context: Optional[Tensor]) -> Tensor:
         inp = net
         b, c, h, w = net.shape
         net = self.norm(net)
-        net = self.to_latent(net)
+        if not self.use_linear:
+            net = self.to_latent(net)
         net = net.permute(0, 2, 3, 1).reshape(b, h * w, c)
+        if self.use_linear:
+            net = self.to_latent(net)
         for block in self.blocks:
             net = block(net, context=context)
+        if self.use_linear:
+            net = self.from_latent(net)
         net = net.permute(0, 2, 1).contiguous()
         net = net.view(b, c, h, w)
-        net = self.from_latent(net)
+        if not self.use_linear:
+            net = self.from_latent(net)
         return inp + net
 
 

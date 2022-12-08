@@ -91,6 +91,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         resample_with_resblock: bool = False,
         use_scale_shift_norm: bool = False,
         num_classes: Optional[int] = None,
+        use_linear_in_transformer: bool = False,
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
@@ -110,6 +111,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
         self.resample_with_conv = resample_with_conv
         self.use_scale_shift_norm = use_scale_shift_norm
         self.num_classes = num_classes
+        self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
         self.attn_split_chunk = attn_split_chunk
 
@@ -160,6 +162,7 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
                 head_c,
                 num_layers=num_transformer_layers,
                 context_dim=context_dim,
+                use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
             )
