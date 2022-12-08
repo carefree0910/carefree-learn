@@ -30,6 +30,7 @@ setup(
             "carefree-cv>=0.1.1",
         ],
         "full": [
+            "open_clip_torch",
             "faiss-cpu",
             "protobuf==3.19.4",
             "ortools>=9.3.0",
