@@ -48,6 +48,7 @@ class CLIP(IPerceptor):
         vision_num_heads: int = 12,
         vision_num_layers: int = 12,
         vision_norm_eps: float = 1.0e-5,
+        vision_feedforward_activation: str = "quick_gelu",
         # text
         use_text: bool = True,
         vocab_size: int = 49408,
@@ -67,13 +68,11 @@ class CLIP(IPerceptor):
         text_head_pooler: Optional[str] = None,
     ):
         super().__init__(img_size, context_length)
-        feedforward_kwargs = {"activation": "quick_gelu"}
         # vision
         if not use_vision:
             self.vit = None
         else:
             self._init_vision(
-                feedforward_kwargs,
                 img_size,
                 latent_dim,
                 in_channels,
@@ -82,6 +81,7 @@ class CLIP(IPerceptor):
                 vision_num_heads,
                 vision_num_layers,
                 vision_norm_eps,
+                vision_feedforward_activation,
             )
         # text
         if not use_text:
@@ -93,7 +93,6 @@ class CLIP(IPerceptor):
         else:
             self._init_text(
                 latent_dim,
-                feedforward_kwargs,
                 vocab_size,
                 context_length,
                 use_text_triu_attn_mask,
@@ -115,7 +114,6 @@ class CLIP(IPerceptor):
 
     def _init_vision(
         self,
-        feedforward_kwargs: Dict[str, Any],
         img_size: int,
         latent_dim: int,
         in_channels: int,
@@ -124,6 +122,7 @@ class CLIP(IPerceptor):
         vision_num_heads: int,
         vision_num_layers: int,
         vision_norm_eps: float,
+        vision_feedforward_activation: str,
     ) -> None:
         self.vision_latent_dim = vision_latent_dim
         self.vit = ViTEncoder(
@@ -136,7 +135,7 @@ class CLIP(IPerceptor):
             norm_kwargs={"eps": vision_norm_eps},
             embedding_norm=nn.LayerNorm(self.vision_latent_dim, vision_norm_eps),
             attention_kwargs={"num_heads": vision_num_heads},
-            feedforward_kwargs=feedforward_kwargs,
+            feedforward_kwargs={"activation": vision_feedforward_activation},
             norm_after_head=True,
             output_dim=latent_dim,
         )
@@ -144,7 +143,6 @@ class CLIP(IPerceptor):
     def _init_text(
         self,
         latent_dim: int,
-        feedforward_kwargs: Dict[str, Any],
         vocab_size: int,
         context_length: int,
         use_text_triu_attn_mask: bool,
@@ -176,8 +174,6 @@ class CLIP(IPerceptor):
             text_embedding_norm = None
         else:
             text_embedding_norm = nn.LayerNorm(text_latent_dim, text_norm_eps)
-        feedforward_kwargs = shallow_copy_dict(feedforward_kwargs)
-        feedforward_kwargs["activation"] = text_feedforward_activation
         self.text_transformer = TeTEncoder(
             text_latent_dim,
             context_length,
@@ -189,7 +185,7 @@ class CLIP(IPerceptor):
             embedding_norm=text_embedding_norm,
             embedding_dropout=text_embedding_dropout,
             attention_kwargs={"num_heads": text_num_heads},
-            feedforward_kwargs=feedforward_kwargs,
+            feedforward_kwargs={"activation": text_feedforward_activation},
             head_pooler=text_head_pooler,
         )
         self.text_head_pooler = text_head_pooler
