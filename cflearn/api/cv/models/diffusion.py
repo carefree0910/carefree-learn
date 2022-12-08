@@ -847,6 +847,38 @@ class DiffusionAPI(APIMixin):
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
+    def from_sd_v2(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(
+            ldm_sd_v2(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            clip_skip=1,
+        )
+
+    @classmethod
+    def from_sd_v2_base(
+        cls,
+        device: Optional[str] = None,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> "DiffusionAPI":
+        return cls.from_pipeline(
+            ldm_sd_v2_base(),
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            clip_skip=1,
+        )
+
+    @classmethod
     def from_celeba_hq(
         cls,
         device: Optional[str] = None,
@@ -1057,6 +1089,14 @@ def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
 
 def ldm_sd_inpainting(pretrained: bool = True, **kw: Any) -> DLPipeline:
     return _ldm("diffusion/ldm.sd_inpainting", 64, 9, 4, pretrained=pretrained, **kw)
+
+
+def ldm_sd_v2(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    return _ldm("diffusion/ldm.sd_v2", 64, 4, 4, pretrained=pretrained, **kwargs)
+
+
+def ldm_sd_v2_base(pretrained: bool = True, **kwargs: Any) -> DLPipeline:
+    return _ldm("diffusion/ldm.sd_v2_base", 64, 4, 4, pretrained=pretrained, **kwargs)
 
 
 def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:

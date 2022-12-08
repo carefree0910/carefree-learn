@@ -28,6 +28,8 @@ from .ml.pipeline import MLCarefreePipeline
 from .cv.models.diffusion import ldm as _ldm
 from .cv.models.diffusion import ldm_vq as _ldm_vq
 from .cv.models.diffusion import ldm_sd as _ldm_sd
+from .cv.models.diffusion import ldm_sd_v2 as _ldm_sd_v2
+from .cv.models.diffusion import ldm_sd_v2_base as _ldm_sd_v2_base
 from .cv.models.diffusion import ldm_sr as _ldm_sr
 from .cv.models.diffusion import ldm_sd_anime as _ldm_sd_anime
 from .cv.models.diffusion import ldm_semantic as _ldm_semantic
@@ -1358,16 +1360,24 @@ def ldm_sd_anime(pretrained: bool = True) -> DLPipeline:
     return _ldm_sd_anime(pretrained)
 
 
+def ldm_sd_inpainting(pretrained: bool = True) -> DLPipeline:
+    return _ldm_sd_inpainting(pretrained)
+
+
+def ldm_sd_v2(pretrained: bool = True) -> DLPipeline:
+    return _ldm_sd_v2(pretrained)
+
+
+def ldm_sd_v2_base(pretrained: bool = True) -> DLPipeline:
+    return _ldm_sd_v2_base(pretrained)
+
+
 def ldm_celeba_hq(pretrained: bool = True) -> DLPipeline:
     return _ldm_celeba_hq(pretrained)
 
 
 def ldm_inpainting(pretrained: bool = True) -> DLPipeline:
     return _ldm_inpainting(pretrained)
-
-
-def ldm_sd_inpainting(pretrained: bool = True) -> DLPipeline:
-    return _ldm_sd_inpainting(pretrained)
 
 
 def ldm_sr(pretrained: bool = True) -> DLPipeline:

@@ -81,6 +81,16 @@
       "st_size": 2134086380,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_inpainting.pt"
     },
+    "ldm.sd_v2": {
+      "sha": "87b14e843a3a3eac10185319a06c794e9f92925bc0c301f6511b164f9356a470",
+      "st_size": 2607646836,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v2.pt"
+    },
+    "ldm.sd_v2_base": {
+      "sha": "10a26d20525d0c06e75a6a449ac11d38ffefcf137156985a887395d6b84e46c4",
+      "st_size": 2607653105,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v2_base.pt"
+    },
     "ldm_celeba_hq": {
       "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
       "st_size": 1317739701
@@ -221,6 +231,11 @@
       "sha": "02274443c436b749f484280af7a2e22c8d31857bf3303fc93202a5193bf43966",
       "st_size": 111278,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_mapping.json"
+    },
+    "sd_v2_mapping": {
+      "sha": "6779642b5402c213b8aa9107e55a1a532732d4a95c8c5d2463353023337e89bd",
+      "st_size": 158952,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_v2_mapping.json"
     }
   }
 }
