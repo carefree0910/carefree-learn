@@ -122,6 +122,11 @@
       "st_size": 2521375197,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/clip.chinese.pt"
     },
+    "clip.open_clip_ViT_H_14": {
+      "sha": "d5543c8d73228d02f8b2b6c55c4e22ab0fbfc3995af90f763fccae43a642f3cf",
+      "st_size": 3944690497,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/clip.open_clip_ViT_H_14.pt"
+    },
     "vqgan_generator": {
       "sha": "36a9d1b6df91c40a34f96febb057eed3a32efaecf904a3d6915f8535268520b6",
       "st_size": 304418003
