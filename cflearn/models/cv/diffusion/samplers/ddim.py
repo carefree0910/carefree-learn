@@ -134,7 +134,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         quantize_denoised: bool = False,
         **kwargs: Any,
     ) -> Tensor:
-        if step == 0:
+        if step == 0 and not self.initialized:
             self._reset_buffers(
                 eta,
                 discretize,
@@ -251,6 +251,8 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.ddim_timesteps = self._q_sampler.timesteps.tolist()
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
+        # set flag
+        self.initialized = True
 
 
 @ISampler.register("ddim")

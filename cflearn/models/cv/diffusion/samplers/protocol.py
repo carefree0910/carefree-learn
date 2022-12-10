@@ -101,6 +101,7 @@ class ISampler(WithRegister):
 
     def __init__(self, model: IDiffusion):
         self.model = model
+        self.initialized = False
 
     @property
     @abstractmethod
@@ -165,6 +166,7 @@ class ISampler(WithRegister):
                 ref_ts = get_timesteps(num_steps - step - 1, ref.shape[0], z.device)
                 ref_noisy = self.q_sample(ref, ref_ts, ref_noise)
                 image = ref_noisy * ref_mask + image * (1.0 - ref_mask)
+        self.initialized = False
         return image
 
 

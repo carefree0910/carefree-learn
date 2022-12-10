@@ -133,7 +133,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         unconditional_guidance_scale: float = 1.0,
         **kwargs: Any,
     ) -> Tensor:
-        if step == 0:
+        if step == 0 and not self.initialized:
             self._reset_buffers(
                 total_step,
                 quantize,
@@ -227,6 +227,8 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self._q_sampler.reset_buffers(self.sigmas.flip(0))
         # unconditional conditioning
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
+        # set flag
+        self.initialized = True
 
 
 def klms_coef(order: int, t: np.ndarray, i: int, j: int) -> float:
