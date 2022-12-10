@@ -187,8 +187,8 @@ class CLIPTextConditionModel(IConditionModel):
             add_special_tokens=False,
         )["input_ids"]
 
-        concat_ids = [self.tokenizer.bos_token_id]
-        weights = [1.0]
+        concat_ids: List[int] = []
+        weights: List[float] = []
         id_end = self.tokenizer.eos_token_id
         last_comma = -1
         valid_context_length = self.context_length - 2
@@ -224,15 +224,14 @@ class CLIPTextConditionModel(IConditionModel):
                 i += 1
 
         zs = []
-        add_bos = False
+        is_first = True
         remained_ids = concat_ids
         remained_weights = weights
-        while remained_ids:
+        while is_first or remained_ids:
             local_ids = remained_ids[:]
             local_weights = remained_weights[:]
-            if add_bos:
-                local_ids = [self.tokenizer.bos_token_id] + local_ids
-                local_weights = [1.0] + local_weights
+            local_ids = [self.tokenizer.bos_token_id] + local_ids
+            local_weights = [1.0] + local_weights
             # padding
             diff = self.context_length - len(local_ids)
             if diff > 0:
@@ -267,8 +266,8 @@ class CLIPTextConditionModel(IConditionModel):
             new_mean = z.mean()
             z *= original_mean / new_mean
             zs.append(z)
-            # add bos in next iter
-            add_bos = True
+            # set flag
+            is_first = False
 
         if len(zs) == 1:
             return zs[0]
