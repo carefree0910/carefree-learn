@@ -5,7 +5,7 @@ from typing import Optional
 
 
 file_folder = os.path.dirname(__file__)
-scripts_folder = os.path.join(file_folder, os.pardir, "examples", "cv", "reproduce")
+scripts_folder = os.path.join(file_folder, os.pardir, "examples", "reproduce")
 
 
 class TestReproduce(unittest.TestCase):

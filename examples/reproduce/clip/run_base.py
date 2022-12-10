@@ -9,8 +9,9 @@ from transformers import CLIPProcessor
 from cflearn.misc.toolkit import eval_context
 
 
-model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
-processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+version = "openai/clip-vit-base-patch32"
+model = CLIPModel.from_pretrained(version)
+processor = CLIPProcessor.from_pretrained(version)
 
 url = "http://images.cocodataset.org/val2017/000000039769.jpg"
 image = Image.open(requests.get(url, stream=True).raw)
