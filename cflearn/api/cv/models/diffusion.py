@@ -985,8 +985,8 @@ class DiffusionAPI(APIMixin):
         with switch_sampler_context(self, kwargs.get("sampler")):
             if num_steps is None:
                 num_steps = self.sampler.default_steps
-            t = round((1.0 - fidelity) * num_steps)
-            ts = get_timesteps(min(t, num_steps - 1), 1, z.device)
+            t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
+            ts = get_timesteps(t, 1, z.device)
             if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
                 kw = shallow_copy_dict(self.sampler.sample_kwargs)
                 kw["total_step"] = num_steps
