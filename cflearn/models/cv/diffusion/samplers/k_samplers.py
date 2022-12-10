@@ -193,20 +193,29 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     # internal
 
     def _t_to_sigma(self, ts: Tensor) -> Tensor:
+        log_base = self.log_sigmas_base
         low_idx, high_idx, w = ts.floor().long(), ts.ceil().long(), ts.frac()
-        return (1.0 - w) * self.sigmas_base[low_idx] + w * self.sigmas_base[high_idx]
+        log_sigma = (1.0 - w) * log_base[low_idx] + w * log_base[high_idx]
+        return log_sigma.exp()
 
     def _sigma_to_t(self, sigmas: Tensor, quantize: bool) -> Tensor:
-        dists = torch.abs(sigmas - self.sigmas_base[:, None])
+        quantize = self.quantize if quantize is None else quantize
+        log_sigmas = sigmas.log()
+        dists = log_sigmas - self.log_sigmas_base[:, None]
         if quantize:
-            return torch.argmin(dists, dim=0).view(sigmas.shape)
-        top2 = torch.topk(dists, dim=0, k=2, largest=False).indices
-        low_idx, high_idx = torch.sort(top2, dim=0)[0]
-        low, high = self.sigmas_base[low_idx], self.sigmas_base[high_idx]
-        w = (low - sigmas) / (low - high)
-        w = w.clamp(0, 1)
-        ts = (1.0 - w) * low_idx + w * high_idx
-        return ts.view(sigmas.shape)
+            return dists.abs().argmin(dim=0).view(sigmas.shape)
+        low_idx = (
+            dists.ge(0.0)
+            .cumsum(dim=0)
+            .argmax(dim=0)
+            .clamp(max=self.log_sigmas_base.shape[0] - 2)
+        )
+        high_idx = low_idx + 1
+        low, high = self.log_sigmas_base[low_idx], self.log_sigmas_base[high_idx]
+        w = (low - log_sigmas) / (low - high)
+        w = w.clamp(0.0, 1.0)
+        t = (1.0 - w) * low_idx + w * high_idx
+        return t.view(sigmas.shape)
 
     def _reset_buffers(
         self,
@@ -217,6 +226,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
     ) -> None:
         alphas = self.model.alphas_cumprod
         self.sigmas_base = ((1.0 - alphas) / alphas) ** 0.5
+        self.log_sigmas_base = self.sigmas_base.log()
         t_max = len(self.sigmas_base) - 1
         ts = torch.linspace(t_max, 0, total_step, device=self.sigmas_base.device)
         self.sigmas = append_zero(self._t_to_sigma(ts)).to(alphas.dtype)
