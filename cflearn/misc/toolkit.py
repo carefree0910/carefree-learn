@@ -341,6 +341,11 @@ def inject_debug(config: Dict[str, Any]) -> None:
     config["valid_portion"] = 1.0e-4
 
 
+def safe_clip_(net: Tensor) -> None:
+    finfo = torch.finfo(net.dtype)
+    net.clamp_(finfo.min, finfo.max)
+
+
 def fix_denormal_states(
     states: tensor_dict_type,
     *,

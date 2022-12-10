@@ -14,6 +14,7 @@ from ..utils import conv_nd
 from ..utils import avg_pool_nd
 from ..utils import zero_module
 from ..utils import Residual
+from ....misc.toolkit import safe_clip_
 from ....misc.toolkit import gradient_checkpoint
 
 
@@ -245,8 +246,7 @@ class ResidualBlockWithTimeEmbedding(Module):
         net = self.conv2(net)
 
         net = inp + net
-        finfo = torch.finfo(net.dtype)
-        net.clamp_(finfo.min, finfo.max)
+        safe_clip_(net)
 
         return net
 
