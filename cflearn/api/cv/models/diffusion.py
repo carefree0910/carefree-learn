@@ -138,6 +138,8 @@ class DiffusionAPI(APIMixin):
                 self.first_stage.half()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.half()
+            for k, v in self._uncond_cache.items():
+                self._uncond_cache[k] = v.half()
         else:
             if self.cond_model is not None:
                 self.cond_model.float()
@@ -145,12 +147,16 @@ class DiffusionAPI(APIMixin):
                 self.first_stage.float()
             if unconditional_cond is not None:
                 unconditional_cond = unconditional_cond.float()
+            for k, v in self._uncond_cache.items():
+                self._uncond_cache[k] = v.float()
         if self.cond_model is not None:
             self.cond_model.to(device)
         if self.first_stage is not None:
             self.first_stage.to(device)
         if unconditional_cond is not None:
             self.sampler.unconditional_cond = unconditional_cond.to(device)
+        for k, v in self._uncond_cache.items():
+            self._uncond_cache[k] = v.to(device)
 
     @property
     def size_info(self) -> SizeInfo:
