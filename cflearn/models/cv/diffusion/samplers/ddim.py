@@ -36,7 +36,7 @@ class IGetDenoised(Protocol):
 class DDIMQSampler(DDPMQSampler):
     def reset_buffers(self, discretize: str, total_step: int) -> None:  # type: ignore
         if discretize == "uniform":
-            span = self.model.t // total_step
+            span = self.model.t // (total_step + int(self.model.t % total_step == 0))
             q_timesteps = np.array(list(range(0, self.model.t, span)))
         elif discretize == "quad":
             end = math.sqrt(self.model.t * 0.8)
