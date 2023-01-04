@@ -512,6 +512,7 @@ class DiffusionAPI(APIMixin):
         max_wh: int = 512,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
+        keep_original: bool = False,
         use_raw_inpainting: bool = False,
         raw_inpainting_fidelity: float = 0.2,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
@@ -555,7 +556,7 @@ class DiffusionAPI(APIMixin):
         size = tuple(
             map(lambda n: n * factor, res.remained_image_cond.shape[-2:][::-1])
         )
-        return self.sample(
+        sampled = self.sample(
             num_samples,
             export_path,
             size=size,  # type: ignore
@@ -569,6 +570,11 @@ class DiffusionAPI(APIMixin):
             verbose=verbose,
             **kwargs,
         )
+        if keep_original:
+            original = res.image_res.image * 2.0 - 1.0
+            sampled = np.where(res.remained_mask, original, sampled.numpy())
+            sampled = torch.from_numpy(sampled)
+        return sampled
 
     def outpainting(
         self,
@@ -580,6 +586,7 @@ class DiffusionAPI(APIMixin):
         max_wh: int = 512,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
+        keep_original: bool = False,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
         verbose: bool = True,
         **kwargs: Any,
@@ -600,6 +607,7 @@ class DiffusionAPI(APIMixin):
             max_wh=max_wh,
             num_steps=num_steps,
             clip_output=clip_output,
+            keep_original=keep_original,
             callback=callback,
             verbose=verbose,
             **kwargs,
