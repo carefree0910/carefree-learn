@@ -26,7 +26,7 @@ class Linear(Module):
         *,
         bias: bool = True,
         pruner_config: Optional[Dict[str, Any]] = None,
-        init_method: str = "xavier_normal",
+        init_method: Optional[str] = None,
         rank: Optional[int] = None,
         rank_ratio: Optional[float] = None,
     ):
@@ -59,6 +59,7 @@ class Linear(Module):
                 self.pruner2 = Pruner(pruner_config, [out_dim, rank])
                 self.pruner = None
         # initialize
+        init_method = init_method or "xavier_normal"
         init_fn = getattr(nn.init, f"{init_method}_", nn.init.xavier_normal_)
         self.init_weights_with(lambda t: init_fn(t, 1.0 / math.sqrt(2.0)))
 
@@ -91,7 +92,7 @@ class Linear(Module):
         with torch.no_grad():
             if self.linear is not None:
                 w_init_fn(self.linear.weight.data)
-            else:
+            elif self.w1 is not None and self.w2 is not None:
                 w_init_fn(self.w1.data)
                 w_init_fn(self.w2.data)
             if self.linear is None:
