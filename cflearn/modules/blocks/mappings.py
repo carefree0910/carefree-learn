@@ -138,19 +138,9 @@ class ResBlock(MappingBase):
             )
         # residual unit
         self.residual_unit = nn.Sequential(
-            BN(out_dim),
+            BN(out_dim) if batch_norm else nn.Identity(),
             Activation.make(activation, activation_config),
             nn.Identity() if not 0.0 < dropout < 1.0 else nn.Dropout(dropout),
-            Mapping(
-                out_dim,
-                out_dim,
-                bias=bias,
-                pruner_config=pruner_config,
-                dropout=dropout,
-                batch_norm=batch_norm,
-                activation=activation,
-                init_method=init_method,
-            ),
             Linear(
                 out_dim,
                 out_dim,
@@ -158,6 +148,7 @@ class ResBlock(MappingBase):
                 pruner_config=pruner_config,
                 init_method=init_method,
             ),
+            nn.Identity() if not 0.0 < dropout < 1.0 else nn.Dropout(dropout),
         )
 
     def forward(self, net: Tensor) -> Tensor:
