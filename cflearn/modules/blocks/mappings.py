@@ -38,6 +38,8 @@ class Mapping(MappingBase):
         activation: Optional[str] = "ReLU",
         activation_config: Optional[Dict[str, Any]] = None,
         init_method: str = "xavier_normal",
+        rank: Optional[int] = None,
+        rank_ratio: Optional[float] = None,
     ):
         super().__init__()
         if bias is None:
@@ -48,6 +50,8 @@ class Mapping(MappingBase):
             bias=bias,
             pruner_config=pruner_config,
             init_method=init_method,
+            rank=rank,
+            rank_ratio=rank_ratio,
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:

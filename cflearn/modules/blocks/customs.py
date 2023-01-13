@@ -11,10 +11,11 @@ from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from typing import Callable
 from typing import Optional
 from functools import partial
 from torch.nn import Module
-from cftool.misc import shallow_copy_dict
+from cftool.misc import print_warning
 
 
 class Linear(Module):
@@ -26,33 +27,79 @@ class Linear(Module):
         bias: bool = True,
         pruner_config: Optional[Dict[str, Any]] = None,
         init_method: str = "xavier_normal",
+        rank: Optional[int] = None,
+        rank_ratio: Optional[float] = None,
     ):
         super().__init__()
-        self.linear = nn.Linear(in_dim, out_dim, bias)
-        if pruner_config is None:
-            self.pruner = None
+        original_rank = min(in_dim, out_dim)
+        if rank is None:
+            if rank_ratio is not None:
+                rank = round(original_rank * rank_ratio)
+        if rank is not None and rank >= original_rank:
+            print_warning(
+                f"specified rank ({rank}) should be smaller than "
+                f"the original rank ({original_rank})"
+            )
+        if rank is None:
+            self.w1 = self.w2 = self.b = None
+            self.linear = nn.Linear(in_dim, out_dim, bias)
         else:
-            self.pruner = Pruner(pruner_config, [out_dim, in_dim])
-        with torch.no_grad():
-            gain = 1.0 / math.sqrt(2.0)
-            init_fn = getattr(nn.init, f"{init_method}_", nn.init.xavier_normal_)
-            init_fn(self.linear.weight.data, gain)
-            if bias:
-                self.linear.bias.data.zero_()
+            self.w1 = nn.Parameter(torch.zeros(rank, in_dim))
+            self.w2 = nn.Parameter(torch.zeros(out_dim, rank))
+            self.b = nn.Parameter(torch.zeros(1, out_dim)) if bias else None
+            self.linear = None
+        if pruner_config is None:
+            self.pruner = self.pruner1 = self.pruner2 = None
+        else:
+            if rank is None:
+                self.pruner1 = self.pruner2 = None
+                self.pruner = Pruner(pruner_config, [out_dim, in_dim])
+            else:
+                self.pruner1 = Pruner(pruner_config, [rank, in_dim])
+                self.pruner2 = Pruner(pruner_config, [out_dim, rank])
+                self.pruner = None
+        # initialize
+        init_fn = getattr(nn.init, f"{init_method}_", nn.init.xavier_normal_)
+        self.init_weights_with(lambda t: init_fn(t, 1.0 / math.sqrt(2.0)))
 
     @property
     def weight(self) -> Tensor:
-        return self.linear.weight
+        if self.linear is not None:
+            return self.linear.weight
+        return torch.matmul(self.w2, self.w1)
 
     @property
     def bias(self) -> Optional[Tensor]:
-        return self.linear.bias
+        return self.b if self.linear is None else self.linear.bias
 
     def forward(self, net: Tensor) -> Tensor:
-        weight = self.linear.weight
-        if self.pruner is not None:
-            weight = self.pruner(weight)
-        return F.linear(net, weight, self.linear.bias)
+        if self.linear is not None:
+            weight = self.linear.weight
+            if self.pruner is not None:
+                weight = self.pruner(weight)
+            return F.linear(net, weight, self.linear.bias)
+        w1, w2 = self.w1, self.w2
+        if self.pruner1 is not None:
+            w1 = self.pruner1(w1)
+        if self.pruner2 is not None:
+            w2 = self.pruner2(w2)
+        net = F.linear(net, w1)
+        net = F.linear(net, w2, self.b)
+        return net
+
+    def init_weights_with(self, w_init_fn: Callable[[Tensor], None]) -> None:
+        with torch.no_grad():
+            if self.linear is not None:
+                w_init_fn(self.linear.weight.data)
+            else:
+                w_init_fn(self.w1.data)
+                w_init_fn(self.w2.data)
+            if self.linear is None:
+                if self.b is not None:
+                    self.b.data.zero_()
+            else:
+                if self.linear.bias is not None:
+                    self.linear.bias.data.zero_()
 
 
 class LeafAggregation(torch.autograd.Function):

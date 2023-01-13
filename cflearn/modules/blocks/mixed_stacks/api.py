@@ -373,10 +373,12 @@ class MixedStackedEncoder(Module):
         self.apply(self._init_weights)
 
     def _init_weights(self, m: Module) -> None:
-        if isinstance(m, nn.Linear) or isinstance(m, Linear):
+        if isinstance(m, nn.Linear):
             nn.init.trunc_normal_(m.weight, std=0.02)
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0.0)
+        elif isinstance(m, Linear):
+            m.init_weights_with(lambda t: nn.init.trunc_normal_(t, std=0.02))
         elif isinstance(m, nn.LayerNorm):
             nn.init.constant_(m.bias, 0.0)
             nn.init.constant_(m.weight, 1.0)

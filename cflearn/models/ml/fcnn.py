@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch import Tensor
 from typing import List
 from typing import Optional
+from cftool.misc import safe_execute
 
 from ..register import register_ml_module
 from ...modules.blocks import mapping_dict
@@ -22,6 +23,8 @@ class FCNN(nn.Module):
         activation: str = "ReLU",
         batch_norm: bool = False,
         dropout: float = 0.0,
+        rank: Optional[int] = None,
+        rank_ratio: Optional[float] = None,
     ):
         super().__init__()
         input_dim *= num_history
@@ -31,13 +34,18 @@ class FCNN(nn.Module):
         mapping_base = mapping_dict[mapping_type]
         blocks: List[nn.Module] = []
         for hidden_unit in hidden_units:
-            mapping = mapping_base(
-                input_dim,
-                hidden_unit,
-                bias=bias,
-                activation=activation,
-                batch_norm=batch_norm,
-                dropout=dropout,
+            mapping = safe_execute(
+                mapping_base,
+                dict(
+                    in_dim=input_dim,
+                    out_dim=hidden_unit,
+                    bias=bias,
+                    activation=activation,
+                    batch_norm=batch_norm,
+                    dropout=dropout,
+                    rank=rank,
+                    rank_ratio=rank_ratio,
+                ),
             )
             blocks.append(mapping)
             input_dim = hidden_unit
