@@ -36,8 +36,8 @@ class Mapping(MappingBase):
         dropout: float = 0.5,
         batch_norm: bool = True,
         activation: Optional[str] = "ReLU",
-        init_method: str = "xavier_uniform",
         activation_config: Optional[Dict[str, Any]] = None,
+        init_method: str = "xavier_normal",
     ):
         super().__init__()
         if bias is None:
@@ -117,7 +117,7 @@ class ResBlock(MappingBase):
         dropout: float = 0.0,
         batch_norm: bool = True,
         activation: Optional[str] = "ReLU",
-        init_method: str = "xavier_uniform",
+        init_method: str = "xavier_normal",
         **kwargs: Any,
     ):
         super().__init__()
@@ -177,7 +177,7 @@ class HighwayBlock(MappingBase):
         dropout: float = 0.0,
         batch_norm: bool = True,
         activation: Optional[str] = "ReLU",
-        init_method: str = "xavier_uniform",
+        init_method: str = "xavier_normal",
         **kwargs: Any,
     ):
         super().__init__()

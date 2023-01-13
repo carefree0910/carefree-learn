@@ -25,6 +25,7 @@ class Linear(Module):
         *,
         bias: bool = True,
         pruner_config: Optional[Dict[str, Any]] = None,
+        init_method: str = "xavier_normal",
         **kwargs: Any,
     ):
         super().__init__()
@@ -36,7 +37,8 @@ class Linear(Module):
         self.config, self.pruner = shallow_copy_dict(kwargs), pruner
         with torch.no_grad():
             gain = 1.0 / math.sqrt(2.0)
-            nn.init.xavier_normal_(self.linear.weight.data, gain)
+            init_fn = getattr(nn.init, f"{init_method}_", nn.init.xavier_normal_)
+            init_fn(self.linear.weight.data, gain)
             if bias:
                 self.linear.bias.data.zero_()
 
