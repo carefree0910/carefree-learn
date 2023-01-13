@@ -117,8 +117,8 @@ class ResBlock(MappingBase):
         dropout: float = 0.0,
         batch_norm: bool = True,
         activation: Optional[str] = "ReLU",
+        activation_config: Optional[Dict[str, Any]] = None,
         init_method: str = "xavier_normal",
-        **kwargs: Any,
     ):
         super().__init__()
         # input mapping
@@ -131,12 +131,11 @@ class ResBlock(MappingBase):
                 bias=True if bias is None else bias,
                 pruner_config=pruner_config,
                 init_method=init_method,
-                **kwargs,
             )
         # residual unit
         self.residual_unit = nn.Sequential(
             BN(out_dim),
-            Activation.make(activation, kwargs.setdefault("activation_config", None)),
+            Activation.make(activation, activation_config),
             nn.Identity() if not 0.0 < dropout < 1.0 else nn.Dropout(dropout),
             Mapping(
                 out_dim,
@@ -147,7 +146,6 @@ class ResBlock(MappingBase):
                 batch_norm=batch_norm,
                 activation=activation,
                 init_method=init_method,
-                **kwargs,
             ),
             Linear(
                 out_dim,
@@ -155,7 +153,6 @@ class ResBlock(MappingBase):
                 bias=True if bias is None else bias,
                 pruner_config=pruner_config,
                 init_method=init_method,
-                **kwargs,
             ),
         )
 
@@ -178,7 +175,6 @@ class HighwayBlock(MappingBase):
         batch_norm: bool = True,
         activation: Optional[str] = "ReLU",
         init_method: str = "xavier_normal",
-        **kwargs: Any,
     ):
         super().__init__()
         self.linear_mapping = Linear(
@@ -187,7 +183,6 @@ class HighwayBlock(MappingBase):
             bias=True if bias is None else bias,
             pruner_config=pruner_config,
             init_method=init_method,
-            **kwargs,
         )
         self.nonlinear_mapping = Mapping(
             in_dim,
@@ -198,7 +193,6 @@ class HighwayBlock(MappingBase):
             batch_norm=batch_norm,
             activation=activation,
             init_method=init_method,
-            **kwargs,
         )
         self.gate_linear = Linear(
             in_dim,
@@ -206,7 +200,6 @@ class HighwayBlock(MappingBase):
             bias=True if bias is None else bias,
             pruner_config=pruner_config,
             init_method=init_method,
-            **kwargs,
         )
         self.sigmoid = nn.Sigmoid()
 

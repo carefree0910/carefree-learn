@@ -26,15 +26,13 @@ class Linear(Module):
         bias: bool = True,
         pruner_config: Optional[Dict[str, Any]] = None,
         init_method: str = "xavier_normal",
-        **kwargs: Any,
     ):
         super().__init__()
         self.linear = nn.Linear(in_dim, out_dim, bias)
         if pruner_config is None:
-            pruner = None
+            self.pruner = None
         else:
-            pruner = Pruner(pruner_config, [out_dim, in_dim])
-        self.config, self.pruner = shallow_copy_dict(kwargs), pruner
+            self.pruner = Pruner(pruner_config, [out_dim, in_dim])
         with torch.no_grad():
             gain = 1.0 / math.sqrt(2.0)
             init_fn = getattr(nn.init, f"{init_method}_", nn.init.xavier_normal_)
