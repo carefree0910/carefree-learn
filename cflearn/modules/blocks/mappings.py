@@ -37,10 +37,9 @@ class Mapping(MappingBase):
         batch_norm: bool = True,
         activation: Optional[str] = "ReLU",
         init_method: str = "xavier_uniform",
-        **kwargs: Any,
+        activation_config: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
-        self.config = shallow_copy_dict(kwargs)
         if bias is None:
             bias = not batch_norm
         self.linear = Linear(
@@ -49,13 +48,11 @@ class Mapping(MappingBase):
             bias=bias,
             pruner_config=pruner_config,
             init_method=init_method,
-            **shallow_copy_dict(kwargs),
         )
         self.bn = None if not batch_norm else BN(out_dim)
         if activation is None:
             self.activation: Optional[Module] = None
         else:
-            activation_config = self.config.setdefault("activation_config", None)
             self.activation = Activation.make(activation, activation_config)
         use_dropout = 0.0 < dropout < 1.0
         self.dropout = None if not use_dropout else nn.Dropout(dropout)
