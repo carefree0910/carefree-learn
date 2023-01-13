@@ -110,7 +110,7 @@ class ResBlock(MappingBase):
     def __init__(
         self,
         in_dim: int,
-        latent_dim: int,
+        out_dim: int,
         *,
         bias: Optional[bool] = None,
         pruner_config: Optional[dict] = None,
@@ -122,12 +122,12 @@ class ResBlock(MappingBase):
     ):
         super().__init__()
         # input mapping
-        if in_dim == latent_dim:
+        if in_dim == out_dim:
             self.to_latent = nn.Identity()
         else:
             self.to_latent = Linear(
                 in_dim,
-                latent_dim,
+                out_dim,
                 bias=True if bias is None else bias,
                 pruner_config=pruner_config,
                 init_method=init_method,
@@ -135,12 +135,12 @@ class ResBlock(MappingBase):
             )
         # residual unit
         self.residual_unit = nn.Sequential(
-            BN(latent_dim),
+            BN(out_dim),
             Activation.make(activation, kwargs.setdefault("activation_config", None)),
             nn.Identity() if not 0.0 < dropout < 1.0 else nn.Dropout(dropout),
             Mapping(
-                latent_dim,
-                latent_dim,
+                out_dim,
+                out_dim,
                 bias=bias,
                 pruner_config=pruner_config,
                 dropout=dropout,
@@ -150,8 +150,8 @@ class ResBlock(MappingBase):
                 **kwargs,
             ),
             Linear(
-                latent_dim,
-                latent_dim,
+                out_dim,
+                out_dim,
                 bias=True if bias is None else bias,
                 pruner_config=pruner_config,
                 init_method=init_method,
@@ -170,7 +170,7 @@ class HighwayBlock(MappingBase):
     def __init__(
         self,
         in_dim: int,
-        latent_dim: int,
+        out_dim: int,
         *,
         bias: Optional[bool] = None,
         pruner_config: Optional[dict] = None,
@@ -183,7 +183,7 @@ class HighwayBlock(MappingBase):
         super().__init__()
         self.linear_mapping = Linear(
             in_dim,
-            latent_dim,
+            out_dim,
             bias=True if bias is None else bias,
             pruner_config=pruner_config,
             init_method=init_method,
@@ -191,7 +191,7 @@ class HighwayBlock(MappingBase):
         )
         self.nonlinear_mapping = Mapping(
             in_dim,
-            latent_dim,
+            out_dim,
             bias=bias,
             pruner_config=pruner_config,
             dropout=dropout,
@@ -202,7 +202,7 @@ class HighwayBlock(MappingBase):
         )
         self.gate_linear = Linear(
             in_dim,
-            latent_dim,
+            out_dim,
             bias=True if bias is None else bias,
             pruner_config=pruner_config,
             init_method=init_method,
