@@ -286,7 +286,7 @@ class MixedStackedEncoder(Module):
             if use_positional_encoding:
                 raise ValueError(
                     "`is_vision_positional_encoding` should be specified when "
-                    "`is_vision_positional_encoding` is set to True"
+                    "`use_positional_encoding` is set to True"
                 )
             is_vision_positional_encoding = False
         self.pos_encoding = PositionalEncoding(
