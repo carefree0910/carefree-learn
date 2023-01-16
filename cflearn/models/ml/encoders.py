@@ -278,6 +278,7 @@ class Encoder(nn.Module):
     def use_embedding(self) -> bool:
         return self.num_embedding > 0
 
+    # encode all columns
     def forward(
         self,
         x_batch: torch.Tensor,
@@ -290,6 +291,7 @@ class Encoder(nn.Module):
         categorical_columns = x_batch[..., self.tgt_columns]
         if batch_indices is None or loader_name is None:
             categorical_columns = self._oob_imputation(categorical_columns)
+        indices = categorical_columns.to(torch.long).clone()
         use_cache = keys is not None and batch_indices is not None
         # one hot
         if not self.use_one_hot:
@@ -298,57 +300,60 @@ class Encoder(nn.Module):
             if use_cache:
                 one_hot = getattr(self, keys["one_hot"])[batch_indices]  # type: ignore
             else:
-                one_hot_columns = categorical_columns
-                if not self._all_one_hot:
-                    one_hot_columns = one_hot_columns[..., self._one_hot_indices]
+                if self._all_one_hot:
+                    one_hot_columns = indices
+                else:
+                    one_hot_columns = indices[..., self._one_hot_indices]
+                one_hot_columns = one_hot_columns.clone()
                 one_hot = self._one_hot(one_hot_columns)
         # embedding
         if not self.use_embedding:
             embedding = None
         else:
             use_cache = use_cache and self._use_fast_embed
-            if not use_cache:
-                indices = categorical_columns
+            if self._all_embedding:
+                embedding_columns = indices
             else:
-                indices = getattr(self, keys["indices"])[batch_indices]  # type: ignore
-            if not self._all_embedding:
-                indices = indices[..., self._embed_indices]
+                embedding_columns = indices[..., self._embed_indices]
+            embedding_columns = embedding_columns.clone()
             if not use_cache and self._use_fast_embed:
-                indices[..., 1:] += self.embed_input_dims_cumsum
-            embedding = self._embedding(indices.to(torch.long))
+                embedding_columns[..., 1:] += self.embed_input_dims_cumsum
+            embedding = self._embedding(embedding_columns)
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
-        return EncodingResult(one_hot, embedding)
+        return EncodingResult(indices, one_hot, embedding)
 
+    # encode single column
     def encode(self, column: arr_type, column_idx: int) -> EncodingResult:
         if column_idx not in self.columns:
-            return EncodingResult(None, None)
+            return EncodingResult(None, None, None)
         if isinstance(column, np.ndarray):
             column = to_torch(column)
-        column = column.to(torch.long).view(-1)
+        indices = column.to(torch.long)
+        flat_indices = indices.view(-1)
         # one hot
         if not self.use_one_hot or column_idx not in self._one_hot_columns:
             one_hot = None
         else:
-            one_hot = self.one_hot_encoders[str(column_idx)](column)
+            one_hot = self.one_hot_encoders[str(column_idx)](flat_indices)
         # embedding
         if not self.use_embedding or column_idx not in self._embed_columns:
             embedding = None
         else:
-            indices = column.clone()
+            embedding_indices = flat_indices.clone()
             if not self._use_fast_embed:
-                embedding = self.embeddings[str(column_idx)](indices)
+                embedding = self.embeddings[str(column_idx)](embedding_indices)
             else:
                 i_embedding = self._embed_columns.index(column_idx)
                 if i_embedding > 0:
-                    indices += self.embed_input_dims_cumsum[i_embedding - 1]
-                embedding = self.embeddings["-1"](indices)
+                    embedding_indices += self.embed_input_dims_cumsum[i_embedding - 1]
+                embedding = self.embeddings["-1"](embedding_indices)
                 if self._recover_dim:
                     dim = self._embed_dims[column_idx]
                     embedding = embedding[..., list(range(dim))]
             if self.embedding_dropout is not None:
                 embedding = self.embedding_dropout(embedding)
-        return EncodingResult(one_hot, embedding)
+        return EncodingResult(indices, one_hot, embedding)
 
     def _init_config(self, config: Dict[str, Any]) -> None:
         self.config = config
@@ -451,7 +456,7 @@ class Encoder(nn.Module):
 
     @staticmethod
     def _to_split(columns: torch.Tensor) -> List[torch.Tensor]:
-        return list(columns.to(torch.long).unbind(dim=-1))
+        return list(columns.unbind(dim=-1))
 
     def _one_hot(self, one_hot_columns: torch.Tensor) -> torch.Tensor:
         split = self._to_split(one_hot_columns)

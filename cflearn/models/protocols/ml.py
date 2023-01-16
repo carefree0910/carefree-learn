@@ -34,6 +34,7 @@ from ...modules.blocks import MixedStackedEncoder
 
 
 NUMERICAL_KEY = "_numerical"
+CATEGORICAL_INDICES_KEY = "_categorical_indices"
 ONE_HOT_KEY = "_one_hot"
 EMBEDDING_KEY = "_embedding"
 MERGED_KEY = "_merged"
@@ -41,6 +42,7 @@ ml_core_dict: Dict[str, Type["IMLCore"]] = {}
 
 
 class EncodingResult(NamedTuple):
+    indices: Optional[Tensor]
     one_hot: Optional[Tensor]
     embedding: Optional[Tensor]
 
@@ -444,6 +446,7 @@ class MLModel(ModelWithCustomSteps):
             else:
                 b[ONE_HOT_KEY] = split.categorical.one_hot
                 b[EMBEDDING_KEY] = split.categorical.embedding
+                b[CATEGORICAL_INDICES_KEY] = split.categorical.indices
             b[MERGED_KEY] = transform(split)
 
         if self._num_repeat is None:
