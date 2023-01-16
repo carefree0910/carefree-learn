@@ -15,27 +15,11 @@ from collections import defaultdict
 from cftool.array import arr_type
 from cftool.array import to_torch
 
+from ..protocols.ml import EncodingResult
 from ...data import MLLoader
 from ...constants import INPUT_KEY
 from ...misc.toolkit import Initializer
 from ...modules.blocks import Lambda
-
-
-class EncodingResult(NamedTuple):
-    one_hot: Optional[torch.Tensor]
-    embedding: Optional[torch.Tensor]
-
-    @property
-    def merged(self) -> torch.Tensor:
-        if self.one_hot is None and self.embedding is None:
-            raise ValueError("no data is provided in `EncodingResult`")
-        if self.one_hot is None:
-            assert self.embedding is not None
-            return self.embedding
-        if self.embedding is None:
-            assert self.one_hot is not None
-            return self.one_hot
-        return torch.cat([self.one_hot, self.embedding], dim=-1)
 
 
 class OneHot(nn.Module):
@@ -535,5 +519,4 @@ class Encoder(nn.Module):
 __all__ = [
     "Encoder",
     "EncodingSettings",
-    "EncodingResult",
 ]
