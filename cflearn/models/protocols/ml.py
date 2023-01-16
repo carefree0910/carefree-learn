@@ -4,6 +4,7 @@ import numpy as np
 import torch.nn as nn
 
 from abc import abstractmethod
+from abc import ABC
 from abc import ABCMeta
 from torch import Tensor
 from typing import Any
@@ -39,19 +40,6 @@ MERGED_KEY = "_merged"
 ml_core_dict: Dict[str, Type["IMLCore"]] = {}
 
 
-class IEncoder:
-    merged_dim: int
-    merged_dims: Dict[int, int]
-    one_hot_dim: int
-    embedding_dim: int
-
-    def __call__(self, *args: Any, **kwds: Any) -> Any:
-        pass
-
-    def encode(self, *args: Any, **kwds: Any) -> Any:
-        pass
-
-
 class EncodingResult(NamedTuple):
     one_hot: Optional[torch.Tensor]
     embedding: Optional[torch.Tensor]
@@ -67,6 +55,21 @@ class EncodingResult(NamedTuple):
             assert self.one_hot is not None
             return self.one_hot
         return torch.cat([self.one_hot, self.embedding], dim=-1)
+
+
+class IEncoder(ABC):
+    merged_dim: int
+    merged_dims: Dict[int, int]
+    one_hot_dim: int
+    embedding_dim: int
+
+    @abstractmethod
+    def __call__(self, *args: Any, **kwds: Any) -> EncodingResult:
+        pass
+
+    @abstractmethod
+    def encode(self, *args: Any, **kwds: Any) -> EncodingResult:
+        pass
 
 
 class SplitFeatures(NamedTuple):
