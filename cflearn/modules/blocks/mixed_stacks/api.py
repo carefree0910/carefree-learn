@@ -166,7 +166,7 @@ class PositionalEncoding(Module):
     def __init__(
         self,
         dim: int,
-        num_history: int,
+        num_tokens: int,
         dropout: float = 0.0,
         *,
         num_heads: int,
@@ -178,7 +178,7 @@ class PositionalEncoding(Module):
         self.pos_encoding = None
         if enable:
             self.pos_drop = nn.Dropout(p=dropout)
-            self.pos_encoding = nn.Parameter(torch.zeros(1, num_history, dim))
+            self.pos_encoding = nn.Parameter(torch.zeros(1, num_tokens, dim))
             nn.init.trunc_normal_(self.pos_encoding, std=0.02)
         self.num_heads = num_heads
         self.is_vision = is_vision
@@ -242,7 +242,7 @@ class MixedStackedEncoder(Module):
     def __init__(
         self,
         dim: int,
-        num_history: int,
+        num_tokens: int,
         *,
         token_mixing_type: str,
         token_mixing_config: Optional[Dict[str, Any]] = None,
@@ -281,7 +281,7 @@ class MixedStackedEncoder(Module):
             self.head_token = nn.Parameter(torch.zeros(1, num_heads, dim))
         self.num_heads = num_heads
         # positional encoding
-        num_history += num_heads
+        num_tokens += num_heads
         if is_vision_positional_encoding is None:
             if use_positional_encoding:
                 raise ValueError(
@@ -291,7 +291,7 @@ class MixedStackedEncoder(Module):
             is_vision_positional_encoding = False
         self.pos_encoding = PositionalEncoding(
             dim,
-            num_history,
+            num_tokens,
             positional_encoding_dropout,
             num_heads=num_heads,
             is_vision=is_vision_positional_encoding,
@@ -309,7 +309,7 @@ class MixedStackedEncoder(Module):
         self.mixing_blocks = ModuleList(
             [
                 MixingBlock(
-                    num_history,
+                    num_tokens,
                     dim,
                     feedforward_dim,
                     norm_position=norm_position,
