@@ -41,11 +41,11 @@ ml_core_dict: Dict[str, Type["IMLCore"]] = {}
 
 
 class EncodingResult(NamedTuple):
-    one_hot: Optional[torch.Tensor]
-    embedding: Optional[torch.Tensor]
+    one_hot: Optional[Tensor]
+    embedding: Optional[Tensor]
 
     @property
-    def merged(self) -> torch.Tensor:
+    def merged(self) -> Tensor:
         if self.one_hot is None and self.embedding is None:
             raise ValueError("no data is provided in `EncodingResult`")
         if self.one_hot is None:
@@ -466,7 +466,7 @@ class MLModel(ModelWithCustomSteps):
                 local_batch = shallow_copy_dict(batch)
                 _inject_batch(local_batch, batch_indices, d, t)
                 batches.append(local_batch)
-        all_results: Dict[str, List[torch.Tensor]] = {}
+        all_results: Dict[str, List[Tensor]] = {}
         for m, m_batch in zip(self.core, batches):  # type: ignore
             m_kwargs = shallow_copy_dict(kwargs)
             sub_results = m(batch_idx, m_batch, state, **m_kwargs)
