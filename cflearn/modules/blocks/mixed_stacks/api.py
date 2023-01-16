@@ -169,7 +169,7 @@ class PositionalEncoding(Module):
         num_tokens: int,
         dropout: float = 0.0,
         *,
-        num_heads: int,
+        num_head_tokens: int,
         is_vision: bool,
         enable: bool = True,
     ):
@@ -180,7 +180,7 @@ class PositionalEncoding(Module):
             self.pos_drop = nn.Dropout(p=dropout)
             self.pos_encoding = nn.Parameter(torch.zeros(1, num_tokens, dim))
             nn.init.trunc_normal_(self.pos_encoding, std=0.02)
-        self.num_heads = num_heads
+        self.num_head_tokens = num_head_tokens
         self.is_vision = is_vision
 
     def forward(
@@ -194,7 +194,7 @@ class PositionalEncoding(Module):
         if self.is_vision:
             pos_encoding = self.interpolate_pos_encoding(net, hwp)
         else:
-            pos_encoding = self.pos_encoding[:, : net.shape[1] - self.num_heads]
+            pos_encoding = self.pos_encoding[:, : net.shape[1] - self.num_head_tokens]
         pos_encoding = self.pos_drop(pos_encoding)
         return net + pos_encoding
 
@@ -206,8 +206,8 @@ class PositionalEncoding(Module):
     ) -> Tensor:
         pos_encoding = self.pos_encoding
         assert pos_encoding is not None
-        num_current_history = net.shape[1] - self.num_heads
-        num_history = pos_encoding.shape[1] - self.num_heads
+        num_current_history = net.shape[1] - self.num_head_tokens
+        num_history = pos_encoding.shape[1] - self.num_head_tokens
         if hwp is None:
             w = h = patch_size = None
         else:
@@ -217,9 +217,9 @@ class PositionalEncoding(Module):
         if w is None or h is None or patch_size is None:
             raise ValueError("`hwp` should be provided for `interpolate_pos_encoding`")
         head_encoding = None
-        if self.num_heads > 0:
-            head_encoding = pos_encoding[:, : self.num_heads]
-            pos_encoding = pos_encoding[:, self.num_heads :]
+        if self.num_head_tokens > 0:
+            head_encoding = pos_encoding[:, : self.num_head_tokens]
+            pos_encoding = pos_encoding[:, self.num_head_tokens :]
         dim = net.shape[-1]
         # This assume that the original input is squared image
         sqrt = math.sqrt(num_history)
@@ -272,16 +272,16 @@ class MixedStackedEncoder(Module):
         # head token
         self.aux_heads = aux_heads
         if not use_head_token:
-            num_heads = 0
+            num_head_tokens = 0
             self.head_token = None
         else:
-            num_heads = 1
+            num_head_tokens = 1
             if aux_heads is not None:
-                num_heads += len(aux_heads)
-            self.head_token = nn.Parameter(torch.zeros(1, num_heads, dim))
-        self.num_heads = num_heads
+                num_head_tokens += len(aux_heads)
+            self.head_token = nn.Parameter(torch.zeros(1, num_head_tokens, dim))
+        self.num_heads = num_head_tokens
         # positional encoding
-        num_tokens += num_heads
+        num_tokens += num_head_tokens
         if is_vision_positional_encoding is None:
             if use_positional_encoding:
                 raise ValueError(
@@ -293,7 +293,7 @@ class MixedStackedEncoder(Module):
             dim,
             num_tokens,
             positional_encoding_dropout,
-            num_heads=num_heads,
+            num_head_tokens=num_head_tokens,
             is_vision=is_vision_positional_encoding,
             enable=use_positional_encoding,
         )
