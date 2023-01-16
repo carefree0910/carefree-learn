@@ -192,11 +192,17 @@ class PositionalEncoding(Module):
         if self.pos_encoding is None or self.pos_drop is None:
             return net
         if self.is_vision:
+            feature_span = 0
             pos_encoding = self.interpolate_pos_encoding(net, hwp)
         else:
-            pos_encoding = self.pos_encoding[:, : net.shape[1] - self.num_head_tokens]
+            feature_span = net.shape[1] - self.num_head_tokens
+            pos_encoding = self.pos_encoding[:, :feature_span]
         pos_encoding = self.pos_drop(pos_encoding)
-        return net + pos_encoding
+        if self.is_vision or self.num_head_tokens <= 0:
+            return net + pos_encoding
+        net = net.clone()
+        net[:, :feature_span] += pos_encoding
+        return net
 
     # this is for vision positional encodings
     def interpolate_pos_encoding(
