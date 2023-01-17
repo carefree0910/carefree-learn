@@ -79,6 +79,7 @@ class SizeInfo(NamedTuple):
 
 class MaskedCond(NamedTuple):
     image_res: ReadImageResponse
+    mask_res: ReadImageResponse
     mask: np.ndarray
     remained_image: np.ndarray
     remained_mask: np.ndarray
@@ -451,7 +452,8 @@ class DiffusionAPI(APIMixin):
     ) -> MaskedCond:
         # handle mask stuffs
         image_res = read_image(image, max_wh, anchor=anchor)
-        mask = read_image(mask, max_wh, anchor=anchor, to_mask=True).image
+        mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+        mask = mask_res.image
         bool_mask = mask >= 0.5
         remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
         remained_image = mask_image_fn(remained_mask, image_res.image)
@@ -464,6 +466,7 @@ class DiffusionAPI(APIMixin):
         mask_cond = F.interpolate(mask_cond, size=latent_shape)
         return MaskedCond(
             image_res,
+            mask_res,
             mask,
             remained_image,
             remained_mask,
