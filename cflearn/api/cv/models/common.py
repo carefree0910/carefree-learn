@@ -104,7 +104,7 @@ class CV2Telea(Padding):
 
 def read_image(
     image: Union[str, Image.Image],
-    max_wh: int,
+    max_wh: Optional[int],
     *,
     anchor: Optional[int],
     to_gray: bool = False,
@@ -138,7 +138,10 @@ def read_image(
         else:
             image = image.convert("L")
     original_w, original_h = image.size
-    w, h = restrict_wh(original_w, original_h, max_wh)
+    if max_wh is None:
+        w, h = original_w, original_h
+    else:
+        w, h = restrict_wh(original_w, original_h, max_wh)
     if anchor is not None:
         w, h = map(get_suitable_size, (w, h), (anchor, anchor))
     image = image.resize((w, h), resample=resample)
