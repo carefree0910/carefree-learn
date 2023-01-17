@@ -684,6 +684,12 @@ class DiffusionAPI(APIMixin):
             lambda bool_mask: torch.where(torch.from_numpy(bool_mask), 1.0, -1.0),
         )
         cond = torch.cat([res.remained_image_cond, res.mask_cond], dim=1)
+        size = tuple(
+            map(
+                lambda n: n * self.size_info.factor,
+                res.remained_image_cond.shape[-2:][::-1],
+            )
+        )
         # refine with img2img
         if refine_fidelity is not None:
             z = self._get_z(res.image_res.image)
@@ -700,11 +706,10 @@ class DiffusionAPI(APIMixin):
                 **kwargs,
             )
         # sampling
-        z = torch.randn_like(res.remained_image_cond)
         return self.sample(
             1,
             export_path,
-            z=z,
+            size=size,  # type: ignore
             original_size=res.image_res.original_size,
             alpha=res.image_res.alpha if alpha is None else alpha,
             cond=cond,
