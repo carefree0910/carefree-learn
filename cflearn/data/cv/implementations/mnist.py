@@ -19,8 +19,8 @@ from ..basic import DLDataModule
 from ....types import sample_weights_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....constants import DATA_CACHE_DIR
 from ....constants import ORIGINAL_LABEL_KEY
+from ....parameters import OPT
 
 
 def batch_callback(
@@ -44,7 +44,7 @@ class MNISTData(CVDataModule):
     def __init__(
         self,
         *,
-        root: str = DATA_CACHE_DIR,
+        root: str = OPT.data_cache_dir,
         shuffle: bool = True,
         batch_size: int = 64,
         num_workers: int = 0,

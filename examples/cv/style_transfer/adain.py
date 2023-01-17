@@ -5,7 +5,7 @@ import cflearn
 
 from PIL import Image
 from cflearn.constants import STYLE_KEY
-from cflearn.constants import DATA_CACHE_DIR
+from cflearn.parameters import OPT
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 
@@ -13,7 +13,7 @@ from cflearn.misc.toolkit import download_dataset
 is_ci = check_is_ci()
 Image.MAX_IMAGE_PIXELS = None
 
-data_root = DATA_CACHE_DIR if is_ci else "data"
+data_root = OPT.data_cache_dir if is_ci else "data"
 dataset = "adain_tiny"
 hierarchy = [data_root]
 if is_ci:

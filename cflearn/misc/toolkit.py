@@ -46,9 +46,9 @@ from cftool.types import tensor_dict_type
 from ..types import data_type
 from ..types import param_type
 from ..types import sample_weights_type
-from ..constants import CACHE_DIR
 from ..constants import INPUT_KEY
 from ..constants import WORKPLACE_ENVIRON_KEY
+from ..parameters import OPT
 
 try:
     import matplotlib.pyplot as plt
@@ -181,24 +181,30 @@ def download(
 def download_tokenizer(
     name: str,
     *,
-    root: str = os.path.join(CACHE_DIR, "tokenizers"),
+    root: Optional[str] = None,
 ) -> str:
+    if root is None:
+        root = os.path.join(OPT.cache_dir, "tokenizers")
     return download("tokenizers", "pretrained-models", name, root, "pkl")
 
 
 def download_model(
     name: str,
     *,
-    root: str = os.path.join(CACHE_DIR, "models"),
+    root: Optional[str] = None,
 ) -> str:
+    if root is None:
+        root = os.path.join(OPT.cache_dir, "models")
     return download("checkpoints", "pretrained-models", name, root, "pt")
 
 
 def download_reference(
     name: str,
     *,
-    root: str = os.path.join(CACHE_DIR, "reference"),
+    root: Optional[str] = None,
 ) -> str:
+    if root is None:
+        root = os.path.join(OPT.cache_dir, "reference")
     return download("reference", "pretrained-models", name, root, "pt")
 
 
@@ -206,8 +212,10 @@ def download_static(
     name: str,
     *,
     extension: str,
-    root: str = os.path.join(CACHE_DIR, "static"),
+    root: Optional[str] = None,
 ) -> str:
+    if root is None:
+        root = os.path.join(OPT.cache_dir, "static")
     return download("static", "pretrained-models", name, root, extension)
 
 

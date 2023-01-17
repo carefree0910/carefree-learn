@@ -2,14 +2,14 @@ import os
 import cflearn
 
 from PIL import Image
-from cflearn.constants import DATA_CACHE_DIR
+from cflearn.parameters import OPT
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import download_dataset
 
 
 is_ci = check_is_ci()
 
-data_folder = DATA_CACHE_DIR if is_ci else "data"
+data_folder = OPT.data_cache_dir if is_ci else "data"
 dataset = f"poster{'_tiny' if is_ci else ''}"
 src_folder = os.path.join(data_folder, dataset)
 tgt_folder = os.path.join(data_folder, "poster_data")
