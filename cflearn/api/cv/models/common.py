@@ -51,6 +51,7 @@ def get_suitable_size(n: int, anchor: int) -> int:
 class ReadImageResponse(NamedTuple):
     image: np.ndarray
     alpha: Optional[np.ndarray]
+    original: Image.Image
     original_size: Tuple[int, int]
 
 
@@ -118,6 +119,7 @@ def read_image(
     if isinstance(image, str):
         image = Image.open(image)
     alpha = None
+    original = image
     if image.mode == "RGBA":
         alpha = image.split()[3]
     if not to_mask and not to_gray:
@@ -149,7 +151,7 @@ def read_image(
         image = image[None, None]
     else:
         image = image[None].transpose(0, 3, 1, 2)
-    return ReadImageResponse(image, alpha, (original_w, original_h))
+    return ReadImageResponse(image, alpha, original, (original_w, original_h))
 
 
 T = TypeVar("T", bound="APIMixin")
