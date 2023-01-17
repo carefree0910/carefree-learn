@@ -554,9 +554,11 @@ class DiffusionAPI(APIMixin):
             lambda bool_mask: torch.from_numpy(bool_mask),
         )
         # sampling
-        factor = self.size_info.factor
         size = tuple(
-            map(lambda n: n * factor, res.remained_image_cond.shape[-2:][::-1])
+            map(
+                lambda n: n * self.size_info.factor,
+                res.remained_image_cond.shape[-2:][::-1],
+            )
         )
         sampled = self.sample(
             num_samples,
