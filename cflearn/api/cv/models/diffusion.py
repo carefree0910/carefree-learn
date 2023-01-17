@@ -299,7 +299,9 @@ class DiffusionAPI(APIMixin):
                         i_z = repeat(z)
                     else:
                         in_channels = self.m.in_channels
-                        if cond_concat is not None:
+                        if self.cond_type == CONCAT_TYPE:
+                            in_channels -= cond.shape[1]
+                        elif cond_concat is not None:
                             in_channels -= cond_concat.shape[1]
                         i_z_shape = len(i_cond), in_channels, *size[::-1]
                         i_z, _ = self._set_seed_and_variations(
