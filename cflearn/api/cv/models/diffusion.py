@@ -578,8 +578,11 @@ class DiffusionAPI(APIMixin):
             **kwargs,
         )
         if keep_original:
-            original = res.image_res.image * 2.0 - 1.0
-            sampled = np.where(res.remained_mask, original, sampled.numpy())
+            original = np.array(res.image_res.original).astype(np.float32) / 127.5 - 1.0
+            original = original.transpose([2, 0, 1])[None]
+            mask_ = read_image(res.mask_res.original, None, anchor=None, to_mask=True)
+            remained_mask = ~(mask_.image >= 0.5)
+            sampled = np.where(remained_mask, original, sampled.numpy())
             sampled = torch.from_numpy(sampled)
         return sampled
 
