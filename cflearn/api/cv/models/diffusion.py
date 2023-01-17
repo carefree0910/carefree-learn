@@ -680,7 +680,7 @@ class DiffusionAPI(APIMixin):
             mask,
             max_wh,
             anchor,
-            lambda remained_mask, img: remained_mask * img,
+            lambda remained_mask, img: np.where(remained_mask, img, 0.0),
             lambda bool_mask: torch.where(torch.from_numpy(bool_mask), 1.0, -1.0),
         )
         cond = torch.cat([res.remained_image_cond, res.mask_cond], dim=1)
