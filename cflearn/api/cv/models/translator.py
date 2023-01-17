@@ -1,27 +1,19 @@
 import torch
 
-import numpy as np
 import torch.nn.functional as F
 
 from PIL import Image
 from torch import Tensor
 from typing import Tuple
 from typing import Union
-from typing import Callable
 from typing import Optional
 from cftool.array import save_images
 
 from .common import read_image
-from .common import restrict_wh
 from .common import APIMixin
 from ....pipeline import DLPipeline
 from ....zoo.core import DLZoo
 from ....misc.toolkit import eval_context
-
-try:
-    from cfcv.misc.toolkit import to_rgb
-except:
-    to_rgb = None
 
 
 class TranslatorAPI(APIMixin):
