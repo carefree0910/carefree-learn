@@ -113,6 +113,7 @@ def read_image(
     normalize: bool = True,
     padding_mode: Optional[str] = None,
     padding_kwargs: Optional[Dict[str, Any]] = None,
+    to_torch_fmt: bool = True,
 ) -> ReadImageResponse:
     if to_rgb is None:
         raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
@@ -150,10 +151,11 @@ def read_image(
         image = image.astype(np.float32) / 255.0
     if alpha is not None:
         alpha = (np.array(alpha).astype(np.float32) / 255.0)[None, None]
-    if to_mask or to_gray:
-        image = image[None, None]
-    else:
-        image = image[None].transpose(0, 3, 1, 2)
+    if to_torch_fmt:
+        if to_mask or to_gray:
+            image = image[None, None]
+        else:
+            image = image[None].transpose(0, 3, 1, 2)
     return ReadImageResponse(image, alpha, original, (original_w, original_h))
 
 
