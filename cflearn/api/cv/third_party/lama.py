@@ -73,7 +73,7 @@ def boxes_from_mask(mask: ndarray) -> List[ndarray]:
 def resize_max_size(
     np_img: ndarray,
     size_limit: int,
-    interpolation: int = cv2.INTER_CUBIC,
+    interpolation: int = 0 if cv2 is None else cv2.INTER_CUBIC,
 ) -> ndarray:
     # Resize image's longer size to size_limit if longer size larger than size_limit
     h, w = np_img.shape[:2]
