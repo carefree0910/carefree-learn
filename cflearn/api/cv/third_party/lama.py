@@ -1,4 +1,3 @@
-import cv2
 import torch
 
 import numpy as np
@@ -13,6 +12,11 @@ from typing import Optional
 from typing import NamedTuple
 
 from ....misc.toolkit import download_model
+
+try:
+    import cv2
+except:
+    cv2 = None
 
 
 def ceil_mod(x: int, mod: int) -> int:
@@ -250,6 +254,8 @@ class LaMa(InpaintModel):
     pad_mod = 8
 
     def init_model(self, device: torch.device, **kwargs: Any) -> None:
+        if cv2 is None:
+            raise ValueError("`cv2` is needed for `LaMa`")
         model_path = download_model("lama")
         model = torch.jit.load(model_path, map_location="cpu")
         model = model.to(device)
