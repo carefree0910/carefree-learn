@@ -200,6 +200,11 @@
       "sha": "344c77bbcb158f17dd143070d1e789f38a66c04202311ae3a258ef66667a9ea9",
       "st_size": 205669692,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/big-lama.pt"
+    },
+    "isnet": {
+      "sha": "9e1aafea58f0b55d0c35077e0ceade6ba1ba2bce372fd4f8f77215391f3fac13",
+      "st_size": 176579397,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/isnet.pt"
     }
   },
   "reference": {
