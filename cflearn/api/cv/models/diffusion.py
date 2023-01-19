@@ -513,6 +513,8 @@ class DiffusionAPI(APIMixin):
         mask: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        reference: Optional[Union[str, Image.Image]] = None,
+        reference_fidelity: float = 0.2,
         anchor: int = 64,
         max_wh: int = 512,
         num_steps: Optional[int] = None,
@@ -557,26 +559,39 @@ class DiffusionAPI(APIMixin):
             lambda bool_mask: torch.from_numpy(bool_mask),
         )
         # sampling
-        size = tuple(
-            map(
-                lambda n: n * self.size_info.factor,
-                res.remained_image_cond.shape[-2:][::-1],
+        with switch_sampler_context(self, kwargs.get("sampler")):
+            if reference is None:
+                z = None
+                size = tuple(
+                    map(
+                        lambda n: n * self.size_info.factor,
+                        res.remained_image_cond.shape[-2:][::-1],
+                    )
+                )
+            else:
+                size = None
+                z = self._get_z(read_image(reference, max_wh, anchor=anchor).image)
+                z, _, kwargs = self._q_sample(
+                    z,
+                    num_steps,
+                    reference_fidelity,
+                    **kwargs,
+                )
+            sampled = self.sample(
+                num_samples,
+                export_path,
+                z=z,
+                size=size,  # type: ignore
+                original_size=res.image_res.original_size,
+                alpha=res.image_res.alpha,
+                cond=txt_list,
+                cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
+                num_steps=num_steps,
+                clip_output=clip_output,
+                callback=callback,
+                verbose=verbose,
+                **kwargs,
             )
-        )
-        sampled = self.sample(
-            num_samples,
-            export_path,
-            size=size,  # type: ignore
-            original_size=res.image_res.original_size,
-            alpha=res.image_res.alpha,
-            cond=txt_list,
-            cond_concat=torch.cat([res.mask_cond, res.remained_image_cond], dim=1),
-            num_steps=num_steps,
-            clip_output=clip_output,
-            callback=callback,
-            verbose=verbose,
-            **kwargs,
-        )
         if keep_original:
             original = np.array(res.image_res.original).astype(np.float32) / 127.5 - 1.0
             original = original.transpose([2, 0, 1])[None]
