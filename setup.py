@@ -27,7 +27,7 @@ setup(
             "onnx",
             "onnx-simplifier>=0.4.1",
             "onnxruntime",
-            "carefree-cv>=0.1.1",
+            "carefree-cv>=0.1.2",
         ],
         "full": [
             "open_clip_torch",
