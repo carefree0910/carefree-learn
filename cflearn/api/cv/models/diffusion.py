@@ -990,19 +990,43 @@ class DiffusionAPI(APIMixin):
         z = get_new_z(z_noise)
         return z, z_noise
 
+    def _q_sample(
+        self,
+        z: Tensor,
+        num_steps: Optional[int],
+        fidelity: float,
+        seed: int,
+        variations: Optional[List[Tuple[int, float]]] = None,
+        variation_seed: Optional[int] = None,
+        variation_strength: Optional[float] = None,
+        **kwargs: Any,
+    ) -> Tuple[Tensor, Tensor, Dict[str, Any]]:
+        if num_steps is None:
+            num_steps = self.sampler.default_steps
+        t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
+        ts = get_timesteps(t, 1, z.device)
+        if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
+            kw = shallow_copy_dict(self.sampler.sample_kwargs)
+            kw["total_step"] = num_steps
+            safe_execute(self.sampler._reset_buffers, kw)
+        z, noise = self._set_seed_and_variations(
+            seed,
+            lambda: torch.randn_like(z),
+            lambda noise_: self.sampler.q_sample(z, ts, noise_),
+            variations,
+            variation_seed,
+            variation_strength,
+        )
+        kwargs["start_step"] = num_steps - t
+        return z, noise, kwargs
+
     def _img2img(
         self,
         z: Tensor,
         export_path: Optional[str] = None,
         *,
-        seed: Optional[int] = None,
-        # each variation contains (seed, weight)
-        variations: Optional[List[Tuple[int, float]]] = None,
-        variation_seed: Optional[int] = None,
-        variation_strength: Optional[float] = None,
         z_ref: Optional[Tensor] = None,
         z_ref_mask: Optional[Tensor] = None,
-        fidelity: float = 0.2,
         original_size: Optional[Tuple[int, int]] = None,
         alpha: Optional[np.ndarray] = None,
         cond: Optional[Any] = None,
@@ -1012,23 +1036,7 @@ class DiffusionAPI(APIMixin):
         **kwargs: Any,
     ) -> Tensor:
         with switch_sampler_context(self, kwargs.get("sampler")):
-            if num_steps is None:
-                num_steps = self.sampler.default_steps
-            t = min(num_steps, round((1.0 - fidelity) * (num_steps + 1)))
-            ts = get_timesteps(t, 1, z.device)
-            if isinstance(self.sampler, (DDIMMixin, KSamplerMixin, DPMSolver)):
-                kw = shallow_copy_dict(self.sampler.sample_kwargs)
-                kw["total_step"] = num_steps
-                safe_execute(self.sampler._reset_buffers, kw)
-            z, noise = self._set_seed_and_variations(
-                seed,
-                lambda: torch.randn_like(z),
-                lambda noise_: self.sampler.q_sample(z, ts, noise_),
-                variations,
-                variation_seed,
-                variation_strength,
-            )
-            kwargs["start_step"] = num_steps - t
+            z, noise, kwargs = self._q_sample(z, num_steps, **kwargs)
             return self.sample(
                 1,
                 export_path,
