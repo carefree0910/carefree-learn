@@ -263,6 +263,10 @@ class LaMa(InpaintModel):
         self.model = model
         self.model_path = model_path
 
+    def to(self, device: torch.device) -> None:
+        self.device = device
+        self.model.to(device)
+
     def forward(self, image: ndarray, mask: ndarray, config: Config) -> ndarray:
         image, mask = map(to_tensor, [image, mask])
         image = image.to(self.device)
