@@ -6,10 +6,14 @@ import torch.nn.functional as F
 
 from PIL import Image
 from torch import Tensor
-from cfcv.misc.toolkit import to_rgb
 from torchvision.transforms.functional import normalize
 
 from ....misc.toolkit import download_model
+
+try:
+    from cfcv.misc.toolkit import to_rgb
+except:
+    to_rgb = None
 
 
 class REBNCONV(nn.Module):
@@ -484,6 +488,8 @@ class ISNetAPI:
 
     @torch.no_grad()
     def segment(self, image: Image.Image) -> np.ndarray:
+        if to_rgb is None:
+            raise ValueError("`carefree-cv` is needed for `ISNetAPI`")
         rgb = np.array(to_rgb(image))
         shape = rgb.shape[:2]
         net = torch.tensor(rgb, dtype=torch.float32, device=self.device)
