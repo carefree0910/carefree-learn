@@ -4,7 +4,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing import Tuple
 
-from .protocol import EncoderMixin
+from .schema import EncoderMixin
 from ....modules.blocks import make_attention
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
 

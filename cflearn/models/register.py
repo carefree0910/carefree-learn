@@ -22,8 +22,8 @@ from ..schema import MetricsOutputs
 from ..schema import IDataLoader
 from ..schema import ModelWithCustomSteps
 from ..constants import INPUT_KEY
-from .protocols.ml import MERGED_KEY
-from .protocols.ml import IMLCore
+from .schemas.ml import MERGED_KEY
+from .schemas.ml import IMLCore
 
 
 def register_ml_module(

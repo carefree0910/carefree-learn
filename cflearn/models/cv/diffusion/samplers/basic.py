@@ -5,9 +5,9 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .protocol import ISampler
-from .protocol import IDiffusion
-from .protocol import DDPMQSampler
+from .schema import ISampler
+from .schema import IDiffusion
+from .schema import DDPMQSampler
 from ..utils import cond_type
 from ..utils import extract_to
 from ..utils import get_timesteps

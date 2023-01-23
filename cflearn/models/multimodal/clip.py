@@ -14,7 +14,7 @@ from torchvision.transforms import Normalize
 from torchvision.transforms import CenterCrop
 from torchvision.transforms import InterpolationMode
 
-from .protocol import IPerceptor
+from .schema import IPerceptor
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
 from ..cv.encoder.transformer import ViTEncoder

@@ -6,7 +6,7 @@ from typing import List
 from typing import Optional
 from cftool.types import tensor_dict_type
 
-from .protocol import DecoderMixin
+from .schema import DecoderMixin
 from ....constants import INPUT_KEY
 from ..encoder.vqgan import normalize
 from ..encoder.vqgan import AttnBlock

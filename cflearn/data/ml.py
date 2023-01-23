@@ -60,7 +60,7 @@ def get_weighted_indices(
     return indices
 
 
-# protocols
+# schemas
 
 
 class IMLPreProcessedData(NamedTuple):

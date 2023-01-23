@@ -15,7 +15,7 @@ from typing import Optional
 from torchvision import transforms
 
 from .noises import noises
-from ..protocol import IPerceptor
+from ..schema import IPerceptor
 from ...bases import ICustomLossModule
 from ...bases import ICustomLossOutput
 from ....schema import ITrainer

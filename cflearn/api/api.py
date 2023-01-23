@@ -66,7 +66,7 @@ from ..zoo.core import DLZoo
 from ..dist.ml import Experiment
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
-from ..models.protocols.ml import ml_core_dict
+from ..models.schemas.ml import ml_core_dict
 
 
 # dl

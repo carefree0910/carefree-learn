@@ -10,7 +10,7 @@ from typing import Dict
 from typing import List
 from typing import NamedTuple
 
-from .protocol import IConditionModel
+from .schema import IConditionModel
 from ....nlp.tokenizers import ITokenizer
 from ....nlp.tokenizers import ICLIPTokenizer
 from ....multimodal.clip import CLIP

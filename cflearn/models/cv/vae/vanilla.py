@@ -12,7 +12,7 @@ from ..general import EncoderDecoder
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ...protocols.cv import GaussianGeneratorMixin
+from ...schemas.cv import GaussianGeneratorMixin
 from ....losses.vae import MU_KEY
 from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Lambda

@@ -8,8 +8,8 @@ from typing import List
 from typing import Optional
 from cftool.types import tensor_dict_type
 
-from .protocol import Encoder1DFromPatches
-from .protocol import Encoder2DFromPatches
+from .schema import Encoder1DFromPatches
+from .schema import Encoder2DFromPatches
 from ....constants import LATENT_KEY
 from ....modules.blocks import MixedStackedEncoder
 

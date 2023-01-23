@@ -13,7 +13,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ..decoder.style_gan_v2 import FullyConnected
 from ..decoder.style_gan_v2 import StyleGAN2Decoder
-from ...protocols.cv import ImageTranslatorMixin
+from ...schemas.cv import ImageTranslatorMixin
 from ....misc.internal_.register import register_module
 
 

@@ -7,10 +7,10 @@ from cftool.types import tensor_dict_type
 from .fcnn import FCNN
 from .linear import Linear
 from ..register import register_ml_module
-from ..protocols.ml import ONE_HOT_KEY
-from ..protocols.ml import EMBEDDING_KEY
-from ..protocols.ml import NUMERICAL_KEY
-from ..protocols.ml import Dimensions
+from ..schemas.ml import ONE_HOT_KEY
+from ..schemas.ml import EMBEDDING_KEY
+from ..schemas.ml import NUMERICAL_KEY
+from ..schemas.ml import Dimensions
 
 
 @register_ml_module("wnd")

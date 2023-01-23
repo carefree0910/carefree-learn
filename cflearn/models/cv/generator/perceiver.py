@@ -2,7 +2,7 @@ from torch import nn
 from torch import Tensor
 from typing import Optional
 
-from ...protocols.cv import ImageTranslatorMixin
+from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import PerceiverIO
 from ....modules.blocks import VanillaPatchEmbed
 from ....misc.internal_.register import register_module

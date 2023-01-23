@@ -7,7 +7,7 @@ from torch import Tensor
 from typing import Tuple
 from typing import Optional
 
-from .protocol import DecoderMixin
+from .schema import DecoderMixin
 from ....modules.blocks import make_attention
 from ....modules.blocks import ApplyTanhMixin
 from ....modules.blocks import ResidualBlockWithTimeEmbedding

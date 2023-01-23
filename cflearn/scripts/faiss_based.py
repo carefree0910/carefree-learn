@@ -20,7 +20,7 @@ from ..constants import INPUT_KEY
 from ..constants import PREDICTIONS_KEY
 from ..api.api import clip
 from ..api.api import load
-from ..api.protocol import IImageExtractor
+from ..api.schema import IImageExtractor
 from ..api.multimodal import CLIPExtractor
 from ..api.cv.pipeline import CVPipeline
 

@@ -8,9 +8,9 @@ from cftool.types import tensor_dict_type
 from .vanilla import reparameterize
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ..encoder.protocol import make_encoder
+from ..encoder.schema import make_encoder
 from ...implicit.siren import ImgSiren
-from ...protocols.cv import GaussianGeneratorMixin
+from ...schemas.cv import GaussianGeneratorMixin
 from ....misc.toolkit import auto_num_layers
 from ....losses.vae import MU_KEY
 from ....losses.vae import LOG_VAR_KEY

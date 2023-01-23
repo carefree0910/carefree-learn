@@ -40,7 +40,7 @@ from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.encoders import EncodingSettings
-from ...models.protocols.ml import MLModel
+from ...models.schemas.ml import MLModel
 
 try:
     from cfdata.tabular import ColumnTypes

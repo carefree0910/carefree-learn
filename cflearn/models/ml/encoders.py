@@ -15,7 +15,7 @@ from collections import defaultdict
 from cftool.array import arr_type
 from cftool.array import to_torch
 
-from ..protocols.ml import EncodingResult
+from ..schemas.ml import EncodingResult
 from ...data import MLLoader
 from ...constants import INPUT_KEY
 from ...misc.toolkit import Initializer

@@ -17,7 +17,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import STYLE_KEY
 from ....constants import PREDICTIONS_KEY
-from ....models.protocols.cv import GeneratorMixin
+from ....models.schemas.cv import GeneratorMixin
 from ....models.cv.segmentor.constants import LV1_ALPHA_KEY
 
 try:

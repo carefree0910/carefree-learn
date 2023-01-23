@@ -13,10 +13,10 @@ from typing import Tuple
 from typing import Optional
 from typing import Protocol
 
-from .protocol import ISampler
-from .protocol import IDiffusion
-from .protocol import DDPMQSampler
-from .protocol import UncondSamplerMixin
+from .schema import ISampler
+from .schema import IDiffusion
+from .schema import DDPMQSampler
+from .schema import UncondSamplerMixin
 from ..utils import cond_type
 from ..utils import extract_to
 from ..utils import get_timesteps

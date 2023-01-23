@@ -2,7 +2,7 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
-from .protocol import Encoder1DFromPatches
+from .schema import Encoder1DFromPatches
 from ....modules.blocks import MixedStackedEncoder
 
 

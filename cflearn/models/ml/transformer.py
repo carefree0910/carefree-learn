@@ -2,7 +2,7 @@ from typing import Any
 from typing import Optional
 
 from ..register import register_ml_module
-from ..protocols.ml import MixedStackedModel
+from ..schemas.ml import MixedStackedModel
 
 
 @register_ml_module("transformer")

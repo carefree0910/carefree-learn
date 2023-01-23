@@ -22,7 +22,7 @@ from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
-from ...protocols.cv import GaussianGeneratorMixin
+from ...schemas.cv import GaussianGeneratorMixin
 from ....misc.toolkit import mode_context
 from ....misc.internal_ import CustomTrainStep
 from ....misc.internal_ import CustomTrainStepLoss

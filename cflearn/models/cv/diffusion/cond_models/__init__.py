@@ -1,3 +1,3 @@
-from .protocol import *
+from .schema import *
 from .clip import *
 from .rescaler import *

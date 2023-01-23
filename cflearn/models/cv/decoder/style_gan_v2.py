@@ -12,7 +12,7 @@ from typing import Tuple
 from typing import Optional
 from cftool.types import tensor_dict_type
 
-from .protocol import Decoder1DMixin
+from .schema import Decoder1DMixin
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....modules.blocks import Conv2d

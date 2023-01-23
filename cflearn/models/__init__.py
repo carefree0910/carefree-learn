@@ -1,4 +1,4 @@
-from .protocols import *
+from .schemas import *
 from .register import *
 from .cv import *
 from .ml import *

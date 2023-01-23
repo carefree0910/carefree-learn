@@ -6,7 +6,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from .protocol import VanillaGANMixin
+from .schema import VanillaGANMixin
 from ..decoder import make_decoder
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY

@@ -12,7 +12,7 @@ try:
 except:
     BertTokenizer = PreTrainedTokenizer = _CLIPTokenizer = None
 
-from .protocol import ITokenizer
+from .schema import ITokenizer
 
 
 class ICLIPTokenizer(ITokenizer):

@@ -13,7 +13,7 @@ from ...bases import CascadeMixin
 from ....schema import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ...protocols.cv import ImageTranslatorMixin
+from ...schemas.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....misc.internal_.register import register_module
 

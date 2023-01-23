@@ -10,10 +10,10 @@ from typing import Optional
 from .ddim import DDIMQSampler
 from .utils import append_dims
 from .utils import interpolate_fn
-from .protocol import ISampler
-from .protocol import IQSampler
-from .protocol import IDiffusion
-from .protocol import UncondSamplerMixin
+from .schema import ISampler
+from .schema import IQSampler
+from .schema import IDiffusion
+from .schema import UncondSamplerMixin
 from ..utils import cond_type
 
 

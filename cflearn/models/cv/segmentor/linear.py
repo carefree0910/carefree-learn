@@ -9,7 +9,7 @@ from typing import Optional
 
 from ....constants import LATENT_KEY
 from ..encoder.backbone import BackboneEncoder
-from ...protocols.cv import ImageTranslatorMixin
+from ...schemas.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d

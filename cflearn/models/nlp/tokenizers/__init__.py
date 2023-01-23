@@ -1,2 +1,2 @@
-from .protocol import *
+from .schema import *
 from .clip import *

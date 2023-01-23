@@ -6,7 +6,7 @@ from typing import Optional
 from .ddim import DDIMMixin
 from .ddim import IGetModelOutput
 from .ddim import IGetDenoised
-from .protocol import ISampler
+from .schema import ISampler
 from ..utils import cond_type
 
 

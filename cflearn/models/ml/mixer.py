@@ -10,7 +10,7 @@ from ..register import register_ml_module
 from ..register import register_custom_loss_module
 from ...constants import LATENT_KEY
 from ...constants import PREDICTIONS_KEY
-from ..protocols.ml import MixedStackedModel
+from ..schemas.ml import MixedStackedModel
 
 
 @register_ml_module("mixer")

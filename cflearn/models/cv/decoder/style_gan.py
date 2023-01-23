@@ -7,7 +7,7 @@ from torch import Tensor
 from torch.nn import init
 from cftool.types import tensor_dict_type
 
-from .protocol import Decoder1DMixin
+from .schema import Decoder1DMixin
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY

@@ -13,8 +13,8 @@ from cftool.array import to_torch
 from ..pipeline import MLPipeline
 from ....misc.toolkit import eval_context
 from ....models.ml.nbm import NBM
-from ....models.protocols.ml import IEncoder
-from ....models.protocols.ml import Dimensions
+from ....models.schemas.ml import IEncoder
+from ....models.schemas.ml import Dimensions
 
 try:
     import matplotlib.pyplot as plt

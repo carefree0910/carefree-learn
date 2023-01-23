@@ -5,7 +5,7 @@ from torch import Tensor
 from typing import Optional
 from functools import partial
 
-from .protocol import ISpecializedConditionModel
+from .schema import ISpecializedConditionModel
 
 
 @ISpecializedConditionModel.register("rescaler")

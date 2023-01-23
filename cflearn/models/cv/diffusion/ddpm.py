@@ -32,7 +32,7 @@ from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
-from ...protocols import GaussianGeneratorMixin
+from ...schemas import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....schema import ITrainer
 from ....schema import TrainerState

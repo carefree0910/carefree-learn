@@ -8,8 +8,8 @@ from typing import Callable
 from typing import Optional
 from cftool.array import to_torch
 
-from ...protocol import IImageExtractor
-from ...protocol import ImageFolderLatentResponse
+from ...schema import IImageExtractor
+from ...schema import ImageFolderLatentResponse
 from ...cv.utils import predict_paths
 from ...cv.utils import predict_folder
 from ...cv.pipeline import CVPipeline

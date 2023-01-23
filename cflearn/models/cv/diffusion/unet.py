@@ -8,7 +8,7 @@ from torch import Tensor
 from typing import Tuple
 from typing import Optional
 
-from ...protocols.cv import ImageTranslatorMixin
+from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import conv_nd
 from ....modules.blocks import zero_module
 from ....modules.blocks import SpatialTransformer

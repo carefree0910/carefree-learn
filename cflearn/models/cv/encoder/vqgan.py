@@ -6,7 +6,7 @@ from torch import Tensor
 from typing import List
 from typing import Optional
 
-from .protocol import EncoderMixin
+from .schema import EncoderMixin
 from ....modules.blocks import Conv2d
 
 

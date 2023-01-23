@@ -7,7 +7,7 @@ from typing import Optional
 from torch.fft import fft
 from cftool.misc import safe_execute
 
-from .protocols import TokenMixerBase
+from .schema import TokenMixerBase
 from .feedforward import FeedForward
 from ..common import Lambda
 from ..attentions import Attention

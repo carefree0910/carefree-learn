@@ -11,7 +11,7 @@ from cftool.types import tensor_dict_type
 
 from ....constants import INPUT_KEY
 from ....constants import ORIGINAL_LABEL_KEY
-from ...protocols.cv import ImageTranslatorMixin
+from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda

@@ -10,8 +10,8 @@ from cftool.array import to_device
 
 from ..utils import predict_folder
 from ..pipeline import CVPipeline
-from ...protocol import IImageExtractor
-from ...protocol import ImageFolderLatentResponse
+from ...schema import IImageExtractor
+from ...schema import ImageFolderLatentResponse
 from ....data import SSLTestTransform
 from ....data import InferenceImageFolderData
 from ....constants import LATENT_KEY

@@ -6,7 +6,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
-from .protocol import VanillaGANMixin
+from .schema import VanillaGANMixin
 from ...implicit.siren import ImgSiren
 from ....misc.internal_.register import register_custom_module
 from ....misc.internal_.register import CustomModule

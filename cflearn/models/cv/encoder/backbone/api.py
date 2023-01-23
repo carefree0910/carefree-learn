@@ -9,8 +9,8 @@ from cftool.array import squeeze
 from cftool.types import tensor_dict_type
 
 from .core import Backbone
-from ..protocol import EncoderMixin
-from ..protocol import Encoder1DMixin
+from ..schema import EncoderMixin
+from ..schema import Encoder1DMixin
 from .....constants import LATENT_KEY
 from .....modules.blocks import Conv2d
 

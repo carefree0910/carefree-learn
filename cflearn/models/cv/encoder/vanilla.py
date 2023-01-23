@@ -6,8 +6,8 @@ from typing import Dict
 from typing import Optional
 from cftool.array import squeeze
 
-from .protocol import EncoderMixin
-from .protocol import Encoder1DMixin
+from .schema import EncoderMixin
+from .schema import Encoder1DMixin
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Linear
 from ....modules.blocks import ResidualBlock

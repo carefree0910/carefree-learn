@@ -15,10 +15,10 @@ from typing import Protocol
 
 from .utils import append_dims
 from .utils import append_zero
-from .protocol import ISampler
-from .protocol import IQSampler
-from .protocol import IDiffusion
-from .protocol import UncondSamplerMixin
+from .schema import ISampler
+from .schema import IQSampler
+from .schema import IDiffusion
+from .schema import UncondSamplerMixin
 from ..utils import cond_type
 from ..utils import extract_to
 

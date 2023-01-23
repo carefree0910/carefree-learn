@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from torch import Tensor
 
-from .protocols import FFN
+from .schema import FFN
 from ..convs import DepthWiseConv2d
 from ..common import Lambda
 from ..customs import Linear
