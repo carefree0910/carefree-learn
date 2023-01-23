@@ -28,7 +28,7 @@ from ...types import sample_weights_type
 from ...types import states_callback_type
 from ...schema import InferenceOutputs
 from ...trainer import get_sorted_checkpoints
-from ...pipeline import get_requirements
+from ...pipeline import _get_requirements
 from ...pipeline import IModifier
 from ...pipeline import DLPipeline
 from ...constants import PREDICTIONS_KEY
@@ -109,7 +109,7 @@ class IMLPipeline:
     make_inference_data: IMLMakeInferenceData
 
 
-_ml_requirements = get_requirements(IMLPipeline, excludes=[])
+_ml_requirements = _get_requirements(IMLPipeline, excludes=[])
 _ml_build_steps = ["setup_processor", "setup_defaults", "setup_encoder"]
 
 
@@ -535,7 +535,7 @@ class IMLCarefreePipeline:
     make_inference_data: IMLCarefreeMakeInferenceData
 
 
-_ml_carefree_requirements = get_requirements(IMLCarefreePipeline, excludes=[])
+_ml_carefree_requirements = _get_requirements(IMLCarefreePipeline, excludes=[])
 
 
 @IModifier.register("ml.carefree")

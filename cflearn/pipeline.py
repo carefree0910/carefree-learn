@@ -238,7 +238,7 @@ class IDLPipeline:
     is_rank_0: bool
 
 
-def get_requirements(c: Type, *, excludes: List[str]) -> List[str]:
+def _get_requirements(c: Type, *, excludes: List[str]) -> List[str]:
     lines = inspect.getsource(c).split("\n")[1:]
     requirements = list(filter(bool, (line.strip().split(":")[0] for line in lines)))
     for e in excludes:
@@ -256,7 +256,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         "build_model",
         "build_inference",
     ]
-    requirements = get_requirements(IDLPipeline, excludes=["data"])
+    requirements = _get_requirements(IDLPipeline, excludes=["data"])
 
     def __init__(self, pipeline: "DLPipeline") -> None:
         self.__pipeline = pipeline
