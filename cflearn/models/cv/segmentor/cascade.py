@@ -10,7 +10,7 @@ from cftool.types import tensor_dict_type
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
 from ...bases import CascadeMixin
-from ....protocol import TrainerState
+from ....schema import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...protocols.cv import ImageTranslatorMixin

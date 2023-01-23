@@ -3,7 +3,7 @@ import unittest
 
 import numpy as np
 
-from cflearn.protocol import _IMetric
+from cflearn.schema import _IMetric
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
 

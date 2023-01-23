@@ -7,7 +7,7 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from ..types import losses_type
-from ..protocol import TrainerState
+from ..schema import TrainerState
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import PREDICTIONS_KEY

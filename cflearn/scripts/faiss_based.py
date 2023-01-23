@@ -15,7 +15,7 @@ from typing import Optional
 from typing import NamedTuple
 from cftool.types import tensor_dict_type
 
-from ..protocol import DeviceInfo
+from ..schema import DeviceInfo
 from ..constants import INPUT_KEY
 from ..constants import PREDICTIONS_KEY
 from ..api.api import clip

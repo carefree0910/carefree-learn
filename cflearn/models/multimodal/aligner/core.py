@@ -18,8 +18,8 @@ from .noises import noises
 from ..protocol import IPerceptor
 from ...bases import ICustomLossModule
 from ...bases import ICustomLossOutput
-from ....protocol import ITrainer
-from ....protocol import IDLModel
+from ....schema import ITrainer
+from ....schema import IDLModel
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY

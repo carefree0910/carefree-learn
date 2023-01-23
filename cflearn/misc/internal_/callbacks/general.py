@@ -12,11 +12,11 @@ from cftool.misc import lock_manager
 from cftool.misc import print_warning
 from cftool.misc import fix_float_to_length
 
-from ....protocol import ITrainer
-from ....protocol import StepOutputs
-from ....protocol import TrainerState
-from ....protocol import MetricsOutputs
-from ....protocol import TrainerCallback
+from ....schema import ITrainer
+from ....schema import StepOutputs
+from ....schema import TrainerState
+from ....schema import MetricsOutputs
+from ....schema import TrainerCallback
 from ....constants import PT_PREFIX
 from ....constants import SCORES_FILE
 

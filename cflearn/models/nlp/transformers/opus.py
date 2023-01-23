@@ -5,7 +5,7 @@ from cftool.types import tensor_dict_type
 
 from .core import HuggingFaceModel
 from ....types import texts_type
-from ....protocol import TrainerState
+from ....schema import TrainerState
 from ....constants import PREDICTIONS_KEY
 
 try:

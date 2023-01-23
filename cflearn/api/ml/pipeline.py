@@ -26,11 +26,11 @@ from ...types import data_type
 from ...types import configs_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
+from ...schema import InferenceOutputs
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import get_requirements
 from ...pipeline import IModifier
 from ...pipeline import DLPipeline
-from ...protocol import InferenceOutputs
 from ...constants import PREDICTIONS_KEY
 from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData

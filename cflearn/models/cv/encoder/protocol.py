@@ -12,9 +12,9 @@ from cftool.misc import check_requires
 from cftool.misc import WithRegister
 from cftool.types import tensor_dict_type
 
-from ....protocol import _forward
-from ....protocol import TrainerState
-from ....protocol import WithDeviceMixin
+from ....schema import _forward
+from ....schema import TrainerState
+from ....schema import WithDeviceMixin
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context

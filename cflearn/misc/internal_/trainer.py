@@ -6,13 +6,13 @@ from typing import Optional
 
 from .monitors import BasicMonitor
 from ...types import configs_type
+from ...schema import TqdmSettings
+from ...schema import OptimizerPack
+from ...schema import TrainerMonitor
+from ...schema import _IMetric
+from ...schema import _MultipleMetrics
+from ...schema import TrainerCallback
 from ...trainer import Trainer
-from ...protocol import TqdmSettings
-from ...protocol import OptimizerPack
-from ...protocol import TrainerMonitor
-from ...protocol import _IMetric
-from ...protocol import _MultipleMetrics
-from ...protocol import TrainerCallback
 from .callbacks.general import _LogMetricsMsgCallback
 
 

@@ -26,8 +26,8 @@ from torch.utils.data import DataLoader as TorchDataLoader
 from torch.utils.data.distributed import DistributedSampler
 
 from ..types import sample_weights_type
-from ..protocol import IDataset
-from ..protocol import IDataLoader
+from ..schema import IDataset
+from ..schema import IDataLoader
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
 

@@ -17,9 +17,9 @@ from cftool.array import to_torch
 from cftool.types import tensor_dict_type
 
 from ..types import losses_type
-from ..protocol import MultiLoss
-from ..protocol import ILoss
-from ..protocol import TrainerState
+from ..schema import MultiLoss
+from ..schema import ILoss
+from ..schema import TrainerState
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY

@@ -22,10 +22,10 @@ from torch.cuda.amp import GradScaler
 from ..encoder import run_encoder
 from ..encoder import Encoder1DMixin
 from ....data import CVLoader
-from ....protocol import ITrainer
-from ....protocol import StepOutputs
-from ....protocol import TrainerState
-from ....protocol import MetricsOutputs
+from ....schema import ITrainer
+from ....schema import StepOutputs
+from ....schema import TrainerState
+from ....schema import MetricsOutputs
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY

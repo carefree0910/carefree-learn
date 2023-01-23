@@ -14,8 +14,8 @@ from cftool.types import tensor_dict_type
 from .fcnn import FCNN
 from ..register import register_ml_module
 from ...types import losses_type
-from ...protocol import ITrainer
-from ...protocol import WithDeviceMixin
+from ...schema import ITrainer
+from ...schema import WithDeviceMixin
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY

@@ -15,9 +15,9 @@ from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
 from .models import dl_zoo_model_loaders
+from ..schema import IDLModel
 from ..pipeline import DLPipeline
 from ..pipeline import IPipeline
-from ..protocol import IDLModel
 from ..constants import DEFAULT_ZOO_TAG
 from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model

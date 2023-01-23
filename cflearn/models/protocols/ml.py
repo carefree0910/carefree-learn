@@ -20,12 +20,12 @@ from cftool.misc import WithRegister
 from cftool.array import to_numpy
 from cftool.types import tensor_dict_type
 
-from ...protocol import ITrainer
-from ...protocol import StepOutputs
-from ...protocol import TrainerState
-from ...protocol import MetricsOutputs
-from ...protocol import IDataLoader
-from ...protocol import ModelWithCustomSteps
+from ...schema import ITrainer
+from ...schema import StepOutputs
+from ...schema import TrainerState
+from ...schema import MetricsOutputs
+from ...schema import IDataLoader
+from ...schema import ModelWithCustomSteps
 from ...constants import INPUT_KEY
 from ...constants import BATCH_INDICES_KEY
 from ...modules.blocks import get_clones

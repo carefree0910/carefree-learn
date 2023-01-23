@@ -10,9 +10,9 @@ from cftool.array import save_images
 
 from .general import ImageCallback
 from ...toolkit import eval_context
-from ....protocol import _forward
-from ....protocol import ITrainer
-from ....protocol import TrainerCallback
+from ....schema import _forward
+from ....schema import ITrainer
+from ....schema import TrainerCallback
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import STYLE_KEY

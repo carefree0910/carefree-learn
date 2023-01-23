@@ -3,8 +3,8 @@ import cflearn
 import unittest
 
 from typing import Any
+from cflearn.schema import ILoss
 from cflearn.pipeline import DLPipeline
-from cflearn.protocol import ILoss
 
 
 def _get_m(**kwargs: Any) -> DLPipeline:

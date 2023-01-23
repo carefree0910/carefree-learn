@@ -15,7 +15,7 @@ from ...cv.utils import predict_folder
 from ...cv.pipeline import CVPipeline
 from ....data import TensorData
 from ....types import texts_type
-from ....protocol import IInference
+from ....schema import IInference
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context

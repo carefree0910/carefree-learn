@@ -11,7 +11,7 @@ from typing import List
 from typing import Callable
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
-from cflearn.protocol import MetricsOutputs
+from cflearn.schema import MetricsOutputs
 from cflearn.constants import INPUT_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import check_is_ci

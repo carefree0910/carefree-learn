@@ -34,9 +34,9 @@ from .cond_models import condition_models
 from .cond_models import specialized_condition_models
 from ...protocols import GaussianGeneratorMixin
 from ....zoo import DLZoo
-from ....protocol import ITrainer
-from ....protocol import TrainerState
-from ....protocol import MetricsOutputs
+from ....schema import ITrainer
+from ....schema import TrainerState
+from ....schema import MetricsOutputs
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import freeze

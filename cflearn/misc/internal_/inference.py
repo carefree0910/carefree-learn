@@ -2,11 +2,11 @@ from typing import Any
 from typing import Optional
 
 from ...data import MLLoader
-from ...protocol import ILoss
-from ...protocol import TrainerState
-from ...protocol import _IMetric
-from ...protocol import InferenceOutputs
-from ...protocol import IInference
+from ...schema import ILoss
+from ...schema import TrainerState
+from ...schema import _IMetric
+from ...schema import InferenceOutputs
+from ...schema import IInference
 
 
 class MLInference(IInference):

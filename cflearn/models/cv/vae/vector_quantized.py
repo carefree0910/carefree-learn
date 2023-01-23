@@ -8,8 +8,8 @@ from typing import Tuple
 from typing import Optional
 from cftool.types import tensor_dict_type
 
-from ....protocol import TrainerState
-from ....protocol import WithDeviceMixin
+from ....schema import TrainerState
+from ....schema import WithDeviceMixin
 from ....constants import PREDICTIONS_KEY
 from ..generator.vector_quantized import VQGenerator
 from ....misc.toolkit import auto_num_layers

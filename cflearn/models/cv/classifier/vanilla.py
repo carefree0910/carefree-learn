@@ -11,8 +11,8 @@ from cftool.types import tensor_dict_type
 
 from ..encoder import run_encoder
 from ..encoder import make_encoder
-from ....protocol import IDLModel
-from ....protocol import TrainerState
+from ....schema import IDLModel
+from ....schema import TrainerState
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY

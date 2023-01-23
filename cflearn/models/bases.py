@@ -12,9 +12,9 @@ from typing import NamedTuple
 from cftool.misc import print_warning
 from cftool.types import tensor_dict_type
 
-from ..protocol import ITrainer
-from ..protocol import ILoss
-from ..protocol import IDLModel
+from ..schema import ITrainer
+from ..schema import ILoss
+from ..schema import IDLModel
 from ..constants import LOSS_KEY
 from ..constants import LABEL_KEY
 from ..constants import LATENT_KEY

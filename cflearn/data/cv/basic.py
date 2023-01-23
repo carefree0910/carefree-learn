@@ -39,8 +39,8 @@ from ..core import DLDataset
 from ..core import DataLoader
 from ..core import DLDataModule
 from ...types import sample_weights_type
-from ...protocol import IDataset
-from ...protocol import IDataLoader
+from ...schema import IDataset
+from ...schema import IDataLoader
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...misc.toolkit import ConfigMeta

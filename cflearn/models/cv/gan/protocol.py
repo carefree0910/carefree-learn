@@ -13,11 +13,11 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .discriminators import DiscriminatorBase
-from ....protocol import _forward
-from ....protocol import ITrainer
-from ....protocol import TrainerState
-from ....protocol import MetricsOutputs
-from ....protocol import WithDeviceMixin
+from ....schema import _forward
+from ....schema import ITrainer
+from ....schema import TrainerState
+from ....schema import MetricsOutputs
+from ....schema import WithDeviceMixin
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY

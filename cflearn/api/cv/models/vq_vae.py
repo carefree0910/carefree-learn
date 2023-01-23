@@ -14,7 +14,7 @@ from ...api import pack
 from ...api import pixel_cnn
 from ....data import TensorData
 from ....data import CVDataModule
-from ....protocol import ITrainer
+from ....schema import ITrainer
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import ORIGINAL_LABEL_KEY

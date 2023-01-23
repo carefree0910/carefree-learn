@@ -5,8 +5,8 @@ from PIL import Image
 from tqdm import tqdm
 from cftool.misc import print_warning
 
-from .....protocol import ITrainer
-from .....protocol import TrainerCallback
+from .....schema import ITrainer
+from .....schema import TrainerCallback
 from .....misc.toolkit import eval_context
 
 try:

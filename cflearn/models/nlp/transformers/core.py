@@ -13,8 +13,8 @@ from cftool.types import tensor_dict_type
 from ...bases import IDLModel
 from ....data import TensorDictData
 from ....types import texts_type
-from ....protocol import TrainerState
-from ....protocol import IInference
+from ....schema import TrainerState
+from ....schema import IInference
 
 try:
     from transformers import AutoModel

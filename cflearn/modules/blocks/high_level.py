@@ -19,7 +19,7 @@ from .convs import Conv2d
 from .norms import NormFactory
 from .customs import Linear
 from .attentions import Attention
-from ...protocol import WithDeviceMixin
+from ...schema import WithDeviceMixin
 from ...misc.toolkit import eval_context
 
 

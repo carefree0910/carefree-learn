@@ -13,8 +13,8 @@ from ..decoder import make_decoder
 from ..encoder import run_encoder
 from ..encoder import make_encoder
 from ..encoder import EncoderMixin
-from ....protocol import TrainerState
-from ....protocol import IDLModel
+from ....schema import TrainerState
+from ....schema import IDLModel
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import LATENT_KEY

@@ -6,7 +6,7 @@ from cftool.array import save_images
 from .general import ImageCallback
 from ...toolkit import eval_context
 from ...toolkit import make_indices_visualization_map
-from ....protocol import ITrainer
+from ....schema import ITrainer
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 

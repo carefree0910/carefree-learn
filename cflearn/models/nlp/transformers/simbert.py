@@ -4,7 +4,7 @@ from cftool.array import l2_normalize
 from cftool.types import tensor_dict_type
 
 from .core import HuggingFaceModel
-from ....protocol import TrainerState
+from ....schema import TrainerState
 from ....constants import LATENT_KEY
 
 

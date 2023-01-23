@@ -13,8 +13,8 @@ from cftool.types import np_dict_type
 
 from .register import register_metric
 from .register import IMetric
-from ...protocol import _IMetric
-from ...protocol import IDataLoader
+from ...schema import _IMetric
+from ...schema import IDataLoader
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 

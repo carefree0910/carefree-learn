@@ -6,7 +6,7 @@ from cftool.array import to_device
 from cftool.array import save_images
 
 from ..general import ImageCallback
-from .....protocol import ITrainer
+from .....schema import ITrainer
 from .....constants import INPUT_KEY
 from .....constants import PREDICTIONS_KEY
 from .....misc.toolkit import interpolate

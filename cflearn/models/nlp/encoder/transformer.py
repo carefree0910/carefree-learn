@@ -6,8 +6,8 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .constants import MASK_KEY
-from ....protocol import TrainerState
-from ....protocol import IDLModel
+from ....schema import TrainerState
+from ....schema import IDLModel
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....modules.blocks import MixedStackedEncoder

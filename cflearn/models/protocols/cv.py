@@ -10,8 +10,8 @@ from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
-from ...protocol import _forward
-from ...protocol import WithDeviceMixin
+from ...schema import _forward
+from ...schema import WithDeviceMixin
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY

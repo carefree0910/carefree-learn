@@ -19,9 +19,9 @@ from cftool.types import tensor_dict_type
 from ..general import PureEncoderDecoder
 from ..gan.discriminators import NLayerDiscriminator
 from ...protocols import GaussianGeneratorMixin
-from ....protocol import ITrainer
-from ....protocol import TrainerState
-from ....protocol import MetricsOutputs
+from ....schema import ITrainer
+from ....schema import TrainerState
+from ....schema import MetricsOutputs
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.internal_ import CustomModule

@@ -14,13 +14,13 @@ from cftool.array import to_device
 from cftool.types import tensor_dict_type
 
 from .bases import ICustomLossModule
-from ..protocol import _forward
-from ..protocol import ITrainer
-from ..protocol import StepOutputs
-from ..protocol import TrainerState
-from ..protocol import MetricsOutputs
-from ..protocol import IDataLoader
-from ..protocol import ModelWithCustomSteps
+from ..schema import _forward
+from ..schema import ITrainer
+from ..schema import StepOutputs
+from ..schema import TrainerState
+from ..schema import MetricsOutputs
+from ..schema import IDataLoader
+from ..schema import ModelWithCustomSteps
 from ..constants import INPUT_KEY
 from .protocols.ml import MERGED_KEY
 from .protocols.ml import IMLCore
