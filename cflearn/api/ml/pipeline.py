@@ -10,9 +10,11 @@ from typing import Union
 from typing import Callable
 from typing import Optional
 from typing import Protocol
+from dataclasses import dataclass
 from collections import OrderedDict
 from cftool.misc import lock_manager
 from cftool.misc import safe_execute
+from cftool.misc import shallow_copy_dict
 from cftool.misc import Saving
 from cftool.array import softmax
 from cftool.array import get_full_logits
@@ -23,9 +25,10 @@ from ...data import MLData
 from ...data import MLLoader
 from ...data import DataModule
 from ...types import data_type
-from ...types import configs_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
+from ...schema import Config
+from ...schema import DLConfig
 from ...schema import InferenceOutputs
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import _get_requirements
@@ -36,7 +39,6 @@ from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData
 from ...data.ml import IMLDataProcessor
 from ...data.ml import _InternalCarefreeMLDataProcessor
-from ...misc.toolkit import ConfigMeta
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.encoders import EncodingSettings
@@ -111,6 +113,28 @@ class IMLPipeline:
 
 _ml_requirements = _get_requirements(IMLPipeline, excludes=[])
 _ml_build_steps = ["setup_processor", "setup_defaults", "setup_encoder"]
+
+
+@dataclass
+class _MLConfig:
+    # core
+    core_name: str = "fcnn"
+    core_config: Optional[Dict[str, Any]] = None
+    input_dim: Optional[int] = None
+    output_dim: Optional[int] = None
+    # encoder
+    use_encoder_cache: bool = False
+    only_categorical: bool = False
+    encoder_config: Optional[Dict[str, Any]] = None
+    encoding_settings: Optional[Dict[Union[int, str], Dict[str, Any]]] = None
+    # misc
+    pre_process_batch: bool = True
+    num_repeat: Optional[int] = None
+
+
+@dataclass
+class MLConfig(Config, _MLConfig):
+    loss_name: str = "auto"
 
 
 @IModifier.register("ml")
@@ -207,21 +231,22 @@ class MLModifier(IModifier, IMLPipeline):
         self.inference = MLInference(model=self.model)
 
     def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:  # type: ignore
-        if self.trainer_config["monitor_names"] is None:
-            self.trainer_config["monitor_names"] = ["mean_std", "plateau"]
+        if self.trainer_config.monitor_names is None:
+            self.trainer_config.monitor_names = ["mean_std", "plateau"]
             self._defaults["monitor_names"] = ["mean_std", "plateau"]
         super().prepare_trainer_defaults(data_info)
         if (
-            self.trainer_config["metric_names"] is None
+            self.trainer_config.metric_names is None
             and self.use_auto_loss
-            and not self.trainer_config["use_losses_as_metrics"]
+            and not self.trainer_config.use_losses_as_metrics
         ):
             if self.is_classification:
-                self.trainer_config["metric_names"] = ["acc", "auc"]
+                self.trainer_config.metric_names = ["acc", "auc"]
             else:
-                self.trainer_config["metric_names"] = ["mae", "mse"]
-            self._defaults["metric_names"] = self.trainer_config["metric_names"]
-        callback_names = self.trainer_config["callback_names"]
+                self.trainer_config.metric_names = ["mae", "mse"]
+            self._defaults["metric_names"] = self.trainer_config.metric_names
+        callback_names = self.trainer_config.callback_names
+        assert isinstance(callback_names, list)
         if "_inject_loader_name" not in callback_names:
             callback_names.append("_inject_loader_name")
             cbs = self._defaults.setdefault("additional_callbacks", [])
@@ -294,116 +319,41 @@ class MLModifier(IModifier, IMLPipeline):
 
 
 @DLPipeline.register("ml")
-class MLPipeline(IMLPipeline, DLPipeline, metaclass=ConfigMeta):  # type: ignore
+class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
     modifier = "ml"
 
     data: MLData
     model: MLModel
     inference: MLInference
     inference_base = MLInference
+    config_base = MLConfig
 
-    def __init__(
-        self,
-        core_name: str = "fcnn",
-        core_config: Optional[Dict[str, Any]] = None,
-        *,
-        input_dim: Optional[int] = None,
-        output_dim: Optional[int] = None,
-        loss_name: str = "auto",
-        loss_config: Optional[Dict[str, Any]] = None,
-        # encoder
-        use_encoder_cache: bool = False,
-        only_categorical: bool = False,
-        encoder_config: Optional[Dict[str, Any]] = None,
-        encoding_settings: Optional[Dict[Union[int, str], Dict[str, Any]]] = None,
-        # trainer
-        state_config: Optional[Dict[str, Any]] = None,
-        num_epoch: int = 40,
-        max_epoch: int = 1000,
-        fixed_epoch: Optional[int] = None,
-        fixed_steps: Optional[int] = None,
-        log_steps: Optional[int] = None,
-        valid_portion: float = 1.0,
-        amp: bool = False,
-        clip_norm: float = 0.0,
-        cudnn_benchmark: bool = False,
-        metric_names: Optional[Union[str, List[str]]] = None,
-        metric_configs: configs_type = None,
-        metric_weights: Optional[Dict[str, float]] = None,
-        use_losses_as_metrics: Optional[bool] = None,
-        loss_metrics_weights: Optional[Dict[str, float]] = None,
-        recompute_train_losses_in_eval: bool = True,
-        monitor_names: Optional[Union[str, List[str]]] = None,
-        monitor_configs: Optional[Dict[str, Any]] = None,
-        callback_names: Optional[Union[str, List[str]]] = None,
-        callback_configs: Optional[Dict[str, Any]] = None,
-        lr: Optional[float] = None,
-        optimizer_name: Optional[str] = None,
-        scheduler_name: Optional[str] = None,
-        optimizer_config: Optional[Dict[str, Any]] = None,
-        scheduler_config: Optional[Dict[str, Any]] = None,
-        update_scheduler_per_epoch: bool = False,
-        optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-        use_zero: bool = False,
-        workplace: str = "_logs",
-        finetune_config: Optional[Dict[str, Any]] = None,
-        tqdm_settings: Optional[Dict[str, Any]] = None,
-        # misc
-        in_loading: bool = False,
-        pre_process_batch: bool = True,
-        num_repeat: Optional[int] = None,
-    ):
-        super().__init__(
-            "MLModel",
-            loss_name=loss_name,
-            loss_config=loss_config,
-            state_config=state_config,
-            num_epoch=num_epoch,
-            max_epoch=max_epoch,
-            fixed_epoch=fixed_epoch,
-            fixed_steps=fixed_steps,
-            log_steps=log_steps,
-            valid_portion=valid_portion,
-            amp=amp,
-            clip_norm=clip_norm,
-            cudnn_benchmark=cudnn_benchmark,
-            metric_names=metric_names,
-            metric_configs=metric_configs,
-            metric_weights=metric_weights,
-            use_losses_as_metrics=use_losses_as_metrics,
-            loss_metrics_weights=loss_metrics_weights,
-            recompute_train_losses_in_eval=recompute_train_losses_in_eval,
-            monitor_names=monitor_names,
-            monitor_configs=monitor_configs,
-            callback_names=callback_names,
-            callback_configs=callback_configs,
-            lr=lr,
-            optimizer_name=optimizer_name,
-            scheduler_name=scheduler_name,
-            optimizer_config=optimizer_config,
-            scheduler_config=scheduler_config,
-            update_scheduler_per_epoch=update_scheduler_per_epoch,
-            optimizer_settings=optimizer_settings,
-            use_zero=use_zero,
-            workplace=workplace,
-            finetune_config=finetune_config,
-            tqdm_settings=tqdm_settings,
-            in_loading=in_loading,
-        )
-        self.core_name = core_name
-        self.core_config = core_config or {}
-        self.input_dim = input_dim
-        self.output_dim = output_dim
-        self.use_encoder_cache = use_encoder_cache
-        self.only_categorical = only_categorical
+    def __init__(self, config: MLConfig):
+        d = config.asdict()
+        dl_d = shallow_copy_dict(d)
+        dl_d["model_name"] = "MLModel"
+        dl_config = safe_execute(DLConfig, dl_d)
+        super().__init__(dl_config)
+        for k, v in dl_config.asdict().items():
+            if k in d:
+                setattr(config, k, v)
+        for k, v in d.items():
+            if k not in self.config:
+                self.config[k] = v
+        self.core_name = config.core_name
+        self.core_config = config.core_config or {}
+        self.input_dim = config.input_dim
+        self.output_dim = config.output_dim
+        self.use_encoder_cache = config.use_encoder_cache
+        self.only_categorical = config.only_categorical
         self.encoder = None
-        self.encoder_config = encoder_config or {}
+        self.encoder_config = config.encoder_config or {}
         self.encoding_settings = {}
-        for idx, raw_setting in (encoding_settings or {}).items():
+        for idx, raw_setting in (config.encoding_settings or {}).items():
             # when loading from json, the keys (idx) will be str
             self.encoding_settings[int(idx)] = EncodingSettings(**raw_setting)
-        self._pre_process_batch = pre_process_batch
-        self._num_repeat = num_repeat
+        self._pre_process_batch = config.pre_process_batch
+        self._num_repeat = config.num_repeat
 
     def make_inference_data(  # type: ignore
         self,
@@ -593,6 +543,7 @@ class MLCarefreePipeline(IMLCarefreePipeline, MLPipeline):  # type: ignore
 
 
 __all__ = [
+    "MLConfig",
     "MLModifier",
     "MLPipeline",
     "MLCarefreeModifier",

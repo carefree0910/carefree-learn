@@ -10,7 +10,6 @@ from cftool.types import tensor_dict_type
 from cflearn.types import losses_type
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import interpolate
-from cflearn.misc.toolkit import inject_debug
 from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import UpsampleConv2d
 
@@ -92,13 +91,8 @@ class SimpleVAELoss(nn.Module):
         return {"mse": mse, "kld": kld_loss, cflearn.LOSS_KEY: loss}
 
 
-config = dict(cuda=None if is_ci else 0)
+config = cflearn.DLConfig("simple_vae", {"in_channels": 1, "img_size": 28})
 if is_ci:
-    inject_debug(config)
+    config.to_debug()
 
-cflearn.api.fit_cv(
-    data,
-    "simple_vae",
-    {"in_channels": 1, "img_size": 28},
-    **config,  # type: ignore
-)
+cflearn.api.fit_cv(data, config, cuda=None if is_ci else 0)

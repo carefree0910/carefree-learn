@@ -31,7 +31,8 @@ class TestPipeline(unittest.TestCase):
 
     def test_mlflow_auto_callback(self) -> None:
         m = cflearn.api.resnet18_gray(2, build=True, callback_names="mlflow")
-        callback_configs = m.trainer_config["callback_configs"]
+        callback_configs = m.trainer_config.callback_configs
+        assert callback_configs is not None
         mlflow_config = callback_configs["mlflow"]
         self.assertEqual(mlflow_config["experiment_name"], "clf")
 
@@ -45,8 +46,7 @@ class TestPipeline(unittest.TestCase):
             x,
             y,
             is_classification=False,
-            output_dim=3,
-            encoding_settings={2: dict(dim=3)},
+            config=cflearn.MLConfig(output_dim=3, encoding_settings={2: dict(dim=3)}),
             debug=True,
         )
         idata = m.make_inference_data(x)
@@ -136,8 +136,10 @@ class TestPipeline(unittest.TestCase):
                 x,
                 y,
                 is_classification=False,
-                output_dim=5,
-                encoding_settings={0: dict(dim=3), 3: dict(dim=11)},
+                config=cflearn.MLConfig(
+                    output_dim=5,
+                    encoding_settings={0: dict(dim=3), 3: dict(dim=11)},
+                ),
                 debug=True,
             )
             idata = m.make_inference_data(x)

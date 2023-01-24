@@ -37,6 +37,7 @@ from ...schema import MetricsOutputs
 from ...schema import WithDeviceMixin
 from ...schema import IDataLoader
 from ...schema import ModelWithCustomSteps
+from ...schema import TrainerConfig
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
@@ -254,7 +255,7 @@ class CustomModule(WithDeviceMixin, nn.Module):
     def init_with_trainer(self, trainer: ITrainer) -> None:
         pass
 
-    def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
+    def permute_trainer_config(self, trainer_config: TrainerConfig) -> None:
         pass
 
 
@@ -440,7 +441,7 @@ def register_custom_module(
             def init_ddp(self) -> None:
                 self.core.init_ddp()
 
-            def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
+            def permute_trainer_config(self, trainer_config: TrainerConfig) -> None:
                 self.core.permute_trainer_config(trainer_config)
 
             def _init_with_trainer(self, trainer: ITrainer) -> None:

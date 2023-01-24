@@ -16,7 +16,6 @@ from cflearn.constants import INPUT_KEY
 from cflearn.constants import PREDICTIONS_KEY
 from cflearn.misc.toolkit import check_is_ci
 from cflearn.misc.toolkit import interpolate
-from cflearn.misc.toolkit import inject_debug
 from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import UpsampleConv2d
 
@@ -163,12 +162,7 @@ class SimpleGAN(cflearn.CustomModule):
         return self.sample(len(net))
 
 
-config = dict(cuda=None if is_ci else 0)
-if is_ci:
-    inject_debug(config)
-
-cflearn.api.fit_cv(
-    data,
+config = cflearn.DLConfig(
     "simple_gan",
     {"in_channels": 1, "img_size": 28, "latent_dim": 128},
     optimizer_settings={
@@ -181,5 +175,8 @@ cflearn.api.fit_cv(
             "scheduler": "warmup",
         },
     },
-    **config,  # type: ignore
 )
+if is_ci:
+    config.to_debug()
+
+cflearn.api.fit_cv(data, config, cuda=None if is_ci else 0)

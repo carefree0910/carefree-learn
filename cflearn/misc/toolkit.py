@@ -344,11 +344,6 @@ def empty_cuda_cache(device: Union[int, str, torch.device]) -> None:
         torch.cuda.empty_cache()
 
 
-def inject_debug(config: Dict[str, Any]) -> None:
-    config["fixed_steps"] = 1
-    config["valid_portion"] = 1.0e-4
-
-
 def safe_clip_(net: Tensor) -> None:
     finfo = torch.finfo(net.dtype)
     net.clamp_(finfo.min, finfo.max)

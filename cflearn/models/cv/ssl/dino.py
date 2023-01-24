@@ -21,11 +21,11 @@ from torch.cuda.amp import GradScaler
 
 from ..encoder import run_encoder
 from ..encoder import Encoder1DMixin
-from ....data import CVLoader
 from ....schema import ITrainer
 from ....schema import StepOutputs
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
+from ....schema import TrainerConfig
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
@@ -517,17 +517,17 @@ class DINO(CustomModule):
     def init_with_trainer(self, trainer: ITrainer) -> None:
         self.teacher_for_training.requires_grad_(False)
 
-    def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
+    def permute_trainer_config(self, trainer_config: TrainerConfig) -> None:
         # TODO : make `permute_trainer_config` more general
-        if trainer_config["clip_norm"] == 0.0:
-            trainer_config["clip_norm"] = 3.0
-        if trainer_config["lr"] is None:
-            trainer_config["lr"] = 0.0005
-        self.lr = trainer_config["lr"]
-        self.min_lr = trainer_config.pop("min_lr", 1.0e-6)
-        if trainer_config["optimizer_name"] is None:
-            trainer_config["optimizer_name"] = "adamw"
-        trainer_config["scheduler_name"] = "none"
+        if trainer_config.clip_norm == 0.0:
+            trainer_config.clip_norm = 3.0
+        if trainer_config.lr is None:
+            trainer_config.lr = 0.0005
+        self.lr = trainer_config.lr
+        self.min_lr = 1.0e-6
+        if trainer_config.optimizer_name is None:
+            trainer_config.optimizer_name = "adamw"
+        trainer_config.scheduler_name = "none"
 
 
 __all__ = [

@@ -21,10 +21,13 @@ from typing import Callable
 from typing import Iterator
 from typing import Optional
 from typing import NamedTuple
+from dataclasses import asdict
+from dataclasses import dataclass
 from torch.optim import Optimizer
 from cftool.misc import filter_kw
 from cftool.misc import print_info
 from cftool.misc import print_warning
+from cftool.misc import safe_execute
 from cftool.misc import lock_manager
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
@@ -80,6 +83,7 @@ metric_dict: Dict[str, Type["_IMetric"]] = {}
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
 
 LossType = TypeVar("LossType", bound="ILoss", covariant=True)
+ConfigType = TypeVar("ConfigType")
 
 
 # data
@@ -405,7 +409,7 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
     def init_ddp(self) -> None:
         pass
 
-    def permute_trainer_config(self, trainer_config: Dict[str, Any]) -> None:
+    def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
         pass
 
 
@@ -1327,6 +1331,81 @@ class ITrainer(ABC):
         pass
 
 
+# configs
+
+
+@dataclass
+class TrainerConfig:
+    state_config: Optional[Dict[str, Any]] = None
+    num_epoch: int = 40
+    max_epoch: int = 1000
+    fixed_epoch: Optional[int] = None
+    fixed_steps: Optional[int] = None
+    log_steps: Optional[int] = None
+    valid_portion: float = 1.0
+    amp: bool = False
+    clip_norm: float = 0.0
+    metric_names: Optional[Union[str, List[str]]] = None
+    metric_configs: configs_type = None
+    metric_weights: Optional[Dict[str, float]] = None
+    use_losses_as_metrics: Optional[bool] = None
+    loss_metrics_weights: Optional[Dict[str, float]] = None
+    recompute_train_losses_in_eval: bool = True
+    monitor_names: Optional[Union[str, List[str]]] = None
+    monitor_configs: Optional[Dict[str, Any]] = None
+    auto_callback: bool = True
+    callback_names: Optional[Union[str, List[str]]] = None
+    callback_configs: Optional[Dict[str, Any]] = None
+    lr: Optional[float] = None
+    optimizer_name: Optional[str] = None
+    scheduler_name: Optional[str] = None
+    optimizer_config: Optional[Dict[str, Any]] = None
+    scheduler_config: Optional[Dict[str, Any]] = None
+    update_scheduler_per_epoch: bool = False
+    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None
+    use_zero: bool = False
+    workplace: str = "_logs"
+    data_info_name: str = "data_info"
+    metrics_log_file: str = "metrics.txt"
+    finetune_config: Optional[Dict[str, Any]] = None
+    tqdm_settings: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class Config(TrainerConfig):
+    loss_name: Optional[str] = None
+    loss_config: Optional[Dict[str, Any]] = None
+    in_loading: bool = False
+    allow_no_loss: bool = False
+    cudnn_benchmark: bool = False
+
+    def asdict(self) -> Dict[str, Any]:
+        return asdict(self)
+
+    def to_debug(self) -> None:
+        self.fixed_steps = 1
+        self.valid_portion = 1.0e-4
+
+    @property
+    def trainer_config(self) -> TrainerConfig:
+        return safe_execute(TrainerConfig, self.asdict())
+
+
+@dataclass
+class _DLConfig:
+    model_name: str
+    model_config: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class DLConfig(Config, _DLConfig):
+    pass
+
+
+def shallow_copy_config(config: ConfigType) -> ConfigType:
+    return type(config)(**shallow_copy_dict(asdict(config)))
+
+
 __all__ = [
     "_forward",
     "dataset_dict",
@@ -1357,4 +1436,8 @@ __all__ = [
     "TqdmSettings",
     "TrainerCallback",
     "ITrainer",
+    "TrainerConfig",
+    "Config",
+    "DLConfig",
+    "shallow_copy_config",
 ]

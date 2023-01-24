@@ -39,6 +39,7 @@ from .types import sample_weights_type
 from .types import states_callback_type
 from .schema import loss_dict
 from .schema import callback_dict
+from .schema import shallow_copy_config
 from .schema import DeviceInfo
 from .schema import ILoss
 from .schema import IDLModel
@@ -48,6 +49,9 @@ from .schema import InferenceOutputs
 from .schema import IInference
 from .schema import IDataLoader
 from .schema import ModelWithCustomSteps
+from .schema import Config
+from .schema import DLConfig
+from .schema import TrainerConfig
 from .trainer import get_sorted_checkpoints
 from .trainer import Trainer
 from .constants import PT_PREFIX
@@ -56,7 +60,6 @@ from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import _get_environ_workplace
-from .misc.toolkit import ConfigMeta
 from .misc.internal_.trainer import make_trainer
 
 
@@ -64,34 +67,7 @@ pipeline_dict: Dict[str, Type["IPipeline"]] = {}
 dl_pipeline_modifiers: Dict[str, Type["IModifier"]] = {}
 
 
-class IPipeline(WithRegister["IPipeline"], metaclass=ABCMeta):
-    d = pipeline_dict
-
-    @abstractmethod
-    def build(self, data_info: Dict[str, Any]) -> None:
-        pass
-
-    @abstractmethod
-    def fit(
-        self,
-        data: DataModule,
-        *,
-        sample_weights: sample_weights_type = None,
-    ) -> "IPipeline":
-        pass
-
-    @abstractmethod
-    def predict(self, data: DataModule, **predict_kwargs: Any) -> np_dict_type:
-        pass
-
-    @abstractmethod
-    def save(self, export_folder: str) -> "IPipeline":
-        pass
-
-    @staticmethod
-    @abstractmethod
-    def load(export_folder: str) -> "IPipeline":
-        pass
+# model soup
 
 
 class ModelSoupConfigs(NamedTuple):
@@ -170,7 +146,7 @@ def _generate_model_soup_checkpoint(
     with open(scores_export_path, "w") as wf:
         json.dump({key: best_score}, wf)
     torch.save(current_states, checkpoint_export_path)
-    original_metric_names = m.trainer_config["metric_names"]
+    original_metric_names = m.trainer_config.metric_names
     if original_metric_names is None:
         metrics_identifier = "+ DEFAULTS +"
     else:
@@ -197,6 +173,39 @@ def _generate_model_soup_checkpoint(
         )
 
 
+# schema
+
+
+class IPipeline(WithRegister["IPipeline"], metaclass=ABCMeta):
+    d = pipeline_dict
+
+    @abstractmethod
+    def build(self, data_info: Dict[str, Any]) -> None:
+        pass
+
+    @abstractmethod
+    def fit(
+        self,
+        data: DataModule,
+        *,
+        sample_weights: sample_weights_type = None,
+    ) -> "IPipeline":
+        pass
+
+    @abstractmethod
+    def predict(self, data: DataModule, **predict_kwargs: Any) -> np_dict_type:
+        pass
+
+    @abstractmethod
+    def save(self, export_folder: str) -> "IPipeline":
+        pass
+
+    @staticmethod
+    @abstractmethod
+    def load(export_folder: str) -> "IPipeline":
+        pass
+
+
 class IDLPipeline:
     modifier: str
 
@@ -212,7 +221,7 @@ class IDLPipeline:
     model_name: str
     model_config: Dict[str, Any]
     trainer: Trainer
-    trainer_config: Dict[str, Any]
+    trainer_config: TrainerConfig
     inference: IInference
     inference_base: Type[IInference]
     device_info: DeviceInfo
@@ -236,6 +245,9 @@ class IDLPipeline:
 
     device: torch.device
     is_rank_0: bool
+
+
+# modifier
 
 
 def _get_requirements(c: Type, *, excludes: List[str]) -> List[str]:
@@ -344,11 +356,11 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
     def prepare_workplace(self) -> None:
         if self.is_rank_0 and not self.in_loading and self.need_build_trainer:
-            workplace = prepare_workplace_from(self.trainer_config["workplace"])
+            workplace = prepare_workplace_from(self.trainer_config.workplace)
             self._defaults["workplace"] = workplace
-            self.trainer_config["workplace"] = workplace
-            self.trainer_config["data_info_name"] = self.data_info_name
-            self.trainer_config["metrics_log_file"] = self.metrics_log_file
+            self.trainer_config.workplace = workplace
+            self.trainer_config.data_info_name = self.data_info_name
+            self.trainer_config.metrics_log_file = self.metrics_log_file
             self._write_pipeline_info(workplace)
             Saving.save_dict(self.config, self.config_name, workplace)
 
@@ -367,27 +379,27 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
     def prepare_trainer_defaults(self, data_info: Dict[str, Any]) -> None:
         # set some trainer defaults to deep learning tasks which work well in practice
         if get_ddp_info() is not None:
-            mns = self.trainer_config["monitor_names"]
+            mns = self.trainer_config.monitor_names
             if mns is not None and mns != "conservative" and mns != ["conservative"]:
                 print_warning(
                     "only `conservative` monitor is available "
                     f"in DDP mode, {mns} found"
                 )
-            self.trainer_config["monitor_names"] = "conservative"
-        if self.trainer_config["monitor_names"] is None:
+            self.trainer_config.monitor_names = "conservative"
+        if self.trainer_config.monitor_names is None:
             self._defaults["monitor_names"] = "conservative"
-            self.trainer_config["monitor_names"] = "conservative"
-        tqdm_settings = self.trainer_config["tqdm_settings"]
-        callback_names = self.trainer_config["callback_names"]
-        callback_configs = self.trainer_config["callback_configs"]
-        optimizer_settings = self.trainer_config["optimizer_settings"]
+            self.trainer_config.monitor_names = "conservative"
+        tqdm_settings = self.trainer_config.tqdm_settings
+        callback_names = self.trainer_config.callback_names
+        callback_configs = self.trainer_config.callback_configs
+        optimizer_settings = self.trainer_config.optimizer_settings
         if callback_names is None:
             callback_names = []
         if callback_configs is None:
             callback_configs = {}
         if isinstance(callback_names, str):
             callback_names = [callback_names]
-        auto_callback = self.trainer_config.get("auto_callback", True)
+        auto_callback = self.trainer_config.auto_callback
         if "mlflow" in callback_names and auto_callback:
             mlflow_config = callback_configs.setdefault("mlflow", {})
             if "experiment_name" not in mlflow_config:
@@ -403,10 +415,10 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             if "verbose" not in log_metrics_msg_config:
                 log_metrics_msg_config["verbose"] = verbose
                 self._defaults["log_metrics_msg_verbose"] = verbose
-        self.trainer_config["tqdm_settings"] = tqdm_settings
-        self.trainer_config["callback_names"] = callback_names
-        self.trainer_config["callback_configs"] = callback_configs
-        self.trainer_config["optimizer_settings"] = optimizer_settings
+        self.trainer_config.tqdm_settings = tqdm_settings
+        self.trainer_config.callback_names = callback_names
+        self.trainer_config.callback_configs = callback_configs
+        self.trainer_config.optimizer_settings = optimizer_settings
 
     ## api
 
@@ -450,10 +462,10 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         self.built = True
 
     def build_trainer(self) -> None:
-        trainer_config = shallow_copy_dict(self.trainer_config)
+        trainer_config = shallow_copy_config(self.trainer_config)
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
-        self.trainer = make_trainer(**trainer_config)
+        self.trainer = make_trainer(trainer_config)
 
     def report(self) -> None:
         if self.is_rank_0:
@@ -538,7 +550,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             pre_callback(config_bundle)
         config = config_bundle["config"]
         config["in_loading"] = True
-        m = safe_execute(cls, config)
+        m = safe_execute(cls, dict(config=safe_execute(cls.config_base, config)))
         device_info = DeviceInfo(*config_bundle["device_info"])
         if not to_original_device:
             device_info = device_info._replace(cuda=cuda)
@@ -558,11 +570,22 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         return outputs.forward_results
 
 
+def register_modifier(name: str, *, allow_duplicate: bool = False) -> Callable:
+    return IModifier.register(name, allow_duplicate=allow_duplicate)
+
+
+register_modifier("dl")(IModifier)
+
+
+# pipeline
+
+
 @IPipeline.register("dl")
-class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
+class DLPipeline(IPipeline, IDLPipeline):
     modifier = "dl"
 
     inference_base = IInference
+    config_base: Type[Config] = DLConfig
 
     pipeline_key = "pipeline"
     pipeline_file = "pipeline.txt"
@@ -574,58 +597,20 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
     final_results_file = "final_results.json"
     config_bundle_name = "config_bundle"
 
-    def __init__(
-        self,
-        model_name: str,
-        model_config: Optional[Dict[str, Any]] = None,
-        *,
-        loss_name: Optional[str] = None,
-        loss_config: Optional[Dict[str, Any]] = None,
-        # trainer
-        state_config: Optional[Dict[str, Any]] = None,
-        num_epoch: int = 40,
-        max_epoch: int = 1000,
-        fixed_epoch: Optional[int] = None,
-        fixed_steps: Optional[int] = None,
-        log_steps: Optional[int] = None,
-        valid_portion: float = 1.0,
-        amp: bool = False,
-        clip_norm: float = 0.0,
-        cudnn_benchmark: bool = False,
-        metric_names: Optional[Union[str, List[str]]] = None,
-        metric_configs: configs_type = None,
-        metric_weights: Optional[Dict[str, float]] = None,
-        use_losses_as_metrics: Optional[bool] = None,
-        loss_metrics_weights: Optional[Dict[str, float]] = None,
-        recompute_train_losses_in_eval: bool = True,
-        monitor_names: Optional[Union[str, List[str]]] = None,
-        monitor_configs: Optional[Dict[str, Any]] = None,
-        callback_names: Optional[Union[str, List[str]]] = None,
-        callback_configs: Optional[Dict[str, Any]] = None,
-        lr: Optional[float] = None,
-        optimizer_name: Optional[str] = None,
-        scheduler_name: Optional[str] = None,
-        optimizer_config: Optional[Dict[str, Any]] = None,
-        scheduler_config: Optional[Dict[str, Any]] = None,
-        update_scheduler_per_epoch: bool = False,
-        optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-        use_zero: bool = False,
-        workplace: str = "_logs",
-        finetune_config: Optional[Dict[str, Any]] = None,
-        tqdm_settings: Optional[Dict[str, Any]] = None,
-        # misc
-        in_loading: bool = False,
-        allow_no_loss: bool = False,
-    ):
-        # record defaults
+    def __init__(self, config: DLConfig):
+        self.config = config.asdict()
         self._defaults = OrderedDict()
+        loss_name = config.loss_name
+        model_name = config.model_name
+        state_config = config.state_config
+        callback_names = config.callback_names
         # sanity check
         if loss_name is None:
             if model_name in loss_dict:
                 loss_name = model_name
             else:
                 model_base = IDLModel.get(model_name)
-                if allow_no_loss or issubclass(model_base, ModelWithCustomSteps):
+                if config.allow_no_loss or issubclass(model_base, ModelWithCustomSteps):
                     loss_name = ILoss.placeholder_key
                 else:
                     raise ValueError(
@@ -647,46 +632,20 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         # initialize
         self.input_dim = None
         self.model_name = model_name
-        self.model_config = model_config or {}
+        self.model_config = config.model_config or {}
         self.data_module_bytes = None
         self.loss_name = loss_name
-        self.loss_config = loss_config
-        self.trainer_config: Dict[str, Any] = {
-            "state_config": state_config,
-            "num_epoch": num_epoch,
-            "max_epoch": max_epoch,
-            "fixed_epoch": fixed_epoch,
-            "fixed_steps": fixed_steps,
-            "log_steps": log_steps,
-            "valid_portion": valid_portion,
-            "amp": amp,
-            "clip_norm": clip_norm,
-            "metric_names": metric_names,
-            "metric_configs": metric_configs,
-            "metric_weights": metric_weights,
-            "use_losses_as_metrics": use_losses_as_metrics,
-            "loss_metrics_weights": loss_metrics_weights,
-            "recompute_train_losses_in_eval": recompute_train_losses_in_eval,
-            "monitor_names": monitor_names,
-            "monitor_configs": monitor_configs,
-            "callback_names": callback_names,
-            "callback_configs": callback_configs,
-            "lr": lr,
-            "optimizer_name": optimizer_name,
-            "scheduler_name": scheduler_name,
-            "optimizer_config": optimizer_config,
-            "scheduler_config": scheduler_config,
-            "update_scheduler_per_epoch": update_scheduler_per_epoch,
-            "optimizer_settings": optimizer_settings,
-            "use_zero": use_zero,
-            "workplace": _get_environ_workplace() or workplace,
-            "finetune_config": finetune_config,
-            "tqdm_settings": tqdm_settings,
-        }
-        self.in_loading = in_loading
+        self.loss_config = config.loss_config
+        config.state_config = state_config
+        config.callback_names = callback_names
+        environ_workplace = _get_environ_workplace()
+        if environ_workplace:
+            config.workplace = environ_workplace
+        self.trainer_config = config.trainer_config
+        self.in_loading = config.in_loading
         self.built = False
         self.device_info = DeviceInfo(None, None)
-        if cudnn_benchmark:
+        if config.cudnn_benchmark:
             torch.backends.cudnn.benchmark = True
 
     def __eq__(self, __o: object) -> bool:
@@ -1008,13 +967,6 @@ class DLPipeline(IPipeline, IDLPipeline, metaclass=ConfigMeta):
         assert isinstance(d, dict)
         name = d.pop(cls.pipeline_key)
         return cls.make(name, d)
-
-
-def register_modifier(name: str, *, allow_duplicate: bool = False) -> Callable:
-    return IModifier.register(name, allow_duplicate=allow_duplicate)
-
-
-register_modifier("dl")(IModifier)
 
 
 __all__ = [

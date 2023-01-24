@@ -9,7 +9,12 @@ from cftool.misc import get_latest_workplace
 
 metrics = ["acc", "auc"]
 x, y = TabularDataset.iris().xy
-m = cflearn.api.fit_ml(x, y, is_classification=True, output_dim=3, metric_names=metrics)
+m = cflearn.api.fit_ml(
+    x,
+    y,
+    is_classification=True,
+    config=cflearn.MLConfig(output_dim=3, metric_names=metrics),
+)
 
 idata = m.make_inference_data(x, y)
 cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
@@ -24,7 +29,12 @@ packed_path = cflearn.api.pack(workplace)
 m3 = cflearn.api.load(packed_path)
 assert np.allclose(p, m3.predict(idata)[cflearn.PREDICTIONS_KEY])
 
-m = cflearn.api.fit_ml(x, y, is_classification=True, output_dim=3, metric_names=metrics)
+m = cflearn.api.fit_ml(
+    x,
+    y,
+    is_classification=True,
+    config=cflearn.MLConfig(output_dim=3, metric_names=metrics),
+)
 p2 = m.predict(idata)[cflearn.PREDICTIONS_KEY]
 packed_paths = []
 for stuff in sorted(os.listdir("_logs"))[-2:]:

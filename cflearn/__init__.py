@@ -14,6 +14,7 @@ from .api import ml
 from .api import nlp
 from .api import multimodal
 from .api import api
+from .api.ml.pipeline import MLConfig
 from . import dist
 from . import scripts
 

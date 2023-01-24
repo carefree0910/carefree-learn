@@ -13,7 +13,7 @@ m = cflearn.api.fit_ml(
     x,
     y,
     is_classification=False,
-    metric_names=metrics,
+    config=cflearn.MLConfig(metric_names=metrics),
     debug=check_is_ci(),
 )
 

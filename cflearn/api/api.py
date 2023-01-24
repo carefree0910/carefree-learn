@@ -23,6 +23,7 @@ from ..models import *
 from .cv.pipeline import CVPipeline
 from .ml.api import repeat_with
 from .ml.api import RepeatResult
+from .ml.pipeline import MLConfig
 from .ml.pipeline import MLPipeline
 from .ml.pipeline import MLCarefreePipeline
 from .cv.models.diffusion import ldm as _ldm
@@ -54,6 +55,7 @@ from ..schema import ILoss
 from ..schema import IDLModel
 from ..schema import _IMetric
 from ..schema import IDataLoader
+from ..schema import DLConfig
 from ..trainer import get_sorted_checkpoints
 from ..pipeline import DLPipeline
 from ..pipeline import ModelSoupConfigs
@@ -64,7 +66,6 @@ from ..zoo.core import _parse_config
 from ..zoo.core import configs_root
 from ..zoo.core import DLZoo
 from ..dist.ml import Experiment
-from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
 from ..models.schemas.ml import ml_core_dict
 
@@ -416,98 +417,15 @@ def fit_ml(
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
     # pipeline
-    core_name: str = "fcnn",
-    core_config: Optional[Dict[str, Any]] = None,
-    input_dim: Optional[int] = None,
-    output_dim: Optional[int] = None,
-    loss_name: str = "auto",
-    loss_config: Optional[Dict[str, Any]] = None,
-    # encoder
-    only_categorical: bool = False,
-    encoder_config: Optional[Dict[str, Any]] = None,
-    encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
-    # trainer
-    state_config: Optional[Dict[str, Any]] = None,
-    num_epoch: int = 40,
-    max_epoch: int = 1000,
-    fixed_epoch: Optional[int] = None,
-    fixed_steps: Optional[int] = None,
-    log_steps: Optional[int] = None,
-    valid_portion: float = 1.0,
-    amp: bool = False,
-    clip_norm: float = 0.0,
-    cudnn_benchmark: bool = False,
-    metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: configs_type = None,
-    metric_weights: Optional[Dict[str, float]] = None,
-    use_losses_as_metrics: Optional[bool] = None,
-    loss_metrics_weights: Optional[Dict[str, float]] = None,
-    recompute_train_losses_in_eval: bool = True,
-    monitor_names: Optional[Union[str, List[str]]] = None,
-    monitor_configs: Optional[Dict[str, Any]] = None,
-    callback_names: Optional[Union[str, List[str]]] = None,
-    callback_configs: Optional[Dict[str, Any]] = None,
-    lr: Optional[float] = None,
-    optimizer_name: Optional[str] = None,
-    scheduler_name: Optional[str] = None,
-    optimizer_config: Optional[Dict[str, Any]] = None,
-    scheduler_config: Optional[Dict[str, Any]] = None,
-    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-    use_zero: bool = False,
-    workplace: str = "_logs",
-    finetune_config: Optional[Dict[str, Any]] = None,
-    tqdm_settings: Optional[Dict[str, Any]] = None,
-    # misc
-    pre_process_batch: bool = True,
+    config: Optional[MLConfig] = None,
     debug: bool = False,
     # fit
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
 ) -> MLPipeline:
-    pipeline_config = dict(
-        core_name=core_name,
-        core_config=core_config,
-        input_dim=input_dim,
-        output_dim=output_dim,
-        loss_name=loss_name,
-        loss_config=loss_config,
-        only_categorical=only_categorical,
-        encoder_config=encoder_config,
-        encoding_settings=encoding_settings,
-        state_config=state_config,
-        num_epoch=num_epoch,
-        max_epoch=max_epoch,
-        fixed_epoch=fixed_epoch,
-        fixed_steps=fixed_steps,
-        log_steps=log_steps,
-        valid_portion=valid_portion,
-        amp=amp,
-        clip_norm=clip_norm,
-        cudnn_benchmark=cudnn_benchmark,
-        metric_names=metric_names,
-        metric_configs=metric_configs,
-        metric_weights=metric_weights,
-        use_losses_as_metrics=use_losses_as_metrics,
-        loss_metrics_weights=loss_metrics_weights,
-        recompute_train_losses_in_eval=recompute_train_losses_in_eval,
-        monitor_names=monitor_names,
-        monitor_configs=monitor_configs,
-        callback_names=callback_names,
-        callback_configs=callback_configs,
-        lr=lr,
-        optimizer_name=optimizer_name,
-        scheduler_name=scheduler_name,
-        optimizer_config=optimizer_config,
-        scheduler_config=scheduler_config,
-        optimizer_settings=optimizer_settings,
-        use_zero=use_zero,
-        workplace=workplace,
-        finetune_config=finetune_config,
-        tqdm_settings=tqdm_settings,
-        pre_process_batch=pre_process_batch,
-    )
+    config = config or MLConfig()
     if debug:
-        inject_debug(pipeline_config)
+        config.to_debug()
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
     m_base = MLCarefreePipeline if carefree else MLPipeline
     data = _make_ml_data(
@@ -522,7 +440,7 @@ def fit_ml(
         data_config,
         cf_data_config,
     )
-    return m_base(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
+    return m_base(config).fit(data, **fit_kwargs)  # type: ignore
 
 
 def repeat_ml(
@@ -556,88 +474,14 @@ def repeat_ml(
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
     # pipeline
-    input_dim: Optional[int] = None,
-    output_dim: Optional[int] = None,
-    loss_name: str = "auto",
-    loss_config: Optional[Dict[str, Any]] = None,
-    # encoder
-    only_categorical: bool = False,
-    encoder_config: Optional[Dict[str, Any]] = None,
-    encoding_settings: Optional[Dict[int, Dict[str, Any]]] = None,
-    # trainer
-    state_config: Optional[Dict[str, Any]] = None,
-    num_epoch: int = 40,
-    max_epoch: int = 1000,
-    fixed_epoch: Optional[int] = None,
-    fixed_steps: Optional[int] = None,
-    log_steps: Optional[int] = None,
-    valid_portion: float = 1.0,
-    amp: bool = False,
-    clip_norm: float = 0.0,
-    cudnn_benchmark: bool = False,
-    metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: configs_type = None,
-    metric_weights: Optional[Dict[str, float]] = None,
-    use_losses_as_metrics: Optional[bool] = None,
-    loss_metrics_weights: Optional[Dict[str, float]] = None,
-    recompute_train_losses_in_eval: bool = True,
-    monitor_names: Optional[Union[str, List[str]]] = None,
-    monitor_configs: Optional[Dict[str, Any]] = None,
-    callback_names: Optional[Union[str, List[str]]] = None,
-    callback_configs: Optional[Dict[str, Any]] = None,
-    lr: Optional[float] = None,
-    optimizer_name: Optional[str] = None,
-    scheduler_name: Optional[str] = None,
-    optimizer_config: Optional[Dict[str, Any]] = None,
-    scheduler_config: Optional[Dict[str, Any]] = None,
-    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-    finetune_config: Optional[Dict[str, Any]] = None,
-    tqdm_settings: Optional[Dict[str, Any]] = None,
-    # misc
-    sample_weights: sample_weights_type = None,
-    pre_process_batch: bool = True,
+    config: Optional[MLConfig] = None,
     debug: bool = False,
+    # fit
+    sample_weights: sample_weights_type = None,
 ) -> RepeatResult:
-    pipeline_config = dict(
-        input_dim=input_dim,
-        output_dim=output_dim,
-        loss_name=loss_name,
-        loss_config=loss_config,
-        only_categorical=only_categorical,
-        encoder_config=encoder_config,
-        encoding_settings=encoding_settings,
-        state_config=state_config,
-        num_epoch=num_epoch,
-        max_epoch=max_epoch,
-        fixed_epoch=fixed_epoch,
-        fixed_steps=fixed_steps,
-        log_steps=log_steps,
-        valid_portion=valid_portion,
-        amp=amp,
-        clip_norm=clip_norm,
-        cudnn_benchmark=cudnn_benchmark,
-        metric_names=metric_names,
-        metric_configs=metric_configs,
-        metric_weights=metric_weights,
-        use_losses_as_metrics=use_losses_as_metrics,
-        loss_metrics_weights=loss_metrics_weights,
-        recompute_train_losses_in_eval=recompute_train_losses_in_eval,
-        monitor_names=monitor_names,
-        monitor_configs=monitor_configs,
-        callback_names=callback_names,
-        callback_configs=callback_configs,
-        lr=lr,
-        optimizer_name=optimizer_name,
-        scheduler_name=scheduler_name,
-        optimizer_config=optimizer_config,
-        scheduler_config=scheduler_config,
-        optimizer_settings=optimizer_settings,
-        finetune_config=finetune_config,
-        tqdm_settings=tqdm_settings,
-        pre_process_batch=pre_process_batch,
-    )
+    config = config or MLConfig()
     if debug:
-        inject_debug(pipeline_config)
+        config.to_debug()
     return repeat_with(
         _make_ml_data(
             x_train,
@@ -651,6 +495,7 @@ def repeat_ml(
             data_config,
             cf_data_config,
         ),
+        config,
         carefree=carefree,
         workplace=workplace,
         models=models,
@@ -669,7 +514,6 @@ def repeat_ml(
         task_meta_kwargs=task_meta_kwargs,
         to_original_device=to_original_device,
         is_fix=is_fix,
-        **pipeline_config,
     )
 
 
@@ -682,88 +526,16 @@ def supported_ml_models() -> List[str]:
 
 def fit_cv(
     data: CVDataModule,
-    model_name: str,
-    model_config: Dict[str, Any],
+    config: DLConfig,
     *,
-    loss_name: Optional[str] = None,
-    loss_config: Optional[Dict[str, Any]] = None,
-    # trainer
-    state_config: Optional[Dict[str, Any]] = None,
-    num_epoch: int = 40,
-    max_epoch: int = 1000,
-    fixed_epoch: Optional[int] = None,
-    fixed_steps: Optional[int] = None,
-    log_steps: Optional[int] = None,
-    valid_portion: float = 1.0,
-    amp: bool = False,
-    clip_norm: float = 0.0,
-    cudnn_benchmark: bool = False,
-    metric_names: Optional[Union[str, List[str]]] = None,
-    metric_configs: configs_type = None,
-    metric_weights: Optional[Dict[str, float]] = None,
-    use_losses_as_metrics: Optional[bool] = None,
-    loss_metrics_weights: Optional[Dict[str, float]] = None,
-    recompute_train_losses_in_eval: bool = True,
-    monitor_names: Optional[Union[str, List[str]]] = None,
-    monitor_configs: Optional[Dict[str, Any]] = None,
-    callback_names: Optional[Union[str, List[str]]] = None,
-    callback_configs: Optional[Dict[str, Any]] = None,
-    lr: Optional[float] = None,
-    optimizer_name: Optional[str] = None,
-    scheduler_name: Optional[str] = None,
-    optimizer_config: Optional[Dict[str, Any]] = None,
-    scheduler_config: Optional[Dict[str, Any]] = None,
-    optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None,
-    use_zero: bool = False,
-    workplace: str = "_logs",
-    finetune_config: Optional[Dict[str, Any]] = None,
-    tqdm_settings: Optional[Dict[str, Any]] = None,
-    # misc
     debug: bool = False,
-    # fit
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
 ) -> "CVPipeline":
-    pipeline_config = dict(
-        model_name=model_name,
-        model_config=model_config,
-        loss_name=loss_name,
-        loss_config=loss_config,
-        state_config=state_config,
-        num_epoch=num_epoch,
-        max_epoch=max_epoch,
-        fixed_epoch=fixed_epoch,
-        fixed_steps=fixed_steps,
-        log_steps=log_steps,
-        valid_portion=valid_portion,
-        amp=amp,
-        clip_norm=clip_norm,
-        cudnn_benchmark=cudnn_benchmark,
-        metric_names=metric_names,
-        metric_configs=metric_configs,
-        metric_weights=metric_weights,
-        use_losses_as_metrics=use_losses_as_metrics,
-        loss_metrics_weights=loss_metrics_weights,
-        recompute_train_losses_in_eval=recompute_train_losses_in_eval,
-        monitor_names=monitor_names,
-        monitor_configs=monitor_configs,
-        callback_names=callback_names,
-        callback_configs=callback_configs,
-        lr=lr,
-        optimizer_name=optimizer_name,
-        scheduler_name=scheduler_name,
-        optimizer_config=optimizer_config,
-        scheduler_config=scheduler_config,
-        optimizer_settings=optimizer_settings,
-        use_zero=use_zero,
-        workplace=workplace,
-        finetune_config=finetune_config,
-        tqdm_settings=tqdm_settings,
-    )
     if debug:
-        inject_debug(pipeline_config)
+        config.to_debug()
     fit_kwargs = dict(sample_weights=sample_weights, cuda=cuda)
-    return CVPipeline(**pipeline_config).fit(data, **fit_kwargs)  # type: ignore
+    return CVPipeline(config).fit(data, **fit_kwargs)  # type: ignore
 
 
 # clf

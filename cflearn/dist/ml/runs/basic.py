@@ -16,5 +16,6 @@ if __name__ == "__main__":
     cuda = info.meta["cuda"]
     carefree = isinstance(data, MLCarefreeData)
     m_base = MLCarefreePipeline if carefree else MLPipeline
-    m = m_base(**kwargs).fit(data, cuda=cuda)
+    config = m_base.config_base(**kwargs)
+    m = m_base(config).fit(data, cuda=cuda)
     m.save(os.path.join(info.workplace, cflearn.ML_PIPELINE_SAVE_NAME))

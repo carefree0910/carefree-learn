@@ -20,6 +20,7 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import get_latest_workplace
 
+from .pipeline import MLConfig
 from .pipeline import MLPipeline
 from .pipeline import MLCarefreePipeline
 from ...data import MLData
@@ -28,6 +29,7 @@ from ...data import MLCarefreeData
 from ...types import configs_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
+from ...schema import shallow_copy_config
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import DLPipeline
 from ...constants import SCORES_FILE
@@ -205,6 +207,7 @@ class RepeatResult(NamedTuple):
 
 def repeat_with(
     data: IMLData,
+    config: MLConfig,
     *,
     carefree: Optional[bool] = None,
     workplace: str = "_repeat",
@@ -224,12 +227,11 @@ def repeat_with(
     task_meta_kwargs: Optional[Dict[str, Any]] = None,
     to_original_device: bool = False,
     is_fix: bool = False,
-    **kwargs: Any,
 ) -> RepeatResult:
     if os.path.isdir(workplace) and not is_fix:
         print_warning(f"'{workplace}' already exists, it will be erased")
         shutil.rmtree(workplace)
-    kwargs = shallow_copy_dict(kwargs)
+    config = shallow_copy_config(config)
     if isinstance(models, str):
         models = [models]
     if sequential is None:
@@ -249,13 +251,13 @@ def repeat_with(
             return True
         return False
 
-    def fetch_config(core_name: str) -> Dict[str, Any]:
-        local_kwargs = shallow_copy_dict(kwargs)
+    def fetch_config(core_name: str) -> MLConfig:
+        local_config = shallow_copy_config(config)
         assert model_configs is not None
         local_core_config = model_configs.setdefault(core_name, {})
-        local_kwargs["core_name"] = core_name
-        local_kwargs["core_config"] = shallow_copy_dict(local_core_config)
-        return shallow_copy_dict(local_kwargs)
+        local_config.core_name = core_name
+        local_config.core_config = shallow_copy_dict(local_core_config)
+        return shallow_copy_config(local_config)
 
     is_carefree_data = isinstance(data, MLCarefreeData)
     if carefree and not is_carefree_data:
@@ -266,9 +268,9 @@ def repeat_with(
     pipelines_dict: Optional[Dict[str, List[MLPipeline]]] = None
     if sequential:
         experiment = None
-        tqdm_settings = kwargs.setdefault("tqdm_settings", {})
+        tqdm_settings = config.tqdm_settings
         if tqdm_settings is None:
-            kwargs["tqdm_settings"] = tqdm_settings = {}
+            config.tqdm_settings = tqdm_settings = {}
         tqdm_settings["tqdm_position"] = 2
         if not return_patterns:
             print_warning(
@@ -295,10 +297,10 @@ def repeat_with(
             for i in sub_iterator:
                 if is_fix and not is_buggy(i, model):
                     continue
-                local_config = fetch_config(model)
+                i_local_config = fetch_config(model)
                 local_workplace = os.path.join(workplace, model, str(i))
-                local_config.setdefault("workplace", local_workplace)
-                m = pipeline_base(**local_config)
+                i_local_config.workplace = local_workplace
+                m = pipeline_base(i_local_config)
                 m.fit(data, sample_weights=sample_weights, cuda=cuda)
                 local_pipelines.append(m)
             pipelines_dict[model] = local_pipelines
@@ -325,13 +327,12 @@ def repeat_with(
             for i in range(num_repeat):
                 if is_fix and not is_buggy(i, model):
                     continue
-                local_config = fetch_config(model)
                 experiment.add_task(
                     model=model,
                     compress=compress,
                     root_workplace=workplace,
                     workplace_key=(model, str(i)),
-                    config=local_config,
+                    config=fetch_config(model).asdict(),
                     data_folder=data_folder,
                     **shallow_copy_dict(meta),
                 )

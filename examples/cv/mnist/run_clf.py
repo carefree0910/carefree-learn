@@ -5,7 +5,6 @@ import numpy as np
 import torch.nn as nn
 
 from cflearn.misc.toolkit import check_is_ci
-from cflearn.misc.toolkit import inject_debug
 
 
 # preparations
@@ -40,17 +39,13 @@ class SimpleConvClassifier(nn.Sequential):
         )
 
 
-kwargs = dict(
-    loss_name="cross_entropy",
-    metric_names="acc" if is_ci else ["acc", "auc"],
-    cuda=None if is_ci else 0,
-)
-if is_ci:
-    inject_debug(kwargs)
-
-cflearn.api.fit_cv(
-    data,
+config = cflearn.DLConfig(
     "simple_conv",
     {"in_channels": 1, "num_classes": 10},
-    **kwargs,  # type: ignore
+    loss_name="cross_entropy",
+    metric_names="acc" if is_ci else ["acc", "auc"],
 )
+if is_ci:
+    config.to_debug()
+
+cflearn.api.fit_cv(data, config, cuda=None if is_ci else 0)

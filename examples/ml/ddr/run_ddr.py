@@ -28,9 +28,11 @@ m = cflearn.api.fit_ml(
     x[num_train:-num_test],
     y[num_train:-num_test],
     is_classification=False,
-    core_name="ddr",
-    output_dim=1,
-    loss_name="ddr",
+    config=cflearn.MLConfig(
+        core_name="ddr",
+        output_dim=1,
+        loss_name="ddr",
+    ),
     debug=check_is_ci(),
 )
 

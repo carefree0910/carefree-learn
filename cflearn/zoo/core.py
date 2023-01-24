@@ -6,6 +6,7 @@ from abc import ABC
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
@@ -19,7 +20,6 @@ from ..schema import IDLModel
 from ..pipeline import DLPipeline
 from ..pipeline import IPipeline
 from ..constants import DEFAULT_ZOO_TAG
-from ..misc.toolkit import inject_debug
 from ..misc.toolkit import download_model
 
 
@@ -86,9 +86,6 @@ class ZooBase(ABC):
         self.pipeline_name = parsed_config.pop("pipeline", None)
         if self.pipeline_name is None:
             raise ValueError(self.err_msg_fmt.format("pipeline"))
-        # handle debug
-        if debug:
-            inject_debug(kwargs)
 
         def _example(l: str, r: str, h: List[str]) -> str:
             key = h.pop(0)
@@ -138,7 +135,11 @@ class ZooBase(ABC):
         update_dict(kwargs, self.config)
         update_dict(increment, self.config)
         # build
-        self.m = DLPipeline.make(self.pipeline_name, shallow_copy_dict(self.config))
+        m_base: Type[DLPipeline] = DLPipeline.get(self.pipeline_name)
+        config = m_base.config_base(**shallow_copy_dict(self.config))
+        if debug:
+            config.to_debug()
+        self.m = DLPipeline.make(self.pipeline_name, dict(config=config))
         if build:
             try:
                 self.m.build(data_info or {}, build_trainer=False, report=report)
