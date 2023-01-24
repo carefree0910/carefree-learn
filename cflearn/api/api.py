@@ -73,7 +73,7 @@ from ..models.schemas.ml import ml_core_dict
 # dl
 
 
-def make(name: str, *, config: general_config_type = None) -> DLPipeline:
+def make(name: str, config: general_config_type = None) -> DLPipeline:
     m = DLPipeline.make(name, parse_config(config))
     assert isinstance(m, DLPipeline)
     return m

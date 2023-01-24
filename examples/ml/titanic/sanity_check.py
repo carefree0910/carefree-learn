@@ -61,7 +61,7 @@ def check(label_name: str):
     assert np.all(pred1 == pred2)
 
     data = cflearn.DLDataModule.load("./data")
-    m3 = cflearn.ml.MLCarefreePipeline(fixed_steps=1)
+    m3 = cflearn.ml.MLCarefreePipeline(config=cflearn.MLConfig(fixed_steps=1))
     m3.fit(data)
     idata = m3.make_inference_data(test_file, contains_labels=False)
     pred3 = m2.predict(idata, return_classes=True)[cflearn.PREDICTIONS_KEY]

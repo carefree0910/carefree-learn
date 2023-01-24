@@ -10,7 +10,6 @@ import numpy as np
 from cftool.misc import _rmtree
 from cfml.misc.toolkit import ModelPattern
 from cflearn.misc.toolkit import check_is_ci
-from cflearn.misc.toolkit import inject_debug
 
 
 torch.manual_seed(142857)
@@ -58,11 +57,11 @@ if __name__ == "__main__":
     experiment = cflearn.dist.ml.Experiment()
     data_folder = experiment.dump_data(data)
 
-    config = {}
+    config = cflearn.MLConfig()
     if is_ci:
-        inject_debug(config)
-    experiment.add_task(model="fcnn", config=config, data_folder=data_folder)
-    experiment.add_task(model="linear", config=config, data_folder=data_folder)
+        config.to_debug()
+    experiment.add_task(model="fcnn", config=config.asdict(), data_folder=data_folder)
+    experiment.add_task(model="linear", config=config.asdict(), data_folder=data_folder)
     run_command = f"python {sklearn_runner_file}"
     common_kwargs = {"run_command": run_command, "data_folder": data_folder}
     experiment.add_task(model="decision_tree", **common_kwargs)  # type: ignore

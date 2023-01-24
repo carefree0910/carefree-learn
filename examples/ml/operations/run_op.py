@@ -24,19 +24,25 @@ y_add = np.sum(x, axis=1)
 y_prod = np.prod(x, axis=1)
 y_mix = np.hstack([y_add, y_prod])
 
+config = cflearn.MLConfig(
+    output_dim=1,
+    metric_names=metrics,
+    tqdm_settings={"use_tqdm": True},
+)
 kwargs = {
     "data_config": dict(num_history=dim, is_classification=False),
-    "output_dim": 1,
-    "metric_names": metrics,
-    "tqdm_settings": {"use_tqdm": True},
+    "config": config,
 }
 if is_ci:
-    kwargs["fixed_steps"] = 1
+    config.fixed_steps = 1
 
 # add
-linear = cflearn.api.fit_ml(x, y_add, core_name="linear", **kwargs)
-fcnn = cflearn.api.fit_ml(x, y_add, core_name="fcnn", **kwargs)
-rnn = cflearn.api.fit_ml(x, y_add, core_name="rnn", **kwargs)
+config.core_name = "linear"
+linear = cflearn.api.fit_ml(x, y_add, **kwargs)
+config.core_name = "fcnn"
+fcnn = cflearn.api.fit_ml(x, y_add, **kwargs)
+config.core_name = "rnn"
+rnn = cflearn.api.fit_ml(x, y_add, **kwargs)
 
 try:
     import cfml

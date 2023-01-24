@@ -458,7 +458,7 @@ def make_toy_model(
     }
     updated = update_dict(config, base_config)
     pipeline = "ml" if cf_data_config is None else "ml.carefree"
-    m = MLPipeline.make(pipeline, updated)
+    m = MLPipeline.make(pipeline, dict(config=MLConfig(**updated)))
     if cf_data_config is None:
         data = MLData(x_np, y_np, is_classification=is_classification)
     else:

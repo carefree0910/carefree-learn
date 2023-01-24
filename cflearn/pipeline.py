@@ -966,7 +966,7 @@ class DLPipeline(IPipeline, IDLPipeline):
             raise ValueError(f"unrecognized input {d} occurred")
         assert isinstance(d, dict)
         name = d.pop(cls.pipeline_key)
-        return cls.make(name, d)
+        return cls.make(name, dict(config=cls.config_base(**d)))
 
 
 __all__ = [

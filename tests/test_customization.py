@@ -21,7 +21,7 @@ class TestCustomization(unittest.TestCase):
         y = np.random.random([1000, 1])
         m = cflearn.api.make(
             "ml",
-            config={"core_name": "foo", "output_dim": 1, "fixed_epoch": 0},
+            dict(config=cflearn.MLConfig(core_name="foo", output_dim=1, fixed_epoch=0)),
         )
         data = cflearn.MLData(x, y, is_classification=False)
         idata = cflearn.MLInferenceData(x, y)
