@@ -956,6 +956,12 @@ class DLPipeline(IPipeline, IDLPipeline):
         return d
 
     @classmethod
+    def make(cls, name: str, config: Union[Dict[str, Any], Config]) -> "DLPipeline":
+        if isinstance(config, dict):
+            config = cls.config_base(**config)
+        return super().make(name, dict(config=config))
+
+    @classmethod
     def from_json(cls, d: Union[str, Dict[str, Any]]) -> "DLPipeline":
         if isinstance(d, dict):
             d = shallow_copy_dict(d)
@@ -966,7 +972,7 @@ class DLPipeline(IPipeline, IDLPipeline):
             raise ValueError(f"unrecognized input {d} occurred")
         assert isinstance(d, dict)
         name = d.pop(cls.pipeline_key)
-        return cls.make(name, dict(config=cls.config_base(**d)))
+        return cls.make(name, d)
 
 
 __all__ = [

@@ -6,6 +6,7 @@ import shutil
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Union
 from typing import Callable
 from typing import Optional
@@ -74,9 +75,8 @@ from ..models.schemas.ml import ml_core_dict
 
 
 def make(name: str, config: general_config_type = None) -> DLPipeline:
-    m = DLPipeline.make(name, parse_config(config))
-    assert isinstance(m, DLPipeline)
-    return m
+    m_base: Type[DLPipeline] = DLPipeline.get(name)
+    return m_base(m_base.config_base(**parse_config(config)))  # type: ignore
 
 
 def run_ddp(path: str, cuda_list: List[Union[int, str]], **kwargs: Any) -> None:

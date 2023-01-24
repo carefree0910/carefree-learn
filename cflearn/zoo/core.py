@@ -139,7 +139,7 @@ class ZooBase(ABC):
         config = m_base.config_base(**shallow_copy_dict(self.config))
         if debug:
             config.to_debug()
-        self.m = DLPipeline.make(self.pipeline_name, dict(config=config))
+        self.m = DLPipeline.make(self.pipeline_name, config)
         if build:
             try:
                 self.m.build(data_info or {}, build_trainer=False, report=report)
