@@ -309,7 +309,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             if config.verbose:
                 print_info("sort by time")
             time_columns = x_train[..., config.time_columns].astype(int)
-            time_anchors = self.get_time_anchors(time_columns)
+            time_anchors = self.get_time_anchors(time_columns).ravel()
             sorted_indices = np.argsort(time_anchors)
             if config.use_validation:
                 sorted_anchors = time_anchors[sorted_indices]
