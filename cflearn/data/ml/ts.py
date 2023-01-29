@@ -128,6 +128,11 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     # abstract
 
+    @property
+    @abstractmethod
+    def tag(self) -> str:
+        pass
+
     @classmethod
     @abstractmethod
     def prepare_data(cls, config: TimeSeriesConfig) -> np.ndarray:
@@ -143,11 +148,6 @@ class ITimeSeriesProcessor(IMLDataProcessor):
     @abstractmethod
     def check_valid(self, mat: np.ndarray) -> bool:
         """check whether `mat` is a valid data sample"""
-
-    @property
-    @abstractmethod
-    def tag(self) -> str:
-        pass
 
     def sanity_check(self, tag: MLDatasetTag, bundle: TimeSeriesDataBundle) -> None:
         pass
