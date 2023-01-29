@@ -400,7 +400,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     # callbacks
 
-    def get_num_samples(self, x: np.ndarray, tag: MLDatasetTag) -> Optional[int]:
+    def get_num_samples(self, x: np.ndarray, tag: MLDatasetTag) -> int:
         if tag == MLDatasetTag.TRAIN:
             return len(self._train_bundle.valid_indices)
         if self._validation_bundle is None:
