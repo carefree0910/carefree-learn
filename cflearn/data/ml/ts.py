@@ -128,6 +128,11 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     # abstract
 
+    @classmethod
+    @abstractmethod
+    def prepare_data(cls, config: TimeSeriesConfig) -> np.ndarray:
+        pass
+
     @abstractmethod
     def get_time_anchors(self, times: np.ndarray) -> np.ndarray:
         """
@@ -456,9 +461,9 @@ class TimeSeriesData(IMLData):
 
     def __init__(
         self,
-        data: np.ndarray,
         ts_config: TimeSeriesConfig,
         *,
+        data: Optional[np.ndarray] = None,
         processor: Optional[IMLDataProcessor] = None,
         shuffle_train: bool = True,
         shuffle_valid: bool = False,
@@ -467,6 +472,9 @@ class TimeSeriesData(IMLData):
         use_numpy: bool = False,
     ):
         self.ts_config = ts_config
+        if data is None:
+            processor_cls = ITimeSeriesProcessor.get(self.processor_type)
+            data = processor_cls.prepare_data(ts_config)
         super().__init__(
             data,
             processor=processor,
@@ -509,8 +517,8 @@ def make_ts_test_data(
     config.no_cache = no_cache
     config.y_window = 0
     test_data = TimeSeriesData(
-        data,
         config,
+        data=data,
         batch_size=batch_size,
         shuffle_train=False,
         use_numpy=use_numpy,
