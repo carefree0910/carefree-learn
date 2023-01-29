@@ -261,7 +261,6 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     "validation data is not enough when "
                     f"`validation_split` is set to `{split}`"
                 )
-                print_info("generating train bundle")
             return sorted_indices, None
         left_idx = right_mask_cumsum.tolist().index(y_span + 1) - 1
         left_anchor = unique_anchors[left_idx]
