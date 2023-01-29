@@ -21,7 +21,6 @@ from typing import Callable
 from typing import Iterator
 from typing import Optional
 from typing import NamedTuple
-from dataclasses import asdict
 from dataclasses import dataclass
 from torch.optim import Optimizer
 from cftool.misc import filter_kw
@@ -33,6 +32,7 @@ from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.misc import get_num_positional_args
+from cftool.misc import DataClassBase
 from cftool.misc import WithRegister
 from cftool.array import to_numpy
 from cftool.array import to_device
@@ -1335,7 +1335,7 @@ class ITrainer(ABC):
 
 
 @dataclass
-class TrainerConfig:
+class TrainerConfig(DataClassBase):
     state_config: Optional[Dict[str, Any]] = None
     num_epoch: int = 40
     max_epoch: int = 1000
@@ -1379,9 +1379,6 @@ class Config(TrainerConfig):
     allow_no_loss: bool = False
     cudnn_benchmark: bool = False
 
-    def asdict(self) -> Dict[str, Any]:
-        return asdict(self)
-
     def to_debug(self) -> None:
         self.fixed_steps = 1
         self.valid_portion = 1.0e-4
@@ -1400,10 +1397,6 @@ class _DLConfig:
 @dataclass
 class DLConfig(Config, _DLConfig):
     pass
-
-
-def shallow_copy_config(config: ConfigType) -> ConfigType:
-    return type(config)(**shallow_copy_dict(asdict(config)))
 
 
 __all__ = [
@@ -1439,5 +1432,4 @@ __all__ = [
     "TrainerConfig",
     "Config",
     "DLConfig",
-    "shallow_copy_config",
 ]

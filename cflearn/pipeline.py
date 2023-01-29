@@ -39,7 +39,6 @@ from .types import sample_weights_type
 from .types import states_callback_type
 from .schema import loss_dict
 from .schema import callback_dict
-from .schema import shallow_copy_config
 from .schema import DeviceInfo
 from .schema import ILoss
 from .schema import IDLModel
@@ -462,7 +461,7 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         self.built = True
 
     def build_trainer(self) -> None:
-        trainer_config = shallow_copy_config(self.trainer_config)
+        trainer_config = self.trainer_config.copy()
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(trainer_config)

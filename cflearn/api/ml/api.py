@@ -29,7 +29,6 @@ from ...data import MLCarefreeData
 from ...types import configs_type
 from ...types import sample_weights_type
 from ...types import states_callback_type
-from ...schema import shallow_copy_config
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import DLPipeline
 from ...constants import SCORES_FILE
@@ -231,7 +230,7 @@ def repeat_with(
     if os.path.isdir(workplace) and not is_fix:
         print_warning(f"'{workplace}' already exists, it will be erased")
         shutil.rmtree(workplace)
-    config = shallow_copy_config(config)
+    config = config.copy()
     if isinstance(models, str):
         models = [models]
     if sequential is None:
@@ -252,12 +251,12 @@ def repeat_with(
         return False
 
     def fetch_config(core_name: str) -> MLConfig:
-        local_config = shallow_copy_config(config)
+        local_config = config.copy()
         assert model_configs is not None
         local_core_config = model_configs.setdefault(core_name, {})
         local_config.core_name = core_name
         local_config.core_config = shallow_copy_dict(local_core_config)
-        return shallow_copy_config(local_config)
+        return local_config.copy()
 
     is_carefree_data = isinstance(data, MLCarefreeData)
     if carefree and not is_carefree_data:
