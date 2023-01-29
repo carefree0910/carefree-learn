@@ -5,11 +5,6 @@ from typing import Union
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
-try:
-    import open_clip
-except:
-    open_clip = None
-
 
 def get_open_clip_config(model_name: str) -> Dict[str, Union[str, int]]:
     def _get_num_heads(sub_cfg: Dict[str, int], default: int) -> int:
@@ -24,8 +19,10 @@ def get_open_clip_config(model_name: str) -> Dict[str, Union[str, int]]:
             return width // head_width
         return default
 
-    if open_clip is None:
-        raise ValueError("`open_clip` should be installed to use `convert_open_clip`")
+    try:
+        import open_clip
+    except:
+        raise ValueError("`open_clip` should be installed for `get_open_clip_config`")
     cfg = open_clip.get_model_config(model_name)
     if cfg is None:
         raise ValueError(f"unrecognized model_name `{model_name}` occurred")
@@ -46,6 +43,10 @@ def get_open_clip_config(model_name: str) -> Dict[str, Union[str, int]]:
 
 
 def convert_open_clip(model_name: str, pretrained: str) -> tensor_dict_type:
+    try:
+        import open_clip
+    except:
+        raise ValueError("`open_clip` should be installed for `convert_open_clip`")
     cf_clip_config = get_open_clip_config(model_name)
     oc_model = open_clip.create_model(model_name, pretrained)
     d = shallow_copy_dict(oc_model.state_dict())
