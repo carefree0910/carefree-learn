@@ -6,7 +6,6 @@ from typing import Dict
 from typing import Type
 from typing import Optional
 from torch.nn import Module
-from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
 from .norms import BN
