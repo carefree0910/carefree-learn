@@ -409,16 +409,16 @@ def fit_ml(
     x_valid: data_type = None,
     y_valid: data_type = None,
     *,
+    # pipeline
+    config: Optional[MLConfig] = None,
+    debug: bool = False,
+    # data
     train_others: Optional[np_dict_type] = None,
     valid_others: Optional[np_dict_type] = None,
-    # data
     carefree: bool = False,
     is_classification: Optional[bool] = None,
     data_config: Optional[Dict[str, Any]] = None,
     cf_data_config: Optional[Dict[str, Any]] = None,
-    # pipeline
-    config: Optional[MLConfig] = None,
-    debug: bool = False,
     # fit
     sample_weights: sample_weights_type = None,
     cuda: Optional[Union[int, str]] = None,
