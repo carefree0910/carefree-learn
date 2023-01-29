@@ -29,7 +29,6 @@ from .basic import IMLBatch
 from .basic import MLDatasetTag
 from .basic import IMLDataProcessor
 from .basic import IMLPreProcessedData
-from ...parameters import OPT
 
 
 TIME_SERIES_NAME = "_internal.ts"
@@ -52,6 +51,7 @@ class TimeSeriesConfig(DataClassBase):
     sanity_check: bool = False
     no_cache: bool = False
     verbose: bool = True
+    cache_folder: str = "cache"
 
     @property
     def span(self) -> int:
@@ -73,6 +73,7 @@ class TimeSeriesConfig(DataClassBase):
             "sanity_check",
             "no_cache",
             "verbose",
+            "cache_folder",
         ]
 
     @property
@@ -143,10 +144,6 @@ class ITimeSeriesProcessor(IMLDataProcessor):
     def tag(self) -> str:
         pass
 
-    @property
-    def cache_folder(self) -> str:
-        return os.path.join(OPT.data_cache_dir, "ts")
-
     def sanity_check(self, tag: MLDatasetTag, bundle: TimeSeriesDataBundle) -> None:
         pass
 
@@ -154,7 +151,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     @property
     def hashed_cache_folder(self) -> str:
-        return os.path.join(self.cache_folder, self.tag, self.config.hash)
+        return os.path.join(self.config.cache_folder, self.tag, self.config.hash)
 
     def get_cache_paths(self, tag: MLDatasetTag) -> TimeSeriesCachePaths:
         folder = os.path.join(self.hashed_cache_folder, tag)
