@@ -38,7 +38,7 @@ from ...constants import PREDICTIONS_KEY
 from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData
 from ...data.ml import IMLDataProcessor
-from ...data.ml import _InternalCarefreeMLDataProcessor
+from ...data.ml.basic import _InternalCarefreeMLDataProcessor
 from ...misc.internal_.inference import MLInference
 from ...models.ml.encoders import Encoder
 from ...models.ml.encoders import EncodingSettings

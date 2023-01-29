@@ -6,6 +6,7 @@ import numpy as np
 
 from abc import abstractmethod
 from abc import ABCMeta
+from enum import Enum
 from typing import Any
 from typing import Dict
 from typing import List
@@ -26,16 +27,16 @@ from cftool.array import is_string
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
-from .core import DLDataModule
-from ..types import data_type
-from ..types import sample_weights_type
-from ..schema import IDataset
-from ..schema import IDataLoader
-from ..constants import INPUT_KEY
-from ..constants import LABEL_KEY
-from ..constants import PREDICTIONS_KEY
-from ..constants import BATCH_INDICES_KEY
-from ..misc.toolkit import ConfigMeta
+from cflearn.data.core import DLDataModule
+from cflearn.types import data_type
+from cflearn.types import sample_weights_type
+from cflearn.schema import IDataset
+from cflearn.schema import IDataLoader
+from cflearn.constants import INPUT_KEY
+from cflearn.constants import LABEL_KEY
+from cflearn.constants import PREDICTIONS_KEY
+from cflearn.constants import BATCH_INDICES_KEY
+from cflearn.misc.toolkit import ConfigMeta
 
 try:
     from cfdata.tabular.api import TabularData
@@ -61,6 +62,11 @@ def get_weighted_indices(
 
 
 # schemas
+
+
+class MLDatasetTag(str, Enum):
+    TRAIN = "train"
+    VALID = "validation"
 
 
 class IMLPreProcessedData(NamedTuple):
@@ -108,7 +114,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
     @abstractmethod
     def build_with(
         self,
-        config: Dict[str, Any],
+        config: Any,
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
         x_valid: Optional[Union[np.ndarray, str]],
@@ -119,7 +125,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
     @abstractmethod
     def preprocess(
         self,
-        config: Dict[str, Any],
+        config: Any,
         x_train: Union[np.ndarray, str],
         y_train: Optional[Union[np.ndarray, str]],
         x_valid: Optional[Union[np.ndarray, str]],
@@ -139,7 +145,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
 
     # optional callbacks
 
-    def get_num_samples(self, x: np.ndarray) -> Optional[int]:
+    def get_num_samples(self, x: np.ndarray, tag: MLDatasetTag) -> Optional[int]:
         return None
 
     def fetch_batch(
@@ -147,6 +153,7 @@ class IMLDataProcessor(WithRegister["IMLDataProcessor"], metaclass=ABCMeta):
         x: np.ndarray,
         y: Optional[np.ndarray],
         indices: Union[int, List[int], np.ndarray],
+        tag: MLDatasetTag,
     ) -> IMLBatch:
         return IMLBatch(x[indices], None if y is None else y[indices])
 
@@ -269,16 +276,19 @@ class MLDataset(IMLDataset):
         x: np.ndarray,
         y: Optional[np.ndarray],
         processor: IMLDataProcessor,
+        tag: MLDatasetTag,
         **others: np.ndarray,
     ):
         super().__init__()
         self.x = x
         self.y = y
+        self.tag = tag
         self.processor = processor
         self.others = others
 
     def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
-        ml_batch = self.processor.fetch_batch(self.x, self.y, item)
+        kw = dict(x=self.x, y=self.y, indices=item, tag=self.tag)
+        ml_batch = safe_execute(self.processor.fetch_batch, kw)
         batch = {
             INPUT_KEY: ml_batch.input,
             LABEL_KEY: ml_batch.labels,
@@ -292,7 +302,7 @@ class MLDataset(IMLDataset):
         return batch
 
     def __len__(self) -> int:
-        return self.processor.get_num_samples(self.x) or len(self.x)
+        return self.processor.get_num_samples(self.x, self.tag) or len(self.x)
 
 
 @IDataLoader.register("ml")
@@ -402,11 +412,11 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
     # processor
 
     @property
-    def processor_build_config(self) -> Dict[str, Any]:
+    def processor_build_config(self) -> Any:
         return {}
 
     @property
-    def processor_preprocess_config(self) -> Dict[str, Any]:
+    def processor_preprocess_config(self) -> Any:
         return {}
 
     def build_processor(self) -> None:
@@ -482,15 +492,17 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             final.x_train,
             final.y_train,
             self.processor,
+            MLDatasetTag.TRAIN,
             **train_others,
         )
-        if final.x_valid is None or final.y_valid is None:
+        if final.x_valid is None and final.y_valid is None:
             self.valid_data = None
         else:
             self.valid_data = MLDataset(
                 final.x_valid,
                 final.y_valid,
                 self.processor,
+                MLDatasetTag.VALID,
                 **valid_others,
             )
 
@@ -922,6 +934,7 @@ __all__ = [
     "IMLLoader",
     "IMLData",
     "MLDataset",
+    "MLDatasetTag",
     "MLLoader",
     "MLData",
     "MLInferenceData",
