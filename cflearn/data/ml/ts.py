@@ -14,6 +14,7 @@ from typing import Callable
 from typing import Optional
 from typing import Protocol
 from typing import NamedTuple
+from collections import Counter
 from dataclasses import dataclass
 from cftool.misc import hash_code
 from cftool.misc import print_info
@@ -150,7 +151,47 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         """check whether `mat` is a valid data sample"""
 
     def sanity_check(self, tag: MLDatasetTag, bundle: TimeSeriesDataBundle) -> None:
-        pass
+        n = self.get_num_samples(bundle.data, tag)
+        min_max_anchor = None
+        max_max_anchor = None
+        id_counts: Counter = Counter()
+        for i in tqdm(range(n), desc="check_split", total=n):
+            d = self.fetch_batch(bundle.data, i, tag).input
+            ids = d[..., self.config.id_column].astype(int)
+            times = d[..., self.config.time_columns]
+            anchors = self.get_time_anchors(times)[: self.config.x_window]
+            max_anchor = anchors.max().item()
+            if tag == MLDatasetTag.TRAIN:
+                if self.config.num_test is not None:
+                    if id_counts[ids[0]] >= self.config.num_test:
+                        raise ValueError(f"test data exceeds num_test")
+                    id_counts[ids[0]] += 1
+                elif self.config.test_split is not None:
+                    if max_anchor < self.config.test_split:
+                        raise ValueError(f"test data exceeds test split : {anchors}")
+                elif (
+                    self.config.validation_split is not None
+                    and max_anchor >= self.config.validation_split
+                ):
+                    raise ValueError(f"train data exceeds validation split : {anchors}")
+            if tag == MLDatasetTag.VALID:
+                if (
+                    self.config.validation_split is not None
+                    and max_anchor < self.config.validation_split
+                ):
+                    raise ValueError(
+                        f"validation data exceeds validation split : {anchors}"
+                    )
+            if min_max_anchor is None:
+                min_max_anchor = max_anchor
+            else:
+                min_max_anchor = min(max_anchor, min_max_anchor)
+            if max_max_anchor is None:
+                max_max_anchor = max_anchor
+            else:
+                max_max_anchor = max(max_anchor, max_max_anchor)
+        print(f"> min max_anchor of {tag} : {min_max_anchor}")
+        print(f"> max max_anchor of {tag} : {max_max_anchor}")
 
     # utils
 
