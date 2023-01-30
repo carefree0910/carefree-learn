@@ -45,8 +45,11 @@ class TimeSeriesConfig(DataClassBase):
     y_window: int
     id_column: int
     time_columns: List[int]
+    # `validation_split` will be included in the validation dataset
     validation_split: Optional[int] = None
+    # `validation_end` will NOT be included in the validation dataset
     validation_end: Optional[int] = None
+    # `test_split` will be included in the test dataset
     test_split: Optional[int] = None
     num_test: Optional[int] = None
     enforce_num_test: bool = False
