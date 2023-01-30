@@ -199,10 +199,12 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         min_max_anchor = None
         max_max_anchor = None
         id_counts: Counter = Counter()
-        loader = bundle.to_loader(self.config, batch_size=128, tqdm_desc="check_split")
+        loader = bundle.to_loader(self.config, batch_size=512, tqdm_desc="check_split")
         for batch in loader:
             x = batch.input
             ids = x[..., self.config.id_column].astype(int)
+            if np.abs(ids[:, 1:] - ids[:, :-1]).sum().item() != 0:
+                raise ValueError(f"multiple ids occurred in one sample : {ids}")
             times = x[..., self.config.time_columns]
             anchors = self.get_time_anchors(times.reshape([-1, times.shape[-1]]))
             anchors = anchors.reshape(times.shape[:-1])
