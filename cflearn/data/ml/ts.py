@@ -117,6 +117,9 @@ class TimeSeriesDataBundle(NamedTuple):
     #   -> sample = data[indices]
     valid_indices: np.ndarray
 
+    def __len__(self) -> int:
+        return len(self.valid_indices)
+
 
 class ITimeSeriesProcessor(IMLDataProcessor):
     config: TimeSeriesConfig
@@ -443,13 +446,13 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     def get_num_samples(self, x: np.ndarray, tag: MLDatasetTag) -> int:
         if tag == MLDatasetTag.TRAIN:
-            return len(self._train_bundle.valid_indices)
+            return len(self._train_bundle)
         if self._validation_bundle is None:
             raise ValueError(
                 "`_validation_bundle` is not ready "
                 "but `get_num_samples` with `tag=valid` is called"
             )
-        return len(self._validation_bundle.valid_indices)
+        return len(self._validation_bundle)
 
     def fetch_batch(  # type: ignore
         self,
