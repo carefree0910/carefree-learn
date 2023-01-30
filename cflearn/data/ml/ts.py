@@ -106,6 +106,7 @@ class TimeSeriesCachePaths(DataClassBase):
 
 
 class TimeSeriesDataBundle(NamedTuple):
+    config: TimeSeriesConfig
     # all (flattened) data, should already be sorted by time
     # shape: [N, d]
     data: np.ndarray
@@ -127,28 +128,23 @@ class TimeSeriesDataBundle(NamedTuple):
     def __len__(self) -> int:
         return len(self.valid_indices)
 
-    def fetch_batch(
-        self,
-        config: TimeSeriesConfig,
-        indices: Union[int, List[int], np.ndarray],
-    ) -> IMLBatch:
+    def fetch_batch(self, indices: Union[int, List[int], np.ndarray]) -> IMLBatch:
         indices_mat = self.rolled_indices[self.valid_indices[indices]]
         if isinstance(indices, int) or np.isscalar(indices):
             data_batch = self.data[indices_mat]
-            x_batch = data_batch[: config.x_window]
+            x_batch = data_batch[: self.config.x_window]
         else:
-            shape = [len(indices), config.span, -1]
+            shape = [len(indices), self.config.span, -1]
             data_batch = self.data[indices_mat.ravel()].reshape(shape)
-            x_batch = data_batch[:, : config.x_window]
-        if config.for_inference:
+            x_batch = data_batch[:, : self.config.x_window]
+        if self.config.for_inference:
             y_batch = None
         else:
-            y_batch = data_batch[:, config.x_window + config.gap :]
+            y_batch = data_batch[:, self.config.x_window + self.config.gap :]
         return IMLBatch(x_batch, None if y_batch is None else y_batch)
 
     def to_loader(
         self,
-        config: TimeSeriesConfig,
         *,
         batch_size: Optional[int] = None,
         tqdm_desc: Optional[str] = None,
@@ -160,7 +156,7 @@ class TimeSeriesDataBundle(NamedTuple):
             it = iter(list(i) for i in grouped(it, batch_size, keep_tail=True))
         if tqdm_desc is not None:
             it = tqdm(it, desc=tqdm_desc, total=n)
-        return iter(self.fetch_batch(config, i) for i in it)
+        return iter(self.fetch_batch(i) for i in it)
 
 
 class ITimeSeriesProcessor(IMLDataProcessor):
@@ -199,7 +195,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         min_max_anchor = None
         max_max_anchor = None
         id_counts: Counter = Counter()
-        loader = bundle.to_loader(self.config, batch_size=512, tqdm_desc="check_split")
+        loader = bundle.to_loader(batch_size=512, tqdm_desc="check_split")
         for batch in loader:
             x = batch.input
             ids = x[..., self.config.id_column].astype(int)
@@ -276,7 +272,9 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         if self.config.verbose:
             print_info("loading valid indices")
         valid_indices = np.load(paths.valid_indices_path)
-        return TimeSeriesDataBundle(data, split_indices, rolled_indices, valid_indices)
+        # return
+        args = self.config.copy(), data, split_indices, rolled_indices, valid_indices
+        return TimeSeriesDataBundle(*args)
 
     def get_bundle(
         self,
@@ -338,7 +336,8 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             sampled = np.random.permutation(n)[: round(n * random_ratio)]
             valid_indices = valid_indices[sampled]
         # return
-        return TimeSeriesDataBundle(data, split_indices, rolled_indices, valid_indices)
+        args = self.config.copy(), data, split_indices, rolled_indices, valid_indices
+        return TimeSeriesDataBundle(*args)
 
     def get_split(
         self,
@@ -533,7 +532,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     "but `fetch_batch` with `tag=valid` is called"
                 )
             bundle = self._validation_bundle
-        return bundle.fetch_batch(self.config, indices)
+        return bundle.fetch_batch(indices)
 
     # api
 
