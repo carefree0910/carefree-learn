@@ -120,6 +120,25 @@ class TimeSeriesDataBundle(NamedTuple):
     def __len__(self) -> int:
         return len(self.valid_indices)
 
+    def fetch_batch(
+        self,
+        config: TimeSeriesConfig,
+        indices: Union[int, List[int], np.ndarray],
+    ) -> IMLBatch:
+        indices_mat = self.rolled_indices[self.valid_indices[indices]]
+        if isinstance(indices, int) or np.isscalar(indices):
+            data_batch = self.data[indices_mat]
+            x_batch = data_batch[: config.x_window]
+        else:
+            shape = [len(indices), config.span, -1]
+            data_batch = self.data[indices_mat.ravel()].reshape(shape)
+            x_batch = data_batch[:, : config.x_window]
+        if config.for_inference:
+            y_batch = None
+        else:
+            y_batch = data_batch[:, config.x_window + config.gap :]
+        return IMLBatch(x_batch, None if y_batch is None else y_batch)
+
 
 class ITimeSeriesProcessor(IMLDataProcessor):
     config: TimeSeriesConfig
@@ -469,19 +488,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     "but `fetch_batch` with `tag=valid` is called"
                 )
             bundle = self._validation_bundle
-        indices_mat = bundle.rolled_indices[bundle.valid_indices[indices]]
-        if isinstance(indices, int) or np.isscalar(indices):
-            data_batch = x[indices_mat]
-            x_batch = data_batch[: self.config.x_window]
-        else:
-            shape = [len(indices), self.config.span, -1]
-            data_batch = x[indices_mat.ravel()].reshape(shape)
-            x_batch = data_batch[:, : self.config.x_window]
-        if self.config.for_inference:
-            y_batch = None
-        else:
-            y_batch = data_batch[:, self.config.x_window + self.config.gap :]
-        return IMLBatch(x_batch, None if y_batch is None else y_batch)
+        return bundle.fetch_batch(self.config, indices)
 
     # api
 
