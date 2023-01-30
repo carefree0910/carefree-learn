@@ -1,5 +1,6 @@
 import os
 import json
+import math
 
 import numpy as np
 
@@ -17,6 +18,7 @@ from typing import Protocol
 from typing import NamedTuple
 from collections import Counter
 from dataclasses import dataclass
+from cftool.misc import grouped
 from cftool.misc import hash_code
 from cftool.misc import print_info
 from cftool.misc import print_warning
@@ -143,10 +145,15 @@ class TimeSeriesDataBundle(NamedTuple):
     def to_loader(
         self,
         config: TimeSeriesConfig,
+        *,
+        batch_size: Optional[int] = None,
         tqdm_desc: Optional[str] = None,
     ) -> Iterable[IMLBatch]:
         n = len(self)
-        it = range(n)
+        it: Iterable = range(n)
+        if batch_size is not None:
+            n = math.ceil(n / batch_size)
+            it = iter(list(i) for i in grouped(it, batch_size, keep_tail=True))
         if tqdm_desc is not None:
             it = tqdm(it, desc=tqdm_desc, total=n)
         return iter(self.fetch_batch(config, i) for i in it)
@@ -188,7 +195,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         min_max_anchor = None
         max_max_anchor = None
         id_counts: Counter = Counter()
-        for batch in bundle.to_loader(self.config, "check_split"):
+        for batch in bundle.to_loader(self.config, tqdm_desc="check_split"):
             x = batch.input
             ids = x[..., self.config.id_column].astype(int)
             times = x[..., self.config.time_columns]
