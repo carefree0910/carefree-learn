@@ -46,6 +46,7 @@ class TimeSeriesConfig(DataClassBase):
     id_column: int
     time_columns: List[int]
     validation_split: Optional[int] = None
+    validation_end: Optional[int] = None
     test_split: Optional[int] = None
     num_test: Optional[int] = None
     enforce_num_test: bool = False
@@ -222,6 +223,12 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     raise ValueError(
                         f"validation data exceeds validation split : {anchors}"
                     )
+                if self.config.validation_end is not None and np.any(
+                    max_anchors >= self.config.validation_end
+                ):
+                    raise ValueError(
+                        f"validation data exceeds validation end : {anchors}"
+                    )
             if min_max_anchor is None:
                 min_max_anchor = max_anchors.min().item()
             else:
@@ -330,12 +337,17 @@ class ITimeSeriesProcessor(IMLDataProcessor):
     def get_split(
         self,
         split: int,
+        end: Optional[int],
         sorted_indices: np.ndarray,
         sorted_anchors: np.ndarray,
     ) -> Tuple[np.ndarray, Optional[np.ndarray]]:
         # `split` belongs to `right_indices`
         unique_anchors = np.unique(sorted_anchors)
         right_mask = unique_anchors >= split
+        right_end_mask = None
+        if end is not None:
+            right_end_mask = unique_anchors < end
+            right_mask = right_mask & right_end_mask
         right_mask_cumsum = np.cumsum(right_mask)
         y_span = self.config.gap + self.config.y_window
         if right_mask_cumsum[-1].item() <= y_span:
@@ -343,6 +355,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                 print_warning(
                     "validation data is not enough when "
                     f"`validation_split` is set to `{split}`"
+                    f"& `validation_end` is set to `{end}`"
                 )
             return sorted_indices, None
         left_idx = right_mask_cumsum.tolist().index(y_span + 1) - 1
@@ -351,6 +364,11 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         right_idx = max(0, left_idx - self.config.span + 2)
         right_anchor = unique_anchors[right_idx]
         right_mask = sorted_anchors >= right_anchor
+        if right_end_mask is not None:
+            right_end_idx = np.argmin(right_end_mask) + y_span - 1
+            right_end_idx = min(len(unique_anchors) - 1, right_end_idx.item())
+            right_end_anchor = unique_anchors[right_end_idx]
+            right_mask = right_mask & (sorted_anchors <= right_end_anchor)
         left_indices = sorted_indices[left_mask]
         right_indices = sorted_indices[right_mask]
         return left_indices, right_indices
@@ -396,6 +414,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                 sorted_anchors = time_anchors[sorted_indices]
                 tr_indices, cv_indices = self.get_split(
                     config.validation_split,  # type: ignore
+                    config.validation_end,
                     sorted_indices,
                     sorted_anchors,
                 )
@@ -429,6 +448,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                             test_split = sorted_anchors[-config.num_test]  # type: ignore
                         _, indices = self.get_split(
                             test_split,
+                            None,
                             sorted_indices,
                             sorted_anchors,
                         )
@@ -581,6 +601,7 @@ def make_ts_test_data(
     config = config.copy()
     config.for_inference = True
     config.validation_split = None
+    config.validation_end = None
     config.test_split = test_split
     config.num_test = num_test
     config.enforce_num_test = enforce_num_test
