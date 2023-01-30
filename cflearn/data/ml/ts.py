@@ -156,10 +156,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         max_max_anchor = None
         id_counts: Counter = Counter()
         for i in tqdm(range(n), desc="check_split", total=n):
-            d = self.fetch_batch(bundle.data, i, tag).input
-            ids = d[..., self.config.id_column].astype(int)
-            times = d[..., self.config.time_columns]
-            anchors = self.get_time_anchors(times)[: self.config.x_window]
+            i_x = self.fetch_batch(bundle.data, i, tag).input
+            ids = i_x[..., self.config.id_column].astype(int)
+            times = i_x[..., self.config.time_columns]
+            anchors = self.get_time_anchors(times)
             max_anchor = anchors.max().item()
             if tag == MLDatasetTag.TRAIN:
                 if self.config.num_test is not None:
