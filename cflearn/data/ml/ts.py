@@ -583,6 +583,14 @@ class TimeSeriesData(IMLData):
         )
 
     @property
+    def train_bundle(self) -> TimeSeriesDataBundle:
+        return self.processor._train_bundle
+
+    @property
+    def validation_bundle(self) -> Optional[TimeSeriesDataBundle]:
+        return self.processor._validation_bundle
+
+    @property
     def processor_build_config(self) -> TimeSeriesConfig:
         return self.ts_config
 
