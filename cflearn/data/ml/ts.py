@@ -590,9 +590,9 @@ class TimeSeriesData(IMLData):
 
 
 def make_ts_test_data(
-    data: np.ndarray,
     config: TimeSeriesConfig,
     *,
+    data: Optional[np.ndarray] = None,
     test_split: Optional[int] = None,
     num_test: Optional[int] = None,
     enforce_num_test: bool = False,
@@ -650,8 +650,8 @@ def ts_rolling_inference(
         else:
             test_arr = np.vstack([data, results])
         test_data = make_ts_test_data(
-            test_arr,
             config.copy(),
+            data=test_arr,
             test_split=test_split,
             num_test=num_test,
             enforce_num_test=enforce_num_test,
