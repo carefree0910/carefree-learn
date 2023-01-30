@@ -11,6 +11,7 @@ from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Callable
+from typing import Iterable
 from typing import Optional
 from typing import Protocol
 from typing import NamedTuple
@@ -139,6 +140,17 @@ class TimeSeriesDataBundle(NamedTuple):
             y_batch = data_batch[:, config.x_window + config.gap :]
         return IMLBatch(x_batch, None if y_batch is None else y_batch)
 
+    def to_loader(
+        self,
+        config: TimeSeriesConfig,
+        tqdm_desc: Optional[str] = None,
+    ) -> Iterable[IMLBatch]:
+        n = len(self)
+        it = range(n)
+        if tqdm_desc is not None:
+            it = tqdm(it, desc=tqdm_desc, total=n)
+        return iter(self.fetch_batch(config, i) for i in it)
+
 
 class ITimeSeriesProcessor(IMLDataProcessor):
     config: TimeSeriesConfig
@@ -173,14 +185,13 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         """check whether `mat` is a valid data sample"""
 
     def sanity_check(self, tag: MLDatasetTag, bundle: TimeSeriesDataBundle) -> None:
-        n = self.get_num_samples(bundle.data, tag)
         min_max_anchor = None
         max_max_anchor = None
         id_counts: Counter = Counter()
-        for i in tqdm(range(n), desc="check_split", total=n):
-            i_x = self.fetch_batch(bundle.data, i, tag).input
-            ids = i_x[..., self.config.id_column].astype(int)
-            times = i_x[..., self.config.time_columns]
+        for batch in bundle.to_loader(self.config, "check_split"):
+            x = batch.input
+            ids = x[..., self.config.id_column].astype(int)
+            times = x[..., self.config.time_columns]
             anchors = self.get_time_anchors(times)
             max_anchor = anchors.max().item()
             if tag == MLDatasetTag.TRAIN:
@@ -473,9 +484,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             )
         return len(self._validation_bundle)
 
-    def fetch_batch(  # type: ignore
+    def fetch_batch(
         self,
         x: np.ndarray,
+        y: Optional[np.ndarray],
         indices: Union[int, List[int], np.ndarray],
         tag: MLDatasetTag,
     ) -> IMLBatch:
