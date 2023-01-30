@@ -469,10 +469,11 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         indices_mat = bundle.rolled_indices[bundle.valid_indices[indices]]
         if isinstance(indices, int) or np.isscalar(indices):
             data_batch = x[indices_mat]
+            x_batch = data_batch[: self.config.x_window]
         else:
             shape = [len(indices), self.config.span, -1]
             data_batch = x[indices_mat.ravel()].reshape(shape)
-        x_batch = data_batch[:, : self.config.x_window]
+            x_batch = data_batch[:, : self.config.x_window]
         if self.config.for_inference:
             y_batch = None
         else:
