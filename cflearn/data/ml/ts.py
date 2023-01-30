@@ -209,9 +209,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             max_anchors = anchors.max(axis=-1)
             if tag == MLDatasetTag.TRAIN:
                 if self.config.num_test is not None:
-                    if id_counts[ids[0]] >= self.config.num_test:
-                        raise ValueError(f"test data exceeds num_test")
-                    id_counts[ids[0]] += 1
+                    for id_ in ids[:, 0]:
+                        if id_counts[id_] >= self.config.num_test:
+                            raise ValueError("test data exceeds num_test")
+                        id_counts[id_] += 1
                 elif self.config.test_split is not None:
                     if np.any(max_anchors < self.config.test_split):
                         raise ValueError(f"test data exceeds test split : {anchors}")
