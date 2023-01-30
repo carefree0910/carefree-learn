@@ -195,41 +195,41 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         min_max_anchor = None
         max_max_anchor = None
         id_counts: Counter = Counter()
-        for batch in bundle.to_loader(self.config, tqdm_desc="check_split"):
+        loader = bundle.to_loader(self.config, batch_size=128, tqdm_desc="check_split")
+        for batch in loader:
             x = batch.input
             ids = x[..., self.config.id_column].astype(int)
             times = x[..., self.config.time_columns]
-            anchors = self.get_time_anchors(times)
-            max_anchor = anchors.max().item()
+            anchors = self.get_time_anchors(times.reshape([-1, times.shape[-1]]))
+            anchors = anchors.reshape(times.shape[:-1])
+            max_anchors = anchors.max(axis=-1)
             if tag == MLDatasetTag.TRAIN:
                 if self.config.num_test is not None:
                     if id_counts[ids[0]] >= self.config.num_test:
                         raise ValueError(f"test data exceeds num_test")
                     id_counts[ids[0]] += 1
                 elif self.config.test_split is not None:
-                    if max_anchor < self.config.test_split:
+                    if np.any(max_anchors < self.config.test_split):
                         raise ValueError(f"test data exceeds test split : {anchors}")
-                elif (
-                    self.config.validation_split is not None
-                    and max_anchor >= self.config.validation_split
+                elif self.config.validation_split is not None and np.any(
+                    max_anchors >= self.config.validation_split
                 ):
                     raise ValueError(f"train data exceeds validation split : {anchors}")
             if tag == MLDatasetTag.VALID:
-                if (
-                    self.config.validation_split is not None
-                    and max_anchor < self.config.validation_split
+                if self.config.validation_split is not None and np.any(
+                    max_anchors < self.config.validation_split
                 ):
                     raise ValueError(
                         f"validation data exceeds validation split : {anchors}"
                     )
             if min_max_anchor is None:
-                min_max_anchor = max_anchor
+                min_max_anchor = max_anchors.min().item()
             else:
-                min_max_anchor = min(max_anchor, min_max_anchor)
+                min_max_anchor = min(max_anchors.min().item(), min_max_anchor)
             if max_max_anchor is None:
-                max_max_anchor = max_anchor
+                max_max_anchor = max_anchors.max().item()
             else:
-                max_max_anchor = max(max_anchor, max_max_anchor)
+                max_max_anchor = max(max_anchors.max().item(), max_max_anchor)
         print(f"> min max_anchor of {tag} : {min_max_anchor}")
         print(f"> max max_anchor of {tag} : {max_max_anchor}")
 
