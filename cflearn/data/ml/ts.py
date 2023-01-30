@@ -614,6 +614,7 @@ def make_ts_test_data(
     config.sanity_check = sanity_check
     config.no_cache = no_cache
     config.y_window = 0
+    config.gap = 0
     test_data = TimeSeriesData(
         config,
         data=data,
