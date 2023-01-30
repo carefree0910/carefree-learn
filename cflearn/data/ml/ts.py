@@ -51,6 +51,8 @@ class TimeSeriesConfig(DataClassBase):
     validation_end: Optional[int] = None
     # `test_split` will be included in the test dataset
     test_split: Optional[int] = None
+    # `test_end` will NOT be included in the test dataset
+    test_end: Optional[int] = None
     num_test: Optional[int] = None
     enforce_num_test: bool = False
     enforce_test_valid: bool = False
@@ -214,6 +216,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                 elif self.config.test_split is not None:
                     if np.any(max_anchors < self.config.test_split):
                         raise ValueError(f"test data exceeds test split : {anchors}")
+                    if self.config.test_end is not None and np.any(
+                        max_anchors >= self.config.test_end
+                    ):
+                        raise ValueError(f"test data exceeds test end : {anchors}")
                 elif self.config.validation_split is not None and np.any(
                     max_anchors >= self.config.validation_split
                 ):
@@ -441,6 +447,9 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                 if not config.for_inference:
                     indices = sorted_indices
                 else:
+                    if config.num_test is not None and config.test_end is not None:
+                        msg = "should not set `test_end` when `num_test` is set"
+                        raise ValueError(msg)
                     if config.num_test is None and config.test_split is None:
                         indices = sorted_indices
                     elif config.num_test is not None and config.enforce_num_test:
@@ -453,7 +462,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                             test_split = sorted_anchors[-config.num_test]  # type: ignore
                         _, indices = self.get_split(
                             test_split,
-                            None,
+                            config.test_end,
                             sorted_indices,
                             sorted_anchors,
                         )
@@ -604,6 +613,7 @@ def make_ts_test_data(
     *,
     data: Optional[np.ndarray] = None,
     test_split: Optional[int] = None,
+    test_end: Optional[int] = None,
     num_test: Optional[int] = None,
     enforce_num_test: bool = False,
     sanity_check: bool = True,
@@ -616,6 +626,7 @@ def make_ts_test_data(
     config.validation_split = None
     config.validation_end = None
     config.test_split = test_split
+    config.test_end = test_end
     config.num_test = num_test
     config.enforce_num_test = enforce_num_test
     config.sanity_check = sanity_check
