@@ -655,7 +655,6 @@ def ts_rolling_inference(
     config: TimeSeriesConfig,
     steps: int,
     *,
-    test_split: Optional[int] = None,
     num_test: Optional[int] = None,
     enforce_num_test: bool = False,
     sanity_check: bool = True,
@@ -674,7 +673,6 @@ def ts_rolling_inference(
         test_data = make_ts_test_data(
             config.copy(),
             data=test_arr,
-            test_split=test_split,
             num_test=num_test,
             enforce_num_test=enforce_num_test,
             sanity_check=sanity_check,
