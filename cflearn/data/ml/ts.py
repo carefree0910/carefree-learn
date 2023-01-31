@@ -143,7 +143,11 @@ class TimeSeriesDataBundle(NamedTuple):
             y_batch = None
         else:
             y_batch = data_batch[:, self.config.x_window + self.config.gap :]
-        return IMLBatch(x_batch, None if y_batch is None else y_batch)
+        return IMLBatch(
+            x_batch,
+            None if y_batch is None else y_batch,
+            others=dict(full=data_batch),
+        )
 
     def to_loader(
         self,
@@ -194,19 +198,32 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         """check whether `mat` is a valid data sample"""
 
     def sanity_check(self, tag: MLDatasetTag, bundle: TimeSeriesDataBundle) -> None:
-        min_max_anchor = None
-        max_max_anchor = None
+        def check_ids(data: np.ndarray) -> np.ndarray:
+            ids = data[..., self.config.id_column].astype(int)
+            if np.abs(ids[:, 1:] - ids[:, :-1]).sum().item() != 0:
+                raise ValueError(f"multiple ids occurred in one sample : {ids}")
+            return ids
+
+        def get_time_anchors(data: np.ndarray) -> np.ndarray:
+            times = data[..., self.config.time_columns]
+            time_anchors = self.get_time_anchors(times.reshape([-1, times.shape[-1]]))
+            time_anchors = time_anchors.reshape(times.shape[:-1])
+            return time_anchors
+
+        min_max_x_anchor = None
+        min_max_y_anchor = None
+        max_max_x_anchor = None
+        max_max_y_anchor = None
         id_counts: Counter = Counter()
         loader = bundle.to_loader(batch_size=512, tqdm_desc="check_split")
         for batch in loader:
-            x = batch.input
-            ids = x[..., self.config.id_column].astype(int)
-            if np.abs(ids[:, 1:] - ids[:, :-1]).sum().item() != 0:
-                raise ValueError(f"multiple ids occurred in one sample : {ids}")
-            times = x[..., self.config.time_columns]
-            anchors = self.get_time_anchors(times.reshape([-1, times.shape[-1]]))
-            anchors = anchors.reshape(times.shape[:-1])
-            max_anchors = anchors.max(axis=-1)
+            x, y = batch.input, batch.labels
+            full = x if y is None or batch.others is None else batch.others["full"]
+            ids = check_ids(full)
+            x_anchors = get_time_anchors(x)
+            y_anchors = None if y is None else get_time_anchors(y)
+            max_x_anchors = x_anchors.max(axis=-1)
+            max_y_anchors = None if y_anchors is None else y_anchors.max(axis=-1)
             if tag == MLDatasetTag.TRAIN:
                 if self.config.num_test is not None:
                     for id_ in ids[:, 0]:
@@ -214,39 +231,54 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                             raise ValueError("test data exceeds num_test")
                         id_counts[id_] += 1
                 elif self.config.test_split is not None:
-                    if np.any(max_anchors < self.config.test_split):
-                        raise ValueError(f"test data exceeds test split : {anchors}")
+                    if np.any(max_x_anchors < self.config.test_split):
+                        raise ValueError(f"test data exceeds test split : {x_anchors}")
                     if self.config.test_end is not None and np.any(
-                        max_anchors >= self.config.test_end
+                        max_x_anchors >= self.config.test_end
                     ):
-                        raise ValueError(f"test data exceeds test end : {anchors}")
-                elif self.config.validation_split is not None and np.any(
-                    max_anchors >= self.config.validation_split
-                ):
-                    raise ValueError(f"train data exceeds validation split : {anchors}")
-            if tag == MLDatasetTag.VALID:
+                        raise ValueError(f"test data exceeds test end : {x_anchors}")
+                elif self.config.validation_split is not None:
+                    anchors = x_anchors if y_anchors is None else y_anchors
+                    max_as = max_x_anchors if max_y_anchors is None else max_y_anchors
+                    if np.any(max_as >= self.config.validation_split):
+                        msg = f"train data exceeds validation split : {anchors}"
+                        raise ValueError(msg)
+            elif tag == MLDatasetTag.VALID:
                 if self.config.validation_split is not None and np.any(
-                    max_anchors < self.config.validation_split
+                    max_x_anchors < self.config.validation_split
                 ):
                     raise ValueError(
-                        f"validation data exceeds validation split : {anchors}"
+                        f"validation data exceeds validation split : {x_anchors}"
                     )
-                if self.config.validation_end is not None and np.any(
-                    max_anchors >= self.config.validation_end
-                ):
-                    raise ValueError(
-                        f"validation data exceeds validation end : {anchors}"
-                    )
-            if min_max_anchor is None:
-                min_max_anchor = max_anchors.min().item()
+                if self.config.validation_end is not None:
+                    anchors = x_anchors if y_anchors is None else y_anchors
+                    max_as = max_x_anchors if max_y_anchors is None else max_y_anchors
+                    if np.any(max_as >= self.config.validation_end):
+                        msg = f"validation data exceeds validation end : {anchors}"
+                        raise ValueError(msg)
+            # update statics
+            if min_max_x_anchor is None:
+                min_max_x_anchor = max_x_anchors.min().item()
             else:
-                min_max_anchor = min(max_anchors.min().item(), min_max_anchor)
-            if max_max_anchor is None:
-                max_max_anchor = max_anchors.max().item()
+                min_max_x_anchor = min(max_x_anchors.min().item(), min_max_x_anchor)
+            if max_max_x_anchor is None:
+                max_max_x_anchor = max_x_anchors.max().item()
             else:
-                max_max_anchor = max(max_anchors.max().item(), max_max_anchor)
-        print(f"> min max_anchor of {tag} : {min_max_anchor}")
-        print(f"> max max_anchor of {tag} : {max_max_anchor}")
+                max_max_x_anchor = max(max_x_anchors.max().item(), max_max_x_anchor)
+            if max_y_anchors is not None:
+                if min_max_y_anchor is None:
+                    min_max_y_anchor = max_y_anchors.min().item()
+                else:
+                    min_max_y_anchor = min(max_y_anchors.min().item(), min_max_y_anchor)
+            if max_y_anchors is not None:
+                if max_max_y_anchor is None:
+                    max_max_y_anchor = max_y_anchors.max().item()
+                else:
+                    max_max_y_anchor = max(max_y_anchors.max().item(), max_max_y_anchor)
+        print(f"> min max_x_anchor of {tag} : {min_max_x_anchor}")
+        print(f"> min max_y_anchor of {tag} : {min_max_y_anchor}")
+        print(f"> max max_x_anchor of {tag} : {max_max_x_anchor}")
+        print(f"> max max_y_anchor of {tag} : {max_max_y_anchor}")
 
     # utils
 
@@ -361,9 +393,8 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         if end is not None:
             right_end_mask = unique_anchors < end
             right_mask = right_mask & right_end_mask
-        right_mask_cumsum = np.cumsum(right_mask)
         y_span = self.config.gap + self.config.y_window
-        if right_mask_cumsum[-1].item() <= y_span:
+        if right_mask.sum().item() <= y_span:
             if self.config.verbose:
                 print_warning(
                     "validation data is not enough when "
@@ -371,14 +402,14 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     f"& `validation_end` is set to `{end}`"
                 )
             return sorted_indices, None
-        left_idx = right_mask_cumsum.tolist().index(y_span + 1) - 1
+        left_idx = np.argmax(right_mask).item() - 1
         left_anchor = unique_anchors[left_idx]
         left_mask = sorted_anchors <= left_anchor
-        right_idx = max(0, left_idx - self.config.span + 2)
+        right_idx = max(0, left_idx - self.config.x_window + 2)
         right_anchor = unique_anchors[right_idx]
         right_mask = sorted_anchors >= right_anchor
         if right_end_mask is not None:
-            right_end_idx = np.argmin(right_end_mask) + y_span - 1
+            right_end_idx = np.argmin(right_end_mask) - 1
             right_end_idx = min(len(unique_anchors) - 1, right_end_idx.item())
             right_end_anchor = unique_anchors[right_end_idx]
             right_mask = right_mask & (sorted_anchors <= right_end_anchor)
