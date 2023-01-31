@@ -256,12 +256,14 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     def get_cache_paths(self, tag: MLDatasetTag) -> TimeSeriesCachePaths:
         folder = os.path.join(self.hashed_cache_folder, tag)
-        return TimeSeriesCachePaths(
+        paths = dict(
             data_path=os.path.join(folder, "data.npy"),
             merged_indices_path=os.path.join(folder, "merged_indices.npy"),
             split_indices_path=os.path.join(folder, "split_indices.json"),
             valid_indices_path=os.path.join(folder, "valid_indices.npy"),
         )
+        paths = {k: os.path.abspath(v) for k, v in paths.items()}
+        return TimeSeriesCachePaths(**paths)
 
     def load_cache_paths(self, paths: TimeSeriesCachePaths) -> TimeSeriesDataBundle:
         if self.config.verbose:
