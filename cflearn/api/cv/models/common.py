@@ -150,7 +150,9 @@ def read_image(
     if normalize:
         image = image.astype(np.float32) / 255.0
     if alpha is not None:
-        alpha = (np.array(alpha).astype(np.float32) / 255.0)[None, None]
+        alpha = np.array(alpha)[None, None]
+        if normalize:
+            alpha = alpha.astype(np.float32) / 255.0
     if to_torch_fmt:
         if to_mask or to_gray:
             image = image[None, None]
