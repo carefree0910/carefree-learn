@@ -205,6 +205,11 @@
       "sha": "9e1aafea58f0b55d0c35077e0ceade6ba1ba2bce372fd4f8f77215391f3fac13",
       "st_size": 176579397,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/isnet.pt"
+    },
+    "hrnet": {
+      "sha": "46818e68e121178dc91d178ff4f56c98b8a490592914db4091dcdb3d6d58c695",
+      "st_size": 154677682,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/hrnet32_idih256.pt"
     }
   },
   "reference": {
