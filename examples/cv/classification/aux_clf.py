@@ -20,6 +20,7 @@ data_folder = "static/data"
 pretrained_folder = "static/pretrained"
 os.makedirs(pretrained_folder, exist_ok=True)
 
+
 # data
 class AuxPreparation(cflearn.DefaultPreparation):
     @property

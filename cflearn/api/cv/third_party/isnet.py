@@ -164,7 +164,6 @@ class RSU6(nn.Module):
         self.rebnconv1d = REBNCONV(mid_channels * 2, out_channels, dilation_rate=1)
 
     def forward(self, net: Tensor) -> Tensor:
-
         hx = net
 
         hxin = self.rebnconvin(hx)
@@ -232,7 +231,6 @@ class RSU5(nn.Module):
         self.rebnconv1d = REBNCONV(mid_channels * 2, out_channels, dilation_rate=1)
 
     def forward(self, net: Tensor) -> Tensor:
-
         hx = net
 
         hxin = self.rebnconvin(hx)
@@ -290,7 +288,6 @@ class RSU4(nn.Module):
         self.rebnconv1d = REBNCONV(mid_channels * 2, out_channels, dilation_rate=1)
 
     def forward(self, net: Tensor) -> Tensor:
-
         hx = net
 
         hxin = self.rebnconvin(hx)
@@ -338,7 +335,6 @@ class RSU4F(nn.Module):
         self.rebnconv1d = REBNCONV(mid_channels * 2, out_channels, dilation_rate=1)
 
     def forward(self, net: Tensor) -> Tensor:
-
         hx = net
 
         hxin = self.rebnconvin(hx)
@@ -397,7 +393,6 @@ class ISNetDIS(nn.Module):
         # self.outconv = nn.Conv2d(6*out_ch,out_ch,1)
 
     def forward(self, net: Tensor) -> Tensor:
-
         hx = net
 
         hxin = self.conv_in(hx)
