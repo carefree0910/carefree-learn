@@ -188,7 +188,7 @@ class DataSplitter:
             tuple(map(np.random.shuffle, label_split_indices))
         elif self._order == DataOrder.BOTTOM_UP:
             label_split_indices = [indices[::-1] for indices in label_split_indices]
-            label_split_indices = map(np.ascontiguousarray, label_split_indices)
+            label_split_indices = list(map(np.ascontiguousarray, label_split_indices))
         rounded = np.round(n * label_ratios).astype(int)
         num_samples_per_label = np.maximum(1, rounded)
         # -num_unique_labels <= num_samples_exceeded <= num_unique_labels
