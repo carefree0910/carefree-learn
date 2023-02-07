@@ -63,7 +63,7 @@ class Pix2Pix(OneStageGANMixin, CustomModule):  # type: ignore
 
     @property
     def g_parameters(self) -> List[nn.Parameter]:
-        return list(self.generator.parameters())
+        return list(self.generator.parameters())  # type: ignore
 
     @property
     def d_parameters(self) -> List[nn.Parameter]:

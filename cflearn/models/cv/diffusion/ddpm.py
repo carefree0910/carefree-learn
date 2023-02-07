@@ -306,7 +306,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     @property
     def learnable(self) -> List[nn.Parameter]:
-        params = list(self.unet.parameters())
+        params = list(self.unet.parameters())  # type: ignore
         if self.learn_log_var:
             params.append(self.log_var)
         return params
