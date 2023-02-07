@@ -163,7 +163,9 @@ class MLModifier(IModifier, IMLPipeline):
             self._defaults["output_dim"] = self.output_dim
         self.use_auto_loss = self.loss_name == "auto"
         if self.use_auto_loss:
-            if is_reg:
+            if self.core_name == "ddr":
+                self.loss_name = "ddr"
+            elif is_reg:
                 self.loss_name = "mae"
             else:
                 self.loss_name = "bce" if self.output_dim == 1 else "focal"
@@ -238,6 +240,7 @@ class MLModifier(IModifier, IMLPipeline):
         if (
             self.trainer_config.metric_names is None
             and self.use_auto_loss
+            and self.core_name != "ddr"
             and not self.trainer_config.use_losses_as_metrics
         ):
             if self.is_classification:
