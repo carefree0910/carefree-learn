@@ -7,6 +7,8 @@ import numpy as np
 
 from typing import Set
 from cflearn.data import DLDataModule
+from cflearn.data.ml.utils import DataOrder
+from cflearn.data.ml.utils import DataSplitter
 
 try:
     from cfdata.tabular import TabularData
@@ -84,6 +86,51 @@ class TestDataModules(unittest.TestCase):
             batch_size=4,
         )
         self._test_data("ml_cf", data, {"input", "labels"})
+
+    def test_ml_data_splitter(self) -> None:
+        x = np.arange(12).reshape([6, 2])
+        y = np.zeros(6, int)
+        y[[-1, -2]] = 1
+        splitter = DataSplitter()
+
+        result = splitter.split(x, y, 3)
+        self.assertListEqual(result.y.ravel().tolist(), [0, 0, 1])
+        result = splitter.split(x, y, 0.5)
+        self.assertListEqual(result.y.ravel().tolist(), [0, 0, 1])
+        splitter.order = DataOrder.TOP_DOWN
+        result = splitter.split(x, y, 3)
+        self.assertListEqual(result.x.tolist(), [[0, 1], [2, 3], [8, 9]])
+        self.assertListEqual(result.x_remained.tolist(), [[4, 5], [6, 7], [10, 11]])
+        result = splitter.split(x, y, 0.5)
+        self.assertListEqual(result.x.tolist(), [[0, 1], [2, 3], [8, 9]])
+        self.assertListEqual(result.x_remained.tolist(), [[4, 5], [6, 7], [10, 11]])
+        splitter.order = DataOrder.BOTTOM_UP
+        result = splitter.split(x, y, 3)
+        self.assertListEqual(result.x.tolist(), [[6, 7], [4, 5], [10, 11]])
+        self.assertListEqual(result.x_remained.tolist(), [[2, 3], [0, 1], [8, 9]])
+        result = splitter.split(x, y, 0.5)
+        self.assertListEqual(result.x.tolist(), [[6, 7], [4, 5], [10, 11]])
+        self.assertListEqual(result.x_remained.tolist(), [[2, 3], [0, 1], [8, 9]])
+
+        y[-2] = 0
+        splitter.shuffle = True
+        result = splitter.split(x, y, 2)
+        self.assertListEqual(result.y.ravel().tolist(), [0, 1])
+        self.assertListEqual(result.y_remained.ravel().tolist(), [0, 0, 0, 0, 1])
+        splitter.order = DataOrder.BOTTOM_UP
+        result = splitter.split(x, y, 2)
+        self.assertListEqual(result.x.tolist(), [[8, 9], [10, 11]])
+        self.assertListEqual(
+            result.x_remained.tolist(),
+            [[6, 7], [4, 5], [2, 3], [0, 1], [10, 11]],
+        )
+        splitter.order = DataOrder.TOP_DOWN
+        result = splitter.split(x, y, 2)
+        self.assertListEqual(result.x.tolist(), [[0, 1], [10, 11]])
+        self.assertListEqual(
+            result.x_remained.tolist(),
+            [[2, 3], [4, 5], [6, 7], [8, 9], [10, 11]],
+        )
 
 
 if __name__ == "__main__":
