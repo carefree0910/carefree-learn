@@ -208,9 +208,9 @@ class AdaptiveAvgPool2d(Module):
 
     def forward(self, net: Tensor) -> Tensor:
         h, w = map(int, net.shape[2:])
-        sh, sw = map(math.floor, [h / self.h, w / self.w])
-        kh = h - (self.h - 1) * sh
-        kw = w - (self.w - 1) * sw
+        sh, sw = map(math.floor, [h / self.h, w / self.w])  # type: ignore
+        kh = h - (self.h - 1) * sh  # type: ignore
+        kw = w - (self.w - 1) * sw  # type: ignore
         return F.avg_pool2d(net, kernel_size=(kh, kw), stride=(sh, sw))
 
 
