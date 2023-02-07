@@ -30,8 +30,6 @@ m = cflearn.api.fit_ml(
     is_classification=False,
     config=cflearn.MLConfig(
         core_name="ddr",
-        output_dim=1,
-        loss_name="ddr",
     ),
     debug=check_is_ci(),
 )
