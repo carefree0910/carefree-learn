@@ -29,7 +29,7 @@ class Predictor:
         if hasattr(net, "depth"):
             size_divisor = 2 ** (net.depth + 1)
         elif isinstance(net, HRNetIHModel):
-            size_divisor = 64
+            size_divisor = 128
         else:
             size_divisor = 1
 
