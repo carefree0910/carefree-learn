@@ -32,6 +32,8 @@ from ....misc.toolkit import gradient_checkpoint
 class MixingBlock(Module):
     def __init__(
         self,
+        layer_idx: int,
+        num_layers: int,
         num_tokens: int,
         in_dim: int,
         latent_dim: int,
@@ -65,6 +67,8 @@ class MixingBlock(Module):
             token_mixing_config = {}
         token_mixing_config.update(
             {
+                "layer_idx": layer_idx,
+                "num_layers": num_layers,
                 "num_tokens": num_tokens,
                 "in_dim": in_dim,
                 "latent_dim": latent_dim,
@@ -82,6 +86,8 @@ class MixingBlock(Module):
             channel_mixing_config = {}
         channel_mixing_config.update(
             {
+                "layer_idx": layer_idx,
+                "num_layers": num_layers,
                 "in_dim": in_dim,
                 "latent_dim": latent_dim,
                 "dropout": dropout,
@@ -319,6 +325,8 @@ class MixedStackedEncoder(Module):
         self.mixing_blocks = ModuleList(
             [
                 MixingBlock(
+                    i,
+                    num_layers,
                     num_tokens,
                     in_dim,
                     latent_dim,
@@ -333,7 +341,7 @@ class MixedStackedEncoder(Module):
                     norm_kwargs=norm_kwargs,
                     residual_after_norm=residual_after_norm,
                 )
-                for drop_path in dpr_list
+                for i, drop_path in enumerate(dpr_list)
             ]
         )
         # head
