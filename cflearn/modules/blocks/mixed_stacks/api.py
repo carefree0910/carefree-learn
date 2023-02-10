@@ -267,6 +267,7 @@ class MixedStackedEncoder(Module):
         embedding_norm: Optional[nn.Module] = None,
         embedding_dropout: Optional[float] = None,
         residual_after_norm: bool = False,
+        latent_dim: Optional[int] = None,
         latent_dim_ratio: float = 1.0,
         use_head_token: bool = False,
         head_pooler: Optional[str] = "mean",
@@ -314,7 +315,8 @@ class MixedStackedEncoder(Module):
         # core
         if dpr_list is None:
             dpr_list = [x.item() for x in torch.linspace(0, drop_path_rate, num_layers)]
-        latent_dim = int(round(in_dim * latent_dim_ratio))
+        if latent_dim is None:
+            latent_dim = int(round(in_dim * latent_dim_ratio))
         self.mixing_blocks = ModuleList(
             [
                 MixingBlock(
