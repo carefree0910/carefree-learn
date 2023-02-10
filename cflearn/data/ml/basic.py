@@ -460,6 +460,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
         return {
             "type": self.__identifier__,
             "processor": self.processor,
+            "config": self.config,
             "input_dim": self.input_dim,
             "num_history": self.num_history,
             "num_classes": self.num_classes,
