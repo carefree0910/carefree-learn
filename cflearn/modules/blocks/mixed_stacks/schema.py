@@ -15,10 +15,10 @@ channel_mixers: Dict[str, Type["ChannelMixerBase"]] = {}
 class TokenMixerBase(Module, WithRegister["TokenMixerBase"]):
     d = token_mixers
 
-    def __init__(self, num_tokens: int, latent_dim: int):
+    def __init__(self, in_dim: int, num_tokens: int):
         super().__init__()
+        self.in_dim = in_dim
         self.num_tokens = num_tokens
-        self.latent_dim = latent_dim
 
     @abstractmethod
     def forward(

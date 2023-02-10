@@ -15,8 +15,8 @@ from ..attentions import Attention
 
 @TokenMixerBase.register("mlp")
 class MLPTokenMixer(TokenMixerBase):
-    def __init__(self, num_tokens: int, latent_dim: int, *, dropout: float = 0.1):
-        super().__init__(num_tokens, latent_dim)
+    def __init__(self, in_dim: int, num_tokens: int, *, dropout: float = 0.1):
+        super().__init__(in_dim, num_tokens)
         self.net = nn.Sequential(
             Lambda(lambda x: x.transpose(1, 2), name="to_token_mixing"),
             FeedForward(num_tokens, num_tokens, dropout),
@@ -35,8 +35,8 @@ class MLPTokenMixer(TokenMixerBase):
 
 @TokenMixerBase.register("fourier")
 class FourierTokenMixer(TokenMixerBase):
-    def __init__(self, num_tokens: int, latent_dim: int):
-        super().__init__(num_tokens, latent_dim)
+    def __init__(self, in_dim: int, num_tokens: int):
+        super().__init__(in_dim, num_tokens)
         self.net = Lambda(lambda x: fft(fft(x, dim=-1), dim=-2).real, name="fourier")
 
     def forward(
@@ -53,16 +53,16 @@ class FourierTokenMixer(TokenMixerBase):
 class AttentionTokenMixer(TokenMixerBase):
     def __init__(
         self,
+        in_dim: int,
         num_tokens: int,
-        latent_dim: int,
         *,
         attention_type: str = "basic",
         **attention_kwargs: Any,
     ):
-        super().__init__(num_tokens, latent_dim)
+        super().__init__(in_dim, num_tokens)
         attention_kwargs.setdefault("bias", False)
         attention_kwargs.setdefault("num_heads", 8)
-        attention_kwargs["input_dim"] = latent_dim
+        attention_kwargs["input_dim"] = in_dim
         attention_kwargs.setdefault("is_self_attention", True)
         self.net = safe_execute(Attention.get(attention_type), attention_kwargs)
 
@@ -80,8 +80,8 @@ class AttentionTokenMixer(TokenMixerBase):
 
 @TokenMixerBase.register("pool")
 class PoolTokenMixer(TokenMixerBase):
-    def __init__(self, num_tokens: int, latent_dim: int, *, pool_size: int = 3):
-        super().__init__(num_tokens, latent_dim)
+    def __init__(self, in_dim: int, num_tokens: int, *, pool_size: int = 3):
+        super().__init__(in_dim, num_tokens)
         self.pool = nn.AvgPool2d(
             pool_size,
             stride=1,

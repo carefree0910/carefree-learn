@@ -326,7 +326,7 @@ class MixedStackedModel(nn.Module):
             num_layers=num_layers,
             dropout=dropout,
             norm_type=norm_type,
-            feedforward_dim_ratio=feedforward_dim_ratio,
+            latent_dim_ratio=feedforward_dim_ratio,
             use_head_token=use_head_token,
             head_pooler=head_pooler,
             use_positional_encoding=use_positional_encoding,

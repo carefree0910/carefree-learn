@@ -33,8 +33,8 @@ class MixingBlock(Module):
     def __init__(
         self,
         num_tokens: int,
+        in_dim: int,
         latent_dim: int,
-        feedforward_dim: int,
         *,
         norm_position: str = "pre_norm",
         token_mixing_type: str,
@@ -50,7 +50,7 @@ class MixingBlock(Module):
     ):
         def _make_norm() -> nn.Module:
             factory = NormFactory(norm_type)
-            return factory.make(latent_dim, **(norm_kwargs or {}))
+            return factory.make(in_dim, **(norm_kwargs or {}))
 
         super().__init__()
         if norm_position not in {"pre_norm", "post_norm"}:
@@ -66,6 +66,7 @@ class MixingBlock(Module):
         token_mixing_config.update(
             {
                 "num_tokens": num_tokens,
+                "in_dim": in_dim,
                 "latent_dim": latent_dim,
                 "dropout": dropout,
             }
@@ -81,8 +82,8 @@ class MixingBlock(Module):
             channel_mixing_config = {}
         channel_mixing_config.update(
             {
-                "in_dim": latent_dim,
-                "latent_dim": feedforward_dim,
+                "in_dim": in_dim,
+                "latent_dim": latent_dim,
                 "dropout": dropout,
             }
         )
@@ -249,7 +250,7 @@ class PositionalEncoding(Module):
 class MixedStackedEncoder(Module):
     def __init__(
         self,
-        dim: int,
+        in_dim: int,
         num_tokens: int,
         *,
         token_mixing_type: str,
@@ -266,7 +267,7 @@ class MixedStackedEncoder(Module):
         embedding_norm: Optional[nn.Module] = None,
         embedding_dropout: Optional[float] = None,
         residual_after_norm: bool = False,
-        feedforward_dim_ratio: float = 1.0,
+        latent_dim_ratio: float = 1.0,
         use_head_token: bool = False,
         head_pooler: Optional[str] = "mean",
         use_positional_encoding: bool = False,
@@ -286,7 +287,7 @@ class MixedStackedEncoder(Module):
             num_head_tokens = 1
             if aux_heads is not None:
                 num_head_tokens += len(aux_heads)
-            self.head_token = nn.Parameter(torch.zeros(1, num_head_tokens, dim))
+            self.head_token = nn.Parameter(torch.zeros(1, num_head_tokens, in_dim))
         self.num_heads = num_head_tokens
         # positional encoding
         num_tokens += num_head_tokens
@@ -298,7 +299,7 @@ class MixedStackedEncoder(Module):
                 )
             is_vision_positional_encoding = False
         self.pos_encoding = PositionalEncoding(
-            dim,
+            in_dim,
             num_tokens,
             positional_encoding_dropout,
             num_head_tokens=num_head_tokens,
@@ -313,13 +314,13 @@ class MixedStackedEncoder(Module):
         # core
         if dpr_list is None:
             dpr_list = [x.item() for x in torch.linspace(0, drop_path_rate, num_layers)]
-        feedforward_dim = int(round(dim * feedforward_dim_ratio))
+        latent_dim = int(round(in_dim * latent_dim_ratio))
         self.mixing_blocks = ModuleList(
             [
                 MixingBlock(
                     num_tokens,
-                    dim,
-                    feedforward_dim,
+                    in_dim,
+                    latent_dim,
                     norm_position=norm_position,
                     token_mixing_type=token_mixing_type,
                     token_mixing_config=token_mixing_config,
@@ -344,7 +345,7 @@ class MixedStackedEncoder(Module):
             if head_pooler is None:
                 head = nn.Identity()
             elif head_pooler == "sequence":
-                head = SequencePooler(dim, aux_heads)
+                head = SequencePooler(in_dim, aux_heads)
             else:
                 if aux_heads is not None:
                     raise ValueError(
@@ -352,7 +353,7 @@ class MixedStackedEncoder(Module):
                         f"when `aux_heads` ({aux_heads}) is provided"
                     )
                 if head_pooler == "bert":
-                    head = BertPooler(dim)
+                    head = BertPooler(in_dim)
                 elif head_pooler == "mean":
                     head = Lambda(lambda x: x.mean(1), name="global_average")
                 else:
@@ -365,12 +366,12 @@ class MixedStackedEncoder(Module):
             self.head_norm = None
             self.head = head
         elif norm_after_head:
-            self.head_norm = NormFactory(norm_type).make(dim, **(norm_kwargs or {}))
+            self.head_norm = NormFactory(norm_type).make(in_dim, **(norm_kwargs or {}))
             self.head = head
         else:
             self.head_norm = None
             self.head = PreNorm(
-                dim,
+                in_dim,
                 module=head,
                 norm_type=norm_type,
                 norm_kwargs=norm_kwargs,

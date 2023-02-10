@@ -68,7 +68,7 @@ class TeTEncoder(IDLModel):
             embedding_norm=embedding_norm,
             embedding_dropout=embedding_dropout,
             residual_after_norm=residual_after_norm,
-            feedforward_dim_ratio=feedforward_dim_ratio,
+            latent_dim_ratio=feedforward_dim_ratio,
             use_head_token=False,
             head_pooler=head_pooler,
             use_positional_encoding=use_positional_encoding,

@@ -77,7 +77,7 @@ class MixViT(nn.Module):
                     dropout=dropout,
                     dpr_list=dpr[cursor : cursor + num_layers],
                     norm_type=norm_type,
-                    feedforward_dim_ratio=ff_ratio,
+                    latent_dim_ratio=ff_ratio,
                     use_head_token=False,
                     head_pooler=None,
                     use_positional_encoding=False,
