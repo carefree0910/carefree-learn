@@ -1,5 +1,6 @@
-import torch.nn as nn
+import torch
 
+from torch import nn
 from torch import Tensor
 
 from .schema import ChannelMixerBase
@@ -64,7 +65,55 @@ class MixFeedForward(ChannelMixerBase):
         return self.net(net)
 
 
+@ChannelMixerBase.register("rwkv")
+class RWKVChannelMixer(ChannelMixerBase):
+    def __init__(
+        self,
+        layer_idx: int,
+        num_layers: int,
+        in_dim: int,
+        latent_dim: int,
+        dropout: float,
+    ):
+        super().__init__(in_dim, latent_dim, dropout)
+        self.time_shift = nn.ZeroPad2d((0, 0, 1, -1))
+
+        self.key = nn.Linear(in_dim, latent_dim, bias=False)
+        self.value = nn.Linear(latent_dim, in_dim, bias=False)
+        self.receptance = nn.Linear(in_dim, in_dim, bias=False)
+
+        with torch.no_grad():
+            for k, v in self.state_dict().items():
+                for zero_k in ["value", "receptance"]:
+                    if zero_k in k:
+                        nn.init.zeros_(v)
+                        break
+                else:
+                    nn.init.orthogonal_(v)
+
+            _1_to_almost0 = 1.0 - (layer_idx / num_layers)
+            x = torch.ones(1, 1, in_dim)
+            for i in range(in_dim):
+                x[0, 0, i] = i / in_dim
+            self.time_mix_k = nn.Parameter(torch.pow(x, _1_to_almost0))
+            self.time_mix_r = nn.Parameter(torch.pow(x, _1_to_almost0))
+
+    @property
+    def need_2d(self) -> bool:
+        return False
+
+    def forward(self, net: Tensor) -> Tensor:
+        shifted = self.time_shift(net)
+        net_k = net * self.time_mix_k + shifted * (1.0 - self.time_mix_k)
+        net_r = net * self.time_mix_r + shifted * (1.0 - self.time_mix_r)
+        net_k = self.key(net_k)
+        net_k = torch.square(torch.relu(net_k))
+        net_kv = self.value(net_k)
+        return torch.sigmoid(self.receptance(net_r)) * net_kv
+
+
 __all__ = [
     "FeedForward",
     "MixFeedForward",
+    "RWKVChannelMixer",
 ]
