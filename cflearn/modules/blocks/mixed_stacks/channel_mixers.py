@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from torch import Tensor
 
-from .schema import FFN
+from .schema import ChannelMixerBase
 from ..convs import DepthWiseConv2d
 from ..common import Lambda
 from ..customs import Linear
@@ -10,8 +10,8 @@ from ..activations import GEGLU
 from ..activations import Activation
 
 
-@FFN.register("ff")
-class FeedForward(FFN):
+@ChannelMixerBase.register("ff")
+class FeedForward(ChannelMixerBase):
     def __init__(
         self,
         in_dim: int,
@@ -41,8 +41,8 @@ class FeedForward(FFN):
         return self.net(net)
 
 
-@FFN.register("mix_ff")
-class MixFeedForward(FFN):
+@ChannelMixerBase.register("mix_ff")
+class MixFeedForward(ChannelMixerBase):
     def __init__(self, in_dim: int, latent_dim: int, dropout: float):
         super().__init__(in_dim, latent_dim, dropout)
         self.net = nn.Sequential(

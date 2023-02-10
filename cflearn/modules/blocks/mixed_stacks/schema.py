@@ -9,7 +9,7 @@ from cftool.misc import WithRegister
 
 
 token_mixers: Dict[str, Type["TokenMixerBase"]] = {}
-ffn_dict: Dict[str, Type["FFN"]] = {}
+channel_mixers: Dict[str, Type["ChannelMixerBase"]] = {}
 
 
 class TokenMixerBase(Module, WithRegister["TokenMixerBase"]):
@@ -31,8 +31,8 @@ class TokenMixerBase(Module, WithRegister["TokenMixerBase"]):
         pass
 
 
-class FFN(Module, WithRegister["FFN"]):
-    d = ffn_dict
+class ChannelMixerBase(Module, WithRegister["ChannelMixerBase"]):
+    d = channel_mixers
 
     def __init__(self, in_dim: int, latent_dim: int, dropout: float):
         super().__init__()
@@ -52,5 +52,5 @@ class FFN(Module, WithRegister["FFN"]):
 
 __all__ = [
     "TokenMixerBase",
-    "FFN",
+    "ChannelMixerBase",
 ]

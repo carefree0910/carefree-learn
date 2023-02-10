@@ -8,7 +8,7 @@ from torch.fft import fft
 from cftool.misc import safe_execute
 
 from .schema import TokenMixerBase
-from .feedforward import FeedForward
+from .channel_mixers import FeedForward
 from ..common import Lambda
 from ..attentions import Attention
 

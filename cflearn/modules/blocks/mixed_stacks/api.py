@@ -15,8 +15,8 @@ from cftool.misc import safe_execute
 
 from .poolers import BertPooler
 from .poolers import SequencePooler
-from .feedforward import FFN
-from .feedforward import FeedForward
+from .channel_mixers import ChannelMixerBase
+from .channel_mixers import FeedForward
 from .token_mixers import TokenMixerBase
 from ..norms import NormFactory
 from ..utils import zero_module
@@ -88,7 +88,9 @@ class MixingBlock(Module):
         )
         self.residual_after_norm = residual_after_norm
         self.channel_norm = _make_norm()
-        self.channel_mixing = FFN.make(channel_mixing_type, channel_mixing_config)
+        self.channel_mixing = ChannelMixerBase.make(
+            channel_mixing_type, channel_mixing_config
+        )
 
     def forward(
         self,
