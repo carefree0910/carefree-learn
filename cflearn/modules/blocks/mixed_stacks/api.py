@@ -89,9 +89,8 @@ class MixingBlock(Module):
         )
         self.residual_after_norm = residual_after_norm
         self.channel_norm = _make_norm()
-        self.channel_mixing = ChannelMixerBase.make(
-            channel_mixing_type, channel_mixing_config
-        )
+        channel_mixing_base = ChannelMixerBase.get(channel_mixing_type)
+        self.channel_mixing = safe_execute(channel_mixing_base, channel_mixing_config)
 
     def forward(
         self,
