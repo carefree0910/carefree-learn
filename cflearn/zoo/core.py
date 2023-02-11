@@ -62,6 +62,7 @@ class ZooBase(ABC):
         *,
         build: bool = True,
         report: Optional[bool] = None,
+        report_folder: Optional[str] = None,
         data_info: Optional[Dict[str, Any]] = None,
         download_name: Optional[str] = None,
         json_path: Optional[str] = None,
@@ -142,7 +143,12 @@ class ZooBase(ABC):
         self.m = DLPipeline.make(self.pipeline_name, config)
         if build:
             try:
-                self.m.build(data_info or {}, build_trainer=False, report=report)
+                self.m.build(
+                    data_info or {},
+                    build_trainer=False,
+                    report=report,
+                    report_folder=report_folder,
+                )
             except Exception as err:
                 raise ValueError(f"Failed to build '{model}': {err}")
 

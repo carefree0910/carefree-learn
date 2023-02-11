@@ -299,8 +299,12 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
                 f"{', '.join(missing_requirements)}"
             )
 
-    @staticmethod
-    def _report_messages(title: str, messages: Dict[str, Any]) -> None:
+    def _report_messages(
+        self,
+        title: str,
+        messages: Dict[str, Any],
+        report_folder: Optional[str],
+    ) -> None:
         def _stringify_item(item: Tuple[str, Any], prefix: Optional[str] = None) -> str:
             key, value = item
             if prefix is not None:
@@ -314,26 +318,29 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
 
         span = 64
         length = 2 * span
-        print(
-            "\n".join(
-                [
-                    "=" * length,
-                    f"{title:^{length}s}",
-                    "-" * length,
-                    "\n".join(map(_stringify_item, messages.items())),
-                    "-" * length,
-                ]
-            )
+        msg = "\n".join(
+            [
+                "=" * length,
+                f"{title:^{length}s}",
+                "-" * length,
+                "\n".join(map(_stringify_item, messages.items())),
+                "-" * length,
+            ]
         )
+        print(msg)
+        if report_folder is not None:
+            with open(os.path.join(report_folder, self.report_file), "a") as f:
+                f.write(msg + "\n")
 
-    def _report_defaults(self) -> None:
+    def _report_defaults(self, report_folder: Optional[str] = None) -> None:
         self._report_messages(
             "Internal Default Configurations Used by `carefree-learn`",
             self._defaults,
+            report_folder,
         )
 
-    def _report_configs(self) -> None:
-        self._report_messages("External Configurations", self.config)
+    def _report_configs(self, report_folder: Optional[str] = None) -> None:
+        self._report_messages("External Configurations", self.config, report_folder)
 
     # build steps
 
@@ -427,14 +434,17 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         *,
         build_trainer: bool = True,
         report: Optional[bool] = None,
+        report_folder: Optional[str] = None,
     ) -> None:
         if self.built:
             if build_trainer and self.trainer is None:
                 self.need_build_trainer = True
                 self.record_num_samples()
                 self.prepare_workplace()
-                self.build_trainer()
-                self.report()
+                workplace = self.build_trainer()
+                if report_folder == self.auto_report_key:
+                    report_folder = workplace
+                self.report(report_folder)
             return None
         self.data_info = shallow_copy_dict(data_info)
         self.need_build_trainer = build_trainer
@@ -447,7 +457,9 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
         if not build_trainer:
             self.trainer = None  # type: ignore
         else:
-            self.build_trainer()
+            workplace = self.build_trainer()
+            if report_folder == self.auto_report_key:
+                report_folder = workplace
         self._sanity_check()
         if report is None:
             if self.trainer is None:
@@ -457,19 +469,20 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
                 in_distributed = self.trainer.tqdm_settings.in_distributed
                 report = is_rank_0 and not in_distributed
         if report:
-            self.report()
+            self.report(report_folder)
         self.built = True
 
-    def build_trainer(self) -> None:
+    def build_trainer(self) -> str:
         trainer_config = self.trainer_config.copy()
         if isinstance(self.model, ModelWithCustomSteps):
             self.model.permute_trainer_config(trainer_config)
         self.trainer = make_trainer(trainer_config)
+        return self.trainer.workplace
 
-    def report(self) -> None:
+    def report(self, report_folder: Optional[str] = None) -> None:
         if self.is_rank_0:
-            self._report_defaults()
-            self._report_configs()
+            self._report_defaults(report_folder)
+            self._report_configs(report_folder)
 
     # load steps
 
@@ -586,6 +599,8 @@ class DLPipeline(IPipeline, IDLPipeline):
     inference_base = IInference
     config_base: Type[Config] = DLConfig
 
+    report_file = "report.txt"
+    auto_report_key = "^_^auto_report^_^"
     pipeline_key = "pipeline"
     pipeline_file = "pipeline.txt"
     config_name = "config"
@@ -676,9 +691,15 @@ class DLPipeline(IPipeline, IDLPipeline):
         *,
         build_trainer: bool = True,
         report: Optional[bool] = None,
+        report_folder: Optional[str] = None,
     ) -> None:
         modifier = self._make_modifier()
-        modifier.build(data_info, build_trainer=build_trainer, report=report)
+        modifier.build(
+            data_info,
+            build_trainer=build_trainer,
+            report=report,
+            report_folder=report_folder,
+        )
 
     def fit(  # type: ignore
         self,
@@ -691,7 +712,7 @@ class DLPipeline(IPipeline, IDLPipeline):
         if cuda is not None:
             cuda = str(cuda)
         self.data = data
-        self.build(data.info)
+        self.build(data.info, report_folder=self.auto_report_key)
         self.trainer.fit(
             data,
             self.loss,
@@ -819,6 +840,7 @@ class DLPipeline(IPipeline, IDLPipeline):
         compress: bool = True,
         build_trainer: bool = False,
         report: Optional[bool] = None,
+        report_folder: Optional[str] = None,
         states_callback: states_callback_type = None,
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[["DLPipeline", Dict[str, Any]], None]] = None,
@@ -852,7 +874,12 @@ class DLPipeline(IPipeline, IDLPipeline):
                     )
                     data_info = {}
                 modifier = m._make_modifier()
-                modifier.build(data_info, build_trainer=build_trainer, report=report)
+                modifier.build(
+                    data_info,
+                    build_trainer=build_trainer,
+                    report=report,
+                    report_folder=report_folder,
+                )
                 m.model.to(m.device)
                 # restore checkpoint
                 states = modifier.load_states_from(export_folder)
