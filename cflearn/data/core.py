@@ -28,6 +28,7 @@ from torch.utils.data.distributed import DistributedSampler
 from ..types import sample_weights_type
 from ..schema import IDataset
 from ..schema import IDataLoader
+from ..schema import IDataModule
 from ..misc.toolkit import get_ddp_info
 from ..misc.toolkit import get_world_size
 
@@ -51,26 +52,13 @@ class LoadInfoResponse(NamedTuple):
     data_module_bytes: Optional[bytes]
 
 
-class DataModule(WithRegister[DataModuleType], metaclass=ABCMeta):
+class DataModule(IDataModule, WithRegister[DataModuleType]):
     d = data_modules  # type: ignore
 
     id_file = "id.txt"
     info_name = "info"
     data_folder = "data"
     package_folder = "data_module"
-
-    # inherit
-
-    @property
-    @abstractmethod
-    def info(self) -> Dict[str, Any]:
-        pass
-
-    def prepare(self, sample_weights: sample_weights_type) -> None:
-        pass
-
-    def initialize(self) -> Any:
-        pass
 
     # internal
 
