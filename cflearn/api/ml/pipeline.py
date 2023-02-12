@@ -12,6 +12,7 @@ from typing import Optional
 from typing import Protocol
 from dataclasses import dataclass
 from collections import OrderedDict
+from cftool.misc import print_info
 from cftool.misc import lock_manager
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
@@ -30,11 +31,13 @@ from ...types import states_callback_type
 from ...schema import Config
 from ...schema import DLConfig
 from ...schema import InferenceOutputs
+from ...trainer import get_scores
 from ...trainer import get_sorted_checkpoints
 from ...pipeline import _get_requirements
 from ...pipeline import IModifier
 from ...pipeline import DLPipeline
 from ...constants import PREDICTIONS_KEY
+from ...constants import CHECKPOINTS_FOLDER
 from ...data.ml import IMLData
 from ...data.ml import MLCarefreeData
 from ...data.ml import IMLDataProcessor
@@ -419,6 +422,7 @@ class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
         export_folders: List[str],
         *,
         cuda: Optional[str] = None,
+        num_picked: Optional[Union[int, float]] = None,
         compress: bool = True,
         build_trainer: bool = False,
         report: Optional[bool] = None,
@@ -427,6 +431,12 @@ class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
         pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
         post_callback: Optional[Callable[[DLPipeline, Dict[str, Any]], None]] = None,
     ) -> "MLPipeline":
+        num_total = num_repeat = len(export_folders)
+        if num_picked is not None:
+            if isinstance(num_picked, float):
+                if num_picked < 0.0 or num_picked > 1.0:
+                    raise ValueError("`num_picked` should ∈ [0, 1] when set to float")
+                num_picked = num_repeat = round(num_total * num_picked)
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
@@ -442,7 +452,7 @@ class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
                 loaded = DataModule.load_info(export_folder, return_bytes=True)
                 data_info = loaded.info
                 m.data_module_bytes = loaded.data_module_bytes
-        m._num_repeat = m.config["num_repeat"] = len(export_folders)
+        m._num_repeat = m.config["num_repeat"] = num_repeat
         m._make_modifier().build(
             data_info,
             build_trainer=build_trainer,
@@ -451,6 +461,28 @@ class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
         )
         m.model.to(m.device)
         merged_states: OrderedDict[str, torch.Tensor] = OrderedDict()
+        if num_picked is not None:
+            scores = []
+            for i, folder in enumerate(export_folders):
+                base_folder = os.path.dirname(os.path.abspath(folder))
+                with lock_manager(base_folder, [folder]):
+                    with Saving.compress_loader(folder, compress):
+                        folder_scores = get_scores(folder)
+                        if not folder_scores:
+                            checkpoint_folder = os.path.join(folder, CHECKPOINTS_FOLDER)
+                            folder_scores = get_scores(checkpoint_folder)
+                        if not folder_scores:
+                            raise ValueError(f"cannot find scores in '{folder}'")
+                        scores.append(max(folder_scores.values()))
+            scores_array = np.array(scores)
+            picked_indices = np.argsort(scores)[::-1][:num_picked]
+            export_folders = [export_folders[i] for i in picked_indices]
+            original_score = scores_array.mean().item()
+            picked_score = scores_array[picked_indices].mean().item()
+            print_info(
+                f"picked {num_picked} / {num_total}, "
+                f"score: {original_score} -> {picked_score}"
+            )
         for i, export_folder in enumerate(export_folders):
             base_folder = os.path.dirname(os.path.abspath(export_folder))
             with lock_manager(base_folder, [export_folder]):

@@ -401,6 +401,7 @@ def fuse_multiple(
     export_folders: List[str],
     *,
     cuda: Optional[str] = None,
+    num_picked: Optional[Union[int, float]] = None,
     compress: bool = True,
     states_callback: states_callback_type = None,
     pre_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
@@ -409,6 +410,7 @@ def fuse_multiple(
     return MLPipeline.fuse_multiple(
         export_folders,
         cuda=cuda,
+        num_picked=num_picked,
         compress=compress,
         states_callback=states_callback,
         pre_callback=pre_callback,
