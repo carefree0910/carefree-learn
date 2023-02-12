@@ -19,6 +19,7 @@ from .core import DLLoader
 from .core import DLDataset
 from .core import DataLoader
 from .core import DLDataModule
+from .core import TDataModule
 from ..types import sample_weights_type
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
@@ -112,7 +113,7 @@ class TensorData(DLDataModule):
         return self.kw
 
     # TODO : support sample weights
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         def _get_data(x: Any, y: Any, others: Any) -> DLDataset:
             return DLDataset(TensorDataset(x, y, others))
 
@@ -121,6 +122,8 @@ class TensorData(DLDataModule):
             self.valid_data = None
         else:
             self.valid_data = _get_data(self.x_valid, self.y_valid, self.valid_others)
+
+        return self
 
     def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
         train_loader = DLLoader(DataLoader(self.train_data, **self.kw))  # type: ignore
@@ -179,7 +182,7 @@ class TensorDictData(DLDataModule):
         return self.kw
 
     # TODO : support sample weights
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         def _get_data(x: Any, y: Any) -> DLDataset:
             return DLDataset(TensorDictDataset(x, y))
 
@@ -188,6 +191,8 @@ class TensorDictData(DLDataModule):
             self.valid_data = None
         else:
             self.valid_data = _get_data(self.x_valid, self.y_valid)
+
+        return self
 
     def initialize(self) -> Tuple[DLLoader, Optional[DLLoader]]:
         train_loader = DLLoader(DataLoader(self.train_data, **self.kw))  # type: ignore

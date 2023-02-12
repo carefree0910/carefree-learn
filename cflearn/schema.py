@@ -83,6 +83,7 @@ metric_dict: Dict[str, Type["_IMetric"]] = {}
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
 
 TLoss = TypeVar("TLoss", bound="ILoss", covariant=True)
+TDataModule = TypeVar("TDataModule")
 
 
 # data
@@ -155,7 +156,7 @@ class IDataModule(ABC):
         pass
 
     @abstractmethod
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         pass
 
     @abstractmethod

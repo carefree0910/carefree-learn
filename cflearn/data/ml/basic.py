@@ -316,7 +316,7 @@ class IMLPreProcessedXY(NamedTuple):
     y: Optional[np.ndarray]
 
 
-TMLData = TypeVar("TMLData")
+TMLData = TypeVar("TMLData", bound="IMLData")
 
 
 class IMLData(DLDataModule, metaclass=ConfigMeta):

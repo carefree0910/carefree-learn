@@ -20,6 +20,7 @@ from ..basic import ImageFolderData
 from ..basic import InferenceImageFolderData
 from ..basic import ImageFolderDataset
 from ..basic import InferenceImageFolderDataset
+from ...core import TDataModule
 from ....types import sample_weights_type
 from ....constants import INPUT_KEY
 from ....constants import STYLE_KEY
@@ -155,7 +156,7 @@ class StyleTransferData(ImageFolderData):
         d["style_folder"] = self.style_folder
         return d
 
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         self.train_data = CVDataset(
             StyleTransferDataset(
                 self.folder,
@@ -175,6 +176,7 @@ class StyleTransferData(ImageFolderData):
                 style_folder=self.style_folder,
             )
         )
+        return self
 
 
 class InferenceStyleTransferData(InferenceImageFolderData):
@@ -197,9 +199,10 @@ class InferenceStyleTransferData(InferenceImageFolderData):
         )
         self.style_folder = self.kw["style_folder"] = style_folder
 
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         self.dataset = InferenceStyleTransferDataset(
             self.folder,
             self.transform,
             style_folder=self.style_folder,
         )
+        return self

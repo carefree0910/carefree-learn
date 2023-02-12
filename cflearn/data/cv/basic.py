@@ -38,6 +38,7 @@ from ..core import DLLoader
 from ..core import DLDataset
 from ..core import DataLoader
 from ..core import DLDataModule
+from ..core import TDataModule
 from ...types import sample_weights_type
 from ...schema import IDataset
 from ...schema import IDataLoader
@@ -460,7 +461,7 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
                 self.label_weights,
             )
 
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         if sample_weights is not None:
             print_warning(
                 "`sample_weights` will not take effect in `ImageFolderData`, "
@@ -486,6 +487,7 @@ class ImageFolderData(CVDataModule, metaclass=ConfigMeta):
                 lmdb_config=self.lmdb_config,
             )
         )
+        return self
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         if self.pin_memory_device is not None:
@@ -555,8 +557,9 @@ class InferenceImageDataMixin(CVDataModule, metaclass=ConfigMeta):
     def info(self) -> Dict[str, Any]:
         return self.kw
 
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         self.dataset = self.dataset_base(self.inp, self.transform)
+        return self
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         args = self.batch_size, self.num_workers, self.prefetch_device

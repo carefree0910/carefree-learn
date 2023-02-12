@@ -16,6 +16,7 @@ from ..basic import CVLoader
 from ..basic import DataLoader
 from ..basic import CVDataModule
 from ..basic import DLDataModule
+from ...core import TDataModule
 from ....types import sample_weights_type
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
@@ -77,7 +78,7 @@ class MNISTData(CVDataModule):
         return dict(root=self.root, shuffle=self.shuffle, batch_size=self.batch_size)
 
     # TODO : support sample weights
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
         self.train_data = CVDataset(
             MNIST(
                 self.root,
@@ -93,6 +94,7 @@ class MNISTData(CVDataModule):
                 download=True,
             )
         )
+        return self
 
     def initialize(self) -> Tuple[CVLoader, Optional[CVLoader]]:
         train_loader = CVLoader(
