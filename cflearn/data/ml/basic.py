@@ -13,6 +13,7 @@ from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -315,6 +316,9 @@ class IMLPreProcessedXY(NamedTuple):
     y: Optional[np.ndarray]
 
 
+TMLData = TypeVar("TMLData")
+
+
 class IMLData(DLDataModule, metaclass=ConfigMeta):
     config: Dict[str, Any]
 
@@ -467,7 +471,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
             "is_classification": self.is_classification,
         }
 
-    def prepare(self, sample_weights: sample_weights_type) -> None:
+    def prepare(self: TMLData, sample_weights: sample_weights_type) -> TMLData:
         train_others = self.train_others or {}
         valid_others = self.valid_others or {}
         self.train_weights, self.valid_weights = _split_sw(sample_weights)
@@ -506,6 +510,7 @@ class IMLData(DLDataModule, metaclass=ConfigMeta):
                 MLDatasetTag.VALID,
                 **valid_others,
             )
+        return self
 
     def initialize(self) -> Tuple[MLLoader, Optional[MLLoader]]:
         if self.processor is None:
