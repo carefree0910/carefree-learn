@@ -844,12 +844,8 @@ class IInference:
                     assert self.model is not None
                     with eval_context(self.model, use_grad=use_grad):
                         assert not self.model.training
-                        local_outputs = self.model(
-                            i,
-                            batch,
-                            state,
-                            **shallow_copy_dict(kwargs),
-                        )
+                        kw = filter_kw(self.model.forward, shallow_copy_dict(kwargs))
+                        local_outputs = self.model(i, batch, state, **kw)
                 # gather outputs
                 requires_metrics = metrics is not None and not metrics.requires_all
                 requires_np = requires_metrics or requires_all_outputs
