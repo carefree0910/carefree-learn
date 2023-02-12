@@ -22,7 +22,6 @@ from collections import OrderedDict
 from cftool.misc import random_hash
 from cftool.misc import safe_execute
 from cftool.misc import print_warning
-from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
 from cftool.misc import prepare_workplace_from
 from cftool.misc import truncate_string_to_length
@@ -119,12 +118,12 @@ def _generate_model_soup_checkpoint(
                     current_states[k] = (current_v * n + v) / (n + 1)
             m.model.load_state_dict(current_states)
             kw = dict(
+                loader=configs.loader,
                 portion=configs.valid_portion,
                 metrics=metrics,
+                use_loader_cache=False,
             )
-            if check_requires(m.inference.get_outputs, "use_loader_cache"):
-                kw["use_loader_cache"] = False
-            res = m.inference.get_outputs(configs.loader, **kw)  # type: ignore
+            res = safe_execute(m.inference.get_outputs, kw)
             score = res.metric_outputs.final_score  # type: ignore
             if score < best_score:
                 current_states = states_backup
