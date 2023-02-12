@@ -82,8 +82,7 @@ multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
 metric_dict: Dict[str, Type["_IMetric"]] = {}
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
 
-LossType = TypeVar("LossType", bound="ILoss", covariant=True)
-ConfigType = TypeVar("ConfigType")
+TLoss = TypeVar("TLoss", bound="ILoss", covariant=True)
 
 
 # data
@@ -598,7 +597,7 @@ class MonitorResults(NamedTuple):
 # loss
 
 
-class ILoss(nn.Module, WithRegister[LossType], metaclass=ABCMeta):
+class ILoss(nn.Module, WithRegister[TLoss], metaclass=ABCMeta):
     d = loss_dict
     placeholder_key = "[PLACEHOLDER]"
 

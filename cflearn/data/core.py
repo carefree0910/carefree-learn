@@ -39,7 +39,7 @@ except:
 
 
 data_modules: Dict[str, Type["DataModule"]] = {}
-DataModuleType = TypeVar("DataModuleType", bound="DataModule", covariant=True)
+TDataModule = TypeVar("TDataModule", bound="DataModule", covariant=True)
 
 
 class BaseResponse(NamedTuple):
@@ -52,7 +52,7 @@ class LoadInfoResponse(NamedTuple):
     data_module_bytes: Optional[bytes]
 
 
-class DataModule(IDataModule, WithRegister[DataModuleType]):
+class DataModule(IDataModule, WithRegister[TDataModule]):
     d = data_modules  # type: ignore
 
     id_file = "id.txt"
