@@ -3,6 +3,7 @@ import torch
 
 import numpy as np
 
+from tqdm import tqdm
 from typing import Any
 from typing import Dict
 from typing import List
@@ -483,7 +484,7 @@ class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
                 f"picked {num_picked} / {num_total}, "
                 f"score: {original_score} -> {picked_score}"
             )
-        for i, export_folder in enumerate(export_folders):
+        for i, export_folder in enumerate(tqdm(export_folders, desc="fuse")):
             base_folder = os.path.dirname(os.path.abspath(export_folder))
             with lock_manager(base_folder, [export_folder]):
                 with Saving.compress_loader(export_folder, compress):
