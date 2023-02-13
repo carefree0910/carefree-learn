@@ -535,6 +535,8 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             cache_paths = self.cache_paths_base(**d)
             return self.load_cache_paths(cache_paths)
 
+        if self.config.verbose:
+            print_info("load begin")
         tr_paths_d = dumped.pop("tr_cache_paths")
         cv_paths_d = dumped.pop("cv_cache_paths")
         self.config = self.config_base(**dumped)
@@ -543,6 +545,8 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             self._validation_bundle = None
         else:
             self._validation_bundle = _load(cv_paths_d, "validation")
+        if self.config.verbose:
+            print_info("load complete")
 
     # callbacks
 
