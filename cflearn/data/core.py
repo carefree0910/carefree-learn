@@ -282,10 +282,8 @@ class DLLoader(IDataLoader):
 
         if self.batch_callback is not None:
             batch = self.batch_callback(batch)
-        if self.stream is not None:
-            with torch.cuda.stream(self.stream):
-                batch = to_device(batch, self.device, non_blocking=True)
-        batch = to_device(batch, self.device, non_blocking=True)
+        with torch.cuda.stream(self.stream):
+            batch = to_device(batch, self.device, non_blocking=True)
         self.next_batch = batch
 
     @property
