@@ -190,88 +190,11 @@ def register_ml_data_processor(name: str, *, allow_duplicate: bool = False) -> C
     return IMLDataProcessor.register(name, allow_duplicate=allow_duplicate)
 
 
-class IMLDataset(IDataset, metaclass=ABCMeta):
-    @abstractmethod
-    def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> np_dict_type:
-        pass
-
-
-class IMLLoader(IDataLoader, metaclass=ABCMeta):
-    callback: str
-
-    cursor: int
-    indices: np.ndarray
-
-    data: IMLDataset
-    shuffle: bool
-    shuffle_backup: bool
-    name: Optional[str]
-    batch_size: int
-    use_numpy: bool
-
-    def __init__(
-        self,
-        data: IMLDataset,
-        *,
-        shuffle: bool,
-        name: Optional[str] = None,
-        batch_size: int = 128,
-        sample_weights: Optional[np.ndarray] = None,
-        use_numpy: bool = False,
-    ):
-        if sample_weights is not None and len(data) != len(sample_weights):
-            raise ValueError(
-                f"the number of data samples ({len(data)}) is not identical with "
-                f"the number of sample weights ({len(sample_weights)})"
-            )
-        super().__init__(sample_weights=sample_weights)
-        self.data = data
-        self.shuffle = shuffle
-        self.shuffle_backup = shuffle
-        self.name = name
-        self.batch_size = batch_size
-        self.use_numpy = use_numpy
-
-    def __iter__(self) -> "IMLLoader":
-        self.cursor = 0
-        self.indices = get_weighted_indices(len(self.data), self.sample_weights)
-        if self.shuffle:
-            np.random.shuffle(self.indices)
-        return self
-
-    def __next__(self) -> Union[np_dict_type, tensor_dict_type]:
-        start = self.cursor
-        if start >= len(self.data):
-            raise StopIteration
-        self.cursor += self.batch_size
-        indices = self.indices[start : self.cursor]
-        batch = self.data[indices]
-        batch.setdefault(BATCH_INDICES_KEY, indices)
-        if self.use_numpy:
-            return batch
-        return {k: None if v is None else to_torch(v) for k, v in batch.items()}
-
-    def disable_shuffle(self) -> None:
-        self.shuffle = False
-
-    def recover_shuffle(self) -> None:
-        self.shuffle = self.shuffle_backup
-
-    def copy(self) -> "IMLLoader":
-        return self.__class__(
-            self.data,
-            name=self.name,
-            shuffle=self.shuffle,
-            batch_size=self.batch_size,
-            sample_weights=self.sample_weights,
-        )
-
-
 # internal
 
 
 @IDataset.register("ml")
-class MLDataset(IMLDataset):
+class MLDataset(IDataset, metaclass=ABCMeta):
     def __init__(
         self,
         x: np.ndarray,
@@ -308,8 +231,75 @@ class MLDataset(IMLDataset):
 
 
 @IDataLoader.register("ml")
-class MLLoader(IMLLoader):
-    pass
+class MLLoader(IDataLoader, metaclass=ABCMeta):
+    callback: str
+
+    cursor: int
+    indices: np.ndarray
+
+    data: MLDataset
+    shuffle: bool
+    shuffle_backup: bool
+    name: Optional[str]
+    batch_size: int
+    use_numpy: bool
+
+    def __init__(
+        self,
+        data: MLDataset,
+        *,
+        shuffle: bool,
+        name: Optional[str] = None,
+        batch_size: int = 128,
+        sample_weights: Optional[np.ndarray] = None,
+        use_numpy: bool = False,
+    ):
+        if sample_weights is not None and len(data) != len(sample_weights):
+            raise ValueError(
+                f"the number of data samples ({len(data)}) is not identical with "
+                f"the number of sample weights ({len(sample_weights)})"
+            )
+        super().__init__(sample_weights=sample_weights)
+        self.data = data
+        self.shuffle = shuffle
+        self.shuffle_backup = shuffle
+        self.name = name
+        self.batch_size = batch_size
+        self.use_numpy = use_numpy
+
+    def __iter__(self) -> "MLLoader":
+        self.cursor = 0
+        self.indices = get_weighted_indices(len(self.data), self.sample_weights)
+        if self.shuffle:
+            np.random.shuffle(self.indices)
+        return self
+
+    def __next__(self) -> Union[np_dict_type, tensor_dict_type]:
+        start = self.cursor
+        if start >= len(self.data):
+            raise StopIteration
+        self.cursor += self.batch_size
+        indices = self.indices[start : self.cursor]
+        batch = self.data[indices]
+        batch.setdefault(BATCH_INDICES_KEY, indices)
+        if self.use_numpy:
+            return batch
+        return {k: None if v is None else to_torch(v) for k, v in batch.items()}
+
+    def disable_shuffle(self) -> None:
+        self.shuffle = False
+
+    def recover_shuffle(self) -> None:
+        self.shuffle = self.shuffle_backup
+
+    def copy(self) -> "MLLoader":
+        return self.__class__(
+            self.data,
+            name=self.name,
+            shuffle=self.shuffle,
+            batch_size=self.batch_size,
+            sample_weights=self.sample_weights,
+        )
 
 
 class IMLPreProcessedXY(NamedTuple):
@@ -937,8 +927,6 @@ __all__ = [
     "IMLBatch",
     "IMLDataProcessor",
     "IMLPreProcessedData",
-    "IMLDataset",
-    "IMLLoader",
     "IMLData",
     "MLDataset",
     "MLDatasetTag",
