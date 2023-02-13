@@ -11,6 +11,7 @@ from typing import Tuple
 from typing import Optional
 from torch.nn import Module
 from torch.nn import ModuleList
+from cftool.misc import filter_kw
 from cftool.misc import safe_execute
 
 from .poolers import BertPooler
@@ -415,7 +416,8 @@ class MixedStackedEncoder(Module):
             t += 1
         if determinate:
             net = net.view(-1, *map(int, [t, d]))
-        net = self.pos_encoding(net, **kwargs)
+        kw = filter_kw(self.pos_encoding.forward, kwargs)
+        net = self.pos_encoding(net, **kw)
         if self.embedding_norm is not None:
             net = self.embedding_norm(net)
         if self.embedding_dropout is not None:
