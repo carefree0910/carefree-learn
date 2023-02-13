@@ -18,12 +18,14 @@ from typing import Protocol
 from typing import NamedTuple
 from collections import Counter
 from dataclasses import dataclass
+from cftool.dist import Parallel
 from cftool.misc import grouped
 from cftool.misc import hash_code
 from cftool.misc import print_info
 from cftool.misc import print_warning
 from cftool.misc import DataClassBase
 from cftool.array import get_unique_indices
+from cftool.array import SharedArray
 from cftool.array import StrideArray
 
 from .basic import register_ml_data
@@ -56,6 +58,7 @@ class TimeSeriesConfig(DataClassBase):
     num_test: Optional[int] = None
     enforce_num_test: bool = False
     enforce_test_valid: bool = False
+    num_workers: Optional[int] = None
     random_sample_ratio: Optional[float] = None
     for_inference: bool = False
     sanity_check: bool = False
@@ -316,6 +319,33 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         args = self.config.copy(), data, split_indices, rolled_indices, valid_indices
         return TimeSeriesDataBundle(*args)
 
+    def _get_valid_indices(
+        self,
+        i: int,
+        num: int,
+        data: np.ndarray,
+        rolled_indices: np.ndarray,
+        num_indices_cumsum: np.ndarray,
+        boolean_mask: Optional[np.ndarray],
+    ) -> Optional[List[int]]:
+        if num < self.config.span:
+            return [] if boolean_mask is None else None
+        cumulate = 0 if i == 0 else num_indices_cumsum[i - 1]
+        valid_indices: Optional[List[int]] = [] if boolean_mask is None else None
+        for j in range(num - self.config.span + 1):
+            idx = j + cumulate
+            is_valid = False
+            if self.config.num_test is not None and self.config.enforce_test_valid:
+                is_valid = True
+            elif self.check_valid(data[rolled_indices[idx]]):
+                is_valid = True
+            if is_valid:
+                if boolean_mask is not None:
+                    boolean_mask[idx] = True
+                elif valid_indices is not None:
+                    valid_indices.append(idx)
+        return valid_indices
+
     def get_bundle(
         self,
         x_train: np.ndarray,
@@ -346,24 +376,34 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         if not self.config.no_cache:
             np.save(cache_paths.merged_indices_path, np_merged_indices)
         # valid indices
+        fn = self._get_valid_indices
         num_indices = np.array(list(map(len, split_indices)), int)
         num_indices_cumsum = np.cumsum(num_indices)
-        valid_indices = []
-        for i, num in tqdm(
-            enumerate(num_indices),
-            desc="check_valid",
-            total=len(num_indices),
-        ):
-            if num < self.config.span:
-                continue
-            cumulate = 0 if i == 0 else num_indices_cumsum[i - 1]
-            for j in range(num - self.config.span + 1):
-                idx = j + cumulate
-                if self.config.num_test is not None and self.config.enforce_test_valid:
-                    valid_indices.append(idx)
-                elif self.check_valid(data[rolled_indices[idx]]):
-                    valid_indices.append(idx)
-        valid_indices = np.array(valid_indices, int)
+        if not self.config.num_workers:
+            valid_indices_list: List[int] = []
+            for i, num in enumerate(tqdm(num_indices, desc="check_valid")):
+                i_args = i, num, data, rolled_indices, num_indices_cumsum, None
+                valid_indices_list += fn(*i_args) or []
+            valid_indices = np.array(valid_indices_list, int)
+        else:
+            self.verbose("preparing shared arrays")
+            shared_arrays = (
+                SharedArray.from_data(data),
+                SharedArray.from_data(np_merged_indices),
+                SharedArray.from_data(num_indices_cumsum),
+                SharedArray(np.bool, [num_indices_cumsum[-1]]),
+            )
+            common_args = [shared.value for shared in shared_arrays]
+            common_args[1] = StrideArray(common_args[1]).roll(self.config.span)
+            args_list: List[List[Any]] = [[] for _ in range(6)]
+            for i, num in enumerate(num_indices):
+                for j, arg in enumerate([i, num, *common_args]):
+                    args_list[j].append(arg)
+            self.verbose("launching workers")
+            Parallel(self.config.num_workers).grouped(fn, *args_list)
+            valid_indices = np.nonzero(common_args[-1])[0]
+            for shared in shared_arrays:
+                shared.destroy()
         if not self.config.no_cache:
             np.save(cache_paths.valid_indices_path, valid_indices)
         # random sample
