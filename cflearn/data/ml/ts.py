@@ -199,10 +199,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     def sanity_check(self, tag: MLDatasetTag, bundle: TimeSeriesDataBundle) -> None:
         def check_ids(data: np.ndarray) -> np.ndarray:
-            ids = data[..., self.config.id_column].astype(int)
-            if np.abs(ids[:, 1:] - ids[:, :-1]).sum().item() != 0:
-                raise ValueError(f"multiple ids occurred in one sample : {ids}")
-            return ids
+            ids_ = data[..., self.config.id_column].astype(int)
+            if np.abs(ids_[:, 1:] - ids_[:, :-1]).sum().item() != 0:
+                raise ValueError(f"multiple ids occurred in one sample : {ids_}")
+            return ids_
 
         def get_time_anchors(data: np.ndarray) -> np.ndarray:
             times = data[..., self.config.time_columns]
