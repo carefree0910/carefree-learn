@@ -282,6 +282,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     # utils
 
+    def verbose(self, msg: str) -> None:
+        if self.config.verbose:
+            print_info(msg)
+
     @property
     def hashed_cache_folder(self) -> str:
         return os.path.join(self.config.cache_folder, self.tag, self.config.hash)
@@ -298,19 +302,15 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         return TimeSeriesCachePaths(**paths)
 
     def load_cache_paths(self, paths: TimeSeriesCachePaths) -> TimeSeriesDataBundle:
-        if self.config.verbose:
-            print_info("loading data")
+        self.verbose("loading data")
         data = np.load(paths.data_path)
-        if self.config.verbose:
-            print_info("loading rolled indices")
+        self.verbose("loading rolled indices")
         np_merged_indices = np.load(paths.merged_indices_path)
         rolled_indices = StrideArray(np_merged_indices).roll(self.config.span)
-        if self.config.verbose:
-            print_info("loading split indices")
+        self.verbose("loading split indices")
         with open(paths.split_indices_path, "r") as f:
             split_indices = json.load(f)
-        if self.config.verbose:
-            print_info("loading valid indices")
+        self.verbose("loading valid indices")
         valid_indices = np.load(paths.valid_indices_path)
         # return
         args = self.config.copy(), data, split_indices, rolled_indices, valid_indices
@@ -327,8 +327,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         if not self.config.no_cache:
             np.save(cache_paths.data_path, data)
         # split indices
-        if self.config.verbose:
-            print_info("group by id")
+        self.verbose("group by id")
         ids = data[..., self.config.id_column]
         split_indices = get_unique_indices(ids).split_indices
         split_indices = [indices.tolist() for indices in split_indices]
@@ -436,19 +435,16 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             and tr_paths.all_exists
             and (not config.use_validation or cv_paths.all_exists)
         ):
-            if config.verbose:
-                print_info("loading train caches")
+            self.verbose("loading train caches")
             self._train_bundle = self.load_cache_paths(tr_paths)
             if not config.use_validation:
                 self._validation_bundle = None
             else:
-                if config.verbose:
-                    print_info("loading validation caches")
+                self.verbose("loading validation caches")
                 self._validation_bundle = self.load_cache_paths(cv_paths)
         # build
         else:
-            if config.verbose:
-                print_info("sort by time")
+            self.verbose("sort by time")
             time_columns = x_train[..., config.time_columns].astype(int)
             time_anchors = self.get_time_anchors(time_columns).ravel()
             sorted_indices = np.argsort(time_anchors)
@@ -460,21 +456,18 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     sorted_indices,
                     sorted_anchors,
                 )
-                if config.verbose:
-                    print_info("generating train bundle")
+                self.verbose("generating train bundle")
                 train_bundle = self.get_bundle(x_train, tr_indices, tr_paths)
                 if cv_indices is None:
                     validation_bundle = None
                 else:
-                    if config.verbose:
-                        print_info("generating validation bundle")
+                    self.verbose("generating validation bundle")
                     validation_bundle = self.get_bundle(x_train, cv_indices, cv_paths)
                 self._train_bundle = train_bundle
                 self._validation_bundle = validation_bundle
             else:
                 tag = "test" if config.for_inference else "train"
-                if config.verbose:
-                    print_info(f"generating {tag} bundle")
+                self.verbose(f"generating {tag} bundle")
                 if not config.for_inference:
                     indices = sorted_indices
                 else:
@@ -499,8 +492,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                         )
                 self._train_bundle = self.get_bundle(x_train, indices, tr_paths)
                 self._validation_bundle = None
-        if config.verbose:
-            print_info("done")
+        self.verbose("done")
 
     def preprocess(self, config: TimeSeriesConfig) -> IMLPreProcessedData:  # type: ignore
         num_test_enforced = config.num_test is not None and config.enforce_test_valid
@@ -530,13 +522,11 @@ class ITimeSeriesProcessor(IMLDataProcessor):
 
     def loads(self, dumped: Dict[str, Any]) -> None:
         def _load(d: Dict[str, Any], tag: str) -> TimeSeriesDataBundle:
-            if self.config.verbose:
-                print_info(f"loading {tag} caches")
+            self.verbose(f"loading {tag} caches")
             cache_paths = self.cache_paths_base(**d)
             return self.load_cache_paths(cache_paths)
 
-        if self.config.verbose:
-            print_info("load begin")
+        self.verbose("load begin")
         tr_paths_d = dumped.pop("tr_cache_paths")
         cv_paths_d = dumped.pop("cv_cache_paths")
         self.config = self.config_base(**dumped)
@@ -545,8 +535,7 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             self._validation_bundle = None
         else:
             self._validation_bundle = _load(cv_paths_d, "validation")
-        if self.config.verbose:
-            print_info("load complete")
+        self.verbose("load complete")
 
     # callbacks
 
