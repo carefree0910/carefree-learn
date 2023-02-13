@@ -303,7 +303,8 @@ class MLDataset(IMLDataset):
         return batch
 
     def __len__(self) -> int:
-        return self.processor.get_num_samples(self.x, self.tag) or len(self.x)
+        num_processor_samples = self.processor.get_num_samples(self.x, self.tag)
+        return len(self.x) if num_processor_samples is None else num_processor_samples
 
 
 @IDataLoader.register("ml")
