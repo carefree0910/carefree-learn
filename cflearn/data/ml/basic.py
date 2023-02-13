@@ -241,8 +241,6 @@ class MLLoader(IDataLoader, metaclass=ABCMeta):
     shuffle: bool
     shuffle_backup: bool
     name: Optional[str]
-    batch_size: int
-    use_numpy: bool
 
     def __init__(
         self,

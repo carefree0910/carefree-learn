@@ -17,6 +17,7 @@ from typing import NamedTuple
 from cftool.misc import print_warning
 from cftool.misc import Saving
 from cftool.misc import WithRegister
+from cftool.array import to_numpy
 from cftool.array import to_device
 from cftool.types import tensor_dict_type
 from torch.utils.data import Dataset
@@ -237,6 +238,7 @@ class DLLoader(IDataLoader):
             )
         super().__init__(sample_weights=sample_weights)
         self.loader = loader
+        self.use_numpy = False
         self.data = loader.dataset  # type: ignore
         self.batch_callback = batch_callback
         self.sampler_backup = loader.sampler
@@ -282,8 +284,14 @@ class DLLoader(IDataLoader):
 
         if self.batch_callback is not None:
             batch = self.batch_callback(batch)
-        with torch.cuda.stream(self.stream):
-            batch = to_device(batch, self.device, non_blocking=True)
+        if not self.use_numpy:
+            with torch.cuda.stream(self.stream):
+                batch = to_device(batch, self.device, non_blocking=True)
+        else:
+            batch = {
+                k: v if not isinstance(v, torch.Tensor) else to_numpy(v)
+                for k, v in batch.items()
+            }
         self.next_batch = batch
 
     @property

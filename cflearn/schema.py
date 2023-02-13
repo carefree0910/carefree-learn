@@ -103,6 +103,7 @@ class IDataset(WithRegister["IDataset"], metaclass=ABCMeta):
 class IDataLoader(WithRegister["IDataLoader"], metaclass=ABCMeta):
     d = loader_dict
     data: IDataset
+    use_numpy: bool
     batch_size: int
 
     def __init__(self, *, sample_weights: Optional[np.ndarray] = None):
