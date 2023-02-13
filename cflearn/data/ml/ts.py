@@ -343,8 +343,6 @@ class ITimeSeriesProcessor(IMLDataProcessor):
         for indices in split_indices:
             merged_indices += indices
         np_merged_indices = np.array(merged_indices, int)
-        if self.config.verbose:
-            print_info("rolling with window")
         rolled_indices = StrideArray(np_merged_indices).roll(self.config.span)
         if not self.config.no_cache:
             np.save(cache_paths.merged_indices_path, np_merged_indices)
