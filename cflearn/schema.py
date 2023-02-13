@@ -34,6 +34,7 @@ from cftool.misc import context_error_handler
 from cftool.misc import get_num_positional_args
 from cftool.misc import DataClassBase
 from cftool.misc import WithRegister
+from cftool.array import to_torch
 from cftool.array import to_numpy
 from cftool.array import to_device
 from cftool.types import np_dict_type
@@ -790,6 +791,13 @@ class PlaceholderLoss(ILoss):
 # inference
 
 
+def np_batch_to_tensor(np_batch: np_dict_type) -> tensor_dict_type:
+    return {
+        batch_key: None if batch_array is None else to_torch(batch_array)
+        for batch_key, batch_array in np_batch.items()
+    }
+
+
 class IInference:
     def __init__(
         self,
@@ -824,23 +832,23 @@ class IInference:
             metric_outputs_list: List[MetricsOutputs] = []
             loss_items: Dict[str, List[float]] = {}
             labels: Dict[str, List[np.ndarray]] = {}
+            loader.use_numpy = True
             iterator = enumerate(loader)
             if use_tqdm:
                 iterator = tqdm(iterator, "inference", len(loader))
             requires_all_outputs = return_outputs
             if metrics is not None and metrics.requires_all:
                 requires_all_outputs = True
-            for i, batch in iterator:
+            for i, np_batch in iterator:
                 if i / len(loader) >= portion:
                     break
-                np_batch = {
-                    batch_key: None if batch_tensor is None else to_numpy(batch_tensor)
-                    for batch_key, batch_tensor in batch.items()
-                }
-                if self.model is not None:
-                    batch = to_device(batch, self.model.device)
+                batch = None
+                if self.model is not None or loss is not None:
+                    batch = np_batch_to_tensor(np_batch)
+                    if self.model is not None:
+                        batch = to_device(batch, self.model.device)
                 if self.onnx is not None:
-                    local_outputs = self.onnx.predict(np_batch)
+                    local_outputs = np_batch_to_tensor(self.onnx.predict(np_batch))
                 else:
                     assert self.model is not None
                     with eval_context(self.model, use_grad=use_grad):
@@ -874,7 +882,7 @@ class IInference:
                     else:
                         results.setdefault(k, []).append(v_np)  # type: ignore
                 if requires_np:
-                    for k, v in batch.items():
+                    for k, v in np_batch.items():
                         if (
                             k == INPUT_KEY
                             or k == ORIGINAL_LABEL_KEY
@@ -885,8 +893,6 @@ class IInference:
                             continue
                         if k != LABEL_KEY and len(v.shape) > 2:
                             continue
-                        if not isinstance(v, np.ndarray):
-                            v = to_numpy(v)
                         labels.setdefault(k, []).append(v)
                 # metrics
                 if requires_metrics:
@@ -936,6 +942,7 @@ class IInference:
                     {k: sum(vl) / len(vl) for k, vl in metric_values.items()},
                 )
 
+            loader.use_numpy = False
             target_labels = labels.get(LABEL_KEY, [])
             return InferenceOutputs(
                 final_results,
