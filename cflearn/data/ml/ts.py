@@ -82,6 +82,7 @@ class TimeSeriesConfig(DataClassBase):
     @property
     def hash_excludes(self) -> List[str]:
         return [
+            "num_workers",
             "random_sample_ratio",
             "sanity_check",
             "no_cache",
