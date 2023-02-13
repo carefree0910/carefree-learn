@@ -17,6 +17,10 @@ try:
     import cv2
 except:
     cv2 = None
+try:
+    from cfcv.misc.toolkit import to_uint8
+except:
+    to_uint8 = None
 
 
 def ceil_mod(x: int, mod: int) -> int:
@@ -167,7 +171,9 @@ class InpaintModel:
             result = self._pad_and_run(image, mask, config)
         else:
             if config.hd_strategy == HDStrategy.CROP:
-                boxes = boxes_from_mask(mask)
+                if to_uint8 is None:
+                    raise ValueError("`carefree-cv` is needed for `CROP` strategy")
+                boxes = boxes_from_mask(to_uint8(mask))
                 crop_result = []
                 for box in boxes:
                     crop_image, crop_box = self._run_box(image, mask, box, config)
