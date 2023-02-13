@@ -158,6 +158,12 @@ class CLIPTextConditionModel(IConditionModel):
         device = existing.device
         for name, embedding in embeddings.items():
             tensor = torch.asarray(embedding, dtype=dtype, device=device)
+            embedding_dim = self.embeddings.shape[1]
+            if tensor.shape[1] != embedding_dim:
+                raise ValueError(
+                    f"dimension of the custom embedding '{name}' is not correct "
+                    f"(expected {embedding_dim}, got {tensor.shape[1]})"
+                )
             tensor = tensor.view(-1, tensor.shape[-1])
             tags = []
             for i in range(tensor.shape[0]):
