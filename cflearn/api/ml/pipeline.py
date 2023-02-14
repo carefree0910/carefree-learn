@@ -437,7 +437,8 @@ class MLPipeline(IMLPipeline, DLPipeline):  # type: ignore
             if isinstance(num_picked, float):
                 if num_picked < 0.0 or num_picked > 1.0:
                     raise ValueError("`num_picked` should ∈ [0, 1] when set to float")
-                num_picked = num_repeat = round(num_total * num_picked)
+                num_picked = round(num_total * num_picked)
+            num_repeat = num_picked
         export_folder = export_folders[0]
         base_folder = os.path.dirname(os.path.abspath(export_folder))
         with lock_manager(base_folder, [export_folder]):
