@@ -14,7 +14,9 @@ from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Optional
+from typing import Protocol
 from typing import NamedTuple
+from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 from cftool.array import to_numpy
@@ -341,11 +343,17 @@ class MixedStackedModel(nn.Module):
         return net
 
 
+class EnsembleFn(Protocol):
+    def __call__(self, key: str, tensors: List[Tensor]) -> Tensor:
+        pass
+
+
 class MLModel(ModelWithCustomSteps):
     core: Union[IMLCore, nn.ModuleList]
     encoder: Union[nn.Module, nn.ModuleList]
     dimensions: Union[Dimensions, List[Dimensions]]
     transform: Union[Transform, List[Transform]]
+    ensemble_fn: Optional[EnsembleFn]
 
     def __init__(
         self,
@@ -386,6 +394,7 @@ class MLModel(ModelWithCustomSteps):
         self.use_encoder_cache = use_encoder_cache
         self.dimensions = _make_dimensions(encoder)
         self.transform = _make_transform(self.dimensions)
+        self.ensemble_fn = None
         core_config = shallow_copy_dict(core_config)
         core_config["input_dim"] = self.transform.out_dim
         core_config["output_dim"] = output_dim
@@ -477,7 +486,11 @@ class MLModel(ModelWithCustomSteps):
                 all_results.setdefault(k, []).append(v)
         final_results: tensor_dict_type = {}
         for k in sorted(all_results):
-            final_results[k] = torch.stack(all_results[k]).mean(0)
+            if self.ensemble_fn is None:
+                v = torch.stack(all_results[k]).mean(0)
+            else:
+                v = safe_execute(self.ensemble_fn, dict(key=k, tensors=all_results[k]))
+            final_results[k] = v
         return final_results
 
     def train_step(
