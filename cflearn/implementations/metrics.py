@@ -11,12 +11,12 @@ from cftool.array import get_full_logits
 from cftool.array import get_label_predictions
 from cftool.types import np_dict_type
 
-from .register import register_metric
-from .register import IMetric
-from ...schema import _IMetric
-from ...schema import IDataLoader
-from ...constants import LABEL_KEY
-from ...constants import PREDICTIONS_KEY
+from ..schema import _IMetric
+from ..schema import IDataLoader
+from ..register import register_metric
+from ..register import IMetric
+from ..constants import LABEL_KEY
+from ..constants import PREDICTIONS_KEY
 
 try:
     from sklearn import metrics

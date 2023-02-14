@@ -3,15 +3,15 @@ from typing import Union
 from typing import Optional
 
 from .monitors import BasicMonitor
-from ...schema import TqdmSettings
-from ...schema import OptimizerPack
-from ...schema import TrainerMonitor
-from ...schema import _IMetric
-from ...schema import _MultipleMetrics
-from ...schema import TrainerConfig
-from ...schema import TrainerCallback
-from ...trainer import Trainer
-from .callbacks.general import _LogMetricsMsgCallback
+from .callbacks import _LogMetricsMsgCallback
+from ..schema import TqdmSettings
+from ..schema import OptimizerPack
+from ..schema import TrainerMonitor
+from ..schema import _IMetric
+from ..schema import _MultipleMetrics
+from ..schema import TrainerConfig
+from ..schema import TrainerCallback
+from ..trainer import Trainer
 
 
 def make_trainer(config: TrainerConfig) -> Trainer:

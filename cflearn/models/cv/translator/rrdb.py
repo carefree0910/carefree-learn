@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing import Optional
 
-from ....misc.internal_ import register_module
+from ....register import register_module
 
 
 class ResidualDenseBlock(nn.Module):

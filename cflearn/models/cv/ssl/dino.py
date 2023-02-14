@@ -26,13 +26,13 @@ from ....schema import StepOutputs
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
 from ....schema import TrainerConfig
+from ....register import register_custom_module
+from ....register import CustomModule
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import get_world_size
 from ....misc.toolkit import has_batch_norms
-from ....misc.internal_.register import register_custom_module
-from ....misc.internal_.register import CustomModule
 
 
 def _get_dino_defaults(name: str) -> Dict[str, Any]:

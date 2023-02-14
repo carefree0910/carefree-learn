@@ -8,6 +8,7 @@ from typing import List
 from typing import Tuple
 
 from .backbone import resnet34_mp
+from .....register import register_module
 from ....schemas.cv import ImageTranslatorMixin
 from .....misc.toolkit import interpolate
 from .....modules.blocks import get_conv_blocks
@@ -16,7 +17,6 @@ from .....modules.blocks import SEBlock
 from .....modules.blocks import Interpolate
 from .....modules.blocks import MaxUnpool2d
 from .....modules.blocks import AdaptiveAvgPool2d
-from .....misc.internal_.register import register_module
 
 
 def psp_stage(num_channels: int, size: int) -> nn.Sequential:

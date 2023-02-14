@@ -20,11 +20,11 @@ from ..types import losses_type
 from ..schema import MultiLoss
 from ..schema import ILoss
 from ..schema import TrainerState
+from ..register import register_loss_module
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import LABEL_KEY
 from ..constants import PREDICTIONS_KEY
-from ..misc.internal_.register import register_loss_module
 
 
 @register_loss_module("iou")

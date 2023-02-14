@@ -22,11 +22,11 @@ from ...schemas import GaussianGeneratorMixin
 from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
+from ....register import CustomModule
+from ....register import CustomTrainStep
+from ....register import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.internal_ import CustomModule
-from ....misc.internal_ import CustomTrainStep
-from ....misc.internal_ import CustomTrainStepLoss
 from ....losses.lpips import LPIPS
 
 

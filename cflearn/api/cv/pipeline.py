@@ -5,7 +5,7 @@ from typing import Optional
 from ...pipeline import IModifier
 from ...pipeline import DLPipeline
 from ...data.cv import Transforms
-from ...misc.internal_.inference import CVInference
+from ...implementations.inference import CVInference
 
 
 class ICVPipeline:

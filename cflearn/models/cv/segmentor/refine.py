@@ -7,10 +7,10 @@ from cftool.types import tensor_dict_type
 
 from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
+from ....register import register_module
 from ....constants import INPUT_KEY
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import ResidualBlock
-from ....misc.internal_.register import register_module
 
 
 # TODO : Try ResidualBlockV2

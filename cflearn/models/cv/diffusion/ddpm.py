@@ -37,13 +37,13 @@ from ....zoo import DLZoo
 from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
+from ....register import register_custom_module
+from ....register import CustomModule
+from ....register import CustomTrainStep
+from ....register import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import freeze
-from ....misc.internal_ import register_custom_module
-from ....misc.internal_ import CustomModule
-from ....misc.internal_ import CustomTrainStep
-from ....misc.internal_ import CustomTrainStepLoss
 from ....modules.blocks import EMA
 
 

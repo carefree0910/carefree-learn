@@ -1,5 +1,5 @@
 from ...pipeline import DLPipeline
-from ...misc.internal_.inference import NLPInference
+from ...implementations.inference import NLPInference
 
 
 @DLPipeline.register("nlp")

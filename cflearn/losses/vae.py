@@ -8,10 +8,10 @@ from cftool.types import tensor_dict_type
 
 from ..types import losses_type
 from ..schema import TrainerState
+from ..register import register_loss_module
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import PREDICTIONS_KEY
-from ..misc.internal_ import register_loss_module
 
 
 MU_KEY = "mu"

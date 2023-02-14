@@ -10,8 +10,8 @@ from .schema import VanillaGANMixin
 from ..decoder import make_decoder
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
-from ....misc.internal_.register import register_custom_module
-from ....misc.internal_.register import CustomModule
+from ....register import register_custom_module
+from ....register import CustomModule
 
 
 @register_custom_module("gan")

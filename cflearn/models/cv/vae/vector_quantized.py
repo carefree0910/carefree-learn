@@ -1,5 +1,3 @@
-import torch
-
 from torch import nn
 from torch import Tensor
 from typing import Any
@@ -10,11 +8,11 @@ from cftool.types import tensor_dict_type
 
 from ....schema import TrainerState
 from ....schema import WithDeviceMixin
+from ....register import register_module
 from ....constants import PREDICTIONS_KEY
 from ..generator.vector_quantized import VQGenerator
 from ....misc.toolkit import auto_num_layers
 from ....modules.blocks import ApplyTanhMixin
-from ....misc.internal_.register import register_module
 
 
 @register_module("vq_vae")

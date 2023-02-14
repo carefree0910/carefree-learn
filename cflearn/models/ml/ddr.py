@@ -16,13 +16,13 @@ from ..register import register_ml_module
 from ...types import losses_type
 from ...schema import ITrainer
 from ...schema import WithDeviceMixin
+from ...register import register_loss_module
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ..implicit.siren import make_grid
 from ..implicit.siren import Siren
 from ...misc.toolkit import get_gradient
-from ...misc.internal_ import register_loss_module
 
 
 def all_exists(*tensors: Optional[Tensor]) -> bool:

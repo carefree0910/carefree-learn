@@ -6,9 +6,9 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 
+from ....register import register_module
 from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import NormFactory
-from ....misc.internal_.register import register_module
 
 
 class UnetSkipConnectionBlock(nn.Module):

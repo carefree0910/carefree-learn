@@ -11,11 +11,11 @@ from .constants import LV1_ALPHA_KEY
 from .constants import LV1_RAW_ALPHA_KEY
 from ...bases import CascadeMixin
 from ....schema import TrainerState
+from ....register import register_module
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ...schemas.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
-from ....misc.internal_.register import register_module
 
 
 @register_module("cascade_u2net")

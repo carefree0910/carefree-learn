@@ -58,7 +58,7 @@ from .constants import CHECKPOINTS_FOLDER
 from .constants import BATCH_INDICES_KEY
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import _get_environ_workplace
-from .misc.internal_.trainer import make_trainer
+from .implementations.trainer import make_trainer
 
 
 pipeline_dict: Dict[str, Type["IPipeline"]] = {}

@@ -6,6 +6,7 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .vanilla import reparameterize
+from ....register import register_module
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.schema import make_encoder
@@ -15,7 +16,6 @@ from ....misc.toolkit import auto_num_layers
 from ....losses.vae import MU_KEY
 from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Linear
-from ....misc.internal_.register import register_module
 
 
 @register_module("siren_vae")

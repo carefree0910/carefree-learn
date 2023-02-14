@@ -7,6 +7,7 @@ from typing import Dict
 from typing import List
 from typing import Optional
 
+from ....register import register_module
 from ....constants import LATENT_KEY
 from ..encoder.backbone import BackboneEncoder
 from ...schemas.cv import ImageTranslatorMixin
@@ -15,7 +16,6 @@ from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import Linear
-from ....misc.internal_.register import register_module
 
 
 @register_module("linear_seg")

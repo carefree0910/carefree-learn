@@ -22,26 +22,26 @@ from torch.cuda.amp import autocast
 from torch.cuda.amp import GradScaler
 from torch.optim.optimizer import Optimizer
 
-from ..toolkit import no_grad_context
-from ..toolkit import toggle_optimizer
-from ..toolkit import Initializer
-from ...types import losses_type
-from ...schema import _forward
-from ...schema import ITrainer
-from ...schema import StepOutputs
-from ...schema import ILoss
-from ...schema import TrainerState
-from ...schema import IDLModel
-from ...schema import _IMetric
-from ...schema import MetricsOutputs
-from ...schema import WithDeviceMixin
-from ...schema import IDataLoader
-from ...schema import ModelWithCustomSteps
-from ...schema import TrainerConfig
-from ...constants import INPUT_KEY
-from ...constants import LABEL_KEY
-from ...constants import PREDICTIONS_KEY
-from ...data.cv import Transforms
+from .types import losses_type
+from .schema import _forward
+from .schema import ITrainer
+from .schema import StepOutputs
+from .schema import ILoss
+from .schema import TrainerState
+from .schema import IDLModel
+from .schema import _IMetric
+from .schema import MetricsOutputs
+from .schema import WithDeviceMixin
+from .schema import IDataLoader
+from .schema import ModelWithCustomSteps
+from .schema import TrainerConfig
+from .constants import INPUT_KEY
+from .constants import LABEL_KEY
+from .constants import PREDICTIONS_KEY
+from .data.cv import Transforms
+from .misc.toolkit import no_grad_context
+from .misc.toolkit import toggle_optimizer
+from .misc.toolkit import Initializer
 
 
 def register_initializer(name: str) -> Callable:

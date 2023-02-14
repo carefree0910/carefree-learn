@@ -9,7 +9,7 @@ from ..encoder.vanilla import VanillaEncoder
 from ...schemas.cv import ImageTranslatorMixin
 from ....constants import INPUT_KEY
 from ....misc.toolkit import interpolate
-from ....misc.internal_.register import register_module
+from ....register import register_module
 
 
 @register_module("cycle_gan_generator")

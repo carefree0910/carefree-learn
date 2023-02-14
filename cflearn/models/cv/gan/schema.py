@@ -18,14 +18,14 @@ from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
 from ....schema import WithDeviceMixin
+from ....register import CustomTrainStep
+from ....register import CustomTrainStepLoss
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ...schemas.cv import GaussianGeneratorMixin
 from ....misc.toolkit import mode_context
-from ....misc.internal_ import CustomTrainStep
-from ....misc.internal_ import CustomTrainStepLoss
 from ....losses.gan import GANLoss
 from ....losses.gan import GANTarget
 

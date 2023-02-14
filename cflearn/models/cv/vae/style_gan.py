@@ -3,7 +3,7 @@ from typing import Dict
 from typing import Optional
 
 from ..vae import VanillaVAE1D
-from ....misc.internal_.register import register_module
+from ....register import register_module
 
 
 @register_module("style_vae")

@@ -8,8 +8,8 @@ from typing import Optional
 
 from .schema import VanillaGANMixin
 from ...implicit.siren import ImgSiren
-from ....misc.internal_.register import register_custom_module
-from ....misc.internal_.register import CustomModule
+from ....register import register_custom_module
+from ....register import CustomModule
 
 
 @register_custom_module("siren_gan")

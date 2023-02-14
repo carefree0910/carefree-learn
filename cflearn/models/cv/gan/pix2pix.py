@@ -17,8 +17,8 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ....losses.gan import GANTarget
-from ....misc.internal_.register import register_custom_module
-from ....misc.internal_.register import CustomModule
+from ....register import register_custom_module
+from ....register import CustomModule
 
 
 @register_custom_module("pix2pix")

@@ -9,12 +9,12 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from .constants import STYLE_LABEL_KEY
+from ....register import register_module
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ..decoder.style_gan_v2 import FullyConnected
 from ..decoder.style_gan_v2 import StyleGAN2Decoder
 from ...schemas.cv import ImageTranslatorMixin
-from ....misc.internal_.register import register_module
 
 
 def normalize_z(net: Tensor, dim: int = 1, eps: float = 1.0e-8) -> Tensor:

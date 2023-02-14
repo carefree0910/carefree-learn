@@ -9,6 +9,8 @@ from cftool.types import tensor_dict_type
 from ..decoder import VanillaDecoder
 from ..encoder import BackboneEncoder
 from ....types import losses_type
+from ....register import register_module
+from ....register import register_loss_module
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import STYLE_KEY
@@ -21,8 +23,6 @@ from ....constants import STYLIZED_CONTENT_LATENT_KEY
 from ....misc.toolkit import adain_with_tensor
 from ....misc.toolkit import mean_std
 from ....misc.toolkit import interpolate
-from ....misc.internal_.register import register_module
-from ....misc.internal_.register import register_loss_module
 
 try:
     from cfcv.misc.toolkit import clip_normalize

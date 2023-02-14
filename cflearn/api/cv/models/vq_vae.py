@@ -19,7 +19,7 @@ from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import ORIGINAL_LABEL_KEY
 from ....misc.toolkit import eval_context
-from ....misc.internal_.callbacks import ImageCallback
+from ....implementations.callbacks import ImageCallback
 from ....models.cv.vae.vector_quantized import VQVAE
 
 

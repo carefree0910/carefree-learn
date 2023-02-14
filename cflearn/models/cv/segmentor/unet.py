@@ -8,6 +8,7 @@ from typing import List
 from typing import Optional
 from cftool.types import tensor_dict_type
 
+from ....register import register_module
 from ....constants import LATENT_KEY
 from ....constants import PREDICTIONS_KEY
 from ..encoder.backbone import BackboneEncoder
@@ -15,7 +16,6 @@ from ...schemas.cv import ImageTranslatorMixin
 from ....misc.toolkit import interpolate
 from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
-from ....misc.internal_.register import register_module
 
 
 class UNetDecoderBlock(nn.Module):

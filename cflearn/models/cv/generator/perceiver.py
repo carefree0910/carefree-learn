@@ -2,10 +2,10 @@ from torch import nn
 from torch import Tensor
 from typing import Optional
 
+from ....register import register_module
 from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import PerceiverIO
 from ....modules.blocks import VanillaPatchEmbed
-from ....misc.internal_.register import register_module
 
 
 @register_module("perceiver_io_generator")

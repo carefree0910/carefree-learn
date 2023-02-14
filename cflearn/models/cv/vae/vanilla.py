@@ -9,6 +9,7 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from ..general import EncoderDecoder
+from ....register import register_module
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
@@ -18,7 +19,6 @@ from ....losses.vae import LOG_VAR_KEY
 from ....modules.blocks import Lambda
 from ....modules.blocks import Activation
 from ....modules.blocks import ChannelPadding
-from ....misc.internal_.register import register_module
 
 
 def reparameterize(mu: Tensor, log_var: Tensor) -> Tensor:

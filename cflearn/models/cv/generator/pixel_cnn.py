@@ -9,6 +9,7 @@ from typing import List
 from typing import Optional
 from cftool.types import tensor_dict_type
 
+from ....register import register_module
 from ....constants import INPUT_KEY
 from ....constants import ORIGINAL_LABEL_KEY
 from ...schemas.cv import ImageTranslatorMixin
@@ -16,7 +17,6 @@ from ....modules.blocks import get_conv_blocks
 from ....modules.blocks import Conv2d
 from ....modules.blocks import Lambda
 from ....modules.blocks import ChannelPadding
-from ....misc.internal_.register import register_module
 
 
 class MaskedConv2d(Conv2d):

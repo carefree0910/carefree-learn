@@ -11,8 +11,8 @@ from .ddpm import DDPM
 from .utils import CROSS_ATTN_TYPE
 from ..ae.kl import GaussianDistribution
 from ....zoo import DLZoo
+from ....register import register_custom_module
 from ....misc.toolkit import freeze
-from ....misc.internal_ import register_custom_module
 
 
 @register_custom_module("ldm")

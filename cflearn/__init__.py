@@ -1,5 +1,5 @@
-from .misc import *
 from .schema import *
+from .register import *
 from .losses import *
 from .models import *
 from .modules import *
@@ -8,6 +8,7 @@ from .constants import *
 from .data import *
 from .pipeline import *
 from .zoo import *
+from .implementations import *
 
 from .api import cv
 from .api import ml

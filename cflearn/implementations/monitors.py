@@ -3,7 +3,7 @@ import math
 from typing import Optional
 from cftool.misc import Incrementer
 
-from ...schema import TrainerMonitor
+from ..schema import TrainerMonitor
 
 
 @TrainerMonitor.register("basic")

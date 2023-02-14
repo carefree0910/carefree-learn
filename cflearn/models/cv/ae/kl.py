@@ -11,10 +11,10 @@ from cftool.types import tensor_dict_type
 from .common import IAutoEncoder
 from .common import AutoEncoderInit
 from .common import AutoEncoderLPIPSWithDiscriminator
+from ....register import register_custom_module
+from ....register import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
-from ....misc.internal_ import register_custom_module
-from ....misc.internal_ import CustomTrainStepLoss
 
 
 class GaussianDistribution:

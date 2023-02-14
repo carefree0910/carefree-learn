@@ -1,12 +1,10 @@
 import torch
 
-import torch.nn as nn
-
+from torch import nn
 from torch import Tensor
 
 from ..misc.toolkit import download_model
 from ..misc.toolkit import set_requires_grad
-from ..models.cv.encoder.backbone.core import Backbone
 
 
 class ScalingLayer(nn.Module):
@@ -49,6 +47,8 @@ def spatial_average(net: Tensor, keepdim: bool = True) -> Tensor:
 
 class LPIPS(nn.Module):
     def __init__(self, use_dropout: bool = True):
+        from ..models.cv.encoder.backbone.core import Backbone
+
         super().__init__()
         self.scaling_layer = ScalingLayer()
         self.backbone = Backbone("vgg16_full", pretrained=True, requires_grad=False)
