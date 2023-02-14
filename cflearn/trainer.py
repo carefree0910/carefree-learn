@@ -63,7 +63,6 @@ from .misc.toolkit import eval_context
 from .modules.optimizers import optimizer_dict
 from .modules.schedulers import scheduler_dict
 from .modules.schedulers import WarmupScheduler
-from .misc.internal_.monitors import ConservativeMonitor
 
 
 class amp_context(context_error_handler):
@@ -385,7 +384,7 @@ class Trainer(ITrainer):
         assert self.rank is not None
         # monitor
         for monitor in self.monitors:
-            if not isinstance(monitor, ConservativeMonitor):
+            if monitor.__identifier__ != "conservative":
                 raise ValueError("Only `ConservativeMonitor` could be used in ddp mode")
         # ddp setup
         _setup_ddp()
