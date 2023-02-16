@@ -697,7 +697,8 @@ def make_ts_test_data(
     test_split: Optional[int] = None,
     test_end: Optional[int] = None,
     num_test: Optional[int] = None,
-    enforce_num_test: bool = False,
+    enforce_num_test: Optional[bool] = None,
+    enforce_test_valid: Optional[bool] = None,
     sanity_check: bool = True,
     use_numpy: bool = False,
     no_cache: bool = True,
@@ -707,10 +708,16 @@ def make_ts_test_data(
     config.for_inference = True
     config.validation_split = None
     config.validation_end = None
-    config.test_split = test_split
-    config.test_end = test_end
-    config.num_test = num_test
-    config.enforce_num_test = enforce_num_test
+    if test_split is not None:
+        config.test_split = test_split
+    if test_end is not None:
+        config.test_end = test_end
+    if num_test is not None:
+        config.num_test = num_test
+    if enforce_num_test is not None:
+        config.enforce_num_test = enforce_num_test
+    if enforce_test_valid is not None:
+        config.enforce_test_valid = enforce_test_valid
     config.sanity_check = sanity_check
     config.no_cache = no_cache
     config.y_window = 0
