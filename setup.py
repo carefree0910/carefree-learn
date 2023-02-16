@@ -31,6 +31,10 @@ setup(
             "onnxruntime",
         ],
         "cv": cv_requires,
+        "cv_full": cv_requires
+        + [
+            "salesforce-lavis",
+        ],
         "full": [
             "open_clip_torch",
             "faiss-cpu",
