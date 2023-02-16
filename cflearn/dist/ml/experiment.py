@@ -142,7 +142,8 @@ class Experiment(LoggingMixin):
         workplace_key: Optional[Tuple[str, str]] = None,
         config: Optional[Dict[str, Any]] = None,
         data_folder: Optional[str] = None,
-        **task_meta_kwargs: Any,
+        run_command: Optional[str] = None,
+        task_meta_kwargs: Optional[Dict[str, Any]] = None,
     ) -> str:
         if workplace_key is None:
             counter = 0
@@ -164,9 +165,10 @@ class Experiment(LoggingMixin):
         if data_folder is not None:
             copied_config["data_folder"] = os.path.abspath(data_folder)
         new_task = Task(
+            run_command,
             workplace=workplace,
             config=copied_config,
-            **shallow_copy_dict(task_meta_kwargs),
+            **shallow_copy_dict(task_meta_kwargs or {}),
         )
         self.tasks[workplace_key] = new_task
         self.key_indices[workplace_key] = new_idx

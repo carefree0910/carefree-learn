@@ -164,8 +164,8 @@ _set_environ_workplace(info.meta["workplace"])
                 continue
             experiment.add_task(
                 model=model_name,
-                run_command=f"{sys.executable} {tmp_path}",
                 root_workplace=workplace,
+                run_command=f"{sys.executable} {tmp_path}",
             )
         experiment.run_tasks(use_tqdm=False)
         os.remove(tmp_path)

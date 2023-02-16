@@ -321,6 +321,7 @@ def repeat_with(
         # meta
         meta = shallow_copy_dict(task_meta_kwargs or {})
         meta["carefree"] = carefree
+        meta["compress"] = compress
         # add tasks
         for model in models:
             for i in range(num_repeat):
@@ -328,12 +329,11 @@ def repeat_with(
                     continue
                 experiment.add_task(
                     model=model,
-                    compress=compress,
                     root_workplace=workplace,
                     workplace_key=(model, str(i)),
                     config=fetch_config(model).asdict(),
                     data_folder=data_folder,
-                    **shallow_copy_dict(meta),
+                    task_meta_kwargs=shallow_copy_dict(meta),
                 )
         # finalize
         results = experiment.run_tasks(use_tqdm=use_tqdm)
