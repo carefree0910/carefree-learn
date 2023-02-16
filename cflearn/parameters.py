@@ -7,6 +7,7 @@ from cftool.misc import OPTBase
 
 class OPTClass(OPTBase):
     cache_dir: str
+    meta_settings: Dict[str, Any]
 
     @property
     def env_key(self) -> str:
@@ -16,6 +17,7 @@ class OPTClass(OPTBase):
     def defaults(self) -> Dict[str, Any]:
         return dict(
             cache_dir=os.path.join(os.path.expanduser("~"), ".cache", "carefree-learn"),
+            meta_settings={},
         )
 
     @property
