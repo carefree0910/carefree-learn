@@ -7,6 +7,18 @@ DESCRIPTION = "Deep Learning with PyTorch made easy"
 with open("README.md", encoding="utf-8") as f:
     LONG_DESCRIPTION = f.read()
 
+cv_requires = [
+    "transformers",
+    "ftfy",
+    "regex",
+    "lmdb",
+    "albumentations",
+    "onnx",
+    "onnx-simplifier>=0.4.1",
+    "onnxruntime",
+    "carefree-cv>=0.1.2",
+]
+
 setup(
     name="carefree-learn",
     version=VERSION,
@@ -18,17 +30,7 @@ setup(
             "onnx-simplifier>=0.4.1",
             "onnxruntime",
         ],
-        "cv": [
-            "transformers",
-            "ftfy",
-            "regex",
-            "lmdb",
-            "albumentations",
-            "onnx",
-            "onnx-simplifier>=0.4.1",
-            "onnxruntime",
-            "carefree-cv>=0.1.2",
-        ],
+        "cv": cv_requires,
         "full": [
             "open_clip_torch",
             "faiss-cpu",
