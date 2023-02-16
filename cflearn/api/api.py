@@ -100,6 +100,7 @@ def run_multiple(
     sequential: Optional[bool] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     is_fix: bool = False,
+    task_meta_fn: Optional[Callable[[int], Any]] = None,
 ) -> None:
     if os.path.isdir(workplace) and not is_fix:
         print_warning(f"'{workplace}' already exists, it will be erased")
@@ -143,10 +144,12 @@ def run_multiple(
 import os
 from cflearn.misc.toolkit import _set_environ_workplace
 from cflearn.dist.ml.runs._utils import get_info
+from cflearn.parameters import OPT
 
 info = get_info(requires_data=False)
 os.environ["CUDA_VISIBLE_DEVICES"] = str(info.meta["cuda"])
 _set_environ_workplace(info.meta["workplace"])
+OPT.meta_settings = info.meta
 
 {original_scripts}
 """
@@ -162,10 +165,15 @@ _set_environ_workplace(info.meta["workplace"])
         for i in range(num_multiple):
             if is_fix and not is_buggy(i):
                 continue
+            if task_meta_fn is None:
+                i_meta_kw = {}
+            else:
+                i_meta_kw = task_meta_fn(i)
             experiment.add_task(
                 model=model_name,
                 root_workplace=workplace,
                 run_command=f"{sys.executable} {tmp_path}",
+                task_meta_kwargs=i_meta_kw,
             )
         experiment.run_tasks(use_tqdm=False)
         os.remove(tmp_path)
