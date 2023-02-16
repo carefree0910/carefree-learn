@@ -94,20 +94,13 @@ def run_multiple(
     model_name: str,
     cuda_list: Optional[List[Union[int, str]]],
     *,
-    num_jobs: int = 1,
+    num_jobs: int = 2,
     num_multiple: int = 5,
     workplace: str = "_multiple",
-    sequential: Optional[bool] = None,
     resource_config: Optional[Dict[str, Any]] = None,
     is_fix: bool = False,
     task_meta_fn: Optional[Callable[[int], Any]] = None,
 ) -> None:
-    if os.path.isdir(workplace) and not is_fix:
-        print_warning(f"'{workplace}' already exists, it will be erased")
-        shutil.rmtree(workplace)
-    if sequential is None:
-        sequential = num_jobs <= 1
-
     def is_buggy(i_: int) -> bool:
         i_workplace = os.path.join(workplace, model_name, str(i_))
         i_latest_workplace = get_latest_workplace(i_workplace)
@@ -120,27 +113,20 @@ def run_multiple(
             return True
         return False
 
-    if sequential:
-        for i in range(num_multiple):
-            if is_fix and not is_buggy(i):
-                continue
-            cuda = "" if cuda_list is None else str(cuda_list[0])
-            os.environ["CUDA_VISIBLE_DEVICES"] = cuda
-            os.system(f"{sys.executable} {path}")
-    else:
-        if num_jobs <= 1:
-            print_warning(
-                "we suggest setting `sequential` "
-                f"to True when `num_jobs` is {num_jobs}"
-            )
-        # generate temporary runtime script
-        with open(path, "r") as rf:
-            original_scripts = rf.read()
-        folder = os.path.split(os.path.abspath(path))[0]
-        tmp_path = os.path.join(folder, f"{random_hash()}.py")
-        with open(tmp_path, "w") as wf:
-            wf.write(
-                f"""
+    if num_jobs <= 1:
+        raise ValueError("`num_jobs` should greater than 1")
+    # remove workplace if exists
+    if os.path.isdir(workplace) and not is_fix:
+        print_warning(f"'{workplace}' already exists, it will be erased")
+        shutil.rmtree(workplace)
+    # generate temporary runtime script
+    with open(path, "r") as rf:
+        original_scripts = rf.read()
+    folder = os.path.split(os.path.abspath(path))[0]
+    tmp_path = os.path.join(folder, f"{random_hash()}.py")
+    with open(tmp_path, "w") as wf:
+        wf.write(
+            f"""
 import os
 from cflearn.misc.toolkit import _set_environ_workplace
 from cflearn.dist.ml.runs._utils import get_info
@@ -153,30 +139,30 @@ OPT.meta_settings = info.meta
 
 {original_scripts}
 """
-            )
-        print_info(f"`{tmp_path}` will be executed")
-        # construct & execute an Experiment
-        cudas = None if cuda_list is None else list(map(int, cuda_list))
-        experiment = Experiment(
-            num_jobs=num_jobs,
-            available_cuda_list=cudas,
-            resource_config=resource_config,
         )
-        for i in range(num_multiple):
-            if is_fix and not is_buggy(i):
-                continue
-            if task_meta_fn is None:
-                i_meta_kw = {}
-            else:
-                i_meta_kw = task_meta_fn(i)
-            experiment.add_task(
-                model=model_name,
-                root_workplace=workplace,
-                run_command=f"{sys.executable} {tmp_path}",
-                task_meta_kwargs=i_meta_kw,
-            )
-        experiment.run_tasks(use_tqdm=False)
-        os.remove(tmp_path)
+    print_info(f"`{tmp_path}` will be executed")
+    # construct & execute an Experiment
+    cudas = None if cuda_list is None else list(map(int, cuda_list))
+    experiment = Experiment(
+        num_jobs=num_jobs,
+        available_cuda_list=cudas,
+        resource_config=resource_config,
+    )
+    for i in range(num_multiple):
+        if is_fix and not is_buggy(i):
+            continue
+        if task_meta_fn is None:
+            i_meta_kw = {}
+        else:
+            i_meta_kw = task_meta_fn(i)
+        experiment.add_task(
+            model=model_name,
+            root_workplace=workplace,
+            run_command=f"{sys.executable} {tmp_path}",
+            task_meta_kwargs=i_meta_kw,
+        )
+    experiment.run_tasks(use_tqdm=False)
+    os.remove(tmp_path)
 
 
 def pack(
