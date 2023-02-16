@@ -81,7 +81,7 @@ class TimeSeriesConfig(DataClassBase):
 
     @property
     def hash_excludes(self) -> List[str]:
-        return [
+        excludes = [
             "num_workers",
             "random_sample_ratio",
             "sanity_check",
@@ -89,6 +89,15 @@ class TimeSeriesConfig(DataClassBase):
             "verbose",
             "cache_folder",
         ]
+        if not self.for_inference:
+            excludes += [
+                "test_split",
+                "test_end",
+                "num_test",
+                "enforce_num_test",
+                "enforce_test_valid",
+            ]
+        return excludes
 
     @property
     def use_validation(self) -> bool:
@@ -229,24 +238,30 @@ class ITimeSeriesProcessor(IMLDataProcessor):
             max_x_anchors = x_anchors.max(axis=-1)
             max_y_anchors = None if y_anchors is None else y_anchors.max(axis=-1)
             if tag == MLDatasetTag.TRAIN:
-                if self.config.num_test is not None:
-                    for id_ in ids[:, 0]:
-                        if id_counts[id_] >= self.config.num_test:
-                            raise ValueError("test data exceeds num_test")
-                        id_counts[id_] += 1
-                elif self.config.test_split is not None:
-                    if np.any(max_x_anchors < self.config.test_split):
-                        raise ValueError(f"test data exceeds test split : {x_anchors}")
-                    if self.config.test_end is not None and np.any(
-                        max_x_anchors >= self.config.test_end
-                    ):
-                        raise ValueError(f"test data exceeds test end : {x_anchors}")
-                elif self.config.validation_split is not None:
-                    anchors = x_anchors if y_anchors is None else y_anchors
-                    max_as = max_x_anchors if max_y_anchors is None else max_y_anchors
-                    if np.any(max_as >= self.config.validation_split):
-                        msg = f"train data exceeds validation split : {anchors}"
-                        raise ValueError(msg)
+                if not self.config.for_inference:
+                    if self.config.validation_split is not None:
+                        anchors = x_anchors if y_anchors is None else y_anchors
+                        max_anchors = (
+                            max_x_anchors if max_y_anchors is None else max_y_anchors
+                        )
+                        if np.any(max_anchors >= self.config.validation_split):
+                            msg = f"train data exceeds validation split : {anchors}"
+                            raise ValueError(msg)
+                else:
+                    if self.config.num_test is not None:
+                        for id_ in ids[:, 0]:
+                            if id_counts[id_] >= self.config.num_test:
+                                raise ValueError("test data exceeds num_test")
+                            id_counts[id_] += 1
+                    elif self.config.test_split is not None:
+                        if np.any(max_x_anchors < self.config.test_split):
+                            msg = f"test data exceeds test split : {x_anchors}"
+                            raise ValueError(msg)
+                        if self.config.test_end is not None and np.any(
+                            max_x_anchors >= self.config.test_end
+                        ):
+                            msg = f"test data exceeds test end : {x_anchors}"
+                            raise ValueError(msg)
             elif tag == MLDatasetTag.VALID:
                 if self.config.validation_split is not None and np.any(
                     max_x_anchors < self.config.validation_split
@@ -256,8 +271,10 @@ class ITimeSeriesProcessor(IMLDataProcessor):
                     )
                 if self.config.validation_end is not None:
                     anchors = x_anchors if y_anchors is None else y_anchors
-                    max_as = max_x_anchors if max_y_anchors is None else max_y_anchors
-                    if np.any(max_as >= self.config.validation_end):
+                    max_anchors = (
+                        max_x_anchors if max_y_anchors is None else max_y_anchors
+                    )
+                    if np.any(max_anchors >= self.config.validation_end):
                         msg = f"validation data exceeds validation end : {anchors}"
                         raise ValueError(msg)
             # update statics
