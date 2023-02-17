@@ -888,6 +888,24 @@ class DLPipeline(IPipeline, IDLPipeline):
                 m.model.load_state_dict(states, strict=strict)
         return m
 
+    @staticmethod
+    def load_data_info(export_folder: str, *, compress: bool = True) -> Dict[str, Any]:
+        if export_folder.endswith(".zip"):
+            export_folder = export_folder[:-4]
+        base_folder = os.path.dirname(os.path.abspath(export_folder))
+        with lock_manager(base_folder, [export_folder]):
+            with Saving.compress_loader(export_folder, compress):
+                try:
+                    loaded = DataModule.load_info(export_folder, return_bytes=True)
+                    return loaded.info
+                except Exception as err:
+                    print_warning(
+                        "error occurred when trying to load "
+                        f"`DataModule` ({err}), it might cause by BC breaking, "
+                        "empty `data_info` will be used"
+                    )
+                    return {}
+
     def to_onnx(
         self,
         export_folder: str,

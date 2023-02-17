@@ -231,6 +231,10 @@ def load(
     )
 
 
+def load_data_info(export_folder: str, *, compress: bool = True) -> Dict[str, Any]:
+    return DLPipeline.load_data_info(export_folder, compress=compress)
+
+
 def pack_onnx(
     workplace: str,
     export_folder: str,
