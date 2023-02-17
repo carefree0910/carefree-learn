@@ -100,6 +100,7 @@ def run_multiple(
     resource_config: Optional[Dict[str, Any]] = None,
     is_fix: bool = False,
     task_meta_fn: Optional[Callable[[int], Any]] = None,
+    temp_folder: Optional[str] = None,
 ) -> None:
     def is_buggy(i_: int) -> bool:
         i_workplace = os.path.join(workplace, model_name, str(i_))
@@ -122,8 +123,9 @@ def run_multiple(
     # generate temporary runtime script
     with open(path, "r") as rf:
         original_scripts = rf.read()
-    folder = os.path.split(os.path.abspath(path))[0]
-    tmp_path = os.path.join(folder, f"{random_hash()}.py")
+    if temp_folder is None:
+        temp_folder = os.path.split(os.path.abspath(path))[0]
+    tmp_path = os.path.join(temp_folder, f"{random_hash()}.py")
     with open(tmp_path, "w") as wf:
         wf.write(
             f"""
