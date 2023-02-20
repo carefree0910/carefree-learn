@@ -11,6 +11,7 @@ from typing import Optional
 from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import conv_nd
 from ....modules.blocks import zero_module
+from ....modules.blocks import HijackLinear
 from ....modules.blocks import SpatialTransformer
 from ....modules.blocks import MultiHeadSpatialAttention
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
@@ -117,9 +118,9 @@ class UNetDiffuser(nn.Module, ImageTranslatorMixin):
 
         time_embedding_dim = start_channels * 4
         self.time_embedding = nn.Sequential(
-            nn.Linear(start_channels, time_embedding_dim),
+            HijackLinear(start_channels, time_embedding_dim),
             nn.SiLU(),
-            nn.Linear(time_embedding_dim, time_embedding_dim),
+            HijackLinear(time_embedding_dim, time_embedding_dim),
         )
 
         if num_classes is None:

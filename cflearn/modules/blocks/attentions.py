@@ -23,6 +23,7 @@ from .utils import conv_nd
 from .utils import zero_module
 from .common import Lambda
 from .customs import Linear
+from .customs import HijackLinear
 from .activations import Activation
 from ...misc.toolkit import gradient_checkpoint
 
@@ -479,12 +480,12 @@ class CrossAttention(Module):
         self.num_heads = num_heads
         self.attn_split_chunk = attn_split_chunk
 
-        self.to_q = nn.Linear(query_dim, latent_dim, bias=False)
-        self.to_k = nn.Linear(context_dim, latent_dim, bias=False)
-        self.to_v = nn.Linear(context_dim, latent_dim, bias=False)
+        self.to_q = HijackLinear(query_dim, latent_dim, bias=False)
+        self.to_k = HijackLinear(context_dim, latent_dim, bias=False)
+        self.to_v = HijackLinear(context_dim, latent_dim, bias=False)
 
         self.out_linear = nn.Sequential(
-            nn.Linear(latent_dim, query_dim),
+            HijackLinear(latent_dim, query_dim),
             nn.Dropout(dropout),
         )
 

@@ -15,6 +15,7 @@ from ..utils import conv_nd
 from ..utils import avg_pool_nd
 from ..utils import zero_module
 from ..utils import Residual
+from ..customs import HijackLinear
 from ....misc.toolkit import safe_clip_
 from ....misc.toolkit import gradient_checkpoint
 
@@ -191,10 +192,10 @@ class ResidualBlockWithTimeEmbedding(Module):
         self.conv1 = conv_nd(signal_dim, in_channels, out_channels, 3, 1, 1)
         if time_embedding_channels > 0:
             if use_scale_shift_norm:
-                time_out_channels = 2 * out_channels
+                t_out_channels = 2 * out_channels
             else:
-                time_out_channels = out_channels
-            self.time_embedding = nn.Linear(time_embedding_channels, time_out_channels)
+                t_out_channels = out_channels
+            self.time_embedding = HijackLinear(time_embedding_channels, t_out_channels)
         self.norm2 = make_norm(out_channels)
         self.dropout = nn.Dropout(dropout)
         conv2 = conv_nd(signal_dim, out_channels, out_channels, 3, 1, 1)

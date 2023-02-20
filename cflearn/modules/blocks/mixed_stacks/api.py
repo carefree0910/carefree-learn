@@ -25,6 +25,7 @@ from ..utils import zero_module
 from ..common import Lambda
 from ..customs import Linear
 from ..customs import DropPath
+from ..customs import HijackLinear
 from ..high_level import PreNorm
 from ..attentions import CrossAttention
 from ....misc.toolkit import interpolate
@@ -525,7 +526,7 @@ class SpatialTransformer(Module):
         if not use_linear:
             self.to_latent = HijackConv2d(in_channels, latent_channels, 1, 1, 0)
         else:
-            self.to_latent = nn.Linear(in_channels, latent_channels)
+            self.to_latent = HijackLinear(in_channels, latent_channels)
         self.blocks = nn.ModuleList(
             [
                 SpatialTransformerBlock(
@@ -543,7 +544,7 @@ class SpatialTransformer(Module):
         self.from_latent = zero_module(
             HijackConv2d(latent_channels, in_channels, 1, 1, 0)
             if not use_linear
-            else nn.Linear(in_channels, latent_channels)
+            else HijackLinear(in_channels, latent_channels)
         )
 
     def forward(self, net: Tensor, context: Optional[Tensor]) -> Tensor:

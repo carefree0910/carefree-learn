@@ -5,6 +5,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from abc import abstractmethod
+from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -18,6 +20,12 @@ from torch.nn import Module
 from cftool.misc import print_warning
 
 
+class LinearHook(Module, metaclass=ABCMeta):
+    @abstractmethod
+    def callback(self, net: Tensor) -> Tensor:
+        pass
+
+
 class Linear(Module):
     def __init__(
         self,
@@ -29,6 +37,7 @@ class Linear(Module):
         init_method: Optional[str] = None,
         rank: Optional[int] = None,
         rank_ratio: Optional[float] = None,
+        hook: Optional[LinearHook] = None,
     ):
         super().__init__()
         original_rank = min(in_dim, out_dim)
@@ -62,6 +71,8 @@ class Linear(Module):
         init_method = init_method or "xavier_normal"
         init_fn = getattr(nn.init, f"{init_method}_", nn.init.xavier_normal_)
         self.init_weights_with(lambda t: init_fn(t, 1.0 / math.sqrt(2.0)))
+        # hook
+        self.hook = hook
 
     @property
     def weight(self) -> Tensor:
@@ -86,6 +97,8 @@ class Linear(Module):
             w2 = self.pruner2(w2)
         net = F.linear(net, w1)
         net = F.linear(net, w2, self.b)
+        if self.hook is not None:
+            net = self.hook.callback(net)
         return net
 
     def init_weights_with(self, w_init_fn: Callable[[Tensor], None]) -> None:
@@ -101,6 +114,18 @@ class Linear(Module):
             else:
                 if self.linear.bias is not None:
                     self.linear.bias.data.zero_()
+
+
+class HijackLinear(nn.Linear):
+    def __init__(self, *args: Any, hook: Optional[LinearHook] = None, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.hook = hook
+
+    def forward(self, net: Tensor) -> Tensor:
+        net = super().forward(net)
+        if self.hook is not None:
+            net = self.hook.callback(net)
+        return net
 
 
 class LeafAggregation(torch.autograd.Function):
@@ -437,6 +462,7 @@ class DropPath(Module):
 
 __all__ = [
     "Linear",
+    "HijackLinear",
     "LeafAggregation",
     "Route",
     "DNDF",

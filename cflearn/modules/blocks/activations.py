@@ -14,6 +14,7 @@ from torch.nn import Module
 from cftool.misc import WithRegister
 
 from .common import Lambda
+from .customs import HijackLinear
 
 
 activations: Dict[str, Type["Activation"]] = {}
@@ -60,7 +61,7 @@ class Activation(WithRegister["Activation"], Module, metaclass=ABCMeta):
 class GLU(Activation):
     def __init__(self, *, in_dim: int, bias: bool = True):
         super().__init__()
-        self.linear = nn.Linear(in_dim, 2 * in_dim, bias)
+        self.linear = HijackLinear(in_dim, 2 * in_dim, bias)
 
     def forward(self, net: Tensor) -> Tensor:
         projection, gate = self.linear(net).chunk(2, dim=1)
@@ -160,7 +161,7 @@ class QuickGELU(Activation):
 class GEGLU(Activation):
     def __init__(self, in_dim: int, out_dim: int):
         super().__init__()
-        self.net = nn.Linear(in_dim, out_dim * 2)
+        self.net = HijackLinear(in_dim, out_dim * 2)
 
     def forward(self, net: Tensor) -> Tensor:
         net, gate = self.net(net).chunk(2, dim=-1)

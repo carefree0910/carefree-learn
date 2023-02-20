@@ -17,6 +17,7 @@ from torchvision.transforms import InterpolationMode
 from .schema import IPerceptor
 from ...constants import INPUT_KEY
 from ...constants import LATENT_KEY
+from ...modules.blocks import HijackLinear
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
 
@@ -33,7 +34,7 @@ class CLIP(IPerceptor):
     token_type_embedding: Optional[nn.Embedding]
     text_transformer: Optional[TeTEncoder]
     text_latent_dropout: Optional[nn.Dropout]
-    text_projection: Optional[nn.Linear]
+    text_projection: Optional[HijackLinear]
 
     def __init__(
         self,
@@ -190,7 +191,7 @@ class CLIP(IPerceptor):
         )
         self.text_head_pooler = text_head_pooler
         self.text_latent_dropout = nn.Dropout(text_dropout)
-        self.text_projection = nn.Linear(text_latent_dim, latent_dim)
+        self.text_projection = HijackLinear(text_latent_dim, latent_dim)
 
     def reset_parameters(self) -> None:
         if self.token_embedding is not None:
