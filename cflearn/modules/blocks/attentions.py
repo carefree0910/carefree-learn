@@ -18,6 +18,7 @@ from cftool.misc import safe_execute
 from cftool.misc import WithRegister
 
 from .convs import Conv2d
+from .convs import HijackConv2d
 from .utils import conv_nd
 from .utils import zero_module
 from .common import Lambda
@@ -302,10 +303,10 @@ class SpatialAttention(Module):
             eps=eps,
             affine=True,
         )
-        self.to_q = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
-        self.to_k = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
-        self.to_v = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
-        self.to_out = nn.Conv2d(in_channels, in_channels, 1, 1, 0)
+        self.to_q = HijackConv2d(in_channels, in_channels, 1, 1, 0)
+        self.to_k = HijackConv2d(in_channels, in_channels, 1, 1, 0)
+        self.to_v = HijackConv2d(in_channels, in_channels, 1, 1, 0)
+        self.to_out = HijackConv2d(in_channels, in_channels, 1, 1, 0)
 
     def forward(self, net: Tensor) -> Tensor:
         inp = net
@@ -435,8 +436,8 @@ class LinearDepthWiseAttention(Module):
         self.num_heads = num_heads
         self.head_dim = head_dim
         self.latent_dim = num_heads * head_dim
-        self.to_qkv = nn.Conv2d(in_channels, self.latent_dim * 3, 1, bias=False)
-        self.to_out = nn.Conv2d(self.latent_dim, in_channels, 1)
+        self.to_qkv = HijackConv2d(in_channels, self.latent_dim * 3, 1, bias=False)
+        self.to_out = HijackConv2d(self.latent_dim, in_channels, 1)
 
     def transpose(self, net: Tensor) -> Tensor:
         # (B, H * W, C) -> (B, H * W, head, dim)

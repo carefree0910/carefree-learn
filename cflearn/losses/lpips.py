@@ -5,6 +5,7 @@ from torch import Tensor
 
 from ..misc.toolkit import download_model
 from ..misc.toolkit import set_requires_grad
+from ..modules.blocks.convs import HijackConv2d
 
 
 class ScalingLayer(nn.Module):
@@ -29,7 +30,7 @@ class ChannelMapping(nn.Module):
         blocks = []
         if use_dropout:
             blocks.append(nn.Dropout())
-        blocks.append(nn.Conv2d(in_channels, 1, 1, 1, 0, bias=False))
+        blocks.append(HijackConv2d(in_channels, 1, 1, 1, 0, bias=False))
         self.net = nn.Sequential(*blocks)
 
     def forward(self, net: Tensor) -> Tensor:

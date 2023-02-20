@@ -10,6 +10,7 @@ from torch.nn import Module
 from cftool.misc import shallow_copy_dict
 
 from .basic import get_conv_blocks
+from .basic import HijackConv2d
 from ..utils import conv_nd
 from ..utils import avg_pool_nd
 from ..utils import zero_module
@@ -200,9 +201,9 @@ class ResidualBlockWithTimeEmbedding(Module):
         self.conv2 = zero_module(conv2)
         if in_channels != out_channels:
             if use_conv_shortcut:
-                self.shortcut = nn.Conv2d(in_channels, out_channels, 3, 1, 1)
+                self.shortcut = HijackConv2d(in_channels, out_channels, 3, 1, 1)
             else:
-                self.shortcut = nn.Conv2d(in_channels, out_channels, 1, 1, 0)
+                self.shortcut = HijackConv2d(in_channels, out_channels, 1, 1, 0)
 
     def forward(self, net: Tensor, time_net: Optional[Tensor] = None) -> Tensor:
         inputs = (net,) if time_net is None else (net, time_net)

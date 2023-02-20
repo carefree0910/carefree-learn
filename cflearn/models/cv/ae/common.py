@@ -28,6 +28,7 @@ from ....register import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....losses.lpips import LPIPS
+from ....modules.blocks.convs import HijackConv2d
 
 
 class AutoEncoderInit(nn.Module):
@@ -83,12 +84,12 @@ class AutoEncoderInit(nn.Module):
             encoder_config=enc_config,
             decoder_config=dec_config,
         )
-        self.to_embedding = nn.Conv2d(
+        self.to_embedding = HijackConv2d(
             enc_scaler * latent_channels,
             enc_scaler * embedding_channels,
             1,
         )
-        self.from_embedding = nn.Conv2d(embedding_channels, latent_channels, 1)
+        self.from_embedding = HijackConv2d(embedding_channels, latent_channels, 1)
         self.apply_tanh = apply_tanh
 
 

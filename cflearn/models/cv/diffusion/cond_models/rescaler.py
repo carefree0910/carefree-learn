@@ -6,6 +6,7 @@ from typing import Optional
 from functools import partial
 
 from .schema import ISpecializedConditionModel
+from .....modules.blocks.convs import HijackConv2d
 
 
 @ISpecializedConditionModel.register("rescaler")
@@ -31,7 +32,7 @@ class SpatialRescaler(ISpecializedConditionModel):
         if out_channels is None:
             self.channel_mapper = None
         else:
-            self.channel_mapper = nn.Conv2d(in_channels, out_channels, 1, bias=bias)
+            self.channel_mapper = HijackConv2d(in_channels, out_channels, 1, bias=bias)
 
     def forward(self, cond: Tensor) -> Tensor:
         for _ in range(self.num_stages):

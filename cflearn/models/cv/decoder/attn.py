@@ -9,6 +9,7 @@ from typing import Optional
 
 from .schema import DecoderMixin
 from ....modules.blocks import make_attention
+from ....modules.blocks import HijackConv2d
 from ....modules.blocks import ApplyTanhMixin
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
 
@@ -19,7 +20,7 @@ class Upsample(nn.Module):
         if not with_conv:
             self.conv = None
         else:
-            self.conv = nn.Conv2d(in_channels, in_channels, 3, 1, 1)
+            self.conv = HijackConv2d(in_channels, in_channels, 3, 1, 1)
 
     def forward(self, net: Tensor) -> Tensor:
         net = F.interpolate(net, scale_factor=2.0, mode="nearest")
@@ -61,7 +62,7 @@ class AttentionDecoder(nn.Module, DecoderMixin, ApplyTanhMixin):
         )
         # in conv
         in_nc = inner_channels * channel_multipliers[-1]
-        blocks = [nn.Conv2d(latent_channels, in_nc, 3, 1, 1)]
+        blocks = [HijackConv2d(latent_channels, in_nc, 3, 1, 1)]
         # residual
         blocks += [
             make_res_block(in_nc, in_nc),
@@ -84,7 +85,7 @@ class AttentionDecoder(nn.Module, DecoderMixin, ApplyTanhMixin):
         head_blocks = [
             nn.GroupNorm(num_groups=32, num_channels=in_nc, eps=1.0e-6, affine=True),
             nn.SiLU(),
-            nn.Conv2d(in_nc, out_channels, 3, 1, 1),
+            HijackConv2d(in_nc, out_channels, 3, 1, 1),
         ]
         # construct
         self.decoder = nn.Sequential(*blocks)

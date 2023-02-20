@@ -9,6 +9,7 @@ from typing import Optional
 from ....register import register_module
 from ...schemas.cv import ImageTranslatorMixin
 from ....modules.blocks import NormFactory
+from ....modules.blocks import HijackConv2d
 
 
 class UnetSkipConnectionBlock(nn.Module):
@@ -58,7 +59,7 @@ class UnetSkipConnectionBlock(nn.Module):
             raise ValueError(msg)
         use_bias = norm_type == "instance"
         norm_kwargs = norm_kwargs or {}
-        downsample = nn.Conv2d(
+        downsample = HijackConv2d(
             self.input_channels,
             inner_channels,
             kernel_size=4,

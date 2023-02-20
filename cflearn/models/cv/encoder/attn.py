@@ -6,6 +6,7 @@ from typing import Tuple
 
 from .schema import EncoderMixin
 from ....modules.blocks import make_attention
+from ....modules.blocks import HijackConv2d
 from ....modules.blocks import ResidualBlockWithTimeEmbedding
 
 
@@ -15,7 +16,7 @@ class Downsample(nn.Module):
         if not with_conv:
             self.conv = None
         else:
-            self.conv = nn.Conv2d(in_channels, in_channels, 3, 2, 0)
+            self.conv = HijackConv2d(in_channels, in_channels, 3, 2, 0)
 
     def forward(self, net: Tensor) -> Tensor:
         if self.conv is None:
@@ -56,7 +57,7 @@ class AttentionEncoder(nn.Module, EncoderMixin):
             time_embedding_channels=0,
         )
         # in conv
-        blocks = [nn.Conv2d(in_channels, inner_channels, 3, 1, 1)]
+        blocks = [HijackConv2d(in_channels, inner_channels, 3, 1, 1)]
         # downsample
         current_resolution = img_size
         in_channel_multipliers = (1,) + tuple(channel_multipliers)
@@ -83,7 +84,7 @@ class AttentionEncoder(nn.Module, EncoderMixin):
         blocks += [
             nn.GroupNorm(num_groups=32, num_channels=in_nc, eps=1.0e-6, affine=True),
             nn.SiLU(),
-            nn.Conv2d(in_nc, latent_channels, 3, 1, 1),
+            HijackConv2d(in_nc, latent_channels, 3, 1, 1),
         ]
         # construct
         self.encoder = nn.Sequential(*blocks)

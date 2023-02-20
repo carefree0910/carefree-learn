@@ -19,6 +19,7 @@ from .poolers import SequencePooler
 from .channel_mixers import ChannelMixerBase
 from .channel_mixers import FeedForward
 from .token_mixers import TokenMixerBase
+from ..convs import HijackConv2d
 from ..norms import NormFactory
 from ..utils import zero_module
 from ..common import Lambda
@@ -522,7 +523,7 @@ class SpatialTransformer(Module):
         self.use_linear = use_linear
         latent_channels = num_heads * head_dim
         if not use_linear:
-            self.to_latent = nn.Conv2d(in_channels, latent_channels, 1, 1, 0)
+            self.to_latent = HijackConv2d(in_channels, latent_channels, 1, 1, 0)
         else:
             self.to_latent = nn.Linear(in_channels, latent_channels)
         self.blocks = nn.ModuleList(
@@ -540,7 +541,7 @@ class SpatialTransformer(Module):
             ]
         )
         self.from_latent = zero_module(
-            nn.Conv2d(latent_channels, in_channels, 1, 1, 0)
+            HijackConv2d(latent_channels, in_channels, 1, 1, 0)
             if not use_linear
             else nn.Linear(in_channels, latent_channels)
         )
