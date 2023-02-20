@@ -157,9 +157,14 @@ OPT.meta_settings = info.meta
             i_meta_kw = {}
         else:
             i_meta_kw = task_meta_fn(i)
+        if not is_fix:
+            workplace_key = None
+        else:
+            workplace_key = model_name, str(i)
         experiment.add_task(
             model=model_name,
             root_workplace=workplace,
+            workplace_key=workplace_key,
             run_command=f"{sys.executable} {tmp_path}",
             task_meta_kwargs=i_meta_kw,
         )
