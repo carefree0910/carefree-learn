@@ -2,10 +2,7 @@ import torch
 
 from torch import nn
 from torch import Tensor
-from typing import Any
-from typing import Dict
 from typing import Optional
-from cftool.misc import shallow_copy_dict
 from cftool.array import l2_normalize
 from torchvision.transforms import Resize
 from torchvision.transforms import Compose
