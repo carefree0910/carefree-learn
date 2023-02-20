@@ -51,8 +51,15 @@ def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dic
         nd[key] = md.pop(key)
     prefix = "cond_stage_model.transformer.text_model.encoder.layers"
     m_prefix = "core.condition_model.m.text_transformer.encoder.mixing_blocks"
-    cond_keys = [k for k in d if k.startswith("cond_stage_model")]
-    num_cond_layers = int(cond_keys[-3].split(".")[-3]) + 1
+    layer_indices = []
+    for key in d:
+        if not key.startswith(prefix):
+            continue
+        try:
+            layer_indices.append(int(key.split(".")[5]))
+        except:
+            continue
+    num_cond_layers = max(layer_indices) + 1
     for i in range(num_cond_layers):
         i_prefix = f"{prefix}.{i}"
         m_i_prefix = f"{m_prefix}.{i}"
