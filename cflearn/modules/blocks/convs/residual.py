@@ -9,9 +9,9 @@ from typing import Optional
 from torch.nn import Module
 from cftool.misc import shallow_copy_dict
 
+from .basic import conv_nd
 from .basic import get_conv_blocks
 from .basic import HijackConv2d
-from ..utils import conv_nd
 from ..utils import avg_pool_nd
 from ..utils import zero_module
 from ..utils import Residual

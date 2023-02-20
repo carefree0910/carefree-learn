@@ -573,6 +573,16 @@ class SEBlock(Module):
         return inp * net
 
 
+def conv_nd(n: int, *args: Any, **kwargs: Any) -> Module:
+    if n == 1:
+        return HijackConv1d(*args, **kwargs)
+    elif n == 2:
+        return HijackConv2d(*args, **kwargs)
+    elif n == 3:
+        return HijackConv3d(*args, **kwargs)
+    raise ValueError(f"unsupported dimensions: {n}")
+
+
 def get_conv_blocks(
     in_channels: int,
     out_channels: int,
@@ -632,5 +642,6 @@ __all__ = [
     "CABlock",
     "ECABlock",
     "SEBlock",
+    "conv_nd",
     "get_conv_blocks",
 ]

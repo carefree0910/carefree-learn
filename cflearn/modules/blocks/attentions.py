@@ -19,9 +19,9 @@ from torch.nn import Module
 from cftool.misc import safe_execute
 from cftool.misc import WithRegister
 
+from .convs import conv_nd
 from .convs import Conv2d
 from .convs import HijackConv2d
-from .utils import conv_nd
 from .utils import zero_module
 from .common import Lambda
 from .customs import Linear
