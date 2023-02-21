@@ -82,8 +82,8 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm_sd_anime_hybrid_v1.pt"
     },
     "ldm_sd_anime_guofeng3": {
-      "sha": "4d94c0a9cee3640fd8b9377dbc6f03336e94de91d3222dd3bd696fee2b63187e",
-      "st_size": 2134062160,
+      "sha": "c950b197fa0d5be7a269127fb258bbcac4735603574fc310b8c442eda0c7a276",
+      "st_size": 2134061968,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm_sd_anime_guofeng3.pt"
     },
     "ldm_sd_anime_orange2": {
