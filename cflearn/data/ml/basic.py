@@ -28,16 +28,16 @@ from cftool.array import is_string
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
-from cflearn.data.core import DLDataModule
-from cflearn.types import data_type
-from cflearn.types import sample_weights_type
-from cflearn.schema import IDataset
-from cflearn.schema import IDataLoader
-from cflearn.constants import INPUT_KEY
-from cflearn.constants import LABEL_KEY
-from cflearn.constants import PREDICTIONS_KEY
-from cflearn.constants import BATCH_INDICES_KEY
-from cflearn.misc.toolkit import ConfigMeta
+from ..core import DLDataModule
+from ...types import data_type
+from ...types import sample_weights_type
+from ...schema import IDataset
+from ...schema import IDataLoader
+from ...constants import INPUT_KEY
+from ...constants import LABEL_KEY
+from ...constants import PREDICTIONS_KEY
+from ...constants import BATCH_INDICES_KEY
+from ...misc.toolkit import ConfigMeta
 
 try:
     from cfdata.tabular.api import TabularData
