@@ -1023,4 +1023,5 @@ __all__ = [
     "IModifier",
     "IPipeline",
     "DLPipeline",
+    "ModelSoupConfigs",
 ]

@@ -967,6 +967,7 @@ class Trainer(ITrainer):
 
 
 __all__ = [
+    "get_scores",
     "get_sorted_checkpoints",
     "Trainer",
 ]

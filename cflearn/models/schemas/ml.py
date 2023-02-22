@@ -532,5 +532,7 @@ __all__ = [
     "Transform",
     "IMLCore",
     "MixedStackedModel",
+    "EnsembleFn",
     "MLModel",
+    "ml_core_dict",
 ]
