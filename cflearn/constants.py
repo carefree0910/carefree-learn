@@ -1,5 +1,3 @@
-import os
-
 WORKPLACE_ENVIRON_KEY = "CFLEARN_WORKPLACE"
 
 LOSS_KEY = "loss"
