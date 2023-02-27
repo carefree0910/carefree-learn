@@ -302,7 +302,8 @@ class DiffusionAPI(APIMixin):
                         seed = new_seed()
                     i_kw = shallow_copy_dict(kw)
                     i_cond = batch[INPUT_KEY].to(self.device)
-                    repeat = lambda t: t.repeat_interleave(len(i_cond), dim=0)
+                    i_n = len(i_cond)
+                    repeat = lambda t: t.repeat_interleave(i_n, dim=0)
                     if z is not None:
                         i_z = repeat(z)
                     else:
@@ -311,7 +312,7 @@ class DiffusionAPI(APIMixin):
                             in_channels -= cond.shape[1]
                         elif cond_concat is not None:
                             in_channels -= cond_concat.shape[1]
-                        i_z_shape = len(i_cond), in_channels, *size[::-1]
+                        i_z_shape = i_n, in_channels, *size[::-1]
                         i_z, _ = self._set_seed_and_variations(
                             seed,
                             lambda: torch.randn(i_z_shape, device=self.device),
@@ -333,7 +334,7 @@ class DiffusionAPI(APIMixin):
                             dx = max(-dx, 0)
                             dy = max(-dy, 0)
                             i_opt_z_shape = (
-                                len(i_cond),
+                                i_n,
                                 self.m.in_channels,
                                 *z_opt_shape,
                             )
