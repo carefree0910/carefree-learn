@@ -5,6 +5,7 @@ from abc import abstractmethod
 from abc import ABCMeta
 from torch import nn
 from torch import Tensor
+from typing import List
 from typing import Tuple
 from typing import Optional
 
@@ -259,6 +260,8 @@ class UNetDiffuser(nn.Module):
         timesteps: Tensor,
         context: Optional[Tensor] = None,
         labels: Optional[Tensor] = None,
+        control: Optional[List[Tensor]] = None,
+        only_mid_control: bool = False,
     ) -> Tensor:
         if (labels is None) ^ (self.num_classes is None):
             raise ValueError("`labels` should be given iff `num_classes` is specified")
@@ -278,8 +281,13 @@ class UNetDiffuser(nn.Module):
             net = block(net, time_net, context)
             nets.append(net)
         net = self.residual(net, time_net, context)
+        if control is not None:
+            net += control.pop()
         for block in self.output_blocks:
-            net = torch.cat([net, nets.pop()], dim=1)
+            if only_mid_control or control is None:
+                net = torch.cat([net, nets.pop()], dim=1)
+            else:
+                net = torch.cat([net, nets.pop() + control.pop()], dim=1)
             net = block(net, time_net, context)
         net = self.head(net)
         return net
