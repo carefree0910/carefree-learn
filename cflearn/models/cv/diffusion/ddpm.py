@@ -229,9 +229,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         # unet
         self.in_channels = in_channels
         self.out_channels = out_channels
-        self.unet = UNetDiffuser(
-            in_channels,
-            out_channels,
+        self.unet_kw = dict(
+            in_channels=in_channels,
             context_dim=context_dim,
             num_heads=num_heads,
             num_head_channels=num_head_channels,
@@ -251,6 +250,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             use_checkpoint=use_checkpoint,
             attn_split_chunk=attn_split_chunk,
         )
+        self.unet = UNetDiffuser(out_channels=out_channels, **self.unet_kw)  # type: ignore
         # ema
         if ema_decay is None:
             self.unet_ema = None
