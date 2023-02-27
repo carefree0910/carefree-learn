@@ -1138,6 +1138,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
             self.weights[name] = torch.load(download_model(tag))
 
     def switch(self, name: str) -> None:
+        if self.m.control_model is None:
+            raise ValueError("`control_model` is not built yet")
         if name == self.current:
             return
         d = self.weights.get(name)
