@@ -19,6 +19,7 @@ from ..utils import cond_type
 from ..utils import extract_to
 from ..utils import get_timesteps
 from ..utils import CONCAT_KEY
+from ..utils import CONTROL_HINT_KEY
 
 
 samplers: Dict[str, Type["ISampler"]] = {}
@@ -204,7 +205,9 @@ class UncondSamplerMixin:
         else:
             cond2 = shallow_copy_dict(cond)
             for k, v in cond2.items():
-                if k != CONCAT_KEY:
+                if k == CONTROL_HINT_KEY:
+                    cond2[k] = torch.cat([v, v])
+                elif k != CONCAT_KEY:
                     if v.shape[1] != uncond.shape[1]:
                         cond2 = None
                         break

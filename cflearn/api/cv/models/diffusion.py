@@ -47,6 +47,7 @@ from ....models.cv.diffusion.utils import CONCAT_KEY
 from ....models.cv.diffusion.utils import CONCAT_TYPE
 from ....models.cv.diffusion.utils import HYBRID_TYPE
 from ....models.cv.diffusion.utils import CROSS_ATTN_KEY
+from ....models.cv.diffusion.utils import CONTROL_HINT_KEY
 from ....models.cv.diffusion.cond_models import CLIPTextConditionModel
 from ....models.cv.diffusion.samplers.ddim import DDIMMixin
 from ....models.cv.diffusion.samplers.solver import DPMSolver
@@ -228,6 +229,7 @@ class DiffusionAPI(APIMixin):
         cond: Optional[Any] = None,
         cond_concat: Optional[Tensor] = None,
         unconditional_cond: Optional[Any] = None,
+        hint: Optional[Tensor] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
@@ -365,6 +367,14 @@ class DiffusionAPI(APIMixin):
                             CROSS_ATTN_KEY: i_cond,
                             CONCAT_KEY: cond_concat,
                         }
+                    if hint is not None:
+                        if isinstance(i_cond, dict):
+                            i_cond[CONTROL_HINT_KEY] = hint
+                        else:
+                            i_cond = {
+                                CROSS_ATTN_KEY: i_cond,
+                                CONTROL_HINT_KEY: hint,
+                            }
                     with switch_sampler_context(self, i_kw.get("sampler")):
                         i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)
                     sampled.append(i_sampled.cpu().float())

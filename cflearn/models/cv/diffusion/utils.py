@@ -13,6 +13,7 @@ CONCAT_TYPE = "concat"
 HYBRID_TYPE = "hybrid"
 CROSS_ATTN_KEY = "context"
 CROSS_ATTN_TYPE = "cross_attn"
+CONTROL_HINT_KEY = "hint"
 
 
 def extract_to(array: Tensor, indices: Tensor, num_dim: int) -> Tensor:

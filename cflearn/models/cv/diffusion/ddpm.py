@@ -17,6 +17,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.array import to_torch
 from cftool.types import tensor_dict_type
 
+from .unet import ControlNet
 from .unet import UNetDiffuser
 from .utils import cond_type
 from .utils import extract_to
@@ -28,6 +29,7 @@ from .utils import CONCAT_TYPE
 from .utils import HYBRID_TYPE
 from .utils import CROSS_ATTN_KEY
 from .utils import CROSS_ATTN_TYPE
+from .utils import CONTROL_HINT_KEY
 from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
@@ -196,6 +198,9 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         use_linear_in_transformer: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
+        # ControlNet
+        hint_channels: Optional[int] = None,
+        only_mid_control: bool = False,
         # diffusion
         ema_decay: Optional[float] = None,
         use_num_updates_in_ema: bool = True,
@@ -251,6 +256,14 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             attn_split_chunk=attn_split_chunk,
         )
         self.unet = UNetDiffuser(out_channels=out_channels, **self.unet_kw)  # type: ignore
+        # ControlNet
+        if hint_channels is None:
+            self.control_model = None
+        else:
+            self.make_control_net(hint_channels)
+        self.only_mid_control = only_mid_control
+        self.num_control_scales = len(self.unet.output_blocks) + 1
+        self.control_scales = [1.0] * self.num_control_scales
         # ema
         if ema_decay is None:
             self.unet_ema = None
@@ -488,6 +501,16 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
                     cond_kw = {ADM_KEY: cond}
             else:
                 raise ValueError(f"unrecognized condition type {cond_type} occurred")
+        if self.control_model is not None:
+            if not isinstance(cond, dict):
+                raise ValueError("`cond` should be a dict when `control_model` is used")
+            hint = cond.get(CONTROL_HINT_KEY)
+            if hint is None:
+                raise ValueError("`hint` should be provided for `control_model`")
+            control = self.control_model(net, hint, timesteps=timesteps, **cond_kw)
+            control = [c * scale for c, scale in zip(control, self.control_scales)]
+            cond_kw["control"] = control
+            cond_kw["only_mid_control"] = self.only_mid_control
         return self.unet(net, timesteps=timesteps, **cond_kw)
 
     def predict_eps_from_z_and_v(
@@ -513,6 +536,21 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             extract_to(self.sqrt_alphas_cumprod, ts, num_dim) * image
             - extract_to(self.sqrt_one_minus_alphas_cumprod, ts, num_dim) * v
         )
+
+    def make_control_net(self, hint_channels: int) -> None:
+        control_model = ControlNet(hint_channels=hint_channels, **self.unet_kw)  # type: ignore
+        self.control_model = control_model.to(self.device, dtype=self.dtype)
+
+    def set_control_scales(self, scales: Union[float, List[float]]) -> None:
+        if isinstance(scales, float):
+            scales = [scales] * self.num_control_scales
+        self.control_scales = scales
+
+    def detach_control_net(self) -> None:
+        if self.control_model is not None:
+            self.control_model.to("cpu")
+            del self.control_model
+            self.control_model = None
 
     # internal
 
