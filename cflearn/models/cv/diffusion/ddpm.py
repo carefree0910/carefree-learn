@@ -466,16 +466,17 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
                 if isinstance(cond, dict):
                     cond = cond[CONCAT_KEY]
                 net = torch.cat([net, cond], dim=1)
-            elif cond_type == CROSS_ATTN_TYPE or cond_type == HYBRID_TYPE:
+            elif cond_type == CROSS_ATTN_TYPE:
                 if not isinstance(cond, dict):
-                    if cond_type == HYBRID_TYPE:
-                        msg = "`cond` should be a dict when `hybrid` is applied"
-                        raise ValueError(msg)
                     cond_kw = {CROSS_ATTN_KEY: cond}
                 else:
-                    concat = cond[CONCAT_KEY].repeat_interleave(len(net), dim=0)
-                    net = torch.cat([net, concat], dim=1)
                     cond_kw = {CROSS_ATTN_KEY: cond[CROSS_ATTN_KEY]}
+            elif cond_type == HYBRID_TYPE:
+                if not isinstance(cond, dict):
+                    raise ValueError("`cond` should be a dict when `hybrid` is applied")
+                concat = cond[CONCAT_KEY].repeat_interleave(len(net), dim=0)
+                net = torch.cat([net, concat], dim=1)
+                cond_kw = {CROSS_ATTN_KEY: cond[CROSS_ATTN_KEY]}
             elif cond_type == ADM_TYPE:
                 if isinstance(cond, dict):
                     cond_kw = cond
