@@ -2,8 +2,12 @@
 import sys
 import re
 import numpy as np
-import cv2
 import torch
+
+try:
+    import cv2
+except:
+    cv2 = None
 
 
 def read_pfm(path):

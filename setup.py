@@ -33,6 +33,7 @@ setup(
         "cv": cv_requires,
         "cv_full": cv_requires
         + [
+            "timm",
             "salesforce-lavis",
         ],
         "full": [

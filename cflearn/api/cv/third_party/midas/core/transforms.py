@@ -1,9 +1,13 @@
 import numpy as np
-import cv2
 import math
 
+try:
+    import cv2
+except:
+    cv2 = None
 
-def apply_min_size(sample, size, image_interpolation_method=cv2.INTER_AREA):
+
+def apply_min_size(sample, size, image_interpolation_method=3):
     """Rezise the sample to ensure the given size. Keeps aspect ratio.
 
     Args:
@@ -56,7 +60,7 @@ class Resize(object):
         keep_aspect_ratio=False,
         ensure_multiple_of=1,
         resize_method="lower_bound",
-        image_interpolation_method=cv2.INTER_AREA,
+        image_interpolation_method=3,
     ):
         """Init.
 
