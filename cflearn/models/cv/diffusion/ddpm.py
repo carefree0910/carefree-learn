@@ -301,6 +301,10 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         )
 
     @property
+    def dtype(self) -> torch.dtype:
+        return list(self.unet.parameters())[0].dtype
+
+    @property
     def can_reconstruct(self) -> bool:
         return True
 
