@@ -7,7 +7,6 @@ import torch
 import numpy as np
 import torch.nn as nn
 
-from einops import rearrange
 from torchvision.transforms import Compose
 
 from .core.dpt_depth import DPTDepthModel
@@ -190,7 +189,7 @@ class MiDaSAPI:
         with torch.no_grad():
             image_depth = torch.from_numpy(image_depth).float().to(self.device)
             image_depth = image_depth / 127.5 - 1.0
-            image_depth = rearrange(image_depth, "h w c -> 1 c h w")
+            image_depth = image_depth[None].permute(0, 3, 1, 2).contiguous()
             depth = self.model(image_depth)[0]
 
             depth_pt = depth.clone()
@@ -212,7 +211,7 @@ class MiDaSAPI:
         with torch.no_grad():
             image_depth = torch.from_numpy(image_depth).float().to(self.device)
             image_depth = image_depth / 127.5 - 1.0
-            image_depth = rearrange(image_depth, "h w c -> 1 c h w")
+            image_depth = image_depth[None].permute(0, 3, 1, 2).contiguous()
             depth = self.model(image_depth)[0]
 
             depth_pt = depth.clone()
