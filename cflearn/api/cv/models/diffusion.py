@@ -303,7 +303,11 @@ class DiffusionAPI(APIMixin):
                     i_kw = shallow_copy_dict(kw)
                     i_cond = batch[INPUT_KEY].to(self.device)
                     i_n = len(i_cond)
-                    repeat = lambda t: t.repeat_interleave(i_n, dim=0)
+                    repeat = (
+                        lambda t: t
+                        if t.shape[0] == i_n
+                        else t.repeat_interleave(i_n, dim=0)
+                    )
                     if z is not None:
                         i_z = repeat(z)
                     else:
