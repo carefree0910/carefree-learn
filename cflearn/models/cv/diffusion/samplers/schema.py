@@ -206,7 +206,7 @@ class UncondSamplerMixin:
             cond2 = shallow_copy_dict(cond)
             for k, v in cond2.items():
                 if k == CONTROL_HINT_KEY:
-                    cond2[k] = torch.cat([v, v])
+                    pass
                 elif k != CONCAT_KEY:
                     if v.shape[1] != uncond.shape[1]:
                         cond2 = None
