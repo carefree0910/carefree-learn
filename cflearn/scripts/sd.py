@@ -338,8 +338,20 @@ def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
         wrapper.load_state_dict(d)
 
 
+def convert_controlnet(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+    inp = _get_d(inp)
+    with open(download_static("sd_controlnet_mapping", extension="json"), "r") as f:
+        mapping = json.load(f)
+    nd = {}
+    for k, v in inp.items():
+        if "control_model" in k:
+            nd[mapping[k]] = v
+    return nd
+
+
 __all__ = [
     "convert",
     "convert_v2",
     "inject",
+    "convert_controlnet",
 ]
