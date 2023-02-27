@@ -296,7 +296,10 @@ class DiffusionAPI(APIMixin):
             self.sampler.unconditional_cond = uncond.clone()
         with eval_context(self.m):
             with self.amp_context:
-                for batch in iterator:
+                for i, batch in enumerate(iterator):
+                    # from the 2nd batch forward, we need to re-generate new seeds
+                    if i >= 1:
+                        seed = new_seed()
                     i_kw = shallow_copy_dict(kw)
                     i_cond = batch[INPUT_KEY].to(self.device)
                     repeat = lambda t: t.repeat_interleave(len(i_cond), dim=0)
