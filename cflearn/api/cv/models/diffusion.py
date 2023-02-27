@@ -11,8 +11,10 @@ from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
@@ -86,6 +88,9 @@ class MaskedCond(NamedTuple):
     remained_mask: np.ndarray
     mask_cond: Tensor
     remained_image_cond: Tensor
+
+
+T = TypeVar("T", bound="DiffusionAPI")
 
 
 class DiffusionAPI(APIMixin):
@@ -868,56 +873,56 @@ class DiffusionAPI(APIMixin):
 
     @classmethod
     def from_sd(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         return cls.from_pipeline(ldm_sd(), device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sd_version(
-        cls,
+        cls: Type[T],
         version: str,
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         m = ldm_sd_version(version)
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sd_anime(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         m = ldm_sd_anime()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sd_inpainting(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         m = ldm_sd_inpainting()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sd_v2(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         return cls.from_pipeline(
             ldm_sd_v2(),
             device,
@@ -928,12 +933,12 @@ class DiffusionAPI(APIMixin):
 
     @classmethod
     def from_sd_v2_base(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         return cls.from_pipeline(
             ldm_sd_v2_base(),
             device,
@@ -944,44 +949,44 @@ class DiffusionAPI(APIMixin):
 
     @classmethod
     def from_celeba_hq(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         m = ldm_celeba_hq()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_inpainting(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         m = ldm_inpainting()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sr(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         return cls.from_pipeline(ldm_sr(), device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_semantic(
-        cls,
+        cls: Type[T],
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
-    ) -> "DiffusionAPI":
+    ) -> T:
         m = ldm_semantic()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
