@@ -220,6 +220,11 @@
       "sha": "46818e68e121178dc91d178ff4f56c98b8a490592914db4091dcdb3d6d58c695",
       "st_size": 154677682,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/hrnet32_idih256.pt"
+    },
+    "dpt_hybrid-midas-501f0c75": {
+      "sha": "501f0c75b3bca7daec6b3682c5054c09b366765aef6fa3a09d03a5cb4b230853",
+      "st_size": 492757791,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/dpt_hybrid-midas-501f0c75.pt"
     }
   },
   "reference": {
