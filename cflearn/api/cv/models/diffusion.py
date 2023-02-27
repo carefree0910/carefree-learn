@@ -1063,7 +1063,7 @@ class DiffusionAPI(APIMixin):
         with switch_sampler_context(self, kwargs.get("sampler")):
             z, noise, kwargs = self._q_sample(z, num_steps, **kwargs)
             return self.sample(
-                1,
+                z.shape[0],
                 export_path,
                 z=z,
                 z_ref=z_ref,
