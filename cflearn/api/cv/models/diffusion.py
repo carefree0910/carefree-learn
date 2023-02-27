@@ -38,6 +38,7 @@ from ....constants import INPUT_KEY
 from ....misc.toolkit import slerp
 from ....misc.toolkit import new_seed
 from ....misc.toolkit import eval_context
+from ....misc.toolkit import download_model
 from ....misc.toolkit import seed_everything
 from ....modules.blocks import Conv2d
 from ....models.cv.diffusion import LDM
@@ -1094,6 +1095,61 @@ class DiffusionAPI(APIMixin):
             )
 
 
+class ControlledDiffusionAPI(DiffusionAPI):
+    current: Optional[str]
+    weights: tensor_dict_type
+
+    def __init__(
+        self,
+        m: DDPM,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+        clip_skip: int = 0,
+        hint_channels: int = 3,
+    ):
+        super().__init__(
+            m,
+            device,
+            use_amp=use_amp,
+            use_half=use_half,
+            clip_skip=clip_skip,
+        )
+        self.m.make_control_net(hint_channels)
+        self.current = None
+        self.weights: Dict[str, tensor_dict_type] = {}
+
+    def to(
+        self,
+        device: torch.device,
+        *,
+        use_amp: bool = False,
+        use_half: bool = False,
+    ) -> None:
+        super().to(device, use_amp=use_amp, use_half=use_half)
+        for d in self.weights.values():
+            for k, v in d.items():
+                v = v.half() if use_half else v.float()
+                d[k] = v.to(device)
+
+    def prepare(self, names2tags: Dict[str, str]) -> None:
+        for name, tag in names2tags.items():
+            self.weights[name] = torch.load(download_model(tag))
+
+    def switch(self, name: str) -> None:
+        if name == self.current:
+            return
+        d = self.weights.get(name)
+        if d is None:
+            raise ValueError(
+                f"cannot find weights called '{name}', "
+                f"available weights are: {', '.join(self.weights.keys())}"
+            )
+        self.current = name
+        self.m.control_model.load_state_dict(d)
+
+
 def _ldm(
     model: str,
     latent_size: int,
@@ -1258,4 +1314,5 @@ def ldm_semantic(pretrained: bool = True) -> DLPipeline:
 
 __all__ = [
     "DiffusionAPI",
+    "ControlledDiffusionAPI",
 ]
