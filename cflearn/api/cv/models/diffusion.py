@@ -233,10 +233,12 @@ class DiffusionAPI(APIMixin):
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
-        batch_size: int = 1,
+        batch_size: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
+        if batch_size is None:
+            batch_size = num_samples
         registered_custom = False
         if self.cond_model is not None:
             clip_skip = kwargs.get(
@@ -496,7 +498,7 @@ class DiffusionAPI(APIMixin):
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
-        batch_size: int = 1,
+        batch_size: Optional[int] = None,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
