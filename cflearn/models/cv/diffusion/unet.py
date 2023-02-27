@@ -71,7 +71,7 @@ def timestep_embedding(
     return embedding
 
 
-class UNetDiffuser(nn.Module, ImageTranslatorMixin):
+class UNetDiffuser(nn.Module):
     def __init__(
         self,
         in_channels: int,
