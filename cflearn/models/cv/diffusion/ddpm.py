@@ -199,7 +199,6 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
         # ControlNet
-        hint_channels: Optional[int] = None,
         only_mid_control: bool = False,
         # diffusion
         ema_decay: Optional[float] = None,
@@ -257,10 +256,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         )
         self.unet = UNetDiffuser(out_channels=out_channels, **self.unet_kw)  # type: ignore
         # ControlNet
-        if hint_channels is None:
-            self.control_model = None
-        else:
-            self.make_control_net(hint_channels)
+        self.control_model = None
         self.only_mid_control = only_mid_control
         self.num_control_scales = len(self.unet.output_blocks) + 1
         self.control_scales = [1.0] * self.num_control_scales
