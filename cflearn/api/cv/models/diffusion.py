@@ -1193,9 +1193,9 @@ class MLSDAnnotator(Annotator):
 
 
 class ControlledDiffusionAPI(DiffusionAPI):
-    current: Optional[ControlNetHints]
-    weights: tensor_dict_type
-    annotators: Dict[ControlNetHints, Annotator] = {}
+    loaded: Dict[ControlNetHints, bool]
+    weights: Dict[ControlNetHints, tensor_dict_type]
+    annotators: Dict[ControlNetHints, Annotator]
 
     defaults = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.depth",
@@ -1219,6 +1219,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         use_half: bool = False,
         clip_skip: int = 0,
         hint_channels: int = 3,
+        num_pool: int = 4,
     ):
         super().__init__(
             m,
@@ -1227,9 +1228,13 @@ class ControlledDiffusionAPI(DiffusionAPI):
             use_half=use_half,
             clip_skip=clip_skip,
         )
-        self.m.make_control_net(hint_channels)
-        self.current = None
-        self.weights: Dict[str, tensor_dict_type] = {}
+        pool = sorted(self.defaults)
+        selected_pool = pool[: min(num_pool, len(pool))]
+        self.m.make_control_net({k: hint_channels for k in selected_pool})
+        self.loaded = {k: False for k in selected_pool}
+        self.weights = {}
+        self.annotators = {}
+        self.num_pool = num_pool
 
     def to(
         self,
@@ -1263,7 +1268,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def switch(self, hint: ControlNetHints) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
-        if hint == self.current:
+        hint_loaded = self.loaded.get(hint)
+        if hint_loaded:
             return
         d = self.weights.get(hint)
         if d is None:
@@ -1271,8 +1277,16 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 f"cannot find weights called '{hint}', "
                 f"available weights are: {', '.join(self.available)}"
             )
-        self.current = hint
-        self.m.control_model.load_state_dict(d)
+        if hint_loaded is None:
+            not_loaded = [k for k, v in self.loaded.items() if not v]
+            if not_loaded:
+                pop_key = random.choice(not_loaded)
+            else:
+                pop_key = random.choice(list(self.loaded))
+            self.m.rename_control_net(pop_key, hint)
+            self.loaded.pop(pop_key)
+        self.m.load_control_net_with(hint, d)
+        self.loaded[hint] = True
 
     def prepare_annotator(self, hint: ControlNetHints) -> None:
         if hint not in self.annotators:
@@ -1287,13 +1301,18 @@ class ControlledDiffusionAPI(DiffusionAPI):
         for hint in self.weights:
             self.prepare_annotator(hint)
 
-    def get_hint(self, uint8_rgb: np.ndarray, **kwargs: Any) -> np.ndarray:
-        if self.current is None:
-            raise ValueError("`hint` is not specified yet, please call `switch` first.")
-        annotator = self.annotators.get(self.current)
+    def get_hint_of(
+        self,
+        hint: ControlNetHints,
+        uint8_rgb: np.ndarray,
+        **kwargs: Any,
+    ) -> np.ndarray:
+        if not self.loaded.get(hint):
+            raise ValueError(f"'{hint}' is not loaded yet, please call `switch` first.")
+        annotator = self.annotators.get(hint)
         if annotator is None:
             raise ValueError(
-                f"annotator for '{self.current}' is not prepared yet, "
+                f"annotator for '{hint}' is not prepared yet, "
                 "please call `prepare_annotator`/`prepare_annotators` first."
             )
         kwargs["uint8_rgb"] = uint8_rgb

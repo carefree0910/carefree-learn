@@ -164,6 +164,10 @@ class DDPMStep(CustomTrainStep):
             m.unet_ema()
 
 
+TControlScales = Union[float, List[float]]
+TTControlScales = Union[TControlScales, Dict[str, TControlScales]]
+
+
 @register_custom_module("ddpm")
 class DDPM(CustomModule, GaussianGeneratorMixin):
     cond_key = "cond"
@@ -172,6 +176,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
     identity_condition_model = "identity"
 
     sampler: ISampler
+    control_model: Optional[Union[ControlNet, nn.ModuleDict]]
+    control_scales: Optional[Union[List[float], Dict[str, List[float]]]]
 
     def __init__(
         self,
@@ -259,7 +265,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         self.control_model = None
         self.only_mid_control = only_mid_control
         self.num_control_scales = len(self.unet.output_blocks) + 1
-        self.control_scales = [1.0] * self.num_control_scales
+        self.control_scales = None
         # ema
         if ema_decay is None:
             self.unet_ema = None
@@ -503,8 +509,36 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             hint = cond.get(CONTROL_HINT_KEY)
             if hint is None:
                 raise ValueError("`hint` should be provided for `control_model`")
-            control = self.control_model(net, hint, timesteps=timesteps, **cond_kw)
-            control = [c * scale for c, scale in zip(control, self.control_scales)]
+            if isinstance(self.control_model, ControlNet):
+                if not isinstance(hint, Tensor):
+                    raise ValueError("`hint` should be a Tensor for single control")
+                control = self.control_model(net, hint, timesteps=timesteps, **cond_kw)
+                if self.control_scales is None:
+                    scales = [1.0] * self.num_control_scales
+                else:
+                    if isinstance(self.control_scales, dict):
+                        raise ValueError("`control_scales` should not be dict")
+                    scales = self.control_scales
+                control = [c * scale for c, scale in zip(control, scales)]
+            else:
+                if not isinstance(hint, dict):
+                    raise ValueError("`hint` should be a dict for multi control")
+                target_keys = set(self.control_model.keys())
+                if set(hint) - target_keys:
+                    msg = f"`hint` should not exceed following keys: {', '.join(sorted(target_keys))}"
+                    raise ValueError(msg)
+                control = [0.0] * self.num_control_scales
+                for k, k_hint in hint.items():
+                    k_model = self.control_model[k]
+                    k_control = k_model(net, k_hint, timesteps=timesteps, **cond_kw)
+                    if self.control_scales is not None:
+                        if not isinstance(self.control_scales, dict):
+                            raise ValueError("`control_scales` should be a dict")
+                        k_scales = self.control_scales[k]
+                    else:
+                        k_scales = [1.0] * self.num_control_scales
+                    for i, (k_c, k_scale) in enumerate(zip(k_control, k_scales)):
+                        control[i] += k_c * k_scale
             cond_kw["control"] = control
             cond_kw["only_mid_control"] = self.only_mid_control
         return self.unet(net, timesteps=timesteps, **cond_kw)
@@ -533,14 +567,64 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             - extract_to(self.sqrt_one_minus_alphas_cumprod, ts, num_dim) * v
         )
 
-    def make_control_net(self, hint_channels: int) -> None:
-        control_model = ControlNet(hint_channels=hint_channels, **self.unet_kw)  # type: ignore
-        self.control_model = control_model.to(self.device, dtype=self.dtype)
+    def make_control_net(self, hint_channels: Union[int, Dict[str, int]]) -> None:
+        def _make(n: int) -> ControlNet:
+            control_model = ControlNet(hint_channels=n, **self.unet_kw)  # type: ignore
+            control_model = control_model.to(self.device, dtype=self.dtype)
+            return control_model
 
-    def set_control_scales(self, scales: Union[float, List[float]]) -> None:
-        if isinstance(scales, float):
-            scales = [scales] * self.num_control_scales
-        self.control_scales = scales
+        if isinstance(hint_channels, int):
+            self.control_model = _make(hint_channels)
+        else:
+            self.control_model = nn.ModuleDict(
+                {
+                    key: _make(key_channels)
+                    for key, key_channels in hint_channels.items()
+                }
+            )
+
+    def rename_control_net(self, old: str, new: str) -> None:
+        if not isinstance(self.control_model, nn.ModuleDict):
+            msg = "`rename_control_net` is only available when multiple `ControlNet` are used"
+            raise ValueError(msg)
+        if old not in self.control_model:
+            raise ValueError(f"cannot find '{old}' in current models")
+        m = self.control_model.pop(old)
+        self.control_model[new] = m
+
+    def load_control_net_with(self, name: str, d: tensor_dict_type) -> None:
+        if not isinstance(self.control_model, nn.ModuleDict):
+            msg = "`load_control_net_with` is only available when multiple `ControlNet` are used"
+            raise ValueError(msg)
+        if name not in self.control_model:
+            raise ValueError(f"cannot find '{name}' in current models")
+        self.control_model[name].load_state_dict(d)
+
+    def set_control_scales(self, scales: TTControlScales) -> None:
+        def _parse(ss: TControlScales) -> List[float]:
+            if isinstance(ss, float):
+                ss = [ss] * self.num_control_scales
+            return ss
+
+        if not isinstance(scales, dict):
+            scales = _parse(scales)
+        else:
+            scales = {k: _parse(v) for k, v in scales.items()}
+        if isinstance(self.control_model, ControlNet):
+            if isinstance(scales, dict):
+                msg = "`scales` should not be dict when only one `ControlNet` is used"
+                raise ValueError(msg)
+            self.control_scales = scales
+        else:
+            if not isinstance(scales, dict):
+                msg = "`scales` should be dict when multiple `ControlNet` are used"
+                raise ValueError(msg)
+            if self.control_model is not None:
+                target_keys = set(self.control_model.keys())
+                if set(scales) != target_keys:
+                    msg = f"`scales` should (exactly) have following keys: {', '.join(sorted(target_keys))}"
+                    raise ValueError(msg)
+            self.control_scales = {k: _parse(v) for k, v in scales.items()}
 
     def detach_control_net(self) -> None:
         if self.control_model is not None:
