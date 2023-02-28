@@ -1296,7 +1296,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 f"annotator for '{self.current}' is not prepared yet, "
                 "please call `prepare_annotator`/`prepare_annotators` first."
             )
-        kwargs[uint8_rgb] = uint8_rgb
+        kwargs["uint8_rgb"] = uint8_rgb
         out = safe_execute(annotator.annotate, kwargs)
         if len(out.shape) == 2:
             out = out[..., None]
