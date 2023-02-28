@@ -60,6 +60,11 @@ from ....models.cv.diffusion.samplers.ddim import DDIMMixin
 from ....models.cv.diffusion.samplers.solver import DPMSolver
 from ....models.cv.diffusion.samplers.k_samplers import KSamplerMixin
 
+try:
+    import cv2
+except:
+    cv2 = None
+
 
 class switch_sampler_context:
     def __init__(self, api: "DiffusionAPI", sampler: Optional[str]):
@@ -1141,6 +1146,27 @@ class DepthAnnotator(Annotator):
         return self.m.detect_depth(uint8_rgb)
 
 
+class CannyAnnotator(Annotator):
+    def __init__(self, device: torch.device) -> None:
+        if cv2 is None:
+            raise ValueError("`cv2` is needed for `CannyAnnotator`")
+
+    def half(self: "CannyAnnotator") -> "CannyAnnotator":
+        return self
+
+    def float(self: "CannyAnnotator") -> "CannyAnnotator":
+        return self
+
+    def annotate(  # type: ignore
+        self,
+        uint8_rgb: np.ndarray,
+        *,
+        low_threshold: int,
+        high_threshold: int,
+    ) -> np.ndarray:
+        return cv2.Canny(uint8_rgb, low_threshold, high_threshold)
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
     current: Optional[ControlNetHints]
     weights: tensor_dict_type
@@ -1154,6 +1180,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     }
     annotator_classes: Dict[ControlNetHints, Type[Annotator]] = {
         ControlNetHints.DEPTH: DepthAnnotator,
+        ControlNetHints.CANNY: CannyAnnotator,
     }
 
     def __init__(
