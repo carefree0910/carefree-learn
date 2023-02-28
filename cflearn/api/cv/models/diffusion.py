@@ -1277,7 +1277,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 "please call `prepare_annotator`/`prepare_annotators` first."
             )
         kwargs[uint8_rgb] = uint8_rgb
-        return safe_execute(annotator.annotate, kwargs)
+        out = safe_execute(annotator.annotate, kwargs)
+        if len(out.shape) == 2:
+            out = out[..., None]
+        if out.shape[-1] == 1:
+            out = np.repeat(out, 3, axis=2)
+        return out
 
 
 def _ldm(
