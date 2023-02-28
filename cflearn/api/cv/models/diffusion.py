@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from PIL import Image
+from enum import Enum
 from tqdm import tqdm
 from torch import Tensor
 from typing import Any
@@ -1095,8 +1096,15 @@ class DiffusionAPI(APIMixin):
             )
 
 
+class ControlNetHints(str, Enum):
+    DEPTH = "depth"
+    CANNY = "canny"
+    POSE = "post"
+    MLSD = "mlsd"
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
-    current: Optional[str]
+    current: Optional[ControlNetHints]
     weights: tensor_dict_type
 
     def __init__(
@@ -1133,22 +1141,22 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 v = v.half() if use_half else v.float()
                 d[k] = v.to(device)
 
-    def prepare(self, names2tags: Dict[str, str]) -> None:
-        for name, tag in names2tags.items():
-            self.weights[name] = torch.load(download_model(tag))
+    def prepare(self, hints2tags: Dict[ControlNetHints, str]) -> None:
+        for hint, tag in hints2tags.items():
+            self.weights[hint] = torch.load(download_model(tag))
 
-    def switch(self, name: str) -> None:
+    def switch(self, hint: ControlNetHints) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
-        if name == self.current:
+        if hint == self.current:
             return
-        d = self.weights.get(name)
+        d = self.weights.get(hint)
         if d is None:
             raise ValueError(
-                f"cannot find weights called '{name}', "
-                f"available weights are: {', '.join(self.weights.keys())}"
+                f"cannot find weights called '{hint}', "
+                f"available weights are: {', '.join(self.available)}"
             )
-        self.current = name
+        self.current = hint
         self.m.control_model.load_state_dict(d)
 
 
@@ -1316,5 +1324,6 @@ def ldm_semantic(pretrained: bool = True) -> DLPipeline:
 
 __all__ = [
     "DiffusionAPI",
+    "ControlNetHints",
     "ControlledDiffusionAPI",
 ]
