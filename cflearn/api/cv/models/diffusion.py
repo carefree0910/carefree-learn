@@ -34,6 +34,7 @@ from .common import get_suitable_size
 from .common import APIMixin
 from .common import ReadImageResponse
 from ..third_party import MiDaSAPI
+from ..third_party import MLSDDetector
 from ..third_party import OpenposeDetector
 from ....zoo import DLZoo
 from ....data import predict_tensor_data
@@ -1173,6 +1174,24 @@ class PoseAnnotator(Annotator):
         return self.m(uint8_rgb)[0]
 
 
+class MLSDAnnotator(Annotator):
+    def __init__(self, device: torch.device) -> None:
+        self.m = MLSDDetector(device)
+
+    def to(self, device: torch.device, *, use_half: bool) -> "MLSDDetector":
+        self.m.to(device, use_half=use_half)
+        return self
+
+    def annotate(
+        self,
+        uint8_rgb: np.ndarray,
+        *,
+        value_threshold: float,
+        distance_threshold: float,
+    ) -> np.ndarray:  # type: ignore
+        return self.m(uint8_rgb, value_threshold, distance_threshold)
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
     current: Optional[ControlNetHints]
     weights: tensor_dict_type
@@ -1188,6 +1207,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         ControlNetHints.DEPTH: DepthAnnotator,
         ControlNetHints.CANNY: CannyAnnotator,
         ControlNetHints.POSE: PoseAnnotator,
+        ControlNetHints.MLSD: MLSDAnnotator,
     }
 
     def __init__(
