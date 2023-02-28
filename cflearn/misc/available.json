@@ -111,6 +111,21 @@
       "st_size": 722667915,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v1.5.control.depth.pt"
     },
+    "ldm.sd_v1.5.control.canny": {
+      "sha": "1edd1325fc6d045f9cb1e749c2c53592f8a1a37d2cf1d3c6ba53fedbc4e4a5ae",
+      "st_size": 722670373,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v1.5.control.canny.pt"
+    },
+    "ldm.sd_v1.5.control.pose": {
+      "sha": "1495e0aeab439d8549d7a6b47646a7c38bcd753650aef0cedfd28eacd53c1909",
+      "st_size": 722670031,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v1.5.control.pose.pt"
+    },
+    "ldm.sd_v1.5.control.mlsd": {
+      "sha": "0ca9069a552d43ba33fca3315ae97cc5f20cc6ad900bef6506cfce9d3ab686a0",
+      "st_size": 722670031,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v1.5.control.mlsd.pt"
+    },
     "ldm_celeba_hq": {
       "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
       "st_size": 1317739701
@@ -230,6 +245,21 @@
       "sha": "501f0c75b3bca7daec6b3682c5054c09b366765aef6fa3a09d03a5cb4b230853",
       "st_size": 492757791,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/dpt_hybrid-midas-501f0c75.pt"
+    },
+    "body_pose_model": {
+      "sha": "25a948c16078b0f08e236bda51a385d855ef4c153598947c28c0d47ed94bb746",
+      "st_size": 209267595,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/body_pose_model.pt"
+    },
+    "hand_pose_model": {
+      "sha": "b76b00d1750901abd07b9f9d8c98cc3385b8fe834a26d4b4f0aad439e75fc600",
+      "st_size": 147341049,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/hand_pose_model.pt"
+    },
+    "mlsd_large_512_fp32": {
+      "sha": "5696f168eb2c30d4374bbfd45436f7415bb4d88da29bea97eea0101520fba082",
+      "st_size": 6341481,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/mlsd_large_512_fp32.pt"
     }
   },
   "reference": {
