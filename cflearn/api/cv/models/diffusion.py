@@ -5,6 +5,8 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+from abc import abstractmethod
+from abc import ABC
 from PIL import Image
 from enum import Enum
 from tqdm import tqdm
@@ -93,6 +95,7 @@ class MaskedCond(NamedTuple):
 
 
 T = TypeVar("T", bound="DiffusionAPI")
+TAnnotator = TypeVar("TAnnotator", bound="Annotator")
 
 
 class DiffusionAPI(APIMixin):
@@ -1103,14 +1106,36 @@ class ControlNetHints(str, Enum):
     MLSD = "mlsd"
 
 
+class Annotator(ABC):
+    @abstractmethod
+    def __init__(self, device: torch.device) -> None:
+        pass
+
+    @abstractmethod
+    def half(self: TAnnotator) -> TAnnotator:
+        pass
+
+    @abstractmethod
+    def float(self: TAnnotator) -> TAnnotator:
+        pass
+
+    @abstractmethod
+    def annotate(self, uint8_rgb: np.ndarray, **kwargs: Any) -> np.ndarray:
+        pass
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
     current: Optional[ControlNetHints]
     weights: tensor_dict_type
+    annotators: Dict[ControlNetHints, Annotator] = {}
+
     defaults = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.depth",
         ControlNetHints.CANNY: "ldm.sd_v1.5.control.canny",
         ControlNetHints.POSE: "ldm.sd_v1.5.control.pose",
         ControlNetHints.MLSD: "ldm.sd_v1.5.control.mlsd",
+    }
+    annotator_classes: Dict[ControlNetHints, Type[Annotator]] = {
     }
 
     def __init__(
@@ -1142,10 +1167,16 @@ class ControlledDiffusionAPI(DiffusionAPI):
         use_half: bool = False,
     ) -> None:
         super().to(device, use_amp=use_amp, use_half=use_half)
-        for d in self.weights.values():
+        for hint, d in self.weights.items():
+            # weights
             for k, v in d.items():
                 v = v.half() if use_half else v.float()
                 d[k] = v.to(device)
+            # annotator
+            annotator = self.annotators.get(hint)
+            if annotator is not None:
+                annotator = annotator.half() if use_half else annotator.float()
+                self.annotators[hint] = annotator
 
     @property
     def available(self) -> List[ControlNetHints]:
@@ -1171,6 +1202,32 @@ class ControlledDiffusionAPI(DiffusionAPI):
             )
         self.current = hint
         self.m.control_model.load_state_dict(d)
+
+    def prepare_annotator(self, hint: ControlNetHints) -> None:
+        if hint not in self.annotators:
+            annotator_class = self.annotator_classes.get(hint)
+            if annotator_class is None:
+                raise ValueError(f"annotator for '{hint}' is not implemented")
+            annotator = annotator_class(self.device)
+            if self.use_half:
+                annotator = annotator.half()
+            self.annotators[hint] = annotator
+
+    def prepare_annotators(self) -> None:
+        for hint in self.weights:
+            self.prepare_annotator(hint)
+
+    def get_hint(self, uint8_rgb: np.ndarray, **kwargs: Any) -> np.ndarray:
+        if self.current is None:
+            raise ValueError("`hint` is not specified yet, please call `switch` first.")
+        annotator = self.annotators.get(self.current)
+        if annotator is None:
+            raise ValueError(
+                f"annotator for '{self.current}' is not prepared yet, "
+                "please call `prepare_annotator`/`prepare_annotators` first."
+            )
+        kwargs[uint8_rgb] = uint8_rgb
+        return safe_execute(annotator.annotate, kwargs)
 
 
 def _ldm(
