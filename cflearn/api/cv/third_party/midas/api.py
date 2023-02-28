@@ -191,15 +191,22 @@ class MiDaSAPI:
         self.model = MiDaSInference(model_type="dpt_hybrid").to(device)
         self.device = device
 
+    @property
+    def dtype(self) -> torch.dtype:
+        return list(self.model.parameters())[0].dtype
+
     def to(self, device: torch.device) -> None:
         self.device = device
         self.model.to(device)
+
+    def to_self(self, net: torch.Tensor) -> torch.Tensor:
+        return net.to(self.dtype).to(self.device)
 
     def detect_depth(self, input_image: np.ndarray) -> np.ndarray:
         assert input_image.ndim == 3
         image_depth = input_image
         with torch.no_grad():
-            image_depth = torch.from_numpy(image_depth).float().to(self.device)
+            image_depth = self.to_self(torch.from_numpy(image_depth))
             image_depth = image_depth / 127.5 - 1.0
             image_depth = image_depth[None].permute(0, 3, 1, 2).contiguous()
             depth = self.model(image_depth)[0]
@@ -221,7 +228,7 @@ class MiDaSAPI:
         assert input_image.ndim == 3
         image_depth = input_image
         with torch.no_grad():
-            image_depth = torch.from_numpy(image_depth).float().to(self.device)
+            image_depth = self.to_self(torch.from_numpy(image_depth))
             image_depth = image_depth / 127.5 - 1.0
             image_depth = image_depth[None].permute(0, 3, 1, 2).contiguous()
             depth = self.model(image_depth)[0]
