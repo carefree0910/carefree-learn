@@ -1155,6 +1155,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
         for hint, tag in hints2tags.items():
             self.weights[hint] = torch.load(download_model(tag))
 
+    def prepare_defaults(self) -> None:
+        self.prepare(self.defaults)
+
     def switch(self, hint: ControlNetHints) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
