@@ -1106,6 +1106,12 @@ class ControlNetHints(str, Enum):
 class ControlledDiffusionAPI(DiffusionAPI):
     current: Optional[ControlNetHints]
     weights: tensor_dict_type
+    defaults = {
+        ControlNetHints.DEPTH: "ldm.sd_v1.5.control.depth",
+        ControlNetHints.CANNY: "ldm.sd_v1.5.control.canny",
+        ControlNetHints.POSE: "ldm.sd_v1.5.control.pose",
+        ControlNetHints.MLSD: "ldm.sd_v1.5.control.mlsd",
+    }
 
     def __init__(
         self,
