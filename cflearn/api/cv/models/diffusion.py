@@ -34,6 +34,7 @@ from .common import get_suitable_size
 from .common import APIMixin
 from .common import ReadImageResponse
 from ..third_party import MiDaSAPI
+from ..third_party import OpenposeDetector
 from ....zoo import DLZoo
 from ....data import predict_tensor_data
 from ....data import TensorInferenceData
@@ -1167,6 +1168,22 @@ class CannyAnnotator(Annotator):
         return cv2.Canny(uint8_rgb, low_threshold, high_threshold)
 
 
+class PoseAnnotator(Annotator):
+    def __init__(self, device: torch.device) -> None:
+        self.m = OpenposeDetector(device)
+
+    def half(self: "PoseAnnotator") -> "PoseAnnotator":
+        self.m.to(self.m.device, use_half=True)
+        return self
+
+    def float(self: "PoseAnnotator") -> "PoseAnnotator":
+        self.m.to(self.m.device, use_half=False)
+        return self
+
+    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
+        return self.m(uint8_rgb)[0]
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
     current: Optional[ControlNetHints]
     weights: tensor_dict_type
@@ -1181,6 +1198,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     annotator_classes: Dict[ControlNetHints, Type[Annotator]] = {
         ControlNetHints.DEPTH: DepthAnnotator,
         ControlNetHints.CANNY: CannyAnnotator,
+        ControlNetHints.POSE: PoseAnnotator,
     }
 
     def __init__(
