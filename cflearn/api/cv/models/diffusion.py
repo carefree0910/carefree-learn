@@ -1141,6 +1141,10 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 v = v.half() if use_half else v.float()
                 d[k] = v.to(device)
 
+    @property
+    def available(self) -> List[ControlNetHints]:
+        return list(self.weights)
+
     def prepare(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         for hint, tag in hints2tags.items():
             self.weights[hint] = torch.load(download_model(tag))
