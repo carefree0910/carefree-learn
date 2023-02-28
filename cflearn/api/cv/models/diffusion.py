@@ -33,6 +33,7 @@ from .common import restrict_wh
 from .common import get_suitable_size
 from .common import APIMixin
 from .common import ReadImageResponse
+from ..third_party import MiDaSAPI
 from ....zoo import DLZoo
 from ....data import predict_tensor_data
 from ....data import TensorInferenceData
@@ -1124,6 +1125,22 @@ class Annotator(ABC):
         pass
 
 
+class DepthAnnotator(Annotator):
+    def __init__(self, device: torch.device) -> None:
+        self.m = MiDaSAPI(device)
+
+    def half(self: "DepthAnnotator") -> "DepthAnnotator":
+        self.m.model.half()
+        return self
+
+    def float(self: "DepthAnnotator") -> "DepthAnnotator":
+        self.m.model.float()
+        return self
+
+    def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
+        return self.m.detect_depth(uint8_rgb)
+
+
 class ControlledDiffusionAPI(DiffusionAPI):
     current: Optional[ControlNetHints]
     weights: tensor_dict_type
@@ -1136,6 +1153,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         ControlNetHints.MLSD: "ldm.sd_v1.5.control.mlsd",
     }
     annotator_classes: Dict[ControlNetHints, Type[Annotator]] = {
+        ControlNetHints.DEPTH: DepthAnnotator,
     }
 
     def __init__(
