@@ -1178,17 +1178,17 @@ class MLSDAnnotator(Annotator):
     def __init__(self, device: torch.device) -> None:
         self.m = MLSDDetector(device)
 
-    def to(self, device: torch.device, *, use_half: bool) -> "MLSDDetector":
+    def to(self, device: torch.device, *, use_half: bool) -> "MLSDAnnotator":
         self.m.to(device, use_half=use_half)
         return self
 
-    def annotate(
+    def annotate(  # type: ignore
         self,
         uint8_rgb: np.ndarray,
         *,
         value_threshold: float,
         distance_threshold: float,
-    ) -> np.ndarray:  # type: ignore
+    ) -> np.ndarray:
         return self.m(uint8_rgb, value_threshold, distance_threshold)
 
 
