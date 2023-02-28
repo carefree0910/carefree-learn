@@ -1119,11 +1119,7 @@ class Annotator(ABC):
         pass
 
     @abstractmethod
-    def half(self: TAnnotator) -> TAnnotator:
-        pass
-
-    @abstractmethod
-    def float(self: TAnnotator) -> TAnnotator:
+    def to(self: TAnnotator, device: torch.device, *, use_half: bool) -> TAnnotator:
         pass
 
     @abstractmethod
@@ -1135,12 +1131,12 @@ class DepthAnnotator(Annotator):
     def __init__(self, device: torch.device) -> None:
         self.m = MiDaSAPI(device)
 
-    def half(self: "DepthAnnotator") -> "DepthAnnotator":
-        self.m.model.half()
-        return self
-
-    def float(self: "DepthAnnotator") -> "DepthAnnotator":
-        self.m.model.float()
+    def to(self, device: torch.device, *, use_half: bool) -> "DepthAnnotator":
+        if use_half:
+            self.m.model.half()
+        else:
+            self.m.model.float()
+        self.m.model.to(device)
         return self
 
     def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
@@ -1152,10 +1148,7 @@ class CannyAnnotator(Annotator):
         if cv2 is None:
             raise ValueError("`cv2` is needed for `CannyAnnotator`")
 
-    def half(self: "CannyAnnotator") -> "CannyAnnotator":
-        return self
-
-    def float(self: "CannyAnnotator") -> "CannyAnnotator":
+    def to(self, device: torch.device, *, use_half: bool) -> "CannyAnnotator":
         return self
 
     def annotate(  # type: ignore
@@ -1172,12 +1165,8 @@ class PoseAnnotator(Annotator):
     def __init__(self, device: torch.device) -> None:
         self.m = OpenposeDetector(device)
 
-    def half(self: "PoseAnnotator") -> "PoseAnnotator":
-        self.m.to(self.m.device, use_half=True)
-        return self
-
-    def float(self: "PoseAnnotator") -> "PoseAnnotator":
-        self.m.to(self.m.device, use_half=False)
+    def to(self, device: torch.device, *, use_half: bool) -> "PoseAnnotator":
+        self.m.to(device, use_half=use_half)
         return self
 
     def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
@@ -1238,8 +1227,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             # annotator
             annotator = self.annotators.get(hint)
             if annotator is not None:
-                annotator = annotator.half() if use_half else annotator.float()
-                self.annotators[hint] = annotator
+                self.annotators[hint] = annotator.to(device, use_half=use_half)
 
     @property
     def available(self) -> List[ControlNetHints]:
@@ -1272,8 +1260,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             if annotator_class is None:
                 raise ValueError(f"annotator for '{hint}' is not implemented")
             annotator = annotator_class(self.device)
-            if self.use_half:
-                annotator = annotator.half()
+            annotator = annotator.to(self.device, use_half=self.use_half)
             self.annotators[hint] = annotator
 
     def prepare_annotators(self) -> None:
