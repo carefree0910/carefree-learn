@@ -2,13 +2,12 @@ name: Test and Deploy
 
 on:
   push:
-    branches: [ dev ]
+    branches: [dev]
   pull_request:
-    branches: [ dev ]
+    branches: [dev]
 
 jobs:
   test:
-
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -46,7 +45,6 @@ jobs:
           pytest -v --cov --durations=0
 
   deploy:
-
     needs: test
     runs-on: ubuntu-latest
     steps:
@@ -90,6 +88,13 @@ jobs:
           df -h
           echo "Removing large directories"
           rm -rf /usr/share/dotnet/
+          df -h
+      - name: Free disk space
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt clean
+          docker rmi $(docker image ls -aq)
           df -h
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v1
