@@ -1110,7 +1110,7 @@ class DiffusionAPI(APIMixin):
 class ControlNetHints(str, Enum):
     DEPTH = "depth"
     CANNY = "canny"
-    POSE = "post"
+    POSE = "pose"
     MLSD = "mlsd"
 
 
