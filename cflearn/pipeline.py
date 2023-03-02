@@ -228,7 +228,6 @@ class IDLPipeline:
     pipeline_file: str
     config_name: str
     trainer_config_file: str
-    data_info_name: str
     metrics_log_file: str
 
     final_results_file: str
@@ -364,7 +363,6 @@ class IModifier(WithRegister["IModifier"], IDLPipeline):
             workplace = prepare_workplace_from(self.trainer_config.workplace)
             self._defaults["workplace"] = workplace
             self.trainer_config.workplace = workplace
-            self.trainer_config.data_info_name = self.data_info_name
             self.trainer_config.metrics_log_file = self.metrics_log_file
             self._write_pipeline_info(workplace)
             Saving.save_dict(self.config, self.config_name, workplace)
@@ -604,7 +602,6 @@ class DLPipeline(IPipeline, IDLPipeline):
     pipeline_file = "pipeline.txt"
     config_name = "config"
     trainer_config_file = "trainer_config.json"
-    data_info_name = "data_info"
     metrics_log_file = "metrics.txt"
 
     final_results_file = "final_results.json"

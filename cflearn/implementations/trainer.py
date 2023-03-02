@@ -112,7 +112,6 @@ def make_trainer(config: TrainerConfig) -> Trainer:
         optimizer_packs=optimizer_packs,
         use_zero=config.use_zero,
         workplace=config.workplace,
-        data_info_name=config.data_info_name,
         metrics_log_file=config.metrics_log_file,
         finetune_config=config.finetune_config,
         tqdm_settings=TqdmSettings(

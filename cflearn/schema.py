@@ -1369,7 +1369,6 @@ class TrainerConfig(DataClassBase):
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None
     use_zero: bool = False
     workplace: str = "_logs"
-    data_info_name: str = "data_info"
     metrics_log_file: str = "metrics.txt"
     finetune_config: Optional[Dict[str, Any]] = None
     tqdm_settings: Optional[Dict[str, Any]] = None

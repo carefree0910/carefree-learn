@@ -187,7 +187,6 @@ class Trainer(ITrainer):
         update_scheduler_per_epoch: bool = False,
         optimizer_packs: Optional[Union[OptimizerPack, List[OptimizerPack]]] = None,
         use_zero: bool = False,
-        data_info_name: str = "data_info",
         metrics_log_file: str = "metrics.txt",
         finetune_config: Optional[Dict[str, Any]] = None,
         tqdm_settings: Optional[TqdmSettings] = None,
@@ -288,7 +287,6 @@ class Trainer(ITrainer):
         self.finetune_config = finetune_config
         # initialize artifact structure
         self.checkpoint_folder = None
-        self.data_info_name = data_info_name
         self.workplace = workplace
         if self.is_rank_0:
             os.makedirs(self.workplace, exist_ok=True)
