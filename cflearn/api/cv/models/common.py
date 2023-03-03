@@ -19,6 +19,7 @@ from cftool.misc import shallow_copy_dict
 from torch.cuda.amp.autocast_mode import autocast
 
 from ....pipeline import DLPipeline
+from ....misc.toolkit import is_cpu
 from ....misc.toolkit import empty_cuda_cache
 
 try:
@@ -197,11 +198,15 @@ class APIMixin:
         self.device = device
         self.use_amp = use_amp
         self.use_half = use_half
+        device_is_cpu = is_cpu(device)
+        if device_is_cpu:
+            self.m.to(device)
         if use_half:
             self.m.half()
         else:
             self.m.float()
-        self.m.to(device)
+        if not device_is_cpu:
+            self.m.to(device)
 
     def empty_cuda_cache(self) -> None:
         empty_cuda_cache(self.device)
