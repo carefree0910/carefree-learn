@@ -1137,7 +1137,7 @@ class DepthAnnotator(Annotator):
             self.m.model.half()
         else:
             self.m.model.float()
-        self.m.model.to(device)
+        self.m.to(device)
         return self
 
     def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore
