@@ -1238,17 +1238,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
         *,
         use_amp: bool = False,
         use_half: bool = False,
+        no_annotator: bool = False,
     ) -> None:
         super().to(device, use_amp=use_amp, use_half=use_half)
-        for hint, d in self.weights.items():
-            # weights
-            for k, v in d.items():
-                v = v.half() if use_half else v.float()
-                d[k] = v.to(device)
-            # annotator
-            annotator = self.annotators.get(hint)
-            if annotator is not None:
-                self.annotators[hint] = annotator.to(device, use_half=use_half)
+        if not no_annotator:
+            for annotator in self.annotators.values():
+                annotator = annotator.to(device, use_half=use_half)
 
     @property
     def available(self) -> List[ControlNetHints]:
