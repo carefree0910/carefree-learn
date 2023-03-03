@@ -1133,11 +1133,7 @@ class DepthAnnotator(Annotator):
         self.m = MiDaSAPI(device)
 
     def to(self, device: torch.device, *, use_half: bool) -> "DepthAnnotator":
-        if use_half:
-            self.m.model.half()
-        else:
-            self.m.model.float()
-        self.m.to(device)
+        self.m.to(device, use_half=use_half)
         return self
 
     def annotate(self, uint8_rgb: np.ndarray) -> np.ndarray:  # type: ignore

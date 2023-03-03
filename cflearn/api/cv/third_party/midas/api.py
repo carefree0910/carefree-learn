@@ -195,7 +195,11 @@ class MiDaSAPI:
     def dtype(self) -> torch.dtype:
         return list(self.model.parameters())[0].dtype
 
-    def to(self, device: torch.device) -> None:
+    def to(self, device: torch.device, *, use_half: bool) -> None:
+        if use_half:
+            self.model.half()
+        else:
+            self.model.float()
         self.device = device
         self.model.to(device)
 
