@@ -335,9 +335,14 @@ class WeightsStrategy:
 # dl
 
 
-def empty_cuda_cache(device: Union[int, str, torch.device]) -> None:
+def get_torch_device(device: Union[int, str, torch.device]) -> torch.device:
     if isinstance(device, (int, str)):
         device = torch.device(device)
+    return device
+
+
+def empty_cuda_cache(device: Union[int, str, torch.device]) -> None:
+    device = get_torch_device(device)
     if device.type != "cuda":
         return
     with torch.cuda.device(device):
