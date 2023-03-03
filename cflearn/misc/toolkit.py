@@ -349,6 +349,10 @@ def empty_cuda_cache(device: Union[int, str, torch.device]) -> None:
         torch.cuda.empty_cache()
 
 
+def is_cpu(device: Union[int, str, torch.device]) -> bool:
+    return get_torch_device(device).type == "cpu"
+
+
 def safe_clip_(net: Tensor) -> None:
     finfo = torch.finfo(net.dtype)
     net.clamp_(finfo.min, finfo.max)
