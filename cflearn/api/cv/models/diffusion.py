@@ -22,6 +22,7 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import safe_execute
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.misc import context_error_handler
 from cftool.array import arr_type
@@ -1256,28 +1257,46 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def prepare_defaults(self) -> None:
         self.prepare(self.defaults)
 
-    def switch(self, hint: ControlNetHints) -> None:
+    def switch(self, *hints: ControlNetHints) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
-        hint_loaded = self.loaded.get(hint)
-        if hint_loaded:
-            return
-        d = self.weights.get(hint)
-        if d is None:
-            raise ValueError(
-                f"cannot find weights called '{hint}', "
-                f"available weights are: {', '.join(self.available)}"
+
+        hints_list = list(hints)
+        if len(hints_list) > self.num_pool:
+            print_warning(
+                f"number of target hints ({len(hints_list)}) exceeds "
+                f"number of pool ({self.num_pool}), "
+                f"so only {self.num_pool} hints will be activated"
             )
-        if hint_loaded is None:
-            not_loaded = [k for k, v in self.loaded.items() if not v]
-            if not_loaded:
-                pop_key = random.choice(not_loaded)
-            else:
-                pop_key = random.choice(list(self.loaded))
-            self.m.rename_control_net(pop_key, hint)
-            self.loaded.pop(pop_key)
-        self.m.load_control_net_with(hint, d)
-        self.loaded[hint] = True
+            random.shuffle(hints_list)
+            hints_list = hints_list[: self.num_pool]
+
+        target = set(hints_list)
+        current = set(self.loaded)
+        not_current = sorted(target - current)
+        if not_current:
+            not_target = sorted(current - target)
+            for i, i_not_current in enumerate(not_current):
+                pop_key = not_target[i]
+                self.m.rename_control_net(pop_key, i_not_current)
+                self.loaded[i_not_current] = False
+                self.loaded.pop(pop_key)
+
+        sorted_target = sorted(target)
+        loaded_list = [self.loaded[hint] for hint in sorted_target]
+        if all(loaded_list):
+            return
+        for loaded, hint in zip(loaded_list, sorted_target):
+            if loaded:
+                continue
+            d = self.weights.get(hint)
+            if d is None:
+                raise ValueError(
+                    f"cannot find weights called '{hint}', "
+                    f"available weights are: {', '.join(self.available)}"
+                )
+            self.m.load_control_net_with(hint, d)
+            self.loaded[hint] = True
 
     def prepare_annotator(self, hint: ControlNetHints) -> None:
         if hint not in self.annotators:
