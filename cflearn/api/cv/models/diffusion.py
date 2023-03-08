@@ -21,10 +21,10 @@ from typing import TypeVar
 from typing import Callable
 from typing import Optional
 from typing import NamedTuple
+from typing import ContextManager
 from cftool.misc import safe_execute
 from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
-from cftool.misc import context_error_handler
 from cftool.array import arr_type
 from cftool.array import save_images
 from cftool.types import tensor_dict_type
@@ -865,8 +865,8 @@ class DiffusionAPI(APIMixin):
             **kwargs,
         )
 
-    def load_context(self) -> context_error_handler:
-        class _(context_error_handler):
+    def load_context(self) -> ContextManager:
+        class _:
             def __init__(self, api: DiffusionAPI):
                 self.api = api
                 self.m_cond = api.m.condition_model
@@ -880,7 +880,7 @@ class DiffusionAPI(APIMixin):
 
                 return Wrapper(self.api.m)
 
-            def _normal_exit(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+            def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 self.api.m.condition_model = self.m_cond
 
         return _(self)
