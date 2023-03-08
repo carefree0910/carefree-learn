@@ -292,7 +292,7 @@ class DiffusionAPI(APIMixin):
         cond: Optional[Any] = None,
         cond_concat: Optional[Tensor] = None,
         unconditional_cond: Optional[Any] = None,
-        hint: Optional[Tensor] = None,
+        hint: Optional[Union[Tensor, tensor_dict_type]] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
