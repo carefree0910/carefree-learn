@@ -25,6 +25,10 @@ from ..utils import CONTROL_HINT_KEY
 samplers: Dict[str, Type["ISampler"]] = {}
 
 
+def is_misc_key(key: str) -> bool:
+    return key in (CONCAT_KEY, CONTROL_HINT_KEY)
+
+
 class Denoise(Protocol):
     def __call__(
         self,
@@ -205,13 +209,12 @@ class UncondSamplerMixin:
         else:
             cond2 = shallow_copy_dict(cond)
             for k, v in cond2.items():
-                if k == CONTROL_HINT_KEY:
-                    pass
-                elif k != CONCAT_KEY:
-                    if v.shape[1] != uncond.shape[1]:
-                        cond2 = None
-                        break
-                    cond2[k] = torch.cat([uncond, v])
+                if is_misc_key(k):
+                    continue
+                if v.shape[1] != uncond.shape[1]:
+                    cond2 = None
+                    break
+                cond2[k] = torch.cat([uncond, v])
         if cond2 is not None:
             image2 = torch.cat([image, image])
             ts2 = torch.cat([ts, ts])
@@ -223,13 +226,14 @@ class UncondSamplerMixin:
             else:
                 uncond_cond = shallow_copy_dict(cond)
                 for k, v in cond.items():
-                    if k != CONCAT_KEY:
+                    if not is_misc_key(k):
                         uncond_cond[k] = uncond
             eps_uncond = self.model.denoise(image, ts, uncond_cond)
         return eps_uncond + self.uncond_guidance_scale * (eps - eps_uncond)
 
 
 __all__ = [
+    "is_misc_key",
     "ISampler",
     "IQSampler",
     "DDPMQSampler",

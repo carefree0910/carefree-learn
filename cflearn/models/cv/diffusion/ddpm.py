@@ -30,6 +30,7 @@ from .utils import HYBRID_TYPE
 from .utils import CROSS_ATTN_KEY
 from .utils import CROSS_ATTN_TYPE
 from .utils import CONTROL_HINT_KEY
+from .samplers import is_misc_key
 from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
@@ -652,7 +653,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if not isinstance(cond, dict):
             return self.condition_model(cond)
         for k, v in cond.items():
-            if k != CONCAT_KEY:
+            if not is_misc_key(k):
                 cond[k] = self.condition_model(v)
         return cond
 
