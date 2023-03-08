@@ -49,7 +49,7 @@ class BasicSampler(ISampler):
         shape = image.shape
         num_dim = len(shape)
         ts = get_timesteps(total_step - step - 1, shape[0], image.device)
-        net = self.model.denoise(image, ts, cond)
+        net = self.model.denoise(image, ts, cond, step, total_step)
         parameterization = self.model.parameterization
         if parameterization == "eps":
             coef1 = extract_to(self.model.posterior_coef1, ts, num_dim)

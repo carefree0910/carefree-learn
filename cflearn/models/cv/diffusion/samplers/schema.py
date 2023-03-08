@@ -35,6 +35,8 @@ class Denoise(Protocol):
         image: Tensor,
         timesteps: Tensor,
         cond: Optional[cond_type],
+        step: int,
+        total_step: int,
     ) -> Tensor:
         pass
 
@@ -198,6 +200,8 @@ class UncondSamplerMixin:
         image: Tensor,
         ts: Tensor,
         cond: Optional[cond_type],
+        step: int,
+        total_step: int,
     ) -> Tensor:
         if cond is None or self.uncond is None:
             return self.model.denoise(image, ts, cond)
@@ -218,7 +222,13 @@ class UncondSamplerMixin:
         if cond2 is not None:
             image2 = torch.cat([image, image])
             ts2 = torch.cat([ts, ts])
-            eps_uncond, eps = self.model.denoise(image2, ts2, cond2).chunk(2)
+            eps_uncond, eps = self.model.denoise(
+                image2,
+                ts2,
+                cond2,
+                step,
+                total_step,
+            ).chunk(2)
         else:
             eps = self.model.denoise(image, ts, cond)
             if not isinstance(cond, dict):
@@ -228,7 +238,7 @@ class UncondSamplerMixin:
                 for k, v in cond.items():
                     if not is_misc_key(k):
                         uncond_cond[k] = uncond
-            eps_uncond = self.model.denoise(image, ts, uncond_cond)
+            eps_uncond = self.model.denoise(image, ts, uncond_cond, step, total_step)
         return eps_uncond + self.uncond_guidance_scale * (eps - eps_uncond)
 
 

@@ -360,7 +360,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         if noise is not None:
             net = self._q_sample(net, timesteps, noise)
         # unet
-        unet_out = self.denoise(net, timesteps, cond)
+        unet_out = self.denoise(net, timesteps, cond, ts[0].item(), self.t)
         return {
             PREDICTIONS_KEY: unet_out,
             self.noise_key: noise,
@@ -477,6 +477,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         image: Tensor,
         timesteps: Tensor,
         cond: Optional[cond_type],
+        step: int,
+        total_step: int,
     ) -> Tensor:
         net = image
         cond_kw = {}

@@ -154,7 +154,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                     ndim,
                 )
                 c_out = append_dims(sigma, ndim)
-                eps = self._uncond_denoise(img * c_in, ts, cond)
+                eps = self._uncond_denoise(img * c_in, ts, cond, step, total_step)
                 return img - eps * c_out
             if self.model.parameterization == "v":
                 c_in = append_dims(
@@ -171,7 +171,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
                     self.sigma_data**2 / (sigma**2 + self.sigma_data**2),
                     ndim,
                 )
-                v = self._uncond_denoise(img * c_in, ts, cond)
+                v = self._uncond_denoise(img * c_in, ts, cond, step, total_step)
                 return img * c_skip - v * c_out
             raise ValueError(
                 f"unrecognized parameterization `{self.model.parameterization}` occurred"

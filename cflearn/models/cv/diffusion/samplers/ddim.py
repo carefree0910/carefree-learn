@@ -148,7 +148,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             cond,
             step,
             total_step,
-            lambda img, ts: self._uncond_denoise(img, ts, cond),
+            lambda img, ts: self._uncond_denoise(img, ts, cond, step, total_step),
             lambda model_output, ts: self._get_denoised_and_pred_x0(
                 model_output,
                 ts,

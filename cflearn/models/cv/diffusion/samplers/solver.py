@@ -123,12 +123,16 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         vec_t = self.timesteps[step].to(image).expand(b)
         if not self.t_prev_list:
             self.t_prev_list.append(vec_t)
-            self.model_prev_list.append(self._model_fn(image, vec_t, cond))
+            self.model_prev_list.append(
+                self._model_fn(image, vec_t, cond, step, total_step)
+            )
             return image
         if len(self.t_prev_list) < order:
             image = self._multistep_update(image, vec_t, len(self.t_prev_list))
             self.t_prev_list.append(vec_t)
-            self.model_prev_list.append(self._model_fn(image, vec_t, cond))
+            self.model_prev_list.append(
+                self._model_fn(image, vec_t, cond, step, total_step)
+            )
             return image
         image = self._multistep_update(image, vec_t, order)
         for i in range(order - 1):
@@ -136,7 +140,9 @@ class DPMSolver(ISampler, UncondSamplerMixin):
             self.model_prev_list[i] = self.model_prev_list[i + 1]
         self.t_prev_list[-1] = vec_t
         if step < total_step - 1:
-            self.model_prev_list[-1] = self._model_fn(image, vec_t, cond)
+            self.model_prev_list[-1] = self._model_fn(
+                image, vec_t, cond, step, total_step
+            )
         # clear cache at last step
         else:
             self.t_prev_list.clear()
@@ -145,17 +151,38 @@ class DPMSolver(ISampler, UncondSamplerMixin):
 
     # internal
 
-    def _model_fn(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
+    def _model_fn(
+        self,
+        x: Tensor,
+        ts: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+    ) -> Tensor:
         if self.predict_x0:
-            return self._image_fn(x, ts, cond)
-        return self._noise_fn(x, ts, cond)
+            return self._image_fn(x, ts, cond, step, total_step)
+        return self._noise_fn(x, ts, cond, step, total_step)
 
-    def _noise_fn(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
+    def _noise_fn(
+        self,
+        x: Tensor,
+        ts: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+    ) -> Tensor:
         ts = self.model.t * torch.max(ts - 1.0 / self.model.t, torch.zeros_like(ts))
-        return self._uncond_denoise(x, ts, cond)
+        return self._uncond_denoise(x, ts, cond, step, total_step)
 
-    def _image_fn(self, x: Tensor, ts: Tensor, cond: Optional[cond_type]) -> Tensor:
-        eps = self._noise_fn(x, ts, cond)
+    def _image_fn(
+        self,
+        x: Tensor,
+        ts: Tensor,
+        cond: Optional[cond_type],
+        step: int,
+        total_step: int,
+    ) -> Tensor:
+        eps = self._noise_fn(x, ts, cond, step, total_step)
         ndim = x.dim()
         alpha_t = self._marginal_alpha(ts)
         sigma_t = self._marginal_std(ts)
