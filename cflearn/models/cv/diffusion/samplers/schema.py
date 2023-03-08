@@ -205,7 +205,7 @@ class UncondSamplerMixin:
         total_step: int,
     ) -> Tensor:
         if cond is None or self.uncond is None:
-            return self.model.denoise(image, ts, cond)
+            return self.model.denoise(image, ts, cond, step, total_step)
         uncond = self.uncond.repeat_interleave(image.shape[0], dim=0)
         cond2 = None
         if not isinstance(cond, dict):
@@ -231,7 +231,7 @@ class UncondSamplerMixin:
                 total_step,
             ).chunk(2)
         else:
-            eps = self.model.denoise(image, ts, cond)
+            eps = self.model.denoise(image, ts, cond, step, total_step)
             if not isinstance(cond, dict):
                 uncond_cond = uncond
             else:
