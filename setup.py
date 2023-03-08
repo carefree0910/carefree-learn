@@ -23,7 +23,7 @@ setup(
     name="carefree-learn",
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
-    install_requires=["carefree-toolkit>=0.2.22"],
+    install_requires=["carefree-toolkit==0.2.23"],
     extras_require={
         "onnx": [
             "onnx",
