@@ -137,6 +137,8 @@ class DiffusionAPI(APIMixin):
     first_stage: Optional[IAutoEncoder]
     latest_seed: int
     latest_variation_seed: Optional[int]
+    sd_weights: Dict[str, tensor_dict_type]
+    current_sd_version: Optional[SDVersions]
 
     def __init__(
         self,
@@ -151,6 +153,8 @@ class DiffusionAPI(APIMixin):
         self.sampler = m.sampler
         self.cond_type = m.condition_type
         self.clip_skip = clip_skip
+        self.sd_weights = {}
+        self.current_sd_version = None
         # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model
         if self.cond_model is not None:
@@ -201,6 +205,23 @@ class DiffusionAPI(APIMixin):
             self.sampler.unconditional_cond = unconditional_cond.to(device)
         for k, v in self._uncond_cache.items():
             self._uncond_cache[k] = v.to(device)
+
+    def prepare_sd(self, versions: List[SDVersions]) -> None:
+        for tag in map(get_sd_tag, versions):
+            if tag not in self.sd_weights:
+                self.sd_weights[tag] = torch.load(download_model(tag))
+
+    def switch_sd(self, version: SDVersions) -> None:
+        tag = get_sd_tag(version)
+        if self.current_sd_version is not None:
+            if tag == get_sd_tag(self.current_sd_version):
+                return
+        d = self.sd_weights.get(tag)
+        if d is None:
+            raise ValueError(f"cannot find tag ({tag}) in the loaded weights")
+        with self.load_context() as wrapper:
+            wrapper.load_state_dict(d)
+        self.current_sd_version = version
 
     @property
     def size_info(self) -> SizeInfo:
