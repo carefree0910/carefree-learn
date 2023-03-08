@@ -58,6 +58,7 @@ from ....models.cv.diffusion.utils import CONCAT_TYPE
 from ....models.cv.diffusion.utils import HYBRID_TYPE
 from ....models.cv.diffusion.utils import CROSS_ATTN_KEY
 from ....models.cv.diffusion.utils import CONTROL_HINT_KEY
+from ....models.cv.diffusion.utils import CONTROL_HINT_START_KEY
 from ....models.cv.diffusion.cond_models import CLIPTextConditionModel
 from ....models.cv.diffusion.samplers.ddim import DDIMMixin
 from ....models.cv.diffusion.samplers.solver import DPMSolver
@@ -293,6 +294,7 @@ class DiffusionAPI(APIMixin):
         cond_concat: Optional[Tensor] = None,
         unconditional_cond: Optional[Any] = None,
         hint: Optional[Union[Tensor, tensor_dict_type]] = None,
+        hint_start: Optional[Union[float, Dict[str, float]]] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
@@ -443,10 +445,12 @@ class DiffusionAPI(APIMixin):
                     if hint is not None:
                         if isinstance(i_cond, dict):
                             i_cond[CONTROL_HINT_KEY] = hint
+                            i_cond[CONTROL_HINT_START_KEY] = hint_start
                         else:
                             i_cond = {
                                 CROSS_ATTN_KEY: i_cond,
                                 CONTROL_HINT_KEY: hint,
+                                CONTROL_HINT_START_KEY: hint_start,
                             }
                     with switch_sampler_context(self, i_kw.get("sampler")):
                         i_sampled = self.m.decode(i_z, cond=i_cond, **i_kw)

@@ -20,13 +20,14 @@ from ..utils import extract_to
 from ..utils import get_timesteps
 from ..utils import CONCAT_KEY
 from ..utils import CONTROL_HINT_KEY
+from ..utils import CONTROL_HINT_START_KEY
 
 
 samplers: Dict[str, Type["ISampler"]] = {}
 
 
 def is_misc_key(key: str) -> bool:
-    return key in (CONCAT_KEY, CONTROL_HINT_KEY)
+    return key in (CONCAT_KEY, CONTROL_HINT_KEY, CONTROL_HINT_START_KEY)
 
 
 class Denoise(Protocol):

@@ -30,6 +30,7 @@ from .utils import HYBRID_TYPE
 from .utils import CROSS_ATTN_KEY
 from .utils import CROSS_ATTN_TYPE
 from .utils import CONTROL_HINT_KEY
+from .utils import CONTROL_HINT_START_KEY
 from .samplers import is_misc_key
 from .samplers import ISampler
 from .samplers import DDPMQSampler
@@ -510,19 +511,26 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             if not isinstance(cond, dict):
                 raise ValueError("`cond` should be a dict when `control_model` is used")
             hint = cond.get(CONTROL_HINT_KEY)
+            hint_start = cond.get(CONTROL_HINT_START_KEY)
+            check_hint_start = lambda start: start is None or start * total_step <= step
             if hint is None:
                 raise ValueError("`hint` should be provided for `control_model`")
             if isinstance(self.control_model, ControlNet):
                 if not isinstance(hint, Tensor):
                     raise ValueError("`hint` should be a Tensor for single control")
-                control = self.control_model(net, hint, timesteps=timesteps, **cond_kw)
-                if self.control_scales is None:
-                    scales = [1.0] * self.num_control_scales
+                if hint_start is not None and isinstance(hint_start, dict):
+                    raise ValueError("`hint_start` should be float for single control")
+                if not check_hint_start(hint_start):
+                    ctrl = None
                 else:
-                    if isinstance(self.control_scales, dict):
-                        raise ValueError("`control_scales` should not be dict")
-                    scales = self.control_scales
-                control = [c * scale for c, scale in zip(control, scales)]
+                    ctrl = self.control_model(net, hint, timesteps=timesteps, **cond_kw)
+                    if self.control_scales is None:
+                        scales = [1.0] * self.num_control_scales
+                    else:
+                        if isinstance(self.control_scales, dict):
+                            raise ValueError("`control_scales` should not be dict")
+                        scales = self.control_scales
+                    ctrl = [c * scale for c, scale in zip(ctrl, scales)]
             else:
                 if not isinstance(hint, dict):
                     raise ValueError("`hint` should be a dict for multi control")
@@ -530,8 +538,15 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
                 if set(hint) - target_keys:
                     msg = f"`hint` should not exceed following keys: {', '.join(sorted(target_keys))}"
                     raise ValueError(msg)
-                control = [0.0] * self.num_control_scales
+                if hint_start is not None and not isinstance(hint_start, dict):
+                    hint_start = {k: hint_start for k in hint}
+                ctrl = [0.0] * self.num_control_scales
+                any_activated = False
                 for k, k_hint in hint.items():
+                    k_hint_start = None if hint_start is None else hint_start.get(k)
+                    if not check_hint_start(k_hint_start):
+                        continue
+                    any_activated = True
                     k_model = self.control_model[k]
                     k_control = k_model(net, k_hint, timesteps=timesteps, **cond_kw)
                     if self.control_scales is not None:
@@ -541,8 +556,10 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
                     else:
                         k_scales = [1.0] * self.num_control_scales
                     for i, (k_c, k_scale) in enumerate(zip(k_control, k_scales)):
-                        control[i] += k_c * k_scale
-            cond_kw["control"] = control
+                        ctrl[i] += k_c * k_scale
+                if not any_activated:
+                    ctrl = None
+            cond_kw["control"] = ctrl
             cond_kw["only_mid_control"] = self.only_mid_control
         return self.unet(net, timesteps=timesteps, **cond_kw)
 
