@@ -107,6 +107,29 @@ T = TypeVar("T", bound="DiffusionAPI")
 TAnnotator = TypeVar("TAnnotator", bound="Annotator")
 
 
+class SDVersions(str, Enum):
+    v1_5_BC = ""
+    v1_5 = "v1.5"
+    ANIME = "anime"
+    ANIME_ANYTHING = "anime_anything"
+    ANIME_HYBRID = "anime_hybrid"
+    DREAMLIKE = "dreamlike_v1"
+
+
+def get_sd_tag(version: SDVersions) -> str:
+    if version == SDVersions.v1_5_BC:
+        tag = "v1.5"
+    elif version == SDVersions.ANIME:
+        tag = "anime_nai"
+    elif version == SDVersions.ANIME_ANYTHING:
+        tag = "anime_anything_v3"
+    elif version == SDVersions.ANIME_HYBRID:
+        tag = "anime_hybrid_v1"
+    else:
+        tag = version
+    return f"ldm_sd_{tag}"
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
@@ -1497,6 +1520,7 @@ def ldm_semantic(pretrained: bool = True) -> DLPipeline:
 
 
 __all__ = [
+    "SDVersions",
     "DiffusionAPI",
     "ControlNetHints",
     "ControlledDiffusionAPI",
