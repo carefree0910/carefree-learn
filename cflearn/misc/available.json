@@ -242,8 +242,8 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/isnet.pt"
     },
     "hrnet": {
-      "sha": "6de50501557281efd381b0c6bcc580868115bc968c7c7297b75c9c6857b03956",
-      "st_size": 154827891,
+      "sha": "46818e68e121178dc91d178ff4f56c98b8a490592914db4091dcdb3d6d58c695",
+      "st_size": 154677682,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/hrnet32_idih256.pt"
     },
     "dpt_hybrid-midas-501f0c75": {
