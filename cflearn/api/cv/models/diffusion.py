@@ -1280,6 +1280,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         self.weights = {}
         self.annotators = {}
         self.num_pool = num_pool
+        self.control_model = self.m.control_model
 
     def to(
         self,
@@ -1380,6 +1381,12 @@ class ControlledDiffusionAPI(DiffusionAPI):
         if out.shape[-1] == 1:
             out = np.repeat(out, 3, axis=2)
         return out
+
+    def enable_control(self) -> None:
+        self.m.control_model = self.control_model
+
+    def disable_control(self) -> None:
+        self.m.control_model = None
 
 
 def _ldm(
