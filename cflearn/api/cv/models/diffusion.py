@@ -917,7 +917,9 @@ class DiffusionAPI(APIMixin):
         class _:
             def __init__(self, api: DiffusionAPI):
                 self.api = api
+                self.m_ctrl = api.m.control_model
                 self.m_cond = api.m.condition_model
+                api.m.control_model = None
                 api.m.condition_model = api.cond_model
 
             def __enter__(self) -> nn.Module:
@@ -929,6 +931,7 @@ class DiffusionAPI(APIMixin):
                 return Wrapper(self.api.m)
 
             def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+                self.api.m.control_model = self.m_ctrl
                 self.api.m.condition_model = self.m_cond
 
         return _(self)
