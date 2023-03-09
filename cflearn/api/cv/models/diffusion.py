@@ -114,6 +114,8 @@ class SDVersions(str, Enum):
     ANIME = "anime"
     ANIME_ANYTHING = "anime_anything"
     ANIME_HYBRID = "anime_hybrid"
+    ANIME_GUOFENG = "anime_guofeng"
+    ANIME_ORANGE = "anime_orange"
     DREAMLIKE = "dreamlike_v1"
 
 
@@ -126,6 +128,10 @@ def get_sd_tag(version: SDVersions) -> str:
         tag = "anime_anything_v3"
     elif version == SDVersions.ANIME_HYBRID:
         tag = "anime_hybrid_v1"
+    elif version == SDVersions.ANIME_GUOFENG:
+        tag = "anime_guofeng3"
+    elif version == SDVersions.ANIME_ORANGE:
+        tag = "anime_orange2"
     else:
         tag = version
     return f"ldm_sd_{tag}"
