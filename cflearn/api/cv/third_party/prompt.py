@@ -2,8 +2,12 @@ import torch
 
 from typing import List
 from typing import NamedTuple
-from transformers import GPT2Tokenizer
-from transformers import GPT2LMHeadModel
+
+try:
+    from transformers import GPT2Tokenizer
+    from transformers import GPT2LMHeadModel
+except:
+    GPT2Tokenizer = GPT2LMHeadModel = None
 
 
 class PromptEnhanceConfig(NamedTuple):
@@ -17,6 +21,8 @@ class PromptEnhanceConfig(NamedTuple):
 
 class PromptEnhanceAPI:
     def __init__(self, device: torch.device) -> None:
+        if GPT2Tokenizer is None or GPT2LMHeadModel is None:
+            raise ValueError("`trainsformers` is required for `PromptEnhanceAPI`")
         self.tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
         self.tokenizer.add_special_tokens({"pad_token": "[PAD]"})
         version = "FredZhang7/distilgpt2-stable-diffusion-v2"
