@@ -28,6 +28,7 @@ class PromptEnhanceAPI:
         version = "FredZhang7/distilgpt2-stable-diffusion-v2"
         model = GPT2LMHeadModel.from_pretrained(version)
         self.model = model.half().to(device)
+        self.device = device
 
     def to(self, device: torch.device) -> None:
         self.device = device
