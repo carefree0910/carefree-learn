@@ -54,5 +54,6 @@ class PromptEnhanceAPI:
 
 
 __all__ = [
+    "PromptEnhanceConfig",
     "PromptEnhanceAPI",
 ]
