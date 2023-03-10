@@ -15,7 +15,7 @@ class ImageHarmonizationAPI:
 
     def to(self, device: torch.device) -> None:
         self.device = device
-        self.predictor.net.to(device)
+        self.predictor.to(device)
 
     # return uint8 image array
     def run(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
