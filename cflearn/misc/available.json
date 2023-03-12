@@ -87,13 +87,13 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm_sd_anime_guofeng3.pt"
     },
     "ldm_sd_anime_orange2": {
-      "sha": "c18c5732bcafbacb004665aae3a64d406b7c41f423fe39d1992a74e249082843",
-      "st_size": 2134061063,
+      "sha": "165cd504d8c3e238a8884ef7855c16f5f46c3ff32619ebb634513847ed5bd9cb",
+      "st_size": 2134060871,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm_sd_anime_orange2.pt"
     },
     "ldm_sd_dreamlike_v1": {
-      "sha": "93f341509cda5137cc3105c7f8bba4342ca52323a4cb6c6f4bf07278034a21eb",
-      "st_size": 2134052287,
+      "sha": "2e21a374f5cbd4e4463d84081928ed3d9404310415c3dfbd6f4ffc771135283b",
+      "st_size": 2134059774,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm_sd_dreamlike_v1.pt"
     },
     "ldm.sd_inpainting": {
@@ -132,8 +132,8 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/ldm.sd_v1.5.control.mlsd.pt"
     },
     "ldm_celeba_hq": {
-      "sha": "9cfed7760ee963f7766c7aa5619ee45c081b16f355bfec6087f8487a29f2ff93",
-      "st_size": 1317739701
+      "sha": "9901d87da985f6bba5ca9855a22d9f5ff373845377c299a0586746386903653a",
+      "st_size": 1317743589
     },
     "ldm_inpainting": {
       "sha": "2a5721789cbec4bf999ac7eed730401d97095b89c70570ceb49a870b5c728595",
@@ -242,9 +242,9 @@
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/isnet.pt"
     },
     "hrnet": {
-      "sha": "46818e68e121178dc91d178ff4f56c98b8a490592914db4091dcdb3d6d58c695",
-      "st_size": 154677682,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/hrnet32_idih256.pt"
+      "sha": "6de50501557281efd381b0c6bcc580868115bc968c7c7297b75c9c6857b03956",
+      "st_size": 154827891,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints/hrnet.pt"
     },
     "dpt_hybrid-midas-501f0c75": {
       "sha": "4e2ed86e02fe210d1bdfd5de41537b7dd84e933d0910a5e0ef668c1041d953c2",
