@@ -603,7 +603,7 @@ class DiffusionAPI(APIMixin):
 
     def txt2img_inpainting(
         self,
-        txt: str,
+        txt: Union[str, List[str]],
         image: Union[str, Image.Image],
         mask: Union[str, Image.Image],
         export_path: Optional[str] = None,
@@ -612,6 +612,7 @@ class DiffusionAPI(APIMixin):
         reference_fidelity: float = 0.2,
         anchor: int = 64,
         max_wh: int = 512,
+        num_samples: Optional[int] = None,
         num_steps: Optional[int] = None,
         clip_output: bool = True,
         keep_original: bool = False,
@@ -644,7 +645,7 @@ class DiffusionAPI(APIMixin):
                 verbose=verbose,
                 **kwargs,
             )
-        txt_list, num_samples = self._txt_cond(txt, 1)
+        txt_list, num_samples = self._txt_cond(txt, num_samples)
         res = self._get_masked_cond(
             image,
             mask,
