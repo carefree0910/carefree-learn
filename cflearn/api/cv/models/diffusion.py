@@ -1395,7 +1395,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 d = offset_cnet_weights(d, self)
             self.m.load_control_net_with(hint, d)
             self.loaded[hint] = True
-            self.base_sd_versions[hint] = self.current_sd_version
+            if self.current_sd_version is not None:
+                self.base_sd_versions[hint] = self.current_sd_version
 
     def prepare_annotator(self, hint: ControlNetHints) -> None:
         if hint not in self.annotators:
