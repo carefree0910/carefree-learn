@@ -1273,7 +1273,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     loaded: Dict[ControlNetHints, bool]
     weights: Dict[ControlNetHints, tensor_dict_type]
     annotators: Dict[ControlNetHints, Annotator]
-    current_base_sd_version: Optional[SDVersions]
+    base_sd_versions: Dict[ControlNetHints, SDVersions]
 
     defaults = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
@@ -1314,7 +1314,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         self.annotators = {}
         self.num_pool = num_pool
         self.control_model = self.m.control_model
-        self.current_base_sd_version = None
+        self.base_sd_versions = {}
 
     def to(
         self,
@@ -1367,15 +1367,17 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
-        need_offset = (
-            self.current_sd_version is None
-            or self.current_base_sd_version is None
-            or get_sd_tag(self.current_sd_version)
-            != get_sd_tag(self.current_base_sd_version)
-        )
-        if all(loaded_list) and not need_offset:
+        base_list = [self.base_sd_versions.get(hint) for hint in sorted_target]
+        need_offset_list = [
+            base is None
+            or self.current_sd_version is None
+            or get_sd_tag(base) != get_sd_tag(self.current_sd_version)
+            for base in base_list
+        ]
+        if all(loaded_list) and not any(need_offset_list):
             return
-        for loaded, hint in zip(loaded_list, sorted_target):
+        iterator = zip(loaded_list, sorted_target, need_offset_list)
+        for loaded, hint, need_offset in iterator:
             if loaded and not need_offset:
                 continue
             d = self.weights.get(hint)
@@ -1388,7 +1390,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 d = offset_cnet_weights(d, self)
             self.m.load_control_net_with(hint, d)
             self.loaded[hint] = True
-        self.current_base_sd_version = self.current_sd_version
+            self.base_sd_versions[hint] = self.current_sd_version
 
     def prepare_annotator(self, hint: ControlNetHints) -> None:
         if hint not in self.annotators:
