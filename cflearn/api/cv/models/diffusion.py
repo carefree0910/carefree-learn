@@ -1,3 +1,4 @@
+import json
 import torch
 import random
 
@@ -46,6 +47,7 @@ from ....misc.toolkit import slerp
 from ....misc.toolkit import new_seed
 from ....misc.toolkit import eval_context
 from ....misc.toolkit import download_model
+from ....misc.toolkit import download_static
 from ....misc.toolkit import seed_everything
 from ....modules.blocks import Conv2d
 from ....models.cv.diffusion import LDM
@@ -1163,6 +1165,27 @@ class DiffusionAPI(APIMixin):
                 verbose=verbose,
                 **kwargs,
             )
+
+
+def offset_cnet_weights(d: tensor_dict_type, api: DiffusionAPI) -> tensor_dict_type:
+    with open(download_static("sd_mapping", extension="json"), "r") as f:
+        mapping = json.load(f)
+    with open(download_static("sd_controlnet_mapping", extension="json"), "r") as f:
+        c_mapping = json.load(f)
+    rev_c_mapping = {v: k for k, v in c_mapping.items()}
+    nd = shallow_copy_dict(d)
+    with api.load_context() as wrapper:
+        md = wrapper.state_dict()
+    for k, v in nd.items():
+        rev_k = rev_c_mapping[k]
+        original_k = f"model.diffusion_model.{rev_k.split('.', 1)[1]}"
+        mk = mapping.get(original_k)
+        if mk is None:
+            continue
+        dtype = v.dtype
+        v = v.float()
+        nd[k] = (v + md[mk].to(v)).to(dtype)
+    return nd
 
 
 class ControlNetHints(str, Enum):
