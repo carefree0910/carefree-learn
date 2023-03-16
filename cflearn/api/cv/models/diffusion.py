@@ -1176,15 +1176,15 @@ def offset_cnet_weights(d: tensor_dict_type, api: DiffusionAPI) -> tensor_dict_t
     nd = shallow_copy_dict(d)
     with api.load_context() as wrapper:
         md = wrapper.state_dict()
+    device = list(md.values())[0].device
+    nd = {k: v.to(device) for k, v in nd.items()}
     for k, v in nd.items():
         rev_k = rev_c_mapping[k]
         original_k = f"model.diffusion_model.{rev_k.split('.', 1)[1]}"
         mk = mapping.get(original_k)
         if mk is None:
             continue
-        dtype = v.dtype
-        v = v.float()
-        nd[k] = (v + md[mk].to(v)).to(dtype)
+        nd[k] = v + md[mk].to(v)
     return nd
 
 
