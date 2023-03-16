@@ -1273,12 +1273,13 @@ class ControlledDiffusionAPI(DiffusionAPI):
     loaded: Dict[ControlNetHints, bool]
     weights: Dict[ControlNetHints, tensor_dict_type]
     annotators: Dict[ControlNetHints, Annotator]
+    current_base_sd_version: Optional[SDVersions]
 
     defaults = {
-        ControlNetHints.DEPTH: "ldm.sd_v1.5.control.depth",
-        ControlNetHints.CANNY: "ldm.sd_v1.5.control.canny",
-        ControlNetHints.POSE: "ldm.sd_v1.5.control.pose",
-        ControlNetHints.MLSD: "ldm.sd_v1.5.control.mlsd",
+        ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
+        ControlNetHints.CANNY: "ldm.sd_v1.5.control.diff.canny",
+        ControlNetHints.POSE: "ldm.sd_v1.5.control.diff.pose",
+        ControlNetHints.MLSD: "ldm.sd_v1.5.control.diff.mlsd",
     }
     annotator_classes: Dict[ControlNetHints, Type[Annotator]] = {
         ControlNetHints.DEPTH: DepthAnnotator,
@@ -1313,6 +1314,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         self.annotators = {}
         self.num_pool = num_pool
         self.control_model = self.m.control_model
+        self.current_base_sd_version = None
 
     def to(
         self,
@@ -1365,10 +1367,16 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
         sorted_target = sorted(target)
         loaded_list = [self.loaded[hint] for hint in sorted_target]
-        if all(loaded_list):
+        need_offset = (
+            self.current_sd_version is None
+            or self.current_base_sd_version is None
+            or get_sd_tag(self.current_sd_version)
+            != get_sd_tag(self.current_base_sd_version)
+        )
+        if all(loaded_list) and not need_offset:
             return
         for loaded, hint in zip(loaded_list, sorted_target):
-            if loaded:
+            if loaded and not need_offset:
                 continue
             d = self.weights.get(hint)
             if d is None:
@@ -1376,8 +1384,11 @@ class ControlledDiffusionAPI(DiffusionAPI):
                     f"cannot find weights called '{hint}', "
                     f"available weights are: {', '.join(self.available)}"
                 )
+            if need_offset:
+                d = offset_cnet_weights(d, self)
             self.m.load_control_net_with(hint, d)
             self.loaded[hint] = True
+        self.current_base_sd_version = self.current_sd_version
 
     def prepare_annotator(self, hint: ControlNetHints) -> None:
         if hint not in self.annotators:
