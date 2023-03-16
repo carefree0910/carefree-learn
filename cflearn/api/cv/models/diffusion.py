@@ -1184,7 +1184,11 @@ def offset_cnet_weights(d: tensor_dict_type, api: DiffusionAPI) -> tensor_dict_t
         mk = mapping.get(original_k)
         if mk is None:
             continue
-        nd[k] = v + md[mk].to(v)
+        mv = md[mk].to(v)
+        # inpainting workaround
+        if k == "input_blocks.0.0.weight" and mv.shape[1] == 9:
+            mv = mv[:, :4]
+        nd[k] = v + mv
     return nd
 
 

@@ -547,8 +547,13 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
                     if not check_hint_start(k_hint_start):
                         continue
                     any_activated = True
-                    k_model = self.control_model[k]
-                    k_control = k_model(net, k_hint, timesteps=timesteps, **cond_kw)
+                    k_cmodel = self.control_model[k]
+                    # inpainting workaround
+                    if k_cmodel.in_channels == net.shape[1]:
+                        cnet = net
+                    else:
+                        cnet = net[:, : k_cmodel.in_channels]
+                    k_control = k_cmodel(cnet, k_hint, timesteps=timesteps, **cond_kw)
                     if self.control_scales is not None:
                         if not isinstance(self.control_scales, dict):
                             raise ValueError("`control_scales` should be a dict")
@@ -589,7 +594,10 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     def make_control_net(self, hint_channels: Union[int, Dict[str, int]]) -> None:
         def _make(n: int) -> ControlNet:
-            control_model = ControlNet(hint_channels=n, **self.unet_kw)  # type: ignore
+            # temporarily make inpainting compatible
+            kw = shallow_copy_dict(self.unet_kw)
+            kw["in_channels"] = 4
+            control_model = ControlNet(hint_channels=n, **kw)  # type: ignore
             control_model = control_model.to(self.device, dtype=self.dtype)
             return control_model
 
