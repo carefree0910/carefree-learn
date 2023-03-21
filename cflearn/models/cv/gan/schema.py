@@ -5,33 +5,131 @@ import torch.nn as nn
 
 from abc import abstractmethod
 from abc import ABCMeta
+from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Tuple
 from typing import Callable
 from typing import Optional
 from cftool.types import tensor_dict_type
 
-from .discriminators import DiscriminatorBase
-from ....schema import _forward
 from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
-from ....schema import WithDeviceMixin
-from ....register import CustomTrainStep
-from ....register import CustomTrainStepLoss
+from ....schema import CustomTrainStep
+from ....schema import CustomTrainStepLoss
+from ....schema import ModelWithCustomSteps
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 from ....constants import PREDICTIONS_KEY
 from ...schemas.cv import GaussianGeneratorMixin
+from ....misc.toolkit import get_device
 from ....misc.toolkit import mode_context
 from ....losses.gan import GANLoss
 from ....losses.gan import GANTarget
+from ....losses.gan import DiscriminatorOutput
 
 
-class GANMixin:
-    def _initialize(
+class GeneratorStep(CustomTrainStep):
+    def loss_fn(
+        self,
+        m: "IOneStageGAN",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> CustomTrainStepLoss:
+        g_losses = m.g_losses(batch, forward_results)
+        g_loss = g_losses.pop(LOSS_KEY)
+        g_loss_dict = {k: v.item() for k, v in g_losses.items()}
+        g_loss_dict["g"] = g_loss.item()
+        return CustomTrainStepLoss(g_loss, g_loss_dict)
+
+
+class DiscriminatorStep(CustomTrainStep):
+    def loss_fn(
+        self,
+        m: "IOneStageGAN",
+        trainer: ITrainer,
+        batch: tensor_dict_type,
+        forward_results: tensor_dict_type,
+        **kwargs: Any,
+    ) -> CustomTrainStepLoss:
+        with torch.no_grad():
+            detached_forward = {k: v.detach() for k, v in forward_results.items()}
+        d_losses = m.d_losses(batch, detached_forward)
+        d_loss = d_losses.pop(LOSS_KEY)
+        d_loss_dict = {k: v.item() for k, v in d_losses.items()}
+        d_loss_dict["g"] = d_loss.item()
+        return CustomTrainStepLoss(d_loss, d_loss_dict)
+
+
+class IOneStageGAN(ModelWithCustomSteps, metaclass=ABCMeta):
+    # abstract
+
+    @property
+    @abstractmethod
+    def g_parameters(self) -> List[nn.Parameter]:
+        pass
+
+    @property
+    @abstractmethod
+    def d_parameters(self) -> List[nn.Parameter]:
+        pass
+
+    @abstractmethod
+    def g_losses(
+        self,
+        batch: tensor_dict_type,
+        forward: tensor_dict_type,
+    ) -> tensor_dict_type:
+        pass
+
+    @abstractmethod
+    def d_losses(
+        self,
+        batch: tensor_dict_type,
+        detached_forward: tensor_dict_type,
+    ) -> tensor_dict_type:
+        pass
+
+    # inheritance
+
+    @property
+    def train_steps(self) -> List[CustomTrainStep]:
+        return [
+            GeneratorStep("g_parameters"),
+            DiscriminatorStep("d_parameters"),
+        ]
+
+    def evaluate(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        weighted_loss_score_fn: Callable[[Dict[str, float]], float],
+        forward_kwargs: Dict[str, Any],
+    ) -> MetricsOutputs:
+        forward = self.run(batch_idx, batch)
+        g_losses = self.g_losses(batch, forward)
+        # in evaluate step, all tensors are already detached
+        d_losses = self.d_losses(batch, forward)
+        g_loss = g_losses.pop(LOSS_KEY).item()
+        d_loss = d_losses.pop(LOSS_KEY).item()
+        loss = g_loss + d_loss
+        loss_dict = {"g": g_loss, "d": d_loss, LOSS_KEY: loss}
+        loss_dict.update({k: v.item() for k, v in g_losses.items()})
+        loss_dict.update({k: v.item() for k, v in d_losses.items()})
+        score = weighted_loss_score_fn(loss_dict)
+        return MetricsOutputs(score, loss_dict, {k: False for k in loss_dict})
+
+    def summary_forward(self, batch: tensor_dict_type) -> None:
+        self.g_losses(batch, self.run(0, batch))
+
+    # api
+
+    def build_loss(
         self,
         *,
         num_classes: Optional[int] = None,
@@ -45,140 +143,56 @@ class GANMixin:
             gan_loss_config = {}
         self.lambda_gp = gan_loss_config.get("lambda_gp", 10.0)
 
-    @property
+
+class IGenerator(nn.Module, metaclass=ABCMeta):
     @abstractmethod
-    def g_parameters(self) -> List[nn.Parameter]:
+    def decode(self, batch: tensor_dict_type) -> Tensor:
         pass
 
-    @property
+
+class IDiscriminator(nn.Module):
     @abstractmethod
-    def d_parameters(self) -> List[nn.Parameter]:
+    def forward(self, net: Tensor) -> DiscriminatorOutput:
         pass
 
-    @abstractmethod
-    def _g_losses(
-        self,
-        batch: tensor_dict_type,
-        forward: tensor_dict_type,
-    ) -> tensor_dict_type:
-        pass
 
-    @abstractmethod
-    def _d_losses(
-        self,
-        batch: tensor_dict_type,
-        detached_forward: tensor_dict_type,
-    ) -> tensor_dict_type:
-        pass
+class IVanillaGAN(IOneStageGAN, GaussianGeneratorMixin, metaclass=ABCMeta):
+    generator: IGenerator
+    discriminator: IDiscriminator
 
-    # utilities
+    # inheritance
 
     @property
     def can_reconstruct(self) -> bool:
         return False
 
-    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self._g_losses(batch, _forward(self, batch_idx, batch, INPUT_KEY))  # type: ignore
-
-
-class GeneratorStep(CustomTrainStep):
-    def loss_fn(
-        self,
-        m: "OneStageGANMixin",
-        trainer: ITrainer,
-        batch: tensor_dict_type,
-        forward_results: tensor_dict_type,
-        **kwargs: Any,
-    ) -> CustomTrainStepLoss:
-        g_losses = m._g_losses(batch, forward_results)
-        g_loss = g_losses.pop(LOSS_KEY)
-        g_loss_dict = {k: v.item() for k, v in g_losses.items()}
-        g_loss_dict["g"] = g_loss.item()
-        return CustomTrainStepLoss(g_loss, g_loss_dict)
-
-
-class DiscriminatorStep(CustomTrainStep):
-    def loss_fn(
-        self,
-        m: "OneStageGANMixin",
-        trainer: ITrainer,
-        batch: tensor_dict_type,
-        forward_results: tensor_dict_type,
-        **kwargs: Any,
-    ) -> CustomTrainStepLoss:
-        with torch.no_grad():
-            detached_forward = {k: v.detach() for k, v in forward_results.items()}
-        d_losses = m._d_losses(batch, detached_forward)
-        d_loss = d_losses.pop(LOSS_KEY)
-        d_loss_dict = {k: v.item() for k, v in d_losses.items()}
-        d_loss_dict["g"] = d_loss.item()
-        return CustomTrainStepLoss(d_loss, d_loss_dict)
-
-
-# This mixin should be used with `CustomModule` & `register_custom_module`
-class OneStageGANMixin(GANMixin, WithDeviceMixin, metaclass=ABCMeta):
     @property
-    def train_steps(self) -> List[CustomTrainStep]:
-        return [
-            GeneratorStep("core.g_parameters"),
-            DiscriminatorStep("core.d_parameters"),
-        ]
-
-    def evaluate_step(
-        self,
-        batch_idx: int,
-        batch: tensor_dict_type,
-        state: TrainerState,
-        weighted_loss_score_fn: Callable[[Dict[str, float]], float],
-    ) -> MetricsOutputs:
-        forward = _forward(self, batch_idx, batch, INPUT_KEY, state)
-        g_losses = self._g_losses(batch, forward)
-        # in evaluate step, all tensors are already detached
-        d_losses = self._d_losses(batch, forward)
-        g_loss = g_losses.pop(LOSS_KEY).item()
-        d_loss = d_losses.pop(LOSS_KEY).item()
-        loss = g_loss + d_loss
-        loss_dict = {"g": g_loss, "d": d_loss, LOSS_KEY: loss}
-        loss_dict.update({k: v.item() for k, v in g_losses.items()})
-        loss_dict.update({k: v.item() for k, v in d_losses.items()})
-        score = weighted_loss_score_fn(loss_dict)
-        return MetricsOutputs(score, loss_dict)
-
-
-class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMeta):
-    def _initialize(  # type: ignore
-        self,
-        *,
-        in_channels: int,
-        discriminator: str = "basic",
-        discriminator_config: Optional[Dict[str, Any]] = None,
-        num_classes: Optional[int] = None,
-        gan_mode: str = "vanilla",
-        gan_loss_config: Optional[Dict[str, Any]] = None,
-    ):
-        super()._initialize(
-            num_classes=num_classes,
-            gan_mode=gan_mode,
-            gan_loss_config=gan_loss_config,
-        )
-        if discriminator_config is None:
-            discriminator_config = {}
-        discriminator_config["in_channels"] = in_channels
-        discriminator_config["num_classes"] = num_classes
-        self.discriminator = DiscriminatorBase.make(
-            discriminator,
-            config=discriminator_config,
-        )
+    def g_parameters(self) -> List[nn.Parameter]:
+        return list(self.generator.parameters())
 
     @property
     def d_parameters(self) -> List[nn.Parameter]:
         return list(self.discriminator.parameters())
 
-    def forward(self, batch: tensor_dict_type, **kwargs: Any) -> torch.Tensor:
-        z = torch.randn(len(batch[INPUT_KEY]), self.latent_dim, device=self.device)
-        return self.decode(z, labels=batch[LABEL_KEY], **kwargs)
+    def preprocess(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> Tuple[Tensor, Optional[Tensor]]:
+        return batch[INPUT_KEY], batch.get(LABEL_KEY)
 
-    def _g_losses(
+    def forward(self, net: Tensor, labels: Optional[Tensor]) -> Tensor:
+        z = torch.randn(len(net), self.latent_dim, device=get_device(self))
+        return self.decode(z, labels=labels)
+
+    def decode(self, z: Tensor, *, labels: Optional[Tensor], **kwargs: Any) -> Tensor:
+        batch = {INPUT_KEY: z, LABEL_KEY: labels}
+        net = self.generator.decode(batch, **kwargs)
+        return net
+
+    def g_losses(
         self,
         batch: tensor_dict_type,
         forward: tensor_dict_type,
@@ -191,7 +205,7 @@ class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMet
         loss_g = self.gan_loss(pred_fake, GANTarget(True, labels))
         return {LOSS_KEY: loss_g}
 
-    def _d_losses(
+    def d_losses(
         self,
         batch: tensor_dict_type,
         detached_forward: tensor_dict_type,
@@ -220,7 +234,6 @@ class VanillaGANMixin(OneStageGANMixin, GaussianGeneratorMixin, metaclass=ABCMet
 
 
 __all__ = [
-    "GANMixin",
-    "OneStageGANMixin",
-    "VanillaGANMixin",
+    "IOneStageGAN",
+    "IVanillaGAN",
 ]

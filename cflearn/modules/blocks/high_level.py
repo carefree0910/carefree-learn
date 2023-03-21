@@ -19,7 +19,6 @@ from .convs import Conv2d
 from .norms import NormFactory
 from .customs import Linear
 from .attentions import Attention
-from ...schema import WithDeviceMixin
 from ...misc.toolkit import eval_context
 
 
@@ -108,7 +107,7 @@ class ChannelPadding(Module):
 to_patches: Dict[str, Type["ImgToPatches"]] = {}
 
 
-class ImgToPatches(Module, WithDeviceMixin, WithRegister["ImgToPatches"]):
+class ImgToPatches(Module, WithRegister["ImgToPatches"]):
     d = to_patches
 
     def __init__(

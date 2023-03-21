@@ -1,4 +1,7 @@
+import os
 import cflearn
 
 
-cflearn.api.run_ddp("_titanic_task.py", [0, 2])
+file_folder = os.path.dirname(__file__)
+run_file = os.path.join(file_folder, "_titanic_task.py")
+cflearn.api.run_ddp(run_file, [1, 3])

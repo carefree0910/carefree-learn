@@ -1,6 +1,0 @@
-{
-  "pipeline": "cv",
-  "model_name": "style_gan2_generator",
-  "model_config": { "img_size": 512 },
-  "allow_no_loss": true
-}

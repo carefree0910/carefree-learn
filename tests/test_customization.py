@@ -7,8 +7,8 @@ import numpy as np
 
 class TestCustomization(unittest.TestCase):
     def test_customize_model(self) -> None:
-        @cflearn.register_ml_module("foo")
-        class _(torch.nn.Module):
+        @cflearn.MLModel.register("foo")
+        class _(cflearn.MLModel):
             def __init__(self) -> None:
                 super().__init__()
                 self.dummy = torch.nn.Parameter(torch.tensor([1.0]))
@@ -19,13 +19,15 @@ class TestCustomization(unittest.TestCase):
 
         x = np.random.random([1000, 10])
         y = np.random.random([1000, 1])
-        m = cflearn.api.make("ml", dict(core_name="foo", output_dim=1, fixed_epoch=0))
-        data = cflearn.MLData(x, y, is_classification=False)
-        idata = cflearn.MLInferenceData(x, y)
+        config = cflearn.MLConfig(model_name="foo", loss_name="mae", fixed_steps=0)
+        m = cflearn.MLTrainingPipeline.init(config)
+        data = cflearn.MLData.init().fit(x, y)
         m.fit(data)
-        predictions = m.predict(idata)[cflearn.PREDICTIONS_KEY]
+        loader = m.data.build_loader(x)
+        predictions = m.predict(loader)[cflearn.PREDICTIONS_KEY]
         self.assertTrue(np.allclose(predictions, np.ones_like(y)))
-        self.assertTrue(list(m.model.parameters())[0] is m.model.core.core.dummy)  # type: ignore
+        params = list(m.build_model.model.parameters())[0]
+        self.assertTrue(params is m.build_model.model.dummy)
 
 
 if __name__ == "__main__":

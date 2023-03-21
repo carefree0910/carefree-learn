@@ -10,7 +10,9 @@ from typing import Tuple
 from typing import Optional
 from itertools import combinations
 
-from ..register import register_ml_module
+from .base import MLModel
+from ...schema import MLEncoderSettings
+from ...schema import MLGlobalEncoderSettings
 from ...misc.toolkit import eval_context
 from ...modules.blocks import Activation
 
@@ -120,13 +122,13 @@ class NBMBlock(nn.Module):
         return net.transpose(1, 2).contiguous()
 
 
-@register_ml_module("nbm")
-class NBM(nn.Module):
+@MLModel.register("nbm")
+class NBM(MLModel):
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
-        num_history: int,
+        num_history: int = 1,
         *,
         nary: Optional[Dict[str, List[Tuple[int, ...]]]] = None,
         num_bases: int = 64,
@@ -136,8 +138,15 @@ class NBM(nn.Module):
         activation: str = "ReLU",
         batch_norm: bool = False,
         dropout: float = 0.0,
+        encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
+        global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
     ):
-        super().__init__()
+        super().__init__(
+            encoder_settings=encoder_settings,
+            global_encoder_settings=global_encoder_settings,
+        )
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
         input_dim *= num_history
         if hidden_units is None:
             dim = max(32, min(1024, 2 * input_dim))

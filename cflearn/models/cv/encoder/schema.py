@@ -14,10 +14,10 @@ from cftool.types import tensor_dict_type
 
 from ....schema import _forward
 from ....schema import TrainerState
-from ....schema import WithDeviceMixin
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context
+from ....misc.toolkit import get_device
 from ....modules.blocks import ImgToPatches
 
 
@@ -25,7 +25,7 @@ encoders: Dict[str, Type["EncoderMixin"]] = {}
 encoders_1d: Dict[str, Type["Encoder1DMixin"]] = {}
 
 
-class IEncoder(WithDeviceMixin):
+class IEncoder:
     def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         return run_encoder(self, 0, batch, **kwargs)[LATENT_KEY]
 
@@ -41,7 +41,7 @@ class EncoderMixin(IEncoder, WithRegister["EncoderMixin"]):
     def latent_resolution(self, img_size: int) -> int:
         shape = 1, self.in_channels, img_size, img_size
         with eval_context(self):
-            net = self.encode({INPUT_KEY: torch.zeros(*shape, device=self.device)})
+            net = self.encode({INPUT_KEY: torch.zeros(*shape, device=get_device(self))})
         return net.shape[2]
 
 

@@ -5,18 +5,22 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch import Tensor
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
 from typing import Optional
 from cftool.types import tensor_dict_type
 
+from .base import MLModel
 from .fcnn import FCNN
-from ..register import register_ml_module
 from ...types import losses_type
+from ...schema import ILoss
 from ...schema import ITrainer
-from ...schema import WithDeviceMixin
-from ...register import register_loss_module
+from ...schema import TrainerState
+from ...schema import MLEncoderSettings
+from ...schema import MLGlobalEncoderSettings
 from ...constants import LOSS_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
@@ -54,13 +58,13 @@ def _make_ddr_grid(num_samples: int, device: torch.device) -> Tensor:
     return make_grid(num_samples + 2, 1, device)[:, 1:-1]
 
 
-@register_ml_module("ddr")
-class DDR(nn.Module, WithDeviceMixin):
+@MLModel.register("ddr")
+class DDR(MLModel):
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
-        num_history: int,
+        num_history: int = 1,
         hidden_units: Optional[List[int]] = None,
         *,
         mapping_type: str = "highway",
@@ -74,8 +78,15 @@ class DDR(nn.Module, WithDeviceMixin):
         predict_quantiles: bool = True,
         predict_cdf: bool = True,
         y_min_max: Optional[Tuple[float, float]] = None,
+        encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
+        global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
     ):
-        super().__init__()
+        super().__init__(
+            encoder_settings=encoder_settings,
+            global_encoder_settings=global_encoder_settings,
+        )
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
         self.fcnn = FCNN(
             input_dim,
             output_dim,
@@ -114,35 +125,9 @@ class DDR(nn.Module, WithDeviceMixin):
         self._y_min_max = y_min_max
         self.register_buffer("y_min_max", torch.tensor([0.0, 0.0]))
 
-    def _init_with_trainer(self, trainer: ITrainer) -> None:
-        if self._y_min_max is None:
-            y_train = trainer.train_loader.data.y
-            self._y_min_max = y_train.min().item(), y_train.max().item()
-        self.y_min_max = torch.tensor(self._y_min_max)
+    # inheritance
 
-    def _get_quantiles(
-        self,
-        tau: Tensor,
-        mods: List[Tensor],
-        median: Tensor,
-    ) -> Tuple[Tensor, Tensor]:
-        q_increment = self.q_siren(mods, init=tau)  # type: ignore
-        return q_increment, median[:, None] + q_increment
-
-    def _get_cdf(
-        self,
-        y_anchor: Tensor,
-        median: Tensor,
-        y_span: float,
-        mods: List[Tensor],
-    ) -> Tuple[Tensor, Tensor, Tensor]:
-        y_residual = y_anchor - median.unsqueeze(1)
-        y_ratio = y_residual / y_span
-        logit = self.cdf_siren(mods, init=y_ratio)  # type: ignore
-        cdf = torch.sigmoid(logit)
-        return y_ratio, logit, cdf
-
-    def forward(  # type: ignore
+    def forward(
         self,
         net: Tensor,
         *,
@@ -218,9 +203,39 @@ class DDR(nn.Module, WithDeviceMixin):
             results["dual_cdf"] = self._get_cdf(dual_y, median, y_span, mods)[-1]
         return results
 
+    def init_with_trainer(self, trainer: ITrainer) -> None:
+        if self._y_min_max is None:
+            y_train = trainer.train_loader.get_full_batch()[LABEL_KEY]
+            self._y_min_max = y_train.min().item(), y_train.max().item()
+        self.y_min_max = torch.tensor(self._y_min_max)
 
-@register_loss_module("ddr")
-class DDRLoss(nn.Module):
+    # internal
+
+    def _get_quantiles(
+        self,
+        tau: Tensor,
+        mods: List[Tensor],
+        median: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
+        q_increment = self.q_siren(mods, init=tau)  # type: ignore
+        return q_increment, median[:, None] + q_increment
+
+    def _get_cdf(
+        self,
+        y_anchor: Tensor,
+        median: Tensor,
+        y_span: float,
+        mods: List[Tensor],
+    ) -> Tuple[Tensor, Tensor, Tensor]:
+        y_residual = y_anchor - median.unsqueeze(1)
+        y_ratio = y_residual / y_span
+        logit = self.cdf_siren(mods, init=y_ratio)  # type: ignore
+        cdf = torch.sigmoid(logit)
+        return y_ratio, logit, cdf
+
+
+@ILoss.register("ddr")
+class DDRLoss(ILoss):
     def __init__(
         self,
         *,
@@ -232,6 +247,14 @@ class DDRLoss(nn.Module):
         self.lb_ddr = lb_ddr
         self.lb_dual = lb_dual
         self.lb_monotonous = lb_monotonous
+
+    def preprocess(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+    ) -> Tuple[Any, ...]:
+        return forward_results, batch
 
     def forward(
         self,

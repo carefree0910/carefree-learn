@@ -1,4 +1,3 @@
-from .core import *
-from .dl import *
+from .blocks import *
 from .ml import *
-from .cv import *
+from .torch import *

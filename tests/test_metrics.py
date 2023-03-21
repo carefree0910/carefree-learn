@@ -3,20 +3,19 @@ import unittest
 
 import numpy as np
 
-from cflearn.schema import _IMetric
+from cflearn.schema import IMetric
 from cflearn.constants import LABEL_KEY
 from cflearn.constants import PREDICTIONS_KEY
 
 
 def _get_score(
-    metric: _IMetric,
+    metric: IMetric,
     predictions: np.ndarray,
     labels: np.ndarray,
 ) -> float:
-    return metric.evaluate(
-        {LABEL_KEY: labels},
-        {PREDICTIONS_KEY: predictions},
-    ).final_score
+    np_batch = {LABEL_KEY: labels}
+    np_outputs = {PREDICTIONS_KEY: predictions}
+    return metric.evaluate(np_batch, np_outputs).final_score
 
 
 class TestMetrics(unittest.TestCase):

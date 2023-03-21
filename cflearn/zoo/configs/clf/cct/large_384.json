@@ -1,6 +1,0 @@
-{
-  "__bases__": ["clf/cct.large"],
-  "model_config": {
-    "img_size": 384
-  }
-}

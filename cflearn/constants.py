@@ -1,4 +1,4 @@
-WORKPLACE_ENVIRON_KEY = "CFLEARN_WORKPLACE"
+WORKSPACE_ENVIRON_KEY = "CFLEARN_WORKSPACE"
 
 LOSS_KEY = "loss"
 INPUT_KEY = "input"
@@ -11,9 +11,6 @@ BATCH_INDICES_KEY = "batch_indices"
 PT_PREFIX = "model_"
 SCORES_FILE = "scores.json"
 CHECKPOINTS_FOLDER = "checkpoints"
-
-META_CONFIG_NAME = "__meta__"
-ML_PIPELINE_SAVE_NAME = "ml_pipeline"
 
 DEFAULT_ZOO_TAG = "default"
 

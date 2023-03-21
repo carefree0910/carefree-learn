@@ -1,4 +1,4 @@
-import os
+import json
 import math
 import torch
 
@@ -9,17 +9,20 @@ from abc import abstractmethod
 from abc import ABC
 from abc import ABCMeta
 from copy import deepcopy
-from tqdm import tqdm
+from enum import Enum
+from torch import Tensor
 from typing import Any
+from typing import Set
 from typing import Dict
 from typing import List
 from typing import Type
 from typing import Tuple
 from typing import Union
+from typing import Generic
 from typing import TypeVar
 from typing import Callable
-from typing import Iterator
 from typing import Optional
+from typing import Protocol
 from typing import NamedTuple
 from dataclasses import dataclass
 from torch.optim import Optimizer
@@ -27,32 +30,44 @@ from cftool.misc import filter_kw
 from cftool.misc import print_info
 from cftool.misc import print_warning
 from cftool.misc import safe_execute
-from cftool.misc import lock_manager
 from cftool.misc import check_requires
 from cftool.misc import shallow_copy_dict
-from cftool.misc import context_error_handler
 from cftool.misc import get_num_positional_args
-from cftool.misc import DataClassBase
+from cftool.misc import context_error_handler
 from cftool.misc import WithRegister
-from cftool.array import to_torch
+from cftool.misc import DataClassBase
+from cftool.misc import ISerializable
+from cftool.misc import IWithRequirements
+from cftool.misc import ISerializableArrays
+from cftool.misc import ISerializableDataClass
 from cftool.array import to_numpy
+from cftool.array import to_torch
 from cftool.array import to_device
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
+from cftool.pipeline import IBlock
+from cftool.pipeline import IPipeline
+from torch.cuda.amp import autocast
 from torch.optim.lr_scheduler import _LRScheduler
 
+from .types import data_type
 from .types import losses_type
 from .types import configs_type
 from .types import sample_weights_type
+from .types import forward_results_type
 from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
 from .constants import PREDICTIONS_KEY
-from .constants import BATCH_INDICES_KEY
-from .constants import ORIGINAL_LABEL_KEY
-from .misc.toolkit import eval_context
+from .misc.toolkit import is_rank_0
+from .misc.toolkit import get_clones
+from .misc.toolkit import get_device
 from .misc.toolkit import get_world_size
+from .misc.toolkit import np_batch_to_tensor
 from .misc.toolkit import fix_denormal_states
+from .misc.toolkit import eval_context
+from .misc.toolkit import no_grad_context
+from .misc.toolkit import toggle_optimizer
 from .misc.toolkit import ONNX
 
 try:
@@ -74,37 +89,138 @@ except:
     onnx_simplify = get_input_names = None  # type: ignore
 
 
-dataset_dict: Dict[str, Type["IDataset"]] = {}
-loader_dict: Dict[str, Type["IDataLoader"]] = {}
 model_dict: Dict[str, Type["IDLModel"]] = {}
 monitor_dict: Dict[str, Type["TrainerMonitor"]] = {}
 loss_dict: Dict[str, Type["ILoss"]] = {}
-multi_prefix_mapping: Dict[str, Type["MultiLoss"]] = {}
-metric_dict: Dict[str, Type["_IMetric"]] = {}
+metric_dict: Dict[str, Type["IMetric"]] = {}
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
+data_dict: Dict[str, Type["IData"]] = {}
 
+TData = TypeVar("TData", bound="IData", covariant=True)
 TLoss = TypeVar("TLoss", bound="ILoss", covariant=True)
-TDataModule = TypeVar("TDataModule")
+TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
+TDataLoaders = Tuple["IDataLoader", Optional["IDataLoader"]]
+TDataBundleItem = Optional[Union[data_type, np_dict_type, tensor_dict_type, Any]]
+TDataBlock = TypeVar("TDataBlock", bound="IDataBlock", covariant=True)
+TDataProcessor = TypeVar("TDataProcessor", bound="DataProcessor", covariant=True)
 
 
 # data
 
+"""
 
-class IDataset(WithRegister["IDataset"], metaclass=ABCMeta):
-    d = dataset_dict
+Design of the `IData` system:
 
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
+* `IData` itself only holds minimal configurations, but will hold some data - which are
+constructed into a `DataBundle` - temporarily, in case we need to use the data immediately
+(e.g. use them for training), or need to serialize them.
+* Complicated logics are maintained by `DataProcessor`, which is an `IPipeline` constructed
+by a series of `IDataBlock`.
+* `DataProcessor` itself has no information except for a global `config`, and logics are held
+in each `IDataBlock`.
+* An `IDataBlock` need to do four jobs:
+  * `transform`: transform a `DataBundle` into a new `DataBundle`.
+  * `fit_transform`: collect necessary info and perform `transform`.
+  * `postprocess_item` (optional): post process an incoming item.
+  >   multiple items will be 'collated' into a batch
+  * `recover_labels` (optional): recover labels to their original format.
 
+
+Typical workflows are:
+
+* Training : raw data -> `fit_transform` -> transformed data
+             -> fetch items -> `postprocess_item` -> collate -> processed batch
+             -> model -> predictions -> `recover_labels`
+* Inference: raw data -> `transform` -> transformed data
+             -> fetch items -> `postprocess_item` -> collate -> processed batch
+             -> model -> predictions -> `recover_labels`
+
+> When serializing, a property called `bundle` (the `DataBundle`) will be saved, which holds
+the 'transformed data'. So after the serialization, we don't need to run `fit_transform`/`transform`
+anymore, and can reuse the `bundle` property directly.
+> However we can also serialize `IData` without saving `bundle` (which is a better choice when
+we only want to serialize it for inference). In this case, we need to run `transform` on new datasets.
+
+
+The above statements indicate that:
+* `transform`/`fit_transform` are at the 'pre-calculation' stage.
+* `postprocess_item`/`recover_labels` are at the 'on the fly' stage.
+
+
+Common use cases are:
+
+* ML datasets: will mostly utilize `transform`/`fit_transform`, because most ML datasets
+can be transfered into a numpy-based datasets, which should be calculated beforehand
+because directly indexing numpy arrays is very fast while streaming them will be slow.
+
+* CV/NLP datasets: will mostly utilize `postprocess_item`, because most CV/NLP datasets
+are very large, which means it is impossible to be pre-calculated because that will
+cost too much RAM. Instead, common practice is to 'stream' the datasets, which means many
+calculations must be done 'on the fly'.
+
+* `recover_labels` might be used across all kinds of datasets, because labels may always need
+to be transformed.
+
+"""
+
+
+def copy_data(data: TDataBundleItem) -> data_type:
+    if data is None:
+        return None
+    if isinstance(data, dict):
+        return {k: copy_data(v) for k, v in data.items()}
+    if isinstance(data, np.ndarray):
+        return data.copy()
+    if isinstance(data, Tensor):
+        return data.clone()
+    return data
+
+
+def check_data_is_info(data: TDataBundleItem) -> bool:
+    if (
+        data is None
+        or isinstance(data, dict)
+        or isinstance(data, np.ndarray)
+        or isinstance(data, Tensor)
+    ):
+        return False
+    try:
+        json.dumps([data])
+        return True
+    except:
+        return False
+
+
+def norm_sw(sample_weights: Optional[np.ndarray]) -> Optional[np.ndarray]:
+    if sample_weights is None:
+        return None
+    return sample_weights / sample_weights.sum()
+
+
+def split_sw(sample_weights: sample_weights_type) -> TSplitSW:
+    if sample_weights is None:
+        train_weights = valid_weights = None
+    else:
+        if not isinstance(sample_weights, np.ndarray):
+            train_weights, valid_weights = sample_weights
+        else:
+            train_weights, valid_weights = sample_weights, None
+    train_weights, valid_weights = map(norm_sw, [train_weights, valid_weights])
+    return train_weights, valid_weights
+
+
+class IDataset(ABC):
     @abstractmethod
     def __len__(self) -> int:
         pass
 
+    @abstractmethod
+    def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> Dict[str, Any]:
+        pass
 
-class IDataLoader(WithRegister["IDataLoader"], metaclass=ABCMeta):
-    d = loader_dict
-    data: IDataset
-    use_numpy: bool
+
+class IDataLoader(ABC):
+    dataset: IDataset
     batch_size: int
 
     def __init__(self, *, sample_weights: Optional[np.ndarray] = None):
@@ -115,7 +231,7 @@ class IDataLoader(WithRegister["IDataLoader"], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def __next__(self) -> tensor_dict_type:
+    def __next__(self) -> np_dict_type:
         pass
 
     @abstractmethod
@@ -127,7 +243,7 @@ class IDataLoader(WithRegister["IDataLoader"], metaclass=ABCMeta):
         pass
 
     def __len__(self) -> int:
-        return math.ceil(len(self.data) / self.batch_size)
+        return math.ceil(len(self.dataset) / self.batch_size)
 
     def copy(self) -> "IDataLoader":
         return deepcopy(self)
@@ -145,36 +261,425 @@ class IDataLoader(WithRegister["IDataLoader"], metaclass=ABCMeta):
 
         return _(self)
 
+    def get_full_batch(self) -> np_dict_type:
+        batch_size = self.batch_size
+        self.batch_size = len(self.dataset)
+        full_batch = next(iter(self))
+        self.batch_size = batch_size
+        return full_batch
 
-class IDataModule(ABC):
-    id_file: str
-    info_name: str
-    data_folder: str
-    package_folder: str
+
+class TensorBatcher:
+    def __init__(self, loader: IDataLoader, device: torch.device) -> None:
+        self.loader = loader
+        self.device = device
+
+    def __len__(self) -> int:
+        return len(self.loader)
+
+    def __iter__(self) -> "TensorBatcher":
+        self.loader.__iter__()
+        return self
+
+    def __next__(self) -> tensor_dict_type:
+        npd = self.loader.__next__()
+        batch = np_batch_to_tensor(npd)
+        return to_device(batch, self.device)
+
+    def to(self, device: torch.device) -> None:
+        self.device = device
+
+
+@dataclass
+class DataBundle(DataClassBase):
+    x_train: TDataBundleItem
+    y_train: TDataBundleItem = None
+    x_valid: TDataBundleItem = None
+    y_valid: TDataBundleItem = None
+    train_others: Optional[np_dict_type] = None
+    valid_others: Optional[np_dict_type] = None
 
     @property
-    @abstractmethod
-    def info(self) -> Dict[str, Any]:
-        pass
+    def train_args(self) -> tuple:
+        return self.x_train, self.y_train, self.train_others
+
+    @property
+    def valid_args(self) -> tuple:
+        return self.x_valid, self.y_valid, self.valid_others
+
+    def copy(self) -> "DataBundle":
+        return DataBundle(*map(copy_data, self.attributes))
+
+    def to_info(self) -> Dict[str, Any]:
+        info: Dict[str, Any] = {}
+        for k, v in self.asdict().items():
+            if check_data_is_info(v):
+                info[k] = v
+        return info
+
+    def from_info(self, info: Dict[str, Any]) -> None:
+        for k, v in info.items():
+            setattr(self, k, v)
+
+    def to_npd(self) -> np_dict_type:
+        def _to_np(key: str, data: Union[np.ndarray, Tensor]) -> np.ndarray:
+            if isinstance(v, np.ndarray):
+                return data
+            tensor_keys.append(key)
+            return to_numpy(data)
+
+        npd: np_dict_type = {}
+        tensor_keys: List[str] = []
+        for k, v in self.asdict().items():
+            if isinstance(v, dict):
+                v = {f"{k}.{vk}": vv for vk, vv in v.items()}
+                npd.update({vk: _to_np(vk, vv) for vk, vv in v.items()})
+            elif isinstance(v, (np.ndarray, Tensor)):
+                npd[k] = _to_np(k, v)
+        if tensor_keys:
+            npd["__tensor_keys__"] = np.array(tensor_keys)
+        return npd
+
+    def from_npd(self, npd: np_dict_type) -> None:
+        attr_collections: Dict[str, Union[np_dict_type, tensor_dict_type]] = {}
+        tensor_keys = set(npd.pop("__tensor_keys__", np.array([])).tolist())
+        for k, v in npd.items():
+            attr = None
+            if "." in k:
+                attr, k = k.split(".", 1)
+            if k in tensor_keys:
+                v = to_torch(v)
+            if attr is None:
+                setattr(self, k, v)
+            else:
+                attr_collections.setdefault(attr, {})[k] = v
+        for attr, collection in attr_collections.items():
+            setattr(self, attr, collection)
+
+    @classmethod
+    def empty(cls) -> "DataBundle":
+        return cls(None)
+
+
+class IDataBlock(IBlock, ISerializable, metaclass=ABCMeta):
+    config: "DataProcessorConfig"
+    previous: Dict[str, "IDataBlock"]
+
+    # inherit
+
+    def build(self, config: "DataProcessorConfig") -> None:
+        self.config = config
+
+    # abstract
 
     @abstractmethod
-    def prepare(self: TDataModule, sample_weights: sample_weights_type) -> TDataModule:
-        pass
+    def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
+        """
+        This method should not utilize `config`!
+
+        Changes can happen inplace.
+        """
 
     @abstractmethod
-    def initialize(self) -> Any:
+    def fit_transform(self, bundle: DataBundle) -> DataBundle:
+        """
+        This method should prepare necessary info, which might be used
+        in the `to_info` method.
+
+        If any necessary info comes from `config`, this method should extract
+        them and assign them to the corresponding properties.
+
+        This method will NOT be called in a loading procedure, and the
+        necessary info should be loaded in the `from_info` method.
+
+        This method will always assume `for_inference=False`.
+
+        Changes can happen inplace.
+        """
+
+    # optional callbacks
+
+    # changes can happen inplace
+    def postprocess_item(self, item: Any) -> Any:
+        return item
+
+    # changes can happen inplace
+    def recover_labels(self, y: np.ndarray) -> np.ndarray:
+        return y
+
+    # api
+
+    @property
+    def is_rank_0(self) -> bool:
+        return is_rank_0()
+
+
+class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
+    """
+    Runtime blocks will store no information, and will only process the batches
+    at runtime. When dealing with CV/NLP datasets, we'll often use this kind of blocks.
+    """
+
+    def to_info(self) -> Dict[str, Any]:
+        return {}
+
+    def from_info(self, info: Dict[str, Any]) -> None:
         pass
+
+    def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
+        return bundle
+
+    def fit_transform(self, bundle: DataBundle) -> DataBundle:
+        return bundle
 
     @abstractmethod
-    def save_info(self, folder: str) -> None:
+    def postprocess_item(self, item: Any) -> Any:
+        """changes can happen inplace"""
+
+
+@dataclass
+@ISerializableDataClass.register("base.processor_config")
+class DataProcessorConfig(ISerializableDataClass):
+    block_names: Optional[List[str]] = None
+    block_configs: Optional[Dict[str, Dict[str, Any]]] = None
+
+    @property
+    def default_blocks(self) -> List[Type[IDataBlock]]:
+        return []
+
+    def add_blocks(self, *blocks: Type[IDataBlock]) -> None:
+        if self.block_names is None:
+            self.block_names = []
+        for b in blocks:
+            self.block_names.append(b.__identifier__)
+
+    def set_blocks(self, *blocks: Type[IDataBlock]) -> None:
+        self.block_names = [b.__identifier__ for b in blocks]
+
+
+@IPipeline.register("base.data_processor")
+class DataProcessor(IPipeline):
+    config: DataProcessorConfig
+    blocks: List[IDataBlock]
+    is_ready: bool = False
+
+    # inheritance
+
+    @classmethod
+    def init(
+        cls: Type[TDataProcessor],
+        config: Optional[DataProcessorConfig],
+    ) -> TDataProcessor:
+        self: DataProcessor = cls()
+        self.config = (config or self.config_base()).copy()
+        if self.config.block_names is None:
+            self.config.set_blocks(*self.config.default_blocks)
+        self.before_build_in_init()
+        self.build(*(IDataBlock.get(name)() for name in self.config.block_names))  # type: ignore
+        return self
+
+    # optional callbacks
+
+    @property
+    def config_base(self) -> Type[DataProcessorConfig]:
+        return DataProcessorConfig
+
+    @property
+    def block_base(self) -> Type[IDataBlock]:
+        return IDataBlock
+
+    def before_build_in_init(self) -> None:
         pass
+
+    def after_load(self) -> None:
+        self.is_ready = True
+
+    # api
+
+    def _run(self, fn: str, bundle: DataBundle, for_inference: bool) -> DataBundle:
+        kw = dict(bundle=bundle.copy(), for_inference=for_inference)
+        previous: Dict[str, IDataBlock] = {}
+        for block in self.blocks:
+            block.previous = previous
+            kw["bundle"] = safe_execute(getattr(block, fn), kw)
+            previous[block.__identifier__] = block
+        return kw["bundle"]  # type: ignore
+
+    def transform(self, bundle: DataBundle, *, for_inference: bool) -> DataBundle:
+        return self._run("transform", bundle, for_inference)
+
+    def fit_transform(self, bundle: DataBundle) -> DataBundle:
+        bundle = self._run("fit_transform", bundle, False)
+        self.is_ready = True
+        return bundle
+
+    # changes can happen inplace
+    def postprocess_item(self, item: Any) -> np_dict_type:
+        for block in self.blocks:
+            item = block.postprocess_item(item)
+        return item
+
+    def recover_labels(self, y: np.ndarray) -> np.ndarray:
+        for block in self.blocks[::-1]:
+            y = block.recover_labels(y)
+        return y
+
+
+@dataclass
+@ISerializableDataClass.register("base.data_config")
+class DataConfig(ISerializableDataClass):
+    for_inference: bool = False
+    batch_size: int = 1
+    valid_batch_size: Optional[int] = None
+    shuffle_train: bool = True
+    shuffle_valid: bool = False
+
+
+class IData(ISerializableArrays, Generic[TData], metaclass=ABCMeta):
+    d = data_dict
+
+    train_dataset: IDataset
+    valid_dataset: Optional[IDataset]
+
+    train_weights: Optional[np.ndarray]
+    valid_weights: Optional[np.ndarray]
+
+    config: DataConfig
+    processor: DataProcessor
+    bundle: Optional[DataBundle]
+
+    for_inference: bool
+
+    def __init__(self) -> None:
+        self.train_weights = None
+        self.valid_weights = None
+
+    # abstract
 
     @abstractmethod
-    def save(self, folder: str) -> None:
+    def get_loaders(self) -> TDataLoaders:
         pass
 
+    # inheritance
 
-# model
+    def to_info(self) -> Dict[str, Any]:
+        if not self.processor.is_ready:
+            raise ValueError(
+                "`processor` should be ready before calling `to_info`, "
+                "did you forget to call the `fit` method first?"
+            )
+        return {
+            "type": self.__identifier__,
+            "processor": self.processor.to_pack().asdict(),
+            "config": self.config.to_pack().asdict(),
+            "bundle": None if self.bundle is None else self.bundle.to_info(),
+        }
+
+    def from_info(self, info: Dict[str, Any]) -> None:
+        if self.__identifier__ != info["type"]:
+            msg = f"type does not match: {self.__identifier__} != {info['type']}"
+            raise ValueError(msg)
+        self.processor = self.processor_base.from_pack(info["processor"])
+        self.config = self.config_base.from_pack(info["config"])
+        bundle_info = info["bundle"]
+        if not bundle_info:
+            self.bundle = None
+        else:
+            self.bundle = DataBundle.empty()
+            self.bundle.from_info(bundle_info)
+
+    def to_npd(self) -> np_dict_type:
+        return {} if self.bundle is None else self.bundle.to_npd()
+
+    def from_npd(self, npd: np_dict_type) -> None:
+        if npd:
+            if self.bundle is None:
+                self.bundle = DataBundle.empty()
+            self.bundle.from_npd(npd)
+
+    # optional callback
+
+    @property
+    def config_base(self) -> Type[DataConfig]:
+        return DataConfig
+
+    @property
+    def processor_base(self) -> Type[DataProcessor]:
+        return DataProcessor
+
+    def get_bundle(
+        self,
+        x_train: data_type,
+        y_train: Optional[data_type] = None,
+        x_valid: Optional[data_type] = None,
+        y_valid: Optional[data_type] = None,
+        train_others: Optional[np_dict_type] = None,
+        valid_others: Optional[np_dict_type] = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> DataBundle:
+        args = x_train, y_train, x_valid, y_valid, train_others, valid_others
+        return DataBundle(*args)
+
+    def set_sample_weights(self: TData, sample_weights: sample_weights_type) -> TData:
+        self.train_weights, self.valid_weights = split_sw(sample_weights)
+        return self
+
+    # api
+
+    @classmethod
+    def init(
+        cls: Type[TData],
+        config: Optional[DataConfig] = None,
+        processor_config: Optional[DataProcessorConfig] = None,
+    ) -> TData:
+        self: TData = cls()
+        self.bundle = None
+        self.config = config or self.config_base()
+        self.processor = self.processor_base.init(processor_config)
+        return self
+
+    def fit(
+        self: TData,
+        x_train: data_type,
+        y_train: Optional[data_type] = None,
+        x_valid: Optional[data_type] = None,
+        y_valid: Optional[data_type] = None,
+        train_others: Optional[np_dict_type] = None,
+        valid_others: Optional[np_dict_type] = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> TData:
+        args = x_train, y_train, x_valid, y_valid, train_others, valid_others, *args
+        bundle = self.get_bundle(*args, **kwargs)
+        bundle = self.processor.fit_transform(bundle)
+        self.bundle = bundle
+        return self
+
+    def transform(self, *args: Any, **kwargs: Any) -> DataBundle:
+        if not self.processor.is_ready:
+            raise ValueError("`processor` should be ready before calling `transform`")
+        bundle = self.get_bundle(*args, **kwargs)
+        bundle = self.processor.transform(bundle, for_inference=True)
+        return bundle
+
+    def recover_labels(self, y: np.ndarray) -> np.ndarray:
+        return self.processor.recover_labels(y)
+
+
+class DataTypes(str, Enum):
+    INT = "int"
+    FLOAT = "float"
+    STRING = "string"
+
+
+class ColumnTypes(str, Enum):
+    REDUNDANT = "redundant"
+    NUMERICAL = "numerical"
+    CATEGORICAL = "categorical"
+
+
+# general model
 
 
 def _forward(
@@ -204,19 +709,10 @@ def _forward(
     return rs
 
 
-class WithDeviceMixin:
-    parameters: Callable[["WithDeviceMixin"], Iterator[nn.Parameter]]
-
-    @property
-    def device(self) -> torch.device:
-        params = list(self.parameters())  # type: ignore
-        return torch.device("cpu") if not params else params[0].device
-
-
 class IDLModel(
-    WithDeviceMixin,
     nn.Module,
     WithRegister["IDLModel"],
+    IWithRequirements,
     metaclass=ABCMeta,
 ):
     d = model_dict
@@ -224,32 +720,63 @@ class IDLModel(
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__()
 
-    def _init_with_trainer(self, trainer: "ITrainer") -> None:
+    # optional callbacks
+
+    def init_with_trainer(self, trainer: "ITrainer") -> None:
         pass
 
-    @abstractmethod
-    def forward(
+    def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
+        pass
+
+    def preprocess(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> Tuple[Any, ...]:
+        return (batch[INPUT_KEY],)
+
+    def postprocess(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        forward_results: forward_results_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        if isinstance(forward_results, dict):
+            return forward_results
+        if isinstance(forward_results, Tensor):
+            return {PREDICTIONS_KEY: forward_results}
+        raise ValueError(f"unrecognized forward results occurred: {forward_results}")
+
+    # api
+
+    def run(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        pass
+        args = self.preprocess(batch_idx, batch, state, **kwargs)
+        forward_results = self(*args)
+        outputs = self.postprocess(batch_idx, batch, forward_results, state, **kwargs)
+        return outputs
 
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
-        return self.forward(0, batch)
+        return self.run(0, batch)
 
-    def summary_forward(self, batch_idx: int, batch: tensor_dict_type) -> None:
-        self.forward(batch_idx, batch)
+    def summary_forward(self, batch: tensor_dict_type) -> None:
+        self.onnx_forward(batch)
 
     def to_onnx(
         self,
-        export_folder: str,
+        export_file: str,
         input_sample: tensor_dict_type,
         dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
         *,
-        onnx_file: str = "model.onnx",
         opset: int = 11,
         simplify: bool = True,
         forward_fn: Optional[Callable[[Dict[str, Any]], Dict[str, Any]]] = None,
@@ -293,8 +820,6 @@ class IDLModel(
         kwargs["dynamic_axes"] = dynamic_axes_settings
         kwargs["verbose"] = verbose
         # export
-        abs_folder = os.path.abspath(export_folder)
-        base_folder = os.path.dirname(abs_folder)
 
         class ONNXWrapper(torch.nn.Module):
             def __init__(self) -> None:
@@ -303,62 +828,112 @@ class IDLModel(
 
             def forward(self, batch: Dict[str, Any]) -> Dict[str, Any]:
                 rs = onnx_forward(batch)
-                if isinstance(rs, torch.Tensor):
+                if isinstance(rs, Tensor):
                     return {k: rs for k in output_names}  # type: ignore
                 return {k: rs[k] for k in output_names}  # type: ignore
 
-        with lock_manager(base_folder, []) as lock:
-            onnx_path = os.path.join(export_folder, onnx_file)
-            lock._stuffs = [onnx_path]
-            os.makedirs(export_folder, exist_ok=True)
-            m_onnx = ONNXWrapper()
-            original_states = model.state_dict()
-            fixed_states = fix_denormal_states(original_states, verbose=verbose)
-            with eval_context(m_onnx):
-                model.load_state_dict(fixed_states)
-                torch.onnx.export(
-                    m_onnx,
-                    ({k: input_sample[k] for k in input_names}, {}),
-                    onnx_path,
-                    **shallow_copy_dict(kwargs),
+        m_onnx = ONNXWrapper()
+        original_states = model.state_dict()
+        fixed_states = fix_denormal_states(original_states, verbose=verbose)
+        with eval_context(m_onnx):
+            model.load_state_dict(fixed_states)
+            torch.onnx.export(
+                m_onnx,
+                ({k: input_sample[k] for k in input_names}, {}),
+                export_file,
+                **shallow_copy_dict(kwargs),
+            )
+            model.load_state_dict(original_states)
+            if not simplify:
+                return self.to(device)
+            if onnx is None:
+                print_warning(
+                    "`onnx` is not installed, "
+                    "so the exported onnx model will not be simplified"
                 )
-                model.load_state_dict(original_states)
-                if not simplify:
-                    return self.to(device)
-                if onnx is None:
-                    print_warning(
-                        "`onnx` is not installed, "
-                        "so the exported onnx model will not be simplified"
-                    )
-                    return self.to(device)
-                if onnx_simplify is None or get_input_names is None:
-                    print_warning(
-                        "`onnx-simplifier` is not installed, "
-                        "so the exported onnx model will not be simplified"
-                    )
-                    return self.to(device)
-                try:
-                    onnx_model = onnx.load(onnx_path)
-                    final_input_names = get_input_names(onnx_model)
-                    model_simplified, check = onnx_simplify(
-                        onnx_model,
-                        test_input_shapes={
-                            name: tensor.shape
-                            for name, tensor in input_sample.items()
-                            if name in final_input_names
-                        },
-                    )
-                except Exception as err:
-                    if verbose:
-                        print_warning(f"Failed to simplify ONNX model ({err})")
-                    model_simplified = None
-                    check = False
+                return self.to(device)
+            if onnx_simplify is None or get_input_names is None:
+                print_warning(
+                    "`onnx-simplifier` is not installed, "
+                    "so the exported onnx model will not be simplified"
+                )
+                return self.to(device)
+            try:
+                onnx_model = onnx.load(export_file)
+                final_input_names = get_input_names(onnx_model)
+                model_simplified, check = onnx_simplify(
+                    onnx_model,
+                    test_input_shapes={
+                        name: tensor.shape
+                        for name, tensor in input_sample.items()
+                        if name in final_input_names
+                    },
+                )
+            except Exception as err:
                 if verbose:
-                    tag = " " if check else " not "
-                    print_info(f"Simplified ONNX model is{tag}validated!")
-                if check and model_simplified is not None:
-                    onnx.save(model_simplified, onnx_path)
+                    print_warning(f"Failed to simplify ONNX model ({err})")
+                model_simplified = None
+                check = False
+            if verbose:
+                tag = " " if check else " not "
+                print_info(f"Simplified ONNX model is{tag}validated!")
+            if check and model_simplified is not None:
+                onnx.save(model_simplified, export_file)
         return self.to(device)
+
+
+class IMLModel(IDLModel, metaclass=ABCMeta):
+    def __init__(
+        self,
+        *args: Any,
+        encoder_settings: Optional[Dict[str, "MLEncoderSettings"]] = None,
+        **kwargs: Any,
+    ):
+        super().__init__()
+
+
+class EnsembleFn(Protocol):
+    def __call__(self, key: str, tensors: List[Tensor]) -> Tensor:
+        pass
+
+
+class DLEnsembleModel(nn.Module):
+    ensemble_fn: Optional[EnsembleFn]
+
+    def __init__(self, m: IDLModel, num_repeat: int) -> None:
+        super().__init__()
+        self.ms = get_clones(m, num_repeat)
+        self.ensemble_fn = None
+
+    def forward(self, *args: Any) -> forward_results_type:
+        outputs: Dict[str, List[Tensor]] = {}
+        for m in self.ms:
+            m_outputs = m(*args)
+            if isinstance(m_outputs, Tensor):
+                m_outputs = {PREDICTIONS_KEY: m_outputs}
+            for k, v in m_outputs.items():
+                outputs.setdefault(k, []).append(v)
+        final_results: tensor_dict_type = {}
+        for k in sorted(outputs):
+            if self.ensemble_fn is None:
+                v = torch.stack(outputs[k]).mean(0)
+            else:
+                v = safe_execute(self.ensemble_fn, dict(key=k, tensors=outputs[k]))
+            final_results[k] = v
+        return final_results
+
+    def run(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> tensor_dict_type:
+        m = self.ms[0]
+        args = m.preprocess(batch_idx, batch, state, **kwargs)
+        forward_results = self(*args)
+        outputs = m.postprocess(batch_idx, batch, forward_results, state, **kwargs)
+        return outputs
 
 
 class StepOutputs(NamedTuple):
@@ -369,6 +944,7 @@ class StepOutputs(NamedTuple):
 class MetricsOutputs(NamedTuple):
     final_score: float
     metric_values: Dict[str, float]
+    is_positive: Dict[str, bool]
 
 
 class InferenceOutputs(NamedTuple):
@@ -378,13 +954,201 @@ class InferenceOutputs(NamedTuple):
     loss_items: Optional[Dict[str, float]]
 
 
+# custom model
+
+
+def get_update_fn(trainer: "ITrainer") -> Callable[[Tensor, Optimizer, bool], None]:
+    def update_fn(loss: Tensor, optimizer: Optimizer, update: bool) -> None:
+        grad_scaler = trainer.grad_scaler
+        grad_scaler.scale(loss).backward()
+        if update:
+            trainer.clip_norm_step()
+            grad_scaler.step(optimizer)
+            grad_scaler.update()
+            optimizer.zero_grad()
+
+    return update_fn
+
+
+def run_train_steps(
+    m: "ModelWithCustomSteps",
+    train_steps: List["CustomTrainStep"],
+    *,
+    batch_idx: int,
+    batch: tensor_dict_type,
+    trainer: "ITrainer",
+    forward_kwargs: Dict[str, Any],
+    loss_kwargs: Dict[str, Any],
+) -> StepOutputs:
+    state = trainer.state
+    forward: Union[tensor_dict_type, List[tensor_dict_type]] = {}
+    loss_dict = {}
+    update_fn = get_update_fn(trainer)
+    any_update = False
+    performed_scheduler_step = False
+    # sanity check
+    fw_has_grad = True
+    fw_train_step: Any = ()
+    for i, train_step in enumerate(train_steps):
+        if i == 0 or train_step.requires_new_forward:
+            fw_has_grad = train_step.requires_grad_in_forward
+            fw_train_step = train_step
+        if not fw_has_grad and train_step.requires_grad_in_forward:
+            fw_name = fw_train_step.__class__.__name__
+            current_name = train_step.__class__.__name__
+            raise ValueError(
+                f"current forward pass comes from '{fw_name}' and has no grad, "
+                f"but '{current_name}' requires grad in forward. You can either set "
+                f"`requires_grad_in_forward` of '{fw_name}' to True, or set "
+                f"`requires_new_forward` of '{current_name}' to True."
+            )
+    # run train steps
+    get_fw = lambda: m.run(batch_idx, batch, state, **forward_kwargs)
+    for i, train_step in enumerate(train_steps):
+        if train_step.should_skip(m, trainer.state):
+            continue
+        if i == 0 or train_step.requires_new_forward:
+            with no_grad_context(enabled=not train_step.requires_grad_in_forward):
+                if train_step.num_forward == 1:
+                    forward = get_fw()
+                else:
+                    forward = [get_fw() for _ in range(train_step.num_forward)]
+        optimizer = trainer.optimizers[train_step.scope]
+        with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
+            with autocast(enabled=trainer.config.amp):
+                loss_res = train_step.loss_fn(m, trainer, batch, forward, **loss_kwargs)
+            update = state.step % train_step.grad_accumulate == 0
+            update_fn(loss_res.loss, optimizer, update)
+            loss_dict.update(loss_res.losses)
+        if update:
+            any_update = True
+            performed_scheduler_step = train_step.requires_scheduler_step
+            if performed_scheduler_step:
+                trainer.scheduler_step()
+    if any_update and not performed_scheduler_step:
+        trainer.scheduler_step()
+    # callbacks
+    for train_step in train_steps:
+        train_step.callback(m, trainer, batch, forward)
+    return StepOutputs(forward, loss_dict)
+
+
+def weighted_loss_score(config: "TrainerConfig", loss_items: Dict[str, float]) -> float:
+    if not config.loss_metrics_weights:
+        loss = loss_items.get(LOSS_KEY)
+        if loss is not None:
+            return -loss
+        return -sum(loss_items.values()) / len(loss_items)
+    score = 0.0
+    for k, w in config.loss_metrics_weights.items():
+        v = loss_items.get(k)
+        if v is None:
+            continue
+        score -= v * w
+    return score
+
+
+class CustomTrainStepLoss(NamedTuple):
+    loss: Tensor
+    losses: Dict[str, float]
+
+
+class CustomTrainStep(ABC):
+    def __init__(
+        self,
+        scope: str = "all",
+        *,
+        num_forward: int = 1,
+        grad_accumulate: int = 1,
+        requires_new_forward: bool = False,
+        requires_grad_in_forward: bool = True,
+        requires_scheduler_step: bool = False,
+        enable_toggle_optimizer: bool = True,
+    ) -> None:
+        self.scope = scope
+        self.num_forward = num_forward
+        self.grad_accumulate = grad_accumulate
+        self.requires_new_forward = requires_new_forward
+        self.requires_grad_in_forward = requires_grad_in_forward
+        self.requires_scheduler_step = requires_scheduler_step
+        self.enable_toggle_optimizer = enable_toggle_optimizer
+
+    # abstract
+
+    @abstractmethod
+    def loss_fn(
+        self,
+        m: "ModelWithCustomSteps",
+        trainer: "ITrainer",
+        batch: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
+        **kwargs: Any,
+    ) -> CustomTrainStepLoss:
+        pass
+
+    # optional callbacks
+
+    def should_skip(self, m: "ModelWithCustomSteps", state: "TrainerState") -> bool:
+        return False
+
+    def callback(
+        self,
+        m: "ModelWithCustomSteps",
+        trainer: "ITrainer",
+        batch: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
+    ) -> None:
+        pass
+
+
 class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
     custom_train_step: bool = True
     custom_evaluate_step: bool = True
     custom_params_groups: bool = False
     custom_ddp_initialization: bool = False
 
+    # abstract
+
+    @property
     @abstractmethod
+    def train_steps(self) -> List[CustomTrainStep]:
+        pass
+
+    @abstractmethod
+    def evaluate(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        weighted_loss_score_fn: Callable[[Dict[str, float]], float],
+        forward_kwargs: Dict[str, Any],
+    ) -> MetricsOutputs:
+        pass
+
+    # inheritance
+
+    def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
+        if trainer_config.optimizer_settings is None:
+            opt_settings = {}
+            for step in self.train_steps:
+                scope = step.scope
+                opt_settings[scope] = dict(
+                    optimizer=trainer_config.optimizer_name or "adam",
+                    scheduler=trainer_config.scheduler_name,
+                    optimizer_config=trainer_config.optimizer_config,
+                    scheduler_config=trainer_config.scheduler_config,
+                )
+            trainer_config.optimizer_settings = opt_settings
+
+    # optional callback
+
+    def params_groups(self, m: nn.Module) -> List[Dict[str, Any]]:
+        return []
+
+    def init_ddp(self) -> None:
+        pass
+
+    # api
+
     def train_step(
         self,
         batch_idx: int,
@@ -393,26 +1157,43 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
         forward_kwargs: Dict[str, Any],
         loss_kwargs: Dict[str, Any],
     ) -> StepOutputs:
-        pass
+        return run_train_steps(
+            self,
+            self.train_steps,
+            batch_idx=batch_idx,
+            batch=batch,
+            trainer=trainer,
+            forward_kwargs=forward_kwargs,
+            loss_kwargs=loss_kwargs,
+        )
 
-    # TODO : Add `forward_kwargs`
-    @abstractmethod
     def evaluate_step(
         self,
+        config: "TrainerConfig",
         loader: IDataLoader,
         portion: float,
-        trainer: "ITrainer",
+        forward_kwargs: Optional[Dict[str, Any]] = None,
     ) -> MetricsOutputs:
-        pass
-
-    def params_groups(self, m: nn.Module) -> Any:
-        pass
-
-    def init_ddp(self) -> None:
-        pass
-
-    def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
-        pass
+        loss_score_fn = lambda loss_items: weighted_loss_score(config, loss_items)
+        device = get_device(self)
+        tensor_batcher = TensorBatcher(loader, device)
+        is_positive: Dict[str, bool] = {}
+        metric_values: Dict[str, List[float]] = {}
+        final_scores = []
+        for i, batch in enumerate(tensor_batcher):
+            if i / len(tensor_batcher) >= portion:
+                break
+            batch = to_device(batch, device)
+            out = self.evaluate(i, batch, loss_score_fn, forward_kwargs or {})
+            final_scores.append(out.final_score)
+            for k, v in out.metric_values.items():
+                metric_values.setdefault(k, []).append(v)
+                is_positive[k] = out.is_positive[k]
+        return MetricsOutputs(
+            sum(final_scores) / len(final_scores),
+            {k: sum(v) / len(v) for k, v in metric_values.items()},
+            is_positive,
+        )
 
 
 # trainer types
@@ -604,78 +1385,75 @@ class ILoss(nn.Module, WithRegister[TLoss], metaclass=ABCMeta):
     d = loss_dict
     placeholder_key = "[PLACEHOLDER]"
 
-    def __init__(self, reduction: str = "mean", **kwargs: Any):
+    def __init__(self, reduction: str = "mean"):
         super().__init__()
-        self.config = kwargs
-        self._init_config()
-        self._reduction = reduction
+        self.reduction = reduction
 
-    def _init_config(self) -> None:
-        pass
-
-    def _reduce(self, losses: torch.Tensor) -> torch.Tensor:
-        if self._reduction == "none":
+    def _reduce(self, losses: Tensor) -> Tensor:
+        if self.reduction == "none":
             return losses
-        if self._reduction == "mean":
+        if self.reduction == "mean":
             return losses.mean()
-        if self._reduction == "sum":
+        if self.reduction == "sum":
             return losses.sum()
-        raise NotImplementedError(f"reduction '{self._reduction}' is not implemented")
+        raise NotImplementedError(f"reduction '{self.reduction}' is not implemented")
 
-    @abstractmethod
-    def _core(
+    # optional callbacks
+
+    def preprocess(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> losses_type:
-        # return losses without reduction
-        pass
+    ) -> Tuple[Any, ...]:
+        return forward_results[PREDICTIONS_KEY], batch[LABEL_KEY]
 
-    def forward(
+    def postprocess(
+        self,
+        losses: losses_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+    ) -> tensor_dict_type:
+        if not isinstance(losses, dict):
+            losses = {LOSS_KEY: losses}
+        return {k: self._reduce(v) for k, v in losses.items()}
+
+    # api
+
+    def run(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
     ) -> tensor_dict_type:
-        losses = self._core(forward_results, batch, state)
-        if isinstance(losses, torch.Tensor):
-            return {LOSS_KEY: self._reduce(losses)}
-        # requires returns a value with LOSS_KEY as its key
-        return {k: self._reduce(v) for k, v in losses.items()}
-
-    @classmethod
-    def parse(cls, name: str) -> str:
-        if ":" not in name:
-            return name
-        split = name.split(":")
-        if split[-2] != AuxLoss.identifier:
-            for prefix, base in multi_prefix_mapping.items():
-                if name.startswith(f"{prefix}:"):
-                    loss_names = name.split(":")[1].split(",")
-                    return base.register_(loss_names)
-            return name
-        loss_name = cls.parse(":".join(split[:-2]))
-        aux_names = split[-1].split(",")
-        return AuxLoss.register_(loss_name, aux_names)
+        args = self.preprocess(forward_results, batch, state)
+        losses = self(*args)
+        losses = self.postprocess(losses, batch, state)
+        return losses
 
 
-class MultiLoss(ILoss, metaclass=ABCMeta):
-    prefix: str
-
-    names: Union[str, List[str]]
-    base_losses: nn.ModuleList
-
-    def _init_config(self) -> None:
-        base_losses: List[ILoss]
-        if isinstance(self.names, str):
-            base_losses = [ILoss.make(self.names, self.config)]
-        else:
-            base_losses = [
-                ILoss.make(name, self.config.get(name, {})) for name in self.names
+class _MultiLoss(ILoss, metaclass=ABCMeta):
+    def __init__(
+        self,
+        reduction: str = "mean",
+        *,
+        loss_names: Optional[List[str]] = None,
+        loss_configs: Optional[Dict[str, Dict[str, Any]]] = None,
+        loss_weights: Optional[Dict[str, float]] = None,
+    ):
+        super().__init__(reduction)
+        name = self.__class__.__name__
+        if loss_names is None:
+            raise ValueError(f"`loss_names` should be specified for {name}")
+        loss_configs = loss_configs or {}
+        loss_weights = loss_weights or {}
+        self.loss_weights = {k: loss_weights.get(k, 1.0) for k in loss_names}
+        self.base_losses = nn.ModuleList(
+            [
+                ILoss.make(name, loss_configs.get(name, {}), ensure_safe=True)
+                for name in loss_names
             ]
-        self.base_losses = nn.ModuleList(base_losses)
+        )
 
     @staticmethod
     def _inject(key: str, base_losses: losses_type, all_losses: losses_type) -> None:
@@ -683,295 +1461,99 @@ class MultiLoss(ILoss, metaclass=ABCMeta):
             base_losses = base_losses[LOSS_KEY]
         all_losses[key] = base_losses
 
-    @classmethod
-    def register_(
-        cls,
-        base_loss_names: Union[str, List[str]],
-        *,
-        tag: Optional[str] = None,
-    ) -> str:
-        if tag is None:
-            if isinstance(base_loss_names, str):
-                tag = f"{cls.prefix}_{base_loss_names}"
-            else:
-                tag = f"{cls.prefix}_{'_'.join(base_loss_names)}"
-        if tag in cls.d:
-            return tag
-
-        @cls.register(tag)  # type: ignore
-        class _(cls):  # type: ignore
-            names = base_loss_names
-
-        return tag
-
-    @classmethod
-    def record_prefix(cls) -> Callable[[Type["MultiLoss"]], Type["MultiLoss"]]:
-        def _(cls_: Type[MultiLoss]) -> Type[MultiLoss]:
-            global multi_prefix_mapping
-            multi_prefix_mapping[cls_.prefix] = cls_
-            return cls_
-
-        return _
+    def _merge(self, losses: tensor_dict_type) -> None:
+        merged = 0.0
+        for k, v in self.loss_weights.items():
+            k_loss = losses.get(k)
+            if k_loss is not None:
+                merged += k_loss * v
+        losses[LOSS_KEY] = merged
 
 
-class AuxLoss(ILoss):
-    identifier: str = "aux"
-    main_loss_key: str = "main"
-
-    loss: ILoss
-    loss_name: str
-    aux_names: List[str]
-
-    def _init_config(self) -> None:
-        self.loss = ILoss.make(self.loss_name, self.config)
-
-    @staticmethod
-    def _convert(losses: losses_type) -> torch.Tensor:
-        if isinstance(losses, dict):
-            return losses[LOSS_KEY]
-        return losses
-
-    def _core(
+@ILoss.register("multi_task")
+class MultiTaskLoss(_MultiLoss):
+    def run(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> losses_type:
-        main_losses = self.loss._core(forward_results, batch, state, **kwargs)
-        losses = {self.main_loss_key: self._convert(main_losses)}
-        for name in self.aux_names:
-            losses[name] = self._convert(
-                self.loss._core(
-                    {PREDICTIONS_KEY: forward_results[name]},
-                    {LABEL_KEY: batch[name]},
-                    state,
-                    **kwargs,
-                )
+    ) -> tensor_dict_type:
+        losses: losses_type = {}
+        for loss_ins in self.base_losses:
+            self._inject(
+                loss_ins.__identifier__,
+                loss_ins.run(forward_results, batch, state),
+                losses,
             )
-        losses[LOSS_KEY] = sum(losses.values())
+        self._merge(losses)
         return losses
 
-    @classmethod
-    def register_(
-        cls,
-        base_loss_name: str,
-        aux_loss_names: List[str],
-        *,
-        tag: Optional[str] = None,
-    ) -> str:
-        for name in aux_loss_names:
-            if name == cls.main_loss_key:
-                raise ValueError(f"should not use '{cls.main_loss_key}' as aux name")
-        if tag is None:
-            tag = f"{base_loss_name}_{cls.identifier}_{'_'.join(aux_loss_names)}"
-        if tag in cls.d:
-            return tag
 
-        @cls.register(tag)  # type: ignore
-        class _(cls):  # type: ignore
-            loss_name = base_loss_name
-            aux_names = aux_loss_names
-
-        return tag
+@ILoss.register("multi_stage")
+class MultiStageLoss(_MultiLoss):
+    def run(
+        self,
+        forward_results: tensor_dict_type,
+        batch: tensor_dict_type,
+        state: Optional[TrainerState] = None,
+    ) -> tensor_dict_type:
+        predictions = forward_results[PREDICTIONS_KEY]
+        losses: tensor_dict_type = {}
+        for i, pred in enumerate(predictions):
+            forward_results[PREDICTIONS_KEY] = pred
+            for loss_ins in self.base_losses:
+                self._inject(
+                    f"{i}_{loss_ins.__identifier__}",
+                    loss_ins.run(forward_results, batch, state),
+                    losses,
+                )
+        self._merge(losses)
+        return losses
 
 
 @ILoss.register(ILoss.placeholder_key)
 class PlaceholderLoss(ILoss):
-    def _core(
-        self,
-        forward_results: tensor_dict_type,
-        batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
-        **kwargs: Any,
-    ) -> losses_type:
+    def forward(self, predictions: Tensor, labels: Tensor) -> Tensor:
         raise ValueError("`forward` should not be called in `PlaceholderLoss`")
 
 
 # inference
 
 
-def np_batch_to_tensor(np_batch: np_dict_type) -> tensor_dict_type:
-    return {
-        batch_key: None if batch_array is None else to_torch(batch_array)
-        for batch_key, batch_array in np_batch.items()
-    }
+inferences: Dict[str, Type["IInference"]] = {}
 
 
-class IInference:
-    def __init__(
-        self,
-        *,
-        onnx: Optional[ONNX] = None,
-        model: Optional[IDLModel] = None,
-        use_grad_in_predict: bool = False,
-    ):
-        self.onnx = onnx
-        self.model = model
-        if onnx is None and model is None:
-            raise ValueError("either `onnx` or `model` should be provided")
-        if onnx is not None and model is not None:
-            raise ValueError("only one of `onnx` & `model` should be provided")
-        self.use_grad_in_predict = use_grad_in_predict
+class IInference(WithRegister["IInference"], metaclass=ABCMeta):
+    d = inferences
+    use_grad_in_predict = False
 
+    @abstractmethod
     def get_outputs(
         self,
         loader: IDataLoader,
         *,
         portion: float = 1.0,
         state: Optional[TrainerState] = None,
-        metrics: Optional["_IMetric"] = None,
+        metrics: Optional["IMetric"] = None,
         loss: Optional[ILoss] = None,
         return_outputs: bool = True,
         stack_outputs: bool = True,
         use_tqdm: bool = False,
         **kwargs: Any,
     ) -> InferenceOutputs:
-        def _core() -> InferenceOutputs:
-            results: Dict[str, Optional[List[np.ndarray]]] = {}
-            metric_outputs_list: List[MetricsOutputs] = []
-            loss_items: Dict[str, List[float]] = {}
-            labels: Dict[str, List[np.ndarray]] = {}
-            loader.use_numpy = True
-            iterator = enumerate(loader)
-            if use_tqdm:
-                iterator = tqdm(iterator, "inference", len(loader))
-            requires_all_outputs = return_outputs
-            if metrics is not None and metrics.requires_all:
-                requires_all_outputs = True
-            for i, np_batch in iterator:
-                if i / len(loader) >= portion:
-                    break
-                batch = None
-                if self.model is not None or loss is not None:
-                    batch = np_batch_to_tensor(np_batch)
-                    if self.model is not None:
-                        batch = to_device(batch, self.model.device)
-                if self.onnx is not None:
-                    local_outputs = np_batch_to_tensor(self.onnx.predict(np_batch))
-                else:
-                    assert self.model is not None
-                    with eval_context(self.model, use_grad=use_grad):
-                        assert not self.model.training
-                        kw = filter_kw(self.model.forward, shallow_copy_dict(kwargs))
-                        local_outputs = self.model(i, batch, state, **kw)
-                # gather outputs
-                requires_metrics = metrics is not None and not metrics.requires_all
-                requires_np = requires_metrics or requires_all_outputs
-                np_outputs: np_dict_type = {}
-                for k, v in local_outputs.items():
-                    if not requires_np:
-                        results[k] = None
-                        continue
-                    if v is None:
-                        continue
-                    if isinstance(v, np.ndarray):
-                        v_np = v
-                    elif isinstance(v, torch.Tensor):
-                        v_np = to_numpy(v)
-                    elif isinstance(v, list):
-                        if isinstance(v[0], np.ndarray):
-                            v_np = v
-                        else:
-                            v_np = list(map(to_numpy, v))
-                    else:
-                        raise ValueError(f"unrecognized value ({k}={type(v)}) occurred")
-                    np_outputs[k] = v_np
-                    if not requires_all_outputs:
-                        results[k] = None
-                    else:
-                        results.setdefault(k, []).append(v_np)  # type: ignore
-                if requires_np:
-                    for k, v in np_batch.items():
-                        if (
-                            k == INPUT_KEY
-                            or k == ORIGINAL_LABEL_KEY
-                            or k.endswith(BATCH_INDICES_KEY)
-                        ):
-                            continue
-                        if v is None:
-                            continue
-                        if k != LABEL_KEY and len(v.shape) > 2:
-                            continue
-                        labels.setdefault(k, []).append(v)
-                # metrics
-                if requires_metrics:
-                    sub_outputs = metrics.evaluate(np_batch, np_outputs, loader)  # type: ignore
-                    metric_outputs_list.append(sub_outputs)
-                # loss
-                if loss is not None:
-                    with eval_context(loss, use_grad=use_grad):
-                        local_losses = loss(local_outputs, batch)
-                    for k, v in local_losses.items():
-                        loss_items.setdefault(k, []).append(v.item())
-            # gather outputs
-            final_results: Dict[str, Union[np.ndarray, Any]]
-            if not requires_all_outputs:
-                final_results = {k: None for k in results}
-            else:
-                final_results = {
-                    batch_key: batch_results
-                    if not stack_outputs
-                    else np.vstack(batch_results)
-                    if isinstance(batch_results[0], np.ndarray)
-                    else [
-                        np.vstack([batch[i] for batch in batch_results])
-                        for i in range(len(batch_results[0]))
-                    ]
-                    for batch_key, batch_results in results.items()
-                    if batch_results is not None
-                }
-            # gather metric outputs
-            if metrics is None:
-                metric_outputs = None
-            elif metrics.requires_all:
-                metric_outputs = metrics.evaluate(
-                    {k: np.vstack(v) for k, v in labels.items()},
-                    final_results,
-                    loader,
-                )
-            else:
-                scores = []
-                metric_values: Dict[str, List[float]] = {}
-                for sub_outputs in metric_outputs_list:
-                    scores.append(sub_outputs.final_score)
-                    for k, v in sub_outputs.metric_values.items():
-                        metric_values.setdefault(k, []).append(v)
-                metric_outputs = MetricsOutputs(
-                    sum(scores) / len(scores),
-                    {k: sum(vl) / len(vl) for k, vl in metric_values.items()},
-                )
-
-            loader.use_numpy = False
-            target_labels = labels.get(LABEL_KEY, [])
-            return InferenceOutputs(
-                final_results,
-                None if not target_labels else np.vstack(target_labels),
-                metric_outputs,
-                None
-                if not loss_items
-                else {k: sum(v) / len(v) for k, v in loss_items.items()},
-            )
-
-        use_grad = kwargs.pop("use_grad", self.use_grad_in_predict)
-        with loader.temporarily_disable_shuffle():
-            try:
-                return _core()
-            except:
-                use_grad = self.use_grad_in_predict = True
-                return _core()
+        pass
 
 
 # metrics
 
 
-class _IMetric(WithRegister["_IMetric"], metaclass=ABCMeta):
+class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
     d = metric_dict
-
-    trainer: "ITrainer"
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
+
+    # abstract
 
     @property
     @abstractmethod
@@ -979,17 +1561,41 @@ class _IMetric(WithRegister["_IMetric"], metaclass=ABCMeta):
         pass
 
     @abstractmethod
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader],
-    ) -> float:
+    def forward(self, *args: Any) -> float:
         pass
+
+    # optional callback
 
     @property
     def requires_all(self) -> bool:
+        """
+        Specify whether this Metric needs 'all' data.
+
+        Typical metrics often does not need to evaluate itself on the entire dataset,
+        but some does need to avoid corner cases. (for instance, the AUC metrics may
+        fail to evaluate itself on only a batch, because the labels in this batch may
+        be all the same, which breaks the calculation of AUC).
+        """
         return False
+
+    def preprocess(
+        self,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
+        loader: Optional[IDataLoader] = None,
+    ) -> Tuple[Any, ...]:
+        return np_outputs[PREDICTIONS_KEY], np_batch[LABEL_KEY]
+
+    # api
+
+    def run(
+        self,
+        np_batch: np_dict_type,
+        np_outputs: np_dict_type,
+        loader: Optional[IDataLoader] = None,
+    ) -> float:
+        args = self.preprocess(np_batch, np_outputs, loader)
+        return self.forward(*args)
 
     @classmethod
     def fuse(
@@ -998,11 +1604,11 @@ class _IMetric(WithRegister["_IMetric"], metaclass=ABCMeta):
         configs: configs_type = None,
         *,
         metric_weights: Optional[Dict[str, float]] = None,
-    ) -> "_IMetric":
-        metrics = _IMetric.make_multiple(names, configs)
-        if isinstance(metrics, _IMetric):
+    ) -> "IMetric":
+        metrics = IMetric.make_multiple(names, configs)
+        if isinstance(metrics, IMetric):
             return metrics
-        return _MultipleMetrics(metrics, weights=metric_weights)
+        return MultipleMetrics(metrics, weights=metric_weights)
 
     def evaluate(
         self,
@@ -1010,12 +1616,13 @@ class _IMetric(WithRegister["_IMetric"], metaclass=ABCMeta):
         np_outputs: np_dict_type,
         loader: Optional[IDataLoader] = None,
     ) -> MetricsOutputs:
-        metric = self._core(np_batch, np_outputs, loader)
+        metric = self.run(np_batch, np_outputs, loader)
         score = metric * (1.0 if self.is_positive else -1.0)
-        return MetricsOutputs(score, {self.__identifier__: metric})
+        k = self.__identifier__
+        return MetricsOutputs(score, {k: metric}, {k: self.is_positive})
 
 
-class _MultipleMetrics(_IMetric):
+class MultipleMetrics(IMetric):
     @property
     def is_positive(self) -> bool:
         raise NotImplementedError
@@ -1024,17 +1631,12 @@ class _MultipleMetrics(_IMetric):
     def requires_all(self) -> bool:
         return any(metric.requires_all for metric in self.metrics)
 
-    def _core(
-        self,
-        np_batch: np_dict_type,
-        np_outputs: np_dict_type,
-        loader: Optional[IDataLoader],
-    ) -> float:
+    def forward(self, *args: Any) -> float:
         raise NotImplementedError
 
     def __init__(
         self,
-        metric_list: List[_IMetric],
+        metric_list: List[IMetric],
         *,
         weights: Optional[Dict[str, float]] = None,
     ):
@@ -1052,13 +1654,15 @@ class _MultipleMetrics(_IMetric):
         scores: List[float] = []
         weights: List[float] = []
         metrics_values: Dict[str, float] = {}
+        is_positive: Dict[str, bool] = {}
         for metric in self.metrics:
             metric_outputs = metric.evaluate(np_batch, np_outputs, loader)
             w = self.weights.get(metric.__identifier__, 1.0)
             weights.append(w)
             scores.append(metric_outputs.final_score * w)
             metrics_values.update(metric_outputs.metric_values)
-        return MetricsOutputs(sum(scores) / sum(weights), metrics_values)
+            is_positive.update(metric_outputs.is_positive)
+        return MetricsOutputs(sum(scores) / sum(weights), metrics_values, is_positive)
 
 
 # trainer interface
@@ -1083,7 +1687,8 @@ class OptimizerPack(NamedTuple):
     scheduler_config: Optional[Dict[str, Any]] = None
 
 
-class TqdmSettings(NamedTuple):
+@dataclass
+class TqdmSettings(DataClassBase):
     use_tqdm: bool = False
     use_step_tqdm: bool = False
     use_tqdm_in_validation: bool = False
@@ -1151,13 +1756,16 @@ class TrainerCallback(WithRegister["TrainerCallback"]):
 
 
 class ITrainer(ABC):
+    config: "TrainerConfig"
+
     loss: ILoss
     model: IDLModel
-    metrics: Optional[_IMetric]
+    metrics: Optional[IMetric]
     monitors: List[TrainerMonitor]
     callbacks: List[TrainerCallback]
     optimizers: Dict[str, Optimizer]
     schedulers: Dict[str, Optional[_LRScheduler]]
+    model_for_training: nn.Module
 
     state: TrainerState
     device_info: DeviceInfo
@@ -1166,23 +1774,12 @@ class ITrainer(ABC):
     valid_loader: Optional[IDataLoader]
     inference: IInference
 
-    workplace: str
-    checkpoint_folder: Optional[str]
-
     tqdm_settings: TqdmSettings
-    state_config: Dict[str, Any]
-    num_epoch: int
-    max_epoch: int
-    fixed_steps: Optional[int]
-    valid_portion: float
-    use_amp: bool
-    use_zero: bool
-    clip_norm: float
     grad_scaler: torch.cuda.amp.GradScaler
 
     @property
     @abstractmethod
-    def config(self) -> Dict[str, Any]:
+    def export_config(self) -> Dict[str, Any]:
         pass
 
     @property
@@ -1207,57 +1804,29 @@ class ITrainer(ABC):
 
     @property
     @abstractmethod
+    def workspace(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
+    def checkpoint_folder(self) -> str:
+        pass
+
+    @property
+    @abstractmethod
     def has_checkpoint_folder(self) -> bool:
-        pass
-
-    @property
-    @abstractmethod
-    def model_has_custom_steps(self) -> bool:
-        pass
-
-    @property
-    @abstractmethod
-    def model_for_training(self) -> nn.Module:
         pass
 
     # init
 
     @abstractmethod
-    def _init_ddp(self) -> None:
-        pass
-
-    @abstractmethod
     def _init_finetune(self) -> None:
-        pass
-
-    @abstractmethod
-    def default_lr_configs(
-        self,
-        optimizer: Optimizer,
-        optimizer_config: Dict[str, Any],
-    ) -> Dict[str, Dict[str, Any]]:
-        pass
-
-    @abstractmethod
-    def _define_optimizer(self, pack: OptimizerPack) -> Optimizer:
-        pass
-
-    @abstractmethod
-    def _define_scheduler(self, optimizer: Optimizer, pack: OptimizerPack) -> None:
-        pass
-
-    @abstractmethod
-    def _init_optimizers(self) -> None:
         pass
 
     # core
 
     @abstractmethod
     def post_loss_step(self, loss_dict: tensor_dict_type) -> None:
-        pass
-
-    @abstractmethod
-    def weighted_loss_score(self, loss_items: Dict[str, float]) -> float:
         pass
 
     @abstractmethod
@@ -1295,24 +1864,23 @@ class ITrainer(ABC):
     @abstractmethod
     def fit(
         self,
-        data: IDataModule,
+        data: IData,
         loss: ILoss,
         model: IDLModel,
+        metrics: Optional[IMetric],
         inference: IInference,
+        optimizers: Dict[str, Optimizer],
+        schedulers: Dict[str, Optional[_LRScheduler]],
+        monitors: List[TrainerMonitor],
+        callbacks: List[TrainerCallback],
+        model_for_training: nn.Module,
+        schedulers_requires_metric: Set[str],
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
+        rank: Optional[int] = None,
         cuda: Optional[str] = None,
     ) -> "ITrainer":
-        pass
-
-    @abstractmethod
-    def get_metrics(
-        self,
-        *,
-        portion: float = 1.0,
-        loader: Optional[IDataLoader] = None,
-    ) -> MetricsOutputs:
         pass
 
     @abstractmethod
@@ -1339,8 +1907,10 @@ class ITrainer(ABC):
 
 
 @dataclass
-class TrainerConfig(DataClassBase):
+class TrainerConfig(ISerializableDataClass):
     state_config: Optional[Dict[str, Any]] = None
+    workspace: str = "_logs"
+    create_sub_workspace: bool = True
     num_epoch: int = 40
     max_epoch: int = 1000
     fixed_epoch: Optional[int] = None
@@ -1368,8 +1938,6 @@ class TrainerConfig(DataClassBase):
     update_scheduler_per_epoch: bool = False
     optimizer_settings: Optional[Dict[str, Dict[str, Any]]] = None
     use_zero: bool = False
-    workplace: str = "_logs"
-    metrics_log_file: str = "metrics.txt"
     finetune_config: Optional[Dict[str, Any]] = None
     tqdm_settings: Optional[Dict[str, Any]] = None
 
@@ -1393,23 +1961,102 @@ class Config(TrainerConfig):
 
 @dataclass
 class _DLConfig:
-    model_name: str
+    model_name: str = ""
     model_config: Optional[Dict[str, Any]] = None
+    num_repeat: Optional[int] = None
+    inference_type: str = "dl"
 
 
 @dataclass
+@Config.register("dl")
 class DLConfig(Config, _DLConfig):
-    pass
+    def sanity_check(self) -> None:
+        if not self.model_name:
+            raise ValueError("`model_name` should be provided")
+
+
+@dataclass
+class MLEncoderSettings(DataClassBase):
+    """
+    Encoder settings.
+
+    Properties
+    ----------
+    dim (int) : number of different values of this categorical column.
+    methods (str | List[str]) : encoding methods to use for each categorical column.
+        * if List[str] is provided and its length > 1, then multiple encoding methods will be used.
+    method_configs (Dict[str, Any]) : (flattened) configs of the corresponding encoding methods.
+        * even if multiple methods are used, `method_configs` should still be 'flattened'
+
+    """
+
+    dim: int
+    methods: Union[str, List[str]] = "embedding"
+    method_configs: Optional[Dict[str, Any]] = None
+
+    @property
+    def use_one_hot(self) -> bool:
+        if self.methods == "one_hot":
+            return True
+        if isinstance(self.methods, list) and "one_hot" in self.methods:
+            return True
+        return False
+
+    @property
+    def use_embedding(self) -> bool:
+        if self.methods == "embedding":
+            return True
+        if isinstance(self.methods, list) and "embedding" in self.methods:
+            return True
+        return False
+
+
+@dataclass
+class MLGlobalEncoderSettings(DataClassBase):
+    embedding_dim: Optional[int] = None
+    embedding_dropout: Optional[float] = None
+
+
+@dataclass
+@Config.register("ml")
+class MLConfig(DLConfig):
+    """
+    * encoder_settings: used by `Encoder`.
+    * global_encoder_settings: used by `Encoder`.
+    * index_mapping: since there might be some redundant columns, we may need to
+    map the original keys of the `encoder_settings` to the new ones.
+    * infer_encoder_settings: whether infer the `encoder_settings` based on
+    information gathered by `RecognizerBlock`.
+    """
+
+    encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None
+    global_encoder_settings: Optional[MLGlobalEncoderSettings] = None
+    index_mapping: Optional[Dict[str, int]] = None
+    infer_encoder_settings: bool = True
+
+    def from_info(self, info: Dict[str, Any]) -> None:
+        super().from_info(info)
+        if self.encoder_settings is not None:
+            self.encoder_settings = {
+                str_idx: MLEncoderSettings(**settings)
+                for str_idx, settings in self.encoder_settings.items()
+            }
+        ges = self.global_encoder_settings
+        if ges is not None:
+            self.global_encoder_settings = MLGlobalEncoderSettings(**ges)
 
 
 __all__ = [
     "_forward",
-    "dataset_dict",
-    "loader_dict",
     "loss_dict",
-    "multi_prefix_mapping",
     "metric_dict",
     "callback_dict",
+    "IData",
+    "DataBundle",
+    "IDataBlock",
+    "DataProcessorConfig",
+    "DataProcessor",
+    "DataConfig",
     "IDataset",
     "IDataLoader",
     "IDLModel",
@@ -1419,14 +2066,14 @@ __all__ = [
     "TrainerMonitor",
     "MonitorResults",
     "ILoss",
-    "MultiLoss",
-    "AuxLoss",
+    "MultiTaskLoss",
+    "MultiStageLoss",
     "ONNX",
     "InferenceOutputs",
     "IInference",
     "MetricsOutputs",
-    "_IMetric",
-    "_MultipleMetrics",
+    "IMetric",
+    "MultipleMetrics",
     "DeviceInfo",
     "OptimizerPack",
     "TqdmSettings",
@@ -1435,4 +2082,7 @@ __all__ = [
     "TrainerConfig",
     "Config",
     "DLConfig",
+    "MLEncoderSettings",
+    "MLGlobalEncoderSettings",
+    "MLConfig",
 ]

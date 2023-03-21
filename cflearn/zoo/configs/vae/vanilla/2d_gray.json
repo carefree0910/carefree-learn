@@ -1,6 +1,0 @@
-{
-  "__bases__": ["vae/vanilla.2d"],
-  "model_config": {
-    "in_channels": 1
-  }
-}

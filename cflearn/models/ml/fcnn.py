@@ -1,21 +1,24 @@
 import torch.nn as nn
 
 from torch import Tensor
+from typing import Dict
 from typing import List
 from typing import Optional
 from cftool.misc import safe_execute
 
-from ..register import register_ml_module
+from .base import MLModel
+from ...schema import MLEncoderSettings
+from ...schema import MLGlobalEncoderSettings
 from ...modules.blocks import mapping_dict
 
 
-@register_ml_module("fcnn")
-class FCNN(nn.Module):
+@MLModel.register("fcnn")
+class FCNN(MLModel):
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
-        num_history: int,
+        num_history: int = 1,
         hidden_units: Optional[List[int]] = None,
         *,
         mapping_type: str = "basic",
@@ -25,8 +28,15 @@ class FCNN(nn.Module):
         dropout: float = 0.0,
         rank: Optional[int] = None,
         rank_ratio: Optional[float] = None,
+        encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
+        global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
     ):
-        super().__init__()
+        super().__init__(
+            encoder_settings=encoder_settings,
+            global_encoder_settings=global_encoder_settings,
+        )
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
         input_dim *= num_history
         if hidden_units is None:
             dim = max(32, min(1024, 2 * input_dim))
@@ -56,6 +66,7 @@ class FCNN(nn.Module):
     def forward(self, net: Tensor) -> Tensor:
         if len(net.shape) > 2:
             net = net.contiguous().view(len(net), -1)
+        net = self.encode(net).merged_all
         return self.net(net)
 
 

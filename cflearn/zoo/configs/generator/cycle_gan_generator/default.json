@@ -1,6 +1,0 @@
-{
-  "pipeline": "cv",
-  "model_name": "cycle_gan_generator",
-  "model_config": {},
-  "allow_no_loss": true
-}

@@ -3,18 +3,17 @@ import torch.nn.init as init
 
 from torch import no_grad
 from torch import Tensor
-from typing import Any
 from typing import Dict
 from typing import List
 from typing import Optional
-from cftool.types import tensor_dict_type
 
 from .fcnn import FCNN
-from ..bases import IBAKE
-from ..register import register_ml_module
-from ..register import register_custom_loss_module
-from ...constants import LATENT_KEY
-from ...constants import PREDICTIONS_KEY
+from typing import Dict
+from typing import Optional
+
+from .base import MLModel
+from ...schema import MLEncoderSettings
+from ...schema import MLGlobalEncoderSettings
 
 
 rnn_dict = {
@@ -24,13 +23,13 @@ rnn_dict = {
 }
 
 
-@register_ml_module("rnn")
-class RNN(nn.Module):
+@MLModel.register("rnn")
+class RNN(MLModel):
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
-        num_history: int,
+        num_history: int = 1,
         cell: str = "GRU",
         num_layers: int = 1,
         hidden_size: int = 256,
@@ -42,8 +41,15 @@ class RNN(nn.Module):
         activation: str = "ReLU",
         batch_norm: bool = False,
         dropout: float = 0.0,
+        encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
+        global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
     ):
-        super().__init__()
+        super().__init__(
+            encoder_settings=encoder_settings,
+            global_encoder_settings=global_encoder_settings,
+        )
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.num_history = num_history
@@ -95,57 +101,6 @@ class RNN(nn.Module):
         return self.head(net[:, -1])
 
 
-@register_custom_loss_module("rnn_bake", is_ml=True)
-class RNNWithBAKE(IBAKE):
-    def __init__(
-        self,
-        input_dim: int,
-        output_dim: int,
-        num_history: int,
-        cell: str = "GRU",
-        num_layers: int = 1,
-        hidden_size: int = 256,
-        bidirectional: bool = False,
-        hidden_units: Optional[List[int]] = None,
-        *,
-        mapping_type: str = "basic",
-        bias: bool = True,
-        activation: str = "ReLU",
-        batch_norm: bool = False,
-        dropout: float = 0.0,
-        lb: float = 0.1,
-        bake_loss: str = "auto",
-        bake_loss_config: Optional[Dict[str, Any]] = None,
-        w_ensemble: float = 0.5,
-        is_classification: bool,
-    ):
-        super().__init__()
-        self.rnn = RNN(
-            input_dim,
-            output_dim,
-            num_history,
-            cell,
-            num_layers,
-            hidden_size,
-            bidirectional,
-            hidden_units,
-            mapping_type=mapping_type,
-            bias=bias,
-            activation=activation,
-            batch_norm=batch_norm,
-            dropout=dropout,
-        )
-        self._init_bake(lb, bake_loss, bake_loss_config, w_ensemble, is_classification)
-
-    def forward(self, net: Tensor) -> tensor_dict_type:  # type: ignore
-        for rnn in self.rnn.rnn_list:
-            net, final_state = rnn(net, None)
-        latent = net[:, -1]
-        net = self.rnn.head(latent)
-        return {LATENT_KEY: latent, PREDICTIONS_KEY: net}
-
-
 __all__ = [
     "RNN",
-    "RNNWithBAKE",
 ]
