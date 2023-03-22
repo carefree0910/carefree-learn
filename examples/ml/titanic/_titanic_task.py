@@ -1,6 +1,10 @@
 import os
 import cflearn
 
+from cflearn.misc.toolkit import seed_everything
+
+
+seed_everything(123)
 
 if __name__ == "__main__":
     file_folder = os.path.dirname(__file__)
