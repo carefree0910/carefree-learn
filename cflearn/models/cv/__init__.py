@@ -4,3 +4,4 @@ from .encoder import *
 from .decoder import *
 from .diffusion import *
 from .classifier import *
+from .translator import *
