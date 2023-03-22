@@ -120,14 +120,15 @@ class _InferenceMixin:
     def build_with(  # type: ignore
         cls: Type[TInferPipeline],
         config: DLConfig,
-        d: tensor_dict_type,
+        states: Optional[tensor_dict_type] = None,
         *,
         data: Optional[IData] = None,
     ) -> TInferPipeline:
         self = cls.init(config)
         # last focus will be the serialization block
         self.build(*[Block.make(b.__identifier__, {}) for b in cls.focuses])
-        self.build_model.model.load_state_dict(d)
+        if states is not None:
+            self.build_model.model.load_state_dict(states)
         self.serialize_model.verbose = False
         self.serialize_data.data = self.data = data
         self.is_built = True
