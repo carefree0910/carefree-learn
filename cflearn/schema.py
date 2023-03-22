@@ -787,7 +787,7 @@ class IDLModel(
         **kwargs: Any,
     ) -> "IDLModel":
         # prepare
-        device = self.device
+        device = get_device(self)
         model = self.cpu()
         if num_samples is not None:
             input_sample = {k: v[:num_samples] for k, v in input_sample.items()}
