@@ -157,7 +157,7 @@ class TorchDataLoader(IDataLoader):
             self.loader.batch_sampler.sampler = self.sampler_backup
 
 
-@DataConfig.register("torch.data_config")
+@DataConfig.register("torch")
 class TorchDataConfig(DataConfig):
     use_distributed_sampler: Optional[bool] = None
 

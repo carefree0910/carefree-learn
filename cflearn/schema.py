@@ -96,6 +96,9 @@ loss_dict: Dict[str, Type["ILoss"]] = {}
 metric_dict: Dict[str, Type["IMetric"]] = {}
 callback_dict: Dict[str, Type["TrainerCallback"]] = {}
 data_dict: Dict[str, Type["IData"]] = {}
+data_processor_configs: Dict[str, Type["DataProcessorConfig"]] = {}
+data_configs: Dict[str, Type["DataConfig"]] = {}
+trainer_configs: Dict[str, Type["TrainerConfig"]] = {}
 
 TData = TypeVar("TData", bound="IData", covariant=True)
 TLoss = TypeVar("TLoss", bound="ILoss", covariant=True)
@@ -439,10 +442,13 @@ class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
 
 
 @dataclass
-@ISerializableDataClass.register("base.processor_config")
 class DataProcessorConfig(ISerializableDataClass):
     block_names: Optional[List[str]] = None
     block_configs: Optional[Dict[str, Dict[str, Any]]] = None
+
+    @classmethod
+    def d(cls) -> Dict[str, Type["DataProcessorConfig"]]:
+        return data_processor_configs
 
     @property
     def default_blocks(self) -> List[Type[IDataBlock]]:
@@ -527,13 +533,16 @@ class DataProcessor(IPipeline):
 
 
 @dataclass
-@ISerializableDataClass.register("base.data_config")
 class DataConfig(ISerializableDataClass):
     for_inference: bool = False
     batch_size: int = 1
     valid_batch_size: Optional[int] = None
     shuffle_train: bool = True
     shuffle_valid: bool = False
+
+    @classmethod
+    def d(cls) -> Dict[str, Type["DataConfig"]]:
+        return data_configs
 
 
 class IData(ISerializableArrays, Generic[TData], metaclass=ABCMeta):
@@ -678,6 +687,10 @@ class ColumnTypes(str, Enum):
     REDUNDANT = "redundant"
     NUMERICAL = "numerical"
     CATEGORICAL = "categorical"
+
+
+DataProcessorConfig.register("base")(DataProcessorConfig)
+DataConfig.register("base")(DataConfig)
 
 
 # general model
@@ -1928,6 +1941,10 @@ class TrainerConfig(ISerializableDataClass):
     use_zero: bool = False
     finetune_config: Optional[Dict[str, Any]] = None
     tqdm_settings: Optional[Dict[str, Any]] = None
+
+    @classmethod
+    def d(cls) -> Dict[str, Type["TrainerConfig"]]:
+        return trainer_configs
 
 
 @dataclass

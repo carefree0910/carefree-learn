@@ -37,7 +37,7 @@ from ...constants import LABEL_KEY
 
 
 @dataclass
-@DataProcessorConfig.register("ml.bundled_processor.config")
+@DataProcessorConfig.register("ml.bundled")
 class MLBundledProcessorConfig(
     MLSplitterConfig,
     MLPreProcessConfig,
@@ -60,7 +60,7 @@ class MLBundledProcessorConfig(
 
 
 @dataclass
-@DataProcessorConfig.register("ml.advanced_processor.config")
+@DataProcessorConfig.register("ml.advanced")
 class MLAdvancedProcessorConfig(MLBundledProcessorConfig):
     """
     This config is designed to be capable of any situation,
@@ -73,7 +73,7 @@ class MLAdvancedProcessorConfig(MLBundledProcessorConfig):
         return []
 
 
-@DataProcessor.register("ml.data_processor")
+@DataProcessor.register("ml")
 class MLDataProcessor(DataProcessor):
     def before_build_in_init(self) -> None:
         self.config.add_blocks(GatherBlock)
@@ -131,7 +131,7 @@ class MLLoader(IArrayLoader):
 
 
 @dataclass
-@DataConfig.register("ml.data_config")
+@DataConfig.register("ml")
 class MLDataConfig(DataConfig):
     batch_size: int = 128
     valid_batch_size: int = 256
