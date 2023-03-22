@@ -117,7 +117,7 @@ class SetDefaultsBlock(InjectDefaultsMixin, Block):
 @Block.register("prepare_workspace")
 class PrepareWorkplaceBlock(InjectDefaultsMixin, Block):
     def build(self, config: DLConfig) -> None:
-        if self.ddp or not self.is_rank_0 or self.training_workspace is None:
+        if not self.is_rank_0 or self.training_workspace is None:
             return
         if config.create_sub_workspace:
             workspace = prepare_workspace_from(self.training_workspace)
