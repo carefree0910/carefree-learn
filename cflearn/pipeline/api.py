@@ -134,7 +134,7 @@ class _InferenceMixin:
         self.is_built = True
         return self
 
-    def to(
+    def to(  # type: ignore
         self: TInferPipeline,
         device: Union[int, str, torch.device],
     ) -> TInferPipeline:
