@@ -1,0 +1,1 @@
+TEXT_KEY = "text"
