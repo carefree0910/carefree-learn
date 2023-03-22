@@ -1,0 +1,6 @@
+{
+  "__bases__": ["sr/esr"],
+  "model_config": {
+    "num_layers": 6
+  }
+}
