@@ -134,6 +134,13 @@ class _InferenceMixin:
         self.is_built = True
         return self
 
+    def to(
+        self: TInferPipeline,
+        device: Union[int, str, torch.device],
+    ) -> TInferPipeline:
+        self.build_model.model.to(device)
+        return self
+
     def predict(
         self,
         loader: IDataLoader,
