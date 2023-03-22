@@ -151,11 +151,6 @@
       "st_size": 881145977,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_inpainting.pt"
     },
-    "ldm_sd_anime": {
-      "sha": "b47d15024697cf0d38dd23df6103034d0e9f1b1ffa7240bdfa3c75c59d1a2428",
-      "st_size": 2134045375,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_sd_anime.pt"
-    },
     "ldm_sd_anime_anything_v3": {
       "sha": "f257c209c22e274f182ddb121a642bce246578608baf54b854e14e0e1efe39f4",
       "st_size": 2134058603,
@@ -176,25 +171,10 @@
       "st_size": 2135242915,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_sd_anime_nai.pt"
     },
-    "ldm_sd_anime_nai_converted": {
-      "sha": "2b8e45d3c39db66c1376c959dd49dbc0591d39467387efdee4ae039336c0291c",
-      "st_size": 2134060797,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_sd_anime_nai_converted.pt"
-    },
-    "ldm_sd_anime_nai_no_vae": {
-      "sha": "36a9b23a438e733582e66afa27263f1d6943bd64c3a384ab90926d48640a2dff",
-      "st_size": 4267721186,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_sd_anime_nai_no_vae.pt"
-    },
     "ldm_sd_anime_orange2": {
       "sha": "00a26bb9e0d4b4260ccefb6943f45a5855d7b3442c9fe448430e47847b23f1a8",
       "st_size": 2134054151,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_sd_anime_orange2.pt"
-    },
-    "ldm_sd_anime_v1.3": {
-      "sha": "55783476404b6a69f6ac5432084e611d28a608454a213743b73870701b4cca7a",
-      "st_size": 2134050860,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm_sd_anime_v1.3.pt"
     },
     "ldm_sd_dreamlike_v1": {
       "sha": "0e852b8d4c4f73f3a1053b835596a06c3fc5ebc9fe536516184f126b552edc94",
