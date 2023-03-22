@@ -240,10 +240,41 @@ class TrainingPipeline(
     def build_trainer(self) -> BuildTrainerBlock:
         return self.get_block(BuildTrainerBlock)
 
+    @property
+    def building_blocks(self) -> List[Block]:
+        return [
+            self.set_defaults_block,
+            PrepareWorkplaceBlock(),
+            ExtractStateInfoBlock(),
+            BuildLossBlock(),
+            BuildModelBlock(),
+            BuildMetricsBlock(),
+            BuildInferenceBlock(),
+            self.set_trainer_defaults_block,
+            BuildMonitorsBlock(),
+            BuildCallbacksBlock(),
+            BuildOptimizersBlock(),
+            BuildTrainerBlock(),
+            RecordNumSamplesBlock(),
+            ReportBlock(),
+            TrainingBlock(),
+            SerializeDataBlock(),
+            SerializeModelBlock(),
+            SerializeOptimizerBlock(),
+        ]
+
     def after_load(self) -> None:
         self.is_built = True
         workspace = prepare_workspace_from("_logs")
         self.config.workspace = workspace
+
+    def prepare(self) -> None:
+        if not self.is_built:
+            self.build(*self.building_blocks)
+            self.is_built = True
+        else:
+            for block in self.blocks:
+                block.training_workspace = self.training_workspace
 
     def fit(
         self,
@@ -255,31 +286,7 @@ class TrainingPipeline(
         # build pipeline
         self.data = data.set_sample_weights(sample_weights)
         self.training_workspace = self.config.workspace
-        if self.is_built:
-            for block in self.blocks:
-                block.training_workspace = self.training_workspace
-        else:
-            self.build(
-                self.set_defaults_block,
-                PrepareWorkplaceBlock(),
-                ExtractStateInfoBlock(),
-                BuildLossBlock(),
-                BuildModelBlock(),
-                BuildMetricsBlock(),
-                BuildInferenceBlock(),
-                self.set_trainer_defaults_block,
-                BuildMonitorsBlock(),
-                BuildCallbacksBlock(),
-                BuildOptimizersBlock(),
-                BuildTrainerBlock(),
-                RecordNumSamplesBlock(),
-                ReportBlock(),
-                TrainingBlock(),
-                SerializeDataBlock(),
-                SerializeModelBlock(),
-                SerializeOptimizerBlock(),
-            )
-            self.is_built = True
+        self.prepare()
         # check rank 0
         workspace = self.config.workspace if is_rank_0() else None
         # save data info
