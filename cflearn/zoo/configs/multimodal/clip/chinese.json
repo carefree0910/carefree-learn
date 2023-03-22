@@ -1,0 +1,19 @@
+{
+  "__bases__": ["multimodal/clip.large"],
+  "model_config": {
+    "vocab_size": 21128,
+    "context_length": 512,
+    "use_text_triu_attn_mask": false,
+    "text_latent_dim": 1024,
+    "token_type_size": 2,
+    "use_text_embedding_norm": true,
+    "text_embedding_dropout": 0.1,
+    "text_dropout": 0.1,
+    "text_num_heads": 16,
+    "text_num_layers": 24,
+    "text_norm_position": "post_norm",
+    "text_norm_eps": 1e-12,
+    "text_feedforward_activation": "gelu",
+    "text_head_pooler": "bert"
+  }
+}

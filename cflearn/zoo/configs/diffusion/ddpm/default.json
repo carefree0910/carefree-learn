@@ -1,0 +1,49 @@
+{
+  "__requires__": {
+    "model_config": [
+      "img_size",
+      "timesteps",
+      "timesteps",
+      "linear_start",
+      "linear_end"
+    ]
+  },
+  "model_name": "ddpm",
+  "model_config": {
+    "in_channels": 3,
+    "out_channels": 3,
+    "start_channels": 320,
+    "num_heads": 8,
+    "use_spatial_transformer": true,
+    "num_transformer_layers": 1,
+    "num_res_blocks": 2,
+    "attention_downsample_rates": [1, 2, 4],
+    "channel_multipliers": [1, 2, 4, 4],
+    "use_checkpoint": true,
+    "ema_decay": null,
+    "condition_type": "cross_attn",
+    "condition_learnable": false,
+    "timesteps": 1000,
+    "linear_start": 0.00085,
+    "linear_end": 0.012
+  },
+  "optimizer_settings": {
+    "learnable": {
+      "optimizer": "adamw",
+      "scheduler": "op",
+      "optimizer_config": {
+        "lr": 1.0e-4
+      },
+      "scheduler_config": {
+        "op_type": "linear_warmup",
+        "op_config": {
+          "warmup_steps": [10000],
+          "cycle_lengths": [10000000000000],
+          "f_start": [1.0e-6],
+          "f_max": [1.0],
+          "f_min": [1.0]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "__bases__": ["ae/vq.f4"],
+  "model_config": {
+    "latent_channels": 4,
+    "channel_multipliers": [1, 2, 2, 4],
+    "num_code": 16384,
+    "embedding_channels": 4,
+    "attention_resolutions": [32],
+    "d_num_layers": 3,
+    "d_loss_start_step": 1,
+    "d_weight": 0.6
+  }
+}

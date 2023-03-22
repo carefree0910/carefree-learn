@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import math
 import shutil
 
@@ -46,7 +47,12 @@ from ..pipeline import DLEvaluationPipeline
 from ..pipeline import DLPipelineSerializer
 from ..pipeline import IEvaluationPipeline
 from ..constants import SCORES_FILE
+from ..constants import DEFAULT_ZOO_TAG
 from ..constants import CHECKPOINTS_FOLDER
+from ..zoo.core import configs_root
+from ..zoo.core import _parse_config
+from ..zoo.core import DLZoo
+from ..zoo.core import TPipeline
 from ..dist.ml import Experiment
 from ..dist.ml import ExperimentResults
 
@@ -618,3 +624,69 @@ def make_toy_ml_model(
     m = MLTrainingPipeline.init(config)
     data = MLData.init().fit(x_np, y_np)
     return m.fit(data, cuda=cuda)
+
+
+# zoo
+
+
+class ModelItem(NamedTuple):
+    name: str
+    requirements: Dict[str, Any]
+
+
+def model_zoo(*, verbose: bool = False) -> List[ModelItem]:
+    def _squeeze_requirements(req: Dict[str, Any], d: Dict[str, Any]) -> None:
+        for k, v in req.items():
+            kd = d.get(k)
+            if kd is None:
+                continue
+            if isinstance(v, dict):
+                _squeeze_requirements(v, kd)
+                continue
+            assert isinstance(v, list)
+            pop_indices = []
+            for i, vv in enumerate(v):
+                if vv in kd:
+                    pop_indices.append(i)
+            for i in pop_indices[::-1]:
+                v.pop(i)
+
+    models = []
+    for task in sorted(os.listdir(configs_root)):
+        if task == "common_":
+            continue
+        task_folder = os.path.join(configs_root, task)
+        for model in sorted(os.listdir(task_folder)):
+            model_folder = os.path.join(task_folder, model)
+            for config_file in sorted(os.listdir(model_folder)):
+                config_path = os.path.join(model_folder, config_file)
+                d = _parse_config(config_path)
+                requirements = d.pop("__requires__", {})
+                _squeeze_requirements(requirements, d)
+                tag = os.path.splitext(config_file)[0]
+                name = f"{task}/{model}"
+                if tag != DEFAULT_ZOO_TAG:
+                    name = f"{name}.{tag}"
+                models.append(ModelItem(name, requirements))
+    if verbose:
+
+        def _stringify_item(item: ModelItem) -> str:
+            return f"{item.name:>{span}s}   |   {json.dumps(item.requirements)}"
+
+        span = 42
+        print(
+            "\n".join(
+                [
+                    "=" * 120,
+                    f"{'Names':>{span}s}   |   Requirements",
+                    "-" * 120,
+                    "\n".join(map(_stringify_item, models)),
+                    "-" * 120,
+                ]
+            )
+        )
+    return models
+
+
+def from_zoo(model: str, **kwargs: Any) -> TPipeline:
+    return DLZoo.load_pipeline(model, **kwargs)

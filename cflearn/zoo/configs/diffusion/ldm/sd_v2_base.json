@@ -1,0 +1,6 @@
+{
+  "__bases__": ["diffusion/ldm.sd_v2"],
+  "model_config": {
+    "parameterization": "eps"
+  }
+}

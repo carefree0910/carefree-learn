@@ -1,0 +1,8 @@
+{
+  "__bases__": ["ae/kl.f4"],
+  "model_config": {
+    "latent_channels": 4,
+    "channel_multipliers": [1, 2, 4, 4],
+    "embedding_channels": 4
+  }
+}

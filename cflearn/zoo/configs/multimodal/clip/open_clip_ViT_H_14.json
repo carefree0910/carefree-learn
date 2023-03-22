@@ -1,0 +1,15 @@
+{
+  "__bases__": ["multimodal/clip"],
+  "model_config": {
+    "latent_dim": 1024,
+    "vision_latent_dim": 1280,
+    "vision_patch_size": 14,
+    "vision_num_heads": 16,
+    "vision_num_layers": 32,
+    "vision_feedforward_activation": "GELU",
+    "text_latent_dim": 1024,
+    "text_num_heads": 16,
+    "text_num_layers": 24,
+    "text_feedforward_activation": "GELU"
+  }
+}

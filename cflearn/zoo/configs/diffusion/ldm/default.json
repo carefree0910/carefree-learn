@@ -1,0 +1,25 @@
+{
+  "__bases__": ["diffusion/ddpm"],
+  "__requires__": {
+    "model_config": [
+      "img_size",
+      "in_channels",
+      "out_channels",
+      "first_stage",
+      "first_stage_scale_factor",
+      "timesteps",
+      "linear_start",
+      "linear_end"
+    ]
+  },
+  "model_name": "ldm",
+  "model_config": {
+    "in_channels": 4,
+    "out_channels": 4,
+    "first_stage": "ae/kl.f8",
+    "first_stage_config": {
+      "img_size": 256
+    },
+    "first_stage_scale_factor": 0.18215
+  }
+}

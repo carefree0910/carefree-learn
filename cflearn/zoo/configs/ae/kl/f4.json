@@ -1,0 +1,39 @@
+{
+  "__requires__": {
+    "model_config": ["img_size"]
+  },
+  "model_name": "ae_kl",
+  "model_config": {
+    "in_channels": 3,
+    "out_channels": 3,
+    "inner_channels": 128,
+    "latent_channels": 3,
+    "channel_multipliers": [1, 2, 4],
+    "embedding_channels": 3,
+    "num_res_blocks": 2,
+    "kl_weight": 1.0e-6,
+    "d_loss_start_step": 50001,
+    "d_weight": 0.5,
+    "grad_accumulate": 2
+  },
+  "optimizer_settings": {
+    "ae_parameters": {
+      "optimizer": "adam",
+      "scheduler": null,
+      "optimizer_config": {
+        "lr": 4.5e-6,
+        "betas": [0.5, 0.9]
+      },
+      "scheduler_config": {}
+    },
+    "d_parameters": {
+      "optimizer": "adam",
+      "scheduler": null,
+      "optimizer_config": {
+        "lr": 4.5e-6,
+        "betas": [0.5, 0.9]
+      },
+      "scheduler_config": {}
+    }
+  }
+}
