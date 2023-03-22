@@ -8,9 +8,12 @@ from numpy import ndarray
 from typing import Any
 from typing import List
 from typing import Tuple
+from typing import Union
 from typing import Optional
 from typing import NamedTuple
+from PIL.Image import Image
 
+from ....misc.toolkit import read_image
 from ....misc.toolkit import download_model
 
 try:
@@ -282,7 +285,29 @@ class LaMa(InpaintModel):
         return net
 
 
+class LaMaAPI:
+    def __init__(self, device: torch.device) -> None:
+        self.lama = LaMa(device)
+
+    def inpaint(self, image: Union[str, Image], mask: Union[str, Image]) -> np.ndarray:
+        cfg = Config()
+        image_arr = read_image(
+            image,
+            None,
+            anchor=None,
+            to_torch_fmt=False,
+        ).image
+        mask_arr = read_image(
+            mask,
+            None,
+            anchor=None,
+            to_mask=True,
+            to_torch_fmt=False,
+        ).image
+        mask_arr[mask_arr > 0.0] = 1.0
+        return self.lama(image_arr, mask_arr, cfg)
+
+
 __all__ = [
-    "LaMa",
-    "Config",
+    "LaMaAPI",
 ]
