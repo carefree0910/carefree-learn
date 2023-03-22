@@ -36,7 +36,7 @@ class GeneratorStep(CustomTrainStep):
     def loss_fn(
         self,
         m: "IOneStageGAN",
-        trainer: ITrainer,
+        state: Optional[TrainerState],
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
         **kwargs: Any,
@@ -52,7 +52,7 @@ class DiscriminatorStep(CustomTrainStep):
     def loss_fn(
         self,
         m: "IOneStageGAN",
-        trainer: ITrainer,
+        state: Optional[TrainerState],
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
         **kwargs: Any,
@@ -108,6 +108,7 @@ class IOneStageGAN(ModelWithCustomSteps, metaclass=ABCMeta):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
+        state: Optional["TrainerState"],
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
         forward_kwargs: Dict[str, Any],
     ) -> MetricsOutputs:

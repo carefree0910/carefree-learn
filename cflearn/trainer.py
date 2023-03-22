@@ -119,13 +119,14 @@ def get_metrics(
 ) -> MetricsOutputs:
     if isinstance(model, ModelWithCustomSteps) and model.custom_evaluate_step:
         use_grad = inference.use_grad_in_predict
+        args = config, loader, portion, state, forward_kwargs
         try:
             with eval_context(model, use_grad=use_grad):
-                rs = model.evaluate_step(config, loader, portion, forward_kwargs)
+                rs = model.evaluate_step(*args)
         except:
             inference.use_grad_in_predict = True
             with eval_context(model, use_grad=True):
-                rs = model.evaluate_step(config, loader, portion, forward_kwargs)
+                rs = model.evaluate_step(*args)
         return rs
     outputs = inference.get_outputs(
         loader,

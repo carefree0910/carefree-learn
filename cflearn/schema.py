@@ -1005,7 +1005,7 @@ def run_train_steps(
     # run train steps
     get_fw = lambda: m.run(batch_idx, batch, state, **forward_kwargs)
     for i, train_step in enumerate(train_steps):
-        if train_step.should_skip(m, trainer.state):
+        if train_step.should_skip(m, state):
             continue
         if i == 0 or train_step.requires_new_forward:
             with no_grad_context(enabled=not train_step.requires_grad_in_forward):
@@ -1016,7 +1016,7 @@ def run_train_steps(
         optimizer = trainer.optimizers[train_step.scope]
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
             with autocast(enabled=trainer.config.mixed_precision != "no"):
-                loss_res = train_step.loss_fn(m, trainer, batch, forward, **loss_kwargs)
+                loss_res = train_step.loss_fn(m, state, batch, forward, **loss_kwargs)
             update = state.step % train_step.grad_accumulate == 0
             update_fn(loss_res.loss, optimizer, update)
             loss_dict.update(loss_res.losses)
@@ -1079,7 +1079,7 @@ class CustomTrainStep(ABC):
     def loss_fn(
         self,
         m: "ModelWithCustomSteps",
-        trainer: "ITrainer",
+        state: Optional["TrainerState"],
         batch: tensor_dict_type,
         forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
         **kwargs: Any,
@@ -1119,6 +1119,7 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
         self,
         batch_idx: int,
         batch: tensor_dict_type,
+        state: Optional["TrainerState"],
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
         forward_kwargs: Dict[str, Any],
     ) -> MetricsOutputs:
@@ -1169,6 +1170,7 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
         config: "TrainerConfig",
         loader: IDataLoader,
         portion: float,
+        state: Optional["TrainerState"],
         forward_kwargs: Optional[Dict[str, Any]] = None,
     ) -> MetricsOutputs:
         loss_score_fn = lambda loss_items: weighted_loss_score(config, loss_items)
@@ -1181,7 +1183,7 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
             if i / len(tensor_batcher) >= portion:
                 break
             batch = to_device(batch, device)
-            out = self.evaluate(i, batch, loss_score_fn, forward_kwargs or {})
+            out = self.evaluate(i, batch, state, loss_score_fn, forward_kwargs or {})
             final_scores.append(out.final_score)
             for k, v in out.metric_values.items():
                 metric_values.setdefault(k, []).append(v)
