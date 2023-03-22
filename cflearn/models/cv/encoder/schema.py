@@ -116,7 +116,7 @@ class EncoderFromPatchesMixin:
         return self.encoder(patches, **kwargs)
 
 
-class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):
+class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DMixin, nn.Module):
     def __init__(
         self,
         *,
@@ -128,7 +128,8 @@ class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
         nn.Module.__init__(self)
-        super().__init__(
+        EncoderFromPatchesMixin.__init__(
+            self,
             img_size=img_size,
             patch_size=patch_size,
             in_channels=in_channels,
@@ -140,7 +141,7 @@ class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):
         self.latent_dim = latent_dim
 
 
-class Encoder2DFromPatches(nn.Module, EncoderFromPatchesMixin, EncoderMixin):
+class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderMixin, nn.Module):
     def __init__(
         self,
         *,
@@ -152,7 +153,8 @@ class Encoder2DFromPatches(nn.Module, EncoderFromPatchesMixin, EncoderMixin):
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
         nn.Module.__init__(self)
-        super().__init__(
+        EncoderFromPatchesMixin.__init__(
+            self,
             img_size=img_size,
             patch_size=patch_size,
             in_channels=in_channels,
