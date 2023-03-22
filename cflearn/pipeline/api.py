@@ -218,6 +218,13 @@ class _EvaluationMixin(_InferenceMixin, IEvaluationPipeline):
 # apis
 
 
+class PipelineTypes(str, Enum):
+    DL_TRAINING = "dl.training"
+    ML_TRAINING = "ml.training"
+    DL_INFERENCE = "dl.inference"
+    DL_EVALUATION = "dl.evaluation"
+
+
 class TrainingPipeline(
     Pipeline,
     _DeviceMixin,
@@ -306,7 +313,7 @@ class TrainingPipeline(
         return self
 
 
-@Pipeline.register("dl.training")
+@Pipeline.register(PipelineTypes.DL_TRAINING)
 class DLTrainingPipeline(TrainingPipeline):
     @property
     def set_defaults_block(self) -> Block:
@@ -317,7 +324,7 @@ class DLTrainingPipeline(TrainingPipeline):
         return SetTrainerDefaultsBlock()
 
 
-@Pipeline.register("ml.training")
+@Pipeline.register(PipelineTypes.ML_TRAINING)
 class MLTrainingPipeline(TrainingPipeline):
     data: MLData
 
@@ -330,7 +337,7 @@ class MLTrainingPipeline(TrainingPipeline):
         return SetMLTrainerDefaultsBlock()
 
 
-@Pipeline.register("dl.inference")
+@Pipeline.register(PipelineTypes.DL_INFERENCE)
 class DLInferencePipeline(Pipeline, _DeviceMixin, _InferenceMixin):
     is_built = False
 
@@ -348,7 +355,7 @@ class DLInferencePipeline(Pipeline, _DeviceMixin, _InferenceMixin):
             self.serialize_model.verbose = False
 
 
-@Pipeline.register("dl.evaluation")
+@Pipeline.register(PipelineTypes.DL_EVALUATION)
 class DLEvaluationPipeline(DLInferencePipeline, _EvaluationMixin):
     focuses = [
         BuildLossBlock,
@@ -670,6 +677,7 @@ class DLPipelineSerializer:
 
 __all__ = [
     "IEvaluationPipeline",
+    "PipelineTypes",
     "TrainingPipeline",
     "DLTrainingPipeline",
     "MLTrainingPipeline",
