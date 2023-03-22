@@ -31,7 +31,7 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "accelerate",
-        "carefree-toolkit>=0.3.0",
+        "carefree-toolkit>=0.3.1",
     ],
     extras_require={
         "onnx": onnx_requires,
