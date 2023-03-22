@@ -15,6 +15,7 @@ from .schema import IQSampler
 from .schema import IDiffusion
 from .schema import UncondSamplerMixin
 from ..utils import cond_type
+from .....misc.toolkit import get_device
 
 
 @ISampler.register("solver")
@@ -340,7 +341,7 @@ class DPMSolver(ISampler, UncondSamplerMixin):
         self._reset_uncond_buffers(unconditional_cond, unconditional_guidance_scale)
 
     def _get_time_steps(self, skip_type: str, t0: float, tT: float, N: int) -> Tensor:
-        device = self.model.device
+        device = get_device(self.model)
         if skip_type == "logSNR":
             lambda_T = self._marginal_lambda(torch.tensor(tT, device=device))
             lambda_0 = self._marginal_lambda(torch.tensor(t0, device=device))

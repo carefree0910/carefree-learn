@@ -20,6 +20,7 @@ from .schema import UncondSamplerMixin
 from ..utils import cond_type
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
+from .....misc.toolkit import get_device
 
 
 class IGetModelOutput(Protocol):
@@ -238,7 +239,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.ddim_alphas_prev = torch.tensor(
             [alphas[0]] + alphas[self._q_sampler.timesteps[:-1]].tolist(),
             dtype=alphas.dtype,
-            device=self.model.device,
+            device=get_device(self.model),
         )
         self.ddim_sigmas = eta * torch.sqrt(
             (1.0 - self.ddim_alphas_prev)

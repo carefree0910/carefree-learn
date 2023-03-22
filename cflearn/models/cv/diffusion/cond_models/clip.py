@@ -14,6 +14,7 @@ from .schema import IConditionModel
 from ....nlp.tokenizers import ITokenizer
 from ....nlp.tokenizers import ICLIPTokenizer
 from ....multimodal.clip import CLIP
+from .....misc.toolkit import get_device
 
 
 weight_pattern = re.compile(
@@ -255,7 +256,7 @@ class CLIPTextConditionModel(IConditionModel):
             to_torch = lambda l, dtype: torch.asarray(
                 l,
                 dtype=dtype,
-                device=self.m.device,
+                device=get_device(self.m),
             )
             inp = to_torch([local_ids], torch.int64)
             weights_tensor = to_torch(local_weights, torch.float32).view(1, -1, 1)

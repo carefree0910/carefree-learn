@@ -8,6 +8,8 @@ from typing import Dict
 from typing import Type
 from cftool.misc import WithRegister
 
+from .....schema import IDLModel
+
 
 # `condition_models` are rather 'independent' models, they can be used independently
 condition_models: Dict[str, Type["IConditionModel"]] = {}
@@ -15,7 +17,7 @@ condition_models: Dict[str, Type["IConditionModel"]] = {}
 specialized_condition_models: Dict[str, Type[nn.Module]] = {}
 
 
-class IConditionModel(nn.Module, WithRegister, metaclass=ABCMeta):
+class IConditionModel(IDLModel, WithRegister, metaclass=ABCMeta):
     d = condition_models
 
     def __init__(self, m: nn.Module):

@@ -51,7 +51,6 @@ class IDiffusion:
     q_sampler: "DDPMQSampler"
     condition_model: Optional[nn.Module]
     first_stage: nn.Module
-    device: torch.device
 
     t: int
     parameterization: str
