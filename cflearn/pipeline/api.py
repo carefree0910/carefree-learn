@@ -45,7 +45,6 @@ from .blocks import SetTrainerDefaultsBlock
 from .blocks import SetMLTrainerDefaultsBlock
 from .blocks import BuildMonitorsBlock
 from .blocks import BuildCallbacksBlock
-from .blocks import HandleDDPBlock
 from .blocks import BuildOptimizersBlock
 from .blocks import BuildTrainerBlock
 from .blocks import RecordNumSamplesBlock
@@ -67,6 +66,7 @@ from ..trainer import get_input_sample
 from ..trainer import get_sorted_checkpoints
 from ..constants import PREDICTIONS_KEY
 from ..data.ml import MLData
+from ..misc.toolkit import is_rank_0
 from ..misc.toolkit import get_device
 
 
@@ -251,6 +251,7 @@ class TrainingPipeline(
         sample_weights: sample_weights_type = None,
         cuda: Optional[Union[int, str]] = None,
     ) -> "TrainingPipeline":
+        rank_0 = is_rank_0()
         # build pipeline
         self.data = data.set_sample_weights(sample_weights)
         self.training_workspace = self.config.workspace
@@ -269,7 +270,6 @@ class TrainingPipeline(
                 self.set_trainer_defaults_block,
                 BuildMonitorsBlock(),
                 BuildCallbacksBlock(),
-                HandleDDPBlock(),
                 BuildOptimizersBlock(),
                 BuildTrainerBlock(),
                 RecordNumSamplesBlock(),
@@ -281,18 +281,18 @@ class TrainingPipeline(
             )
             self.is_built = True
         # save data info
-        Serializer.save(
-            os.path.join(self.config.workspace, SerializeDataBlock.package_folder),
-            data,
-            save_npd=False,
-        )
+        if rank_0:
+            Serializer.save(
+                os.path.join(self.config.workspace, SerializeDataBlock.package_folder),
+                data,
+                save_npd=False,
+            )
         # run pipeline
         self.run(data, cuda=cuda)
         # save pipeline
-        DLPipelineSerializer.save(
-            self,
-            os.path.join(self.config.workspace, DLPipelineSerializer.pipeline_folder),
-        )
+        if rank_0:
+            tgt = os.path.join(self.config.workspace, DLPipelineSerializer.pipeline_folder)
+            DLPipelineSerializer.save(self, tgt)
         # return
         return self
 

@@ -24,6 +24,7 @@ from typing import Callable
 from typing import Optional
 from typing import Protocol
 from typing import NamedTuple
+from accelerate import Accelerator
 from dataclasses import dataclass
 from torch.optim import Optimizer
 from cftool.misc import filter_kw
@@ -959,12 +960,11 @@ class InferenceOutputs(NamedTuple):
 
 def get_update_fn(trainer: "ITrainer") -> Callable[[Tensor, Optimizer, bool], None]:
     def update_fn(loss: Tensor, optimizer: Optimizer, update: bool) -> None:
-        grad_scaler = trainer.grad_scaler
-        grad_scaler.scale(loss).backward()
+        accelerator = trainer.accelerator
+        accelerator.backward(loss)
         if update:
             trainer.clip_norm_step()
-            grad_scaler.step(optimizer)
-            grad_scaler.update()
+            optimizer.step()
             optimizer.zero_grad()
 
     return update_fn
@@ -1015,7 +1015,7 @@ def run_train_steps(
                     forward = [get_fw() for _ in range(train_step.num_forward)]
         optimizer = trainer.optimizers[train_step.scope]
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
-            with autocast(enabled=trainer.config.amp):
+            with autocast(enabled=trainer.config.mixed_precision != "no"):
                 loss_res = train_step.loss_fn(m, trainer, batch, forward, **loss_kwargs)
             update = state.step % train_step.grad_accumulate == 0
             update_fn(loss_res.loss, optimizer, update)
@@ -1143,9 +1143,6 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
 
     def params_groups(self, m: nn.Module) -> List[Dict[str, Any]]:
         return []
-
-    def init_ddp(self) -> None:
-        pass
 
     # api
 
@@ -1668,17 +1665,6 @@ class MultipleMetrics(IMetric):
 # trainer interface
 
 
-class DeviceInfo(NamedTuple):
-    cuda: Optional[str]
-    rank: Optional[int]
-
-    @property
-    def device(self) -> torch.device:
-        if self.rank is not None:
-            return torch.device(f"cuda:{self.rank}")
-        return torch.device("cpu" if self.cuda is None else f"cuda:{self.cuda}")
-
-
 class OptimizerPack(NamedTuple):
     scope: str
     optimizer_name: str
@@ -1699,10 +1685,13 @@ class TqdmSettings(DataClassBase):
 
 class TrainerCallback(WithRegister["TrainerCallback"]):
     d = callback_dict
-    is_rank_0: bool = True
 
     def __init__(self, *args: Any, **kwargs: Any):
         pass
+
+    @property
+    def is_rank_0(self) -> bool:
+        return is_rank_0()
 
     def initialize(self) -> None:
         pass
@@ -1766,16 +1755,15 @@ class ITrainer(ABC):
     optimizers: Dict[str, Optimizer]
     schedulers: Dict[str, Optional[_LRScheduler]]
     model_for_training: nn.Module
+    accelerator: Accelerator
 
     state: TrainerState
-    device_info: DeviceInfo
     train_loader: IDataLoader
     train_loader_copy: IDataLoader
     valid_loader: Optional[IDataLoader]
     inference: IInference
 
     tqdm_settings: TqdmSettings
-    grad_scaler: torch.cuda.amp.GradScaler
 
     @property
     @abstractmethod
@@ -1873,12 +1861,10 @@ class ITrainer(ABC):
         schedulers: Dict[str, Optional[_LRScheduler]],
         monitors: List[TrainerMonitor],
         callbacks: List[TrainerCallback],
-        model_for_training: nn.Module,
         schedulers_requires_metric: Set[str],
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
-        rank: Optional[int] = None,
         cuda: Optional[str] = None,
     ) -> "ITrainer":
         pass
@@ -1917,7 +1903,7 @@ class TrainerConfig(ISerializableDataClass):
     fixed_steps: Optional[int] = None
     log_steps: Optional[int] = None
     valid_portion: float = 1.0
-    amp: bool = False
+    mixed_precision: str = "no"
     clip_norm: float = 0.0
     metric_names: Optional[Union[str, List[str]]] = None
     metric_configs: configs_type = None
@@ -2074,7 +2060,6 @@ __all__ = [
     "MetricsOutputs",
     "IMetric",
     "MultipleMetrics",
-    "DeviceInfo",
     "OptimizerPack",
     "TqdmSettings",
     "TrainerCallback",

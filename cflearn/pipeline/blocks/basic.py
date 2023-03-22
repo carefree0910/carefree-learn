@@ -4,9 +4,7 @@ import math
 import torch
 import shutil
 
-import torch.nn as nn
-import torch.distributed as dist
-
+from torch import nn
 from typing import Any
 from typing import Set
 from typing import Dict
@@ -28,8 +26,6 @@ from cftool.misc import truncate_string_to_length
 from cftool.misc import Serializer
 from cftool.misc import DataClassBase
 from torch.optim.lr_scheduler import _LRScheduler
-from torch.nn.parallel import DistributedDataParallel as DDP
-from torch.distributed.optim import ZeroRedundancyOptimizer as ZeRO
 
 from .utils import TryLoadBlock
 from .utils import InjectDefaultsMixin
@@ -57,9 +53,6 @@ from ...callbacks import _LogMetricsMsgCallback
 from ...constants import PT_PREFIX
 from ...constants import SCORES_FILE
 from ...constants import CHECKPOINTS_FOLDER
-from ...misc.toolkit import get_ddp_info
-from ...misc.toolkit import has_batch_norms
-from ...misc.toolkit import empty_cuda_cache
 from ...misc.toolkit import _get_environ_workspace
 from ...misc.toolkit import scheduler_requires_metric
 from ...modules.optimizers import optimizer_dict
@@ -377,57 +370,7 @@ class BuildCallbacksBlock(Block):
         else:
             self.callbacks = TrainerCallback.make_multiple(cb_names, cb_configs)
         for callback in self.callbacks:
-            callback.is_rank_0 = self.is_rank_0
             callback.initialize()
-
-
-def _setup_ddp(*, backend: str = "nccl", dist_url: str = "env://") -> None:
-    ddp_info = get_ddp_info()
-    assert ddp_info is not None
-    dist.init_process_group(
-        backend,
-        init_method=dist_url,
-        world_size=ddp_info.world_size,
-        rank=ddp_info.rank,
-    )
-
-
-@Block.register("handle_ddp")
-class HandleDDPBlock(Block):
-    ddp_model: Optional[DDP] = None
-
-    def build(self, config: DLConfig) -> None:
-        if not self.ddp:
-            return
-        assert self.rank is not None
-        # ddp setup
-        _setup_ddp()
-        empty_cuda_cache(self.rank)
-        torch.cuda.set_device(self.rank)
-        model = self.build_model.model.to(self.rank)
-        if isinstance(model, ModelWithCustomSteps) and model.custom_ddp_initialization:
-            model.init_ddp()
-            return
-        if has_batch_norms(model):
-            model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
-            self.build_model.model = model
-        self.ddp_model = DDP(model)
-
-    @property
-    def requirements(self) -> List[Type[Block]]:
-        return [BuildModelBlock, BuildMonitorsBlock]
-
-    @property
-    def build_model(self) -> BuildModelBlock:
-        return self.get_previous(BuildModelBlock)
-
-    @property
-    def build_monitors(self) -> BuildMonitorsBlock:
-        return self.get_previous(BuildMonitorsBlock)
-
-    @property
-    def model_for_training(self) -> nn.Module:
-        return self.ddp_model or self.build_model.model
 
 
 class DefaultOptimizerSettings(NamedTuple):
@@ -550,11 +493,7 @@ class BuildOptimizersBlock(Block):
 
     @property
     def requirements(self) -> List[Type[Block]]:
-        return [ExtractStateInfoBlock, BuildModelBlock, HandleDDPBlock]
-
-    @property
-    def handle_ddp(self) -> HandleDDPBlock:
-        return self.get_previous(HandleDDPBlock)
+        return [ExtractStateInfoBlock, BuildModelBlock]
 
     @property
     def build_model(self) -> BuildModelBlock:
@@ -616,7 +555,6 @@ class BuildOptimizersBlock(Block):
 
     def _define_optimizer(self, pack: OptimizerPack) -> Optimizer:
         model = self.build_model.model
-        model_for_training = self.handle_ddp.model_for_training
         if pack.scope == "all":
             if isinstance(model, ModelWithCustomSteps) and model.custom_params_groups:
                 if self.config.use_zero and self.is_rank_0:
@@ -625,15 +563,11 @@ class BuildOptimizersBlock(Block):
                         "using ZeRO with parameter groups, so ZeRO will be disabled"
                     )
                     self.config.use_zero = False
-                parameters = model.params_groups(model_for_training)
+                parameters = model.params_groups(model)
             else:
-                parameters = [
-                    param
-                    for param in model_for_training.parameters()
-                    if param.requires_grad
-                ]
+                parameters = [p for p in model.parameters() if p.requires_grad]
         else:
-            attr = model_for_training
+            attr = model
             scopes = pack.scope.split(".")
             for scope in scopes:
                 new_attr = getattr(attr, scope, None)
@@ -646,10 +580,7 @@ class BuildOptimizersBlock(Block):
                 parameters = attr.parameters()
         optimizer_base = optimizer_dict[pack.optimizer_name]
         opt_config = pack.optimizer_config or {}
-        if not self.handle_ddp.ddp or not self.config.use_zero:
-            opt = optimizer_base(parameters, **opt_config)
-        else:
-            opt = ZeRO(parameters, optimizer_base, **opt_config)
+        opt = optimizer_base(parameters, **opt_config)
         self.optimizers[pack.scope] = opt
         return opt
 
@@ -683,7 +614,7 @@ class BuildTrainerBlock(Block):
     trainer: ITrainer
 
     def build(self, config: DLConfig) -> None:
-        self.trainer = Trainer(config, self.is_rank_0)
+        self.trainer = Trainer(config)
 
 
 # runtime blocks
@@ -792,7 +723,6 @@ class TrainingBlock(Block):
             BuildOptimizersBlock,
             BuildMonitorsBlock,
             BuildCallbacksBlock,
-            HandleDDPBlock,
             BuildTrainerBlock,
         ]
 
@@ -819,10 +749,6 @@ class TrainingBlock(Block):
     @property
     def build_monitors(self) -> BuildMonitorsBlock:
         return self.get_previous(BuildMonitorsBlock)
-
-    @property
-    def handle_ddp(self) -> HandleDDPBlock:
-        return self.get_previous(HandleDDPBlock)
 
     @property
     def build_callbacks(self) -> BuildCallbacksBlock:
@@ -852,10 +778,8 @@ class TrainingBlock(Block):
             self.build_optimizers.schedulers,
             self.build_monitors.monitors,
             self.build_callbacks.callbacks,
-            self.handle_ddp.model_for_training,
             self.build_optimizers.schedulers_requires_metric,
             config_export_file=self.trainer_config_file,
-            rank=self.rank,
             cuda=cuda,
         )
 
@@ -1013,7 +937,6 @@ __all__ = [
     "SetTrainerDefaultsBlock",
     "BuildMonitorsBlock",
     "BuildCallbacksBlock",
-    "HandleDDPBlock",
     "BuildOptimizersBlock",
     "BuildTrainerBlock",
     "RecordNumSamplesBlock",

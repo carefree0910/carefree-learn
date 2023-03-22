@@ -29,7 +29,10 @@ setup(
     name="carefree-learn",
     version=VERSION,
     packages=find_packages(exclude=("tests",)),
-    install_requires=["carefree-toolkit>=0.3.0"],
+    install_requires=[
+        "accelerate",
+        "carefree-toolkit>=0.3.0",
+    ],
     extras_require={
         "onnx": onnx_requires,
         "cv": cv_requires,

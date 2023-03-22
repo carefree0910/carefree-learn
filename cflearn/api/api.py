@@ -265,10 +265,10 @@ def _rewrite(path: str, prefix: str, temp_folder: Optional[str]) -> str:
     return tmp_path
 
 
-def run_ddp(
+def run_accelerate(
     path: str,
-    cuda_list: List[Union[int, str]],
     *,
+    set_config: bool = True,
     workspace: str = "_ddp",
     temp_folder: Optional[str] = None,
     **kwargs: Any,
@@ -276,9 +276,9 @@ def run_ddp(
     def _convert_config() -> str:
         return " ".join([f"--{k}={v}" for k, v in kwargs.items()])
 
-    os.environ["CUDA_VISIBLE_DEVICES"] = ",".join(map(str, cuda_list))
-    kwargs["nproc_per_node"] = len(cuda_list)
-    prefix = f"{sys.executable} -m torch.distributed.run "
+    os.environ["MKL_THREADING_LAYER"] = "GNU"  # https://github.com/pytorch/pytorch/issues/37377
+    if set_config:
+        os.system("accelerate config")
     tmp_path = _rewrite(
         path,
         f"""
@@ -288,7 +288,7 @@ _set_environ_workspace("{workspace}")
     """,
         temp_folder,
     )
-    os.system(f"{prefix}{_convert_config()} {tmp_path}")
+    os.system(f"accelerate launch {_convert_config()} {tmp_path}")
     os.remove(tmp_path)
 
 

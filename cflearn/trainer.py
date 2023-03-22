@@ -14,6 +14,7 @@ from typing import List
 from typing import Tuple
 from typing import Callable
 from typing import Optional
+from accelerate import Accelerator
 from tqdm.autonotebook import tqdm
 from torch.optim import Optimizer
 from cftool.misc import print_info
@@ -28,7 +29,6 @@ from torch.optim.lr_scheduler import _LRScheduler
 from torch.utils.data.distributed import DistributedSampler
 
 from .schema import ITrainer
-from .schema import DeviceInfo
 from .schema import StepOutputs
 from .schema import ILoss
 from .schema import TqdmSettings
@@ -170,12 +170,10 @@ class Trainer(ITrainer):
     metrics_log_file = "metrics.txt"
     summary_log_file = "summary.txt"
 
-    def __init__(self, config: TrainerConfig, is_rank_0: bool):
+    def __init__(self, config: TrainerConfig):
         self.config = config
         self.tqdm_settings = safe_execute(TqdmSettings, config.tqdm_settings or {})
-        self.grad_scaler = torch.cuda.amp.GradScaler(enabled=config.amp)
         self._current_scheduler_epoch = -1
-        self.is_rank_0 = is_rank_0
         self.lr_metrics_updated = False
         self.intermediate: Optional[MetricsOutputs] = None
         self.final_results: Optional[MetricsOutputs] = None
@@ -188,7 +186,7 @@ class Trainer(ITrainer):
         return {
             "state_config": self.state.config,
             "valid_portion": self.config.valid_portion,
-            "amp": self.config.amp,
+            "mixed_precision": self.config.mixed_precision,
             "clip_norm": self.config.clip_norm,
             "metrics": (
                 None
@@ -204,12 +202,15 @@ class Trainer(ITrainer):
             "ddp_info": ddp_d,
             "finetune_config": self.config.finetune_config,
             "tqdm_settings": self.tqdm_settings.asdict(),
-            "device_info": self.device_info._asdict(),
         }
 
     @property
     def device(self) -> torch.device:
-        return self.device_info.device
+        return self.accelerator.device
+
+    @property
+    def is_rank_0(self) -> bool:
+        return self.accelerator.is_local_main_process
 
     @property
     def use_tqdm_in_validation(self) -> bool:
@@ -286,7 +287,7 @@ class Trainer(ITrainer):
     def post_loss_step(self, loss_dict: tensor_dict_type) -> None:
         # backward
         loss = loss_dict[LOSS_KEY]
-        self.grad_scaler.scale(loss).backward()
+        self.accelerator.backward(loss)
         # clip norm
         self.clip_norm_step()
         # optimize
@@ -309,8 +310,6 @@ class Trainer(ITrainer):
 
     def clip_norm_step(self) -> None:
         if self.config.clip_norm > 0.0:
-            for opt in self.optimizers.values():
-                self.grad_scaler.unscale_(opt)
             self._gradient_norm = nn.utils.clip_grad_norm_(
                 self.model_for_training.parameters(),
                 max_norm=self.config.clip_norm,
@@ -318,8 +317,7 @@ class Trainer(ITrainer):
 
     def optimizer_step(self) -> None:
         for opt in self.optimizers.values():
-            self.grad_scaler.step(opt)
-            self.grad_scaler.update()
+            opt.step()
         for param in self.model_for_training.parameters():
             param.grad = None
 
@@ -446,9 +444,8 @@ class Trainer(ITrainer):
         ):
             return self.model.train_step(batch_idx, batch, self, forward_kw, loss_kw)
         # forward & loss
-        with amp_context(enabled=self.config.amp):
-            forward_results = self.model.run(batch_idx, batch, self.state, **forward_kw)
-            loss_dict = self.loss.run(forward_results, batch, self.state, **loss_kw)
+        forward_results = self.model.run(batch_idx, batch, self.state, **forward_kw)
+        loss_dict = self.loss.run(forward_results, batch, self.state, **loss_kw)
         # post loss step
         self.post_loss_step(loss_dict)
         return StepOutputs(forward_results, {k: v.item() for k, v in loss_dict.items()})
@@ -466,14 +463,23 @@ class Trainer(ITrainer):
         schedulers: Dict[str, Optional[_LRScheduler]],
         monitors: List[TrainerMonitor],
         callbacks: List[TrainerCallback],
-        model_for_training: nn.Module,
         schedulers_requires_metric: Set[str],
         *,
         config_export_file: Optional[str] = None,
         show_summary: Optional[bool] = None,
-        rank: Optional[int] = None,
         cuda: Optional[str] = None,
     ) -> "Trainer":
+        # accelerator
+        cpu = False
+        if get_ddp_info() is None:
+            if cuda is None:
+                cpu = True
+            else:
+                os.environ["CUDA_VISIBLE_DEVICES"] = cuda
+        self.accelerator = Accelerator(
+            cpu=cpu,
+            mixed_precision=self.config.mixed_precision,
+        )
         # initialize artifact structure
         if self.is_rank_0:
             os.makedirs(self.workspace, exist_ok=True)
@@ -482,17 +488,14 @@ class Trainer(ITrainer):
                 pass
             os.makedirs(self.checkpoint_folder, exist_ok=True)
         # initialize
+        self.model = model
         self.metrics = metrics
         self.monitors = monitors
         self.callbacks = callbacks
-        self.device_info = DeviceInfo(cuda, rank)
-        self.model_for_training = model_for_training
         self.schedulers_requires_metric = schedulers_requires_metric
         if self.is_rank_0:
             with open(os.path.join(self.workspace, self.model_log_file), "w") as f:
                 f.write(str(model))
-        self.loss = loss.to(self.device)
-        self.model = model.to(self.device)
         self.inference = inference
         # data
         train_loader, valid_loader = data.get_loaders()
@@ -512,11 +515,19 @@ class Trainer(ITrainer):
             fixed_steps=self.config.fixed_steps,
             **(self.config.state_config or {}),
         )
-        # optimizer
-        self.optimizers = optimizers
+        # accelerator prepare
+        optimizer_keys = sorted(optimizers)
+        (
+            self.loss,
+            self.model_for_training,
+            *optimizer_list,
+        ) = self.accelerator.prepare(
+            loss,
+            model,
+            *[optimizers[k] for k in optimizer_keys],
+        )
+        self.optimizers = {k: optimizer_list[i] for i, k in enumerate(optimizer_keys)}
         self.schedulers = schedulers
-        for opt in optimizers.values():
-            opt.load_state_dict(opt.state_dict())
         for sch in schedulers.values():
             if sch is not None:
                 sch.load_state_dict(sch.state_dict())
