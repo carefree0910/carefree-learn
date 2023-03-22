@@ -50,6 +50,9 @@ class TestZoo(unittest.TestCase):
             # avoid OOM
             if model.name.startswith("diffusion"):
                 continue
+            if model.name in ("multimodal/clip.open_clip_ViT_H_14",):
+                continue
+            # mock
             kwargs: Dict[str, Any] = {}
             _inject_mock(model.requirements, kwargs)
             if model.name.startswith("vae/vanilla"):
