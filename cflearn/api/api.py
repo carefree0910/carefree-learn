@@ -276,7 +276,8 @@ def run_accelerate(
     def _convert_config() -> str:
         return " ".join([f"--{k}={v}" for k, v in kwargs.items()])
 
-    os.environ["MKL_THREADING_LAYER"] = "GNU"  # https://github.com/pytorch/pytorch/issues/37377
+    # https://github.com/pytorch/pytorch/issues/37377
+    os.environ["MKL_THREADING_LAYER"] = "GNU"
     if set_config:
         os.system("accelerate config")
     tmp_path = _rewrite(

@@ -251,7 +251,6 @@ class TrainingPipeline(
         sample_weights: sample_weights_type = None,
         cuda: Optional[Union[int, str]] = None,
     ) -> "TrainingPipeline":
-        rank_0 = is_rank_0()
         # build pipeline
         self.data = data.set_sample_weights(sample_weights)
         self.training_workspace = self.config.workspace
@@ -280,19 +279,21 @@ class TrainingPipeline(
                 SerializeOptimizerBlock(),
             )
             self.is_built = True
+        # check rank 0
+        workspace = self.config.workspace if is_rank_0() else None
         # save data info
-        if rank_0:
+        if workspace is not None:
             Serializer.save(
-                os.path.join(self.config.workspace, SerializeDataBlock.package_folder),
+                os.path.join(workspace, SerializeDataBlock.package_folder),
                 data,
                 save_npd=False,
             )
         # run pipeline
         self.run(data, cuda=cuda)
         # save pipeline
-        if rank_0:
-            tgt = os.path.join(self.config.workspace, DLPipelineSerializer.pipeline_folder)
-            DLPipelineSerializer.save(self, tgt)
+        if workspace is not None:
+            pipeline_folder = DLPipelineSerializer.pipeline_folder
+            DLPipelineSerializer.save(self, os.path.join(workspace, pipeline_folder))
         # return
         return self
 
