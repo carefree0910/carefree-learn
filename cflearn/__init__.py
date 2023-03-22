@@ -15,7 +15,10 @@ from .register import *
 from .pipeline import *
 
 from .api import ml
+from .api import cv
+from .api import multimodal
 from .api import api
+from .api import zoo
 from . import dist
 
 from .misc.toolkit import Initializer
