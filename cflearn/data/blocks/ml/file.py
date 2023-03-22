@@ -5,7 +5,6 @@ import numpy as np
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Optional
@@ -22,7 +21,6 @@ from ....types import data_type
 from ....schema import DataTypes
 from ....schema import IDataBlock
 from ....schema import DataBundle
-from ....schema import DataProcessorConfig
 
 
 TArrayPair = Tuple[np.ndarray, Optional[np.ndarray]]
@@ -195,8 +193,7 @@ class Converter(PureFromInfoMixin, ISerializable):
 
 
 @dataclass
-@DataProcessorConfig.register("ml.file_processor.config")
-class MLFileProcessorConfig(DataProcessorConfig):
+class MLFileProcessorConfig:
     delimiter: str = ","
     has_header: bool = True
     label_names: Optional[List[str]] = None
@@ -206,10 +203,6 @@ class MLFileProcessorConfig(DataProcessorConfig):
     custom_mappings: Optional[Dict[str, Dict[str, int]]] = None
     default_values: Optional[Dict[str, int]] = None
 
-    @property
-    def default_blocks(self) -> List[Type[IDataBlock]]:
-        return [FileParserBlock]
-
 
 get_x_column_name = lambda idx: f"f{idx}"
 get_y_column_name = lambda idx: f"l{idx}"
@@ -217,7 +210,7 @@ get_y_column_name = lambda idx: f"l{idx}"
 
 @IDataBlock.register("ml_file_parser")
 class FileParserBlock(PureFromInfoMixin, IDataBlock):
-    config: MLFileProcessorConfig
+    config: MLFileProcessorConfig  # type: ignore
     delimiter: str
     has_header: bool
     contain_labels: bool

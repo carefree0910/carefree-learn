@@ -44,6 +44,7 @@ class MLBundledProcessorConfig(
     MLRecognizerConfig,
     MLNanHandlerConfig,
     MLFileProcessorConfig,
+    DataProcessorConfig,
 ):
     """This config is designed to bundle all possible capabilities (e.g. carefree)."""
 
@@ -60,13 +61,7 @@ class MLBundledProcessorConfig(
 
 @dataclass
 @DataProcessorConfig.register("ml.advanced_processor.config")
-class MLAdvancedProcessorConfig(
-    MLSplitterConfig,
-    MLPreProcessConfig,
-    MLRecognizerConfig,
-    MLNanHandlerConfig,
-    MLFileProcessorConfig,
-):
+class MLAdvancedProcessorConfig(MLBundledProcessorConfig):
     """
     This config is designed to be capable of any situation,
     but requires users have deeper understanding of the Processor system.
