@@ -13,7 +13,6 @@ cv_requires = [
     "regex",
     "transformers",
     "albumentations",
-    "carefree-cv>=0.1.2",
 ]
 cv_full_requires = cv_requires + [
     "timm",
@@ -31,7 +30,7 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "accelerate",
-        "carefree-toolkit>=0.3.1",
+        "carefree-toolkit>=0.3.2",
     ],
     extras_require={
         "onnx": onnx_requires,
