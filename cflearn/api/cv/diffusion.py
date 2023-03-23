@@ -40,9 +40,9 @@ from ..zoo import ldm_semantic
 from ..zoo import ldm_celeba_hq
 from ..zoo import ldm_inpainting
 from ..utils import APIMixin
-from ..cv.third_party import MiDaSAPI
-from ..cv.third_party import MLSDDetector
-from ..cv.third_party import OpenposeDetector
+from .third_party import MiDaSAPI
+from .third_party import MLSDDetector
+from .third_party import OpenposeDetector
 from ...data import predict_tensor_data
 from ...data import TensorData
 from ...schema import DataConfig
