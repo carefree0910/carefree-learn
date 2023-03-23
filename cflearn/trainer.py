@@ -640,10 +640,12 @@ class Trainer(ITrainer):
         *,
         no_history: bool = False,
     ) -> None:
+        if not self.is_rank_0:
+            msg = "`save_checkpoint` should not be called when not `is_rank_0`"
+            raise ValueError(msg)
         if folder is None:
             if self.checkpoint_folder is None:
-                assert not self.is_rank_0
-                msg = "`save_checkpoint` should not be called when not `is_rank_0`"
+                msg = "either `folder` or `checkpoint_folder` should be provided"
                 raise ValueError(msg)
             folder = self.checkpoint_folder
         state = getattr(self, "state", None)
@@ -678,10 +680,12 @@ class Trainer(ITrainer):
         strict: bool = True,
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> bool:
+        if not self.is_rank_0:
+            msg = "`restore_checkpoint` should not be called when not `is_rank_0`"
+            raise ValueError(msg)
         if folder is None:
             if self.checkpoint_folder is None:
-                assert not self.is_rank_0
-                msg = "`restore_checkpoint` should not be called when not `is_rank_0`"
+                msg = "either `folder` or `checkpoint_folder` should be provided"
                 raise ValueError(msg)
             folder = self.checkpoint_folder
         checkpoints = get_sorted_checkpoints(folder)
