@@ -8,10 +8,6 @@ try:
     import transformers
 except ImportError:
     transformers = None
-try:
-    import cfcv
-except ImportError:
-    cfcv = None
 
 
 def _inject_mock(req: Dict[str, Any], d: Dict[str, Any]) -> None:
@@ -58,8 +54,6 @@ class TestZoo(unittest.TestCase):
             if model.name.startswith("vae/vanilla"):
                 kwargs["model_config"]["latent_resolution"] = 16
             if "clip_vqgan_aligner" in model.name:
-                if cfcv is None:
-                    continue
                 # doesn't need to download pretrained models here
                 kwargs["model_config"]["perceptor_pretrained_name"] = None
                 kwargs["model_config"]["generator_pretrained_name"] = None

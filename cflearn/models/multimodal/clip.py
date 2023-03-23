@@ -3,6 +3,7 @@ import torch
 from torch import nn
 from torch import Tensor
 from typing import Optional
+from cftool.cv import to_rgb
 from cftool.array import l2_normalize
 from torchvision.transforms import Resize
 from torchvision.transforms import Compose
@@ -17,11 +18,6 @@ from ...constants import LATENT_KEY
 from ...modules.blocks import HijackLinear
 from ..cv.encoder.transformer import ViTEncoder
 from ..nlp.encoder.transformer import TeTEncoder
-
-try:
-    from cfcv.misc.toolkit import to_rgb
-except:
-    to_rgb = None
 
 
 @IPerceptor.register("clip")
@@ -261,8 +257,6 @@ class CLIP(IPerceptor):
         return l2_normalize(net)
 
     def get_transform(self) -> Compose:
-        if to_rgb is None:
-            raise ValueError("`carefree-cv` is needed to use `get_transform`")
         return Compose(
             [
                 Resize(self.img_size, interpolation=InterpolationMode.BICUBIC),

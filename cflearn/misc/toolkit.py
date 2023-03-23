@@ -33,6 +33,7 @@ from zipfile import ZipFile
 from collections import defaultdict
 from collections import OrderedDict
 from torch.optim import Optimizer
+from cftool.cv import to_rgb
 from cftool.misc import prod
 from cftool.misc import print_info
 from cftool.misc import safe_execute
@@ -67,10 +68,7 @@ try:
     import cv2
 except:
     cv2 = None
-try:
-    from cfcv.misc.toolkit import to_rgb
-except:
-    to_rgb = None
+
 
 # general
 
@@ -161,8 +159,6 @@ def read_image(
     padding_kwargs: Optional[Dict[str, Any]] = None,
     to_torch_fmt: bool = True,
 ) -> ReadImageResponse:
-    if to_rgb is None:
-        raise ValueError("`carefree-cv` is needed for `DiffusionAPI`")
     if isinstance(image, str):
         image = Image.open(image)
     alpha = None

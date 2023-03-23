@@ -2,7 +2,7 @@ import os
 import cflearn
 
 from PIL import Image
-from cfcv.misc.toolkit import to_uint8
+from cftool.cv import to_uint8
 
 
 file_folder = os.path.dirname(__file__)

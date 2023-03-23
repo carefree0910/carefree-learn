@@ -1,21 +1,16 @@
 import torch
 
 from PIL import Image
+from cftool.cv import to_rgb
 
 try:
     from lavis.models import load_model_and_preprocess
 except:
     load_model_and_preprocess = None
-try:
-    from cfcv.misc.toolkit import to_rgb
-except:
-    to_rgb = None
 
 
 class BLIPAPI:
     def __init__(self, device: torch.device) -> None:
-        if to_rgb is None:
-            raise ValueError("`carefree-cv` is needed for `BLIPAPI`")
         if load_model_and_preprocess is None:
             raise ValueError("`salesforce-lavis` is needed for `BLIPAPI`")
         kw = dict(
