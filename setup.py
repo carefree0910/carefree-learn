@@ -13,6 +13,10 @@ cv_requires = [
     "regex",
     "transformers",
     "albumentations",
+    "pillow",
+    "scikit-image",
+    "scipy>=1.8.0",
+    "opencv-python-headless",
 ]
 cv_full_requires = cv_requires + [
     "timm",
@@ -30,7 +34,7 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "accelerate",
-        "carefree-toolkit>=0.3.2",
+        "carefree-toolkit>=0.3.3",
     ],
     extras_require={
         "onnx": onnx_requires,
