@@ -7,12 +7,12 @@ from torch import Tensor
 from typing import Tuple
 from typing import Union
 from typing import Optional
-from cftool.array import save_images
+from cftool.cv import read_image
+from cftool.cv import save_images
 
 from ..utils import APIMixin
 from ...zoo import DLZoo
 from ...zoo.core import TPipeline
-from ...misc.toolkit import read_image
 from ...misc.toolkit import eval_context
 
 

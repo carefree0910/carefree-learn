@@ -1,7 +1,7 @@
 import os
 
+from cftool.cv import save_images
 from cftool.array import to_device
-from cftool.array import save_images
 
 from .general import ImageCallback
 from ..misc.toolkit import eval_context

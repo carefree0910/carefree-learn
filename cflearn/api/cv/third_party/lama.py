@@ -13,8 +13,8 @@ from typing import Optional
 from typing import NamedTuple
 from PIL.Image import Image
 from cftool.cv import to_uint8
+from cftool.cv import read_image
 
-from ....misc.toolkit import read_image
 from ....misc.toolkit import download_model
 
 try:

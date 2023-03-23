@@ -4,10 +4,10 @@ import numpy as np
 
 from typing import Union
 from PIL.Image import Image
+from cftool.cv import read_image
 
 from .inference.utils import load_model
 from .inference.predictor import Predictor
-from .....misc.toolkit import read_image
 from .....misc.toolkit import download_model
 
 
