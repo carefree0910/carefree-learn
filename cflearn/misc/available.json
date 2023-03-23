@@ -71,16 +71,6 @@
       "st_size": 2134079660,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_inpainting.pt"
     },
-    "ldm.sd_v1.5.control.canny": {
-      "sha": "1edd1325fc6d045f9cb1e749c2c53592f8a1a37d2cf1d3c6ba53fedbc4e4a5ae",
-      "st_size": 722670373,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.canny.pt"
-    },
-    "ldm.sd_v1.5.control.depth": {
-      "sha": "68205f0d316cc9a60fd17b416724bd16b8e4aa5247358c5f1e945b9bbb700e88",
-      "st_size": 722670373,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.depth.pt"
-    },
     "ldm.sd_v1.5.control.diff.canny": {
       "sha": "81d3d95d9f24797172e200066a7b82f73f9e8aa0449ea49ff866f6eabdef81ae",
       "st_size": 722672083,
@@ -120,16 +110,6 @@
       "sha": "5637025467f1055887b1f295477f85f3dcae44c6c3ddd699633cf1a7d840abd5",
       "st_size": 722671399,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.diff.seg.pt"
-    },
-    "ldm.sd_v1.5.control.mlsd": {
-      "sha": "0ca9069a552d43ba33fca3315ae97cc5f20cc6ad900bef6506cfce9d3ab686a0",
-      "st_size": 722670031,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.mlsd.pt"
-    },
-    "ldm.sd_v1.5.control.pose": {
-      "sha": "1495e0aeab439d8549d7a6b47646a7c38bcd753650aef0cedfd28eacd53c1909",
-      "st_size": 722670031,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/checkpoints_v0.4.x/ldm.sd_v1.5.control.pose.pt"
     },
     "ldm.sd_v2": {
       "sha": "56e1e3e585094e3e41d5f21ba073cd7f947af9b1dd62e258f19f930ce267be6a",
