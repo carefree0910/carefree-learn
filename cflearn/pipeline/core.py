@@ -53,13 +53,13 @@ class Block(IBlock):
         return get_ddp_info() is not None
 
     @property
-    def rank(self) -> Optional[int]:
+    def local_rank(self) -> Optional[int]:
         ddp_info = get_ddp_info()
         return None if ddp_info is None else ddp_info.local_rank
 
     @property
-    def is_rank_0(self) -> bool:
-        return not self.ddp or self.rank == 0
+    def is_local_rank_0(self) -> bool:
+        return not self.ddp or self.local_rank == 0
 
 
 class Pipeline(IPipeline):

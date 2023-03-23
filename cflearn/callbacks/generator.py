@@ -27,7 +27,7 @@ class GeneratorCallback(ImageCallback):
         self.num_interpolations = num_interpolations
 
     def log_artifacts(self, trainer: ITrainer) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)
@@ -73,7 +73,7 @@ class GeneratorCallback(ImageCallback):
 @TrainerCallback.register("sized_generator")
 class SizedGeneratorCallback(GeneratorCallback):
     def log_artifacts(self, trainer: ITrainer) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return None
         super().log_artifacts(trainer)
         model = trainer.model

@@ -371,7 +371,7 @@ class FileParserBlock(PureFromInfoMixin, IDataBlock):
 
     def _check_file(self, x: data_type) -> bool:
         if not isinstance(x, str):
-            if self.is_rank_0:
+            if self.is_local_rank_0:
                 print_warning("data is not a file, `FileParserBlock` will do nothing")
             return False
         return True
@@ -409,7 +409,7 @@ class FileParserBlock(PureFromInfoMixin, IDataBlock):
                     f"unrecognized column name '{column_name}' occurred, "
                     f"supported column names are: {', '.join(self.all_header)}"
                 )
-            array = converter.convert(line, verbose=self.is_rank_0).ravel()
+            array = converter.convert(line, verbose=self.is_local_rank_0).ravel()
             if converter.is_label and self.auto_convert_labels:
                 if converter.dtype != DataTypes.FLOAT:
                     array = array.astype(int)
@@ -447,7 +447,7 @@ class FileParserBlock(PureFromInfoMixin, IDataBlock):
                 valid_T = list(zip(*self._read(bundle.x_valid)[1]))
         if len(train_T) != len(self.all_header):
             if for_inference and len(train_T) + 1 == len(self.all_header):
-                if self.is_rank_0:
+                if self.is_local_rank_0:
                     print_info(
                         "labels are not detected and `for_inference` is set to True, "
                         "so `contain_labels` will be set to False"

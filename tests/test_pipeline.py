@@ -27,18 +27,18 @@ class TestPipeline(unittest.TestCase):
         m.build(cflearn.SetDefaultsBlock())
         self.assertFalse(torch.backends.cudnn.benchmark)
 
-    def test_is_rank_0(self) -> None:
+    def test_is_local_rank_0(self) -> None:
         block = cflearn.SetDefaultsBlock()
-        self.assertTrue(block.is_rank_0)
+        self.assertTrue(block.is_local_rank_0)
         os.environ["RANK"] = "0"
         os.environ["WORLD_SIZE"] = "2"
         os.environ["LOCAL_RANK"] = "0"
-        self.assertTrue(block.is_rank_0)
+        self.assertTrue(block.is_local_rank_0)
         os.environ["LOCAL_RANK"] = "1"
-        self.assertFalse(block.is_rank_0)
+        self.assertFalse(block.is_local_rank_0)
         os.environ["RANK"] = "1"
         os.environ["LOCAL_RANK"] = "0"
-        self.assertTrue(block.is_rank_0)
+        self.assertTrue(block.is_local_rank_0)
         os.environ.pop("RANK")
         os.environ.pop("WORLD_SIZE")
         os.environ.pop("LOCAL_RANK")

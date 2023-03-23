@@ -117,7 +117,7 @@ class SetDefaultsBlock(InjectDefaultsMixin, Block):
 @Block.register("prepare_workspace")
 class PrepareWorkplaceBlock(InjectDefaultsMixin, Block):
     def build(self, config: DLConfig) -> None:
-        if not self.is_rank_0 or self.training_workspace is None:
+        if not self.is_local_rank_0 or self.training_workspace is None:
             return
         if config.create_sub_workspace:
             workspace = prepare_workspace_from(self.training_workspace)
@@ -190,7 +190,7 @@ class ExtractStateInfoBlock(TryLoadBlock):
         config.state_config = state_config
 
     def dump_to(self, folder: str) -> None:
-        if self.is_rank_0:
+        if self.is_local_rank_0:
             Serializer.save_info(folder, info=self.state_info.asdict())
 
 
@@ -557,7 +557,7 @@ class BuildOptimizersBlock(Block):
         model = self.build_model.model
         if pack.scope == "all":
             if isinstance(model, ModelWithCustomSteps) and model.custom_params_groups:
-                if self.config.use_zero and self.is_rank_0:
+                if self.config.use_zero and self.is_local_rank_0:
                     print_warning(
                         "currently PyTorch does not support "
                         "using ZeRO with parameter groups, so ZeRO will be disabled"
@@ -644,7 +644,7 @@ class ReportBlock(Block):
         self.config = config
 
     def run(self, data: IData, _defaults: OrderedDict, **kwargs: Any) -> None:
-        if not self.is_rank_0 or self.training_workspace is None:
+        if not self.is_local_rank_0 or self.training_workspace is None:
             return
         self._report_messages(
             "Internal Default Configurations Used by `carefree-learn`",
@@ -798,7 +798,7 @@ class SerializeDataBlock(Block):
         self.config = config
 
     def save_extra(self, folder: str) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return
         if self.training_workspace is not None:
             data_folder = os.path.join(self.training_workspace, self.package_folder)
@@ -832,7 +832,7 @@ class SerializeModelBlock(Block):
         return self.get_previous(BuildModelBlock)
 
     def save_extra(self, folder: str) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return
         warn_msg = "no checkpoints found at {}, current model states will be saved"
         if self.training_workspace is not None:

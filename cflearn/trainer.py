@@ -210,12 +210,12 @@ class Trainer(ITrainer):
         return self.accelerator.device
 
     @property
-    def is_rank_0(self) -> bool:
+    def is_local_rank_0(self) -> bool:
         return self.accelerator.is_local_main_process
 
     @property
     def use_tqdm_in_validation(self) -> bool:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return False
         if self.tqdm_settings.in_distributed:
             return False
@@ -379,7 +379,7 @@ class Trainer(ITrainer):
         return should_log_lr, kwargs
 
     def _logging_step(self, metrics_outputs: MetricsOutputs) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return None
         if self.epoch_tqdm is not None:
             metric_values = shallow_copy_dict(metrics_outputs.metric_values)
@@ -482,7 +482,7 @@ class Trainer(ITrainer):
             mixed_precision=self.config.mixed_precision,
         )
         # initialize artifact structure
-        if self.is_rank_0:
+        if self.is_local_rank_0:
             os.makedirs(self.workspace, exist_ok=True)
             self.metrics_log_path = os.path.join(self.workspace, self.metrics_log_file)
             with open(self.metrics_log_path, "w"):
@@ -494,7 +494,7 @@ class Trainer(ITrainer):
         self.monitors = monitors
         self.callbacks = callbacks
         self.schedulers_requires_metric = schedulers_requires_metric
-        if self.is_rank_0:
+        if self.is_local_rank_0:
             with open(os.path.join(self.workspace, self.model_log_file), "w") as f:
                 f.write(str(model))
         self.inference = inference
@@ -539,7 +539,7 @@ class Trainer(ITrainer):
         # verbose
         if show_summary is None:
             show_summary = not self.tqdm_settings.in_distributed
-        if self.is_rank_0:
+        if self.is_local_rank_0:
             summary_msg = summary(
                 self.model,
                 to_device(self.input_sample, self.device),
@@ -550,7 +550,7 @@ class Trainer(ITrainer):
         # tqdm
         step_tqdm = None
         self.epoch_tqdm: Optional[tqdm] = None
-        if self.is_rank_0 and self.tqdm_settings.use_tqdm:
+        if self.is_local_rank_0 and self.tqdm_settings.use_tqdm:
             self.epoch_tqdm = tqdm(
                 list(range(self.state.num_epoch)),
                 position=self.tqdm_settings.position,
@@ -559,9 +559,9 @@ class Trainer(ITrainer):
             )
         # train
         has_ckpt = terminate = False
-        if self.is_rank_0 and self.epoch_tqdm is None:
+        if self.is_local_rank_0 and self.epoch_tqdm is None:
             print_info("entered training loop")
-        if self.is_rank_0 and config_export_file is not None:
+        if self.is_local_rank_0 and config_export_file is not None:
             config_export_path = os.path.join(self.workspace, config_export_file)
             with open(config_export_path, "w") as f:
                 json.dump(self.export_config, f)
@@ -579,7 +579,7 @@ class Trainer(ITrainer):
                             if isinstance(valid_sampler, DistributedSampler):
                                 valid_sampler.set_epoch(self.state.epoch)
                 step_iterator = TensorBatcher(self.train_loader, self.device)
-                if self.is_rank_0 and self.tqdm_settings.use_step_tqdm:
+                if self.is_local_rank_0 and self.tqdm_settings.use_step_tqdm:
                     step_tqdm = step_iterator = tqdm(
                         step_iterator,
                         total=len(self.train_loader),
@@ -594,7 +594,7 @@ class Trainer(ITrainer):
                     monitor_results = self._monitor_step(step_outputs)
                     for callback in self.callbacks:
                         callback.after_monitor(monitor_results, self.state)
-                    if self.is_rank_0 and monitor_results.save_checkpoint:
+                    if self.is_local_rank_0 and monitor_results.save_checkpoint:
                         metric_outputs = monitor_results.metric_outputs
                         assert metric_outputs is not None
                         self.save_checkpoint(metric_outputs.final_score)
@@ -616,13 +616,13 @@ class Trainer(ITrainer):
                 step_tqdm.close()
             self.epoch_tqdm.close()
         # restore
-        if self.is_rank_0 and self.has_checkpoint_folder:
+        if self.is_local_rank_0 and self.has_checkpoint_folder:
             if not self.tqdm_settings.in_distributed:
                 print_info("rolling back to the best checkpoint")
             has_ckpt = self.restore_checkpoint()
         # finalize
         self.state.set_terminate()
-        if self.is_rank_0:
+        if self.is_local_rank_0:
             self.final_results = self._get_metrics(portion=self.config.valid_portion)
             self._logging_step(self.final_results)
             if not has_ckpt:
@@ -640,8 +640,8 @@ class Trainer(ITrainer):
         *,
         no_history: bool = False,
     ) -> None:
-        if not self.is_rank_0:
-            msg = "`save_checkpoint` should not be called when not `is_rank_0`"
+        if not self.is_local_rank_0:
+            msg = "`save_checkpoint` should not be called when not `is_local_rank_0`"
             raise ValueError(msg)
         if folder is None:
             if self.checkpoint_folder is None:
@@ -680,8 +680,8 @@ class Trainer(ITrainer):
         strict: bool = True,
         state_dict_callback: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> bool:
-        if not self.is_rank_0:
-            msg = "`restore_checkpoint` should not be called when not `is_rank_0`"
+        if not self.is_local_rank_0:
+            msg = "`restore_checkpoint` should not be called when not `is_local_rank_0`"
             raise ValueError(msg)
         if folder is None:
             if self.checkpoint_folder is None:

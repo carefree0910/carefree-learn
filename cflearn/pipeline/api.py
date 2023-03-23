@@ -66,7 +66,7 @@ from ..trainer import get_input_sample
 from ..trainer import get_sorted_checkpoints
 from ..constants import PREDICTIONS_KEY
 from ..data.ml import MLData
-from ..misc.toolkit import is_rank_0
+from ..misc.toolkit import is_local_rank_0
 from ..misc.toolkit import get_device
 
 
@@ -302,7 +302,7 @@ class TrainingPipeline(
         self.training_workspace = self.config.workspace
         self.prepare()
         # check rank 0
-        workspace = self.config.workspace if is_rank_0() else None
+        workspace = self.config.workspace if is_local_rank_0() else None
         # save data info
         if workspace is not None:
             Serializer.save(

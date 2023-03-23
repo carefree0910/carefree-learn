@@ -72,7 +72,7 @@ class _LogMetricsMsgCallback(TrainerCallback):
         metrics_log_path: str,
         state: TrainerState,
     ) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return None
         final_score = metrics_outputs.final_score
         metric_values = metrics_outputs.metric_values
@@ -122,10 +122,10 @@ class MLFlowCallback(TrainerCallback):
 
     @property
     def enabled(self) -> bool:
-        return self.is_rank_0 and mlflow is not None
+        return self.is_local_rank_0 and mlflow is not None
 
     def initialize(self) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return None
         if mlflow is None:
             print_warning(

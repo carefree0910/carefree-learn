@@ -128,11 +128,11 @@ class RecognizerBlock(PureFromInfoMixin, IDataBlock):
         if dtype == DataTypes.FLOAT:
             threshold = self.config.all_close_threshold
             if line.max().item() - line.min().item() <= threshold:
-                if self.is_rank_0:
+                if self.is_local_rank_0:
                     print_warning(f"{prefix} are ALL CLOSE. {postfix}")
                 return ColumnTypes.REDUNDANT, 0
             if np.all(line == 0.0):
-                if self.is_rank_0:
+                if self.is_local_rank_0:
                     print_warning(f"{prefix} are ALL ZERO. {postfix}")
                 return ColumnTypes.REDUNDANT, 0
             if custom_type is None:
@@ -141,16 +141,16 @@ class RecognizerBlock(PureFromInfoMixin, IDataBlock):
         num_unique = len(np.unique(line))
         num_samples = len(line)
         if num_unique == 1:
-            if self.is_rank_0:
+            if self.is_local_rank_0:
                 print_warning(f"{prefix} are ALL SAME. {postfix}")
             return ColumnTypes.REDUNDANT, num_unique
         if num_unique == num_samples:
-            if self.is_rank_0:
+            if self.is_local_rank_0:
                 print_warning(f"{prefix} are ALL DIFFERENT. {postfix}")
             return ColumnTypes.REDUNDANT, num_unique
         unique_ratio = num_unique / num_samples
         if unique_ratio >= self.config.redundancy_threshold:
-            if self.is_rank_0:
+            if self.is_local_rank_0:
                 msg = f"{prefix} are TOO MANY (ratio={unique_ratio:8.6f}). {postfix}"
                 print_warning(msg)
             return ColumnTypes.REDUNDANT, num_unique

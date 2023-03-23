@@ -912,7 +912,7 @@ def get_ddp_info() -> Optional[DDPInfo]:
     return None
 
 
-def is_rank_0() -> bool:
+def is_local_rank_0() -> bool:
     ddp_info = get_ddp_info()
     return ddp_info is None or ddp_info.local_rank == 0
 

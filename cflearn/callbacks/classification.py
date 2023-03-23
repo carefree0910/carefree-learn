@@ -14,7 +14,7 @@ from ..constants import PREDICTIONS_KEY
 @ImageCallback.register("clf")
 class ClassificationCallback(ImageCallback):
     def log_artifacts(self, trainer: ITrainer) -> None:
-        if not self.is_rank_0:
+        if not self.is_local_rank_0:
             return None
         batch = next(iter(trainer.validation_loader))
         batch = to_device(batch, trainer.device)

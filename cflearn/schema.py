@@ -60,7 +60,7 @@ from .constants import LOSS_KEY
 from .constants import INPUT_KEY
 from .constants import LABEL_KEY
 from .constants import PREDICTIONS_KEY
-from .misc.toolkit import is_rank_0
+from .misc.toolkit import is_local_rank_0
 from .misc.toolkit import get_clones
 from .misc.toolkit import get_device
 from .misc.toolkit import get_world_size
@@ -414,8 +414,8 @@ class IDataBlock(IBlock, ISerializable, metaclass=ABCMeta):
     # api
 
     @property
-    def is_rank_0(self) -> bool:
-        return is_rank_0()
+    def is_local_rank_0(self) -> bool:
+        return is_local_rank_0()
 
 
 class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
@@ -1705,8 +1705,8 @@ class TrainerCallback(WithRegister["TrainerCallback"]):
         pass
 
     @property
-    def is_rank_0(self) -> bool:
-        return is_rank_0()
+    def is_local_rank_0(self) -> bool:
+        return is_local_rank_0()
 
     def initialize(self) -> None:
         pass

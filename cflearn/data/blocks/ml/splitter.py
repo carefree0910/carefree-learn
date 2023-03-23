@@ -305,7 +305,7 @@ class SplitterBlock(PureFromInfoMixin, IDataBlock):
                 "ensure we have enought training samples."
             )
             return bundle
-        kw = dict(order=self.order, shuffle=self.shuffle, verbose=self.is_rank_0)
+        kw = dict(order=self.order, shuffle=self.shuffle, verbose=self.is_local_rank_0)
         splitter = DataSplitter(**kw)  # type: ignore
         fn = splitter.split_clf if self.is_classification else splitter.split_reg
         split = fn(bundle.x_train, bundle.y_train, num)
