@@ -1,3 +1,4 @@
+import os
 import json
 import torch
 import random
@@ -43,6 +44,7 @@ from ..zoo import ldm_sr
 from ..zoo import ldm_semantic
 from ..zoo import ldm_celeba_hq
 from ..zoo import ldm_inpainting
+from ..zoo import DLZoo
 from ..utils import APIMixin
 from .third_party import MiDaSAPI
 from .third_party import MLSDDetector
@@ -53,6 +55,7 @@ from ...schema import DataConfig
 from ...schema import TensorBatcher
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
+from ...parameters import OPT
 from ...misc.toolkit import slerp
 from ...misc.toolkit import new_seed
 from ...misc.toolkit import download_model
@@ -226,9 +229,10 @@ class DiffusionAPI(APIMixin):
             self._uncond_cache[k] = v.to(device)
 
     def prepare_sd(self, versions: List[SDVersions]) -> None:
+        root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for tag in map(get_sd_tag, versions):
             if tag not in self.sd_weights:
-                self.sd_weights[tag] = torch.load(download_model(tag))
+                self.sd_weights[tag] = torch.load(download_model(tag, root=root))
 
     def switch_sd(self, version: SDVersions) -> None:
         tag = get_sd_tag(version)
@@ -1355,8 +1359,9 @@ class ControlledDiffusionAPI(DiffusionAPI):
         return list(self.weights)
 
     def prepare(self, hints2tags: Dict[ControlNetHints, str]) -> None:
+        root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for hint, tag in hints2tags.items():
-            self.weights[hint] = torch.load(download_model(tag))
+            self.weights[hint] = torch.load(download_model(tag, root=root))
 
     def prepare_defaults(self) -> None:
         self.prepare(self.defaults)
