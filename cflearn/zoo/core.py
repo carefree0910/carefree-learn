@@ -60,6 +60,8 @@ def _parse_config(json_path: str) -> Dict[str, Any]:
 
 
 class DLZoo:
+    model_dir = "models_v0.4.x"
+
     @classmethod
     def load_pipeline(
         cls,
@@ -70,7 +72,7 @@ class DLZoo:
         pretrained: bool = False,
         pipeline_type: PipelineTypes = PipelineTypes.DL_INFERENCE,
         download_name: Optional[str] = None,
-        model_dir: str = "models_v0.4.x",
+        model_dir: Optional[str] = None,
         json_path: Optional[str] = None,
         **kwargs: Any,
     ) -> TPipeline:
@@ -146,9 +148,8 @@ class DLZoo:
                 err_msg = err_msg_fmt.format("tag")
                 raise ValueError(f"{err_msg} when `pretrained` is True")
             if model_dir is None:
-                root = None
-            else:
-                root = os.path.join(OPT.cache_dir, model_dir)
+                model_dir = cls.model_dir
+            root = os.path.join(OPT.cache_dir, model_dir)
             states_path = download_model(download_name, root=root)
             states = torch.load(states_path, map_location="cpu")
         if states is not None and states_callback is not None:
