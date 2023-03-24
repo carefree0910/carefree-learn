@@ -4,12 +4,11 @@ from torch import Tensor
 from typing import Any
 from typing import Optional
 
-from .hooks import ConvHook
-from .hooks import LinearHook
+from .hooks import IHook
 
 
 class HijackLinear(nn.Linear):
-    def __init__(self, *args: Any, hook: Optional[LinearHook] = None, **kwargs: Any):
+    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.hook = hook
 
@@ -21,7 +20,7 @@ class HijackLinear(nn.Linear):
 
 
 class HijackConv1d(nn.Conv1d):
-    def __init__(self, *args: Any, hook: Optional[ConvHook] = None, **kwargs: Any):
+    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.hook = hook
 
@@ -33,7 +32,7 @@ class HijackConv1d(nn.Conv1d):
 
 
 class HijackConv2d(nn.Conv2d):
-    def __init__(self, *args: Any, hook: Optional[ConvHook] = None, **kwargs: Any):
+    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.hook = hook
 
@@ -45,7 +44,7 @@ class HijackConv2d(nn.Conv2d):
 
 
 class HijackConv3d(nn.Conv3d):
-    def __init__(self, *args: Any, hook: Optional[ConvHook] = None, **kwargs: Any):
+    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.hook = hook
 
