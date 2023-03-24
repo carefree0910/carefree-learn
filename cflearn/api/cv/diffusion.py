@@ -152,6 +152,30 @@ def get_sd_tag(version: SDVersions) -> str:
     return f"ldm_sd_{tag}"
 
 
+def get_txt_cond(t: Union[str, List[str]], n: Optional[int]) -> Tuple[List[str], int]:
+    if n is None:
+        n = 1 if isinstance(t, str) else len(t)
+    if isinstance(t, str):
+        t = [t] * n
+    if len(t) != n:
+        raise ValueError(
+            f"`num_samples` ({n}) should be identical with "
+            f"the number of `txt` ({len(t)})"
+        )
+    return t, n
+
+
+def get_size(
+    size: Optional[Tuple[int, int]],
+    anchor: int,
+    max_wh: int,
+) -> Optional[Tuple[int, int]]:
+    if size is None:
+        return None
+    new_size = restrict_wh(*size, max_wh)
+    return tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
+
+
 class DiffusionAPI(APIMixin):
     m: DDPM
     sampler: ISampler
@@ -191,6 +215,17 @@ class DiffusionAPI(APIMixin):
             self.first_stage = None
         else:
             self.first_stage = m.first_stage
+
+    # api
+
+    @property
+    def size_info(self) -> SizeInfo:
+        opt_size = self.m.img_size
+        if self.first_stage is None:
+            factor = 1
+        else:
+            factor = self.first_stage.img_size // opt_size
+        return SizeInfo(factor, opt_size)
 
     def to(
         self,
@@ -245,15 +280,6 @@ class DiffusionAPI(APIMixin):
         with self.load_context() as wrapper:
             wrapper.load_state_dict(d)
         self.current_sd_version = version
-
-    @property
-    def size_info(self) -> SizeInfo:
-        opt_size = self.m.img_size
-        if self.first_stage is None:
-            factor = 1
-        else:
-            factor = self.first_stage.img_size // opt_size
-        return SizeInfo(factor, opt_size)
 
     def get_cond(self, cond: Any) -> Tensor:
         if self.cond_model is None:
@@ -517,78 +543,6 @@ class DiffusionAPI(APIMixin):
             self.cond_model.clear_custom()
         return concat
 
-    def _update_clip_skip(self, clip_skip: int) -> None:
-        if isinstance(self.cond_model, CLIPTextConditionModel):
-            self.cond_model.clip_skip = clip_skip
-
-    def _update_sampler_uncond(self, clip_skip: int) -> None:
-        self._update_clip_skip(clip_skip)
-        if self.cond_model is not None and self._original_raw_uncond is not None:
-            cache = self._uncond_cache.get(clip_skip)
-            if cache is not None:
-                uncond = cache
-            else:
-                uncond = self.get_cond(self._original_raw_uncond)
-                self._uncond_cache[clip_skip] = uncond
-            self.m.sampler.unconditional_cond = uncond.to(self.device)
-
-    @staticmethod
-    def _txt_cond(t: Union[str, List[str]], n: Optional[int]) -> Tuple[List[str], int]:
-        if n is None:
-            n = 1 if isinstance(t, str) else len(t)
-        if isinstance(t, str):
-            t = [t] * n
-        if len(t) != n:
-            raise ValueError(
-                f"`num_samples` ({n}) should be identical with "
-                f"the number of `txt` ({len(t)})"
-            )
-        return t, n
-
-    @staticmethod
-    def _get_size(
-        size: Optional[Tuple[int, int]],
-        anchor: int,
-        max_wh: int,
-    ) -> Optional[Tuple[int, int]]:
-        if size is None:
-            return None
-        new_size = restrict_wh(*size, max_wh)
-        return tuple(map(get_suitable_size, new_size, (anchor, anchor)))  # type: ignore
-
-    def _get_masked_cond(
-        self,
-        image: Union[str, Image.Image],
-        mask: Union[str, Image.Image],
-        max_wh: int,
-        anchor: int,
-        mask_image_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
-        mask_cond_fn: Callable[[np.ndarray], Tensor],
-    ) -> MaskedCond:
-        # handle mask stuffs
-        image_res = read_image(image, max_wh, anchor=anchor)
-        mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
-        mask = mask_res.image
-        bool_mask = mask >= 0.5
-        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
-        remained_image = mask_image_fn(remained_mask, image_res.image)
-        # construct condition tensor
-        remained_cond = self._get_z(remained_image)
-        latent_shape = remained_cond.shape[-2:]
-        mask_cond = mask_cond_fn(bool_mask)
-        mask_cond = mask_cond.to(torch.float16 if self.use_half else torch.float32)
-        mask_cond = mask_cond.to(self.device)
-        mask_cond = F.interpolate(mask_cond, size=latent_shape)
-        return MaskedCond(
-            image_res,
-            mask_res,
-            mask,
-            remained_image,
-            remained_mask,
-            mask_cond,
-            remained_cond,
-        )
-
     def txt2img(
         self,
         txt: Union[str, List[str]],
@@ -605,8 +559,8 @@ class DiffusionAPI(APIMixin):
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
-        txt, num_samples = self._txt_cond(txt, num_samples)
-        new_size = self._get_size(size, anchor, max_wh)
+        txt, num_samples = get_txt_cond(txt, num_samples)
+        new_size = get_size(size, anchor, max_wh)
         return self.sample(
             num_samples,
             export_path,
@@ -665,7 +619,7 @@ class DiffusionAPI(APIMixin):
                 verbose=verbose,
                 **kwargs,
             )
-        txt_list, num_samples = self._txt_cond(txt, num_samples)
+        txt_list, num_samples = get_txt_cond(txt, num_samples)
         res = self._get_masked_cond(
             image,
             mask,
@@ -965,6 +919,8 @@ class DiffusionAPI(APIMixin):
 
         return _(self)
 
+    # constructors
+
     @classmethod
     def from_sd(
         cls: Type[T],
@@ -1084,6 +1040,8 @@ class DiffusionAPI(APIMixin):
         m = ldm_semantic()
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
+    # internal
+
     def _get_z(self, img: arr_type) -> Tensor:
         img = 2.0 * img - 1.0
         z = img if isinstance(img, Tensor) else torch.from_numpy(img)
@@ -1123,6 +1081,54 @@ class DiffusionAPI(APIMixin):
             z_noise = slerp(variation_noise, z_noise, variation_strength)
         z = get_new_z(z_noise)
         return z, z_noise
+
+    def _update_clip_skip(self, clip_skip: int) -> None:
+        if isinstance(self.cond_model, CLIPTextConditionModel):
+            self.cond_model.clip_skip = clip_skip
+
+    def _update_sampler_uncond(self, clip_skip: int) -> None:
+        self._update_clip_skip(clip_skip)
+        if self.cond_model is not None and self._original_raw_uncond is not None:
+            cache = self._uncond_cache.get(clip_skip)
+            if cache is not None:
+                uncond = cache
+            else:
+                uncond = self.get_cond(self._original_raw_uncond)
+                self._uncond_cache[clip_skip] = uncond
+            self.m.sampler.unconditional_cond = uncond.to(self.device)
+
+    def _get_masked_cond(
+        self,
+        image: Union[str, Image.Image],
+        mask: Union[str, Image.Image],
+        max_wh: int,
+        anchor: int,
+        mask_image_fn: Callable[[np.ndarray, np.ndarray], np.ndarray],
+        mask_cond_fn: Callable[[np.ndarray], Tensor],
+    ) -> MaskedCond:
+        # handle mask stuffs
+        image_res = read_image(image, max_wh, anchor=anchor)
+        mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
+        mask = mask_res.image
+        bool_mask = mask >= 0.5
+        remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
+        remained_image = mask_image_fn(remained_mask, image_res.image)
+        # construct condition tensor
+        remained_cond = self._get_z(remained_image)
+        latent_shape = remained_cond.shape[-2:]
+        mask_cond = mask_cond_fn(bool_mask)
+        mask_cond = mask_cond.to(torch.float16 if self.use_half else torch.float32)
+        mask_cond = mask_cond.to(self.device)
+        mask_cond = F.interpolate(mask_cond, size=latent_shape)
+        return MaskedCond(
+            image_res,
+            mask_res,
+            mask,
+            remained_image,
+            remained_mask,
+            mask_cond,
+            remained_cond,
+        )
 
     def _q_sample(
         self,
