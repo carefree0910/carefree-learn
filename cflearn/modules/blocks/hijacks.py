@@ -3,6 +3,7 @@ import torch.nn as nn
 from torch import Tensor
 from typing import Any
 from typing import Optional
+from cftool.misc import shallow_copy_dict
 
 from .hooks import IHook
 from .hooks import IAttentionHook
