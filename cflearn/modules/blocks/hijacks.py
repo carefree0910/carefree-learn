@@ -5,7 +5,11 @@ from typing import Any
 from typing import Optional
 
 from .hooks import IHook
+from .hooks import IAttentionHook
 from .customs import Linear
+
+
+# linear/conv hijacks
 
 
 class IHijackMixin:
@@ -41,3 +45,12 @@ class HijackConv2d(IHijackMixin, nn.Conv2d):
 
 class HijackConv3d(IHijackMixin, nn.Conv3d):
     pass
+
+
+# attention hijacks
+
+
+class IAttention:
+    hook: Optional[IAttentionHook]
+    input_dim: int
+    embed_dim: int

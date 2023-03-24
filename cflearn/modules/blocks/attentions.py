@@ -22,6 +22,7 @@ from .convs import Conv2d
 from .utils import zero_module
 from .common import Lambda
 from .hooks import IAttentionHook
+from .hijacks import IAttention
 from .hijacks import HijackConv2d
 from .hijacks import HijackLinear
 from .hijacks import HijackCustomLinear
@@ -37,7 +38,7 @@ class AttentionOutput(NamedTuple):
     weights: Optional[Tensor]
 
 
-class Attention(Module, WithRegister["Attention"]):
+class Attention(Module, IAttention, WithRegister["Attention"]):
     d = attentions
     customize_sdp: bool = False
 
