@@ -29,7 +29,7 @@ from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import get_device
 from ....losses.lpips import LPIPS
-from ....modules.blocks.convs import HijackConv2d
+from ....modules.blocks import HijackConv2d
 
 
 class AutoEncoderInit(nn.Module):

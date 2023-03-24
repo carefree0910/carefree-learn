@@ -21,11 +21,11 @@ from cftool.misc import WithRegister
 
 from .convs import conv_nd
 from .convs import Conv2d
-from .convs import HijackConv2d
 from .utils import zero_module
 from .common import Lambda
 from .customs import Linear
-from .customs import HijackLinear
+from .hijacks import HijackConv2d
+from .hijacks import HijackLinear
 from .activations import Activation
 from ...misc.toolkit import gradient_checkpoint
 

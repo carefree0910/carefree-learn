@@ -5,8 +5,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -19,11 +17,7 @@ from functools import partial
 from torch.nn import Module
 from cftool.misc import print_warning
 
-
-class LinearHook(Module, metaclass=ABCMeta):
-    @abstractmethod
-    def callback(self, net: Tensor) -> Tensor:
-        pass
+from .hooks import LinearHook
 
 
 class Linear(Module):
@@ -114,18 +108,6 @@ class Linear(Module):
             else:
                 if self.linear.bias is not None:
                     self.linear.bias.data.zero_()
-
-
-class HijackLinear(nn.Linear):
-    def __init__(self, *args: Any, hook: Optional[LinearHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
 
 
 class LeafAggregation(torch.autograd.Function):
@@ -462,7 +444,6 @@ class DropPath(Module):
 
 __all__ = [
     "Linear",
-    "HijackLinear",
     "LeafAggregation",
     "Route",
     "DNDF",

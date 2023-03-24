@@ -4,8 +4,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -20,50 +18,11 @@ from torch.nn.modules.utils import _pair
 from torch.nn.modules.pooling import _MaxUnpoolNd
 
 from ..norms import NormFactory
+from ..hijacks import HijackConv1d
+from ..hijacks import HijackConv2d
+from ..hijacks import HijackConv3d
 from ..activations import Activation
 from ....misc.toolkit import interpolate
-
-
-class ConvHook(Module, metaclass=ABCMeta):
-    @abstractmethod
-    def callback(self, net: Tensor) -> Tensor:
-        pass
-
-
-class HijackConv1d(nn.Conv1d):
-    def __init__(self, *args: Any, hook: Optional[ConvHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
-
-
-class HijackConv2d(nn.Conv2d):
-    def __init__(self, *args: Any, hook: Optional[ConvHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
-
-
-class HijackConv3d(nn.Conv3d):
-    def __init__(self, *args: Any, hook: Optional[ConvHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
 
 
 class GaussianBlur3(nn.Module):
@@ -629,9 +588,6 @@ def get_conv_blocks(
 
 
 __all__ = [
-    "HijackConv1d",
-    "HijackConv2d",
-    "HijackConv3d",
     "GaussianBlur3",
     "Conv2d",
     "DepthWiseConv2d",

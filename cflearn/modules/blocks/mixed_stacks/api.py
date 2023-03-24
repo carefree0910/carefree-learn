@@ -19,13 +19,13 @@ from .poolers import SequencePooler
 from .channel_mixers import ChannelMixerBase
 from .channel_mixers import FeedForward
 from .token_mixers import TokenMixerBase
-from ..convs import HijackConv2d
 from ..norms import NormFactory
 from ..utils import zero_module
 from ..common import Lambda
 from ..customs import Linear
 from ..customs import DropPath
-from ..customs import HijackLinear
+from ..hijacks import HijackConv2d
+from ..hijacks import HijackLinear
 from ..high_level import PreNorm
 from ..attentions import CrossAttention
 from ....misc.toolkit import interpolate
