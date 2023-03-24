@@ -31,6 +31,7 @@ from ...misc.toolkit import gradient_checkpoint
 
 
 attentions: Dict[str, Type["Attention"]] = {}
+TQKV = Tuple[Tensor, Tensor, Tensor]
 
 
 class AttentionOutput(NamedTuple):
@@ -38,12 +39,9 @@ class AttentionOutput(NamedTuple):
     weights: Optional[Tensor]
 
 
-qkv_type = Tuple[Tensor, Tensor, Tensor]
-
-
 class AttentionHook(Module, metaclass=ABCMeta):
     @abstractmethod
-    def after_attn(self, qkv_inp: qkv_type, qkv_out: qkv_type) -> qkv_type:
+    def after_attn(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
         pass
 
     @abstractmethod
