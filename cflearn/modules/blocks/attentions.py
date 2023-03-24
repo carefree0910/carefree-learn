@@ -5,8 +5,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -23,6 +21,7 @@ from .convs import conv_nd
 from .convs import Conv2d
 from .utils import zero_module
 from .common import Lambda
+from .hooks import IAttentionHook
 from .hijacks import HijackConv2d
 from .hijacks import HijackLinear
 from .hijacks import HijackCustomLinear
@@ -31,22 +30,11 @@ from ...misc.toolkit import gradient_checkpoint
 
 
 attentions: Dict[str, Type["Attention"]] = {}
-TQKV = Tuple[Tensor, Tensor, Tensor]
 
 
 class AttentionOutput(NamedTuple):
     output: Tensor
     weights: Optional[Tensor]
-
-
-class AttentionHook(Module, metaclass=ABCMeta):
-    @abstractmethod
-    def after_attn(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
-        pass
-
-    @abstractmethod
-    def after_out(self, inp: Tensor, out: Tensor) -> Tensor:
-        pass
 
 
 class Attention(Module, WithRegister["Attention"]):
@@ -71,7 +59,7 @@ class Attention(Module, WithRegister["Attention"]):
         activation_config: Optional[Dict[str, Any]] = None,
         out_linear_config: Optional[Dict[str, Any]] = None,
         reduction_ratio: Optional[int] = None,
-        hook: Optional[AttentionHook] = None,
+        hook: Optional[IAttentionHook] = None,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -158,6 +146,7 @@ class Attention(Module, WithRegister["Attention"]):
                 nn.LayerNorm(self.embed_dim),
             )
 
+        # hook
         self.hook = hook
 
     # optional callback, only take effects when `customize_sdp` is set to `True`
@@ -233,7 +222,9 @@ class Attention(Module, WithRegister["Attention"]):
             # B, Nv, Dv -> B, Nv, D
             v = F.linear(self._reduce(v, hw), self.v_w, v_bias)
         if self.hook is not None:
-            q, k, v = self.hook.after_attn(qkv_inp, (q, k, v))
+            if self.reduction is not None:
+                raise ValueError("currently `hook` does not support `reduction`")
+            q, k, v = self.hook.callback(qkv_inp, (q, k, v))
         q, k, v = map(self.activation, [q, k, v])
         # B, N*, D -> B * N_head, N*, D_head
         q, k, v = map(self._to_heads, [q, k, v], [determinate] * 3)
@@ -269,8 +260,6 @@ class Attention(Module, WithRegister["Attention"]):
         output = output.view(-1, seq_len, self.embed_dim)
         # B, Nq, D -> B, Nq, Din
         net = self.out_linear(output)
-        if self.hook is not None:
-            net = self.hook.after_out(output, net)
         net = self.activation(net)
         return AttentionOutput(net, weights)
 
