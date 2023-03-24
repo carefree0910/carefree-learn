@@ -7,49 +7,30 @@ from typing import Optional
 from .hooks import IHook
 
 
-class HijackLinear(nn.Linear):
+class IHijackMixin:
     def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         self.hook = hook
 
     def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
+        inp = net
+        net = super().forward(net)  # type: ignore
         if self.hook is not None:
-            net = self.hook.callback(net)
+            net = self.hook.callback(inp, net)
         return net
 
 
-class HijackConv1d(nn.Conv1d):
-    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
+class HijackLinear(IHijackMixin, nn.Linear):
+    pass
 
 
-class HijackConv2d(nn.Conv2d):
-    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
+class HijackConv1d(IHijackMixin, nn.Conv1d):
+    pass
 
 
-class HijackConv3d(nn.Conv3d):
-    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
+class HijackConv2d(IHijackMixin, nn.Conv2d):
+    pass
 
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
+
+class HijackConv3d(IHijackMixin, nn.Conv3d):
+    pass

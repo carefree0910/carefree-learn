@@ -79,20 +79,22 @@ class Linear(Module):
         return self.b if self.linear is None else self.linear.bias
 
     def forward(self, net: Tensor) -> Tensor:
+        inp = net
         if self.linear is not None:
             weight = self.linear.weight
             if self.pruner is not None:
                 weight = self.pruner(weight)
-            return F.linear(net, weight, self.linear.bias)
-        w1, w2 = self.w1, self.w2
-        if self.pruner1 is not None:
-            w1 = self.pruner1(w1)
-        if self.pruner2 is not None:
-            w2 = self.pruner2(w2)
-        net = F.linear(net, w1)
-        net = F.linear(net, w2, self.b)
+            net = F.linear(net, weight, self.linear.bias)
+        else:
+            w1, w2 = self.w1, self.w2
+            if self.pruner1 is not None:
+                w1 = self.pruner1(w1)
+            if self.pruner2 is not None:
+                w2 = self.pruner2(w2)
+            net = F.linear(net, w1)
+            net = F.linear(net, w2, self.b)
         if self.hook is not None:
-            net = self.hook.callback(net)
+            net = self.hook.callback(inp, net)
         return net
 
     def init_weights_with(self, w_init_fn: Callable[[Tensor], None]) -> None:

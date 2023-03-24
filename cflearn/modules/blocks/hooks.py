@@ -6,5 +6,5 @@ from torch.nn import Module
 
 class IHook(Module, metaclass=ABCMeta):
     @abstractmethod
-    def callback(self, net: Tensor) -> Tensor:
+    def callback(self, inp: Tensor, out: Tensor) -> Tensor:
         pass
