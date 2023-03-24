@@ -9,6 +9,8 @@ from .hooks import IHook
 
 class IHijackMixin:
     def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
+        self.args = args
+        self.kwargs = shallow_copy_dict(kwargs)
         super().__init__(*args, **kwargs)
         self.hook = hook
 
