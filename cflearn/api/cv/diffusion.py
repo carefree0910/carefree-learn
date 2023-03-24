@@ -277,8 +277,8 @@ class DiffusionAPI(APIMixin):
         d = self.sd_weights.get(tag)
         if d is None:
             raise ValueError(f"cannot find tag ({tag}) in the loaded weights")
-        with self.load_context() as wrapper:
-            wrapper.load_state_dict(d)
+        with self.load_context() as m:
+            m.load_state_dict(d)
         self.current_sd_version = version
 
     def get_cond(self, cond: Any) -> Tensor:
@@ -906,12 +906,7 @@ class DiffusionAPI(APIMixin):
                 api.m.condition_model = api.cond_model
 
             def __enter__(self) -> nn.Module:
-                class Wrapper(nn.Module):
-                    def __init__(self, m: nn.Module) -> None:
-                        super().__init__()
-                        self.core = m
-
-                return Wrapper(self.api.m)
+                return self.api.m
 
             def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 self.api.m.control_model = self.m_ctrl
@@ -1201,8 +1196,8 @@ def offset_cnet_weights(d: tensor_dict_type, api: DiffusionAPI) -> tensor_dict_t
         c_mapping = json.load(f)
     rev_c_mapping = {v: k for k, v in c_mapping.items()}
     nd = shallow_copy_dict(d)
-    with api.load_context() as wrapper:
-        md = wrapper.state_dict()
+    with api.load_context() as m:
+        md = m.state_dict()
     device = list(md.values())[0].device
     nd = {k: v.to(device) for k, v in nd.items()}
     for k, v in nd.items():

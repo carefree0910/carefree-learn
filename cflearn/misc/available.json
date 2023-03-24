@@ -278,14 +278,14 @@
   },
   "static": {
     "sd_mapping": {
-      "sha": "02274443c436b749f484280af7a2e22c8d31857bf3303fc93202a5193bf43966",
-      "st_size": 111278,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_mapping.json"
+      "sha": "f44f8dbad6e200beef6def3d72d958e5a707959e48f6f1611480c5bbe124f8e0",
+      "st_size": 105368,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static_v0.4.x/sd_mapping.json"
     },
     "sd_v2_mapping": {
-      "sha": "6779642b5402c213b8aa9107e55a1a532732d4a95c8c5d2463353023337e89bd",
-      "st_size": 158952,
-      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_v2_mapping.json"
+      "sha": "34668e8924197254d3e42db541a23dd0db8c7af24553b628cf750008f6e69328",
+      "st_size": 151527,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static_v0.4.x/sd_v2_mapping.json"
     },
     "sd_controlnet_mapping": {
       "sha": "7613735e99ad7d78e953c30a6c8ade335009722f5fb46991dd5779c068c319a1",
