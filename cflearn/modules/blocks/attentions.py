@@ -23,9 +23,9 @@ from .convs import conv_nd
 from .convs import Conv2d
 from .utils import zero_module
 from .common import Lambda
-from .customs import Linear
 from .hijacks import HijackConv2d
 from .hijacks import HijackLinear
+from .hijacks import HijackCustomLinear
 from .activations import Activation
 from ...misc.toolkit import gradient_checkpoint
 
@@ -134,9 +134,11 @@ class Attention(Module, WithRegister["Attention"]):
             self.q_bias = nn.Parameter(torch.zeros(self.embed_dim))
             self.kv_bias = nn.Parameter(torch.zeros(2 * self.embed_dim))
 
-        if out_linear_config is None:
-            out_linear_config = {}
-        self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
+        self.out_linear = HijackCustomLinear(
+            self.embed_dim,
+            input_dim,
+            **(out_linear_config or {}),
+        )
 
         self.dropout = dropout
         self.activation = Activation.make(activation, activation_config)

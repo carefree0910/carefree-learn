@@ -5,6 +5,7 @@ from typing import Any
 from typing import Optional
 
 from .hooks import IHook
+from .customs import Linear
 
 
 class IHijackMixin:
@@ -23,6 +24,10 @@ class IHijackMixin:
 
 
 class HijackLinear(IHijackMixin, nn.Linear):
+    pass
+
+
+class HijackCustomLinear(IHijackMixin, Linear):
     pass
 
 

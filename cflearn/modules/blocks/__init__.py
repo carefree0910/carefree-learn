@@ -1,6 +1,6 @@
 # Dependency Hierarchy
 ## utils, common, customs, hooks, norms
-### hijacks (hooks)
+### hijacks (hooks, customs)
 ### activations (common)
 #### mappings (norms, customs, activations)
 #### convs.basic (norms, hijacks, activations)
