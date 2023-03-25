@@ -905,7 +905,7 @@ class DiffusionAPI(APIMixin):
                 api.m.control_model = None
                 api.m.condition_model = api.cond_model
 
-            def __enter__(self) -> nn.Module:
+            def __enter__(self) -> DDPM:
                 return self.api.m
 
             def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
