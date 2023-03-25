@@ -6,6 +6,7 @@ from typing import Optional
 from cftool.misc import shallow_copy_dict
 
 from .hooks import IHook
+from .hooks import IBasicHook
 from .hooks import IAttentionHook
 from .customs import Linear
 
@@ -14,7 +15,7 @@ from .customs import Linear
 
 
 class IHijackMixin:
-    def __init__(self, *args: Any, hook: Optional[IHook] = None, **kwargs: Any):
+    def __init__(self, *args: Any, hook: Optional[IBasicHook] = None, **kwargs: Any):
         self.args = args
         self.kwargs = shallow_copy_dict(kwargs)
         super().__init__(*args, **kwargs)

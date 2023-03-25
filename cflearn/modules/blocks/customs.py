@@ -17,7 +17,7 @@ from functools import partial
 from torch.nn import Module
 from cftool.misc import print_warning
 
-from .hooks import IHook
+from .hooks import IBasicHook
 
 
 class Linear(Module):
@@ -31,7 +31,7 @@ class Linear(Module):
         init_method: Optional[str] = None,
         rank: Optional[int] = None,
         rank_ratio: Optional[float] = None,
-        hook: Optional[IHook] = None,
+        hook: Optional[IBasicHook] = None,
     ):
         super().__init__()
         original_rank = min(in_dim, out_dim)
