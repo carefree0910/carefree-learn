@@ -8,8 +8,8 @@ from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
-from safetensors.torch import load_file
 
+from ..misc.toolkit import get_tensors
 from ..misc.toolkit import download_static
 from ..api.cv.diffusion import DiffusionAPI
 
@@ -254,24 +254,13 @@ def _convert_with_key_mapping(
     return nd
 
 
-def _get_d(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
-    if isinstance(inp, str):
-        if inp.endswith(".safetensors"):
-            inp = load_file(inp)
-        else:
-            inp = torch.load(inp, map_location="cpu")
-    if "state_dict" in inp:
-        inp = inp["state_dict"]
-    return shallow_copy_dict(inp)
-
-
 def _get_inp(
     inp: Union[str, tensor_dict_type],
     vae_inp: Optional[Union[str, tensor_dict_type]],
 ) -> tensor_dict_type:
-    inp = _get_d(inp)
+    inp = get_tensors(inp)
     if vae_inp is not None:
-        vae_inp = _get_d(vae_inp)
+        vae_inp = get_tensors(vae_inp)
         num_injected = 0
         for k, v in vae_inp.items():
             inp_k = f"first_stage_model.{k}"
@@ -337,13 +326,13 @@ def convert_v2(
 
 
 def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
-    d = _get_d(inp)
+    d = get_tensors(inp)
     with api.load_context() as m:
         m.load_state_dict(d)
 
 
 def convert_controlnet(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
-    inp = _get_d(inp)
+    inp = get_tensors(inp)
     with open(download_static("sd_controlnet_mapping", extension="json"), "r") as f:
         mapping = json.load(f)
     nd = {}

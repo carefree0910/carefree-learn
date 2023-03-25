@@ -42,6 +42,7 @@ from cftool.array import to_torch
 from cftool.array import to_standard
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
+from safetensors.torch import load_file
 
 from ..types import data_type
 from ..types import param_type
@@ -364,6 +365,17 @@ class WeightsStrategy:
 
 
 # dl
+
+
+def get_tensors(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+    if isinstance(inp, str):
+        if inp.endswith(".safetensors"):
+            inp = load_file(inp)
+        else:
+            inp = torch.load(inp, map_location="cpu")
+    if "state_dict" in inp:
+        inp = inp["state_dict"]
+    return shallow_copy_dict(inp)
 
 
 def get_device(m: nn.Module) -> torch.device:
