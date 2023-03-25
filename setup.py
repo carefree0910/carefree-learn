@@ -34,6 +34,7 @@ setup(
     packages=find_packages(exclude=("tests",)),
     install_requires=[
         "accelerate",
+        "safetensors",
         "carefree-toolkit>=0.3.3",
     ],
     extras_require={

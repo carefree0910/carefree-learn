@@ -8,6 +8,7 @@ from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
+from safetensors.torch import load_file
 
 from ..misc.toolkit import download_static
 from ..api.cv.diffusion import DiffusionAPI
@@ -255,7 +256,10 @@ def _convert_with_key_mapping(
 
 def _get_d(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     if isinstance(inp, str):
-        inp = torch.load(inp, map_location="cpu")
+        if inp.endswith(".safetensors"):
+            inp = load_file(inp)
+        else:
+            inp = torch.load(inp, map_location="cpu")
     if "state_dict" in inp:
         inp = inp["state_dict"]
     return shallow_copy_dict(inp)
