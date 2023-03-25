@@ -11,10 +11,16 @@ from .hooks import IAttentionHook
 from .customs import Linear
 
 
+class IHijackMixin:
+    hook: Optional[IHook]
+
+
 # linear/conv hijacks
 
 
-class IHijackMixin:
+class IBasicHijackMixin(IHijackMixin):
+    weight: Tensor
+
     def __init__(self, *args: Any, hook: Optional[IBasicHook] = None, **kwargs: Any):
         self.args = args
         self.kwargs = shallow_copy_dict(kwargs)
@@ -29,23 +35,23 @@ class IHijackMixin:
         return net
 
 
-class HijackLinear(IHijackMixin, nn.Linear):
+class HijackLinear(IBasicHijackMixin, nn.Linear):
     pass
 
 
-class HijackCustomLinear(IHijackMixin, Linear):
+class HijackCustomLinear(IBasicHijackMixin, Linear):
     pass
 
 
-class HijackConv1d(IHijackMixin, nn.Conv1d):
+class HijackConv1d(IBasicHijackMixin, nn.Conv1d):
     pass
 
 
-class HijackConv2d(IHijackMixin, nn.Conv2d):
+class HijackConv2d(IBasicHijackMixin, nn.Conv2d):
     pass
 
 
-class HijackConv3d(IHijackMixin, nn.Conv3d):
+class HijackConv3d(IBasicHijackMixin, nn.Conv3d):
     pass
 
 
