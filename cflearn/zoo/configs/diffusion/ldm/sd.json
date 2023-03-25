@@ -1,5 +1,6 @@
 {
   "__bases__": ["diffusion/ldm"],
+  "model_name": "sd",
   "model_config": {
     "context_dim": 768,
     "attn_split_chunk": 4,

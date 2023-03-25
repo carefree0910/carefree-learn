@@ -1,10 +1,16 @@
+import json
+
 import numpy as np
 
+from enum import Enum
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from typing import Union
 from typing import Optional
+from cftool.misc import print_info
+from cftool.array import tensor_dict_type
 
 from .ddpm import make_condition_model
 from .ddpm import DDPM
@@ -13,6 +19,9 @@ from ..ae.kl import GaussianDistribution
 from ....zoo import DLZoo
 from ....schema import IDLModel
 from ....misc.toolkit import freeze
+from ....misc.toolkit import get_tensors
+from ....misc.toolkit import download_static
+from ....modules.blocks import LoRAManager
 
 
 @IDLModel.register("ldm")
@@ -189,6 +198,70 @@ class LDM(DDPM):
         return super()._get_cond(cond)
 
 
+class SDLoRAMode(str, Enum):
+    UNET = "unet"
+    UNET_EXTENDED = "unet_extended"
+
+
+def convert_lora(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+    inp = get_tensors(inp)
+    with open(download_static("sd_lora_mapping", extension="json"), "r") as f:
+        mapping = json.load(f)
+    return {mapping[k]: v for k, v in inp.items()}
+
+
+@IDLModel.register("sd")
+class StableDiffusion(LDM):
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.lora_manager = LoRAManager()
+
+    def load_lora(self, key: str, *, path: str) -> None:
+        print_info(f"loading '{key}' from '{path}'")
+        d = get_tensors(path)
+        wk = "lora_unet_down_blocks_0_attentions_0_proj_in.lora_down.weight"
+        rank = d[wk].shape[0]
+        mode = SDLoRAMode.UNET if "res" not in d else SDLoRAMode.UNET_EXTENDED
+        inject_text_encoder = "lora_te_text_model_encoder_layers_0_mlp_fc1.alpha" in d
+        print_info(
+            f"preparing lora (rank={rank}, mode={mode}, "
+            f"inject_text_encoder={inject_text_encoder})"
+        )
+        self.prepare_lora(key, rank, mode=mode, inject_text_encoder=inject_text_encoder)
+        print_info("loading weights")
+        self.lora_manager.load_pack_with(key, convert_lora(d))
+        print_info(f"finished loading '{key}'")
+
+    def prepare_lora(
+        self,
+        key: str,
+        rank: int,
+        *,
+        mode: SDLoRAMode = SDLoRAMode.UNET,
+        inject_text_encoder: bool = True,
+    ) -> None:
+        target_ancestors = {"SpatialTransformer", "GEGLU"}
+        if mode == SDLoRAMode.UNET_EXTENDED:
+            target_ancestors.add("ResBlock")
+        if inject_text_encoder:
+            target_ancestors.add("TeTEncoder")
+        self.lora_manager.prepare(
+            self,
+            key=key,
+            rank=rank,
+            target_ancestors=target_ancestors,
+        )
+
+    def inject_lora(self, *keys: str) -> None:
+        self.lora_manager.inject(self, *keys)
+
+    def cleanup_lora(self) -> None:
+        self.lora_manager.cleanup(self)
+
+
 __all__ = [
     "LDM",
+    "SDLoRAMode",
+    "StableDiffusion",
+    "convert_lora",
 ]

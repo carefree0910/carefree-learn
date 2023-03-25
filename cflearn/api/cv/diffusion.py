@@ -66,6 +66,7 @@ from ...modules.blocks import Conv2d
 from ...models.cv.diffusion import LDM
 from ...models.cv.diffusion import DDPM
 from ...models.cv.diffusion import ISampler
+from ...models.cv.diffusion import StableDiffusion
 from ...models.cv.ae.common import IAutoEncoder
 from ...models.cv.diffusion.utils import get_timesteps
 from ...models.cv.diffusion.utils import CONCAT_KEY
@@ -913,6 +914,26 @@ class DiffusionAPI(APIMixin):
                 self.api.m.condition_model = self.m_cond
 
         return _(self)
+
+    # lora
+
+    def load_sd_lora(self, key: str, *, path: str) -> None:
+        if not isinstance(self.m, StableDiffusion):
+            raise ValueError("only `StableDiffusion` can use `load_sd_lora`")
+        with self.load_context():
+            self.m.load_lora(key, path=path)
+
+    def inject_sd_lora(self, *keys: str) -> None:
+        if not isinstance(self.m, StableDiffusion):
+            raise ValueError("only `StableDiffusion` can use `inject_sd_lora`")
+        with self.load_context():
+            self.m.inject_lora(*keys)
+
+    def cleanup_sd_lora(self) -> None:
+        if not isinstance(self.m, StableDiffusion):
+            raise ValueError("only `StableDiffusion` can use `cleanup_sd_lora`")
+        with self.load_context():
+            self.m.cleanup_lora()
 
     # constructors
 

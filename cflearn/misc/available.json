@@ -291,6 +291,11 @@
       "sha": "7613735e99ad7d78e953c30a6c8ade335009722f5fb46991dd5779c068c319a1",
       "st_size": 32520,
       "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_controlnet_mapping.json"
+    },
+    "sd_lora_mapping": {
+      "sha": "a725fb66391c8ea29bcb106040b9c2df76bd6641fe160028962cb03f7101dac9",
+      "st_size": 114804,
+      "download_url": "https://huggingface.co/carefree0910/carefree-learn/resolve/main/static/sd_lora_mapping.json"
     }
   }
 }
