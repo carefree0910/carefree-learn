@@ -316,7 +316,7 @@ class LoRAManager:
             raise ValueError("LoRA is not injected, please call `inject` first.")
         if m is not self.m:
             raise ValueError("injected module does not match the incoming module.")
-        for module in m.modules():
+        for module in m.modules():  # type: ignore
             if isinstance(module, IHijackMixin):
                 module.hook = None
         self.injected = False
@@ -343,7 +343,7 @@ class LoRAManager:
     def restore(self, m: nn.Module, hooks: Dict[str, Optional[IHook]]) -> None:
         if m is not self.m:
             raise ValueError("prepared module does not match the incoming module.")
-        for key, module in m.named_modules():
+        for key, module in m.named_modules():  # type: ignore
             if isinstance(module, IHijackMixin):
                 module.hook = hooks[key]
         self.injected = True
