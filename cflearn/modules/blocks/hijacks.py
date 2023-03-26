@@ -333,6 +333,21 @@ class LoRAManager:
         for k, v in scales.items():
             self.set_scale(k, v)
 
+    def checkpoint(self, m: nn.Module) -> Dict[str, Optional[IHook]]:
+        hooks: Dict[str, Optional[IHook]] = {}
+        for key, module in m.named_modules():
+            if isinstance(module, IHijackMixin):
+                hooks[key] = module.hook
+        return hooks
+
+    def restore(self, m: nn.Module, hooks: Dict[str, Optional[IHook]]) -> None:
+        if m is not self.m:
+            raise ValueError("prepared module does not match the incoming module.")
+        for key, module in m.named_modules():
+            if isinstance(module, IHijackMixin):
+                module.hook = hooks[key]
+        self.injected = True
+
     # internal
 
     def _prepare(self, m: nn.Module, prefix: str, pack: LoRAPack) -> None:

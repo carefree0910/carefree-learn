@@ -21,6 +21,7 @@ from ....schema import IDLModel
 from ....misc.toolkit import freeze
 from ....misc.toolkit import get_tensors
 from ....misc.toolkit import download_static
+from ....modules.blocks import IHook
 from ....modules.blocks import LoRAManager
 
 
@@ -216,6 +217,10 @@ class StableDiffusion(LDM):
         super().__init__(*args, **kwargs)
         self.lora_manager = LoRAManager()
 
+    @property
+    def has_lora(self) -> bool:
+        return self.lora_manager.injected
+
     def load_lora(self, key: str, *, path: str) -> None:
         print_info(f"loading '{key}' from '{path}'")
         d = get_tensors(path)
@@ -260,6 +265,12 @@ class StableDiffusion(LDM):
 
     def set_lora_scales(self, scales: Dict[str, float]) -> None:
         self.lora_manager.set_scales(scales)
+
+    def get_lora_checkpoints(self) -> Dict[str, Optional[IHook]]:
+        return self.lora_manager.checkpoint(self)
+
+    def restore_lora_from(self, hooks: Dict[str, Optional[IHook]]) -> None:
+        return self.lora_manager.restore(self, hooks)
 
 
 __all__ = [

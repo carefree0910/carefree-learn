@@ -897,7 +897,7 @@ class DiffusionAPI(APIMixin):
             **kwargs,
         )
 
-    def load_context(self) -> ContextManager:
+    def load_context(self, *, ignore_lora: bool = True) -> ContextManager:
         class _:
             def __init__(self, api: DiffusionAPI):
                 self.api = api
@@ -905,6 +905,17 @@ class DiffusionAPI(APIMixin):
                 self.m_cond = api.m.condition_model
                 api.m.control_model = None
                 api.m.condition_model = api.cond_model
+                if not ignore_lora:
+                    self.lora_checkpoints = None
+                else:
+                    if not isinstance(api.m, StableDiffusion):
+                        msg = "currently only `StableDiffusion` supports `ignore_lora`"
+                        raise ValueError(msg)
+                    if not api.m.has_lora:
+                        self.lora_checkpoints = None
+                    else:
+                        self.lora_checkpoints = api.m.get_lora_checkpoints()
+                        api.m.cleanup_lora()
 
             def __enter__(self) -> DDPM:
                 return self.api.m
@@ -912,6 +923,9 @@ class DiffusionAPI(APIMixin):
             def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
                 self.api.m.control_model = self.m_ctrl
                 self.api.m.condition_model = self.m_cond
+                if self.lora_checkpoints is not None:
+                    assert isinstance(self.api.m, StableDiffusion)
+                    self.api.m.restore_lora_from(self.lora_checkpoints)
 
         return _(self)
 
@@ -920,19 +934,19 @@ class DiffusionAPI(APIMixin):
     def load_sd_lora(self, key: str, *, path: str) -> None:
         if not isinstance(self.m, StableDiffusion):
             raise ValueError("only `StableDiffusion` can use `load_sd_lora`")
-        with self.load_context():
+        with self.load_context(ignore_lora=False):
             self.m.load_lora(key, path=path)
 
     def inject_sd_lora(self, *keys: str) -> None:
         if not isinstance(self.m, StableDiffusion):
             raise ValueError("only `StableDiffusion` can use `inject_sd_lora`")
-        with self.load_context():
+        with self.load_context(ignore_lora=False):
             self.m.inject_lora(*keys)
 
     def cleanup_sd_lora(self) -> None:
         if not isinstance(self.m, StableDiffusion):
             raise ValueError("only `StableDiffusion` can use `cleanup_sd_lora`")
-        with self.load_context():
+        with self.load_context(ignore_lora=False):
             self.m.cleanup_lora()
 
     def set_sd_lora_scales(self, scales: Dict[str, float]) -> None:
