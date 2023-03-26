@@ -9,7 +9,6 @@ from typing import List
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
-from cftool.misc import hash_code
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
@@ -230,8 +229,8 @@ class LoRAPack(NamedTuple):
 
 class LoRAManager:
     def __init__(self) -> None:
-        self.hash = None
-        self.injected_hash = None
+        self.m = None
+        self.injected = False
         self.lora_packs: Dict[str, LoRAPack] = {}
 
     # api
@@ -282,8 +281,7 @@ class LoRAManager:
             torch.cuda.empty_cache()
         # prepare new hooks
         pack = LoRAPack(rank, {})
-        self.hash = hash_code(str(m))
-        self.injected_hash = None
+        self.m = m
         if target_ancestors is None:
             self._prepare(m, "", pack)
         else:
@@ -294,9 +292,9 @@ class LoRAManager:
         self.lora_packs[key] = pack
 
     def inject(self, m: nn.Module, *keys: str) -> None:
-        if self.hash is None:
+        if self.m is None:
             raise ValueError("LoRA is not prepared, please call `prepare` first.")
-        if self.hash != hash_code(str(m)):
+        if m is not self.m:
             raise ValueError("prepared module does not match the incoming module.")
         pack = self.build_pack(*keys)
         if pack is None:
@@ -311,17 +309,17 @@ class LoRAManager:
                     raise ValueError(msg)
                 hook.to(pivot)
                 module.hook = hook
-        self.injected_hash = hash_code(str(m))
+        self.injected = True
 
     def cleanup(self, m: nn.Module) -> None:
-        if self.injected_hash is None:
+        if not self.injected:
             raise ValueError("LoRA is not injected, please call `inject` first.")
-        if self.injected_hash != hash_code(str(m)):
-            raise ValueError("injected module does not match the incoming module")
+        if m is not self.m:
+            raise ValueError("injected module does not match the incoming module.")
         for module in m.modules():
             if isinstance(module, IHijackMixin):
                 module.hook = None
-        self.injected_hash = None
+        self.injected = False
         torch.cuda.empty_cache()
 
     def set_scale(self, scale: float) -> None:
