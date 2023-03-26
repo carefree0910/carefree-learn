@@ -258,6 +258,9 @@ class StableDiffusion(LDM):
     def cleanup_lora(self) -> None:
         self.lora_manager.cleanup(self)
 
+    def set_lora_scales(self, scales: Dict[str, float]) -> None:
+        self.lora_manager.set_scales(scales)
+
 
 __all__ = [
     "LDM",

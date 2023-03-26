@@ -935,6 +935,12 @@ class DiffusionAPI(APIMixin):
         with self.load_context():
             self.m.cleanup_lora()
 
+    def set_sd_lora_scales(self, scales: Dict[str, float]) -> None:
+        if not isinstance(self.m, StableDiffusion):
+            raise ValueError("only `StableDiffusion` can use `set_sd_lora_scales`")
+        with self.load_context(ignore_lora=False):
+            self.m.set_lora_scales(scales)
+
     # constructors
 
     @classmethod

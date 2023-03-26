@@ -322,10 +322,16 @@ class LoRAManager:
         self.injected = False
         torch.cuda.empty_cache()
 
-    def set_scale(self, scale: float) -> None:
-        for pack in self.lora_packs.values():
-            for hook in pack.hooks.values():
-                hook.set_scale(scale)
+    def set_scale(self, key: str, scale: float) -> None:
+        pack = self.lora_packs.get(key)
+        if pack is None:
+            raise ValueError(f"cannot find LoRAPack '{key}'")
+        for hook in pack.hooks.values():
+            hook.set_scale(scale)
+
+    def set_scales(self, scales: Dict[str, float]) -> None:
+        for k, v in scales.items():
+            self.set_scale(k, v)
 
     # internal
 
