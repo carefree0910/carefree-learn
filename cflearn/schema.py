@@ -47,7 +47,6 @@ from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 from cftool.pipeline import IBlock
 from cftool.pipeline import IPipeline
-from torch.cuda.amp import autocast
 from torch.optim.lr_scheduler import _LRScheduler
 
 from .types import data_type
@@ -65,8 +64,6 @@ from .misc.toolkit import get_device
 from .misc.toolkit import get_world_size
 from .misc.toolkit import fix_denormal_states
 from .misc.toolkit import eval_context
-from .misc.toolkit import no_grad_context
-from .misc.toolkit import toggle_optimizer
 from .misc.toolkit import ONNX
 
 try:
