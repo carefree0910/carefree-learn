@@ -49,8 +49,7 @@ from ..utils import APIMixin
 from .third_party import MiDaSAPI
 from .third_party import MLSDDetector
 from .third_party import OpenposeDetector
-from ...data import NumpyData
-from ...data import TensorData
+from ...data import ArrayData
 from ...schema import DataConfig
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
@@ -370,7 +369,7 @@ class DiffusionAPI(APIMixin):
             if self.cond_type != CONCAT_TYPE and self.cond_model is not None:
                 cond = predict_array_data(
                     self.cond_model,
-                    NumpyData.init().fit(np.array(cond)),
+                    ArrayData.init().fit(np.array(cond)),
                     batch_size=batch_size,
                 )[PREDICTIONS_KEY]
         if cond is not None and num_samples != len(cond):
@@ -388,7 +387,7 @@ class DiffusionAPI(APIMixin):
         unconditional = cond is None
         if unconditional:
             cond = [0] * num_samples
-        cond_data: TensorData = TensorData.init(DataConfig(batch_size=batch_size))
+        cond_data: ArrayData = ArrayData.init(DataConfig(batch_size=batch_size))
         cond_data.fit(cond)
         iterator = TensorBatcher(cond_data.get_loaders()[0], self.device)
         num_iter = len(iterator)

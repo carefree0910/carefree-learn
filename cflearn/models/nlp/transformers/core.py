@@ -10,7 +10,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
 
-from ....data import TensorDictData
+from ....data import ArrayDictData
 from ....types import texts_type
 from ....schema import IDLModel
 from ....schema import IInference
@@ -60,7 +60,7 @@ class HuggingFaceModel(IDLModel):
         **kwargs: Any,
     ) -> np_dict_type:
         x = self.tokenizer(texts, padding=True, return_tensors="pt")
-        loader = TensorDictData.init().fit(x).get_loaders()[0]
+        loader = ArrayDictData.init().fit(x).get_loaders()[0]
         inference = IInference(model=self)
         outputs = inference.get_outputs(loader, use_tqdm=use_tqdm, **kwargs)
         return outputs.forward_results

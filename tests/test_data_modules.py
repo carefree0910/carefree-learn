@@ -45,7 +45,7 @@ class TestDataModules(unittest.TestCase):
         x_other1 = np.random.randn(10, 13)
         x_other2 = np.random.randn(10, 13)
         y_train = np.random.randn(10, 3)
-        data = cflearn.NumpyData.init(config=data_config).fit(
+        data = cflearn.ArrayData.init(config=data_config).fit(
             x_train,
             y_train,
             train_others={"other1": x_other1, "other2": x_other2},
@@ -57,7 +57,7 @@ class TestDataModules(unittest.TestCase):
         x_other1 = np.random.randn(10, 13)
         x_other2 = np.random.randn(10, 13)
         y_train = np.random.randn(10, 3)
-        data = cflearn.NumpyDictData.init(config=data_config).fit(
+        data = cflearn.ArrayDictData.init(config=data_config).fit(
             {"main": x_train, "other1": x_other1, "other2": x_other2}, y_train
         )
         self._test_data("numpy_dict", data, {"main", "labels", "other1", "other2"})
@@ -67,7 +67,7 @@ class TestDataModules(unittest.TestCase):
         x_other1 = torch.rand(10, 13)
         x_other2 = torch.rand(10, 13)
         y_train = torch.rand(10, 3)
-        data = cflearn.TensorData.init(config=data_config).fit(
+        data = cflearn.ArrayData.init(config=data_config).fit(
             x_train,
             y_train,
             train_others={"other1": x_other1, "other2": x_other2},
@@ -79,7 +79,7 @@ class TestDataModules(unittest.TestCase):
         x_other1 = torch.rand(10, 13)
         x_other2 = torch.rand(10, 13)
         y_train = torch.rand(10, 3)
-        data = cflearn.TensorDictData.init(config=data_config).fit(
+        data = cflearn.ArrayDictData.init(config=data_config).fit(
             {"main": x_train, "other1": x_other1, "other2": x_other2}, y_train
         )
         self._test_data("tensor_dict", data, {"main", "labels", "other1", "other2"})
@@ -136,7 +136,7 @@ class TestDataModules(unittest.TestCase):
         )
 
     def test_tensor_batcher(self) -> None:
-        data: cflearn.TensorDictData = cflearn.TensorDictData.init()
+        data: cflearn.ArrayDictData = cflearn.ArrayDictData.init()
         data.fit(dict(x1=torch.tensor([1]), x2=np.array(["foo"])))
         b = cflearn.TensorBatcher(data.get_loaders()[0], "cpu").get_full_batch()
         self.assertEqual(b["x1"].item(), 1)
