@@ -14,7 +14,7 @@ class TestExample(unittest.TestCase):
             return
         folder = os.path.join(examples_folder, "simple")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'iris.py')}"),
+            os.system(f"python {os.path.join(folder, 'iris.py')} --ci 1"),
             0,
         )
         self.assertEqual(
@@ -32,11 +32,8 @@ class TestExample(unittest.TestCase):
             import sklearn
         except:
             return
-        folder = os.path.join(examples_folder, "mlflow")
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'california_with_mlflow.py')}"),
-            0,
-        )
+        path = os.path.join(examples_folder, "mlflow", "california_with_mlflow.py")
+        self.assertEqual(os.system(f"python {path} --ci 1"), 0)
         self.assertTrue(os.path.isdir("mlruns"))
 
     def test_titanic(self) -> None:
