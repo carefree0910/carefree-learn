@@ -26,6 +26,19 @@ class TestExample(unittest.TestCase):
             0,
         )
 
+    def test_mlflow(self) -> None:
+        try:
+            import mlflow
+            import sklearn
+        except:
+            return
+        folder = os.path.join(examples_folder, "mlflow")
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'california_with_mlflow.py')}"),
+            0,
+        )
+        self.assertTrue(os.path.isdir("mlruns"))
+
     def test_titanic(self) -> None:
         folder = os.path.join(examples_folder, "titanic")
         self.assertEqual(
