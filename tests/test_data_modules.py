@@ -129,6 +129,13 @@ class TestDataModules(unittest.TestCase):
             [[2, 3], [4, 5], [6, 7], [8, 9], [10, 11]],
         )
 
+    def test_tensor_batcher(self) -> None:
+        data: cflearn.TensorDictData = cflearn.TensorDictData.init()
+        data.fit(dict(x1=torch.tensor([1]), x2=np.array(["foo"])))
+        b = cflearn.TensorBatcher(data.get_loaders()[0], "cpu").get_full_batch()
+        self.assertEqual(b["x1"].item(), 1)
+        self.assertEqual(b["x2"].item(), "foo")
+
 
 if __name__ == "__main__":
     unittest.main()
