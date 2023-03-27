@@ -69,7 +69,7 @@ class MLAdvancedProcessorConfig(MLBundledProcessorConfig):
     """
 
     @property
-    def default_block_names(self) -> List[str]:
+    def default_blocks(self) -> List[Type[IDataBlock]]:
         return []
 
 
