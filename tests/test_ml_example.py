@@ -13,18 +13,9 @@ class TestExample(unittest.TestCase):
         except:
             return
         folder = os.path.join(examples_folder, "simple")
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'iris.py')} --ci 1"),
-            0,
-        )
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'california.py')} --ci 1"),
-            0,
-        )
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'toy.py')} --ci 1"),
-            0,
-        )
+        for file in ["iris", "california", "toy"]:
+            path = os.path.join(folder, f"{file}.py")
+            self.assertEqual(os.system(f"python {path} --ci 1"), 0)
 
     def test_mlflow(self) -> None:
         try:
