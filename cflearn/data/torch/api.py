@@ -284,8 +284,6 @@ class TensorLoader(IArrayLoader):
 
 
 class TensorDataMixin(ABC):
-    dataset_base: Type[TTensorDataset]
-
     config: DataConfig
     bundle: DataBundle
     processor: DataProcessor
@@ -337,16 +335,12 @@ class TensorDataMixin(ABC):
 
 @IData.register("tensor")
 class TensorData(TensorDataMixin, IData):  # type: ignore
-    dataset_base = TensorDataset
-
     def get_dataset(self, data_args: tuple) -> TensorDataset:
         return TensorDataset(*data_args[:2], self.processor, data_args[-1])  # type: ignore
 
 
 @IData.register("tensor_dict")
 class TensorDictData(TensorDataMixin, IData):  # type: ignore
-    dataset_base = TensorDictDataset
-
     def get_dataset(self, data_args: tuple) -> TensorDictDataset:
         return TensorDictDataset(*data_args[:2], self.processor)  # type: ignore
 
