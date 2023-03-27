@@ -22,13 +22,12 @@ from torch.utils.data import SequentialSampler
 from torch.utils.data.dataloader import _BaseDataLoaderIter
 from torch.utils.data.distributed import DistributedSampler
 
-from ..utils import IArrayLoader
 from ..utils import IArrayDataset
 from ..utils import IArrayDictDataset
+from ..utils import IArrayDataMixin
 from ...schema import IData
 from ...schema import IDataset
 from ...schema import IDLModel
-from ...schema import DataBundle
 from ...schema import DataConfig
 from ...schema import IDataLoader
 from ...schema import DataProcessor
@@ -266,9 +265,6 @@ class TorchData(IData):
 # (pure) tensor data
 
 
-TTensorDataset = Union["TensorDataset", "TensorDictDataset"]
-
-
 class TensorDataset(IArrayDataset):
     def before_load(self, npd: np_dict_type) -> tensor_dict_type:
         return np_batch_to_tensor(npd)
@@ -279,68 +275,14 @@ class TensorDictDataset(IArrayDictDataset):
         return np_batch_to_tensor(npd)
 
 
-class TensorLoader(IArrayLoader):
-    pass
-
-
-class TensorDataMixin(ABC):
-    config: DataConfig
-    bundle: DataBundle
-    processor: DataProcessor
-    train_dataset: TTensorDataset
-    valid_dataset: Optional[TTensorDataset]
-    train_weights: Optional[np.ndarray]
-    valid_weights: Optional[np.ndarray]
-
-    @abstractmethod
-    def get_dataset(self, data_args: tuple) -> TTensorDataset:
-        pass
-
-    @property
-    def train_kw(self) -> Dict[str, Any]:
-        return dict(
-            batch_size=self.config.batch_size,
-            shuffle=self.config.shuffle_train,
-            sample_weights=self.train_weights,
-        )
-
-    @property
-    def valid_kw(self) -> Dict[str, Any]:
-        return dict(
-            batch_size=self.config.valid_batch_size or self.config.batch_size,
-            shuffle=self.config.shuffle_valid,
-            sample_weights=self.valid_weights,
-        )
-
-    def get_loaders(self) -> Tuple[TensorLoader, Optional[TensorLoader]]:
-        if not self.processor.is_ready:
-            raise ValueError(
-                "`processor` should be ready before calling `initialize`, "
-                "did you forget to call the `prepare` method first?"
-            )
-        if self.bundle is None:
-            raise ValueError(
-                "`bundle` property is not initialized, "
-                "did you forget to call the `fit` method first?"
-            )
-        self.train_dataset = self.get_dataset(self.bundle.train_args)
-        train_loader = TensorLoader(self.train_dataset, **self.train_kw)
-        if self.bundle.x_valid is None:
-            valid_loader = None
-        else:
-            self.valid_dataset = self.get_dataset(self.bundle.valid_args)
-            valid_loader = TensorLoader(self.valid_dataset, **self.valid_kw)
-        return train_loader, valid_loader
-
-
 @IData.register("tensor")
-class TensorData(TensorDataMixin, IData):  # type: ignore
+class TensorData(IArrayDataMixin, IData):  # type: ignore
     def get_dataset(self, data_args: tuple) -> TensorDataset:
         return TensorDataset(*data_args[:2], self.processor, data_args[-1])  # type: ignore
 
 
 @IData.register("tensor_dict")
-class TensorDictData(TensorDataMixin, IData):  # type: ignore
+class TensorDictData(IArrayDataMixin, IData):  # type: ignore
     def get_dataset(self, data_args: tuple) -> TensorDictDataset:
         return TensorDictDataset(*data_args[:2], self.processor)  # type: ignore
 
@@ -375,7 +317,6 @@ __all__ = [
     "TorchData",
     "TensorDataset",
     "TensorDictDataset",
-    "TensorLoader",
     "TensorData",
     "TensorDictData",
     "predict_tensor_data",

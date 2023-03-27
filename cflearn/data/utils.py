@@ -3,7 +3,10 @@ import torch
 import numpy as np
 
 from abc import abstractmethod
+from abc import ABC
 from abc import ABCMeta
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
@@ -14,6 +17,8 @@ from cftool.array import arr_type
 from cftool.array import to_device
 
 from ..schema import IDataset
+from ..schema import DataBundle
+from ..schema import DataConfig
 from ..schema import IDataLoader
 from ..schema import DataProcessor
 from ..constants import INPUT_KEY
@@ -26,6 +31,7 @@ from ..misc.toolkit import tensor_batch_to_np
 
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
 TArrayDict = Union[np_dict_type, tensor_dict_type]
+TArrayDataset = Union["IArrayDataset", "IArrayDictDataset"]
 
 
 def get_weighted_indices(
@@ -129,7 +135,7 @@ class IArrayDictDataset(IDataset, metaclass=ABCMeta):
         pass
 
 
-class IArrayLoader(IDataLoader):
+class ArrayLoader(IDataLoader):
     dataset: IDataset
 
     cursor: int
@@ -159,7 +165,7 @@ class IArrayLoader(IDataLoader):
         self.shuffle_backup = shuffle
         self.sample_weights = sample_weights
 
-    def __iter__(self) -> "IArrayLoader":
+    def __iter__(self) -> "ArrayLoader":
         self.cursor = 0
         self.indices = get_weighted_indices(len(self.dataset), self.sample_weights)
         if self.shuffle:
@@ -182,13 +188,63 @@ class IArrayLoader(IDataLoader):
     def recover_shuffle(self) -> None:
         self.shuffle = self.shuffle_backup
 
-    def copy(self) -> "IArrayLoader":
+    def copy(self) -> "ArrayLoader":
         return self.__class__(
             self.dataset,
             self.batch_size,
             shuffle=self.shuffle,
             sample_weights=self.sample_weights,
         )
+
+
+class IArrayDataMixin(ABC):
+    config: DataConfig
+    bundle: DataBundle
+    processor: DataProcessor
+    train_dataset: TArrayDataset
+    valid_dataset: Optional[TArrayDataset]
+    train_weights: Optional[np.ndarray]
+    valid_weights: Optional[np.ndarray]
+
+    @property
+    def train_kw(self) -> Dict[str, Any]:
+        return dict(
+            batch_size=self.config.batch_size,
+            shuffle=self.config.shuffle_train,
+            sample_weights=self.train_weights,
+        )
+
+    @property
+    def valid_kw(self) -> Dict[str, Any]:
+        return dict(
+            batch_size=self.config.valid_batch_size or self.config.batch_size,
+            shuffle=self.config.shuffle_valid,
+            sample_weights=self.valid_weights,
+        )
+
+    def get_loaders(self) -> Tuple[ArrayLoader, Optional[ArrayLoader]]:
+        if not self.processor.is_ready:
+            raise ValueError(
+                "`processor` should be ready before calling `initialize`, "
+                "did you forget to call the `prepare` method first?"
+            )
+        if self.bundle is None:
+            raise ValueError(
+                "`bundle` property is not initialized, "
+                "did you forget to call the `fit` method first?"
+            )
+        self.train_dataset = self.get_dataset(self.bundle.train_args)
+        train_loader = ArrayLoader(self.train_dataset, **self.train_kw)
+        if self.bundle.x_valid is None:
+            valid_loader = None
+        else:
+            self.valid_dataset = self.get_dataset(self.bundle.valid_args)
+            valid_loader = ArrayLoader(self.valid_dataset, **self.valid_kw)
+        return train_loader, valid_loader
+
+    @abstractmethod
+    def get_dataset(self, data_args: tuple) -> TArrayDataset:
+        pass
 
 
 class TensorBatcher:
@@ -214,6 +270,9 @@ class TensorBatcher:
 
 __all__ = [
     "get_weighted_indices",
-    "IArrayLoader",
+    "IArrayDataset",
+    "IArrayDictDataset",
+    "ArrayLoader",
+    "IArrayDataMixin",
     "TensorBatcher",
 ]

@@ -23,7 +23,7 @@ from ..blocks import NanHandlerBlock
 from ..blocks import MLNanHandlerConfig
 from ..blocks import PreProcessorBlock
 from ..blocks import MLPreProcessConfig
-from ..utils import IArrayLoader
+from ..utils import ArrayLoader
 from ...types import data_type
 from ...types import sample_weights_type
 from ...schema import IData
@@ -126,7 +126,7 @@ class MLDataset(IDataset):
         return batch
 
 
-class MLLoader(IArrayLoader):
+class MLLoader(ArrayLoader):
     pass
 
 
