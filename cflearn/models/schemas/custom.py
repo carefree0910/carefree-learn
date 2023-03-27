@@ -12,7 +12,6 @@ from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from torch.optim import Optimizer
-from cftool.array import to_device
 from cftool.types import tensor_dict_type
 from torch.cuda.amp import autocast
 
@@ -254,7 +253,6 @@ class ModelWithCustomSteps(IDLModel, metaclass=ABCMeta):
         for i, batch in enumerate(tensor_batcher):
             if i / len(tensor_batcher) >= portion:
                 break
-            batch = to_device(batch, device)
             out = self.evaluate(i, batch, state, loss_score_fn, forward_kwargs or {})
             final_scores.append(out.final_score)
             for k, v in out.metric_values.items():
