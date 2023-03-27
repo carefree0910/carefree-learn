@@ -314,7 +314,7 @@ class DataBundle(DataClassBase):
 
     def to_npd(self) -> np_dict_type:
         def _to_np(key: str, data: Union[np.ndarray, Tensor]) -> np.ndarray:
-            if isinstance(v, np.ndarray):
+            if isinstance(data, np.ndarray):
                 return data
             tensor_keys.append(key)
             return to_numpy(data)
