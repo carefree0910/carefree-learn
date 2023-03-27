@@ -24,11 +24,11 @@ from ..blocks import MLNanHandlerConfig
 from ..blocks import PreProcessorBlock
 from ..blocks import MLPreProcessConfig
 from ..utils import ArrayLoader
+from ..utils import IArrayDataset
 from ...types import data_type
 from ...types import sample_weights_type
 from ...schema import IData
 from ...schema import IDataBlock
-from ...schema import IDataset
 from ...schema import DataConfig
 from ...schema import DataProcessor
 from ...schema import DataProcessorConfig
@@ -91,7 +91,9 @@ class MLDataProcessor(DataProcessor):
         return MLBatch(x[indices], None if y is None else y[indices])
 
 
-class MLDataset(IDataset):
+class MLDataset(IArrayDataset):
+    others: np_dict_type
+
     def __init__(
         self,
         x: np.ndarray,
@@ -182,7 +184,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
                 **(self.bundle.valid_others or {}),
             )
         train_loader = MLLoader(
-            self.train_dataset,  # type: ignore
+            self.train_dataset,
             shuffle=self.config.shuffle_train,
             batch_size=self.config.batch_size,
             sample_weights=self.train_weights,
@@ -193,7 +195,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
             # when `for_inference` is True, `valid_data` will always be `None`
             # so we don't need to condition `name` field here
             valid_loader = MLLoader(
-                self.valid_dataset,  # type: ignore
+                self.valid_dataset,
                 shuffle=self.config.shuffle_valid,
                 batch_size=self.config.valid_batch_size or self.config.batch_size,
                 sample_weights=self.valid_weights,
@@ -229,7 +231,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
         x, y = bundle.x_train, bundle.y_train
         dataset = MLDataset(x, y, MLDatasetTag.TRAIN, self.processor, **others)
         loader = MLLoader(
-            dataset,  # type: ignore
+            dataset,
             shuffle=shuffle,
             batch_size=batch_size
             or self.config.valid_batch_size
