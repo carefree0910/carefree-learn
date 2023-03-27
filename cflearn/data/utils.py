@@ -173,7 +173,7 @@ class ArrayLoader(IDataLoader):
             np.random.shuffle(self.indices)
         return self
 
-    def __next__(self) -> Union[np_dict_type, tensor_dict_type]:
+    def __next__(self) -> TArrayDict:
         start = self.cursor
         if start >= len(self.dataset):
             raise StopIteration
