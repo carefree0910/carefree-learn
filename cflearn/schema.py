@@ -271,6 +271,16 @@ class IDataLoader(ABC):
         return full_batch
 
 
+class DataArgs(NamedTuple):
+    x: TDataBundleItem
+    y: TDataBundleItem
+    others: Optional[np_dict_type]
+
+    @property
+    def xy(self) -> Tuple[TDataBundleItem, TDataBundleItem]:
+        return self.x, self.y
+
+
 @dataclass
 class DataBundle(DataClassBase):
     x_train: TDataBundleItem
@@ -281,12 +291,12 @@ class DataBundle(DataClassBase):
     valid_others: Optional[np_dict_type] = None
 
     @property
-    def train_args(self) -> tuple:
-        return self.x_train, self.y_train, self.train_others
+    def train_args(self) -> DataArgs:
+        return DataArgs(self.x_train, self.y_train, self.train_others)
 
     @property
-    def valid_args(self) -> tuple:
-        return self.x_valid, self.y_valid, self.valid_others
+    def valid_args(self) -> DataArgs:
+        return DataArgs(self.x_valid, self.y_valid, self.valid_others)
 
     def copy(self) -> "DataBundle":
         return DataBundle(*map(copy_data, self.attributes))

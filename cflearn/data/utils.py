@@ -17,6 +17,7 @@ from cftool.array import arr_type
 from cftool.array import to_device
 
 from ..schema import IDataset
+from ..schema import DataArgs
 from ..schema import DataBundle
 from ..schema import DataConfig
 from ..schema import IDataLoader
@@ -243,7 +244,7 @@ class IArrayDataMixin(ABC):
         return train_loader, valid_loader
 
     @abstractmethod
-    def get_dataset(self, data_args: tuple) -> TArrayDataset:
+    def get_dataset(self, data_args: DataArgs) -> TArrayDataset:
         pass
 
 

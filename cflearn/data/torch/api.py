@@ -28,6 +28,7 @@ from ..utils import IArrayDataMixin
 from ...schema import IData
 from ...schema import IDataset
 from ...schema import IDLModel
+from ...schema import DataArgs
 from ...schema import DataConfig
 from ...schema import IDataLoader
 from ...schema import DataProcessor
@@ -277,14 +278,14 @@ class TensorDictDataset(IArrayDictDataset):
 
 @IData.register("tensor")
 class TensorData(IArrayDataMixin, IData):  # type: ignore
-    def get_dataset(self, data_args: tuple) -> TensorDataset:
-        return TensorDataset(*data_args[:2], self.processor, data_args[-1])  # type: ignore
+    def get_dataset(self, data_args: DataArgs) -> TensorDataset:
+        return TensorDataset(*data_args.xy, self.processor, data_args.others)  # type: ignore
 
 
 @IData.register("tensor_dict")
 class TensorDictData(IArrayDataMixin, IData):  # type: ignore
-    def get_dataset(self, data_args: tuple) -> TensorDictDataset:
-        return TensorDictDataset(*data_args[:2], self.processor)  # type: ignore
+    def get_dataset(self, data_args: DataArgs) -> TensorDictDataset:
+        return TensorDictDataset(*data_args.xy, self.processor)  # type: ignore
 
 
 def predict_tensor_data(
