@@ -39,6 +39,7 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import truncate_string_to_length
 from cftool.misc import DownloadProgressBar
 from cftool.array import to_torch
+from cftool.array import is_string
 from cftool.array import to_standard
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
@@ -417,7 +418,7 @@ def is_cpu(device: Union[int, str, torch.device]) -> bool:
 
 def np_batch_to_tensor(np_batch: np_dict_type) -> tensor_dict_type:
     return {
-        k: v if not isinstance(v, np.ndarray) else to_torch(v)
+        k: v if not isinstance(v, np.ndarray) or is_string(v) else to_torch(v)
         for k, v in np_batch.items()
     }
 
