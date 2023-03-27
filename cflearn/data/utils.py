@@ -223,6 +223,32 @@ class IArrayDataMixin(ABC):
             sample_weights=self.valid_weights,
         )
 
+    def fit(
+        self: "IArrayDataMixin",
+        x_train: arr_type,
+        y_train: Optional[arr_type] = None,
+        x_valid: Optional[arr_type] = None,
+        y_valid: Optional[arr_type] = None,
+        train_others: Optional[TArrayDict] = None,
+        valid_others: Optional[TArrayDict] = None,
+        *args: Any,
+        **kwargs: Any,
+    ) -> "IArrayDataMixin":
+        if train_others is not None:
+            train_others = tensor_batch_to_np(train_others)
+        if valid_others is not None:
+            valid_others = tensor_batch_to_np(valid_others)
+        return super().fit(  # type: ignore
+            x_train,
+            y_train,
+            x_valid,
+            y_valid,
+            train_others,
+            valid_others,
+            *args,
+            **kwargs,
+        )
+
     def get_loaders(self) -> Tuple[ArrayLoader, Optional[ArrayLoader]]:
         if not self.processor.is_ready:
             raise ValueError(
