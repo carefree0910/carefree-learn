@@ -34,6 +34,28 @@ class TestDataModules(unittest.TestCase):
         diff = target_keys - set(b1.keys())
         self.assertEqual(len(diff), 0)
 
+    def test_numpy_data(self) -> None:
+        x_train = np.random.randn(10, 13)
+        x_other1 = np.random.randn(10, 13)
+        x_other2 = np.random.randn(10, 13)
+        y_train = np.random.randn(10, 3)
+        data = cflearn.NumpyData.init(config=data_config).fit(
+            x_train,
+            y_train,
+            train_others={"other1": x_other1, "other2": x_other2},
+        )
+        self._test_data("numpy", data, {"input", "labels", "other1", "other2"})
+
+    def test_numpy_dict_data(self) -> None:
+        x_train = np.random.randn(10, 13)
+        x_other1 = np.random.randn(10, 13)
+        x_other2 = np.random.randn(10, 13)
+        y_train = np.random.randn(10, 3)
+        data = cflearn.NumpyDictData.init(config=data_config).fit(
+            {"main": x_train, "other1": x_other1, "other2": x_other2}, y_train
+        )
+        self._test_data("numpy_dict", data, {"main", "labels", "other1", "other2"})
+
     def test_tensor_data(self) -> None:
         x_train = torch.rand(10, 13)
         x_other1 = torch.rand(10, 13)
