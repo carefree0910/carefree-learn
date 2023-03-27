@@ -11,7 +11,6 @@ from typing import Union
 from typing import Optional
 from cftool.array import to_numpy
 from cftool.types import np_dict_type
-from torch.utils.data import Dataset
 from torch.utils.data import Sampler
 from torch.utils.data import DataLoader
 from torch.utils.data import SequentialSampler
@@ -29,7 +28,7 @@ from ...misc.toolkit import get_world_size
 
 
 class TorchDataset(IDataset):
-    def __init__(self, dataset: Dataset, processor: DataProcessor) -> None:
+    def __init__(self, dataset: IDataset, processor: DataProcessor) -> None:
         self.dataset = dataset
         self.processor = processor
 
@@ -151,7 +150,7 @@ class TorchDataConfig(DataConfig):
 @IData.register("torch")
 class TorchData(IData):
     """
-    A thin wrapper for general pytorch Datasets.
+    A thin wrapper for general Datasets, utilizing the `DataLoader` system from pytorch.
 
     Examples
     --------
@@ -174,8 +173,8 @@ class TorchData(IData):
     """
 
     config: TorchDataConfig
-    train_dataset: Dataset
-    valid_dataset: Optional[Dataset]
+    train_dataset: IDataset
+    valid_dataset: Optional[IDataset]
 
     # inheritance
 
@@ -214,13 +213,13 @@ class TorchData(IData):
                 "`bundle` property is not initialized, "
                 "did you forget to call the `fit` method first?"
             )
-        self.train_dataset = TorchDataset(self.bundle.x_train, self.processor)
+        self.train_dataset = TorchDataset(self.bundle.x_train, self.processor)  # type: ignore
         train_loader = self._make_loader(self.train_kw)
         if self.bundle.x_valid is None:
             self.valid_dataset = None
             valid_loader = None
         else:
-            self.valid_dataset = TorchDataset(self.bundle.x_valid, self.processor)
+            self.valid_dataset = TorchDataset(self.bundle.x_valid, self.processor)  # type: ignore
             valid_loader = self._make_loader(self.valid_kw)
         return train_loader, valid_loader  # type: ignore
 
@@ -236,18 +235,19 @@ class TorchData(IData):
     @classmethod
     def build(
         cls,
-        train_dataset: Dataset,
-        valid_dataset: Optional[Dataset] = None,
+        x_train: Union[IDataset, Any],
+        x_valid: Optional[Union[IDataset, Any]] = None,
         *,
         config: Optional[TorchDataConfig] = None,
         processor_config: Optional[DataProcessorConfig] = None,
     ) -> "TorchData":
         self: TorchData = cls.init(config, processor_config)
-        self.fit(train_dataset, x_valid=valid_dataset)
+        self.fit(x_train, x_valid=x_valid)
         return self
 
 
 __all__ = [
+    "TorchDataset",
     "TorchDataLoader",
     "TorchDataConfig",
     "TorchData",
