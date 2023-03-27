@@ -182,7 +182,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
                 **(self.bundle.valid_others or {}),
             )
         train_loader = MLLoader(
-            self.train_dataset,
+            self.train_dataset,  # type: ignore
             shuffle=self.config.shuffle_train,
             batch_size=self.config.batch_size,
             sample_weights=self.train_weights,
@@ -193,7 +193,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
             # when `for_inference` is True, `valid_data` will always be `None`
             # so we don't need to condition `name` field here
             valid_loader = MLLoader(
-                self.valid_dataset,
+                self.valid_dataset,  # type: ignore
                 shuffle=self.config.shuffle_valid,
                 batch_size=self.config.valid_batch_size or self.config.batch_size,
                 sample_weights=self.valid_weights,
@@ -229,7 +229,7 @@ class MLData(IData["MLData"], metaclass=ABCMeta):
         x, y = bundle.x_train, bundle.y_train
         dataset = MLDataset(x, y, MLDatasetTag.TRAIN, self.processor, **others)
         loader = MLLoader(
-            dataset,
+            dataset,  # type: ignore
             shuffle=shuffle,
             batch_size=batch_size
             or self.config.valid_batch_size

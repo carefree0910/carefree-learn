@@ -141,7 +141,7 @@ class IArrayDictDataset(IDataset, metaclass=ABCMeta):
 
 
 class ArrayLoader(IDataLoader):
-    dataset: IDataset
+    dataset: TArrayDataset
 
     cursor: int
     indices: np.ndarray
@@ -152,7 +152,7 @@ class ArrayLoader(IDataLoader):
 
     def __init__(
         self,
-        dataset: IDataset,
+        dataset: TArrayDataset,
         batch_size: int = 128,
         *,
         shuffle: bool = False,
