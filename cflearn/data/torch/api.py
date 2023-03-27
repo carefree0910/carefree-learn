@@ -4,7 +4,6 @@ import numpy as np
 
 from abc import abstractmethod
 from abc import ABC
-from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
@@ -24,6 +23,8 @@ from torch.utils.data.dataloader import _BaseDataLoaderIter
 from torch.utils.data.distributed import DistributedSampler
 
 from ..utils import IArrayLoader
+from ..utils import IArrayDataset
+from ..utils import IArrayDictDataset
 from ...schema import IData
 from ...schema import IDataset
 from ...schema import IDLModel
@@ -32,15 +33,11 @@ from ...schema import DataConfig
 from ...schema import IDataLoader
 from ...schema import DataProcessor
 from ...schema import DataProcessorConfig
-from ...constants import INPUT_KEY
-from ...constants import LABEL_KEY
-from ...constants import ORIGINAL_LABEL_KEY
 from ...data.utils import TensorBatcher
 from ...misc.toolkit import get_device
 from ...misc.toolkit import get_ddp_info
 from ...misc.toolkit import get_world_size
 from ...misc.toolkit import np_batch_to_tensor
-from ...misc.toolkit import tensor_batch_to_np
 from ...misc.toolkit import eval_context
 
 
@@ -272,87 +269,18 @@ class TorchData(IData):
 TTensorDataset = Union["TensorDataset", "TensorDictDataset"]
 
 
-class TensorDataset(IDataset):
-    def __init__(
-        self,
-        x: Tensor,
-        y: Optional[Tensor],
-        processor: DataProcessor,
-        others: Optional[tensor_dict_type] = None,
-    ):
-        self.x = x
-        self.y = y
-        self.processor = processor
-        self.others = others
-
-    def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> tensor_dict_type:
-        batch = {INPUT_KEY: self.x[item]}
-        if self.y is not None:
-            label = self.y[item]
-            batch.update({LABEL_KEY: label, ORIGINAL_LABEL_KEY: label})
-        if self.others is not None:
-            for k, v in self.others.items():
-                batch[k] = v[item]
-        batch = self.processor.postprocess_item(batch)
-        return batch
-
-    def __len__(self) -> int:
-        return len(self.x)
-
-    def to_npd(self) -> np_dict_type:
-        tensors = dict(x=self.x)
-        if self.y is not None:
-            tensors["y"] = self.y
-        if self.others is not None:
-            tensors.update(self.others)
-        return tensor_batch_to_np(tensors)
-
-    def from_npd(self, npd: np_dict_type) -> None:
-        tensors = np_batch_to_tensor(npd)
-        self.x = tensors.pop("x")
-        self.y = tensors.pop("y", None)
-        self.others = tensors
+class TensorDataset(IArrayDataset):
+    def before_load(self, npd: np_dict_type) -> tensor_dict_type:
+        return np_batch_to_tensor(npd)
 
 
-class TensorDictDataset(IDataset):
-    def __init__(
-        self,
-        x: tensor_dict_type,
-        y: Optional[Tensor],
-        processor: DataProcessor,
-    ):
-        self.x = x
-        self.y = y
-        self.processor = processor
-        self.x_keys = sorted(self.x)
-
-    def __getitem__(self, item: Union[int, List[int], np.ndarray]) -> tensor_dict_type:
-        batch = {k: self.x[k][item] for k in self.x_keys}
-        if self.y is not None:
-            label = self.y[item]
-            batch.update({LABEL_KEY: label, ORIGINAL_LABEL_KEY: label})
-        batch = self.processor.postprocess_item(batch)
-        return batch
-
-    def __len__(self) -> int:
-        return len(self.x[self.x_keys[0]])
-
-    def to_npd(self) -> np_dict_type:
-        tensors = self.x
-        if self.y is not None:
-            tensors["y"] = self.y
-        return tensor_batch_to_np(tensors)
-
-    def from_npd(self, npd: np_dict_type) -> None:
-        tensors = np_batch_to_tensor(npd)
-        self.y = tensors.pop("y", None)
-        self.x = tensors
-        self.x_keys = sorted(self.x)
+class TensorDictDataset(IArrayDictDataset):
+    def before_load(self, npd: np_dict_type) -> tensor_dict_type:
+        return np_batch_to_tensor(npd)
 
 
 class TensorLoader(IArrayLoader):
-    def __next__(self) -> np_dict_type:
-        return tensor_batch_to_np(super().__next__())
+    pass
 
 
 class TensorDataMixin(ABC):
