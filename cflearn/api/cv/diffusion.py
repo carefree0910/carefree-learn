@@ -371,7 +371,6 @@ class DiffusionAPI(APIMixin):
                     self.cond_model,
                     TensorData.init().fit(np.array(cond)),
                     batch_size=batch_size,
-                    to_tensor=False,
                 )[PREDICTIONS_KEY]
         if cond is not None and num_samples != len(cond):
             raise ValueError(

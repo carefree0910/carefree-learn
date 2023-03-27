@@ -283,7 +283,6 @@ def predict_array_data(
     data: IArrayDataMixin,
     *,
     batch_size: Optional[int] = None,
-    to_tensor: bool = True,
     **predict_kwargs: Any,
 ) -> Any:
     if batch_size is not None:
@@ -291,9 +290,8 @@ def predict_array_data(
     loader = data.get_loaders()[0]
     results = []
     with eval_context(m):
-        if to_tensor:
-            loader = TensorBatcher(loader, get_device(m))  # type: ignore
-        for i, batch in enumerate(loader):
+        tensor_batcher = TensorBatcher(loader, get_device(m))
+        for i, batch in enumerate(tensor_batcher):
             batch = shallow_copy_dict(batch)
             results.append(m.run(i, batch, **predict_kwargs))
     final = {}
