@@ -49,12 +49,12 @@ from ..utils import APIMixin
 from .third_party import MiDaSAPI
 from .third_party import MLSDDetector
 from .third_party import OpenposeDetector
-from ...data import predict_tensor_data
 from ...data import TensorData
 from ...schema import DataConfig
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 from ...parameters import OPT
+from ...data.utils import predict_array_data
 from ...data.utils import TensorBatcher
 from ...misc.toolkit import slerp
 from ...misc.toolkit import new_seed
@@ -367,7 +367,7 @@ class DiffusionAPI(APIMixin):
                     self.cond_model.register_custom(custom_embeddings)
         if cond is not None:
             if self.cond_type != CONCAT_TYPE and self.cond_model is not None:
-                cond = predict_tensor_data(
+                cond = predict_array_data(
                     self.cond_model,
                     TensorData.init().fit(np.array(cond)),
                     batch_size=batch_size,

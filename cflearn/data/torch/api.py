@@ -2,8 +2,6 @@ import torch
 
 import numpy as np
 
-from abc import abstractmethod
-from abc import ABC
 from typing import Any
 from typing import Dict
 from typing import List
@@ -11,7 +9,6 @@ from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Optional
-from cftool.misc import shallow_copy_dict
 from cftool.array import to_numpy
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
@@ -27,18 +24,14 @@ from ..utils import IArrayDictDataset
 from ..utils import IArrayDataMixin
 from ...schema import IData
 from ...schema import IDataset
-from ...schema import IDLModel
 from ...schema import DataArgs
 from ...schema import DataConfig
 from ...schema import IDataLoader
 from ...schema import DataProcessor
 from ...schema import DataProcessorConfig
-from ...data.utils import TensorBatcher
-from ...misc.toolkit import get_device
 from ...misc.toolkit import get_ddp_info
 from ...misc.toolkit import get_world_size
 from ...misc.toolkit import np_batch_to_tensor
-from ...misc.toolkit import eval_context
 
 
 # general torch data
@@ -288,30 +281,6 @@ class TensorDictData(IArrayDataMixin, IData):  # type: ignore
         return TensorDictDataset(*data_args.xy, self.processor)  # type: ignore
 
 
-def predict_tensor_data(
-    m: IDLModel,
-    data: Union[TensorData, TensorDictData],
-    *,
-    batch_size: Optional[int] = None,
-    to_tensor: bool = True,
-    **predict_kwargs: Any,
-) -> Any:
-    if batch_size is not None:
-        data.config.batch_size = batch_size
-    loader = data.get_loaders()[0]
-    results = []
-    with eval_context(m):
-        if to_tensor:
-            loader = TensorBatcher(loader, get_device(m))  # type: ignore
-        for i, batch in enumerate(loader):
-            batch = shallow_copy_dict(batch)
-            results.append(m.run(i, batch, **predict_kwargs))
-    final = {}
-    for k in results[0]:
-        final[k] = torch.cat([rs[k] for rs in results], dim=0)
-    return final
-
-
 __all__ = [
     "TorchDataLoader",
     "TorchDataConfig",
@@ -320,5 +289,4 @@ __all__ = [
     "TensorDictDataset",
     "TensorData",
     "TensorDictData",
-    "predict_tensor_data",
 ]
