@@ -42,8 +42,6 @@ from .schema import MultipleMetrics
 from .schema import TrainerCallback
 from .schema import IInference
 from .schema import IDataLoader
-from .schema import TensorBatcher
-from .schema import ModelWithCustomSteps
 from .schema import IData
 from .schema import TrainerConfig
 from .constants import LOSS_KEY
@@ -51,9 +49,11 @@ from .constants import PT_PREFIX
 from .constants import SCORES_FILE
 from .constants import CHECKPOINTS_FOLDER
 from .data.torch import TorchDataLoader
+from .data.utils import TensorBatcher
 from .misc.toolkit import summary
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import eval_context
+from .models.schemas import ModelWithCustomSteps
 from .modules.schedulers import WarmupScheduler
 
 

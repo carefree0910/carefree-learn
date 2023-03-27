@@ -31,11 +31,11 @@ from ...schema import DataBundle
 from ...schema import DataConfig
 from ...schema import IDataLoader
 from ...schema import DataProcessor
-from ...schema import TensorBatcher
 from ...schema import DataProcessorConfig
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import ORIGINAL_LABEL_KEY
+from ...data.utils import TensorBatcher
 from ...misc.toolkit import get_device
 from ...misc.toolkit import get_ddp_info
 from ...misc.toolkit import get_world_size

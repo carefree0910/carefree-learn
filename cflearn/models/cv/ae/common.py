@@ -19,12 +19,12 @@ from cftool.types import tensor_dict_type
 
 from ..general import PureEncoderDecoder
 from ..gan.discriminators import NLayerDiscriminator
+from ...schemas import CustomTrainStep
+from ...schemas import CustomTrainStepLoss
+from ...schemas import ModelWithCustomSteps
 from ...schemas import GaussianGeneratorMixin
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
-from ....schema import CustomTrainStep
-from ....schema import CustomTrainStepLoss
-from ....schema import ModelWithCustomSteps
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import get_device

@@ -52,10 +52,10 @@ from .third_party import OpenposeDetector
 from ...data import predict_tensor_data
 from ...data import TensorData
 from ...schema import DataConfig
-from ...schema import TensorBatcher
 from ...constants import INPUT_KEY
 from ...constants import PREDICTIONS_KEY
 from ...parameters import OPT
+from ...data.utils import TensorBatcher
 from ...misc.toolkit import slerp
 from ...misc.toolkit import new_seed
 from ...misc.toolkit import download_model

@@ -36,14 +36,14 @@ from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
+from ...schemas import CustomTrainStep
+from ...schemas import CustomTrainStepLoss
+from ...schemas import ModelWithCustomSteps
 from ...schemas import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
-from ....schema import CustomTrainStep
-from ....schema import CustomTrainStepLoss
-from ....schema import ModelWithCustomSteps
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import freeze

@@ -42,7 +42,6 @@ from ...schema import OptimizerPack
 from ...schema import TrainerMonitor
 from ...schema import DLEnsembleModel
 from ...schema import TrainerCallback
-from ...schema import ModelWithCustomSteps
 from ...schema import loss_dict
 from ...schema import callback_dict
 from ...trainer import get_scores
@@ -55,6 +54,7 @@ from ...constants import SCORES_FILE
 from ...constants import CHECKPOINTS_FOLDER
 from ...misc.toolkit import _get_environ_workspace
 from ...misc.toolkit import scheduler_requires_metric
+from ...models.schemas import ModelWithCustomSteps
 from ...modules.optimizers import optimizer_dict
 from ...modules.schedulers import scheduler_dict
 from ...modules.schedulers import WarmupScheduler

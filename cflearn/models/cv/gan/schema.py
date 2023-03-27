@@ -14,12 +14,11 @@ from typing import Callable
 from typing import Optional
 from cftool.types import tensor_dict_type
 
-from ....schema import ITrainer
+from ...schemas import CustomTrainStep
+from ...schemas import CustomTrainStepLoss
+from ...schemas import ModelWithCustomSteps
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
-from ....schema import CustomTrainStep
-from ....schema import CustomTrainStepLoss
-from ....schema import ModelWithCustomSteps
 from ....constants import LOSS_KEY
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY

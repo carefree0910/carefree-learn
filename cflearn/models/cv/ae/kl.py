@@ -11,8 +11,8 @@ from cftool.types import tensor_dict_type
 from .common import IAutoEncoder
 from .common import AutoEncoderInit
 from .common import AutoEncoderLPIPSWithDiscriminator
+from ...schemas import CustomTrainStepLoss
 from ....schema import IDLModel
-from ....schema import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 

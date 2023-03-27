@@ -1,3 +1,5 @@
+import torch
+
 import numpy as np
 
 from typing import Tuple
@@ -5,10 +7,12 @@ from typing import Union
 from typing import Optional
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
+from cftool.array import to_device
 
 from ..schema import IDataset
 from ..schema import IDataLoader
 from ..constants import BATCH_INDICES_KEY
+from ..misc.toolkit import np_batch_to_tensor
 
 
 TSplitSW = Tuple[Optional[np.ndarray], Optional[np.ndarray]]
@@ -90,7 +94,29 @@ class IArrayLoader(IDataLoader):
         )
 
 
+class TensorBatcher:
+    def __init__(self, loader: IDataLoader, device: torch.device) -> None:
+        self.loader = loader
+        self.device = device
+
+    def __len__(self) -> int:
+        return len(self.loader)
+
+    def __iter__(self) -> "TensorBatcher":
+        self.loader.__iter__()
+        return self
+
+    def __next__(self) -> tensor_dict_type:
+        npd = self.loader.__next__()
+        batch = np_batch_to_tensor(npd)
+        return to_device(batch, self.device)
+
+    def to(self, device: torch.device) -> None:
+        self.device = device
+
+
 __all__ = [
     "get_weighted_indices",
     "IArrayLoader",
+    "TensorBatcher",
 ]
