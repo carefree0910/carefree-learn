@@ -5,11 +5,17 @@ import unittest
 
 import numpy as np
 
+from PIL import Image
 from typing import Set
+from tempfile import TemporaryDirectory
 from cftool.misc import Serializer
+from cflearn.data import TorchData
 from cflearn.schema import IData
+from cflearn.constants import INPUT_KEY
 from cflearn.data.blocks import DataOrder
 from cflearn.data.blocks import DataSplitter
+from cflearn.data.blocks import HWCToCHWBlock
+from cflearn.data.blocks import ImageFolderBlock
 
 
 data_config = cflearn.DataConfig(shuffle_train=False, batch_size=4)
@@ -135,6 +141,38 @@ class TestDataModules(unittest.TestCase):
         b = cflearn.TensorBatcher(data.get_loaders()[0], "cpu").get_full_batch()
         self.assertEqual(b["x1"].item(), 1)
         self.assertEqual(b["x2"].item(), "foo")
+
+    def test_image_folder(self) -> None:
+        num_samples = 5
+        unified_size = 345
+        with TemporaryDirectory() as dir:
+            for i in range(num_samples):
+                i_size = 100 * (i + 1)
+                array = np.random.randint(0, 256, [i_size, i_size + 123, 3], np.uint8)
+                Image.fromarray(array).save(os.path.join(dir, f"{i}.png"))
+            processor_config = cflearn.DataProcessorConfig()
+            processor_config.set_blocks(ImageFolderBlock, HWCToCHWBlock)
+            block_config = dict(
+                preparation_pack=dict(
+                    type="resized",
+                    info=dict(img_size=unified_size, keep_aspect_ratio=False),
+                ),
+                save_data_in_parallel=False,
+            )
+            processor_config.block_configs = dict(image_folder=block_config)
+            data: TorchData = TorchData.build(dir, processor_config=processor_config)
+            data.config.batch_size = 3
+            train_loader, valid_loader = data.get_loaders()
+            common_shapes = 3, unified_size, unified_size
+            for i, batch in enumerate(train_loader):
+                image = batch[INPUT_KEY]
+                if i == 0:
+                    self.assertSequenceEqual(image.shape, (3, *common_shapes))
+                else:
+                    self.assertSequenceEqual(image.shape, (1, *common_shapes))
+            for i, batch in enumerate(valid_loader):  # type: ignore
+                image = batch[INPUT_KEY]
+                self.assertSequenceEqual(image.shape, (1, *common_shapes))
 
 
 if __name__ == "__main__":
