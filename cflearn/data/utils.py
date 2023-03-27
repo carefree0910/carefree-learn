@@ -322,6 +322,9 @@ class TensorBatcher:
     def to(self, device: torch.device) -> None:
         self.device = device
 
+    def get_full_batch(self) -> tensor_dict_type:
+        return np_batch_to_tensor(self.loader.get_full_batch())
+
 
 __all__ = [
     "get_weighted_indices",
