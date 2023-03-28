@@ -83,6 +83,12 @@ class IPreparation(ISerializable):
         """
         return None
 
+    def prepare_src_folder(self, src_folder: str) -> None:
+        """
+        prepare the source folder before other processes happen.
+        * common use case is to 'augment' the source folder beforehand.
+        """
+
     def get_extra_label(self, label_name: str, hierarchy: List[str]) -> Any:
         """
         return extra label.
@@ -268,6 +274,7 @@ def prepare_image_folder(
     if preparation_pack is None:
         preparation_pack = dict(type="default", info={})
     preparation: IPreparation = IPreparation.from_pack(preparation_pack)
+    preparation.prepare_src_folder(src_folder)
 
     if train_all_data:
         valid_split = 0
