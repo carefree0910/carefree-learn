@@ -780,5 +780,8 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
 
 
 __all__ = [
+    "IPreparation",
+    "DefaultPreparation",
+    "ResizedPreparation",
     "ImageFolderBlock",
 ]
