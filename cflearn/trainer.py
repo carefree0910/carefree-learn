@@ -48,8 +48,8 @@ from .constants import LOSS_KEY
 from .constants import PT_PREFIX
 from .constants import SCORES_FILE
 from .constants import CHECKPOINTS_FOLDER
-from .data.torch import TorchDataLoader
 from .data.utils import TensorBatcher
+from .data.pytorch import TorchDataLoader
 from .misc.toolkit import summary
 from .misc.toolkit import get_ddp_info
 from .misc.toolkit import eval_context

@@ -1,6 +1,6 @@
 from .blocks import *
 from .ml import *
-from .torch import *
+from .pytorch import *
 from .array import *
 
 # expose some other stuffs for convenience
