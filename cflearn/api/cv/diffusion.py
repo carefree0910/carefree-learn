@@ -32,7 +32,7 @@ from cftool.cv import ReadImageResponse
 from cftool.misc import safe_execute
 from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
-from cftool.array import arr_type
+from cftool.types import arr_type
 from cftool.types import tensor_dict_type
 
 from ..zoo import ldm_sd

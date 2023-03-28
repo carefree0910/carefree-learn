@@ -11,10 +11,10 @@ from typing import Tuple
 from typing import Union
 from typing import Optional
 from cftool.misc import shallow_copy_dict
+from cftool.array import to_device
+from cftool.types import arr_type
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
-from cftool.array import arr_type
-from cftool.array import to_device
 
 from ..schema import IDataset
 from ..schema import IDLModel

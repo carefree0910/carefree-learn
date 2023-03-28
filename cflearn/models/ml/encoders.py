@@ -12,8 +12,8 @@ from typing import List
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
-from cftool.array import arr_type
 from cftool.array import to_torch
+from cftool.types import arr_type
 
 from ...schema import MLEncoderSettings
 from ...schema import MLGlobalEncoderSettings

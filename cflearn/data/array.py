@@ -4,8 +4,8 @@ from abc import abstractmethod
 from typing import List
 from typing import Union
 from typing import Optional
+from cftool.types import arr_type
 from cftool.types import np_dict_type
-from cftool.array import arr_type
 
 from .utils import TArrayDict
 from .utils import IArrayDataset
