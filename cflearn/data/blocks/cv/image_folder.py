@@ -99,7 +99,12 @@ class IPreparation(ISerializable):
         return {}
 
     def from_info(self, info: Dict[str, Any]) -> None:
-        pass
+        """
+        `IPreparation` will not be created from scratch, and will always be
+        instantiated with the `from_pack` method. So if we need to assign
+        some attributes, we need to do them here.
+        * See `ResizedPreparation` below as an example.
+        """
 
     # api
 
