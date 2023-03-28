@@ -23,6 +23,7 @@ from typing import NamedTuple
 from cftool.cv import to_rgb
 from cftool.dist import Parallel
 from cftool.misc import walk
+from cftool.misc import hash_dict
 from cftool.misc import is_numeric
 from cftool.misc import print_info
 from cftool.misc import print_error
@@ -44,6 +45,7 @@ except:
     lmdb = None
 
 
+READY_FILE = "READY"
 preparations: Dict[str, Type["IPreparation"]] = {}
 default_image_extensions = {".jpg", ".png", ".jpeg"}
 
@@ -95,15 +97,27 @@ class IPreparation(ISerializable):
 
     # api
 
-    def is_ready(self, tgt_folder: str, valid_split: Union[int, float]) -> bool:
+    def is_ready(
+        self,
+        tgt_folder: str,
+        valid_split: Union[int, float],
+        folder_hash: str,
+    ) -> bool:
         candidates = [DatasetSplit.TRAIN]
         if valid_split > 0:
             candidates.append(DatasetSplit.VALID)
         for split in candidates:
+            split_folder = os.path.join(tgt_folder, split)
             extra_keys = [f"{key}_{LABEL_KEY}" for key in self.extra_labels or []]
             for key in [LABEL_KEY] + extra_keys:
-                path = os.path.join(tgt_folder, split, f"{key}.json")
+                path = os.path.join(split_folder, f"{key}.json")
                 if not os.path.isfile(path):
+                    return False
+            ready_path = os.path.join(split_folder, READY_FILE)
+            if not os.path.isfile(ready_path):
+                return False
+            with open(ready_path, "r") as f:
+                if f.read().strip() != folder_hash:
                     return False
         return True
 
@@ -257,7 +271,19 @@ def prepare_image_folder(
 
     if train_all_data:
         valid_split = 0
-    if not force_rerun and preparation.is_ready(tgt_folder, valid_split):
+    folder_hash = hash_dict(
+        dict(
+            src_folder=src_folder,
+            to_index=to_index,
+            preparation_pack=preparation_pack,
+            extensions=extensions,
+            train_all_data=train_all_data,
+            valid_split=valid_split,
+            max_num_valid=max_num_valid,
+            lmdb_config=lmdb_config,
+        )
+    )
+    if not force_rerun and preparation.is_ready(tgt_folder, valid_split, folder_hash):
         return tgt_folder, preparation.extra_labels
 
     if os.path.isdir(tgt_folder):
@@ -449,38 +475,40 @@ def prepare_image_folder(
         # lmdb
         if lmdb_config is None or lmdb is None:
             if lmdb_config is not None:
-                print_warning(
-                    "`lmdb` is not installed, so `lmdb_config` will be ignored"
+                msg = "`lmdb` is not installed, so `lmdb_config` will be ignored"
+                print_warning(msg)
+        else:
+            local_lmdb_config = shallow_copy_dict(lmdb_config)
+            local_lmdb_config.setdefault("path", default_lmdb_path(tgt_folder, dtype))
+            local_lmdb_config.setdefault("map_size", 1099511627776 * 2)
+            db = lmdb.open(**local_lmdb_config)
+            context = db.begin(write=True)
+            d_num_samples = len(results)
+            iterator = zip(range(d_num_samples), new_paths, all_labels_list)
+            if use_tqdm:
+                iterator = tqdm(iterator, total=d_num_samples, desc="lmdb")
+            for i, path, i_labels in iterator:
+                i_new_labels = {}
+                for k, v in i_labels.items():
+                    vv = v[path]
+                    if isinstance(vv, str):
+                        if vv.endswith(".npy"):
+                            vv = np.load(vv)
+                    i_new_labels[k] = vv
+                context.put(
+                    str(i).encode("ascii"),
+                    dill.dumps(LMDBItem(np.array(Image.open(path)), i_new_labels)),
                 )
-            return None
-        local_lmdb_config = shallow_copy_dict(lmdb_config)
-        local_lmdb_config.setdefault("path", default_lmdb_path(tgt_folder, dtype))
-        local_lmdb_config.setdefault("map_size", 1099511627776 * 2)
-        db = lmdb.open(**local_lmdb_config)
-        context = db.begin(write=True)
-        d_num_samples = len(results)
-        iterator = zip(range(d_num_samples), new_paths, all_labels_list)
-        if use_tqdm:
-            iterator = tqdm(iterator, total=d_num_samples, desc="lmdb")
-        for i, path, i_labels in iterator:
-            i_new_labels = {}
-            for k, v in i_labels.items():
-                vv = v[path]
-                if isinstance(vv, str):
-                    if vv.endswith(".npy"):
-                        vv = np.load(vv)
-                i_new_labels[k] = vv
             context.put(
-                str(i).encode("ascii"),
-                dill.dumps(LMDBItem(np.array(Image.open(path)), i_new_labels)),
+                "length".encode("ascii"),
+                str(d_num_samples).encode("ascii"),
             )
-        context.put(
-            "length".encode("ascii"),
-            str(d_num_samples).encode("ascii"),
-        )
-        context.commit()
-        db.sync()
-        db.close()
+            context.commit()
+            db.sync()
+            db.close()
+        # dump READY
+        with open_dtype_file(READY_FILE) as f_:
+            f_.write(folder_hash)
 
     num_sample = len(all_img_paths)
     if isinstance(valid_split, float):
