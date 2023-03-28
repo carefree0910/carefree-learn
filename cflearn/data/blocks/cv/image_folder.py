@@ -402,7 +402,7 @@ def prepare_image_folder(
                     idx_labels[label_t] = {key: t_labels[idx]}
                 return key, idx_labels
             except Exception as err:
-                print(f"error occurred with {img_path} : {err}")
+                print_error(f"error occurred with {img_path} : {err}")
                 return None
 
         print_info(f"saving {dtype} dataset")
@@ -422,7 +422,7 @@ def prepare_image_folder(
         for sub_labels_ in all_labels_list[1:]:
             for k, v in shallow_copy_dict(sub_labels_).items():
                 merged_labels[k].update(v)
-        print(
+        print_info(
             "\n".join(
                 [
                     "",
