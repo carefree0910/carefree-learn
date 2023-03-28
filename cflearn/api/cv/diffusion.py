@@ -38,7 +38,7 @@ from cftool.types import tensor_dict_type
 from ..zoo import ldm_sd
 from ..zoo import ldm_sd_v2
 from ..zoo import ldm_sd_v2_base
-from ..zoo import ldm_sd_version
+from ..zoo import ldm_sd_tag
 from ..zoo import ldm_sd_inpainting
 from ..zoo import ldm_sr
 from ..zoo import ldm_semantic
@@ -137,20 +137,18 @@ class SDVersions(str, Enum):
 
 def get_sd_tag(version: SDVersions) -> str:
     if version == SDVersions.v1_5_BC:
-        tag = "v1.5"
-    elif version == SDVersions.ANIME:
-        tag = "anime_nai"
-    elif version == SDVersions.ANIME_ANYTHING:
-        tag = "anime_anything_v3"
-    elif version == SDVersions.ANIME_HYBRID:
-        tag = "anime_hybrid_v1"
-    elif version == SDVersions.ANIME_GUOFENG:
-        tag = "anime_guofeng3"
-    elif version == SDVersions.ANIME_ORANGE:
-        tag = "anime_orange2"
-    else:
-        tag = version
-    return f"ldm_sd_{tag}"
+        return "v1.5"
+    if version == SDVersions.ANIME:
+        return "anime_nai"
+    if version == SDVersions.ANIME_ANYTHING:
+        return "anime_anything_v3"
+    if version == SDVersions.ANIME_HYBRID:
+        return "anime_hybrid_v1"
+    if version == SDVersions.ANIME_GUOFENG:
+        return "anime_guofeng3"
+    if version == SDVersions.ANIME_ORANGE:
+        return "anime_orange2"
+    return version
 
 
 def get_txt_cond(t: Union[str, List[str]], n: Optional[int]) -> Tuple[List[str], int]:
@@ -969,13 +967,13 @@ class DiffusionAPI(APIMixin):
     @classmethod
     def from_sd_version(
         cls: Type[T],
-        version: str,
+        version: SDVersions,
         device: Optional[str] = None,
         *,
         use_amp: bool = False,
         use_half: bool = False,
     ) -> T:
-        m = ldm_sd_version(version)
+        m = ldm_sd_tag(get_sd_tag(version))
         return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
@@ -986,8 +984,8 @@ class DiffusionAPI(APIMixin):
         use_amp: bool = False,
         use_half: bool = False,
     ) -> T:
-        m = ldm_sd_version("anime_nai")
-        return cls.from_pipeline(m, device, use_amp=use_amp, use_half=use_half)
+        v = SDVersions.ANIME
+        return cls.from_sd_version(v, device, use_amp=use_amp, use_half=use_half)
 
     @classmethod
     def from_sd_inpainting(

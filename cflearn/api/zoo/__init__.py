@@ -102,8 +102,8 @@ def ldm_sd(pretrained: bool = True, **kwargs: Any) -> TPipeline:
     return _ldm("diffusion/ldm.sd", 64, 4, 4, pretrained=pretrained, **kwargs)
 
 
-def ldm_sd_version(version: str, pretrained: bool = True) -> TPipeline:
-    return ldm_sd(pretrained, download_name=f"ldm_sd_{version}")
+def ldm_sd_tag(tag: str, pretrained: bool = True) -> TPipeline:
+    return ldm_sd(pretrained, download_name=f"ldm_sd_{tag}")
 
 
 def ldm_sd_inpainting(pretrained: bool = True, **kw: Any) -> TPipeline:
