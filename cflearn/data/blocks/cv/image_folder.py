@@ -792,6 +792,7 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
 
 
 __all__ = [
+    "default_image_extensions",
     "IPreparation",
     "DefaultPreparation",
     "ResizedPreparation",
