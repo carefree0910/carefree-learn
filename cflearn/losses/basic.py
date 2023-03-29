@@ -71,7 +71,7 @@ class ReconstructionLoss(ILoss):
         super().__init__(reduction)
         self.base_loss = ILoss.make(base_loss, kwargs)
 
-    def preprocess(
+    def get_forward_args(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,

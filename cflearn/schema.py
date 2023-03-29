@@ -1239,7 +1239,7 @@ class ILoss(nn.Module, WithRegister[TLoss], metaclass=ABCMeta):
 
     # optional callbacks
 
-    def preprocess(
+    def get_forward_args(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
@@ -1265,7 +1265,7 @@ class ILoss(nn.Module, WithRegister[TLoss], metaclass=ABCMeta):
         batch: tensor_dict_type,
         state: Optional[TrainerState] = None,
     ) -> tensor_dict_type:
-        args = self.preprocess(forward_results, batch, state)
+        args = self.get_forward_args(forward_results, batch, state)
         losses = self(*args)
         losses = self.postprocess(losses, batch, state)
         return losses
@@ -1417,7 +1417,7 @@ class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
         """
         return False
 
-    def preprocess(
+    def get_forward_args(
         self,
         np_batch: np_dict_type,
         np_outputs: np_dict_type,
@@ -1433,7 +1433,7 @@ class IMetric(WithRegister["IMetric"], metaclass=ABCMeta):
         np_outputs: np_dict_type,
         loader: Optional[IDataLoader] = None,
     ) -> float:
-        args = self.preprocess(np_batch, np_outputs, loader)
+        args = self.get_forward_args(np_batch, np_outputs, loader)
         return self.forward(*args)
 
     @classmethod

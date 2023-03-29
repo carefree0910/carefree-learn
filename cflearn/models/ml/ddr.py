@@ -248,7 +248,7 @@ class DDRLoss(ILoss):
         self.lb_dual = lb_dual
         self.lb_monotonous = lb_monotonous
 
-    def preprocess(
+    def get_forward_args(
         self,
         forward_results: tensor_dict_type,
         batch: tensor_dict_type,
