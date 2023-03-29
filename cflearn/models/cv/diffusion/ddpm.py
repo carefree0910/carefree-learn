@@ -47,6 +47,7 @@ from ....schema import MetricsOutputs
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import freeze
+from ....misc.toolkit import get_dtype
 from ....misc.toolkit import get_device
 from ....modules.blocks import EMA
 
@@ -396,7 +397,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
 
     def generate_z(self, num_samples: int) -> Tensor:
         shape = num_samples, self.in_channels, self.img_size, self.img_size
-        return torch.randn(shape, device=get_device(self))
+        return torch.randn(shape, dtype=get_dtype(self), device=get_device(self))
 
     def decode(
         self,
