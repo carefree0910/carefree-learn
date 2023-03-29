@@ -1010,8 +1010,8 @@ class DLEnsembleModel(nn.Module):
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        m = self.ms[0]
-        args = m.preprocess(batch_idx, batch, state, **kwargs)
+        m: IDLModel = self.ms[0]
+        args = m.get_forward_args(batch_idx, batch, state, **kwargs)
         forward_results = self(*args)
         outputs = m.postprocess(batch_idx, batch, forward_results, state, **kwargs)
         return outputs
