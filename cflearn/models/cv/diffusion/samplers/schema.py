@@ -88,6 +88,8 @@ class DDPMQSampler(IQSampler):
         timesteps: Tensor,
         noise: Optional[Tensor] = None,
     ) -> Tensor:
+        self.sqrt_alphas = self.sqrt_alphas.to(net)
+        self.sqrt_one_minus_alphas = self.sqrt_one_minus_alphas.to(net)
         num_dim = len(net.shape)
         w_net = extract_to(self.sqrt_alphas, timesteps, num_dim)
         w_noise = extract_to(self.sqrt_one_minus_alphas, timesteps, num_dim)
