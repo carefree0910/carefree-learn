@@ -366,6 +366,16 @@ def prepare_image_folder(
                 if extra_label is None:
                     excluded_indices.add(i)
 
+    # exclude samples
+    if excluded_indices:
+        print_warning(f"{len(excluded_indices)} samples will be excluded")
+    for i in sorted(excluded_indices)[::-1]:
+        labels.pop(i)
+        if extra_labels_dict is not None:
+            for sub_labels in extra_labels_dict.values():
+                sub_labels.pop(i)
+        all_img_paths.pop(i)
+
     def get_raw_2idx(raw_labels: List[Any]) -> Dict[Any, Any]:
         return {
             v: numpy_token if isinstance(v, str) and v.endswith(".npy") else v
@@ -418,14 +428,6 @@ def prepare_image_folder(
                 with open_tgt_file(f"idx2{el_name}.json") as f:
                     eld = {v: k for k, v in extra2idx.items()}
                     json.dump(eld, f, ensure_ascii=False)
-
-    # exclude samples
-    if excluded_indices:
-        print_warning(f"{len(excluded_indices)} samples will be excluded")
-    for i in sorted(excluded_indices)[::-1]:
-        for sub_labels in labels_dict.values():
-            sub_labels.pop(i)
-        all_img_paths.pop(i)
 
     # prepare core
     def save(indices: np.ndarray, d_num_jobs: int, dtype: str) -> None:
