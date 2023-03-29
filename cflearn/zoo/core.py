@@ -125,8 +125,7 @@ class DLZoo:
                 if data is None:
                     msg = "`data` needs to be provided when loading `TrainingPipeline` with `states`"
                     raise ValueError(msg)
-                m.data = data
-                m.prepare()
+                m.prepare(data)
                 m.build_model.model.load_state_dict(states)
         return m
 

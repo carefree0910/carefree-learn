@@ -282,7 +282,9 @@ class TrainingPipeline(
         workspace = prepare_workspace_from("_logs")
         self.config.workspace = workspace
 
-    def prepare(self) -> None:
+    def prepare(self, data: IData, sample_weights: sample_weights_type = None) -> None:
+        self.data = data.set_sample_weights(sample_weights)
+        self.training_workspace = self.config.workspace
         if not self.is_built:
             self.build(*self.building_blocks)
             self.is_built = True
@@ -298,9 +300,7 @@ class TrainingPipeline(
         cuda: Optional[Union[int, str]] = None,
     ) -> "TrainingPipeline":
         # build pipeline
-        self.data = data.set_sample_weights(sample_weights)
-        self.training_workspace = self.config.workspace
-        self.prepare()
+        self.prepare(data, sample_weights)
         # check rank 0
         workspace = self.config.workspace if is_local_rank_0() else None
         # save data info
