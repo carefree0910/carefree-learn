@@ -61,7 +61,10 @@ class IPreparation(ISerializable):
 
     @abstractmethod
     def get_label(self, hierarchy: List[str]) -> Any:
-        """return the label of the `hierarchy`"""
+        """
+        return the label of the `hierarchy`
+        * notice that the returned label should be hashable
+        """
 
     @abstractmethod
     def copy(self, src_path: str, tgt_path: str) -> None:
