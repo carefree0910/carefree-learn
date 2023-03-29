@@ -1917,6 +1917,7 @@ __all__ = [
     "TqdmSettings",
     "TrainerCallback",
     "ITrainer",
+    "PrecisionType",
     "TrainerConfig",
     "Config",
     "DLConfig",
