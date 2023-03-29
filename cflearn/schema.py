@@ -809,7 +809,7 @@ class IDLModel(
     def permute_trainer_config(self, trainer_config: "TrainerConfig") -> None:
         pass
 
-    def preprocess(
+    def get_forward_args(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
@@ -841,7 +841,7 @@ class IDLModel(
         state: Optional["TrainerState"] = None,
         **kwargs: Any,
     ) -> tensor_dict_type:
-        args = self.preprocess(batch_idx, batch, state, **kwargs)
+        args = self.get_forward_args(batch_idx, batch, state, **kwargs)
         forward_results = self(*args)
         outputs = self.postprocess(batch_idx, batch, forward_results, state, **kwargs)
         return outputs

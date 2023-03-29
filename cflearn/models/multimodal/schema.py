@@ -32,7 +32,7 @@ class IPerceptor(IDLModel, metaclass=ABCMeta):
     def encode_text(self, text: Tensor) -> Tensor:
         pass
 
-    def preprocess(
+    def get_forward_args(
         self,
         batch_idx: int,
         batch: tensor_dict_type,

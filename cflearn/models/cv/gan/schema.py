@@ -174,7 +174,7 @@ class IVanillaGAN(IOneStageGAN, GaussianGeneratorMixin, metaclass=ABCMeta):
     def d_parameters(self) -> List[nn.Parameter]:
         return list(self.discriminator.parameters())
 
-    def preprocess(
+    def get_forward_args(
         self,
         batch_idx: int,
         batch: tensor_dict_type,

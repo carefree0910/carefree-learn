@@ -332,7 +332,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
     def train_steps(self) -> List[CustomTrainStep]:
         return [DDPMStep("learnable")]
 
-    def preprocess(
+    def get_forward_args(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
