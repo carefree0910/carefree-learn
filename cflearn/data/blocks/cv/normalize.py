@@ -16,7 +16,7 @@ class StaticNormalizeBlock(IRuntimeDataBlock):
         super().__init__(division=division)
 
     @property
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         return ["division"]
 
     def postprocess_item(self, item: np_dict_type) -> np_dict_type:
@@ -33,7 +33,7 @@ class AffineNormalizeBlock(IRuntimeDataBlock):
         super().__init__(center=center, scale=scale)
 
     @property
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         return ["center", "scale"]
 
     def postprocess_item(self, item: np_dict_type) -> np_dict_type:
@@ -56,7 +56,7 @@ class ImagenetNormalizeBlock(IRuntimeDataBlock):
         super().__init__(mean=list(mean), std=list(std))
 
     @property
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         return ["mean", "std"]
 
     def postprocess_item(self, item: np_dict_type) -> np_dict_type:

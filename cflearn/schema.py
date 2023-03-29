@@ -357,21 +357,22 @@ class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
 
     1. The `__init__` method:
     * should not include arguments that do not have default values.
-    * should and only should contain arguments which is defined in the `init_fields` property.
+    * should and only should contain arguments which is defined in the `fields` property.
 
-    2. The `init_fields` property:
-    * should and only should contain fields which can be initialized in the `__init__` method.
-    * should not contain fields which are generated during `fit_transform`.
+    2. The `fields` property should and only should contain fields which can be initialized
+    in the `__init__` method.
 
-    3. `IDataBlock` implements a `to_info` method, which record and only record the properties
-    defined in the `init_fields` property.
+    3. The `fit_transform` method should not introduce more fields (except for `INoInitDataBlock`).
+
+    4. `IDataBlock` implements a `to_info` method, which record and only record the properties
+    defined in the `fields` property.
     * This method should not be overwritten, except for `INoInitDataBlock`.
 
-    4. `IDataBlock` inherits `PureFromInfoMixin`, which means all properties will be
+    5. `IDataBlock` inherits `PureFromInfoMixin`, which means all properties will be
     properly restored from the info returned by `to_info` method.
 
-    For any classes inheriting `IDataBlock`, they can be easily initialized
-    with the help of the `get_arguments` method from `cftool.misc`.
+    For any class inheriting `IDataBlock`, it can be easily initialized
+    with the help of the `get_arguments` function from `cftool.misc`.
 
     Examples
     --------
@@ -396,7 +397,7 @@ class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
 
     def __init__(self, **kwargs: Any) -> None:
         not_exists_tag = "$$NOT_EXISTS$$"
-        for field in self.init_fields:
+        for field in self.fields:
             value = kwargs.get(field, not_exists_tag)
             if value == not_exists_tag:
                 raise ValueError(
@@ -410,17 +411,17 @@ class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
     def build(self, config: "DataProcessorConfig") -> None:
         self.config = config
         configs = (config.block_configs or {}).setdefault(self.__identifier__, {})
-        for field in self.init_fields:
+        for field in self.fields:
             setattr(self, field, configs.setdefault(field, getattr(self, field)))
 
     def to_info(self) -> Dict[str, Any]:
-        return {field: getattr(self, field) for field in self.init_fields}
+        return {field: getattr(self, field) for field in self.fields}
 
     # abstract
 
     @property
     @abstractmethod
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         pass
 
     @abstractmethod
@@ -473,7 +474,7 @@ class INoInitDataBlock(IDataBlock):
     """
 
     @property
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         return []
 
 
@@ -484,7 +485,7 @@ class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
     """
 
     @property
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         return []
 
     def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:

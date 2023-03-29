@@ -750,7 +750,7 @@ class ImageFolderBlock(IDataBlock):
     # inherit
 
     @property
-    def init_fields(self) -> List[str]:
+    def fields(self) -> List[str]:
         return [
             "tgt_folder",
             "to_index",
