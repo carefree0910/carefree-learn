@@ -379,6 +379,11 @@ def get_tensors(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     return shallow_copy_dict(inp)
 
 
+def get_dtype(m: nn.Module) -> torch.dtype:
+    params = list(m.parameters())
+    return torch.float32 if not params else params[0].dtype
+
+
 def get_device(m: nn.Module) -> torch.device:
     params = list(m.parameters())
     return torch.device("cpu") if not params else params[0].device
