@@ -228,6 +228,7 @@ def prepare_image_folder(
     max_num_valid: int,
     lmdb_config: Optional[Dict[str, Any]],
     use_tqdm: bool,
+    strict: bool,
 ) -> Tuple[str, Optional[List[str]]]:
     f"""
     Efficiently convert an arbitrary image folder (`src_folder`) to
@@ -269,6 +270,8 @@ def prepare_image_folder(
         An optional dictionary containing LMDB configuration. If not provided, LMDB will not be used.
     use_tqdm : bool
         If True, display progress bars using `tqdm`.
+    strict : bool
+        If True, error will be raised if any invalid sample occurred.
 
     Returns
     -------
@@ -296,6 +299,7 @@ def prepare_image_folder(
             valid_split=valid_split,
             max_num_valid=max_num_valid,
             lmdb_config=lmdb_config,
+            strict=strict,
         )
     )
     if not force_rerun and preparation.is_ready(tgt_folder, valid_split, folder_hash):
@@ -368,7 +372,18 @@ def prepare_image_folder(
 
     # exclude samples
     if excluded_indices:
-        print_warning(f"{len(excluded_indices)} samples will be excluded")
+        if not strict:
+            print_warning(f"{len(excluded_indices)} samples will be excluded")
+        else:
+            raise ValueError(
+                "\n".join(
+                    [
+                        "following samples are invalid:",
+                        *[f"* {all_img_paths[i]}" for i in excluded_indices],
+                        "please check the log history for more details",
+                    ]
+                )
+            )
     for i in sorted(excluded_indices)[::-1]:
         labels.pop(i)
         if extra_labels_dict is not None:
@@ -711,6 +726,7 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
     max_num_valid: int
     lmdb_config: Optional[Dict[str, Any]]
     use_tqdm: bool
+    strict: bool
     # after transform
     train_paths: ImagePaths
     valid_paths: Optional[ImagePaths]
@@ -735,6 +751,7 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
         self.max_num_valid = configs.setdefault("max_num_valid", 10000)
         self.lmdb_config = configs.setdefault("lmdb_config", None)
         self.use_tqdm = configs.setdefault("use_tqdm", True)
+        self.strict = configs.setdefault("strict", False)
 
     def to_info(self) -> Dict[str, Any]:
         return dict(
@@ -752,6 +769,7 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
             max_num_valid=self.max_num_valid,
             lmdb_config=self.lmdb_config,
             use_tqdm=self.use_tqdm,
+            strict=self.strict,
         )
 
     def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
