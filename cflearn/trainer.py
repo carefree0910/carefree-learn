@@ -43,6 +43,7 @@ from .schema import TrainerCallback
 from .schema import IInference
 from .schema import IDataLoader
 from .schema import IData
+from .schema import PrecisionType
 from .schema import TrainerConfig
 from .constants import LOSS_KEY
 from .constants import PT_PREFIX
@@ -477,6 +478,8 @@ class Trainer(ITrainer):
                 cpu = True
             else:
                 os.environ["CUDA_VISIBLE_DEVICES"] = cuda
+        if isinstance(self.config.mixed_precision, PrecisionType):
+            self.config.mixed_precision = self.config.mixed_precision.value
         self.accelerator = Accelerator(
             cpu=cpu,
             mixed_precision=self.config.mixed_precision,
