@@ -19,19 +19,19 @@ def mnist_data(
     processor_config: Optional[DataProcessorConfig] = None,
     *,
     cache_root: str = OPT.data_cache_dir,
-    additional_blocks: Optional[List[Type[IDataBlock]]] = None,
+    additional_blocks: Optional[List[IDataBlock]] = None,
 ) -> TorchData:
     if processor_config is None:
         processor_config = DataProcessorConfig()
     if processor_config.block_names is None:
         processor_config.set_blocks(
-            TupleToBatchBlock,
-            ToNumpyBlock,
-            StaticNormalizeBlock,
-            HWCToCHWBlock,
+            TupleToBatchBlock(),
+            ToNumpyBlock(),
+            StaticNormalizeBlock(),
+            HWCToCHWBlock(),
         )
-        if additional_blocks is not None:
-            processor_config.add_blocks(*additional_blocks)
+    if additional_blocks is not None:
+        processor_config.add_blocks(*additional_blocks)
     train_data = MNIST(cache_root, download=True)
     valid_data = MNIST(cache_root, train=False, download=True)
     return TorchData.build(

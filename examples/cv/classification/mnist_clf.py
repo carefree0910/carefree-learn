@@ -9,7 +9,7 @@ is_ci = check_is_ci()
 
 data_config = cflearn.TorchDataConfig()
 data_config.batch_size = 4 if is_ci else 64
-data = cflearn.mnist_data(data_config, additional_blocks=[cflearn.FlattenBlock])
+data = cflearn.mnist_data(data_config, additional_blocks=[cflearn.FlattenBlock()])
 
 config = cflearn.DLConfig(
     model_name="fcnn",

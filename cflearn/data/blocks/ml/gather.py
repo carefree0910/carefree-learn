@@ -2,17 +2,16 @@ import numpy as np
 
 from typing import Any
 from typing import Dict
-from cftool.misc import PureFromInfoMixin
 from cftool.array import is_float
 
 from .recognizer import RecognizerBlock
-from ....schema import IDataBlock
 from ....schema import DataBundle
 from ....schema import ColumnTypes
+from ....schema import INoInitDataBlock
 
 
-@IDataBlock.register("ml_gather")
-class GatherBlock(PureFromInfoMixin, IDataBlock):
+@INoInitDataBlock.register("ml_gather")
+class GatherBlock(INoInitDataBlock):
     num_features: int
     num_labels: int
 

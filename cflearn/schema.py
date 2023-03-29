@@ -37,6 +37,7 @@ from cftool.misc import get_num_positional_args
 from cftool.misc import context_error_handler
 from cftool.misc import WithRegister
 from cftool.misc import DataClassBase
+from cftool.misc import PureFromInfoMixin
 from cftool.misc import ISerializable
 from cftool.misc import IWithRequirements
 from cftool.misc import ISerializableArrays
@@ -349,16 +350,78 @@ class DataBundle(DataClassBase):
         return cls(None)
 
 
-class IDataBlock(IBlock, ISerializable, metaclass=ABCMeta):
+class IDataBlock(PureFromInfoMixin, IBlock, ISerializable, metaclass=ABCMeta):
+    """
+    `IDataBlock` is a block that can transform data, it's initialization/serialization
+    is designed as follows:
+
+    1. The `__init__` method:
+    * should not include arguments that do not have default values.
+    * should and only should contain arguments which is defined in the `init_fields` property.
+
+    2. The `init_fields` property:
+    * should and only should contain fields which can be initialized in the `__init__` method.
+    * should not contain fields which are generated during `fit_transform`.
+
+    3. `IDataBlock` implements a `to_info` method, which record and only record the properties
+    defined in the `init_fields` property.
+    * This method should not be overwritten, except for `INoInitDataBlock`.
+
+    4. `IDataBlock` inherits `PureFromInfoMixin`, which means all properties will be
+    properly restored from the info returned by `to_info` method.
+
+    For any classes inheriting `IDataBlock`, they can be easily initialized
+    with the help of the `get_arguments` method from `cftool.misc`.
+
+    Examples
+    --------
+    >>> from cftool.misc import get_arguments
+    >>>
+    >>> class MyBlock(IDataBlock):
+    >>>     def __init__(self, foo: int = 1, bar: str = "two"):
+    >>>         super().__init__(**get_arguments())
+    >>>
+    >>>     @property
+    >>>     def init_fields(self) -> List[str]:
+    >>>         return ["foo", "bar"]
+    >>>
+    >>>     ...
+    >>>
+    >>> block = MyBlock()
+    >>> print(block.foo, block.bar)  # 1 two
+    """
+
     config: "DataProcessorConfig"
     previous: Dict[str, "IDataBlock"]
+
+    def __init__(self, **kwargs: Any) -> None:
+        not_exists_tag = "$$NOT_EXISTS$$"
+        for field in self.init_fields:
+            value = kwargs.get(field, not_exists_tag)
+            if value == not_exists_tag:
+                raise ValueError(
+                    f"Argument '{field}' needs to be provided "
+                    f"for `{self.__class__.__name__}`."
+                )
+            setattr(self, field, value)
 
     # inherit
 
     def build(self, config: "DataProcessorConfig") -> None:
         self.config = config
+        configs = (config.block_configs or {}).setdefault(self.__identifier__, {})
+        for field in self.init_fields:
+            setattr(self, field, configs.setdefault(field, getattr(self, field)))
+
+    def to_info(self) -> Dict[str, Any]:
+        return {field: getattr(self, field) for field in self.init_fields}
 
     # abstract
+
+    @property
+    @abstractmethod
+    def init_fields(self) -> List[str]:
+        pass
 
     @abstractmethod
     def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
@@ -402,17 +465,27 @@ class IDataBlock(IBlock, ISerializable, metaclass=ABCMeta):
         return is_local_rank_0()
 
 
+class INoInitDataBlock(IDataBlock):
+    """
+    This type of blocks assume:
+    * No property assignments should happen at initialization stage.
+    * All properties should be maintained in the `fit_transform` stage.
+    """
+
+    @property
+    def init_fields(self) -> List[str]:
+        return []
+
+
 class IRuntimeDataBlock(IDataBlock, metaclass=ABCMeta):
     """
     Runtime blocks will store no information, and will only process the batches
     at runtime. When dealing with CV/NLP datasets, we'll often use this kind of blocks.
     """
 
-    def to_info(self) -> Dict[str, Any]:
-        return {}
-
-    def from_info(self, info: Dict[str, Any]) -> None:
-        pass
+    @property
+    def init_fields(self) -> List[str]:
+        return []
 
     def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
         return bundle
@@ -435,17 +508,26 @@ class DataProcessorConfig(ISerializableDataClass):
         return data_processor_configs
 
     @property
-    def default_blocks(self) -> List[Type[IDataBlock]]:
+    def default_blocks(self) -> List[IDataBlock]:
         return []
 
-    def add_blocks(self, *blocks: Type[IDataBlock]) -> None:
+    def add_blocks(self, *blocks: IDataBlock) -> None:
         if self.block_names is None:
             self.block_names = []
         for b in blocks:
-            self.block_names.append(b.__identifier__)
+            b_id = b.__identifier__
+            if b_id in self.block_names:
+                print_warning(f"block `{b_id}` already exists, it will be skipped")
+            self.block_names.append(b_id)
+            if isinstance(b, INoInitDataBlock):
+                continue
+            if self.block_configs is None:
+                self.block_configs = {}
+            self.block_configs[b_id] = b.to_info()
 
-    def set_blocks(self, *blocks: Type[IDataBlock]) -> None:
-        self.block_names = [b.__identifier__ for b in blocks]
+    def set_blocks(self, *blocks: IDataBlock) -> None:
+        self.block_names = []
+        self.add_blocks(*blocks)
 
 
 @IPipeline.register("base.data_processor")
@@ -1803,6 +1885,7 @@ __all__ = [
     "IData",
     "DataBundle",
     "IDataBlock",
+    "IRuntimeDataBlock",
     "DataProcessorConfig",
     "DataProcessor",
     "DataConfig",

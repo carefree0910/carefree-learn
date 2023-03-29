@@ -12,12 +12,11 @@ data_config = cflearn.TorchDataConfig()
 data_config.batch_size = 4 if is_ci else 64
 processor_config = cflearn.DataProcessorConfig()
 processor_config.set_blocks(
-    TupleToBatchBlock,
-    ToNumpyBlock,
-    AffineNormalizeBlock,
-    HWCToCHWBlock,
+    TupleToBatchBlock(),
+    ToNumpyBlock(),
+    AffineNormalizeBlock(127.5, 127.5),
+    HWCToCHWBlock(),
 )
-processor_config.block_configs = dict(affine_normalize=dict(center=127.5, scale=127.5))
 data = cflearn.mnist_data(data_config, processor_config)
 
 config = cflearn.DLConfig(

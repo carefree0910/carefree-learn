@@ -28,7 +28,7 @@ m = cflearn.api.fit_ml(x, y, config=config)
 ```python
 import cflearn
 
-data = cflearn.mnist_data(additional_blocks=[cflearn.FlattenBlock])
+data = cflearn.mnist_data(additional_blocks=[cflearn.FlattenBlock()])
 config = cflearn.DLConfig(
     model_name="fcnn",
     model_config=dict(input_dim=784, output_dim=10),

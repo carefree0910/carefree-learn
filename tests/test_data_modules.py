@@ -151,15 +151,16 @@ class TestDataModules(unittest.TestCase):
                 array = np.random.randint(0, 256, [i_size, i_size + 123, 3], np.uint8)
                 Image.fromarray(array).save(os.path.join(dir, f"{i}.png"))
             processor_config = cflearn.DataProcessorConfig()
-            processor_config.set_blocks(ImageFolderBlock, HWCToCHWBlock)
-            block_config = dict(
-                preparation_pack=dict(
-                    type="resized",
-                    info=dict(img_size=unified_size, keep_aspect_ratio=False),
+            processor_config.set_blocks(
+                ImageFolderBlock(
+                    preparation_pack=dict(
+                        type="resized",
+                        info=dict(img_size=unified_size, keep_aspect_ratio=False),
+                    ),
+                    save_data_in_parallel=False,
                 ),
-                save_data_in_parallel=False,
+                HWCToCHWBlock(),
             )
-            processor_config.block_configs = dict(image_folder=block_config)
             data: TorchData = TorchData.build(dir, processor_config=processor_config)
             data.config.batch_size = 3
             train_loader, valid_loader = data.get_loaders()

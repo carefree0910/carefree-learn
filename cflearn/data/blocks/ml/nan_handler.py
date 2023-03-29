@@ -5,12 +5,11 @@ from typing import Any
 from typing import Dict
 from typing import Optional
 from dataclasses import dataclass
-from cftool.misc import PureFromInfoMixin
 
 from .file import TArrayPair
 from .file import FileParserBlock
-from ....schema import IDataBlock
 from ....schema import DataBundle
+from ....schema import INoInitDataBlock
 
 
 class NanReplaceMethod(str, Enum):
@@ -72,8 +71,8 @@ def replace_nan(
     data[..., idx] = array
 
 
-@IDataBlock.register("ml_nan_handler")
-class NanHandlerBlock(PureFromInfoMixin, IDataBlock):
+@INoInitDataBlock.register("ml_nan_handler")
+class NanHandlerBlock(INoInitDataBlock):
     config: MLNanHandlerConfig  # type: ignore
     drop_strategy: NanDropStrategy
     has_nan: Dict[str, bool]

@@ -49,13 +49,13 @@ class MLBundledProcessorConfig(
     """This config is designed to bundle all possible capabilities (e.g. carefree)."""
 
     @property
-    def default_blocks(self) -> List[Type[IDataBlock]]:
+    def default_blocks(self) -> List[IDataBlock]:
         return [
-            FileParserBlock,
-            NanHandlerBlock,
-            RecognizerBlock,
-            PreProcessorBlock,
-            SplitterBlock,
+            FileParserBlock(),
+            NanHandlerBlock(),
+            RecognizerBlock(),
+            PreProcessorBlock(),
+            SplitterBlock(),
         ]
 
 
@@ -69,14 +69,14 @@ class MLAdvancedProcessorConfig(MLBundledProcessorConfig):
     """
 
     @property
-    def default_blocks(self) -> List[Type[IDataBlock]]:
+    def default_blocks(self) -> List[IDataBlock]:
         return []
 
 
 @DataProcessor.register("ml")
 class MLDataProcessor(DataProcessor):
     def before_build_in_init(self) -> None:
-        self.config.add_blocks(GatherBlock)
+        self.config.add_blocks(GatherBlock())
 
     def get_num_samples(self, x: np.ndarray, tag: MLDatasetTag) -> int:
         return len(x)

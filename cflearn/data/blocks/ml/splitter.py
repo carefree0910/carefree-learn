@@ -10,14 +10,13 @@ from typing import Optional
 from typing import NamedTuple
 from dataclasses import dataclass
 from cftool.misc import print_warning
-from cftool.misc import PureFromInfoMixin
 from cftool.array import is_float
 from cftool.array import get_unique_indices
 
 from .recognizer import RecognizerBlock
-from ....schema import IDataBlock
 from ....schema import DataBundle
 from ....schema import ColumnTypes
+from ....schema import INoInitDataBlock
 
 
 num_split_type = Union[int, float]
@@ -256,8 +255,8 @@ class MLSplitterConfig:
     is_classification: Optional[bool] = None
 
 
-@IDataBlock.register("ml_splitter")
-class SplitterBlock(PureFromInfoMixin, IDataBlock):
+@INoInitDataBlock.register("ml_splitter")
+class SplitterBlock(INoInitDataBlock):
     config: MLSplitterConfig  # type: ignore
     num_split: Optional[num_split_type]
     min_split: Optional[int]

@@ -6,13 +6,12 @@ from typing import Tuple
 from typing import Optional
 from dataclasses import dataclass
 from cftool.misc import print_warning
-from cftool.misc import PureFromInfoMixin
 
 from .file import FileParserBlock
 from ....schema import DataTypes
-from ....schema import IDataBlock
 from ....schema import DataBundle
 from ....schema import ColumnTypes
+from ....schema import INoInitDataBlock
 
 
 TRes = Tuple[ColumnTypes, int]
@@ -25,8 +24,8 @@ class MLRecognizerConfig:
     custom_feature_types: Optional[Dict[str, ColumnTypes]] = None
 
 
-@IDataBlock.register("ml_recognizer")
-class RecognizerBlock(PureFromInfoMixin, IDataBlock):
+@INoInitDataBlock.register("ml_recognizer")
+class RecognizerBlock(INoInitDataBlock):
     config: MLRecognizerConfig  # type: ignore
     feature_types: Dict[str, ColumnTypes]
     label_types: Dict[str, ColumnTypes]

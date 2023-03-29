@@ -28,14 +28,13 @@ from cftool.misc import is_numeric
 from cftool.misc import print_info
 from cftool.misc import print_error
 from cftool.misc import print_warning
+from cftool.misc import get_arguments
 from cftool.misc import shallow_copy_dict
 from cftool.misc import ISerializable
-from cftool.misc import PureFromInfoMixin
 
 from ....schema import IDataset
 from ....schema import IDataBlock
 from ....schema import DataBundle
-from ....schema import DataProcessorConfig
 from ....constants import INPUT_KEY
 from ....constants import LABEL_KEY
 
@@ -700,7 +699,7 @@ class ImageFolderDataset(IDataset):
 
 
 @IDataBlock.register("image_folder")
-class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
+class ImageFolderBlock(IDataBlock):
     """
     This block will utilize `prepare_image_folder` method to create an image folder
     which can be parsed by `carefree-learn`.
@@ -711,7 +710,6 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
     TODO: Support parsing `x_valid` and use it directly as validation `ImageFolderDataset`.
     """
 
-    # before transform
     tgt_folder: Optional[str]
     to_index: bool
     prefix: Optional[str]
@@ -727,56 +725,55 @@ class ImageFolderBlock(PureFromInfoMixin, IDataBlock):
     lmdb_config: Optional[Dict[str, Any]]
     use_tqdm: bool
     strict: bool
-    # after transform
-    train_paths: ImagePaths
-    valid_paths: Optional[ImagePaths]
+
+    def __init__(
+        self,
+        *,
+        tgt_folder: Optional[str] = None,
+        to_index: bool = False,
+        prefix: Optional[str] = None,
+        preparation_pack: Optional[Dict[str, Any]] = None,
+        force_rerun: bool = False,
+        extensions: Optional[Set[str]] = None,
+        make_labels_in_parallel: bool = False,
+        save_data_in_parallel: bool = True,
+        num_jobs: int = 8,
+        train_all_data: bool = False,
+        valid_split: Union[int, float] = 0.1,
+        max_num_valid: int = 10000,
+        lmdb_config: Optional[Dict[str, Any]] = None,
+        use_tqdm: bool = True,
+        strict: bool = False,
+    ) -> None:
+        super().__init__(**get_arguments())
 
     # inherit
 
-    def build(self, config: DataProcessorConfig) -> None:
-        configs = (config.block_configs or {}).setdefault("image_folder", {})
-        self.tgt_folder = configs.setdefault("tgt_folder", None)
-        self.to_index = configs.setdefault("to_index", False)
-        self.prefix = configs.setdefault("prefix", None)
-        self.preparation_pack = configs.setdefault("preparation_pack", None)
-        self.force_rerun = configs.setdefault("force_rerun", False)
-        self.extensions = configs.setdefault("extensions", None)
-        self.make_labels_in_parallel = configs.setdefault(
-            "make_labels_in_parallel", False
-        )
-        self.save_data_in_parallel = configs.setdefault("save_data_in_parallel", True)
-        self.num_jobs = configs.setdefault("num_jobs", 8)
-        self.train_all_data = configs.setdefault("train_all_data", False)
-        self.valid_split = configs.setdefault("valid_split", 0.1)
-        self.max_num_valid = configs.setdefault("max_num_valid", 10000)
-        self.lmdb_config = configs.setdefault("lmdb_config", None)
-        self.use_tqdm = configs.setdefault("use_tqdm", True)
-        self.strict = configs.setdefault("strict", False)
-
-    def to_info(self) -> Dict[str, Any]:
-        return dict(
-            tgt_folder=self.tgt_folder,
-            to_index=self.to_index,
-            prefix=self.prefix,
-            preparation_pack=self.preparation_pack,
-            force_rerun=self.force_rerun,
-            extensions=self.extensions,
-            make_labels_in_parallel=self.make_labels_in_parallel,
-            save_data_in_parallel=self.save_data_in_parallel,
-            num_jobs=self.num_jobs,
-            train_all_data=self.train_all_data,
-            valid_split=self.valid_split,
-            max_num_valid=self.max_num_valid,
-            lmdb_config=self.lmdb_config,
-            use_tqdm=self.use_tqdm,
-            strict=self.strict,
-        )
+    @property
+    def init_fields(self) -> List[str]:
+        return [
+            "tgt_folder",
+            "to_index",
+            "prefix",
+            "preparation_pack",
+            "force_rerun",
+            "extensions",
+            "make_labels_in_parallel",
+            "save_data_in_parallel",
+            "num_jobs",
+            "train_all_data",
+            "valid_split",
+            "max_num_valid",
+            "lmdb_config",
+            "use_tqdm",
+            "strict",
+        ]
 
     def transform(self, bundle: DataBundle, for_inference: bool) -> DataBundle:
-        self.train_paths, self.valid_paths = self._parse(bundle.x_train, for_inference)  # type: ignore
-        bundle.x_train = self.train_paths.to_dataset()
-        if self.valid_paths is not None:
-            bundle.x_valid = self.valid_paths.to_dataset()
+        train_paths, valid_paths = self._parse(bundle.x_train, for_inference)  # type: ignore
+        bundle.x_train = train_paths.to_dataset()
+        if valid_paths is not None:
+            bundle.x_valid = valid_paths.to_dataset()
         return bundle
 
     def fit_transform(self, bundle: DataBundle) -> DataBundle:

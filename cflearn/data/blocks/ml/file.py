@@ -19,8 +19,8 @@ from cftool.array import is_float
 
 from ....types import data_type
 from ....schema import DataTypes
-from ....schema import IDataBlock
 from ....schema import DataBundle
+from ....schema import INoInitDataBlock
 
 
 TArrayPair = Tuple[np.ndarray, Optional[np.ndarray]]
@@ -208,8 +208,8 @@ get_x_column_name = lambda idx: f"f{idx}"
 get_y_column_name = lambda idx: f"l{idx}"
 
 
-@IDataBlock.register("ml_file_parser")
-class FileParserBlock(PureFromInfoMixin, IDataBlock):
+@INoInitDataBlock.register("ml_file_parser")
+class FileParserBlock(INoInitDataBlock):
     config: MLFileProcessorConfig  # type: ignore
     delimiter: str
     has_header: bool

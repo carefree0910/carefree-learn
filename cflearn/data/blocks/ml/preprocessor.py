@@ -4,12 +4,10 @@ from enum import Enum
 from typing import Any
 from typing import Dict
 from typing import List
-from typing import Callable
 from typing import Optional
 from dataclasses import dataclass
 from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
-from cftool.misc import PureFromInfoMixin
 from cftool.array import normalize
 from cftool.array import normalize_from
 from cftool.array import recover_normalize_from
@@ -21,9 +19,9 @@ from cftool.array import quantile_normalize_from
 from cftool.array import recover_quantile_normalize_from
 
 from .recognizer import RecognizerBlock
-from ....schema import IDataBlock
 from ....schema import DataBundle
 from ....schema import ColumnTypes
+from ....schema import INoInitDataBlock
 
 
 class PreProcessMethod(str, Enum):
@@ -98,8 +96,8 @@ def _transform(
         data[..., idx] = fn(data[..., idx], stats)
 
 
-@IDataBlock.register("ml_preprocessor")
-class PreProcessorBlock(PureFromInfoMixin, IDataBlock):
+@INoInitDataBlock.register("ml_preprocessor")
+class PreProcessorBlock(INoInitDataBlock):
     config: MLPreProcessConfig  # type: ignore
     methods: Dict[str, PreProcessMethod]
     stats: Dict[str, Dict[str, float]]
