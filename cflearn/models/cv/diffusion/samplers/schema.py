@@ -82,6 +82,9 @@ class IQSampler:
 
 
 class DDPMQSampler(IQSampler):
+    sqrt_alphas: Tensor
+    sqrt_one_minus_alphas: Tensor
+
     def q_sample(
         self,
         net: Tensor,

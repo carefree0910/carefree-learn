@@ -139,7 +139,7 @@ class DLZoo:
         json_path: Optional[str] = None,
         download_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Tuple[DLConfig, str]:
+    ) -> Tuple[DLConfig, Optional[str]]:
         # loader
         if model is not None:
             loader_base = dl_zoo_model_loaders.get(model)
