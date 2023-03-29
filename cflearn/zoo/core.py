@@ -7,10 +7,10 @@ from typing import Dict
 from typing import List
 from typing import Type
 from typing import Union
-from typing import Callable
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
+from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
@@ -63,25 +63,19 @@ class DLZoo:
     model_dir = "models_v0.4.x"
 
     @classmethod
-    def load_pipeline(
+    def load_config(
         cls,
         model: Optional[str] = None,
         *,
-        data: Optional[IData] = None,
-        states: Optional[tensor_dict_type] = None,
-        pretrained: bool = False,
-        pipeline_type: PipelineTypes = PipelineTypes.DL_INFERENCE,
-        download_name: Optional[str] = None,
-        model_dir: Optional[str] = None,
         json_path: Optional[str] = None,
+        download_name: Optional[str] = None,
         **kwargs: Any,
-    ) -> TPipeline:
+    ) -> DLConfig:
         # loader
         if model is not None:
             loader_base = dl_zoo_model_loaders.get(model)
             if loader_base is not None:
                 loader_base().permute_kwargs(kwargs)
-        states_callback = kwargs.pop("states_callback", None)
         # load json
         if json_path is None:
             if model is None:
@@ -93,7 +87,6 @@ class DLZoo:
         parsed_config = _parse_config(json_path)
         if download_name is None:
             download_name = parsed_config.pop("tag", None)
-        err_msg_fmt = f"`{'{}'}` should be provided in '{json_path}'"
         # handle requires
 
         def _example(l: str, r: str, h: List[str]) -> str:
@@ -142,11 +135,36 @@ class DLZoo:
         raw_config = shallow_copy_dict(parsed_config)
         update_dict(kwargs, raw_config)
         update_dict(increment, raw_config)
+        config_type = raw_config.pop("config_type", "dl")
+        return safe_execute(DLConfig.get(config_type), raw_config)
+
+    @classmethod
+    def load_pipeline(
+        cls,
+        model: Optional[str] = None,
+        *,
+        data: Optional[IData] = None,
+        states: Optional[tensor_dict_type] = None,
+        pretrained: bool = False,
+        pipeline_type: PipelineTypes = PipelineTypes.DL_INFERENCE,
+        download_name: Optional[str] = None,
+        model_dir: Optional[str] = None,
+        json_path: Optional[str] = None,
+        **kwargs: Any,
+    ) -> TPipeline:
+        states_callback = kwargs.pop("states_callback", None)
+        # get config
+        config = cls.load_config(
+            model,
+            json_path=json_path,
+            download_name=download_name,
+            **kwargs,
+        )
         # handle states
         if states is None and pretrained:
             if download_name is None:
-                err_msg = err_msg_fmt.format("tag")
-                raise ValueError(f"{err_msg} when `pretrained` is True")
+                err_msg = f"`{'tag'}` should be provided in '{json_path}' when `pretrained` is True"
+                raise ValueError(err_msg)
             if model_dir is None:
                 model_dir = cls.model_dir
             root = os.path.join(OPT.cache_dir, model_dir)
@@ -155,8 +173,6 @@ class DLZoo:
         if states is not None and states_callback is not None:
             states = states_callback(states)
         # build
-        config_type = raw_config.pop("config_type", "dl")
-        config = DLConfig.make(config_type, raw_config)
         m_base: Type[Pipeline] = Pipeline.get(pipeline_type)
         if issubclass(m_base, DLInferencePipeline):
             return m_base.build_with(config, states)

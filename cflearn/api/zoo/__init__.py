@@ -1,44 +1,54 @@
 from typing import Any
+from typing import Union
 from cftool.types import tensor_dict_type
 
+from ...schema import DLConfig
 from ...zoo.core import DLZoo
 from ...zoo.core import TPipeline
 from ...models.cv.diffusion.utils import CONCAT_TYPE
 
 
+TLoadZoo = Union[TPipeline, DLConfig]
+
+
+def _load(model: str, **kwargs: Any) -> TLoadZoo:
+    fn = DLZoo.load_config if kwargs.pop("load_config", False) else DLZoo.load_pipeline
+    return fn(model, **kwargs)  # type: ignore
+
+
 # ae
 
 
-def ae_kl_f4(size: int = 256, pretrained: bool = True, **kwargs: Any) -> TPipeline:
+def ae_kl_f4(size: int = 256, pretrained: bool = True, **kwargs: Any) -> TLoadZoo:
     if pretrained and size != 256:
         raise ValueError("pretrained `ae_kl_f4` should have `size`=256")
     kwargs["img_size"] = size
     kwargs["pretrained"] = pretrained
-    return DLZoo.load_pipeline("ae/kl.f4", **kwargs)
+    return _load("ae/kl.f4", **kwargs)
 
 
-def ae_kl_f8(size: int = 256, pretrained: bool = True, **kwargs: Any) -> TPipeline:
+def ae_kl_f8(size: int = 256, pretrained: bool = True, **kwargs: Any) -> TLoadZoo:
     if pretrained and size != 256:
         raise ValueError("pretrained `ae_kl_f8` should have `size`=256")
     kwargs["img_size"] = size
     kwargs["pretrained"] = pretrained
-    return DLZoo.load_pipeline("ae/kl.f8", **kwargs)
+    return _load("ae/kl.f8", **kwargs)
 
 
-def ae_kl_f16(size: int = 256, pretrained: bool = True, **kwargs: Any) -> TPipeline:
+def ae_kl_f16(size: int = 256, pretrained: bool = True, **kwargs: Any) -> TLoadZoo:
     if pretrained and size != 256:
         raise ValueError("pretrained `ae_kl_f16` should have `size`=256")
     kwargs["img_size"] = size
     kwargs["pretrained"] = pretrained
-    return DLZoo.load_pipeline("ae/kl.f16", **kwargs)
+    return _load("ae/kl.f16", **kwargs)
 
 
 # diffusion
 
 
-def ddpm(img_size: int = 256, **kwargs: Any) -> TPipeline:
+def ddpm(img_size: int = 256, **kwargs: Any) -> TLoadZoo:
     kwargs["img_size"] = img_size
-    return DLZoo.load_pipeline("diffusion/ddpm", **kwargs)
+    return _load("diffusion/ddpm", **kwargs)
 
 
 def _ldm(
@@ -47,7 +57,7 @@ def _ldm(
     latent_in_channels: int,
     latent_out_channels: int,
     **kwargs: Any,
-) -> TPipeline:
+) -> TLoadZoo:
     kwargs["img_size"] = latent_size
     kwargs["in_channels"] = latent_in_channels
     kwargs["out_channels"] = latent_out_channels
@@ -65,7 +75,7 @@ def _ldm(
             return states
 
         first_stage_kw["states_callback"] = state_callback
-    return DLZoo.load_pipeline(model, **kwargs)
+    return _load(model, **kwargs)
 
 
 def ldm(
@@ -73,7 +83,7 @@ def ldm(
     latent_in_channels: int = 4,
     latent_out_channels: int = 4,
     **kwargs: Any,
-) -> TPipeline:
+) -> TLoadZoo:
     return _ldm(
         "diffusion/ldm",
         latent_size,
@@ -88,7 +98,7 @@ def ldm_vq(
     latent_in_channels: int = 3,
     latent_out_channels: int = 3,
     **kwargs: Any,
-) -> TPipeline:
+) -> TLoadZoo:
     return _ldm(
         "diffusion/ldm.vq",
         latent_size,
@@ -98,27 +108,27 @@ def ldm_vq(
     )
 
 
-def ldm_sd(pretrained: bool = True, **kwargs: Any) -> TPipeline:
+def ldm_sd(pretrained: bool = True, **kwargs: Any) -> TLoadZoo:
     return _ldm("diffusion/ldm.sd", 64, 4, 4, pretrained=pretrained, **kwargs)
 
 
-def ldm_sd_tag(tag: str, pretrained: bool = True) -> TPipeline:
+def ldm_sd_tag(tag: str, pretrained: bool = True) -> TLoadZoo:
     return ldm_sd(pretrained, download_name=f"ldm_sd_{tag}")
 
 
-def ldm_sd_inpainting(pretrained: bool = True, **kw: Any) -> TPipeline:
+def ldm_sd_inpainting(pretrained: bool = True, **kw: Any) -> TLoadZoo:
     return _ldm("diffusion/ldm.sd_inpainting", 64, 9, 4, pretrained=pretrained, **kw)
 
 
-def ldm_sd_v2(pretrained: bool = True, **kwargs: Any) -> TPipeline:
+def ldm_sd_v2(pretrained: bool = True, **kwargs: Any) -> TLoadZoo:
     return _ldm("diffusion/ldm.sd_v2", 64, 4, 4, pretrained=pretrained, **kwargs)
 
 
-def ldm_sd_v2_base(pretrained: bool = True, **kwargs: Any) -> TPipeline:
+def ldm_sd_v2_base(pretrained: bool = True, **kwargs: Any) -> TLoadZoo:
     return _ldm("diffusion/ldm.sd_v2_base", 64, 4, 4, pretrained=pretrained, **kwargs)
 
 
-def ldm_celeba_hq(pretrained: bool = True) -> TPipeline:
+def ldm_celeba_hq(pretrained: bool = True) -> TLoadZoo:
     return ldm_vq(
         pretrained=pretrained,
         download_name="ldm_celeba_hq",
@@ -131,7 +141,7 @@ def ldm_celeba_hq(pretrained: bool = True) -> TPipeline:
     )
 
 
-def ldm_inpainting(pretrained: bool = True) -> TPipeline:
+def ldm_inpainting(pretrained: bool = True) -> TLoadZoo:
     return ldm_vq(
         pretrained=pretrained,
         latent_in_channels=7,
@@ -153,7 +163,7 @@ def ldm_inpainting(pretrained: bool = True) -> TPipeline:
     )
 
 
-def ldm_sr(pretrained: bool = True) -> TPipeline:
+def ldm_sr(pretrained: bool = True) -> TLoadZoo:
     return ldm_vq(
         pretrained=pretrained,
         latent_in_channels=6,
@@ -171,7 +181,7 @@ def ldm_sr(pretrained: bool = True) -> TPipeline:
     )
 
 
-def ldm_semantic(pretrained: bool = True) -> TPipeline:
+def ldm_semantic(pretrained: bool = True) -> TLoadZoo:
     return ldm_vq(
         pretrained=pretrained,
         latent_size=128,
