@@ -332,23 +332,27 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
     def train_steps(self) -> List[CustomTrainStep]:
         return [DDPMStep("learnable")]
 
+    def preprocess(
+        self,
+        batch_idx: int,
+        batch: tensor_dict_type,
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> Tuple[Any, ...]:
+        return batch[INPUT_KEY], batch.get(self.cond_key)
+
     def forward(
         self,
-        batch: tensor_dict_type,
-        *,
+        net: Tensor,
+        cond: Optional[Tensor],
         timesteps: Optional[Tensor] = None,
         noise: Optional[Tensor] = None,
         use_noise: bool = True,
     ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
-        cond = batch.get(self.cond_key)
         # timesteps
         ts = torch.randint(0, self.t, (net.shape[0],), device=net.device).long()
         if timesteps is None:
             timesteps = ts
-        # condition
-        if cond is not None and self.condition_model is not None:
-            cond = self._get_cond(cond)
         # preprocess
         net = self._preprocess(net)
         # noise
@@ -374,7 +378,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
     ) -> MetricsOutputs:
         train_step = self.train_steps[0]
         # TODO : specify timesteps & noise to make results deterministic
-        forward = self.forward(batch)
+        forward = self.run(batch_idx, batch, state, **forward_kwargs)
         losses = train_step.loss_fn(self, state, batch, forward).losses
         score = -losses["simple"]
         # no ema
@@ -382,7 +386,7 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
             return MetricsOutputs(score, losses, {k: False for k in losses})
         losses = {f"{k}_ema": v for k, v in losses.items()}
         self.unet_ema.train()
-        forward = self.forward(batch)
+        forward = self.run(batch_idx, batch, state, **forward_kwargs)
         losses.update(train_step.loss_fn(self, state, batch, forward).losses)
         self.unet_ema.eval()
         return MetricsOutputs(score, losses, {k: False for k in losses})
@@ -791,4 +795,5 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
 
 __all__ = [
     "DDPM",
+    "DDPMStep",
 ]
