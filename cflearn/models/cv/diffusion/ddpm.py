@@ -341,27 +341,12 @@ class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
     ) -> Tuple[Any, ...]:
         return batch[INPUT_KEY], batch.get(self.cond_key)
 
-    def forward(
-        self,
-        net: Tensor,
-        cond: Optional[Tensor],
-        timesteps: Optional[Tensor] = None,
-        noise: Optional[Tensor] = None,
-        use_noise: bool = True,
-    ) -> tensor_dict_type:
-        # timesteps
-        ts = torch.randint(0, self.t, (net.shape[0],), device=net.device).long()
-        if timesteps is None:
-            timesteps = ts
-        # preprocess
+    def forward(self, net: Tensor, cond: Optional[Tensor]) -> tensor_dict_type:
+        timesteps = torch.randint(0, self.t, (net.shape[0],), device=net.device).long()
         net = self._preprocess(net)
-        # noise
-        if noise is None and use_noise:
-            noise = torch.randn_like(net)
-        if noise is not None:
-            net = self._q_sample(net, timesteps, noise)
-        # unet
-        unet_out = self.denoise(net, timesteps, cond, ts[0].item(), self.t)
+        noise = torch.randn_like(net)
+        net = self._q_sample(net, timesteps, noise)
+        unet_out = self.denoise(net, timesteps, cond, timesteps[0].item(), self.t)
         return {
             PREDICTIONS_KEY: unet_out,
             self.noise_key: noise,
