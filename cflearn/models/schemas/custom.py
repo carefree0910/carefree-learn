@@ -20,6 +20,7 @@ from ...schema import ITrainer
 from ...schema import IDataLoader
 from ...schema import StepOutputs
 from ...schema import TrainerState
+from ...schema import PrecisionType
 from ...schema import TrainerConfig
 from ...schema import MetricsOutputs
 from ...constants import LOSS_KEY
@@ -86,7 +87,7 @@ def run_train_steps(
                     forward = [get_fw() for _ in range(train_step.num_forward)]
         optimizer = trainer.optimizers[train_step.scope]
         with toggle_optimizer(m, optimizer, enabled=train_step.enable_toggle_optimizer):
-            with autocast(enabled=trainer.config.mixed_precision != "no"):
+            with autocast(enabled=trainer.config.mixed_precision != PrecisionType.NO):
                 loss_res = train_step.loss_fn(m, state, batch, forward, **loss_kwargs)
             update = state.step % train_step.grad_accumulate == 0
             update_fn(loss_res.loss, optimizer, update)
