@@ -4,7 +4,6 @@ import json
 import math
 import torch
 
-import torch.nn as nn
 import torch.distributed as dist
 
 from typing import Any
@@ -312,10 +311,11 @@ class Trainer(ITrainer):
 
     def clip_norm_step(self) -> None:
         if self.config.clip_norm > 0.0:
-            self._gradient_norm = nn.utils.clip_grad_norm_(
-                self.model_for_training.parameters(),
-                max_norm=self.config.clip_norm,
-            )
+            if self.accelerator.sync_gradients:
+                self._gradient_norm = self.accelerator.clip_grad_norm_(
+                    self.model_for_training.parameters(),
+                    max_norm=self.config.clip_norm,
+                )
 
     def optimizer_step(self) -> None:
         for opt in self.optimizers.values():
