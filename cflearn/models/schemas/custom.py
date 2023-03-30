@@ -52,6 +52,61 @@ def run_train_steps(
     forward_kwargs: Dict[str, Any],
     loss_kwargs: Dict[str, Any],
 ) -> StepOutputs:
+    """
+    Runs a series of custom training steps on a given model and batch of data.
+
+    Parameters
+    ----------
+    m : ModelWithCustomSteps
+        The model to train.
+    train_steps : List[CustomTrainStep]
+        The custom training steps to run.
+    batch_idx : int
+        The current batch index.
+    batch : tensor_dict_type
+        The batch of data to use for training.
+    trainer : ITrainer
+        The trainer object used to train the model.
+    forward_kwargs : Dict[str, Any]
+        Additional arguments to pass to the forward pass of the model.
+    loss_kwargs : Dict[str, Any]
+        Additional arguments to pass to the loss function of each training step.
+
+    Returns
+    -------
+    StepOutputs
+        An object containing the outputs of the forward pass and the calculated loss values of the training steps.
+
+    Step by step explanation
+    ------------------------
+    1. Initialize variables: `forward` (an empty dictionary), `loss_dict` (an empty dictionary), `any_update`
+    (a bool flag set to `False`), `performed_scheduler_step` (a bool flag set to `False`), and `update_fn` (a
+    function returned by the `get_update_fn` function defined above).
+    2. Check whether the forward pass should have gradients (`fw_has_grad`) and which training step to use for the
+    forward pass (`fw_train_step`). This is done by looping through each training step and checking its
+    `requires_new_forward` and `requires_grad_in_forward` attributes.
+    3. If `fw_has_grad` is `False` and a subsequent training step requires gradients in the forward pass, raise a
+    ValueError with a message indicating which training steps have conflicting requirements.
+    4. Loop through each training step and execute the following steps for each:
+      1) Check whether the current training step should be skipped. If so, move on to the next training step.
+      2) If this is the first training step, or if `requires_new_forward` is `True` for the current training step,
+      execute the forward pass of the model and store the output in `forward`. The `no_grad_context` context manager
+      is used to prevent gradients from being calculated if `requires_grad_in_forward` is `False`.
+      3) Get the optimizer to be used for this training step.
+      4) If `enable_toggle_optimizer` is `True` for this training step, temporarily switch to the optimizer associated
+      with this training step using the `toggle_optimizer` context manager.
+      5) Calculate the loss for this training step using the model, state, batch, and forward pass outputs. The
+      `autocast` context manager is used if mixed-precision training is enabled.
+      6) Update the optimizer if `train_step.grad_accumulate` is a factor of the current `state.step`.
+      7) Update the `loss_dict` with the loss values for this training step.
+      8) If an optimizer update occurred, set `any_update` to `True`, and if `requires_scheduler_step` is `True` for
+      this training step, call `trainer.scheduler_step()` to update the learning rate.
+    5. If any optimizer updates occurred but no scheduler steps were performed, call `trainer.scheduler_step()` to
+    update the learning rate.
+    6. Loop through each training step and call its callback function with the model, trainer, batch, and forward pass outputs.
+    7. Return the `StepOutputs` object containing the forward pass outputs and loss values.
+    """
+
     state = trainer.state
     forward: Union[tensor_dict_type, List[tensor_dict_type]] = {}
     loss_dict = {}
