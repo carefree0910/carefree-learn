@@ -19,6 +19,7 @@ from .api import cv
 from .api import api
 from .api import zoo
 from . import dist
+from . import scripts
 
 from .misc.toolkit import Initializer
 
