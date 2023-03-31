@@ -266,7 +266,8 @@ class DiffusionAPI(APIMixin):
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for tag in map(get_sd_tag, versions):
             if tag not in self.sd_weights:
-                self.sd_weights[tag] = torch.load(download_model(tag, root=root))
+                model_name = f"ldm_sd_{tag}"
+                self.sd_weights[tag] = torch.load(download_model(model_name, root=root))
 
     def switch_sd(self, version: SDVersions) -> None:
         tag = get_sd_tag(version)
