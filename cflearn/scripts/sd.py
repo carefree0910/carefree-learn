@@ -28,30 +28,30 @@ def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dic
         return {}
     d, md = map(shallow_copy_dict, [d, md])
     nd = {
-        "core.condition_model.m.token_embedding.weight": _get_dv(
+        "condition_model.m.token_embedding.weight": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.token_embedding.weight"
         ),
-        "core.condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": _get_dv(
+        "condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
         )[
             None, ...
         ],
-        "core.condition_model.m.text_transformer.encoder.head.norms.0.weight": _get_dv(
+        "condition_model.m.text_transformer.encoder.head.norms.0.weight": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.weight"
         ),
-        "core.condition_model.m.text_transformer.encoder.head.norms.0.bias": _get_dv(
+        "condition_model.m.text_transformer.encoder.head.norms.0.bias": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.bias"
         ),
     }
     for key in [
-        "core.condition_model.m.logit_scale",
-        "core.condition_model.m.text_transformer.attention_mask",
-        "core.condition_model.m.text_projection.weight",
-        "core.condition_model.m.text_projection.bias",
+        "condition_model.m.logit_scale",
+        "condition_model.m.text_transformer.attention_mask",
+        "condition_model.m.text_projection.weight",
+        "condition_model.m.text_projection.bias",
     ]:
         nd[key] = md.pop(key)
     prefix = "cond_stage_model.transformer.text_model.encoder.layers"
-    m_prefix = "core.condition_model.m.text_transformer.encoder.mixing_blocks"
+    m_prefix = "condition_model.m.text_transformer.encoder.mixing_blocks"
     layer_indices = []
     for key in d:
         if not key.startswith(prefix):
@@ -96,11 +96,11 @@ def _convert_first_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_di
     keys = list(d.keys())
     m_keys = list(md.keys())
     for k in [
-        "core.first_stage.core.codebook.embedding.weight",
-        "core.first_stage.core.to_embedding.weight",
-        "core.first_stage.core.to_embedding.bias",
-        "core.first_stage.core.from_embedding.weight",
-        "core.first_stage.core.from_embedding.bias",
+        "first_stage.codebook.embedding.weight",
+        "first_stage.to_embedding.weight",
+        "first_stage.to_embedding.bias",
+        "first_stage.from_embedding.weight",
+        "first_stage.from_embedding.bias",
     ]:
         if k in m_keys:
             m_keys.remove(k)
@@ -178,7 +178,7 @@ def _convert_others(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_ty
         elif not k.startswith("model") and not k.startswith("model_ema"):
             keys.remove(k)
     for mk in reversed(m_keys):
-        if not mk.startswith("core.unet") and not mk.startswith("core.unet_ema"):
+        if not mk.startswith("unet") and not mk.startswith("unet_ema"):
             continue
     keys.remove("model_ema.num_updates")
     keys.append("model_ema.num_updates")
@@ -201,10 +201,10 @@ def _convert(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_type:
         print(">  [info] injecting channel_mapper")
         assert (
             d["cond_stage_model.channel_mapper.weight"].shape
-            == md["core.condition_model.channel_mapper.weight"].shape
+            == md["condition_model.channel_mapper.weight"].shape
         )
         k = "cond_stage_model.channel_mapper.weight"
-        mk = "core.condition_model.channel_mapper.weight"
+        mk = "condition_model.channel_mapper.weight"
         nd[mk] = d[k]
         key_mapping_inv[mk] = k
     # condition
@@ -212,25 +212,25 @@ def _convert(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_type:
     for k in list(d.keys()):
         if k.startswith("cond_stage_model"):
             cond_d[k] = d.pop(k)
-    cond_md = {k: v for k, v in md.items() if k.startswith("core.condition_model")}
+    cond_md = {k: v for k, v in md.items() if k.startswith("condition_model")}
     for k in cond_md:
         md.pop(k)
     nd.update(_convert_cond_stage(cond_d, cond_md))
     # first stage
     fd = {k: v for k, v in d.items() if k.startswith("first_stage_model")}
-    fmd = {k: v for k, v in md.items() if k.startswith("core.first_stage")}
+    fmd = {k: v for k, v in md.items() if k.startswith("first_stage")}
     nd.update(_convert_first_stage(fd, fmd))
     # others
     od = {k: v for k, v in d.items() if not k.startswith("first_stage_model")}
-    omd = {k: v for k, v in md.items() if not k.startswith("core.first_stage")}
+    omd = {k: v for k, v in md.items() if not k.startswith("first_stage")}
     nd.update(_convert_others(od, omd))
     # ema
-    ema_num_updates_k = "core.unet_ema.num_updates"
+    ema_num_updates_k = "unet_ema.num_updates"
     if ema_num_updates_k in nd:
         nd.pop(ema_num_updates_k)
         key_mapping_inv.pop(ema_num_updates_k)
-        normal_keys = [k for k in list(nd) if k.startswith("core.unet.")]
-        ema_keys = [k for k in list(nd) if k.startswith("core.unet_ema")]
+        normal_keys = [k for k in list(nd) if k.startswith("unet.")]
+        ema_keys = [k for k in list(nd) if k.startswith("unet_ema")]
         for k, ema_k in zip(normal_keys, ema_keys):
             assert nd.pop(k).shape == nd[ema_k].shape
         for k, ema_k in zip(normal_keys, ema_keys):
@@ -309,15 +309,15 @@ def convert_v2(
         md = m.state_dict()
         nd = {}
         for k in [
-            "core.condition_model.m.text_projection.bias",
-            "core.condition_model.m.text_transformer.attention_mask",
+            "condition_model.m.text_projection.bias",
+            "condition_model.m.text_transformer.attention_mask",
         ]:
             nd[k] = md.pop(k)
         with open(download_static("sd_v2_mapping", extension="json"), "r") as f:
             mapping = json.load(f)
         for k, mk in mapping.items():
             v = inp[k]
-            if mk == "core.condition_model.m.text_projection.weight":
+            if mk == "condition_model.m.text_projection.weight":
                 v = v.t()
             nd[mk] = v.view(md[mk].shape)
         if load:
