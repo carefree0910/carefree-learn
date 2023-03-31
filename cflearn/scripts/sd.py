@@ -33,9 +33,7 @@ def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dic
         ),
         "condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
-        )[
-            None, ...
-        ],
+        )[None, ...],
         "condition_model.m.text_transformer.encoder.head.norms.0.weight": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.weight"
         ),
