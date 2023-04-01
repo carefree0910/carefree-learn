@@ -22,6 +22,10 @@ class ImageHarmonizationAPI:
         self.predictor.to(device)
 
     # return uint8 image array
+    def predict(self, image: np.ndarray, mask: np.ndarray) -> np.ndarray:
+        return self.predictor.predict(image, mask)
+
+    # return uint8 image array
     def run(self, image: Union[str, Image], mask: Union[str, Image]) -> np.ndarray:
         image_arr = read_image(
             image,
@@ -37,7 +41,7 @@ class ImageHarmonizationAPI:
             to_mask=True,
             to_torch_fmt=False,
         ).image
-        return self.predictor.predict(image_arr, mask_arr)
+        return self.predict(image_arr, mask_arr)
 
 
 __all__ = [
