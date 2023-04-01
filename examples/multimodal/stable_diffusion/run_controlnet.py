@@ -11,7 +11,7 @@ from cflearn.api.cv.diffusion import ControlNetHints
 file_folder = os.path.dirname(__file__)
 api = cflearn.cv.ControlledDiffusionAPI.from_sd("cuda:0", use_half=True)
 # prepare ControlNet weights/annotators
-api.prepare_defaults()
+api.prepare_control_defaults()
 api.prepare_annotators()
 # for ControlledDiffusionAPI, we need to disable `ControlNet` before doing normal generations
 api.disable_control()
@@ -21,7 +21,7 @@ api.txt2img("A lovely little cat.", "out.png", seed=234)
 api.enable_control()
 # switch to `canny` hint type and get canny hint
 cat_path = f"{file_folder}/assets/cat.png"
-api.switch(ControlNetHints.CANNY)
+api.switch_control(ControlNetHints.CANNY)
 hint = api.get_hint_of(
     ControlNetHints.CANNY,
     np.array(Image.open(cat_path)),

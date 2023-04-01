@@ -1340,7 +1340,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     annotators: Dict[ControlNetHints, Annotator]
     base_sd_versions: Dict[ControlNetHints, SDVersions]
 
-    defaults = {
+    control_defaults = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
         ControlNetHints.CANNY: "ldm.sd_v1.5.control.diff.canny",
         ControlNetHints.POSE: "ldm.sd_v1.5.control.diff.pose",
@@ -1371,7 +1371,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             use_half=use_half,
             clip_skip=clip_skip,
         )
-        pool = sorted(self.defaults)
+        pool = sorted(self.control_defaults)
         selected_pool = pool[: min(num_pool, len(pool))]
         self.m.make_control_net({k: hint_channels for k in selected_pool})
         self.loaded = {k: False for k in selected_pool}
@@ -1395,18 +1395,18 @@ class ControlledDiffusionAPI(DiffusionAPI):
                 annotator = annotator.to(device, use_half=use_half)
 
     @property
-    def available(self) -> List[ControlNetHints]:
+    def available_control_hints(self) -> List[ControlNetHints]:
         return list(self.weights)
 
-    def prepare(self, hints2tags: Dict[ControlNetHints, str]) -> None:
+    def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for hint, tag in hints2tags.items():
             self.weights[hint] = torch.load(download_model(tag, root=root))
 
-    def prepare_defaults(self) -> None:
-        self.prepare(self.defaults)
+    def prepare_control_defaults(self) -> None:
+        self.prepare_control(self.control_defaults)
 
-    def switch(self, *hints: ControlNetHints) -> None:
+    def switch_control(self, *hints: ControlNetHints) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
 
@@ -1449,8 +1449,8 @@ class ControlledDiffusionAPI(DiffusionAPI):
             d = self.weights.get(hint)
             if d is None:
                 raise ValueError(
-                    f"cannot find weights called '{hint}', "
-                    f"available weights are: {', '.join(self.available)}"
+                    f"cannot find ControlNet weights called '{hint}', "
+                    f"available weights are: {', '.join(self.available_control_hints)}"
                 )
             if need_offset:
                 d = offset_cnet_weights(d, self)
