@@ -380,7 +380,9 @@ def sdp_attn(
     dropout: Optional[float] = None,
 ) -> Tensor:
     if pt2_sdp_attn is not None:
-        return pt2_sdp_attn(q, k, v, mask, dropout if training else None)
+        dropout = dropout if training else None
+        dropout = 0.0 if dropout is None else dropout
+        return pt2_sdp_attn(q, k, v, mask, dropout)
     raw_weights = q @ k.transpose(-2, -1) / math.sqrt(k.shape[-1])
     if mask is not None:
         raw_weights.masked_fill_(~mask, float("-inf"))
