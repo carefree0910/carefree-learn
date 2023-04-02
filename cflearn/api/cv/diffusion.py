@@ -827,11 +827,11 @@ class DiffusionAPI(APIMixin):
         sr_size = (zw, zw / wh_ratio) if zw > zh else (zh * wh_ratio, zh)
         sr_size = tuple(map(lambda n: round(factor * n), sr_size))  # type: ignore
         cond = torch.from_numpy(2.0 * res.image - 1.0).to(self.device)
-        z = torch.randn_like(cond)
+        size = self._get_identical_size_with(cond)
         return self.sample(
             1,
             export_path,
-            z=z,
+            size=size,
             original_size=sr_size,
             alpha=res.alpha if alpha is None else alpha,
             cond=cond,
@@ -876,11 +876,11 @@ class DiffusionAPI(APIMixin):
         cond = cond.half() if self.use_half else cond.float()
         cond = cond.permute(0, 3, 1, 2).contiguous()
         cond = self.get_cond(cond)
-        z = torch.randn_like(cond)
+        size = self._get_identical_size_with(cond)
         return self.sample(
             1,
             export_path,
-            z=z,
+            size=size,
             original_size=res.original_size,
             alpha=res.alpha if alpha is None else alpha,
             cond=cond,
