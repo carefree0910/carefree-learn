@@ -774,12 +774,7 @@ class DiffusionAPI(APIMixin):
             lambda bool_mask: torch.where(torch.from_numpy(bool_mask), 1.0, -1.0),
         )
         cond = torch.cat([res.remained_image_cond, res.mask_cond], dim=1)
-        size = tuple(
-            map(
-                lambda n: n * self.size_info.factor,
-                res.remained_image_cond.shape[-2:][::-1],
-            )
-        )
+        size = self._get_identical_size_with(res.remained_image_cond)
         # refine with img2img
         if refine_fidelity is not None:
             z = self._get_z(res.image_res.image)
@@ -1084,6 +1079,14 @@ class DiffusionAPI(APIMixin):
         z = z.to(self.device)
         z = self.m._preprocess(z, deterministic=True)
         return z
+
+    def _get_identical_size_with(self, pivot: Tensor) -> Tuple[int, int]:
+        return tuple(  # type: ignore
+            map(
+                lambda n: n * self.size_info.factor,
+                pivot.shape[-2:][::-1],
+            )
+        )
 
     def _set_seed_and_variations(
         self,
