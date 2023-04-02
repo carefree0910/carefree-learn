@@ -28,6 +28,7 @@ from .hijacks import HijackConv2d
 from .hijacks import HijackLinear
 from .hijacks import HijackCustomLinear
 from .activations import Activation
+from ...misc.toolkit import sdp_attn
 from ...misc.toolkit import gradient_checkpoint
 
 
@@ -238,7 +239,7 @@ class Attention(Module, IAttention, IHijackMixin, WithRegister["Attention"]):
             weights = None
             if mask is not None:
                 mask = ~mask
-            output = F.scaled_dot_product_attention(q, k, v, mask, self.dropout)
+            output = sdp_attn(q, k, v, self.training, mask, self.dropout)
         else:
             # B, N_head, Nq, Nk
             raw_weights = torch.matmul(q, k.transpose(-2, -1))
@@ -352,7 +353,7 @@ class SpatialAttention(Module):
         k = k.view(b, c, area).transpose(1, 2)
         v = v.view(b, c, area).transpose(1, 2)
 
-        net = F.scaled_dot_product_attention(q, k, v)
+        net = sdp_attn(q, k, v, self.training)
         net = net.transpose(1, 2).contiguous().view(b, c, h, w)
         net = self.to_out(net)
         net = inp + net
@@ -553,7 +554,7 @@ class CrossAttention(Module):
                 mask = mask.view(b, -1)
                 mask = mask[:, None, :].repeat(self.num_heads, 1, 1)
                 mask = ~mask
-            net = F.scaled_dot_product_attention(q, k, v, mask)
+            net = sdp_attn(q, k, v, self.training, mask)
         else:
             if mask is not None:
                 msg = "`mask` is not supported yet when `attn_split_chunk` is enabled"
@@ -563,9 +564,7 @@ class CrossAttention(Module):
             net = torch.zeros(size, tq, v.shape[2], dtype=q.dtype, device=q.device)
             for i in range(0, size, self.attn_split_chunk):
                 end = i + self.attn_split_chunk
-                net[i:end] = F.scaled_dot_product_attention(
-                    q[i:end], k[i:end], v[i:end]
-                )
+                net[i:end] = sdp_attn(q[i:end], k[i:end], v[i:end], self.training)
 
         # (B, head, Tq, dim)
         net = net.reshape(b, self.num_heads, tq, dq // self.num_heads)

@@ -368,6 +368,28 @@ class WeightsStrategy:
 # dl
 
 
+pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
+
+
+def sdp_attn(
+    q: Tensor,
+    k: Tensor,
+    v: Tensor,
+    training: bool,
+    mask: Optional[Tensor] = None,
+    dropout: Optional[float] = None,
+) -> Tensor:
+    if pt2_sdp_attn is not None:
+        return pt2_sdp_attn(q, k, v, mask, dropout if training else None)
+    raw_weights = q @ k.transpose(-2, -1) / math.sqrt(k.shape[-1])
+    if mask is not None:
+        raw_weights.masked_fill_(~mask, float("-inf"))
+    weights = F.softmax(raw_weights, dim=-1)
+    if training and dropout is not None and 0.0 < dropout < 1.0:
+        weights = F.dropout(weights, dropout)
+    return weights @ v
+
+
 def get_tensors(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
     if isinstance(inp, str):
         if inp.endswith(".safetensors"):
