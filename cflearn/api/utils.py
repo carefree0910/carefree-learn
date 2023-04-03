@@ -113,7 +113,7 @@ class ILoadableItem(Generic[TItem]):
         self.load_time = time.time()
         self._item = init_fn() if init else None
 
-    def load(self) -> TItem:
+    def load(self, **kwargs: Any) -> TItem:
         self.load_time = time.time()
         if self._item is None:
             self._item = self.init_fn()
@@ -155,11 +155,11 @@ class ILoadablePool(Generic[TItem], metaclass=ABCMeta):
                 loadable_item.load()
                 self.activated[key] = loadable_item
 
-    def get(self, key: str) -> TItem:
+    def get(self, key: str, **kwargs: Any) -> TItem:
         loadable_item = self.pool.get(key)
         if loadable_item is None:
             raise ValueError(f"key '{key}' does not exist")
-        item = loadable_item.load()
+        item = loadable_item.load(**kwargs)
         if key in self.activated:
             return item
         load_times = {k: v.load_time for k, v in self.activated.items()}
