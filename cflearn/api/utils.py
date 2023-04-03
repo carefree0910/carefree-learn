@@ -4,10 +4,14 @@ import torch
 
 import torch.nn as nn
 
+from abc import abstractmethod
+from abc import ABCMeta
 from typing import Any
 from typing import Dict
 from typing import Type
+from typing import Generic
 from typing import TypeVar
+from typing import Callable
 from typing import Optional
 from cftool.misc import TIME_FORMAT
 from cftool.misc import print_info
@@ -22,6 +26,7 @@ from ..misc.toolkit import empty_cuda_cache
 
 
 TAPI = TypeVar("TAPI", bound="APIMixin")
+TItem = TypeVar("TItem")
 
 
 class APIMixin:
@@ -100,28 +105,28 @@ class APIMixin:
         )
 
 
-class Weights:
-    _weights: Optional[tensor_dict_type]
+class ILoadableItem(Generic[TItem]):
+    _item: Optional[TItem]
 
-    def __init__(self, path: str, *, init: bool = False):
-        self.path = path
+    def __init__(self, init_fn: Callable[[], TItem], *, init: bool = False):
+        self.init_fn = init_fn
         self.load_time = time.time()
-        self._weights = torch.load(path) if init else None
+        self._item = init_fn() if init else None
 
-    def load(self) -> tensor_dict_type:
+    def load(self) -> TItem:
         self.load_time = time.time()
-        if self._weights is None:
-            self._weights = torch.load(self.path)
-        return self._weights
+        if self._item is None:
+            self._item = self.init_fn()
+        return self._item
 
     def unload(self) -> None:
-        self._weights = None
+        self._item = None
         gc.collect()
 
 
-class WeightsPool:
-    pool: Dict[str, Weights]
-    activated: Dict[str, Weights]
+class ILoadablePool(Generic[TItem], metaclass=ABCMeta):
+    pool: Dict[str, ILoadableItem]
+    activated: Dict[str, ILoadableItem]
 
     # set `limit` to negative values to indicate 'no limit'
     def __init__(self, limit: int = -1):
@@ -137,32 +142,42 @@ class WeightsPool:
     def __contains__(self, key: str) -> bool:
         return key in self.pool
 
-    def register(self, key: str, path: str) -> None:
+    def register(self, key: str, init_fn: Callable[[bool], ILoadableItem]) -> None:
         if key in self.pool:
             raise ValueError(f"key '{key}' already exists")
         init = self.limit < 0
-        w = Weights(path, init=init)
-        self.pool[key] = w
+        loadable_item = init_fn(init)
+        self.pool[key] = loadable_item
         if init:
-            self.activated[key] = w
+            self.activated[key] = loadable_item
         else:
             if len(self.activated) < self.limit:
-                w.load()
-                self.activated[key] = w
+                loadable_item.load()
+                self.activated[key] = loadable_item
 
-    def get(self, key: str) -> tensor_dict_type:
-        w = self.pool.get(key)
-        if w is None:
+    def get(self, key: str) -> TItem:
+        loadable_item = self.pool.get(key)
+        if loadable_item is None:
             raise ValueError(f"key '{key}' does not exist")
-        d = w.load()
+        item = loadable_item.load()
         if key in self.activated:
-            return d
+            return item
         load_times = {k: v.load_time for k, v in self.activated.items()}
         earliest_key = list(sort_dict_by_value(load_times).keys())[0]
         self.activated.pop(earliest_key).unload()
-        self.activated[key] = w
+        self.activated[key] = loadable_item
         print_info(
             f"'{earliest_key}' is unloaded to make room for '{key}' "
-            f"(last updated: {time.strftime(TIME_FORMAT, time.localtime(w.load_time))})"
+            f"(last updated: {time.strftime(TIME_FORMAT, time.localtime(loadable_item.load_time))})"
         )
-        return d
+        return item
+
+
+class Weights(ILoadableItem[tensor_dict_type]):
+    def __init__(self, path: str, *, init: bool = False):
+        super().__init__(lambda: torch.load(path), init=init)
+
+
+class WeightsPool(ILoadablePool[tensor_dict_type]):
+    def register(self, key: str, path: str) -> None:  # type: ignore
+        super().register(key, lambda init: Weights(path, init=init))
