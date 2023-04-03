@@ -36,18 +36,19 @@ from .samplers import ISampler
 from .samplers import DDPMQSampler
 from .cond_models import condition_models
 from .cond_models import specialized_condition_models
+from ...schemas import CustomTrainStep
+from ...schemas import CustomTrainStepLoss
+from ...schemas import ModelWithCustomSteps
 from ...schemas import GaussianGeneratorMixin
 from ....zoo import DLZoo
 from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
-from ....register import register_custom_module
-from ....register import CustomModule
-from ....register import CustomTrainStep
-from ....register import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....misc.toolkit import freeze
+from ....misc.toolkit import get_dtype
+from ....misc.toolkit import get_device
 from ....modules.blocks import EMA
 
 
@@ -100,7 +101,7 @@ class DDPMStep(CustomTrainStep):
     def loss_fn(
         self,
         m: "DDPM",
-        trainer: ITrainer,
+        state: Optional[TrainerState],
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
         **kwargs: Any,
@@ -170,8 +171,8 @@ TControlScales = Union[float, List[float]]
 TTControlScales = Union[TControlScales, Dict[str, TControlScales]]
 
 
-@register_custom_module("ddpm")
-class DDPM(CustomModule, GaussianGeneratorMixin):
+@ModelWithCustomSteps.register("ddpm")
+class DDPM(ModelWithCustomSteps, GaussianGeneratorMixin):
     cond_key = "cond"
     noise_key = "noise"
     timesteps_key = "timesteps"
@@ -318,10 +319,6 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
         )
 
     @property
-    def dtype(self) -> torch.dtype:
-        return list(self.unet.parameters())[0].dtype
-
-    @property
     def can_reconstruct(self) -> bool:
         return True
 
@@ -334,62 +331,51 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     @property
     def train_steps(self) -> List[CustomTrainStep]:
-        return [DDPMStep("core.learnable")]
+        return [DDPMStep("learnable")]
 
-    def forward(
+    def get_forward_args(
         self,
+        batch_idx: int,
         batch: tensor_dict_type,
-        *,
-        timesteps: Optional[Tensor] = None,
-        noise: Optional[Tensor] = None,
-        use_noise: bool = True,
-    ) -> tensor_dict_type:
-        net = batch[INPUT_KEY]
-        cond = batch.get(self.cond_key)
-        # timesteps
-        ts = torch.randint(0, self.t, (net.shape[0],), device=net.device).long()
-        if timesteps is None:
-            timesteps = ts
-        # condition
-        if cond is not None and self.condition_model is not None:
-            cond = self._get_cond(cond)
-        # preprocess
+        state: Optional["TrainerState"] = None,
+        **kwargs: Any,
+    ) -> Tuple[Any, ...]:
+        return batch[INPUT_KEY], batch.get(self.cond_key)
+
+    def forward(self, net: Tensor, cond: Optional[Tensor]) -> tensor_dict_type:
+        timesteps = torch.randint(0, self.t, (net.shape[0],), device=net.device).long()
         net = self._preprocess(net)
-        # noise
-        if noise is None and use_noise:
-            noise = torch.randn_like(net)
-        if noise is not None:
-            net = self._q_sample(net, timesteps, noise)
-        # unet
-        unet_out = self.denoise(net, timesteps, cond, ts[0].item(), self.t)
+        noise = torch.randn_like(net)
+        net = self._q_sample(net, timesteps, noise)
+        unet_out = self.denoise(net, timesteps, cond, timesteps[0].item(), self.t)
         return {
             PREDICTIONS_KEY: unet_out,
             self.noise_key: noise,
             self.timesteps_key: timesteps,
         }
 
-    def evaluate_step(
+    def evaluate(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: TrainerState,
+        state: Optional[TrainerState],
         weighted_loss_score_fn: Callable[[Dict[str, float]], float],
-        trainer: ITrainer,
+        forward_kwargs: Dict[str, Any],
     ) -> MetricsOutputs:
         train_step = self.train_steps[0]
         # TODO : specify timesteps & noise to make results deterministic
-        forward = self.forward(batch)
-        losses = train_step.loss_fn(self, trainer, batch, forward).losses
+        forward = self.run(batch_idx, batch, state, **forward_kwargs)
+        losses = train_step.loss_fn(self, state, batch, forward).losses
         score = -losses["simple"]
         # no ema
         if self.unet_ema is None:
-            return MetricsOutputs(score, losses)
+            return MetricsOutputs(score, losses, {k: False for k in losses})
         losses = {f"{k}_ema": v for k, v in losses.items()}
         self.unet_ema.train()
-        forward = self.forward(batch)
-        losses.update(train_step.loss_fn(self, trainer, batch, forward).losses)
+        forward = self.run(batch_idx, batch, state, **forward_kwargs)
+        losses.update(train_step.loss_fn(self, state, batch, forward).losses)
         self.unet_ema.eval()
-        return MetricsOutputs(score, losses)
+        return MetricsOutputs(score, losses, {k: False for k in losses})
 
     # api
 
@@ -411,7 +397,7 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
     def generate_z(self, num_samples: int) -> Tensor:
         shape = num_samples, self.in_channels, self.img_size, self.img_size
-        return torch.randn(shape, device=self.device)
+        return torch.randn(shape, dtype=get_dtype(self), device=get_device(self))
 
     def decode(
         self,
@@ -597,8 +583,9 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             # temporarily make inpainting compatible
             kw = shallow_copy_dict(self.unet_kw)
             kw["in_channels"] = 4
+            dtype = list(self.unet.parameters())[0].dtype
             control_model = ControlNet(hint_channels=n, **kw)  # type: ignore
-            control_model = control_model.to(self.device, dtype=self.dtype)
+            control_model = control_model.to(get_device(self), dtype=dtype)
             return control_model
 
         if isinstance(hint_channels, int):
@@ -702,9 +689,8 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
             m = safe_execute(specialized, condition_config or {})
         else:
             kwargs = condition_config or {}
-            kwargs.setdefault("report", False)
             kwargs.setdefault("pretrained", use_pretrained_condition)
-            m = DLZoo.load_model(condition_model, **kwargs)
+            m = DLZoo.load_pipeline(condition_model, **kwargs).build_model.model
         if not condition_learnable:
             freeze(m)
         self.condition_model = make_condition_model(condition_model, m)
@@ -795,4 +781,5 @@ class DDPM(CustomModule, GaussianGeneratorMixin):
 
 __all__ = [
     "DDPM",
+    "DDPMStep",
 ]

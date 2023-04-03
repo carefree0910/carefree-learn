@@ -4,6 +4,10 @@ import cflearn
 import numpy as np
 
 from cflearn.misc.toolkit import check_is_ci
+from cflearn.misc.toolkit import seed_everything
+
+
+seed_everything(123)
 
 power = 4
 padding = 1.0
@@ -27,20 +31,20 @@ m = cflearn.api.fit_ml(
     y[:num_train],
     x[num_train:-num_test],
     y[num_train:-num_test],
-    is_classification=False,
     config=cflearn.MLConfig(
-        core_name="ddr",
+        model_name="ddr",
+        model_config=dict(input_dim=1, output_dim=1),
     ),
     debug=check_is_ci(),
 )
 
 try:
-    import cfml
+    import matplotlib
 except:
     from cftool.misc import print_warning
 
     print_warning(
-        "`carefree-ml` is not installed, "
+        "`matplotlib` is not installed, "
         "so the visualization process will not be executed"
     )
     exit(0)

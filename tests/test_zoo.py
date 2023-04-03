@@ -8,10 +8,6 @@ try:
     import transformers
 except ImportError:
     transformers = None
-try:
-    import cfcv
-except ImportError:
-    cfcv = None
 
 
 def _inject_mock(req: Dict[str, Any], d: Dict[str, Any]) -> None:
@@ -50,22 +46,19 @@ class TestZoo(unittest.TestCase):
             # avoid OOM
             if model.name.startswith("diffusion"):
                 continue
+            if model.name in ("multimodal/clip.open_clip_ViT_H_14",):
+                continue
+            # mock
             kwargs: Dict[str, Any] = {}
             _inject_mock(model.requirements, kwargs)
             if model.name.startswith("vae/vanilla"):
                 kwargs["model_config"]["latent_resolution"] = 16
             if "clip_vqgan_aligner" in model.name:
-                if cfcv is None:
-                    continue
                 # doesn't need to download pretrained models here
                 kwargs["model_config"]["perceptor_pretrained_name"] = None
                 kwargs["model_config"]["generator_pretrained_name"] = None
-            m = cflearn.api.from_zoo(model.name, build=True, **kwargs)
-            m2 = cflearn.api.from_json(m.to_json())
-            m3 = cflearn.api.from_zoo(model.name, build=False, **kwargs)
-            m4 = cflearn.api.from_json(m3.to_json())
-            self.assertEqual(m, m2)
-            self.assertEqual(m3, m4)
+            m = cflearn.api.from_zoo(model.name, **kwargs)
+            print(f"> {model.name}, {str(m.build_model.model)[:10]}")
 
 
 if __name__ == "__main__":

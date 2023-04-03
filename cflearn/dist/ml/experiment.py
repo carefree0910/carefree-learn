@@ -4,75 +4,71 @@ import torch
 from typing import Any
 from typing import Dict
 from typing import List
+from typing import Type
 from typing import Tuple
 from typing import Union
 from typing import Callable
 from typing import Optional
-from typing import NamedTuple
+from dataclasses import dataclass
 from cftool.dist import Parallel
 from cftool.misc import shallow_copy_dict
-from cftool.misc import get_latest_workplace
-from cftool.misc import lock_manager
-from cftool.misc import Saving
-from cftool.misc import LoggingMixin
+from cftool.misc import Serializer
+from cftool.misc import ISerializable
+from cftool.misc import DataClassBase
+from cftool.misc import PureFromInfoMixin
 
 from .task import Task
-from ...constants import META_CONFIG_NAME
-from ...constants import CHECKPOINTS_FOLDER
-from ...data.core import DataModule
-from ...api.ml.pipeline import MLCarefreePipeline
+from ...data import MLData
+from ...schema import DLConfig
+from ...pipeline import DLEvaluationPipeline
 
 
 def _task(
     task: Task,
     execute: str,
-    config_folder: str,
+    workspace: str,
     cuda: Optional[Union[int, str]] = None,
 ) -> None:
-    task.run(execute, config_folder, cuda)
+    task_folder = os.path.join(workspace, "__task__")
+    task.run(execute, task_folder, cuda)
 
 
 def inject_distributed_tqdm_kwargs(
     i: int,
     num_jobs: int,
-    kwargs: Dict[str, Any],
+    config: DLConfig,
 ) -> None:
-    tqdm_settings = kwargs.setdefault("tqdm_settings", {})
-    if tqdm_settings is None:
-        kwargs["tqdm_settings"] = tqdm_settings = {}
+    tqdm_settings = config.tqdm_settings or {}
     tqdm_settings.setdefault("use_tqdm", True)
     tqdm_settings.setdefault("use_step_tqdm", False)
     tqdm_settings.setdefault("in_distributed", True)
     tqdm_settings.setdefault("tqdm_position", i % (num_jobs or 1) + 1)
     tqdm_settings.setdefault("tqdm_desc", f"epoch (task {i})")
+    config.tqdm_settings = tqdm_settings
 
 
-class ExperimentResults(NamedTuple):
-    workplaces: List[str]
-    workplace_keys: List[Tuple[str, str]]
-    pipelines: Optional[List[MLCarefreePipeline]]
-
-    @property
-    def pipeline_dict(self) -> Dict[str, MLCarefreePipeline]:
-        if self.pipelines is None:
-            raise ValueError("pipelines are not provided")
-        return dict(zip(self.workplaces, self.pipelines))
-
-    @property
-    def checkpoint_folders(self) -> Dict[str, List[str]]:
-        folders: Dict[str, Dict[int, str]] = {}
-        for workplace, workplace_key in zip(self.workplaces, self.workplace_keys):
-            model, index = workplace_key
-            latest_workplace = get_latest_workplace(workplace)
-            assert latest_workplace is not None, "internal error occurred"
-            checkpoint_folder = os.path.join(latest_workplace, CHECKPOINTS_FOLDER)
-            folders.setdefault(model, {})[int(index)] = checkpoint_folder
-        return {k: [v[i] for i in range(len(v))] for k, v in folders.items()}
+delimiter = "$^_^$"
 
 
-class Experiment(LoggingMixin):
+def tuple_key_to_str_key(d: Dict[Tuple[str, str], Any]) -> Dict[str, Any]:
+    return {delimiter.join(k): v for k, v in d.items()}
+
+
+def str_key_to_tuple_key(d: Dict[str, Any]) -> Dict[Tuple[str, str], Any]:
+    return {tuple(k.split(delimiter)): v for k, v in d.items()}  # type: ignore
+
+
+@dataclass
+class ExperimentResults(DataClassBase):
+    workspaces: List[str]
+    workspace_keys: List[Tuple[str, str]]
+    pipelines: Optional[List[DLEvaluationPipeline]]
+
+
+class Experiment(PureFromInfoMixin, ISerializable):
+    d: Dict[str, Type["Experiment"]] = {}
     tasks_folder = "__tasks__"
-    default_root_workplace = "__experiment__"
+    default_root_workspace = "_experiment"
 
     def __init__(
         self,
@@ -92,41 +88,41 @@ class Experiment(LoggingMixin):
         self.tasks: Dict[Tuple[str, str], Task] = {}
         self.key_indices: Dict[Tuple[str, str], int] = {}
         self.executes: Dict[Tuple[str, str], str] = {}
-        self.workplaces: Dict[Tuple[str, str], str] = {}
+        self.workspaces: Dict[Tuple[str, str], str] = {}
         self.results: Optional[ExperimentResults] = None
 
     @staticmethod
-    def data_folder(workplace: Optional[str] = None) -> str:
-        workplace = workplace or Experiment.default_root_workplace
-        return os.path.join(workplace, "__data__")
+    def data_folder(workspace: Optional[str] = None) -> str:
+        workspace = workspace or Experiment.default_root_workspace
+        return os.path.join(workspace, "__data__")
 
     @staticmethod
     def dump_data(
-        data: DataModule,
+        data: MLData,
         *,
-        workplace: Optional[str] = None,
+        workspace: Optional[str] = None,
         data_folder: Optional[str] = None,
     ) -> str:
         if data_folder is None:
-            data_folder = Experiment.data_folder(workplace)
+            data_folder = Experiment.data_folder(workspace)
         os.makedirs(data_folder, exist_ok=True)
-        data.save(data_folder)
+        Serializer.save(data_folder, data)
         return data_folder
 
     @staticmethod
     def fetch_data(
         *,
-        workplace: Optional[str] = None,
+        workspace: Optional[str] = None,
         data_folder: Optional[str] = None,
-    ) -> DataModule:
+    ) -> MLData:
         if data_folder is None:
-            data_folder = Experiment.data_folder(workplace)
-        return DataModule.load(data_folder)
+            data_folder = Experiment.data_folder(workspace)
+        return Serializer.load(data_folder, MLData)
 
     @staticmethod
-    def workplace(workplace_key: Tuple[str, str], root_workplace: str) -> str:
-        workplace = os.path.join(root_workplace, *workplace_key)
-        return os.path.abspath(workplace)
+    def workspace(workspace_key: Tuple[str, str], root_workspace: str) -> str:
+        workspace = os.path.join(root_workspace, *workspace_key)
+        return os.path.abspath(workspace)
 
     @property
     def num_tasks(self) -> int:
@@ -134,53 +130,56 @@ class Experiment(LoggingMixin):
 
     def add_task(
         self,
-        data: Optional[DataModule] = None,
+        data: Optional[MLData] = None,
         *,
         model: str = "fcnn",
         execute: str = "basic",
-        root_workplace: Optional[str] = None,
-        workplace_key: Optional[Tuple[str, str]] = None,
-        config: Optional[Dict[str, Any]] = None,
+        root_workspace: Optional[str] = None,
+        workspace_key: Optional[Tuple[str, str]] = None,
+        config: Optional[DLConfig] = None,
         data_folder: Optional[str] = None,
         run_command: Optional[str] = None,
         task_meta_kwargs: Optional[Dict[str, Any]] = None,
     ) -> str:
-        if workplace_key is None:
+        if workspace_key is None:
             counter = 0
             while True:
-                workplace_key = model, str(counter)
-                if workplace_key not in self.tasks:
+                workspace_key = model, str(counter)
+                if workspace_key not in self.tasks:
                     break
                 counter += 1
-        if workplace_key in self.tasks:
-            raise ValueError(f"task already exists with '{workplace_key}'")
-        root_workplace = root_workplace or self.default_root_workplace
-        workplace = self.workplace(workplace_key, root_workplace)
-        copied_config = shallow_copy_dict(config or {})
-        copied_config["core_name"] = model
+        if workspace_key in self.tasks:
+            raise ValueError(f"task already exists with '{workspace_key}'")
+        root_workspace = root_workspace or self.default_root_workspace
+        workspace = self.workspace(workspace_key, root_workspace)
         new_idx = len(self.tasks)
-        inject_distributed_tqdm_kwargs(new_idx, self.num_jobs, copied_config)
+        if config is not None:
+            config: DLConfig = config.copy()  # type: ignore
+            config.workspace = workspace
+            config.create_sub_workspace = False
+            config.model_name = model
+            inject_distributed_tqdm_kwargs(new_idx, self.num_jobs, config)
         if data_folder is None and data is not None:
-            data_folder = self.dump_data(data, workplace=workplace)
-        if data_folder is not None:
-            copied_config["data_folder"] = os.path.abspath(data_folder)
-        new_task = Task(
+            data_folder = self.dump_data(data, workspace=workspace)
+        new_task = Task.init(
+            config,
             run_command,
-            workplace=workplace,
-            config=copied_config,
+            model=model,
+            workspace=workspace,
+            data_folder=None if data_folder is None else os.path.abspath(data_folder),
             **shallow_copy_dict(task_meta_kwargs or {}),
         )
-        self.tasks[workplace_key] = new_task
-        self.key_indices[workplace_key] = new_idx
-        self.executes[workplace_key] = execute
-        self.workplaces[workplace_key] = workplace
-        return workplace
+        self.tasks[workspace_key] = new_task
+        self.key_indices[workspace_key] = new_idx
+        self.executes[workspace_key] = execute
+        self.workspaces[workspace_key] = workspace
+        return workspace
 
     def run_tasks(
         self,
         *,
         use_tqdm: bool = True,
-        task_loader: Optional[Callable[[str], MLCarefreePipeline]] = None,
+        task_loader: Optional[Callable[[str], DLEvaluationPipeline]] = None,
         **parallel_kwargs: Any,
     ) -> ExperimentResults:
         resource_config = shallow_copy_dict(self.resource_config)
@@ -193,87 +192,50 @@ class Experiment(LoggingMixin):
             resource_config=resource_config,
             **parallel_kwargs,
         )
-        sorted_workplace_keys = sorted(self.tasks, key=self.key_indices.get)  # type: ignore
-        sorted_tasks = [self.tasks[key] for key in sorted_workplace_keys]
-        sorted_executes = [self.executes[key] for key in sorted_workplace_keys]
-        sorted_workplaces = [self.workplaces[key] for key in sorted_workplace_keys]
-        parallel(_task, sorted_tasks, sorted_executes, sorted_workplaces)
+        sorted_workspace_keys = sorted(self.tasks, key=self.key_indices.get)  # type: ignore
+        sorted_tasks = [self.tasks[key] for key in sorted_workspace_keys]
+        sorted_executes = [self.executes[key] for key in sorted_workspace_keys]
+        sorted_workspaces = [self.workspaces[key] for key in sorted_workspace_keys]
+        parallel(_task, sorted_tasks, sorted_executes, sorted_workspaces)
         if task_loader is None:
             pipelines = None
         else:
-            pipelines = list(map(task_loader, sorted_workplaces))
+            pipelines = list(map(task_loader, sorted_workspaces))
         self.results = ExperimentResults(
-            sorted_workplaces,
-            sorted_workplace_keys,
+            sorted_workspaces,
+            sorted_workspace_keys,
             pipelines,
         )
         return self.results
 
-    def save(self, export_folder: str, *, compress: bool = True) -> "Experiment":
-        abs_folder = os.path.abspath(export_folder)
-        base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [export_folder]):
-            Saving.prepare_folder(self, export_folder)
-            # tasks
-            tasks_folder = os.path.join(abs_folder, self.tasks_folder)
-            for workplace_key, task in self.tasks.items():
-                task.save(os.path.join(tasks_folder, *workplace_key))
-            # meta
-            if self.results is None:
-                raise ValueError("results are not generated yet")
-            meta_config = {
-                "executes": self.executes,
-                "num_jobs": self.num_jobs,
-                "use_cuda": self.use_cuda,
-                "cuda_list": self.cuda_list,
-                "resource_config": self.resource_config,
-                "results": ExperimentResults(
-                    self.results.workplaces,
-                    self.results.workplace_keys,
-                    None,
-                ),
-            }
-            Saving.save_dict(meta_config, META_CONFIG_NAME, abs_folder)
-            if compress:
-                Saving.compress(abs_folder, remove_original=True)
-        return self
+    def to_info(self) -> Dict[str, Any]:
+        tasks = {k: v.to_pack().asdict() for k, v in self.tasks.items()}
+        return dict(
+            num_jobs=self.num_jobs,
+            use_cuda=self.use_cuda,
+            cuda_list=self.cuda_list,
+            resource_config=self.resource_config,
+            tasks=tuple_key_to_str_key(tasks),
+            key_indices=tuple_key_to_str_key(self.key_indices),
+            executes=tuple_key_to_str_key(self.executes),
+            workspaces=tuple_key_to_str_key(self.workspaces),
+            results=None if self.results is None else self.results.asdict(),
+        )
 
-    @classmethod
-    def load(
-        cls,
-        saving_folder: str,
-        *,
-        compress: bool = True,
-        task_loader: Optional[Callable[[str], MLCarefreePipeline]] = None,
-    ) -> "Experiment":
-        workplace: str
-        workplace_key: Tuple[str, str]
+    def from_info(self, info: Dict[str, Any]) -> None:
+        super().from_info(info)
+        self.tasks = str_key_to_tuple_key(self.tasks)  # type: ignore
+        self.tasks = {k: Task.from_pack(v) for k, v in self.tasks.items()}
+        self.key_indices = str_key_to_tuple_key(self.key_indices)  # type: ignore
+        self.executes = str_key_to_tuple_key(self.executes)  # type: ignore
+        self.workspaces = str_key_to_tuple_key(self.workspaces)  # type: ignore
+        if self.results is not None:
+            workspace_keys = list(map(tuple, self.results["workspace_keys"]))
+            self.results["workspace_keys"] = workspace_keys
+            self.results = ExperimentResults(**self.results)
 
-        abs_folder = os.path.abspath(saving_folder)
-        base_folder = os.path.dirname(abs_folder)
-        with lock_manager(base_folder, [saving_folder]):
-            with Saving.compress_loader(abs_folder, compress, remove_extracted=False):
-                meta_config = Saving.load_dict(META_CONFIG_NAME, abs_folder)
-                experiment = cls(
-                    num_jobs=meta_config["num_jobs"],
-                    use_cuda=meta_config["use_cuda"],
-                    available_cuda_list=meta_config["cuda_list"],
-                    resource_config=meta_config["resource_config"],
-                )
-                experiment.executes = meta_config["executes"]
-                results = list(meta_config["results"])
-                # tasks
-                pipelines = []
-                experiment.tasks = {}
-                tasks_folder = os.path.join(abs_folder, cls.tasks_folder)
-                for workplace, workplace_key in zip(*results[:2]):
-                    task_folder = os.path.join(tasks_folder, *workplace_key)
-                    experiment.tasks[workplace_key] = Task.load(task_folder)
-                    if task_loader is not None:
-                        pipelines.append(task_loader(workplace))
-                results[-1] = pipelines or None
-                experiment.results = ExperimentResults(*results)
-        return experiment
+
+Experiment.register("experiment")(Experiment)
 
 
 __all__ = [

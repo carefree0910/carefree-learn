@@ -34,7 +34,7 @@ class CLIPModelLoader(IDLZooModelLoader):
         use_vision = kwargs.pop("use_vision", True)
         use_text = kwargs.pop("use_text", True)
         if not use_vision or not use_text:
-            kwargs["pretrained_state_callback"] = get_callback(use_vision, use_text)
+            kwargs["states_callback"] = get_callback(use_vision, use_text)
             model_config = kwargs.setdefault("model_config", {})
             model_config.setdefault("use_vision", use_vision)
             model_config.setdefault("use_text", use_text)

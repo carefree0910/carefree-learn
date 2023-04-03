@@ -5,7 +5,7 @@ from torch import Tensor
 
 from ..misc.toolkit import download_model
 from ..misc.toolkit import set_requires_grad
-from ..modules.blocks.convs import HijackConv2d
+from ..modules.blocks import HijackConv2d
 
 
 class ScalingLayer(nn.Module):

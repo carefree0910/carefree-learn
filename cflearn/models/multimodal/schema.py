@@ -6,6 +6,7 @@ from abc import ABCMeta
 from torch import nn
 from torch import Tensor
 from typing import Any
+from typing import Tuple
 from typing import Optional
 from cftool.types import tensor_dict_type
 
@@ -31,15 +32,16 @@ class IPerceptor(IDLModel, metaclass=ABCMeta):
     def encode_text(self, text: Tensor) -> Tensor:
         pass
 
-    def forward(
+    def get_forward_args(
         self,
         batch_idx: int,
         batch: tensor_dict_type,
-        state: Optional[TrainerState] = None,
+        state: Optional["TrainerState"] = None,
         **kwargs: Any,
-    ) -> tensor_dict_type:
-        image = batch[INPUT_KEY]
-        text = batch[TEXT_KEY]
+    ) -> Tuple[Any, ...]:
+        return batch[INPUT_KEY], batch[TEXT_KEY]
+
+    def forward(self, image: Tensor, text: Tensor) -> tensor_dict_type:
         image_features = self.encode_image(image)
         text_features = self.encode_text(text)
         logit_scale = self.logit_scale.exp()

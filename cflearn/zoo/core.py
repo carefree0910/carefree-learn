@@ -2,29 +2,34 @@ import os
 import json
 import torch
 
-from abc import ABC
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Type
+from typing import Tuple
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import update_dict
-from cftool.misc import print_warning
+from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
 from .models import dl_zoo_model_loaders
-from ..schema import IDLModel
-from ..pipeline import DLPipeline
-from ..pipeline import IPipeline
+from ..schema import IData
+from ..schema import DLConfig
+from ..pipeline import Pipeline
+from ..pipeline import PipelineTypes
+from ..pipeline import TrainingPipeline
+from ..pipeline import DLInferencePipeline
 from ..constants import DEFAULT_ZOO_TAG
+from ..parameters import OPT
 from ..misc.toolkit import download_model
 
 
 root = os.path.dirname(__file__)
 configs_root = os.path.join(root, "configs")
+TPipeline = Union[TrainingPipeline, DLInferencePipeline]
 
 
 class ParsedModel(NamedTuple):
@@ -55,38 +60,103 @@ def _parse_config(json_path: str) -> Dict[str, Any]:
     return config
 
 
-class ZooBase(ABC):
-    def __init__(
-        self,
+class DLZoo:
+    model_dir = "models_v0.4.x"
+
+    # api
+
+    @classmethod
+    def load_config(
+        cls,
         model: Optional[str] = None,
         *,
-        build: bool = True,
-        report: Optional[bool] = None,
-        report_folder: Optional[str] = None,
-        data_info: Optional[Dict[str, Any]] = None,
-        download_name: Optional[str] = None,
         json_path: Optional[str] = None,
-        debug: bool = False,
+        download_name: Optional[str] = None,
         **kwargs: Any,
-    ):
-        self.download_name = download_name
+    ) -> DLConfig:
+        return cls._load_config(
+            model,
+            json_path=json_path,
+            download_name=download_name,
+            **kwargs,
+        )[0]
+
+    @classmethod
+    def load_pipeline(
+        cls,
+        model: Optional[str] = None,
+        *,
+        data: Optional[IData] = None,
+        states: Optional[tensor_dict_type] = None,
+        pretrained: bool = False,
+        pipeline_type: PipelineTypes = PipelineTypes.DL_INFERENCE,
+        download_name: Optional[str] = None,
+        model_dir: Optional[str] = None,
+        json_path: Optional[str] = None,
+        **kwargs: Any,
+    ) -> TPipeline:
+        states_callback = kwargs.pop("states_callback", None)
+        # get config
+        config, download_name = cls._load_config(
+            model,
+            json_path=json_path,
+            download_name=download_name,
+            **kwargs,
+        )
+        # handle states
+        if states is None and pretrained:
+            if download_name is None:
+                err_msg = f"`{'tag'}` should be provided in '{json_path}' when `pretrained` is True"
+                raise ValueError(err_msg)
+            if model_dir is None:
+                model_dir = cls.model_dir
+            root = os.path.join(OPT.cache_dir, model_dir)
+            states_path = download_model(download_name, root=root)
+            states = torch.load(states_path, map_location="cpu")
+        if states is not None and states_callback is not None:
+            states = states_callback(states)
+        # build
+        m_base: Type[Pipeline] = Pipeline.get(pipeline_type)
+        if issubclass(m_base, DLInferencePipeline):
+            return m_base.build_with(config, states)
+        m = m_base.init(config)
+        if isinstance(m, TrainingPipeline):
+            if states is not None:
+                if data is None:
+                    msg = "`data` needs to be provided when loading `TrainingPipeline` with `states`"
+                    raise ValueError(msg)
+                m.prepare(data)
+                m.build_model.model.load_state_dict(states)
+        return m
+
+    # internal
+
+    @classmethod
+    def _load_config(
+        cls,
+        model: Optional[str] = None,
+        *,
+        json_path: Optional[str] = None,
+        download_name: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Tuple[DLConfig, Optional[str]]:
+        # loader
+        if model is not None:
+            loader_base = dl_zoo_model_loaders.get(model)
+            if loader_base is not None:
+                loader_base().permute_kwargs(kwargs)
         # load json
         if json_path is None:
             if model is None:
                 raise ValueError("either `model` or `json_path` should be provided")
             parsed = _parse_model(model)
             json_path = parsed.json_path
-            if self.download_name is None:
-                self.download_name = parsed.download_name
-        self.json_path = json_path
+            if download_name is None:
+                download_name = parsed.download_name
         parsed_config = _parse_config(json_path)
-        if self.download_name is None:
-            self.download_name = parsed_config.pop("tag", None)
-        self.err_msg_fmt = f"`{'{}'}` should be provided in '{json_path}'"
-        # get pipeline
-        self.pipeline_name = parsed_config.pop("pipeline", None)
-        if self.pipeline_name is None:
-            raise ValueError(self.err_msg_fmt.format("pipeline"))
+        if download_name is None:
+            download_name = parsed_config.pop("tag", None)
+        # handle requires
 
         def _example(l: str, r: str, h: List[str]) -> str:
             key = h.pop(0)
@@ -94,7 +164,6 @@ class ZooBase(ABC):
                 return f"{l}{key}=...{r}"
             return _example(f"{l}{key}=dict(", f"){r}", h)
 
-        # handle requires
         def _inject_requires(
             inc: Dict[str, Any],
             reference: Dict[str, Any],
@@ -132,189 +201,14 @@ class ZooBase(ABC):
         update_dict(shallow_copy_dict(kwargs), merged_config)
         increment: Dict[str, Any] = {}
         _inject_requires(increment, merged_config, requires, None)
-        self.config = shallow_copy_dict(parsed_config)
-        update_dict(kwargs, self.config)
-        update_dict(increment, self.config)
-        # build
-        m_base: Type[DLPipeline] = DLPipeline.get(self.pipeline_name)
-        config = m_base.config_base(**shallow_copy_dict(self.config))
-        if debug:
-            config.to_debug()
-        self.m = DLPipeline.make(self.pipeline_name, config)
-        if build:
-            try:
-                self.m.build(
-                    data_info or {},
-                    build_trainer=False,
-                    report=report,
-                    report_folder=report_folder,
-                )
-            except Exception as err:
-                raise ValueError(f"Failed to build '{model}': {err}")
-
-    @classmethod
-    def load_pipeline(
-        cls,
-        model: Optional[str] = None,
-        *,
-        build: bool = True,
-        report: Optional[bool] = None,
-        data_info: Optional[Dict[str, Any]] = None,
-        json_path: Optional[str] = None,
-        debug: bool = False,
-        **kwargs: Any,
-    ) -> IPipeline:
-        zoo = cls(
-            model,
-            build=build,
-            report=report,
-            data_info=data_info,
-            json_path=json_path,
-            debug=debug,
-            **kwargs,
-        )
-        assert zoo.m is not None
-        return zoo.m
-
-
-class DLZoo(ZooBase):
-    m: DLPipeline
-
-    def __init__(
-        self,
-        model: Optional[str] = None,
-        *,
-        build: bool = True,
-        report: Optional[bool] = None,
-        data_info: Optional[Dict[str, Any]] = None,
-        json_path: Optional[str] = None,
-        debug: bool = False,
-        **kwargs: Any,
-    ):
-        if model is not None:
-            loader_base = dl_zoo_model_loaders.get(model)
-            if loader_base is not None:
-                loader = loader_base()
-                loader.permute_kwargs(kwargs)
-        self.pretrained_state_callback = kwargs.pop("pretrained_state_callback", None)
-        super().__init__(
-            model,
-            build=build,
-            report=report,
-            data_info=data_info,
-            json_path=json_path,
-            debug=debug,
-            **kwargs,
-        )
-
-    def load_pretrained(self) -> IDLModel:
-        if self.download_name is None:
-            err_msg = self.err_msg_fmt.format("tag")
-            raise ValueError(f"{err_msg} when `pretrained` is True")
-        m = self.m.model
-        states = torch.load(download_model(self.download_name), map_location="cpu")
-        if self.pretrained_state_callback is not None:
-            states = self.pretrained_state_callback(states)
-        m.load_state_dict(states)
-        return m
-
-    @classmethod
-    def load_pipeline(
-        cls,
-        model: Optional[str] = None,
-        *,
-        build: bool = True,
-        report: Optional[bool] = None,
-        data_info: Optional[Dict[str, Any]] = None,
-        json_path: Optional[str] = None,
-        pretrained: bool = False,
-        debug: bool = False,
-        **kwargs: Any,
-    ) -> DLPipeline:
-        zoo = cls(
-            model,
-            build=build,
-            report=report,
-            data_info=data_info,
-            json_path=json_path,
-            debug=debug,
-            **kwargs,
-        )
-        if pretrained:
-            zoo.load_pretrained()
-        return zoo.m
-
-    @classmethod
-    def load_model(
-        cls,
-        model: Optional[str] = None,
-        *,
-        report: bool = True,
-        data_info: Optional[Dict[str, Any]] = None,
-        json_path: Optional[str] = None,
-        pretrained: bool = False,
-        **kwargs: Any,
-    ) -> IDLModel:
-        kwargs.setdefault("in_loading", True)
-        zoo = cls(
-            model,
-            build=True,
-            report=report,
-            data_info=data_info,
-            json_path=json_path,
-            **kwargs,
-        )
-        if pretrained:
-            zoo.load_pretrained()
-        return zoo.m.model
-
-    @classmethod
-    def dump_onnx(
-        cls,
-        model: str,
-        export_folder: str,
-        dynamic_axes: Optional[Union[List[int], Dict[int, str]]] = None,
-        *,
-        data_info: Optional[Dict[str, Any]] = None,
-        json_path: Optional[str] = None,
-        onnx_file: str = "model.onnx",
-        opset: int = 11,
-        simplify: bool = True,
-        input_sample: Optional[tensor_dict_type] = None,
-        num_samples: Optional[int] = None,
-        verbose: bool = True,
-        **kwargs: Any,
-    ) -> DLPipeline:
-        kwargs["in_loading"] = True
-        zoo = cls(
-            model,
-            build=True,
-            data_info=data_info,
-            json_path=json_path,
-            **kwargs,
-        )
-        try:
-            zoo.load_pretrained()
-        except ValueError:
-            print_warning(
-                f"no pretrained models are available for '{model}', "
-                "so onnx will not be dumped"
-            )
-            return zoo.m
-        zoo.m.to_onnx(
-            export_folder,
-            dynamic_axes,
-            onnx_file=onnx_file,
-            opset=opset,
-            simplify=simplify,
-            input_sample=input_sample,
-            num_samples=num_samples,
-            verbose=verbose,
-        )
-        return zoo.m
+        raw_config = shallow_copy_dict(parsed_config)
+        update_dict(kwargs, raw_config)
+        update_dict(increment, raw_config)
+        config_type = raw_config.pop("config_type", "dl")
+        config = safe_execute(DLConfig.get(config_type), raw_config)
+        return config, download_name
 
 
 __all__ = [
-    "ZooBase",
     "DLZoo",
 ]

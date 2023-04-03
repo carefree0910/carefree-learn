@@ -4,13 +4,14 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from abc import abstractmethod
-from abc import ABC
 from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Union
+from typing import Callable
 from typing import Optional
 from torch.autograd import grad
 from cftool.misc import shallow_copy_dict
@@ -18,17 +19,17 @@ from cftool.types import tensor_dict_type
 
 from ..general import PureEncoderDecoder
 from ..gan.discriminators import NLayerDiscriminator
+from ...schemas import CustomTrainStep
+from ...schemas import CustomTrainStepLoss
+from ...schemas import ModelWithCustomSteps
 from ...schemas import GaussianGeneratorMixin
-from ....schema import ITrainer
 from ....schema import TrainerState
 from ....schema import MetricsOutputs
-from ....register import CustomModule
-from ....register import CustomTrainStep
-from ....register import CustomTrainStepLoss
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
+from ....misc.toolkit import get_device
 from ....losses.lpips import LPIPS
-from ....modules.blocks.convs import HijackConv2d
+from ....modules.blocks import HijackConv2d
 
 
 class AutoEncoderInit(nn.Module):
@@ -179,10 +180,10 @@ class AutoEncoderLPIPSWithDiscriminator(nn.Module, metaclass=ABCMeta):
         inputs: Tensor,
         reconstructions: Tensor,
         *,
-        step: int,
+        step: Optional[int],
         cond: Optional[Tensor] = None,
     ) -> CustomTrainStepLoss:
-        if step < self.d_loss_start_step:
+        if step is not None and step < self.d_loss_start_step:
             raise ValueError(
                 "should not call `get_discriminator_loss` because current step "
                 f"({step}) is smaller than the `d_loss_start_step` "
@@ -205,7 +206,7 @@ class AutoEncoderLPIPSWithDiscriminator(nn.Module, metaclass=ABCMeta):
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
         *,
-        step: int,
+        step: Optional[int],
         last_layer: nn.Parameter,
         cond: Optional[Tensor] = None,
     ) -> CustomTrainStepLoss:
@@ -218,10 +219,10 @@ err_fmt = "`loss` is not initialized for `{}`"
 class GeneratorStep(CustomTrainStep):
     def loss_fn(
         self,
-        m: "AutoEncoderModelMixin",
-        trainer: ITrainer,
+        m: "IAutoEncoder",
+        state: Optional[TrainerState],
         batch: tensor_dict_type,
-        forward_results: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
         **kwargs: Any,
     ) -> CustomTrainStepLoss:
         if m.loss is None:
@@ -229,42 +230,42 @@ class GeneratorStep(CustomTrainStep):
         return m.loss.get_generator_loss(
             batch,
             forward_results,
-            step=trainer.state.step,
+            step=None if state is None else state.step,
             last_layer=m.generator.decoder.head[-1].weight,  # type: ignore
         )
 
 
 class DiscriminatorStep(CustomTrainStep):
-    def should_skip(self, m: "AutoEncoderModelMixin", state: TrainerState) -> bool:
+    def should_skip(self, m: "IAutoEncoder", state: TrainerState) -> bool:
         if m.loss is None:
             raise ValueError(err_fmt.format(m.__class__.__name__))
         return state.step < m.loss.d_loss_start_step
 
     def loss_fn(
         self,
-        m: "AutoEncoderModelMixin",
-        trainer: ITrainer,
+        m: "IAutoEncoder",
+        state: Optional["TrainerState"],
         batch: tensor_dict_type,
-        forward_results: tensor_dict_type,
+        forward_results: Union[tensor_dict_type, List[tensor_dict_type]],
         **kwargs: Any,
     ) -> CustomTrainStepLoss:
         if m.loss is None:
             raise ValueError(err_fmt.format(m.__class__.__name__))
         return m.loss.get_discriminator_loss(
             batch[INPUT_KEY],
-            forward_results[PREDICTIONS_KEY],
-            step=trainer.state.step,
+            forward_results[PREDICTIONS_KEY],  # type: ignore
+            step=None if state is None else state.step,
         )
 
 
-class AutoEncoderModelMixin(ABC):
+class IAutoEncoder(GaussianGeneratorMixin, ModelWithCustomSteps, metaclass=ABCMeta):
     loss: Optional[AutoEncoderLPIPSWithDiscriminator]
     generator: nn.Module
     to_embedding: nn.Module
     from_embedding: nn.Module
-    device: torch.device
 
     z_size: int
+    img_size: int
     grad_accumulate: int
     embedding_channels: int
 
@@ -304,28 +305,30 @@ class AutoEncoderModelMixin(ABC):
             ),
         ]
 
-    def evaluate_step(
+    def evaluate(
         self,
+        batch_idx: int,
         batch: tensor_dict_type,
-        state: TrainerState,
-        trainer: ITrainer,
+        state: Optional[TrainerState],
+        weighted_loss_score_fn: Callable[[Dict[str, float]], float],
+        forward_kwargs: Dict[str, Any],
     ) -> MetricsOutputs:
         forward = self.forward(batch[INPUT_KEY])
-        args = self, trainer, batch, forward
+        args = self, state, batch, forward
         loss_items = {}
         g_out = GeneratorStep().loss_fn(*args)
         loss_items.update(g_out.losses)
         if self.loss is None:
             raise ValueError(err_fmt.format(self.__class__.__name__))
-        if state.step >= self.loss.d_loss_start_step:
+        if state is None or state.step >= self.loss.d_loss_start_step:
             d_out = DiscriminatorStep().loss_fn(*args)
             loss_items.update(d_out.losses)
         score = -loss_items["recon"]
-        return MetricsOutputs(score, loss_items)
+        return MetricsOutputs(score, loss_items, {k: False for k in loss_items})
 
     def generate_z(self, num_samples: int) -> Tensor:
         z = torch.randn(num_samples, self.embedding_channels, self.z_size, self.z_size)
-        return z.to(self.device)
+        return z.to(get_device(self))
 
     def setup(
         self,
@@ -343,18 +346,8 @@ class AutoEncoderModelMixin(ABC):
         pass
 
 
-class IAutoEncoder(  # type: ignore
-    AutoEncoderModelMixin,
-    CustomModule,
-    GaussianGeneratorMixin,
-    metaclass=ABCMeta,
-):
-    img_size: int
-
-
 __all__ = [
     "AutoEncoderInit",
-    "AutoEncoderModelMixin",
     "AutoEncoderLPIPSWithDiscriminator",
     "IAutoEncoder",
 ]

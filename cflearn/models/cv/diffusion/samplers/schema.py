@@ -51,7 +51,6 @@ class IDiffusion:
     q_sampler: "DDPMQSampler"
     condition_model: Optional[nn.Module]
     first_stage: nn.Module
-    device: torch.device
 
     t: int
     parameterization: str
@@ -83,12 +82,17 @@ class IQSampler:
 
 
 class DDPMQSampler(IQSampler):
+    sqrt_alphas: Tensor
+    sqrt_one_minus_alphas: Tensor
+
     def q_sample(
         self,
         net: Tensor,
         timesteps: Tensor,
         noise: Optional[Tensor] = None,
     ) -> Tensor:
+        self.sqrt_alphas = self.sqrt_alphas.to(net)
+        self.sqrt_one_minus_alphas = self.sqrt_one_minus_alphas.to(net)
         num_dim = len(net.shape)
         w_net = extract_to(self.sqrt_alphas, timesteps, num_dim)
         w_noise = extract_to(self.sqrt_one_minus_alphas, timesteps, num_dim)

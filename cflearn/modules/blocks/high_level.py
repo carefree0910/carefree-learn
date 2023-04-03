@@ -19,7 +19,7 @@ from .convs import Conv2d
 from .norms import NormFactory
 from .customs import Linear
 from .attentions import Attention
-from ...schema import WithDeviceMixin
+from ...misc.toolkit import get_device
 from ...misc.toolkit import eval_context
 
 
@@ -108,7 +108,7 @@ class ChannelPadding(Module):
 to_patches: Dict[str, Type["ImgToPatches"]] = {}
 
 
-class ImgToPatches(Module, WithDeviceMixin, WithRegister["ImgToPatches"]):
+class ImgToPatches(Module, WithRegister["ImgToPatches"]):
     d = to_patches
 
     def __init__(
@@ -132,7 +132,7 @@ class ImgToPatches(Module, WithDeviceMixin, WithRegister["ImgToPatches"]):
     def num_patches(self) -> int:
         shape = 1, self.in_channels, self.img_size, self.img_size
         with eval_context(self):
-            net = self.forward(torch.zeros(*shape, device=self.device))[0]
+            net = self.forward(torch.zeros(*shape, device=get_device(self)))[0]
         return net.shape[1]
 
     @staticmethod

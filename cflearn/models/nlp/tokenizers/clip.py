@@ -19,11 +19,9 @@ class ICLIPTokenizer(ITokenizer):
     tag: str
     base: Type[PreTrainedTokenizer]
 
-    def __init__(
-        self,
-        *,
-        pad_to_max: bool = True,
-    ):
+    def __init__(self, *, pad_to_max: bool = True):
+        if self.base is None:
+            raise ValueError("`transformers` is needed for `ICLIPTokenizer`")
         self.tokenizer = self.base.from_pretrained(self.tag)
         self.bos_token_id = self.tokenizer.bos_token_id
         self.eos_token_id = self.tokenizer.eos_token_id

@@ -11,11 +11,11 @@ from cftool.misc import shallow_copy_dict
 
 from .basic import conv_nd
 from .basic import get_conv_blocks
-from .basic import HijackConv2d
 from ..utils import avg_pool_nd
 from ..utils import zero_module
 from ..utils import Residual
-from ..customs import HijackLinear
+from ..hijacks import HijackConv2d
+from ..hijacks import HijackLinear
 from ....misc.toolkit import safe_clip_
 from ....misc.toolkit import gradient_checkpoint
 

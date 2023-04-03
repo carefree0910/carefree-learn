@@ -5,8 +5,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -19,11 +17,7 @@ from functools import partial
 from torch.nn import Module
 from cftool.misc import print_warning
 
-
-class LinearHook(Module, metaclass=ABCMeta):
-    @abstractmethod
-    def callback(self, net: Tensor) -> Tensor:
-        pass
+from .hooks import IBasicHook
 
 
 class Linear(Module):
@@ -37,7 +31,7 @@ class Linear(Module):
         init_method: Optional[str] = None,
         rank: Optional[int] = None,
         rank_ratio: Optional[float] = None,
-        hook: Optional[LinearHook] = None,
+        hook: Optional[IBasicHook] = None,
     ):
         super().__init__()
         original_rank = min(in_dim, out_dim)
@@ -85,20 +79,22 @@ class Linear(Module):
         return self.b if self.linear is None else self.linear.bias
 
     def forward(self, net: Tensor) -> Tensor:
+        inp = net
         if self.linear is not None:
             weight = self.linear.weight
             if self.pruner is not None:
                 weight = self.pruner(weight)
-            return F.linear(net, weight, self.linear.bias)
-        w1, w2 = self.w1, self.w2
-        if self.pruner1 is not None:
-            w1 = self.pruner1(w1)
-        if self.pruner2 is not None:
-            w2 = self.pruner2(w2)
-        net = F.linear(net, w1)
-        net = F.linear(net, w2, self.b)
+            net = F.linear(net, weight, self.linear.bias)
+        else:
+            w1, w2 = self.w1, self.w2
+            if self.pruner1 is not None:
+                w1 = self.pruner1(w1)
+            if self.pruner2 is not None:
+                w2 = self.pruner2(w2)
+            net = F.linear(net, w1)
+            net = F.linear(net, w2, self.b)
         if self.hook is not None:
-            net = self.hook.callback(net)
+            net = self.hook.callback(inp, net)
         return net
 
     def init_weights_with(self, w_init_fn: Callable[[Tensor], None]) -> None:
@@ -114,18 +110,6 @@ class Linear(Module):
             else:
                 if self.linear.bias is not None:
                     self.linear.bias.data.zero_()
-
-
-class HijackLinear(nn.Linear):
-    def __init__(self, *args: Any, hook: Optional[LinearHook] = None, **kwargs: Any):
-        super().__init__(*args, **kwargs)
-        self.hook = hook
-
-    def forward(self, net: Tensor) -> Tensor:
-        net = super().forward(net)
-        if self.hook is not None:
-            net = self.hook.callback(net)
-        return net
 
 
 class LeafAggregation(torch.autograd.Function):
@@ -462,7 +446,6 @@ class DropPath(Module):
 
 __all__ = [
     "Linear",
-    "HijackLinear",
     "LeafAggregation",
     "Route",
     "DNDF",

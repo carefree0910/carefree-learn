@@ -7,21 +7,34 @@ examples_folder = os.path.join(file_folder, os.pardir, "examples", "ml")
 
 
 class TestExample(unittest.TestCase):
-    def test_ddr(self) -> None:
-        folder = os.path.join(examples_folder, "ddr")
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_ddr.py')} --ci 1"),
-            0,
-        )
-
-    def test_iris(self) -> None:
+    def test_simple(self) -> None:
         try:
-            import cfdata
+            import sklearn
         except:
             return
-        folder = os.path.join(examples_folder, "iris")
+        folder = os.path.join(examples_folder, "simple")
+        for file in ["iris", "california", "toy"]:
+            path = os.path.join(folder, f"{file}.py")
+            self.assertEqual(os.system(f"python {path} --ci 1"), 0)
+
+    def test_mlflow(self) -> None:
+        try:
+            import mlflow
+            import sklearn
+        except:
+            return
+        path = os.path.join(examples_folder, "mlflow", "california_with_mlflow.py")
+        self.assertEqual(os.system(f"python {path} --ci 1"), 0)
+        self.assertTrue(os.path.isdir("mlruns"))
+
+    def test_titanic(self) -> None:
+        folder = os.path.join(examples_folder, "titanic")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_iris.py')} --ci 1"),
+            os.system(f"python {os.path.join(folder, 'run_titanic.py')}"),
+            0,
+        )
+        self.assertEqual(
+            os.system(f"python {os.path.join(folder, 'run_titanic_ddp.py')}"),
             0,
         )
 
@@ -32,37 +45,17 @@ class TestExample(unittest.TestCase):
             0,
         )
 
-    def test_simple(self) -> None:
-        try:
-            import cfdata
-        except:
-            return
-        folder = os.path.join(examples_folder, "simple")
+    def test_iris(self) -> None:
+        folder = os.path.join(examples_folder, "iris")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'iris.py')}"),
-            0,
-        )
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'california.py')} --ci 1"),
+            os.system(f"python {os.path.join(folder, 'run_iris.py')} --ci 1"),
             0,
         )
 
-    def test_titanic(self) -> None:
-        try:
-            import cfdata
-        except:
-            return
-        folder = os.path.join(examples_folder, "titanic")
+    def test_ddr(self) -> None:
+        folder = os.path.join(examples_folder, "ddr")
         self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'sanity_check.py')}"),
-            0,
-        )
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_titanic.py')}"),
-            0,
-        )
-        self.assertEqual(
-            os.system(f"python {os.path.join(folder, 'run_titanic_ddp.py')}"),
+            os.system(f"python {os.path.join(folder, 'run_ddr.py')} --ci 1"),
             0,
         )
 

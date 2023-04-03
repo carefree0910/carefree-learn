@@ -5,8 +5,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import Tensor
 from typing import Any
 from typing import Dict
@@ -21,12 +19,16 @@ from cftool.misc import WithRegister
 
 from .convs import conv_nd
 from .convs import Conv2d
-from .convs import HijackConv2d
 from .utils import zero_module
 from .common import Lambda
-from .customs import Linear
-from .customs import HijackLinear
+from .hooks import IAttentionHook
+from .hijacks import IAttention
+from .hijacks import IHijackMixin
+from .hijacks import HijackConv2d
+from .hijacks import HijackLinear
+from .hijacks import HijackCustomLinear
 from .activations import Activation
+from ...misc.toolkit import sdp_attn
 from ...misc.toolkit import gradient_checkpoint
 
 
@@ -35,24 +37,12 @@ attentions: Dict[str, Type["Attention"]] = {}
 
 class AttentionOutput(NamedTuple):
     output: Tensor
-    weights: Tensor
+    weights: Optional[Tensor]
 
 
-qkv_type = Tuple[Tensor, Tensor, Tensor]
-
-
-class AttentionHook(Module, metaclass=ABCMeta):
-    @abstractmethod
-    def after_attn(self, qkv_inp: qkv_type, qkv_out: qkv_type) -> qkv_type:
-        pass
-
-    @abstractmethod
-    def after_out(self, inp: Tensor, out: Tensor) -> Tensor:
-        pass
-
-
-class Attention(Module, WithRegister["Attention"]):
+class Attention(Module, IAttention, IHijackMixin, WithRegister["Attention"]):
     d = attentions
+    customize_sdp: bool = False
 
     def __init__(
         self,
@@ -72,7 +62,7 @@ class Attention(Module, WithRegister["Attention"]):
         activation_config: Optional[Dict[str, Any]] = None,
         out_linear_config: Optional[Dict[str, Any]] = None,
         reduction_ratio: Optional[int] = None,
-        hook: Optional[AttentionHook] = None,
+        hook: Optional[IAttentionHook] = None,
     ):
         super().__init__()
         self.input_dim = input_dim
@@ -135,9 +125,11 @@ class Attention(Module, WithRegister["Attention"]):
             self.q_bias = nn.Parameter(torch.zeros(self.embed_dim))
             self.kv_bias = nn.Parameter(torch.zeros(2 * self.embed_dim))
 
-        if out_linear_config is None:
-            out_linear_config = {}
-        self.out_linear = Linear(self.embed_dim, input_dim, **out_linear_config)
+        self.out_linear = HijackCustomLinear(
+            self.embed_dim,
+            input_dim,
+            **(out_linear_config or {}),
+        )
 
         self.dropout = dropout
         self.activation = Activation.make(activation, activation_config)
@@ -157,14 +149,10 @@ class Attention(Module, WithRegister["Attention"]):
                 nn.LayerNorm(self.embed_dim),
             )
 
+        # hook
         self.hook = hook
 
-    def _to_heads(self, tensor: Tensor, determinate: bool) -> Tensor:
-        seq_len = tensor.shape[1]
-        if determinate:
-            seq_len = int(seq_len)
-        tensor = tensor.view(-1, seq_len, self.num_heads, self.head_dim)
-        return tensor.permute(0, 2, 1, 3)
+    # optional callback, only take effects when `customize_sdp` is set to `True`
 
     def _get_weights(self, raw_weights: Tensor) -> Tensor:
         # in most cases the softmax version is good enough
@@ -172,6 +160,15 @@ class Attention(Module, WithRegister["Attention"]):
 
     def _weights_callback(self, weights: Tensor) -> Tensor:
         return weights
+
+    # internal
+
+    def _to_heads(self, tensor: Tensor, determinate: bool) -> Tensor:
+        seq_len = tensor.shape[1]
+        if determinate:
+            seq_len = int(seq_len)
+        tensor = tensor.view(-1, seq_len, self.num_heads, self.head_dim)
+        return tensor.permute(0, 2, 1, 3)
 
     def _reduce(self, net: Tensor, hw: Optional[Tuple[int, int]] = None) -> Tensor:
         if self.reduction is None:
@@ -192,6 +189,7 @@ class Attention(Module, WithRegister["Attention"]):
         *,
         hw: Optional[Tuple[int, int]] = None,
         mask: Optional[Tensor] = None,
+        require_weights: bool = False,
         determinate: bool = False,
     ) -> AttentionOutput:
         qkv_inp = q, k, v
@@ -227,7 +225,9 @@ class Attention(Module, WithRegister["Attention"]):
             # B, Nv, Dv -> B, Nv, D
             v = F.linear(self._reduce(v, hw), self.v_w, v_bias)
         if self.hook is not None:
-            q, k, v = self.hook.after_attn(qkv_inp, (q, k, v))
+            if self.reduction is not None:
+                raise ValueError("currently `hook` does not support `reduction`")
+            q, k, v = self.hook.callback(qkv_inp, (q, k, v))
         q, k, v = map(self.activation, [q, k, v])
         # B, N*, D -> B * N_head, N*, D_head
         q, k, v = map(self._to_heads, [q, k, v], [determinate] * 3)
@@ -235,19 +235,25 @@ class Attention(Module, WithRegister["Attention"]):
             # B, Nq, Nk -> B, N_head, Nq, Nk
             mask = mask.repeat(self.num_heads, 1, 1)
             mask = mask.view(-1, self.num_heads, *mask.shape[1:])
-        # B, N_head, Nq, Nk
-        raw_weights = torch.matmul(q, k.transpose(-2, -1))
-        if mask is not None:
-            raw_weights.masked_fill_(mask, float("-inf"))
-        # scale
-        raw_weights = raw_weights / self.scaling
-        # B, N_head, Nq, Nk -> B, N_head, Nq, Nk
-        weights = self._get_weights(raw_weights)
-        if 0.0 < self.dropout < 1.0:
-            weights = F.dropout(weights, self.dropout, self.training)
-        weights = self._weights_callback(weights)
-        # B, N_head, Nq, D_head
-        output = torch.matmul(weights, v)
+        if not self.customize_sdp and not require_weights:
+            weights = None
+            if mask is not None:
+                mask = ~mask
+            output = sdp_attn(q, k, v, self.training, mask, self.dropout)
+        else:
+            # B, N_head, Nq, Nk
+            raw_weights = torch.matmul(q, k.transpose(-2, -1))
+            if mask is not None:
+                raw_weights.masked_fill_(mask, float("-inf"))
+            # scale
+            raw_weights = raw_weights / self.scaling
+            # B, N_head, Nq, Nk -> B, N_head, Nq, Nk
+            weights = self._get_weights(raw_weights)
+            if 0.0 < self.dropout < 1.0:
+                weights = F.dropout(weights, self.dropout, self.training)
+            weights = self._weights_callback(weights)
+            # B, N_head, Nq, D_head
+            output = torch.matmul(weights, v)
         # B, N_head, Nq, D_head -> B, Nq, N_head, D_head
         output = output.transpose(1, 2).contiguous()
         # B, Nq, N_head, D_head -> B, Nq, D
@@ -257,8 +263,6 @@ class Attention(Module, WithRegister["Attention"]):
         output = output.view(-1, seq_len, self.embed_dim)
         # B, Nq, D -> B, Nq, Din
         net = self.out_linear(output)
-        if self.hook is not None:
-            net = self.hook.after_out(output, net)
         net = self.activation(net)
         return AttentionOutput(net, weights)
 
@@ -268,6 +272,8 @@ Attention.register("basic")(Attention)
 
 @Attention.register("decayed")
 class DecayedAttention(Attention):
+    customize_sdp = True
+
     def __init__(
         self,
         input_dim: int,
@@ -343,19 +349,15 @@ class SpatialAttention(Module):
         v = self.to_v(net)
 
         area = h * w
-        q = q.view(b, c, area).permute(0, 2, 1)
-        k = k.view(b, c, area)
-        attn_mat = torch.bmm(q, k)
-        attn_mat = attn_mat * (int(c) ** -0.5)
-        attn_prob = F.softmax(attn_mat, dim=2)
-        attn_prob = attn_prob.permute(0, 2, 1)
+        q = q.view(b, c, area).transpose(1, 2)
+        k = k.view(b, c, area).transpose(1, 2)
+        v = v.view(b, c, area).transpose(1, 2)
 
-        v = v.view(b, c, area)
-        net = torch.bmm(v, attn_prob)
-        net = net.contiguous().view(b, c, h, w)
-
+        net = sdp_attn(q, k, v, self.training)
+        net = net.transpose(1, 2).contiguous().view(b, c, h, w)
         net = self.to_out(net)
         net = inp + net
+
         return net
 
 
@@ -500,7 +502,6 @@ class CrossAttention(Module):
         latent_dim = head_dim * num_heads
         context_dim = context_dim or query_dim
 
-        self.scale = head_dim**-0.5
         self.num_heads = num_heads
         self.attn_split_chunk = attn_split_chunk
 
@@ -549,17 +550,11 @@ class CrossAttention(Module):
         v = self.transpose(v)
 
         if self.attn_split_chunk is None:
-            # (B * head, Tq, Tc)
-            attn_mat = torch.einsum("b i d, b j d -> b i j", q, k) * self.scale
             if mask is not None:
                 mask = mask.view(b, -1)
-                max_neg_value = -torch.finfo(attn_mat.dtype).max
                 mask = mask[:, None, :].repeat(self.num_heads, 1, 1)
-                attn_mat.masked_fill_(~mask, max_neg_value)
-            # (B * head, Tq, Tc)
-            attn_prob = attn_mat.softmax(dim=-1)
-            # (B * head, Tq, dim)
-            net = torch.einsum("b i j, b j d -> b i d", attn_prob, v)
+                mask = ~mask
+            net = sdp_attn(q, k, v, self.training, mask)
         else:
             if mask is not None:
                 msg = "`mask` is not supported yet when `attn_split_chunk` is enabled"
@@ -569,12 +564,7 @@ class CrossAttention(Module):
             net = torch.zeros(size, tq, v.shape[2], dtype=q.dtype, device=q.device)
             for i in range(0, size, self.attn_split_chunk):
                 end = i + self.attn_split_chunk
-                i_mat = torch.einsum("b i d, b j d -> b i j", q[i:end], k[i:end])
-                i_mat *= self.scale
-                i_prob = i_mat.softmax(dim=-1)
-                del i_mat
-                net[i:end] = torch.einsum("b i j, b j d -> b i d", i_prob, v[i:end])
-                del i_prob
+                net[i:end] = sdp_attn(q[i:end], k[i:end], v[i:end], self.training)
 
         # (B, head, Tq, dim)
         net = net.reshape(b, self.num_heads, tq, dq // self.num_heads)

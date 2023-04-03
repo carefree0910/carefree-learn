@@ -14,10 +14,10 @@ from cftool.types import tensor_dict_type
 
 from ....schema import _forward
 from ....schema import TrainerState
-from ....schema import WithDeviceMixin
 from ....constants import INPUT_KEY
 from ....constants import LATENT_KEY
 from ....misc.toolkit import eval_context
+from ....misc.toolkit import get_device
 from ....modules.blocks import ImgToPatches
 
 
@@ -25,7 +25,7 @@ encoders: Dict[str, Type["EncoderMixin"]] = {}
 encoders_1d: Dict[str, Type["Encoder1DMixin"]] = {}
 
 
-class IEncoder(WithDeviceMixin):
+class IEncoder:
     def encode(self, batch: tensor_dict_type, **kwargs: Any) -> Tensor:
         return run_encoder(self, 0, batch, **kwargs)[LATENT_KEY]
 
@@ -41,7 +41,7 @@ class EncoderMixin(IEncoder, WithRegister["EncoderMixin"]):
     def latent_resolution(self, img_size: int) -> int:
         shape = 1, self.in_channels, img_size, img_size
         with eval_context(self):
-            net = self.encode({INPUT_KEY: torch.zeros(*shape, device=self.device)})
+            net = self.encode({INPUT_KEY: torch.zeros(*shape, device=get_device(self))})
         return net.shape[2]
 
 
@@ -116,7 +116,7 @@ class EncoderFromPatchesMixin:
         return self.encoder(patches, **kwargs)
 
 
-class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):
+class Encoder1DFromPatches(EncoderFromPatchesMixin, Encoder1DMixin, nn.Module):
     def __init__(
         self,
         *,
@@ -128,7 +128,8 @@ class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
         nn.Module.__init__(self)
-        super().__init__(
+        EncoderFromPatchesMixin.__init__(
+            self,
             img_size=img_size,
             patch_size=patch_size,
             in_channels=in_channels,
@@ -140,7 +141,7 @@ class Encoder1DFromPatches(EncoderFromPatchesMixin, nn.Module, Encoder1DMixin):
         self.latent_dim = latent_dim
 
 
-class Encoder2DFromPatches(nn.Module, EncoderFromPatchesMixin, EncoderMixin):
+class Encoder2DFromPatches(EncoderFromPatchesMixin, EncoderMixin, nn.Module):
     def __init__(
         self,
         *,
@@ -152,7 +153,8 @@ class Encoder2DFromPatches(nn.Module, EncoderFromPatchesMixin, EncoderMixin):
         to_patches_config: Optional[Dict[str, Any]] = None,
     ):
         nn.Module.__init__(self)
-        super().__init__(
+        EncoderFromPatchesMixin.__init__(
+            self,
             img_size=img_size,
             patch_size=patch_size,
             in_channels=in_channels,

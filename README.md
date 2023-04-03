@@ -19,7 +19,8 @@ import numpy as np
 
 x = np.random.random([1000, 10])
 y = np.random.random([1000, 1])
-m = cflearn.api.fit_ml(x, y, is_classification=False, output_dim=1)
+config = cflearn.DLConfig(model_name="fcnn", model_config=dict(input_dim=10, output_dim=1), loss_name="mae")
+m = cflearn.api.fit_ml(x, y, config=config)
 ```
 
 #### Computer Vision 🖼️
@@ -27,8 +28,14 @@ m = cflearn.api.fit_ml(x, y, is_classification=False, output_dim=1)
 ```python
 import cflearn
 
-data = cflearn.cv.MNISTData(batch_size=16, transform="to_tensor")
-m = cflearn.api.resnet18_gray(10).fit(data)
+data = cflearn.mnist_data(additional_blocks=[cflearn.FlattenBlock()])
+config = cflearn.DLConfig(
+    model_name="fcnn",
+    model_config=dict(input_dim=784, output_dim=10),
+    loss_name="focal",
+    metric_names=["acc", "auc"],
+)
+m = cflearn.DLTrainingPipeline.init(config).fit(data)
 ```
 
 ### Developer Side

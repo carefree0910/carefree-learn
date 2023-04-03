@@ -2,10 +2,12 @@ import time
 import torch
 import unittest
 
+import numpy as np
 import torch.nn as nn
 
 from typing import List
 from typing import Tuple
+from cflearn.schema import MLEncoderSettings
 from cflearn.constants import LATENT_KEY
 from cflearn.misc.toolkit import eval_context
 from cflearn.misc.toolkit import inject_parameters
@@ -18,7 +20,6 @@ from cflearn.modules.blocks import Lambda
 from cflearn.modules.blocks import Attention
 from cflearn.models.cv.encoder import BackboneEncoder
 from cflearn.models.ml.encoders import Encoder
-from cflearn.models.ml.encoders import EncodingSettings
 
 
 class TestBlocks(unittest.TestCase):
@@ -101,7 +102,7 @@ class TestBlocks(unittest.TestCase):
         d = 128
         batch_size = 1024
 
-        for k in [1, 1, 10]:
+        for k in [1, 10, 20]:
             inp = torch.randn(batch_size, d, requires_grad=True)
             labels = torch.randint(k, [batch_size])
 
@@ -135,8 +136,10 @@ class TestBlocks(unittest.TestCase):
                 slow_t, fast_t = _run()
                 slow_ts.append(slow_t)
                 fast_ts.append(fast_t)
-            slow_t = sum(slow_ts) / len(slow_ts)
-            fast_t = sum(fast_ts) / len(fast_ts)
+            slow_ts_array, fast_ts_array = map(np.array, [slow_ts, fast_ts])
+            score_fn = lambda arr: arr.mean().item() + arr.std().item()
+            slow_t = score_fn(slow_ts_array)
+            fast_t = score_fn(fast_ts_array)
             print(f"slow : {slow_t} ; fast : {fast_t}")
             self.assertTrue(fast_t < slow_t)
 
@@ -224,24 +227,16 @@ class TestBlocks(unittest.TestCase):
         self.assertTrue(torch.allclose(torch_output, output))
 
     def test_ml_embedding(self) -> None:
-        def _make(
-            embed_dims: List[int],
-            use_fast_embedding: bool,
-            recover_original_dim: bool,
-        ) -> Encoder:
+        def _make(embed_dims: List[int]) -> Encoder:
             nd = len(embed_dims)
             return Encoder(
                 {
-                    idx: EncodingSettings(
+                    str(idx): MLEncoderSettings(
                         dim=embed_dims[idx],
                         methods="embedding",
-                        method_configs={"embedding_dim": embed_dims[idx]},
+                        method_configs={"out_dim": embed_dims[idx]},
                     )
                     for idx in range(nd)
-                },
-                config={
-                    "use_fast_embedding": use_fast_embedding,
-                    "recover_original_dim": recover_original_dim,
                 },
             )
 
@@ -251,39 +246,27 @@ class TestBlocks(unittest.TestCase):
             repeat: int,
         ) -> Tuple[torch.Tensor, float]:
             t = time.time()
-            encoded = encoder(net, None, None).embedding
+            encoded = encoder(net).embedding
             for _ in range(repeat - 1):
-                encoder(net, None, None)
+                encoder(net)
             return encoded, time.time() - t
 
-        def _test_case(embed_dims: List[int]) -> Tuple[float, float, float]:
-            nd = len(embed_dims)
+        def _test_case(embed_dims: List[int]) -> None:
             net = torch.cat([torch.randint(d, (bs, 1)) for d in embed_dims], dim=1)
-            e = _make(embed_dims, False, False)
-            r1, t1_ = _run(e, net, num_repeat)
+            e = _make(embed_dims)
+            r1, _ = _run(e, net, num_repeat)
             self.assertSequenceEqual(r1.shape, [bs, sum(embed_dims)])
-            e = _make(embed_dims, True, False)
-            r2, t2_ = _run(e, net, num_repeat)
-            self.assertSequenceEqual(r2.shape, [bs, nd * max(embed_dims)])
-            e = _make(embed_dims, True, True)
-            r3, t3_ = _run(e, net, num_repeat)
-            self.assertSequenceEqual(r3.shape, [bs, sum(embed_dims)])
-            return t1_, t2_, t3_
 
         bs = 128
         num_repeat = 100
-        t1, t2, t3 = _test_case([4] * 30)
-        self.assertTrue(t1 > t2 and t1 > t3)
-        t1, t2, t3 = _test_case([4] * 10 + [8] * 10 + [16] * 10)
-        self.assertTrue(t1 > t2 and t1 > t3)
+        _test_case([4] * 30)
+        _test_case([4] * 10 + [8] * 10 + [16] * 10)
         for dim in [4, 64, 128, 256]:
             for n_dim in [8, 16]:
-                t1, t2, t3 = _test_case([dim] * n_dim)
-                self.assertTrue(t1 > t2 and t1 > t3)
+                _test_case([dim] * n_dim)
         for dim in [4, 16]:
             dims = [dim] * 16 + [dim * 2] * 12 + [dim * 3] * 8
-            t1, t2, t3 = _test_case(dims)
-            self.assertTrue(t1 > t2 and t1 > t3)
+            _test_case(dims)
 
     def test_cv_backbone(self) -> None:
         def _check(name: str) -> None:

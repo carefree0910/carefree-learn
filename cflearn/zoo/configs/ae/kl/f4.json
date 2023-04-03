@@ -2,7 +2,6 @@
   "__requires__": {
     "model_config": ["img_size"]
   },
-  "pipeline": "cv",
   "model_name": "ae_kl",
   "model_config": {
     "in_channels": 3,
@@ -18,7 +17,7 @@
     "grad_accumulate": 2
   },
   "optimizer_settings": {
-    "core.ae_parameters": {
+    "ae_parameters": {
       "optimizer": "adam",
       "scheduler": null,
       "optimizer_config": {
@@ -27,7 +26,7 @@
       },
       "scheduler_config": {}
     },
-    "core.d_parameters": {
+    "d_parameters": {
       "optimizer": "adam",
       "scheduler": null,
       "optimizer_config": {

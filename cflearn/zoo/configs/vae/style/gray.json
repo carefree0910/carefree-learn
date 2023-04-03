@@ -1,6 +1,0 @@
-{
-  "__bases__": ["vae/style"],
-  "model_config": {
-    "in_channels": 1
-  }
-}

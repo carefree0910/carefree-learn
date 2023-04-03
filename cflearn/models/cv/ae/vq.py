@@ -10,9 +10,9 @@ from cftool.types import tensor_dict_type
 from .common import IAutoEncoder
 from .common import AutoEncoderInit
 from .common import AutoEncoderLPIPSWithDiscriminator
-from ..generator.vector_quantized import VQCodebook
-from ....register import register_custom_module
-from ....register import CustomTrainStepLoss
+from ..general import VQCodebook
+from ...schemas import CustomTrainStepLoss
+from ....schema import IDLModel
 from ....constants import INPUT_KEY
 from ....constants import PREDICTIONS_KEY
 from ....losses.vae import VQVAELoss
@@ -133,7 +133,7 @@ class AutoEncoderVQLoss(AutoEncoderLPIPSWithDiscriminator):
         batch: tensor_dict_type,
         forward_results: tensor_dict_type,
         *,
-        step: int,
+        step: Optional[int],
         last_layer: nn.Parameter,
         cond: Optional[Tensor] = None,
     ) -> CustomTrainStepLoss:
@@ -158,14 +158,14 @@ class AutoEncoderVQLoss(AutoEncoderLPIPSWithDiscriminator):
         nll_loss = torch.mean(recon_loss)
         loss = nll_loss + codebook_loss
         # check discriminator start
-        if step < self.d_loss_start_step:
+        if step is not None and step < self.d_loss_start_step:
             return CustomTrainStepLoss(loss, loss_items)
         g_loss = self.g_loss(nll_loss, last_layer, loss_items, reconstructions, cond)
         loss = loss + g_loss
         return CustomTrainStepLoss(loss, loss_items)
 
 
-@register_custom_module("ae_vq")
+@IDLModel.register("ae_vq")
 class AutoEncoderVQModel(AutoEncoderVQ, IAutoEncoder):  # type: ignore
     def __init__(
         self,

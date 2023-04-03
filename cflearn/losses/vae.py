@@ -7,8 +7,8 @@ from typing import Optional
 from cftool.types import tensor_dict_type
 
 from ..types import losses_type
+from ..schema import ILoss
 from ..schema import TrainerState
-from ..register import register_loss_module
 from ..constants import LOSS_KEY
 from ..constants import INPUT_KEY
 from ..constants import PREDICTIONS_KEY
@@ -18,12 +18,12 @@ MU_KEY = "mu"
 LOG_VAR_KEY = "log_var"
 
 
-@register_loss_module("vae")
-@register_loss_module("vae1d")
-@register_loss_module("vae2d")
-@register_loss_module("siren_vae")
-@register_loss_module("style_vae")
-class VAELoss(nn.Module):
+@ILoss.register("vae")
+@ILoss.register("vae1d")
+@ILoss.register("vae2d")
+@ILoss.register("siren_vae")
+@ILoss.register("style_vae")
+class VAELoss(ILoss):
     kld_w: torch.Tensor
 
     def __init__(
@@ -67,8 +67,8 @@ class VAELoss(nn.Module):
         return {"mse": mse, "kld": kld_loss, "kld_w": self.kld_w, LOSS_KEY: loss}
 
 
-@register_loss_module("vq_vae")
-class VQVAELoss(nn.Module):
+@ILoss.register("vq_vae")
+class VQVAELoss(ILoss):
     def __init__(
         self,
         *,

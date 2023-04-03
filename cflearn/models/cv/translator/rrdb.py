@@ -6,7 +6,7 @@ import torch.nn.functional as F
 from torch import Tensor
 from typing import Optional
 
-from ....register import register_module
+from ....schema import IDLModel
 
 
 class ResidualDenseBlock(nn.Module):
@@ -55,8 +55,8 @@ def pixel_unshuffle(net: Tensor, scale: int) -> Tensor:
     return net
 
 
-@register_module("rrdb")
-class RRDBNet(nn.Module):
+@IDLModel.register("rrdb")
+class RRDBNet(IDLModel):
     def __init__(
         self,
         in_channels: int = 3,

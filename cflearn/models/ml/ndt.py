@@ -3,12 +3,16 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
+from typing import Dict
 from typing import List
 from typing import Iterator
+from typing import Optional
 from cftool.array import to_numpy
 from cftool.array import to_torch
 
-from ..register import register_ml_module
+from .base import MLModel
+from ...schema import MLEncoderSettings
+from ...schema import MLGlobalEncoderSettings
 from ...modules.blocks import Linear
 from ...modules.blocks import Activation
 
@@ -36,19 +40,26 @@ def export_structure(tree: DecisionTreeClassifier) -> tuple:
     return tuple(recurse(0, 0))
 
 
-@register_ml_module("ndt")
-class NDT(torch.nn.Module):
+@MLModel.register("ndt")
+class NDT(MLModel):
     def __init__(
         self,
         input_dim: int,
         output_dim: int,
-        num_history: int,
+        num_history: int = 1,
         *,
         dt: DecisionTreeClassifier,
+        encoder_settings: Optional[Dict[str, MLEncoderSettings]] = None,
+        global_encoder_settings: Optional[MLGlobalEncoderSettings] = None,
     ):
         if DecisionTreeClassifier is None:
             raise ValueError("`scikit-learn` is needed for `NDT`")
-        super().__init__()
+        super().__init__(
+            encoder_settings=encoder_settings,
+            global_encoder_settings=global_encoder_settings,
+        )
+        if self.encoder is not None:
+            input_dim += self.encoder.dim_increment
         input_dim *= num_history
         tree_structure = export_structure(dt)
         # dt statistics

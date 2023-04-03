@@ -1,5 +1,4 @@
 {
-  "pipeline": "cv",
   "model_name": "rrdb",
   "model_config": {},
   "allow_no_loss": true

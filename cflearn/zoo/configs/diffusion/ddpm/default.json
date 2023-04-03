@@ -8,7 +8,6 @@
       "linear_end"
     ]
   },
-  "pipeline": "cv",
   "model_name": "ddpm",
   "model_config": {
     "in_channels": 3,
@@ -26,10 +25,10 @@
     "condition_learnable": false,
     "timesteps": 1000,
     "linear_start": 0.00085,
-    "linear_end": 0.0120
+    "linear_end": 0.012
   },
   "optimizer_settings": {
-    "core.learnable": {
+    "learnable": {
       "optimizer": "adamw",
       "scheduler": "op",
       "optimizer_config": {

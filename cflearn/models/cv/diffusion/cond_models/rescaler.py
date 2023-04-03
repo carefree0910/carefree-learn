@@ -6,7 +6,7 @@ from typing import Optional
 from functools import partial
 
 from .schema import ISpecializedConditionModel
-from .....modules.blocks.convs import HijackConv2d
+from .....modules.blocks import HijackConv2d
 
 
 @ISpecializedConditionModel.register("rescaler")

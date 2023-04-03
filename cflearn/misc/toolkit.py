@@ -1,11 +1,12 @@
+import io
 import os
 import sys
+import copy
 import json
 import math
 import torch
 import random
 import hashlib
-import inspect
 import argparse
 import urllib.request
 
@@ -13,7 +14,6 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
-from abc import ABCMeta
 from PIL import Image
 from PIL import ImageDraw
 from torch import Tensor
@@ -39,29 +39,32 @@ from cftool.misc import shallow_copy_dict
 from cftool.misc import truncate_string_to_length
 from cftool.misc import DownloadProgressBar
 from cftool.array import to_torch
+from cftool.array import is_string
 from cftool.array import to_standard
 from cftool.types import np_dict_type
 from cftool.types import tensor_dict_type
+from safetensors.torch import load_file
 
 from ..types import data_type
 from ..types import param_type
 from ..types import sample_weights_type
 from ..constants import INPUT_KEY
-from ..constants import WORKPLACE_ENVIRON_KEY
+from ..constants import WORKSPACE_ENVIRON_KEY
 from ..parameters import OPT
 
 try:
     import matplotlib.pyplot as plt
+    from matplotlib.pyplot import figure as Figure
 except:
-    plt = None
+    plt = Figure = None
 try:
     from onnxruntime import InferenceSession
 except:
     InferenceSession = None
 try:
-    from cfml.misc.toolkit import show_or_save
+    import cv2
 except:
-    show_or_save = None
+    cv2 = None
 
 
 # general
@@ -89,12 +92,12 @@ def seed_everything(seed: int) -> int:
     return seed
 
 
-def _get_environ_workplace() -> Optional[str]:
-    return os.environ.get(WORKPLACE_ENVIRON_KEY)
+def _get_environ_workspace() -> Optional[str]:
+    return os.environ.get(WORKSPACE_ENVIRON_KEY)
 
 
-def _set_environ_workplace(workplace: str) -> None:
-    os.environ[WORKPLACE_ENVIRON_KEY] = workplace
+def _set_environ_workspace(workspace: str) -> None:
+    os.environ[WORKSPACE_ENVIRON_KEY] = workspace
 
 
 def check_is_ci() -> bool:
@@ -119,10 +122,14 @@ def check_available(tag: str, repo: str, name: str) -> Optional[FileInfo]:
     return None if info is None else FileInfo(**info)
 
 
+def _get_file_size(path: str) -> int:
+    return os.stat(path).st_size
+
+
 def _get_file_info(path: str) -> FileInfo:
     with open(path, "rb") as f:
         sha = hashlib.sha256(f.read()).hexdigest()
-    return FileInfo(sha, os.stat(path).st_size)
+    return FileInfo(sha, _get_file_size(path))
 
 
 def _check_sha(path: str, tgt_sha: str) -> bool:
@@ -268,31 +275,61 @@ def get_compatible_name(
     return name
 
 
-class ConfigMeta(ABCMeta):
-    def __new__(mcs, *args: Any, **kwargs: Any) -> type:
-        name, bases, attr = args[:3]
-        original_init = attr["__init__"]
+def show_or_save(
+    export_path: Optional[str],
+    fig: Optional[Figure] = None,
+    **kwargs: Any,
+) -> None:
+    """
+    Utility function to deal with figure.
 
-        def __init__(self: Any, *args_: Any, **kwargs_: Any) -> None:
-            if getattr(self, "_in_control_", False):
-                original_init(self, *args_, **kwargs_)
-            else:
-                self._is_root_ = True
-                self._in_control_ = True
-                self.config = shallow_copy_dict(kwargs_)
-                signatures = list(inspect.signature(original_init).parameters.items())
-                for arg, (k, _) in zip(args_, signatures[1:]):
-                    if not isinstance(arg, dict):
-                        self.config[k] = arg
-                    else:
-                        self.config[k] = shallow_copy_dict(arg)
-                original_init(self, *args_, **kwargs_)
-            if getattr(self, "_is_root_", False):
-                del self._is_root_
-                del self._in_control_
+    Parameters
+    ----------
+    export_path : {None, str}
+    * If None, the figure will be shown.
+    * If str, it represents the path where the figure should be saved to.
+    fig : {None, plt.Figure}
+    * If None, default figure contained in plt will be executed.
+    * If plt.figure, it will be executed
 
-        attr["__init__"] = __init__
-        return type(name, bases, attr)
+    """
+
+    if plt is None:
+        raise ValueError("`matplotlib` is needed for `show_or_save`")
+    if export_path is None:
+        fig.show(**kwargs) if fig is not None else plt.show(**kwargs)
+    else:
+        if fig is not None:
+            fig.savefig(export_path)
+        else:
+            plt.savefig(export_path, **kwargs)
+    plt.close()
+
+
+def show_or_return(return_canvas: bool) -> Union[None, np.ndarray]:
+    """
+    Utility function to deal with current plt.
+
+    Parameters
+    ----------
+    return_canvas : bool, whether return canvas or not.
+
+    """
+
+    if plt is None:
+        raise ValueError("`matplotlib` is needed for `show_or_return`")
+    if not return_canvas:
+        plt.show()
+        return None
+
+    buffer_ = io.BytesIO()
+    plt.savefig(buffer_, format="png")
+    plt.close()
+    buffer_.seek(0)
+    image = Image.open(buffer_)
+    canvas = np.asarray(image)[..., :3]
+    buffer_.close()
+    return canvas
 
 
 class WeightsStrategy:
@@ -335,6 +372,65 @@ class WeightsStrategy:
 # dl
 
 
+pt2_sdp_attn = getattr(F, "scaled_dot_product_attention", None)
+
+
+def sdp_attn(
+    q: Tensor,
+    k: Tensor,
+    v: Tensor,
+    training: bool,
+    mask: Optional[Tensor] = None,
+    dropout: Optional[float] = None,
+) -> Tensor:
+    if pt2_sdp_attn is not None:
+        dropout = dropout if training else None
+        dropout = 0.0 if dropout is None else dropout
+        return pt2_sdp_attn(q, k, v, mask, dropout)
+    raw_weights = q @ k.transpose(-2, -1) / math.sqrt(k.shape[-1])
+    if mask is not None:
+        raw_weights.masked_fill_(~mask, float("-inf"))
+    weights = F.softmax(raw_weights, dim=-1)
+    if training and dropout is not None and 0.0 < dropout < 1.0:
+        weights = F.dropout(weights, dropout)
+    return weights @ v
+
+
+def get_tensors(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+    if isinstance(inp, str):
+        if inp.endswith(".safetensors"):
+            inp = load_file(inp)
+        else:
+            inp = torch.load(inp, map_location="cpu")
+    if "state_dict" in inp:
+        inp = inp["state_dict"]
+    return shallow_copy_dict(inp)
+
+
+def get_dtype(m: nn.Module) -> torch.dtype:
+    params = list(m.parameters())
+    return torch.float32 if not params else params[0].dtype
+
+
+def get_device(m: nn.Module) -> torch.device:
+    params = list(m.parameters())
+    return torch.device("cpu") if not params else params[0].device
+
+
+def get_clones(
+    module: nn.Module,
+    n: int,
+    *,
+    return_list: bool = False,
+) -> Union[nn.ModuleList, List[nn.Module]]:
+    module_list = [module]
+    for _ in range(n - 1):
+        module_list.append(copy.deepcopy(module))
+    if return_list:
+        return module_list
+    return nn.ModuleList(module_list)
+
+
 def get_torch_device(device: Union[int, str, torch.device]) -> torch.device:
     if isinstance(device, (int, str)):
         device = torch.device(device)
@@ -351,6 +447,20 @@ def empty_cuda_cache(device: Union[int, str, torch.device]) -> None:
 
 def is_cpu(device: Union[int, str, torch.device]) -> bool:
     return get_torch_device(device).type == "cpu"
+
+
+def np_batch_to_tensor(np_batch: np_dict_type) -> tensor_dict_type:
+    return {
+        k: v if not isinstance(v, np.ndarray) or is_string(v) else to_torch(v)
+        for k, v in np_batch.items()
+    }
+
+
+def tensor_batch_to_np(tensor_batch: np_dict_type) -> np_dict_type:
+    return {
+        k: v if not isinstance(v, Tensor) else v.cpu().numpy()
+        for k, v in tensor_batch.items()
+    }
 
 
 def safe_clip_(net: Tensor) -> None:
@@ -582,9 +692,9 @@ def summary(
     # make a forward pass
     with eval_context(model, use_grad=None):
         if not hasattr(model, "summary_forward"):
-            model(0, sample_batch)
+            model.run(0, sample_batch)
         else:
-            model.summary_forward(0, sample_batch)  # type: ignore
+            model.summary_forward(sample_batch)  # type: ignore
         for param in model.parameters():
             param.grad = None
 
@@ -711,6 +821,11 @@ def get_ddp_info() -> Optional[DDPInfo]:
         local_rank = int(os.environ["LOCAL_RANK"])
         return DDPInfo(rank, world_size, local_rank)
     return None
+
+
+def is_local_rank_0() -> bool:
+    ddp_info = get_ddp_info()
+    return ddp_info is None or ddp_info.local_rank == 0
 
 
 def get_world_size() -> int:
@@ -952,38 +1067,6 @@ class Initializer:
     def orthogonal(self, param: param_type) -> None:
         gain = self.config.setdefault("gain", 1.0)
         nn.init.orthogonal_(param.data, gain)
-
-
-class DropNoGradStatesMixin:
-    def state_dict(
-        self,
-        *,
-        destination: Any = None,
-        prefix: str = "",
-        keep_vars: bool = False,
-    ) -> tensor_dict_type:
-        states = super().state_dict(destination=destination, prefix=prefix, keep_vars=keep_vars)  # type: ignore
-        for key, _ in self.named_buffers():  # type: ignore
-            if states.pop(key, None) is None:
-                states.pop(f"core.{key}")
-        for key, value in self.named_parameters():  # type: ignore
-            if not value.requires_grad:
-                if states.pop(key, None) is None:
-                    states.pop(f"core.{key}")
-        return states
-
-    def load_state_dict(
-        self,
-        state_dict: tensor_dict_type,
-        strict: bool = True,
-    ) -> None:
-        with torch.no_grad():
-            for key, value in self.named_parameters():  # type: ignore
-                if value.requires_grad:
-                    loaded_value = state_dict.get(key)
-                    if strict and loaded_value is None:
-                        raise ValueError(f"value for '{key}' is missing")
-                    value.data.copy_(loaded_value)
 
 
 class ONNX:

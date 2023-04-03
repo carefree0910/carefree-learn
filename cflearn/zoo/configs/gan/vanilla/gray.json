@@ -1,6 +1,0 @@
-{
-  "__bases__": ["gan/vanilla"],
-  "model_config": {
-    "in_channels": 1
-  }
-}

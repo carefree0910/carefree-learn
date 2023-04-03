@@ -1,21 +1,31 @@
+import json
+
 import numpy as np
 
+from enum import Enum
 from torch import Tensor
 from typing import Any
 from typing import Dict
 from typing import Tuple
+from typing import Union
 from typing import Optional
+from cftool.misc import print_info
+from cftool.array import tensor_dict_type
 
 from .ddpm import make_condition_model
 from .ddpm import DDPM
 from .utils import CROSS_ATTN_TYPE
 from ..ae.kl import GaussianDistribution
 from ....zoo import DLZoo
-from ....register import register_custom_module
+from ....schema import IDLModel
 from ....misc.toolkit import freeze
+from ....misc.toolkit import get_tensors
+from ....misc.toolkit import download_static
+from ....modules.blocks import IHook
+from ....modules.blocks import LoRAManager
 
 
-@register_custom_module("ldm")
+@IDLModel.register("ldm")
 class LDM(DDPM):
     def __init__(
         self,
@@ -129,14 +139,15 @@ class LDM(DDPM):
             sampler_config=sampler_config,
         )
         first_stage_kw = first_stage_config or {}
-        self.first_stage = freeze(DLZoo.load_model(first_stage, **first_stage_kw))
+        m = DLZoo.load_pipeline(first_stage, **first_stage_kw)
+        self.first_stage = freeze(m.build_model.model)
         self.scale_factor = first_stage_scale_factor
         # condition
         if use_first_stage_as_condition:
             # avoid recording duplicate parameters
             self.condition_model = [make_condition_model(first_stage, self.first_stage)]
         # sanity check
-        embedding_channels = self.first_stage.core.embedding_channels
+        embedding_channels = self.first_stage.embedding_channels
         if in_channels != embedding_channels and condition_type == CROSS_ATTN_TYPE:
             raise ValueError(
                 f"`in_channels` ({in_channels}) should be identical with the "
@@ -172,7 +183,7 @@ class LDM(DDPM):
         return net
 
     def _preprocess(self, net: Tensor, *, deterministic: bool = False) -> Tensor:
-        net = self.first_stage.core.encode(net)
+        net = self.first_stage.encode(net)
         if isinstance(net, GaussianDistribution):
             net = net.mode() if deterministic else net.sample()
         net = self.scale_factor * net
@@ -180,7 +191,7 @@ class LDM(DDPM):
 
     def _from_latent(self, latent: Tensor) -> Tensor:
         latent = latent / self.scale_factor
-        return self.first_stage.core.decode(latent, resize=False)
+        return self.first_stage.decode(latent, resize=False)
 
     def _get_cond(self, cond: Any) -> Tensor:
         if isinstance(self.condition_model, list):
@@ -188,6 +199,83 @@ class LDM(DDPM):
         return super()._get_cond(cond)
 
 
+class SDLoRAMode(str, Enum):
+    UNET = "unet"
+    UNET_EXTENDED = "unet_extended"
+
+
+def convert_lora(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
+    inp = get_tensors(inp)
+    with open(download_static("sd_lora_mapping", extension="json"), "r") as f:
+        mapping = json.load(f)
+    return {mapping[k]: v for k, v in inp.items()}
+
+
+@IDLModel.register("sd")
+class StableDiffusion(LDM):
+    def __init__(self, *args: Any, **kwargs: Any):
+        super().__init__(*args, **kwargs)
+        self.lora_manager = LoRAManager()
+
+    @property
+    def has_lora(self) -> bool:
+        return self.lora_manager.injected
+
+    def load_lora(self, key: str, *, path: str) -> None:
+        print_info(f"loading '{key}' from '{path}'")
+        d = get_tensors(path)
+        wk = "lora_unet_down_blocks_0_attentions_0_proj_in.lora_down.weight"
+        rank = d[wk].shape[0]
+        mode = SDLoRAMode.UNET if "res" not in d else SDLoRAMode.UNET_EXTENDED
+        inject_text_encoder = "lora_te_text_model_encoder_layers_0_mlp_fc1.alpha" in d
+        print_info(
+            f"preparing lora (rank={rank}, mode={mode}, "
+            f"inject_text_encoder={inject_text_encoder})"
+        )
+        self.prepare_lora(key, rank, mode=mode, inject_text_encoder=inject_text_encoder)
+        print_info("loading weights")
+        self.lora_manager.load_pack_with(key, convert_lora(d))
+        print_info(f"finished loading '{key}'")
+
+    def prepare_lora(
+        self,
+        key: str,
+        rank: int,
+        *,
+        mode: SDLoRAMode = SDLoRAMode.UNET,
+        inject_text_encoder: bool = True,
+    ) -> None:
+        target_ancestors = {"SpatialTransformer", "GEGLU"}
+        if mode == SDLoRAMode.UNET_EXTENDED:
+            target_ancestors.add("ResBlock")
+        if inject_text_encoder:
+            target_ancestors.add("TeTEncoder")
+        self.lora_manager.prepare(
+            self,
+            key=key,
+            rank=rank,
+            target_ancestors=target_ancestors,
+        )
+
+    def inject_lora(self, *keys: str) -> None:
+        self.lora_manager.inject(self, *keys)
+
+    def cleanup_lora(self) -> None:
+        self.lora_manager.cleanup(self)
+
+    def set_lora_scales(self, scales: Dict[str, float]) -> None:
+        self.lora_manager.set_scales(scales)
+
+    def get_lora_checkpoints(self) -> Dict[str, Optional[IHook]]:
+        return self.lora_manager.checkpoint(self)
+
+    def restore_lora_from(self, hooks: Dict[str, Optional[IHook]]) -> None:
+        return self.lora_manager.restore(self, hooks)
+
+
 __all__ = [
     "LDM",
+    "SDLoRAMode",
+    "StableDiffusion",
+    "convert_lora",
 ]

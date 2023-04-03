@@ -18,9 +18,9 @@ from .schema import IDiffusion
 from .schema import DDPMQSampler
 from .schema import UncondSamplerMixin
 from ..utils import cond_type
-from ..utils import extract_to
 from ..utils import get_timesteps
 from ...ae.vq import AutoEncoderVQModel
+from .....misc.toolkit import get_device
 
 
 class IGetModelOutput(Protocol):
@@ -210,14 +210,13 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
             first_stage = getattr(self.model, "first_stage", None)
             if first_stage is None:
                 raise ValueError(err_fmt.format("model with `first_stage` model"))
-            vq = first_stage.core
-            if not isinstance(vq, AutoEncoderVQModel):
+            if not isinstance(first_stage, AutoEncoderVQModel):
                 raise ValueError(
                     err_fmt.format(
                         "model with `AutoEncoderVQModel` as the `first_stage` model"
                     )
                 )
-            pred_x0 = vq.codebook(pred_x0).z_q
+            pred_x0 = first_stage.codebook(pred_x0).z_q
         direction = (1.0 - self._a_prev_t - self._sigmas_t**2).sqrt() * eps
         noise = self._sigmas_t * torch.randn_like(image) * temperature
         if noise_dropout > 0:
@@ -240,7 +239,7 @@ class DDIMMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         self.ddim_alphas_prev = torch.tensor(
             [alphas[0]] + alphas[self._q_sampler.timesteps[:-1]].tolist(),
             dtype=alphas.dtype,
-            device=self.model.device,
+            device=get_device(self.model),
         )
         self.ddim_sigmas = eta * torch.sqrt(
             (1.0 - self.ddim_alphas_prev)

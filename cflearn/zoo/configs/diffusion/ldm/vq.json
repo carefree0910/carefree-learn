@@ -16,7 +16,7 @@
     "linear_end": 0.0195
   },
   "optimizer_settings": {
-    "core.learnable": {
+    "learnable": {
       "optimizer_config": {
         "lr": 2.0e-6
       }

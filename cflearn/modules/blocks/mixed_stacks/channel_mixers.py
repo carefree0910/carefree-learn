@@ -6,7 +6,7 @@ from torch import Tensor
 from .schema import ChannelMixerBase
 from ..convs import DepthWiseConv2d
 from ..common import Lambda
-from ..customs import Linear
+from ..hijacks import HijackCustomLinear
 from ..activations import GEGLU
 from ..activations import Activation
 
@@ -26,10 +26,10 @@ class FeedForward(ChannelMixerBase):
             blocks = [GEGLU(in_dim, latent_dim)]
         else:
             blocks = [
-                Linear(in_dim, latent_dim),
+                HijackCustomLinear(in_dim, latent_dim),
                 Activation.make(activation),
             ]
-        blocks += [nn.Dropout(dropout), Linear(latent_dim, in_dim)]
+        blocks += [nn.Dropout(dropout), HijackCustomLinear(latent_dim, in_dim)]
         if add_last_dropout:
             blocks.append(nn.Dropout(dropout))
         self.net = nn.Sequential(*blocks)
@@ -47,13 +47,13 @@ class MixFeedForward(ChannelMixerBase):
     def __init__(self, in_dim: int, latent_dim: int, dropout: float):
         super().__init__(in_dim, latent_dim, dropout)
         self.net = nn.Sequential(
-            Linear(in_dim, latent_dim),
+            HijackCustomLinear(in_dim, latent_dim),
             Lambda(lambda t: t.permute(0, 3, 1, 2), "permute -> BCHW"),
             DepthWiseConv2d(latent_dim),
             Lambda(lambda t: t.flatten(2).transpose(1, 2), "transpose -> BNC"),
             nn.GELU(),
             nn.Dropout(dropout),
-            Linear(latent_dim, in_dim),
+            HijackCustomLinear(latent_dim, in_dim),
             nn.Dropout(dropout),
         )
 

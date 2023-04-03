@@ -11,14 +11,14 @@ from cftool.misc import shallow_copy_dict
 from cftool.types import tensor_dict_type
 
 from ...schema import _forward
-from ...schema import WithDeviceMixin
 from ...constants import INPUT_KEY
 from ...constants import LABEL_KEY
 from ...constants import PREDICTIONS_KEY
 from ...misc.toolkit import slerp
+from ...misc.toolkit import get_device
 
 
-class GeneratorMixin(WithDeviceMixin, metaclass=ABCMeta):
+class GeneratorMixin(metaclass=ABCMeta):
     latent_dim: int
     num_classes: Optional[int] = None
 
@@ -77,8 +77,8 @@ class GeneratorMixin(WithDeviceMixin, metaclass=ABCMeta):
         if self.num_classes is None:
             return None
         if class_idx is not None:
-            return torch.full([num_samples], class_idx, device=self.device)
-        return torch.randint(self.num_classes, [num_samples], device=self.device)
+            return torch.full([num_samples], class_idx, device=get_device(self))
+        return torch.randint(self.num_classes, [num_samples], device=get_device(self))
 
 
 class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
@@ -87,7 +87,7 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         pass
 
     def generate_z(self, num_samples: int) -> Tensor:
-        return torch.randn(num_samples, self.latent_dim, device=self.device)
+        return torch.randn(num_samples, self.latent_dim, device=get_device(self))
 
     def sample(
         self,
@@ -121,7 +121,7 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         shape = z1.shape
         z1 = z1.view(1, -1)
         z2 = z2.view(1, -1)
-        ratio = torch.linspace(0.0, 1.0, num_samples, device=self.device)[:, None]
+        ratio = torch.linspace(0.0, 1.0, num_samples, device=get_device(self))[:, None]
         z = slerp(z1, z2, ratio) if use_slerp else ratio * z1 + (1.0 - ratio) * z2
         z = z.view(num_samples, *shape[1:])
         if class_idx is None and self.num_classes is not None:
@@ -132,7 +132,7 @@ class GaussianGeneratorMixin(GeneratorMixin, metaclass=ABCMeta):
         return safe_execute(self.decode, kw)
 
 
-class ImageTranslatorMixin(WithDeviceMixin):
+class ImageTranslatorMixin:
     def onnx_forward(self, batch: tensor_dict_type) -> Any:
         return self.generate_from(batch[INPUT_KEY], determinate=True)
 

@@ -9,8 +9,9 @@ from typing import Optional
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
+from ..misc.toolkit import get_tensors
 from ..misc.toolkit import download_static
-from ..api.cv.models.diffusion import DiffusionAPI
+from ..api.cv.diffusion import DiffusionAPI
 
 
 key_mapping_inv = {}
@@ -27,30 +28,28 @@ def _convert_cond_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dic
         return {}
     d, md = map(shallow_copy_dict, [d, md])
     nd = {
-        "core.condition_model.m.token_embedding.weight": _get_dv(
+        "condition_model.m.token_embedding.weight": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.token_embedding.weight"
         ),
-        "core.condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": _get_dv(
+        "condition_model.m.text_transformer.encoder.pos_encoding.pos_encoding": _get_dv(
             "cond_stage_model.transformer.text_model.embeddings.position_embedding.weight"
-        )[
-            None, ...
-        ],
-        "core.condition_model.m.text_transformer.encoder.head.norms.0.weight": _get_dv(
+        )[None, ...],
+        "condition_model.m.text_transformer.encoder.head.norms.0.weight": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.weight"
         ),
-        "core.condition_model.m.text_transformer.encoder.head.norms.0.bias": _get_dv(
+        "condition_model.m.text_transformer.encoder.head.norms.0.bias": _get_dv(
             "cond_stage_model.transformer.text_model.final_layer_norm.bias"
         ),
     }
     for key in [
-        "core.condition_model.m.logit_scale",
-        "core.condition_model.m.text_transformer.attention_mask",
-        "core.condition_model.m.text_projection.weight",
-        "core.condition_model.m.text_projection.bias",
+        "condition_model.m.logit_scale",
+        "condition_model.m.text_transformer.attention_mask",
+        "condition_model.m.text_projection.weight",
+        "condition_model.m.text_projection.bias",
     ]:
         nd[key] = md.pop(key)
     prefix = "cond_stage_model.transformer.text_model.encoder.layers"
-    m_prefix = "core.condition_model.m.text_transformer.encoder.mixing_blocks"
+    m_prefix = "condition_model.m.text_transformer.encoder.mixing_blocks"
     layer_indices = []
     for key in d:
         if not key.startswith(prefix):
@@ -95,11 +94,11 @@ def _convert_first_stage(d: tensor_dict_type, md: tensor_dict_type) -> tensor_di
     keys = list(d.keys())
     m_keys = list(md.keys())
     for k in [
-        "core.first_stage.core.codebook.embedding.weight",
-        "core.first_stage.core.to_embedding.weight",
-        "core.first_stage.core.to_embedding.bias",
-        "core.first_stage.core.from_embedding.weight",
-        "core.first_stage.core.from_embedding.bias",
+        "first_stage.codebook.embedding.weight",
+        "first_stage.to_embedding.weight",
+        "first_stage.to_embedding.bias",
+        "first_stage.from_embedding.weight",
+        "first_stage.from_embedding.bias",
     ]:
         if k in m_keys:
             m_keys.remove(k)
@@ -177,7 +176,7 @@ def _convert_others(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_ty
         elif not k.startswith("model") and not k.startswith("model_ema"):
             keys.remove(k)
     for mk in reversed(m_keys):
-        if not mk.startswith("core.unet") and not mk.startswith("core.unet_ema"):
+        if not mk.startswith("unet") and not mk.startswith("unet_ema"):
             continue
     keys.remove("model_ema.num_updates")
     keys.append("model_ema.num_updates")
@@ -200,10 +199,10 @@ def _convert(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_type:
         print(">  [info] injecting channel_mapper")
         assert (
             d["cond_stage_model.channel_mapper.weight"].shape
-            == md["core.condition_model.channel_mapper.weight"].shape
+            == md["condition_model.channel_mapper.weight"].shape
         )
         k = "cond_stage_model.channel_mapper.weight"
-        mk = "core.condition_model.channel_mapper.weight"
+        mk = "condition_model.channel_mapper.weight"
         nd[mk] = d[k]
         key_mapping_inv[mk] = k
     # condition
@@ -211,25 +210,25 @@ def _convert(d: tensor_dict_type, md: tensor_dict_type) -> tensor_dict_type:
     for k in list(d.keys()):
         if k.startswith("cond_stage_model"):
             cond_d[k] = d.pop(k)
-    cond_md = {k: v for k, v in md.items() if k.startswith("core.condition_model")}
+    cond_md = {k: v for k, v in md.items() if k.startswith("condition_model")}
     for k in cond_md:
         md.pop(k)
     nd.update(_convert_cond_stage(cond_d, cond_md))
     # first stage
     fd = {k: v for k, v in d.items() if k.startswith("first_stage_model")}
-    fmd = {k: v for k, v in md.items() if k.startswith("core.first_stage")}
+    fmd = {k: v for k, v in md.items() if k.startswith("first_stage")}
     nd.update(_convert_first_stage(fd, fmd))
     # others
     od = {k: v for k, v in d.items() if not k.startswith("first_stage_model")}
-    omd = {k: v for k, v in md.items() if not k.startswith("core.first_stage")}
+    omd = {k: v for k, v in md.items() if not k.startswith("first_stage")}
     nd.update(_convert_others(od, omd))
     # ema
-    ema_num_updates_k = "core.unet_ema.num_updates"
+    ema_num_updates_k = "unet_ema.num_updates"
     if ema_num_updates_k in nd:
         nd.pop(ema_num_updates_k)
         key_mapping_inv.pop(ema_num_updates_k)
-        normal_keys = [k for k in list(nd) if k.startswith("core.unet.")]
-        ema_keys = [k for k in list(nd) if k.startswith("core.unet_ema")]
+        normal_keys = [k for k in list(nd) if k.startswith("unet.")]
+        ema_keys = [k for k in list(nd) if k.startswith("unet_ema")]
         for k, ema_k in zip(normal_keys, ema_keys):
             assert nd.pop(k).shape == nd[ema_k].shape
         for k, ema_k in zip(normal_keys, ema_keys):
@@ -253,21 +252,13 @@ def _convert_with_key_mapping(
     return nd
 
 
-def _get_d(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
-    if isinstance(inp, str):
-        inp = torch.load(inp, map_location="cpu")
-    if "state_dict" in inp:
-        inp = inp["state_dict"]
-    return shallow_copy_dict(inp)
-
-
 def _get_inp(
     inp: Union[str, tensor_dict_type],
     vae_inp: Optional[Union[str, tensor_dict_type]],
 ) -> tensor_dict_type:
-    inp = _get_d(inp)
+    inp = get_tensors(inp)
     if vae_inp is not None:
-        vae_inp = _get_d(vae_inp)
+        vae_inp = get_tensors(vae_inp)
         num_injected = 0
         for k, v in vae_inp.items():
             inp_k = f"first_stage_model.{k}"
@@ -287,14 +278,14 @@ def convert(
     use_mapping: bool = True,
 ) -> tensor_dict_type:
     inp = _get_inp(inp, vae_inp)
-    with api.load_context() as wrapper:
-        md = wrapper.state_dict()
+    with api.load_context() as m:
+        md = m.state_dict()
         if not use_mapping:
             nd = _convert(inp, md)
         else:
             nd = _convert_with_key_mapping(inp, md)
         if load:
-            wrapper.load_state_dict(nd)
+            m.load_state_dict(nd)
     return nd
 
 
@@ -312,34 +303,34 @@ def convert_v2(
         "sqrt_recipm1_alphas_cumprod",
     ]:
         inp.pop(k)
-    with api.load_context() as wrapper:
-        md = wrapper.state_dict()
+    with api.load_context() as m:
+        md = m.state_dict()
         nd = {}
         for k in [
-            "core.condition_model.m.text_projection.bias",
-            "core.condition_model.m.text_transformer.attention_mask",
+            "condition_model.m.text_projection.bias",
+            "condition_model.m.text_transformer.attention_mask",
         ]:
             nd[k] = md.pop(k)
         with open(download_static("sd_v2_mapping", extension="json"), "r") as f:
             mapping = json.load(f)
         for k, mk in mapping.items():
             v = inp[k]
-            if mk == "core.condition_model.m.text_projection.weight":
+            if mk == "condition_model.m.text_projection.weight":
                 v = v.t()
             nd[mk] = v.view(md[mk].shape)
         if load:
-            wrapper.load_state_dict(nd)
+            m.load_state_dict(nd)
     return nd
 
 
 def inject(inp: Union[str, tensor_dict_type], api: DiffusionAPI) -> None:
-    d = _get_d(inp)
-    with api.load_context() as wrapper:
-        wrapper.load_state_dict(d)
+    d = get_tensors(inp)
+    with api.load_context() as m:
+        m.load_state_dict(d)
 
 
 def convert_controlnet(inp: Union[str, tensor_dict_type]) -> tensor_dict_type:
-    inp = _get_d(inp)
+    inp = get_tensors(inp)
     with open(download_static("sd_controlnet_mapping", extension="json"), "r") as f:
         mapping = json.load(f)
     nd = {}

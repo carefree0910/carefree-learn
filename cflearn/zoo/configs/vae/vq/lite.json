@@ -1,6 +1,0 @@
-{
-  "__bases__": ["vae/vq"],
-  "model_config": {
-    "num_code": 16
-  }
-}

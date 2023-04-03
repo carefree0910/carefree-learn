@@ -8,8 +8,12 @@ from numpy import ndarray
 from typing import Any
 from typing import List
 from typing import Tuple
+from typing import Union
 from typing import Optional
 from typing import NamedTuple
+from PIL.Image import Image
+from cftool.cv import to_uint8
+from cftool.cv import read_image
 
 from ....misc.toolkit import download_model
 
@@ -17,10 +21,6 @@ try:
     import cv2
 except:
     cv2 = None
-try:
-    from cfcv.misc.toolkit import to_uint8
-except:
-    to_uint8 = None
 
 
 def ceil_mod(x: int, mod: int) -> int:
@@ -171,8 +171,6 @@ class InpaintModel:
             result = self._pad_and_run(image, mask, config)
         else:
             if config.hd_strategy == HDStrategy.CROP:
-                if to_uint8 is None:
-                    raise ValueError("`carefree-cv` is needed for `CROP` strategy")
                 boxes = boxes_from_mask(to_uint8(mask))
                 crop_result = []
                 for box in boxes:
@@ -282,7 +280,29 @@ class LaMa(InpaintModel):
         return net
 
 
+class LaMaAPI:
+    def __init__(self, device: torch.device) -> None:
+        self.lama = LaMa(device)
+
+    def inpaint(self, image: Union[str, Image], mask: Union[str, Image]) -> np.ndarray:
+        cfg = Config()
+        image_arr = read_image(
+            image,
+            None,
+            anchor=None,
+            to_torch_fmt=False,
+        ).image
+        mask_arr = read_image(
+            mask,
+            None,
+            anchor=None,
+            to_mask=True,
+            to_torch_fmt=False,
+        ).image
+        mask_arr[mask_arr > 0.0] = 1.0
+        return self.lama(image_arr, mask_arr, cfg)
+
+
 __all__ = [
-    "LaMa",
-    "Config",
+    "LaMaAPI",
 ]

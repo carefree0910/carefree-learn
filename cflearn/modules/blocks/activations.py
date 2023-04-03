@@ -14,7 +14,7 @@ from torch.nn import Module
 from cftool.misc import WithRegister
 
 from .common import Lambda
-from .customs import HijackLinear
+from .hijacks import HijackLinear
 
 
 activations: Dict[str, Type["Activation"]] = {}

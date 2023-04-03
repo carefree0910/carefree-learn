@@ -6,44 +6,42 @@ import unittest
 import numpy as np
 
 from cftool.misc import shallow_copy_dict
+from cftool.misc import Serializer
 
 
 num_jobs = 0 if platform.system() == "Linux" else 2
 logging_folder = "__test_dist__"
-kwargs = {"output_dim": 3, "fixed_epoch": 3}
 
 
 class TestDist(unittest.TestCase):
     def test_experiment(self) -> None:
         x = np.random.randn(100, 10)
         y = np.random.randint(0, 3, [100, 1])
+        config = cflearn.MLConfig(
+            model_config=dict(input_dim=x.shape[1], output_dim=3),
+            loss_name="focal",
+            fixed_epoch=3,
+        )
         exp_folder = os.path.join(logging_folder, "__test_experiment__")
         experiment = cflearn.dist.ml.Experiment(num_jobs=num_jobs)
-        data = cflearn.MLData(x, y, is_classification=True)
-        data.prepare(None)
-        data_folder = experiment.dump_data(data, workplace=exp_folder)
-        common_kwargs = {
-            "root_workplace": exp_folder,
-            "data_folder": data_folder,
-            "config": kwargs,
-        }
+        data = cflearn.MLData.init().fit(x, y)
+        common_kwargs = {"config": config, "data": data, "root_workspace": exp_folder}
         experiment.add_task(model="fcnn", **shallow_copy_dict(common_kwargs))
         experiment.add_task(model="fcnn", **shallow_copy_dict(common_kwargs))
         experiment.add_task(model="linear", **shallow_copy_dict(common_kwargs))
         experiment.add_task(model="linear", **shallow_copy_dict(common_kwargs))
         results = experiment.run_tasks()
-        load_results = cflearn.ml.load_experiment_results
-        ms = load_results(results, cflearn.ml.MLPipeline)
+        ms = cflearn.api.load_pipelines(results)
         saving_folder = os.path.join(logging_folder, "__test_experiment_save__")
-        experiment.save(saving_folder)
-        loaded = cflearn.dist.ml.Experiment.load(saving_folder)
+        Serializer.save(saving_folder, experiment)
+        loaded = Serializer.load(saving_folder, cflearn.dist.ml.Experiment)
         assert loaded.results is not None
-        ms_loaded = load_results(loaded.results, cflearn.ml.MLPipeline)
-        idata = cflearn.MLInferenceData(x)
+        ms_loaded = cflearn.api.load_pipelines(loaded.results)
+        loader = data.build_loader(x)
         self.assertTrue(
             np.allclose(
-                ms["fcnn"][1].predict(idata)[cflearn.PREDICTIONS_KEY],
-                ms_loaded["fcnn"][1].predict(idata)[cflearn.PREDICTIONS_KEY],
+                ms["fcnn"][1].predict(loader)[cflearn.PREDICTIONS_KEY],
+                ms_loaded["fcnn"][1].predict(loader)[cflearn.PREDICTIONS_KEY],
             )
         )
 

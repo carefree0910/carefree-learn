@@ -1,19 +1,14 @@
 # type: ignore
 
 import os
-import torch
 import pickle
 import cflearn
 
-import numpy as np
-
-from cftool.misc import _rmtree
-from cfml.misc.toolkit import ModelPattern
 from cflearn.misc.toolkit import check_is_ci
+from cflearn.misc.toolkit import seed_everything
 
 
-torch.manual_seed(142857)
-np.random.seed(142857)
+seed_everything(123)
 
 is_ci = check_is_ci()
 file_folder = os.path.dirname(__file__)
@@ -22,46 +17,51 @@ sklearn_runner_file = os.path.join(file_folder, "run_sklearn.py")
 
 
 if __name__ == "__main__":
-    metrics = ["acc", "auc"]
-    m = cflearn.api.fit_ml(iris_data_file, carefree=True, debug=is_ci)
-    print(m.cf_data.raw.x[0])
-    print(m.cf_data.raw.y[0])
-    print(m.cf_data.processed.x[0])
-    print(m.cf_data.processed.y[0])
-
+    processor_config = cflearn.MLBundledProcessorConfig(has_header=False, num_split=25)
+    data = cflearn.MLData.init(processor_config=processor_config).fit(iris_data_file)
+    config = cflearn.MLConfig(
+        model_name="fcnn",
+        model_config=dict(input_dim=data.num_features, output_dim=data.num_labels),
+        loss_name="focal",
+        metric_names=["acc", "auc"],
+    )
+    if is_ci:
+        config.to_debug()
+    m = cflearn.api.fit_ml(data, config=config)
     data = m.data
-    x_train = data.train_data.x
-    y_train = data.train_data.y
-    x_valid = data.valid_data.x
-    y_valid = data.valid_data.y
-    stacked = np.vstack([x_train, x_valid])
-    print(stacked.mean(0))
-    print(stacked.std(0))
+    config = m.config
+    x_train = data.train_dataset.x
+    print("> mean", x_train.mean(0))
+    print("> std ", x_train.std(0))
 
-    idata = m.make_inference_data(iris_data_file)
-    rs = m.predict(idata, contains_labels=True)
-    rs = m.predict(idata, return_probabilities=True, contains_labels=True)
-    rs = m.predict(idata, return_classes=True, contains_labels=True)
+    loader = data.build_loader(iris_data_file)
+    rs = m.predict(loader)
+    rs = m.predict(loader, return_probabilities=True)
+    rs = m.predict(loader, return_classes=True)
     print(rs["predictions"][[0, 60, 100]])
-    cflearn.ml.evaluate(idata, metrics=metrics, pipelines=m)
+    cflearn.api.evaluate(loader, dict(m=m))
 
-    kwargs = dict(carefree=True, num_repeat=2)
-    result = cflearn.api.repeat_ml(iris_data_file, debug=is_ci, **kwargs)
-    cflearn.ml.evaluate(idata, metrics=metrics, pipelines=result.pipelines)
+    results = cflearn.api.repeat_ml(data, m.config, num_repeat=3)
+    pipelines = cflearn.api.load_pipelines(results)
+    cflearn.api.evaluate(loader, pipelines=pipelines)
 
     models = ["linear", "fcnn"]
-    kwargs = dict(carefree=True, models=models, num_repeat=2, num_jobs=2)
-    result = cflearn.api.repeat_ml(iris_data_file, debug=is_ci, **kwargs)
-    cflearn.ml.evaluate(idata, metrics=metrics, pipelines=result.pipelines)
+    results = cflearn.api.repeat_ml(data, m.config, models=models, num_repeat=3)
+    pipelines = cflearn.api.load_pipelines(results)
+    cflearn.api.evaluate(loader, pipelines=pipelines)
+
+    try:
+        import sklearn
+    except:
+        msg = "`scikit-learn` is not installed, so advanced benchmark will not be executed."
+        print(msg)
+        exit(0)
 
     experiment = cflearn.dist.ml.Experiment()
     data_folder = experiment.dump_data(data)
 
-    config = cflearn.MLConfig()
-    if is_ci:
-        config.to_debug()
-    experiment.add_task(model="fcnn", config=config.asdict(), data_folder=data_folder)
-    experiment.add_task(model="linear", config=config.asdict(), data_folder=data_folder)
+    experiment.add_task(model="fcnn", config=config, data_folder=data_folder)
+    experiment.add_task(model="linear", config=config, data_folder=data_folder)
     run_command = f"python {sklearn_runner_file}"
     common_kwargs = {"run_command": run_command, "data_folder": data_folder}
     experiment.add_task(model="decision_tree", **common_kwargs)  # type: ignore
@@ -69,37 +69,13 @@ if __name__ == "__main__":
 
     results = experiment.run_tasks()
 
-    pipelines = {}
-    sk_patterns = {}
-    for workplace, workplace_key in zip(results.workplaces, results.workplace_keys):
-        model = workplace_key[0]
-        if model not in ["decision_tree", "random_forest"]:
-            pipelines[model] = cflearn.ml.task_loader(
-                workplace,
-                cflearn.ml.MLCarefreePipeline,
-            )
-        else:
-            model_file = os.path.join(workplace, "sk_model.pkl")
+    pipelines = cflearn.api.load_pipelines(results)
+    for workspace, workspace_key in zip(results.workspaces, results.workspace_keys):
+        model = workspace_key[0]
+        if model in ["decision_tree", "random_forest"]:
+            model_file = os.path.join(workspace, "sk_model.pkl")
             with open(model_file, "rb") as f:
-                sk_model = pickle.load(f)
-                # In `carefree-learn`, we treat labels as column vectors.
-                # So we need to reshape the outputs from the scikit-learn models.
-                sk_predict = lambda d: sk_model.predict(d.x_train).reshape([-1, 1])
-                sk_predict_prob = lambda d: sk_model.predict_proba(d.x_train)
-                sk_pattern = ModelPattern(
-                    predict_method=sk_predict,
-                    predict_prob_method=sk_predict_prob,
-                )
-                sk_patterns[model] = sk_pattern
+                predictor = cflearn.SKLearnClassifier(pickle.load(f))
+                pipelines[model] = cflearn.GeneralEvaluationPipeline(config, predictor)
 
-    cflearn.ml.evaluate(
-        cflearn.MLInferenceData(x_valid, y_valid),
-        metrics=metrics,
-        pipelines=pipelines,
-        other_patterns=sk_patterns,
-    )
-
-    _rmtree("_logs")
-    _rmtree("_repeat")
-    _rmtree("_parallel_")
-    _rmtree("__experiment__")
+    cflearn.api.evaluate(loader, pipelines)

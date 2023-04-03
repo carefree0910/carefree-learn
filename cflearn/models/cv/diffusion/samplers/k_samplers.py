@@ -78,7 +78,7 @@ class KSamplerMixin(ISampler, UncondSamplerMixin, metaclass=ABCMeta):
         default_quantize: bool = False,
         unconditional_cond: Optional[Any] = None,
         unconditional_guidance_scale: float = 1.0,
-        default_steps: int = 50,
+        default_steps: int = 25,
     ):
         if model.parameterization not in ("eps", "v"):
             msg = "only `v` / `eps` parameterization is supported in `k_samplers`"
