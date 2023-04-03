@@ -114,12 +114,12 @@ class InpaintModel:
     pad_mod: int = 8
     pad_to_square: bool = False
 
-    def __init__(self, device: torch.device, **kwargs: Any):
+    def __init__(self, device: str = "cpu", *, use_half: bool = False):
         self.device = device
-        self.init_model(device, **kwargs)
+        self.init_model(device, use_half=use_half)
 
     @abstractmethod
-    def init_model(self, device: torch.device, **kwargs: Any) -> None:
+    def init_model(self, device: str, *, use_half: bool = False) -> None:
         pass
 
     @abstractmethod
@@ -257,7 +257,7 @@ class InpaintModel:
 class LaMa(InpaintModel):
     pad_mod = 8
 
-    def init_model(self, device: torch.device, **kwargs: Any) -> None:
+    def init_model(self, device: str, *, use_half: bool = False) -> None:
         if cv2 is None:
             raise ValueError("`cv2` is needed for `LaMa`")
         model_path = download_model("lama")
@@ -267,7 +267,7 @@ class LaMa(InpaintModel):
         self.model = model
         self.model_path = model_path
 
-    def to(self, device: torch.device) -> None:
+    def to(self, device: str, *, use_half: bool = False) -> None:
         self.device = device
         self.model.to(device)
 

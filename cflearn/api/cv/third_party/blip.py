@@ -10,7 +10,7 @@ except:
 
 
 class BLIPAPI:
-    def __init__(self, device: torch.device) -> None:
+    def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
         if load_model_and_preprocess is None:
             raise ValueError("`salesforce-lavis` is needed for `BLIPAPI`")
         kw = dict(
@@ -22,7 +22,7 @@ class BLIPAPI:
         self.device = device
         self.model, self.processors, _ = load_model_and_preprocess(**kw)
 
-    def to(self, device: torch.device) -> None:
+    def to(self, device: str, *, use_half: bool = False) -> None:
         self.device = device
         self.model.to(device)
 

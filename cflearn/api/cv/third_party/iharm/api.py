@@ -1,5 +1,3 @@
-import torch
-
 import numpy as np
 
 from typing import Union
@@ -12,12 +10,12 @@ from .....misc.toolkit import download_model
 
 
 class ImageHarmonizationAPI:
-    def __init__(self, device: torch.device) -> None:
+    def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
         m = load_model("hrnet32_idih256", download_model("hrnet"))
         self.device = device
         self.predictor = Predictor(m, device, with_flip=False)
 
-    def to(self, device: torch.device) -> None:
+    def to(self, device: str, *, use_half: bool = False) -> None:
         self.device = device
         self.predictor.to(device)
 

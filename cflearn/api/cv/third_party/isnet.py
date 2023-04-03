@@ -465,7 +465,7 @@ class ISNetDIS(nn.Module):
 
 
 class ISNetAPI:
-    def __init__(self, device: torch.device) -> None:
+    def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
         self.model = ISNetDIS()
         self.device = device
         model_path = download_model("isnet")
@@ -473,7 +473,7 @@ class ISNetAPI:
         self.model.to(device)
         self.model.eval()
 
-    def to(self, device: torch.device) -> None:
+    def to(self, device: str, *, use_half: bool = False) -> None:
         self.device = device
         self.model.to(device)
 

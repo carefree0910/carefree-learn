@@ -20,7 +20,7 @@ class PromptEnhanceConfig(NamedTuple):
 
 
 class PromptEnhanceAPI:
-    def __init__(self, device: torch.device) -> None:
+    def __init__(self, device: str = "cpu", *, use_half: bool = False) -> None:
         if GPT2Tokenizer is None or GPT2LMHeadModel is None:
             raise ValueError("`trainsformers` is required for `PromptEnhanceAPI`")
         self.tokenizer = GPT2Tokenizer.from_pretrained("distilgpt2")
@@ -30,7 +30,7 @@ class PromptEnhanceAPI:
         self.model = model.half().to(device)
         self.device = device
 
-    def to(self, device: torch.device) -> None:
+    def to(self, device: str, *, use_half: bool = False) -> None:
         self.device = device
         self.model.to(device)
 
