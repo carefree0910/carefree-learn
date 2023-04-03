@@ -103,11 +103,10 @@ class APIMixin:
 class Weights:
     _weights: Optional[tensor_dict_type]
 
-    def __init__(self, path: str, *, to_disk: bool = False):
+    def __init__(self, path: str, *, init: bool = False):
         self.path = path
-        self.to_disk = to_disk
         self.load_time = time.time()
-        self._weights = None if to_disk else torch.load(path)
+        self._weights = torch.load(path) if init else None
 
     def load(self) -> tensor_dict_type:
         self.load_time = time.time()
@@ -141,10 +140,10 @@ class WeightsPool:
     def register(self, key: str, path: str) -> None:
         if key in self.pool:
             raise ValueError(f"key '{key}' already exists")
-        to_disk = self.limit > 0
-        w = Weights(path, to_disk=to_disk)
+        init = self.limit < 0
+        w = Weights(path, init=init)
         self.pool[key] = w
-        if not to_disk:
+        if init:
             self.activated[key] = w
         else:
             if len(self.activated) < self.limit:
