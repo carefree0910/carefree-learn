@@ -46,6 +46,7 @@ from ..zoo import ldm_celeba_hq
 from ..zoo import ldm_inpainting
 from ..zoo import DLZoo
 from ..utils import APIMixin
+from ..utils import WeightsPool
 from .third_party import MiDaSAPI
 from .third_party import MLSDDetector
 from .third_party import OpenposeDetector
@@ -182,7 +183,7 @@ class DiffusionAPI(APIMixin):
     first_stage: Optional[IAutoEncoder]
     latest_seed: int
     latest_variation_seed: Optional[int]
-    sd_weights: Dict[str, tensor_dict_type]
+    sd_weights: WeightsPool
     current_sd_version: Optional[SDVersions]
 
     def __init__(
@@ -198,7 +199,7 @@ class DiffusionAPI(APIMixin):
         self.sampler = m.sampler
         self.cond_type = m.condition_type
         self.clip_skip = clip_skip
-        self.sd_weights = {}
+        self.sd_weights = WeightsPool()
         self.current_sd_version = None
         # extracted the condition model so we can pre-calculate the conditions
         self.cond_model = m.condition_model
@@ -266,8 +267,8 @@ class DiffusionAPI(APIMixin):
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for tag in map(get_sd_tag, versions):
             if tag not in self.sd_weights:
-                model_name = f"ldm_sd_{tag}"
-                self.sd_weights[tag] = torch.load(download_model(model_name, root=root))
+                model_path = download_model(f"ldm_sd_{tag}", root=root)
+                self.sd_weights.register(tag, model_path)
 
     def switch_sd(self, version: SDVersions) -> None:
         tag = get_sd_tag(version)
@@ -275,8 +276,6 @@ class DiffusionAPI(APIMixin):
             if tag == get_sd_tag(self.current_sd_version):
                 return
         d = self.sd_weights.get(tag)
-        if d is None:
-            raise ValueError(f"cannot find tag ({tag}) in the loaded weights")
         with self.load_context() as m:
             m.load_state_dict(d)
         self.current_sd_version = version
