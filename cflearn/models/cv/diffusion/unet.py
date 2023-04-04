@@ -505,6 +505,14 @@ class ControlNet(nn.Module):
         timesteps: Tensor,
         context: Optional[Tensor] = None,
     ) -> List[Tensor]:
+        # tomesd
+        for m in self.modules():
+            if isinstance(m, SpatialTransformer):
+                for block in m.blocks:
+                    if block.tome_info is not None:
+                        block.tome_info["size"] = net.shape[-2:]
+
+        # timenet
         time_net = timestep_embedding(
             timesteps,
             self.start_channels,
@@ -514,6 +522,7 @@ class ControlNet(nn.Module):
         time_net = self.time_embed(time_net)
         guided_hint = self.input_hint_block(hint, time_net, context)
 
+        # main
         nets = []
         for block, zero_conv in zip(self.input_blocks, self.zero_convs):
             net = block(net, time_net, context)
