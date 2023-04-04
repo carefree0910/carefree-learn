@@ -8,11 +8,13 @@ from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
+from typing import Callable
 from typing import Optional
 from torch.nn import Module
 from torch.nn import ModuleList
 from cftool.misc import filter_kw
 from cftool.misc import safe_execute
+from cftool.misc import shallow_copy_dict
 
 from .poolers import BertPooler
 from .poolers import SequencePooler
@@ -446,6 +448,162 @@ class MixedStackedEncoder(Module):
         return net
 
 
+def do_nothing(x: Tensor) -> Tensor:
+    return x
+
+
+def gather(net: Tensor, dim: int, index: Tensor) -> Tensor:
+    if net.device.type != "mps" or net.shape[-1] != 1:
+        return torch.gather(net, dim, index)
+    if dim < 0:
+        dim = dim - 1
+    return torch.gather(net.unsqueeze(-1), dim, index.unsqueeze(-1)).squeeze(-1)
+
+
+def bipartite_soft_matching_random2d(
+    metric: Tensor,
+    w: int,
+    h: int,
+    sx: int,
+    sy: int,
+    r: int,
+    no_rand: bool = False,
+) -> Tuple[Callable[[Tensor], Tensor], Callable[[Tensor], Tensor]]:
+    B, N, _ = metric.shape
+
+    if r <= 0:
+        return do_nothing, do_nothing
+
+    with torch.no_grad():
+        hsy, wsx = h // sy, w // sx
+
+        # For each sy by sx kernel, randomly assign one token to be dst and the rest src
+        if no_rand:
+            rand_idx = torch.zeros(hsy, wsx, 1, device=metric.device, dtype=torch.int64)
+        else:
+            rand_idx = torch.randint(sy * sx, size=(hsy, wsx, 1), device=metric.device)
+
+        # The image might not divide sx and sy, so we need to work on a view of the top left if the idx buffer instead
+        idx_buffer_view = torch.zeros(
+            hsy, wsx, sy * sx, device=metric.device, dtype=torch.int64
+        )
+        idx_buffer_view.scatter_(
+            dim=2, index=rand_idx, src=-torch.ones_like(rand_idx, dtype=rand_idx.dtype)
+        )
+        idx_buffer_view = (
+            idx_buffer_view.view(hsy, wsx, sy, sx)
+            .transpose(1, 2)
+            .reshape(hsy * sy, wsx * sx)
+        )
+
+        # Image is not divisible by sx or sy so we need to move it into a new buffer
+        if (hsy * sy) < h or (wsx * sx) < w:
+            idx_buffer = torch.zeros(h, w, device=metric.device, dtype=torch.int64)
+            idx_buffer[: (hsy * sy), : (wsx * sx)] = idx_buffer_view
+        else:
+            idx_buffer = idx_buffer_view
+
+        # We set dst tokens to be -1 and src to be 0, so an argsort gives us dst|src indices
+        rand_idx = idx_buffer.reshape(1, -1, 1).argsort(dim=1)
+
+        # We're finished with these
+        del idx_buffer, idx_buffer_view
+
+        # rand_idx is currently dst|src, so split them
+        num_dst = hsy * wsx
+        a_idx = rand_idx[:, num_dst:, :]  # src
+        b_idx = rand_idx[:, :num_dst, :]  # dst
+
+        def split(x: Tensor) -> Tuple[Tensor, Tensor]:
+            C = x.shape[-1]
+            src = gather(x, dim=1, index=a_idx.expand(B, N - num_dst, C))
+            dst = gather(x, dim=1, index=b_idx.expand(B, num_dst, C))
+            return src, dst
+
+        # Cosine similarity between A and B
+        metric = metric / metric.norm(dim=-1, keepdim=True)
+        a, b = split(metric)
+        scores = a @ b.transpose(-1, -2)
+
+        # Can't reduce more than the # tokens in src
+        r = min(a.shape[1], r)
+
+        # Find the most similar greedily
+        node_max, node_idx = scores.max(dim=-1)
+        edge_idx = node_max.argsort(dim=-1, descending=True)[..., None]
+
+        unm_idx = edge_idx[..., r:, :]  # Unmerged Tokens
+        src_idx = edge_idx[..., :r, :]  # Merged Tokens
+        dst_idx = gather(node_idx[..., None], dim=-2, index=src_idx)
+
+    def merge(x: Tensor) -> Tensor:
+        src, dst = split(x)
+        n, t1, c = src.shape
+
+        unm = gather(src, dim=-2, index=unm_idx.expand(n, t1 - r, c))
+        src = gather(src, dim=-2, index=src_idx.expand(n, r, c))
+        dst = dst.scatter_reduce(-2, dst_idx.expand(n, r, c), src, reduce="mean")
+
+        return torch.cat([unm, dst], dim=1)
+
+    def unmerge(x: Tensor) -> Tensor:
+        unm_len = unm_idx.shape[1]
+        unm, dst = x[..., :unm_len, :], x[..., unm_len:, :]
+        _, _, c = unm.shape
+
+        src = gather(dst, dim=-2, index=dst_idx.expand(B, r, c))
+
+        # Combine back to the original shape
+        out = torch.zeros(B, N, c, device=x.device, dtype=x.dtype)
+        out.scatter_(dim=-2, index=b_idx.expand(B, num_dst, c), src=dst)
+        out.scatter_(
+            dim=-2,
+            index=gather(
+                a_idx.expand(B, a_idx.shape[1], 1), dim=1, index=unm_idx
+            ).expand(B, unm_len, c),
+            src=unm,
+        )
+        out.scatter_(
+            dim=-2,
+            index=gather(
+                a_idx.expand(B, a_idx.shape[1], 1), dim=1, index=src_idx
+            ).expand(B, r, c),
+            src=src,
+        )
+
+        return out
+
+    return merge, unmerge
+
+
+def compute_merge(x: Tensor, tome_info: Dict[str, Any]) -> Tuple[Callable, ...]:
+    original_h, original_w = tome_info["size"]
+    original_tokens = original_h * original_w
+    downsample = int(math.ceil(math.sqrt(original_tokens // x.shape[1])))
+
+    if downsample > tome_info["max_downsample"]:
+        m, u = do_nothing, do_nothing
+    else:
+        w = int(math.ceil(original_w / downsample))
+        h = int(math.ceil(original_h / downsample))
+        r = int(x.shape[1] * tome_info["ratio"])
+        m, u = bipartite_soft_matching_random2d(  # type: ignore
+            x,
+            w,
+            h,
+            tome_info["sx"],
+            tome_info["sy"],
+            r,
+            not tome_info["use_rand"],
+        )
+
+    m_a, u_a = (m, u) if tome_info["merge_attn"] else (do_nothing, do_nothing)
+    m_c, u_c = (m, u) if tome_info["merge_crossattn"] else (do_nothing, do_nothing)
+    m_m, u_m = (m, u) if tome_info["merge_mlp"] else (do_nothing, do_nothing)
+
+    return m_a, m_c, m_m, u_a, u_c, u_m
+
+
 class SpatialTransformerBlock(Module):
     def __init__(
         self,
@@ -459,6 +617,7 @@ class SpatialTransformerBlock(Module):
         feedforward_activation: str = "geglu",
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
+        tome_info: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.attn1 = CrossAttention(
@@ -488,6 +647,22 @@ class SpatialTransformerBlock(Module):
         self.norm2 = nn.LayerNorm(query_dim)
         self.norm3 = nn.LayerNorm(query_dim)
         self.use_checkpoint = use_checkpoint
+        self.set_tome_info(tome_info)
+
+    # tomesd (https://github.com/dbolya/tomesd)
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        if tome_info is None:
+            self.tome_info = None
+        else:
+            self.tome_info = shallow_copy_dict(tome_info)
+            self.tome_info.setdefault("ratio", 0.5)
+            self.tome_info.setdefault("max_downsample", 1)
+            self.tome_info.setdefault("sx", 2)
+            self.tome_info.setdefault("sy", 2)
+            self.tome_info.setdefault("use_rand", True)
+            self.tome_info.setdefault("merge_attn", True)
+            self.tome_info.setdefault("merge_crossattn", False)
+            self.tome_info.setdefault("merge_mlp", False)
 
     def forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
         inputs = (net,) if context is None else (net, context)
@@ -499,9 +674,15 @@ class SpatialTransformerBlock(Module):
         )
 
     def _forward(self, net: Tensor, context: Optional[Tensor] = None) -> Tensor:
-        net = self.attn1(self.norm1(net)) + net
-        net = self.attn2(self.norm2(net), context=context) + net
-        net = self.ff(self.norm3(net)) + net
+        if self.tome_info is None:
+            net = self.attn1(self.norm1(net)) + net
+            net = self.attn2(self.norm2(net), context=context) + net
+            net = self.ff(self.norm3(net)) + net
+        else:
+            m_a, m_c, m_m, u_a, u_c, u_m = compute_merge(net, self.tome_info)
+            net = u_a(self.attn1(m_a(self.norm1(net)))) + net
+            net = u_c(self.attn2(m_c(self.norm2(net)), context=context)) + net
+            net = u_m(self.ff(m_m(self.norm3(net)))) + net
         return net
 
 
@@ -518,6 +699,7 @@ class SpatialTransformer(Module):
         use_linear: bool = False,
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
+        tome_info: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.norm = nn.GroupNorm(32, in_channels, 1.0e-6, affine=True)
@@ -537,6 +719,7 @@ class SpatialTransformer(Module):
                     context_dim=context_dim,
                     use_checkpoint=use_checkpoint,
                     attn_split_chunk=attn_split_chunk,
+                    tome_info=tome_info,
                 )
                 for _ in range(num_layers)
             ]
@@ -546,6 +729,10 @@ class SpatialTransformer(Module):
             if not use_linear
             else HijackLinear(in_channels, latent_channels)
         )
+
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        for block in self.blocks:
+            block.set_tome_info(tome_info)
 
     def forward(self, net: Tensor, context: Optional[Tensor]) -> Tensor:
         inp = net

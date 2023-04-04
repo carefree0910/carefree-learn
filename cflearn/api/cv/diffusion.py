@@ -947,6 +947,11 @@ class DiffusionAPI(APIMixin):
         with self.load_context(ignore_lora=False):
             self.m.set_lora_scales(scales)
 
+    # tomesd
+
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        self.m.unet.set_tome_info(tome_info)
+
     # constructors
 
     @classmethod

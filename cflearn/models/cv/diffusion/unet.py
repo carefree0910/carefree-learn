@@ -5,6 +5,8 @@ from abc import abstractmethod
 from abc import ABCMeta
 from torch import nn
 from torch import Tensor
+from typing import Any
+from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Optional
@@ -96,6 +98,7 @@ class UNetDiffuser(nn.Module):
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
+        tome_info: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -115,6 +118,7 @@ class UNetDiffuser(nn.Module):
         self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
         self.attn_split_chunk = attn_split_chunk
+        self.tome_info = tome_info
 
         time_embedding_dim = start_channels * 4
         self.time_embedding = nn.Sequential(
@@ -166,6 +170,7 @@ class UNetDiffuser(nn.Module):
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
+                tome_info=tome_info,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
@@ -253,6 +258,11 @@ class UNetDiffuser(nn.Module):
             zero_module(head_conv),
         )
 
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        for m in self.modules():
+            if isinstance(m, SpatialTransformer):
+                m.set_tome_info(tome_info)
+
     def forward(
         self,
         net: Tensor,
@@ -265,6 +275,15 @@ class UNetDiffuser(nn.Module):
     ) -> Tensor:
         if (labels is None) ^ (self.num_classes is None):
             raise ValueError("`labels` should be given iff `num_classes` is specified")
+
+        # tomesd
+        for m in self.modules():
+            if isinstance(m, SpatialTransformer):
+                for block in m.blocks:
+                    if block.tome_info is not None:
+                        block.tome_info["size"] = net.shape[-2:]
+
+        # timenet
         time_net = timestep_embedding(
             timesteps,
             self.start_channels,
@@ -272,10 +291,10 @@ class UNetDiffuser(nn.Module):
             repeat_only=False,
         )
         time_net = self.time_embedding(time_net)
-
         if self.label_embedding is not None:
             time_net = time_net + self.label_embedding(labels)
 
+        # main
         nets = []
         for block in self.input_blocks:
             net = block(net, time_net, context)
@@ -290,6 +309,7 @@ class UNetDiffuser(nn.Module):
                 net = torch.cat([net, nets.pop() + control.pop()], dim=1)
             net = block(net, time_net, context)
         net = self.head(net)
+
         return net
 
 
@@ -318,6 +338,7 @@ class ControlNet(nn.Module):
         # misc
         use_checkpoint: bool = False,
         attn_split_chunk: Optional[int] = None,
+        tome_info: Optional[Dict[str, Any]] = None,
     ):
         super().__init__()
         self.in_channels = in_channels
@@ -337,6 +358,7 @@ class ControlNet(nn.Module):
         self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
         self.attn_split_chunk = attn_split_chunk
+        self.tome_info = tome_info
 
         time_embedding_dim = start_channels * 4
         self.time_embed = nn.Sequential(
@@ -388,6 +410,7 @@ class ControlNet(nn.Module):
                 use_linear=use_linear_in_transformer,
                 use_checkpoint=use_checkpoint,
                 attn_split_chunk=attn_split_chunk,
+                tome_info=tome_info,
             )
 
         def make_downsample(in_c: int, out_c: int) -> TimestepAttnSequential:
