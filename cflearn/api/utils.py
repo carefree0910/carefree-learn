@@ -162,9 +162,11 @@ class ILoadablePool(Generic[TItem], metaclass=ABCMeta):
         earliest_key = list(sort_dict_by_value(load_times).keys())[0]
         self.activated.pop(earliest_key).unload()
         self.activated[key] = loadable_item
+
+        time_format = "-".join(TIME_FORMAT.split("-")[:-1])
         print_info(
             f"'{earliest_key}' is unloaded to make room for '{key}' "
-            f"(last updated: {time.strftime(TIME_FORMAT, time.localtime(loadable_item.load_time))})"
+            f"(last updated: {time.strftime(time_format, time.localtime(loadable_item.load_time))})"
         )
         return item
 
