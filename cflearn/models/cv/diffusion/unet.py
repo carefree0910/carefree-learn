@@ -492,6 +492,11 @@ class ControlNet(nn.Module):
             zero_module(conv_nd(self.signal_dim, channels, channels, 1, padding=0))
         )
 
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        for m in self.modules():
+            if isinstance(m, SpatialTransformer):
+                m.set_tome_info(tome_info)
+
     def forward(
         self,
         net: Tensor,

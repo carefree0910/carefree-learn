@@ -1405,6 +1405,11 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def available_control_hints(self) -> List[ControlNetHints]:
         return list(self.weights)
 
+    def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
+        super().set_tome_info(tome_info)
+        if self.control_model is not None:
+            self.control_model.set_tome_info(tome_info)
+
     def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for hint, tag in hints2tags.items():
