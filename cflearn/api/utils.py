@@ -145,15 +145,11 @@ class ILoadablePool(Generic[TItem], metaclass=ABCMeta):
     def register(self, key: str, init_fn: Callable[[bool], ILoadableItem]) -> None:
         if key in self.pool:
             raise ValueError(f"key '{key}' already exists")
-        init = self.limit < 0
+        init = self.limit < 0 or len(self.activated) < self.limit
         loadable_item = init_fn(init)
         self.pool[key] = loadable_item
         if init:
             self.activated[key] = loadable_item
-        else:
-            if len(self.activated) < self.limit:
-                loadable_item.load()
-                self.activated[key] = loadable_item
 
     def get(self, key: str, **kwargs: Any) -> TItem:
         loadable_item = self.pool.get(key)
