@@ -67,6 +67,7 @@ from ...modules.blocks import Conv2d
 from ...models.cv.diffusion import LDM
 from ...models.cv.diffusion import DDPM
 from ...models.cv.diffusion import ISampler
+from ...models.cv.diffusion import ControlNet
 from ...models.cv.diffusion import StableDiffusion
 from ...models.cv.ae.common import IAutoEncoder
 from ...models.cv.diffusion.utils import get_timesteps
@@ -1408,7 +1409,11 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
         super().set_tome_info(tome_info)
         if self.control_model is not None:
-            self.control_model.set_tome_info(tome_info)
+            if isinstance(self.control_model, ControlNet):
+                self.control_model.set_tome_info(tome_info)
+            else:
+                for m in self.control_model.values():
+                    m.set_tome_info(tome_info)
 
     def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
