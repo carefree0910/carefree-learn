@@ -30,7 +30,9 @@ from ..hijacks import HijackConv2d
 from ..hijacks import HijackLinear
 from ..high_level import PreNorm
 from ..attentions import CrossAttention
+from ....misc.toolkit import new_seed
 from ....misc.toolkit import interpolate
+from ....misc.toolkit import seed_everything
 from ....misc.toolkit import gradient_checkpoint
 
 
@@ -467,6 +469,7 @@ def bipartite_soft_matching_random2d(
     sx: int,
     sy: int,
     r: int,
+    seed: int,
     no_rand: bool = False,
 ) -> Tuple[Callable[[Tensor], Tensor], Callable[[Tensor], Tensor]]:
     B, N, _ = metric.shape
@@ -481,6 +484,7 @@ def bipartite_soft_matching_random2d(
         if no_rand:
             rand_idx = torch.zeros(hsy, wsx, 1, device=metric.device, dtype=torch.int64)
         else:
+            seed_everything(seed)
             rand_idx = torch.randint(sy * sx, size=(hsy, wsx, 1), device=metric.device)
 
         # The image might not divide sx and sy, so we need to work on a view of the top left if the idx buffer instead
@@ -594,6 +598,7 @@ def compute_merge(x: Tensor, tome_info: Dict[str, Any]) -> Tuple[Callable, ...]:
             tome_info["sx"],
             tome_info["sy"],
             r,
+            tome_info.get("seed", new_seed()),
             not tome_info["use_rand"],
         )
 
