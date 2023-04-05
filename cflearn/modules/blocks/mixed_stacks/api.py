@@ -477,24 +477,23 @@ def bipartite_soft_matching_random2d(
         return do_nothing, do_nothing
 
     with torch.no_grad():
+        device = metric.device
         hsy, wsx = h // sy, w // sx
 
         # For each sy by sx kernel, randomly assign one token to be dst and the rest src
         if no_rand:
-            rand_idx = torch.zeros(hsy, wsx, 1, device=metric.device, dtype=torch.int64)
+            rand_idx = torch.zeros(hsy, wsx, 1, device=device, dtype=torch.int64)
         else:
-            generator = torch.Generator(metric.device).manual_seed(seed)
+            generator = torch.Generator(device).manual_seed(seed)
             rand_idx = torch.randint(
-                sy * sx, size=(hsy, wsx, 1), generator=generator, device=metric.device
+                sy * sx, size=(hsy, wsx, 1), generator=generator, device=device
             )
 
         # The image might not divide sx and sy, so we need to work on a view of the top left if the idx buffer instead
         idx_buffer_view = torch.zeros(
-            hsy, wsx, sy * sx, device=metric.device, dtype=torch.int64
+            hsy, wsx, sy * sx, device=device, dtype=torch.int64
         )
-        idx_buffer_view.scatter_(
-            dim=2, index=rand_idx, src=-torch.ones_like(rand_idx, dtype=rand_idx.dtype)
-        )
+        idx_buffer_view.scatter_(dim=2, index=rand_idx, src=-torch.ones_like(rand_idx))
         idx_buffer_view = (
             idx_buffer_view.view(hsy, wsx, sy, sx)
             .transpose(1, 2)
@@ -503,7 +502,7 @@ def bipartite_soft_matching_random2d(
 
         # Image is not divisible by sx or sy so we need to move it into a new buffer
         if (hsy * sy) < h or (wsx * sx) < w:
-            idx_buffer = torch.zeros(h, w, device=metric.device, dtype=torch.int64)
+            idx_buffer = torch.zeros(h, w, device=device, dtype=torch.int64)
             idx_buffer[: (hsy * sy), : (wsx * sx)] = idx_buffer_view
         else:
             idx_buffer = idx_buffer_view
