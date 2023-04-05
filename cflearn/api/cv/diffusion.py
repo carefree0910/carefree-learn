@@ -1344,9 +1344,9 @@ class MLSDAnnotator(Annotator):
 
 class ControlledDiffusionAPI(DiffusionAPI):
     loaded: Dict[ControlNetHints, bool]
-    weights: Dict[ControlNetHints, tensor_dict_type]
     annotators: Dict[ControlNetHints, Annotator]
     base_sd_versions: Dict[ControlNetHints, SDVersions]
+    controlnet_weights: Dict[ControlNetHints, tensor_dict_type]
 
     control_defaults = {
         ControlNetHints.DEPTH: "ldm.sd_v1.5.control.diff.depth",
@@ -1383,11 +1383,11 @@ class ControlledDiffusionAPI(DiffusionAPI):
         selected_pool = pool[: min(num_pool, len(pool))]
         self.m.make_control_net({k: hint_channels for k in selected_pool})
         self.loaded = {k: False for k in selected_pool}
-        self.weights = {}
         self.annotators = {}
         self.num_pool = num_pool
         self.control_model = self.m.control_model
         self.base_sd_versions = {}
+        self.controlnet_weights = {}
 
     def to(
         self,
@@ -1404,7 +1404,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
 
     @property
     def available_control_hints(self) -> List[ControlNetHints]:
-        return list(self.weights)
+        return list(self.controlnet_weights)
 
     def set_tome_info(self, tome_info: Optional[Dict[str, Any]]) -> None:
         super().set_tome_info(tome_info)
@@ -1418,7 +1418,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def prepare_control(self, hints2tags: Dict[ControlNetHints, str]) -> None:
         root = os.path.join(OPT.cache_dir, DLZoo.model_dir)
         for hint, tag in hints2tags.items():
-            self.weights[hint] = torch.load(download_model(tag, root=root))
+            self.controlnet_weights[hint] = torch.load(download_model(tag, root=root))
 
     def prepare_control_defaults(self) -> None:
         self.prepare_control(self.control_defaults)
@@ -1463,7 +1463,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         for loaded, hint, need_offset in iterator:
             if loaded and not need_offset:
                 continue
-            d = self.weights.get(hint)
+            d = self.controlnet_weights.get(hint)
             if d is None:
                 raise ValueError(
                     f"cannot find ControlNet weights called '{hint}', "
@@ -1486,7 +1486,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
             self.annotators[hint] = annotator
 
     def prepare_annotators(self) -> None:
-        for hint in self.weights:
+        for hint in self.controlnet_weights:
             self.prepare_annotator(hint)
 
     def get_hint_of(
