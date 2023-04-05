@@ -32,7 +32,6 @@ from ..high_level import PreNorm
 from ..attentions import CrossAttention
 from ....misc.toolkit import new_seed
 from ....misc.toolkit import interpolate
-from ....misc.toolkit import seed_everything
 from ....misc.toolkit import gradient_checkpoint
 
 
@@ -484,8 +483,10 @@ def bipartite_soft_matching_random2d(
         if no_rand:
             rand_idx = torch.zeros(hsy, wsx, 1, device=metric.device, dtype=torch.int64)
         else:
-            seed_everything(seed)
-            rand_idx = torch.randint(sy * sx, size=(hsy, wsx, 1), device=metric.device)
+            generator = torch.Generator(metric.device).manual_seed(seed)
+            rand_idx = torch.randint(
+                sy * sx, size=(hsy, wsx, 1), generator=generator, device=metric.device
+            )
 
         # The image might not divide sx and sy, so we need to work on a view of the top left if the idx buffer instead
         idx_buffer_view = torch.zeros(
