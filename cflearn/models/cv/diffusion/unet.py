@@ -118,7 +118,6 @@ class UNetDiffuser(nn.Module):
         self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
         self.attn_split_chunk = attn_split_chunk
-        self.tome_info = tome_info
 
         time_embedding_dim = start_channels * 4
         self.time_embedding = nn.Sequential(
@@ -358,7 +357,6 @@ class ControlNet(nn.Module):
         self.use_linear_in_transformer = use_linear_in_transformer
         self.use_checkpoint = use_checkpoint
         self.attn_split_chunk = attn_split_chunk
-        self.tome_info = tome_info
 
         time_embedding_dim = start_channels * 4
         self.time_embed = nn.Sequential(
