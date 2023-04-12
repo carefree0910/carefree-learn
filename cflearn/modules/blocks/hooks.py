@@ -1,5 +1,3 @@
-from abc import abstractmethod
-from abc import ABCMeta
 from torch import nn
 from torch import Tensor
 from typing import Any
@@ -11,21 +9,23 @@ from torch.nn import Module
 TQKV = Tuple[Tensor, Tensor, Tensor]
 
 
-class IHook(Module, metaclass=ABCMeta):
-    @abstractmethod
-    def callback(self, inp: Any, out: Any) -> Any:
-        pass
+class IHook(Module):
+    # modify the `input`
+    def before_forward(self, inp: Any) -> Any:
+        return inp
+
+    # modify the `output`
+    def after_forward(self, inp: Any, out: Any) -> Any:
+        return out
 
 
 class IBasicHook(IHook):
-    @abstractmethod
-    def callback(self, inp: Tensor, out: Tensor) -> Tensor:
+    def after_forward(self, inp: Tensor, out: Tensor) -> Tensor:
         pass
 
 
 class IAttentionHook(IHook):
-    @abstractmethod
-    def callback(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
+    def after_forward(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
         pass
 
 
@@ -34,7 +34,12 @@ class MultiHooks(IHook):
         super().__init__()
         self.hooks = nn.ModuleList(hooks)
 
-    def callback(self, inp: Any, out: Any) -> Any:
+    def before_forward(self, inp: Any) -> Any:
         for hook in self.hooks:
-            out = hook.callback(inp, out)
+            inp = hook.before_forward(inp)
+        return inp
+
+    def after_forward(self, inp: Any, out: Any) -> Any:
+        for hook in self.hooks:
+            out = hook.after_forward(inp, out)
         return out

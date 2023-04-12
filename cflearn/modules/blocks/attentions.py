@@ -193,6 +193,8 @@ class Attention(Module, IAttention, IHijackMixin, WithRegister["Attention"]):
         determinate: bool = False,
     ) -> AttentionOutput:
         qkv_inp = q, k, v
+        if self.hook is not None:
+            qkv_inp = self.hook.before_forward(qkv_inp)
         # `mask` represents slots which will be zeroed
         if self.qkv_same:
             qkv = F.linear(q, self.in_w, self.qkv_bias)
@@ -227,7 +229,7 @@ class Attention(Module, IAttention, IHijackMixin, WithRegister["Attention"]):
         if self.hook is not None:
             if self.reduction is not None:
                 raise ValueError("currently `hook` does not support `reduction`")
-            q, k, v = self.hook.callback(qkv_inp, (q, k, v))
+            q, k, v = self.hook.after_forward(qkv_inp, (q, k, v))
         q, k, v = map(self.activation, [q, k, v])
         # B, N*, D -> B * N_head, N*, D_head
         q, k, v = map(self._to_heads, [q, k, v], [determinate] * 3)

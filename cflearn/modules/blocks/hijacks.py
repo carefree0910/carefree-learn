@@ -40,9 +40,10 @@ class IBasicHijackMixin(IHijackMixin):
 
     def forward(self, net: Tensor) -> Tensor:
         inp = net
+        inp = self.hook.before_forward(inp)
         net = super().forward(net)  # type: ignore
         if self.hook is not None:
-            net = self.hook.callback(inp, net)
+            net = self.hook.after_forward(inp, net)
         return net
 
 
@@ -95,7 +96,7 @@ class ILoRAHook(IBasicHook):
     def set_scale(self, scale: float) -> None:
         self.scale = scale
 
-    def callback(self, inp: Tensor, out: Tensor) -> Tensor:
+    def after_forward(self, inp: Tensor, out: Tensor) -> Tensor:
         lora = self.dropout(self.lora_up(self.selector(self.lora_down(inp))))
         return out + self.scale * self.alpha_scale * lora
 
@@ -212,12 +213,12 @@ class LoRAAttentionHook(IAttentionHook):
         self.to_k.set_scale(scale)
         self.to_v.set_scale(scale)
 
-    def callback(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
+    def after_forward(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
         q_in, k_in, v_in = qkv_inp
         q, k, v = qkv_out
-        q = self.to_q.callback(q_in, q)
-        k = self.to_k.callback(k_in, k)
-        v = self.to_v.callback(v_in, v)
+        q = self.to_q.after_forward(q_in, q)
+        k = self.to_k.after_forward(k_in, k)
+        v = self.to_v.after_forward(v_in, v)
         return q, k, v
 
     @classmethod
