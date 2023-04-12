@@ -3,6 +3,7 @@ from torch import Tensor
 from typing import Any
 from typing import List
 from typing import Tuple
+from typing import Optional
 from torch.nn import Module
 
 
@@ -11,7 +12,8 @@ TQKV = Tuple[Tensor, Tensor, Tensor]
 
 class IHook(Module):
     # modify the `input`
-    def before_forward(self, inp: Any) -> Any:
+    ## when `index` is provided, it means the hook is inside a `MultiHooks`
+    def before_forward(self, inp: Any, index: Optional[int] = None) -> Any:
         return inp
 
     # modify the `output`
@@ -35,8 +37,8 @@ class MultiHooks(IHook):
         self.hooks = nn.ModuleList(hooks)
 
     def before_forward(self, inp: Any) -> Any:
-        for hook in self.hooks:
-            inp = hook.before_forward(inp)
+        for i, hook in enumerate(self.hooks):
+            inp = hook.before_forward(inp, i)
         return inp
 
     def after_forward(self, inp: Any, out: Any) -> Any:

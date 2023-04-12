@@ -7,6 +7,8 @@ from typing import Set
 from typing import Dict
 from typing import List
 from typing import Union
+from typing import Generic
+from typing import TypeVar
 from typing import Optional
 from typing import NamedTuple
 from cftool.misc import print_info
@@ -14,7 +16,6 @@ from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
-from .hooks import TQKV
 from .hooks import IHook
 from .hooks import IBasicHook
 from .hooks import IAttentionHook
@@ -72,6 +73,7 @@ class HijackConv3d(IBasicHijackMixin, nn.Conv3d):
 
 
 class IAttention:
+    in_w: Optional[nn.Parameter]
     hook: Optional[IAttentionHook]
     input_dim: int
     embed_dim: int
@@ -81,7 +83,29 @@ class IAttention:
 ## input -> lora_down -> selector -> lora_up -> dropout -> alpha (scale)
 
 
-class ILoRAHook(IBasicHook):
+TLoRA = TypeVar("TLoRA")
+
+
+class ILoRAHook(Generic[TLoRA]):
+    _ms: List[TLoRA]
+    backup: Optional[Tensor] = None
+    injected: bool = False
+
+    @property
+    def m(self) -> TLoRA:
+        return self._ms[0]
+
+    def inject(self, w: nn.Parameter, updown: Tensor, index: Optional[int]) -> None:
+        if self.backup is None and (index is None or index == 0):
+            self.backup = w.data
+        if self.backup is None:
+            w.data = w.data + updown
+        else:
+            w.data = self.backup + updown
+        self.injected = True
+
+
+class ILoRAMappingHook(ILoRAHook[Union[nn.Linear, nn.Conv2d]], IBasicHook):
     rank: int
     lora_down: Union[nn.Linear, nn.Conv2d]
     selector: Union[nn.Identity, nn.Linear, nn.Conv2d]
@@ -96,19 +120,34 @@ class ILoRAHook(IBasicHook):
 
     def set_scale(self, scale: float) -> None:
         self.scale = scale
+        self.injected = False
 
-    def after_forward(self, inp: Tensor, out: Tensor) -> Tensor:
-        lora = self.dropout(self.lora_up(self.selector(self.lora_down(inp))))
-        return out + self.scale * self.alpha_scale * lora
+    def get_updown(self) -> Tensor:
+        up = self.lora_up.weight
+        down = self.lora_down.weight
+        if len(up.shape) == 2 and len(down.shape) == 2:
+            updown = up @ down
+        else:
+            updown = (up[..., 0, 0] @ down[..., 0, 0])[..., None, None]
+        updown = self.scale * self.alpha_scale * updown
+        return updown
+
+    def before_forward(self, inp: Tensor, index: Optional[int] = None) -> Tensor:
+        if not self.injected:
+            weight = self.m.weight
+            updown = self.get_updown()
+            self.inject(weight, updown, index)
+        return inp
 
     @classmethod
-    def create_with(cls, m: IBasicHijackMixin, rank: int) -> "ILoRAHook":
+    def create_with(cls, m: IBasicHijackMixin, rank: int) -> "ILoRAMappingHook":
         self = cls(*m.args, rank=rank, **m.kwargs)
         self.to(m.weight)
+        self._ms = [m]
         return self
 
 
-class LoRALinearHook(ILoRAHook):
+class LoRALinearHook(ILoRAMappingHook):
     def __init__(
         self,
         in_features: int,
@@ -141,7 +180,7 @@ class LoRALinearHook(ILoRAHook):
         self.selector.weight.data = torch.diag(diag).to(self.lora_up.weight.data)
 
 
-class LoRAConvHook(ILoRAHook):
+class LoRAConvHook(ILoRAMappingHook):
     def __init__(
         self,
         in_channels: int,
@@ -202,7 +241,7 @@ class LoRAConvHook(ILoRAHook):
         self.selector.weight.data = torch.diag(diag).to(self.lora_up.weight.data)
 
 
-class LoRAAttentionHook(IAttentionHook):
+class LoRAAttentionHook(ILoRAHook[IAttention], IAttentionHook):
     def __init__(self, in_features: int, out_features: int, *, rank: int) -> None:
         super().__init__()
         self.to_q = LoRALinearHook(in_features, out_features, rank=rank)
@@ -213,23 +252,27 @@ class LoRAAttentionHook(IAttentionHook):
         self.to_q.set_scale(scale)
         self.to_k.set_scale(scale)
         self.to_v.set_scale(scale)
+        self.injected = False
 
-    def after_forward(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
-        q_in, k_in, v_in = qkv_inp
-        q, k, v = qkv_out
-        q = self.to_q.after_forward(q_in, q)
-        k = self.to_k.after_forward(k_in, k)
-        v = self.to_v.after_forward(v_in, v)
-        return q, k, v
+    def before_forward(self, inp: Tensor, index: Optional[int] = None) -> Tensor:
+        if not self.injected:
+            in_w = self.m.in_w
+            hooks = [self.to_q, self.to_k, self.to_v]
+            updown = torch.vstack([h.get_updown() for h in hooks])
+            assert in_w is not None, "should be self_attn in lora"
+            self.inject(in_w, updown, index)
+        return inp
 
     @classmethod
     def create_with(cls, m: IAttention, rank: int) -> "LoRAAttentionHook":
-        return cls(m.input_dim, m.embed_dim, rank=rank)
+        self = cls(m.input_dim, m.embed_dim, rank=rank)
+        self._ms = [m]
+        return self
 
 
 class LoRAPack(NamedTuple):
     rank: int
-    hooks: Dict[str, Union[ILoRAHook, LoRAAttentionHook]]
+    hooks: Dict[str, Union[ILoRAMappingHook, LoRAAttentionHook]]
 
 
 class LoRAManager:
@@ -343,7 +386,22 @@ class LoRAManager:
             raise ValueError("injected module does not match the incoming module.")
         for module in m.modules():  # type: ignore
             if isinstance(module, IHijackMixin):
-                module.hook = None
+                hook = module.hook
+                if not isinstance(hook, MultiHooks):
+                    hooks = [hook]
+                else:
+                    hooks = hook.hooks
+                for h in hooks:
+                    if not isinstance(h, ILoRAHook):
+                        continue
+                    h.injected = False
+                    module.hook = None
+                    if h.backup is not None:
+                        if isinstance(module, IAttention):
+                            module.in_w.data = h.backup
+                        else:
+                            module.weight.data = h.backup
+                        h.backup = None
         self.injected = False
         torch.cuda.empty_cache()
 
