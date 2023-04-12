@@ -914,11 +914,11 @@ class DiffusionAPI(APIMixin):
                 return self.api.m
 
             def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
-                self.api.m.control_model = self.m_ctrl
-                self.api.m.condition_model = self.m_cond
                 if self.lora_checkpoints is not None:
                     assert isinstance(self.api.m, StableDiffusion)
                     self.api.m.restore_lora_from(self.lora_checkpoints)
+                self.api.m.control_model = self.m_ctrl
+                self.api.m.condition_model = self.m_cond
 
         return _(self)
 
