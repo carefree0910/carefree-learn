@@ -21,12 +21,12 @@ class IHook(Module):
 
 class IBasicHook(IHook):
     def after_forward(self, inp: Tensor, out: Tensor) -> Tensor:
-        pass
+        return out
 
 
 class IAttentionHook(IHook):
     def after_forward(self, qkv_inp: TQKV, qkv_out: TQKV) -> TQKV:
-        pass
+        return qkv_out
 
 
 class MultiHooks(IHook):
