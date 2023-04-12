@@ -933,7 +933,8 @@ class mode_context:
         if self._grad_context is not None:
             self._grad_context.__exit__(exc_type, exc_val, exc_tb)
         for p, v in self._cache.items():
-            p.requires_grad_(v)
+            if p.requires_grad != v:
+                p.requires_grad_(v)
 
 
 class train_context(mode_context):
