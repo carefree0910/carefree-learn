@@ -398,9 +398,9 @@ class LoRAManager:
                     module.hook = None
                     if h.backup is not None:
                         if isinstance(module, IAttention):
-                            module.in_w.data = h.backup
+                            module.in_w.data = h.backup  # type: ignore
                         else:
-                            module.weight.data = h.backup
+                            module.weight.data = h.backup  # type: ignore
                         h.backup = None
         self.injected = False
         torch.cuda.empty_cache()

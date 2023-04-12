@@ -36,7 +36,7 @@ class MultiHooks(IHook):
         super().__init__()
         self.hooks = nn.ModuleList(hooks)
 
-    def before_forward(self, inp: Any) -> Any:
+    def before_forward(self, inp: Any, index: Optional[int] = None) -> Any:
         for i, hook in enumerate(self.hooks):
             inp = hook.before_forward(inp, i)
         return inp
