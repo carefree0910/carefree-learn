@@ -86,17 +86,18 @@ class ILoRAHook(IBasicHook):
     lora_up: Union[nn.Linear, nn.Conv2d]
     dropout: nn.Dropout
     alpha: nn.Parameter
+    scale: float = 1.0
 
     @property
-    def scale(self) -> float:
+    def alpha_scale(self) -> float:
         return self.alpha.item() / self.lora_down.weight.shape[0]
 
     def set_scale(self, scale: float) -> None:
-        self.alpha.data.fill_(scale * self.lora_down.weight.shape[0])
+        self.scale = scale
 
     def callback(self, inp: Tensor, out: Tensor) -> Tensor:
         lora = self.dropout(self.lora_up(self.selector(self.lora_down(inp))))
-        return out + self.scale * lora
+        return out + self.scale * self.alpha_scale * lora
 
     @classmethod
     def create_with(cls, m: IBasicHijackMixin, rank: int) -> "ILoRAHook":
