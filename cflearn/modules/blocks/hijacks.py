@@ -9,6 +9,8 @@ from typing import List
 from typing import Union
 from typing import Optional
 from typing import NamedTuple
+from cftool.misc import print_info
+from cftool.misc import print_warning
 from cftool.misc import shallow_copy_dict
 from cftool.array import tensor_dict_type
 
@@ -259,11 +261,21 @@ class LoRAManager:
         pack = self.lora_packs.get(key)
         if pack is None:
             raise ValueError(f"cannot find '{key}' pack")
+        num_source = len(d)
+        num_prepared = 0
         for k, v in pack.hooks.items():
             for n, p in v.named_parameters():
                 tp = d[f"{k}.{n}"]
                 assert p.data.shape == tp.shape
                 p.data = tp.to(p.data)
+                num_prepared += 1
+        if num_source == num_prepared:
+            print_info(f"{num_prepared} weights are loaded")
+        else:
+            print_warning(
+                f"only {num_prepared}/{num_source} weights are loaded, "
+                "which could lead to unexpected behaviours"
+            )
 
     def prepare(
         self,
@@ -301,6 +313,8 @@ class LoRAManager:
             raise ValueError(f"cannot build LoRAPack with {', '.join(keys)}")
         hooks = pack.hooks
         pivot = list(m.parameters())[0]
+        num_hooks = len(hooks)
+        num_injected = 0
         for name, module in m.named_modules():
             hook = hooks.get(name)
             if hook is not None:
@@ -309,6 +323,14 @@ class LoRAManager:
                     raise ValueError(msg)
                 hook.to(pivot)
                 module.hook = hook
+                num_injected += 1
+        if num_hooks == num_injected:
+            print_info(f"{num_injected} hooks are injected")
+        else:
+            print_warning(
+                f"only {num_injected}/{num_hooks} hooks are injected, "
+                "which could lead to unexpected behaviours"
+            )
         self.injected = True
 
     def cleanup(self, m: nn.Module) -> None:
