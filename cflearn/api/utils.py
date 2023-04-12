@@ -45,7 +45,7 @@ class APIMixin:
     ):
         if use_amp and use_half:
             raise ValueError("`use_amp` & `use_half` should not be True simultaneously")
-        self.m = m
+        self.m = m.eval().requires_grad_(False)
         self.device = device
         self.use_amp = use_amp
         self.use_half = use_half
