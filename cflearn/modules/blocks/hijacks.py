@@ -40,7 +40,8 @@ class IBasicHijackMixin(IHijackMixin):
 
     def forward(self, net: Tensor) -> Tensor:
         inp = net
-        inp = self.hook.before_forward(inp)
+        if self.hook is not None:
+            inp = self.hook.before_forward(inp)
         net = super().forward(net)  # type: ignore
         if self.hook is not None:
             net = self.hook.after_forward(inp, net)
