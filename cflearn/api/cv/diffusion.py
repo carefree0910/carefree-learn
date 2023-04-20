@@ -1262,16 +1262,24 @@ class DiffusionAPI(APIMixin):
             )
 
 
-def offset_cnet_weights(d: tensor_dict_type, api: DiffusionAPI) -> tensor_dict_type:
+def offset_cnet_weights(
+    d: tensor_dict_type,
+    *,
+    api: Optional[DiffusionAPI] = None,
+    base_md: Optional[tensor_dict_type] = None,
+) -> tensor_dict_type:
     with open(download_static("sd_mapping", extension="json"), "r") as f:
         mapping = json.load(f)
     with open(download_static("sd_controlnet_mapping", extension="json"), "r") as f:
         c_mapping = json.load(f)
     rev_c_mapping = {v: k for k, v in c_mapping.items()}
     nd = shallow_copy_dict(d)
-    with api.load_context() as m:
-        md = m.state_dict()
-    device = list(md.values())[0].device
+    if base_md is None:
+        if api is None:
+            raise ValueError("Either `api` or `md` must be provided.")
+        with api.load_context() as m:
+            base_md = m.state_dict()
+    device = list(base_md.values())[0].device
     nd = {k: v.to(device) for k, v in nd.items()}
     for k, v in nd.items():
         rev_k = rev_c_mapping[k]
@@ -1279,7 +1287,7 @@ def offset_cnet_weights(d: tensor_dict_type, api: DiffusionAPI) -> tensor_dict_t
         mk = mapping.get(original_k)
         if mk is None:
             continue
-        mv = md[mk].to(v)
+        mv = base_md[mk].to(v)
         # inpainting workaround
         if k == "input_blocks.0.0.weight" and mv.shape[1] == 9:
             mv = mv[:, :4]
@@ -1449,7 +1457,11 @@ class ControlledDiffusionAPI(DiffusionAPI):
     def prepare_control_defaults(self) -> None:
         self.prepare_control(self.control_defaults)
 
-    def switch_control(self, *hints: ControlNetHints) -> None:
+    def switch_control(
+        self,
+        *hints: ControlNetHints,
+        base_md: Optional[tensor_dict_type] = None,
+    ) -> None:
         if self.m.control_model is None:
             raise ValueError("`control_model` is not built yet")
 
@@ -1480,6 +1492,7 @@ class ControlledDiffusionAPI(DiffusionAPI):
         need_offset_list = [
             base is None
             or self.current_sd_version is None
+            or base_md is not None
             or get_sd_tag(base) != get_sd_tag(self.current_sd_version)
             for base in base_list
         ]
@@ -1496,11 +1509,15 @@ class ControlledDiffusionAPI(DiffusionAPI):
                     f"available weights are: {', '.join(self.available_control_hints)}"
                 )
             if need_offset:
-                d = offset_cnet_weights(d, self)
+                d = offset_cnet_weights(d, api=self, base_md=base_md)
             self.m.load_control_net_with(hint, d)
             self.loaded[hint] = True
-            if self.current_sd_version is not None:
-                self.base_sd_versions[hint] = self.current_sd_version
+            # if `base_md` is provided, should reset cache settings
+            if base_md is not None:
+                self.base_sd_versions.pop(hint, None)
+            else:
+                if self.current_sd_version is not None:
+                    self.base_sd_versions[hint] = self.current_sd_version
 
     def prepare_annotator(self, hint: ControlNetHints) -> None:
         if hint not in self.annotators:
