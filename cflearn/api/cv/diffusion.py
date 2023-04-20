@@ -581,6 +581,7 @@ class DiffusionAPI(APIMixin):
         mask: Union[str, Image.Image],
         export_path: Optional[str] = None,
         *,
+        seed: Optional[int] = None,
         reference: Optional[Union[str, Image.Image]] = None,
         reference_fidelity: float = 0.2,
         anchor: int = 64,
@@ -592,6 +593,7 @@ class DiffusionAPI(APIMixin):
         use_raw_inpainting: bool = False,
         raw_inpainting_fidelity: float = 0.2,
         callback: Optional[Callable[[Tensor], Tensor]] = None,
+        use_latent_guidance: bool = False,
         verbose: bool = True,
         **kwargs: Any,
     ) -> Tensor:
@@ -629,6 +631,21 @@ class DiffusionAPI(APIMixin):
         )
         # sampling
         with switch_sampler_context(self, kwargs.get("sampler")):
+            # calculate `z_ref` stuffs based on `use_image_guidance`
+            if not use_latent_guidance:
+                z_ref = z_ref_mask = z_ref_noise = None
+            else:
+                z_ref = self._get_z(res.image_res.image)
+                z_ref_mask = 1.0 - F.interpolate(
+                    torch.from_numpy(res.mask).to(z_ref),
+                    z_ref.shape[-2:],
+                    mode="bicubic",
+                )
+                if seed is not None:
+                    seed_everything(seed)
+                z_ref_noise = torch.randn_like(z_ref)
+                reference = res.image_res.original
+            # calculate `z` based on `reference`
             if reference is None:
                 z = None
                 size = tuple(
@@ -640,16 +657,24 @@ class DiffusionAPI(APIMixin):
             else:
                 size = None
                 z = self._get_z(read_image(reference, max_wh, anchor=anchor).image)
+                if z_ref_mask is not None and z_ref_noise is not None:
+                    z = z * z_ref_mask + z_ref_noise * (1.0 - z_ref_mask)
                 z, _, kwargs = self._q_sample(
                     z,
                     num_steps,
                     reference_fidelity,
+                    seed,
                     **kwargs,
                 )
+            # core
             sampled = self.sample(
                 num_samples,
                 export_path,
+                seed=seed,
                 z=z,
+                z_ref=z_ref,
+                z_ref_mask=z_ref_mask,
+                z_ref_noise=z_ref_noise,
                 size=size,  # type: ignore
                 original_size=res.image_res.original_size,
                 alpha=res.image_res.alpha,
@@ -1152,16 +1177,17 @@ class DiffusionAPI(APIMixin):
         image_res = read_image(image, max_wh, anchor=anchor)
         mask_res = read_image(mask, max_wh, anchor=anchor, to_mask=True)
         mask = mask_res.image
-        bool_mask = mask >= 0.5
+        bool_mask = np.round(mask) >= 0.5
         remained_mask = (~bool_mask).astype(np.float16 if self.use_half else np.float32)
         remained_image = mask_image_fn(remained_mask, image_res.image)
         # construct condition tensor
         remained_cond = self._get_z(remained_image)
         latent_shape = remained_cond.shape[-2:]
-        mask_cond = mask_cond_fn(bool_mask)
-        mask_cond = mask_cond.to(torch.float16 if self.use_half else torch.float32)
-        mask_cond = mask_cond.to(self.device)
+        mask_cond = mask_cond_fn(bool_mask).to(torch.float32)
         mask_cond = F.interpolate(mask_cond, size=latent_shape)
+        if self.use_half:
+            mask_cond = mask_cond.half()
+        mask_cond = mask_cond.to(self.device)
         return MaskedCond(
             image_res,
             mask_res,
@@ -1177,7 +1203,7 @@ class DiffusionAPI(APIMixin):
         z: Tensor,
         num_steps: Optional[int],
         fidelity: float,
-        seed: int,
+        seed: Optional[int],
         variations: Optional[List[Tuple[int, float]]] = None,
         variation_seed: Optional[int] = None,
         variation_strength: Optional[float] = None,
