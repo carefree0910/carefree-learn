@@ -12,6 +12,7 @@ from typing import Callable
 from typing import Optional
 from typing import Protocol
 from cftool.misc import update_dict
+from cftool.misc import safe_execute
 from cftool.misc import shallow_copy_dict
 from cftool.misc import WithRegister
 
@@ -171,6 +172,11 @@ class ISampler(WithRegister):
         if cond is not None and self.model.condition_model is not None:
             cond = self.model._get_cond(cond)
         for step in iterator:
+            callback = kwargs.get("step_callback")
+            if callback is not None:
+                callback_kw = dict(step=step, num_steps=num_steps, image=image)
+                if not safe_execute(callback, callback_kw):
+                    break
             kw = shallow_copy_dict(self.sample_kwargs)
             update_dict(shallow_copy_dict(kwargs), kw)
             image = self.sample_step(image, cond, step, num_steps, **kw)
